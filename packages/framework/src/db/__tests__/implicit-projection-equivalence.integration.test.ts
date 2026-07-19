@@ -15,7 +15,7 @@
 //   5. Snapshot erneut nehmen
 //   6. deep-equal: identische Rows in identischer Reihenfolge
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { createBooleanField, createEntity, createTextField, defineFeature } from "../../engine";
 import { createRegistry } from "../../engine/registry";
@@ -222,26 +222,33 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
   });
 });
 
-// Sensitive-Drift ist eine bekannte Welle-3-Lücke: das Event-Log strippt
-// sensitive-Felder VOR dem Append (GDPR-Annahme), die Live-Read-Tabelle
-// bekommt sie über den unstripped flatData, der Rebuild-Pfad nur den
-// stripped event.payload. Bei Schema-Rebuilds gehen sensitive Daten
-// verloren.
-//
-// Dieser Test pinst die Drift explizit: Live row hat das sensitive Feld,
-// Rebuild row hat NULL. Wenn Welle 3 das fixt (z.B. via separater
-// sensitive-Spalte oder verschlüsseltem Event-Payload), bricht der Test
-// und zwingt zu Aufmerksamkeit.
+// Sensitive-Rebuild-Parität (#967): das Event-Log trägt für sensitive-Felder
+// den Tabellen-Ciphertext (boot-validiert pii/encrypted) — Live==Rebuild gilt
+// damit auch für sensitive Spalten + Blind-Index. Einzige legitime Divergenz
+// bleibt Crypto-Shredding: DEK erased → bidx NULL, Wert unlesbar.
 
+import {
+  computeBlindIndex,
+  configureBlindIndexKey,
+  configurePiiSubjectKms,
+  decodeBlindIndexKey,
+  decryptPiiFieldValues,
+  InMemoryKmsAdapter,
+  isPiiCiphertext,
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+} from "../../crypto";
 import { asRawClient, selectMany } from "../../db/query";
 
 const sensitiveTable = "read_implicit_sensitive_users";
+const SENSITIVE_BIDX_KEY_B64 = Buffer.alloc(32, 9).toString("base64");
+const SENSITIVE_BIDX_KEY = decodeBlindIndexKey(SENSITIVE_BIDX_KEY_B64);
 
 const sensitiveEntity = createEntity({
   table: sensitiveTable,
   fields: {
     email: createTextField({ required: true }),
-    apiKey: createTextField({ sensitive: true }),
+    apiKey: createTextField({ sensitive: true, pii: true, lookupable: true }),
   },
 });
 
@@ -250,8 +257,11 @@ const sensitiveFeature = defineFeature("implicitsensitive", (r) => {
 });
 
 const sensitiveEntityTable = buildEntityTable("sensitive-user", sensitiveEntity);
+const sensitiveProjection = "implicitsensitive:projection:sensitive-user-entity";
 
-describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
+describe("implicit-projection / sensitive Rebuild-Parität (#967)", () => {
+  let kms: InMemoryKmsAdapter;
+
   beforeAll(async () => {
     await unsafeCreateEntityTable(testDb.db, sensitiveEntity, "sensitive-user");
   });
@@ -260,29 +270,46 @@ describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
     await asRawClient(testDb.db).unsafe(
       `TRUNCATE ${sensitiveTable}, kumiko_events, kumiko_projections RESTART IDENTITY CASCADE`,
     );
+    kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    configureBlindIndexKey(SENSITIVE_BIDX_KEY_B64);
   });
 
-  test("Live schreibt sensitive-Felder, Rebuild lässt sie NULL (Welle-3-Roadmap)", async () => {
-    const crud = createEventStoreExecutor(sensitiveEntityTable, sensitiveEntity, {
-      entityName: "sensitive-user",
-    });
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+    resetBlindIndexKeyForTests();
+  });
 
-    // 1. Live: create mit apiKey (sensitive). Read-Tabelle bekommt den
-    //    Wert direkt vom Live-Pfad (unstripped flatData).
+  const crud = createEventStoreExecutor(sensitiveEntityTable, sensitiveEntity, {
+    entityName: "sensitive-user",
+  });
+
+  async function rawSensitiveRow(id: string): Promise<Record<string, unknown>> {
+    const rows = await asRawClient(testDb.db).unsafe<Record<string, unknown>>(
+      `SELECT * FROM ${sensitiveTable} WHERE id = $1`,
+      [id],
+    );
+    const row = rows[0];
+    if (!row) throw new Error(`no row for ${id}`);
+    return row;
+  }
+
+  test("Live==Rebuild inkl. sensitive-Ciphertext + bidx (byte-gleiche Kopie aus dem Event)", async () => {
     const created = await crud.create(
       { email: "x@test.de", apiKey: "secret-token-abc" },
       adminUser,
       tdb,
     );
     if (!created.isSuccess) throw new Error("setup failed");
+    const id = String(created.data.id);
 
-    const [liveRow] = await selectMany(testDb.db, sensitiveEntityTable, {
-      id: created.data.id as string,
-    });
-    expect(liveRow?.["apiKey"]).toBe("secret-token-abc");
-    expect(liveRow?.["email"]).toBe("x@test.de");
+    // Live-Row: Ciphertext + bidx, nie Klartext.
+    const liveRow = await rawSensitiveRow(id);
+    const liveCipher = liveRow["api_key"];
+    expect(isPiiCiphertext(liveCipher)).toBe(true);
+    expect(liveRow["api_key_bidx"]).toBe(computeBlindIndex(SENSITIVE_BIDX_KEY, "secret-token-abc"));
 
-    // 2. Verifiziere dass das Event-Log das Feld NICHT enthält (stripped).
+    // Event-Payload trägt exakt den Tabellen-Ciphertext (byte-gleich).
     const { eventsTable } = await import("../../event-store");
     const [event] = await selectMany(
       testDb.db,
@@ -290,23 +317,75 @@ describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
       { aggregateId: created.data.id },
       { orderBy: { col: "version", direction: "asc" } },
     );
-    expect(event?.payload?.["apiKey"]).toBeUndefined();
+    expect(event?.payload?.["apiKey"]).toBe(liveCipher);
     expect(event?.payload?.["email"]).toBe("x@test.de");
+    expect(JSON.stringify(event?.payload)).not.toContain("secret-token-abc");
 
-    // 3. Rebuild über die ImplicitProjection. Read-Tabelle wird aus
-    //    event.payload neu materialisiert — apiKey ist nicht im Log,
-    //    landet also als NULL/undefined in der rebuilt Row.
     const registry = createRegistry([sensitiveFeature]);
-    await rebuildProjection("implicitsensitive:projection:sensitive-user-entity", {
-      db: testDb.db,
-      registry,
-    });
+    await rebuildProjection(sensitiveProjection, { db: testDb.db, registry });
 
-    const [rebuiltRow] = await selectMany(testDb.db, sensitiveEntityTable, {
-      id: created.data.id as string,
+    const rebuiltRow = await rawSensitiveRow(id);
+    expect(rebuiltRow["email"]).toBe("x@test.de");
+    expect(rebuiltRow["api_key"]).toBe(liveCipher);
+    expect(rebuiltRow["api_key_bidx"]).toBe(liveRow["api_key_bidx"]);
+  });
+
+  test("DEK-Stabilität: Update re-encryptet mit demselben Subject-DEK — alter Event-Ciphertext bleibt lesbar", async () => {
+    const created = await crud.create(
+      { email: "y@test.de", apiKey: "first-secret" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("setup failed");
+    const updated = await crud.update(
+      { id: created.data.id, version: 1, changes: { apiKey: "second-secret" } },
+      adminUser,
+      tdb,
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+
+    // Created-Event (v1-Ciphertext) muss mit dem aktuellen DEK lesbar bleiben —
+    // eine DEK-Rotation beim Update würde das immutable Log unlesbar machen.
+    const { eventsTable } = await import("../../event-store");
+    const [createdEvent] = await selectMany(
+      testDb.db,
+      eventsTable,
+      { aggregateId: created.data.id },
+      { orderBy: { col: "version", direction: "asc" } },
+    );
+    const v1Cipher = createdEvent?.payload?.["apiKey"];
+    expect(isPiiCiphertext(v1Cipher)).toBe(true);
+    const decrypted = await decryptPiiFieldValues({ apiKey: v1Cipher }, ["apiKey"], kms, {
+      requestId: "test",
     });
-    expect(rebuiltRow?.["email"]).toBe("x@test.de");
-    // DAS ist die Drift: sensitive Feld ist nach Rebuild weg.
-    expect(rebuiltRow?.["apiKey"]).toBeNull();
+    expect(decrypted["apiKey"]).toBe("first-secret");
+
+    // Rebuild spielt created+updated: bidx-Recompute entschlüsselt beide
+    // Ciphertexte — schlägt bei rotiertem DEK fehl statt still zu heilen.
+    const registry = createRegistry([sensitiveFeature]);
+    await rebuildProjection(sensitiveProjection, { db: testDb.db, registry });
+    const rebuiltRow = await rawSensitiveRow(String(created.data.id));
+    expect(rebuiltRow["api_key_bidx"]).toBe(computeBlindIndex(SENSITIVE_BIDX_KEY, "second-secret"));
+  });
+
+  test("Erase-Divergenz bleibt die einzige legitime: DEK erased → Rebuild bidx NULL, Wert unlesbar", async () => {
+    const created = await crud.create(
+      { email: "z@test.de", apiKey: "gone-after-forget" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("setup failed");
+    const id = String(created.data.id);
+
+    await kms.eraseKey({ kind: "user", userId: id });
+
+    const registry = createRegistry([sensitiveFeature]);
+    await rebuildProjection(sensitiveProjection, { db: testDb.db, registry });
+
+    const rebuiltRow = await rawSensitiveRow(id);
+    expect(rebuiltRow["api_key_bidx"]).toBeNull();
+    // Ciphertext-Bytes werden kopiert, sind aber ohne DEK unlesbar.
+    expect(isPiiCiphertext(rebuiltRow["api_key"])).toBe(true);
+    expect(rebuiltRow["api_key"]).not.toBe("gone-after-forget");
   });
 });

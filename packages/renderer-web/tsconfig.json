@@ -1,8 +1,8 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
+    "outDir": "./dist",
+    "rootDir": "./src",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "composite": true
@@ -12,5 +12,5 @@
     { "path": "../headless" },
     { "path": "../dispatcher-live" }
   ],
-  "include": ["src/**/*"]
+  "include": ["./src/**/*"]
 }

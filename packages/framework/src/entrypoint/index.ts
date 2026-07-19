@@ -43,6 +43,7 @@ import { createJobRunner } from "../jobs/job-runner";
 import type { Lifecycle } from "../lifecycle";
 import { createLifecycle } from "../lifecycle";
 import type { ObservabilityOptions, ObservabilityProvider } from "../observability";
+import { createNoopProvider } from "../observability";
 import type { EventDedup, EventDispatcher } from "../pipeline";
 import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher";
 import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
@@ -175,6 +176,22 @@ function mergeDispatcherOptions(
   return { ...(caller ?? {}), jobRunner };
 }
 
+// Resolved once for the job-runner's context only — buildServer still gets
+// the caller's original `options.observability` (unresolved) since it
+// derives `shouldWrapRedis` from whether that was explicitly set.
+function resolveObservability(
+  observability: ObservabilityProvider | undefined,
+): ObservabilityProvider {
+  return observability ?? createNoopProvider();
+}
+
+function contextWithObservability(
+  context: AppContext,
+  observability: ObservabilityProvider,
+): AppContext {
+  return { ...context, tracer: observability.tracer, meter: observability.meter };
+}
+
 // buildApiServer shapes ServerOptions from API-mode caller-options.
 // AllInOneEntrypointOptions extends ApiEntrypointOptions, so structural
 // subtyping makes the all-in-one path a valid caller without an explicit
@@ -291,6 +308,7 @@ function requireDispatcher(server: KumikoServer, mode: string): EventDispatcher 
 
 export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
+  const observability = resolveObservability(options.observability);
 
   // Boot-validation (Welle 2.6.c) — fail loud before traffic arrives:
   //   (a) Any jobs declared + no jobs-block → command-dispatcher would
@@ -324,7 +342,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
   const apiJobRunner = options.jobs
     ? buildJobRunnerWithHook(
         options.registry,
-        options.context,
+        contextWithObservability(options.context, observability),
         options.jobs,
         options.jobs.runLocalJobs ? "api" : undefined,
         lifecycle,
@@ -375,9 +393,10 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
 
 export function createWorkerEntrypoint(options: WorkerEntrypointOptions): WorkerEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
+  const observability = resolveObservability(options.observability);
   const jobRunner = buildJobRunnerWithHook(
     options.registry,
-    options.context,
+    contextWithObservability(options.context, observability),
     options,
     "worker",
     lifecycle,
@@ -406,6 +425,8 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
 
 export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): AllInOneEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
+  const observability = resolveObservability(options.observability);
+  const jobRunnerContext = contextWithObservability(options.context, observability);
 
   // All-in-one consumes BOTH lanes: two runners, each with a BullMQ worker
   // for its own lane's queue. Both runners hold queue-clients for both
@@ -416,7 +437,7 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
   // its own lane in its own .start().
   const workerJobRunner = buildJobRunnerWithHook(
     options.registry,
-    options.context,
+    jobRunnerContext,
     options,
     "worker",
     lifecycle,
@@ -424,7 +445,7 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
   );
   const apiJobRunner = buildJobRunnerWithHook(
     options.registry,
-    options.context,
+    jobRunnerContext,
     options,
     "api",
     lifecycle,

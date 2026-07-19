@@ -25,12 +25,16 @@
 
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineQueryHandler,
+  SYSTEM_USER_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
-import { createFileProviderForTenant } from "../../file-foundation";
 import { recordDownloadUse, recordInvalidAttempt } from "../audit-download";
+import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver";
 import { exportDownloadTokensTable } from "../schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job";
 
@@ -127,11 +131,17 @@ export const downloadByJobQuery = defineQueryHandler({
       });
     }
 
-    const provider = await createFileProviderForTenant(
-      ctx,
-      jobRow.requestedFromTenantId,
-      "user-data-rights:query:download-by-job",
-    );
+    // Provider bound explicitly to the job's tenant — NOT the ambient
+    // session tenant (cross-tenant-same-user: job.requestedFromTenantId
+    // can differ from query.user.tenantId).
+    const provider = await makeTenantStorageProviderResolver({
+      registry: ctx.registry,
+      configResolver: ctx.configResolver,
+      secrets: ctx.secrets,
+      db: ctx.db.raw,
+      userId: SYSTEM_USER_ID,
+      handlerName: "user-data-rights:query:download-by-job",
+    })(jobRow.requestedFromTenantId as TenantId); // @cast-boundary engine-payload: TenantId brand
     if (!provider.getSignedUrl) {
       await recordInvalidAttempt({
         db: ctx.db.raw,

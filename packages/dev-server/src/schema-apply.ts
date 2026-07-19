@@ -22,7 +22,10 @@ import {
   createProjectionStateTable,
   rebuildProjection,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { type ComposeFeaturesOptions, composeFeatures } from "./compose-features";
+import {
+  type ComposeFeaturesOptions,
+  composeFeatures,
+} from "@cosmicdrift/kumiko-server-runtime/compose-features";
 
 export type SchemaApplyOptions = ComposeFeaturesOptions & {
   /** App-Features (z.B. APP_FEATURES aus run-config) — composed mit den
@@ -111,6 +114,7 @@ async function rebuildAffectedProjections(
       );
     }
   }
+  // skip: no projections matched the changed tables, nothing to rebuild
   if (projections.size === 0) return;
 
   console.log(`  Rebuild ${projections.size} Projection(s)…`);

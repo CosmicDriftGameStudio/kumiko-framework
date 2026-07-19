@@ -45,13 +45,24 @@ export function csrfHeader(): Record<string, string> {
   return token !== undefined ? { [CSRF_HEADER_NAME]: token } : {};
 }
 
-// POST /api/auth/login. Erfolg → token + user; Fehler → strukturiertes
-// failure-objekt mit reason (invalid_credentials, account_locked,
-// no_membership, rate_limited). Das UI rendert darüber eine passende
-// Fehler-Meldung; der Server setzt Cookies bei 200 automatisch.
-export async function login(
-  req: LoginRequest,
-): Promise<{ ok: true; data: LoginResponse } | { ok: false; error: LoginFailure }> {
+// LoginResult mirrors the two-step login contract auth-routes.ts owns: a
+// straight success, an MFA challenge (auth-mfa mints the token), an
+// MFA-setup-required block (enforcement policy blocks an unenrolled user),
+// or a plain failure. One discriminated union, not `{ok}` booleans, because
+// callers branch on 4 arms.
+export type LoginResult =
+  | { readonly kind: "success"; readonly data: LoginResponse }
+  | { readonly kind: "mfa-challenge"; readonly challengeToken: string }
+  | { readonly kind: "mfa-setup-required" }
+  | { readonly kind: "failure"; readonly error: LoginFailure };
+
+// POST /api/auth/login. Success → token + user; MFA-enrolled user → a
+// challenge token the caller completes via auth-mfa's verify screen;
+// unenrolled user blocked by enforcement policy → mfa-setup-required;
+// otherwise a structured failure with reason (invalid_credentials,
+// account_locked, no_membership, rate_limited). The server sets cookies
+// automatically on any 200.
+export async function login(req: LoginRequest): Promise<LoginResult> {
   const res = await fetch("/api/auth/login", {
     method: "POST",
     credentials: "same-origin",
@@ -59,13 +70,16 @@ export async function login(
     body: JSON.stringify(req),
   });
   if (res.status === 429) {
-    return { ok: false, error: { reason: "rate_limited" } };
+    return { kind: "failure", error: { reason: "rate_limited" } };
   }
   // @cast-boundary engine-payload — HTTP-API contract, server-side schema-validated
   const body = (await res.json().catch(() => ({}))) as {
     isSuccess?: boolean;
     token?: string;
     user?: LoginResponse["user"];
+    mfaRequired?: boolean;
+    challengeToken?: string;
+    mfaSetupRequired?: boolean;
     error?:
       | {
           code?: string;
@@ -74,19 +88,27 @@ export async function login(
         }
       | string;
   };
-  if (body.isSuccess === true && body.token !== undefined && body.user !== undefined) {
-    return { ok: true, data: { token: body.token, user: body.user } };
+  if (body.isSuccess === true) {
+    if (body.mfaRequired === true && typeof body.challengeToken === "string") {
+      return { kind: "mfa-challenge", challengeToken: body.challengeToken };
+    }
+    if (body.mfaSetupRequired === true) {
+      return { kind: "mfa-setup-required" };
+    }
+    if (body.token !== undefined && body.user !== undefined) {
+      return { kind: "success", data: { token: body.token, user: body.user } };
+    }
   }
   // Der Server schickt error entweder als string ("invalid_body") oder als
   // strukturiertes Objekt. Wir ziehen uns den sprechendsten Reason raus.
   const err = body.error;
   if (typeof err === "string") {
-    return { ok: false, error: { reason: err } };
+    return { kind: "failure", error: { reason: err } };
   }
   const reason = err?.details?.reason ?? err?.code ?? "login_failed";
   const retry = err?.details?.retryAfterSeconds;
   return {
-    ok: false,
+    kind: "failure",
     error: {
       reason,
       ...(err?.message !== undefined && { message: err.message }),

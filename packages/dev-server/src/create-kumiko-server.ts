@@ -29,12 +29,18 @@ import {
   type TestStackOptions,
   TestUsers,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { startDevJobRunners } from "./boot/job-run-logger";
-import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
-import { injectSchema } from "./inject-schema";
-import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli";
-import { buildBunServeOptions } from "./run-prod-app";
-import { tryHonoFirst } from "./try-hono-first";
+import { startDevJobRunners } from "@cosmicdrift/kumiko-server-runtime/boot/job-run-logger";
+import { buildBunServeOptions } from "@cosmicdrift/kumiko-server-runtime/bun-serve-options";
+import {
+  type ExtraRoutesSystemDeps,
+  makeDispatchSystemWrite,
+} from "@cosmicdrift/kumiko-server-runtime/extra-routes-deps";
+import { injectSchema } from "@cosmicdrift/kumiko-server-runtime/inject-schema";
+import {
+  canResolveTailwindStylesheet,
+  resolveTailwindCli,
+} from "@cosmicdrift/kumiko-server-runtime/resolve-tailwind-cli";
+import { tryHonoFirst } from "@cosmicdrift/kumiko-server-runtime/try-hono-first";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
 // target runtime), but the test-suite runs under vitest on Node — we
@@ -336,6 +342,7 @@ async function watchDir(
   } catch (err) {
     // signal.abort() wirft AbortError aus dem async-iterator; das ist
     // gewollt und kein Fehler. Andere Errors weiterreichen.
+    // skip: AbortSignal fired the abort, this is expected teardown not a real error
     if ((err as { name?: string }).name === "AbortError") return;
     throw err;
   }
@@ -670,6 +677,9 @@ export async function createKumikoServer(
     ...(options.effectiveFeatures !== undefined && {
       effectiveFeatures: options.effectiveFeatures,
     }),
+    // jobs: {} = enqueuer-only; startDevJobRunners below is the sole
+    // consumer/cron-scheduler per lane, so runOnBoot/cron jobs don't double-fire.
+    jobs: {},
   });
   await createEventsTable(stack.db);
   await pushEntityProjectionTables(stack, stack.registry);
@@ -945,6 +955,7 @@ export async function createKumikoServer(
         dir,
         async (filename) => {
           const action = classifyChange(filename);
+          // skip: file change classified as ignore (test/css/json), nothing to rebuild
           if (action === "ignore") return;
           if (action === "restart") {
             logInfo(

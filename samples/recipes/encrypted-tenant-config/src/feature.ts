@@ -12,7 +12,6 @@
 
 import {
   access,
-  type ConfigKeyDefinition,
   type ConfigKeyHandle,
   createTenantConfig,
   defineFeature,
@@ -31,16 +30,14 @@ const stripeApiKeyDef = createTenantConfig("text", {
   encrypted: true,
   write: access.admin,
   read: access.admin,
+  // mask-derived screens carry no field constraints (maxLength, pattern) —
+  // set those separately in a configEdit schema if you need them enforced.
   mask: { title: "billing.stripe-api-key", order: 1 },
 });
 
 const stripeApiKeyHandle: ConfigKeyHandle<"text"> = {
   name: `${FEATURE}:config:stripe-api-key`,
   type: "text",
-};
-
-const billingConfigKeyMap: Record<string, ConfigKeyDefinition> = {
-  "stripe-api-key": stripeApiKeyDef,
 };
 
 // Charge-Handler — nutzt den entschlüsselten API-Key. Caller sieht NUR
@@ -84,7 +81,7 @@ const chargeHandler = defineWriteHandler({
 
 export const billingFeature = defineFeature(FEATURE, (r) => {
   r.requires("config");
-  r.config({ keys: billingConfigKeyMap });
+  r.config("stripe-api-key", stripeApiKeyDef);
   r.writeHandler(chargeHandler);
   // Kein r.screen/r.nav: der `mask`-Eintrag auf dem Key lässt
   // buildConfigFeatureSchema den configEdit-Screen (••••••-maskiert,

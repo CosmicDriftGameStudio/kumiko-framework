@@ -23,8 +23,8 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { hashPassword } from "../../auth-email-password/password-hashing";
 import { createConfigFeature } from "../../config/feature";
+import { hashPassword } from "../../shared";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";

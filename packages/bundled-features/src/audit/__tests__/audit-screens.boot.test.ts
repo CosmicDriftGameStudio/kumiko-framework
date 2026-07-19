@@ -15,22 +15,31 @@ describe("audit log screen + handler access alignment", () => {
   test("audit-log screen is custom, access.admin-gated", () => {
     const audit = createAuditFeature();
     const screen = audit.screens[AUDIT_LOG_SCREEN_ID];
-    expect(screen?.type).toBe("custom");
-    if (screen && "access" in screen && screen.access && "roles" in screen.access) {
-      expect(screen.access.roles).toEqual(access.admin);
+    if (screen?.type !== "custom") {
+      throw new Error(`expected a custom screen for ${AUDIT_LOG_SCREEN_ID}, got ${screen?.type}`);
     }
+    if (!("access" in screen) || !screen.access || !("roles" in screen.access)) {
+      throw new Error(`expected role-gated access on ${AUDIT_LOG_SCREEN_ID}`);
+    }
+    expect(screen.access.roles).toEqual(access.admin);
   });
 
   test("audit-log-detail screen is custom, admin-gated, breadcrumb-linked to list", () => {
     const audit = createAuditFeature();
     const screen = audit.screens[AUDIT_LOG_DETAIL_SCREEN_ID];
-    expect(screen?.type).toBe("custom");
-    if (screen && "listScreenId" in screen) {
-      expect(screen.listScreenId).toBe(AUDIT_LOG_SCREEN_ID);
+    if (screen?.type !== "custom") {
+      throw new Error(
+        `expected a custom screen for ${AUDIT_LOG_DETAIL_SCREEN_ID}, got ${screen?.type}`,
+      );
     }
-    if (screen && "access" in screen && screen.access && "roles" in screen.access) {
-      expect(screen.access.roles).toEqual(access.admin);
+    if (!("listScreenId" in screen)) {
+      throw new Error(`expected listScreenId on ${AUDIT_LOG_DETAIL_SCREEN_ID}`);
     }
+    expect(screen.listScreenId).toBe(AUDIT_LOG_SCREEN_ID);
+    if (!("access" in screen) || !screen.access || !("roles" in screen.access)) {
+      throw new Error(`expected role-gated access on ${AUDIT_LOG_DETAIL_SCREEN_ID}`);
+    }
+    expect(screen.access.roles).toEqual(access.admin);
   });
 
   test("audit queries use access.admin (screen ⊆ handler)", () => {

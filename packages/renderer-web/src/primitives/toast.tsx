@@ -3,9 +3,9 @@
 // kann. Kein Context-Boilerplate für Konsumenten — der Hook returned
 // einen `toast()`-Trigger, mehr Public-API gibt's nicht.
 //
-// Variants: "default" (neutral) und "destructive" (Fehler-Akzent).
-// Auto-dismiss nach 5s, manuell schließbar via X-Button. Der ARIA-
-// Live-Region-Setup kommt komplett aus Radix.
+// Variant = StatusTone (dieselbe Farb-Familie wie StatusBadge), Default
+// "muted" (neutral). Auto-dismiss nach 5s, manuell schließbar via X-Button.
+// Der ARIA-Live-Region-Setup kommt komplett aus Radix.
 
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import * as Primitive from "@radix-ui/react-toast";
@@ -21,8 +21,9 @@ import {
   useState,
 } from "react";
 import { cn } from "../lib/cn";
+import type { StatusTone } from "../widgets/status-badge";
 
-export type ToastVariant = "default" | "destructive";
+export type ToastVariant = StatusTone;
 
 export type ToastOptions = {
   readonly title: string;
@@ -111,6 +112,14 @@ const rootClass =
   "data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full " +
   "data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full";
 
+const TONE_CLASS: Record<StatusTone, string> = {
+  ok: "border-status-ok/30 bg-status-ok/10 text-status-ok",
+  warn: "border-status-warn/30 bg-status-warn/10 text-status-warn",
+  bad: "border-status-bad/30 bg-status-bad/10 text-status-bad",
+  critical: "border-status-critical/40 bg-status-critical/15 text-status-critical",
+  muted: "border bg-background text-foreground",
+};
+
 function ToastItem({
   entry,
   onClose,
@@ -120,10 +129,7 @@ function ToastItem({
 }): ReactNode {
   const t = useTranslation();
   const learnMore = entry.docsLinkLabel ?? t("kumiko.toast.learn-more");
-  const variantClass =
-    entry.variant === "destructive"
-      ? "destructive group border-destructive bg-destructive text-destructive-foreground"
-      : "border bg-background text-foreground";
+  const variantClass = TONE_CLASS[entry.variant ?? "muted"];
   return (
     <Primitive.Root
       className={cn(rootClass, variantClass)}
@@ -159,7 +165,6 @@ function ToastItem({
           "absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity",
           "hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1",
           "group-hover:opacity-100",
-          "group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50",
         )}
         aria-label={t("kumiko.dialog.close")}
       >

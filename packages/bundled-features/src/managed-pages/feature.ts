@@ -15,9 +15,11 @@ import {
   renderSafeMarkdown,
   wrapInLayout,
 } from "../page-render";
+import type { SystemQueryFn } from "../shared";
 import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from "./branding";
 import { createBrandingQuery } from "./handlers/branding.query";
 import { bySlugQuery } from "./handlers/by-slug.query";
+import { byTenantPublishedQuery } from "./handlers/by-tenant-published.query";
 import { setWrite } from "./handlers/set.write";
 import { MANAGED_PAGES_I18N } from "./i18n";
 import { createBrandingSettingsScreen } from "./screens/branding-screen";
@@ -33,22 +35,21 @@ const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 
 // QN-Konstante als dokumentierter Public-Contract — der Render-Pfad ruft
-// die by-slug-Query via internem app.fetch (kein Code-Import des Handlers,
-// symmetrisch zum legal-pages-Muster).
+// die by-slug-Query via systemQuery in-process (kein Code-Import des
+// Handlers, symmetrisch zum legal-pages-Muster).
 const BY_SLUG_QN = "managed-pages:query:by-slug";
 
-// Wire-Body-Shape von /api/query — das was bySlugQuery returnt (published-only).
-type ByslugQueryBody = {
-  data: {
-    title: string;
-    body: string;
-    lang: string;
-    description: string | null;
-    ogImage: string | null;
-    version: number;
-    updatedAt: string;
-  } | null;
-};
+// Raw Handler-Return von bySlugQuery (published-only) — systemQuery dispatcht
+// direkt gegen den Handler, keine `{data}`-Envelope wie am /api/query-Wire.
+type BySlugQueryResult = {
+  title: string;
+  body: string;
+  lang: string;
+  description: string | null;
+  ogImage: string | null;
+  version: number;
+  updatedAt: string;
+} | null;
 
 function brandingRevisionSeed(branding: BrandingTokens): string {
   return JSON.stringify([
@@ -62,14 +63,15 @@ function brandingRevisionSeed(branding: BrandingTokens): string {
   ]);
 }
 
-// Parse the branding query's `{ data }` envelope into BrandingTokens, never
-// throwing: a non-ok status or malformed body degrades to the unbranded
-// default (branding is decoration, not a hard dependency of the page render).
-async function readBrandingResponse(res: Response): Promise<BrandingTokens> {
-  if (!res.ok) return EMPTY_BRANDING;
+// Never throws: a query failure or malformed result degrades to the
+// unbranded default (branding is decoration, not a hard dependency of the
+// page render).
+async function readBrandingViaSystemQuery(
+  systemQuery: SystemQueryFn,
+  tenantId: string,
+): Promise<BrandingTokens> {
   try {
-    const body: { data?: unknown } = await res.json();
-    return coerceBranding(body.data);
+    return coerceBranding(await systemQuery(BRANDING_QUERY_QN, {}, tenantId));
   } catch {
     return EMPTY_BRANDING;
   }
@@ -161,7 +163,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
 
   return defineFeature("managed-pages", (r) => {
     r.describe(
-      "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
+      "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:query:by-tenant-published` (anonymous, SQL-filtered on `published`) for sitemap/discovery consumers such as the `seo` feature. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset,custom-css}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
     );
     r.uiHints({
       displayLabel: "Managed Pages · Public CMS",
@@ -180,6 +182,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
     const handlers = { set: r.writeHandler(setWrite) };
     const queries = {
       bySlug: r.queryHandler(bySlugQuery),
+      byTenantPublished: r.queryHandler(byTenantPublishedQuery),
       branding: r.queryHandler(createBrandingQuery({ allowCustomCss })),
     };
 
@@ -203,7 +206,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
       method: "GET",
       path: `${basePath}/:slug`,
       anonymous: true,
-      handler: async (c, { app }) => {
+      handler: async (c, { systemQuery }) => {
         // `param("slug")` ist string|undefined, weil `path` ein computed
         // Template ist (Hono inferiert `:slug` nur aus String-Literalen).
         const slug = c.req.param("slug");
@@ -216,31 +219,25 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
         const tenantId = await opts.resolveApexTenant(host);
         if (!tenantId) return c.text("not found", 404);
 
-        const queryHeaders = { "content-type": "application/json", "X-Tenant": tenantId };
-        const queryUrl = `${url.origin}/api/query`;
-        const queryReq = (type: string, payload: unknown) =>
-          app.fetch(
-            new Request(queryUrl, {
-              method: "POST",
-              headers: queryHeaders,
-              body: JSON.stringify({ type, payload }),
-            }),
-          );
-
-        // Page + branding read in parallel (same in-process app, same
-        // X-Tenant). Branding is decoration → a failed/empty branding read
-        // degrades to the unbranded default, it never blocks the page.
-        const [pageRes, brandingRes] = await Promise.all([
-          queryReq(BY_SLUG_QN, { slug, lang }),
-          queryReq(BRANDING_QUERY_QN, {}),
+        // Page + branding read in parallel, beide über systemQuery in-
+        // process gegen den host-resolved tenantId erzwungen (kein X-Tenant-
+        // Header-Trick über app.fetch — der sähe für einen host-basierten
+        // anonymousAccess-Resolver wie ein Client-Override aus und würde
+        // von resolverTrust: "authoritative" zurecht abgelehnt; siehe
+        // systemQuery's Doc in http-route.ts). Branding ist Deko → ein
+        // Fehlschlag degradiert zum unbranded Default, blockt nie die Page.
+        const [pageSettled, brandingResult] = await Promise.all([
+          systemQuery(BY_SLUG_QN, { slug, lang }, tenantId)
+            .then((data) => ({ ok: true as const, data: data as BySlugQueryResult }))
+            .catch(() => ({ ok: false as const, data: null as BySlugQueryResult })),
+          readBrandingViaSystemQuery(systemQuery, tenantId),
         ]);
-        if (!pageRes.ok) return c.text("page unavailable", 503);
+        if (!pageSettled.ok) return c.text("page unavailable", 503);
 
-        const body: ByslugQueryBody = await pageRes.json();
-        const data = body.data;
+        const data = pageSettled.data;
         if (!data) return c.text("not found", 404);
 
-        const branding = await readBrandingResponse(brandingRes);
+        const branding = brandingResult;
 
         const etag = computeRevisionEtag([
           tenantId,

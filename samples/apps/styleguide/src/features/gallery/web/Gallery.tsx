@@ -1,4 +1,4 @@
-import { BareFormProvider, usePrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { BareFormProvider, ResultTable, usePrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -109,6 +109,7 @@ interface Dividend {
   readonly amount: string;
   readonly bars: readonly Bar[];
 }
+// kumiko-lint-ignore no-logic-in-views demo: inline Chart-Daten-Prep für die Gallery-Fixtures (Lesbarkeit des Demos > Extraktion)
 function bars(heights: readonly [number, number, number, number]): readonly Bar[] {
   return heights.map((h, i) => ({ k: "abcd"[i] as string, h }));
 }
@@ -353,6 +354,7 @@ export function Gallery(): ReactNode {
           <div className="flex items-center gap-3 p-2">
             <div className="relative min-w-0 flex-1">
               <Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+              {/* kumiko-lint-ignore primitives-discipline readOnly search-pill visual (rounded-full mit inset Icon) — Muster-Demo, kein Formularfeld */}
               <input
                 className="bg-muted/50 placeholder:text-muted-foreground focus-visible:ring-ring h-10 w-full rounded-full border-none pl-9 pr-4 text-sm outline-none focus-visible:ring-2"
                 placeholder="Search holdings or tickers…"
@@ -492,44 +494,30 @@ export function Gallery(): ReactNode {
             <Badge>Pending</Badge>
           </div>
           <div className="px-6 py-4">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-muted-foreground border-border border-b">
-                  <th className="py-2 text-left font-medium">Item</th>
-                  <th className="py-2 text-right font-medium">Qty</th>
-                  <th className="py-2 text-right font-medium">Rate</th>
-                  <th className="py-2 text-right font-medium">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {INVOICE_ITEMS.map((it) => (
-                  <tr key={it.item} className="border-border border-b">
-                    <td className="py-2.5">{it.item}</td>
-                    <td className="py-2.5 text-right tabular-nums">{it.qty}</td>
-                    <td className="py-2.5 text-right tabular-nums">{it.rate}</td>
-                    <td className="py-2.5 text-right tabular-nums">{it.amount}</td>
-                  </tr>
-                ))}
-                <tr className="text-muted-foreground">
-                  <td />
-                  <td />
-                  <td className="py-2.5 text-right">Subtotal</td>
-                  <td className="py-2.5 text-right tabular-nums">$2,437.00</td>
-                </tr>
-                <tr className="text-muted-foreground">
-                  <td />
-                  <td />
-                  <td className="py-1 text-right">Tax</td>
-                  <td className="py-1 text-right tabular-nums">$0.00</td>
-                </tr>
-                <tr className="border-border border-t font-semibold">
-                  <td />
-                  <td />
-                  <td className="py-2.5 text-right">Total Due</td>
-                  <td className="py-2.5 text-right tabular-nums">$2,437.00</td>
-                </tr>
-              </tbody>
-            </table>
+            <ResultTable
+              columns={[
+                { header: "Item", cell: (r) => r.item },
+                { header: "Qty", align: "right", cell: (r) => r.qty },
+                { header: "Rate", align: "right", cell: (r) => r.rate },
+                { header: "Amount", align: "right", cell: (r) => r.amount },
+              ]}
+              rows={INVOICE_ITEMS}
+              rowKey={(r) => r.item}
+            />
+            <div className="mt-3 space-y-1 text-sm">
+              <div className="text-muted-foreground flex justify-between">
+                <span>Subtotal</span>
+                <span className="tabular-nums">$2,437.00</span>
+              </div>
+              <div className="text-muted-foreground flex justify-between">
+                <span>Tax</span>
+                <span className="tabular-nums">$0.00</span>
+              </div>
+              <div className="border-border flex justify-between border-t pt-2 font-semibold">
+                <span>Total Due</span>
+                <span className="tabular-nums">$2,437.00</span>
+              </div>
+            </div>
           </div>
           <div className="flex justify-between gap-2 border-t px-6 py-4">
             <Button variant="secondary">Download PDF</Button>

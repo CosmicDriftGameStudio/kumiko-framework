@@ -9,25 +9,108 @@
 // (nur `{ children }`-Prop). Der Sample kann so einen eigenen Login-
 // Screen rein konfigurieren, ohne den Gate selbst ersetzen zu müssen.
 
-import type { ComponentType, ReactNode } from "react";
+import { type ComponentType, type ReactNode, useEffect, useState } from "react";
 import { LoginScreen, type LoginScreenProps } from "./login-screen";
 import { SessionProvider, useSession } from "./session";
 
-export function makeAuthGate(
-  LoginComponent: ComponentType<LoginScreenProps> = LoginScreen,
-  loginProps?: LoginScreenProps,
-): ComponentType<{ children: ReactNode }> {
-  function AuthGate({ children }: { readonly children: ReactNode }): ReactNode {
+// Generic — NOT auth-mfa's MfaVerifyScreenProps directly, so this feature
+// stays unaware of auth-mfa's concrete shape (same coupling direction as
+// login.write.ts's mfaStatusChecker callback on the server side). Apps
+// wire auth-mfa's MfaVerifyScreen in here via EmailPasswordClientOptions.
+export type MfaVerifyComponentProps = {
+  readonly challengeToken: string;
+  readonly onSuccess?: () => void;
+  readonly onCancel?: () => void;
+};
+
+export type LoginRouteOptions = {
+  readonly loginScreen?: ComponentType<LoginScreenProps>;
+  readonly loginScreenProps?: LoginScreenProps;
+  readonly mfaVerifyScreen?: ComponentType<MfaVerifyComponentProps>;
+  /** Called once the session becomes authenticated. makeAuthGate ignores
+   *  this (it renders `children` on its own authenticated branch instead);
+   *  standalone routes — no parent gate, e.g. an anonymous apex/marketing
+   *  surface — use it to redirect. */
+  readonly onAuthenticated?: () => void;
+};
+
+// The one sanctioned way to render a login flow that correctly completes
+// an MFA challenge — makeAuthGate below is just this wrapped for the
+// `{ children }` gate shape. Also exported directly for apps that render
+// their own standalone login route outside any gate (createPublicSurface
+// apex pages stack providers, not gates — see auth-mount.tsx recipes).
+// Handing an app raw LoginScreen + telling it to hand-roll the challenge-
+// token swap itself is exactly how kumiko-framework#266's login-time MFA
+// step went missing in a real apex surface; this prevents the *most common*
+// version of that mistake. MFA still only actually works once a consumer
+// wires `mfaVerifyScreen` — omitting it is a silent no-MFA fallback, not
+// something this route can catch on its own (auth-mfa is a separate,
+// optional package).
+export function createLoginRoute(
+  opts: LoginRouteOptions = {},
+): ComponentType<Record<string, never>> {
+  const LoginComponent = opts.loginScreen ?? LoginScreen;
+  const MfaVerifyComponent = opts.mfaVerifyScreen;
+
+  function LoginRoute(): ReactNode {
     const { status } = useSession();
+    const { onAuthenticated } = opts;
+    // Pending challenge-token from LoginScreen's onMfaChallenge. Lives here
+    // (not in SessionState) because it's a UI-only transition — the server
+    // never considers this session authenticated until verify succeeds.
+    const [challengeToken, setChallengeToken] = useState<string | null>(null);
+
+    useEffect(() => {
+      if (status === "authenticated") onAuthenticated?.();
+    }, [status]);
+
     if (status === "loading") {
       return (
         <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm" />
       );
     }
-    if (status === "unauthenticated") {
-      return <LoginComponent {...loginProps} />;
+    // A standalone mount (no parent gate, no onAuthenticated wired — e.g. an
+    // apex/marketing surface that just places <LoginRoute /> directly) has no
+    // way to navigate away once authenticated. Blanking the page there is a
+    // regression against the old raw LoginScreen (which had no session check
+    // at all); fall through to the form instead. A route WITH onAuthenticated
+    // still returns null and trusts the effect above to redirect.
+    if (status === "authenticated" && onAuthenticated) return null;
+    if (challengeToken !== null && MfaVerifyComponent) {
+      return (
+        <MfaVerifyComponent
+          challengeToken={challengeToken}
+          onSuccess={() => setChallengeToken(null)}
+          onCancel={() => setChallengeToken(null)}
+        />
+      );
     }
-    return <>{children}</>;
+    return (
+      <LoginComponent
+        {...opts.loginScreenProps}
+        onMfaChallenge={
+          MfaVerifyComponent ? setChallengeToken : opts.loginScreenProps?.onMfaChallenge
+        }
+      />
+    );
+  }
+  return LoginRoute;
+}
+
+export function makeAuthGate(
+  LoginComponent: ComponentType<LoginScreenProps> = LoginScreen,
+  loginProps?: LoginScreenProps,
+  MfaVerifyComponent?: ComponentType<MfaVerifyComponentProps>,
+): ComponentType<{ children: ReactNode }> {
+  const LoginRoute = createLoginRoute({
+    loginScreen: LoginComponent,
+    loginScreenProps: loginProps,
+    mfaVerifyScreen: MfaVerifyComponent,
+  });
+  function AuthGate({ children }: { readonly children: ReactNode }): ReactNode {
+    const { status } = useSession();
+    if (status === "authenticated") return <>{children}</>;
+    return <LoginRoute />;
   }
   return AuthGate;
 }
@@ -38,8 +121,9 @@ export function makeAuthGate(
 export function makeSessionAuthGate(
   LoginComponent: ComponentType<LoginScreenProps> = LoginScreen,
   loginProps?: LoginScreenProps,
+  MfaVerifyComponent?: ComponentType<MfaVerifyComponentProps>,
 ): ComponentType<{ children: ReactNode }> {
-  const AuthGate = makeAuthGate(LoginComponent, loginProps);
+  const AuthGate = makeAuthGate(LoginComponent, loginProps, MfaVerifyComponent);
   function SessionAuthGate({ children }: { readonly children: ReactNode }): ReactNode {
     return (
       <SessionProvider>

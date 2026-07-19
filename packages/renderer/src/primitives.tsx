@@ -66,8 +66,35 @@ export type ButtonProps = {
   readonly loading?: boolean;
   /** Semantische Klasse — default="primary". Custom-Impls entscheiden
    *  was daraus visuell wird; die Renderer verwenden "primary" für
-   *  Save, "danger" für Delete, "secondary" für Confirm-State. */
-  readonly variant?: "primary" | "secondary" | "danger";
+   *  Save, "danger" für Delete, "secondary" für Confirm-State,
+   *  "link" für Inline-Aktionen im Fließtext (kein BG, underline). */
+  readonly variant?: "primary" | "secondary" | "danger" | "link";
+  /** Größe — default="md". "sm" für kompakte Inline-Aktionen (Toolbar,
+   *  Listen-Zeilen), "icon" für quadratische Icon-only-Buttons. */
+  readonly size?: "sm" | "md" | "icon";
+  /** Barrierefreies Label — Pflicht bei icon-only-Buttons (children ist nur
+   *  ein Icon/Zeichen), sonst hat der Button keinen zugänglichen Namen. */
+  readonly ariaLabel?: string;
+  /** Breite — default="auto" (inhaltsbreit). "full" streckt CTA-Buttons auf
+   *  die Container-Breite (Karten/Panels). Andere Breiten sind Layout-Sache
+   *  des Containers, kein Button-Prop (Kit hält arbiträres Sizing draußen). */
+  readonly width?: "full" | "auto";
+  readonly children: ReactNode;
+  readonly testId?: string;
+};
+
+/** Navigations-Link. `variant="button"` rendert die Button-Optik auf einem
+ *  semantischen Anchor (z.B. „Zum Login" nach Reset-Success), `muted` den
+ *  dezenten Sekundär-Link. Interne SPA-Navigation läuft über den Browser-
+ *  Default (History-Integration liegt beim Nav-Layer, nicht am Primitive). */
+export type LinkProps = {
+  readonly href: string;
+  readonly variant?: "default" | "button" | "muted";
+  /** `_blank` setzt in der Web-Impl automatisch rel="noreferrer". */
+  readonly target?: "_blank";
+  /** Layout-Zusätze (self-center, text-xs) — Web merged via cn(),
+   *  Native-Impls ignorieren es (Präzedenz: CardProps.className). */
+  readonly className?: string;
   readonly children: ReactNode;
   readonly testId?: string;
 };
@@ -125,6 +152,12 @@ export type InputProps =
       /** Browser-Autofill / Native-Keyboard-Hint. Web setzt das auf
        *  `<input autocomplete=...>`, Native auf `textContentType`. */
       readonly autoComplete?: string;
+      /** `data-testid` aufs echte `<input>` — App-Tests adressieren das
+       *  Element direkt (getByTestId + readOnly/disabled-Assertions). */
+      readonly testId?: string;
+      /** Read-only Input (z.B. gewürfelter Free-Tier-Slug). Nicht `disabled`
+       *  — bleibt fokussier-/kopierbar. */
+      readonly readOnly?: boolean;
     }
   | {
       readonly kind: "email";
@@ -139,6 +172,7 @@ export type InputProps =
       /** Default "email". Apps die "username" wollen (Login-Form mit
        *  Username-or-Email) reichen das durch. */
       readonly autoComplete?: string;
+      readonly testId?: string;
     }
   | {
       readonly kind: "password";
@@ -153,6 +187,7 @@ export type InputProps =
        *  Browser-Password-Manager nutzen das für die Speicherentscheidung.
        *  Native: textContentType="password" / "newPassword". */
       readonly autoComplete?: "current-password" | "new-password";
+      readonly testId?: string;
     }
   | {
       readonly kind: "number";
@@ -160,6 +195,20 @@ export type InputProps =
       readonly name: string;
       readonly value: number | "";
       readonly onChange: (v: number | undefined) => void;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+      readonly testId?: string;
+    }
+  | {
+      readonly kind: "range";
+      readonly id: string;
+      readonly name: string;
+      readonly value: number;
+      readonly onChange: (v: number) => void;
+      readonly min: number;
+      readonly max: number;
+      readonly step?: number;
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
@@ -511,6 +560,10 @@ export type SectionProps = {
    *  übernehmen"). Web rendert standalone eine abgehobene Footer-Row
    *  (border-t), innerhalb eines Forms eine rechtsbündige Button-Reihe. */
   readonly actions?: ReactNode;
+  /** "destructive" marks the Section as a warning/danger area (e.g. account
+   *  deletion, restrict processing) — border color only, no content change.
+   *  Default "default" (normal card border). */
+  readonly variant?: "default" | "destructive";
   readonly testId?: string;
 };
 
@@ -533,9 +586,10 @@ export type GridCellProps = {
 /** Semantischer Text. Variants bilden Standard-Typografie-Rollen ab —
  *  `body` ist Default, `small` für sekundäre Labels, `code` für inline
  *  monospace (entityId, screen-id), `required-mark` für das Sternchen
- *  hinter Labels. Custom-Impls mappen auf ihren TypeScale. */
+ *  hinter Labels, `muted` für gedimmten Fließtext (text-sm muted-
+ *  foreground). Custom-Impls mappen auf ihren TypeScale. */
 export type TextProps = {
-  readonly variant?: "body" | "small" | "code" | "required-mark";
+  readonly variant?: "body" | "small" | "code" | "required-mark" | "muted";
   readonly children: ReactNode;
   readonly testId?: string;
 };
@@ -674,6 +728,7 @@ export type CorePrimitives = {
   readonly Lightbox: ComponentType<LightboxProps>;
   readonly ConfigSourceBadge: ComponentType<ConfigSourceBadgeProps>;
   readonly ConfigCascadeView: ComponentType<ConfigCascadeViewProps>;
+  readonly Link: ComponentType<LinkProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

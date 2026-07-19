@@ -11,7 +11,12 @@
 // auf/zu. State lebt lokal im NavTree (useState); Default expanded
 // für alles, Caller kann später localStorage-Persistenz drüberlegen.
 
-import type { TargetRef, TreeAction, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  AccessRule,
+  TargetRef,
+  TreeAction,
+  TreeNode,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavNode, NavRegistrySlice } from "@cosmicdrift/kumiko-headless";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
@@ -33,9 +38,12 @@ import {
   ChevronRight,
   Coins,
   CreditCard,
+  Download,
   FileText,
   Folder,
+  FolderOpen,
   Gauge,
+  Hash,
   Home,
   KeyRound,
   Layers,
@@ -43,11 +51,15 @@ import {
   LineChart,
   Link,
   List,
+  Lock,
+  Mail,
   Palette,
   PiggyBank,
   Plus,
   Receipt,
+  Rocket,
   Search,
+  Server,
   Settings,
   Share2,
   Shield,
@@ -76,6 +88,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarInput,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
@@ -113,6 +126,7 @@ const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
   calendar: CalendarDays,
   file: FileText,
   folder: Folder,
+  "folder-open": FolderOpen,
   home: Home,
   bell: Bell,
   shield: Shield,
@@ -125,6 +139,12 @@ const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
   link: Link,
   palette: Palette,
   share: Share2,
+  server: Server,
+  mail: Mail,
+  lock: Lock,
+  hash: Hash,
+  download: Download,
+  rocket: Rocket,
 };
 
 export type NavTreeProps = {
@@ -148,6 +168,22 @@ export type NavTreeProps = {
 
 const EMPTY_BADGES: ReadonlyMap<string, ReactNode> = new Map();
 const NavBadgesContext = createContext<ReadonlyMap<string, ReactNode>>(EMPTY_BADGES);
+
+// Sidebar-Filter: `q` leer = inaktiv (matches akzeptiert alles). `matches`
+// bekommt das ROHE Label (i18n-Key oder Klartext) und übersetzt intern — so
+// filtert das Suchfeld auf den sichtbaren Text, nicht den Key.
+type NavFilter = { readonly q: string; readonly matches: (rawLabel: string) => boolean };
+const NavFilterContext = createContext<NavFilter>({ q: "", matches: () => true });
+
+// Ein Knoten überlebt den Filter, wenn er selbst oder ein Nachfahre matcht.
+// Provider-Kinder sind zur Filterzeit schon materialisiert (Provider-Knoten
+// sind default-expanded → eager geladen), darum reicht die statische
+// children-Rekursion. ponytail: ein zur Filterzeit noch NICHT geladener
+// (user-zugeklappter) Provider wird über den force-expand in useNavNodeState
+// aufgeklappt, lädt und filtert dann mit.
+function subtreeMatches(node: NavNode, matches: (rawLabel: string) => boolean): boolean {
+  return matches(node.label) || node.children.some((c) => subtreeMatches(c, matches));
+}
 
 export function NavTree({
   schema,
@@ -175,25 +211,47 @@ export function NavTree({
     });
   }, []);
 
+  const t = useTranslation();
+  const [filter, setFilter] = useState("");
+  const q = filter.trim().toLowerCase();
+  const matches = useCallback(
+    (raw: string): boolean => {
+      const label = raw.includes(".") ? t(raw) : raw;
+      return label.toLowerCase().includes(q);
+    },
+    [t, q],
+  );
+  const navFilter = useMemo<NavFilter>(() => ({ q, matches }), [q, matches]);
+
   return (
-    <NavBadgesContext.Provider value={navBadges ?? EMPTY_BADGES}>
-      <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex w-full flex-col">
-        {tree.map((node) =>
-          isPureSection(node) ? (
-            <NavSection
-              key={node.qualifiedName}
-              node={node}
-              collapsed={collapsed}
-              onToggle={onToggle}
+    <NavFilterContext.Provider value={navFilter}>
+      <NavBadgesContext.Provider value={navBadges ?? EMPTY_BADGES}>
+        <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex w-full flex-col">
+          <div className="px-2 pt-2 pb-1">
+            <SidebarInput
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder={t("kumiko.nav.search")}
+              aria-label={t("kumiko.nav.search")}
             />
-          ) : (
-            <SidebarMenu key={node.qualifiedName} className="px-2 py-1">
-              <NavMenuNode node={node} collapsed={collapsed} onToggle={onToggle} />
-            </SidebarMenu>
-          ),
-        )}
-      </div>
-    </NavBadgesContext.Provider>
+          </div>
+          {tree.map((node) =>
+            isPureSection(node) ? (
+              <NavSection
+                key={node.qualifiedName}
+                node={node}
+                collapsed={collapsed}
+                onToggle={onToggle}
+              />
+            ) : (
+              <SidebarMenu key={node.qualifiedName} className="px-2 py-1">
+                <NavMenuNode node={node} collapsed={collapsed} onToggle={onToggle} />
+              </SidebarMenu>
+            ),
+          )}
+        </div>
+      </NavBadgesContext.Provider>
+    </NavFilterContext.Provider>
   );
 }
 
@@ -245,8 +303,17 @@ function useLabel(node: NavNode): string {
 
 // Icon-or-Dot: bekannter icon-Key → Lucide-Icon, sonst ein dezenter Dot.
 // Aktiv = accent-foreground, inaktiv = gedimmt.
-function NavLeadingIcon({ node, active }: { node: NavNode; active: boolean }): ReactNode {
-  const NavIcon = node.icon !== undefined ? NAV_ICONS[node.icon] : undefined;
+function NavLeadingIcon({
+  node,
+  active,
+  expanded = false,
+}: {
+  node: NavNode;
+  active: boolean;
+  expanded?: boolean;
+}): ReactNode {
+  const iconKey = expanded && node.icon === "folder" ? "folder-open" : node.icon;
+  const NavIcon = iconKey !== undefined ? NAV_ICONS[iconKey] : undefined;
   if (NavIcon !== undefined) return <NavIcon aria-hidden="true" className="shrink-0" />;
   return (
     <span
@@ -366,6 +433,7 @@ type NavNodeState = {
   readonly isExpanded: boolean;
   readonly active: boolean;
   readonly childNodes: readonly NavNode[];
+  readonly hidden: boolean;
   readonly providerLoading: boolean;
   readonly providerError: string | null;
   readonly workspaceId: string | undefined;
@@ -377,10 +445,14 @@ type NavNodeState = {
 // in den shadcn-Primitives, nicht in dieser Logik.
 function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNodeState {
   const nav = useNav();
+  const { q: filterQ, matches } = useContext(NavFilterContext);
+  const filterActive = filterQ !== "";
   const displayLabel = useLabel(node);
   const isCollapsed = collapsed.has(node.qualifiedName);
   const expandable = node.children.length > 0 || node.provider === true;
-  const isExpanded = expandable && !isCollapsed;
+  // Aktiver Filter klappt jeden Container auf, damit Treffer unter zugeklappten
+  // Ordnern sichtbar werden (und Provider-Kinder nachladen).
+  const isExpanded = expandable && (!isCollapsed || filterActive);
   const { nodes: providerChildren, error: providerError } = useNavProviderChildren(
     node.qualifiedName,
     node.provider === true && isExpanded,
@@ -393,13 +465,19 @@ function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNode
     node.screen !== undefined && nav.route?.screenId === lastSegment(node.screen);
   const targetActive = node.target !== undefined && targetsEqual(node.target, activeTarget);
   const childNodes = node.provider === true ? (providerChildren ?? []) : node.children;
+  const visibleChildNodes = filterActive
+    ? childNodes.filter((c) => subtreeMatches(c, matches))
+    : childNodes;
   return {
     displayLabel,
     isCollapsed,
     expandable,
     isExpanded,
     active: screenActive || targetActive,
-    childNodes,
+    childNodes: visibleChildNodes,
+    // Ein gefilterter Knoten verschwindet nur, wenn weder er selbst noch ein
+    // sichtbar gebliebenes Kind matcht — sonst bliebe ein leerer Ordner-Header.
+    hidden: filterActive && !matches(node.label) && visibleChildNodes.length === 0,
     providerLoading: node.provider === true && isExpanded && providerChildren === null,
     providerError,
     workspaceId: nav.route?.workspaceId,
@@ -488,6 +566,16 @@ function ProviderStatus({
 // gehört auf Items MIT children, nicht auf die Section selbst.
 function NavSection({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   const displayLabel = useLabel(node);
+  const { q, matches } = useContext(NavFilterContext);
+  // Provider-Kinder (statisch leer bis geladen) halten die Section offen — ihr
+  // Match lässt sich hier nicht statisch prüfen; der Knoten selbst self-hidet.
+  if (
+    q !== "" &&
+    !matches(node.label) &&
+    !node.children.some((c) => c.provider === true || subtreeMatches(c, matches))
+  ) {
+    return null;
+  }
   return (
     <SidebarGroup className="py-1">
       <SidebarGroupLabel>{displayLabel}</SidebarGroupLabel>
@@ -518,6 +606,7 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   const t = useTranslation();
   const dispatch = useDispatchTarget();
   const s = useNavNodeState(node, collapsed);
+  if (s.hidden) return null;
 
   const sub = s.isExpanded ? (
     <SidebarMenuSub>
@@ -535,11 +624,11 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
 
   const chevron = s.expandable ? (
     <SidebarMenuAction
-      aria-label={t(s.isCollapsed ? "kumiko.nav.expand" : "kumiko.nav.collapse")}
-      aria-expanded={!s.isCollapsed}
+      aria-label={t(s.isExpanded ? "kumiko.nav.collapse" : "kumiko.nav.expand")}
+      aria-expanded={s.isExpanded}
       onClick={() => onToggle(node.qualifiedName)}
     >
-      {s.isCollapsed ? <ChevronRight /> : <ChevronDown />}
+      {s.isExpanded ? <ChevronDown /> : <ChevronRight />}
     </SidebarMenuAction>
   ) : null;
 
@@ -591,15 +680,15 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
         onClick={() => {
           if (s.expandable) onToggle(node.qualifiedName);
         }}
-        {...(s.expandable && { "aria-expanded": !s.isCollapsed })}
+        {...(s.expandable && { "aria-expanded": s.isExpanded })}
       >
-        <NavLeadingIcon node={node} active={false} />
+        <NavLeadingIcon node={node} active={false} expanded={s.isExpanded} />
         <span className="truncate">{s.displayLabel}</span>
         {s.expandable &&
-          (s.isCollapsed ? (
-            <ChevronRight className="ml-auto" />
-          ) : (
+          (s.isExpanded ? (
             <ChevronDown className="ml-auto" />
+          ) : (
+            <ChevronRight className="ml-auto" />
           ))}
       </SidebarMenuButton>
       <NodeActions node={node} />
@@ -617,9 +706,14 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   const t = useTranslation();
   const dispatch = useDispatchTarget();
   const s = useNavNodeState(node, collapsed);
+  if (s.hidden) return null;
 
+  // Kinder in ein eigenes SidebarMenuSub (<ul>) — ein Sub-Item ist ein <li>,
+  // verschachtelte <li> ohne <ul> dazwischen sind invalides HTML (nested
+  // Content-Ordner: Marketing/ > Block). Der <ul> trägt zugleich die
+  // Einrück-/Border-Stufe pro Tiefe.
   const deeper = s.isExpanded ? (
-    <>
+    <SidebarMenuSub>
       <ProviderStatus loading={s.providerLoading} error={s.providerError} />
       {s.childNodes.map((child) => (
         <NavSubNode
@@ -629,21 +723,21 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
           onToggle={onToggle}
         />
       ))}
-    </>
+    </SidebarMenuSub>
   ) : null;
 
   const chevron = s.expandable ? (
     <button
       type="button"
-      aria-label={t(s.isCollapsed ? "kumiko.nav.expand" : "kumiko.nav.collapse")}
-      aria-expanded={!s.isCollapsed}
+      aria-label={t(s.isExpanded ? "kumiko.nav.collapse" : "kumiko.nav.expand")}
+      aria-expanded={s.isExpanded}
       onClick={(e) => {
         e.stopPropagation();
         onToggle(node.qualifiedName);
       }}
       className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
     >
-      {s.isCollapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+      {s.isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
     </button>
   ) : null;
 
@@ -695,7 +789,7 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             if (s.expandable) onToggle(node.qualifiedName);
           }}
         >
-          <NavLeadingIcon node={node} active={false} />
+          <NavLeadingIcon node={node} active={false} expanded={s.isExpanded} />
           <span className="truncate">{s.displayLabel}</span>
         </button>
       </SidebarMenuSubButton>
@@ -727,14 +821,24 @@ export function buildNavRegistrySliceForApp(
   app: AppSchema,
   allowedNavQns?: ReadonlySet<string>,
 ): NavRegistrySlice {
+  const screenAccessByQn = buildScreenAccessMap(app);
   const qualified: NavDefinition[] = [];
   for (const feature of app.features) {
     for (const n of feature.navs ?? []) {
+      const screen =
+        n.screen !== undefined ? qualifyScreenId(feature.featureName, n.screen) : undefined;
+      // Nav entries without their own `access` inherit the referenced
+      // screen's access rule — otherwise a broader workspace/parent access
+      // lets a role see a nav entry whose target screen 403s them (#1099).
+      // An explicit `n.access` always wins; inheritance only fills the gap.
+      const inheritedAccess =
+        n.access ?? (screen !== undefined ? screenAccessByQn.get(screen) : undefined);
       qualified.push({
         ...n,
         id: qualifyNavId(feature.featureName, n.id),
         ...(n.parent !== undefined && { parent: qualifyNavId(feature.featureName, n.parent) }),
-        ...(n.screen !== undefined && { screen: qualifyScreenId(feature.featureName, n.screen) }),
+        ...(screen !== undefined && { screen }),
+        ...(inheritedAccess !== undefined && { access: inheritedAccess }),
       });
     }
   }
@@ -772,6 +876,16 @@ function qualifyNavId(feature: string, id: string): string {
 
 function qualifyScreenId(feature: string, id: string): string {
   return id.includes(":screen:") ? id : `${feature}:screen:${id}`;
+}
+
+function buildScreenAccessMap(app: AppSchema): Map<string, AccessRule | undefined> {
+  const map = new Map<string, AccessRule | undefined>();
+  for (const feature of app.features) {
+    for (const s of feature.screens) {
+      map.set(qualifyScreenId(feature.featureName, s.id), s.access);
+    }
+  }
+  return map;
 }
 
 // `lastSegment` lebt jetzt in @cosmicdrift/kumiko-renderer (./app/qn) — eine

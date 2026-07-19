@@ -9,7 +9,10 @@ import {
   type TestStack,
   type TestStackOptions,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { type ComposeFeaturesOptions, composeFeatures } from "./compose-features";
+import {
+  type ComposeFeaturesOptions,
+  composeFeatures,
+} from "@cosmicdrift/kumiko-server-runtime/compose-features";
 
 export type TestStackPreset = "config" | "text-content";
 
@@ -19,7 +22,7 @@ export type SetupTestStackFromFeaturesOptions = Omit<TestStackOptions, "features
   readonly presets?: readonly TestStackPreset[];
 };
 
-function mergeExtraContext(
+export function mergeExtraContext(
   base: TestStackOptions["extraContext"],
   presets: readonly TestStackPreset[],
 ): TestStackOptions["extraContext"] {

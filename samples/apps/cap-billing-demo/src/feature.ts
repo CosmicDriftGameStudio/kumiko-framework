@@ -189,16 +189,15 @@ export const newsletterFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires(BILLING_FOUNDATION_FEATURE);
 
   // Tier-config-key. Tenant-Admin setzt's; default "free".
-  r.config({
-    keys: {
-      tier: createTenantConfig("select", {
-        default: "free",
-        options: TIER_NAMES,
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-      }),
-    },
-  });
+  r.config(
+    "tier",
+    createTenantConfig("select", {
+      default: "free",
+      options: TIER_NAMES,
+      write: access.roles("TenantAdmin", "SystemAdmin"),
+      read: access.roles("TenantAdmin", "SystemAdmin", "User"),
+    }),
+  );
 
   r.writeHandler(wrappedSendHandler);
 });

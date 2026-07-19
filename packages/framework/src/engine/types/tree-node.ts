@@ -1,6 +1,5 @@
-// TreeNode — single Knoten im Visual-Tree (opt-in Workspace mit
-// `navigation: "tree"`). Provider liefern entweder statische
-// readonly TreeNode[] oder dynamische TreeChildrenSubscribe.
+// TreeNode — single Knoten im Client-navProvider-Tree. Provider liefern
+// entweder statische readonly TreeNode[] oder dynamische TreeChildrenSubscribe.
 //
 // **Mental-Modell** (VS-Code-Explorer):
 //   [icon] [label] [...hover-actions]
@@ -20,8 +19,6 @@
 // Emits beliebig oft (z.B. wenn Entity-Row neu erscheint via SSE).
 // Spielt natürlich mit existing SSE-Frame: ein Provider kann intern
 // auf Entity-Update-Events abonnieren und bei Änderung emit() aufrufen.
-//
-// Siehe docs/plans/architecture/visual-tree.md A4.
 
 import type { TargetRef } from "./target-ref";
 

@@ -89,6 +89,13 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly scope: ConfigScope;
   readonly access: ConfigKeyAccess;
   readonly encrypted?: boolean;
+  /** User/admin may legitimately see the value — unlike `encrypted`
+   *  (shared master-key cipher), this is the subject-KMS: the value is
+   *  encrypted under the DEK of the scope actually written to (tenant-row
+   *  → tenant subject, user-row → user subject). Only on `type: "text"`,
+   *  `scope !== "system"` (no subject there), and mutually exclusive with
+   *  `encrypted` (kumiko-platform#231/#459). */
+  readonly piiEncrypted?: boolean;
   readonly options?: readonly string[];
   readonly bounds?: ConfigBounds;
   // Per-key string-pattern validation for type="text". The value must match
@@ -136,6 +143,14 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   // manuelles r.screen/r.nav). Fehlt `mask`, gilt der Key als internes
   // Plumbing (ENV-provisioniert/computed) und erscheint NICHT im Hub.
   readonly mask?: ConfigMask;
+  // Überschreibt, unter welchem Settings-Hub-Namespace/Screen dieser Key
+  // gruppiert wird (Default: das deklarierende Feature). Erlaubt einem
+  // Feature, seine Keys unter einem fremden oder geteilten Namespace zu
+  // bündeln (z.B. viele flache Migrations-Flags unter "tenant-settings"),
+  // ohne dass das Ziel-Feature sie kennt. Rührt NICHT an qualifiziertem
+  // Namen, Storage, Seeds oder App-Overrides — nur reine UI-Gruppierung.
+  // Muss kebab-case sein (Boot-Validierung).
+  readonly group?: string;
 };
 
 // Label-Träger für den Settings-Hub. `title` ist ein i18n-Key (kein Literal —

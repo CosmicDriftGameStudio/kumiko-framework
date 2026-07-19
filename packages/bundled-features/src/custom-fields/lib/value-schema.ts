@@ -86,6 +86,6 @@ export function buildCustomFieldValueSchema(parsedField: unknown): z.ZodTypeAny 
 
   // @cast-boundary serialized-field is the dehydrated r.field.X() output =
   // a FieldDefinition; fieldToZod reads only its type-specific keys (the
-  // extra fieldAccess/sensitive/retention/label keys are ignored).
+  // extra fieldAccess/retention/label keys are ignored).
   return fieldToZod(fieldDef as unknown as FieldDefinition, currencies);
 }

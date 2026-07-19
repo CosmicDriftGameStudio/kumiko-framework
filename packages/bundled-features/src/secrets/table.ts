@@ -49,7 +49,7 @@ export const tenantSecretEntity = createEntity({
   table: "read_tenant_secrets",
   fields: {
     key: createTextField({ required: true }),
-    kekVersion: createNumberField({ required: true }),
+    kekVersion: createNumberField({ required: true, integer: true }),
   },
 });
 

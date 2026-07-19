@@ -7,7 +7,6 @@
 
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,
@@ -18,7 +17,7 @@ import {
   defineQueryHandler,
   defineWriteHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 
@@ -43,7 +42,6 @@ export const shareLinkEntity = createEntity({
   ],
 });
 
-export const shareLinkTable = buildEntityTable("share-link", shareLinkEntity);
 const { executor, table } = createEntityExecutor("share-link", shareLinkEntity);
 
 async function hashToken(plain: string): Promise<string> {
@@ -70,6 +68,7 @@ export const shareLinkCreateWrite = defineWriteHandler({
   name: "share-link:create",
   schema: createSchema,
   access: { openToAll: true },
+  rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   handler: async (event, ctx) => {
     const { plain, hash } = await mintToken();
     const now = getTemporal().Now.instant();
@@ -110,7 +109,7 @@ export const shareLinkRevokeWrite = defineWriteHandler({
     const row = rows[0];
     const ownerId = String(row?.["insertedById"] ?? row?.["inserted_by_id"] ?? "");
     if (!row || ownerId !== event.user.id) {
-      throw new UnprocessableError("ownership_denied");
+      throw new NotFoundError("share-link");
     }
 
     return executor.update(
@@ -140,7 +139,7 @@ export const shareByTokenQuery = defineQueryHandler({
   rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   handler: async (query, ctx) => {
     const hash = await hashToken(query.payload.token);
-    const row = await fetchOne<ShareLinkRow>(ctx.db.raw, shareLinkTable, { tokenHash: hash });
+    const row = await fetchOne<ShareLinkRow>(ctx.db.raw, table, { tokenHash: hash });
 
     if (!row) {
       throw new NotFoundError("share-link");

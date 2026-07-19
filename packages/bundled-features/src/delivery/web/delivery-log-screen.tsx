@@ -59,7 +59,7 @@ export function DeliveryLogScreen(): ReactNode {
   }
 
   return (
-    <FormScreenShell testId="delivery-log-screen" className="flex max-w-5xl flex-col gap-6">
+    <FormScreenShell testId="delivery-log-screen" maxWidth="4xl" className="flex flex-col gap-6">
       <Heading variant="page">{t("delivery.log.title")}</Heading>
 
       <Card options={{ padded: false }}>

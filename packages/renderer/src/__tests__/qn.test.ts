@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { lastSegment } from "../app/qn";
+import { toKebab as serverToKebab } from "@cosmicdrift/kumiko-framework/engine";
+import { lastSegment, toKebab } from "../app/qn";
 
 describe("lastSegment", () => {
   test("strips feature-prefix from screen-QN", () => {
@@ -36,5 +37,47 @@ describe("lastSegment", () => {
     // — the helper returns "" rather than throwing, the caller's
     // navigate-then-not-found banner makes the bug visible.
     expect(lastSegment("publicstatus:screen:")).toBe("");
+  });
+});
+
+describe("toKebab", () => {
+  test("camelCase entity ids match server qualifyEntityName", () => {
+    expect(toKebab("driverModel")).toBe("driver-model");
+    expect(toKebab("statementUpload")).toBe("statement-upload");
+  });
+
+  test("already kebab unchanged", () => {
+    expect(toKebab("driver-model")).toBe("driver-model");
+  });
+
+  test("preserves colon segments", () => {
+    expect(toKebab("driverModel:list")).toBe("driver-model:list");
+  });
+
+  test("consecutive uppercase (acronym boundary)", () => {
+    expect(toKebab("SSEBroadcast")).toBe("sse-broadcast");
+  });
+
+  test("dot separators become dashes", () => {
+    expect(toKebab("billing-period.create")).toBe("billing-period-create");
+  });
+
+  // Drift guard: this file is a byte-identical copy of the server's toKebab
+  // (packages/framework/src/engine/qualified-name.ts) kept in sync only by
+  // convention/comment, not by import (avoids pulling server deps into the
+  // browser bundle). Table-driven against the server's own doc examples so a
+  // future edit to either copy that breaks parity fails loudly here.
+  test("matches the server implementation for its documented examples", () => {
+    const cases = [
+      "task.create",
+      "ticketAssigned",
+      "billing-period.create",
+      "monthlyReport",
+      "SSEBroadcast",
+      "driverModel:list",
+    ];
+    for (const input of cases) {
+      expect(toKebab(input)).toBe(serverToKebab(input));
+    }
   });
 });

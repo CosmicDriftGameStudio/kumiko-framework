@@ -3,10 +3,11 @@
 // feature without an actual postgres/redis. See package.json `boot`
 // script + ../README.md.
 
-import { frameworkCoreEnvSchema, runProdApp } from "@cosmicdrift/kumiko-dev-server";
+import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server";
 import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
+import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 import { APP_FEATURES } from "../src/run-config";
 
 const SMOKE_TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;

@@ -1,5 +1,418 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.156.0
+
+### Patch Changes
+
+- Updated dependencies [c7ca222]
+- Updated dependencies [77ea09f]
+  - @cosmicdrift/kumiko-framework@0.156.0
+  - @cosmicdrift/kumiko-bundled-features@0.156.0
+  - @cosmicdrift/kumiko-server-runtime@0.156.0
+
+## 0.155.1
+
+### Patch Changes
+
+- 36e30da: infra#285/#286 triage: rename `ScanWarning.reason` to `.message` (a `console.warn` display string, not a wire error code) — `guard-error-reasons` now actually scans this package instead of silently skipping it.
+- Updated dependencies [69ac999]
+  - @cosmicdrift/kumiko-server-runtime@0.155.1
+  - @cosmicdrift/kumiko-bundled-features@0.155.1
+  - @cosmicdrift/kumiko-framework@0.155.1
+
+## 0.155.0
+
+### Patch Changes
+
+- Updated dependencies [137f31a]
+  - @cosmicdrift/kumiko-framework@0.155.0
+  - @cosmicdrift/kumiko-bundled-features@0.155.0
+  - @cosmicdrift/kumiko-server-runtime@0.155.0
+
+## 0.154.2
+
+### Patch Changes
+
+- Updated dependencies [05c3e11]
+  - @cosmicdrift/kumiko-framework@0.154.2
+  - @cosmicdrift/kumiko-bundled-features@0.154.2
+  - @cosmicdrift/kumiko-server-runtime@0.154.2
+
+## 0.154.1
+
+### Patch Changes
+
+- Updated dependencies [618be61]
+  - @cosmicdrift/kumiko-bundled-features@0.154.1
+  - @cosmicdrift/kumiko-server-runtime@0.154.1
+  - @cosmicdrift/kumiko-framework@0.154.1
+
+## 0.154.0
+
+### Patch Changes
+
+- Updated dependencies [0d30bf7]
+- Updated dependencies [e40a980]
+  - @cosmicdrift/kumiko-framework@0.154.0
+  - @cosmicdrift/kumiko-bundled-features@0.154.0
+  - @cosmicdrift/kumiko-server-runtime@0.154.0
+
+## 0.153.0
+
+### Patch Changes
+
+- caed246: Extract `@cosmicdrift/kumiko-server-runtime` as a new package carrying `runProdApp` and its
+  production-boot dependencies (compose-features, boot seeding/crypto/job-logger,
+  extra-routes-deps, pii-boot-gate, static-file serving, prod bundle build, session-wiring).
+
+  `@cosmicdrift/kumiko-dev-server` now depends on `kumiko-server-runtime` for these shared
+  pieces instead of bundling them directly, and no longer exports `runProdApp` or
+  `compose-features` from its own subpaths — apps must import those from
+  `@cosmicdrift/kumiko-server-runtime` (see the package's README/exports). This is a breaking
+  change for anyone importing `runProdApp`/`composeFeatures` from `@cosmicdrift/kumiko-dev-server`
+  directly; `runDevApp` and the rest of `kumiko-dev-server`'s public API are unaffected.
+
+  The net effect: a production app that only needs `runProdApp` no longer pulls `ts-morph` and
+  the scaffolding/codegen toolchain into its `node_modules`.
+
+- Updated dependencies [caed246]
+  - @cosmicdrift/kumiko-server-runtime@0.153.0
+  - @cosmicdrift/kumiko-framework@0.153.0
+  - @cosmicdrift/kumiko-bundled-features@0.153.0
+
+## 0.152.0
+
+### Patch Changes
+
+- Updated dependencies [e32807e]
+- Updated dependencies [3dd1f99]
+  - @cosmicdrift/kumiko-framework@0.152.0
+  - @cosmicdrift/kumiko-bundled-features@0.152.0
+
+## 0.151.1
+
+### Patch Changes
+
+- Updated dependencies [5c1dc93]
+  - @cosmicdrift/kumiko-framework@0.151.1
+  - @cosmicdrift/kumiko-bundled-features@0.151.1
+
+## 0.151.0
+
+### Patch Changes
+
+- Updated dependencies [ca4edbf]
+- Updated dependencies [624dcc5]
+- Updated dependencies [97ca76d]
+  - @cosmicdrift/kumiko-framework@0.151.0
+  - @cosmicdrift/kumiko-bundled-features@0.151.0
+
+## 0.150.0
+
+### Minor Changes
+
+- 0e4cec9: Fix-Batch aus dem PR-Review-Prozess (Quellen: #1035, #1036, #1037, #1041, #1042,
+  #1043, #1049, #1050, #1052, #1053, #1056, #1064, #1034).
+
+  - `@cosmicdrift/kumiko-framework/engine` exportiert neu `isEncryptedAtRest(def)` —
+    ein Config-Key gilt als verschlüsselt wenn `encrypted: true` ODER
+    `backing: "secrets"` gesetzt ist. Ersetzt drei bisher unabhängig abweichende
+    Ableitungen (feature-manifest.ts, cascade/values.query.ts) und schließt eine
+    Boot-Validator-Lücke: `computed`/`allowPerRequest` auf einem
+    `backing: "secrets"`-Key failt jetzt am Boot statt zur Laufzeit durchzurutschen.
+  - `RunProdAppOptions` bekommt `observabilityOptions` (Passthrough zur
+    Auto-Instrumentation) — vorher nur über den Low-Level-Entrypoint erreichbar.
+  - `@cosmicdrift/kumiko-bundled-features/auth-mfa`: `currentTotpCode` (Test-Hook,
+    nie ein Runtime-Helper) zieht aus dem Haupt-Barrel in einen neuen
+    `./auth-mfa/testing`-Subpath — Import-Pfad ändert sich für Tests, die den
+    Live-Code direkt aus einem Secret ableiten wollen.
+  - MFA-Enrollment-UI: `mfa-enable-screen.tsx` importiert `qrcode/lib/browser`
+    statt `qrcode` (vermeidet Node-only Deps wie yargs/pngjs im Client-Bundle;
+    Bundle-Impact lokal nicht verifiziert), fängt Fehler jetzt in try/catch statt
+    den Busy-State hängen zu lassen. `mfa-verify-screen.tsx` bekommt ein
+    optionales `onCancel`, damit dead-end-Fehler (challenge_expired,
+    too_many_attempts) einen Weg zurück zum Login haben.
+  - Diverse Low-Sev-Fixes: base32-Decode toleriert `=`-Padding und validiert
+    Restbits, Rate-Limit-Fix im public-share-token-Recipe (ip+handler statt
+    user+handler bei openToAll), i18n-Lücken (mfa_not_supported-Key,
+    styleguide-Sample-Übersetzungen), tote Kommentar-Blöcke gekürzt,
+    password-hashing-Imports innerhalb bundled-features auf die tatsächliche
+    `shared/`-Quelle umgestellt (Barrel-Re-Export in `auth-email-password`
+    bewusst NICHT entfernt — bleibt als öffentlicher Re-Export bestehen, da eine
+    Entfernung ein Breaking Change für published Consumers wäre und ein eigenes
+    Deprecation-Fenster braucht).
+
+### Patch Changes
+
+- Updated dependencies [216870d]
+- Updated dependencies [0e4cec9]
+- Updated dependencies [aeb79fa]
+  - @cosmicdrift/kumiko-bundled-features@0.150.0
+  - @cosmicdrift/kumiko-framework@0.150.0
+
+## 0.149.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.149.2
+- @cosmicdrift/kumiko-framework@0.149.2
+
+## 0.149.1
+
+### Patch Changes
+
+- Updated dependencies [637b599]
+  - @cosmicdrift/kumiko-bundled-features@0.149.1
+  - @cosmicdrift/kumiko-framework@0.149.1
+
+## 0.149.0
+
+### Patch Changes
+
+- Updated dependencies [ab7e41e]
+- Updated dependencies [9a463ec]
+  - @cosmicdrift/kumiko-bundled-features@0.149.0
+  - @cosmicdrift/kumiko-framework@0.149.0
+
+## 0.148.0
+
+### Patch Changes
+
+- Updated dependencies [c7600c7]
+- Updated dependencies [cb5612d]
+  - @cosmicdrift/kumiko-bundled-features@0.148.0
+  - @cosmicdrift/kumiko-framework@0.148.0
+
+## 0.147.3
+
+### Patch Changes
+
+- Updated dependencies [0f0f675]
+  - @cosmicdrift/kumiko-bundled-features@0.147.3
+  - @cosmicdrift/kumiko-framework@0.147.3
+
+## 0.147.2
+
+### Patch Changes
+
+- Updated dependencies [3f121df]
+- Updated dependencies [dfb3c26]
+- Updated dependencies [c007b76]
+  - @cosmicdrift/kumiko-framework@0.147.2
+  - @cosmicdrift/kumiko-bundled-features@0.147.2
+
+## 0.147.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.147.1
+- @cosmicdrift/kumiko-framework@0.147.1
+
+## 0.147.0
+
+### Minor Changes
+
+- bdc5e27: Add `./observability` subpath export to `@cosmicdrift/kumiko-framework` (the public barrel existed but wasn't wired into the exports map) and additive `observability`/`metrics` pass-through options to `runProdApp` (`@cosmicdrift/kumiko-dev-server`). Apps that don't set these keep the existing Noop-provider/no-`/metrics` behavior unchanged.
+
+  Prep work for publicstatus#91 (Job-Queue-Lane-Alert needs a real Prometheus meter — publicstatus currently exposes no `/metrics` endpoint at all).
+
+### Patch Changes
+
+- Updated dependencies [bdc5e27]
+- Updated dependencies [c93de1a]
+  - @cosmicdrift/kumiko-framework@0.147.0
+  - @cosmicdrift/kumiko-bundled-features@0.147.0
+
+## 0.146.4
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.146.4
+- @cosmicdrift/kumiko-framework@0.146.4
+
+## 0.146.3
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.146.3
+- @cosmicdrift/kumiko-framework@0.146.3
+
+## 0.146.2
+
+### Patch Changes
+
+- Updated dependencies [cc25fd7]
+  - @cosmicdrift/kumiko-bundled-features@0.146.2
+  - @cosmicdrift/kumiko-framework@0.146.2
+
+## 0.146.1
+
+### Patch Changes
+
+- Updated dependencies [706cea7]
+  - @cosmicdrift/kumiko-framework@0.146.1
+  - @cosmicdrift/kumiko-bundled-features@0.146.1
+
+## 0.146.0
+
+### Patch Changes
+
+- Updated dependencies [e605b4f]
+- Updated dependencies [b00c3ed]
+- Updated dependencies [3bb719a]
+  - @cosmicdrift/kumiko-bundled-features@0.146.0
+  - @cosmicdrift/kumiko-framework@0.146.0
+
+## 0.145.1
+
+### Patch Changes
+
+- 8367193: Scaffolded apps now typecheck cleanly out of the box.
+
+  - Add `@types/react` + `@types/react-dom` to the generated app's devDependencies (fixes ~900 TS7xxx errors from untyped React/JSX).
+  - Generated `src/client.tsx` wraps `DefaultAppShell` in a local `AppShell` that supplies the required `brand` prop, so `createKumikoApp({ shell })` typechecks against the renderer signature (fixes the TS2322 "Property 'brand' is missing" errors).
+  - Post-create next-steps banner is now English.
+  - @cosmicdrift/kumiko-framework@0.145.1
+  - @cosmicdrift/kumiko-bundled-features@0.145.1
+
+## 0.145.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.145.0
+- @cosmicdrift/kumiko-framework@0.145.0
+
+## 0.144.0
+
+### Patch Changes
+
+- Updated dependencies [c7d0ef8]
+  - @cosmicdrift/kumiko-framework@0.144.0
+  - @cosmicdrift/kumiko-bundled-features@0.144.0
+
+## 0.143.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.143.1
+- @cosmicdrift/kumiko-framework@0.143.1
+
+## 0.143.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.143.0
+- @cosmicdrift/kumiko-framework@0.143.0
+
+## 0.142.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.142.0
+- @cosmicdrift/kumiko-framework@0.142.0
+
+## 0.141.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.141.0
+- @cosmicdrift/kumiko-framework@0.141.0
+
+## 0.140.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.140.0
+- @cosmicdrift/kumiko-framework@0.140.0
+
+## 0.139.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.139.0
+- @cosmicdrift/kumiko-framework@0.139.0
+
+## 0.138.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.138.0
+- @cosmicdrift/kumiko-framework@0.138.0
+
+## 0.137.0
+
+### Patch Changes
+
+- Updated dependencies [fdd7c40]
+  - @cosmicdrift/kumiko-framework@0.137.0
+  - @cosmicdrift/kumiko-bundled-features@0.137.0
+
+## 0.136.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.136.1
+- @cosmicdrift/kumiko-framework@0.136.1
+
+## 0.136.0
+
+### Patch Changes
+
+- Updated dependencies [f5a7f51]
+  - @cosmicdrift/kumiko-framework@0.136.0
+  - @cosmicdrift/kumiko-bundled-features@0.136.0
+
+## 0.135.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.135.0
+- @cosmicdrift/kumiko-framework@0.135.0
+
+## 0.134.0
+
+### Patch Changes
+
+- Updated dependencies [9eab762]
+  - @cosmicdrift/kumiko-framework@0.134.0
+  - @cosmicdrift/kumiko-bundled-features@0.134.0
+
+## 0.133.0
+
+### Patch Changes
+
+- Updated dependencies [9521906]
+  - @cosmicdrift/kumiko-framework@0.133.0
+  - @cosmicdrift/kumiko-bundled-features@0.133.0
+
+## 0.132.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.132.0
+- @cosmicdrift/kumiko-framework@0.132.0
+
+## 0.131.0
+
+### Minor Changes
+
+- ce77f02: `kumiko add feature` scaffoldet die volle App-Feature-Konvention (constants.ts, i18n.ts mit Boot-Pflichtkeys, schema/, web/-Client-Stub, validateBoot-Test) statt nur feature.ts+index.ts. Referenz-Doku: docs/reference/app-feature-structure.md.
+
+### Patch Changes
+
+- Updated dependencies [99008c9]
+- Updated dependencies [d814026]
+  - @cosmicdrift/kumiko-framework@0.131.0
+  - @cosmicdrift/kumiko-bundled-features@0.131.0
+
+## 0.130.2
+
+### Patch Changes
+
+- Updated dependencies [98ed535]
+  - @cosmicdrift/kumiko-bundled-features@0.130.2
+  - @cosmicdrift/kumiko-framework@0.130.2
+
 ## 0.130.1
 
 ### Patch Changes

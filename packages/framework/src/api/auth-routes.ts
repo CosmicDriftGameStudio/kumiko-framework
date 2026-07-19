@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
-import { stripForbiddenMembershipRoles } from "../engine/membership-roles";
+import { buildSessionRoles } from "../engine/membership-roles";
 import { createSystemUser } from "../engine/system-user";
 import { type SessionUser, SYSTEM_TENANT_ID, type TenantId } from "../engine/types";
 import { NotFoundError } from "../errors";
@@ -95,6 +95,16 @@ function clearAuthCookies(c: Context, domain?: string): void {
 const LoginBody = z.object({
   email: z.string().min(1),
   password: z.string(),
+});
+
+// Body schema for POST /auth/mfa/verify. challengeToken is opaque to the
+// framework — it's minted and verified entirely by the mfaVerifyHandler
+// (auth-mfa owns the token format, TOTP/recovery-code check, and the
+// brute-force cap). code covers both 6-digit TOTP and XXXX-XXXX recovery
+// codes (9 chars incl. the dash).
+const MfaVerifyBody = z.object({
+  challengeToken: z.string().min(1),
+  code: z.string().min(6).max(9),
 });
 
 const ResetPasswordBody = z.object({
@@ -217,6 +227,28 @@ export type AuthRoutesConfig = {
   // Rate-limit for POST /auth/login. Defaults to in-memory 10/5min per
   // (ip + email) bucket. Pass `null` to disable (tests, trusted networks).
   loginRateLimit?: LoginRateLimiter | null;
+  // Optional: qualified write handler completing a two-step (password +
+  // TOTP/recovery-code) login. When set, POST /auth/mfa/verify dispatches
+  // { challengeToken, code } to this handler with a guest identity. On
+  // success the handler must return { kind: "mfa-verify-success", session:
+  // SessionUser } and the route mints a JWT exactly like /auth/login.
+  // Everything MFA-specific (challenge-token format, TOTP/recovery check,
+  // the per-account brute-force cap) is owned by the handler — the
+  // framework stays as agnostic about it as it is about password hashing.
+  mfaVerifyHandler?: string;
+  // Maps mfaVerifyHandler error codes to HTTP status codes, same pattern as
+  // loginErrorStatusMap. Unknown errors default to the error's own httpStatus.
+  mfaVerifyErrorStatusMap?: Readonly<Record<string, number>>;
+  // Rate-limit for POST /auth/mfa/verify, keyed by client IP. Defaults to
+  // in-memory 10/5min. Pass `null` to disable. This is DELIBERATELY separate
+  // from loginRateLimit: unlike /auth/login (a dispatcher write-handler
+  // route that could inherit a handler-level rateLimit), this is a
+  // framework route with no handler.rateLimit to fall back on — and it's
+  // also separate from any per-account brute-force cap the mfaVerifyHandler
+  // enforces itself (see its own doc comment) — IP-scoped abuse protection
+  // and per-account guessing protection are different threats, neither
+  // substitutes for the other.
+  mfaVerifyRateLimit?: LoginRateLimiter | null;
   // Session-lifecycle callbacks. When both are wired the JWT carries a `jti`
   // (sid) and the server can revoke individual sessions (logout, compromise,
   // password-change). When unwired the framework issues plain stateless JWTs.
@@ -441,6 +473,23 @@ export function createAuthRoutes(
   const cookieSameSite = config.cookieSameSite ?? "lax";
   const cookieDomain = config.cookieDomain;
 
+  // Shared tail of every route that ends a request logged-in: create the
+  // session record (if wired), sign the JWT, set the auth+csrf cookies. Was
+  // duplicated 5x (login/signup-confirm/invite-accept-with-login/invite-
+  // signup-complete/switch-tenant) — extracted so a 6th caller (mfa-verify)
+  // doesn't grow it to 6.
+  async function mintSessionAndRespond(c: Context, session: SessionUser): Promise<string> {
+    let sessionForJwt = session;
+    if (config.sessionCreator) {
+      const sid = await config.sessionCreator(session, requestMeta(c));
+      sessionForJwt = { ...session, sid };
+    }
+    const token = await jwt.sign(sessionForJwt);
+    const csrfToken = generateToken();
+    setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+    return token;
+  }
+
   // POST /auth/login — public endpoint (bypasses auth middleware via PUBLIC_API_PATHS).
   // The configured login handler authenticates and returns a SessionUser;
   // the route signs the JWT and hands it back to the client.
@@ -494,32 +543,113 @@ export function createAuthRoutes(
         return c.json({ isSuccess: false, error: result.error }, status);
       }
 
-      // @cast-boundary engine-payload — generic dispatcher.write result for auth-session handler
-      const data = result.data as { kind: "auth-session"; session: SessionUser };
+      // @cast-boundary engine-payload — generic dispatcher.write result for
+      // login. Three possible shapes: a straight session, an MFA challenge
+      // when the loginHandler is wired with a second-factor gate, or a hard
+      // block when enforcement policy demands MFA but the user never
+      // enrolled (see auth-mfa's config.ts for why this has no in-band
+      // recovery yet).
+      const data = result.data as
+        | { kind: "auth-session"; session: SessionUser }
+        | { kind: "mfa-challenge"; challengeToken: string }
+        | { kind: "mfa-setup-required" };
 
-      // Session creation (optional). Creating the session BEFORE signing the
-      // JWT is load-bearing: the sid must exist on the server before the
-      // token that references it can be handed out, otherwise a fast client
-      // could arrive at an auth-middleware check before the insert commits.
-      let sessionForJwt: SessionUser = data.session;
-      if (config.sessionCreator) {
-        const sid = await config.sessionCreator(data.session, requestMeta(c));
-        sessionForJwt = { ...data.session, sid };
+      if (data.kind === "mfa-setup-required") {
+        // No session, no challenge — the client must show an
+        // enrollment-required message. No rate-limit reset (same reasoning
+        // as the mfa-challenge branch below).
+        return c.json({ isSuccess: true, mfaSetupRequired: true });
       }
 
-      const token = await jwt.sign(sessionForJwt);
+      if (data.kind === "mfa-challenge") {
+        // No session minted yet — no cookies, no token. The client must
+        // complete /auth/mfa/verify with this token before it gets either.
+        // Rate-limit counter is NOT reset here: a "correct password, wrong/
+        // no TOTP yet" outcome hasn't proven the caller owns the account any
+        // more than a wrong password did.
+        return c.json({ isSuccess: true, mfaRequired: true, challengeToken: data.challengeToken });
+      }
+
+      // Session creation (optional) + JWT sign + cookies — see
+      // mintSessionAndRespond. Creating the session BEFORE signing the JWT
+      // is load-bearing: the sid must exist on the server before the token
+      // that references it can be handed out, otherwise a fast client could
+      // arrive at an auth-middleware check before the insert commits.
+      const token = await mintSessionAndRespond(c, data.session);
 
       if (rateLimiter) {
         await rateLimiter.reset(rateLimitKey);
       }
 
-      // Cookie transport (web): set HttpOnly auth cookie + JS-readable csrf
-      // cookie. Bearer transport (native) reads the token from the body
-      // below — the token is returned for both, so a Bearer client that
-      // ignores Set-Cookie keeps working without any server-side knowledge
-      // of which transport this client will use next.
-      const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+      return c.json({
+        isSuccess: true,
+        token,
+        user: { id: data.session.id, tenantId: data.session.tenantId, roles: data.session.roles },
+      });
+    });
+  }
+
+  // POST /auth/mfa/verify — completes a two-step login. Mirrors /auth/login
+  // structurally (public, GUEST_USER dispatch, mintSessionAndRespond on
+  // success) but with its OWN rate limiter (mfaVerifyRateLimit) — this route
+  // never goes through a dispatcher write-handler's own rateLimit config,
+  // so without this it would have NO rate limiting at all. Per-account
+  // brute-force protection (capping wrong-code guesses against one
+  // still-valid challenge token) is a separate mechanism the handler itself
+  // owns — see AuthRoutesConfig.mfaVerifyHandler's doc comment.
+  if (config.mfaVerifyHandler) {
+    const mfaVerifyQn = config.mfaVerifyHandler;
+    const statusMap = config.mfaVerifyErrorStatusMap ?? {};
+    const rateLimiter =
+      config.mfaVerifyRateLimit === null
+        ? null
+        : (config.mfaVerifyRateLimit ?? createInMemoryLoginRateLimiter());
+
+    api.post(Routes.authMfaVerify, async (c) => {
+      const raw = await c.req.json().catch(() => null);
+      const parsed = MfaVerifyBody.safeParse(raw);
+      if (!parsed.success) {
+        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+      }
+      const body = parsed.data;
+
+      const clientIp =
+        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+        c.req.header("x-real-ip") ??
+        "unknown";
+
+      if (rateLimiter) {
+        const allowed = await rateLimiter.check(clientIp);
+        if (!allowed) {
+          return c.json({ isSuccess: false, error: "rate_limited" }, 429);
+        }
+      }
+
+      const result = await dispatcher.write(mfaVerifyQn, body, GUEST_USER);
+
+      if (!result.isSuccess) {
+        // @cast-boundary error-details — KumikoError.details shape is per-error
+        const reason =
+          (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
+        // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
+        const status = (statusMap[reason] ?? result.error.httpStatus) as
+          | 400
+          | 401
+          | 403
+          | 422
+          | 429
+          | 500;
+        return c.json({ isSuccess: false, error: result.error }, status);
+      }
+
+      // @cast-boundary engine-payload — generic dispatcher.write result for mfa-verify handler
+      const data = result.data as { kind: "mfa-verify-success"; session: SessionUser };
+
+      const token = await mintSessionAndRespond(c, data.session);
+
+      if (rateLimiter) {
+        await rateLimiter.reset(clientIp);
+      }
 
       return c.json({
         isSuccess: true,
@@ -603,18 +733,8 @@ export function createAuthRoutes(
         tenantKey: string;
       };
 
-      // Session-Creator analog login — wenn wired, sid wird im JWT
-      // platziert und der Server kann später den Session revoken
-      // (Logout, Compromise).
-      let sessionForJwt: SessionUser = data.session;
-      if (config.sessionCreator) {
-        const sid = await config.sessionCreator(data.session, requestMeta(c));
-        sessionForJwt = { ...data.session, sid };
-      }
-
-      const token = await jwt.sign(sessionForJwt);
-      const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+      // Session creation + JWT sign + cookies — see mintSessionAndRespond.
+      const token = await mintSessionAndRespond(c, data.session);
 
       return c.json({
         isSuccess: true,
@@ -690,14 +810,7 @@ export function createAuthRoutes(
         tenantId: TenantId;
         role: string;
       }; // @cast-boundary engine-payload
-      let sessionForJwt: SessionUser = data.session;
-      if (config.sessionCreator) {
-        const sid = await config.sessionCreator(data.session, requestMeta(c));
-        sessionForJwt = { ...data.session, sid };
-      }
-      const token = await jwt.sign(sessionForJwt);
-      const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+      const token = await mintSessionAndRespond(c, data.session);
       return c.json({
         isSuccess: true,
         token,
@@ -730,14 +843,7 @@ export function createAuthRoutes(
         tenantId: TenantId;
         role: string;
       }; // @cast-boundary engine-payload
-      let sessionForJwt: SessionUser = data.session;
-      if (config.sessionCreator) {
-        const sid = await config.sessionCreator(data.session, requestMeta(c));
-        sessionForJwt = { ...data.session, sid };
-      }
-      const token = await jwt.sign(sessionForJwt);
-      const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+      const token = await mintSessionAndRespond(c, data.session);
       return c.json({
         isSuccess: true,
         token,
@@ -870,20 +976,19 @@ export function createAuthRoutes(
     // tenant A accidentally surviving into tenant B's session). The
     // resolver runs each feature's r.authClaims() hook under the new
     // TenantDb scope.
-    // Strip reserved roles from the membership portion only — globalRoles
+    // buildSessionRoles calls stripForbiddenMembershipRoles internally and
+    // strips reserved roles from the membership side only — globalRoles
     // (where SystemAdmin legitimately lives) is never filtered. Backstop for a
     // membership role that a projection rebuild resurrected past command-time
     // validation (see engine/membership-roles).
-    const mergedRoles = Array.from(
-      new Set([...globalRoles, ...stripForbiddenMembershipRoles(membership.roles)]),
-    );
+    const mergedRoles = buildSessionRoles(globalRoles, membership.roles);
     const targetSession: SessionUser = {
       id: user.id,
       tenantId: targetTenantId,
       roles: mergedRoles,
     };
     const claims = await dispatcher.resolveAuthClaims(targetSession);
-    let sessionForJwt: SessionUser =
+    const sessionForJwt: SessionUser =
       Object.keys(claims).length > 0 ? { ...targetSession, claims } : targetSession;
 
     // Session rotation: revoke old sid BEFORE creating the new one so a
@@ -895,25 +1000,10 @@ export function createAuthRoutes(
     if (config.sessionRevoker && user.sid) {
       await config.sessionRevoker(user.sid);
     }
-    if (config.sessionCreator) {
-      const sid = await config.sessionCreator(sessionForJwt, requestMeta(c));
-      sessionForJwt = { ...sessionForJwt, sid };
-    }
-
-    const newToken = await jwt.sign(sessionForJwt);
-
-    // Rotate both cookies in lock-step with the new JWT. A fresh csrfToken
-    // is minted so a compromised csrf-value (e.g. leaked via a bug in the
-    // app's JS) can't cross a tenant boundary. Bearer-only clients get
-    // the new token in the body below — their Set-Cookie is a no-op
-    // because the browser never sent cookies.
-    const csrfToken = generateToken();
-    setAuthCookies(c, {
-      token: newToken,
-      csrfToken,
-      sameSite: cookieSameSite,
-      domain: cookieDomain,
-    });
+    // Session creation + JWT sign + cookies — see mintSessionAndRespond. A
+    // fresh csrfToken is minted (inside the helper) so a compromised csrf-
+    // value can't cross a tenant boundary.
+    const newToken = await mintSessionAndRespond(c, sessionForJwt);
 
     return c.json({ token: newToken, tenantId: targetTenantId, roles: mergedRoles });
   });

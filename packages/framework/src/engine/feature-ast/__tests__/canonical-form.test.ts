@@ -56,7 +56,10 @@ defineFeature("todoList", (r) => {
   r.defineEvent({
     name: "taskCompleted",
     schema: z.object({ id: z.string() }),
-    version: 1,
+    version: 2,
+    migrations: {
+      "1": (old) => ({ ...old, done: true }),
+    },
   });
 
   r.writeHandler({
@@ -83,9 +86,9 @@ defineFeature("todoList", (r) => {
     },
   });
 
-  r.entityHook({
+  r.hook({
     type: "postDelete",
-    entity: "task",
+    target: { allOf: "task" },
     handler: async (event, ctx) => {
       console.log("task deleted");
     },
@@ -126,13 +129,6 @@ defineFeature("todoList", (r) => {
   r.systemScope();
 
   r.useExtension({ name: "auditLog", entity: "task" });
-
-  r.eventMigration({
-    event: "taskCompleted",
-    fromVersion: 1,
-    toVersion: 2,
-    transform: (old) => ({ ...old, done: true }),
-  });
 
   r.job({
     name: "cleanupExpired",
@@ -224,7 +220,6 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
       "writeHandler",
       "queryHandler",
       "hook",
-      "entityHook",
       "job",
       "notification",
       "authClaims",
@@ -232,7 +227,6 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
       "projection",
       "multiStreamProjection",
       "defineEvent",
-      "eventMigration",
     ];
     for (const e of expected) {
       expect(kinds.has(e), `expected kind "${e}"`).toBe(true);
@@ -265,12 +259,14 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("entityHook Pattern: type + entity aus Object-Form", () => {
-    const entityHook = result.patterns.find((p) => p.kind === "entityHook");
+  test("hook Pattern: entity-wide { allOf } target aus Object-Form", () => {
+    const entityHook = result.patterns.find(
+      (p) => p.kind === "hook" && p.hookType === "postDelete",
+    );
     expect(entityHook).toMatchObject({
-      kind: "entityHook",
+      kind: "hook",
       hookType: "postDelete",
-      entityName: "task",
+      target: { allOf: "task" },
     });
   });
 
@@ -283,12 +279,13 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     expect(claim).toMatchObject({ kind: "claimKey", shortName: "teamId" });
   });
 
-  test("defineEvent: name + version aus Object-Form", () => {
+  test("defineEvent: name + version + migrations aus Object-Form", () => {
     const ev = result.patterns.find((p) => p.kind === "defineEvent");
     expect(ev).toMatchObject({
       kind: "defineEvent",
       eventName: "taskCompleted",
-      version: 1,
+      version: 2,
+      migrations: { "1": expect.anything() },
     });
   });
 
@@ -331,16 +328,6 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
       kind: "useExtension",
       extensionName: "auditLog",
       entityName: "task",
-    });
-  });
-
-  test("eventMigration: event + fromVersion + toVersion aus Object-Form", () => {
-    const em = result.patterns.find((p) => p.kind === "eventMigration");
-    expect(em).toMatchObject({
-      kind: "eventMigration",
-      eventName: "taskCompleted",
-      fromVersion: 1,
-      toVersion: 2,
     });
   });
 

@@ -8,7 +8,10 @@ import {
 } from "../db/queries/projection-rebuild";
 import {
   assertLiveColumnsMatchMeta,
+  assertNoUnreachableLiveRows,
   buildShadowTable,
+  type ColumnDriftResult,
+  countColumnDrift,
   ensureRebuildSchema,
   fenceLiveTable,
   rebuildMetaOrThrow,
@@ -133,6 +136,11 @@ export type RebuildResult = {
   readonly eventsSkipped: number;
   readonly lastProcessedEventId: bigint;
   readonly durationMs: number;
+  // Live rows whose columns differ from the freshly-replayed shadow (bidx
+  // columns excluded — see countColumnDrift). Non-blocking: the swap
+  // proceeds regardless (#916). 0 for explicit projections (guard is
+  // implicit-only) or when no drift was found.
+  readonly columnDriftCount: number;
 };
 
 type RebuildDeps = {
@@ -177,6 +185,27 @@ type RebuildDeps = {
   readonly __test_onBuildShadowTable?: () => void;
 };
 
+// Ops-facing log line for countColumnDrift's result. No-op when clean. #916.
+function warnOnColumnDrift(
+  projectionName: string,
+  tableName: string,
+  drift: ColumnDriftResult,
+): void {
+  // skip: no drift found — nothing to warn about
+  if (drift.rowCount === 0) return;
+  const sampledIds = new Set(drift.sample.map((s) => s.slice(0, s.lastIndexOf("."))));
+  const countLabel =
+    sampledIds.size < drift.rowCount
+      ? `${drift.rowCount} (sample truncated)`
+      : String(drift.rowCount);
+  console.warn(
+    `projection-rebuild "${projectionName}": ${countLabel} live row(s) in "${tableName}" have ` +
+      `column values that differ from the freshly-replayed shadow (sample: ${drift.sample.join(", ")}). ` +
+      "Not blocking — replay wins on swap. Likely cause: a legacy direct-write predating the row's " +
+      "event history (#494), or a sensitive custom field pending #972. Investigate if unexpected.",
+  );
+}
+
 export async function rebuildProjection(
   projectionName: string,
   deps: RebuildDeps,
@@ -204,6 +233,7 @@ export async function rebuildProjection(
   const fenceLockTimeoutMs = deps.fenceLockTimeoutMs ?? DEFAULT_FENCE_LOCK_TIMEOUT_MS;
   const startedAt = Date.now();
   let eventsProcessed = 0;
+  let columnDriftCount = 0;
   let lastProcessedEventId = 0n;
   const skipApplyErrors = deps.errorPolicy?.skipApplyErrors === true;
   // Quarantined events, collected in memory and written once after the
@@ -308,7 +338,7 @@ export async function rebuildProjection(
           while ((await drainBatch(tx)) === REBUILD_BATCH_SIZE) {
             // re-replay the full log into the fresh shadow
           }
-          // 656/2: drainBatch increments eventsProcessed for every drained row
+          // drainBatch increments eventsProcessed for every drained row
           // regardless of quarantine (skipApplyErrors), so this must hold
           // exactly under the fence — a mismatch means drainBatch silently
           // dropped a row instead of counting it, which the rest of this
@@ -325,6 +355,17 @@ export async function rebuildProjection(
 
       if (skipped.length > 0) {
         await recordRebuildDeadLetters(tx, projectionName, skipped);
+      }
+      // Guard the swap: abort if the live table holds a row no event can
+      // reconstruct (#498 ghost — direct-inserted without a .created event),
+      // which the swap would silently drop. Implicit projections only.
+      if (projection.isImplicit === true) {
+        await assertNoUnreachableLiveRows(tx, projectionName, meta.tableName, sourcesList);
+        // Non-blocking counterpart: reports column-level drift (bidx excluded)
+        // without aborting — see countColumnDrift for why this isn't fail-hard.
+        const drift = await countColumnDrift(tx, meta.tableName, meta);
+        columnDriftCount = drift.rowCount;
+        warnOnColumnDrift(projectionName, meta.tableName, drift);
       }
       await finalizeProjectionRebuild(tx, projectionName, lastProcessedEventId);
       await swapShadowIntoLive(tx, meta.tableName);
@@ -354,6 +395,7 @@ export async function rebuildProjection(
     eventsSkipped: skipped.length,
     lastProcessedEventId,
     durationMs: Date.now() - startedAt,
+    columnDriftCount,
   };
   if (deps.meter) {
     emitProjectionRebuild(

@@ -12,13 +12,13 @@ export type FieldAccess = {
   readonly write?: OwnershipMap | readonly string[];
 };
 
-// `sensitive: true` — the field's value is excluded from event payloads
-// (create data, update changes/previous, delete/restore previous). The entity
-// row still stores it; only the immutable event-log won't. Use for data that
-// must never land in permanent history: password hashes, API tokens,
-// unhashed PII, bank details, tax IDs. The trade-off: event-replay and
-// custom projections cannot read sensitive field values. See
-// docs/plans/architecture/projections.md.
+// `sensitive: true` — the field's value is excluded from caller-facing event
+// echoes in write responses (#820) and MUST be ciphertext-at-rest: boot
+// validation requires a subject annotation (pii / userOwned / tenantOwned)
+// or `encrypted: true` (#967). Event payloads carry the table ciphertext,
+// so replay reproduces the row byte-identically; plaintext never lands in
+// permanent history. Use for password hashes, API tokens, bank details,
+// tax IDs. See docs/plans/architecture/projections.md.
 
 // --- PII / Subject-Key Annotations (DSGVO Art. 17 — Crypto-Shredding) ---
 //
@@ -107,6 +107,12 @@ export type TextFieldDef = {
    *  Default: false — analog zu `sortable`, opt-in. */
   readonly filterable?: boolean;
   readonly encrypted?: boolean;
+  /** User/admin may legitimately see the value (their own IBAN, passport
+   *  number) — unlike `r.secret()`, which only server code reads. A
+   *  declarative alias over the subject-KMS (pii/userOwned/tenantOwned):
+   *  only allowed on `type: "text"`, can't combine with `searchable`/
+   *  `sortable` (boot validator, kumiko-platform#231/#456). */
+  readonly piiEncrypted?: boolean;
   readonly sensitive?: boolean;
   readonly format?: "email" | "url" | "phone";
   readonly default?: string;
@@ -197,6 +203,14 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
   readonly access?: FieldAccess;
 } & PiiAnnotations;
 
+/**
+ * Storage: `integer` flag decides the Postgres column type, not just Zod
+ * validation. `integer: true` → `integer` column (32-bit, ~±2.1 billion),
+ * write-boundary enforces `.int()`. Omitted/`false` (the default) →
+ * `double precision` column — fractional values are accepted end to end.
+ * Need exact decimal storage instead of a binary float (money-adjacent
+ * math, no representation error)? Use `createDecimalField` (`numeric`).
+ */
 export type NumberFieldDef = {
   readonly type: "number";
   readonly required?: boolean;
@@ -205,10 +219,9 @@ export type NumberFieldDef = {
   readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
-  // Write-boundary constraints (Zod-level, no migration/storage impact — the
-  // Postgres column stays a plain numeric). Opt-in, so existing entities are
-  // unaffected.
   readonly min?: number;
+  /** `true` → `integer` column + `.int()` Zod validation. Omitted/`false` →
+   *  `double precision` column, fractional values allowed. */
   readonly integer?: boolean;
 } & PiiAnnotations;
 
@@ -354,7 +367,7 @@ export type JsonbFieldDef = {
 // Legacy "date" — JS-Date-Object, semantisch unklar (Wall-Clock vs Instant).
 // Für neue Felder bevorzuge:
 //   - `timestamp` für UTC-Instant ("wann ist das passiert")
-//   - `locatedTimestamp(name)` Helper für Termine die an einem Ort
+//   - `createLocatedTimestampField()` für Termine die an einem Ort
 //     stattfinden ("Pickup um 10:00 in Lissabon")
 //   - (kommt) `plainDate` für Kalender-Daten ohne Uhrzeit (z.B. Geburtstag)
 // Siehe docs/plans/architecture/timezones.md
@@ -384,8 +397,8 @@ export type DateFieldDef = {
 // speichert Wall-Clock+tz und konvertiert transparent (siehe DB-Wrapper,
 // kommt in einer späteren Iteration).
 //
-// Verwendung über den `locatedTimestamp(name)` Helper, der das Pair atomar
-// erzeugt und die Marker korrekt verdrahtet.
+// Für neue Felder bevorzuge `createLocatedTimestampField()` — EIN atomares
+// Feld statt eines lose verdrahteten Pairs (siehe LocatedTimestampFieldDef).
 export type TimestampFieldDef = {
   readonly type: "timestamp";
   readonly required?: boolean;
@@ -397,8 +410,9 @@ export type TimestampFieldDef = {
    * Marker: dieses Timestamp-Feld ist Wall-Clock-Zeit an einem Ort.
    * Wert ist der Name des begleitenden tz-Felds (IANA-Zone).
    *
-   * Beispiel: `locatedTimestamp("pickup")` erzeugt
+   * Beispiel: manuelles Pair
    *   { pickupAt: { type: "timestamp", locatedBy: "pickupTz" }, pickupTz: { type: "tz" } }
+   * — bevorzuge stattdessen `createLocatedTimestampField()`.
    */
   readonly locatedBy?: string;
   /** Erlaubte Grenzen als ISO-Datetime. Begrenzt den Picker auf

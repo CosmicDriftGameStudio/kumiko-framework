@@ -1,10 +1,14 @@
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
+  DashboardFilterDefinition,
+  DashboardPanelDefinition,
+  DashboardScreenDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   FeatureDefinition,
   NavDefinition,
+  ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
   ScreenDefinition,
@@ -18,6 +22,9 @@ export const ACTION_FORM_ENTITY = "__action-form__";
 
 /** Pseudo-entity for configEdit field labels (renderer config-edit-shim). */
 export const CONFIG_EDIT_ENTITY = "__config-edit__";
+
+/** Pseudo-entity for projectionDetail field labels (renderer projection-detail-shim). */
+export const PROJECTION_DETAIL_ENTITY = "__projection-detail__";
 
 export function fieldLabelKey(featureName: string, entityName: string, fieldName: string): string {
   return `${featureName}:entity:${entityName}:field:${fieldName}`;
@@ -65,6 +72,34 @@ function pushRowActionKeys(out: Set<string>, action: RowAction): void {
   }
 }
 
+function pushDashboardScreenKeys(out: Set<string>, dashboard: DashboardScreenDefinition): void {
+  for (const panel of dashboard.panels) pushDashboardPanelKeys(out, panel);
+  if (dashboard.filter !== undefined) pushDashboardFilterKeys(out, dashboard.filter);
+}
+
+function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinition): void {
+  // skip: custom-Panel übersetzt sich selbst, kein Key hier
+  if (panel.kind === "custom") return;
+  pushKey(out, panel.label);
+  if (panel.kind === "stat-group") {
+    for (const stat of panel.stats) pushKey(out, stat.label);
+  }
+  if (panel.kind === "list") {
+    for (const col of panel.columns) {
+      const normalized = normalizeListColumn(col);
+      if (normalized.label !== undefined) pushKey(out, normalized.label);
+    }
+  }
+  if (panel.kind === "feed" && panel.emptyLabel !== undefined) pushKey(out, panel.emptyLabel);
+}
+
+function pushDashboardFilterKeys(out: Set<string>, filter: DashboardFilterDefinition): void {
+  pushKey(out, filter.label);
+  if (filter.allLabel !== undefined) pushKey(out, filter.allLabel);
+  if (filter.placeholder !== undefined) pushKey(out, filter.placeholder);
+  for (const opt of filter.options ?? []) pushKey(out, opt.label);
+}
+
 function pushToolbarActionKeys(out: Set<string>, action: ToolbarAction): void {
   pushKey(out, action.label);
   if (action.kind === "writeHandler") {
@@ -104,6 +139,10 @@ export function requiredKeysFromScreen(
       }
       for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
       for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
+      break;
+    }
+    case "dashboard": {
+      pushDashboardScreenKeys(out, screen as DashboardScreenDefinition);
       break;
     }
     case "entityEdit": {
@@ -162,6 +201,20 @@ export function requiredKeysFromScreen(
           const override = config.fieldLabels?.[fieldName];
           if (override !== undefined) pushKey(out, override);
           else out.add(fieldLabelKey(featureName, CONFIG_EDIT_ENTITY, fieldName));
+        }
+      }
+      break;
+    }
+    case "projectionDetail": {
+      const detail = screen as ProjectionDetailScreenDefinition;
+      for (const section of detail.layout.sections) {
+        if (isExtensionEditSection(section)) continue; // rejected at boot, unreachable here
+        pushKey(out, section.title);
+        for (const f of section.fields) {
+          const fieldName = editFieldName(f);
+          const override = detail.fieldLabels?.[fieldName];
+          if (override !== undefined) pushKey(out, override);
+          else out.add(fieldLabelKey(featureName, PROJECTION_DETAIL_ENTITY, fieldName));
         }
       }
       break;

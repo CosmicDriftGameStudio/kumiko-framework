@@ -93,7 +93,7 @@ export type SchemaSource =
 export type ScanWarning = {
   readonly file: string;
   readonly line: number;
-  readonly reason: string;
+  readonly message: string;
 };
 
 export type ScanResult = {
@@ -152,7 +152,7 @@ function collectTsFiles(dir: string, out: string[]): void {
   try {
     entries = readdirSync(dir);
   } catch {
-    // Directory missing — fine, just no files to scan there.
+    // skip: directory unreadable, nothing to scan there
     return;
   }
   for (const entry of entries) {
@@ -224,8 +224,9 @@ function collectFromDefineEvent(
     warnings.push({
       file: filePath,
       line: call.getStartLineNumber(),
-      reason: "r.defineEvent: cannot read event-name + schema statically",
+      message: "r.defineEvent: cannot read event-name + schema statically",
     });
+    // skip: defineEvent call shape not statically parseable, already recorded as warning
     return;
   }
 
@@ -241,8 +242,9 @@ function collectFromDefineEvent(
     warnings.push({
       file: filePath,
       line: call.getStartLineNumber(),
-      reason: `r.defineEvent("${parsed.eventName}"): schema "${parsed.schemaNode.getText()}" — not a named import nor an inline z.* call, skipped`,
+      message: `r.defineEvent("${parsed.eventName}"): schema "${parsed.schemaNode.getText()}" — not a named import nor an inline z.* call, skipped`,
     });
+    // skip: schema source not resolvable, already recorded as warning
     return;
   }
 
@@ -544,7 +546,7 @@ function dedupe(events: ScannedEvent[], warnings: ScanWarning[]): ScannedEvent[]
       warnings.push({
         file: ev.source.file,
         line: ev.source.line,
-        reason: `duplicate r.defineEvent("${ev.qualifiedName}") — first declared at ${existing.source.file}:${existing.source.line}, ignored here`,
+        message: `duplicate r.defineEvent("${ev.qualifiedName}") — first declared at ${existing.source.file}:${existing.source.line}, ignored here`,
       });
       continue;
     }

@@ -40,6 +40,7 @@ const testPrimitives: CorePrimitives = {
   Lightbox: noop,
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
+  Link: noop,
 };
 
 function moneyField(): EditFieldViewModel {

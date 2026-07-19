@@ -1,9 +1,4 @@
-import {
-  createEntity,
-  createTextField,
-  defineFeature,
-  registerEntityCrud,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const employeeEntity = createEntity({
   table: "read_hr_employees",
@@ -29,13 +24,13 @@ const hrWrite = { access: { roles: ["Admin"] } } as const;
 const hrRead = { access: { roles: ["Admin"] } } as const;
 
 export const hrFeature = defineFeature("hr", (r) => {
-  registerEntityCrud(r, "employee", employeeEntity, {
+  r.crud("employee", employeeEntity, {
     write: hrWrite,
     read: hrRead,
     verbs: { update: false, delete: false, restore: false },
   });
 
-  registerEntityCrud(r, "hr-comment", hrCommentEntity, {
+  r.crud("hr-comment", hrCommentEntity, {
     write: hrWrite,
     read: hrRead,
     verbs: { update: false, delete: false, restore: false, list: false },

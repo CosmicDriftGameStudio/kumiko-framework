@@ -87,14 +87,14 @@ export function useQuery<TData = unknown>(
 
     setLoading(true);
     const result = await dispatcher.query<TData>(type, payload, { signal: ctrl.signal });
-    // Don't update state if a newer fetch has already taken over.
+    // skip: a newer fetch already superseded this one, don't clobber its state
     if (ctrl.signal.aborted) return;
     if (result.isSuccess) {
       setData(result.data);
       setError(null);
     } else {
       // A cancelled request comes back with code "aborted" from the
-      // dispatcher — skip the state update, another run replaces it.
+      // skip: aborted request, a newer run already replaces this result
       if (result.error.code === "aborted") return;
       setError(result.error);
     }
@@ -104,6 +104,7 @@ export function useQuery<TData = unknown>(
   useEffect(() => {
     if (!enabled) {
       setLoading(false);
+      // skip: query disabled, loading state already cleared above
       return;
     }
     void run();
@@ -117,8 +118,10 @@ export function useQuery<TData = unknown>(
   // Subscription-Lifecycle genau einmal durchwalzt.
   const subscribeLive = useLiveEvents();
   useEffect(() => {
+    // skip: live mode or query disabled, no SSE subscription needed
     if (!live || !enabled) return;
     const entity = entityFromQueryType(type);
+    // skip: query type has no mapped entity, nothing to subscribe to
     if (entity === undefined) return;
     return subscribeLive(entity, () => {
       void run();

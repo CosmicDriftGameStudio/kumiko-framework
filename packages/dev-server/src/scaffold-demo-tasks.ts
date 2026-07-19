@@ -49,7 +49,7 @@ const editScreen: EntityEditScreenDefinition = {
 
 const open = { access: { openToAll: true } } as const;
 
-const tasksTranslationKeys = {
+const TASKS_I18N = {
   "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
   "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
   "tasks:entity:task:field:title": { de: "Titel", en: "Title" },
@@ -61,6 +61,7 @@ const tasksTranslationKeys = {
 /** Canonical demo feature — keep in sync with `renderDemoTasksFeatureFile()`. */
 export function createDemoTasksFeature(): FeatureDefinition {
   return defineFeature("tasks", (r) => {
+    r.translations({ keys: TASKS_I18N });
     r.entity("task", taskEntity);
     r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
     r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
@@ -69,7 +70,6 @@ export function createDemoTasksFeature(): FeatureDefinition {
     r.queryHandler(defineEntityDetailHandler("task", taskEntity, open));
     r.screen(listScreen);
     r.screen(editScreen);
-    r.translations({ keys: tasksTranslationKeys });
     r.nav({ id: "tasks", label: "Tasks", order: 10, screen: "tasks:screen:task-list" });
     r.nav({
       id: "task-new",
@@ -133,6 +133,7 @@ const editScreen: EntityEditScreenDefinition = {
 const open = { access: { openToAll: true } } as const;
 
 export const tasksFeature = defineFeature("tasks", (r) => {
+  r.translations({ keys: tasksTranslationKeys });
   r.entity("task", taskEntity);
   r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
   r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
@@ -141,7 +142,6 @@ export const tasksFeature = defineFeature("tasks", (r) => {
   r.queryHandler(defineEntityDetailHandler("task", taskEntity, open));
   r.screen(listScreen);
   r.screen(editScreen);
-  r.translations({ keys: tasksTranslationKeys });
   r.nav({ id: "tasks", label: "Tasks", order: 10, screen: "tasks:screen:task-list" });
   r.nav({
     id: "task-new",

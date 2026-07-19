@@ -301,21 +301,47 @@ describe("patch coverage for the remaining pattern-kinds", () => {
     expect(parseSourceFile(sf).patterns.find((p) => p.kind === "authClaims")).toBeUndefined();
   });
 
-  test("add + remove via PatternId for eventMigration (event+versions key)", () => {
+  test("add + remove via PatternId for defineEvent with migrations", () => {
     const sf = makeSourceFile(STARTER);
-    createFeaturePatcher(sf).addEventMigration({
-      event: "itemCreated",
-      fromVersion: 1,
-      toVersion: 2,
-      transformSource: "(old) => old",
+    createFeaturePatcher(sf).addDefineEvent({
+      name: "itemCreated",
+      schemaSource: "z.object({ id: z.string() })",
+      version: 2,
+      migrations: { "1": "(old) => old" },
     });
-    removePattern(sf, {
-      kind: "eventMigration",
-      eventName: "itemCreated",
-      fromVersion: 1,
-      toVersion: 2,
+    removePattern(sf, { kind: "defineEvent", eventName: "itemCreated" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "defineEvent")).toBeUndefined();
+  });
+
+  test("add + remove via PatternId for nav (id key)", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addNav({
+      definition: { id: "items", label: "Items", screen: "inventory:screen:list" },
     });
-    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "eventMigration")).toBeUndefined();
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "nav")).toBeDefined();
+    removePattern(sf, { kind: "nav", id: "items" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "nav")).toBeUndefined();
+  });
+
+  test("add + remove via PatternId for workspace (id key)", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addWorkspace({ definition: { id: "admin", label: "Admin" } });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "workspace")).toBeDefined();
+    removePattern(sf, { kind: "workspace", id: "admin" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "workspace")).toBeUndefined();
+  });
+
+  test("add + remove via PatternId for extendsRegistrar (extensionName key)", () => {
+    const sf = makeSourceFile(STARTER);
+    addPattern(sf, {
+      kind: "extendsRegistrar",
+      source: SAMPLE_LOC,
+      extensionName: "auditLog",
+      defBody: { ...SAMPLE_LOC, raw: "{ hooks: {} }" },
+    });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "extendsRegistrar")).toBeDefined();
+    removePattern(sf, { kind: "extendsRegistrar", extensionName: "auditLog" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "extendsRegistrar")).toBeUndefined();
   });
 });
 

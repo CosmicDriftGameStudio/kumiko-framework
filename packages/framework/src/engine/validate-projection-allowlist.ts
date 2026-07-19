@@ -13,7 +13,7 @@
 // don't run at build time, so dummy event-payloads are fine.
 //
 // CLOSURE-BODY CONTRACT: the pipeline-closure body (the function passed
-// to `pipeline(...)`) must produce its step-list deterministically based
+// to `stepsPipeline(...)`) must produce its step-list deterministically based
 // on the step-builder `r` alone. Reading `event.payload` outside of
 // resolvers (i.e. at the top of the closure, not inside a step's `row:`
 // or `data:` callback) is forbidden — at boot the dummy payload is `{}`

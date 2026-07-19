@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
   buildSampleIndex,
+  extractFeaturesFromText,
   extractReadmeSummary,
   INDEX_PATH,
   serializeSampleIndex,
@@ -57,6 +58,19 @@ describe("sample-index", () => {
         expect(Object.hasOwn(overrides, name)).toBe(true);
       }
     }
+  });
+
+  test("extractFeaturesFromText ignores commented-out example imports (655/2)", () => {
+    // Regression (655/2): run-config.ts documents an s3-env swap via a
+    // commented-out example import line ("// import { x } from
+    // '.../file-provider-s3-env';"). The raw regex scan matched that text
+    // even though the feature is never actually mounted, so the sample was
+    // wrongly listed as an s3-env consumer on every regen.
+    const text = [
+      "// import { fileProviderS3EnvFeature } from '@cosmicdrift/kumiko-bundled-features/file-provider-s3-env';",
+      "import { fileProviderInMemoryFeature } from '@cosmicdrift/kumiko-bundled-features/file-provider-inmemory';",
+    ].join("\n");
+    expect(extractFeaturesFromText(text)).toEqual(new Set(["file-provider-inmemory"]));
   });
 
   test("extractReadmeSummary reads delivery-notifications intro", () => {

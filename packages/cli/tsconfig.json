@@ -1,12 +1,12 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
+    "rootDir": "./",
+    "outDir": "./dist",
     "noEmit": false,
     "lib": ["ESNext"],
     "composite": true
   },
   "references": [{ "path": "../dev-server" }],
-  "include": ["src", "bin"]
+  "include": ["./src", "./bin"]
 }

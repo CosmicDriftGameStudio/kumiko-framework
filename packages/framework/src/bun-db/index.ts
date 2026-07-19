@@ -23,6 +23,7 @@ export {
   incrementCounter,
   insertMany,
   insertOne,
+  runInSavepoint,
   selectMany,
   transaction,
   type UpsertOnConflictOptions,

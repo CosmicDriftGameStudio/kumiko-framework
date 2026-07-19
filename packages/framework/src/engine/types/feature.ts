@@ -1,12 +1,7 @@
 import type { ZodType, z } from "zod";
 import type { EntityTableMeta } from "../../db/entity-table-meta";
-
-// PgTable historically came from drizzle-orm/pg-core; the native dialect
-// no longer carries drizzle internal class types. Every caller really
-// needs "an opaque table-object with Symbol-based introspection".
-type PgTable = unknown;
-
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "../define-handler";
+import type { RegisterEntityCrudOptions } from "../entity-handlers";
 import type {
   ConfigKeyDefinition,
   ConfigKeyHandle,
@@ -33,6 +28,7 @@ import type {
   ClaimKeyDefinition,
   ClaimKeyHandle,
   ClaimKeyType,
+  DeclarativeEventMigration,
   EntityRef,
   EventDef,
   EventMigrationDef,
@@ -70,7 +66,7 @@ import type {
 } from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
 import type { ScreenDefinition } from "./screen";
-import type { TreeActionDef, TreeActionsHandle, TreeChildrenSubscribe } from "./tree-node";
+import type { TreeActionDef, TreeActionsHandle } from "./tree-node";
 import type { WorkspaceDefinition } from "./workspace";
 
 // --- Metrics (declared by features via r.metric()) ---
@@ -130,6 +126,11 @@ export type SecretKeyHandle = {
 };
 
 // --- Raw tables (declared by features via r.rawTable()) ---
+// Post-drizzle-cut: unified with the former r.unmanagedTable() — both
+// carried the same reason/audit contract, differing only in whether the
+// table value was a legacy Drizzle PgTable (rawTable) or the framework-
+// native EntityTableMeta (unmanagedTable, consumed by migrate-runner).
+// EntityTableMeta was the forward-compatible shape, so rawTable adopted it.
 
 /** Options accepted by `r.rawTable()`. The `reason` is required so the
  *  bypass leaves an audit trail at the registration site — reviewers can
@@ -141,47 +142,29 @@ export type RawTableOptions = {
    *  payload cache, write-only by webhook handler", "denormalised
    *  projection of a non-Kumiko data source". */
   readonly reason: string;
+  /** Direct-write stores skip the executor, so the executor's PII
+   *  encryption never runs for them — a feature whose meta carries
+   *  piiSubjectFields must encrypt those fields itself before every
+   *  insert/update and declare that here, or boot fails (#820). */
+  readonly piiEncryptedOnWrite?: true;
 };
 
-/** Per-feature raw-table registration. Carries the bypass-justification
- *  reason but knows nothing about the owning feature — that's added when
- *  the registry aggregates entries cross-feature into `RawTableDef`. */
+/** Per-feature raw-table registration. `meta` is the `EntityTableMeta`
+ *  (framework-native shape used by `migrate-runner`). Carries the
+ *  bypass-justification reason but knows nothing about the owning
+ *  feature — that's added when the registry aggregates entries
+ *  cross-feature into `RawTableDef`. */
 export type RawTableEntry = {
-  readonly name: string;
-  readonly table: PgTable;
-  readonly reason: string;
-};
-
-/** Registry-aggregated raw-table — the per-feature `RawTableEntry` plus
- *  the owning feature name. This is what `Registry.getAllRawTables()`
- *  exposes to readers (dev-server, ops UIs). */
-export type RawTableDef = RawTableEntry & {
-  readonly featureName: string;
-};
-
-// --- Unmanaged tables (declared by features via r.unmanagedTable()) ---
-
-/** Per-feature unmanaged-table registration. `meta` is the
- *  `EntityTableMeta` (framework-native shape used by `migrate-runner`).
- *  The `reason` justifies the bypass at the registration site — same
- *  contract as `r.rawTable`. */
-export type UnmanagedTableEntry = {
   readonly name: string;
   readonly meta: EntityTableMeta;
   readonly reason: string;
   readonly piiEncryptedOnWrite?: true;
 };
 
-/** Options for r.unmanagedTable(). Direct-write stores skip the executor,
- *  so the executor's PII encryption never runs for them — a feature whose
- *  meta carries piiSubjectFields must encrypt those fields itself before
- *  every insert/update and declare that here, or boot fails (#820). */
-export type UnmanagedTableOptions = RawTableOptions & {
-  readonly piiEncryptedOnWrite?: true;
-};
-
-/** Registry-aggregated unmanaged-table — adds the owning feature name. */
-export type UnmanagedTableDef = UnmanagedTableEntry & {
+/** Registry-aggregated raw-table — the per-feature `RawTableEntry` plus
+ *  the owning feature name. This is what `Registry.getAllRawTables()`
+ *  exposes to readers (dev-server, ops UIs). */
+export type RawTableDef = RawTableEntry & {
   readonly featureName: string;
 };
 
@@ -296,7 +279,7 @@ export type FeatureDefinition = {
   readonly referenceData: readonly ReferenceDataDef[];
   readonly notifications: Readonly<Record<string, NotificationDefinition>>;
   readonly events: Readonly<Record<string, EventDef>>;
-  // Event schema migrations declared via r.eventMigration(). Keyed by event
+  // Event schema migrations declared via defineEvent's `migrations` option. Keyed by event
   // short-name; each entry carries the step transforms (fromVersion →
   // toVersion). The registry stitches these with the defineEvent-declared
   // current version and exposes a per-qualified-name upcaster chain.
@@ -352,13 +335,6 @@ export type FeatureDefinition = {
   // feature exports via setup-return — buildTarget consumes the handle,
   // not this slot. See visual-tree.md A5 + A7.
   readonly treeActions?: Readonly<Record<string, TreeActionDef>>;
-  // Tree-Provider declared via r.tree(). At-most-one per feature.
-  // Provider liefert die Top-Level-Knoten dieses Features im Visual-
-  // Workspace (navigation: "tree"). Subscribe-Form mit lazy-Eval: erst
-  // beim Mount des Workspaces aufgerufen, kann Updates emittieren.
-  // Feature ohne treeProvider ist im Visual-Workspace unsichtbar
-  // (Zero-Whitelist-Filter aus visual-tree.md A2).
-  readonly treeProvider?: TreeChildrenSubscribe;
   // HTTP-Routes declared via r.httpRoute(). Index is "METHOD path"
   // (z.B. "GET /feed.xml") — eindeutig pro Feature. Die App-Server-
   // Boot-Stage iteriert getAllHttpRoutes() und mountet jede Route auf
@@ -366,15 +342,12 @@ export type FeatureDefinition = {
   // writeHandlers — Routes leben mit dem Feature, nicht im Bootstrap.
   readonly httpRoutes: Readonly<Record<string, HttpRouteDefinition>>;
   // Raw tables declared via r.rawTable() — bypass the event-sourcing
-  // system. Keyed by feature-local short name. The registry attaches
-  // featureName on aggregation, lifting RawTableEntry → RawTableDef.
+  // system. Keyed by feature-local short name (derived from
+  // meta.tableName). The registry attaches featureName on aggregation,
+  // lifting RawTableEntry → RawTableDef. `kumiko schema generate`
+  // aggregates these alongside r.entity()-derived metas to build the
+  // full schema.
   readonly rawTables: Readonly<Record<string, RawTableEntry>>;
-  // Unmanaged tables declared via r.unmanagedTable() — `EntityTableMeta`
-  // shape (post-drizzle), keyed by feature-local table-name. Cousin of
-  // rawTables: same bypass-justification contract, different storage
-  // shape. `kumiko schema generate` aggregates these alongside
-  // r.entity()-derived metas to build the full schema.
-  readonly unmanagedTables: Readonly<Record<string, UnmanagedTableEntry>>;
   // Optional Zod-schema for env-vars this feature reads at runtime.
   // Declared via `r.envSchema(z.object({...}))`. `composeEnvSchema` reads
   // this to build one app-wide schema for boot-validation + dry-run
@@ -386,6 +359,12 @@ export type FeatureDefinition = {
 // --- Feature Registrar (the "r" object in defineFeature) ---
 
 type RefOrRefs = NameOrRef | readonly NameOrRef[];
+// Entity-wide hook target — "all query/write handlers of this entity",
+// same reach r.entityHook() used to have. Only valid for postSave/
+// preDelete/postDelete/postQuery (the same 4 types entityHook covered);
+// hook() throws at registration time if used with validation/preSave/
+// preQuery.
+type HookTarget = RefOrRefs | { readonly allOf: NameOrRef };
 
 /**
  * `TFeature` is the literal feature-name from `defineFeature("foo", ...)` —
@@ -404,11 +383,16 @@ type RefOrRefs = NameOrRef | readonly NameOrRef[];
  * steps are allowed to write via `r.step.unsafeProjectionUpsert`.
  * Hard-required for any unsafeProjection-* step usage (see Q10).
  */
-export type RequiresApi = ((...featureNames: string[]) => void) & {
-  readonly projection: (tableName: string) => void;
-  // Tier-2 step opt-in (Q9). Tier-1 implicit, Tier-2 must be declared.
-  readonly step: (stepKind: string) => void;
-};
+export type RequiresApi = ((...featureNames: string[]) => void) &
+  // Object-Form — the shape the feature-ast renderer (`render.ts`) emits
+  // for Designer/AI-generated code. A single object argument with named
+  // fields is easier to generate correctly than positional args whose
+  // count/order vary per registrar method.
+  ((options: { readonly features: readonly string[] }) => void) & {
+    readonly projection: (tableName: string) => void;
+    // Tier-2 step opt-in (Q9). Tier-1 implicit, Tier-2 must be declared.
+    readonly step: (stepKind: string) => void;
+  };
 
 export type FeatureRegistrar<TFeature extends string = string> = {
   systemScope(): void;
@@ -417,6 +401,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   describe(text: string): void;
   requires: RequiresApi;
   optionalRequires(...featureNames: string[]): void;
+  optionalRequires(options: { readonly features: readonly string[] }): void;
   // Declare the feature as operator-togglable. `default` is the effective
   // state when no global-toggle row exists. Must be called at most once per
   // feature; calling on an always-on feature (e.g. auth/tenant/user) is a
@@ -430,6 +415,10 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     definition: EntityDefinition,
     options?: { readonly table?: unknown },
   ): EntityRef;
+  entity(definition: { readonly name: string } & EntityDefinition): EntityRef;
+
+  // Shorthand for registerEntityCrud(r, ...), scoped to this registrar.
+  crud(entityName: string, entity: EntityDefinition, options?: RegisterEntityCrudOptions): void;
 
   writeHandler<TName extends string, TSchema extends ZodType>(
     def: WriteHandlerDefinition<TName, TSchema>,
@@ -452,45 +441,39 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   ): HandlerRef;
 
   relation(entity: NameOrRef, relationName: string, definition: RelationDefinition): void;
+  // TDef inferred from the literal — keeps the excess-property check
+  // resolved against the matching RelationDefinition union member instead
+  // of distributing across all three (which spuriously rejects valid
+  // combinations when checked directly against the raw union).
+  relation<TDef extends RelationDefinition>(
+    definition: { readonly entity: NameOrRef; readonly name: string } & TDef,
+  ): void;
 
   hook(type: "validation", target: RefOrRefs, fn: ValidationHookFn): void;
   hook(type: "preSave", target: RefOrRefs, fn: PreSaveHookFn): void;
+  // postSave/preDelete/postDelete/postQuery accept `{ allOf: entityRef }` —
+  // fires for every write/query handler of that entity, replacing the old
+  // r.entityHook(type, entity, fn). postQuery's entity-wide form fires for
+  // ALL query-handlers of the entity (e.g. customFields-bundle merging
+  // custom-fields-jsonb into every read); no phase semantics there
+  // (synchronous after handler-execute, before field-access-filter).
   hook(
     type: "postSave",
-    target: RefOrRefs,
+    target: HookTarget,
     fn: PostSaveHookFn,
     options?: { phase?: HookPhase },
   ): void;
   // preDelete always runs in-transaction (it guards the delete — there is no
   // meaningful "after" for a pre-hook). No phase option.
-  hook(type: "preDelete", target: RefOrRefs, fn: PreDeleteHookFn): void;
+  hook(type: "preDelete", target: HookTarget, fn: PreDeleteHookFn): void;
   hook(
     type: "postDelete",
-    target: RefOrRefs,
+    target: HookTarget,
     fn: PostDeleteHookFn,
     options?: { phase?: HookPhase },
   ): void;
   hook(type: "preQuery", target: RefOrRefs, fn: PreQueryHookFn): void;
-  hook(type: "postQuery", target: RefOrRefs, fn: PostQueryHookFn): void;
-
-  entityHook(
-    type: "postSave",
-    entity: NameOrRef,
-    fn: PostSaveHookFn,
-    options?: { phase?: HookPhase },
-  ): void;
-  entityHook(type: "preDelete", entity: NameOrRef, fn: PreDeleteHookFn): void;
-  entityHook(
-    type: "postDelete",
-    entity: NameOrRef,
-    fn: PostDeleteHookFn,
-    options?: { phase?: HookPhase },
-  ): void;
-  // postQuery-entityHook: fires for ALL query-handlers of this entity (e.g.,
-  // for customFields-bundle to merge custom-fields-jsonb into every read).
-  // No phase semantics (synchronous after handler-execute, before field-
-  // access-filter).
-  entityHook(type: "postQuery", entity: NameOrRef, fn: PostQueryHookFn): void;
+  hook(type: "postQuery", target: HookTarget, fn: PostQueryHookFn): void;
 
   // F3 — Search-Payload-Extension: contributor function adds flat fields to
   // an entity's search-index document. Fires synchronously during
@@ -499,16 +482,22 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // tags-array as searchable. See `SearchPayloadContributorFn`.
   searchPayloadExtension(entity: NameOrRef, fn: SearchPayloadContributorFn): void;
 
-  // Returns a handle map keyed exactly like the input. Pass any handle to
-  // `ctx.config(handle)` to get the value type narrowed by the key's `type`.
-  // Optional `seeds` declare boot-time system-rows that are written via the
-  // event-store executor — idempotent, skipped when the stream already exists.
+  // Single-key form: bare handle, no wrapping record, no seeds (callers
+  // needing seeds use the multi-key form below).
+  config<T extends ConfigKeyType>(keyName: string, def: ConfigKeyDefinition<T>): ConfigKeyHandle<T>;
+
+  // Multi-key form: returns a handle map keyed exactly like the input. Pass
+  // any handle to `ctx.config(handle)` to get the value type narrowed by the
+  // key's `type`. Optional `seeds` declare boot-time system-rows that are
+  // written via the event-store executor — idempotent, skipped when the
+  // stream already exists.
   config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
     readonly keys: TKeys;
     readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
   }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> };
 
   job(name: string, options: Omit<JobDefinition, "name" | "handler">, handler: JobHandlerFn): void;
+  job(definition: JobDefinition): void;
 
   notification(
     name: string,
@@ -519,6 +508,13 @@ export type FeatureRegistrar<TFeature extends string = string> = {
       readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
     },
   ): void;
+  notification(definition: {
+    readonly name: string;
+    readonly trigger: { readonly on: NameOrRef };
+    readonly recipient: NotificationRecipientFn;
+    readonly data: NotificationDataFn;
+    readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
+  }): void;
 
   translations(def: TranslationsDef): void;
 
@@ -527,9 +523,14 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // "<feature>:event:<short>" string.
   //
   // `options.version` declares the CURRENT schema generation. Defaults to 1
-  // on first registration. When you bump the payload shape, raise version
-  // AND register r.eventMigration(shortName, N, N+1, transform) — the
-  // framework refuses to boot if the chain from 1 → version has gaps.
+  // on first registration. When you bump the payload shape, add a step to
+  // `options.migrations` covering N -> N+1 — the framework refuses to boot
+  // if the chain from 1 to `version` has gaps. Migrations were formerly a
+  // separate r.eventMigration() call; folded in here because an event and
+  // its schema evolution are one lifecycle, not two registrar concepts
+  // (#1082 step 8) — transforms are pure functions (old payload in, new
+  // payload out) and run once per read, not once per event persisted, so
+  // keep them cheap.
   //
   // `options.piiFields` declares PII payload fields encrypted under the DEK
   // of the user named by `subjectField` (crypto-shredding, #799). append()
@@ -537,32 +538,37 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   defineEvent<const TInner extends string, TPayload>(
     name: TInner,
     schema: ZodType<TPayload>,
-    options?: { readonly version?: number; readonly piiFields?: EventPiiFields },
+    options?: {
+      readonly version?: number;
+      readonly piiFields?: EventPiiFields;
+      readonly migrations?: readonly {
+        readonly fromVersion: number;
+        readonly toVersion: number;
+        readonly transform: EventUpcastFn | DeclarativeEventMigration;
+      }[];
+    },
   ): EventDef<TPayload, QualifiedEventName<TFeature, TInner>>;
 
-  // Register a step-wise payload transform for event-schema evolution.
-  // `eventName` is the SHORT name (same as defineEvent). `toVersion` must
-  // be `fromVersion + 1` — chain larger jumps by registering each step.
-  // Transforms are pure functions: old payload in, new payload out. They
-  // run once per read (not once per event persisted), so keep them cheap.
-  eventMigration(
-    eventName: string,
-    fromVersion: number,
-    toVersion: number,
-    transform: EventUpcastFn,
-  ): void;
-
   readsConfig(...qualifiedKeys: string[]): void;
+  readsConfig(options: { readonly keys: readonly string[] }): void;
 
   referenceData(
     entity: NameOrRef,
     data: readonly Record<string, unknown>[],
     options?: { upsertKey?: string },
   ): void;
+  referenceData(definition: {
+    readonly entity: NameOrRef;
+    readonly data: readonly Record<string, unknown>[];
+    readonly upsertKey?: string;
+  }): void;
 
   extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
 
   useExtension(extensionName: string, entity: NameOrRef, options?: Record<string, unknown>): void;
+  useExtension(
+    definition: { readonly name: string; readonly entity: NameOrRef } & Record<string, unknown>,
+  ): void;
 
   /**
    * Declares which config key selects the active provider under an
@@ -615,12 +621,14 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // qualifies it on boot. Validation (snake_case + typ-suffix) runs at boot.
   // Usage at runtime: ctx.metrics.inc("created_total", { status: "new" }).
   metric(shortName: string, options: MetricOptions): void;
+  metric(definition: { readonly name: string } & MetricOptions): void;
 
   // Declare a secret key. Qualified name follows "<feature>:secret:<kebab>"
   // via the QN helper. Returns a typed handle so feature code can pass it
   // to ctx.secrets.get without retyping the qualified string — same
   // ergonomics as r.config's handle.
   secret(shortName: string, options: SecretOptions): SecretKeyHandle;
+  secret(definition: { readonly name: string } & SecretOptions): SecretKeyHandle;
 
   // Register a projection driven by events of one or more source entities.
   // The runtime fires projection.apply[event.type] inside the event-store's
@@ -674,12 +682,18 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     shortName: string,
     options: { readonly type: T },
   ): ClaimKeyHandle<T>;
+  claimKey<T extends ClaimKeyType>(definition: {
+    readonly name: string;
+    readonly type: T;
+  }): ClaimKeyHandle<T>;
 
   // Register a screen. The id is the feature-local short name (kebab-case);
   // the registry qualifies to "<feature>:screen:<id>". Boot-validation checks
   // that entity-bound screens reference a registered entity and that the
   // columns / form-field refs name real fields — cross-feature component-QN
-  // validation (r.uiComponent) comes in M4/M5.
+  // validation (r.uiComponent) comes in M4/M5. Optional `nav` field is
+  // sugar for a single nav entry pointing at this screen — equivalent to
+  // a standalone r.nav({ id: <same id>, screen: "<feature>:screen:<id>", ... }).
   screen(definition: ScreenDefinition): void;
 
   // Register a nav entry. The id is the feature-local short name (kebab-case);
@@ -705,34 +719,23 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // bleibt runProdApp.extraRoutes.
   httpRoute(definition: HttpRouteDefinition): void;
 
-  // Declare a raw Drizzle table that bypasses the event-sourcing system.
-  // Reserved for legacy-import, read-only caches, write-only webhook
-  // payload buffers, or any other case where the event-sourced flow
-  // doesn't fit. The dev-server iterates these alongside r.entity()
-  // projections at boot so the table exists before the first query.
-  // Apps still declare the table in `drizzle/schema.ts` so drizzle-kit
-  // tracks migrations and schema-drift detection works automatically.
+  // Declare an "unmanaged" framework-native table that bypasses the
+  // event-sourcing system. Reserved for legacy-import, read-only caches,
+  // write-only webhook payload buffers, or read-side projections of
+  // event-streams (delivery-attempts, job-run-logs) where r.entity()'s
+  // aggregate-lifecycle assumptions don't fit. The dev-server iterates
+  // these alongside r.entity() projections at boot so the table exists
+  // before the first query.
+  //
+  // EntityTableMeta carries the same column-shape that r.entity() builds,
+  // minus the audit-trail + base-columns scaffolding. The `meta` argument
+  // is the result of `defineUnmanagedTable(...)` / `buildEntityTableMeta(...)`
+  // from `@cosmicdrift/kumiko-framework/db`.
   //
   // The required `reason` string is the marker that justifies the bypass —
   // a non-empty string is the contract. If you can't write a reason,
   // declare data via `r.entity()` instead.
-  rawTable(name: string, table: PgTable, options: RawTableOptions): void;
-
-  // Declare an "unmanaged" framework-native table (post-drizzle).
-  // EntityTableMeta carries the same column-shape that r.entity() builds,
-  // minus the audit-trail + base-columns scaffolding — used for read-side
-  // projections of event-streams (delivery-attempts, job-run-logs) where
-  // r.entity()'s aggregate-lifecycle assumptions don't fit.
-  //
-  // The `meta` argument is the result of `defineUnmanagedTable(...)` from
-  // `@cosmicdrift/kumiko-framework/db`. Reason-justification + audit-trail
-  // contract identical to `r.rawTable`.
-  //
-  // Why this exists separate from `r.rawTable`: rawTable carries a Drizzle
-  // `PgTable` (legacy), unmanagedTable carries the new `EntityTableMeta`
-  // shape that `migrate-runner` consumes. After the full drizzle-cut they
-  // will likely merge; for now they coexist.
-  unmanagedTable(meta: EntityTableMeta, options: UnmanagedTableOptions): void;
+  rawTable(meta: EntityTableMeta, options: RawTableOptions): void;
 
   // Register the tree-actions schema for this feature — a map of
   // action-name → action-definition (with optional typed args). At-most-
@@ -771,20 +774,6 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // k8s-secret hints) goes into `.meta({ kumiko: { pulumi: {...} } })`
   // — see framework/env/index.ts for the meta-shape.
   envSchema(schema: z.ZodObject<z.ZodRawShape>): void;
-
-  // Register the tree-provider for this feature — the Subscribe-Function
-  // that emits the top-level Tree-Knoten when the Visual-Workspace
-  // (navigation: "tree") mounts. At-most-one call per feature.
-  //
-  // Provider returns a Subscribe-Function (emit-fn → unsubscribe-fn).
-  // Initial-emit synchron oder async, weitere Emits beliebig oft (e.g.
-  // on entity-update SSE). Provider sind session-bound; tenantId fließt
-  // über die Backend-Session bei fetch/dispatch, nicht über ein ctx-Arg.
-  //
-  // A feature without r.tree() is invisible in `navigation: "tree"`-
-  // workspaces — that's the Zero-Whitelist-Filter from visual-tree.md A2:
-  // provider-Vorhandensein ist der Filter, kein Workspace-Mapping.
-  tree(provider: TreeChildrenSubscribe): void;
 };
 
 // --- Registry (created from features) ---
@@ -797,6 +786,7 @@ export type Registry = {
   getAllEntities(): ReadonlyMap<string, EntityDefinition>;
   getWriteHandler(name: string): WriteHandlerDef | undefined;
   getQueryHandler(name: string): QueryHandlerDef | undefined;
+  getAllQueryHandlers(): ReadonlyMap<string, QueryHandlerDef>;
   getSearchableFields(entityName: string): readonly string[];
   getSortableFields(entityName: string): readonly string[];
   getRelations(entityName: string): EntityRelations;
@@ -977,18 +967,9 @@ export type Registry = {
   // the first workspace the user has access to.
   getDefaultWorkspace(): WorkspaceDefinition | undefined;
 
-  // Tree-Providers declared via r.tree() across all features. Keyed by
-  // declaring feature name (NOT qualified — Provider sind feature-bound,
-  // ein Feature liefert genau eine Provider-Function). The Visual-Tree
-  // component (renderer-web) iteriert getTreeProviders() beim Mount des
-  // navigation: "tree"-Workspaces, ruft jeden Provider mit ctx auf,
-  // sammelt die emitted TreeNode[] und merged sie zur Top-Level-Liste.
-  // See visual-tree.md A2 (Zero-Whitelist) + A4 (Subscribe-Form).
-  getTreeProviders(): ReadonlyMap<string, TreeChildrenSubscribe>;
-
   // Tree-Actions-Map des Features. Returns the erased Record (compile-
-  // time-typed handle wandert über setup-export, nicht hier). Visual-
-  // Tree-Component nutzt das für Runtime-Action-Lookup beim Klick auf
+  // time-typed handle wandert über setup-export, nicht hier). Die
+  // Content-Tree-Nav nutzt das für Runtime-Action-Lookup beim Klick auf
   // einen TreeNode.target — der Resolver findet das Feature via
   // TargetRef.featureId und holt sich die zugehörige Action-Definition.
   getTreeActions(featureName: string): Readonly<Record<string, TreeActionDef>> | undefined;

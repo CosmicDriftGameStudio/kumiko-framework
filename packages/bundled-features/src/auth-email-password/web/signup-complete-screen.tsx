@@ -18,7 +18,8 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { confirmSignup } from "./auth-client";
-import { AuthCard, authMutedLinkClass, useUrlToken } from "./auth-form-primitives";
+import { passwordPairIssue, resolveLoggedInHref } from "./auth-form-logic";
+import { AuthCard, useUrlToken } from "./auth-form-primitives";
 
 export type SignupCompleteScreenProps = {
   readonly title?: string;
@@ -43,7 +44,7 @@ export function SignupCompleteScreen({
   loginHref = "/login",
 }: SignupCompleteScreenProps): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
   const token = useUrlToken(tokenProp);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -52,11 +53,12 @@ export function SignupCompleteScreen({
 
   const doSubmit = async (): Promise<void> => {
     setError(null);
-    if (password.length < 8) {
+    const issue = passwordPairIssue(password, confirmPassword);
+    if (issue === "too_short") {
       setError(t("auth.signupComplete.tooShort"));
       return;
     }
-    if (password !== confirmPassword) {
+    if (issue === "mismatch") {
       setError(t("auth.signupComplete.mismatch"));
       return;
     }
@@ -66,11 +68,7 @@ export function SignupCompleteScreen({
     if (res.ok) {
       // Auto-Login: Cookies sind via Set-Cookie schon im Browser. Wir
       // schicken den User direkt zur eingeloggten Page.
-      const target =
-        typeof loggedInHref === "function"
-          ? loggedInHref({ tenantKey: res.data.tenantKey })
-          : loggedInHref;
-      window.location.assign(target);
+      window.location.assign(resolveLoggedInHref(loggedInHref, res.data.tenantKey));
       return;
     }
     if (res.error.reason === "invalid_signup_token") {
@@ -98,9 +96,9 @@ export function SignupCompleteScreen({
       <AuthCard title={effectiveTitle}>
         <div className="p-6 pt-0 flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{t("auth.signupComplete.missingToken")}</p>
-          <a href={loginHref} className={authMutedLinkClass}>
+          <Link href={loginHref} variant="muted">
             {t("auth.signup.haveAccount")}
-          </a>
+          </Link>
         </div>
       </AuthCard>
     );

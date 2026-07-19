@@ -26,7 +26,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { useDispatcher, usePrimitives, useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
-import { FormPanelShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { TextContentHandlers, TextContentQueries } from "../constants";
 
@@ -78,6 +77,7 @@ function newFolderNode(): FolderNode {
 function attachBlock(root: FolderNode, block: BlockSummary, tenantIdOverride?: string): void {
   const leaf: TreeNode = {
     label: block.title || block.slug,
+    icon: "file",
     target: {
       featureId: "text-content",
       action: "edit",
@@ -211,6 +211,7 @@ type TextBlock = {
   readonly lang: string;
   readonly title: string;
   readonly body: string | null;
+  readonly folder: string | null;
   readonly updatedAt: string;
 };
 
@@ -238,7 +239,7 @@ function TextContentEditor({
   const lang = args?.lang ?? "";
   const tenantIdOverride = args?.tenantIdOverride;
 
-  const { Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Field, Input, Button, Banner } = usePrimitives();
   const dispatcher = useDispatcher();
   const user = useShellUser();
   const canWrite =
@@ -287,6 +288,7 @@ function TextContentEditor({
         lang,
         title,
         body: body.length > 0 ? body : null,
+        folder: loaded?.folder ?? null,
         ...(tenantIdOverride !== undefined && { tenantIdOverride }),
       });
       if (result.isSuccess) {
@@ -312,12 +314,11 @@ function TextContentEditor({
   const disabled = submitting || loading || !canWrite;
 
   return (
-    <FormPanelShell
+    <Form
       onSubmit={onSubmit}
       testId="text-content-editor"
-      breadcrumb="Content"
       title={title || slug || "—"}
-      subtitle={lang !== "" ? `(${lang})` : undefined}
+      subtitle={lang !== "" ? `${slug} · (${lang})` : slug}
       actions={
         canWrite ? (
           <Button type="submit" loading={submitting} disabled={disabled}>
@@ -359,7 +360,7 @@ function TextContentEditor({
       </Field>
       {saveError !== null && <Banner variant="error">{saveError}</Banner>}
       {savedMsg !== null && <Banner variant="info">{savedMsg}</Banner>}
-    </FormPanelShell>
+    </Form>
   );
 }
 

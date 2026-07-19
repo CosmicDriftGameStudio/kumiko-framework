@@ -1,9 +1,9 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+import { hashPassword } from "../../shared";
 import { AuthErrors } from "../constants";
 import { invalidResetToken } from "../errors";
-import { hashPassword } from "../password-hashing";
 import { verifyResetToken } from "../reset-token";
 import { runConfirmTokenFlow } from "./confirm-token-flow";
 

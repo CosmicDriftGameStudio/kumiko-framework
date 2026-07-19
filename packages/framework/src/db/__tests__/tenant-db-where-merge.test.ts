@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField } from "../../engine";
 import { testTenantId } from "../../stack";
 import type { TableColumns } from "../dialect";
+import { buildEntityTableMeta } from "../entity-table-meta";
 import { buildEntityTable } from "../table-builder";
 import { createTenantDb } from "../tenant-db";
 
@@ -114,5 +115,43 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
 
     expect(captured[0]?.values).toContain(own);
     expect(captured[0]?.values).not.toContain(foreign);
+  });
+});
+
+// Root-cause regression for the cross-tenant leak fixed in hasTenantColumn:
+// unmanaged direct-write stores (buildEntityTableMeta, e.g. userSessionTable,
+// apiTokenTable) store tenantId as a snake_case column-meta entry, not a
+// direct `table.tenantId` property — a naive property check silently treated
+// them as tenant-less and skipped the WHERE-scope entirely.
+describe("tenant-db WHERE merge — unmanaged EntityTableMeta tables (buildEntityTableMeta)", () => {
+  const unmanagedEntity = createEntity({
+    table: "merge_meta_items",
+    fields: { tenantId: createTextField({ required: true }), name: createTextField() },
+  });
+  const unmanagedTable = buildEntityTableMeta("merge-meta-item", unmanagedEntity);
+
+  test("selectMany still applies the tenant scope (pre-fix: no WHERE at all)", async () => {
+    const captured: Captured[] = [];
+    const tdb = createTenantDb(recordingDb(captured), own);
+
+    // selectMany's Table param types the branded-EntityTable shape only;
+    // EntityTableMeta reads work identically at runtime (both normalize via
+    // asEntityTableMeta) — same unbranded-view cast as `table` above.
+    await tdb.selectMany(unmanagedTable as unknown as TableColumns, { name: "needle" });
+
+    expect(captured[0]?.sql).toMatch(/tenant_id" IN /i);
+    expect(captured[0]?.values).toContain(own);
+    expect(captured[0]?.values).not.toContain(foreign);
+  });
+
+  test("updateMany still forces own tenantId (pre-fix: no scope on writes either)", async () => {
+    const captured: Captured[] = [];
+    const tdb = createTenantDb(recordingDb(captured), own);
+
+    await tdb.updateMany(unmanagedTable, { name: "x" }, { tenantId: foreign });
+
+    const update = captured.find((c) => /UPDATE/i.test(c.sql));
+    expect(update?.values).toContain(own);
+    expect(update?.values).not.toContain(foreign);
   });
 });

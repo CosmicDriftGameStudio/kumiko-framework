@@ -23,6 +23,7 @@ export {
   createTenantSeed,
   createUserConfig,
   createUserSeed,
+  isEncryptedAtRest,
 } from "./config-helpers";
 export type { SystemHookName } from "./constants";
 export {
@@ -121,7 +122,6 @@ export {
   createTextField,
   createTimestampField,
   createTzField,
-  locatedTimestamp,
 } from "./factories";
 // AST inspection + patching pipeline — used by the CLI scaffolder, the
 // Designer (C5/C6), and the AI-Builder (L2). See feature-ast/index.ts
@@ -178,18 +178,20 @@ export {
   filterReadFields,
 } from "./field-access";
 // findForbiddenMembershipRole/isForbiddenMembershipRole/
-// stripForbiddenMembershipRoles are Public API for host apps that build
-// their own membership handlers. FORBIDDEN_MEMBERSHIP_ROLES itself stays
-// internal (637/3) — exporting the raw Set would make its representation a
-// semver promise; the predicate functions are the intended surface.
+// stripForbiddenMembershipRoles/buildSessionRoles are Public API for host
+// apps that build their own membership handlers. FORBIDDEN_MEMBERSHIP_ROLES
+// itself stays internal (637/3) — exporting the raw Set would make its
+// representation a semver promise; the predicate functions are the intended
+// surface.
 export {
+  buildSessionRoles,
   findForbiddenMembershipRole,
   isForbiddenMembershipRole,
   stripForbiddenMembershipRoles,
 } from "./membership-roles";
 export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership";
 export { from } from "./ownership";
-export { buildPipelineSteps, pipeline } from "./pipeline";
+export { buildPipelineSteps, stepsPipeline } from "./pipeline";
 export { defineApply, defineMspApply, setFields } from "./projection-helpers";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name";

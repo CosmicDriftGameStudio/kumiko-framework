@@ -28,7 +28,7 @@ import type {
 // Two API shapes — pick one per project, don't mix:
 //
 //   PREFERRED — full standard CRUD set in one call:
-//     registerEntityCrud(r, "note", noteEntity, { write: { access }, read: { access } })
+//     r.crud("note", noteEntity, { write: { access }, read: { access } })
 //
 //   PREFERRED — one function per verb, type-safe, no magic strings:
 //     r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }))
@@ -176,7 +176,15 @@ export function defineEntityWriteHandler(
         changes: buildUpdateSchema(entity),
       });
       handler = async (event, ctx) =>
-        executor.update(event.payload as UpdatePayload, event.user, ctx.db); // @cast-boundary engine-payload
+        // skipUnchanged (#464): API-driven updates diff against the stored
+        // row so a resubmitted-but-identical field doesn't force a fresh
+        // pii/encrypted ciphertext. Direct executor.update() callers (e.g.
+        // KEK-rotation, the user-data-rights #494 backfill) don't go through
+        // this handler and keep today's always-re-encrypt behavior, which
+        // they rely on to intentionally force a fresh event/ciphertext.
+        executor.update(event.payload as UpdatePayload, event.user, ctx.db, {
+          skipUnchanged: true,
+        }); // @cast-boundary engine-payload
       break;
     case "delete":
       schema = idSchema;
@@ -475,9 +483,7 @@ export function registerEntityCrud(
 ): void {
   const verbs = { ...defaultCrudVerbs(entity), ...options?.verbs };
   if (verbs.restore && entity.softDelete !== true) {
-    throw new Error(
-      `registerEntityCrud("${entityName}"): restore requested but entity has no softDelete: true`,
-    );
+    throw new Error(`restore requested but entity "${entityName}" has no softDelete: true`);
   }
 
   if (options?.registerEntity !== false) {

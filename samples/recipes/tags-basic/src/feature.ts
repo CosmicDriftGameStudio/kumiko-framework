@@ -34,9 +34,7 @@ export const noteEntity = createEntity({
 
 const noteTable = buildEntityTable("note", noteEntity);
 
-function noteExecutor() {
-  return createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
-}
+const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
 // --- Feature ---
 
@@ -53,11 +51,7 @@ export const noteFeature = defineFeature("note-management", (r) => {
     schema: z.object({ id: z.string(), title: z.string() }),
     access: { roles: ["TenantAdmin"] },
     handler: async (event, ctx) =>
-      noteExecutor().create(
-        { id: event.payload.id, title: event.payload.title },
-        event.user,
-        ctx.db,
-      ),
+      noteExecutor.create({ id: event.payload.id, title: event.payload.title }, event.user, ctx.db),
   });
 
   r.queryHandler({

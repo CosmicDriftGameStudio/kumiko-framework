@@ -39,11 +39,4 @@ export type WorkspaceDefinition = {
   // Default workspace at login when the user has access to multiple. Boot
   // validator rejects more than one default per app.
   readonly default?: boolean;
-  // Render mode of the workspace's sidebar. "nav" (default, missing-ok)
-  // mounts the existing NavTree component as before. "tree" mounts the
-  // Visual-Tree component which collects r.tree() providers across all
-  // active features. Default-on-undefined preserves backwards-compat —
-  // every existing workspace stays nav-mode without code touch.
-  // See visual-tree.md A1.
-  readonly navigation?: "nav" | "tree";
 };

@@ -39,7 +39,7 @@ export async function runCreate(args: CliArgs): Promise<number> {
 
   const selected = args.yes ? defaultSelection(manifest) : await runPicker(manifest);
   if (selected.length === 0) {
-    log("Keine Features gewählt — Abbruch.");
+    log("No features selected — aborting.");
     return 1;
   }
 
@@ -71,12 +71,12 @@ export async function runCreate(args: CliArgs): Promise<number> {
   log("");
   log(`✓ ${result.appName} scaffolded → ${result.destination}`);
   log("");
-  log("Nächste Schritte:");
+  log("Next steps:");
   log(`  cd ${args.name}`);
   log("  bun install");
-  log("  cp .env.example .env  # JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1 setzen");
-  log("  docker compose up -d   # wenn noch kein PG + Redis läuft");
-  log("  bun dev                # Demo-Tasks sind vorseeded — URL + Login im Banner");
+  log("  cp .env.example .env  # set JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1");
+  log("  docker compose up -d   # if you don't have Postgres + Redis running yet");
+  log("  bun dev                # demo tasks are pre-seeded — URL + login in the banner");
   return 0;
 }
 

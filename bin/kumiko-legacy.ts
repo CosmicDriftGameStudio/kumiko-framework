@@ -225,7 +225,6 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // in-process drüber laufen (~0.1-0.5s je weiterem Guard) — 11 Guards in 11.8s
   // statt ~308s thrash-inflationiert. Restliche Guards: Follow-up-Port.
   steps.push({ name: "AST-Guards (shared runner)", cmd: "bunx kumiko-guards-run" });
-  steps.push({ name: "No-Function-Renderer Guard", cmd: "bunx kumiko-guard-no-function-renderer" });
   steps.push({ name: "Renderer-Boundaries Guard", cmd: "bunx kumiko-guard-renderer-boundaries" });
   steps.push({
     name: "Primitives-Discipline Guard",
@@ -250,8 +249,6 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // ts-morph project and exports no AstGuard → stays out of the shared runner;
   // gates by exit code, blocking loadAllEventsByType() in prod (OOM cliff).
   steps.push({ name: "LoadAll-Events Guard", cmd: "bunx kumiko-guard-loadall-events" });
-  // --strict: without it guard-action-wiring.ts only prints violations to stderr and exits 0, never gating.
-  steps.push({ name: "Action-Wiring Guard", cmd: "bunx kumiko-guard-action-wiring --strict" });
   // Warning-only (exit 0, no gate): keeps unmarked thin-wrappers visible per CLAUDE.md.
   // Builds its own ts-morph project and exports no AstGuard, so it stays out of the shared runner.
   steps.push({ name: "Thin-Wrappers Guard", cmd: "bunx kumiko-guard-thin-wrappers" });
@@ -284,6 +281,9 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // regenerated with `--write-baseline` from framework repo after validation.
   // steps.push({ name: "as-Cast Audit", cmd: "bunx kumiko-check-as-casts" });
   steps.push({ name: "Table-DDL Guard", cmd: "bunx kumiko-guard-table-ddl" });
+  // Baseline-Regression-Guard (infra#295): failt nur bei NEUEN DE-Kommentaren,
+  // Altbestand ist via .kumiko-comment-lang-baseline.json eingefroren.
+  steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guard-comment-lang" });
   const frameworkRepoRoot = resolvePath(import.meta.dir, "..");
   const rawSqlGuard = join(REPO_ROOT, "infra/guards/guard-raw-sql.ts");
   const sqlInventoryScript = join(frameworkRepoRoot, "scripts/sql-inventory.ts");
@@ -1563,7 +1563,3 @@ if (!command) {
     await handler.run();
   }
 }
-
-
-
-

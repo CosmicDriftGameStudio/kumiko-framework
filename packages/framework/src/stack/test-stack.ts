@@ -6,8 +6,9 @@ import { createSseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
 import { extractTableInfo } from "../db/query";
 import { createRegistry } from "../engine/registry";
-import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
+import type { FeatureDefinition, JobRunIn, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
+import { createJobRunner, type JobRunner } from "../jobs";
 import type { Lifecycle } from "../lifecycle";
 import type { ObservabilityProvider } from "../observability";
 import type { Dispatcher, EventDispatcher } from "../pipeline";
@@ -41,6 +42,10 @@ export type TestStack = {
   // Only set when the caller passed `lifecycle` via options. Tests that
   // exercise drain() / /health/ready wire one in; ordinary suites ignore it.
   lifecycle?: Lifecycle;
+  // Only set when `options.jobs` is truthy AND ≥1 `r.job(...)` is
+  // registered in the mounted features. Lets integration tests call
+  // `stack.jobRunner.dispatch(...)` directly, mirroring `ctx.jobRunner`.
+  jobRunner?: JobRunner;
   cleanup: () => Promise<void>;
 };
 
@@ -119,6 +124,18 @@ export type TestStackOptions = {
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => import("../api/server").ServerOptions["anonymousAccess"]);
+  /** Opt-in JobRunner wired into ctx.jobRunner and merged into
+   *  dispatcherOptions so event-triggered jobs enqueue on commit — mirrors
+   *  the prod entrypoint's `buildJobRunnerWithHook`. Unlike prod (which
+   *  always builds one), this only builds a runner when `registry.getAllJobs()`
+   *  is non-empty — a deliberate test-stack-only shortcut, not parity.
+   *  Default `undefined`. Pass `consumerLane` only when this test IS the
+   *  sole consumer (otherwise enqueuer-only, avoiding double-running
+   *  `runOnBoot`/cron jobs against a caller-owned consumer). */
+  jobs?: {
+    consumerLane?: JobRunIn;
+    queueNamePrefix?: string;
+  };
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -213,151 +230,209 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const events = createEventCollector();
   const registry = createRegistry([...options.features]);
 
-  // Auto-configure search for tenant 1 based on registry
-  if (enabledHooks.includes("search")) {
-    const searchableFields: string[] = [];
-    for (const feature of options.features) {
-      for (const [, entity] of Object.entries(feature.entities ?? {})) {
-        for (const [fieldName, field] of Object.entries(entity.fields)) {
-          if (field.type === "text" && field.searchable) {
-            searchableFields.push(fieldName);
-          }
-          if (field.type === "embedded") {
-            for (const [subName, subField] of Object.entries(field.schema)) {
-              if (subField.searchable) {
-                searchableFields.push(`${fieldName}_${subName}`);
+  // Built before buildServer() so it can be merged into dispatcherOptions
+  // (write handlers' `ctx.jobRunner.dispatch(...)` and the afterCommit
+  // event-trigger hook both need it present at dispatcher-construction
+  // time, same as the prod entrypoint's buildJobRunnerWithHook). Uses the
+  // test-stack's own ephemeral redis — no separate `redisUrl` seam needed.
+  let jobRunner: JobRunner | undefined;
+  if (options.jobs && registry.getAllJobs().size > 0) {
+    jobRunner = createJobRunner({
+      registry,
+      context: { db: testDb.db, registry },
+      // The real REDIS_URL, not one rebuilt from `.options` — that lost
+      // password/username/tls/path (pr-review kumiko-framework #1036/2).
+      redisUrl: testRedis.redisUrl,
+      ...(options.jobs.consumerLane !== undefined && { consumerLane: options.jobs.consumerLane }),
+      ...(options.jobs.queueNamePrefix !== undefined && {
+        queueNamePrefix: options.jobs.queueNamePrefix,
+      }),
+    });
+  }
+
+  // From here on, any throw must stop a jobRunner that was already created
+  // above (createJobRunner() itself opens live BullMQ Queue/lock Redis
+  // connections, .start() adds a live worker) — otherwise a failing
+  // buildServer()/search-config/etc. leaks that connection and the test
+  // process hangs on exit (pr-review kumiko-framework #1036/1).
+  try {
+    if (jobRunner) await jobRunner.start();
+
+    // Auto-configure search for tenant 1 based on registry
+    if (enabledHooks.includes("search")) {
+      const searchableFields: string[] = [];
+      for (const feature of options.features) {
+        for (const [, entity] of Object.entries(feature.entities ?? {})) {
+          for (const [fieldName, field] of Object.entries(entity.fields)) {
+            if (field.type === "text" && field.searchable) {
+              searchableFields.push(fieldName);
+            }
+            if (field.type === "embedded") {
+              for (const [subName, subField] of Object.entries(field.schema)) {
+                if (subField.searchable) {
+                  searchableFields.push(`${fieldName}_${subName}`);
+                }
               }
             }
           }
         }
       }
+
+      if (options.searchConfig) {
+        await searchAdapter.configure(options.searchConfig.tenantId, {
+          searchableFields: options.searchConfig.searchableFields,
+          rankingFields: options.searchConfig.rankingFields,
+        });
+      } else if (searchableFields.length > 0) {
+        await searchAdapter.configure("00000000-0000-4000-8000-000000000001", {
+          searchableFields,
+          rankingFields: searchableFields,
+        });
+      }
     }
 
-    if (options.searchConfig) {
-      await searchAdapter.configure(options.searchConfig.tenantId, {
-        searchableFields: options.searchConfig.searchableFields,
-        rankingFields: options.searchConfig.rankingFields,
-      });
-    } else if (searchableFields.length > 0) {
-      await searchAdapter.configure("00000000-0000-4000-8000-000000000001", {
-        searchableFields,
-        rankingFields: searchableFields,
-      });
+    // Wire SSE broker with event collector
+    const sseBroker = createSseBroker();
+    sseBroker.addClient(
+      "tenant:00000000-0000-4000-8000-000000000001",
+      (event) => events.sse.push(event),
+      () => {},
+    );
+
+    const idempotency = createIdempotencyGuard(testRedis.redis, { ttlSeconds: 60 });
+    const eventDedup = createEventDedup(testRedis.redis, { ttlSeconds: 60 });
+    const entityCache = createEntityCache(testRedis.redis, { ttlSeconds: 60 });
+
+    // A static `files.storageProvider` is wired as the per-tenant resolver — the
+    // framework test seam that doesn't require mounting config + file-foundation.
+    // (Bundled GDPR tests mount the real provider features instead.)
+    let fileProviderResolver: import("../files").FileProviderResolver | undefined;
+    if (options.files) {
+      const provider = options.files.storageProvider;
+      fileProviderResolver = () => Promise.resolve(provider);
     }
-  }
 
-  // Wire SSE broker with event collector
-  const sseBroker = createSseBroker();
-  sseBroker.addClient(
-    "tenant:00000000-0000-4000-8000-000000000001",
-    (event) => events.sse.push(event),
-    () => {},
-  );
-
-  const idempotency = createIdempotencyGuard(testRedis.redis, { ttlSeconds: 60 });
-  const eventDedup = createEventDedup(testRedis.redis, { ttlSeconds: 60 });
-  const entityCache = createEntityCache(testRedis.redis, { ttlSeconds: 60 });
-
-  // A static `files.storageProvider` is wired as the per-tenant resolver — the
-  // framework test seam that doesn't require mounting config + file-foundation.
-  // (Bundled GDPR tests mount the real provider features instead.)
-  let fileProviderResolver: import("../files").FileProviderResolver | undefined;
-  if (options.files) {
-    const provider = options.files.storageProvider;
-    fileProviderResolver = () => Promise.resolve(provider);
-  }
-
-  const server = buildServer({
-    registry,
-    context: {
-      db: testDb.db,
-      redis: testRedis.redis,
-      searchAdapter,
-      entityCache,
+    const server = buildServer({
       registry,
-      ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
-      ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
-      ...(typeof options.extraContext === "function"
-        ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
-        : options.extraContext),
-    },
-    jwtSecret,
-    dispatcherOptions: {
-      idempotency,
-      ...(options.effectiveFeatures && { effectiveFeatures: options.effectiveFeatures }),
-    },
-    eventDedup,
-    sseBroker,
-    // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for
-    // deterministic drains — no timer-induced flakiness. pollIntervalMs
-    // stays short anyway in case a test opts into `.start()`. pgClient
-    // plumbs through the LISTEN wake-up for tests that want to measure
-    // post-commit latency (Sprint E.4).
-    eventDispatcher: {
-      pollIntervalMs: 50,
-      pgClient: testDb.client as PgClient | undefined,
-      systemConsumers: {
-        sse: enabledHooks.includes("sse"),
-        search: enabledHooks.includes("search"),
+      context: {
+        db: testDb.db,
+        redis: testRedis.redis,
+        searchAdapter,
+        entityCache,
+        registry,
+        ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
+        ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
+        ...(typeof options.extraContext === "function"
+          ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
+          : options.extraContext),
       },
-    },
-    // Default tests to no login rate-limiter so existing suites that loop
-    // over logins don't hit a 429 after 10 attempts. Suites specifically
-    // testing the limiter can override via authConfig.loginRateLimit.
-    ...(options.authConfig
-      ? {
-          auth: {
-            ...options.authConfig,
-            ...(options.authConfig.loginRateLimit === undefined ? { loginRateLimit: null } : {}),
-          },
-        }
-      : {}),
-    ...(options.observability ? { observability: options.observability } : {}),
-    ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
-    ...(options.rateLimit ? { rateLimit: options.rateLimit } : {}),
-    ...(options.anonymousAccess
-      ? {
-          anonymousAccess:
-            typeof options.anonymousAccess === "function"
-              ? options.anonymousAccess({
-                  registry,
-                  db: testDb.db,
-                  sseBroker,
-                  redis: testRedis.redis,
-                })
-              : options.anonymousAccess,
-        }
-      : {}),
-  });
+      jwtSecret,
+      dispatcherOptions: {
+        idempotency,
+        ...(options.effectiveFeatures && { effectiveFeatures: options.effectiveFeatures }),
+        ...(jobRunner && { jobRunner }),
+      },
+      eventDedup,
+      sseBroker,
+      // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for
+      // deterministic drains — no timer-induced flakiness. pollIntervalMs
+      // stays short anyway in case a test opts into `.start()`. pgClient
+      // plumbs through the LISTEN wake-up for tests that want to measure
+      // post-commit latency (Sprint E.4).
+      eventDispatcher: {
+        pollIntervalMs: 50,
+        pgClient: testDb.client as PgClient | undefined,
+        systemConsumers: {
+          sse: enabledHooks.includes("sse"),
+          search: enabledHooks.includes("search"),
+        },
+      },
+      // Default tests to no login rate-limiter so existing suites that loop
+      // over logins don't hit a 429 after 10 attempts. Suites specifically
+      // testing the limiter can override via authConfig.loginRateLimit.
+      ...(options.authConfig
+        ? {
+            auth: {
+              ...options.authConfig,
+              ...(options.authConfig.loginRateLimit === undefined ? { loginRateLimit: null } : {}),
+            },
+          }
+        : {}),
+      ...(options.observability ? { observability: options.observability } : {}),
+      ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
+      ...(options.rateLimit ? { rateLimit: options.rateLimit } : {}),
+      ...(options.anonymousAccess
+        ? {
+            anonymousAccess:
+              typeof options.anonymousAccess === "function"
+                ? options.anonymousAccess({
+                    registry,
+                    db: testDb.db,
+                    sseBroker,
+                    redis: testRedis.redis,
+                  })
+                : options.anonymousAccess,
+          }
+        : {}),
+    });
 
-  const eventDispatcher: EventDispatcher | undefined = server.eventDispatcher;
+    const eventDispatcher: EventDispatcher | undefined = server.eventDispatcher;
 
-  // Pre-register consumer state rows so tests can call runOnce() directly
-  // without a preceding explicit start(). Timer fires at pollIntervalMs=50
-  // but passInFlight serialises concurrent passes — tests that drain via
-  // runOnce() remain deterministic. Tests that specifically exercise the
-  // timer loop call start() again (idempotent) after setup.
-  if (eventDispatcher) await eventDispatcher.ensureRegistered();
+    // Pre-register consumer state rows so tests can call runOnce() directly
+    // without a preceding explicit start(). Timer fires at pollIntervalMs=50
+    // but passInFlight serialises concurrent passes — tests that drain via
+    // runOnce() remain deterministic. Tests that specifically exercise the
+    // timer loop call start() again (idempotent) after setup.
+    if (eventDispatcher) await eventDispatcher.ensureRegistered();
 
-  const http = createRequestHelper(server.app, server.jwt);
+    const http = createRequestHelper(server.app, server.jwt);
 
-  return {
-    app: server.app,
-    jwt: server.jwt,
-    registry,
-    db: testDb.db,
-    redis: testRedis,
-    search: searchAdapter,
-    events,
-    http,
-    observability: server.observability,
-    dispatcher: server.dispatcher,
-    ...(eventDispatcher ? { eventDispatcher } : {}),
-    ...(server.lifecycle ? { lifecycle: server.lifecycle } : {}),
-    cleanup: async () => {
-      if (eventDispatcher) await eventDispatcher.stop();
-      await server.observability.shutdown();
-      await Promise.all([testDb.cleanup(), testRedis.cleanup()]);
-    },
-  };
+    return {
+      app: server.app,
+      jwt: server.jwt,
+      registry,
+      db: testDb.db,
+      redis: testRedis,
+      search: searchAdapter,
+      events,
+      http,
+      observability: server.observability,
+      dispatcher: server.dispatcher,
+      ...(eventDispatcher ? { eventDispatcher } : {}),
+      ...(server.lifecycle ? { lifecycle: server.lifecycle } : {}),
+      ...(jobRunner ? { jobRunner } : {}),
+      cleanup: async () => {
+        if (jobRunner) await jobRunner.stop();
+        if (eventDispatcher) await eventDispatcher.stop();
+        await server.observability.shutdown();
+        await Promise.all([testDb.cleanup(), testRedis.cleanup()]);
+      },
+    };
+  } catch (error) {
+    // Best-effort — a broken jobRunner.stop()/cleanup() must never mask the
+    // real setup failure below. testDb/testRedis are created before this
+    // try even starts, so a throw anywhere in setup (buildServer,
+    // search-config, ...) would otherwise leak their open pg/ioredis
+    // sockets — the caller never gets the stack object back to call
+    // cleanup() itself, which is the same "hangs on exit" failure class
+    // this function exists to prevent.
+    if (jobRunner) {
+      try {
+        await jobRunner.stop();
+      } catch {
+        // ignore — `error` is the one that matters
+      }
+    }
+    try {
+      await testDb.cleanup();
+    } catch {
+      // ignore — `error` is the one that matters
+    }
+    try {
+      await testRedis.cleanup();
+    } catch {
+      // ignore — `error` is the one that matters
+    }
+    throw error;
+  }
 }

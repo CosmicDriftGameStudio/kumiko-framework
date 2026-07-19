@@ -40,13 +40,13 @@ describe("collectTableMetas (#255)", () => {
       // side-effect-only MSP — no table, must be skipped without throwing
       r.multiStreamProjection({ name: "unit-notify", apply: { "unit.created": async () => {} } });
       r.rawTable(
-        "cache",
-        table("unit_cache", {
-          id: uuid("id").primaryKey(),
-        }) as unknown as SchemaTable,
+        defineUnmanagedTable({
+          tableName: "unit_cache",
+          columns: [{ name: "id", pgType: "uuid", notNull: true, primaryKey: true }],
+        }),
         { reason: "test fixture" },
       );
-      r.unmanagedTable(
+      r.rawTable(
         defineUnmanagedTable({
           tableName: "read_unit_log",
           columns: [{ name: "id", pgType: "serial", notNull: true, primaryKey: true }],
@@ -60,7 +60,7 @@ describe("collectTableMetas (#255)", () => {
     expect(names).toContain("read_unit_counters"); // r.projection
     expect(names).toContain("read_unit_audit"); // r.multiStreamProjection
     expect(names).toContain("unit_cache"); // r.rawTable
-    expect(names).toContain("read_unit_log"); // r.unmanagedTable
+    expect(names).toContain("read_unit_log"); // r.rawTable (second registration)
     expect(names).toHaveLength(5);
   });
 

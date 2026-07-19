@@ -1,4 +1,35 @@
 export {
+  extractDefineEvent,
+  extractNotification,
+} from "./events";
+export {
+  extractQueryHandler,
+  extractWriteHandler,
+  type ParsedHandlerCall,
+  parseHandlerCall,
+} from "./handlers";
+export {
+  extractAuthClaims,
+  extractHook,
+  isHookType,
+  readOptionalAccessRule,
+  readOptionalPhase,
+  readOptionalRateLimit,
+} from "./hooks";
+export {
+  extractHttpRoute,
+  extractJob,
+  isHttpRouteMethod,
+} from "./jobs-routes";
+export {
+  collectScreenOpaqueProps,
+  extractMultiStreamProjection,
+  extractProjection,
+  extractScreen,
+  readApplyBodies,
+  readScreenStatic,
+} from "./projections-screens";
+export {
   extractDescribe,
   extractOptionalRequires,
   extractReadsConfig,
@@ -26,42 +57,13 @@ export {
   readNamedOptions,
 } from "./round3";
 export {
-  collectScreenOpaqueProps,
-  extractAuthClaims,
-  extractDefineEvent,
-  extractEntityHook,
-  extractEventMigration,
-  extractHook,
-  extractHttpRoute,
-  extractJob,
-  extractMultiStreamProjection,
-  extractNotification,
-  extractProjection,
-  extractQueryHandler,
-  extractScreen,
-  extractWriteHandler,
-  isEntityHookType,
-  isHookType,
-  isHttpRouteMethod,
-  type ParsedHandlerCall,
-  parseHandlerCall,
-  readApplyBodies,
-  readOptionalAccessRule,
-  readOptionalPhase,
-  readOptionalRateLimit,
-  readScreenStatic,
-} from "./round4";
-export {
   extractEnvSchema,
   extractExposesApi,
   extractExtendsRegistrar,
-  extractUnmanagedTable,
+  extractRawTable,
   extractUsesApi,
 } from "./round5";
-export {
-  extractTree,
-  extractTreeActions,
-} from "./round6";
+export { extractTreeActions } from "./round6";
 export type { ExtractOutput } from "./shared";
 export {
   fail,

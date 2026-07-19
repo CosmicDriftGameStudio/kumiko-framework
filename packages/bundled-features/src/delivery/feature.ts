@@ -36,7 +36,7 @@ export function createDeliveryFeature(): FeatureDefinition {
     r.entity("notification-preference", notificationPreferenceEntity, {
       table: notificationPreferencesTable,
     });
-    r.unmanagedTable(deliveryAttemptsTableMeta, {
+    r.rawTable(deliveryAttemptsTableMeta, {
       reason: "read_side.delivery_attempt_log",
     });
 

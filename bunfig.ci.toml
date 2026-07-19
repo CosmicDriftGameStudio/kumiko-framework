@@ -16,6 +16,12 @@ preload = [
 ]
 concurrency = 1
 
+# lcov für Codecov-Upload (README-Badge). Kein coverageThreshold gesetzt —
+# der defaultet pro Metrik auf 100% und würde den Run failen.
+coverage = true
+coverageReporter = ["lcov"]
+coverageDir = "coverage/unit"
+
 # *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst
 # sie zu loaden und crash't weil Playwright eigene test()-Globals erwartet
 # (siehe "Playwright Test did not expect test() to be called here").
@@ -31,8 +37,10 @@ pathIgnorePatterns = [
   "**/dist/**",
   # #457: these DOM screen tests corrupt under the shared single-process happy-dom
   # after ~30 prior DOM test files. Excluded from the shared `kumiko check` run and
-  # run isolated via their own ci.yml step (`bun test <file>` — an explicit path
-  # overrides pathIgnorePatterns, so the isolated step still executes them).
+  # run isolated via their own ci.yml step using `--config=bunfig.ci-dom.toml`
+  # instead — that config has no matching ignore entries, so the tests run there.
+  # (pathIgnorePatterns applies even to explicitly-passed paths within the SAME
+  # config — an explicit path does NOT override it. See bunfig.ci-dom.toml.)
   "**/user-data-rights/web/__tests__/deletion-screens.test.tsx",
   "**/user-data-rights/web/__tests__/privacy-center-screen.test.tsx",
 ]

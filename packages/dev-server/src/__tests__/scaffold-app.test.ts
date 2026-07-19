@@ -115,7 +115,10 @@ describe("scaffoldApp", () => {
     expect(client).toContain("createKumikoApp");
     expect(client).toContain("emailPasswordClient");
     expect(client).toContain("DefaultAppShell");
-    expect(client).toContain("shell: DefaultAppShell");
+    expect(client).toContain("shell: AppShell");
+    expect(client).toContain("function AppShell(");
+    expect(client).toContain("brand={<span");
+    expect(client).toContain(">my-shop</span>");
     expect(client).toContain('from "@cosmicdrift/kumiko-renderer-web"');
     expect(client).toContain('from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web"');
     expect(client).toContain("tasksClient");

@@ -12,6 +12,7 @@
 export { warnIfNonUtcServerTimeZone } from "./boot-tz-warning";
 export type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz";
 export { isValidIanaTimeZone } from "./iana";
+export { instantToLegacyDate, legacyDateToInstant } from "./legacy-date";
 export { ensureTemporalPolyfill, getTemporal } from "./polyfill";
 export {
   createTzContext,

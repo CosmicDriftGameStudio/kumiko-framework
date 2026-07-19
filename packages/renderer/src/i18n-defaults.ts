@@ -20,6 +20,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.reload": "Neu laden",
     "kumiko.actions.create": "Neu",
     "kumiko.actions.edit": "Bearbeiten",
+    "kumiko.actions.copyLink": "Link kopieren",
+    "kumiko.actions.copyLinkCopied": "Kopiert!",
 
     // Version — Update-Awareness-Banner (UpdateChecker).
     "kumiko.version.update-available": "Eine neue Version ist verfügbar.",
@@ -43,16 +45,39 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.combobox.search-placeholder": "Suchen…",
     "kumiko.combobox.empty": "Keine Treffer.",
     "kumiko.combobox.loading": "Lade…",
+
+    // Dashboard — Default-Label für den "(alle)"-Eintrag im Screen-Filter,
+    // wenn DashboardFilterDefinition.allLabel nicht gesetzt ist.
+    "kumiko.dashboard.filter.all": "Alle",
     "kumiko.combobox.placeholder": "—",
+
+    // Widgets — Query-States (QueryTable, LoadingState, ErrorState).
+    "kumiko.widget.loading": "Lade…",
+    "kumiko.widget.error.title": "Konnte nicht geladen werden.",
 
     // Nav — Sidebar Tree (Toggle-aria-Labels).
     "kumiko.nav.expand": "Aufklappen",
     "kumiko.nav.collapse": "Zuklappen",
+    "kumiko.nav.search": "Navigation durchsuchen…",
 
     // Dialog — Confirm-Buttons + Close-aria-Label.
     "kumiko.dialog.confirm": "Bestätigen",
     "kumiko.dialog.cancel": "Abbrechen",
     "kumiko.dialog.close": "Schließen",
+
+    // AiTextField/AiTextArea — Ghost-Text-Hint, Toolbar-Aria-Labels, Diff-Dialog.
+    "kumiko.aiText.acceptHint": "Tab = übernehmen, Esc = verwerfen",
+    "kumiko.aiText.correct": "Korrigieren",
+    "kumiko.aiText.translate": "Übersetzen",
+    "kumiko.aiText.rewrite": "Umschreiben",
+    "kumiko.aiText.diff.before": "Vorher",
+    "kumiko.aiText.diff.after": "Nachher",
+    "kumiko.aiText.diff.generating": "Wird generiert…",
+    "kumiko.aiText.style.formal": "Formell",
+    "kumiko.aiText.style.casual": "Locker",
+    "kumiko.aiText.style.concise": "Kompakt",
+    "kumiko.aiText.style.expand": "Ausführlicher",
+    "kumiko.aiText.capExceeded": "Monatliches AI-Limit erreicht.",
 
     // Row-Actions — Fehler-Toast wenn ein Action-Write fehlschlägt.
     "kumiko.rowAction.failed": "Aktion fehlgeschlagen",
@@ -119,7 +144,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.unconfigured": "Diese Funktion ist noch nicht konfiguriert.",
     "errors.internal": "Etwas ist schiefgegangen. Bitte versuche es später erneut.",
     "errors.rate_limited": "Zu viele Anfragen. Bitte versuche es in Kürze erneut.",
+    "errors.cap.exceeded":
+      "Limit erreicht. Bitte Tarif upgraden oder auf die nächste Periode warten.",
     "errors.download.urlMissing": "Download nicht verfügbar — bitte versuche es erneut.",
+    "auth.errors.originNotAllowed": "Zugriff von dieser Herkunft ist nicht erlaubt.",
   },
   en: {
     "kumiko.actions.save": "Save",
@@ -129,6 +157,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.reload": "Reload",
     "kumiko.actions.create": "New",
     "kumiko.actions.edit": "Edit",
+    "kumiko.actions.copyLink": "Copy link",
+    "kumiko.actions.copyLinkCopied": "Copied!",
 
     "kumiko.version.update-available": "A new version is available.",
 
@@ -149,12 +179,31 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.combobox.loading": "Loading…",
     "kumiko.combobox.placeholder": "—",
 
+    "kumiko.dashboard.filter.all": "All",
+
+    "kumiko.widget.loading": "Loading…",
+    "kumiko.widget.error.title": "Couldn't load.",
+
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",
+    "kumiko.nav.search": "Search navigation…",
 
     "kumiko.dialog.confirm": "Confirm",
     "kumiko.dialog.cancel": "Cancel",
     "kumiko.dialog.close": "Close",
+
+    "kumiko.aiText.acceptHint": "Tab = accept, Esc = discard",
+    "kumiko.aiText.correct": "Correct",
+    "kumiko.aiText.translate": "Translate",
+    "kumiko.aiText.rewrite": "Rewrite",
+    "kumiko.aiText.diff.before": "Before",
+    "kumiko.aiText.diff.after": "After",
+    "kumiko.aiText.diff.generating": "Generating…",
+    "kumiko.aiText.style.formal": "Formal",
+    "kumiko.aiText.style.casual": "Casual",
+    "kumiko.aiText.style.concise": "Concise",
+    "kumiko.aiText.style.expand": "Expand",
+    "kumiko.aiText.capExceeded": "Monthly AI limit reached.",
 
     "kumiko.rowAction.failed": "Action failed",
 
@@ -206,6 +255,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.unconfigured": "This feature isn't configured yet.",
     "errors.internal": "Something went wrong. Please try again later.",
     "errors.rate_limited": "Too many requests. Please try again shortly.",
+    "errors.cap.exceeded": "Limit reached. Upgrade your plan or wait for the next period.",
     "errors.download.urlMissing": "Download unavailable — please try again.",
+    "auth.errors.originNotAllowed": "Requests from this origin are not allowed.",
   },
 };

@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-bundled-features",
-  "version": "0.130.1",
+  "version": "0.156.0",
   "description": "Built-in features — tenant, user, auth, delivery. The stuff you'd rewrite anyway, already typed.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -18,6 +18,7 @@
     "runtime": "runtime"
   },
   "exports": {
+    "./agent-tools": "./src/agent-tools/index.ts",
     "./audit": "./src/audit/index.ts",
     "./audit/web": "./src/audit/web/index.ts",
     "./admin-shell": "./src/admin-shell/index.ts",
@@ -48,6 +49,9 @@
     "./subscription-mollie": "./src/subscription-mollie/index.ts",
     "./foundation-shared": "./src/foundation-shared/index.ts",
     "./mail-foundation": "./src/mail-foundation/index.ts",
+    "./inbound-mail-foundation": "./src/inbound-mail-foundation/index.ts",
+    "./inbound-provider-inmemory": "./src/inbound-provider-inmemory/index.ts",
+    "./inbound-provider-imap": "./src/inbound-provider-imap/index.ts",
     "./mail-transport-smtp": "./src/mail-transport-smtp/index.ts",
     "./mail-transport-inmemory": "./src/mail-transport-inmemory/index.ts",
     "./file-foundation": "./src/file-foundation/index.ts",
@@ -85,6 +89,10 @@
     "./presets": "./src/presets/index.ts",
     "./secrets": "./src/secrets/index.ts",
     "./sessions": "./src/sessions/index.ts",
+    "./auth-mfa": "./src/auth-mfa/index.ts",
+    "./auth-mfa-user-data": "./src/auth-mfa-user-data/index.ts",
+    "./auth-mfa/web": "./src/auth-mfa/web/index.ts",
+    "./auth-mfa/testing": "./src/auth-mfa/testing.ts",
     "./sessions/testing": "./src/sessions/testing.ts",
     "./personal-access-tokens": "./src/personal-access-tokens/index.ts",
     "./personal-access-tokens/web": "./src/personal-access-tokens/web/index.ts",
@@ -104,6 +112,7 @@
     "./managed-pages": "./src/managed-pages/index.ts",
     "./managed-pages/web": "./src/managed-pages/web/index.ts",
     "./managed-pages/seeding": "./src/managed-pages/seeding.ts",
+    "./seo": "./src/seo/index.ts",
     "./step-dispatcher": "./src/step-dispatcher/index.ts"
   },
   "dependencies": {
@@ -113,12 +122,15 @@
     "@cosmicdrift/kumiko-renderer": "workspace:*",
     "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "@mollie/api-client": "^4.5.0",
+    "imapflow": "^1.3.3",
+    "mailparser": "^3.9.8",
     "@node-rs/argon2": "^2.0.2",
     "@types/nodemailer": "^8.0.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.14.0",
     "marked": "^18.0.3",
     "nodemailer": "^9.0.1",
+    "qrcode": "^1.5.4",
     "react": "^19.2.6",
     "stripe": "^22.1.1",
     "tailwind-merge": "^3.6.0"
@@ -133,6 +145,8 @@
     "LICENSE"
   ],
   "devDependencies": {
-    "@testing-library/user-event": "^14.6.1"
+    "@testing-library/user-event": "^14.6.1",
+    "@types/mailparser": "^3.4.6",
+    "@types/qrcode": "^1.5.5"
   }
 }

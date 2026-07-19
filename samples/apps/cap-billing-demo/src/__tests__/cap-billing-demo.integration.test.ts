@@ -227,7 +227,8 @@ describe("cap-billing-demo: free tenant (limit=10)", () => {
       { to: "blocked@x.de", subject: "Blocked", html: "<p>n/a</p>" },
       free,
     );
-    expect(JSON.stringify(error)).toMatch(/CapExceededError/);
+    expect(error.code).toBe("cap_exceeded");
+    expect(error.httpStatus).toBe(429);
 
     // Drift-Pin: keine NEUE Newsletter-Mail in Inbox (13. wurde geblockt).
     const inboxAfterBlock = inboxOf(free);
@@ -356,7 +357,8 @@ describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
       { to: "after-downgrade@x.de", subject: "X", html: "<p>n/a</p>" },
       tenant,
     );
-    expect(JSON.stringify(error)).toMatch(/CapExceededError/);
+    expect(error.code).toBe("cap_exceeded");
+    expect(error.httpStatus).toBe(429);
 
     // Inbox unverändert: blockierter send hat nichts hinzugefügt.
     expect(inboxOf(tenant)).toHaveLength(15);
@@ -476,7 +478,8 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
       { to: "after-cancel@x.de", subject: "X", html: "<p>n/a</p>" },
       tenant,
     );
-    expect(JSON.stringify(error)).toMatch(/CapExceededError/);
+    expect(error.code).toBe("cap_exceeded");
+    expect(error.httpStatus).toBe(429);
     expect(inboxOf(tenant)).toHaveLength(15);
   });
 
@@ -548,7 +551,8 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
       { to: "r13@x.de", subject: "X", html: "<p>n/a</p>" },
       tenant,
     );
-    expect(JSON.stringify(error)).toMatch(/CapExceededError/);
+    expect(error.code).toBe("cap_exceeded");
+    expect(error.httpStatus).toBe(429);
   });
 
   test("Multi-Provider: zweiter event von ANDEREM provider überschreibt subscription-row (Disney+-Wechsel)", async () => {

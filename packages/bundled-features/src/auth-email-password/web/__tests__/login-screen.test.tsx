@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { LoginScreen } from "../login-screen";
+import type { SessionApi } from "../session";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
 
 const requestEmailVerificationMock = mock<() => Promise<unknown>>(() => Promise.resolve());
@@ -48,7 +49,10 @@ describe("LoginScreen", () => {
     const session = makeSessionApi({
       status: "unauthenticated",
       user: null,
-      login: mock(async () => ({ ok: false, error: { reason: "invalid_credentials" } })),
+      login: mock<SessionApi["login"]>(async () => ({
+        kind: "failure",
+        error: { reason: "invalid_credentials" },
+      })),
     });
     renderWithProviders(<LoginScreen />, { session });
 
@@ -70,8 +74,8 @@ describe("LoginScreen", () => {
     const session = makeSessionApi({
       status: "unauthenticated",
       user: null,
-      login: mock(async () => ({
-        ok: false,
+      login: mock<SessionApi["login"]>(async () => ({
+        kind: "failure",
         error: { reason: "account_locked", retryAfterSeconds: 540 },
       })),
     });
@@ -148,7 +152,10 @@ describe("LoginScreen", () => {
       return makeSessionApi({
         status: "unauthenticated",
         user: null,
-        login: mock(async () => ({ ok: false, error: { reason: "email_not_verified" } })),
+        login: mock<SessionApi["login"]>(async () => ({
+          kind: "failure",
+          error: { reason: "email_not_verified" },
+        })),
       });
     }
 
@@ -230,7 +237,10 @@ describe("LoginScreen", () => {
       const session = makeSessionApi({
         status: "unauthenticated",
         user: null,
-        login: mock(async () => ({ ok: false, error: { reason: "invalid_credentials" } })),
+        login: mock<SessionApi["login"]>(async () => ({
+          kind: "failure",
+          error: { reason: "invalid_credentials" },
+        })),
       });
       renderWithProviders(<LoginScreen />, { session });
       await loginUntilEmailNotVerified();

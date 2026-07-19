@@ -36,6 +36,7 @@ export type PgType =
   | "text"
   | "boolean"
   | "integer"
+  | "double precision"
   | "bigint"
   | "serial"
   | "bigserial"
@@ -94,7 +95,7 @@ export type EntityTableMeta = {
   // discriminator nutzen um Warnungen zu rendern ("X tables are unmanaged").
   readonly source: "managed" | "unmanaged";
   // PII-Subject-annotated field names (pii/userOwned/tenantOwned). Set by
-  // buildEntityTableMeta so the registry can reject r.unmanagedTable stores
+  // buildEntityTableMeta so the registry can reject r.rawTable stores
   // whose direct writes would skip the executor's encryption (#820).
   readonly piiSubjectFields?: readonly string[];
 };
@@ -204,7 +205,7 @@ function fieldToColumnMeta(
       return [
         {
           name: snake,
-          pgType: "integer",
+          pgType: field.integer === true ? "integer" : "double precision",
           notNull: field.required === true,
           ...(def !== undefined && { defaultSql: def }),
         },

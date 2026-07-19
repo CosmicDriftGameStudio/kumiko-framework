@@ -18,7 +18,6 @@ import {
 import { expectErrorIncludes, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { hashPassword } from "../../auth-email-password/password-hashing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -27,7 +26,9 @@ import {
 import { createConfigFeature } from "../../config";
 import { configValuesTable } from "../../config/table";
 import { createDataRetentionFeature } from "../../data-retention";
+import { createFilesFeature } from "../../files";
 import { createSessionsFeature } from "../../sessions";
+import { hashPassword } from "../../shared";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
@@ -36,6 +37,7 @@ import { UserErrors, UserHandlers, UserQueries } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { createUserDataRightsFeature } from "../../user-data-rights";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import {
   UserDataRightsHandlers,
   UserProfileErrors,
@@ -59,7 +61,9 @@ beforeAll(async () => {
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
       createSessionsFeature(),
+      createFilesFeature(),
       createUserDataRightsFeature(),
+      createUserDataRightsDefaultsFeature(),
       createUserProfileFeature(),
     ],
     authConfig: {

@@ -5,6 +5,12 @@
     "sampleBlurb": "Walks through login, signup, password reset, and email verification on the public apex surface — copy the AuthGate mount and handler wiring into your app.",
     "screenshot": "/screenshots/features/auth-login.png"
   },
+  "auth-mfa": {
+    "primarySample": "recipes-auth-mfa",
+    "whenToUse": "You need a second login factor beyond a password — TOTP-based 2FA with QR-code enrollment and single-use recovery codes, wired into auth-email-password's login handler with almost no manual glue.",
+    "sampleBlurb": "Enable TOTP, log in (gets a challenge instead of a JWT), complete via /auth/mfa/verify — copies the buildServer({ auth: ... }) block from the sample comment verbatim.",
+    "screenshot": "/screenshots/features/auth-mfa.png"
+  },
   "billing-foundation": {
     "primarySample": "apps-cap-billing-demo",
     "whenToUse": "Subscriptions run through Stripe or Mollie — billing-foundation hosts the provider plugins, normalizes webhook events, and writes tier state your app reads via tier-engine.",
@@ -107,6 +113,12 @@
     "sampleBlurb": "use-all-bundled mounts the feature with per-domain read/write scopes (pages, tags, ledger); the integration test mints a token, calls the API with the Bearer header, and asserts fail-closed scope enforcement and revocation.",
     "screenshot": null
   },
+  "seo": {
+    "primarySample": "recipes-apex-landing",
+    "whenToUse": "Your apex/content pages need sitemap.xml, llms.txt, and OG/JSON-LD (schema.org) to be discoverable by search engines and LLM answer engines, without hand-rolling site-discovery routes per app.",
+    "sampleBlurb": "apex-landing wires organizationSchema/webPageSchema into the page head, and a separate integration test mounts createSeoFeature alongside the landing route to exercise /sitemap.xml and /llms.txt as real HTTP requests.",
+    "screenshot": null
+  },
   "secrets": {
     "primarySample": "recipes-managed-config",
     "whenToUse": "API keys and tokens must live encrypted per tenant, not in env vars — secrets stores values in the DB with master-key encryption and config-gated reads.",
@@ -126,7 +138,6 @@
     "screenshot": "/screenshots/features/tags.png"
   },
   "tenant": {
-    "primarySample": "recipes-user-profile",
     "whenToUse": "Your app serves multiple organizations — tenants, memberships, and roles scope every query and write.",
     "sampleBlurb": "Multi-tenant memberships and roles — profile screen switches tenant context and scopes queries to the active membership.",
     "screenshot": "/screenshots/features/tenant.png"

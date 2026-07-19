@@ -34,9 +34,13 @@ import {
   userEntity,
   userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
-import { runUserExport } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+import {
+  runForgetCleanup,
+  runUserExport,
+} from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
+import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import {
@@ -194,14 +198,42 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
       [USER_STATUS.DeletionRequested, PAST().toString(), alice.id],
     );
 
-    // Der ECHTE registrierte Cron, nicht der innere runForgetCleanup-Helper:
-    // ein Consumer kopiert dieses Muster und fährt damit denselben Pfad, der
-    // in prod nach Grace-Ablauf unbeaufsichtigt feuert. Den Helper von Hand
-    // aufzurufen würde die Job-Kontext-Verdrahtung umgehen (genau die Naht,
-    // an der ein cron-only-Bug unentdeckt durchrutscht).
     const forgetCron = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
     expect(forgetCron).toBeTruthy();
-    await forgetCron?.handler({}, { db: stack.db, registry: stack.registry } as never);
+    const result = await runForgetCleanup({ db: stack.db, registry: stack.registry, now: NOW() });
+    expect(result.processedUserIds).toContain(alice.id);
+    expect(result.errors).toHaveLength(0);
+
+    // Zweiter User nur fuer den Cron-Wrapper-Pfad (nach dem direkten Helper-
+    // Aufruf oben, sonst wuerde der Cron alice schon mitverarbeiten): beweist,
+    // dass der registrierte Job selbst — nicht nur runForgetCleanup direkt —
+    // ueber die Top-Level-db-Connection loescht, der Pfad der in prod
+    // unbeaufsichtigt feuert.
+    const cronUser = createTestUser({ id: 101, tenantId, roles: ["Member"] });
+    await seedRow(stack.db, userTable, {
+      id: cronUser.id,
+      tenantId,
+      email: "cron@demo.local",
+      passwordHash: "h",
+      displayName: "CronAlice",
+      locale: "de",
+      emailVerified: true,
+      roles: '["Member"]',
+      status: USER_STATUS.DeletionRequested,
+    });
+    await asRawClient(stack.db).unsafe(
+      `UPDATE read_users SET grace_period_end = $1::timestamptz WHERE id = $2`,
+      [PAST().toString(), cronUser.id],
+    );
+    await forgetCron?.handler({}, {
+      db: stack.db,
+      registry: stack.registry,
+    } as unknown as JobContext);
+    const cronRow = (await asRawClient(stack.db).unsafe(
+      `SELECT status FROM read_users WHERE id = $1`,
+      [cronUser.id],
+    )) as Array<{ status: string }>;
+    expect(cronRow[0]?.status).toBe(USER_STATUS.Deleted);
 
     const remaining = (await asRawClient(stack.db).unsafe(
       `SELECT id FROM read_todos WHERE author_id = $1`,
@@ -255,10 +287,11 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
   // rebuildbare implizite Projektion, deren Replay null todo-Events findet und
   // eine leere Shadow-Tabelle drüber swappt → jeder Todo (und un-forget der
   // anonymisierten Rows) wäre beim nächsten Projection-Rebuild weg. Die
-  // r.unmanagedTable-Registrierung hält read_todos AUS dem Rebuild-Set raus —
+  // r.rawTable-Registrierung hält read_todos AUS dem Rebuild-Set raus —
   // hier strukturell gepinnt: ein Revert zu r.entity ließe read_todos als
   // rebuildbare Projektion auftauchen und failte diesen Test.
-  test("#498: read_todos is not a rebuildable projection (r.unmanagedTable guard)", () => {
+  test("#498: read_todos is not a rebuildable projection (r.rawTable guard)", () => {
+    expect(stack.registry.getAllProjections().size).toBeGreaterThan(0);
     const rebuildable = [...stack.registry.getAllProjections().values()].some(
       (p) => extractTableName(p.table) === "read_todos",
     );

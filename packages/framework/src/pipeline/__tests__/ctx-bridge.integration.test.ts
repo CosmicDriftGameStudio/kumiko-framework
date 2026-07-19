@@ -131,14 +131,14 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
   );
 
   // afterCommit hook on bag — fires once per outer commit.
-  r.entityHook("postSave", bag, async (result) => {
+  r.hook("postSave", { allOf: bag }, async (result) => {
     afterCommitLog.push(`bag:${result.data["label"]}`);
   });
 
   // afterCommit hook on secret — the entity targeted by the nested writeAs.
   // Proves: (a) hook fires exactly once per successful writeAs, (b) hook
   // does NOT fire when the outer transaction rolls back.
-  r.entityHook("postSave", secret, async (result) => {
+  r.hook("postSave", { allOf: secret }, async (result) => {
     afterCommitLog.push(`secret:${result.data["owner"]}`);
   });
 });

@@ -1,0 +1,27 @@
+name: Feature request
+description: Propose a new framework feature or a change to an existing one
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: The concrete use case — not the solution yet.
+    validations:
+      required: true
+  - type: textarea
+    id: existing
+    attributes:
+      label: Existing bundled features checked
+      description: >
+        Did you check samples/apps/ and the bundled-features list in the
+        parent README/docs.kumiko.rocks for something that already covers
+        this?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API (optional)
+      description: Sketch of the `r.*`/config shape you'd expect, if you have one.
+      render: typescript

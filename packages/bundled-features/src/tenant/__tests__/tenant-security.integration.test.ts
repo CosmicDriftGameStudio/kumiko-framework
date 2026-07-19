@@ -14,7 +14,6 @@ import {
 import { expectErrorIncludes, rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { hashPassword } from "../../auth-email-password/password-hashing";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
@@ -23,6 +22,7 @@ import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery
 import { notificationPreferencesTable } from "../../delivery/tables";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
+import { hashPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";

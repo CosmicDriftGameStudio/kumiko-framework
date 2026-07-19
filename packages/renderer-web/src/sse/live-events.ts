@@ -41,7 +41,7 @@ export function createEventSourceLiveEvents(
     try {
       parsed = JSON.parse(raw) as LiveEvent["data"];
     } catch {
-      // Malformed payload — drop it. Besser als einen fangenden Listener
+      // skip: malformed SSE payload, drop it rather than crash all subscribers
       // zu crashen und alle anderen subscribers mitzureißen.
       return;
     }
@@ -52,12 +52,15 @@ export function createEventSourceLiveEvents(
   };
 
   const ensureConnected = (): void => {
+    // skip: EventSource already connected
     if (source !== undefined) return;
+    // skip: no window/EventSource available (SSR/non-browser), nothing to connect
     if (typeof window === "undefined" || typeof EventSource === "undefined") return;
     source = new EventSource(url);
   };
 
   const ensureListenersForEntity = (entityName: string): void => {
+    // skip: not connected yet, listeners get wired once ensureConnected runs
     if (source === undefined) return;
     for (const verb of VERBS) {
       const type = `${entityName}.${verb}`;
@@ -70,7 +73,9 @@ export function createEventSourceLiveEvents(
   };
 
   const closeIfEmpty = (): void => {
+    // skip: subscribers remain, connection still needed
     if (subscribers.size > 0) return;
+    // skip: already closed, nothing to close
     if (source === undefined) return;
     source.close();
     source = undefined;

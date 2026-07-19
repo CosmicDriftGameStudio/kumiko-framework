@@ -1,5 +1,269 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.2.215
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.156.0
+
+## 0.2.214
+
+### Patch Changes
+
+- Updated dependencies [36e30da]
+  - @cosmicdrift/kumiko-dev-server@0.155.1
+
+## 0.2.213
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.155.0
+
+## 0.2.212
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.154.2
+
+## 0.2.211
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.154.1
+
+## 0.2.210
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.154.0
+
+## 0.2.209
+
+### Patch Changes
+
+- Updated dependencies [caed246]
+  - @cosmicdrift/kumiko-dev-server@0.153.0
+
+## 0.2.208
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.152.0
+
+## 0.2.207
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.151.1
+
+## 0.2.206
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.151.0
+
+## 0.2.205
+
+### Patch Changes
+
+- Updated dependencies [0e4cec9]
+  - @cosmicdrift/kumiko-dev-server@0.150.0
+
+## 0.2.204
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.149.2
+
+## 0.2.203
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.149.1
+
+## 0.2.202
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.149.0
+
+## 0.2.201
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.148.0
+
+## 0.2.200
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.147.3
+
+## 0.2.199
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.147.2
+
+## 0.2.198
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.147.1
+
+## 0.2.197
+
+### Patch Changes
+
+- Updated dependencies [bdc5e27]
+  - @cosmicdrift/kumiko-dev-server@0.147.0
+
+## 0.2.196
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.146.4
+
+## 0.2.195
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.146.3
+
+## 0.2.194
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.146.2
+
+## 0.2.193
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.146.1
+
+## 0.2.192
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.146.0
+
+## 0.2.191
+
+### Patch Changes
+
+- Updated dependencies [8367193]
+  - @cosmicdrift/kumiko-dev-server@0.145.1
+
+## 0.2.190
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.145.0
+
+## 0.2.189
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.144.0
+
+## 0.2.188
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.143.1
+
+## 0.2.187
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.143.0
+
+## 0.2.186
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.142.0
+
+## 0.2.185
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.141.0
+
+## 0.2.184
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.140.0
+
+## 0.2.183
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.139.0
+
+## 0.2.182
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.138.0
+
+## 0.2.181
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.137.0
+
+## 0.2.180
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.136.1
+
+## 0.2.179
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.136.0
+
+## 0.2.178
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.135.0
+
+## 0.2.177
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.134.0
+
+## 0.2.176
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.133.0
+
+## 0.2.175
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.132.0
+
+## 0.2.174
+
+### Patch Changes
+
+- Updated dependencies [ce77f02]
+  - @cosmicdrift/kumiko-dev-server@0.131.0
+
+## 0.2.173
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.130.2
+
 ## 0.2.172
 
 ### Patch Changes

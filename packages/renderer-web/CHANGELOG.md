@@ -1,5 +1,451 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.156.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.156.0
+- @cosmicdrift/kumiko-renderer@0.156.0
+- @cosmicdrift/kumiko-dispatcher-live@0.156.0
+
+## 0.155.1
+
+### Patch Changes
+
+- Updated dependencies [69ac999]
+  - @cosmicdrift/kumiko-renderer@0.155.1
+  - @cosmicdrift/kumiko-headless@0.155.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.155.1
+
+## 0.155.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.155.0
+- @cosmicdrift/kumiko-renderer@0.155.0
+- @cosmicdrift/kumiko-dispatcher-live@0.155.0
+
+## 0.154.2
+
+### Patch Changes
+
+- 005f6ed: Nav entries without their own `access` now inherit the access rule from
+  their referenced screen (`buildNavRegistrySliceForApp`). Previously a nav
+  entry with no explicit `access` was always visible once its workspace
+  granted access, even when the target screen's own `access` was narrower —
+  a role could see the entry, click it, and get a 403 instead of the entry
+  being hidden. An explicit `access` on the nav entry still wins over the
+  screen's. Fixes #1099.
+  - @cosmicdrift/kumiko-headless@0.154.2
+  - @cosmicdrift/kumiko-renderer@0.154.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.154.2
+
+## 0.154.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.154.1
+- @cosmicdrift/kumiko-headless@0.154.1
+- @cosmicdrift/kumiko-renderer@0.154.1
+
+## 0.154.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.154.0
+- @cosmicdrift/kumiko-renderer@0.154.0
+- @cosmicdrift/kumiko-dispatcher-live@0.154.0
+
+## 0.153.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.153.0
+- @cosmicdrift/kumiko-headless@0.153.0
+- @cosmicdrift/kumiko-renderer@0.153.0
+
+## 0.152.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.152.0
+- @cosmicdrift/kumiko-renderer@0.152.0
+- @cosmicdrift/kumiko-dispatcher-live@0.152.0
+
+## 0.151.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.151.1
+- @cosmicdrift/kumiko-renderer@0.151.1
+- @cosmicdrift/kumiko-dispatcher-live@0.151.1
+
+## 0.151.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.151.0
+- @cosmicdrift/kumiko-renderer@0.151.0
+- @cosmicdrift/kumiko-dispatcher-live@0.151.0
+
+## 0.150.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.150.0
+- @cosmicdrift/kumiko-renderer@0.150.0
+- @cosmicdrift/kumiko-dispatcher-live@0.150.0
+
+## 0.149.2
+
+### Patch Changes
+
+- f0a73c0: WorkspaceShell accepts `navBadges` (same NavTree slot as DefaultAppShell) so multi-workspace apps can show runtime badges (e.g. unread inbox counts).
+  - @cosmicdrift/kumiko-dispatcher-live@0.149.2
+  - @cosmicdrift/kumiko-headless@0.149.2
+  - @cosmicdrift/kumiko-renderer@0.149.2
+
+## 0.149.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.149.1
+- @cosmicdrift/kumiko-renderer@0.149.1
+- @cosmicdrift/kumiko-dispatcher-live@0.149.1
+
+## 0.149.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.149.0
+- @cosmicdrift/kumiko-headless@0.149.0
+- @cosmicdrift/kumiko-renderer@0.149.0
+
+## 0.148.0
+
+### Patch Changes
+
+- cb5612d: Nav-/Screen-Labels rendern nicht mehr als roher i18n-Key, wenn ein Feature `r.translations({ keys })`
+  verwendet, aber keine App-seitige `web/i18n.ts`-Duplikation mitbringt (z.B. `cap-counter`, `admin-shell`,
+  `jobs`, `audit`). `buildAppSchema` projiziert `feature.translations` jetzt verbatim in `FeatureSchema`,
+  `createKumikoApp` pivotiert dieses Bundle client-seitig und reiht es zwischen `clientFeatures.translations`
+  (App-Override gewinnt weiterhin) und `kumikoDefaultTranslations` ein.
+
+  Beide Pakete müssen zusammen aktualisiert werden — die Server-Projektion allein liefert kein Bundle,
+  und ohne die neue `FeatureSchema.translations`-Projektion hat der Renderer nichts zu konsumieren.
+
+  `createPublicSurface` (schema-loser Mount für anonyme Seiten) bekommt nie ein `AppSchema` und ist von
+  diesem Fix nicht betroffen — anonyme Screens brauchen weiterhin explizite `clientFeatures.translations`.
+
+  - @cosmicdrift/kumiko-headless@0.148.0
+  - @cosmicdrift/kumiko-renderer@0.148.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.148.0
+
+## 0.147.3
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.147.3
+- @cosmicdrift/kumiko-headless@0.147.3
+- @cosmicdrift/kumiko-renderer@0.147.3
+
+## 0.147.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.147.2
+- @cosmicdrift/kumiko-renderer@0.147.2
+- @cosmicdrift/kumiko-dispatcher-live@0.147.2
+
+## 0.147.1
+
+### Patch Changes
+
+- Updated dependencies [63cfcc9]
+  - @cosmicdrift/kumiko-renderer@0.147.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.147.1
+  - @cosmicdrift/kumiko-headless@0.147.1
+
+## 0.147.0
+
+### Minor Changes
+
+- a46b306: AI-Text primitive: `AiTextField`/`AiTextArea` (renderer-web) — drop-in replacements for `TextField`/`TextareaField` with ghost-text completion (Tab to accept, Esc to discard), and correct/translate/rewrite toolbar actions with a before/after diff preview. Built on `useAiTextAction`/`useCompletion` (renderer) — request/response hooks with debounce, abort, and cap-exceeded/unavailable state. Both degrade gracefully to a plain text field when the server's `ai-text` feature (kumiko-enterprise) isn't mounted — no enterprise import in this public package.
+- c93de1a: `Section` primitive: new optional `variant="destructive"` marks a section as a warning/danger area (border-only, e.g. account deletion, restrict processing) — closes the styling gap left after `privacy-center-screen.tsx` migrated off its hand-rolled `border-destructive/40` class onto the shared `Section` primitive.
+
+### Patch Changes
+
+- Updated dependencies [a46b306]
+- Updated dependencies [c93de1a]
+  - @cosmicdrift/kumiko-renderer@0.147.0
+  - @cosmicdrift/kumiko-headless@0.147.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.147.0
+
+## 0.146.4
+
+### Patch Changes
+
+- Updated dependencies [d85f5ae]
+  - @cosmicdrift/kumiko-headless@0.146.4
+  - @cosmicdrift/kumiko-dispatcher-live@0.146.4
+  - @cosmicdrift/kumiko-renderer@0.146.4
+
+## 0.146.3
+
+### Patch Changes
+
+- Updated dependencies [58a6145]
+  - @cosmicdrift/kumiko-headless@0.146.3
+  - @cosmicdrift/kumiko-dispatcher-live@0.146.3
+  - @cosmicdrift/kumiko-renderer@0.146.3
+
+## 0.146.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.146.2
+- @cosmicdrift/kumiko-headless@0.146.2
+- @cosmicdrift/kumiko-renderer@0.146.2
+
+## 0.146.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.146.1
+- @cosmicdrift/kumiko-renderer@0.146.1
+- @cosmicdrift/kumiko-dispatcher-live@0.146.1
+
+## 0.146.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.146.0
+- @cosmicdrift/kumiko-renderer@0.146.0
+- @cosmicdrift/kumiko-dispatcher-live@0.146.0
+
+## 0.145.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.145.1
+- @cosmicdrift/kumiko-headless@0.145.1
+- @cosmicdrift/kumiko-renderer@0.145.1
+
+## 0.145.0
+
+### Minor Changes
+
+- 1c60495: ResultTable + ComparisonTable: optionales `card`-Prop. Rendert den Tabellen-Look 1:1 wie die CRUD-Liste (DataTable) — gerundeter `border`-Container auf `bg-card` + `bg-muted`-Header-Band, sauber geclippt. Default bleibt bare, damit bestehende Consumer + bespoke Share-Decks unverändert bleiben. (0.143.0/0.144.0 hatten das Prop durch einen Commit-Fehler nicht.)
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.145.0
+- @cosmicdrift/kumiko-headless@0.145.0
+- @cosmicdrift/kumiko-renderer@0.145.0
+
+## 0.144.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.144.0
+- @cosmicdrift/kumiko-renderer@0.144.0
+- @cosmicdrift/kumiko-dispatcher-live@0.144.0
+
+## 0.143.1
+
+### Patch Changes
+
+- b8d890d: Republish: die 0.143.0-Registry-Version enthielt das `card`-Prop (ResultTable/ComparisonTable) durch eine parallele Versions-Kollision nicht. 0.143.1 publiziert den tatsächlichen main-Stand mit `card`.
+  - @cosmicdrift/kumiko-dispatcher-live@0.143.1
+  - @cosmicdrift/kumiko-headless@0.143.1
+  - @cosmicdrift/kumiko-renderer@0.143.1
+
+## 0.143.0
+
+### Minor Changes
+
+- 37bac07: ResultTable + ComparisonTable: optionales `card`-Prop. Rendert den Tabellen-Look 1:1 wie die CRUD-Liste (DataTable) — gerundeter `border`-Container auf `bg-card` + `bg-muted`-Header-Band, sauber geclippt. Default bleibt bare (nur die Tabelle), damit bestehende Consumer + bespoke Layouts (Share-Decks) unverändert bleiben.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.143.0
+- @cosmicdrift/kumiko-headless@0.143.0
+- @cosmicdrift/kumiko-renderer@0.143.0
+
+## 0.142.0
+
+### Minor Changes
+
+- 2de19b3: ResultTable + ComparisonTable: optionales `className`-Prop (auf das `<table>` gemergt), damit Consumer table-spezifisches Styling ergänzen können — z.B. bespoke Share-Deck-Layouts (`deck-table`) oder Original-Klassen (`min-w-*`, `[&_th]:text-xs`) beim Umstieg von hand-getailwindeten Tabellen auf das Widget.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.142.0
+- @cosmicdrift/kumiko-headless@0.142.0
+- @cosmicdrift/kumiko-renderer@0.142.0
+
+## 0.141.0
+
+### Minor Changes
+
+- 8de61e7: `Button`: `fullWidth?: boolean` → `width?: "full" | "auto"` (default `"auto"`). Bounded Value-Prop statt Boolean-Flag — `width="full"` streckt CTA-Buttons auf Container-Breite, andere Breiten bleiben Layout-Sache des Containers. Ersetzt das erst in 0.140 eingeführte `fullWidth` (noch kein externer Consumer).
+
+### Patch Changes
+
+- Updated dependencies [8de61e7]
+  - @cosmicdrift/kumiko-renderer@0.141.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.141.0
+  - @cosmicdrift/kumiko-headless@0.141.0
+
+## 0.140.0
+
+### Minor Changes
+
+- 742f15c: `Button` bekommt `ariaLabel?` (zugänglicher Name für icon-only-Buttons) und `fullWidth?` (streckt CTA-Buttons in Karten/Panels auf volle Breite). Schließt die letzten Button-Lücken aus kumiko-framework#935 — damit werden icon-only-Remove-Buttons und full-width Pricing-/CTA-Buttons ohne rohes `<button>` migrierbar.
+
+### Patch Changes
+
+- Updated dependencies [742f15c]
+  - @cosmicdrift/kumiko-renderer@0.140.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.140.0
+  - @cosmicdrift/kumiko-headless@0.140.0
+
+## 0.139.0
+
+### Minor Changes
+
+- 56ff9cb: Form-Kit / Primitives: `Button` bekommt eine `size`-Achse (`"sm" | "md" | "icon"`, default `"md"`) für kompakte Inline-/Icon-Buttons; neuer `Input`-`kind:"range"` (Slider, min/max/step) plus `RangeField`-Widget; `FileField`-Widget über den bestehenden `kind:"file"|"image"` (FileRef-basiert). Schließt die drei Core-Primitive-Lücken aus kumiko-framework#935.
+
+### Patch Changes
+
+- Updated dependencies [56ff9cb]
+  - @cosmicdrift/kumiko-renderer@0.139.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.139.0
+  - @cosmicdrift/kumiko-headless@0.139.0
+
+## 0.138.0
+
+### Minor Changes
+
+- 455bddd: Form-Kit: weitere Feld-Widgets `SelectField`, `DateField`, `TextField`, `BooleanField`, `TextareaField` (dünne Wrapper über die bestehenden `usePrimitives()` Input-`kind`s, wie `NumberField`), ein `footer`-Slot auf `ResultPanel` (Action-Button am Karten-Fuß) und `ComparisonTable` — eine transponierte Vergleichstabelle (Zeile = Kennzahl, Spalte = Variante) mit Best-Highlight je Zeile, für Szenario-/Angebotsvergleiche wo `ResultTable` (Zeile = Datensatz) nicht passt.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.138.0
+- @cosmicdrift/kumiko-headless@0.138.0
+- @cosmicdrift/kumiko-renderer@0.138.0
+
+## 0.137.0
+
+### Minor Changes
+
+- fdd7c40: Dashboard-`stat`-Panel: optionales `icon`/`accentColor` — statische (Author-Zeit) Panel-Eigenschaften, keine Query-Felder. `icon` löst über dieselbe `extensionSectionComponents`-Registry auf wie `custom`-Panels; `accentColor` ist ein roher CSS-Farbwert-Passthrough. Rückwärtskompatibel, ohne die Felder ändert sich nichts.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.137.0
+- @cosmicdrift/kumiko-renderer@0.137.0
+- @cosmicdrift/kumiko-dispatcher-live@0.137.0
+
+## 0.136.1
+
+### Patch Changes
+
+- 74ed322: Form-Kit: `MoneyField`/`PercentField` rendern kein €/%-Einheit-Badge mehr — die Einheit gehört ins Label (`t("…Summe (€)")`), sonst steht sie in Consumer-Apps doppelt. `unit`/`labelAppendix` aus `NumberField` entfernt; die drei Feld-Widgets rendern jetzt identisch, `MoneyField`/`PercentField` bleiben als semantische Call-Site-Aliase (Andockpunkt für spätere geld-/prozent-spezifische Formatierung).
+  - @cosmicdrift/kumiko-dispatcher-live@0.136.1
+  - @cosmicdrift/kumiko-headless@0.136.1
+  - @cosmicdrift/kumiko-renderer@0.136.1
+
+## 0.136.0
+
+### Minor Changes
+
+- f5a7f51: Dashboard-`stat`-Panel: optionales `deltaField`/`deltaDirectionField`/`deltaToneField` — rendert einen Delta-Chip (z.B. "↓ 23 %") neben dem Label, wenn der Query-Handler beide Pflichtfelder (Wert + Richtung) liefert. Rückwärtskompatibel, ohne die Felder ändert sich nichts.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.136.0
+- @cosmicdrift/kumiko-renderer@0.136.0
+- @cosmicdrift/kumiko-dispatcher-live@0.136.0
+
+## 0.135.0
+
+### Minor Changes
+
+- 3579d24: Form-Kit-Widgets: `useDraft`, `NumberField`/`MoneyField`/`PercentField`, `ResultPanel`/`ResultTable` und ein `emphasize`-Flag für `DetailList`. Bausteine für das Rechner-Muster der Consumer-Apps (Zahlenfelder → pure Funktion → Live-Ergebnispanel), das bislang nur als `type:"custom"`-JSX mit dupliziertem Field/Input-Boilerplate und handgebauten `<dl>`/`<table>` existierte. Siehe kumiko-framework#925.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.135.0
+- @cosmicdrift/kumiko-headless@0.135.0
+- @cosmicdrift/kumiko-renderer@0.135.0
+
+## 0.134.0
+
+### Minor Changes
+
+- 9eab762: Dashboard-Screen-Typ: vier neue Panel-Kinds — `stat-group` (betitelte Sektion aus mehreren Stat-Panels), `feed` (nicht-tabellarische Kurzliste), `progress-list` (Label/Wert + Fortschrittsbalken) und `custom` (eingehängte App-Komponente über dieselbe extensionSectionComponents-Registry wie entityEdit-Sections und List-Header-Slots, bleibt an ihrer Array-Position). Plus ein screen-weiter `filter` (Combobox-Picker), dessen Wert in jede Panel-Query gemerged wird — nutzt den bestehenden `useQuery`-payloadKey-Refetch, kein neuer Mechanismus. `ExtensionSectionProps` bekommt ein neues optionales `filterParams`-Feld für den `custom`-Mount-Ort.
+
+### Patch Changes
+
+- Updated dependencies [9eab762]
+  - @cosmicdrift/kumiko-renderer@0.134.0
+  - @cosmicdrift/kumiko-headless@0.134.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.134.0
+
+## 0.133.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.133.0
+- @cosmicdrift/kumiko-renderer@0.133.0
+- @cosmicdrift/kumiko-dispatcher-live@0.133.0
+
+## 0.132.0
+
+### Minor Changes
+
+- 2d40746: Toast-`variant` nutzt jetzt `StatusTone` (`ok`/`warn`/`bad`/`critical`/`muted`, dieselbe Farbfamilie wie `StatusBadge`) statt `default`/`destructive`. Breaking: `variant: "destructive"` → `variant: "bad"`, Default ist jetzt `muted`.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.132.0
+- @cosmicdrift/kumiko-headless@0.132.0
+- @cosmicdrift/kumiko-renderer@0.132.0
+
+## 0.131.0
+
+### Minor Changes
+
+- 99008c9: App-Mounting 2.0 Säule B: neuer deklarativer Screen-Typ `dashboard` (stat/chart/list-Panels mit eigenen Queries; Boot-Validator + required-surface-keys; WebDashboardBody via DashboardBodyProvider). projectionList-Row-/Toolbar-Actions unterstützen jetzt `kind: "writeHandler"` (entityList-Dispatch-Pfad inkl. WriteFailedError).
+- d814026: App-Mounting 2.0 Säule A: Mid-Level-Widget-Kit in renderer-web (StatCard, MiniStat, SectionCard, StatusBadge, ProgressBar, CollapsibleSection, DetailList, ModeSwitch, StatusBarChart, TimeseriesChart, EmptyState/LoadingState/ErrorState, QueryTable) + Status-Farb-Tokens (--color-status-\*). Neue Hooks useMutation + useDisclosure. Neues Core-Primitive Link (default/button/muted), Button-Variant "link", Text-Variant "muted"; auth-email-password nutzt sie (authButtonClass/authMutedLinkClass entfernt).
+
+### Patch Changes
+
+- Updated dependencies [99008c9]
+- Updated dependencies [d814026]
+  - @cosmicdrift/kumiko-renderer@0.131.0
+  - @cosmicdrift/kumiko-headless@0.131.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.131.0
+
+## 0.130.2
+
+### Patch Changes
+
+- 98ed535: Content-Tree + Config-Nav Sysadmin-Shell polish:
+
+  - text-content: Leaf-Knoten tragen jetzt ein `file`-Icon statt eines Dots; der Editor läuft auf der Page-Shell (`Form`-Primitive mit Card statt des entfernten `FormPanelShell`).
+  - Sidebar-Nav bekommt ein Suchfeld, das den Baum live filtert (Treffer + ihre Ancestors bleiben, zugeklappte Ordner öffnen für die Suche).
+  - Ordner-Knoten zeigen `folder-open` wenn ausgeklappt.
+  - NAV_ICONS um `server`, `mail`, `lock`, `hash`, `download`, `folder-open` ergänzt — SMTP-/Config-Nav-Kinder (z.B. „Email-Versand") rendern damit ein Icon statt blank.
+  - Verschachtelte Provider-Ordner (Content-Tree) rendern ihre Kinder in einem `<ul>` (valides HTML + Einrück-Stufe pro Tiefe) statt `<li>`-in-`<li>`.
+  - Platform-Overview: `user:query:user:list` in der Allowlist (behebt den Overview-Crash).
+
+- Updated dependencies [98ed535]
+  - @cosmicdrift/kumiko-renderer@0.130.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.130.2
+  - @cosmicdrift/kumiko-headless@0.130.2
+
 ## 0.130.1
 
 ### Patch Changes

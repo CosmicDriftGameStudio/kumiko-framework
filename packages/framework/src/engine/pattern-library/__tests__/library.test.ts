@@ -47,7 +47,6 @@ const ALL_KINDS: FeaturePatternKind[] = [
   "writeHandler",
   "queryHandler",
   "hook",
-  "entityHook",
   "job",
   "notification",
   "authClaims",
@@ -55,12 +54,10 @@ const ALL_KINDS: FeaturePatternKind[] = [
   "projection",
   "multiStreamProjection",
   "defineEvent",
-  "eventMigration",
   "extendsRegistrar",
   "usesApi",
   "exposesApi",
   "treeActions",
-  "tree",
   "envSchema",
   "unknown",
 ];
@@ -281,14 +278,6 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
         target: "x",
         fnBody: PLACEHOLDER_BODY_LOC,
       };
-    case "entityHook":
-      return {
-        kind,
-        source: PLACEHOLDER_LOC,
-        hookType: "postSave",
-        entityName: "x",
-        fnBody: PLACEHOLDER_BODY_LOC,
-      };
     case "job":
       return {
         kind,
@@ -333,15 +322,6 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
         eventName: "x",
         schemaSource: PLACEHOLDER_BODY_LOC,
       };
-    case "eventMigration":
-      return {
-        kind,
-        source: PLACEHOLDER_LOC,
-        eventName: "x",
-        fromVersion: 1,
-        toVersion: 2,
-        transformBody: PLACEHOLDER_BODY_LOC,
-      };
     case "extendsRegistrar":
       return {
         kind,
@@ -351,8 +331,6 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
       };
     case "treeActions":
       return { kind, source: PLACEHOLDER_LOC, definitions: {} };
-    case "tree":
-      return { kind, source: PLACEHOLDER_LOC, providerBody: PLACEHOLDER_BODY_LOC };
     case "envSchema":
       return { kind, source: PLACEHOLDER_LOC, schemaBody: PLACEHOLDER_BODY_LOC };
     case "unknown":

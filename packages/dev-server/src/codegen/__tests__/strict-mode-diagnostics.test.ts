@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import * as ts from "typescript";
+// TS7's package.json exports only version.cjs at ".", so the classic
+// createProgram/ScriptTarget Compiler API is unreachable via `import *
+// as ts from "typescript"` anymore; ts-morph's vendored (older) compiler
+// build is the only way to get that surface, so diagnostics here run
+// against a different compiler than the repo's own tsc.
+import { ts } from "ts-morph";
 import { runCodegen } from "../run-codegen";
 
 const REPO_ROOT = join(__dirname, "../../../../..");

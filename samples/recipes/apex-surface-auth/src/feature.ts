@@ -15,7 +15,7 @@
 // Recipes keine Browser-Deps ziehen):
 //
 //   import {
-//     ForgotPasswordScreen, LoginScreen, SignupScreen,
+//     ForgotPasswordScreen, SignupScreen, createLoginRoute,
 //     AuthShellProvider, emailPasswordClient,
 //   } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 //   import {
@@ -34,18 +34,27 @@
 //     </MarketingChrome>
 //   );
 //
+//   // createLoginRoute — NICHT LoginScreen direkt rendern: die Route
+//   // braucht die Challenge-Swap-Logik für einen zweiten Faktor. Ohne die
+//   // (z.B. raw <LoginScreen />) bleibt ein MFA-enrolter User beim Login
+//   // hängen, sobald die App irgendwann auth-mfa mountet. Mountet die App
+//   // auth-mfa, `mfaVerifyScreen: MfaVerifyScreen` (aus
+//   // "@cosmicdrift/kumiko-bundled-features/auth-mfa/web") ergänzen.
+//   const LoginRoute = createLoginRoute({ loginScreenProps: { signupHref: "/signup" } });
+//
 //   createPublicSurface({
 //     clientFeatures: [emailPasswordClient()],   // bringt SessionProvider + i18n
 //     shell,
 //     routes: [
-//       { path: "/login",            component: <LoginScreen /> },
+//       { path: "/login",            component: <LoginRoute /> },
 //       { path: "/signup",           component: <SignupScreen loginHref="/login" /> },
 //       { path: "/forgot-password",  component: <ForgotPasswordScreen loginHref="/login" /> },
 //       { path: "/delete-account",          component: <RequestAccountDeletionScreen /> },
 //       { path: "/delete-account/confirm",  component: <ConfirmAccountDeletionScreen /> },
 //     ],
-//     fallback: <LoginScreen />,
+//     fallback: <LoginRoute />,
 //   });
+//
 //
 // SERVER-WIRING: die App aktiviert `anonymousAccess` (defaultTenantId = der
 // Apex-Host-Tenant), damit /api/write die anonymen Deletion-Handler erreicht:

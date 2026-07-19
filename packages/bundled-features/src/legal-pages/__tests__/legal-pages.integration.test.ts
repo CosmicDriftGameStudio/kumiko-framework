@@ -238,6 +238,10 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
         // Resolver gibt IMMER einen anderen Tenant zurück — wenn legal-
         // pages den respektieren würde, wäre der DB-Lookup leer.
         tenantResolver: () => otherTenantId,
+        // Mirrors publicstatus's real subdomain resolver: the tenant is
+        // derived from the host, which the client cannot forge — trusted
+        // over any client-supplied tenant.
+        resolverTrust: "authoritative",
         tenantExists: async (id) => id === otherTenantId || id === SYSTEM_TENANT_ID,
       },
       extraContext: ({ db }) => ({
@@ -264,6 +268,57 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
       expect(body).toContain("Marc Frost");
     } finally {
       await hostScopedStack.cleanup();
+    }
+  });
+});
+
+describe("legal-pages :: wrapLayout erhält route.slug (alt-lang-switch-regression)", () => {
+  test("custom wrapLayout bekommt den passenden slug pro Route, nicht immer imprint", async () => {
+    const seenSlugs: (string | undefined)[] = [];
+    const customStack = await setupTestStack({
+      features: [
+        createTextContentFeature(),
+        createLegalPagesFeature({
+          wrapLayout: (opts) => {
+            seenSlugs.push(opts.slug);
+            return `<html data-slug="${opts.slug ?? ""}">${opts.bodyHtml}</html>`;
+          },
+        }),
+      ],
+      anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
+      extraContext: ({ db }) => ({
+        textContent: createTextContentApi(db),
+      }),
+    });
+    try {
+      await unsafeCreateEntityTable(customStack.db, textBlockEntity);
+      await createEventsTable(customStack.db);
+      await seedTextBlock(customStack.db, {
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "imprint",
+        lang: "de",
+        title: "Impressum",
+        body: "Body",
+      });
+      await seedTextBlock(customStack.db, {
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "privacy",
+        lang: "de",
+        title: "Datenschutzerklärung",
+        body: "Body",
+      });
+
+      const imprintRes = await customStack.app.request("/legal/impressum");
+      expect(imprintRes.status).toBe(200);
+      expect(await imprintRes.text()).toContain('data-slug="imprint"');
+
+      const privacyRes = await customStack.app.request("/legal/datenschutz");
+      expect(privacyRes.status).toBe(200);
+      expect(await privacyRes.text()).toContain('data-slug="privacy"');
+
+      expect(seenSlugs).toEqual(["imprint", "privacy"]);
+    } finally {
+      await customStack.cleanup();
     }
   });
 });

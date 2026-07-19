@@ -107,4 +107,7 @@ export const assetListScreen: EntityListScreenDefinition = {
   ],
   pageSize: 25,
   defaultSort: { field: "name", dir: "asc" },
+  rowActions: [
+    { kind: "navigate", id: "edit", label: "assets:actions.edit", screen: "asset-edit" },
+  ],
 };

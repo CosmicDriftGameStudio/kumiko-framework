@@ -1,87 +1,10 @@
-import { ZodObject, type ZodType, type z } from "zod";
-import type { EntityTableMeta } from "../db/entity-table-meta";
-import { toTableName } from "../db/table-builder";
-import { LifecycleHookTypes } from "./constants";
-import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
-import { isKebabSegment, QnTypes, qn, toKebab } from "./qualified-name";
-import type {
-  AccessRule,
-  AuthClaimsFn,
-  ClaimKeyDefinition,
-  ClaimKeyHandle,
-  ClaimKeyType,
-  ConfigKeyDefinition,
-  ConfigKeyHandle,
-  ConfigKeyType,
-  ConfigSeedDef,
-  EntityDefinition,
-  EntityProjectionExtension,
-  EntityRef,
-  EventDef,
-  EventMigrationDef,
-  EventPiiFields,
-  EventUpcastFn,
-  ExtensionSelectorDef,
-  FeatureDefinition,
-  FeatureMetricDef,
-  FeatureRegistrar,
-  HandlerRef,
-  HookMap,
-  HookPhase,
-  JobDefinition,
-  JobHandlerFn,
-  LifecycleHookFn,
-  LifecycleHookType,
-  MetricOptions,
-  MultiStreamProjectionDefinition,
-  NameOrRef,
-  NotificationDataFn,
-  NotificationDefinition,
-  NotificationRecipientFn,
-  NotificationTemplateFn,
-  OwnedFn,
-  PhasedHook,
-  PostDeleteHookFn,
-  PostQueryHookFn,
-  PostSaveHookFn,
-  PreDeleteHookFn,
-  ProjectionDefinition,
-  QualifiedEventName,
-  QueryHandlerDef,
-  QueryHandlerFn,
-  RateLimitOption,
-  RawTableEntry,
-  RawTableOptions,
-  ReferenceDataDef,
-  RegistrarExtensionDef,
-  RegistrarExtensionRegistration,
-  RelationDefinition,
-  SearchPayloadContributorFn,
-  SecretKeyDefinition,
-  SecretKeyHandle,
-  SecretOptions,
-  TranslationKeys,
-  TranslationsDef,
-  TreeActionDef,
-  TreeActionsHandle,
-  TreeChildrenSubscribe,
-  UiHints,
-  UnmanagedTableEntry,
-  UnmanagedTableOptions,
-  ValidationHookFn,
-  WriteHandlerDef,
-  WriteHandlerFn,
-} from "./types";
-import { HookPhases } from "./types";
+import { createInitialFeatureBuilderState } from "./feature-builder-state";
+import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs";
+import { buildEntityHandlerMethods } from "./feature-entity-handlers";
+import { buildUiExtensionsMethods } from "./feature-ui-extensions";
+import { unwrapArrayForm } from "./object-form";
+import type { FeatureDefinition, FeatureRegistrar, HookMap, UiHints } from "./types";
 import type { RequiresApi } from "./types/feature";
-import { resolveName } from "./types/handlers";
-import type { HttpRouteDefinition } from "./types/http-route";
-import type { NavDefinition } from "./types/nav";
-import type { ScreenDefinition } from "./types/screen";
-import type { PipelineDef } from "./types/step";
-import type { WorkspaceDefinition } from "./types/workspace";
-
-const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
 
 // `TExports` lets the setup callback hand back a typed object that
 // downstream features can import (e.g. `tenantFeature.exports.config`). The
@@ -95,121 +18,29 @@ const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
 // for `ctx.appendEvent({ type: eventDef.name, ... })` lights up. Apps
 // that don't care can keep the default-string and use the wrapper-based
 // strict-mode (string-literal types per call-site) like before.
+
+// requires/optionalRequires accept either variadic strings (hand-written
+// call sites) or a single `{ features }` object (the feature-ast renderer's
+// canonical Object-Form for Designer/AI-generated code) — see the matching
+// overloads on RequiresApi / FeatureRegistrar['optionalRequires'].
+function resolveFeatureNamesArgs(
+  args: readonly [{ readonly features: readonly string[] }] | readonly string[],
+): readonly string[] {
+  return unwrapArrayForm(args, "features");
+}
+
 export function defineFeature<const TName extends string, TExports = undefined>(
   name: TName,
   setup: (r: FeatureRegistrar<TName>) => TExports,
 ): FeatureDefinition & { readonly exports: TExports } {
-  const requires: string[] = [];
-  const optionalRequires: string[] = [];
-  // Read-side projection-tables declared via r.requires.projection("table").
-  // Boot-validator checks unsafeProjection-* step calls against this set.
-  const requiredProjections = new Set<string>();
-  // Tier-2 step kinds declared via r.requires.step("webhook.send"). Q9.
-  const requiredSteps = new Set<string>();
-  const entities: Record<string, EntityDefinition> = {};
-  const entityTables: Record<string, unknown> = {};
-  const relations: Record<string, Record<string, RelationDefinition>> = {};
-  const writeHandlers: Record<string, WriteHandlerDef> = {};
-  const queryHandlers: Record<string, QueryHandlerDef> = {};
-  const validationHooks: Record<string, ValidationHookFn> = {};
-  // preSave/preQuery stay unphased (owned-fn); postSave/preDelete/postDelete
-  // are phased (owned-fn + phase). Each hook carries its owning feature so
-  // the lifecycle pipeline can filter by effectiveFeatures without a parallel
-  // bookkeeping structure.
-  const lifecycleHooks: Record<string, Record<string, OwnedFn<LifecycleHookFn>[]>> = {};
-  const phasedLifecycleHooks: Record<
-    "postSave" | "preDelete" | "postDelete",
-    Record<string, PhasedHook<LifecycleHookFn>[]>
-  > = { postSave: {}, preDelete: {}, postDelete: {} };
-  const configKeys: Record<string, ConfigKeyDefinition> = {};
-  const configSeeds: ConfigSeedDef[] = [];
-  const jobs: Record<string, JobDefinition> = {};
-  const events: Record<string, { name: string; schema: ZodType; version: number }> = {};
-  const eventMigrations: Record<string, EventMigrationDef[]> = {};
-  const configReads: string[] = [];
-  const entityPostSave: Record<string, PhasedHook<PostSaveHookFn>[]> = {};
-  const entityPreDelete: Record<string, PhasedHook<PreDeleteHookFn>[]> = {};
-  const entityPostDelete: Record<string, PhasedHook<PostDeleteHookFn>[]> = {};
-  const entityPostQuery: Record<string, OwnedFn<PostQueryHookFn>[]> = {};
-  const searchPayloadExtensions: Record<string, OwnedFn<SearchPayloadContributorFn>[]> = {};
-  const notifications: Record<string, NotificationDefinition> = {};
-  const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
-  const extensionUsages: RegistrarExtensionRegistration[] = [];
-  const extensionSelectors: ExtensionSelectorDef[] = [];
-  const exposedApis: Set<string> = new Set();
-  const usedApis: Set<string> = new Set();
-  const referenceData: ReferenceDataDef[] = [];
-  const handlerEntityMappings: Record<string, string> = {};
-  const metrics: Record<string, FeatureMetricDef> = {};
-  const secretKeys: Record<string, SecretKeyDefinition> = {};
-  const projections: Record<string, ProjectionDefinition> = {};
-  const multiStreamProjections: Record<string, MultiStreamProjectionDefinition> = {};
-  const entityProjectionExtensions: Record<string, EntityProjectionExtension[]> = {};
-  const rawTables: Record<string, RawTableEntry> = {};
-  const unmanagedTables: Record<string, UnmanagedTableEntry> = {};
-  const authClaimsHooks: AuthClaimsFn[] = [];
-  const claimKeys: Record<string, ClaimKeyDefinition> = {};
-  const screens: Record<string, ScreenDefinition> = {};
-  const navs: Record<string, NavDefinition> = {};
-  const workspaces: Record<string, WorkspaceDefinition> = {};
-  const httpRoutes: Record<string, HttpRouteDefinition> = {};
-  let translations: TranslationKeys = {};
-
-  for (const t of LIFECYCLE_TYPES) {
-    lifecycleHooks[t] = {};
-  }
-
-  let isSystemScoped = false;
-  let toggleableDefault: boolean | undefined;
-  let description: string | undefined;
-  let uiHints: UiHints | undefined;
-  // Visual-Tree-Slots — at-most-one per feature, only-once-guard im
-  // registrar (siehe r.treeActions / r.tree). Undefined wenn das Feature
-  // keinen Visual-Tree-Beitrag liefert (Zero-Whitelist-Filter).
-  // Name-Collision-Sicherheit: object-literal-method-Names im registrar
-  // sind keine bindings im closure-scope, daher kollidiert die `treeActions`
-  // closure-let-var nicht mit der `treeActions(...)` registrar-Methode.
-  let treeActions: Readonly<Record<string, TreeActionDef>> | undefined;
-  let treeProvider: TreeChildrenSubscribe | undefined;
-  // Optional Zod-schema for env-vars this feature reads at runtime,
-  // declared via r.envSchema(). At-most-one per feature.
-  let envSchema: z.ZodObject<z.ZodRawShape> | undefined;
-
-  // Map handler name to entity via colon convention.
-  // "task:create" → entity "task". Bare CRUD verbs (create/update/delete) map
-  // when feature name matches an entity or the feature owns exactly one entity.
-  const CRUD_VERBS = new Set(["create", "update", "delete"]);
-
-  function tryMapEntity(handlerName: string): void {
-    const colonIdx = handlerName.indexOf(":");
-    if (colonIdx >= 0) {
-      const candidate = handlerName.slice(0, colonIdx);
-      if (entities[candidate]) {
-        handlerEntityMappings[handlerName] = candidate;
-      }
-      // skip: colon-prefixed handler processed (mapped or not), bare CRUD path not applicable
-      return;
-    }
-    if (CRUD_VERBS.has(handlerName)) {
-      if (entities[name]) {
-        handlerEntityMappings[handlerName] = name;
-        // skip: feature-name entity match is the preferred mapping
-        return;
-      }
-      const entityKeys = Object.keys(entities);
-      if (entityKeys.length === 1) {
-        handlerEntityMappings[handlerName] = entityKeys[0] as string;
-      }
-    }
-  }
+  const state = createInitialFeatureBuilderState();
 
   const registrar: FeatureRegistrar<TName> = {
     systemScope(): void {
-      isSystemScoped = true;
+      state.isSystemScoped = true;
     },
-
     describe(text: string): void {
-      if (description !== undefined) {
+      if (state.description !== undefined) {
         throw new Error(
           `[Feature ${name}] r.describe() called twice — a feature's description is declared once`,
         );
@@ -217,839 +48,112 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       if (typeof text !== "string" || text.trim().length === 0) {
         throw new Error(`[Feature ${name}] r.describe(): text must be a non-empty string`);
       }
-      description = text.trim();
+      state.description = text.trim();
     },
-
     requires: (() => {
-      const fn = (...featureNames: string[]) => {
-        requires.push(...featureNames);
+      const fn = (
+        ...args: readonly [{ readonly features: readonly string[] }] | readonly string[]
+      ) => {
+        state.requires.push(...resolveFeatureNamesArgs(args));
       };
       fn.projection = (tableName: string) => {
-        requiredProjections.add(tableName);
+        state.requiredProjections.add(tableName);
       };
       fn.step = (stepKind: string) => {
-        requiredSteps.add(stepKind);
+        state.requiredSteps.add(stepKind);
       };
       return fn as RequiresApi;
     })(),
-
-    optionalRequires(...featureNames: string[]): void {
-      optionalRequires.push(...featureNames);
+    optionalRequires(
+      ...args: readonly [{ readonly features: readonly string[] }] | readonly string[]
+    ): void {
+      state.optionalRequires.push(...resolveFeatureNamesArgs(args));
     },
-
     toggleable(options: { default: boolean }): void {
-      if (toggleableDefault !== undefined) {
+      if (state.toggleableDefault !== undefined) {
         throw new Error(
           `[Feature ${name}] r.toggleable() called twice — a feature's toggleable status is declared once`,
         );
       }
-      toggleableDefault = options.default;
+      state.toggleableDefault = options.default;
     },
-
     uiHints(hints: UiHints): void {
-      if (uiHints !== undefined) {
+      if (state.uiHints !== undefined) {
         throw new Error(`[Feature ${name}] r.uiHints() called twice — UI hints are declared once`);
       }
-      uiHints = hints;
+      state.uiHints = hints;
     },
-
-    entity(
-      entityName: string,
-      definition: EntityDefinition,
-      options?: { readonly table?: unknown },
-    ): EntityRef {
-      entities[entityName] = definition;
-      if (options?.table !== undefined) entityTables[entityName] = options.table;
-      return { name: entityName, table: definition.table ?? toTableName(entityName) };
-    },
-
-    writeHandler<TName extends string, TSchema extends ZodType>(
-      nameOrDef: string | WriteHandlerDefinition<TName, TSchema>,
-      schema?: TSchema,
-      handler?: WriteHandlerFn<z.infer<TSchema>>,
-      options?: { access?: AccessRule; rateLimit?: RateLimitOption },
-    ): HandlerRef {
-      if (typeof nameOrDef === "object") {
-        const def = nameOrDef;
-        writeHandlers[def.name] = {
-          name: def.name,
-          schema: def.schema,
-          // @cast-boundary engine-bridge — typed Dev-API's handler is
-          // generic over the schema's parsed payload (`WriteEvent<output<TSchema>>`),
-          // the storage form WriteHandlerFn carries `WriteEvent<unknown>`.
-          // Function-arg variance: TS sees the typed handler as stricter
-          // than the loose storage shape and rejects direct assignment.
-          // The runtime value is identical — the cast crosses that boundary.
-          // `satisfies` does not work here (it asserts assignability, which
-          // is what fails). Explicit cast is the right tool.
-          handler: def.handler as WriteHandlerFn,
-          ...(def.access && { access: def.access }),
-          ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
-          ...(def.rateLimit && { rateLimit: def.rateLimit }),
-          // Forward the pipeline-build closure so boot-validators and
-          // Designer/AI tooling can inspect the step list. Absent on
-          // free-form handlers — defineWriteHandler only sets `perform`
-          // when the author used the pipeline form. Variance cast
-          // mirrors the handler-cast above: PipelineDef<output<TSchema>>
-          // is stricter than PipelineDef<unknown> for the same reason.
-          ...(def.perform !== undefined && {
-            perform: def.perform as PipelineDef,
-          }),
-        };
-        tryMapEntity(def.name);
-        return { name: def.name };
-      }
-      if (!schema || !handler)
-        throw new Error("writeHandler inline form requires schema + handler");
-      writeHandlers[nameOrDef] = {
-        name: nameOrDef,
-        schema,
-        handler: handler as WriteHandlerFn, // @cast-boundary engine-bridge
-        ...(options?.access && { access: options.access }),
-        ...(options?.rateLimit && { rateLimit: options.rateLimit }),
-      };
-      tryMapEntity(nameOrDef);
-      return { name: nameOrDef };
-    },
-
-    queryHandler<TName extends string, TSchema extends ZodType>(
-      nameOrDef: string | QueryHandlerDefinition<TName, TSchema>,
-      schema?: TSchema,
-      handler?: QueryHandlerFn<z.infer<TSchema>>,
-      options?: { access?: AccessRule; rateLimit?: RateLimitOption },
-    ): HandlerRef {
-      if (typeof nameOrDef === "object") {
-        const def = nameOrDef;
-        queryHandlers[def.name] = {
-          name: def.name,
-          schema: def.schema,
-          // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
-          handler: def.handler as QueryHandlerFn, // @cast-boundary engine-bridge
-          ...(def.access && { access: def.access }),
-          ...(def.rateLimit && { rateLimit: def.rateLimit }),
-        };
-        tryMapEntity(def.name);
-        return { name: def.name };
-      }
-      if (!schema || !handler)
-        throw new Error("queryHandler inline form requires schema + handler");
-      queryHandlers[nameOrDef] = {
-        name: nameOrDef,
-        schema,
-        handler: handler as QueryHandlerFn, // @cast-boundary engine-bridge
-        ...(options?.access && { access: options.access }),
-        ...(options?.rateLimit && { rateLimit: options.rateLimit }),
-      };
-      tryMapEntity(nameOrDef);
-      return { name: nameOrDef };
-    },
-
-    relation(entityRef: NameOrRef, relationName: string, definition: RelationDefinition): void {
-      const entityName = resolveName(entityRef);
-      if (!relations[entityName]) relations[entityName] = {};
-      relations[entityName][relationName] = definition;
-    },
-
-    hook(
-      type: LifecycleHookType | "validation",
-      target: NameOrRef | readonly NameOrRef[],
-      fn: LifecycleHookFn | ValidationHookFn,
-      options?: { phase?: HookPhase },
-    ): void {
-      const targets = Array.isArray(target) ? target : [target];
-      const names = targets.map(resolveName);
-
-      // Hook-fn casts unten alle: @cast-boundary engine-bridge
-      // — typed Dev-API (LifecycleHookFn|ValidationHookFn) → erased Map<name, fn>.
-      if (type === "validation") {
-        for (const n of names) {
-          validationHooks[n] = fn as ValidationHookFn; // @cast-boundary engine-bridge
-        }
-        // skip: validation hooks have no phase, stored and done
-        return;
-      }
-
-      if (
-        type === LifecycleHookTypes.preSave ||
-        type === LifecycleHookTypes.preQuery ||
-        type === LifecycleHookTypes.postQuery
-      ) {
-        if (!lifecycleHooks[type]) lifecycleHooks[type] = {};
-        for (const n of names) {
-          if (!lifecycleHooks[type][n]) lifecycleHooks[type][n] = [];
-          lifecycleHooks[type][n].push({ fn: fn as LifecycleHookFn, featureName: name }); // @cast-boundary engine-bridge
-        }
-        // skip: pre/post-hooks without phase semantics, stored and done
-        return;
-      }
-
-      // Phased storage. preDelete has no phase option (always inTransaction);
-      // postSave/postDelete default to afterCommit.
-      const phase =
-        type === LifecycleHookTypes.preDelete
-          ? HookPhases.inTransaction
-          : (options?.phase ?? HookPhases.afterCommit);
-      const bucket = phasedLifecycleHooks[type];
-      for (const n of names) {
-        if (!bucket[n]) bucket[n] = [];
-        bucket[n].push({ fn: fn as LifecycleHookFn, phase, featureName: name }); // @cast-boundary engine-bridge
-      }
-    },
-
-    entityHook(
-      type: "postSave" | "preDelete" | "postDelete" | "postQuery",
-      entityRef: NameOrRef,
-      fn: LifecycleHookFn,
-      options?: { phase?: HookPhase },
-    ): void {
-      const entityName = resolveName(entityRef);
-      if (type === LifecycleHookTypes.postSave) {
-        const phase = options?.phase ?? HookPhases.afterCommit;
-        if (!entityPostSave[entityName]) entityPostSave[entityName] = [];
-        entityPostSave[entityName].push({ fn: fn as PostSaveHookFn, phase, featureName: name }); // @cast-boundary engine-bridge
-      } else if (type === LifecycleHookTypes.preDelete) {
-        if (!entityPreDelete[entityName]) entityPreDelete[entityName] = [];
-        entityPreDelete[entityName].push({
-          fn: fn as PreDeleteHookFn, // @cast-boundary engine-bridge
-          phase: HookPhases.inTransaction,
-          featureName: name,
-        });
-      } else if (type === LifecycleHookTypes.postDelete) {
-        const phase = options?.phase ?? HookPhases.afterCommit;
-        if (!entityPostDelete[entityName]) entityPostDelete[entityName] = [];
-        entityPostDelete[entityName].push({ fn: fn as PostDeleteHookFn, phase, featureName: name }); // @cast-boundary engine-bridge
-      } else if (type === LifecycleHookTypes.postQuery) {
-        // postQuery is unphased (no inTransaction/afterCommit semantics — fires
-        // synchronously after query-handler-execute, before field-access-filter)
-        if (!entityPostQuery[entityName]) entityPostQuery[entityName] = [];
-        entityPostQuery[entityName].push({ fn: fn as PostQueryHookFn, featureName: name }); // @cast-boundary engine-bridge
-      }
-    },
-
-    searchPayloadExtension(entityRef: NameOrRef, fn: SearchPayloadContributorFn): void {
-      const entityName = resolveName(entityRef);
-      if (!searchPayloadExtensions[entityName]) searchPayloadExtensions[entityName] = [];
-      searchPayloadExtensions[entityName].push({ fn, featureName: name });
-    },
-
-    config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
-      readonly keys: TKeys;
-      readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
-    }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> } {
-      // Qualify eagerly (same as defineEvent) so the handle name matches what
-      // the registry stores — lazy qualification would break compile-time
-      // autocomplete and hand-built test registries.
-      const handles: Record<string, ConfigKeyHandle<ConfigKeyType>> = {};
-      for (const [key, keyDef] of Object.entries(definition.keys)) {
-        configKeys[key] = keyDef;
-        handles[key] = {
-          name: qn(toKebab(name), "config", toKebab(key)),
-          type: keyDef.type,
-        };
-      }
-      // Parse seeds: resolve qualified key names and validate scope
-      if (definition.seeds) {
-        for (const [shortKey, seedDef] of Object.entries(definition.seeds)) {
-          const keyDef = definition.keys[shortKey];
-          if (!keyDef) continue; // skip — boot-validator reports unknown keys
-          const qualifiedKey = qn(toKebab(name), "config", toKebab(shortKey));
-          const scope = seedDef.scope ?? keyDef.scope;
-          configSeeds.push({
-            key: qualifiedKey,
-            value: seedDef.value,
-            scope,
-            tenantId: seedDef.tenantId,
-            userId: seedDef.userId,
-          });
-        }
-      }
-      return handles as {
-        readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]>;
-      }; // @cast-boundary engine-bridge — Mapped-Type-Inference at config()-callsite
-    },
-
-    job(
-      jobName: string,
-      options: Omit<JobDefinition, "name" | "handler">,
-      handler: JobHandlerFn,
-    ): void {
-      // Resolve NameOrRef(s) in trigger.on. Multi-Trigger-Form: Array
-      // wird zu Array von resolved strings, Single bleibt single string —
-      // job-runner unterscheidet anhand Array.isArray.
-      const trigger =
-        "on" in options.trigger
-          ? {
-              on: Array.isArray(options.trigger.on)
-                ? options.trigger.on.map(resolveName)
-                : resolveName(options.trigger.on as NameOrRef), // @cast-boundary engine-bridge
-            }
-          : options.trigger;
-      jobs[jobName] = { ...options, trigger, name: jobName, handler };
-    },
-
-    notification(
-      notificationName: string,
-      definition: {
-        readonly trigger: { readonly on: NameOrRef };
-        readonly recipient: NotificationRecipientFn;
-        readonly data: NotificationDataFn;
-        readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
-      },
-    ): void {
-      notifications[notificationName] = {
-        name: notificationName,
-        trigger: { on: resolveName(definition.trigger.on) },
-        recipient: definition.recipient,
-        data: definition.data,
-        templates: definition.templates,
-      };
-    },
-
-    translations(def: TranslationsDef): void {
-      translations = { ...translations, ...def.keys };
-    },
-
-    defineEvent: <const TInner extends string, TPayload>(
-      eventName: TInner,
-      schema: ZodType<TPayload>,
-      options?: { readonly version?: number; readonly piiFields?: EventPiiFields },
-    ): EventDef<TPayload, QualifiedEventName<TName, TInner>> => {
-      // Return the fully-qualified event name so callers can pass it
-      // straight to ctx.appendEvent without hand-building the
-      // "<feature>:event:<name>" shape. Registry keeps events keyed by
-      // short name — qualification is the framework's job, not the feature
-      // author's.
-      //
-      // The runtime kebab-step (`qn(toKebab(feature), …)`) is mirrored at
-      // the type-level by `QualifiedEventName<TName, TInner>` so the
-      // returned `name` carries the literal qualified shape that the
-      // augmented `KumikoEventTypeMap` keys against.
-      const qualified = qn(toKebab(name), "event", toKebab(eventName));
-      const version = options?.version ?? 1;
-      if (!Number.isInteger(version) || version < 1) {
-        throw new Error(
-          `[Feature ${name}] defineEvent("${eventName}"): version must be a positive integer, got ${String(version)}`,
-        );
-      }
-      // piiFields misconfiguration is a boot-time error, not a silent
-      // plaintext leak: both the pii field and its subjectField must exist
-      // on the payload schema (checkable when the schema is a ZodObject).
-      const piiFields = options?.piiFields;
-      if (piiFields) {
-        const shape = schema instanceof ZodObject ? schema.shape : undefined;
-        for (const [field, spec] of Object.entries(piiFields)) {
-          if (field === spec.subjectField) {
-            throw new Error(
-              `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" cannot use itself as subjectField — the subject id is a plaintext pseudonymous fk, the pii field is the value it owns.`,
-            );
-          }
-          for (const required of [field, spec.subjectField]) {
-            if (shape && !(required in shape)) {
-              throw new Error(
-                `[Feature ${name}] defineEvent("${eventName}"): piiFields references "${required}" which is not a field of the payload schema.`,
-              );
-            }
-          }
-        }
-      }
-      // @cast-boundary engine-bridge — runtime-string mirrors the
-      // template-literal-type via QualifiedEventName + toKebab. Both
-      // sides are tested (CamelToKebab type-tests + scan-events kebab
-      // tests), so the cast is a contract, not a typing-loss.
-      const def: EventDef<TPayload, QualifiedEventName<TName, TInner>> = {
-        name: qualified as QualifiedEventName<TName, TInner>,
-        schema,
-        version,
-        ...(piiFields !== undefined && { piiFields }),
-      };
-      events[eventName] = def;
-      return def;
-    },
-
-    eventMigration(
-      eventName: string,
-      fromVersion: number,
-      toVersion: number,
-      transform: EventUpcastFn,
-    ): void {
-      if (toVersion !== fromVersion + 1) {
-        throw new Error(
-          `[Feature ${name}] eventMigration("${eventName}", ${fromVersion}, ${toVersion}): ` +
-            `only single-step migrations are allowed — toVersion must be fromVersion + 1. ` +
-            `Chain larger jumps by registering each step separately.`,
-        );
-      }
-      if (!Number.isInteger(fromVersion) || fromVersion < 1) {
-        throw new Error(
-          `[Feature ${name}] eventMigration("${eventName}", ...): fromVersion must be >= 1, got ${String(fromVersion)}`,
-        );
-      }
-      const qualified = qn(toKebab(name), "event", toKebab(eventName));
-      const list = eventMigrations[eventName] ?? [];
-      if (list.some((m) => m.fromVersion === fromVersion)) {
-        throw new Error(
-          `[Feature ${name}] eventMigration("${eventName}", ${fromVersion}, ${toVersion}): ` +
-            `a migration from v${fromVersion} is already registered. Each step may only be declared once.`,
-        );
-      }
-      list.push({ eventName: qualified, fromVersion, toVersion, transform });
-      eventMigrations[eventName] = list;
-    },
-
-    readsConfig(...qualifiedKeys: string[]): void {
-      configReads.push(...qualifiedKeys);
-    },
-
-    referenceData(
-      entityRef: NameOrRef,
-      data: readonly Record<string, unknown>[],
-      options?: { upsertKey?: string },
-    ): void {
-      referenceData.push({
-        entityName: resolveName(entityRef),
-        data,
-        upsertKey: options?.upsertKey,
-      });
-    },
-
-    extendsRegistrar(extensionName: string, def: RegistrarExtensionDef): void {
-      registrarExtensions[extensionName] = def;
-    },
-
-    useExtension(
-      extensionName: string,
-      entityRef: NameOrRef,
-      options?: Record<string, unknown>,
-    ): void {
-      extensionUsages.push({ extensionName, entityName: resolveName(entityRef), options });
-    },
-
-    extensionSelector(extensionName: string, key: { readonly name: string } | string): void {
-      if (extensionSelectors.some((s) => s.extensionName === extensionName)) {
-        throw new Error(
-          `[Feature ${name}] extensionSelector("${extensionName}") declared twice — ` +
-            `one selector key per extension point.`,
-        );
-      }
-      const qualifiedKey = typeof key === "string" ? key : key.name;
-      extensionSelectors.push({ extensionName, qualifiedKey });
-    },
-
-    /**
-     * Marker-Deklaration: dieses Feature stellt eine Cross-Feature-API
-     * unter dem genannten Namen bereit. Die eigentliche Implementation
-     * wird separat als Query- oder Write-Handler unter dem QN-Pattern
-     * registriert; r.exposesApi ist reine Boot-Check-Surface.
-     *
-     * Beispiel:
-     *   defineFeature("compliance-profiles", (r) => {
-     *     r.exposesApi("compliance.forTenant");
-     *     r.queryHandler({ name: "compliance:query:for-tenant", ... });
-     *   });
-     *   defineFeature("user-data-rights", (r) => {
-     *     r.requires("compliance-profiles");
-     *     r.usesApi("compliance.forTenant");
-     *     // ruft im Handler: ctx.callQuery("compliance:query:for-tenant", ...)
-     *   });
-     */
-    exposesApi(apiName: string): void {
-      if (exposedApis.has(apiName)) {
-        throw new Error(
-          `[Feature ${name}] r.exposesApi("${apiName}") called twice — API names must be unique within a feature.`,
-        );
-      }
-      exposedApis.add(apiName);
-    },
-
-    /**
-     * Declares that this feature calls a cross-feature API. Boot-Validator
-     * checkt dass irgendein anderes Feature `r.exposesApi(name)` macht und
-     * dass dieses Feature `r.requires` darauf hat.
-     */
-    usesApi(apiName: string): void {
-      usedApis.add(apiName);
-    },
-
-    metric(shortName: string, options: MetricOptions): void {
-      if (metrics[shortName]) {
-        throw new Error(
-          `[Feature ${name}] Metric "${shortName}" already registered. ` +
-            `Metric names must be unique per feature.`,
-        );
-      }
-      metrics[shortName] = { shortName, ...options };
-    },
-
-    envSchema(schema: z.ZodObject<z.ZodRawShape>): void {
-      if (envSchema !== undefined) {
-        throw new Error(
-          `[Feature ${name}] r.envSchema() called twice — declare one composed Zod-object per feature.`,
-        );
-      }
-      envSchema = schema;
-    },
-
-    secret(shortName: string, options: SecretOptions): SecretKeyHandle {
-      if (secretKeys[shortName]) {
-        throw new Error(
-          `[Feature ${name}] Secret "${shortName}" already registered. ` +
-            `Secret key names must be unique per feature.`,
-        );
-      }
-      // Qualified name follows the framework's "<feature>:<type>:<name>"
-      // QN convention — same pattern config / jobs / events use. toKebab
-      // handles the common input shapes ("stripe.apiKey" → "stripe-api-key")
-      // so features can declare keys in their natural style without
-      // thinking about kebab-case on every call.
-      const qualifiedName = qn(toKebab(name), QnTypes.secret, toKebab(shortName));
-      secretKeys[shortName] = {
-        shortName,
-        qualifiedName,
-        ...options,
-      };
-      return { name: qualifiedName };
-    },
-
-    projection(definition: ProjectionDefinition): void {
-      // Reject names that would blow up at registry-boot when we qualify them.
-      // Catch it at the registration site so the stack trace points at the
-      // feature file, not at framework internals.
-      if (!isKebabSegment(definition.name)) {
-        throw new Error(
-          `[Feature ${name}] Projection name "${definition.name}" must be kebab-case ` +
-            `(lowercase letters, digits, dashes; start with a letter). ` +
-            `Got "${definition.name}" — try "${toKebab(definition.name).replace(/_/g, "-")}".`,
-        );
-      }
-      if (projections[definition.name]) {
-        throw new Error(
-          `[Feature ${name}] Projection "${definition.name}" already registered. ` +
-            `Projection names must be unique per feature.`,
-        );
-      }
-      projections[definition.name] = definition;
-    },
-
-    multiStreamProjection(definition: MultiStreamProjectionDefinition): void {
-      if (!isKebabSegment(definition.name)) {
-        throw new Error(
-          `[Feature ${name}] MultiStreamProjection name "${definition.name}" must be kebab-case ` +
-            `(lowercase letters, digits, dashes; start with a letter). ` +
-            `Got "${definition.name}" — try "${toKebab(definition.name).replace(/_/g, "-")}".`,
-        );
-      }
-      if (multiStreamProjections[definition.name] || projections[definition.name]) {
-        throw new Error(
-          `[Feature ${name}] Projection name "${definition.name}" already registered. ` +
-            `r.projection and r.multiStreamProjection share a namespace — pick a unique short name.`,
-        );
-      }
-      if (Object.keys(definition.apply).length === 0) {
-        throw new Error(
-          `[Feature ${name}] MultiStreamProjection "${definition.name}" has no apply handlers. ` +
-            `Declare at least one event type it reacts to, otherwise the dispatcher has nothing to route.`,
-        );
-      }
-      multiStreamProjections[definition.name] = definition;
-    },
-
-    extendEntityProjection(entityName: string, extension: EntityProjectionExtension): void {
-      if (Object.keys(extension.apply).length === 0) {
-        throw new Error(
-          `[Feature ${name}] extendEntityProjection("${entityName}") has no apply handlers. ` +
-            `Declare at least one event type, otherwise the rebuild replay has nothing to do.`,
-        );
-      }
-      // Entity existence + apply-key collisions are validated at registry
-      // build — r.entity may legally be called after this in the same feature.
-      const list = entityProjectionExtensions[entityName] ?? [];
-      list.push(extension);
-      entityProjectionExtensions[entityName] = list;
-    },
-
-    authClaims(fn: AuthClaimsFn): void {
-      authClaimsHooks.push(fn);
-    },
-
-    screen(definition: ScreenDefinition): void {
-      // Reject kebab-drift at registration-time so the stack trace points at
-      // the feature file, not at registry-boot. Same guard pattern as
-      // r.projection / r.multiStreamProjection.
-      if (!isKebabSegment(definition.id)) {
-        throw new Error(
-          `[Feature ${name}] Screen id "${definition.id}" must be kebab-case ` +
-            `(lowercase letters, digits, dashes; start with a letter). ` +
-            `Got "${definition.id}" — try "${toKebab(definition.id).replace(/_/g, "-")}".`,
-        );
-      }
-      if (screens[definition.id]) {
-        throw new Error(
-          `[Feature ${name}] Screen "${definition.id}" already registered. ` +
-            `Screen ids must be unique per feature.`,
-        );
-      }
-      screens[definition.id] = definition;
-    },
-
-    nav(definition: NavDefinition): void {
-      // Reject kebab-drift at registration-time so the stack trace points at
-      // the feature file, not at registry-boot. Same guard pattern as
-      // r.projection / r.multiStreamProjection / r.screen.
-      if (!isKebabSegment(definition.id)) {
-        throw new Error(
-          `[Feature ${name}] Nav id "${definition.id}" must be kebab-case ` +
-            `(lowercase letters, digits, dashes; start with a letter). ` +
-            `Got "${definition.id}" — try "${toKebab(definition.id).replace(/_/g, "-")}".`,
-        );
-      }
-      if (navs[definition.id]) {
-        throw new Error(
-          `[Feature ${name}] Nav entry "${definition.id}" already registered. ` +
-            `Nav ids must be unique per feature.`,
-        );
-      }
-      navs[definition.id] = definition;
-    },
-
-    workspace(definition: WorkspaceDefinition): void {
-      // Same kebab guard as r.screen / r.nav so authoring-time mistakes
-      // surface at the feature file, not deep in registry boot.
-      if (!isKebabSegment(definition.id)) {
-        throw new Error(
-          `[Feature ${name}] Workspace id "${definition.id}" must be kebab-case ` +
-            `(lowercase letters, digits, dashes; start with a letter). ` +
-            `Got "${definition.id}" — try "${toKebab(definition.id).replace(/_/g, "-")}".`,
-        );
-      }
-      if (workspaces[definition.id]) {
-        throw new Error(
-          `[Feature ${name}] Workspace "${definition.id}" already registered. ` +
-            `Workspace ids must be unique per feature.`,
-        );
-      }
-      workspaces[definition.id] = definition;
-    },
-
-    httpRoute(definition: HttpRouteDefinition): void {
-      // Path-Validation: muss mit "/" beginnen, keine /api/-Routes (die
-      // sind dem Dispatcher reserviert; eine HTTP-Route die /api/foo
-      // belegt, würde die Auth-Middleware umgehen ohne dass der Author
-      // das ausgesprochen hat — bewusster Block).
-      if (!definition.path.startsWith("/")) {
-        throw new Error(
-          `[Feature ${name}] httpRoute path "${definition.path}" must start with "/". ` +
-            `Got "${definition.path}".`,
-        );
-      }
-      if (definition.path === "/api" || definition.path.startsWith("/api/")) {
-        throw new Error(
-          `[Feature ${name}] httpRoute path "${definition.path}" is in the /api/* namespace ` +
-            `which is reserved for the dispatcher (write/query/batch/auth/sse). ` +
-            `Pick a different path or use r.queryHandler / r.writeHandler.`,
-        );
-      }
-      const key = `${definition.method} ${definition.path}`;
-      if (httpRoutes[key]) {
-        throw new Error(
-          `[Feature ${name}] HTTP-Route "${key}" already registered. ` +
-            `method + path must be unique per feature.`,
-        );
-      }
-      httpRoutes[key] = definition;
-    },
-
-    rawTable(rawTableName: string, table: unknown, options: RawTableOptions): void {
-      // Same kebab guard as r.projection / r.screen / r.nav so authoring-time
-      // mistakes surface at the feature file, not deep in registry boot.
-      if (!isKebabSegment(rawTableName)) {
-        throw new Error(
-          `[Feature ${name}] Raw-table name "${rawTableName}" must be kebab-case ` +
-            `(lowercase letters, digits, dashes; start with a letter). ` +
-            `Got "${rawTableName}" — try "${toKebab(rawTableName).replace(/_/g, "-")}".`,
-        );
-      }
-      if (rawTables[rawTableName]) {
-        throw new Error(
-          `[Feature ${name}] r.rawTable("${rawTableName}") already registered. ` +
-            `Raw-table names must be unique per feature.`,
-        );
-      }
-      // The `reason` is the marker that justifies the bypass — empty
-      // strings would defeat the audit trail. Reject early so the
-      // failure points at the feature file.
-      if (typeof options.reason !== "string" || options.reason.trim().length === 0) {
-        throw new Error(
-          `[Feature ${name}] r.rawTable("${rawTableName}"): options.reason must be a ` +
-            `non-empty string. The reason is the marker that justifies the bypass — ` +
-            `if you can't write one, declare data via r.entity() instead.`,
-        );
-      }
-      rawTables[rawTableName] = {
-        name: rawTableName,
-        table,
-        reason: options.reason,
-      };
-    },
-
-    unmanagedTable(meta: EntityTableMeta, options: UnmanagedTableOptions): void {
-      // Name comes from the meta itself — apps already give the table a
-      // name when calling defineUnmanagedTable, no need to repeat it.
-      const tableName = meta.tableName;
-      if (!isKebabSegment(tableName.replace(/_/g, "-"))) {
-        // EntityTableMeta uses snake_case for tableName (matches Postgres
-        // convention); we just guard against truly broken input.
-        throw new Error(
-          `[Feature ${name}] Unmanaged-table name "${tableName}" must be a ` +
-            `valid identifier (lowercase letters, digits, underscores; start with a letter).`,
-        );
-      }
-      if (unmanagedTables[tableName]) {
-        throw new Error(
-          `[Feature ${name}] r.unmanagedTable("${tableName}") already registered. ` +
-            `Unmanaged-table names must be unique per feature.`,
-        );
-      }
-      if (typeof options.reason !== "string" || options.reason.trim().length === 0) {
-        throw new Error(
-          `[Feature ${name}] r.unmanagedTable("${tableName}"): options.reason must be a ` +
-            `non-empty string. The reason justifies the audit-trail bypass — ` +
-            `if you can't write one, declare data via r.entity() instead.`,
-        );
-      }
-      unmanagedTables[tableName] = {
-        name: tableName,
-        meta,
-        reason: options.reason,
-        ...(options.piiEncryptedOnWrite && { piiEncryptedOnWrite: true }),
-      };
-    },
-
-    claimKey<T extends ClaimKeyType>(
-      shortName: string,
-      options: { readonly type: T },
-    ): ClaimKeyHandle<T> {
-      if (claimKeys[shortName]) {
-        throw new Error(
-          `[Feature ${name}] Claim key "${shortName}" already declared. ` +
-            "Claim short-names must be unique per feature.",
-        );
-      }
-      // Claim keys are NOT full QNs — the JWT shape is 2-segment
-      // "<featureName>:<shortName>" (same as Translation keys), not
-      // kebab-cased. The authClaims resolver prefixes with the raw
-      // feature.name + the raw inner key the hook returns, so the handle's
-      // `name` must match that literal string exactly for `readClaim` to
-      // find the value. kebab-conversion here would break the round-trip.
-      const qualifiedName = `${name}:${shortName}`;
-      claimKeys[shortName] = {
-        shortName,
-        qualifiedName,
-        type: options.type,
-      };
-      return { name: qualifiedName, type: options.type };
-    },
-
-    treeActions<const TActions extends Record<string, TreeActionDef>>(
-      actions: TActions,
-    ): TreeActionsHandle<TName, TActions> {
-      // Only-once-guard: zweiter Aufruf ist Author-Bug, soll am
-      // Feature-File aufschlagen (gleicher Stil wie r.toggleable).
-      if (treeActions !== undefined) {
-        throw new Error(
-          `[Feature ${name}] r.treeActions() already called. ` +
-            `Each feature may declare a single tree-actions schema.`,
-        );
-      }
-      treeActions = actions;
-      // Return typed handle für setup-export. Frozen damit Caller die
-      // Map nicht nachträglich mutieren (würde Pattern-AST + Runtime-
-      // Lookup divergieren lassen).
-      return Object.freeze({
-        id: name,
-        treeActions: actions,
-      });
-    },
-
-    tree(provider: TreeChildrenSubscribe): void {
-      // Only-once-guard analog zu r.treeActions.
-      if (treeProvider !== undefined) {
-        throw new Error(
-          `[Feature ${name}] r.tree() already called. ` +
-            `Each feature may declare a single tree-provider.`,
-        );
-      }
-      treeProvider = provider;
-    },
+    ...buildEntityHandlerMethods(state, name),
+    ...buildConfigEventsJobsMethods(state, name),
+    ...buildUiExtensionsMethods(state, name),
   };
 
   const exports = setup(registrar) as TExports; // @cast-boundary engine-bridge
 
   return {
     name,
-    ...(description !== undefined && { description }),
-    systemScope: isSystemScoped,
+    ...(state.description !== undefined && { description: state.description }),
+    systemScope: state.isSystemScoped,
     exports,
-    requires,
-    optionalRequires,
-    requiredProjections,
-    requiredSteps,
-    ...(toggleableDefault !== undefined && { toggleableDefault }),
-    ...(uiHints !== undefined && { uiHints }),
-    entities,
-    entityTables,
-    relations,
-    writeHandlers,
-    queryHandlers,
-    translations,
+    requires: state.requires,
+    optionalRequires: state.optionalRequires,
+    requiredProjections: state.requiredProjections,
+    requiredSteps: state.requiredSteps,
+    ...(state.toggleableDefault !== undefined && { toggleableDefault: state.toggleableDefault }),
+    ...(state.uiHints !== undefined && { uiHints: state.uiHints }),
+    entities: state.entities,
+    entityTables: state.entityTables,
+    relations: state.relations,
+    writeHandlers: state.writeHandlers,
+    queryHandlers: state.queryHandlers,
+    translations: state.translations,
     hooks: {
-      validation: validationHooks,
-      preSave: lifecycleHooks["preSave"] ?? {},
-      postSave: phasedLifecycleHooks.postSave,
-      preDelete: phasedLifecycleHooks.preDelete,
-      postDelete: phasedLifecycleHooks.postDelete,
-      preQuery: lifecycleHooks["preQuery"] ?? {},
-      postQuery: lifecycleHooks["postQuery"] ?? {},
+      validation: state.validationHooks,
+      preSave: state.lifecycleHooks["preSave"] ?? {},
+      postSave: state.phasedLifecycleHooks.postSave,
+      preDelete: state.phasedLifecycleHooks.preDelete,
+      postDelete: state.phasedLifecycleHooks.postDelete,
+      preQuery: state.lifecycleHooks["preQuery"] ?? {},
+      postQuery: state.lifecycleHooks["postQuery"] ?? {},
       // @cast-boundary engine-bridge — die Hook-Registrierung erased die
       // per-Slot-Signaturen zu LifecycleHookFn (Union, s. Cast in
       // addLifecycleHook); die Branches dort sind die einzigen Producer und
       // schreiben pro Slot typrichtig.
     } as HookMap,
     entityHooks: {
-      postSave: entityPostSave,
-      preDelete: entityPreDelete,
-      postDelete: entityPostDelete,
-      postQuery: entityPostQuery,
+      postSave: state.entityPostSave,
+      preDelete: state.entityPreDelete,
+      postDelete: state.entityPostDelete,
+      postQuery: state.entityPostQuery,
     },
-    searchPayloadExtensions,
-    configKeys,
-    configSeeds,
-    jobs,
-    notifications,
-    registrarExtensions,
-    extensionUsages,
-    extensionSelectors,
-    exposedApis,
-    usedApis,
-    referenceData,
-    events,
-    eventMigrations,
-    configReads,
-    handlerEntityMappings,
-    metrics,
-    secretKeys,
-    projections,
-    entityProjectionExtensions,
-    multiStreamProjections,
-    authClaimsHooks,
-    claimKeys,
-    screens,
-    navs,
-    workspaces,
-    httpRoutes,
-    rawTables,
-    unmanagedTables,
-    ...(treeActions !== undefined && { treeActions }),
-    ...(treeProvider !== undefined && { treeProvider }),
-    ...(envSchema !== undefined && { envSchema }),
+    searchPayloadExtensions: state.searchPayloadExtensions,
+    configKeys: state.configKeys,
+    configSeeds: state.configSeeds,
+    jobs: state.jobs,
+    notifications: state.notifications,
+    registrarExtensions: state.registrarExtensions,
+    extensionUsages: state.extensionUsages,
+    extensionSelectors: state.extensionSelectors,
+    exposedApis: state.exposedApis,
+    usedApis: state.usedApis,
+    referenceData: state.referenceData,
+    events: state.events,
+    eventMigrations: state.eventMigrations,
+    configReads: state.configReads,
+    handlerEntityMappings: state.handlerEntityMappings,
+    metrics: state.metrics,
+    secretKeys: state.secretKeys,
+    projections: state.projections,
+    entityProjectionExtensions: state.entityProjectionExtensions,
+    multiStreamProjections: state.multiStreamProjections,
+    authClaimsHooks: state.authClaimsHooks,
+    claimKeys: state.claimKeys,
+    screens: state.screens,
+    navs: state.navs,
+    workspaces: state.workspaces,
+    httpRoutes: state.httpRoutes,
+    rawTables: state.rawTables,
+    ...(state.treeActions !== undefined && { treeActions: state.treeActions }),
+    ...(state.envSchema !== undefined && { envSchema: state.envSchema }),
   };
 }

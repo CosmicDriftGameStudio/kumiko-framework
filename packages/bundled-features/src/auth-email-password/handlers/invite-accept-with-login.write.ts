@@ -20,15 +20,15 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
+  buildSessionRoles,
   createSystemUser,
   defineWriteHandler,
   type SessionUser,
-  stripForbiddenMembershipRoles,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { decryptStoredPii } from "../../shared";
+import { decryptStoredPii, verifyPassword } from "../../shared";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
   INVITATION_STATUS,
@@ -46,7 +46,6 @@ import {
   getInvitationIdForToken,
   unburnInviteToken,
 } from "../invite-token-store";
-import { verifyPassword } from "../password-hashing";
 
 const InviteAcceptWithLoginSchema = z.object({
   token: z.string().min(1),
@@ -169,7 +168,9 @@ export function createInviteAcceptWithLoginHandler() {
         const session: SessionUser = {
           id: userId,
           tenantId: invitationTenantId,
-          roles: stripForbiddenMembershipRoles([invitationRole]),
+          // buildSessionRoles calls stripForbiddenMembershipRoles internally —
+          // a reserved role on the invitation itself must never reach the session.
+          roles: buildSessionRoles([], [invitationRole]),
         };
 
         committed = true;

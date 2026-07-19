@@ -13,7 +13,11 @@ export const TENANT_OVERVIEW_ALLOWED_QUERIES = [
 ] as const;
 
 /** Platform workspace overview may only call these queries. */
-export const PLATFORM_OVERVIEW_ALLOWED_QUERIES = ["tenant:query:list", "jobs:query:list"] as const;
+export const PLATFORM_OVERVIEW_ALLOWED_QUERIES = [
+  "tenant:query:list",
+  "jobs:query:list",
+  "user:query:user:list",
+] as const;
 
 /** Regression guard — TenantAdmin overview must never touch these (HTTP 403). */
 export const TENANT_OVERVIEW_FORBIDDEN_QUERIES = [
@@ -21,6 +25,7 @@ export const TENANT_OVERVIEW_FORBIDDEN_QUERIES = [
   "jobs:query:list",
   "feature-toggles:query:list",
   "feature-toggles:query:registered",
+  "user:query:user:list",
 ] as const;
 
 export function overviewAllowedQueries(kind: OverviewWorkspaceKind): readonly string[] {

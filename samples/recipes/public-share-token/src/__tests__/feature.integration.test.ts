@@ -75,3 +75,24 @@ describe("public-share-token recipe", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("public-share-token recipe: expiry", () => {
+  test("expired token → share-by-token 404", async () => {
+    const created = await stack.http.writeOk<{ id: string; plainToken: string }>(
+      "public-share:write:share-link:create",
+      { label: "Expires soon", expiresInDays: 1 },
+      owner,
+    );
+
+    await stack.db.unsafe(
+      "UPDATE read_public_share_links SET expires_at = now() - interval '1 day' WHERE id = $1",
+      [created.id],
+    );
+
+    const res = await stack.http.raw("POST", "/api/query", {
+      type: "public-share:query:share-by-token",
+      payload: { token: created.plainToken },
+    });
+    expect(res.status).toBe(404);
+  });
+});

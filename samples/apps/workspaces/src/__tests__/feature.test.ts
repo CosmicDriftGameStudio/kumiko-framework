@@ -30,6 +30,10 @@ describe("workspaces showcase — registry state", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
+  test("real features boot without fixture-stubbed translations", () => {
+    expect(() => validateBootRaw(features)).not.toThrow();
+  });
+
   test("all three workspaces registered with qualified ids", () => {
     expect(registry.getWorkspace("demo:workspace:admin")?.id).toBe("demo:workspace:admin");
     expect(registry.getWorkspace("demo:workspace:dispatch")?.id).toBe("demo:workspace:dispatch");

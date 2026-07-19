@@ -1231,8 +1231,9 @@ describe("boot-validator", () => {
   // --- entityList column-renderer form-check ---
   // Validator akzeptiert die `{ react: { __component: "Name" } }`-Form
   // (PlatformComponent → client-side Registry-Lookup) und prüft sie
-  // strukturell. String-Funktionen, null/undefined, native-only und
-  // andere Formen bleiben opak.
+  // strukturell. null/undefined, native-only und andere Formen bleiben
+  // opak. Function-Renderer werfen (action-wiring.ts validateFieldWiring) —
+  // von JSON.stringify verworfen, sonst stiller No-op auf dem Client.
   describe("entityList column renderer form", () => {
     function shopFeature(renderer: unknown) {
       return defineFeature("shop", (r) => {
@@ -1250,8 +1251,10 @@ describe("boot-validator", () => {
       });
     }
 
-    test("function-renderer → kein Throw (Bestand)", () => {
-      expect(() => validateBoot([shopFeature((v: unknown) => String(v))])).not.toThrow();
+    test("function-renderer → Throw (Function wird von JSON.stringify verworfen)", () => {
+      expect(() => validateBoot([shopFeature((v: unknown) => String(v))])).toThrow(
+        /column "name" renderer is a function/,
+      );
     });
 
     test("undefined renderer → kein Throw (Spalte ohne Renderer)", () => {

@@ -106,15 +106,11 @@ export type AddQueryHandlerArgs = {
 
 export type AddHookArgs = {
   readonly type: LifecycleHookType | "validation";
-  readonly target: string | readonly string[];
+  // `{ allOf: entity }` — entity-wide target, fires for every write/query
+  // handler of that entity; replaces the old addEntityHook(). Only valid
+  // for postSave/preDelete/postDelete/postQuery, same as r.hook() itself.
+  readonly target: string | readonly string[] | { readonly allOf: string };
   /** Source text of the closure, e.g. `"async (event, ctx) => { ... }"`. */
-  readonly handlerSource: string;
-  readonly phase?: HookPhase;
-};
-
-export type AddEntityHookArgs = {
-  readonly type: "postSave" | "preDelete" | "postDelete";
-  readonly entity: string;
   readonly handlerSource: string;
   readonly phase?: HookPhase;
 };
@@ -144,13 +140,10 @@ export type AddDefineEventArgs = {
   readonly name: string;
   readonly schemaSource: string;
   readonly version?: number;
-};
-
-export type AddEventMigrationArgs = {
-  readonly event: string;
-  readonly fromVersion: number;
-  readonly toVersion: number;
-  readonly transformSource: string;
+  // Keyed by fromVersion (as a string) → the transform source text for the
+  // fromVersion -> fromVersion+1 step. Folded in from the former
+  // addEventMigration (#1082 step 8).
+  readonly migrations?: Readonly<Record<string, string>>;
 };
 
 export type AddProjectionArgs = {
@@ -241,7 +234,6 @@ export type FeaturePatcher = {
   readonly addWriteHandler: (args: AddWriteHandlerArgs) => void;
   readonly addQueryHandler: (args: AddQueryHandlerArgs) => void;
   readonly addHook: (args: AddHookArgs) => void;
-  readonly addEntityHook: (args: AddEntityHookArgs) => void;
   readonly addJob: (args: AddJobArgs) => void;
   readonly addNotification: (args: AddNotificationArgs) => void;
   readonly addAuthClaims: (args: AddAuthClaimsArgs) => void;
@@ -249,7 +241,6 @@ export type FeaturePatcher = {
   readonly addProjection: (args: AddProjectionArgs) => void;
   readonly addMultiStreamProjection: (args: AddMultiStreamProjectionArgs) => void;
   readonly addDefineEvent: (args: AddDefineEventArgs) => void;
-  readonly addEventMigration: (args: AddEventMigrationArgs) => void;
   // --- Symmetric ops (id-driven) ---
   readonly replace: (id: PatternId, pattern: FeaturePattern) => void;
   readonly remove: (id: PatternId) => void;
@@ -412,17 +403,6 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
       });
     },
 
-    addEntityHook({ type, entity, handlerSource, phase }) {
-      add({
-        kind: "entityHook",
-        source: SYNTHETIC_LOC,
-        hookType: type,
-        entityName: entity,
-        fnBody: rawLoc(handlerSource),
-        ...(phase !== undefined && { phase }),
-      });
-    },
-
     addJob({ name, options, handlerSource }) {
       add({
         kind: "job",
@@ -495,24 +475,22 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
       });
     },
 
-    addDefineEvent({ name, schemaSource, version }) {
+    addDefineEvent({ name, schemaSource, version, migrations }) {
+      const migrationLocs = migrations
+        ? Object.fromEntries(
+            Object.entries(migrations).map(([fromVersion, source]) => [
+              fromVersion,
+              rawLoc(source),
+            ]),
+          )
+        : undefined;
       add({
         kind: "defineEvent",
         source: SYNTHETIC_LOC,
         eventName: name,
         schemaSource: rawLoc(schemaSource),
         ...(version !== undefined && { version }),
-      });
-    },
-
-    addEventMigration({ event, fromVersion, toVersion, transformSource }) {
-      add({
-        kind: "eventMigration",
-        source: SYNTHETIC_LOC,
-        eventName: event,
-        fromVersion,
-        toVersion,
-        transformBody: rawLoc(transformSource),
+        ...(migrationLocs !== undefined && { migrations: migrationLocs }),
       });
     },
 

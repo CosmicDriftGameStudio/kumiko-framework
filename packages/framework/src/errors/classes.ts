@@ -2,7 +2,7 @@ import { toSnakeCase } from "../utils/case";
 import type { FieldIssue } from "./field-issue";
 import { type ErrorOpts, KumikoError } from "./kumiko-error";
 
-export type { FieldIssue, ValidationFieldIssue } from "./field-issue";
+export type { FieldIssue } from "./field-issue";
 
 export type ValidationDetails = {
   readonly fields: readonly FieldIssue[];

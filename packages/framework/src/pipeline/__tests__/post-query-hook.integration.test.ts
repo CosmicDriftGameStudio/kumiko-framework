@@ -65,7 +65,7 @@ const postQueryFeature = defineFeature("postquerytest", (r) => {
   r.hook("postQuery", "widget:list", handlerKeyedHook);
 
   // Entity-keyed: fires for ALL query-handlers of widget-entity
-  r.entityHook("postQuery", widget, entityKeyedHook);
+  r.hook("postQuery", { allOf: widget }, entityKeyedHook);
 });
 
 // --- Single-object-result invariant fixtures ---
@@ -93,13 +93,13 @@ const singleObjectFeature = defineFeature("singleobjtest", (r) => {
   r.queryHandler("gadget:get", z.object({}), async () => ({ id: "g1", name: "Gadget" }), {
     access: { openToAll: true },
   });
-  r.entityHook("postQuery", gadget, dropRowHook);
+  r.hook("postQuery", { allOf: gadget }, dropRowHook);
 
   const gizmo = r.entity("gizmo", gizmoEntity);
   r.queryHandler("gizmo:get", z.object({}), async () => ({ id: "z1", name: "Gizmo" }), {
     access: { openToAll: true },
   });
-  r.entityHook("postQuery", gizmo, duplicateRowHook);
+  r.hook("postQuery", { allOf: gizmo }, duplicateRowHook);
 });
 
 // --- Test stack ---

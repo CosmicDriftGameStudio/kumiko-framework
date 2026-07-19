@@ -133,6 +133,12 @@ export function createMultiSelectField<const TOptions extends readonly string[]>
   };
 }
 
+/**
+ * Numeric field — `double precision` column by default (fractional values
+ * allowed end to end). Pass `integer: true` for a 32-bit `integer` column
+ * with `.int()` write-boundary validation. Need exact decimal storage
+ * instead (money-adjacent math)? Use `createDecimalField` (`numeric`).
+ */
 export function createNumberField<R extends true | false = false>(
   overrides?: Partial<Omit<NumberFieldDef, "type" | "required">> & { required?: R },
 ): NumberFieldDef & { required: R } {
@@ -230,8 +236,8 @@ export function createDateField<R extends true | false = false>(
  * (createdAt, loginAt, actualPickupAt). Temporal.Instant intern.
  *
  * Mit `locatedBy: "<name>Tz"` wird das Feld zum Wall-Clock-Pair eines
- * Termins an einem Ort — bevorzuge dafür den `locatedTimestamp(name)`
- * Helper, der Pair + Marker atomar erzeugt.
+ * Termins an einem Ort — bevorzuge dafür `createLocatedTimestampField()`,
+ * das EIN atomares Feld statt eines lose verdrahteten Pairs erzeugt.
  */
 export function createTimestampField<R extends true | false = false>(
   overrides?: Partial<Omit<TimestampFieldDef, "type" | "required">> & { required?: R },
@@ -298,53 +304,6 @@ export function createLocatedTimestampField<R extends true | false = false>(
     required: false,
     ...overrides,
   } as LocatedTimestampFieldDef & { required: R }; // @cast-boundary engine-payload
-}
-
-/**
- * @deprecated Verwende stattdessen `createLocatedTimestampField()` —
- * EIN Field-Type statt zwei lose Pair-Felder. Migration: ersetze
- * `...locatedTimestamp("pickup")` durch `pickup: createLocatedTimestampField()`.
- *
- * Wall-Clock-Termin an einem Ort — Helper der ZWEI verbundene Felder
- * erzeugt. Bevorzugte Form für jeden Date-Wert mit Location-Bezug
- * (Pickup, Delivery, Meeting, Schedule).
- *
- * ```ts
- * r.entity("order", {
- *   fields: {
- *     ...locatedTimestamp("pickup"),    // → pickupAt + pickupTz
- *     ...locatedTimestamp("delivery"),  // → deliveryAt + deliveryTz
- *   },
- * });
- * ```
- *
- * Zur Laufzeit wird:
- * - DB: `<name>_at TIMESTAMPTZ` (UTC) + `<name>_tz TEXT` (IANA-Name)
- * - JSON: `{ <name>At: "2026-04-03T10:00:00", <name>Tz: "Europe/Lisbon" }`
- *   (Wall-Clock OHNE Offset, plus IANA-Name — zwei getrennte Felder)
- * - Reducer/Apply: kann mit Temporal.ZonedDateTime arbeiten
- *
- * Optionen pro Feld (z.B. `required` auf den At-Teil) per zweitem Argument.
- */
-export function locatedTimestamp(
-  name: string,
-  overrides?: { readonly required?: boolean; readonly access?: TimestampFieldDef["access"] },
-): Readonly<Record<string, TimestampFieldDef | TzFieldDef>> {
-  const atName = `${name}At`;
-  const tzName = `${name}Tz`;
-  return {
-    [atName]: {
-      type: "timestamp",
-      locatedBy: tzName,
-      required: overrides?.required,
-      access: overrides?.access,
-    },
-    [tzName]: {
-      type: "tz",
-      required: overrides?.required,
-      access: overrides?.access,
-    },
-  };
 }
 
 export function createFileField(overrides?: Partial<Omit<FileFieldDef, "type">>): FileFieldDef {

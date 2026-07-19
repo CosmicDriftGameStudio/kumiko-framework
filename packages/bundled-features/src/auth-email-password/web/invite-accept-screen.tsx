@@ -19,7 +19,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useContext, useState } from "react";
 import { csrfHeader } from "./auth-client";
-import { AuthCard, authMutedLinkClass, useUrlToken } from "./auth-form-primitives";
+import { AuthCard, useUrlToken } from "./auth-form-primitives";
 import { SessionContext, UNAUTHENTICATED } from "./session";
 
 export type InviteAcceptScreenProps = {
@@ -41,7 +41,7 @@ export function InviteAcceptScreen({
   loginHref = "/login",
 }: InviteAcceptScreenProps): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
   // NOT useSession(): InviteAcceptScreen is a public route (anon invite-links
   // are the documented use case) — useSession() throws without a
   // <SessionProvider> ancestor. Read the context directly and fall back to
@@ -142,9 +142,9 @@ export function InviteAcceptScreen({
       <AuthCard title={effectiveTitle}>
         <div className="p-6 pt-0 flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{t("auth.inviteAccept.missingToken")}</p>
-          <a href={loginHref} className={authMutedLinkClass}>
+          <Link href={loginHref} variant="muted">
             {t("auth.inviteAccept.goToLogin")}
-          </a>
+          </Link>
         </div>
       </AuthCard>
     );

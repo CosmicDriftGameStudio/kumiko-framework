@@ -120,6 +120,15 @@ describe("DefaultSection Card-Standard (subtitle + actions-Footer)", () => {
     expect(actions.textContent).toContain("Übernehmen");
   });
 
+  test('standalone: variant="destructive" adds a destructive border, default variant does not', () => {
+    render(
+      <Section testId="danger" title="Danger zone" variant="destructive">
+        <div>x</div>
+      </Section>,
+    );
+    expect(screen.getByTestId("danger").className).toContain("border-destructive/40");
+  });
+
   test("title-only standalone (Bestands-Consumer) hat keinen Divider mehr", () => {
     render(
       <Section testId="legacy" title="Stammdaten">

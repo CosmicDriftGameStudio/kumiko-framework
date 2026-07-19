@@ -11,16 +11,34 @@
 // Coverage of "every bundled-export is mounted" lives in M5's
 // scripts/check-coverage.ts, not in a brittle hardcoded count-assert.
 
-import { describe, expect, test } from "bun:test";
-import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { extractTableInfo } from "@cosmicdrift/kumiko-framework/bun-db";
-import { enumerateFeatureTableSources } from "@cosmicdrift/kumiko-framework/db";
+import {
+  configureEntityFieldEncryption,
+  enumerateFeatureTableSources,
+} from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { ENTITY_METAS } from "../../kumiko/schema";
 import { APP_FEATURES } from "../run-config";
 
 const composedFeatures = composeFeatures([...APP_FEATURES], {
   includeBundled: true,
+});
+
+// use-all-bundled mounts encrypted entity fields (auth-mfa's totpSecret,
+// config's encrypted values, ...). validateBoot() checks a cipher is
+// configured — configure a test double for the duration of this file only,
+// so its result never depends on file-execution order (bun test shares
+// process-global state across files in one run) and doesn't leak into
+// boot-validator.test.ts's own "no cipher configured" cases.
+beforeAll(() => {
+  configureEntityFieldEncryption(createTestEnvelopeCipher());
+});
+
+afterAll(() => {
+  configureEntityFieldEncryption(undefined);
 });
 
 describe("use-all-bundled boot", () => {

@@ -47,6 +47,38 @@ describe("buildAppSchema", () => {
     expect(fleet?.entities["vehicle"]).toBeDefined();
   });
 
+  // #1059: r.translations({keys}) must flow into FeatureSchema.translations
+  // BYTE-IDENTICAL — nav/screen labels resolve these keys verbatim via
+  // t(label) client-side, so any re-prefixing (like the registry's internal
+  // mergedTranslations does for features whose keys already carry a colon)
+  // would break the lookup. Mirrors cap-counter's real shape exactly: nav
+  // label references its own already-qualified translation key.
+  test("r.translations landet verbatim in FeatureSchema.translations, ohne Re-Prefixing", () => {
+    const capCounterLikeFeature = defineFeature("cap-counter", (r) => {
+      r.nav({ id: "cap-list", label: "cap-counter:nav.cap-list" });
+      r.translations({
+        keys: {
+          "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" },
+        },
+      });
+    });
+
+    const app = buildAppSchema(createRegistry([capCounterLikeFeature]));
+    const feature = app.features.find((f) => f.featureName === "cap-counter");
+
+    expect(feature?.translations).toEqual({
+      "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" },
+    });
+  });
+
+  test("Feature ohne r.translations lässt das Feld weg (omit-undefined-Pattern)", () => {
+    const f = defineFeature("bare", (r) => {
+      r.nav({ id: "x", label: "X" });
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    expect(app.features[0]?.translations).toBeUndefined();
+  });
+
   test("Workspaces — definition + aufgelöste navMembers landen auf AppSchema-Ebene", () => {
     const ordersFeature = defineFeature("orders", (r) => {
       r.nav({ id: "list", label: "List" });

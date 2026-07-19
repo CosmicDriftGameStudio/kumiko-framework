@@ -67,7 +67,7 @@ export function createBrowserLocaleResolver(
     timeZone: () => timeZone,
     subscribe: store.subscribe,
     setLocale: (next) => {
-      // Early-Return so we don't write localStorage on a no-op. Store's
+      // skip: locale unchanged, avoid redundant localStorage write
       // own Object.is-Gate would already block listener notification,
       // but the persistence side-effect lives outside the store.
       if (next === store.getSnapshot()) return;

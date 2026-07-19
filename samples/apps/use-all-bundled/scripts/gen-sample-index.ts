@@ -72,7 +72,18 @@ function sampleDirFromSlug(slug: string): string {
   throw new Error(`unknown sample slug: ${slug}`);
 }
 
-function extractFeaturesFromText(text: string): Set<string> {
+// A commented-out example import ("// import { x } from '.../file-provider-s3-env';")
+// must not register the sample as an actual consumer of that feature — strip
+// full-line `//` comments before matching.
+function stripLineComments(text: string): string {
+  return text
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("//"))
+    .join("\n");
+}
+
+export function extractFeaturesFromText(rawText: string): Set<string> {
+  const text = stripLineComments(rawText);
   const feats = new Set<string>();
   for (const m of text.matchAll(/kumiko-bundled-features\/([a-z0-9-]+)/g)) {
     const name = m[1];

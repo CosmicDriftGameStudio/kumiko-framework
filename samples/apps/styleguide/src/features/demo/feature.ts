@@ -7,8 +7,9 @@ import {
   createSelectField,
   createTextField,
   defineFeature,
-  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
+
+import { DEMO_I18N } from "./i18n";
 
 export const demoEntity = createEntity({
   table: "read_styleguide_items",
@@ -33,7 +34,8 @@ export const demoEntity = createEntity({
 const open = { access: { openToAll: true } } as const;
 
 export const demoFeature = defineFeature("styleguide", (r) => {
-  registerEntityCrud(r, "item", demoEntity, { write: open, read: open });
+  r.translations({ keys: DEMO_I18N });
+  r.crud("item", demoEntity, { write: open, read: open });
 
   r.screen({
     id: "item-edit",
@@ -73,6 +75,13 @@ export const demoFeature = defineFeature("styleguide", (r) => {
     defaultSort: { field: "name", dir: "asc" },
     searchable: true,
     rowActions: [
+      {
+        kind: "navigate",
+        id: "edit",
+        label: "Edit",
+        screen: "item-edit",
+        rowClick: true,
+      },
       {
         id: "delete",
         label: "Delete",

@@ -18,6 +18,8 @@ export type {
 export { ColumnRenderersProvider, useColumnRenderer } from "./app/column-renderers";
 export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens";
 export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens";
+export type { DashboardBodyProps, DashboardBodyProviderProps } from "./app/dashboard-body";
+export { DashboardBodyProvider, useDashboardBody } from "./app/dashboard-body";
 export type {
   ExtensionFormRegistry,
   ExtensionFormSubmitHandler,
@@ -57,11 +59,25 @@ export {
   useDispatcherStatus,
   useOptionalDispatcher,
 } from "./context/dispatcher-context";
+export { formatWhen } from "./format-when";
 export {
   REFERENCE_COMBOBOX_LIMIT,
   REFERENCE_LIST_LOOKUP_LIMIT,
   REFERENCE_SEARCH_DEBOUNCE_MS,
 } from "./hooks/reference-limits";
+export type {
+  AiTextActionState,
+  AiTextMode,
+  AiTextRewriteStyle,
+  AiTextRunPayload,
+  AiTextRunResult,
+  AiTextUsage,
+  UseAiTextActionResult,
+  UseCompletionResult,
+} from "./hooks/use-ai-text";
+export { AI_TEXT_RUN_QN, useAiTextAction, useCompletion } from "./hooks/use-ai-text";
+export type { UseDisclosureResult } from "./hooks/use-disclosure";
+export { useDisclosure } from "./hooks/use-disclosure";
 export type { UseFormOptions, UseFormResult } from "./hooks/use-form";
 export { useForm } from "./hooks/use-form";
 export type {
@@ -71,6 +87,8 @@ export type {
   ListUrlStateApi,
 } from "./hooks/use-list-url-state";
 export { useListUrlState } from "./hooks/use-list-url-state";
+export type { UseMutationResult } from "./hooks/use-mutation";
+export { useMutation } from "./hooks/use-mutation";
 export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query";
 export { useQuery } from "./hooks/use-query";
 export { useStore, useStoreSelector } from "./hooks/use-store";
@@ -111,6 +129,7 @@ export type {
   HeadingProps,
   InputProps,
   LightboxProps,
+  LinkProps,
   PrimitivesProviderProps,
   PrimitivesRegistry,
   RuntimeRenderer,
@@ -118,6 +137,7 @@ export type {
   TextProps,
 } from "./primitives";
 export { PrimitivesProvider, usePrimitives } from "./primitives";
+export { sortByAccessor } from "./sort-by-accessor";
 export type { LiveEvent, LiveEventSubscriber, LiveEventsProviderProps } from "./sse/live-events";
 export { LiveEventsProvider, useLiveEvents } from "./sse/live-events";
 export type {

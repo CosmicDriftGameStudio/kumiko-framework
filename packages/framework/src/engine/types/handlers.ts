@@ -393,6 +393,13 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // (appendEvent) is the contract Designer/AI rely on.
   readonly unsafeAppendEvent: UnsafeAppendEventFn;
 
+  // Savepoint-scoped append. Use when the handler must gracefully continue
+  // after losing a race against a concurrent writer on the same aggregate
+  // stream (e.g. two idempotent ingest calls racing the same dedup key) —
+  // see TryAppendEventFn for why this doesn't poison the transaction the
+  // way a caught unsafeAppendEvent throw would.
+  readonly tryAppendEvent: TryAppendEventFn;
+
   // Marten FetchForWriting equivalent: load the current stream, optionally
   // enforce expectedVersion, and get a handle that appends further events
   // onto that stream without re-specifying aggregateId/aggregateType.
@@ -431,7 +438,8 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // hold the state (e.g. just reduced the stream in a queryHandler, or
   // finished a write batch) pass it in alongside the version it reflects.
   // The framework handles storage + upsert semantics; the snapshot policy
-  // (every N events, every M minutes, on-demand) stays with the feature.
+  // (every N events, every M minutes, on-demand) stays with the feature —
+  // or pass { snapshotEvery } to loadAggregateWithSnapshot for the common case.
   // Snapshots are a perf optimisation — the event log remains the source
   // of truth.
   readonly snapshotAggregate: (args: {
@@ -439,6 +447,9 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
     readonly aggregateType: string;
     readonly version: number;
     readonly state: Record<string, unknown>;
+    // Reducer-shape generation stamped onto the snapshot (default 1) — see
+    // loadAggregateWithSnapshot's snapshotVersion option.
+    readonly snapshotVersion?: number;
   }) => Promise<void>;
 
   // Snapshot-aware rehydrate. Loads the latest snapshot (if any), runs the
@@ -454,6 +465,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
     aggregateId: string,
     reducer: import("../../event-store").SnapshotReducer<TState>,
     initial: TState,
+    options?: Omit<import("../../event-store").LoadAggregateWithSnapshotOptions, "upcastEvent">,
   ) => Promise<import("../../event-store").LoadAggregateWithSnapshotResult<TState>>;
 
   // Read rows from a registered projection table, tenant-scoped to the
@@ -668,6 +680,20 @@ export type AppendEventFn<TMap extends object = KumikoEventTypeMap> = <K extends
 
 export type UnsafeAppendEventFn = (args: AppendEventArgs) => Promise<void>;
 
+// Savepoint-scoped append — returns a discriminated result instead of
+// throwing on VersionConflictError, so a handler can react gracefully to
+// losing a race against a concurrent writer on the same aggregate stream
+// (e.g. two idempotent ingest calls for the same dedup key). The append
+// runs inside a driver-native SAVEPOINT: a conflict rolls back only that
+// nested scope, leaving the rest of the handler's transaction usable —
+// unlike unsafeAppendEvent, whose thrown VersionConflictError poisons the
+// entire enclosing transaction.
+export type TryAppendEventResult =
+  | { readonly ok: true; readonly event: import("../../event-store").StoredEvent }
+  | { readonly ok: false; readonly conflict: import("../../event-store").VersionConflictError };
+
+export type TryAppendEventFn = (args: AppendEventArgs) => Promise<TryAppendEventResult>;
+
 // Args for ctx.fetchForWriting — Marten FetchForWriting equivalent. Returns
 // the current stream state + a handle that appends without re-specifying
 // aggregateId/aggregateType. When expectedVersion is provided, the handle
@@ -710,9 +736,12 @@ export type AggregateStreamHandle = {
 // ctx-arg, run the lookup via ctx.db, return a Promise. The framework
 // awaits unconditionally — sync transforms return a plain value and pay
 // only the await-microtask overhead. Pattern-match Marten:
-//   r.eventMigration("invoiceCreated", 1, 2, async (payload, ctx) => {
-//     const customer = await ctx.db.select().from(customersTable)...;
-//     return { ...payload, customerSegment: customer.segment };
+//   r.defineEvent("invoiceCreated", schema, {
+//     version: 2,
+//     migrations: [{ fromVersion: 1, toVersion: 2, transform: async (payload, ctx) => {
+//       const customer = await ctx.db.select().from(customersTable)...;
+//       return { ...payload, customerSegment: customer.segment };
+//     } }],
 //   });
 export type EventUpcastCtx = {
   readonly db: import("../../db").DbRunner;
@@ -720,6 +749,17 @@ export type EventUpcastCtx = {
 };
 
 export type EventUpcastFn = (payload: unknown, ctx: EventUpcastCtx) => unknown | Promise<unknown>;
+
+// Declarative single-step migration — common payload transforms without an
+// imperative function. Applied in fixed order: rename → default → map.
+export type DeclarativeEventMigration = {
+  // old key → new key; a missing source key is a no-op
+  readonly rename?: Readonly<Record<string, string>>;
+  // set only when the key is absent — never overwrites an existing value
+  readonly default?: Readonly<Record<string, unknown>>;
+  // per-key value transform; skipped when the key is absent
+  readonly map?: Readonly<Record<string, (value: unknown) => unknown>>;
+};
 
 export type EventMigrationDef = {
   // Qualified event name, matching r.defineEvent(...).name.
@@ -780,7 +820,7 @@ export type WriteHandlerDef = {
   readonly access?: AccessRule;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
-  // Set when the author wrote a `perform: pipeline(...)` block. Boot-
+  // Set when the author wrote a `perform: stepsPipeline(...)` block. Boot-
   // validators (projection-allowlist) and Designer/AI tooling read this
   // to inspect the step list. Absent on free-form handlers.
   // Inline-import is intentional: step.ts imports HandlerContext from

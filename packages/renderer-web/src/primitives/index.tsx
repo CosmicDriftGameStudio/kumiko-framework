@@ -29,6 +29,7 @@ import {
   type GridProps,
   type HeadingProps,
   type InputProps,
+  type LinkProps,
   type SectionProps,
   type TextProps,
   useColumnRenderer,
@@ -51,7 +52,6 @@ import {
   type ChangeEvent,
   type CSSProperties,
   createContext,
-  type FormEvent,
   type ReactNode,
   useContext,
   useEffect,
@@ -60,7 +60,7 @@ import {
 } from "react";
 import { cn } from "../lib/cn";
 import { Badge } from "../ui/badge";
-import { Button as UiButton } from "../ui/button";
+import { buttonVariants, Button as UiButton } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input as UiInput } from "../ui/input";
 import { Label as UiLabel } from "../ui/label";
@@ -103,11 +103,18 @@ const cardFooterBorder = "border-t bg-muted/30";
 
 // Contract-Variant → shadcn-Variant: secondary war schon immer der
 // bordered-bg-background-Look = shadcns `outline`. primary→default,
-// danger→destructive.
+// danger→destructive, link→link (kein BG, underline on hover).
 const BUTTON_VARIANT = {
   primary: "default",
   secondary: "outline",
   danger: "destructive",
+  link: "link",
+} as const;
+
+const BUTTON_SIZE = {
+  sm: "sm",
+  md: "default",
+  icon: "icon",
 } as const;
 
 function DefaultButton({
@@ -116,9 +123,18 @@ function DefaultButton({
   disabled,
   loading,
   variant = "primary",
+  size = "md",
+  ariaLabel,
+  width = "auto",
   children,
   testId,
 }: ButtonProps): ReactNode {
+  // link-Variant rendert text-artig (Inline-Link im Fließtext/Banner), nicht als
+  // gepolsterte Fläche; width="full" streckt CTA-Buttons in Karten/Panels.
+  const className =
+    [variant === "link" ? "h-auto px-0 py-0" : "", width === "full" ? "w-full" : ""]
+      .filter(Boolean)
+      .join(" ") || undefined;
   return (
     <UiButton
       type={type}
@@ -127,6 +143,9 @@ function DefaultButton({
       data-testid={testId}
       data-loading={loading === true ? "true" : undefined}
       variant={BUTTON_VARIANT[variant]}
+      size={BUTTON_SIZE[size]}
+      aria-label={ariaLabel}
+      className={className}
     >
       {loading === true ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : children}
     </UiButton>
@@ -248,6 +267,8 @@ function DefaultInput(props: InputProps): ReactNode {
         <UiInput
           type="text"
           {...common}
+          data-testid={props.testId}
+          readOnly={props.readOnly}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
@@ -259,6 +280,7 @@ function DefaultInput(props: InputProps): ReactNode {
         <UiInput
           type="email"
           {...common}
+          data-testid={props.testId}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
@@ -270,6 +292,7 @@ function DefaultInput(props: InputProps): ReactNode {
         <UiInput
           type="password"
           {...common}
+          data-testid={props.testId}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           autoComplete={props.autoComplete ?? "current-password"}
@@ -280,12 +303,26 @@ function DefaultInput(props: InputProps): ReactNode {
         <UiInput
           type="number"
           {...common}
+          data-testid={props.testId}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => {
             const v = e.target.value;
             props.onChange(v === "" ? undefined : Number(v));
           }}
           className="text-right tabular-nums"
+        />
+      );
+    case "range":
+      return (
+        <input
+          type="range"
+          {...common}
+          min={props.min}
+          max={props.max}
+          step={props.step ?? 1}
+          value={props.value}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(Number(e.target.value))}
+          className="w-full accent-primary"
         />
       );
     case "boolean":
@@ -774,7 +811,7 @@ function useRowActionTrigger(row: ListRowViewModel) {
       toast({
         title: t("kumiko.rowAction.failed"),
         description: e instanceof Error ? e.message : String(e),
-        variant: "destructive",
+        variant: "bad",
         ...(docsUrl !== undefined && { docsUrl }),
       });
     } finally {
@@ -1472,65 +1509,14 @@ export function FormScreenShell({
   );
 }
 
-// Panel-Geschwister von FormScreenShell: für Editoren die in einem Visual-
-// Panel (Split-View neben einem Tree) sitzen statt auf einer ganzen Seite.
-// Füllt die Panel-Höhe (`h-full`), Header + Footer sind sticky (border-b/-t),
-// nur der Body scrollt. FormScreenShell (`max-w-3xl mx-auto`) passt hier
-// NICHT — ein zentrierter Seiten-Block im Panel erzeugt fette Leerränder und
-// bricht `h-full`. Der Shell besitzt das `<form>` (damit der Footer-Save den
-// scrollenden Body submittet) und liefert InsideFormContext wie DefaultForm.
-export function FormPanelShell({
-  onSubmit,
+function DefaultSection({
   title,
-  breadcrumb,
   subtitle,
-  actions,
   children,
+  actions,
+  variant = "default",
   testId,
-}: {
-  readonly onSubmit: (e: FormEvent) => void;
-  readonly title: ReactNode;
-  readonly breadcrumb?: ReactNode;
-  readonly subtitle?: ReactNode;
-  readonly actions?: ReactNode;
-  readonly children: ReactNode;
-  readonly testId?: string;
-}): ReactNode {
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(e);
-      }}
-      data-testid={testId}
-      className="flex h-full min-h-0 flex-col"
-    >
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b px-6 py-4">
-        <h2 className="flex items-baseline gap-1.5 text-lg font-semibold">
-          {breadcrumb !== undefined && (
-            <span className="font-normal text-muted-foreground">{breadcrumb} ›</span>
-          )}
-          {title}
-          {subtitle !== undefined && (
-            <span className="text-sm font-normal text-muted-foreground">{subtitle}</span>
-          )}
-        </h2>
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        <div className="mx-auto flex max-w-2xl flex-col gap-4">
-          <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
-        </div>
-      </div>
-      {actions !== undefined && (
-        <footer className="flex shrink-0 items-center justify-end gap-2 border-t bg-muted/30 px-6 py-4">
-          {actions}
-        </footer>
-      )}
-    </form>
-  );
-}
-
-function DefaultSection({ title, subtitle, children, actions, testId }: SectionProps): ReactNode {
+}: SectionProps): ReactNode {
   const insideForm = useContext(InsideFormContext);
 
   // h3 statt CardTitle (= div): erhält die Heading-Semantik für
@@ -1563,7 +1549,13 @@ function DefaultSection({ title, subtitle, children, actions, testId }: SectionP
   // actions hier = rechtsbündige Reihe (das Form trägt den eigenen Footer).
   if (insideForm) {
     return (
-      <section data-testid={testId} className="flex flex-col gap-4 px-6 py-6">
+      <section
+        data-testid={testId}
+        className={cn(
+          "flex flex-col gap-4 px-6 py-6",
+          variant === "destructive" && "border-l-2 border-destructive/40",
+        )}
+      >
         {header}
         {children}
         {actions !== undefined && (
@@ -1586,7 +1578,14 @@ function DefaultSection({ title, subtitle, children, actions, testId }: SectionP
   // `children`) WOULD get silently clipped — verify this against any new
   // standalone-section content that renders its own non-portaled overlay.
   return (
-    <div data-testid={testId} className={cn(cardSurface(), "overflow-hidden")}>
+    <div
+      data-testid={testId}
+      className={cn(
+        cardSurface(),
+        "overflow-hidden",
+        variant === "destructive" && "border-destructive/40",
+      )}
+    >
       <div className="flex flex-col gap-4 px-6 py-6">
         {header}
         {children}
@@ -1649,9 +1648,48 @@ function DefaultText({ variant = "body", children, testId }: TextProps): ReactNo
           {children}
         </span>
       );
+    case "muted":
+      return (
+        <span data-testid={testId} className="text-sm text-muted-foreground">
+          {children}
+        </span>
+      );
     default:
       return <span data-testid={testId}>{children}</span>;
   }
+}
+
+// ---- Link (anchor mit Button-/Muted-Optik) ----
+
+// `button` nutzt die Primary-Buttonfläche auf einem semantischen <a> —
+// der Standard für „weiter zu"-Navigationen nach Success-States (ehem.
+// authButtonClass), `muted` der dezente Sekundär-Link (ehem.
+// authMutedLinkClass).
+function DefaultLink({
+  href,
+  variant = "default",
+  target,
+  className,
+  children,
+  testId,
+}: LinkProps): ReactNode {
+  const variantClass =
+    variant === "button"
+      ? buttonVariants({ variant: "default" })
+      : variant === "muted"
+        ? "text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        : "text-primary underline-offset-4 hover:underline";
+  return (
+    <a
+      href={href}
+      target={target}
+      rel={target === "_blank" ? "noreferrer" : undefined}
+      data-testid={testId}
+      className={cn(variantClass, className)}
+    >
+      {children}
+    </a>
+  );
 }
 
 function DefaultHeading({ variant = "page", children, testId }: HeadingProps): ReactNode {
@@ -1744,4 +1782,5 @@ export const defaultPrimitives: CorePrimitives = {
   Lightbox: DefaultLightbox,
   ConfigSourceBadge: DefaultConfigSourceBadge,
   ConfigCascadeView: DefaultConfigCascadeView,
+  Link: DefaultLink,
 };

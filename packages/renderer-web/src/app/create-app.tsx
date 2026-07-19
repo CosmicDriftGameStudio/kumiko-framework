@@ -11,6 +11,7 @@ import {
   type ColumnRendererComponent,
   ColumnRenderersProvider,
   CustomScreensProvider,
+  DashboardBodyProvider,
   DispatcherProvider,
   type ExtensionSectionComponent,
   ExtensionSectionsProvider,
@@ -19,13 +20,16 @@ import {
   kumikoDefaultTranslations,
   LiveEventsProvider,
   LocaleProvider,
+  mergeTranslations,
   type NavApi,
   NavProvider,
   PrimitivesProvider,
   type PrimitivesRegistry,
   qualifyScreenId,
   TokensProvider,
+  type TranslationsByLocale,
   toAppSchema,
+  translationsByLocaleFromKeys,
   useNav,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ComponentType, type ReactNode, useMemo } from "react";
@@ -38,6 +42,7 @@ import { useBrowserTokensApi } from "../tokens";
 import { UpdateChecker } from "../version/update-checker";
 import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
+import { WebDashboardBody } from "./dashboard-body";
 import { useBrowserNavApi } from "./nav";
 import { NavProvidersProvider } from "./nav-providers-context";
 import { type ResolverComponent, ResolversProvider } from "./resolvers-context";
@@ -124,6 +129,22 @@ function readInjectedSchema(): AppSchema | FeatureSchema | undefined {
   return w.__KUMIKO_SCHEMA__;
 }
 
+// Erstes Screen über alle Features in deklarierter Reihenfolge, dessen
+// `access` niemanden ausschließt (undefined oder openToAll). Die Landing-
+// Route wird VOR Auth-Resolution gewählt, kennt also keine User-Rollen —
+// ein role-restricted Screen (z.B. bundled user/tenant, SystemAdmin-only)
+// darf hier nie gewinnen, sonst landet jeder Nicht-Admin auf einem
+// Access-Denied-Screen (#1176).
+function firstOpenScreenQn(features: readonly FeatureSchema[]): string | undefined {
+  for (const feature of features) {
+    const openScreen = feature.screens.find(
+      (s) => s.access === undefined || "openToAll" in s.access,
+    );
+    if (openScreen !== undefined) return qualifyScreenId(feature.featureName, openScreen.id);
+  }
+  return undefined;
+}
+
 export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonly root: Root } {
   const rootId = options.rootId ?? "root";
   const container = document.getElementById(rootId);
@@ -149,19 +170,11 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   }
   const app = toAppSchema(rawSchema);
 
-  // Fallback-Screen: erstes Screen über alle Features in deklarierter
-  // Reihenfolge. War vorher schema.screens[0], jetzt search the first
-  // feature with screens.
-  const firstFeatureWithScreens = app.features.find((f) => f.screens.length > 0);
-  const firstScreen = firstFeatureWithScreens?.screens[0];
-  const fallbackQn =
-    options.screenQn ??
-    (firstScreen !== undefined && firstFeatureWithScreens !== undefined
-      ? qualifyScreenId(firstFeatureWithScreens.featureName, firstScreen.id)
-      : undefined);
+  // Fallback-Screen falls kein explizites screenQn übergeben wurde.
+  const fallbackQn = options.screenQn ?? firstOpenScreenQn(app.features);
   if (!fallbackQn) {
     throw new Error(
-      "createKumikoApp: schema contains no screens. Add at least one entry to `schema.screens` or pass `screenQn` explicitly.",
+      "createKumikoApp: schema contains no screens accessible without a role restriction. Add at least one entry to `schema.screens` without `access.roles`, or pass `screenQn` explicitly.",
     );
   }
 
@@ -175,12 +188,24 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   const clientFeatures = options.clientFeatures ?? [];
   const providers = clientFeatures.flatMap((f) => f.providers ?? []);
   const gates = clientFeatures.flatMap((f) => f.gates ?? []);
-  // Framework-Default-Bundle als ALLERLETZTER Fallback — App-Resolver +
-  // clientFeatures.translations haben Vorrang. Apps können einzelne
-  // kumiko.*-Keys via clientFeatures.translations überschreiben (z.B.
-  // "kumiko.actions.save" → "Sichern" für ein bestimmtes Feature).
+  // Precedence in fallbackBundles (Array-Order = Priorität, höchste zuerst):
+  //   1. clientFeatures.translations — App-Overrides gewinnen immer, auch
+  //      gegen framework-eigene Labels.
+  //   2. schemaTranslations — server-authored r.translations, von
+  //      buildAppSchema verbatim projiziert (#1059). Ohne dieses Bundle
+  //      resolven Nav-/Screen-Labels nur, wenn eine App sie ZUSÄTZLICH in
+  //      web/i18n.ts dupliziert — die meisten bundled-features taten das
+  //      nie, Labels rendern dann als rohe i18n-Keys.
+  //   3. kumikoDefaultTranslations — Framework-Defaults, ALLERLETZTER
+  //      Fallback.
+  const schemaTranslations = app.features.reduce<TranslationsByLocale>(
+    (acc, f) =>
+      f.translations ? mergeTranslations(acc, translationsByLocaleFromKeys(f.translations)) : acc,
+    {},
+  );
   const fallbackBundles = [
     ...clientFeatures.flatMap((f) => (f.translations !== undefined ? [f.translations] : [])),
+    schemaTranslations,
     kumikoDefaultTranslations,
   ];
   // Custom-Screen-Components-Map mergen: spätere Features überschreiben
@@ -285,20 +310,22 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
         <PrimitivesProvider value={primitives}>
           <DispatcherProvider dispatcher={dispatcher}>
             <LiveEventsProvider value={liveEvents}>
-              <CustomScreensProvider value={customScreens}>
-                <ColumnRenderersProvider value={columnRenderers}>
-                  <ExtensionSectionsProvider value={extensionSectionComponents}>
-                    <NavProvidersProvider value={navProviders} entities={navEntities}>
-                      <ResolversProvider resolvers={resolvers}>
-                        <ToastProvider>
-                          <UpdateChecker />
-                          {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                        </ToastProvider>
-                      </ResolversProvider>
-                    </NavProvidersProvider>
-                  </ExtensionSectionsProvider>
-                </ColumnRenderersProvider>
-              </CustomScreensProvider>
+              <DashboardBodyProvider value={WebDashboardBody}>
+                <CustomScreensProvider value={customScreens}>
+                  <ColumnRenderersProvider value={columnRenderers}>
+                    <ExtensionSectionsProvider value={extensionSectionComponents}>
+                      <NavProvidersProvider value={navProviders} entities={navEntities}>
+                        <ResolversProvider resolvers={resolvers}>
+                          <ToastProvider>
+                            <UpdateChecker />
+                            {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                          </ToastProvider>
+                        </ResolversProvider>
+                      </NavProvidersProvider>
+                    </ExtensionSectionsProvider>
+                  </ColumnRenderersProvider>
+                </CustomScreensProvider>
+              </DashboardBodyProvider>
             </LiveEventsProvider>
           </DispatcherProvider>
         </PrimitivesProvider>
@@ -436,6 +463,25 @@ function RoutedScreen({
     };
   }, [onRowClick, app.features, nav]);
 
+  // Copy-Link-Action (Issue #912) für entityEdit-Update-Screens. Baut die
+  // absolute Permalink-URL aus der aktuellen Route + kopiert sie —
+  // `navigator`/`window` sind hier erlaubt (renderer-web, kein
+  // platform-neutrales Package). Kein Button ohne entityId (create-mode).
+  // Silent-catch bei Clipboard-Fehler (non-secure context) mirrort das
+  // bestehende Muster in pat-tokens-screen.tsx.
+  const effectiveOnCopyLink = useMemo<(() => Promise<void> | void) | undefined>(() => {
+    const route = nav.route;
+    if (route?.entityId === undefined) return undefined;
+    return async () => {
+      const url = `${window.location.origin}${nav.hrefFor(route)}`;
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        // clipboard blocked (non-secure context) — no fallback UI needed here
+      }
+    };
+  }, [nav]);
+
   // KumikoScreen will nach wie vor ein single-feature schema. Wir
   // füttern es mit dem owning Feature — es enthält Entity-Defs +
   // Screen-Defs für den aktiven Render-Pfad. Kein Owner gefunden → wir
@@ -455,6 +501,7 @@ function RoutedScreen({
       {...(translate !== undefined && { translate })}
       {...(entityId !== undefined && { entityId })}
       onRowClick={effectiveOnRowClick}
+      {...(effectiveOnCopyLink !== undefined && { onCopyLink: effectiveOnCopyLink })}
     />
   );
 }

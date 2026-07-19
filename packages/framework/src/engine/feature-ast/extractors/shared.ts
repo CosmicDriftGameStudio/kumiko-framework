@@ -47,6 +47,25 @@ export function readBooleanProperty(
   return undefined;
 }
 
+/**
+ * Marks a value the parser could not resolve into a literal (an Identifier
+ * reference, a call expression, ...) while preserving its exact source text.
+ * `renderValue` re-emits `__raw` verbatim instead of re-serializing the
+ * value, so round-tripping a reference like `eventEntity` never expands it
+ * into an inlined object literal.
+ */
+export type RawRefSentinel = { readonly __raw: string };
+
+export function isRawRefSentinel(value: unknown): value is RawRefSentinel {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "__raw" in value &&
+    typeof (value as { __raw: unknown }).__raw === "string"
+  );
+}
+
 export function readDataLiteralNode(node: Node): unknown {
   const kind = node.getKind();
   switch (kind) {
@@ -103,9 +122,48 @@ export function readDataLiteralNode(node: Node): unknown {
       return readDataLiteralNode(
         node.asKindOrThrow(SyntaxKind.ParenthesizedExpression).getExpression(),
       );
+    case SyntaxKind.Identifier:
+    case SyntaxKind.CallExpression:
+    case SyntaxKind.PropertyAccessExpression:
+      // Unresolvable reference (const identifier, factory call, member access).
+      // Keep the exact source text so renderValue can re-emit it verbatim —
+      // resolving/inlining it would silently rewrite the source on the next
+      // parse->render roundtrip (see readDataLiteralNode doc above).
+      return { __raw: node.getText() } satisfies RawRefSentinel;
     default:
       return undefined;
   }
+}
+
+/**
+ * A node's literal string value, or the raw-ref sentinel when it resolves to
+ * an unresolvable identifier/factory-call/member-access (see
+ * readDataLiteralNode). undefined for anything else (number, boolean, ...).
+ */
+export function readStringOrRaw(node: Node): string | RawRefSentinel | undefined {
+  const value = readDataLiteralNode(node);
+  if (typeof value === "string") return value;
+  if (isRawRefSentinel(value)) return value;
+  return undefined;
+}
+
+/**
+ * Like readStringLiteralArgs, but an argument that resolves to a raw-ref
+ * sentinel is kept as that sentinel instead of failing the whole call. Used
+ * where a value stands in for a single name/key and inlining its resolved
+ * string would corrupt the render roundtrip (e.g. `r.requires(someFeature.name)`
+ * — see #1009).
+ */
+export function readStringOrRawArgs(
+  call: CallExpression,
+): readonly (string | RawRefSentinel)[] | undefined {
+  const out: (string | RawRefSentinel)[] = [];
+  for (const arg of call.getArguments()) {
+    const value = readStringOrRaw(arg);
+    if (value === undefined) return undefined;
+    out.push(value);
+  }
+  return out;
 }
 
 export { isPlainObject } from "../../../utils/is-plain-object";
@@ -150,7 +208,7 @@ export function readNameOrRefOrList(node: Node): string | readonly string[] | un
 export function readVarargsOrArrayProp(
   call: CallExpression,
   arrayPropName: "features" | "keys",
-): readonly string[] | undefined {
+): readonly (string | RawRefSentinel)[] | undefined {
   const args = call.getArguments();
   if (args.length === 1) {
     const obj = args[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
@@ -162,15 +220,15 @@ export function readVarargsOrArrayProp(
       if (propInit) {
         const arr = propInit.asKind(SyntaxKind.ArrayLiteralExpression);
         if (!arr) return undefined;
-        const out: string[] = [];
+        const out: (string | RawRefSentinel)[] = [];
         for (const el of arr.getElements()) {
-          const lit = el.asKind(SyntaxKind.StringLiteral);
-          if (!lit) return undefined;
-          out.push(lit.getLiteralValue());
+          const value = readStringOrRaw(el);
+          if (value === undefined) return undefined;
+          out.push(value);
         }
         return out;
       }
     }
   }
-  return readStringLiteralArgs(call);
+  return readStringOrRawArgs(call);
 }

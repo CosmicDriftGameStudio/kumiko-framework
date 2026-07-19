@@ -7,8 +7,18 @@
 // Namen würden in createRegistry werfen.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import type { LocalizedString } from "../shared-i18n";
+
+// Server-Pendant zu den Nav-Labels — Boot-Validator braucht screen:gallery.title
+// serverseitig registriert, auch wenn die custom-Screen selbst keinen
+// gerenderten Titel aus i18n zieht.
+const GALLERY_I18N: Readonly<Record<string, LocalizedString>> = {
+  "screen:gallery.title": { de: "Foundations & Components", en: "Foundations & Components" },
+};
 
 export const galleryFeature = defineFeature("gallery", (r) => {
+  r.translations({ keys: GALLERY_I18N });
+
   r.screen({ id: "gallery", type: "custom", renderer: { react: { __component: "gallery" } } });
 
   r.nav({ id: "styleguide", label: "Styleguide", order: 20 });

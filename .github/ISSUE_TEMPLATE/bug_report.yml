@@ -1,0 +1,34 @@
+name: Bug report
+description: Something in Kumiko doesn't work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: repro
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: recipe
+    attributes:
+      label: Minimal repro
+      description: >
+        A failing recipe under samples/recipes/, a code snippet, or steps to
+        reproduce. If it's a real bug, a recipe test is the fastest way for
+        us to confirm and fix it.
+      render: typescript
+  - type: input
+    id: version
+    attributes:
+      label: Kumiko version
+      placeholder: "e.g. 0.87.2 (bun kumiko --version)"
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Bun version + OS
+      placeholder: "e.g. Bun 1.3.14, macOS 15"
+    validations:
+      required: true

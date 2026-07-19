@@ -30,3 +30,16 @@ export function findForbiddenMembershipRole(roles: readonly string[]): string | 
 export function stripForbiddenMembershipRoles(roles: readonly string[]): readonly string[] {
   return roles.filter((role) => !isForbiddenMembershipRole(role));
 }
+
+// Single mint path for session roles: merges globalRoles with the stripped
+// membership portion and dedupes. Every place that builds a session's roles
+// from a membership should go through this instead of repeating
+// `new Set([...globalRoles, ...stripForbiddenMembershipRoles(x)])` — a new
+// mint site that forgets the strip is exactly the bug class this guards
+// against.
+export function buildSessionRoles(
+  globalRoles: readonly string[],
+  membershipRoles: readonly string[],
+): readonly string[] {
+  return Array.from(new Set([...globalRoles, ...stripForbiddenMembershipRoles(membershipRoles)]));
+}

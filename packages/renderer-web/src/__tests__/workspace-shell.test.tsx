@@ -57,7 +57,6 @@ function ws(
     openToAll?: boolean;
     isDefault?: boolean;
     navMembers?: readonly string[];
-    navigation?: "nav" | "tree";
   } = {},
 ): WorkspaceSchema {
   const access = options.openToAll
@@ -72,7 +71,6 @@ function ws(
       ...(options.order !== undefined && { order: options.order }),
       ...(access !== undefined && { access }),
       ...(options.isDefault === true && { default: true }),
-      ...(options.navigation !== undefined && { navigation: options.navigation }),
     },
     navMembers: options.navMembers ?? [],
   };
@@ -774,43 +772,13 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// EINE Nav (Visual-Tree-Merge). Der frühere navigation:"tree"/VisualTree-
-// Zweig ist gefaltet: WorkspaceShell rendert IMMER NavTree. Die
-// navigation-Property ist seitdem ein No-op (deferred removal aus
-// WorkspaceDefinition). Im Content-Bereich ersetzt ein aktives target
-// (aus den nav.searchParams) den RoutedScreen durch den EditorPanel.
+// EINE Nav. WorkspaceShell rendert IMMER NavTree. Im Content-Bereich
+// ersetzt ein aktives target (aus den nav.searchParams) den RoutedScreen
+// durch den EditorPanel.
 // ---------------------------------------------------------------------------
 
-describe("WorkspaceShell — EINE Nav (Visual-Tree gefaltet)", () => {
-  test('navigation: "tree" rendert NavTree (Tree-Stub ist gefaltet, kein Switch mehr)', () => {
-    const schema = {
-      featureName: "demo",
-      entities: {},
-      screens: [],
-      navs: [{ id: "list", label: "List" }],
-      workspaces: [
-        ws("visual", {
-          label: "Visual",
-          openToAll: true,
-          isDefault: true,
-          navigation: "tree",
-          navMembers: ["demo:nav:list"],
-        }),
-      ],
-    } as const;
-
-    renderShell(
-      <WorkspaceShell brand={<div>Brand</div>} schema={schema} user={{ id: "u1", roles: [] }}>
-        <div>content</div>
-      </WorkspaceShell>,
-    );
-    // NavTree rendert das nav-Item — auch bei navigation:"tree" (No-op).
-    expect(screen.getByText("List")).toBeTruthy();
-    // Der alte VisualTree-Stub existiert nicht mehr.
-    expect(screen.queryByLabelText("Visual Tree (no providers)")).toBeNull();
-  });
-
-  test("workspace ohne navigation-Property rendert NavTree (Backwards-Compat)", () => {
+describe("WorkspaceShell — EINE Nav", () => {
+  test("workspace rendert NavTree", () => {
     const schema = {
       featureName: "demo",
       entities: {},
@@ -865,5 +833,41 @@ describe("WorkspaceShell — EINE Nav (Visual-Tree gefaltet)", () => {
     expect(screen.getByRole("heading", { name: "Editor" })).toBeTruthy();
     // Die screen-children sind ersetzt, nicht zusätzlich gerendert.
     expect(screen.queryByText("content")).toBeNull();
+  });
+
+  test("navBadges pass through to NavTree leaf items", () => {
+    const schema = {
+      featureName: "bmc",
+      entities: {},
+      screens: [],
+      navs: [
+        { id: "system", label: "System", screen: "bmc:screen:system" },
+        { id: "orders", label: "Orders", screen: "bmc:screen:orders" },
+      ],
+      workspaces: [
+        ws("admin", {
+          label: "Admin",
+          roles: ["admin"],
+          order: 1,
+          isDefault: true,
+          navMembers: ["bmc:nav:system", "bmc:nav:orders"],
+        }),
+      ],
+    } as const;
+
+    renderShell(
+      <WorkspaceShell
+        brand={<div>Brand</div>}
+        schema={schema}
+        user={{ id: "u1", roles: ["admin"] }}
+        navBadges={new Map([["orders", <span>3</span>]])}
+      >
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    const ordersItems = screen.getAllByText("Orders");
+    const systemItems = screen.getAllByText("System");
+    expect(ordersItems.some((el) => el.closest("li")?.textContent?.includes("3"))).toBe(true);
+    expect(systemItems.every((el) => !el.closest("li")?.textContent?.includes("3"))).toBe(true);
   });
 });

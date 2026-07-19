@@ -7,6 +7,7 @@
       "@cosmicdrift/kumiko-framework",
       "@cosmicdrift/kumiko-bundled-features",
       "@cosmicdrift/kumiko-dev-server",
+      "@cosmicdrift/kumiko-server-runtime",
       "@cosmicdrift/kumiko-dispatcher-live",
       "@cosmicdrift/kumiko-headless",
       "@cosmicdrift/kumiko-renderer",

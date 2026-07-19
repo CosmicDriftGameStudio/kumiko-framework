@@ -1,9 +1,4 @@
-import {
-  createEntity,
-  createTextField,
-  defineFeature,
-  registerEntityCrud,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const pageEntity = createEntity({
   table: "read_content_pages",
@@ -16,7 +11,7 @@ export const pageEntity = createEntity({
 const open = { access: { openToAll: true } } as const;
 
 export const contentFeature = defineFeature("content", (r) => {
-  registerEntityCrud(r, "page", pageEntity, {
+  r.crud("page", pageEntity, {
     write: open,
     read: open,
     verbs: { update: false, delete: false, restore: false },

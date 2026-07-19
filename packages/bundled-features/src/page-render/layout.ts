@@ -1,6 +1,12 @@
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { type ApexHead, renderApexHeadTags } from "@cosmicdrift/kumiko-headless/apex";
 import { type BrandingTokens, brandingHeaderHtml, brandingStyleBlock } from "./branding";
 import { sanitizeTenantCss } from "./css-sanitize";
+
+// Optional OG/JSON-LD/canonical extension for wrapInLayout — the same field
+// set renderApexPage accepts, minus title/description/lang (those come from
+// wrapInLayout's own opts, so callers don't repeat them).
+export type SeoHeadInput = Omit<ApexHead, "title" | "description" | "lang">;
 
 // Attribute marking the content container. The page body lives in
 // `<main data-tenant-content>`; tenant custom CSS is scoped to its descendants
@@ -52,6 +58,9 @@ export function wrapInLayout(opts: {
   lang: string;
   description?: string | null;
   branding?: BrandingTokens;
+  /** Adds Open Graph/Twitter/canonical/JSON-LD tags via the shared apex head
+   *  renderer. Omitted → unchanged minimal title+description behavior. */
+  seo?: SeoHeadInput;
 }): string {
   const themeStyleHtml = opts.branding ? brandingStyleBlock(opts.branding) : "";
   const header = opts.branding ? brandingHeaderHtml(opts.branding) : "";
@@ -69,12 +78,17 @@ export function wrapInLayout(opts: {
   const metaDescription = description
     ? `\n<meta name="description" content="${escapeHtmlAttr(description)}">`
     : "";
+  // Without `seo`: identical title+description emission as before (no
+  // behavior change for legal-pages/managed-pages callers that don't pass it).
+  const headHtml = opts.seo
+    ? renderApexHeadTags({ title: opts.title, description, lang: opts.lang, ...opts.seo })
+    : `<title>${escapeHtml(opts.title)}</title>${metaDescription}`;
   return `<!doctype html>
 <html lang="${escapeHtmlAttr(opts.lang)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(opts.title)}</title>${metaDescription}
+${headHtml}
 <style>
   :root { --accent: #0066cc; --page-max-width: 720px; }
   body { font-family: system-ui, -apple-system, sans-serif; max-width: var(--page-max-width);

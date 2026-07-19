@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-framework",
-  "version": "0.130.1",
+  "version": "0.156.0",
   "description": "Framework core — engine, pipeline, API, DB, and every other bit that makes Kumiko go.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -98,6 +98,10 @@
     "./jobs": {
       "types": "./src/jobs/index.ts",
       "default": "./src/jobs/index.ts"
+    },
+    "./observability": {
+      "types": "./src/observability/index.ts",
+      "default": "./src/observability/index.ts"
     },
     "./migrations": {
       "types": "./src/migrations/index.ts",

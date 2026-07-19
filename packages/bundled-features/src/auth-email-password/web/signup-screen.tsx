@@ -15,7 +15,8 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { requestSignup } from "./auth-client";
-import { AuthCard, authMutedLinkClass } from "./auth-form-primitives";
+import { retryAfterMinutes } from "./auth-form-logic";
+import { AuthCard } from "./auth-form-primitives";
 
 export type SignupScreenProps = {
   readonly title?: string;
@@ -31,7 +32,7 @@ export function SignupScreen({
   loginHref = "/login",
 }: SignupScreenProps): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -45,10 +46,7 @@ export function SignupScreen({
       if (res.ok) {
         setDone(true);
       } else if (res.error.reason === "rate_limited") {
-        const minutes =
-          res.error.retryAfterSeconds !== undefined
-            ? Math.ceil(res.error.retryAfterSeconds / 60)
-            : undefined;
+        const minutes = retryAfterMinutes(res.error.retryAfterSeconds);
         setError(
           minutes !== undefined
             ? t("auth.errors.accountLockedRetry", { minutes })
@@ -95,9 +93,9 @@ export function SignupScreen({
           <Button variant="secondary" onClick={onResend} disabled={submitting}>
             {t("auth.signup.resend")}
           </Button>
-          <a href={loginHref} className={authMutedLinkClass}>
+          <Link href={loginHref} variant="muted">
             {t("auth.signup.haveAccount")}
-          </a>
+          </Link>
         </div>
       ) : (
         <div className="p-6 pt-0 flex flex-col gap-4">
@@ -120,9 +118,9 @@ export function SignupScreen({
               {submitting ? t("auth.signup.submitting") : t("auth.signup.submit")}
             </Button>
           </Form>
-          <a href={loginHref} className={`${authMutedLinkClass} self-center`}>
+          <Link href={loginHref} variant="muted" className="self-center">
             {t("auth.signup.haveAccount")}
-          </a>
+          </Link>
         </div>
       )}
     </AuthCard>

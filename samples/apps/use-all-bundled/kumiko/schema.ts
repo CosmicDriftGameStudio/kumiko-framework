@@ -8,16 +8,16 @@
 //   - `FEATURES: readonly FeatureDefinition[]`    (optional — aktiviert
 //     `kumiko-schema validate`s validateBoot-Layer; ohne wird er übersprungen)
 
-import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { APP_FEATURES } from "../src/run-config";
 
 export const FEATURES: readonly FeatureDefinition[] = composeFeatures(APP_FEATURES, {
   includeBundled: true,
 });
 
-// collectTableMetas erfasst neben entities + unmanagedTables auch
+// collectTableMetas erfasst neben entities auch
 // r.projection/r.multiStreamProjection/r.rawTable-Tabellen — dieselben
 // Quellen wie der setupTestStack-auto-push (#255).
 export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(FEATURES);

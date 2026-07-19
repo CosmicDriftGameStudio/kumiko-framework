@@ -1,22 +1,18 @@
 // applyEntityEvent — die EINZIGE Schreib-Logik für r.entity-Tabellen aus
 // Stored-Events. Beide Aufrufer benutzen sie:
 //
-//   - createEventStoreExecutor (live, im Write-TX) — übergibt ein
-//     "live event" mit unstripped flatData/flatChanges als payload damit
-//     sensitive Felder in der Read-Tabelle landen, das Event-Log selbst
-//     bleibt aber stripped (siehe append-Site im Executor).
+//   - createEventStoreExecutor (live, im Write-TX) — übergibt das gerade
+//     appendete StoredEvent direkt; sensitive Felder liegen als Tabellen-
+//     Ciphertext im Payload (boot-validiert pii/encrypted, #967).
 //   - rebuildProjection via ImplicitProjection (replay, im Rebuild-TX) —
-//     übergibt das StoredEvent direkt; payload ist dort ohne sensitive,
-//     was bei Rebuild akzeptiert wird (sensitive-Drift durch GDPR-Strip
-//     ist als load-bearing Backlog-Item gepinnt — siehe
-//     docs/plans/architecture/migrations.md Sektion "Backlog (Welle 3+)"
-//     → "Sensitive-Field-Persistenz im Rebuild" für Optionen a/b/c).
+//     übergibt dasselbe StoredEvent; apply kopiert Ciphertext byte-gleich
+//     zurück, bidx wird unten neu berechnet.
 //
-// Live==Rebuild-Equivalence ist damit by-construction für alle Felder
-// die NICHT als sensitive markiert sind — eine geänderte Schreib-Logik
-// muss nur an EINER Stelle gepflegt werden, kein Sync-Contract mehr.
-// Der load-bearing Test bleibt für non-sensitive-Drift in
-// db/__tests__/implicit-projection-equivalence.integration.ts.
+// Live==Rebuild-Equivalence ist damit by-construction für ALLE Felder —
+// eine geänderte Schreib-Logik muss nur an EINER Stelle gepflegt werden,
+// kein Sync-Contract mehr. Einzige legitime Divergenz: Crypto-Shredding
+// (DEK erased → Wert unlesbar, bidx NULL). Load-bearing Test:
+// db/__tests__/implicit-projection-equivalence.integration.test.ts.
 //
 // Tenant-Isolation: applyEntityEvent erwartet einen rohen DbRunner (TX
 // oder pool), KEINEN TenantDb-Wrapper. Schutz kommt aus zwei Quellen:

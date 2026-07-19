@@ -14,6 +14,17 @@ import type {
   CreateUserSeedOptions,
 } from "./types";
 
+// A key backed by "secrets" is at-rest encrypted by the secrets store itself
+// (MasterKeyProvider), even without an explicit `encrypted: true` — callers
+// that gate on encryption (boot-validator mutual-exclusion checks, config
+// query redaction) must treat the two as equivalent or a secrets-backed key
+// silently skips the encrypted-only guard.
+export function isEncryptedAtRest(
+  def: Pick<ConfigKeyDefinition, "encrypted" | "backing">,
+): boolean {
+  return def.encrypted === true || def.backing === "secrets";
+}
+
 // --- Access Presets ---
 
 export const access = {
@@ -70,6 +81,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   read?: readonly string[];
   default?: ConfigValue<T>;
   encrypted?: boolean;
+  piiEncrypted?: T extends "text" ? boolean : never;
   options?: readonly string[]; // for select type
   bounds?: T extends "number" ? ConfigBounds : never;
   // Regex enforced at write (set.write) — only meaningful for text keys
@@ -84,6 +96,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   inheritedToTenant?: boolean;
   backing?: ConfigBacking;
   mask?: ConfigMask;
+  group?: string;
 };
 
 // --- Scope Defaults ---
@@ -111,6 +124,7 @@ function createConfigKey<T extends ConfigKeyType>(
     },
     default: opts.default,
     ...(opts.encrypted ? { encrypted: true } : {}),
+    ...(opts.piiEncrypted ? { piiEncrypted: true } : {}),
     ...(opts.options ? { options: opts.options } : {}),
     bounds: opts.bounds as ConfigBounds | undefined, // @cast-boundary schema-walk
     ...(opts.pattern ? { pattern: opts.pattern } : {}),
@@ -121,6 +135,7 @@ function createConfigKey<T extends ConfigKeyType>(
     ...(opts.inheritedToTenant === false ? { inheritedToTenant: false } : {}),
     ...(opts.backing === "secrets" ? { backing: "secrets" } : {}),
     ...(opts.mask ? { mask: opts.mask } : {}),
+    ...(opts.group ? { group: opts.group } : {}),
   };
 }
 

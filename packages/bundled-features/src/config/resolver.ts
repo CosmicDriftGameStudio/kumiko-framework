@@ -1,4 +1,10 @@
+import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configuredPiiSubjectKms,
+  decryptPiiValueForSubject,
+  type KmsContext,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
   ConfigCascade,
@@ -36,8 +42,13 @@ export function deserializeValue(
   if (raw === null || raw === undefined) return undefined;
   const parsed = parseJsonOrThrow<unknown>(raw, `config value (type=${type})`);
   switch (type) {
-    case "number":
-      return typeof parsed === "number" ? parsed : Number(parsed);
+    case "number": {
+      const n = typeof parsed === "number" ? parsed : Number(parsed);
+      if (!Number.isFinite(n)) {
+        throw new Error(`config value (type=number): "${raw}" does not deserialize to a number.`);
+      }
+      return n;
+    }
     case "boolean":
       return typeof parsed === "boolean" ? parsed : parsed === "true";
     case "text":
@@ -89,6 +100,24 @@ async function decryptEncrypted(
     });
   }
   return cipher.decrypt(raw);
+}
+
+// Decrypt gate for piiEncrypted keys, mirroring decryptEncrypted above.
+// The subject lives inside the ciphertext (kumiko-pii:v1:<subject>:...),
+// so unlike the write side, no scope/subject resolution is needed here —
+// same call works for a user-row or a tenant-row value.
+async function decryptPiiEncrypted(raw: string, qualifiedKey: string): Promise<string> {
+  const kms = configuredPiiSubjectKms();
+  if (!kms) {
+    throw new InternalError({
+      message:
+        `[config] key "${qualifiedKey}" is piiEncrypted but no PII subject-KMS is wired — the ` +
+        `boot must configure one via runProdApp({ kms }) / configurePiiSubjectKms(adapter).`,
+      i18nKey: "config.errors.cipher_missing",
+    });
+  }
+  const kmsCtx: KmsContext = { requestId: requestContext.get()?.requestId ?? "config:resolver" };
+  return decryptPiiValueForSubject(kms, raw, kmsCtx);
 }
 
 // backing="secrets" keys store their value in the secrets store (flat per
@@ -205,6 +234,8 @@ async function buildCascade(
       let raw = row.value;
       if (keyDef.encrypted) {
         raw = await decryptEncrypted(cipher, raw, qualifiedKey);
+      } else if (keyDef.piiEncrypted) {
+        raw = await decryptPiiEncrypted(raw, qualifiedKey);
       }
       if (activeIndex === -1) activeIndex = levels.length;
       levels.push({
@@ -382,6 +413,8 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
           let raw = row.value;
           if (keyDef.encrypted) {
             raw = await decryptEncrypted(cipher, raw, qualifiedKey);
+          } else if (keyDef.piiEncrypted) {
+            raw = await decryptPiiEncrypted(raw, qualifiedKey);
           }
           return { value: deserializeValue(raw, keyDef.type), source: lookup.source };
         }

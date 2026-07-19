@@ -126,11 +126,11 @@ function writeSampleTsconfig(ws: SampleWorkspace): string {
   // sample never type-checked stay out). composite forbids auto-including
   // imported files, so `.kumiko` codegen — a dotfile dir that `**/*` globs skip
   // — must be listed explicitly.
-  const include = [...(base.include ?? ["src"])];
+  const include = [...(base.include ?? ["./src"])];
   if (existsSync(join(ws.root, ".kumiko"))) {
     paths["@app/define"] = ["./.kumiko/define.ts"];
     paths["@app/*"] = ["./.kumiko/*"];
-    if (!include.includes(".kumiko/**/*.ts")) include.push(".kumiko/**/*.ts");
+    if (!include.includes("./.kumiko/**/*.ts")) include.push("./.kumiko/**/*.ts");
   }
 
   const outDir = join(OUT_ROOT, `${ws.category}__${ws.name}`);

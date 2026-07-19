@@ -75,6 +75,8 @@ export type WorkspaceShellProps = {
    *  Info. Klebt am unteren Rand via `mt-auto` (siehe Sidebar.footer).
    *  Symmetrisch zu DefaultAppShell.sidebarFooter. */
   readonly sidebarFooter?: ReactNode;
+  /** Runtime badge slot per nav leaf (bare nav id), same as DefaultAppShell. */
+  readonly navBadges?: ReadonlyMap<string, ReactNode>;
   /** Screen content. */
   readonly children: ReactNode;
 };
@@ -86,6 +88,7 @@ export function WorkspaceShell({
   user,
   initialWorkspaceId,
   sidebarFooter,
+  navBadges,
   children,
 }: WorkspaceShellProps): ReactNode {
   const app = useMemo(() => toAppSchema(schema), [schema]);
@@ -207,6 +210,7 @@ export function WorkspaceShell({
       schema={app}
       {...(user !== undefined && { user })}
       {...(allowedNavQns !== undefined && { allowedNavQns })}
+      {...(navBadges !== undefined && { navBadges })}
     />
   );
 

@@ -1,5 +1,351 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.156.0
+
+### Minor Changes
+
+- c7ca222: Merge `r.rawTable()` and `r.unmanagedTable()` into a single `r.rawTable(meta, options)`.
+  Both registrars carried the same reason/audit contract and only differed in whether the
+  table value was a legacy Drizzle `PgTable` (`rawTable`) or the framework-native
+  `EntityTableMeta` (`unmanagedTable`, consumed by `migrate-runner`). Now that the
+  drizzle-cut has removed `PgTable` from the framework's own dialect, `r.rawTable()`
+  takes an `EntityTableMeta` — the result of `defineUnmanagedTable(...)` /
+  `buildEntityTableMeta(...)` — same as `r.unmanagedTable()` did. `r.unmanagedTable()` is
+  removed; call sites switch to `r.rawTable(meta, options)` with no other shape change.
+
+### Patch Changes
+
+- 77ea09f: `ctx.systemWriteAs` in seed-migrations accepts an optional `extraRoles` 4th
+  argument. `hasAccess` has no system-bypass — handlers gated on an explicit
+  role (e.g. `access: { roles: ["SystemAdmin"] }` or `["anonymous"]`) reject
+  the bare `system` actor with `access_denied`. Seeds that need to reach such a
+  handler can now pass the required role(s) alongside `createSystemUser`'s
+  existing `extraRoles` support, instead of being unable to call it at all.
+
+## 0.155.1
+
+## 0.155.0
+
+### Minor Changes
+
+- 137f31a: Remove `r.crud()` registrar sugar. It only ever wrapped `registerEntityCrud()`
+  with no production call sites — call `registerEntityCrud(r, name, definition, options)`
+  directly instead.
+
+## 0.154.2
+
+### Patch Changes
+
+- 05c3e11: Fix `populateTranslations()` double-prefixing translation keys that already
+  carry the feature's own namespace prefix (e.g. a nav label referencing
+  `"cap-counter:nav.cap-list"` verbatim). Previously every key was
+  unconditionally prefixed with `${feature.name}:`, so an already-qualified
+  key ended up double-prefixed in `registry.getAllTranslations()` and could
+  never be resolved by server-side `t()`.
+
+## 0.154.1
+
+## 0.154.0
+
+### Minor Changes
+
+- e40a980: `validateBoot` now throws when `rowActions`/`toolbarActions` (`payload`/`params`/`entityId`/`visible`)
+  or `entityList`/`projectionList`/`entityEdit` column/field renderers hold a JS function instead of
+  the declarative DSL. Function values compile fine at the type level but are silently dropped by
+  `JSON.stringify` once the screen config reaches the client bundle, turning the action or renderer
+  into a silent no-op instead of a boot failure — this now fails loudly at boot time instead.
+
+  Partial migration of infra's `guard-action-wiring`/`guard-no-function-renderer` into the framework
+  (infra#133).
+
+### Patch Changes
+
+- 0d30bf7: setupTestStack: stop a partially-started JobRunner (and its live BullMQ Redis
+  connections) if any later setup step throws, instead of leaking it until the
+  test process hangs on exit. Also pass through the real REDIS_URL for the
+  JobRunner's connection instead of reconstructing one from parsed
+  `redis.options` (which dropped password/username/tls/path) — `TestRedis` now
+  exposes `redisUrl` for this.
+
+## 0.153.0
+
+## 0.152.0
+
+### Minor Changes
+
+- e32807e: Fix `createNumberField()` DDL: the Postgres column type was hardcoded to
+  `integer` regardless of the `integer` flag, contradicting both the write-
+  boundary Zod validation (which accepts fractional values unless
+  `integer: true` is set) and the type's own doc comment ("no
+  migration/storage impact"). A field declared `createNumberField()` (no
+  `integer: true`) passed Zod validation for a fractional value but then
+  failed at the database with `invalid input syntax for type integer` on
+  insert — silently untested in practice for any entity whose values are
+  expected to be non-integer (e.g. Monte-Carlo simulation statistics).
+
+  `integer: true` now controls both the Zod validation AND the Postgres
+  column type: `true` → `integer` (unchanged), omitted/`false` → `double
+precision` (was `integer`, now accepts fractional values).
+
+  **Breaking for existing entities**: any `createNumberField()` field
+  without `integer: true` changes its Postgres column type from `integer`
+  to `double precision` on the next migration. Existing integer data is
+  unaffected by the type widening (int4 → float8 is a safe, lossless
+  conversion), but the app's committed migration snapshot needs
+  regenerating (`kumiko schema apply` / equivalent) and reviewing before
+  deploy. Fields declared with `integer: true` are unaffected.
+
+- 3dd1f99: Merge `r.configKey(name, def)` into `r.config()` as an overload instead of a
+  separate method: `r.config(name, def)` now returns the bare `ConfigKeyHandle<T>`
+  directly for the single-key case, while `r.config({keys:{...}})` keeps
+  returning a handle record for the multi-key case. Same qualification/storage
+  behavior either way — this only removes the second method name. `r.configKey`
+  is gone; call sites written against it (published for one release in 0.151.0)
+  switch to `r.config(name, def)`.
+
+## 0.151.1
+
+### Patch Changes
+
+- 5c1dc93: Export `runInSavepoint` from `@cosmicdrift/kumiko-framework/db` and `/bun-db`.
+
+  Why: app-code write handlers that fall back to computing inline (no
+  JobRunner) share the write-dispatch's outer transaction (`ctx.db` is the
+  `tx` from `runBatch`'s `transaction(db, ...)` wrap). A failing statement
+  during that inline compute poisons the whole transaction per Postgres
+  semantics — any further write, including one that tries to record a
+  "failed" status, then errors with "current transaction is aborted,
+  commands ignored until end of transaction block". `runInSavepoint` was
+  already the framework's own answer to this for inline projections
+  (`dispatch-shared.ts`) and rebuild passes (`msp-rebuild.ts`,
+  `projection-rebuild.ts`) — it just wasn't reachable from outside the
+  package. No behavior change to the framework itself, additive export only.
+
+## 0.151.0
+
+### Minor Changes
+
+- ca4edbf: Add `r.configKey(name, def)` — a single-key shorthand for
+  `r.config({keys:{name: def}})` that returns the bare `ConfigKeyHandle<T>`
+  directly instead of a wrapping record. Add the optional
+  `ConfigKeyDefinition.group` field, letting a feature bucket its masked
+  config keys under another feature's (or a shared, non-feature) Settings-Hub
+  namespace without that target feature knowing about it at compile time.
+  Both are purely additive — `r.config()` is unchanged, `group` defaults to
+  `undefined` everywhere.
+
+## 0.150.0
+
+### Minor Changes
+
+- 0e4cec9: Fix-Batch aus dem PR-Review-Prozess (Quellen: #1035, #1036, #1037, #1041, #1042,
+  #1043, #1049, #1050, #1052, #1053, #1056, #1064, #1034).
+
+  - `@cosmicdrift/kumiko-framework/engine` exportiert neu `isEncryptedAtRest(def)` —
+    ein Config-Key gilt als verschlüsselt wenn `encrypted: true` ODER
+    `backing: "secrets"` gesetzt ist. Ersetzt drei bisher unabhängig abweichende
+    Ableitungen (feature-manifest.ts, cascade/values.query.ts) und schließt eine
+    Boot-Validator-Lücke: `computed`/`allowPerRequest` auf einem
+    `backing: "secrets"`-Key failt jetzt am Boot statt zur Laufzeit durchzurutschen.
+  - `RunProdAppOptions` bekommt `observabilityOptions` (Passthrough zur
+    Auto-Instrumentation) — vorher nur über den Low-Level-Entrypoint erreichbar.
+  - `@cosmicdrift/kumiko-bundled-features/auth-mfa`: `currentTotpCode` (Test-Hook,
+    nie ein Runtime-Helper) zieht aus dem Haupt-Barrel in einen neuen
+    `./auth-mfa/testing`-Subpath — Import-Pfad ändert sich für Tests, die den
+    Live-Code direkt aus einem Secret ableiten wollen.
+  - MFA-Enrollment-UI: `mfa-enable-screen.tsx` importiert `qrcode/lib/browser`
+    statt `qrcode` (vermeidet Node-only Deps wie yargs/pngjs im Client-Bundle;
+    Bundle-Impact lokal nicht verifiziert), fängt Fehler jetzt in try/catch statt
+    den Busy-State hängen zu lassen. `mfa-verify-screen.tsx` bekommt ein
+    optionales `onCancel`, damit dead-end-Fehler (challenge_expired,
+    too_many_attempts) einen Weg zurück zum Login haben.
+  - Diverse Low-Sev-Fixes: base32-Decode toleriert `=`-Padding und validiert
+    Restbits, Rate-Limit-Fix im public-share-token-Recipe (ip+handler statt
+    user+handler bei openToAll), i18n-Lücken (mfa_not_supported-Key,
+    styleguide-Sample-Übersetzungen), tote Kommentar-Blöcke gekürzt,
+    password-hashing-Imports innerhalb bundled-features auf die tatsächliche
+    `shared/`-Quelle umgestellt (Barrel-Re-Export in `auth-email-password`
+    bewusst NICHT entfernt — bleibt als öffentlicher Re-Export bestehen, da eine
+    Entfernung ein Breaking Change für published Consumers wäre und ein eigenes
+    Deprecation-Fenster braucht).
+
+- aeb79fa: `@cosmicdrift/kumiko-framework/engine` bekommt `ctx.tryAppendEvent` — ein
+  savepoint-scoped Gegenstück zu `ctx.unsafeAppendEvent`, das
+  `VersionConflictError` als `{ ok: false, conflict }` zurückgibt statt zu
+  werfen, ohne die restliche Handler-Transaktion zu poisonen (Bun.SQL/
+  postgres.js brechen den gesamten `begin()` bei einem ungefangenen Statement-
+  Fehler ab, SQLSTATE 25P02, selbst wenn der JS-Error gefangen wird —
+  `tryAppendEvent` läuft dafür in einem echten `SAVEPOINT`).
+
+  `@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation`: der
+  `ingest-message`-Handler nutzt `ctx.tryAppendEvent` für den Message-Append —
+  zwei parallele Ingest-Aufrufe für dieselbe `providerMessageId` (Watch-Push
+  vs. Poll-Reconciliation-Überschneidung) liefern jetzt beide `{ duplicate:
+true }` statt dass der Verlierer mit einem harten `VersionConflictError`
+  scheitert (#1038, Finding aus PR-Review #952).
+
+## 0.149.2
+
+## 0.149.1
+
+### Patch Changes
+
+- 637b599: Fix `auth-mfa` crashing on enable/regenerate for any app with per-subject
+  crypto-shredding (`configurePiiSubjectKms`) active: `recoveryCodes` was a
+  `jsonb` field marked `userOwned`, but the PII-encryption pipeline requires a
+  string value for any subject-owned field — every real enable-confirm write
+  threw `PII field "recoveryCodes" must be a string, got object`.
+
+  `recoveryCodes` is now a `createTextField({ encrypted: true, userOwned })`
+  (JSON-stringified at the write/read boundary), matching `totpSecret`.
+
+  That exposed a second, deeper bug: a field carrying both `encrypted: true`
+  and a subject marker is written as `PII(envelope(plaintext))`, but
+  `decryptForRead` peeled the layers in write order instead of reverse order,
+  so the envelope cipher choked on a still-PII-wrapped string. Fixed
+  `event-store-executor-context.ts`'s `decryptForRead` to unwrap PII first,
+  then envelope — and updated `auth-mfa`'s KEK-reencrypt job (which reads raw
+  rows, bypassing `decryptForRead`) to do the same.
+
+  Also: `MfaEnableScreen` now takes an optional `onEnabled` callback, fired
+  after a successful enable-confirm — hosts that compose it inside their own
+  MFA-status view (like kumiko-studio's account-security screen) need it to
+  know when to refetch and swap away from the embedded enable flow.
+
+## 0.149.0
+
+## 0.148.0
+
+### Minor Changes
+
+- cb5612d: Nav-/Screen-Labels rendern nicht mehr als roher i18n-Key, wenn ein Feature `r.translations({ keys })`
+  verwendet, aber keine App-seitige `web/i18n.ts`-Duplikation mitbringt (z.B. `cap-counter`, `admin-shell`,
+  `jobs`, `audit`). `buildAppSchema` projiziert `feature.translations` jetzt verbatim in `FeatureSchema`,
+  `createKumikoApp` pivotiert dieses Bundle client-seitig und reiht es zwischen `clientFeatures.translations`
+  (App-Override gewinnt weiterhin) und `kumikoDefaultTranslations` ein.
+
+  Beide Pakete müssen zusammen aktualisiert werden — die Server-Projektion allein liefert kein Bundle,
+  und ohne die neue `FeatureSchema.translations`-Projektion hat der Renderer nichts zu konsumieren.
+
+  `createPublicSurface` (schema-loser Mount für anonyme Seiten) bekommt nie ein `AppSchema` und ist von
+  diesem Fix nicht betroffen — anonyme Screens brauchen weiterhin explizite `clientFeatures.translations`.
+
+## 0.147.3
+
+## 0.147.2
+
+### Patch Changes
+
+- 3f121df: Fix `buildManifestFromRegistry` reporting `encrypted: false` for config keys with `backing: "secrets"` (e.g. `subscription-stripe`'s `api-key`/`webhook-secret`) when no explicit `encrypted` flag was set. The values were always envelope-encrypted in the secrets store — only the generated feature-manifest/docs mislabeled them as plaintext. `backing: "secrets"` now implies `encrypted: true` unless an explicit `encrypted` flag says otherwise.
+- dfb3c26: Fix `kumiko_job_queue_depth` never emitting any data (only the metric's HELP/TYPE header) under `createApiEntrypoint`/`createWorkerEntrypoint`/`createAllInOneEntrypoint`. The job-runner was built from the caller's raw `context` _before_ `buildServer` merged the resolved observability provider's `tracer`/`meter` into its own internal context — so `context.meter` stayed `undefined` on the job-runner side, and the queue-depth poller's `if (context.meter)` guard silently skipped starting at all (unlike the tracer, which has its own fallback). The observability provider is now resolved once per entrypoint boot and threaded into both the job-runner's context and `buildServer`, so both sides observe the same meter instance.
+- c007b76: `AnonymousAccessConfig.tenantResolver` now requires a `resolverTrust: "authoritative" | "fallback-only"` (compile-time — the type is a discriminated union — plus a runtime boot-throw for callers that bypass the compiler). Previously a client-supplied `X-Tenant` header/`kumiko_tenant` cookie always won over a custom `tenantResolver`, even one deriving the tenant from the subdomain, which the client cannot forge — letting a guest on one tenant's subdomain override the tenant via a forged header. `resolverTrust: "authoritative"` makes the resolver's answer final (a disagreeing client tenant is rejected with `tenant_mismatch`, and a null resolver answer does not fall back to the client tenant either); `resolverTrust: "fallback-only"` preserves the old behavior for resolvers with no more trust than the client's own claim.
+
+  Added `HttpRouteHandlerDeps.systemQuery` — an in-process query-handler dispatch that forces a specific tenant without going through the public `/api/query` HTTP layer, for routes (like `legal-pages`) that need to serve a fixed tenant (e.g. `SYSTEM_TENANT_ID`) regardless of the visited host.
+
+  Consumers with an existing `anonymousAccess.tenantResolver` must add a `resolverTrust` value — pick `"authoritative"` for subdomain/host-derived resolvers, `"fallback-only"` to keep the previous precedence.
+
+## 0.147.1
+
+## 0.147.0
+
+### Minor Changes
+
+- bdc5e27: Add `./observability` subpath export to `@cosmicdrift/kumiko-framework` (the public barrel existed but wasn't wired into the exports map) and additive `observability`/`metrics` pass-through options to `runProdApp` (`@cosmicdrift/kumiko-dev-server`). Apps that don't set these keep the existing Noop-provider/no-`/metrics` behavior unchanged.
+
+  Prep work for publicstatus#91 (Job-Queue-Lane-Alert needs a real Prometheus meter — publicstatus currently exposes no `/metrics` endpoint at all).
+
+- c93de1a: Remove `buildDeepLinkUrl`/`DeepLinkTarget` from `@cosmicdrift/kumiko-framework/engine` — the export shipped with zero consumers repo-wide (definition, test, and barrel export only), so it was dead, speculative surface (#914 review finding). Reintroduce alongside the actual notification-template consumer that needs it.
+
+## 0.146.4
+
+## 0.146.3
+
+## 0.146.2
+
+## 0.146.1
+
+### Patch Changes
+
+- 706cea7: Fix `setupTestStack` (ephemeral Playwright/e2e test DBs) never creating `r.unmanagedTable` tables — only `collectTableMetas` (used by `kumiko schema generate`) accounted for them, so any app mounting a feature with an unmanaged table (e.g. the bundled `sessions` feature's `read_user_sessions`) got a hard 500 on every write against that table in an ephemeral test stack, even though the real migration history was correct. `enumerateFeatureTableSources` — the single source both consumers share — now includes `unmanagedTables`.
+
+## 0.146.0
+
+### Minor Changes
+
+- b00c3ed: Sensitive-Rebuild-Parität (#967): Event-Payloads tragen für `sensitive`-Felder
+  den Tabellen-Ciphertext statt sie zu strippen — `rebuildProjection` reproduziert
+  sensitive Spalten + Blind-Index jetzt byte-gleich (Live==Rebuild by-construction,
+  einzige legitime Divergenz bleibt Crypto-Shredding). BREAKING: `sensitive: true`
+  ohne `pii`/`userOwned`/`tenantOwned` oder `encrypted: true` ist jetzt ein
+  Boot-Fehler (zero-legacy, kein Backfill). Das caller-facing Event-Echo in
+  Write-Responses strippt sensitive Felder weiterhin (#820).
+
+## 0.145.1
+
+## 0.145.0
+
+## 0.144.0
+
+### Minor Changes
+
+- c7d0ef8: Event-sourcing ergonomics (closes the remaining pivot-vision gaps, #959):
+
+  - `r.crud(name, entity, options?)` — registrar sugar delegating to `registerEntityCrud()`; same handlers, same events, no behaviour change.
+  - Declarative event migrations: `r.eventMigration(name, from, to, { rename, default, map })` compiles to an `EventUpcastFn` (fixed order rename → default → map); the imperative function form stays.
+  - Auto-snapshot policy: `loadAggregateWithSnapshot(..., { snapshotEvery: N, snapshotVersion: G })` persists a snapshot after folding ≥ N delta events (best-effort) and ignores stored snapshots from another reducer-shape generation. Adds a `snapshot_version` column to `kumiko_snapshots` — existing installs are healed by the idempotent ensure that `kumiko schema apply` already runs.
+
+## 0.143.1
+
+## 0.143.0
+
+## 0.142.0
+
+## 0.141.0
+
+## 0.140.0
+
+## 0.139.0
+
+## 0.138.0
+
+## 0.137.0
+
+### Minor Changes
+
+- fdd7c40: Dashboard-`stat`-Panel: optionales `icon`/`accentColor` — statische (Author-Zeit) Panel-Eigenschaften, keine Query-Felder. `icon` löst über dieselbe `extensionSectionComponents`-Registry auf wie `custom`-Panels; `accentColor` ist ein roher CSS-Farbwert-Passthrough. Rückwärtskompatibel, ohne die Felder ändert sich nichts.
+
+## 0.136.1
+
+## 0.136.0
+
+### Minor Changes
+
+- f5a7f51: Dashboard-`stat`-Panel: optionales `deltaField`/`deltaDirectionField`/`deltaToneField` — rendert einen Delta-Chip (z.B. "↓ 23 %") neben dem Label, wenn der Query-Handler beide Pflichtfelder (Wert + Richtung) liefert. Rückwärtskompatibel, ohne die Felder ändert sich nichts.
+
+## 0.135.0
+
+## 0.134.0
+
+### Minor Changes
+
+- 9eab762: Dashboard-Screen-Typ: vier neue Panel-Kinds — `stat-group` (betitelte Sektion aus mehreren Stat-Panels), `feed` (nicht-tabellarische Kurzliste), `progress-list` (Label/Wert + Fortschrittsbalken) und `custom` (eingehängte App-Komponente über dieselbe extensionSectionComponents-Registry wie entityEdit-Sections und List-Header-Slots, bleibt an ihrer Array-Position). Plus ein screen-weiter `filter` (Combobox-Picker), dessen Wert in jede Panel-Query gemerged wird — nutzt den bestehenden `useQuery`-payloadKey-Refetch, kein neuer Mechanismus. `ExtensionSectionProps` bekommt ein neues optionales `filterParams`-Feld für den `custom`-Mount-Ort.
+
+## 0.133.0
+
+### Minor Changes
+
+- 9521906: Rebuild-Cutover-Guard (#722): `rebuildProjection` bricht jetzt vor dem Shadow-Swap ab, wenn eine implizite Projection eine Live-Row ohne jegliches Event in ihren Source-Streams hält — der #498-Ghost, direkt eingefügt ohne `.created`-Event. Statt die Row beim Swap still zu wipen rollt der Rebuild zurück (Live-Tabelle unangetastet) und nennt die Ghost-IDs plus den Fix (`r.unmanagedTable` oder die fehlenden Events emittieren). Der Guard prüft nur Event-Existenz; legitime live≠replay-Divergenzen (blind-index-Recompute nach Key-Erase, `sensitive`-Strip, archivierte Streams, #494-Backfill) bleiben unangetastet. Column-level Drift-Detection ist offen in #916.
+
+## 0.132.0
+
+## 0.131.0
+
+### Minor Changes
+
+- 99008c9: App-Mounting 2.0 Säule B: neuer deklarativer Screen-Typ `dashboard` (stat/chart/list-Panels mit eigenen Queries; Boot-Validator + required-surface-keys; WebDashboardBody via DashboardBodyProvider). projectionList-Row-/Toolbar-Actions unterstützen jetzt `kind: "writeHandler"` (entityList-Dispatch-Pfad inkl. WriteFailedError).
+
+## 0.130.2
+
 ## 0.130.1
 
 ## 0.130.0

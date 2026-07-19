@@ -5,9 +5,9 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { hashPassword, verifyPassword } from "../../shared";
 import { UserHandlers, UserQueries } from "../../user";
 import { invalidCredentials } from "../errors";
-import { hashPassword, verifyPassword } from "../password-hashing";
 
 // Change-password — authenticated. The user supplies their current password
 // (re-auth) and the new one. The new hash is written via ctx.writeAs(system)

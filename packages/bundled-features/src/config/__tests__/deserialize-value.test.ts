@@ -29,8 +29,8 @@ describe("deserializeValue", () => {
       expect(deserializeValue("true", "number")).toBe(1);
     });
 
-    test("an uncoercible value yields NaN rather than throwing", () => {
-      expect(deserializeValue('"abc"', "number")).toBeNaN();
+    test("an uncoercible value throws instead of silently returning NaN", () => {
+      expect(() => deserializeValue('"abc"', "number")).toThrow(/does not deserialize to a number/);
     });
   });
 

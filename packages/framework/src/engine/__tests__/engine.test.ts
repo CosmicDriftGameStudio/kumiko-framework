@@ -41,7 +41,9 @@ describe("defineFeature", () => {
         r.describe("first");
         r.describe("second");
       }),
-    ).toThrow(/r\.describe\(\) called twice/);
+    ).toThrow(
+      "[Feature test] r.describe() called twice — a feature's description is declared once",
+    );
   });
 
   test("r.describe() throws on empty or whitespace-only text", () => {
@@ -274,6 +276,24 @@ describe("defineFeature", () => {
       }),
     ).toThrow(/r\.uiHints\(\) called twice/);
   });
+
+  test("r.toggleable() throws when called twice", () => {
+    expect(() =>
+      defineFeature("test", (r) => {
+        r.toggleable({ default: true });
+        r.toggleable({ default: false });
+      }),
+    ).toThrow(/r\.toggleable\(\) called twice/);
+  });
+
+  test("r.envSchema() throws when called twice", () => {
+    expect(() =>
+      defineFeature("test", (r) => {
+        r.envSchema(z.object({ FOO: z.string() }));
+        r.envSchema(z.object({ BAR: z.string() }));
+      }),
+    ).toThrow(/r\.envSchema\(\) called twice/);
+  });
 });
 
 // --- Field Factories ---
@@ -417,6 +437,22 @@ describe("createRegistry", () => {
     // Keys prefixed with featureName: (colon = i18next namespace)
     expect(all["admin:nav.title"]).toEqual({ de: "Admin", en: "Admin" });
     expect(all["profile:nav.title"]).toEqual({ de: "Profil", en: "Profile" });
+  });
+
+  // #1105: a feature that already qualifies its own translation keys (nav
+  // labels referencing "featureName:..." verbatim, see cap-counter) must not
+  // be double-prefixed — else server-side t() can never resolve them.
+  test("does not double-prefix translation keys that already carry the feature's own namespace", () => {
+    const f = defineFeature("cap-counter", (r) => {
+      r.translations({
+        keys: { "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" } },
+      });
+    });
+
+    const registry = createRegistry([f]);
+    const all = registry.getAllTranslations();
+    expect(all["cap-counter:nav.cap-list"]).toEqual({ de: "Limits", en: "Caps" });
+    expect(all["cap-counter:cap-counter:nav.cap-list"]).toBeUndefined();
   });
 
   test("throws when write handler is not entity-mapped in feature with field-access", () => {
@@ -1188,6 +1224,50 @@ describe("r.config()", () => {
   });
 });
 
+// --- r.config() single-key overload ---
+
+describe("r.config() single-key overload", () => {
+  test("returns a bare handle with the same qualified name the multi-key form would produce", () => {
+    let viaSingleKey!: { readonly name: string; readonly type: "boolean" };
+    let viaMultiKey!: { readonly defaultVat: { readonly name: string; readonly type: "number" } };
+    defineFeature("invoicing", (r) => {
+      viaSingleKey = r.config("enabled", createTenantConfig("boolean", { default: false }));
+    });
+    defineFeature("invoicing2", (r) => {
+      viaMultiKey = r.config({
+        keys: { defaultVat: createTenantConfig("number", { default: 19 }) },
+      });
+    });
+
+    expect(viaSingleKey.name).toBe("invoicing:config:enabled");
+    expect(viaSingleKey.type).toBe("boolean");
+    // Structural check: the single-key form's handle is exactly what
+    // {keys:{one}} would have produced for that single key — same shape,
+    // same qualification scheme.
+    expect(viaMultiKey.defaultVat.name).toBe("invoicing2:config:default-vat");
+  });
+
+  test("registers the key on the feature exactly like the multi-key form would", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.config("maxItems", createTenantConfig("number", { default: 10 }));
+    });
+    expect(feature.configKeys["maxItems"]).toBeDefined();
+    expect(feature.configKeys["maxItems"]?.type).toBe("number");
+    expect(feature.configKeys["maxItems"]?.scope).toBe("tenant");
+
+    const registry = createRegistry([feature]);
+    expect(registry.getConfigKey("shop:config:max-items")).toBeDefined();
+  });
+
+  test("camelCase feature + key are kebab-cased in the handle name", () => {
+    let handle!: { readonly name: string };
+    defineFeature("billingCore", (r) => {
+      handle = r.config("monthlyTotalCents", createSystemConfig("number", { default: 0 }));
+    });
+    expect(handle.name).toBe("billing-core:config:monthly-total-cents");
+  });
+});
+
 // --- Relations ---
 
 describe("r.relation()", () => {
@@ -1324,6 +1404,30 @@ describe("registry relations", () => {
     const rels = registry.getRelations("user");
     // Last write wins
     expect((rels["roles"] as { through: { table: string } }).through.table).toBe("UR2");
+  });
+
+  test("getRelations aggregates relations on the same entity from two different features", () => {
+    const core = defineFeature("core", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity("role", createEntity({ table: "Roles", fields: {} }));
+      r.relation("user", "roles", {
+        type: "manyToMany",
+        target: "role",
+        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
+      });
+    });
+    const billing = defineFeature("billing", (r) => {
+      r.entity("invoice", createEntity({ table: "Invoices", fields: {} }));
+      r.relation("user", "invoices", {
+        type: "hasMany",
+        target: "invoice",
+        foreignKey: "userId",
+      });
+    });
+
+    const registry = createRegistry([core, billing]);
+    const rels = registry.getRelations("user");
+    expect(Object.keys(rels).sort()).toEqual(["invoices", "roles"]);
   });
 });
 

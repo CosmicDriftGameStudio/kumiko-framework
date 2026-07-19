@@ -1,6 +1,7 @@
 import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption";
 import { QnTypes, qualifyEntityName } from "../qualified-name";
 import type { ClaimKeyDefinition, FeatureDefinition } from "../types";
+import { validateActionWiring, validateFieldWiring } from "./action-wiring";
 import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext";
 import {
   validateCircularDeps,
@@ -8,6 +9,7 @@ import {
   validateConfigKeyBacking,
   validateConfigKeyBounds,
   validateConfigKeyComputed,
+  validateConfigKeyPiiEncrypted,
   validateConfigKeyRequired,
   validateConfigReads,
   warnOnToggleableDependencies,
@@ -35,28 +37,32 @@ import {
   validateTenantDataHookCoverage,
 } from "./gdpr-storage";
 import { validateI18nSurfaceKeys } from "./i18n-keys";
-import { validateOwnershipRules } from "./ownership";
-import { validatePiiAndRetention } from "./pii-retention";
 import {
   collectKnownRoles,
   collectNavQns,
-  collectScreenQns,
-  collectScreensByShortId,
-  collectWorkspaceQns,
   collectWriteHandlerQns,
-  validateDefaultWorkspaceUniqueness,
   validateNavCycles,
   validateNavs,
+} from "./nav";
+import { validateOwnershipRules } from "./ownership";
+import { validatePiiAndRetention } from "./pii-retention";
+import {
+  collectScreenQns,
+  collectScreensByShortId,
   validateScreenShortIdCollisions,
   validateScreens,
+} from "./screens";
+import {
+  collectWorkspaceQns,
+  validateDefaultWorkspaceUniqueness,
   validateWorkspaces,
-} from "./screens-nav";
+} from "./workspaces";
 
 export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns";
 // Re-export: wird von run-dev-app.ts benötigt um Write-Handler-QNs
 // an den Codegen zu übergeben. Nicht Teil von validateBoot, aber
 // dieselbe Extraktionslogik.
-export { collectWriteHandlerQns } from "./screens-nav";
+export { collectWriteHandlerQns } from "./nav";
 
 /**
  * Validates all feature configurations at boot time.
@@ -165,8 +171,15 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateConfigKeyComputed(feature);
     validateConfigKeyAllowPerRequest(feature);
     validateConfigKeyBacking(feature);
+    validateConfigKeyPiiEncrypted(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateMultiStreamProjections(feature);
+    // Vor validateScreens: dessen visible/entityId-Feldref-Checks werfen für
+    // einen Function-Wert bereits (mit verwirrender "unknown field undefined"-
+    // Message, weil `typeof fn !== "boolean"` true ist), bevor der klare
+    // Function-Check hier überhaupt liefe.
+    validateActionWiring(feature);
+    validateFieldWiring(feature);
     validateScreens(
       feature,
       featureMap,

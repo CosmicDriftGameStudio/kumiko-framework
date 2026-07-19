@@ -283,7 +283,7 @@ export default defineFeature("dup", (r) => {
     const result = runCodegen({ appRoot });
     expect(result.eventCount).toBe(1);
     expect(result.warnings.length).toBeGreaterThanOrEqual(1);
-    const w = result.warnings.find((w) => w.reason.includes("duplicate"));
+    const w = result.warnings.find((w) => w.message.includes("duplicate"));
     expect(w).toBeDefined();
   });
 
@@ -368,7 +368,7 @@ export default defineFeature("inline", (r) => {
     const result = runCodegen({ appRoot });
     expect(result.eventCount).toBe(0);
     expect(result.warnings.length).toBe(1);
-    expect(result.warnings[0]?.reason).toMatch(/not a named import nor an inline z\.\* call/);
+    expect(result.warnings[0]?.message).toMatch(/not a named import nor an inline z\.\* call/);
   });
 
   test("skips test files, node_modules, .kumiko, dist", () => {

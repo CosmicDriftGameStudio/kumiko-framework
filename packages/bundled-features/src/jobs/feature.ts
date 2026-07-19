@@ -38,7 +38,7 @@ export function createJobsFeature(): FeatureDefinition {
       recommended: false,
     });
     r.systemScope();
-    r.unmanagedTable(jobRunLogsTableMeta, {
+    r.rawTable(jobRunLogsTableMeta, {
       reason: "read_side.job_run_logs",
     });
     // Events-only aggregate: "jobRun" has no r.entity registration, because

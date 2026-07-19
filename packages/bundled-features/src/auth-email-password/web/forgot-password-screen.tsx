@@ -12,7 +12,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { requestPasswordReset } from "./auth-client";
-import { AuthCard, authMutedLinkClass } from "./auth-form-primitives";
+import { AuthCard } from "./auth-form-primitives";
 
 export type ForgotPasswordScreenProps = {
   readonly title?: string;
@@ -28,7 +28,7 @@ export function ForgotPasswordScreen({
   loginHref = "/login",
 }: ForgotPasswordScreenProps): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -77,9 +77,9 @@ export function ForgotPasswordScreen({
             <p className="font-medium text-foreground">{t("auth.forgotPassword.successTitle")}</p>
             <p className="mt-1">{t("auth.forgotPassword.successBody")}</p>
           </Banner>
-          <a href={loginHref} className={authMutedLinkClass}>
+          <Link href={loginHref} variant="muted">
             {t("auth.forgotPassword.backToLogin")}
-          </a>
+          </Link>
         </div>
       ) : (
         <div className="p-6 pt-0 flex flex-col gap-4">
@@ -101,9 +101,9 @@ export function ForgotPasswordScreen({
               {submitting ? t("auth.forgotPassword.submitting") : t("auth.forgotPassword.submit")}
             </Button>
           </Form>
-          <a href={loginHref} className={`${authMutedLinkClass} self-center`}>
+          <Link href={loginHref} variant="muted" className="self-center">
             {t("auth.forgotPassword.backToLogin")}
-          </a>
+          </Link>
         </div>
       )}
     </AuthCard>

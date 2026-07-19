@@ -56,20 +56,31 @@ const orderFeature = defineFeature("upcastshop", (r) => {
   const orderPriced = r.defineEvent(
     "priced",
     z.object({ totalCents: z.number().int(), currency: z.string() }),
-    { version: 3 },
+    {
+      version: 3,
+      migrations: [
+        // v1 → v2: renamed totalEuros → total (kept as string for this step)
+        {
+          fromVersion: 1,
+          toVersion: 2,
+          transform: (payload) => {
+            const p = payload as { totalEuros: string };
+            return { total: p.totalEuros, currency: "EUR" };
+          },
+        },
+        // v2 → v3: parse "total" string into integer cents
+        {
+          fromVersion: 2,
+          toVersion: 3,
+          transform: (payload) => {
+            const p = payload as { total: string; currency: string };
+            const euros = Number.parseFloat(p.total);
+            return { totalCents: Math.round(euros * 100), currency: p.currency };
+          },
+        },
+      ],
+    },
   );
-
-  // v1 → v2: renamed totalEuros → total (kept as string for this step)
-  r.eventMigration("priced", 1, 2, (payload) => {
-    const p = payload as { totalEuros: string };
-    return { total: p.totalEuros, currency: "EUR" };
-  });
-  // v2 → v3: parse "total" string into integer cents
-  r.eventMigration("priced", 2, 3, (payload) => {
-    const p = payload as { total: string; currency: string };
-    const euros = Number.parseFloat(p.total);
-    return { totalCents: Math.round(euros * 100), currency: p.currency };
-  });
 
   r.projection({
     name: "order-summary",
@@ -309,17 +320,26 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
       const placed = r.defineEvent(
         "placed",
         z.object({ customerId: z.string(), segment: z.string() }),
-        { version: 2 },
+        {
+          version: 2,
+          migrations: [
+            {
+              fromVersion: 1,
+              toVersion: 2,
+              transform: async (payload, ctx) => {
+                const p = payload as { customerId: string };
+                const [row] = await selectMany(ctx.db, customerSegments, {
+                  customerId: p.customerId,
+                });
+                return {
+                  customerId: p.customerId,
+                  segment: (row as { segment?: string } | undefined)?.segment ?? "UNKNOWN",
+                };
+              },
+            },
+          ],
+        },
       );
-
-      r.eventMigration("placed", 1, 2, async (payload, ctx) => {
-        const p = payload as { customerId: string };
-        const [row] = await selectMany(ctx.db, customerSegments, { customerId: p.customerId });
-        return {
-          customerId: p.customerId,
-          segment: (row as { segment?: string } | undefined)?.segment ?? "UNKNOWN",
-        };
-      });
 
       r.projection({
         name: "async-summary",
@@ -385,26 +405,28 @@ describe("upcaster: boot-time validation", () => {
   test("defineEvent with version=N and only partial migrations fails at registry build", () => {
     const incomplete = defineFeature("holes", (r) => {
       r.entity("hole-order", orderEntity);
-      r.defineEvent("bad", z.object({ v3: z.string() }), { version: 3 });
       // Only 1→2 registered — the 2→3 gap must be rejected.
-      r.eventMigration("bad", 1, 2, (p) => p);
+      r.defineEvent("bad", z.object({ v3: z.string() }), {
+        version: 3,
+        migrations: [{ fromVersion: 1, toVersion: 2, transform: (p) => p }],
+      });
     });
     expect(() => createRegistry([incomplete])).toThrow(/v2.*v3|covers the step v2/);
   });
 
-  test("migration declared but no defineEvent → rejected", () => {
-    const orphan = defineFeature("orphans", (r) => {
-      r.entity("orph-order", orderEntity);
-      r.eventMigration("ghost", 1, 2, (p) => p);
-    });
-    expect(() => createRegistry([orphan])).toThrow(/no r\.defineEvent/i);
-  });
+  // "migration declared but no defineEvent" is now structurally impossible:
+  // migrations live in defineEvent's `migrations` option, always scoped to
+  // the event being defined in that same call — there is no longer a
+  // registrar shape that can express a dangling migration for an
+  // undefined event (formerly the "ghost" registry-validate error path).
 
   test("migration toVersion > defineEvent version → rejected", () => {
     const future = defineFeature("future", (r) => {
       r.entity("future-order", orderEntity);
-      r.defineEvent("early", z.object({ x: z.number() }), { version: 1 });
-      r.eventMigration("early", 1, 2, (p) => p);
+      r.defineEvent("early", z.object({ x: z.number() }), {
+        version: 1,
+        migrations: [{ fromVersion: 1, toVersion: 2, transform: (p) => p }],
+      });
     });
     expect(() => createRegistry([future])).toThrow(/declares only version 1/);
   });
@@ -412,34 +434,44 @@ describe("upcaster: boot-time validation", () => {
   test("non-contiguous (1→2 and 3→4 without 2→3) → rejected", () => {
     const gaps = defineFeature("gaps", (r) => {
       r.entity("gap-order", orderEntity);
-      r.defineEvent("jumpy", z.object({ v: z.number() }), { version: 4 });
-      r.eventMigration("jumpy", 1, 2, (p) => p);
-      r.eventMigration("jumpy", 3, 4, (p) => p);
+      r.defineEvent("jumpy", z.object({ v: z.number() }), {
+        version: 4,
+        migrations: [
+          { fromVersion: 1, toVersion: 2, transform: (p) => p },
+          { fromVersion: 3, toVersion: 4, transform: (p) => p },
+        ],
+      });
     });
     expect(() => createRegistry([gaps])).toThrow(/v2.*v3|covers the step v2/);
   });
 });
 
 describe("upcaster: registrar input validation", () => {
-  test("r.eventMigration rejects multi-step jumps", () => {
+  test("defineEvent migrations reject multi-step jumps", () => {
     expect(() =>
       defineFeature("bigstep", (r) => {
         r.entity("bigstep-order", orderEntity);
-        r.defineEvent("biz", z.object({ x: z.number() }), { version: 3 });
-        r.eventMigration("biz", 1, 3, (p) => p);
+        r.defineEvent("biz", z.object({ x: z.number() }), {
+          version: 3,
+          migrations: [{ fromVersion: 1, toVersion: 3, transform: (p) => p }],
+        });
       }),
     ).toThrow(/single-step/);
   });
 
-  test("r.eventMigration rejects duplicate step", () => {
+  test("defineEvent migrations reject duplicate step", () => {
     expect(() =>
       defineFeature("dupestep", (r) => {
         r.entity("dup-order", orderEntity);
-        r.defineEvent("dup", z.object({ x: z.number() }), { version: 2 });
-        r.eventMigration("dup", 1, 2, (p) => p);
-        r.eventMigration("dup", 1, 2, (p) => p);
+        r.defineEvent("dup", z.object({ x: z.number() }), {
+          version: 2,
+          migrations: [
+            { fromVersion: 1, toVersion: 2, transform: (p) => p },
+            { fromVersion: 1, toVersion: 2, transform: (p) => p },
+          ],
+        });
       }),
-    ).toThrow(/already registered/);
+    ).toThrow(/already declared/);
   });
 
   test("r.defineEvent rejects non-positive version", () => {

@@ -1,12 +1,15 @@
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  buildSessionRoles,
   createSystemUser,
   defineWriteHandler,
   type SessionUser,
-  stripForbiddenMembershipRoles,
   type TenantId,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
+import { verifyDummyPassword, verifyPassword } from "../../shared";
 import { USER_STATUS, UserQueries } from "../../user";
 import { parseAuthUserRow } from "../auth-user-row";
 import {
@@ -21,7 +24,6 @@ import {
   noMembership,
 } from "../errors";
 import { clearLockoutState, getLockoutState, recordFailedAttempt } from "../lockout-store";
-import { verifyDummyPassword, verifyPassword } from "../password-hashing";
 
 export type LoginHandlerOptions = {
   // When true, a valid (email + password) login fails with email_not_verified
@@ -40,9 +42,35 @@ export type LoginHandlerOptions = {
     readonly maxFailedAttempts?: number;
     readonly lockoutDurationMinutes?: number;
   };
+  // Optional second-factor gate. auth-mfa (if mounted) wires this in at
+  // app-composition time. Deliberately generic here — auth-email-password
+  // must not import auth-mfa's config, only this shape. Called AFTER a
+  // successful password verification (never before — the point is to add
+  // a second factor to a real credential match, not to gate on identity
+  // alone).
+  readonly mfaStatusChecker?: (
+    ctx: HandlerContext,
+    userId: string,
+    tenantId: TenantId,
+    // Merged global+tenant roles, computed by this handler BEFORE the
+    // gate runs — needed for policy values like "admins" that key off role.
+    roles: readonly string[],
+  ) => Promise<
+    | { readonly required: false }
+    | { readonly required: true; readonly challengeToken: string }
+    | { readonly setupRequired: true }
+  >;
 };
 
 const SYSTEM_USER_ID = "00000000-0000-4000-8000-000000000000";
+
+// Two possible success shapes: a straight login mints a session; a login
+// gated by MFA hands back a challenge instead — auth-routes.ts branches on
+// `kind` to decide whether to mint a JWT now or wait for /auth/mfa/verify.
+type LoginResult =
+  | { readonly kind: "auth-session"; readonly session: SessionUser }
+  | { readonly kind: "mfa-challenge"; readonly challengeToken: string }
+  | { readonly kind: "mfa-setup-required" };
 
 // Login — unauthenticated entry point. The route is wired public (no JWT
 // middleware), synthesising a guest SessionUser for the handler's access
@@ -62,7 +90,7 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       password: z.string().min(1),
     }),
     access: { roles: ["all"] },
-    handler: async (event, ctx) => {
+    handler: async (event, ctx): Promise<WriteResult<LoginResult>> => {
       const systemUser = createSystemUser(SYSTEM_USER_ID);
 
       const found = parseAuthUserRow(
@@ -110,6 +138,17 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
         return invalidCredentials();
       }
 
+      // Clear the lockout state as soon as the password is proven — the
+      // password itself is the thing this counter guards, and MFA (if
+      // gated below) has its own separate attempt-cap. Doing this before
+      // the MFA gate matters: without it, an MFA user who occasionally
+      // mistypes their password accumulates failures across otherwise-
+      // successful logins and eventually gets password-locked out even
+      // though every login they completed was legitimate.
+      if (ctx.redis) {
+        await clearLockoutState(ctx.redis, found.id);
+      }
+
       // Strict verification gate — runs AFTER password check so an attacker
       // probing "email_not_verified" needs valid credentials first. The
       // remaining enumeration surface is "valid-cred + unverified" → accepted
@@ -155,25 +194,42 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
         return noMembership();
       }
 
-      // Clear the lockout state on success. DEL is idempotent, so no need
-      // to gate on "was there a counter?" — skipping the Redis round-trip
-      // entirely for users who never failed a login would optimise the hot
-      // path, but the call is microseconds and the branch isn't free either.
-      if (ctx.redis) {
-        await clearLockoutState(ctx.redis, found.id);
-      }
-
       // Globale Rollen aus user.roles + tenant-membership-roles mergen.
       // Globale Rollen (SystemAdmin etc.) bleiben so über alle tenants
       // gleich; tenant-spezifische Rollen (Admin, User) kommen aus der
       // membership. Dedupe via Set damit eine Rolle die in beiden Quellen
       // steht nicht doppelt im Session-Roles landet.
+      //
+      // Computed BEFORE the MFA gate (moved up from its original spot below
+      // baseSession) because the gate's "admins" enforcement policy needs
+      // the MERGED set — a SystemAdmin whose admin-ness lives only in
+      // globalRoles would be missed if only chosen.roles were passed.
       const globalRoles = parseRoles(found.roles ?? null);
-      // Strip reserved roles from the membership portion only (globalRoles keeps
-      // SystemAdmin) — read-time backstop against a rebuild-resurrected role.
-      const mergedRoles = Array.from(
-        new Set([...globalRoles, ...stripForbiddenMembershipRoles(chosen.roles)]),
-      );
+      // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
+      // only (globalRoles keeps SystemAdmin) — read-time backstop against a
+      // rebuild-resurrected role.
+      const mergedRoles = buildSessionRoles(globalRoles, chosen.roles);
+
+      // Second-factor gate. Runs AFTER password verification (correct
+      // credentials proven) and AFTER tenant resolution (need chosen.tenantId
+      // to scope the MFA-enabled check). Three outcomes: enrolled → mint a
+      // challenge instead of a session (/auth/mfa/verify completes the
+      // login); policy demands MFA but the user never enrolled → block with
+      // mfa-setup-required (no session, no challenge — see auth-mfa's
+      // config.ts for why this deliberately hard-blocks); neither → proceed.
+      if (opts.mfaStatusChecker) {
+        const mfaStatus = await opts.mfaStatusChecker(ctx, found.id, chosen.tenantId, mergedRoles);
+        if ("challengeToken" in mfaStatus) {
+          return {
+            isSuccess: true,
+            data: { kind: "mfa-challenge", challengeToken: mfaStatus.challengeToken },
+          };
+        }
+        if ("setupRequired" in mfaStatus) {
+          return { isSuccess: true, data: { kind: "mfa-setup-required" } };
+        }
+      }
+
       const baseSession: SessionUser = {
         id: found.id,
         tenantId: chosen.tenantId,

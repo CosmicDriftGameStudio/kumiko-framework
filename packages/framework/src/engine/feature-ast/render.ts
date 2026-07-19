@@ -16,16 +16,15 @@
 // `// kumiko-feature-version: 1`. Future format bumps run a dedicated
 // migrator over the version comment.
 
+import { isRawRefSentinel } from "./extractors/shared";
 import type {
   AuthClaimsPattern,
   ClaimKeyPattern,
   ConfigPattern,
   DefineEventPattern,
   DescribePattern,
-  EntityHookPattern,
   EntityPattern,
   EnvSchemaPattern,
-  EventMigrationPattern,
   ExposesApiPattern,
   ExtendsRegistrarPattern,
   FeaturePattern,
@@ -49,7 +48,6 @@ import type {
   ToggleablePattern,
   TranslationsPattern,
   TreeActionsPattern,
-  TreePattern,
   UiHintsPattern,
   UnknownPattern,
   UseExtensionPattern,
@@ -113,8 +111,6 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderQueryHandler(pattern);
     case "hook":
       return renderHook(pattern);
-    case "entityHook":
-      return renderEntityHook(pattern);
     case "job":
       return renderJob(pattern);
     case "notification":
@@ -129,8 +125,6 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderMultiStreamProjection(pattern);
     case "defineEvent":
       return renderDefineEvent(pattern);
-    case "eventMigration":
-      return renderEventMigration(pattern);
     case "extendsRegistrar":
       return renderExtendsRegistrar(pattern);
     case "usesApi":
@@ -139,8 +133,6 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderExposesApi(pattern);
     case "treeActions":
       return renderTreeActions(pattern);
-    case "tree":
-      return renderTree(pattern);
     case "envSchema":
       return renderEnvSchema(pattern);
     case "unknown":
@@ -177,6 +169,7 @@ const SINGLE_LINE_WIDTH = 80;
  * multi-line otherwise — biome-stable in both branches.
  */
 export function renderValue(value: unknown, indent = 0): string {
+  if (isRawRefSentinel(value)) return value.__raw;
   if (value === null) return "null";
   if (typeof value === "string") return JSON.stringify(value);
   if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -243,6 +236,13 @@ function renderDescribe(p: DescribePattern): string {
 }
 
 function renderEntity(p: EntityPattern): string {
+  // A whole-value raw-ref (`r.entity("x", eventEntity)`) can't be spread
+  // into the merged Object-Form without losing `name` to the sentinel
+  // shortcut in renderValue — fall back to the classic positional form,
+  // which keeps the reference verbatim alongside the name.
+  if (isRawRefSentinel(p.definition)) {
+    return `r.entity(${JSON.stringify(p.entityName)}, ${p.definition.__raw});`;
+  }
   // Inline `name` into the definition object — canonical Object-Form
   // is a single arg with name-as-property.
   const merged = { name: p.entityName, ...p.definition };
@@ -250,6 +250,9 @@ function renderEntity(p: EntityPattern): string {
 }
 
 function renderRelation(p: RelationPattern): string {
+  if (isRawRefSentinel(p.definition)) {
+    return `r.relation(${JSON.stringify(p.entityName)}, ${JSON.stringify(p.relationName)}, ${p.definition.__raw});`;
+  }
   const merged = { entity: p.entityName, name: p.relationName, ...p.definition };
   return `r.relation(${renderValue(merged)});`;
 }
@@ -271,11 +274,17 @@ function renderTranslations(p: TranslationsPattern): string {
 }
 
 function renderMetric(p: MetricPattern): string {
+  if (isRawRefSentinel(p.options)) {
+    return `r.metric(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
+  }
   const merged = { name: p.shortName, ...p.options };
   return `r.metric(${renderValue(merged)});`;
 }
 
 function renderSecret(p: SecretPattern): string {
+  if (isRawRefSentinel(p.options)) {
+    return `r.secret(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
+  }
   const merged = { name: p.shortName, ...p.options };
   return `r.secret(${renderValue(merged)});`;
 }
@@ -294,6 +303,9 @@ function renderReferenceData(p: ReferenceDataPattern): string {
 }
 
 function renderUseExtension(p: UseExtensionPattern): string {
+  if (isRawRefSentinel(p.options)) {
+    return `r.useExtension(${JSON.stringify(p.extensionName)}, ${JSON.stringify(p.entityName)}, ${p.options.__raw});`;
+  }
   const merged: Record<string, unknown> = {
     name: p.extensionName,
     entity: p.entityName,
@@ -359,10 +371,11 @@ function reindentBody(raw: string, newIndent: string): string {
 }
 
 function renderWriteHandler(p: WriteHandlerPattern): string {
+  if (p.handlerName === undefined) return p.source.raw;
   const lines: string[] = ["r.writeHandler({"];
   lines.push(`  name: ${JSON.stringify(p.handlerName)},`);
-  lines.push(`  schema: ${reindentBody(p.schemaSource.raw, PATTERN_INDENT)},`);
-  lines.push(`  handler: ${reindentBody(p.handlerBody.raw, PATTERN_INDENT)},`);
+  lines.push(`  schema: ${reindentBody(p.schemaSource?.raw ?? "", PATTERN_INDENT)},`);
+  lines.push(`  handler: ${reindentBody(p.handlerBody?.raw ?? "", PATTERN_INDENT)},`);
   if (p.access !== undefined) lines.push(`  access: ${renderValue(p.access)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
   if (p.unsafeSkipTransitionGuard === true) lines.push("  unsafeSkipTransitionGuard: true,");
@@ -371,30 +384,27 @@ function renderWriteHandler(p: WriteHandlerPattern): string {
 }
 
 function renderQueryHandler(p: QueryHandlerPattern): string {
+  if (p.handlerName === undefined) return p.source.raw;
   const lines: string[] = ["r.queryHandler({"];
   lines.push(`  name: ${JSON.stringify(p.handlerName)},`);
-  lines.push(`  schema: ${reindentBody(p.schemaSource.raw, PATTERN_INDENT)},`);
-  lines.push(`  handler: ${reindentBody(p.handlerBody.raw, PATTERN_INDENT)},`);
+  lines.push(`  schema: ${reindentBody(p.schemaSource?.raw ?? "", PATTERN_INDENT)},`);
+  lines.push(`  handler: ${reindentBody(p.handlerBody?.raw ?? "", PATTERN_INDENT)},`);
   if (p.access !== undefined) lines.push(`  access: ${renderValue(p.access)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
   lines.push("});");
   return lines.join("\n");
 }
 
+function renderHookTarget(target: HookPattern["target"]): string {
+  if (typeof target === "string") return renderValue(target);
+  if ("allOf" in target) return `{ allOf: ${JSON.stringify(target.allOf)} }`;
+  return renderValue([...target]);
+}
+
 function renderHook(p: HookPattern): string {
   const lines: string[] = ["r.hook({"];
   lines.push(`  type: ${JSON.stringify(p.hookType)},`);
-  lines.push(`  target: ${renderValue(typeof p.target === "string" ? p.target : [...p.target])},`);
-  lines.push(`  handler: ${reindentBody(p.fnBody.raw, PATTERN_INDENT)},`);
-  if (p.phase !== undefined) lines.push(`  phase: ${JSON.stringify(p.phase)},`);
-  lines.push("});");
-  return lines.join("\n");
-}
-
-function renderEntityHook(p: EntityHookPattern): string {
-  const lines: string[] = ["r.entityHook({"];
-  lines.push(`  type: ${JSON.stringify(p.hookType)},`);
-  lines.push(`  entity: ${JSON.stringify(p.entityName)},`);
+  lines.push(`  target: ${renderHookTarget(p.target)},`);
   lines.push(`  handler: ${reindentBody(p.fnBody.raw, PATTERN_INDENT)},`);
   if (p.phase !== undefined) lines.push(`  phase: ${JSON.stringify(p.phase)},`);
   lines.push("});");
@@ -433,14 +443,9 @@ function renderAuthClaims(p: AuthClaimsPattern): string {
   return `r.authClaims(${p.fnBody.raw});`;
 }
 
-// Visual-Tree patterns. treeActions is a static object-literal (mirrors
-// renderWorkspace), tree is opaque-only (mirrors renderAuthClaims).
+// treeActions is a static object-literal (mirrors renderWorkspace).
 function renderTreeActions(p: TreeActionsPattern): string {
   return `r.treeActions(${renderValue(p.definitions)});`;
-}
-
-function renderTree(p: TreePattern): string {
-  return `r.tree(${p.providerBody.raw});`;
 }
 
 function renderHttpRoute(p: HttpRoutePattern): string {
@@ -486,20 +491,25 @@ function renderMultiStreamProjection(p: MultiStreamProjectionPattern): string {
 }
 
 function renderDefineEvent(p: DefineEventPattern): string {
-  const lines: string[] = ["r.defineEvent({"];
-  lines.push(`  name: ${JSON.stringify(p.eventName)},`);
-  lines.push(`  schema: ${p.schemaSource.raw},`);
+  const migrationEntries = p.migrations !== undefined ? Object.entries(p.migrations) : [];
+  const hasOptions = p.version !== undefined || migrationEntries.length > 0;
+  if (!hasOptions) {
+    return `r.defineEvent(${JSON.stringify(p.eventName)}, ${p.schemaSource.raw});`;
+  }
+  const lines: string[] = [
+    `r.defineEvent(${JSON.stringify(p.eventName)}, ${p.schemaSource.raw}, {`,
+  ];
   if (p.version !== undefined) lines.push(`  version: ${p.version},`);
-  lines.push("});");
-  return lines.join("\n");
-}
-
-function renderEventMigration(p: EventMigrationPattern): string {
-  const lines: string[] = ["r.eventMigration({"];
-  lines.push(`  event: ${JSON.stringify(p.eventName)},`);
-  lines.push(`  fromVersion: ${p.fromVersion},`);
-  lines.push(`  toVersion: ${p.toVersion},`);
-  lines.push(`  transform: ${p.transformBody.raw},`);
+  if (migrationEntries.length > 0) {
+    lines.push("  migrations: [");
+    for (const [fromVersion, transformBody] of migrationEntries) {
+      const from = Number(fromVersion);
+      lines.push(
+        `    { fromVersion: ${from}, toVersion: ${from + 1}, transform: ${transformBody.raw} },`,
+      );
+    }
+    lines.push("  ],");
+  }
   lines.push("});");
   return lines.join("\n");
 }
@@ -571,9 +581,7 @@ function weaveOpaque(
 }
 
 function renderValueWithRawSlots(value: WovenValue, indent: number): string {
-  if (value !== null && typeof value === "object" && !Array.isArray(value) && "__raw" in value) {
-    return (value as { __raw: string }).__raw;
-  }
+  if (isRawRefSentinel(value)) return value.__raw;
   if (Array.isArray(value)) {
     if (value.length === 0) return "[]";
     const inner = value

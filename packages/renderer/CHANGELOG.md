@@ -1,5 +1,372 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.156.0
+
+### Patch Changes
+
+- Updated dependencies [c7ca222]
+- Updated dependencies [77ea09f]
+  - @cosmicdrift/kumiko-framework@0.156.0
+  - @cosmicdrift/kumiko-headless@0.156.0
+
+## 0.155.1
+
+### Patch Changes
+
+- 69ac999: Migrate three display/build-tooling timestamp call-sites from native `Date` to `Temporal` (identical output format): `formatWhen` (operator-screen timestamps), `formatDateCell` (table-cell date/timestamp formatting, preserves the existing `dateStyle`/`timeStyle` priority order), and `build-prod-bundle`'s `builtAt` field. Surfaced by infra#286's `no-date-api` guard, which now actually scans these packages instead of silently skipping them.
+- Updated dependencies [69ac999]
+  - @cosmicdrift/kumiko-headless@0.155.1
+  - @cosmicdrift/kumiko-framework@0.155.1
+
+## 0.155.0
+
+### Patch Changes
+
+- Updated dependencies [137f31a]
+  - @cosmicdrift/kumiko-framework@0.155.0
+  - @cosmicdrift/kumiko-headless@0.155.0
+
+## 0.154.2
+
+### Patch Changes
+
+- Updated dependencies [05c3e11]
+  - @cosmicdrift/kumiko-framework@0.154.2
+  - @cosmicdrift/kumiko-headless@0.154.2
+
+## 0.154.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.154.1
+- @cosmicdrift/kumiko-headless@0.154.1
+
+## 0.154.0
+
+### Patch Changes
+
+- Updated dependencies [0d30bf7]
+- Updated dependencies [e40a980]
+  - @cosmicdrift/kumiko-framework@0.154.0
+  - @cosmicdrift/kumiko-headless@0.154.0
+
+## 0.153.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.153.0
+- @cosmicdrift/kumiko-headless@0.153.0
+
+## 0.152.0
+
+### Patch Changes
+
+- Updated dependencies [e32807e]
+- Updated dependencies [3dd1f99]
+  - @cosmicdrift/kumiko-framework@0.152.0
+  - @cosmicdrift/kumiko-headless@0.152.0
+
+## 0.151.1
+
+### Patch Changes
+
+- Updated dependencies [5c1dc93]
+  - @cosmicdrift/kumiko-framework@0.151.1
+  - @cosmicdrift/kumiko-headless@0.151.1
+
+## 0.151.0
+
+### Patch Changes
+
+- Updated dependencies [ca4edbf]
+  - @cosmicdrift/kumiko-framework@0.151.0
+  - @cosmicdrift/kumiko-headless@0.151.0
+
+## 0.150.0
+
+### Patch Changes
+
+- Updated dependencies [0e4cec9]
+- Updated dependencies [aeb79fa]
+  - @cosmicdrift/kumiko-framework@0.150.0
+  - @cosmicdrift/kumiko-headless@0.150.0
+
+## 0.149.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.149.2
+- @cosmicdrift/kumiko-headless@0.149.2
+
+## 0.149.1
+
+### Patch Changes
+
+- Updated dependencies [637b599]
+  - @cosmicdrift/kumiko-framework@0.149.1
+  - @cosmicdrift/kumiko-headless@0.149.1
+
+## 0.149.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.149.0
+- @cosmicdrift/kumiko-headless@0.149.0
+
+## 0.148.0
+
+### Patch Changes
+
+- Updated dependencies [cb5612d]
+  - @cosmicdrift/kumiko-framework@0.148.0
+  - @cosmicdrift/kumiko-headless@0.148.0
+
+## 0.147.3
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.147.3
+- @cosmicdrift/kumiko-headless@0.147.3
+
+## 0.147.2
+
+### Patch Changes
+
+- Updated dependencies [3f121df]
+- Updated dependencies [dfb3c26]
+- Updated dependencies [c007b76]
+  - @cosmicdrift/kumiko-framework@0.147.2
+  - @cosmicdrift/kumiko-headless@0.147.2
+
+## 0.147.1
+
+### Patch Changes
+
+- 63cfcc9: entityList / entityEdit / reference lookups now kebabize feature + entity when building query/write QNs (matches server `qualifyEntityName`). Client-safe `toKebab` in `app/qn.ts` — do not import from `/engine` (browser bundle). Fixes camelCase entities (e.g. `driverModel`) returning `errors.notFound` in the UI.
+  - @cosmicdrift/kumiko-framework@0.147.1
+  - @cosmicdrift/kumiko-headless@0.147.1
+
+## 0.147.0
+
+### Minor Changes
+
+- a46b306: AI-Text primitive: `AiTextField`/`AiTextArea` (renderer-web) — drop-in replacements for `TextField`/`TextareaField` with ghost-text completion (Tab to accept, Esc to discard), and correct/translate/rewrite toolbar actions with a before/after diff preview. Built on `useAiTextAction`/`useCompletion` (renderer) — request/response hooks with debounce, abort, and cap-exceeded/unavailable state. Both degrade gracefully to a plain text field when the server's `ai-text` feature (kumiko-enterprise) isn't mounted — no enterprise import in this public package.
+- c93de1a: `Section` primitive: new optional `variant="destructive"` marks a section as a warning/danger area (border-only, e.g. account deletion, restrict processing) — closes the styling gap left after `privacy-center-screen.tsx` migrated off its hand-rolled `border-destructive/40` class onto the shared `Section` primitive.
+
+### Patch Changes
+
+- Updated dependencies [bdc5e27]
+- Updated dependencies [c93de1a]
+  - @cosmicdrift/kumiko-framework@0.147.0
+  - @cosmicdrift/kumiko-headless@0.147.0
+
+## 0.146.4
+
+### Patch Changes
+
+- Updated dependencies [d85f5ae]
+  - @cosmicdrift/kumiko-headless@0.146.4
+  - @cosmicdrift/kumiko-framework@0.146.4
+
+## 0.146.3
+
+### Patch Changes
+
+- Updated dependencies [58a6145]
+  - @cosmicdrift/kumiko-headless@0.146.3
+  - @cosmicdrift/kumiko-framework@0.146.3
+
+## 0.146.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.146.2
+- @cosmicdrift/kumiko-headless@0.146.2
+
+## 0.146.1
+
+### Patch Changes
+
+- Updated dependencies [706cea7]
+  - @cosmicdrift/kumiko-framework@0.146.1
+  - @cosmicdrift/kumiko-headless@0.146.1
+
+## 0.146.0
+
+### Patch Changes
+
+- Updated dependencies [b00c3ed]
+  - @cosmicdrift/kumiko-framework@0.146.0
+  - @cosmicdrift/kumiko-headless@0.146.0
+
+## 0.145.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.145.1
+- @cosmicdrift/kumiko-headless@0.145.1
+
+## 0.145.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.145.0
+- @cosmicdrift/kumiko-headless@0.145.0
+
+## 0.144.0
+
+### Patch Changes
+
+- Updated dependencies [c7d0ef8]
+  - @cosmicdrift/kumiko-framework@0.144.0
+  - @cosmicdrift/kumiko-headless@0.144.0
+
+## 0.143.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.143.1
+- @cosmicdrift/kumiko-headless@0.143.1
+
+## 0.143.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.143.0
+- @cosmicdrift/kumiko-headless@0.143.0
+
+## 0.142.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.142.0
+- @cosmicdrift/kumiko-headless@0.142.0
+
+## 0.141.0
+
+### Minor Changes
+
+- 8de61e7: `Button`: `fullWidth?: boolean` → `width?: "full" | "auto"` (default `"auto"`). Bounded Value-Prop statt Boolean-Flag — `width="full"` streckt CTA-Buttons auf Container-Breite, andere Breiten bleiben Layout-Sache des Containers. Ersetzt das erst in 0.140 eingeführte `fullWidth` (noch kein externer Consumer).
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.141.0
+- @cosmicdrift/kumiko-headless@0.141.0
+
+## 0.140.0
+
+### Minor Changes
+
+- 742f15c: `Button` bekommt `ariaLabel?` (zugänglicher Name für icon-only-Buttons) und `fullWidth?` (streckt CTA-Buttons in Karten/Panels auf volle Breite). Schließt die letzten Button-Lücken aus kumiko-framework#935 — damit werden icon-only-Remove-Buttons und full-width Pricing-/CTA-Buttons ohne rohes `<button>` migrierbar.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.140.0
+- @cosmicdrift/kumiko-headless@0.140.0
+
+## 0.139.0
+
+### Minor Changes
+
+- 56ff9cb: Form-Kit / Primitives: `Button` bekommt eine `size`-Achse (`"sm" | "md" | "icon"`, default `"md"`) für kompakte Inline-/Icon-Buttons; neuer `Input`-`kind:"range"` (Slider, min/max/step) plus `RangeField`-Widget; `FileField`-Widget über den bestehenden `kind:"file"|"image"` (FileRef-basiert). Schließt die drei Core-Primitive-Lücken aus kumiko-framework#935.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.139.0
+- @cosmicdrift/kumiko-headless@0.139.0
+
+## 0.138.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.138.0
+- @cosmicdrift/kumiko-headless@0.138.0
+
+## 0.137.0
+
+### Patch Changes
+
+- Updated dependencies [fdd7c40]
+  - @cosmicdrift/kumiko-framework@0.137.0
+  - @cosmicdrift/kumiko-headless@0.137.0
+
+## 0.136.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.136.1
+- @cosmicdrift/kumiko-headless@0.136.1
+
+## 0.136.0
+
+### Patch Changes
+
+- Updated dependencies [f5a7f51]
+  - @cosmicdrift/kumiko-framework@0.136.0
+  - @cosmicdrift/kumiko-headless@0.136.0
+
+## 0.135.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.135.0
+- @cosmicdrift/kumiko-headless@0.135.0
+
+## 0.134.0
+
+### Minor Changes
+
+- 9eab762: Dashboard-Screen-Typ: vier neue Panel-Kinds — `stat-group` (betitelte Sektion aus mehreren Stat-Panels), `feed` (nicht-tabellarische Kurzliste), `progress-list` (Label/Wert + Fortschrittsbalken) und `custom` (eingehängte App-Komponente über dieselbe extensionSectionComponents-Registry wie entityEdit-Sections und List-Header-Slots, bleibt an ihrer Array-Position). Plus ein screen-weiter `filter` (Combobox-Picker), dessen Wert in jede Panel-Query gemerged wird — nutzt den bestehenden `useQuery`-payloadKey-Refetch, kein neuer Mechanismus. `ExtensionSectionProps` bekommt ein neues optionales `filterParams`-Feld für den `custom`-Mount-Ort.
+
+### Patch Changes
+
+- Updated dependencies [9eab762]
+  - @cosmicdrift/kumiko-framework@0.134.0
+  - @cosmicdrift/kumiko-headless@0.134.0
+
+## 0.133.0
+
+### Patch Changes
+
+- Updated dependencies [9521906]
+  - @cosmicdrift/kumiko-framework@0.133.0
+  - @cosmicdrift/kumiko-headless@0.133.0
+
+## 0.132.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.132.0
+- @cosmicdrift/kumiko-headless@0.132.0
+
+## 0.131.0
+
+### Minor Changes
+
+- 99008c9: App-Mounting 2.0 Säule B: neuer deklarativer Screen-Typ `dashboard` (stat/chart/list-Panels mit eigenen Queries; Boot-Validator + required-surface-keys; WebDashboardBody via DashboardBodyProvider). projectionList-Row-/Toolbar-Actions unterstützen jetzt `kind: "writeHandler"` (entityList-Dispatch-Pfad inkl. WriteFailedError).
+- d814026: App-Mounting 2.0 Säule A: Mid-Level-Widget-Kit in renderer-web (StatCard, MiniStat, SectionCard, StatusBadge, ProgressBar, CollapsibleSection, DetailList, ModeSwitch, StatusBarChart, TimeseriesChart, EmptyState/LoadingState/ErrorState, QueryTable) + Status-Farb-Tokens (--color-status-\*). Neue Hooks useMutation + useDisclosure. Neues Core-Primitive Link (default/button/muted), Button-Variant "link", Text-Variant "muted"; auth-email-password nutzt sie (authButtonClass/authMutedLinkClass entfernt).
+
+### Patch Changes
+
+- Updated dependencies [99008c9]
+  - @cosmicdrift/kumiko-framework@0.131.0
+  - @cosmicdrift/kumiko-headless@0.131.0
+
+## 0.130.2
+
+### Patch Changes
+
+- 98ed535: Content-Tree + Config-Nav Sysadmin-Shell polish:
+
+  - text-content: Leaf-Knoten tragen jetzt ein `file`-Icon statt eines Dots; der Editor läuft auf der Page-Shell (`Form`-Primitive mit Card statt des entfernten `FormPanelShell`).
+  - Sidebar-Nav bekommt ein Suchfeld, das den Baum live filtert (Treffer + ihre Ancestors bleiben, zugeklappte Ordner öffnen für die Suche).
+  - Ordner-Knoten zeigen `folder-open` wenn ausgeklappt.
+  - NAV_ICONS um `server`, `mail`, `lock`, `hash`, `download`, `folder-open` ergänzt — SMTP-/Config-Nav-Kinder (z.B. „Email-Versand") rendern damit ein Icon statt blank.
+  - Verschachtelte Provider-Ordner (Content-Tree) rendern ihre Kinder in einem `<ul>` (valides HTML + Einrück-Stufe pro Tiefe) statt `<li>`-in-`<li>`.
+  - Platform-Overview: `user:query:user:list` in der Allowlist (behebt den Overview-Crash).
+  - @cosmicdrift/kumiko-framework@0.130.2
+  - @cosmicdrift/kumiko-headless@0.130.2
+
 ## 0.130.1
 
 ### Patch Changes

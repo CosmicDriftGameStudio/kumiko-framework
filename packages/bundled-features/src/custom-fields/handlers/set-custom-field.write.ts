@@ -1,9 +1,7 @@
-import { buildEntityTable, extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { DEFAULT_VALUE_WRITE_ROLES } from "../constants";
-import { setCustomFieldValue } from "../db/queries/projection";
 import { customFieldsFeature } from "../feature";
 import { fieldWriteAccessDeniedRoles, loadFieldDefinition } from "../lib/field-access";
 import { buildCustomFieldValueSchema } from "../lib/value-schema";
@@ -88,55 +86,16 @@ export const setCustomFieldHandler: WriteHandlerDef = {
       }
     }
 
-    // PII (`sensitive: true` definition): self-project the value here —
-    // synchronously, from the in-memory value — exactly like the entity executor
-    // does for sensitive entity fields. The persisted customField.set event then
-    // omits the value, so PII never enters the immutable event log; the existing
-    // user-data-rights strip of the projection erases it durably. Trade-off: a
-    // projection rebuild replays the value-less event and the MSP skips it (see
-    // wire-for-entity), so the value is gone — identical to a sensitive entity
-    // field. The host table isn't known to this generic handler, so resolve it
-    // per-stack via the registry (no module-global state).
-    const sensitive = loaded.field.sensitive === true;
-    if (sensitive) {
-      const entity = ctx.registry.getEntity(payload.entityName);
-      if (!entity) {
-        // Fail closed: without the host table we cannot self-project, and must
-        // NOT fall back to writing the value into the event log.
-        return failUnprocessable("custom_field_host_unresolved", {
-          entityName: payload.entityName,
-        });
-      }
-      // Resolves the same canonical table name the MSP/postQuery use (the table
-      // NAME, not the drizzle object). Holds unless a host entity is wired with
-      // a custom backing table whose name diverges from its definition — rare,
-      // and the MSP path makes the same assumption.
-      const tableName = extractTableName(
-        buildEntityTable(payload.entityName, entity),
-        "custom-fields/set-custom-field",
-      );
-      await setCustomFieldValue(
-        ctx.db.raw,
-        tableName,
-        payload.fieldKey,
-        payload.value,
-        payload.entityId,
-        event.user.tenantId,
-      );
-    }
-
     // Emit customField.set on host-aggregate stream. unsafeAppendEvent
     // (statt strict appendEvent) weil event-type-map keine cross-feature-
     // augmentation für diesen event-typ hat — wir nutzen den qualified
-    // string-namen direkt. Sensitive fields persist a value-less event (the
-    // value was self-projected above and must stay out of the log).
+    // string-namen direkt. Der Wert steht IMMER im Event (custom fields
+    // tragen keine PII, #972) — Replay reproduziert die Projection voll.
     await ctx.unsafeAppendEvent({
       aggregateId: payload.entityId,
       aggregateType: payload.entityName,
       type: customFieldsFeature.exports.setEvent.name,
-      payload: sensitive
-        ? { fieldKey: payload.fieldKey, _sensitive: true as const }
-        : { fieldKey: payload.fieldKey, value: payload.value },
+      payload: { fieldKey: payload.fieldKey, value: payload.value },
     });
 
     return {

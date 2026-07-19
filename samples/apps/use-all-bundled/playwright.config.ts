@@ -31,7 +31,13 @@ export default defineConfig({
     command: `bun ${ENV_ARG} run src/app/server.ts`.replace(/\s+/g, " ").trim(),
     url: BASE_URL,
     // KUMIKO_DEV_DB_NAME="" → ephemeral fresh kumiko_test_<random> DB pro Run.
-    env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },
+    env: {
+      PORT: String(PORT),
+      KUMIKO_DEV_DB_NAME: "",
+      // Same ephemeral master key as studio/mh/ps/show-pony Playwright boots.
+      KUMIKO_SECRETS_MASTER_KEY_V1: "a3VtaWtvLXNjcmVlbnNob3QtZGV2LW1hc3Rlci0zMmI=",
+      KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+    },
     reuseExistingServer: !process.env["CI"],
     timeout: 90_000,
     stdout: "pipe",

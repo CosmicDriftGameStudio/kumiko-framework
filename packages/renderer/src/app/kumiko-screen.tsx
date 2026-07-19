@@ -2,9 +2,11 @@ import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
+  DashboardScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
   RowActionNavigate,
@@ -34,10 +36,15 @@ import { type DataTableFacet, type DataTableRowAction, usePrimitives } from "../
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
 import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim";
 import { useCustomScreenComponent } from "./custom-screens";
+import { useDashboardBody } from "./dashboard-body";
 import type { FeatureSchema } from "./feature-schema";
 import { useNav } from "./nav";
+import {
+  synthesizeProjectionDetailEntity,
+  synthesizeProjectionDetailScreen,
+} from "./projection-detail-shim";
 import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim";
-import { lastSegment } from "./qn";
+import { lastSegment, toKebab } from "./qn";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
 
 function evalRowExtractor(
@@ -48,6 +55,10 @@ function evalRowExtractor(
     return Object.fromEntries(extractor.pick.map((f) => [f, row[f]]));
   }
   return Object.fromEntries(Object.entries(extractor.map).map(([to, from]) => [to, row[from]]));
+}
+
+function isWriteHandlerRowAction(action: RowAction): action is RowActionWriteHandler {
+  return action.kind === "writeHandler" || action.kind === undefined;
 }
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
@@ -63,10 +74,11 @@ export type KumikoScreenProps = {
   readonly schema: FeatureSchema;
   readonly qn: string;
   readonly translate?: Translate;
-  // Optional entity-id. Only meaningful for entityEdit screens — when
-  // set, the edit screen loads the existing record via the detail
-  // query and submits an update command (`write:<entity>:update`)
-  // instead of a create. For entityList/custom screens it's ignored.
+  // Optional entity-id / row-id. Meaningful for entityEdit screens — when
+  // set, the edit screen loads the existing record via the detail query and
+  // submits an update command (`write:<entity>:update`) instead of a create.
+  // Also required for projectionDetail screens (which row to fetch — no
+  // create mode exists there). For entityList/custom screens it's ignored.
   readonly entityId?: string;
   // Fires when the user clicks a row on an entityList screen. The
   // second argument is the screen's entity name, threaded through so
@@ -75,6 +87,12 @@ export type KumikoScreenProps = {
   // createKumikoApp does exactly that; override to open a drawer,
   // inline-expand, etc.
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
+  // Copy-Link-Action auf entityEdit-Update-Screens (Issue #912). Bereits
+  // vollständig gebunden (URL-Bau + Clipboard) — createKumikoApp/RoutedScreen
+  // liefert die Default-Impl, dieses platform-neutrale Package baut selbst
+  // keine URLs/Clipboard-Calls (guard-renderer-boundaries). Nur in
+  // update-mode sichtbar (entityId muss gesetzt sein).
+  readonly onCopyLink?: () => Promise<void> | void;
 };
 
 // Build the qualified name the registry would stamp on screen ingest:
@@ -100,6 +118,7 @@ export function KumikoScreen({
   translate,
   entityId,
   onRowClick,
+  onCopyLink,
 }: KumikoScreenProps): ReactNode {
   const { Banner, Text } = usePrimitives();
   const screen = useMemo(
@@ -126,6 +145,7 @@ export function KumikoScreen({
           screen={screen}
           translate={translate}
           {...(entityId !== undefined && { entityId })}
+          {...(onCopyLink !== undefined && { onCopyLink })}
         />
       );
     case "entityList":
@@ -146,6 +166,17 @@ export function KumikoScreen({
           {...(onRowClick !== undefined && { onRowClick })}
         />
       );
+    case "projectionDetail":
+      return (
+        <ProjectionDetailBody
+          schema={schema}
+          screen={screen}
+          translate={translate}
+          {...(entityId !== undefined && { entityId })}
+        />
+      );
+    case "dashboard":
+      return <DashboardScreenBody screen={screen} translate={translate} />;
     case "actionForm":
       return <ActionFormBody schema={schema} screen={screen} translate={translate} />;
     case "configEdit":
@@ -153,6 +184,29 @@ export function KumikoScreen({
     case "custom":
       return <CustomScreenBody screenId={screen.id} />;
   }
+}
+
+// Injection-Body für dashboard-Screens: die Panel-Implementierung (StatCard,
+// Charts) ist plattform-spezifisch und kommt aus dem DashboardBody-Context
+// (renderer-web registriert die Web-Variante in createKumikoApp).
+function DashboardScreenBody({
+  screen,
+  translate,
+}: {
+  readonly screen: DashboardScreenDefinition;
+  readonly translate?: Translate;
+}): ReactNode {
+  const { Banner, Text } = usePrimitives();
+  const Body = useDashboardBody();
+  if (Body === undefined) {
+    return (
+      <Banner padded variant="info" testId="kumiko-screen-dashboard-placeholder">
+        Dashboard screen <Text variant="code">{screen.id}</Text> — kein Dashboard-Body registriert
+        (createKumikoApp aus <Text variant="code">kumiko-renderer-web</Text> wired ihn automatisch).
+      </Banner>
+    );
+  }
+  return <Body screen={screen} {...(translate !== undefined && { translate })} />;
 }
 
 // Lookup-Body für custom-screens: schaut die Component aus dem
@@ -177,15 +231,15 @@ function CustomScreenBody({ screenId }: { readonly screenId: string }): ReactNod
 // ---- entity-edit ----
 
 // Derives `<feature>:write:<entity>:<verb>` from the screen's entity
-// and the schema's feature name. Matches the qualification rule in
-// packages/framework/src/engine/qualified-name.ts so the server-side
-// handler resolves without extra wiring.
+// and the schema's feature name. Matches qualifyEntityName / toKebab in
+// packages/framework/src/engine/qualified-name.ts so camelCase entity
+// ids (e.g. driverModel) resolve to server QNs (driver-model:create).
 function entityWriteCommand(
   featureName: string,
   entity: string,
   verb: "create" | "update" | "delete",
 ): string {
-  return `${featureName}:write:${entity}:${verb}`;
+  return `${toKebab(featureName)}:write:${toKebab(entity)}:${verb}`;
 }
 
 // Default "success → zurück zur Liste"-Navigation. Findet den ersten
@@ -260,11 +314,13 @@ function EntityEditScreen({
   screen,
   translate,
   entityId,
+  onCopyLink,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: EntityEditScreenDefinition;
   readonly translate?: Translate;
   readonly entityId?: string;
+  readonly onCopyLink?: () => Promise<void> | void;
 }): ReactNode {
   const { Banner, Text } = usePrimitives();
   const entity = schema.entities[screen.entity];
@@ -287,6 +343,7 @@ function EntityEditScreen({
         entity={entity}
         entityId={entityId}
         {...(translate !== undefined && { translate })}
+        {...(onCopyLink !== undefined && { onCopyLink })}
       />
     );
   }
@@ -356,15 +413,17 @@ function EntityEditUpdateBody({
   entity,
   entityId,
   translate,
+  onCopyLink,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: EntityEditScreenDefinition;
   readonly entity: EntityDefinition;
   readonly entityId: string;
   readonly translate?: Translate;
+  readonly onCopyLink?: () => Promise<void> | void;
 }): ReactNode {
   const { Banner, Text } = usePrimitives();
-  const detailQn = `${schema.featureName}:query:${screen.entity}:detail`;
+  const detailQn = `${toKebab(schema.featureName)}:query:${toKebab(screen.entity)}:detail`;
   const detailQuery = useQuery<Readonly<Record<string, unknown>>>(detailQn, { id: entityId });
 
   if (detailQuery.loading && detailQuery.data === null) {
@@ -406,6 +465,7 @@ function EntityEditUpdateBody({
       record={record}
       onReload={detailQuery.refetch}
       {...(translate !== undefined && { translate })}
+      {...(onCopyLink !== undefined && { onCopyLink })}
     />
   );
 }
@@ -418,6 +478,7 @@ function EntityEditUpdateForm({
   record,
   onReload,
   translate,
+  onCopyLink,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: EntityEditScreenDefinition;
@@ -426,6 +487,7 @@ function EntityEditUpdateForm({
   readonly record: Readonly<Record<string, unknown>>;
   readonly onReload: () => Promise<void> | void;
   readonly translate?: Translate;
+  readonly onCopyLink?: () => Promise<void> | void;
 }): ReactNode {
   // Seed the form with the server values for the entity's declared
   // fields; anything else (id, tenant_id, created_at…) stays out of
@@ -501,6 +563,7 @@ function EntityEditUpdateForm({
       onReload={() => void onReload()}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
+      {...(onCopyLink !== undefined && { onCopyLink })}
     />
   );
 }
@@ -508,7 +571,7 @@ function EntityEditUpdateForm({
 // ---- entity-list ----
 
 function entityQueryCommand(featureName: string, entity: string, verb: "list"): string {
-  return `${featureName}:query:${entity}:${verb}`;
+  return `${toKebab(featureName)}:query:${toKebab(entity)}:${verb}`;
 }
 
 // Server-side entity-query-handlers return the paged envelope
@@ -850,8 +913,8 @@ function EntityListBody({
           };
         }
         if (dispatcher === undefined) return null;
-        if (action.kind !== "writeHandler" && action.kind !== undefined) return null;
-        const writeAction = action as RowActionWriteHandler;
+        if (!isWriteHandlerRowAction(action)) return null;
+        const writeAction = action;
         const writeActionVisible = writeAction.visible;
         return {
           id: writeAction.id,
@@ -919,7 +982,16 @@ function EntityListBody({
           }),
           onTrigger: async () => {
             const payload = action.payload ?? {};
-            await dispatcher.write(action.handler, payload);
+            const result = await dispatcher.write(action.handler, payload);
+            // Gleicher Surfacing-Zwang wie bei rowActions (Prod-Bug
+            // 2026-06-07): ein verschlucktes Failure-Result sah wie
+            // "nichts passiert" aus.
+            if (!result.isSuccess) {
+              throw new WriteFailedError(
+                result.error,
+                dispatcherErrorText(result.error, effectiveTranslate),
+              );
+            }
           },
         };
       })
@@ -1036,6 +1108,7 @@ function ProjectionListBody({
   const { Banner } = usePrimitives();
   const t = useTranslation();
   const nav = useNav();
+  const dispatcher = useOptionalDispatcher();
   const effectiveTranslate = translate ?? t;
   const entity = useMemo(() => synthesizeProjectionEntity(screen.columns), [screen.columns]);
   const listScreen = useMemo(() => synthesizeProjectionScreen(screen), [screen]);
@@ -1066,39 +1139,97 @@ function ProjectionListBody({
     if (screen.rowActions === undefined) return undefined;
     const out: DataTableRowAction[] = [];
     for (const action of screen.rowActions) {
-      // v1: nur navigate (writeHandler-RowActions bräuchten den Dispatcher-Pfad).
-      if (action.kind !== "navigate") continue;
-      const navigateAction = action;
-      const visible = action.visible;
+      if (action.kind === "navigate") {
+        const navigateAction = action;
+        const visible = action.visible;
+        out.push({
+          id: action.id,
+          label: effectiveTranslate(action.label),
+          ...(action.style !== undefined && { style: action.style }),
+          onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
+          ...(visible !== undefined && {
+            isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
+          }),
+        });
+        continue;
+      }
+      // writeHandler (default-kind) — gleicher Dispatch-Pfad wie entityList:
+      // Failure-Result MUSS zum Error werden (sonst schließt der Confirm-
+      // Dialog kommentarlos).
+      if (dispatcher === undefined) continue;
+      const writeAction = action;
+      const writeVisible = writeAction.visible;
       out.push({
-        id: action.id,
-        label: effectiveTranslate(action.label),
-        ...(action.style !== undefined && { style: action.style }),
-        onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
-        ...(visible !== undefined && {
-          isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
+        id: writeAction.id,
+        label: effectiveTranslate(writeAction.label),
+        ...(writeAction.style !== undefined && { style: writeAction.style }),
+        ...(writeAction.confirm !== undefined && {
+          confirm: effectiveTranslate(writeAction.confirm),
+        }),
+        ...(writeAction.confirmLabel !== undefined && {
+          confirmLabel: effectiveTranslate(writeAction.confirmLabel),
+        }),
+        onTrigger: async (row: ListRowViewModel) => {
+          const payload =
+            writeAction.payload !== undefined
+              ? evalRowExtractor(writeAction.payload, row.values)
+              : { id: row.values["id"] };
+          const result = await dispatcher.write(writeAction.handler, payload);
+          if (!result.isSuccess) {
+            throw new WriteFailedError(
+              result.error,
+              dispatcherErrorText(result.error, effectiveTranslate),
+            );
+          }
+        },
+        ...(writeVisible !== undefined && {
+          isVisible: (row: ListRowViewModel) => evalFieldCondition(writeVisible, row.values),
         }),
       });
     }
     return out.length > 0 ? out : undefined;
-  }, [screen.rowActions, effectiveTranslate, runNavigate]);
+  }, [screen.rowActions, effectiveTranslate, runNavigate, dispatcher]);
 
   const toolbarActions = useMemo((): readonly ToolbarActionButton[] | undefined => {
     if (screen.toolbarActions === undefined) return undefined;
     const out: ToolbarActionButton[] = [];
     for (const action of screen.toolbarActions) {
-      // v1: nur navigate (writeHandler-Toolbar bräuchte den Dispatcher-Pfad).
-      if (action.kind !== "navigate") continue;
-      const target = action.screen;
+      if (action.kind === "navigate") {
+        const target = action.screen;
+        out.push({
+          id: action.id,
+          label: effectiveTranslate(action.label),
+          ...(action.style !== undefined && { style: action.style }),
+          onTrigger: () => nav.navigate({ screenId: target }),
+        });
+        continue;
+      }
+      // writeHandler — analog entityList; ohne Dispatcher skippen statt crashen.
+      if (dispatcher === undefined) continue;
       out.push({
         id: action.id,
         label: effectiveTranslate(action.label),
         ...(action.style !== undefined && { style: action.style }),
-        onTrigger: () => nav.navigate({ screenId: target }),
+        ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
+        ...(action.confirmLabel !== undefined && {
+          confirmLabel: effectiveTranslate(action.confirmLabel),
+        }),
+        onTrigger: async () => {
+          const result = await dispatcher.write(action.handler, action.payload ?? {});
+          // Gleicher Surfacing-Zwang wie bei rowActions (Prod-Bug
+          // 2026-06-07): ein verschlucktes Failure-Result sah wie
+          // "nichts passiert" aus.
+          if (!result.isSuccess) {
+            throw new WriteFailedError(
+              result.error,
+              dispatcherErrorText(result.error, effectiveTranslate),
+            );
+          }
+        },
       });
     }
     return out.length > 0 ? out : undefined;
-  }, [screen.toolbarActions, effectiveTranslate, nav]);
+  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -1140,6 +1271,85 @@ function ProjectionListBody({
   );
 }
 
+// Projection-Detail-Body — read-only single-row inspector über eine explizite
+// Query statt einer Entity (siehe projection-detail-shim.ts für die Schulden-
+// Doku). Fetcht selbst über `screen.query` + `idParam` (analog zu
+// EntityEditUpdateBody, das die Query-QN aus der Entity-Convention ableitet —
+// hier ist die QN Author-explizit, wie bei ProjectionListBody). Rendert über
+// RenderEdit MIT customSubmit-No-Op statt writeCommand: hasEditableSection()
+// blendet den Save-Button aus (jedes Feld ist readOnly), und selbst ein
+// natives Form-Submit (Enter-Keypress) würde ohne customSubmit gegen
+// controller.submit() ohne submit-config throwen — der No-Op macht diesen
+// Pfad harmlos statt ihn dem Zufall zu überlassen.
+function ProjectionDetailBody({
+  schema,
+  screen,
+  translate,
+  entityId,
+}: {
+  readonly schema: FeatureSchema;
+  readonly screen: ProjectionDetailScreenDefinition;
+  readonly translate?: Translate;
+  readonly entityId?: string;
+}): ReactNode {
+  const { Banner, Text } = usePrimitives();
+  const nav = useNav();
+  const idParam = screen.idParam ?? "id";
+  const entity = useMemo(() => synthesizeProjectionDetailEntity(screen.layout), [screen.layout]);
+  const detailScreen = useMemo(() => synthesizeProjectionDetailScreen(screen), [screen]);
+  const detailQuery = useQuery<Readonly<Record<string, unknown>>>(
+    screen.query,
+    entityId !== undefined ? { [idParam]: entityId } : {},
+  );
+
+  const navigateToList = useCallback(() => {
+    if (screen.listScreenId === undefined) return;
+    nav.navigate({ screenId: screen.listScreenId });
+  }, [nav, screen.listScreenId]);
+
+  if (entityId === undefined) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-projection-detail-missing-id">
+        Screen <Text variant="code">{screen.id}</Text> (projectionDetail) needs a row id in the path
+        — open it from a row action.
+      </Banner>
+    );
+  }
+  if (detailQuery.loading && detailQuery.data === null) {
+    return (
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
+        Loading…
+      </Banner>
+    );
+  }
+  if (detailQuery.error) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-error">
+        {detailQuery.error.i18nKey}
+      </Banner>
+    );
+  }
+  const record = detailQuery.data;
+  if (!record) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-record-missing">
+        Record <Text variant="code">{entityId}</Text> not found.
+      </Banner>
+    );
+  }
+  return (
+    <RenderEdit
+      screen={detailScreen}
+      entity={entity}
+      featureName={schema.featureName}
+      initial={record as FormValues}
+      entityId={entityId}
+      customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
+      onCancel={screen.listScreenId !== undefined ? navigateToList : undefined}
+      {...(translate !== undefined && { translate })}
+    />
+  );
+}
 // ---- actionForm (Tier 2.7d) ----
 
 // Action-Form-Body — non-CRUD Write-Handler-driven Form. Re-uses

@@ -161,14 +161,13 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // "single-user" via appOverrides (TENANT_MODEL_CONFIG_KEY) so the forget
     // pipeline may erase the tenant's data as that user's personal data — still
     // gated by a runtime sole-member check in run-forget-cleanup.
-    r.config({
-      keys: {
-        tenantModel: createSystemConfig("select", {
-          default: "multi-user",
-          options: ["single-user", "multi-user"],
-        }),
-      },
-    });
+    r.config(
+      "tenantModel",
+      createSystemConfig("select", {
+        default: "multi-user",
+        options: ["single-user", "multi-user"],
+      }),
+    );
 
     // S2.U3 Atom 1b — ExportJob-Lifecycle-Entity.
     r.entity("export-job", exportJobEntity);

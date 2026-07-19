@@ -1,5 +1,343 @@
 # create-kumiko-app
 
+## 0.4.128
+
+### Patch Changes
+
+- Updated dependencies [c7ca222]
+- Updated dependencies [77ea09f]
+  - @cosmicdrift/kumiko-framework@0.156.0
+  - @cosmicdrift/kumiko-dev-server@0.156.0
+
+## 0.4.127
+
+### Patch Changes
+
+- Updated dependencies [36e30da]
+  - @cosmicdrift/kumiko-dev-server@0.155.1
+  - @cosmicdrift/kumiko-framework@0.155.1
+
+## 0.4.126
+
+### Patch Changes
+
+- Updated dependencies [137f31a]
+  - @cosmicdrift/kumiko-framework@0.155.0
+  - @cosmicdrift/kumiko-dev-server@0.155.0
+
+## 0.4.125
+
+### Patch Changes
+
+- Updated dependencies [05c3e11]
+  - @cosmicdrift/kumiko-framework@0.154.2
+  - @cosmicdrift/kumiko-dev-server@0.154.2
+
+## 0.4.124
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.154.1
+- @cosmicdrift/kumiko-framework@0.154.1
+
+## 0.4.123
+
+### Patch Changes
+
+- Updated dependencies [0d30bf7]
+- Updated dependencies [e40a980]
+  - @cosmicdrift/kumiko-framework@0.154.0
+  - @cosmicdrift/kumiko-dev-server@0.154.0
+
+## 0.4.122
+
+### Patch Changes
+
+- Updated dependencies [caed246]
+  - @cosmicdrift/kumiko-dev-server@0.153.0
+  - @cosmicdrift/kumiko-framework@0.153.0
+
+## 0.4.121
+
+### Patch Changes
+
+- Updated dependencies [e32807e]
+- Updated dependencies [3dd1f99]
+  - @cosmicdrift/kumiko-framework@0.152.0
+  - @cosmicdrift/kumiko-dev-server@0.152.0
+
+## 0.4.120
+
+### Patch Changes
+
+- Updated dependencies [5c1dc93]
+  - @cosmicdrift/kumiko-framework@0.151.1
+  - @cosmicdrift/kumiko-dev-server@0.151.1
+
+## 0.4.119
+
+### Patch Changes
+
+- Updated dependencies [ca4edbf]
+  - @cosmicdrift/kumiko-framework@0.151.0
+  - @cosmicdrift/kumiko-dev-server@0.151.0
+
+## 0.4.118
+
+### Patch Changes
+
+- Updated dependencies [0e4cec9]
+- Updated dependencies [aeb79fa]
+  - @cosmicdrift/kumiko-framework@0.150.0
+  - @cosmicdrift/kumiko-dev-server@0.150.0
+
+## 0.4.117
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.149.2
+- @cosmicdrift/kumiko-framework@0.149.2
+
+## 0.4.116
+
+### Patch Changes
+
+- Updated dependencies [637b599]
+  - @cosmicdrift/kumiko-framework@0.149.1
+  - @cosmicdrift/kumiko-dev-server@0.149.1
+
+## 0.4.115
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.149.0
+- @cosmicdrift/kumiko-framework@0.149.0
+
+## 0.4.114
+
+### Patch Changes
+
+- Updated dependencies [cb5612d]
+  - @cosmicdrift/kumiko-framework@0.148.0
+  - @cosmicdrift/kumiko-dev-server@0.148.0
+
+## 0.4.113
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.147.3
+- @cosmicdrift/kumiko-framework@0.147.3
+
+## 0.4.112
+
+### Patch Changes
+
+- Updated dependencies [3f121df]
+- Updated dependencies [dfb3c26]
+- Updated dependencies [c007b76]
+  - @cosmicdrift/kumiko-framework@0.147.2
+  - @cosmicdrift/kumiko-dev-server@0.147.2
+
+## 0.4.111
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.147.1
+- @cosmicdrift/kumiko-framework@0.147.1
+
+## 0.4.110
+
+### Patch Changes
+
+- Updated dependencies [bdc5e27]
+- Updated dependencies [c93de1a]
+  - @cosmicdrift/kumiko-framework@0.147.0
+  - @cosmicdrift/kumiko-dev-server@0.147.0
+
+## 0.4.109
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.146.4
+- @cosmicdrift/kumiko-framework@0.146.4
+
+## 0.4.108
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.146.3
+- @cosmicdrift/kumiko-framework@0.146.3
+
+## 0.4.107
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.146.2
+- @cosmicdrift/kumiko-framework@0.146.2
+
+## 0.4.106
+
+### Patch Changes
+
+- Updated dependencies [706cea7]
+  - @cosmicdrift/kumiko-framework@0.146.1
+  - @cosmicdrift/kumiko-dev-server@0.146.1
+
+## 0.4.105
+
+### Patch Changes
+
+- Updated dependencies [b00c3ed]
+  - @cosmicdrift/kumiko-framework@0.146.0
+  - @cosmicdrift/kumiko-dev-server@0.146.0
+
+## 0.4.104
+
+### Patch Changes
+
+- 8367193: Scaffolded apps now typecheck cleanly out of the box.
+
+  - Add `@types/react` + `@types/react-dom` to the generated app's devDependencies (fixes ~900 TS7xxx errors from untyped React/JSX).
+  - Generated `src/client.tsx` wraps `DefaultAppShell` in a local `AppShell` that supplies the required `brand` prop, so `createKumikoApp({ shell })` typechecks against the renderer signature (fixes the TS2322 "Property 'brand' is missing" errors).
+  - Post-create next-steps banner is now English.
+
+- Updated dependencies [8367193]
+  - @cosmicdrift/kumiko-dev-server@0.145.1
+  - @cosmicdrift/kumiko-framework@0.145.1
+
+## 0.4.103
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.145.0
+- @cosmicdrift/kumiko-framework@0.145.0
+
+## 0.4.102
+
+### Patch Changes
+
+- Updated dependencies [c7d0ef8]
+  - @cosmicdrift/kumiko-framework@0.144.0
+  - @cosmicdrift/kumiko-dev-server@0.144.0
+
+## 0.4.101
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.143.1
+- @cosmicdrift/kumiko-framework@0.143.1
+
+## 0.4.100
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.143.0
+- @cosmicdrift/kumiko-framework@0.143.0
+
+## 0.4.99
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.142.0
+- @cosmicdrift/kumiko-framework@0.142.0
+
+## 0.4.98
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.141.0
+- @cosmicdrift/kumiko-framework@0.141.0
+
+## 0.4.97
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.140.0
+- @cosmicdrift/kumiko-framework@0.140.0
+
+## 0.4.96
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.139.0
+- @cosmicdrift/kumiko-framework@0.139.0
+
+## 0.4.95
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.138.0
+- @cosmicdrift/kumiko-framework@0.138.0
+
+## 0.4.94
+
+### Patch Changes
+
+- Updated dependencies [fdd7c40]
+  - @cosmicdrift/kumiko-framework@0.137.0
+  - @cosmicdrift/kumiko-dev-server@0.137.0
+
+## 0.4.93
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.136.1
+- @cosmicdrift/kumiko-framework@0.136.1
+
+## 0.4.92
+
+### Patch Changes
+
+- Updated dependencies [f5a7f51]
+  - @cosmicdrift/kumiko-framework@0.136.0
+  - @cosmicdrift/kumiko-dev-server@0.136.0
+
+## 0.4.91
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.135.0
+- @cosmicdrift/kumiko-framework@0.135.0
+
+## 0.4.90
+
+### Patch Changes
+
+- Updated dependencies [9eab762]
+  - @cosmicdrift/kumiko-framework@0.134.0
+  - @cosmicdrift/kumiko-dev-server@0.134.0
+
+## 0.4.89
+
+### Patch Changes
+
+- Updated dependencies [9521906]
+  - @cosmicdrift/kumiko-framework@0.133.0
+  - @cosmicdrift/kumiko-dev-server@0.133.0
+
+## 0.4.88
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.132.0
+- @cosmicdrift/kumiko-framework@0.132.0
+
+## 0.4.87
+
+### Patch Changes
+
+- Updated dependencies [99008c9]
+- Updated dependencies [ce77f02]
+  - @cosmicdrift/kumiko-framework@0.131.0
+  - @cosmicdrift/kumiko-dev-server@0.131.0
+
+## 0.4.86
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.130.2
+- @cosmicdrift/kumiko-framework@0.130.2
+
 ## 0.4.85
 
 ### Patch Changes

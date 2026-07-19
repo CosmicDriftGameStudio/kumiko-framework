@@ -337,4 +337,44 @@ describe("T1.5d: per-field retention sweep", () => {
     expect(cf).not.toHaveProperty("temp");
     expect(cf["liveEdit"]).toBe("written-mid-sweep");
   });
+
+  test("#975: a legacy field with the removed `sensitive` key is skipped, not fatal to the sweep", async () => {
+    const propertyId = "88888888-8888-4000-8000-000000000008";
+    await defineField("temp", {
+      type: "text",
+      retention: { keepFor: "30d", strategy: "delete" },
+    });
+    // Pre-#972 legacy definition — parseSerializedField throws on `sensitive`.
+    // Simulate a pre-#972 legacy definition: define normally (valid shape),
+    // then rewrite the stored column directly — write-time validation would
+    // reject `sensitive` today, but legacy rows written before #972 exist.
+    await defineField("legacyPii", { type: "text" });
+    await asRawClient(stack.db).unsafe(
+      `UPDATE read_custom_field_definitions SET serialized_field = '{"type":"text","sensitive":true}' WHERE field_key = 'legacyPii' AND entity_name = 'property'`,
+    );
+    await createProperty(propertyId, "LegacyMix");
+    await setField(propertyId, "temp", "expired-value");
+    // setField would now be denied (fail-closed on the corrupt/legacy
+    // definition) — write the value directly to simulate data that was
+    // already stored before #972 removed `sensitive` support.
+    await asRawClient(stack.db).unsafe(
+      `UPDATE read_t15d_properties SET custom_fields = custom_fields || '{"legacyPii":"untouched-value"}'::jsonb WHERE id = $1`,
+      [propertyId],
+    );
+    await stack.eventDispatcher?.runOnce();
+    await backdateRow(propertyId, "2026-04-22T10:00:00Z");
+
+    const report = await runCustomFieldsRetention({
+      db: stack.db,
+      tenantId: admin.tenantId,
+      entityName: "property",
+      entityTable: propertyTable,
+      now: NOW,
+    });
+
+    expect(report.rowsUpdated).toBe(1);
+    const cf = (await readRow(propertyId))?.["custom_fields"] as Record<string, unknown>;
+    expect(cf).not.toHaveProperty("temp");
+    expect(cf["legacyPii"]).toBe("untouched-value");
+  });
 });

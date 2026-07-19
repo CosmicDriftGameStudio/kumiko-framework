@@ -5,10 +5,16 @@
 // schreibt den ISO-Wert auf body[data-date], damit der Spec ohne
 // page.evaluate auslesen kann.
 
+import { kumikoDefaultTranslations } from "@cosmicdrift/kumiko-renderer";
+import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
 import { DateInput } from "../../src/primitives/date-input";
 
-export function DateTestPage(): ReactNode {
+// "de" — DateInput below is mounted with locale="de-DE" (German calendar
+// labels are what the specs assert against).
+const localeResolver = createStaticLocaleResolver({ locale: "de" });
+
+function DateTestPageInner(): ReactNode {
   const [value, setValue] = useState("2021-01-01");
   return (
     <div style={{ padding: "2rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -27,5 +33,13 @@ export function DateTestPage(): ReactNode {
         />
       </section>
     </div>
+  );
+}
+
+export function DateTestPage(): ReactNode {
+  return (
+    <LocaleProvider resolver={localeResolver} fallbackBundles={[kumikoDefaultTranslations]}>
+      <DateTestPageInner />
+    </LocaleProvider>
   );
 }

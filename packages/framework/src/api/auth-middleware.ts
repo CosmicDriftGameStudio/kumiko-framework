@@ -98,24 +98,50 @@ export type TenantResolver = (c: Context) => Promise<TenantId | null> | TenantId
 // deployments where a caller could otherwise probe arbitrary ids.
 export type TenantExists = (tenantId: TenantId) => Promise<boolean> | boolean;
 
-export type AnonymousAccessConfig = {
-  // Custom resolver (e.g. subdomain parser). Consulted only when neither
-  // the X-Tenant header nor the kumiko_tenant cookie are present.
-  readonly tenantResolver?: TenantResolver;
-  // Single-tenant shortcut. When set, the server runs in **locked** mode:
-  //   - no client-supplied tenant: defaultTenantId is used.
-  //   - client supplies a matching tenant (header/cookie/resolver): allowed.
-  //   - client supplies a non-matching tenant: 400 tenant_mismatch (the
-  //     server is single-tenant; rejecting protects against confused clients
-  //     who think they're talking to a different deployment).
-  // The framework does NOT verify defaultTenantId against the DB at boot;
-  // the caller is responsible (see sample for the pattern).
+// Single-tenant shortcut. When set, the server runs in **locked** mode:
+//   - no client-supplied tenant: defaultTenantId is used.
+//   - client supplies a matching tenant (header/cookie/resolver): allowed.
+//   - client supplies a non-matching tenant: 400 tenant_mismatch (the
+//     server is single-tenant; rejecting protects against confused clients
+//     who think they're talking to a different deployment).
+// The framework does NOT verify defaultTenantId against the DB at boot;
+// the caller is responsible (see sample for the pattern).
+// Per-request existence check for header/cookie/resolver-supplied ids.
+// Skipped for the defaultTenantId path (the caller already vetted that
+// value when configuring the server).
+type AnonymousAccessConfigCommon = {
   readonly defaultTenantId?: TenantId;
-  // Per-request existence check for header/cookie/resolver-supplied ids.
-  // Skipped for the defaultTenantId path (the caller already vetted that
-  // value when configuring the server).
   readonly tenantExists?: TenantExists;
 };
+
+// Union, not one flat optional-everything type: a tenantResolver without a
+// declared resolverTrust is an ambiguous trust decision the compiler should
+// catch, not a silent runtime default. Set resolverTrust to:
+//   - "authoritative": the resolver is trusted (e.g. it derives the tenant
+//     from the subdomain, which the client cannot forge) and is consulted
+//     FIRST. A client-supplied tenant that disagrees with the resolver's
+//     answer is rejected with 400 tenant_mismatch — it is never used to
+//     override the resolver, and it is never used as a substitute answer
+//     when the resolver returns null either (that would just reopen the
+//     same override via an unrecognised host). Pick this whenever the
+//     resolver derives the tenant from something the caller cannot control
+//     (subdomain, mTLS cert, etc.) — the whole point of such a resolver is
+//     defeated if a client header can still override it.
+//   - "fallback-only": a client-supplied header/cookie wins outright; the
+//     resolver only runs when neither is present. Pick this only when the
+//     resolver is a pure convenience fallback for callers that never send
+//     a tenant of their own (e.g. a bare API host with no per-tenant
+//     subdomains) and its answer carries no more trust than the client's
+//     own claim.
+export type AnonymousAccessConfig =
+  | (AnonymousAccessConfigCommon & {
+      readonly tenantResolver?: undefined;
+      readonly resolverTrust?: undefined;
+    })
+  | (AnonymousAccessConfigCommon & {
+      readonly tenantResolver: TenantResolver;
+      readonly resolverTrust: "authoritative" | "fallback-only";
+    });
 
 // Where the candidate tenant came from. Drives the validation policy:
 //   - header / cookie / resolver: untrusted, must pass tenantExists if set.
@@ -203,6 +229,17 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     patResolver,
     resolveTenantLifecycleStatus,
   } = options;
+
+  // Fail loud at boot, not silently at request time: a tenantResolver
+  // without a declared resolverTrust is an ambiguous trust decision no
+  // sane default can make on the app's behalf (see AnonymousAccessConfig).
+  if (anonymousAccess?.tenantResolver && anonymousAccess.resolverTrust === undefined) {
+    throw new Error(
+      "authMiddleware: anonymousAccess.tenantResolver is set without resolverTrust — " +
+        'declare "authoritative" (resolver wins over client header/cookie) or ' +
+        '"fallback-only" (client wins, resolver is a last resort).',
+    );
+  }
 
   return async (c: Context, next: Next) => {
     const extracted = extractToken(c);
@@ -473,34 +510,89 @@ async function resolveTenant(
   clientTenant: { id: TenantId; source: "header" | "cookie" } | null,
 ): Promise<ResolvedTenant | ResolveError> {
   if (config.defaultTenantId !== undefined) {
-    if (clientTenant && clientTenant.id !== config.defaultTenantId) {
+    return resolveAgainstDefault(config.defaultTenantId, clientTenant);
+  }
+  if (config.tenantResolver && config.resolverTrust === "authoritative") {
+    return await resolveWithAuthoritativeResolver(c, config.tenantResolver, clientTenant);
+  }
+  return await resolveWithClientPrecedence(c, config.tenantResolver, clientTenant);
+}
+
+// Locked single-tenant mode: the client either agrees with the default or
+// gets tenant_mismatch — defending the deployment from confused clients
+// that think they're talking to a different installation.
+function resolveAgainstDefault(
+  defaultTenantId: TenantId,
+  clientTenant: { id: TenantId; source: "header" | "cookie" } | null,
+): ResolvedTenant | ResolveError {
+  if (clientTenant && clientTenant.id !== defaultTenantId) {
+    return {
+      error: {
+        code: "tenant_mismatch",
+        status: 400,
+        message: `${clientTenant.source} tenant disagrees with server default`,
+        i18nKey: "auth.errors.tenantMismatch",
+        details: { clientTenantId: clientTenant.id, defaultTenantId },
+      },
+    };
+  }
+  return { tenantId: defaultTenantId, source: "default" };
+}
+
+// resolverTrust: "authoritative" — the resolver is trusted over the client.
+// A client-supplied tenant that disagrees is rejected, never used to
+// override the resolver's answer. Falls back to the client tenant only
+// when the resolver itself has no opinion (unrecognised host).
+async function resolveWithAuthoritativeResolver(
+  c: Context,
+  tenantResolver: TenantResolver,
+  clientTenant: { id: TenantId; source: "header" | "cookie" } | null,
+): Promise<ResolvedTenant | ResolveError> {
+  const resolved = await tenantResolver(c);
+  if (resolved !== null && resolved !== undefined) {
+    if (clientTenant && clientTenant.id !== resolved) {
       return {
         error: {
           code: "tenant_mismatch",
           status: 400,
-          message: `${clientTenant.source} tenant disagrees with server default`,
+          message: `${clientTenant.source} tenant disagrees with resolved tenant`,
           i18nKey: "auth.errors.tenantMismatch",
-          details: {
-            clientTenantId: clientTenant.id,
-            defaultTenantId: config.defaultTenantId,
-          },
+          details: { clientTenantId: clientTenant.id, resolvedTenantId: resolved },
         },
       };
     }
-    return { tenantId: config.defaultTenantId, source: "default" };
+    return { tenantId: resolved, source: "resolver" };
   }
+  // Resolver had no opinion (unrecognised host) — do NOT fall back to the
+  // client-supplied tenant here. That would let an unrecognised-host
+  // request pick its own tenant via X-Tenant, the exact override this mode
+  // exists to prevent; it's just reached through "unknown host" instead of
+  // "known host, disagreeing header". Authoritative means the resolver's
+  // silence is final, not a delegation back to the client.
+  return tenantRequiredError();
+}
 
+// resolverTrust: "fallback-only" (or no resolver at all) — client tenant
+// wins outright; the resolver only runs as a last resort when neither
+// header nor cookie supplied a value.
+async function resolveWithClientPrecedence(
+  c: Context,
+  tenantResolver: TenantResolver | undefined,
+  clientTenant: { id: TenantId; source: "header" | "cookie" } | null,
+): Promise<ResolvedTenant | ResolveError> {
   if (clientTenant) {
     return { tenantId: clientTenant.id, source: clientTenant.source };
   }
-
-  if (config.tenantResolver) {
-    const resolved = await config.tenantResolver(c);
+  if (tenantResolver) {
+    const resolved = await tenantResolver(c);
     if (resolved !== null && resolved !== undefined) {
       return { tenantId: resolved, source: "resolver" };
     }
   }
+  return tenantRequiredError();
+}
 
+function tenantRequiredError(): ResolveError {
   return {
     error: {
       code: "tenant_required",

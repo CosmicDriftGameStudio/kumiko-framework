@@ -1,11 +1,18 @@
 import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
 import type {
+  DashboardScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import type { ColumnRendererProps, FeatureSchema, NavApi } from "@cosmicdrift/kumiko-renderer";
+import type {
+  AppSchema,
+  ColumnRendererProps,
+  FeatureSchema,
+  NavApi,
+} from "@cosmicdrift/kumiko-renderer";
+import { createStaticLocaleResolver } from "@cosmicdrift/kumiko-renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { ClientFeatureDefinition } from "../app/client-plugin";
@@ -148,6 +155,54 @@ describe("createKumikoApp", () => {
     );
   });
 
+  test("fallback screen skips access-restricted screens across features (#1176)", async () => {
+    mountRoot();
+    const restrictedFeature: FeatureSchema = {
+      featureName: "user",
+      entities: { task: taskEntity },
+      screens: [{ ...listScreen, id: "user-list", access: { roles: ["SystemAdmin"] } }],
+    };
+    const openFeature: FeatureSchema = { ...baseSchema, featureName: "tasks" };
+    const schema: AppSchema = { features: [restrictedFeature, openFeature] };
+    await mountApp({ schema, dispatcher: makeDispatcher() });
+    // Landing on user-list (SystemAdmin-only) would show an access-denied
+    // banner instead — the tasks:task-edit form must win instead.
+    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+  });
+
+  test("fallback screen: an openToAll screen counts as accessible", async () => {
+    mountRoot();
+    const restrictedFeature: FeatureSchema = {
+      featureName: "user",
+      entities: { task: taskEntity },
+      screens: [{ ...editScreen, id: "user-edit", access: { roles: ["SystemAdmin"] } }],
+    };
+    const openFeature: FeatureSchema = {
+      featureName: "tasks",
+      entities: { task: taskEntity },
+      screens: [{ ...listScreen, access: { openToAll: true } }],
+    };
+    const schema: AppSchema = { features: [restrictedFeature, openFeature] };
+    await mountApp({ schema, dispatcher: makeDispatcher() });
+    expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
+  });
+
+  test("all screens access-restricted → throws (no accessible fallback)", () => {
+    mountRoot();
+    const restrictedOnly: AppSchema = {
+      features: [
+        {
+          featureName: "user",
+          entities: { task: taskEntity },
+          screens: [{ ...editScreen, access: { roles: ["SystemAdmin"] } }],
+        },
+      ],
+    };
+    expect(() => createKumikoApp({ schema: restrictedOnly, dispatcher: makeDispatcher() })).toThrow(
+      /no screens/,
+    );
+  });
+
   test("clientFeatures.columnRenderers → bei Key-Kollision warnt + last-wins gewinnt", async () => {
     // Zwei Features liefern denselben Renderer-Key — der Merge in
     // create-app warnt und behält den späteren Eintrag (Last-Wins).
@@ -250,6 +305,99 @@ describe("createKumikoApp", () => {
     expect(await screen.findByTestId("ca-swatch")).toBeTruthy();
     expect(screen.getByTestId("ca-swatch-value").textContent).toBe("#a1b2c3");
     expect(screen.getByTestId("ca-swatch-field").textContent).toBe("color");
+  });
+
+  test("schema.translations (r.translations, #1059) resolves nav/dashboard labels without any clientFeatures duplication", async () => {
+    // Mirrors cap-counter's real shape: a feature that declares r.translations
+    // for its own nav label but ships NO web/i18n.ts / clientFeatures entry at
+    // all. Before #1059 this label rendered as the raw i18n key forever.
+    const dashboardScreen: DashboardScreenDefinition = {
+      id: "overview",
+      type: "dashboard",
+      panels: [
+        {
+          kind: "stat",
+          id: "cap-list",
+          label: "cap-counter:nav.cap-list",
+          query: "cap-counter:query:stat",
+          valueField: "value",
+        },
+      ],
+    };
+    const schema: FeatureSchema = {
+      featureName: "cap-counter",
+      entities: {},
+      screens: [dashboardScreen],
+      translations: {
+        "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" },
+      },
+    };
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { value: "3" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    mountRoot();
+    await mountApp({
+      schema,
+      dispatcher,
+      locale: createStaticLocaleResolver({ locale: "en" }),
+    });
+
+    await waitFor(() => expect(screen.getByText("Caps")).toBeTruthy());
+    expect(screen.queryByText("cap-counter:nav.cap-list")).toBeNull();
+  });
+
+  test("clientFeatures.translations still overrides schema.translations for the same key (precedence)", async () => {
+    // App-Override muss auch gegen ein framework-eigenes Label gewinnen —
+    // sonst kann eine App ein bundled-feature-Label nicht mehr anpassen,
+    // sobald #1059 dessen r.translations automatisch mitliefert.
+    const dashboardScreen: DashboardScreenDefinition = {
+      id: "overview",
+      type: "dashboard",
+      panels: [
+        {
+          kind: "stat",
+          id: "cap-list",
+          label: "cap-counter:nav.cap-list",
+          query: "cap-counter:query:stat",
+          valueField: "value",
+        },
+      ],
+    };
+    const schema: FeatureSchema = {
+      featureName: "cap-counter",
+      entities: {},
+      screens: [dashboardScreen],
+      translations: {
+        "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" },
+      },
+    };
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { value: "3" },
+      })) as unknown as Dispatcher["query"],
+    });
+    const override: ClientFeatureDefinition = {
+      name: "cap-counter-app-override",
+      translations: {
+        en: { "cap-counter:nav.cap-list": "Quota" },
+      },
+    };
+
+    mountRoot();
+    await mountApp({
+      schema,
+      dispatcher,
+      clientFeatures: [override],
+      locale: createStaticLocaleResolver({ locale: "en" }),
+    });
+
+    await waitFor(() => expect(screen.getByText("Quota")).toBeTruthy());
+    expect(screen.queryByText("Caps")).toBeNull();
   });
 
   test("navAdapter override: eigener Router steuert den aktiven Screen", async () => {

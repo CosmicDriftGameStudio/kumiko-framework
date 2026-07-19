@@ -94,6 +94,21 @@ export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
       "1 if the event-dispatcher holds an active PG LISTEN subscription on the events channel, 0 otherwise.",
     labels: [],
   },
+  // BullMQ backlog per lane + state (waiting/active/delayed/failed/…). Only
+  // the process that owns a lane's consumerLane polls it (job-runner.ts
+  // start()) — the count is a global Redis-backed value, no per-instance
+  // label needed. A growing "waiting" count means the lane's worker can't
+  // keep up with dispatch; "failed" trending up means jobs are erroring
+  // silently. Motivated by apps that run every job on the "api" lane
+  // (no dedicated worker consumer) — fanout/reconcile jobs then share
+  // Redis-queue capacity with request-handling, and contention is
+  // otherwise invisible until requests slow down.
+  {
+    name: "kumiko_job_queue_depth",
+    type: "gauge",
+    description: "BullMQ job counts per lane and state.",
+    labels: ["lane", "state"],
+  },
 ] as const;
 
 export function registerStandardMetrics(meter: Meter): void {
@@ -209,5 +224,19 @@ export function emitEventConsumerPassOutcome(
       consumer: labels.consumer,
       instance_id: labels.instanceId,
     });
+  }
+}
+
+// counts: BullMQ's Queue.getJobCounts() result, filtered by the caller to
+// backlog-relevant states (waiting/active/delayed/failed/paused) — "completed"
+// grows unboundedly without removeOnComplete and would make the gauge series
+// monotonically increasing, useless as a backlog signal.
+export function emitJobQueueDepth(
+  meter: Meter,
+  lane: string,
+  counts: Readonly<Record<string, number>>,
+): void {
+  for (const [state, count] of Object.entries(counts)) {
+    meter.gauge("kumiko_job_queue_depth").set(count, { lane, state });
   }
 }

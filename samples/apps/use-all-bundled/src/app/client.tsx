@@ -11,6 +11,7 @@
 // der App (siehe user/screens.ts). use-all-bundled IST diese App.
 
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
+import { authMfaClient, MfaVerifyScreen } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/web";
 import { customFieldsClient } from "@cosmicdrift/kumiko-bundled-features/custom-fields/web";
 import { foldersClient } from "@cosmicdrift/kumiko-bundled-features/folders/web";
 import { personalAccessTokensClient } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens/web";
@@ -76,14 +77,16 @@ const APP_TRANSLATIONS: TranslationsByLocale = {
 
 const appScreens: ClientFeatureDefinition = {
   name: "app-screens",
-  components: { profile: ProfileScreen },
+  // Must match screens-feature `__component: "UserProfileScreen"` (not screen id).
+  components: { UserProfileScreen: ProfileScreen },
   translations: APP_TRANSLATIONS,
 };
 
 createKumikoApp({
   shell: AppShell,
   clientFeatures: [
-    emailPasswordClient(),
+    emailPasswordClient({ mfaVerifyScreen: MfaVerifyScreen }),
+    authMfaClient(),
     tierEngineClient(),
     userProfileClient(),
     userDataRightsClient(),

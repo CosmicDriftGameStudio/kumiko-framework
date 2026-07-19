@@ -24,6 +24,8 @@ export const orderListScreen: EntityListScreenDefinition = {
   type: "entityList",
   entity: "order",
   columns: ["label", "status"],
+  defaultSort: { field: "label", dir: "asc" },
+  rowActions: [{ kind: "navigate", id: "edit", label: "demo:actions.edit", screen: "order-edit" }],
 };
 
 export const orderEditScreen: EntityEditScreenDefinition = {

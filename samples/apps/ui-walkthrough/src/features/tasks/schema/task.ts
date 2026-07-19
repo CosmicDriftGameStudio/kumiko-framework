@@ -65,4 +65,6 @@ export const listScreen: EntityListScreenDefinition = {
       renderer: { format: "priority", prefix: "P" },
     },
   ],
+  defaultSort: { field: "title", dir: "asc" },
+  rowActions: [{ kind: "navigate", id: "edit", label: "tasks:actions.edit", screen: "task-edit" }],
 };

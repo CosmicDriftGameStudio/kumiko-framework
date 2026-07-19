@@ -43,7 +43,7 @@ jobs:
           bun-version: "1.3.14"
 
       - name: Cache Bun
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
@@ -51,7 +51,7 @@ jobs:
             bun-${{ runner.os }}-
 
       - name: Cache TS Build Info
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             **/*.tsbuildinfo
@@ -65,12 +65,38 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun install --frozen-lockfile
 
+      - name: View-logic guard (samples)
+        # samples/apps müssen denselben No-Logic-in-Views-Guard bestehen wie
+        # die App-Repos. Framework nutzt nicht _app-test → expliziter Step,
+        # scoped auf den framework-Root. bin-existence-Check wie in _app-test.
+        # Fehlt das Binary, failt der Step hart (statt nur zu warnen) — ein
+        # stiller Skip hier hieße, dass die Architektur-Invariante in genau
+        # dem Moment ungeprüft bleibt, in dem der Guard fehlt.
+        run: |
+          if [ -e node_modules/.bin/kumiko-guard-no-logic-in-views ]; then
+            KUMIKO_GUARD_ROOTS=kumiko-framework bun kumiko-guard-no-logic-in-views
+          else
+            echo "::error::kumiko-guards ohne kumiko-guard-no-logic-in-views installiert — Dependency-Bump nachziehen"
+            exit 1
+          fi
+
       - name: Run tests
         run: |
           # watch-tests öffnen viele inotify-FDs; ohne Job-Container das
           # nofile-Limit selbst heben (kam vorher aus container.options).
           ulimit -n 65536 || true
           sh scripts/ci-memlog-run.sh bun kumiko check
+
+      - name: Upload unit coverage
+        # lcov aus demselben "Run tests"-Lauf oben (kein zweiter Testrun).
+        # Merge mit dem integration-lcov + Badge-Commit passiert im
+        # coverage-badge-Job unten, nachdem beide Jobs fertig sind.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: coverage/unit/lcov.info
+          retention-days: 1
 
       - name: Run isolated DOM screen tests (#457)
         # These render tests corrupt under the shared single-process happy-dom
@@ -113,7 +139,7 @@ jobs:
           bun-version: "1.3.14"
 
       - name: Cache Bun
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
@@ -147,7 +173,7 @@ jobs:
         with:
           bun-version: "1.3.14"
       - name: Cache Bun
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
@@ -238,7 +264,7 @@ jobs:
           bun-version: "1.3.14"
 
       - name: Cache Bun
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
@@ -255,8 +281,8 @@ jobs:
           docker network create kumiko-ci
           docker run -d --name kumiko-ci-pg --network kumiko-ci -p 15432:5432 \
             -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
-            postgres:18.3-alpine
-          docker run -d --name kumiko-ci-redis --network kumiko-ci -p 16379:6379 redis:7-alpine
+            postgres:18.4-alpine
+          docker run -d --name kumiko-ci-redis --network kumiko-ci -p 16379:6379 redis:8-alpine
           docker run -d --name kumiko-ci-meili --network kumiko-ci -p 17700:7700 \
             -e MEILI_MASTER_KEY=kumiko-dev-key -e MEILI_ENV=development \
             getmeili/meilisearch:v1.12
@@ -289,6 +315,11 @@ jobs:
           docker run --rm --network kumiko-ci --entrypoint sh minio/mc:RELEASE.2025-01-17T23-25-50Z -c "mc alias set local http://kumiko-ci-minio:9000 kumiko kumiko-dev-secret && mc ls local/kumiko-dev"
 
       - name: Run integration tests
+        env:
+          # Meili is started + health-checked above — a down Meili here is a
+          # job misconfiguration, not a real absence; fail loud instead of
+          # the live adapter suite silently skipping (kumiko-framework#1124).
+          REQUIRE_MEILI: "1"
         run: bun run test:integration
 
       # Split (441/1): only rebuildProjection's perf gate flakes under load
@@ -304,12 +335,205 @@ jobs:
         continue-on-error: true
         run: bun run test:integration:perf:flaky
 
+      - name: Integration coverage pass
+        # Re-runs the same integration files per-directory (like the
+        # authoritative run above) but with --coverage, since bun's coverage
+        # reporter overwrites its output dir per invocation — a single
+        # shared-process run across all ~2579 tests instead corrupted
+        # (cross-feature registry contamination). scripts/run-coverage-integration.ts
+        # merges the per-dir lcovs by line-level union afterwards. Local
+        # verification: entrypoint/index.ts went from 3% (unit-only) to
+        # 79% merged. continue-on-error: this is a second full test pass,
+        # purely for badge data — a transient infra flake here shouldn't
+        # gate anything. !cancelled() (not just the push/main check): a
+        # step with no continue-on-error above (the hard-blocking perf gate)
+        # failing would otherwise skip everything after it by default,
+        # silently starving the badge of integration data (seen after
+        # #1144 — perf-gate flake skipped this step entirely).
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !cancelled()
+        continue-on-error: true
+        run: bun scripts/run-coverage-integration.ts
+
+      - name: Upload integration coverage
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !cancelled()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-integration
+          path: coverage/integration/lcov.info
+          retention-days: 1
+
       - name: Stop services
         if: always()
         run: |
           docker rm -f kumiko-ci-pg kumiko-ci-redis kumiko-ci-meili kumiko-ci-minio || true
           docker network rm kumiko-ci || true
 
+  # Non-blocking (wie integration): nicht in release.needs, nicht in
+  # Branch-Protection. Fährt die 11 vorhandenen Playwright-e2e-Suiten
+  # (e2e/hero-demos, packages/renderer-web/e2e, samples/apps/*,
+  # samples/recipes/apex-landing) sequenziell gegen denselben Stack wie
+  # integration (pg/redis/meili/minio) — liefen vorher nie in CI.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Cache Bun
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Start services
+        run: |
+          docker network create kumiko-ci
+          docker run -d --name kumiko-ci-pg --network kumiko-ci -p 15432:5432 \
+            -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
+            postgres:18.4-alpine
+          docker run -d --name kumiko-ci-redis --network kumiko-ci -p 16379:6379 redis:8-alpine
+          docker run -d --name kumiko-ci-meili --network kumiko-ci -p 17700:7700 \
+            -e MEILI_MASTER_KEY=kumiko-dev-key -e MEILI_ENV=development \
+            getmeili/meilisearch:v1.12
+          for i in $(seq 1 30); do
+            if docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres
+          for i in $(seq 1 30); do
+            if docker exec kumiko-ci-redis redis-cli ping >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker exec kumiko-ci-redis redis-cli ping
+
+      - name: Run e2e suites
+        # Sequenziell (eigene webServer-Ports pro Suite, kein Parallel-Bedarf).
+        # Erste Aktivierung — Fehler sind erwartbar (Drift, nie in CI
+        # gelaufen); Job ist non-blocking, Summary zählt nur mit.
+        env:
+          CI: "true"
+          NODE_ENV: test
+          DATABASE_URL: postgresql://kumiko:kumiko@localhost:15432/kumiko_dev
+          TEST_DATABASE_URL: postgresql://kumiko:kumiko@localhost:15432/kumiko_test
+          REDIS_URL: redis://localhost:16379
+          JWT_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          MEILI_URL: http://localhost:17700
+          MEILI_MASTER_KEY: kumiko-dev-key
+          KUMIKO_SECRETS_MASTER_KEY_V1: "j1NOc6cu/65hhvGQU8uVXIy2lWg/SautKnWJ7anWbc4="
+        run: |
+          set +e
+          configs=(
+            e2e/hero-demos/playwright.config.ts
+            packages/renderer-web/playwright.config.ts
+            samples/apps/admin-console/playwright.config.ts
+            samples/apps/config-demo/playwright.config.ts
+            samples/apps/marketing-demo/playwright.config.ts
+            samples/apps/showcase/playwright.config.ts
+            samples/apps/styleguide/playwright.config.ts
+            samples/apps/ui-walkthrough/playwright.config.ts
+            samples/apps/use-all-bundled/playwright.config.ts
+            samples/apps/workspaces/playwright.config.ts
+            samples/recipes/apex-landing/playwright.config.ts
+          )
+          failed=()
+          for cfg in "${configs[@]}"; do
+            echo "=== e2e: $cfg ==="
+            bunx playwright test --config="$cfg"
+            code=$?
+            if [ $code -ne 0 ]; then failed+=("$cfg"); fi
+          done
+          echo ""
+          echo "=== e2e summary ==="
+          if [ ${#failed[@]} -eq 0 ]; then
+            echo "all ${#configs[@]} suites passed"
+          else
+            echo "${#failed[@]}/${#configs[@]} suites failed:"
+            printf '  %s\n' "${failed[@]}"
+            exit 1
+          fi
+
+      - name: Stop services
+        if: always()
+        run: |
+          docker rm -f kumiko-ci-pg kumiko-ci-redis kumiko-ci-meili || true
+          docker network rm kumiko-ci || true
+
+  coverage-badge:
+    # Merged unit+integration lcov → .github/badges/coverage.json auf einem
+    # eigenen orphan `badges`-Branch (force-push, stateless) — gelesen von der
+    # README-Badge via shields.io endpoint (raw.githubusercontent.com). `main`
+    # ist branch-protected ("changes via PR only"), ein direkter Commit-Push
+    # dorthin schlägt immer fehl (#1132 gezeigt) — der badges-Branch umgeht
+    # das, ohne für einen generierten Badge-Wert einen PR aufzumachen.
+    # needs: integration nur für die Artifact-Reihenfolge — der `if` verlangt
+    # NICHT dessen Erfolg: der echte dir-by-dir-Integrationslauf flakt
+    # gelegentlich (Redis/DB-Races), unabhängig von diesem Badge-Job. Ein
+    # Integration-Flake soll die Badge nicht verhindern. ABER: bei schnell
+    # aufeinanderfolgenden main-Pushes killt cancel-in-progress den noch
+    # laufenden integration-Job eines älteren Runs (~5min) — der Badge-Job
+    # lief dann trotzdem (needs nur "completed", nicht "success") und
+    # überschrieb den echten Wert mit Unit-only-Daten. needs.integration.result
+    # != 'cancelled' verhindert genau das (gesehen nach #1141/#1143).
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result == 'success' && needs.integration.result != 'cancelled'
+    needs: [test, integration]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-unit
+          path: coverage/unit
+
+      - uses: actions/download-artifact@v4
+        # continue-on-error: die Integration-Coverage-Pass ist selbst schon
+        # continue-on-error — Artifact kann fehlen, coverage-badge.ts fällt
+        # dann auf Unit-only zurück statt zu crashen.
+        continue-on-error: true
+        with:
+          name: coverage-integration
+          path: coverage/integration
+
+      - name: Compute badge
+        run: bun scripts/coverage-badge.ts
+
+      - name: Publish to badges branch
+        run: |
+          cp .github/badges/coverage.json /tmp/coverage.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan badges-tmp
+          git rm -rf . >/dev/null
+          mkdir -p .github/badges
+          cp /tmp/coverage.json .github/badges/coverage.json
+          git add .github/badges/coverage.json
+          git commit -m "chore: update coverage badge [skip ci]"
+          git push -f origin badges-tmp:badges
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [test, use-all-bundled-smoke]
@@ -332,13 +556,13 @@ jobs:
         with:
           bun-version: "1.3.14"
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "24.17.0"
           registry-url: "https://registry.npmjs.org"
 
       - name: Cache Bun
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}

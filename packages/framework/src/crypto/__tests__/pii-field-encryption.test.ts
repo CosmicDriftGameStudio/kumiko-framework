@@ -4,7 +4,9 @@ import { InMemoryKmsAdapter } from "../in-memory-kms-adapter";
 import { KeyNotFoundError, type KmsContext, subjectIdFromKey } from "../kms-adapter";
 import {
   decryptPiiFieldValues,
+  decryptPiiValueForSubject,
   encryptPiiFieldValues,
+  encryptPiiValueForSubject,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "../pii-field-encryption";
@@ -212,5 +214,80 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
     await expect(decryptPiiFieldValues(stored, ["email"], kmsB, KMS_CTX)).rejects.toBeInstanceOf(
       KeyNotFoundError,
     );
+  });
+});
+
+describe("piiEncrypted alias (kumiko-platform#457)", () => {
+  test("piiEncrypted + tenantOwned round-trips through the same subject-KMS pipeline", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const brandingWithAccess = createEntity({
+      fields: {
+        iban: createTextField({
+          piiEncrypted: true,
+          tenantOwned: true,
+          access: { read: ["TenantAdmin"] },
+        }),
+      },
+      table: "pii_branding_iban",
+    });
+    const fields = collectPiiSubjectFields(brandingWithAccess);
+    expect(fields).toEqual(["iban"]);
+
+    const row = { id: UUID_A, tenantId: UUID_B, iban: "DE89370400440532013000" };
+    const stored = await encryptPiiFieldValues(row, brandingWithAccess, fields, kms, KMS_CTX);
+    expect(isPiiCiphertext(stored["iban"])).toBe(true);
+    expect(String(stored["iban"])).toStartWith(`kumiko-pii:v1:tenant:${UUID_B}:`);
+
+    const read = await decryptPiiFieldValues(stored, fields, kms, KMS_CTX);
+    expect(read["iban"]).toBe("DE89370400440532013000");
+  });
+
+  test("piiEncrypted field is covered by subject erasure (Art. 17, kumiko-platform#461)", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const brandingWithAccess = createEntity({
+      fields: {
+        iban: createTextField({ piiEncrypted: true, tenantOwned: true }),
+      },
+      table: "pii_branding_iban_erasure",
+    });
+    const fields = collectPiiSubjectFields(brandingWithAccess);
+    const row = { id: UUID_A, tenantId: UUID_B, iban: "DE89370400440532013000" };
+    const stored = await encryptPiiFieldValues(row, brandingWithAccess, fields, kms, KMS_CTX);
+
+    // Erasure is subject-keyed, not field-flag-keyed — kms.eraseKey doesn't
+    // know or care that this field is piiEncrypted vs. plain tenantOwned.
+    await kms.eraseKey({ kind: "tenant", tenantId: UUID_B });
+
+    const read = await decryptPiiFieldValues(stored, fields, kms, KMS_CTX);
+    expect(read["iban"]).toBe(PII_ERASED_SENTINEL);
+  });
+});
+
+describe("encryptPiiValueForSubject / decryptPiiValueForSubject (kumiko-platform#459)", () => {
+  test("round-trips a single value for a tenant subject", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const subject = { kind: "tenant" as const, tenantId: UUID_B };
+    const stored = await encryptPiiValueForSubject(kms, subject, "DE89370400440532013000", KMS_CTX);
+    expect(isPiiCiphertext(stored)).toBe(true);
+    expect(stored).toStartWith(`kumiko-pii:v1:tenant:${UUID_B}:`);
+
+    const read = await decryptPiiValueForSubject(kms, stored, KMS_CTX);
+    expect(read).toBe("DE89370400440532013000");
+  });
+
+  test("erased subject: decrypt yields the sentinel", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const subject = { kind: "user" as const, userId: UUID_A };
+    const stored = await encryptPiiValueForSubject(kms, subject, "+49 151 00000000", KMS_CTX);
+    await kms.eraseKey(subject);
+
+    const read = await decryptPiiValueForSubject(kms, stored, KMS_CTX);
+    expect(read).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("plaintext passes through decrypt unchanged (pre-engine rows)", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const read = await decryptPiiValueForSubject(kms, "plain-value", KMS_CTX);
+    expect(read).toBe("plain-value");
   });
 });

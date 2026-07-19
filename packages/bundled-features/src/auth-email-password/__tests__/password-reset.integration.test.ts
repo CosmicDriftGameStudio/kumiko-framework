@@ -20,6 +20,7 @@ import { notificationPreferencesTable } from "../../delivery/tables";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
 import { createSessionsFeature, userSessionTable } from "../../sessions";
+import { hashPassword, verifyPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
@@ -30,7 +31,6 @@ import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
-import { hashPassword, verifyPassword } from "../password-hashing";
 import { signResetToken } from "../reset-token";
 
 // Reset mails now go through delivery (ctx.notify → channel-email). The

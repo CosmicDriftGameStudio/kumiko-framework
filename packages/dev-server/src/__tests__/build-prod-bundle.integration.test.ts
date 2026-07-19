@@ -19,7 +19,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildProdBundle } from "../build-prod-bundle";
+import { buildProdBundle } from "@cosmicdrift/kumiko-server-runtime/build-prod-bundle";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

@@ -177,6 +177,12 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
     exportName: "createUserDataRightsFeature",
     callExpression: "createUserDataRightsFeature()",
   },
+  "user-data-rights-defaults": {
+    name: "user-data-rights-defaults",
+    importPath: "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults",
+    exportName: "createUserDataRightsDefaultsFeature",
+    callExpression: "createUserDataRightsDefaultsFeature()",
+  },
 
   // --- Operations ---
   "feature-toggles": {

@@ -44,7 +44,7 @@ If you've only ever seen the free-form handler signature
 - `samples/recipes/custom-handlers/src/feature.ts` — a similar
   domain, written in the free-form style.
 - this file — the same kind of operations expressed as
-  `defineWriteHandler({ perform: pipeline(...) })`.
+  `defineWriteHandler({ perform: stepsPipeline(...) })`.
 
 Two patterns the pipeline form catches that the free-form does not:
 

@@ -53,6 +53,11 @@ export function createLocaleRouter<TPage extends string>(
     homePage = "home" as TPage,
   } = config;
 
+  if (routes[homePage] === undefined) {
+    throw new Error(
+      `locale-routing: homePage "${String(homePage)}" has no entry in routes — altLocalePath's fallback would throw at request time`,
+    );
+  }
   const pathIndex = new Map<string, { page: TPage; locale: string }>();
 
   for (const [page, localePaths] of Object.entries(routes) as [TPage, Record<string, string>][]) {
@@ -102,13 +107,18 @@ export function createLocaleRouter<TPage extends string>(
   }
 
   function publicPath(page: TPage, locale: string): string {
-    const routePath = routes[page][locale];
+    const localePaths = routes[page];
+    const routePath = localePaths?.[locale];
     if (routePath === undefined) {
       throw new Error(`locale-routing: no path for page "${String(page)}" locale "${locale}"`);
     }
     return routePath;
   }
 
+  // Binary toggle (defaultLocale <-> prefixedLocales[0]) — altLocalePath has
+  // no way to target a specific alt locale beyond the first prefixed one.
+  // Fine for the current bilingual (de/en) setup; a third prefixed locale
+  // needs altLocalePath to take an explicit targetLocale param instead.
   function otherLocale(currentLocale: string): string {
     if (currentLocale === defaultLocale) {
       return prefixedLocales[0] ?? defaultLocale;

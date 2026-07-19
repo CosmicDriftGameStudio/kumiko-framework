@@ -2,6 +2,7 @@ import {
   type ConfigCascade,
   type ConfigCascadeLevel,
   defineQueryHandler,
+  isEncryptedAtRest,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { requireConfigResolver } from "../feature";
@@ -59,7 +60,7 @@ export const cascadeQuery = defineQueryHandler({
 
       // backing="secrets" is masked like encrypted — the resolver revealed the
       // plaintext for internal reads, but it must never reach the cascade UI.
-      if (keyDef.encrypted || keyDef.backing === "secrets") {
+      if (isEncryptedAtRest(keyDef)) {
         const maskedLevels: ConfigCascadeLevel[] = cascade.levels.map((l) => ({
           ...l,
           value: l.hasValue ? MASKED : l.value,

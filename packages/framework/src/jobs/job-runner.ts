@@ -11,7 +11,13 @@ import {
   SYSTEM_TENANT_ID,
 } from "../engine/types";
 import type { Logger } from "../logging/types";
-import { getFallbackTracer, type SerializedTraceContext, type Tracer } from "../observability";
+import {
+  emitJobQueueDepth,
+  getFallbackTracer,
+  type Meter,
+  type SerializedTraceContext,
+  type Tracer,
+} from "../observability";
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock";
 import { RedisKeys } from "../pipeline/redis-keys";
 
@@ -119,6 +125,29 @@ function captureTraceContext(tracer: Tracer): SerializedTraceContext | undefined
   return { traceId: span.traceId, spanId: span.spanId };
 }
 
+const QUEUE_DEPTH_POLL_INTERVAL_MS = 15_000;
+
+// kumiko_job_queue_depth: only the lane's own consumer polls — the count is
+// a global Redis-backed value (BullMQ, not per-process), so one reporter per
+// lane is enough. Fires once immediately (metrics exist before the first
+// poll tick) then on an interval; the caller stores + clears the handle.
+async function startQueueDepthPolling(
+  queue: Queue,
+  lane: JobRunIn,
+  meter: Meter,
+): Promise<ReturnType<typeof setInterval>> {
+  const pollQueueDepth = async (): Promise<void> => {
+    try {
+      const counts = await queue.getJobCounts("waiting", "active", "delayed", "failed", "paused");
+      emitJobQueueDepth(meter, lane, counts);
+    } catch {
+      // skip: transient Redis hiccup — next poll retries
+    }
+  };
+  await pollQueueDepth();
+  return setInterval(() => void pollQueueDepth(), QUEUE_DEPTH_POLL_INTERVAL_MS);
+}
+
 function parseRedisOpts(url: string): { host: string; port: number; db?: number | undefined } {
   const parsed = new URL(url);
   const result: { host: string; port: number; db?: number | undefined } = {
@@ -181,6 +210,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     worker: new Queue(queueNameFor(queueNamePrefix, "worker"), { connection: redisOpts }),
   };
   let worker: Worker | null = null;
+  let queueDepthTimer: ReturnType<typeof setInterval> | null = null;
   // Forward reference to the runner's own API, exposed on the job-handler ctx
   // so a handler can dispatch a follow-up job (job→job chaining, e.g.
   // delivery.render → delivery.send). Assigned just before return; reads happen
@@ -431,9 +461,19 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           await consumerQueue.add(bootName, {}, { jobId: `boot-${name.replace(/\./g, "-")}` });
         }
       }
+
+      // Skipped when no meter is wired (context.meter is optional, e.g. in
+      // tests without an observability provider).
+      if (context.meter) {
+        queueDepthTimer = await startQueueDepthPolling(consumerQueue, consumerLane, context.meter);
+      }
     },
 
     async stop(): Promise<void> {
+      if (queueDepthTimer) {
+        clearInterval(queueDepthTimer);
+        queueDepthTimer = null;
+      }
       if (worker) {
         await worker.close();
         worker = null;

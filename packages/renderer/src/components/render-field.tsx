@@ -1,5 +1,6 @@
 import type { EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { toKebab } from "../app/qn";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits";
 import { useQuery } from "../hooks/use-query";
 import { useLocale } from "../i18n";
@@ -118,7 +119,7 @@ function ReferenceInput({
   // Tier 2.7e Cross-Feature: refFeature kann ≠ featureName sein
   // (z.B. items.assignee → users:query:user:list). Default ist
   // same-feature, kommt aus dem ViewModel (parseRefTarget).
-  const queryQn = `${refFeature}:query:${refEntity}:list`;
+  const queryQn = `${toKebab(refFeature)}:query:${toKebab(refEntity)}:list`;
   // Tier 2.7e Remote-Search: User tippt im Combobox → Server filtert
   // via existing list-payload `search`-Param (Tier 2.6c). Combobox
   // debounced den keystroke selbst (300ms) und ruft onSearchChange.

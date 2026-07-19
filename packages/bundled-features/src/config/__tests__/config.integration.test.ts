@@ -131,17 +131,34 @@ const ordersFeature = defineFeature("orders", (r) => {
   });
 });
 
+// r.config() shorthand — single-key sibling of r.config({keys}), same
+// wiring end-to-end (registry → resolver → ctx.config). No seeds needed here.
+const configKeyDemoFeature = defineFeature("configkeydemo", (r) => {
+  r.requires("config");
+  const betaEnabled = r.config(
+    "betaEnabled",
+    createTenantConfig("boolean", { default: false, write: access.roles("Admin") }),
+  );
+  return { betaEnabled };
+});
+
 // Probe feature: a real writeHandler reads two configs through ctx.config
 // so the dispatcher-wiring path is exercised end-to-end (not just the
 // factory in isolation). Captures the resolved values for the test to assert.
-const probe: { orders: number | undefined; push: boolean | undefined } = {
+const probe: {
+  orders: number | undefined;
+  push: boolean | undefined;
+  betaEnabled: boolean | undefined;
+} = {
   orders: undefined,
   push: undefined,
+  betaEnabled: undefined,
 };
 const probeFeature = defineFeature("probe", (r) => {
   r.requires("config");
   r.requires("orders");
   r.requires("notifications");
+  r.requires("configkeydemo");
 
   r.writeHandler(
     "read-config",
@@ -150,7 +167,11 @@ const probeFeature = defineFeature("probe", (r) => {
       if (!ctx.config) throw new Error("ctx.config not wired — _configAccessorFactory missing");
       probe.orders = await ctx.config(ordersFeature.exports.maxOrderCount);
       probe.push = await ctx.config(notificationsFeature.exports.pushEnabled);
-      return { isSuccess: true, data: { orders: probe.orders, push: probe.push } };
+      probe.betaEnabled = await ctx.config(configKeyDemoFeature.exports.betaEnabled);
+      return {
+        isSuccess: true,
+        data: { orders: probe.orders, push: probe.push, betaEnabled: probe.betaEnabled },
+      };
     },
     { access: { openToAll: true } },
   );
@@ -267,6 +288,7 @@ beforeAll(async () => {
       notificationsFeature,
       ordersFeature,
       integrationFeature,
+      configKeyDemoFeature,
       probeFeature,
       seedFeature,
       transportFeature,
@@ -781,12 +803,38 @@ describe("ctx.config() in handler context", () => {
     // Reset so prior test order doesn't pollute the assertion.
     probe.orders = undefined;
     probe.push = undefined;
+    probe.betaEnabled = undefined;
     await stack.http.writeOk("probe:write:read-config", {}, tenantAdmin);
     // The probe handler ran ctx.config(handle) for both keys — typeof
     // catches the regression where the handle path silently returns the
     // broad union instead of the narrowed primitive.
     expect(typeof probe.orders).toBe("number");
     expect(typeof probe.push).toBe("boolean");
+    // r.config()'s handle goes through the exact same ctx.config() path.
+    // (value-level check — true vs. false — is covered by the next test,
+    // which reads via configFn without the narrowing hazard of a plain
+    // `undefined`-initialized probe field.)
+    expect(typeof probe.betaEnabled).toBe("boolean");
+  });
+
+  test("r.config() single-key form value is settable/readable via ctx.config", async () => {
+    expect(configKeyDemoFeature.exports.betaEnabled.name).toBe("configkeydemo:config:beta-enabled");
+
+    const configFn = createConfigAccessor(
+      stack.registry,
+      resolver,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+    expect(await configFn(configKeyDemoFeature.exports.betaEnabled)).toBe(false);
+
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "configkeydemo:config:beta-enabled", value: true },
+      tenantAdmin,
+    );
+    expect(await configFn(configKeyDemoFeature.exports.betaEnabled)).toBe(true);
   });
 });
 

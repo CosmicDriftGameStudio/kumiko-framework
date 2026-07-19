@@ -2,6 +2,17 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
+const GIT_ENV_VARS_TO_STRIP = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY"];
+
+/** Strips GIT_DIR/GIT_WORK_TREE/etc inherited from an enclosing git hook
+ *  (e.g. pre-push) so a git subprocess spawned here always targets `cwd`
+ *  instead of the hook's own repo. */
+function gitEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of GIT_ENV_VARS_TO_STRIP) delete env[key];
+  return env;
+}
+
 const KNOWN_REPO_NAMES = new Set([
   "kumiko-framework",
   "kumiko-enterprise",
@@ -24,6 +35,7 @@ export function gitWorktreeRoot(cwd: string): string | undefined {
   const r = spawnSync("git", ["rev-parse", "--show-toplevel"], {
     cwd,
     encoding: "utf-8",
+    env: gitEnv(),
   });
   if (r.status !== 0) return undefined;
   const top = r.stdout.trim();

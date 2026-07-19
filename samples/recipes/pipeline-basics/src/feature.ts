@@ -38,7 +38,7 @@ import {
   createTextField,
   defineFeature,
   defineWriteHandler,
-  pipeline,
+  stepsPipeline,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
@@ -128,7 +128,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
         initialStock: z.number().int().min(0).default(0),
       }),
       access: { roles: ["Admin"] },
-      perform: pipeline<{ sku: string; name: string; initialStock: number }, { id: string }>(
+      perform: stepsPipeline<{ sku: string; name: string; initialStock: number }, { id: string }>(
         ({ event, r }) => [
           r.step.aggregate.create("product", {
             executor: productExecutor,
@@ -159,7 +159,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
       name: "product:rename",
       schema: z.object({ id: z.uuid(), name: z.string().min(1) }),
       access: { roles: ["Admin"] },
-      perform: pipeline<{ id: string; name: string }, { id: string; renamed: boolean }>(
+      perform: stepsPipeline<{ id: string; name: string }, { id: string; renamed: boolean }>(
         ({ event, r }) => [
           r.step.read.findOne("current", {
             table: productTable,
@@ -209,7 +209,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
         reason: z.string().min(1),
       }),
       access: { roles: ["Admin", "User"] },
-      perform: pipeline<
+      perform: stepsPipeline<
         { id: string; delta: number; reason: string },
         { id: string; newStock: number }
       >(({ event, r }) => [
@@ -293,7 +293,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
         adjustments: z.array(z.object({ id: z.uuid(), delta: z.number().int() })).min(1),
       }),
       access: { roles: ["Admin"] },
-      perform: pipeline<
+      perform: stepsPipeline<
         { adjustments: ReadonlyArray<{ id: string; delta: number }> },
         { processed: number }
       >(({ event, r }) => [
@@ -341,7 +341,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
       name: "product:archive",
       schema: z.object({ id: z.uuid(), reason: z.string().min(1) }),
       access: { roles: ["Admin"] },
-      perform: pipeline<{ id: string; reason: string }, { id: string }>(({ event, r }) => [
+      perform: stepsPipeline<{ id: string; reason: string }, { id: string }>(({ event, r }) => [
         r.step.aggregate.appendEvent({
           aggregateId: () => event.payload.id,
           aggregateType: "product",
@@ -372,7 +372,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
       name: "report:archive-low-stock-products",
       schema: z.object({ reason: z.string().min(1) }),
       access: { roles: ["Admin"] },
-      perform: pipeline<{ reason: string }, { archivedCount: number }>(({ event, r }) => [
+      perform: stepsPipeline<{ reason: string }, { archivedCount: number }>(({ event, r }) => [
         r.step.read.findMany("alerts", {
           table: lowStockAlertsTable,
         }),

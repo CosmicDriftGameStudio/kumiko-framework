@@ -10,7 +10,7 @@ import { z } from "zod";
 export const detailsQuery = defineQueryHandler({
   name: "details",
   schema: z.object({
-    id: z.string().regex(/^\d+$/, "id must be a positive integer"),
+    id: z.string().regex(/^[1-9]\d*$/, "id must be a positive integer"),
   }),
   access: { roles: access.admin },
   handler: async (query, ctx) => {

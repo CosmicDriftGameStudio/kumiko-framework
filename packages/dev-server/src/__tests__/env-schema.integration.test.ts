@@ -7,10 +7,10 @@
 import { describe, expect, it } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
+import { runProdApp } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 import { z } from "zod";
 import { frameworkCoreEnvSchema } from "../env-schema";
 import * as devServerPublicApi from "../index";
-import { runProdApp } from "../run-prod-app";
 
 const secretsFeature = defineFeature("secrets", (r) => {
   r.envSchema(

@@ -148,7 +148,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   // wären Column-Header raw i18n-Keys.
   const t = useTranslation();
   const translate: Translate = translateProp ?? t;
-  const { DataTable, Button, Dialog, Input, Text } = usePrimitives();
+  const { DataTable, Button, Dialog, Input, Text, Banner } = usePrimitives();
 
   // Local Search-Buffer + Debounce. Externe Änderungen (Browser-Back,
   // Cross-Component-Reset) spiegeln wir per Sync-Effect zurück; Tipps
@@ -280,7 +280,13 @@ export function RenderList(props: RenderListProps): ReactNode {
         {hasHeaderSlot && <ListHeaderSlotMount screen={screen} />}
         {hasToolbarActions &&
           toolbarActions.map((a) => (
-            <ToolbarActionView key={a.id} action={a} Button={Button} Dialog={Dialog} />
+            <ToolbarActionView
+              key={a.id}
+              action={a}
+              Button={Button}
+              Dialog={Dialog}
+              Banner={Banner}
+            />
           ))}
         {onCreate !== undefined && (
           <Button variant="primary" onClick={onCreate} testId="render-list-create">
@@ -423,18 +429,29 @@ function ToolbarActionView({
   action,
   Button,
   Dialog,
+  Banner,
 }: {
   readonly action: ToolbarActionButton;
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
+  readonly Banner: ReturnType<typeof usePrimitives>["Banner"];
 }): ReactNode {
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Toolbar-Actions haben (anders als rowActions, die über die DataTable-
+  // Primitive laufen) keine Toast-Primitive zur Verfügung — ein inline
+  // Error-Banner ist der surfacing-Pfad hier. Gleicher Grund wie bei
+  // rowActions (Prod-Bug 2026-06-07): ein verschlucktes Failure-Result
+  // sieht für den User wie "nichts passiert" aus.
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   const trigger = async (): Promise<void> => {
     setBusy(true);
+    setErrorText(null);
     try {
       await action.onTrigger();
+    } catch (e) {
+      setErrorText(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -469,6 +486,11 @@ function ToolbarActionView({
         onConfirm={trigger}
         testId={`render-list-toolbar-action-${action.id}-dialog`}
       />
+      {errorText !== null && (
+        <Banner variant="error" testId={`render-list-toolbar-action-${action.id}-error`}>
+          {errorText}
+        </Banner>
+      )}
     </>
   );
 }

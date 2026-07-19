@@ -47,14 +47,27 @@ export function scaffoldAppFeature(options: ScaffoldAppFeatureOptions): Scaffold
   }
   mkdirSync(featureDir, { recursive: true });
 
-  const files: string[] = [];
-  const featureFile = join(featureDir, "feature.ts");
-  writeFileSync(featureFile, renderFeature(options.name));
-  files.push(`src/features/${options.name}/feature.ts`);
+  // Volle App-Feature-Konvention (Referenz: bundled-features/tenant):
+  // feature.ts = nur Registrierung, schema/ für Entities, i18n.ts für
+  // Server-Keys, web/ für die Client-Seite, __tests__/ mit Boot-Test.
+  // handlers/ + lib/ entstehen beim ersten echten Handler/Logik-Modul.
+  mkdirSync(join(featureDir, "schema"), { recursive: true });
+  mkdirSync(join(featureDir, "web"), { recursive: true });
+  mkdirSync(join(featureDir, "__tests__"), { recursive: true });
 
-  const indexFile = join(featureDir, "index.ts");
-  writeFileSync(indexFile, renderIndex(options.name));
-  files.push(`src/features/${options.name}/index.ts`);
+  const files: string[] = [];
+  const write = (relative: string, content: string): void => {
+    writeFileSync(join(featureDir, relative), content);
+    files.push(`src/features/${options.name}/${relative}`);
+  };
+  write("feature.ts", renderFeature(options.name));
+  write("index.ts", renderIndex(options.name));
+  write("constants.ts", renderConstants(options.name));
+  write("i18n.ts", renderI18n(options.name));
+  write(join("schema", `${options.name}-item.ts`), renderEntity(options.name));
+  write(join("schema", "index.ts"), renderSchemaIndex(options.name));
+  write(join("web", "index.ts"), renderWebIndex(options.name));
+  write(join("__tests__", "feature.boot.test.ts"), renderBootTest(options.name));
 
   const runConfigPath = join(appRoot, "src", "run-config.ts");
   let autoMounted = false;
@@ -83,18 +96,38 @@ function renderFeature(name: string): string {
   const camel = kebabToCamel(name);
   return `// ${name} feature — scaffolded by \`kumiko add feature\`. Edit freely.
 //
-// Doc-Pointer: https://docs.kumiko.rocks/en/patterns/ for the \`r.*\` API
-// (r.entity, r.writeHandler, r.queryHandler, hooks, …).
+// Konvention (Referenz: bundled-features, z.B. tenant/):
+//   feature.ts  — NUR Registrierung (r.entity / r.screen / r.queryHandler / …)
+//   schema/     — Entity-Definitionen
+//   handlers/   — eine Datei pro Handler (defineQueryHandler / defineWriteHandler)
+//   lib/        — reine Domain-Logik
+//   web/        — Client-Seite (index.ts, ein Screen pro Datei)
+//   i18n.ts     — Server-Translation-Keys
+//
+// Doc-Pointer: https://docs.kumiko.rocks/en/patterns/ for the \`r.*\` API.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { ${constName(name)} } from "./constants";
+import { ${camel}TranslationKeys } from "./i18n";
+import { ${camel}ItemEntity } from "./schema";
 
-export const ${camel}Feature = defineFeature("${name}", (r) => {
-  // Starter: declare an entity. Drop and replace with your domain.
-  r.entity("${name}-item", {
-    fields: {
-      title: { type: "text", required: true },
-    },
+export const ${camel}Feature = defineFeature(${constName(name)}, (r) => {
+  r.entity("${name}-item", ${camel}ItemEntity);
+
+  // Deklarativer List-Screen — CRUD-Query kommt aus der Entity.
+  // Für query-getriebene Tabellen: type "projectionList"; für
+  // Kennzahlen-Grids: type "dashboard".
+  r.screen({
+    id: "items",
+    type: "entityList",
+    entity: "${name}-item",
+    columns: ["title"],
+    defaultSort: { field: "title", dir: "asc" },
   });
+
+  r.translations({ keys: ${camel}TranslationKeys });
+
+  r.nav({ id: "items", label: "screen:items.title", screen: "${name}:screen:items" });
 });
 `;
 }
@@ -104,8 +137,78 @@ function renderIndex(name: string): string {
   return `export { ${camel}Feature } from "./feature";\n`;
 }
 
+function renderConstants(name: string): string {
+  return `export const ${constName(name)} = "${name}" as const;\n`;
+}
+
+function renderI18n(name: string): string {
+  const camel = kebabToCamel(name);
+  return `// Server-seitige Translation-Keys (r.translations). Screen-Titel und
+// Field-Labels folgen den Framework-Konventionen — der Boot-Validator
+// prüft die Abdeckung.
+
+export const ${camel}TranslationKeys = {
+  "screen:items.title": { de: "Einträge", en: "Items" },
+  "${name}:entity:${name}-item:field:title": { de: "Titel", en: "Title" },
+};
+`;
+}
+
+function renderEntity(name: string): string {
+  const camel = kebabToCamel(name);
+  return `// Entity-Definition — Felder, Annotationen, Transitions.
+// Starter: eine Text-Spalte. Ersetze sie durch deine Domain.
+import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
+
+export const ${camel}ItemEntity = createEntity({
+  fields: {
+    title: createTextField({ required: true, sortable: true }),
+  },
+});
+`;
+}
+
+function renderSchemaIndex(name: string): string {
+  const camel = kebabToCamel(name);
+  return `export { ${camel}ItemEntity } from "./${name}-item";\n`;
+}
+
+function renderWebIndex(name: string): string {
+  const camel = kebabToCamel(name);
+  return `// @runtime client
+// Client-Seite des Features: translations, components (custom-Screens),
+// columnRenderers. In src/app/client.tsx bei
+// createKumikoApp({ clientFeatures: [...] }) einhängen — das passiert
+// NICHT automatisch. Screens: eine Datei pro Screen in diesem Ordner.
+
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+
+export const ${camel}Client: ClientFeatureDefinition = {
+  name: "${name}",
+};
+`;
+}
+
+function renderBootTest(name: string): string {
+  const camel = kebabToCamel(name);
+  return `import { describe, expect, test } from "bun:test";
+import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { ${camel}Feature } from "../feature";
+
+describe("${name} feature", () => {
+  test("boots: Entity, Screens und i18n-Coverage validieren", () => {
+    expect(() => validateBoot([${camel}Feature])).not.toThrow();
+  });
+});
+`;
+}
+
 function kebabToCamel(name: string): string {
   return name.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+}
+
+function constName(name: string): string {
+  return `${name.replace(/-/g, "_").toUpperCase()}_FEATURE`;
 }
 
 // ts-morph: open run-config, prepend import, append APP_FEATURES entry.

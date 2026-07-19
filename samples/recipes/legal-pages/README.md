@@ -54,7 +54,7 @@ Step-by-step for an existing Kumiko app (e.g.
 
 ```typescript illustration
 // bin/main.ts
-import { runProdApp } from "@cosmicdrift/kumiko-dev-server";
+import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 import {
   createTextContentApi,
   createTextContentFeature,

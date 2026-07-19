@@ -60,7 +60,7 @@ import {
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { createEntity, createTextField } from "../factories";
-import { pipeline } from "../pipeline";
+import { stepsPipeline } from "../pipeline";
 
 const echoSchema = z.object({ greeting: z.string() });
 
@@ -70,7 +70,7 @@ const echoHandler = defineWriteHandler({
   name: "echo",
   schema: echoSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<z.infer<typeof echoSchema>, { echoed: string; from: string }>(
+  perform: stepsPipeline<z.infer<typeof echoSchema>, { echoed: string; from: string }>(
     ({ event, r }) => [
       r.step.return(() => ({
         isSuccess: true as const,
@@ -90,7 +90,7 @@ const explodeHandler = defineWriteHandler({
   name: "explode",
   schema: explodeSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<z.infer<typeof explodeSchema>, never>(({ r }) => [
+  perform: stepsPipeline<z.infer<typeof explodeSchema>, never>(({ r }) => [
     r.step.return(() => {
       throw new Error("boom");
     }),
@@ -106,7 +106,7 @@ const compoundHandler = defineWriteHandler({
   name: "compound",
   schema: compoundSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<z.infer<typeof compoundSchema>, { sum: number; userId: string }>(
+  perform: stepsPipeline<z.infer<typeof compoundSchema>, { sum: number; userId: string }>(
     ({ event, r }) => [
       r.step.compute("offset", () => 100),
       r.step.compute("doubledBase", () => event.payload.base * 2),
@@ -147,7 +147,7 @@ const logHandler = defineWriteHandler({
   schema: logSchema,
   access: { roles: ["Admin"] },
   // Outer-`event`-capture pattern — see compoundHandler above for the why.
-  perform: pipeline<z.infer<typeof logSchema>, { correlationId: string }>(({ event, r }) => [
+  perform: stepsPipeline<z.infer<typeof logSchema>, { correlationId: string }>(({ event, r }) => [
     r.step.unsafeProjectionUpsert({
       table: pipelineDemoLogTable,
       on: ["correlationId"],
@@ -182,7 +182,7 @@ const widgetCreateHandler = defineWriteHandler({
   name: "widget:create",
   schema: widgetSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<z.infer<typeof widgetSchema>, { id: string }>(({ event, r }) => [
+  perform: stepsPipeline<z.infer<typeof widgetSchema>, { id: string }>(({ event, r }) => [
     r.step.aggregate.create("widget", {
       executor: widgetExecutor,
       data: () => ({ label: event.payload.label }),
@@ -202,7 +202,7 @@ const annotateHandler = defineWriteHandler({
   name: "widget:annotate",
   schema: annotateSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<z.infer<typeof annotateSchema>, { id: string }>(({ event, r }) => [
+  perform: stepsPipeline<z.infer<typeof annotateSchema>, { id: string }>(({ event, r }) => [
     r.step.aggregate.create("widget", {
       executor: widgetExecutor,
       data: () => ({ label: event.payload.label }),
@@ -230,7 +230,7 @@ const widgetUpdateHandler = defineWriteHandler({
   name: "widget:update",
   schema: widgetUpdateSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<z.infer<typeof widgetUpdateSchema>, { id: string }>(({ event, r }) => [
+  perform: stepsPipeline<z.infer<typeof widgetUpdateSchema>, { id: string }>(({ event, r }) => [
     r.step.aggregate.update("widget", {
       executor: widgetExecutor,
       id: () => event.payload.id,
@@ -254,7 +254,7 @@ const widgetBrokenHandler = defineWriteHandler({
   name: "widget:create-broken",
   schema: z.object({}),
   access: { roles: ["Admin"] },
-  perform: pipeline<Record<string, never>, { id: string }>(({ r }) => [
+  perform: stepsPipeline<Record<string, never>, { id: string }>(({ r }) => [
     r.step.aggregate.create("widget", {
       executor: widgetExecutor,
       // Intentionally omits the `label` field that the entity declares
@@ -278,7 +278,7 @@ const widgetCreateThenThrowHandler = defineWriteHandler({
   name: "widget:create-then-throw",
   schema: z.object({ label: z.string() }),
   access: { roles: ["Admin"] },
-  perform: pipeline<{ label: string }, never>(({ event, r }) => [
+  perform: stepsPipeline<{ label: string }, never>(({ event, r }) => [
     r.step.aggregate.create("widget", {
       executor: widgetExecutor,
       data: () => ({ label: event.payload.label }),
@@ -303,7 +303,7 @@ const forEachThenThrowHandler = defineWriteHandler({
   name: "widget:foreach-then-throw",
   schema: forEachThenThrowSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<{ labels: string[] }, never>(({ event, r }) => [
+  perform: stepsPipeline<{ labels: string[] }, never>(({ event, r }) => [
     r.step.forEach({
       over: () => event.payload.labels,
       as: "label",
@@ -337,7 +337,7 @@ const lookupHandler = defineWriteHandler({
   name: "widget:lookup",
   schema: lookupSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<z.infer<typeof lookupSchema>, { found: boolean; label: string | null }>(
+  perform: stepsPipeline<z.infer<typeof lookupSchema>, { found: boolean; label: string | null }>(
     ({ event, r }) => [
       r.step.read.findOne("widget", {
         table: widgetTable,
@@ -358,7 +358,7 @@ const listAllHandler = defineWriteHandler({
   name: "widget:list",
   schema: z.object({}),
   access: { roles: ["Admin"] },
-  perform: pipeline<Record<string, never>, { count: number }>(({ r }) => [
+  perform: stepsPipeline<Record<string, never>, { count: number }>(({ r }) => [
     r.step.read.findMany("widgets", { table: widgetTable }),
     r.step.return(({ steps }) => ({
       isSuccess: true as const,
@@ -374,7 +374,7 @@ const listLimitedHandler = defineWriteHandler({
   name: "widget:list-one",
   schema: z.object({}),
   access: { roles: ["Admin"] },
-  perform: pipeline<Record<string, never>, { count: number }>(({ r }) => [
+  perform: stepsPipeline<Record<string, never>, { count: number }>(({ r }) => [
     r.step.read.findMany("widgets", { table: widgetTable, limit: 1 }),
     r.step.return(({ steps }) => ({
       isSuccess: true as const,
@@ -388,7 +388,7 @@ const purgeLogHandler = defineWriteHandler({
   name: "log:purge",
   schema: purgeLogSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<z.infer<typeof purgeLogSchema>, { ok: true }>(({ event, r }) => [
+  perform: stepsPipeline<z.infer<typeof purgeLogSchema>, { ok: true }>(({ event, r }) => [
     r.step.unsafeProjectionDelete({
       table: pipelineDemoLogTable,
       where: () => ({ correlationId: event.payload.correlationId }),
@@ -403,7 +403,7 @@ const conditionalLogHandler = defineWriteHandler({
   name: "log:conditional",
   schema: conditionalLogSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<z.infer<typeof conditionalLogSchema>, { ok: true }>(({ event, r }) => [
+  perform: stepsPipeline<z.infer<typeof conditionalLogSchema>, { ok: true }>(({ event, r }) => [
     r.step.branch({
       if: () => event.payload.message.length > 0,
       onTrue: [
@@ -428,7 +428,7 @@ const bulkLogHandler = defineWriteHandler({
   name: "log:bulk",
   schema: bulkLogSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<z.infer<typeof bulkLogSchema>, { count: number }>(({ event, r }) => [
+  perform: stepsPipeline<z.infer<typeof bulkLogSchema>, { count: number }>(({ event, r }) => [
     r.step.forEach({
       over: () => event.payload.correlationIds,
       as: "correlationId",
@@ -476,7 +476,7 @@ const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
 let stack: TestStack;
 const admin = TestUsers.admin;
 
-describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher path", () => {
+describe("defineWriteHandler({ perform: stepsPipeline(...) }) — real dispatcher path", () => {
   beforeAll(async () => {
     stack = await setupTestStack({ features: [demoPipelineFeature] });
     // Push the read-side-projection table — not registered as an entity,

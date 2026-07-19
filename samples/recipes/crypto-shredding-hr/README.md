@@ -53,7 +53,7 @@ deletion grace period.
    `userOwned: { ownerField: "employeeId" }`.
 3. `kms.eraseKey({ kind: "user", userId })` — idempotent, tombstone stays
    for the audit trail.
-4. Detail and list responses now show `[[erased]]` for every field the key
+4. Detail responses (list, too, for `employee`) now show `[[erased]]` for every field the key
    protected; events and rows keep their original (unreadable) bytes.
 5. Lookups by email stop matching after the forget: the pipeline nulls the
    blind index immediately (`nullBlindIndexesForSubject`), and every

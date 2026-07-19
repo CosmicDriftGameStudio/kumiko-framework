@@ -19,8 +19,8 @@ import {
   writeSnapshotJson,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { IndentationText, Project, VariableDeclarationKind } from "ts-morph";
-import { composeFeatures } from "./compose-features";
 import { isKebabSegment } from "./kebab";
 import {
   createDemoTasksFeature,
@@ -130,7 +130,7 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, "bin", "kumiko.ts"), renderBinKumiko());
   files.push("bin/kumiko.ts");
 
-  write(join(destination, "src", "client.tsx"), renderClient());
+  write(join(destination, "src", "client.tsx"), renderClient(options.name));
   files.push("src/client.tsx");
 
   write(join(destination, "src", "styles.css"), renderStylesCss());
@@ -186,6 +186,7 @@ function renderPackageJson(name: string, version: string): string {
         "@cosmicdrift/kumiko-dev-server": version,
         "@cosmicdrift/kumiko-framework": version,
         "@cosmicdrift/kumiko-renderer-web": version,
+        "@cosmicdrift/kumiko-server-runtime": version,
         react: "^19.2.6",
         "react-dom": "^19.2.6",
         zod: "^4.4.3",
@@ -193,6 +194,8 @@ function renderPackageJson(name: string, version: string): string {
       devDependencies: {
         "@biomejs/biome": "^2.4.15",
         "@tailwindcss/cli": "^4.3.0",
+        "@types/react": "^19.2.0",
+        "@types/react-dom": "^19.2.0",
         "bun-types": "^1.3.14",
         tailwindcss: "^4.3.0",
         typescript: "^6.0.3",
@@ -394,14 +397,14 @@ function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string
   sf.insertText(
     0,
     [
-      "// Single source of truth für die Feature-Komposition deiner App.",
-      "// config/user/tenant/auth-email-password werden via",
-      "// composeFeatures(includeBundled:true) automatisch ergänzt wenn",
-      "// runProdApp mit `auth: {…}` aufgerufen wird (siehe bin/main.ts).",
+      "// Single source of truth for your app's feature composition.",
+      "// config/user/tenant/auth-email-password are added automatically",
+      "// via composeFeatures(includeBundled:true) when runProdApp is called",
+      "// with `auth: {…}` (see bin/main.ts).",
       "//",
-      "// Neue features hinzufügen:",
-      "//   - bunx @cosmicdrift/kumiko-cli add feature <name>  (DX-2, automatisch)",
-      "//   - oder: hand-edit + import unten ergänzen",
+      "// Add new features:",
+      "//   - bunx @cosmicdrift/kumiko-cli add feature <name>  (DX-2, automatic)",
+      "//   - or: hand-edit + add the import below",
       "",
       "",
     ].join("\n"),
@@ -417,7 +420,11 @@ function renderMain(appName: string): string {
 
   sf.addImportDeclaration({
     moduleSpecifier: "@cosmicdrift/kumiko-dev-server",
-    namedImports: ["composeFeatures", "frameworkCoreEnvSchema", "runProdApp"],
+    namedImports: ["frameworkCoreEnvSchema"],
+  });
+  sf.addImportDeclaration({
+    moduleSpecifier: "@cosmicdrift/kumiko-server-runtime",
+    namedImports: ["composeFeatures", "runProdApp"],
   });
   sf.addImportDeclaration({
     moduleSpecifier: "@cosmicdrift/kumiko-framework/engine",
@@ -502,9 +509,9 @@ function renderMain(appName: string): string {
     [
       "// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after",
       "// composeFeatures + validateBoot + createRegistry without DB/Redis-connect",
-      "// (siehe @cosmicdrift/kumiko-dev-server runProdApp). Echter Dev-Boot",
-      "// passiert via `bunx kumiko dev` (in-repo dev-tool) mit Docker-stack — DX-1.0 deckt nur",
-      "// den boot-mode-Pfad ab; `kumiko dev` kommt in einer späteren DX-Phase.",
+      "// (see @cosmicdrift/kumiko-server-runtime runProdApp). The real dev boot",
+      "// runs via `bunx kumiko dev` (in-repo dev-tool) with a Docker stack — DX-1.0",
+      "// only covers the boot-mode path; `kumiko dev` lands in a later DX phase.",
       "",
       "",
     ].join("\n"),
@@ -579,12 +586,12 @@ function renderDev(appName: string): string {
   sf.insertText(
     0,
     [
-      "// Dev-bootstrap. `bun --watch bin/dev.ts` (siehe package.json scripts.dev)",
-      "// startet einen full-featured Dev-Server mit Auto-Reload bei Code-Änderungen.",
-      "// setupTestStack legt fehlende Entity-Tabellen automatisch an — neues",
-      "// r.entity(...) in einem Feature führt beim nächsten Reboot zu CREATE TABLE,",
-      "// kein manuelles `kumiko schema apply` nötig (das gilt nur für Prod).",
-      "// Persistent-DB via KUMIKO_DEV_DB_NAME (.env) damit Admin + Daten Reboots überleben.",
+      "// Dev bootstrap. `bun --watch bin/dev.ts` (see package.json scripts.dev)",
+      "// starts a full-featured dev server with auto-reload on code changes.",
+      "// setupTestStack creates missing entity tables automatically — a new",
+      "// r.entity(...) in a feature becomes a CREATE TABLE on the next reboot,",
+      "// no manual `kumiko schema apply` needed (that's prod-only).",
+      "// Persistent DB via KUMIKO_DEV_DB_NAME (.env) so admin + data survive reboots.",
       "",
       "",
     ].join("\n"),
@@ -593,27 +600,38 @@ function renderDev(appName: string): string {
   return sf.getFullText();
 }
 
-function renderClient(): string {
+function renderClient(appName: string): string {
   return [
-    "// Browser-Entry. runDevApp's clientEntry-Option bundlet diese Datei zu",
-    "// /client.js und das Default-HTML lädt sie. createKumikoApp liest das",
-    "// Schema aus dem window-globalen (das injectSchema im dev-server setzt)",
-    "// und mountet die Routen.",
+    "// Browser entry. runDevApp's clientEntry option bundles this file to",
+    "// /client.js and the default HTML loads it. createKumikoApp reads the",
+    "// schema from the window global (injectSchema in the dev-server sets it)",
+    "// and mounts the routes.",
     "//",
-    "// DefaultAppShell liefert die Sidebar + Topbar — ohne `shell` rendert",
-    "// createKumikoApp das aktive Screen ohne Layout-Wrapper (= nach Login",
-    "// nur ein nackter Banner statt der App). emailPasswordClient() bringt",
-    "// Login-Screen + Session-Provider — ohne ihn bliebe /login leer.",
+    "// AppShell wraps DefaultAppShell to supply `brand` — createKumikoApp's",
+    "// shell option only injects schema + children. Without `shell` the",
+    "// active screen renders with no layout wrapper (a bare banner after",
+    "// login instead of the app). emailPasswordClient() brings the login",
+    "// screen + session provider — without it /login stays empty.",
     "//",
-    "// Neue Client-Plugins (z.B. notificationsClient()) hier in clientFeatures",
-    "// hinzu — symmetrisch zu APP_FEATURES auf der Server-Seite.",
+    "// Add new client plugins (e.g. notificationsClient()) to clientFeatures",
+    "// here — symmetric to APP_FEATURES on the server side.",
     "",
     'import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";',
     'import { tasksClient } from "./features/tasks/web";',
-    'import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";',
+    'import { type AppSchema, createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";',
+    'import type { ReactNode } from "react";',
+    "",
+    "function AppShell({ children, schema }: { children: ReactNode; schema: AppSchema }): ReactNode {",
+    "  return (",
+    // html-ok: appName is kebab-validated (a-z/0-9/-); this is generated .tsx source, not runtime HTML.
+    `    <DefaultAppShell brand={<span className="font-semibold tracking-tight">${appName}</span>} schema={schema}>`,
+    "      {children}",
+    "    </DefaultAppShell>",
+    "  );",
+    "}",
     "",
     "createKumikoApp({",
-    "  shell: DefaultAppShell,",
+    "  shell: AppShell,",
     "  clientFeatures: [emailPasswordClient(), tasksClient],",
     "});",
     "",
@@ -622,10 +640,10 @@ function renderClient(): string {
 
 function renderEnvExample(appName: string): string {
   const devDb = `${appName.replace(/-/g, "_")}_dev`;
-  return `# bun dev (runDevApp → setupTestStack) braucht TEST_DATABASE_URL.
-# Production (bun bin/main.ts → runProdApp) braucht DATABASE_URL.
-# Beide zeigen im Default auf denselben lokalen Postgres — runDevApp legt
-# darunter eine eigene "<KUMIKO_DEV_DB_NAME>"-Datenbank an.
+  return `# bun dev (runDevApp → setupTestStack) needs TEST_DATABASE_URL.
+# Production (bun bin/main.ts → runProdApp) needs DATABASE_URL.
+# Both default to the same local Postgres — runDevApp creates its own
+# "<KUMIKO_DEV_DB_NAME>" database underneath.
 TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app
 REDIS_URL=redis://127.0.0.1:6379
@@ -637,9 +655,9 @@ JWT_SECRET=change-me-min-32-chars-change-me-min-32
 # Generate with: openssl rand -base64 32
 KUMIKO_SECRETS_MASTER_KEY_V1=
 
-# Dev-only: persistente DB für \`bun dev\`. Ohne diesen Var startet jeder Reboot
-# eine frische kumiko_test_<random>-DB → Admin-Login + Daten weg bei jedem Edit.
-# Mit Var bleibt die DB zwischen Reboots erhalten (Schema-Pushes sind idempotent).
+# Dev-only: persistent DB for \`bun dev\`. Without this var every reboot starts
+# a fresh kumiko_test_<random> DB → admin login + data gone on every edit.
+# With it the DB persists across reboots (schema pushes are idempotent).
 KUMIKO_DEV_DB_NAME=${devDb}
 `;
 }
@@ -770,7 +788,7 @@ function renderKumikoSchema(): string {
     "// Computes table-metas from the SAME composeFeatures(APP_FEATURES) the",
     "// runtime sees (runProdApp/runDevApp) — migration and runtime cannot drift.",
     "",
-    'import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";',
+    'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
     'import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";',
     'import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";',
     'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
@@ -792,14 +810,14 @@ function renderBinKumiko(): string {
     "// migrate-step runs `bun /app/kumiko.js schema apply`; kumiko-build bundles",
     "// this file to dist-server/kumiko.js.",
     "",
-    'import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";',
+    'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
     'import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";',
     'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
     "",
     "const [, , cmd, ...rest] = Bun.argv;",
     'if (cmd !== "schema") {',
     "  // biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
-    '  console.error("\\n  Unbekannt: kumiko " + (cmd ?? "") + " — nur \'kumiko schema <sub>\' im Standalone-Bundle.\\n");',
+    '  console.error("\\n  Unknown: kumiko " + (cmd ?? "") + " — only \'kumiko schema <sub>\' in the standalone bundle.\\n");',
     "  process.exit(1);",
     "}",
     "",

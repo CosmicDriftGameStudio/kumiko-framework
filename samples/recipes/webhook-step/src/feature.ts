@@ -13,7 +13,7 @@ import {
   defineFeature,
   defineWriteHandler,
   type PipelineCtx,
-  pipeline,
+  stepsPipeline,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
@@ -45,7 +45,7 @@ export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
         webhookUrl: z.string(),
       }),
       access: { roles: ["Admin"] },
-      perform: pipeline<
+      perform: stepsPipeline<
         { title: string; severity: "low" | "medium" | "high"; webhookUrl: string },
         { id: string }
       >(({ event, r }) => [
@@ -82,7 +82,7 @@ export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
         severity: z.enum(["low", "medium", "high"]),
       }),
       access: { roles: ["Admin"] },
-      perform: pipeline<
+      perform: stepsPipeline<
         { to: string; title: string; severity: "low" | "medium" | "high" },
         { id: string }
       >(({ event, r }) => [
@@ -112,22 +112,23 @@ export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
       name: "incident:open-via-call",
       schema: z.object({ title: z.string(), severity: z.enum(["low", "medium", "high"]) }),
       access: { roles: ["Admin"] },
-      perform: pipeline<{ title: string; severity: "low" | "medium" | "high" }, { id: string }>(
-        ({ event, r }) => [
-          r.step.callFeature("inner", {
-            handler: "webhook-demo:write:incident:open",
-            payload: () => ({
-              title: event.payload.title,
-              severity: event.payload.severity,
-              webhookUrl: "https://hooks.example/from-callFeature",
-            }),
+      perform: stepsPipeline<
+        { title: string; severity: "low" | "medium" | "high" },
+        { id: string }
+      >(({ event, r }) => [
+        r.step.callFeature("inner", {
+          handler: "webhook-demo:write:incident:open",
+          payload: () => ({
+            title: event.payload.title,
+            severity: event.payload.severity,
+            webhookUrl: "https://hooks.example/from-callFeature",
           }),
-          r.step.return(({ steps }) => ({
-            isSuccess: true as const,
-            data: { id: (steps["inner"] as { id: string }).id },
-          })),
-        ],
-      ),
+        }),
+        r.step.return(({ steps }) => ({
+          isSuccess: true as const,
+          data: { id: (steps["inner"] as { id: string }).id },
+        })),
+      ]),
     }),
   );
 
@@ -140,7 +141,7 @@ export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
       name: "incident:open-then-fail",
       schema: z.object({ title: z.string().min(1), webhookUrl: z.string() }),
       access: { roles: ["Admin"] },
-      perform: pipeline<{ title: string; webhookUrl: string }, never>(({ event, r }) => [
+      perform: stepsPipeline<{ title: string; webhookUrl: string }, never>(({ event, r }) => [
         r.step.aggregate.create("incident", {
           executor: incidentExecutor,
           data: () => ({ title: event.payload.title, severity: "high" }),

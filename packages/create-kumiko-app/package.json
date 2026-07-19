@@ -1,6 +1,6 @@
 {
   "name": "create-kumiko-app",
-  "version": "0.4.85",
+  "version": "0.4.128",
   "description": "`bun create kumiko-app <name>` — scaffold a new Kumiko app with an interactive feature picker.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -32,6 +32,7 @@
   "dependencies": {
     "@cosmicdrift/kumiko-dev-server": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-server-runtime": "workspace:*",
     "@inquirer/core": "^10.0.0",
     "@inquirer/prompts": "^7.4.0"
   },

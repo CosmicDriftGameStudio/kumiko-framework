@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "noEmit": false,
+    "lib": ["ESNext", "DOM"],
+    "composite": true
+  },
+  "references": [{ "path": "../framework" }, { "path": "../bundled-features" }],
+  "include": ["./src"]
+}

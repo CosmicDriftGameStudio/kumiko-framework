@@ -28,13 +28,31 @@ function uniqueKey(suffix: string): string {
 
 let provider: FileStorageProvider;
 
-beforeAll(() => {
+beforeAll(async () => {
+  const endpoint = requireEnv("MINIO_ENDPOINT");
+  // Fail loud with an actionable message when Minio is down (otherwise
+  // S3 networking errors look like provider bugs).
+  try {
+    const health = await fetch(`${endpoint.replace(/\/$/, "")}/minio/health/live`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!health.ok) {
+      throw new Error(`HTTP ${health.status}`);
+    }
+  } catch (err) {
+    throw new Error(
+      `MinIO not reachable at ${endpoint} — run: docker compose up -d minio minio-init ` +
+        `(kumiko-framework compose, default port 19000). ` +
+        `Cause: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
   // forcePathStyle is deliberately NOT set — resolveForcePathStyle() must
   // auto-detect path-style from the `endpoint` presence. If auto-detection
   // regressed, Minio would reject virtual-host-style URLs (bucket.host/key)
   // and every round-trip below would fail. That's the proof.
   provider = createS3Provider({
-    endpoint: requireEnv("MINIO_ENDPOINT"),
+    endpoint,
     region: requireEnv("MINIO_REGION"),
     accessKeyId: requireEnv("MINIO_ACCESS_KEY"),
     secretAccessKey: requireEnv("MINIO_SECRET_KEY"),

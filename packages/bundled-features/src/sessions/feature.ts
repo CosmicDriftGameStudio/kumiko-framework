@@ -1,13 +1,20 @@
 import { buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { SESSION_DETAIL_SCREEN_ID, SESSION_LIST_SCREEN_ID, SessionQueries } from "./constants";
 import { cleanupJob } from "./handlers/cleanup.job";
+import { detailQuery } from "./handlers/detail.query";
 import { listQuery } from "./handlers/list.query";
 import { mineQuery } from "./handlers/mine.query";
 import { revokeWrite } from "./handlers/revoke.write";
 import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write";
 import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write";
+import { SESSIONS_I18N } from "./i18n";
 import { userSessionEntity } from "./schema/user-session";
-import type { SessionMassRevoker } from "./session-callbacks";
+import type { SessionAllOthersRevoker, SessionMassRevoker } from "./session-callbacks";
 
 export type SessionsFeatureOptions = {
   // A successful update on the `user` entity that changes the `passwordHash`
@@ -29,6 +36,7 @@ export type SessionsFeatureOptions = {
 };
 
 export type BindAutoRevokeOnPasswordChange = (revoker: SessionMassRevoker) => void;
+export type BindRevokeAllOtherSessions = (revoker: SessionAllOthersRevoker) => void;
 
 // Reads the late-bind setter off a mounted sessions feature's exports.
 // run{Prod,Dev}App call it once the DB connection is concrete — the feature
@@ -85,10 +93,10 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // r.entity would make it a rebuildable implicit projection whose replay
     // finds zero session events and swaps an empty shadow over the live
     // table — wiping every active session on the next projection rebuild
-    // (#498/#494). r.unmanagedTable keeps the migration DDL but opts the
+    // (#498/#494). r.rawTable keeps the migration DDL but opts the
     // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
     // which are direct-write stores too.
-    r.unmanagedTable(buildEntityTableMeta("user-session", userSessionEntity), {
+    r.rawTable(buildEntityTableMeta("user-session", userSessionEntity), {
       reason: "read_side.user_sessions_direct_write",
       // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).
       piiEncryptedOnWrite: true,
@@ -104,6 +112,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     const queries = {
       mine: r.queryHandler(mineQuery),
       list: r.queryHandler(listQuery),
+      detail: r.queryHandler(detailQuery),
     };
 
     // Retention: chunked DELETE of expired/revoked rows. Manual trigger
@@ -123,7 +132,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // we want to skip on. Works for both direct user:update calls and any
     // other handler that happens to write the column.
     let autoRevoke = options?.autoRevokeOnPasswordChange;
-    r.entityHook("postSave", "user", async (ctx) => {
+    r.hook("postSave", { allOf: "user" }, async (ctx) => {
       // skip: nothing bound — stateless-JWT deployments without a runtime
       // that calls bindAutoRevokeOnPasswordChange keep the old behavior.
       if (!autoRevoke) return;
@@ -141,6 +150,64 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // explicit constructor option wins over the runtime binding
       autoRevoke ??= revoker;
     };
+
+    r.translations({ keys: SESSIONS_I18N });
+
+    const listAccess = { roles: access.admin };
+
+    r.screen({
+      id: SESSION_LIST_SCREEN_ID,
+      type: "projectionList",
+      query: SessionQueries.list,
+      columns: [
+        { field: "id", label: "sessions.list.col.id" },
+        { field: "userId", label: "sessions.list.col.userId" },
+        { field: "createdAt", label: "sessions.list.col.createdAt" },
+        { field: "expiresAt", label: "sessions.list.col.expiresAt" },
+        { field: "revokedAt", label: "sessions.list.col.revokedAt" },
+      ],
+      rowActions: [
+        {
+          kind: "navigate",
+          id: "open",
+          label: "sessions.list.action.open",
+          screen: SESSION_DETAIL_SCREEN_ID,
+          entityId: "id",
+          rowClick: true,
+        },
+      ],
+      access: listAccess,
+    });
+    r.screen({
+      id: SESSION_DETAIL_SCREEN_ID,
+      type: "projectionDetail",
+      query: SessionQueries.detail,
+      listScreenId: SESSION_LIST_SCREEN_ID,
+      layout: {
+        sections: [
+          {
+            fields: ["id", "userId", "createdAt", "expiresAt", "revokedAt", "ip", "userAgent"],
+          },
+        ],
+      },
+      fieldLabels: {
+        id: "sessions.detail.field.id",
+        userId: "sessions.detail.field.userId",
+        createdAt: "sessions.detail.field.createdAt",
+        expiresAt: "sessions.detail.field.expiresAt",
+        revokedAt: "sessions.detail.field.revokedAt",
+        ip: "sessions.detail.field.ip",
+        userAgent: "sessions.detail.field.userAgent",
+      },
+      access: listAccess,
+    });
+    r.nav({
+      id: "session-list",
+      label: "sessions:nav.sessionList",
+      icon: "list",
+      screen: "sessions:screen:session-list",
+      order: 10,
+    });
 
     return { handlers, queries, bindAutoRevokeOnPasswordChange };
   });

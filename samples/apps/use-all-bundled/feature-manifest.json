@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 49,
+  "featureCount": 55,
   "features": [
     {
       "name": "admin-shell",
@@ -97,6 +97,83 @@
           }
         ]
       }
+    },
+    {
+      "name": "auth-mfa",
+      "description": "TOTP-based two-factor authentication: enable/disable flow with QR-code setup, 8 single-use recovery codes, and (once wired into a login flow) a second login step after password verification. Secrets are envelope-encrypted at rest via the same MasterKeyProvider as `secrets`/`config`.",
+      "toggleableDefault": null,
+      "requires": [
+        "user",
+        "config",
+        "tenant"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "required",
+          "qualifiedName": "auth-mfa:config:required",
+          "type": "select",
+          "scope": "tenant",
+          "default": "optional",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "optional",
+            "admins",
+            "all"
+          ],
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": [
+        "auth-mfa:write:disable",
+        "auth-mfa:write:enable-confirm",
+        "auth-mfa:write:enable-start",
+        "auth-mfa:write:regenerate-recovery",
+        "auth-mfa:write:verify"
+      ],
+      "uiHints": {
+        "displayLabel": "2FA / TOTP",
+        "category": "identity",
+        "recommended": true
+      }
+    },
+    {
+      "name": "auth-mfa-user-data",
+      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `auth-mfa` feature's `user-mfa` entity. Mounts the EXT_USER_DATA export + delete hooks so 2FA enrollment status is included in the user-data export bundle and a user's TOTP secret + recovery codes are hard-deleted (via executor.forget, rebuild-safe) on a data-subject erasure request. Kept separate from `auth-mfa` so consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `auth-mfa`.",
+      "toggleableDefault": null,
+      "requires": [
+        "user-data-rights"
+      ],
+      "optionalRequires": [
+        "auth-mfa"
+      ],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "user-mfa"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "billing-foundation",
@@ -690,6 +767,98 @@
       "writeHandlers": []
     },
     {
+      "name": "inbound-mail-foundation",
+      "description": "Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push). The foundation owns three event-sourced streams (mail-account lifecycle, inbound-message with exactly-once ingest via deterministic aggregate ids, mail-thread rollup) and their projections `read_mail_accounts`/`read_inbound_messages`/`read_mail_threads`; PII fields are envelope-encrypted per tenant subject key before every append (crypto-shredding on tenant destroy). Wire `createInboundMailConnectRoutes` (OAuth connect + anonymous callback outside /api) and `createInboundMailSupervisor` (IDLE watch with backoff + reconciliation poll) in bin/server.ts. Consume `inbound-mail-foundation:event:inbound-message-received` from app features to attach business processes.",
+      "toggleableDefault": null,
+      "requires": [
+        "tenant-lifecycle"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "tenantData",
+          "entityName": "mail-account"
+        },
+        {
+          "extensionName": "tenantData",
+          "entityName": "inbound-message"
+        },
+        {
+          "extensionName": "tenantData",
+          "entityName": "mail-thread"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "inbound-mail-foundation:write:connect-account",
+        "inbound-mail-foundation:write:disconnect-account",
+        "inbound-mail-foundation:write:ingest-message",
+        "inbound-mail-foundation:write:update-account"
+      ],
+      "uiHints": {
+        "displayLabel": "Inbound Mail · Foundation",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
+      "name": "inbound-provider-imap",
+      "description": "Registers the `\"imap\"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Store the per-account connection JSON (host/port/secure/user/password) in the account credential secret slot before the first sync.",
+      "toggleableDefault": null,
+      "requires": [
+        "inbound-mail-foundation",
+        "secrets"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "inboundMailProvider",
+          "entityName": "imap"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Inbound Mail · IMAP",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
+      "name": "inbound-provider-inmemory",
+      "description": "Registers a scriptable in-process `\"inmemory\"` provider for `inbound-mail-foundation`. Seed messages with `seedInboundMessage(accountId, msg)` — an active watch pushes them immediately (IDLE simulation) and the cursor-based `fetch` re-delivers them on the reconciliation path, exercising the foundation dedup guarantee. Error injection via `failNextFetchWith`/`failNextVerifyWith`/`emitWatchError`; reset state with `resetInboundInMemory()`. For tests, demos and sample apps — not for production.",
+      "toggleableDefault": null,
+      "requires": [
+        "inbound-mail-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "inboundMailProvider",
+          "entityName": "inmemory"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Inbound Mail · In-Memory Provider",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
       "name": "jobs",
       "description": "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution appends `run-started`, `run-completed`, and `run-failed` events to the `jobRun` aggregate stream, which two inline projections materialize into `read_job_runs` (current status + duration) and `read_job_run_logs` (per-line log rows). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list` and `jobs:query:details` for the operator UI.",
       "toggleableDefault": null,
@@ -962,7 +1131,7 @@
     },
     {
       "name": "managed-pages",
-      "description": "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
+      "description": "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:query:by-tenant-published` (anonymous, SQL-filtered on `published`) for sitemap/discovery consumers such as the `seo` feature. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset,custom-css}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
       "toggleableDefault": null,
       "requires": [
         "config"
@@ -1287,6 +1456,146 @@
       }
     },
     {
+      "name": "seo",
+      "description": "Site-discovery + SEO/AEO/GEO surface for apex/content pages. Serves GET /sitemap.xml and GET /llms.txt (both anonymous, revalidate-cached), merging the app-supplied sitemapEntries() callback with legal-pages' fixed routes (includeLegalPages) and/or managed-pages' published slugs (managedPages.resolveApexTenant) when opted in. Serves GET /robots.txt only when robotsPolicy is supplied (default off — the static public/robots.txt already covers the common case). Tenant-scoped config keys (seo:config:seo-organization-{name,logo-url}, seo:config:seo-twitter-site, seo:config:seo-llms-summary, seo:config:seo-default-og-image) feed the Organization JSON-LD helper + llms.txt summary. Also exports pure schema.org JSON-LD builders (organizationSchema/webPageSchema/faqPageSchema) for apps to pass into ApexHead.schemaJson or wrapInLayout({ seo: { schemaJson } }) directly — this feature does not inject JSON-LD on its own routes.",
+      "toggleableDefault": null,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [
+        "legal-pages",
+        "managed-pages"
+      ],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "seo-default-og-image",
+          "qualifiedName": "seo:config:seo-default-og-image",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "seo-llms-summary",
+          "qualifiedName": "seo:config:seo-llms-summary",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,500}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "seo-organization-logo-url",
+          "qualifiedName": "seo:config:seo-organization-logo-url",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "seo-organization-name",
+          "qualifiedName": "seo:config:seo-organization-name",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,500}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "seo-twitter-site",
+          "qualifiedName": "seo:config:seo-twitter-site",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,500}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "SEO / Site Discovery",
+        "category": "content",
+        "recommended": false
+      }
+    },
+    {
       "name": "sessions",
       "description": "Tracks signed-in clients in the `read_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
       "toggleableDefault": null,
@@ -1384,7 +1693,7 @@
           "type": "text",
           "scope": "system",
           "default": null,
-          "encrypted": false,
+          "encrypted": true,
           "computed": false,
           "options": null,
           "bounds": null,
@@ -1427,7 +1736,7 @@
           "type": "text",
           "scope": "system",
           "default": null,
-          "encrypted": false,
+          "encrypted": true,
           "computed": false,
           "options": null,
           "bounds": null,
@@ -1931,12 +2240,13 @@
     },
     {
       "name": "user-profile",
-      "description": "Self-service account page building blocks: a `change-email` write handler (re-auth via current password, uniqueness check, resets emailVerified and expects the app to trigger the verification flow) plus the ProfileScreen web component that composes change-password (auth-email-password), change-email and account deletion (user-data-rights request/cancel with grace period) into one screen. Apps register the screen as `type: \"custom\"` with `__component: \"UserProfileScreen\"`. Requires `user`, `auth-email-password`, and `user-data-rights`.",
+      "description": "Self-service account page building blocks: a `change-email` write handler (re-auth via current password, uniqueness check, resets emailVerified and expects the app to trigger the verification flow) plus the ProfileScreen web component that composes change-password (auth-email-password), change-email and account deletion (user-data-rights request/cancel with grace period) into one screen. Apps register the screen as `type: \"custom\"` with `__component: \"UserProfileScreen\"`. Requires `user`, `auth-email-password`, `user-data-rights`, and `user-data-rights-defaults` (so the GDPR boot-validator finds export/delete hooks for `user`'s PII fields once user-data-rights is mounted).",
       "toggleableDefault": null,
       "requires": [
         "user",
         "auth-email-password",
-        "user-data-rights"
+        "user-data-rights",
+        "user-data-rights-defaults"
       ],
       "optionalRequires": [],
       "configReads": [],

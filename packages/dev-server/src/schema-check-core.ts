@@ -4,7 +4,7 @@
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { composeFeatures } from "./compose-features";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 
 // The generate-script lives under different roots across apps: publicstatus
 // uses `drizzle/generate.ts`, the framework's own sample-apps use

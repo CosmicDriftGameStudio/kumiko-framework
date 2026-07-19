@@ -3,8 +3,8 @@
 // Production-pattern sample that exercises every Sprint-E Marten gold-
 // standard API in one place:
 //
-//   - r.defineEvent with { version } — declare evolving event shapes
-//   - r.eventMigration — upcast older payloads on read (sync + async)
+//   - r.defineEvent with { version, migrations } — evolving event shapes +
+//     upcast older payloads on read (declarative + sync/async transforms)
 //   - ctx.appendEvent — write domain events onto the aggregate stream
 //   - ctx.appendEvent with headers — Marten free key/value metadata
 //   - r.projection — single-stream read model (inline in the write TX)
@@ -13,7 +13,8 @@
 //   - ctx.archiveStream / ctx.restoreStream — Marten ArchiveStream
 //   - ctx.queryProjection — tenant-scoped read of a projection table
 //   - ctx.snapshotAggregate + ctx.loadAggregateWithSnapshot — perf path
-//     for aggregates with long event tails (O(1) vs O(N) reduce)
+//     for aggregates with long event tails (O(1) vs O(N) reduce), incl.
+//     the auto-snapshot policy ({ snapshotEvery, snapshotVersion })
 //   - streamAllEventsByType — memory-bounded iteration for ops/export jobs
 //   - getAllProjectionProgress — projection lag for ops dashboards
 
@@ -128,20 +129,26 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
   r.entity("showcase-invoice", invoiceEntity);
 
   // Two domain events. "approved" is versioned — v1 stored `amount` as
-  // string, v2 uses `amountCents` integer. The migration chain walks
-  // the upcast on read.
+  // string, v2 uses `amountCents` integer. The DECLARATIVE migration form
+  // covers rename/default/map without an imperative function; the chain
+  // walks the upcast on read.
   const approved = r.defineEvent(
     "invoice-approved",
     z.object({ amountCents: z.number().int(), approvedBy: z.string() }),
-    { version: 2 },
+    {
+      version: 2,
+      migrations: [
+        {
+          fromVersion: 1,
+          toVersion: 2,
+          transform: {
+            rename: { amount: "amountCents" },
+            map: { amountCents: (v) => Math.round(Number.parseFloat(String(v)) * 100) },
+          },
+        },
+      ],
+    },
   );
-  r.eventMigration("invoice-approved", 1, 2, (payload) => {
-    const p = payload as { amount: string; approvedBy: string };
-    return {
-      amountCents: Math.round(Number.parseFloat(p.amount) * 100),
-      approvedBy: p.approvedBy,
-    };
-  });
 
   const paid = r.defineEvent("invoice-paid", z.object({ amountCents: z.number().int() }));
 
@@ -153,18 +160,26 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
   const acknowledged = r.defineEvent(
     "invoice-acknowledged",
     z.object({ approverId: z.string(), approverDisplayName: z.string() }),
-    { version: 2 },
+    {
+      version: 2,
+      migrations: [
+        {
+          fromVersion: 1,
+          toVersion: 2,
+          transform: async (payload, ctx) => {
+            const p = payload as { approverId: string };
+            const row = await fetchOne<{ displayName: string }>(ctx.db, approverDirectoryTable, {
+              approverId: p.approverId,
+            });
+            return {
+              approverId: p.approverId,
+              approverDisplayName: row?.displayName ?? `unknown:${p.approverId}`,
+            };
+          },
+        },
+      ],
+    },
   );
-  r.eventMigration("invoice-acknowledged", 1, 2, async (payload, ctx) => {
-    const p = payload as { approverId: string };
-    const row = await fetchOne<{ displayName: string }>(ctx.db, approverDirectoryTable, {
-      approverId: p.approverId,
-    });
-    return {
-      approverId: p.approverId,
-      approverDisplayName: row?.displayName ?? `unknown:${p.approverId}`,
-    };
-  });
 
   // Single-stream projection: one row per invoice, reacts to the auto
   // CRUD event + both domain events. Runs INLINE in the write TX.
@@ -394,6 +409,11 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
           return next;
         },
         { ...initialInvoiceState } as InvoiceStateRecord,
+        // Auto-snapshot policy: once 100+ delta events pile up past the last
+        // snapshot, the read path persists a fresh one (best-effort). Bump
+        // snapshotVersion whenever the reducer's state SHAPE changes — a
+        // stale-shape snapshot is then ignored and rebuilt from the log.
+        { snapshotEvery: 100, snapshotVersion: 1 },
       );
       return {
         state: result.state,

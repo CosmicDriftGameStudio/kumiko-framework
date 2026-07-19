@@ -12,7 +12,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { type LoginFailure, requestEmailVerification } from "./auth-client";
-import { AuthCard, authMutedLinkClass } from "./auth-form-primitives";
+import { AuthCard } from "./auth-form-primitives";
 import { useSession } from "./session";
 
 // Resend-Status für den "Bestätigungs-Mail erneut senden"-Flow, der bei
@@ -50,6 +50,16 @@ export type LoginScreenProps = {
    *  Labels kommen vom Caller (typisch schon übersetzt bzw. Eigennamen
    *  wie "Impressum"). */
   readonly legalLinks?: readonly AuthLegalLink[];
+  /** Called when the server responds with an MFA challenge instead of a
+   *  session. Apps typically swap this screen out for auth-mfa's
+   *  MfaVerifyScreen(challengeToken). Without a handler, MFA-enrolled
+   *  users see a generic "not supported" error — better than a silent
+   *  hang, but apps mounting auth-mfa must wire this. */
+  readonly onMfaChallenge?: (challengeToken: string) => void;
+  /** Called when the tenant's enforcement policy requires MFA but this
+   *  user has no factor enrolled yet. Apps typically route to an
+   *  enrollment flow. Same fallback behavior as onMfaChallenge when unset. */
+  readonly onMfaSetupRequired?: () => void;
 };
 
 // Map vom Reason-Code des Login-Handlers auf einen i18n-Key plus
@@ -78,6 +88,8 @@ function reasonToKey(failure: LoginFailure): {
       return { key: "auth.errors.rateLimited" };
     case "invalid_body":
       return { key: "auth.errors.invalidBody" };
+    case "mfa_not_supported":
+      return { key: "auth.errors.mfaNotSupported" };
     default:
       return { key: "auth.errors.loginFailed" };
   }
@@ -90,9 +102,11 @@ export function LoginScreen({
   forgotPasswordHref,
   signupHref,
   legalLinks,
+  onMfaChallenge,
+  onMfaSetupRequired,
 }: LoginScreenProps): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
   const session = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -110,10 +124,27 @@ export function LoginScreen({
     setResendStatus({ kind: "idle" });
     const res = await session.login({ email, password });
     setSubmitting(false);
-    if (!res.ok) {
-      setError(res.error);
+    if (res.kind === "success") return;
+    if (res.kind === "mfa-challenge") {
+      if (onMfaChallenge) {
+        onMfaChallenge(res.challengeToken);
+        return;
+      }
+      setError({ reason: "mfa_not_supported" });
       setFailedLoginEmail(email);
+      return;
     }
+    if (res.kind === "mfa-setup-required") {
+      if (onMfaSetupRequired) {
+        onMfaSetupRequired();
+        return;
+      }
+      setError({ reason: "mfa_not_supported" });
+      setFailedLoginEmail(email);
+      return;
+    }
+    setError(res.error);
+    setFailedLoginEmail(email);
   };
 
   const onSubmit = (e?: FormEvent): void => {
@@ -186,17 +217,17 @@ export function LoginScreen({
                 {error.reason === "email_not_verified" &&
                   email.trim().length > 0 &&
                   email === failedLoginEmail && (
-                    // kumiko-lint-ignore primitives-discipline Inline-Link im Banner (UX-Choice); Button-Primitive hat keinen link-Variant
-                    <button
-                      type="button"
-                      onClick={() => void onResend()}
-                      disabled={resendStatus.kind === "sending"}
-                      className={`${authMutedLinkClass} self-start text-left disabled:opacity-50`}
-                    >
-                      {resendStatus.kind === "sending"
-                        ? t("auth.login.submitting")
-                        : t("auth.login.resendVerification")}
-                    </button>
+                    <span className="self-start">
+                      <Button
+                        variant="link"
+                        onClick={() => void onResend()}
+                        disabled={resendStatus.kind === "sending"}
+                      >
+                        {resendStatus.kind === "sending"
+                          ? t("auth.login.submitting")
+                          : t("auth.login.resendVerification")}
+                      </Button>
+                    </span>
                   )}
                 {resendStatus.kind === "rateLimited" && (
                   <span className="text-xs">{t("auth.login.resendRateLimited")}</span>
@@ -212,14 +243,14 @@ export function LoginScreen({
           </Button>
         </Form>
         {forgotPasswordHref !== undefined && (
-          <a href={forgotPasswordHref} className={`${authMutedLinkClass} self-center`}>
+          <Link href={forgotPasswordHref} variant="muted" className="self-center">
             {t("auth.login.forgotPassword")}
-          </a>
+          </Link>
         )}
         {signupHref !== undefined && (
-          <a href={signupHref} className={`${authMutedLinkClass} self-center`}>
+          <Link href={signupHref} variant="muted" className="self-center">
             {t("auth.signup.title")}
-          </a>
+          </Link>
         )}
         {legalLinks !== undefined && legalLinks.length > 0 && (
           <nav
@@ -227,9 +258,9 @@ export function LoginScreen({
             className="flex items-center justify-center gap-3 pt-2 border-t border-border/50"
           >
             {legalLinks.map((link) => (
-              <a key={link.href} href={link.href} className={`${authMutedLinkClass} text-xs`}>
+              <Link key={link.href} href={link.href} variant="muted" className="text-xs">
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
         )}

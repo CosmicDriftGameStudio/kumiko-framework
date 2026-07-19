@@ -78,7 +78,7 @@ export const fieldDefinitionEntity = createEntity({
     searchable: createBooleanField({ required: true }),
 
     // UI-Display-Order. Tenant kann seine Felder via UI sortieren.
-    displayOrder: createNumberField({ required: true }),
+    displayOrder: createNumberField({ required: true, integer: true }),
 
     // Builder-Reuse: serialisierter r.field.X(opts)-Output als jsonb.
     // Beinhaltet type-options (enum-values, money-currency, embedded-schema),

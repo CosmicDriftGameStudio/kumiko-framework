@@ -46,26 +46,36 @@ const FEATURES: readonly RealFeature[] = [
   {
     path: "packages/bundled-features/src/tenant/feature.ts",
     expectedFeatureName: "tenant",
-    recognisedKinds: ["requires", "systemScope"],
-    errorMethodNames: ["entity", "config", "writeHandler", "queryHandler"],
+    // entity + config used to ParseError here: their definitions reference
+    // local consts/factory calls, which readDataLiteralNode now resolves
+    // to a raw-ref sentinel instead of bailing to undefined (#998).
+    recognisedKinds: [
+      "requires",
+      "systemScope",
+      "entity",
+      "config",
+      "writeHandler",
+      "queryHandler",
+    ],
+    errorMethodNames: [],
   },
   {
     path: "packages/bundled-features/src/audit/feature.ts",
     expectedFeatureName: "audit",
-    recognisedKinds: [],
-    errorMethodNames: ["queryHandler"],
+    recognisedKinds: ["queryHandler"],
+    errorMethodNames: [],
   },
   {
     path: "packages/bundled-features/src/sessions/feature.ts",
     expectedFeatureName: "sessions",
-    recognisedKinds: ["entityHook"],
-    errorMethodNames: ["unmanagedTable", "writeHandler", "queryHandler", "job"],
+    recognisedKinds: ["hook", "writeHandler", "queryHandler"],
+    errorMethodNames: ["rawTable", "job"],
   },
   {
     path: "packages/bundled-features/src/auth-email-password/feature.ts",
     expectedFeatureName: "auth-email-password",
-    recognisedKinds: ["requires"],
-    errorMethodNames: ["writeHandler"],
+    recognisedKinds: ["requires", "writeHandler"],
+    errorMethodNames: [],
   },
 ];
 

@@ -87,8 +87,8 @@ export function withCapEnforcement(
     handler: async (event, ctx) => {
       const cap = await capResolver(event, ctx);
 
-      // Pre-enforce. Hard-hit throws CapExceededError; the dispatcher
-      // maps it to HTTP 429 + cap_exceeded code. Soft-hit-crossing
+      // Pre-enforce. Hard-hit throws CapExceededError (extends KumikoError,
+      // dispatcher auto-maps to HTTP 429 + cap_exceeded). Soft-hit-crossing
       // notifies via the supplied notifier + flips lastSoftWarnedAt.
       await enforceCapAndMaybeNotify(ctx, {
         capName: cap.capName,

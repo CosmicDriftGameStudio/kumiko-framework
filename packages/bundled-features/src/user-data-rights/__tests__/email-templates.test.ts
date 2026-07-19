@@ -31,6 +31,21 @@ describe("gdpr email-templates", () => {
     expect(de.subject).not.toBe(en.subject);
   });
 
+  test("export-ready: html lang attribute matches the requested locale (654/1)", () => {
+    const de = renderExportReadyEmail({
+      downloadUrl: "https://app.test/x?token=abc",
+      expiresAt: "2026-07-01T13:45:00Z",
+      locale: "de",
+    });
+    expect(de.html).toContain('<html lang="de">');
+    const en = renderExportReadyEmail({
+      downloadUrl: "https://app.test/x?token=abc",
+      expiresAt: "2026-07-01T13:45:00Z",
+      locale: "en",
+    });
+    expect(en.html).toContain('<html lang="en">');
+  });
+
   test("export-ready: ampersand in download url is escaped in the href attr", () => {
     const r = renderExportReadyEmail({
       downloadUrl: "https://app.test/x?token=a&next=b",

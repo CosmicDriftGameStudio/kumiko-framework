@@ -341,14 +341,20 @@ export type ScreenPattern = {
 export type WriteHandlerPattern = {
   readonly kind: "writeHandler";
   readonly source: SourceLocation;
-  readonly handlerName: string;
+  // handlerName/schemaSource/handlerBody are set together, or all left
+  // undefined for a single reference standing in for the whole handler
+  // (`r.writeHandler(handlerRef)`) that couldn't be resolved to an object
+  // literal — see #1007. An opaque pattern re-emits `source.raw` verbatim
+  // and, like UnknownPattern, has no PatternId variant (not individually
+  // patchable).
+  readonly handlerName?: string;
   // schemaSource: the Zod call as source text (e.g. "z.object({...})").
   // We keep it as an opaque block instead of decoding it back to JSON
   // schema — Zod's full surface is too rich for a faithful round-trip.
-  readonly schemaSource: SourceLocation;
+  readonly schemaSource?: SourceLocation;
   // handlerBody: the closure body as source text. Always opaque — AI
   // generates raw TypeScript, no DSL interpretation.
-  readonly handlerBody: SourceLocation;
+  readonly handlerBody?: SourceLocation;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
   readonly unsafeSkipTransitionGuard?: boolean;
@@ -356,43 +362,34 @@ export type WriteHandlerPattern = {
 
 // `r.queryHandler(...)` — registers a read handler: name, Zod input schema,
 // handler closure, plus optional `access` and `rateLimit` rules. Read-side
-// counterpart of `r.writeHandler` with the same header/body split.
+// counterpart of `r.writeHandler` with the same header/body split. Opaque
+// (no handlerName) for the same single-reference case as WriteHandlerPattern.
 export type QueryHandlerPattern = {
   readonly kind: "queryHandler";
   readonly source: SourceLocation;
-  readonly handlerName: string;
-  readonly schemaSource: SourceLocation;
-  readonly handlerBody: SourceLocation;
+  readonly handlerName?: string;
+  readonly schemaSource?: SourceLocation;
+  readonly handlerBody?: SourceLocation;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
 };
 
 // `r.hook(type, target, fn, options?)` — attaches a lifecycle hook
 // (`validation`, `preSave`, `postSave`, `preDelete`, `postDelete`,
-// `preQuery`, `postQuery`) to one or more target handlers. Post-hooks
-// accept a `phase` option; `preDelete` always runs in-transaction — it
-// guards the delete. The hook body is an opaque code span.
+// `preQuery`, `postQuery`) to one or more target handlers, or — for
+// postSave/preDelete/postDelete/postQuery — to `{ allOf: entityRef }`
+// ("every write/query handler of this entity", replacing the old
+// `r.entityHook(type, entity, fn)`). Post-hooks accept a `phase` option;
+// `preDelete` always runs in-transaction — it guards the delete. The hook
+// body is an opaque code span.
 export type HookPattern = {
   readonly kind: "hook";
   readonly source: SourceLocation;
   readonly hookType: LifecycleHookType | "validation";
-  // r.hook accepts a single target or a list; we keep both shapes so
-  // the Designer can render the original author intent.
-  readonly target: string | readonly string[];
-  readonly fnBody: SourceLocation;
-  readonly phase?: HookPhase;
-};
-
-// `r.entityHook(type, entity, fn, options?)` — like `r.hook`, but bound to
-// an entity instead of individual handlers: `postSave`, `preDelete`, and
-// `postDelete` fire on every matching write. The runtime API additionally
-// accepts `postQuery` (fires for all query-handlers of the entity), but
-// this pattern type only represents the three write-side hooks.
-export type EntityHookPattern = {
-  readonly kind: "entityHook";
-  readonly source: SourceLocation;
-  readonly hookType: "postSave" | "preDelete" | "postDelete";
-  readonly entityName: string;
+  // r.hook accepts a single target, a list, or an entity-wide { allOf }
+  // target; we keep all three shapes so the Designer can render the
+  // original author intent.
+  readonly target: string | readonly string[] | { readonly allOf: string };
   readonly fnBody: SourceLocation;
   readonly phase?: HookPhase;
 };
@@ -445,18 +442,6 @@ export type AuthClaimsPattern = {
   readonly fnBody: SourceLocation;
 };
 
-// `r.tree(provider)` — the feature's top-level tree provider: a subscribe
-// function (emit-fn in, unsubscribe-fn out) that feeds workspaces with
-// `navigation: "tree"`. Features without `r.tree()` are invisible there —
-// provider presence IS the filter, there is no workspace mapping.
-// Closure-only, no header form: the Designer renders a read-only code
-// block, the AI patcher overwrites the span verbatim.
-export type TreePattern = {
-  readonly kind: "tree";
-  readonly source: SourceLocation;
-  readonly providerBody: SourceLocation;
-};
-
 // `r.httpRoute(definition)` — mounts an HTTP route owned by the feature,
 // outside the dispatcher pipeline (not under `/api/write|query|batch`) —
 // for RSS/Atom feeds, OG images, OpenAPI specs and similar. Duplicate
@@ -506,29 +491,22 @@ export type MultiStreamProjectionPattern = {
 // `r.defineEvent(name, schema, options?)` — registers an event payload
 // shape and returns the qualified `EventDef`, so callers pass `.name` to
 // `ctx.appendEvent` instead of hand-building `<feature>:event:<short>`.
-// `options.version` declares the CURRENT schema generation (default 1);
-// bump it together with an `r.eventMigration` step — the framework refuses
-// to boot if the chain from 1 to the current version has gaps.
+// `options.version` declares the CURRENT schema generation (default 1).
+// `options.migrations` is a step-wise upcast chain — keyed by fromVersion
+// (toVersion is always fromVersion + 1, enforced at registration, so it is
+// not stored separately); the framework refuses to boot if the chain from
+// 1 to `version` has gaps. Formerly a separate `r.eventMigration()` call
+// per step, folded in here (#1082 step 8) — an event and its schema
+// evolution are one lifecycle, not two registrar concepts.
 export type DefineEventPattern = {
   readonly kind: "defineEvent";
   readonly source: SourceLocation;
   readonly eventName: string;
   readonly schemaSource: SourceLocation;
   readonly version?: number;
-};
-
-// `r.eventMigration(eventName, fromVersion, toVersion, transform)` —
-// registers a step-wise payload upcast for event-schema evolution.
-// `toVersion` must be `fromVersion + 1`; chain larger jumps step by step.
-// Transforms are pure old-payload-in/new-payload-out functions and run once
-// per READ, not once per event persisted — keep them cheap.
-export type EventMigrationPattern = {
-  readonly kind: "eventMigration";
-  readonly source: SourceLocation;
-  readonly eventName: string;
-  readonly fromVersion: number;
-  readonly toVersion: number;
-  readonly transformBody: SourceLocation;
+  // Map fromVersion (as string, e.g. "1") → SourceLocation of the transform
+  // closure for the fromVersion → fromVersion+1 step.
+  readonly migrations?: Readonly<Record<string, SourceLocation>>;
 };
 
 // `r.extendsRegistrar(extensionName, def)` — declares a named, globally
@@ -615,7 +593,6 @@ export type FeaturePattern =
   | WriteHandlerPattern
   | QueryHandlerPattern
   | HookPattern
-  | EntityHookPattern
   | JobPattern
   | NotificationPattern
   | AuthClaimsPattern
@@ -623,9 +600,7 @@ export type FeaturePattern =
   | ProjectionPattern
   | MultiStreamProjectionPattern
   | DefineEventPattern
-  | EventMigrationPattern
   | ExtendsRegistrarPattern
-  | TreePattern
   | EnvSchemaPattern
   // Catch-all
   | UnknownPattern;
@@ -673,18 +648,15 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "writeHandler":
     case "queryHandler":
     case "hook":
-    case "entityHook":
     case "job":
     case "notification":
     case "httpRoute":
     case "projection":
     case "multiStreamProjection":
     case "defineEvent":
-    case "eventMigration":
       return "mixed";
     case "authClaims":
     case "extendsRegistrar":
-    case "tree":
     case "envSchema":
     case "uiHints":
     case "unknown":

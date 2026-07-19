@@ -20,11 +20,11 @@ describe("fileFoundationFeature — shape", () => {
 });
 
 describe("fileFoundationFeature.exports — typed handles", () => {
-  test("exposes only the provider-selector config-key", () => {
-    const keys = fileFoundationFeature.exports.configKeys;
-    expect(keys.provider).toBeDefined();
-    expect((keys as Record<string, unknown>)["bucket"]).toBeUndefined();
-    expect((keys as Record<string, unknown>)["region"]).toBeUndefined();
+  test("exposes the provider-selector handle", () => {
+    expect(fileFoundationFeature.exports.providerConfigKey).toBeDefined();
+    expect(fileFoundationFeature.exports.providerConfigKey.name).toBe(
+      "file-foundation:config:provider",
+    );
   });
 });
 

@@ -324,6 +324,179 @@ export type ProjectionListScreenDefinition = {
   readonly access?: AccessRule;
 };
 
+// --- projectionDetail ---
+
+// Read-only counterpart to projectionList — a single-row inspector bound to
+// an EXPLICIT query instead of an entity (`entityEdit` requires `r.entity`,
+// which a direct-write/projection read-model like `jobs`/`sessions` doesn't
+// have — see #255). There is no write path: the renderer forces every field
+// readOnly structurally (not just by convention — see
+// renderer/projection-detail-shim.ts), so no `<entity>:write:...:update`
+// command is ever constructed. `idParam` names the query-payload key the
+// route's row-id is passed under; defaults to "id", but a query handler
+// owned by a different feature may already use a domain-specific param name
+// (e.g. jobs' `detailQuery` expects `runId`) — this lets the primitive bind
+// to it without forcing a handler rename. Extension sections aren't
+// supported (no entity for them to persist against); the boot-validator
+// rejects them.
+export type ProjectionDetailScreenDefinition = {
+  readonly id: string;
+  readonly type: "projectionDetail";
+  readonly query: string;
+  /** Query-payload key for the row-id. Default "id". */
+  readonly idParam?: string;
+  readonly layout: EditLayout;
+  /** Optionaler per-Field-Label-i18n-Key (Field-Name → Key), analog zu
+   *  entityEdit.fieldLabels. Die Pseudo-Entity `__projection-detail__` hat
+   *  keinen natürlichen Field-Namespace — fehlt ein Eintrag, gilt die
+   *  Konvention `<feature>:entity:__projection-detail__:field:<name>`. */
+  readonly fieldLabels?: Readonly<Record<string, string>>;
+  /** Parent list screen (kurze id) für eine "Zurück"-Navigation. */
+  readonly listScreenId?: string;
+  readonly slots?: ScreenSlots;
+  readonly access?: AccessRule;
+};
+
+// --- dashboard ---
+
+// Deklaratives Panel-Grid — Kennzahlen, Verläufe und Kurzlisten ohne
+// Custom-JSX. Jedes Panel zieht seine Daten aus einer eigenen Query
+// (fully-qualified QN, cross-feature erlaubt wie projectionList).
+// Formatierung ist Sache des Query-Handlers: Stat-Werte kommen als
+// anzeigefertige Strings/Zahlen aus der Read-Projection (ES-Read-Models
+// shapen ihre Daten selbst; der Renderer formatiert nicht nach).
+
+// Query-Result-Contract: flaches Record; `valueField` zeigt auf den
+// anzeigefertigen Wert, `subField` optional auf eine Sub-Zeile,
+// `toneField` optional auf "default" | "positive" | "warn".
+export type DashboardStatPanel = {
+  readonly kind: "stat";
+  /** Stable id — kebab-case, eindeutig im Panel-Set. */
+  readonly id: string;
+  /** Anzeige-Text (i18n-Key). */
+  readonly label: string;
+  readonly query: string;
+  readonly valueField: string;
+  readonly subField?: string;
+  readonly toneField?: string;
+  /** Optionaler Delta-Chip (z.B. "↓23 %") neben dem Label. Nur wenn BEIDE
+   *  Felder gesetzt sind UND der Query-Handler sie liefert, rendert der Chip
+   *  — sonst bleibt die Kachel wie ohne Delta. `deltaToneField` fällt auf
+   *  `toneField`/"default" zurück, wenn ungesetzt. */
+  readonly deltaField?: string;
+  readonly deltaDirectionField?: string;
+  readonly deltaToneField?: string;
+  /** Statisches Icon neben dem Label — anders als value/sub/delta variiert
+   *  das Icon nicht pro Query-Result, sondern ist eine Author-Entscheidung
+   *  wie das Panel selbst. Aufgelöst über dieselbe extensionSectionComponents-
+   *  Registry wie custom-Panels; die registrierte Komponente ignoriert
+   *  typischerweise entityName/entityId/filterParams (kein Entity-Kontext
+   *  für ein reines Icon). */
+  readonly icon?: PlatformComponent;
+  /** Statischer CSS-Farbwert (z.B. "var(--color-debt)") für den Icon-Chip —
+   *  Passthrough an die Kachel, keine Registry, kein Lookup. Wirkt NUR wenn
+   *  `icon` gesetzt ist (StatCard rendert den Chip nur zusammen mit einem
+   *  Icon) — ohne icon wird der Wert still verworfen. */
+  readonly accentColor?: string;
+};
+
+// Query-Result-Contract: `{ points: { atMs, value | null }[],
+// windowStartMs, windowEndMs }` — value=null zeichnet einen Einbruch.
+export type DashboardChartPanel = {
+  readonly kind: "chart";
+  readonly id: string;
+  readonly label: string;
+  /** v1: geglättete Zeitreihe. Weitere Chart-Formen additiv. */
+  readonly chart: "timeseries";
+  readonly query: string;
+};
+
+// Kurzliste im Dashboard — Query-Contract wie projectionList
+// (`{ rows, nextCursor, total? }`), gerendert ohne Pager/Toolbar.
+export type DashboardListPanel = {
+  readonly kind: "list";
+  readonly id: string;
+  readonly label: string;
+  readonly query: string;
+  readonly columns: readonly ListColumnSpec[];
+};
+
+// Betitelte Sektion aus mehreren Stat-Panels (z.B. "Net Worth": Assets/Debts/
+// Net). Ein Nesting-Level, kein Group-of-Groups — jedes Kind bleibt ein
+// vollwertiges DashboardStatPanel mit eigener Query/id/label, der Renderer
+// zieht sie nur gemeinsam unter einen Sektions-Titel.
+export type DashboardStatGroupPanel = {
+  readonly kind: "stat-group";
+  readonly id: string;
+  readonly label: string;
+  readonly stats: readonly DashboardStatPanel[];
+};
+
+// Nicht-tabellarische Kurzliste (z.B. "nächste Termine"). Query-Result-
+// Contract: `{ rows: { primary: string; trailing?: string }[] }`.
+export type DashboardFeedPanel = {
+  readonly kind: "feed";
+  readonly id: string;
+  readonly label: string;
+  readonly query: string;
+  readonly emptyLabel?: string;
+};
+
+// Liste aus Label/Wert/Fortschrittsbalken (z.B. Tilgungsfortschritt pro
+// Kredit). Query-Result-Contract: `{ rows: { label: string; value: string;
+// fraction: number }[] }` — fraction wird auf 0..1 geclampt.
+export type DashboardProgressListPanel = {
+  readonly kind: "progress-list";
+  readonly id: string;
+  readonly label: string;
+  readonly query: string;
+};
+
+// Eingehängte App-Komponente, die ihre Daten/Titel selbst verwaltet (wie ein
+// custom Screen, nur als Panel — bleibt an ihrer Array-Position statt in
+// einen separaten Slot zu wandern). Kein `query`, keine `label`: der Renderer
+// löst `component` über dieselbe extensionSectionComponents-Registry auf wie
+// entityEdit-Extension-Sections und List-Header-Slots.
+export type DashboardCustomPanel = {
+  readonly kind: "custom";
+  readonly id: string;
+  readonly component: PlatformComponent;
+};
+
+export type DashboardPanelDefinition =
+  | DashboardStatPanel
+  | DashboardStatGroupPanel
+  | DashboardChartPanel
+  | DashboardListPanel
+  | DashboardFeedPanel
+  | DashboardProgressListPanel
+  | DashboardCustomPanel;
+
+// Screen-weiter Picker (Combobox), dessen gewählter Wert unter `id` in JEDE
+// Panel-Query dieses Screens gemerged wird (Query-Handler validieren den Wert
+// selbst gegen die Tenant-Sicht — dies ist UX-Scoping, keine Access-Boundary).
+// Genau eins von `options`/`optionsQuery` ist gesetzt (Boot-Validator prüft).
+export type DashboardFilterDefinition = {
+  readonly id: string;
+  readonly label: string;
+  readonly kind: "select";
+  readonly placeholder?: string;
+  /** i18n-Key für den "(alle)"-Eintrag. */
+  readonly allLabel?: string;
+  readonly options?: readonly { readonly value: string; readonly label: string }[];
+  /** Query-Result-Contract: `{ rows: { value: string; label: string }[] }`. */
+  readonly optionsQuery?: string;
+};
+
+export type DashboardScreenDefinition = {
+  readonly id: string;
+  readonly type: "dashboard";
+  readonly panels: readonly DashboardPanelDefinition[];
+  readonly filter?: DashboardFilterDefinition;
+  readonly slots?: ScreenSlots;
+  readonly access?: AccessRule;
+};
+
 // --- entityEdit ---
 
 // camelCase `readOnly` instead of the spec's lowercase `readonly`: TS's
@@ -554,13 +727,28 @@ export type ScreenSlots = {
 
 // --- discriminated union ---
 
-export type ScreenDefinition =
+// Inline nav-entry sugar for `r.screen({ ..., nav: {...} })` — covers the
+// common case of "one nav entry pointing at this screen". The nav entry's
+// `id`/`screen` are synthesized from the screen's own id; for anything
+// beyond label/icon/parent/order (access-gating, workspaces, actions),
+// declare a standalone `r.nav()` entry instead.
+export type ScreenNavSugar = {
+  readonly label: string;
+  readonly icon?: string;
+  readonly parent?: string;
+  readonly order?: number;
+};
+
+export type ScreenDefinition = (
   | EntityListScreenDefinition
   | ProjectionListScreenDefinition
+  | ProjectionDetailScreenDefinition
+  | DashboardScreenDefinition
   | EntityEditScreenDefinition
   | ActionFormScreenDefinition
   | ConfigEditScreenDefinition
-  | CustomScreenDefinition;
+  | CustomScreenDefinition
+) & { readonly nav?: ScreenNavSugar };
 
 // Type guard — narrows FieldRenderer to FormatSpec. Useful for renderer
 // authors who branch on the three FieldRenderer variants without manual

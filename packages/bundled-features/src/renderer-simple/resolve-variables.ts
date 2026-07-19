@@ -14,7 +14,7 @@ export async function resolveNotificationVariables(
 ): Promise<Readonly<Record<string, unknown>>> {
   const variables = req.payload.variables ?? {};
   const slug = req.payload.template?.trim();
-  if (!slug || req.payload.content || !ctx.db) {
+  if (!slug || req.payload.content || !ctx.db || !ctx.registry.features.has("template-resolver")) {
     return variables;
   }
 
@@ -31,6 +31,8 @@ export async function resolveNotificationVariables(
       const base = parsePlainTemplateContent(resolved.content);
       return { ...base, ...variables };
     }
+    // body always wins from the resolved template for rendered formats — a runtime
+    // "variables.body" override would clobber the actual rendered content.
     return { ...variables, body: resolved.content };
   } catch (err) {
     if (err instanceof TemplateNotFoundError) {

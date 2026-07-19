@@ -8,13 +8,14 @@ export type MeilisearchAdapterOptions = {
   indexPrefix?: string;
 };
 
-function tenantIndex(prefix: string, tenantId: TenantId): string {
+// Exported for unit tests (index-name / primary-key shape) without a live Meili.
+export function meilisearchTenantIndex(prefix: string, tenantId: TenantId): string {
   return `${prefix}t${tenantId}`;
 }
 
 // Meilisearch primary-key-ids: alphanumerics, `-`, `_`. UUIDs contain `-` —
 // legal. Replace anything else just in case callers pass unexpected shapes.
-function docId(entityType: string, entityId: EntityId): string {
+export function meilisearchDocId(entityType: string, entityId: EntityId): string {
   return `${entityType}_${String(entityId).replace(/[^0-9A-Za-z_-]/g, "_")}`;
 }
 
@@ -24,7 +25,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
 
   return {
     async configure(tenantId, config) {
-      const index = client.index(tenantIndex(prefix, tenantId));
+      const index = client.index(meilisearchTenantIndex(prefix, tenantId));
       const fields = config.rankingFields ?? config.searchableFields;
       await index.updateSearchableAttributes([...fields]).waitTask();
       await index.updateFilterableAttributes(["_type", "_weight"]).waitTask();
@@ -32,12 +33,12 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     },
 
     async index(tenantId, doc) {
-      const index = client.index(tenantIndex(prefix, tenantId));
+      const index = client.index(meilisearchTenantIndex(prefix, tenantId));
       await index
         .addDocuments(
           [
             {
-              _id: docId(doc.entityType, doc.entityId),
+              _id: meilisearchDocId(doc.entityType, doc.entityId),
               _type: doc.entityType,
               _weight: doc.weight,
               _entityId: doc.entityId,
@@ -52,9 +53,9 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     async indexBatch(tenantId, docs) {
       // skip: empty batch — avoid an unnecessary Meilisearch round-trip
       if (docs.length === 0) return;
-      const index = client.index(tenantIndex(prefix, tenantId));
+      const index = client.index(meilisearchTenantIndex(prefix, tenantId));
       const payload = docs.map((doc) => ({
-        _id: docId(doc.entityType, doc.entityId),
+        _id: meilisearchDocId(doc.entityType, doc.entityId),
         _type: doc.entityType,
         _weight: doc.weight,
         _entityId: doc.entityId,
@@ -69,13 +70,13 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     async removeBatch(tenantId, items) {
       // skip: empty batch — avoid an unnecessary Meilisearch round-trip
       if (items.length === 0) return;
-      const index = client.index(tenantIndex(prefix, tenantId));
-      const ids = items.map((i) => docId(i.entityType, i.entityId));
+      const index = client.index(meilisearchTenantIndex(prefix, tenantId));
+      const ids = items.map((i) => meilisearchDocId(i.entityType, i.entityId));
       await index.deleteDocuments(ids).waitTask();
     },
 
     async search(tenantId, query, options) {
-      const index = client.index(tenantIndex(prefix, tenantId));
+      const index = client.index(meilisearchTenantIndex(prefix, tenantId));
 
       const filter: string[] = [];
       if (options?.filterType) {
@@ -99,8 +100,8 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     },
 
     async remove(tenantId, entityType, entityId) {
-      const index = client.index(tenantIndex(prefix, tenantId));
-      await index.deleteDocument(docId(entityType, entityId)).waitTask();
+      const index = client.index(meilisearchTenantIndex(prefix, tenantId));
+      await index.deleteDocument(meilisearchDocId(entityType, entityId)).waitTask();
     },
   };
 }

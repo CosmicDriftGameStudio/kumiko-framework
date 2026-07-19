@@ -16,11 +16,11 @@ export function PlatformOverviewScreen(): ReactNode {
   useEffect(() => {
     let cancelled = false;
     void (async (): Promise<void> => {
-      const tenantsRes = await overviewQuery<{ readonly rows: readonly unknown[] }>(
+      const tenantsRes = await overviewQuery<{ readonly total: number }>(
         "platform",
         dispatcher,
         TenantQueries.list,
-        {},
+        { totalCount: true },
       );
       if (cancelled) return;
       if (!tenantsRes.isSuccess) {
@@ -28,11 +28,11 @@ export function PlatformOverviewScreen(): ReactNode {
         return;
       }
 
-      const usersRes = await overviewQuery<{ readonly rows: readonly unknown[] }>(
+      const usersRes = await overviewQuery<{ readonly total: number }>(
         "platform",
         dispatcher,
         UserQueries.list,
-        {},
+        { totalCount: true },
       );
       if (cancelled) return;
       if (!usersRes.isSuccess) {
@@ -40,11 +40,11 @@ export function PlatformOverviewScreen(): ReactNode {
         return;
       }
 
-      const failedJobsRes = await overviewQuery<{ readonly rows: readonly unknown[] }>(
+      const failedJobsRes = await overviewQuery<{ readonly total: number }>(
         "platform",
         dispatcher,
         JobQueries.list,
-        { status: "failed", limit: 50 },
+        { status: "failed", totalCount: true },
       );
       if (cancelled) return;
       if (!failedJobsRes.isSuccess) {
@@ -57,20 +57,18 @@ export function PlatformOverviewScreen(): ReactNode {
         cards: [
           {
             label: t("admin-shell:overview.tenants"),
-            value: String(tenantsRes.data.rows.length),
+            value: String(tenantsRes.data.total),
           },
           {
             label: t("admin-shell:overview.users"),
-            value: String(usersRes.data.rows.length),
+            value: String(usersRes.data.total),
           },
           {
             label: t("admin-shell:overview.failedJobs"),
-            value: String(failedJobsRes.data.rows.length),
+            value: String(failedJobsRes.data.total),
             hint:
-              failedJobsRes.data.rows.length > 0
-                ? t("admin-shell:overview.failedJobsHint")
-                : undefined,
-            attention: failedJobsRes.data.rows.length > 0,
+              failedJobsRes.data.total > 0 ? t("admin-shell:overview.failedJobsHint") : undefined,
+            attention: failedJobsRes.data.total > 0,
           },
         ],
       });

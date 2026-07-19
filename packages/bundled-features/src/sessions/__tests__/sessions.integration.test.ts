@@ -391,6 +391,41 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(body.error?.details?.reason).toBe("missing");
   });
 
+  // Cross-user check: a valid JWT for Alice paired with Bob's live sid must
+  // look identical to a forged/missing sid — otherwise the checker would be
+  // an existence oracle on other users' sessions.
+  test("sid belonging to another user → 401 reason=missing (no existence oracle)", async () => {
+    const alice = await h.seedUser("alice-xuser@example.com", "pw-long-enough");
+    const bob = await h.seedUser("bob-xuser@example.com", "pw-long-enough");
+    const bobLogin = await h.login("bob-xuser@example.com", "pw-long-enough");
+
+    // Direct invariant: Bob's sid + Alice's userId → missing (not live/revoked).
+    expect(await callbacks.get().sessionChecker(bobLogin.sid, alice.userId)).toBe("missing");
+    expect(await callbacks.get().sessionChecker(bobLogin.sid, bob.userId)).toBe("live");
+
+    // HTTP path: mint Alice's identity onto Bob's sid (stolen-sid scenario).
+    const forged = await stack.jwt.sign({
+      id: alice.userId,
+      tenantId: TENANT,
+      roles: ["User"],
+      sid: bobLogin.sid,
+    });
+    const res = await h.authedPost("/api/query", forged, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe("missing");
+
+    // Control: Bob's own JWT still authenticates — the sid itself is fine.
+    const bobOk = await h.authedPost("/api/query", bobLogin.token, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(bobOk.status).toBe(200);
+  });
+
   test("expired session row → 401 with reason=expired", async () => {
     await h.seedUser("stale@example.com", "pw-long-enough");
     const { token, sid } = await h.login("stale@example.com", "pw-long-enough");
@@ -466,6 +501,92 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     // last login; aliceAsAdmin.sid leads the list. Pinning guards against
     // silent orderBy removal.
     expect(body.data[0]?.id).toBe(aliceAsAdmin.sid);
+  });
+
+  // Single-row inspector backing the session-detail screen (kumiko-framework#255).
+  // Same access-gate as session:list (admin-or-higher); verifies field-shape,
+  // decryption of ip/userAgent, and the "unknown id" not-found path.
+  test("session:detail returns one decrypted row for admins, null for an unknown id", async () => {
+    const { userId: aliceId } = await h.seedUser("alice3@example.com", "pw-long-enough");
+
+    await updateRows(
+      stack.db,
+      tenantMembershipsTable,
+      { roles: JSON.stringify(["Admin"]) },
+      { userId: aliceId, tenantId: TENANT },
+    );
+    const aliceAsAdmin = await h.login("alice3@example.com", "pw-long-enough");
+
+    const res = await h.authedPost("/api/query", aliceAsAdmin.token, {
+      type: SessionQueries.detail,
+      payload: { id: aliceAsAdmin.sid },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { id: string; userId: string; revokedAt: string | null } | null;
+    };
+    expect(body.data?.id).toBe(aliceAsAdmin.sid);
+    expect(body.data?.userId).toBe(aliceId);
+    expect(body.data?.revokedAt).toBeNull();
+
+    const missing = await h.authedPost("/api/query", aliceAsAdmin.token, {
+      type: SessionQueries.detail,
+      payload: { id: "00000000-0000-4000-8000-0000deadbeef" },
+    });
+    expect(missing.status).toBe(200);
+    const missingBody = (await missing.json()) as { data: unknown };
+    expect(missingBody.data).toBeNull();
+
+    // Plain User gets the same 403 as session:list — same access-gate.
+    await h.seedUser("bob3@example.com", "pw-long-enough");
+    const bob = await h.login("bob3@example.com", "pw-long-enough");
+    const asUser = await h.authedPost("/api/query", bob.token, {
+      type: SessionQueries.detail,
+      payload: { id: aliceAsAdmin.sid },
+    });
+    expect(asUser.status).toBe(403);
+  });
+
+  // IDOR guard: session:detail/session:list are scoped by ctx.db (TenantDb)
+  // alone, no explicit tenant predicate in the handler — an admin from a
+  // different tenant must not be able to read another tenant's session rows.
+  test("session:detail and session:list never leak sessions across tenants", async () => {
+    const TENANT_2 = testTenantId(2);
+    const h2 = makeSessionHelpers(stack, TENANT_2);
+
+    const { userId: carolId } = await h.seedUser("carol4@example.com", "pw-long-enough");
+    await updateRows(
+      stack.db,
+      tenantMembershipsTable,
+      { roles: JSON.stringify(["Admin"]) },
+      { userId: carolId, tenantId: TENANT },
+    );
+    const carolAsAdmin = await h.login("carol4@example.com", "pw-long-enough");
+
+    const { userId: daveId } = await h2.seedUser("dave4@example.com", "pw-long-enough");
+    await updateRows(
+      stack.db,
+      tenantMembershipsTable,
+      { roles: JSON.stringify(["Admin"]) },
+      { userId: daveId, tenantId: TENANT_2 },
+    );
+    const daveAsAdmin = await h2.login("dave4@example.com", "pw-long-enough");
+
+    const detailRes = await h2.authedPost("/api/query", daveAsAdmin.token, {
+      type: SessionQueries.detail,
+      payload: { id: carolAsAdmin.sid },
+    });
+    expect(detailRes.status).toBe(200);
+    const detailBody = (await detailRes.json()) as { data: unknown };
+    expect(detailBody.data).toBeNull();
+
+    const listRes = await h2.authedPost("/api/query", daveAsAdmin.token, {
+      type: SessionQueries.list,
+      payload: {},
+    });
+    expect(listRes.status).toBe(200);
+    const listBody = (await listRes.json()) as { data: Array<{ id: string }> };
+    expect(listBody.data.map((r) => r.id)).not.toContain(carolAsAdmin.sid);
   });
 });
 

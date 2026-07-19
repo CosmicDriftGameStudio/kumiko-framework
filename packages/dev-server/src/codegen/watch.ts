@@ -74,7 +74,7 @@ export function watchAndRegenerate(opts: WatchOptions): WatchHandle {
         if (result.warnings.length > 0) {
           for (const w of result.warnings) {
             // biome-ignore lint/suspicious/noConsole: codegen-watcher logs to terminal
-            console.warn(`[codegen] ${w.file}:${w.line} — ${w.reason}`);
+            console.warn(`[codegen] ${w.file}:${w.line} — ${w.message}`);
           }
         }
       }
@@ -95,17 +95,19 @@ export function watchAndRegenerate(opts: WatchOptions): WatchHandle {
 
   try {
     watcher = watch(srcDir, { recursive: true }, (_eventType, filename) => {
+      // skip: watcher closed or no filename reported, nothing to act on
       if (closed || !filename) return;
       // node liefert filename relativ zu srcDir, kann aber posix oder
       // windows-style separators haben. Wir prüfen substring-tolerant.
       const normalised = `/${filename.toString().replace(/\\/g, "/")}`;
+      // skip: path matches an excluded segment (node_modules/dist/etc.)
       if (SKIP_SUBSTRINGS.some((seg) => normalised.includes(seg))) return;
-      // Nur .ts/.tsx interessieren — alles andere (CSS, MD, JSON) hat
+      // skip: Nur .ts/.tsx interessieren — alles andere (CSS, MD, JSON) hat
       // keinen Einfluss auf r.defineEvent-Calls.
       if (!normalised.endsWith(".ts") && !normalised.endsWith(".tsx")) return;
-      // .d.ts ausgenommen — die kommen meistens vom codegen selbst.
+      // skip: .d.ts ausgenommen — die kommen meistens vom codegen selbst.
       if (normalised.endsWith(".d.ts")) return;
-      // .test.ts/.test.tsx ausgenommen — Tests definieren keine
+      // skip: .test.ts/.test.tsx ausgenommen — Tests definieren keine
       // Production-Features.
       if (normalised.endsWith(".test.ts") || normalised.endsWith(".test.tsx")) return;
 
@@ -127,6 +129,7 @@ export function watchAndRegenerate(opts: WatchOptions): WatchHandle {
 
   return {
     close: () => {
+      // skip: already closed, avoid double-close
       if (closed) return;
       closed = true;
       if (timer) clearTimeout(timer);

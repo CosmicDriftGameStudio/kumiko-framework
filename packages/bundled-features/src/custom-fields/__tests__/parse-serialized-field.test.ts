@@ -3,8 +3,16 @@ import { isFieldDefinitionRow, parseSerializedField } from "../lib/parse-seriali
 
 describe("parseSerializedField", () => {
   test("parses a valid JSON string into the typed shape", () => {
-    const parsed = parseSerializedField('{"type":"text","sensitive":true}');
-    expect(parsed).toEqual({ type: "text", sensitive: true });
+    const parsed = parseSerializedField(
+      '{"type":"text","retention":{"keepFor":"30d","strategy":"delete"}}',
+    );
+    expect(parsed).toEqual({ type: "text", retention: { keepFor: "30d", strategy: "delete" } });
+  });
+
+  test("throws on a stored definition with the removed `sensitive` key (#972)", () => {
+    expect(() => parseSerializedField('{"type":"text","sensitive":true}')).toThrow(
+      /custom fields don't support PII/,
+    );
   });
 
   test("accepts an already-parsed object (jsonb-tolerant driver path)", () => {
@@ -17,7 +25,7 @@ describe("parseSerializedField", () => {
   });
 
   test("returns null when the shape lacks a string type", () => {
-    expect(parseSerializedField('{"sensitive":true}')).toBeNull();
+    expect(parseSerializedField('{"fieldAccess":{}}')).toBeNull();
     expect(parseSerializedField({ type: 42 })).toBeNull();
   });
 

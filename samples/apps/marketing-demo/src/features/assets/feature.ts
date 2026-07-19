@@ -2,13 +2,26 @@
 // Marketing-Demo. defineFeature registriert Entity + CRUD-Handler +
 // Screens. Audit + Multi-Tenant kommen aus dem Framework-Default.
 
-import { defineFeature, registerEntityCrud } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { assetsTranslations } from "./i18n";
 import { assetEditScreen, assetEntity, assetListScreen } from "./schema";
 
 const open = { access: { openToAll: true } } as const;
 
+// r.translations() wants key-first shape ({key: {de, en}}); assetsTranslations
+// is locale-first (client TranslationsByLocale shape) — invert here (bracket
+// notation + fallback avoids TS4111/TS18048 under noUncheckedIndexedAccess).
+const REQUIRED_I18N: Record<string, { de: string; en: string }> = Object.fromEntries(
+  Object.keys(assetsTranslations["de"] ?? {}).map((key) => [
+    key,
+    { de: assetsTranslations["de"]?.[key] ?? "", en: assetsTranslations["en"]?.[key] ?? "" },
+  ]),
+);
+
 export const assetsFeature = defineFeature("assets", (r) => {
-  registerEntityCrud(r, "asset", assetEntity, { write: open, read: open });
+  r.translations({ keys: REQUIRED_I18N });
+
+  r.crud("asset", assetEntity, { write: open, read: open });
 
   r.screen(assetEditScreen);
   r.screen(assetListScreen);

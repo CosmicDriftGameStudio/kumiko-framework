@@ -9,11 +9,21 @@ import type {
   AppSchema,
   FeatureSchema,
   NavDefinition,
+  ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import { buildNavRegistrySlice, buildNavRegistrySliceForApp } from "../nav-tree";
 
 function feature(navs: readonly NavDefinition[], featureName = "tasks"): FeatureSchema {
   return { featureName, entities: {}, screens: [], navs };
+}
+
+function featureWithScreens(
+  navs: readonly NavDefinition[],
+  screens: readonly ScreenDefinition[],
+  featureName = "tasks",
+): FeatureSchema {
+  return { featureName, entities: {}, screens, navs };
 }
 
 describe("buildNavRegistrySlice", () => {
@@ -69,5 +79,100 @@ describe("buildNavRegistrySliceForApp", () => {
     };
     const slice = buildNavRegistrySliceForApp(app);
     expect(slice.topLevel.map((n) => n.id)).toEqual(["shop:nav:catalog", "admin:nav:users"]);
+  });
+
+  test("nav ohne eigene access erbt access vom referenzierten Screen (#1099)", () => {
+    const app: AppSchema = {
+      features: [
+        featureWithScreens(
+          [{ id: "members", label: "Members", screen: "members" }],
+          [
+            {
+              id: "members",
+              type: "custom",
+              renderer: { react: { __component: "Members" } },
+              access: { roles: ["Admin"] },
+            },
+          ],
+        ),
+      ],
+    };
+    const slice = buildNavRegistrySliceForApp(app);
+    expect(slice.topLevel[0]?.access).toEqual({ roles: ["Admin"] });
+  });
+
+  test("nav mit eigener access ignoriert die Screen-Access (expliziter Override gewinnt)", () => {
+    const app: AppSchema = {
+      features: [
+        featureWithScreens(
+          [
+            {
+              id: "members",
+              label: "Members",
+              screen: "members",
+              access: { roles: ["Admin", "Editor"] },
+            },
+          ],
+          [
+            {
+              id: "members",
+              type: "custom",
+              renderer: { react: { __component: "Members" } },
+              access: { roles: ["Admin"] },
+            },
+          ],
+        ),
+      ],
+    };
+    const slice = buildNavRegistrySliceForApp(app);
+    expect(slice.topLevel[0]?.access).toEqual({ roles: ["Admin", "Editor"] });
+  });
+
+  test("nav ohne eigene access bleibt ohne access, wenn der Ziel-Screen offen ist (kein Verstecken eines openToAll-Screens)", () => {
+    const app: AppSchema = {
+      features: [
+        featureWithScreens(
+          [{ id: "pub", label: "Pub", screen: "pub" }],
+          [
+            {
+              id: "pub",
+              type: "custom",
+              renderer: { react: { __component: "Pub" } },
+            },
+          ],
+        ),
+      ],
+    };
+    const slice = buildNavRegistrySliceForApp(app);
+    expect(slice.topLevel[0]?.access).toBeUndefined();
+  });
+
+  test("nav ohne screen bleibt ohne access (nichts zum Erben da)", () => {
+    const app: AppSchema = {
+      features: [feature([{ id: "group", label: "Group" }])],
+    };
+    const slice = buildNavRegistrySliceForApp(app);
+    expect(slice.topLevel[0]?.access).toBeUndefined();
+  });
+
+  test("end-to-end: resolveNavigation versteckt den Eintrag fuer eine Rolle, die den Ziel-Screen nicht sehen darf", () => {
+    const app: AppSchema = {
+      features: [
+        featureWithScreens(
+          [{ id: "members", label: "Members", screen: "members" }],
+          [
+            {
+              id: "members",
+              type: "custom",
+              renderer: { react: { __component: "Members" } },
+              access: { roles: ["Admin"] },
+            },
+          ],
+        ),
+      ],
+    };
+    const source = buildNavRegistrySliceForApp(app);
+    const tree = resolveNavigation({ source, user: { id: "u1", roles: ["Editor"] } });
+    expect(tree).toEqual([]);
   });
 });

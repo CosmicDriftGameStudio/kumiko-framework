@@ -90,6 +90,81 @@ describe("r.screen() — registration", () => {
     expect(() => validateBoot(features)).toThrow(/empty or non-string query/i);
   });
 
+  test("stores a projectionDetail screen bound to an explicit query", () => {
+    const feature = defineFeature("app", (r) => {
+      r.screen({
+        id: "rent-detail",
+        type: "projectionDetail",
+        query: "ledger:query:schedule:detail",
+        layout: { sections: [{ title: "app:section.basics", fields: ["description"] }] },
+      });
+    });
+    const screen = feature.screens["rent-detail"];
+    expect(screen?.type).toBe("projectionDetail");
+    if (screen?.type !== "projectionDetail") throw new Error("type-narrow failed");
+    expect(screen.query).toBe("ledger:query:schedule:detail");
+  });
+
+  test("validateBoot rejects a projectionDetail with an empty query", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "",
+          layout: { sections: [{ title: "s", fields: ["name"] }] },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/empty or non-string query/i);
+  });
+
+  test("validateBoot rejects a projectionDetail with empty sections", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: { sections: [] },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/empty sections list/i);
+  });
+
+  test("validateBoot rejects a projectionDetail section with zero fields", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: { sections: [{ title: "s", fields: [] }] },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/zero fields/i);
+  });
+
+  test("validateBoot rejects a projectionDetail with an extension section (no entity to persist against)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              { kind: "extension", title: "s", component: { react: { __component: "c" } } },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/extension section/i);
+  });
+
   test("stores an entityEdit screen with sections + conditional fields", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity("product", productEntity());
@@ -260,6 +335,32 @@ describe("createRegistry — screen indexing", () => {
     // index when recursing through slots / field renderers by QN.
     expect(byProduct.map((s) => s.id).sort()).toEqual([
       "shop:screen:product-edit",
+      "shop:screen:product-list",
+    ]);
+  });
+
+  test("getScreensByEntity aggregates screens on the same entity from two different features", () => {
+    const shop = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+      });
+    });
+    const reporting = defineFeature("reporting", (r) => {
+      r.screen({
+        id: "product-stats",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+      });
+    });
+    const registry = createRegistry([shop, reporting]);
+    const byProduct = registry.getScreensByEntity("product");
+    expect(byProduct.map((s) => s.id).sort()).toEqual([
+      "reporting:screen:product-stats",
       "shop:screen:product-list",
     ]);
   });

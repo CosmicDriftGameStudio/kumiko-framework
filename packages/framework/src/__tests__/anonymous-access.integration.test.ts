@@ -8,6 +8,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
+import type { AnonymousAccessConfig } from "../api/auth-middleware";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { asRawClient, selectMany } from "../db/query";
 import { buildEntityTable } from "../db/table-builder";
@@ -304,6 +305,190 @@ describe("anonymous access — header-supplied tenant", () => {
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("tenant_not_found");
+  });
+});
+
+describe("anonymous access — resolverTrust: authoritative", () => {
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    // Simulates a subdomain resolver: TENANT_ID is "known" (the resolver
+    // recognises it), everything else is an unrecognised host (null).
+    stack = await setupTestStack({
+      features: [shopFeature],
+      anonymousAccess: {
+        tenantResolver: () => TENANT_ID,
+        resolverTrust: "authoritative",
+        tenantExists: async (id: TenantId) => id === TENANT_ID || id === OTHER_TENANT_ID,
+      },
+    });
+    await unsafeCreateEntityTable(stack.db, productEntity);
+    await unsafeCreateEntityTable(stack.db, orderEntity);
+  });
+
+  afterAll(() => stack.cleanup());
+
+  test("no client tenant → resolver wins", async () => {
+    const res = await stack.http.raw("POST", "/api/query", {
+      type: "anonshop:query:product:list",
+      payload: {},
+    });
+    expect(res.status).toBe(200);
+  });
+
+  test("X-Tenant header agreeing with the resolver → accepted", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { "X-Tenant": TENANT_ID },
+    );
+    expect(res.status).toBe(200);
+  });
+
+  test("X-Tenant header disagreeing with the resolver → 400 tenant_mismatch, resolver's tenant is NOT overridden", async () => {
+    // The core #51 regression: a header claiming a different (real, active)
+    // tenant than the one the resolver derived must never win — that would
+    // let a guest on tenantA's subdomain write into tenantB by forging a
+    // header. Reject, don't silently prefer either side.
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { "X-Tenant": OTHER_TENANT_ID },
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("tenant_mismatch");
+  });
+
+  // pr-review kumiko-framework #1052/3 — resolveTenant treats header and
+  // cookie identically, but every case above only exercised the header.
+  // These two lock in that the cookie path behaves the same way.
+  test("kumiko_tenant cookie agreeing with the resolver → accepted", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { Cookie: `kumiko_tenant=${TENANT_ID}` },
+    );
+    expect(res.status).toBe(200);
+  });
+
+  test("kumiko_tenant cookie disagreeing with the resolver → 400 tenant_mismatch, same as a disagreeing header", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { Cookie: `kumiko_tenant=${OTHER_TENANT_ID}` },
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("tenant_mismatch");
+  });
+});
+
+describe("anonymous access — resolverTrust: authoritative, resolver returns null", () => {
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    // Resolver never recognises the host (e.g. an unmapped/unknown
+    // subdomain) — always returns null.
+    stack = await setupTestStack({
+      features: [shopFeature],
+      anonymousAccess: {
+        tenantResolver: () => null,
+        resolverTrust: "authoritative",
+        tenantExists: async (id: TenantId) => id === TENANT_ID || id === OTHER_TENANT_ID,
+      },
+    });
+    await unsafeCreateEntityTable(stack.db, productEntity);
+    await unsafeCreateEntityTable(stack.db, orderEntity);
+  });
+
+  afterAll(() => stack.cleanup());
+
+  test("resolver null + X-Tenant header present → 400 tenant_required, header does NOT pick the tenant", async () => {
+    // If this fell back to the client header, an unrecognised-host request
+    // could still choose its own tenant via X-Tenant — the same override
+    // "authoritative" exists to prevent, just reached via "unknown host"
+    // instead of "known host, disagreeing header".
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { "X-Tenant": TENANT_ID },
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("tenant_required");
+  });
+
+  test("resolver null + no client tenant → 400 tenant_required", async () => {
+    const res = await stack.http.raw("POST", "/api/query", {
+      type: "anonshop:query:product:list",
+      payload: {},
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("tenant_required");
+  });
+});
+
+describe("anonymous access — resolverTrust: fallback-only", () => {
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await setupTestStack({
+      features: [shopFeature],
+      anonymousAccess: {
+        tenantResolver: () => TENANT_ID,
+        resolverTrust: "fallback-only",
+        tenantExists: async (id: TenantId) => id === TENANT_ID || id === OTHER_TENANT_ID,
+      },
+    });
+    await unsafeCreateEntityTable(stack.db, productEntity);
+    await unsafeCreateEntityTable(stack.db, orderEntity);
+  });
+
+  afterAll(() => stack.cleanup());
+
+  test("X-Tenant header disagreeing with the resolver → header wins (documented convenience-fallback behaviour)", async () => {
+    // Opposite of "authoritative": a client tenant that disagrees with the
+    // resolver is accepted, not rejected — this mode is for resolvers that
+    // carry no more trust than the client's own claim.
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { "X-Tenant": OTHER_TENANT_ID },
+    );
+    expect(res.status).toBe(200);
+  });
+
+  test("no client tenant → resolver runs as fallback", async () => {
+    const res = await stack.http.raw("POST", "/api/query", {
+      type: "anonshop:query:product:list",
+      payload: {},
+    });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("anonymous access — tenantResolver without resolverTrust", () => {
+  test("authMiddleware throws at boot, not silently at request time", async () => {
+    await expect(
+      setupTestStack({
+        features: [shopFeature],
+        // Simulates a caller that bypasses the compiler (JS consumer, an
+        // `as any` cast) — the discriminated union stops well-typed callers,
+        // this proves the runtime guard behind it also fires.
+        anonymousAccess: {
+          tenantResolver: () => TENANT_ID,
+          resolverTrust: undefined,
+        } as unknown as AnonymousAccessConfig,
+      }),
+    ).rejects.toThrow(/resolverTrust/);
   });
 });
 

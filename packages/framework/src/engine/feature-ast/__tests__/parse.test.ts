@@ -11,8 +11,10 @@
 // Designer/AI know the call exists.
 
 import { describe, expect, test } from "bun:test";
+import { resolve } from "node:path";
 import { Project } from "ts-morph";
-import { parseSourceFile } from "../parse";
+import { isRawRefSentinel, readDataLiteralNode } from "../extractors/shared";
+import { parseFeatureFile, parseSourceFile } from "../parse";
 
 function createProject() {
   return new Project({
@@ -122,6 +124,102 @@ defineFeature("isolated", (r) => {
     expect(result.featureName).toBe("nameOnly");
     expect(result.patterns).toEqual([]);
   });
+
+  test("recurses into a locally declared registrar-wrapper function", () => {
+    const result = parseInline(`
+function registerTaskScreens(registrar) {
+  registrar.entity("task", { fields: {} });
+  registrar.requires("auth");
+}
+defineFeature("wrapped", (r) => {
+  r.systemScope();
+  registerTaskScreens(r);
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns.map((p) => p.kind)).toEqual(["systemScope", "entity", "requires"]);
+  });
+
+  test("recurses into a registrar-wrapper declared as a const arrow function", () => {
+    const result = parseInline(`
+const registerTaskScreens = (registrar) => {
+  registrar.entity("task", { fields: {} });
+};
+defineFeature("wrapped", (r) => {
+  registerTaskScreens(r);
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toMatchObject([{ kind: "entity", entityName: "task" }]);
+  });
+
+  test("ignores a bare call that does not receive the registrar as an argument", () => {
+    const result = parseInline(`
+function unrelated() {
+  return 1;
+}
+defineFeature("f", (r) => {
+  unrelated();
+  r.systemScope();
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toMatchObject([{ kind: "systemScope" }]);
+  });
+
+  test("does not infinite-loop on a registrar-wrapper cycle", () => {
+    const result = parseInline(`
+function a(registrar) {
+  registrar.systemScope();
+  b(registrar);
+}
+function b(registrar) {
+  a(registrar);
+}
+defineFeature("f", (r) => {
+  a(r);
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toMatchObject([{ kind: "systemScope" }]);
+  });
+});
+
+describe("readDataLiteralNode — raw-ref sentinel", () => {
+  function readExpression(source: string) {
+    const project = createProject();
+    const sourceFile = project.createSourceFile("inline.ts", `const __probe__ = (${source});`);
+    const decl = sourceFile.getVariableDeclarationOrThrow("__probe__");
+    return readDataLiteralNode(decl.getInitializerOrThrow());
+  }
+
+  test("Identifier reference resolves to a raw-ref sentinel with the exact source text", () => {
+    const value = readExpression("eventEntity");
+    expect(isRawRefSentinel(value)).toBe(true);
+    expect(value).toEqual({ __raw: "eventEntity" });
+  });
+
+  test("zero-arg call expression resolves to a raw-ref sentinel with the exact source text", () => {
+    const value = readExpression("createInviteBrandingQuery()");
+    expect(isRawRefSentinel(value)).toBe(true);
+    expect(value).toEqual({ __raw: "createInviteBrandingQuery()" });
+  });
+
+  test("member access resolves to a raw-ref sentinel", () => {
+    const value = readExpression("config.timeout");
+    expect(isRawRefSentinel(value)).toBe(true);
+    expect(value).toEqual({ __raw: "config.timeout" });
+  });
+
+  test("a single unresolvable property no longer bubbles the whole object to undefined", () => {
+    const value = readExpression("{ timeout: 30, query: createQuery() }");
+    expect(isRawRefSentinel(value)).toBe(false);
+    expect(value).toEqual({ timeout: 30, query: { __raw: "createQuery()" } });
+  });
 });
 
 // =============================================================================
@@ -143,11 +241,25 @@ defineFeature("f", (r) => {
     expect(result.errors).toEqual([]);
   });
 
-  test("emits a ParseError when an argument is not a string literal", () => {
+  test("resolves a local const identifier arg via the raw-ref sentinel (#1009)", () => {
     const result = parseInline(`
 const dep = "auth";
 defineFeature("f", (r) => {
   r.requires(dep);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "requires",
+      featureNames: [{ __raw: "dep" }],
+    });
+    expect(result.errors).toEqual([]);
+  });
+
+  test("emits a ParseError when an argument cannot be resolved at all", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.requires(5);
 });
 `);
 
@@ -170,6 +282,21 @@ defineFeature("f", (r) => {
       featureNames: ["billing"],
     });
   });
+
+  test("keeps a computed feature-name arg as a raw-ref sentinel instead of failing (#1009)", () => {
+    const result = parseInline(`
+const someFeature = { name: "billing" };
+defineFeature("f", (r) => {
+  r.optionalRequires(someFeature.name);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "optionalRequires",
+      featureNames: [{ __raw: "someFeature.name" }],
+    });
+    expect(result.errors).toEqual([]);
+  });
 });
 
 describe("extractReadsConfig", () => {
@@ -184,6 +311,21 @@ defineFeature("f", (r) => {
       kind: "readsConfig",
       qualifiedKeys: ["auth:config:jwt-ttl", "tenant:config:locale"],
     });
+  });
+
+  test("keeps a computed key arg as a raw-ref sentinel instead of failing (#1009)", () => {
+    const result = parseInline(`
+const cfg = { key: "auth:config:jwt-ttl" };
+defineFeature("f", (r) => {
+  r.readsConfig(cfg.key, "tenant:config:locale");
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "readsConfig",
+      qualifiedKeys: [{ __raw: "cfg.key" }, "tenant:config:locale"],
+    });
+    expect(result.errors).toEqual([]);
   });
 });
 
@@ -267,6 +409,40 @@ defineFeature("f", (r) => {
       },
     });
     expect(result.errors).toEqual([]);
+  });
+
+  test("keeps an unresolved const reference as a raw-ref sentinel instead of erroring", () => {
+    const result = parseInline(`
+const eventEntity = { fields: { name: { type: "text" } } };
+defineFeature("f", (r) => {
+  r.entity("event", eventEntity);
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "entity",
+      entityName: "event",
+      definition: { __raw: "eventEntity" },
+    });
+  });
+
+  test("keeps a factory call reference inside a nested property as a raw-ref sentinel", () => {
+    const result = parseInline(`
+function buildFields() {
+  return { name: { type: "text" } };
+}
+defineFeature("f", (r) => {
+  r.entity("task", { fields: buildFields() });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "entity",
+      entityName: "task",
+      definition: { fields: { __raw: "buildFields()" } },
+    });
   });
 
   test("walks through `as const` and `satisfies` wrappers", () => {
@@ -533,6 +709,93 @@ defineFeature("f", (r) => {
       upsertKey: "id",
     });
   });
+
+  test("object form captures entity, data and upsertKey", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData({
+    entity: "status",
+    data: [{ id: "open" }, { id: "closed" }],
+    upsertKey: "id",
+  });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "referenceData",
+      entityName: "status",
+      data: [{ id: "open" }, { id: "closed" }],
+      upsertKey: "id",
+    });
+  });
+
+  test("accepts an inline { name: '...' } entity ref, both forms", () => {
+    const positional = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData({ name: "status" }, [{ id: "open" }]);
+});
+`);
+    expect(positional.patterns[0]).toMatchObject({ kind: "referenceData", entityName: "status" });
+
+    const objectForm = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData({ entity: { name: "status" }, data: [{ id: "open" }] });
+});
+`);
+    expect(objectForm.patterns[0]).toMatchObject({ kind: "referenceData", entityName: "status" });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData();
+});
+`);
+
+    expect(result.patterns).toEqual([]);
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
+  test("emits ParseError when object form is missing the data property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData({ entity: "status" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
+  test("emits ParseError when object form's data is not an array of plain objects", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData({ entity: "status", data: "not-an-array" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
+  test("emits ParseError when the positional data argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData("status");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
+  test("emits ParseError when positional upsertKey option is not a string", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData("status", [{ id: "open" }], { upsertKey: 123 });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
 });
 
 describe("extractUseExtension", () => {
@@ -563,6 +826,89 @@ defineFeature("f", (r) => {
       entityName: "task",
       options: { mode: "verbose" },
     });
+  });
+
+  test("object form captures name, entity ref and options", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension({ name: "audit", entity: "task", options: { mode: "verbose" } });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "useExtension",
+      extensionName: "audit",
+      entityName: "task",
+      options: { mode: "verbose" },
+    });
+  });
+
+  test("accepts an inline { name: '...' } entity ref, both forms", () => {
+    const positional = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension("audit", { name: "task" });
+});
+`);
+    expect(positional.patterns[0]).toMatchObject({ kind: "useExtension", entityName: "task" });
+
+    const objectForm = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension({ name: "audit", entity: { name: "task" } });
+});
+`);
+    expect(objectForm.patterns[0]).toMatchObject({ kind: "useExtension", entityName: "task" });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension();
+});
+`);
+
+    expect(result.patterns).toEqual([]);
+    expect(result.errors[0]?.methodName).toBe("useExtension");
+  });
+
+  test("emits ParseError when object form is missing the entity property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension({ name: "audit" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("useExtension");
+  });
+
+  test("emits ParseError when object form's options is not a plain object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension({ name: "audit", entity: "task", options: "not-an-object" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("useExtension");
+  });
+
+  test("emits ParseError when the positional entity argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension("audit");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("useExtension");
+  });
+
+  test("emits ParseError when positional options argument is not a plain object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension("audit", "task", "not-an-object");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("useExtension");
   });
 });
 
@@ -608,29 +954,43 @@ defineFeature("f", (r) => {
   });
 });
 
-describe("extractEntityHook", () => {
-  test("captures hookType, entity and the function body", () => {
+describe("extractHook — entity-wide { allOf } target", () => {
+  test("captures hookType and the allOf entity from positional form", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.entityHook("postSave", "task", (event, ctx) => {});
+  r.hook("postSave", { allOf: "task" }, (event, ctx) => {});
 });
 `);
 
     expect(result.patterns[0]).toMatchObject({
-      kind: "entityHook",
+      kind: "hook",
       hookType: "postSave",
-      entityName: "task",
+      target: { allOf: "task" },
     });
   });
 
-  test("rejects validation as entity-hook type (only postSave/preDelete/postDelete allowed)", () => {
+  test("captures hookType and the allOf entity from object form", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.entityHook("validation", "task", () => {});
+  r.hook({ type: "postDelete", target: { allOf: "task" }, handler: () => {} });
 });
 `);
 
-    expect(result.errors[0]?.methodName).toBe("entityHook");
+    expect(result.patterns[0]).toMatchObject({
+      kind: "hook",
+      hookType: "postDelete",
+      target: { allOf: "task" },
+    });
+  });
+
+  test("rejects a malformed allOf value (not a string/ref)", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook("postSave", { allOf: 123 }, () => {});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
   });
 });
 
@@ -680,6 +1040,40 @@ defineFeature("f", (r) => {
       handlerName: "task:approve",
       access: { openToAll: true },
     });
+  });
+
+  test("resolves a same-file identifier arg to its object-literal form (#1007)", () => {
+    const result = parseInline(`
+const h = {
+  name: "task:archive",
+  schema: z.object({ id: z.string() }),
+  handler: async (event, ctx) => ({ isSuccess: true, data: {} }),
+};
+defineFeature("f", (r) => {
+  r.writeHandler(h);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "writeHandler",
+      handlerName: "task:archive",
+    });
+    expect(result.errors).toEqual([]);
+  });
+
+  test("keeps an unresolvable ref (import, factory call) as an opaque pattern instead of failing (#1007)", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.writeHandler(eventCreateHandler);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "writeHandler",
+      handlerName: undefined,
+      source: { raw: "r.writeHandler(eventCreateHandler)" },
+    });
+    expect(result.errors).toEqual([]);
   });
 });
 
@@ -751,19 +1145,46 @@ defineFeature("f", (r) => {
   });
 });
 
-describe("extractEventMigration", () => {
-  test("captures fromVersion / toVersion / transform body", () => {
+describe("extractDefineEvent — migrations (formerly extractEventMigration)", () => {
+  test("positional-form migrations array captures the fromVersion→transform step", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.eventMigration("incidentOpened", 1, 2, (payload) => ({ ...payload, severity: "low" }));
+  r.defineEvent("incidentOpened", z.object({ id: z.string() }), {
+    version: 2,
+    migrations: [
+      { fromVersion: 1, toVersion: 2, transform: (payload) => ({ ...payload, severity: "low" }) },
+    ],
+  });
 });
 `);
 
     expect(result.patterns[0]).toMatchObject({
-      kind: "eventMigration",
+      kind: "defineEvent",
       eventName: "incidentOpened",
-      fromVersion: 1,
-      toVersion: 2,
+      version: 2,
+      migrations: { "1": expect.anything() },
+    });
+  });
+
+  test("object-form migrations map captures the fromVersion→transform step", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent({
+    name: "incidentOpened",
+    schema: z.object({ id: z.string() }),
+    version: 2,
+    migrations: {
+      "1": (payload) => ({ ...payload, severity: "low" }),
+    },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "defineEvent",
+      eventName: "incidentOpened",
+      version: 2,
+      migrations: { "1": expect.anything() },
     });
   });
 });
@@ -884,5 +1305,84 @@ defineFeature("f", (r) => {
       kind: "extendsRegistrar",
       extensionName: "audit",
     });
+  });
+});
+
+// =============================================================================
+// Regression — show-pony-shaped feature (#998)
+// =============================================================================
+// Mirrors the real-world idioms from show-pony/src/features/show-pony/feature.ts
+// that motivated #998 — inline here (not the live external repo path) so this
+// test doesn't depend on the show-pony checkout being present in this repo's CI.
+
+describe("show-pony-shaped feature (regression, #998)", () => {
+  const result = parseInline(`
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { eventEntity } from "./schema";
+import { eventCreateHandler } from "./handlers/event-create.write";
+import { createInviteBrandingQuery } from "./handlers/invite-branding.query";
+import { registerShowPonyScreens } from "./register/screens";
+
+const someFeature = { name: "mail-foundation" };
+
+defineFeature("showpony", (r) => {
+  r.requires(someFeature.name, "config");
+  r.entity("event", eventEntity);
+  r.writeHandler(eventCreateHandler);
+  r.queryHandler(createInviteBrandingQuery());
+  registerShowPonyScreens(r);
+});
+`);
+
+  test("requires()'s computed name and entity's imported const resolve via the raw-ref sentinel (#998/#1009 fix)", () => {
+    expect(result.patterns[0]).toMatchObject({
+      kind: "requires",
+      featureNames: [{ __raw: "someFeature.name" }, "config"],
+    });
+    expect(result.patterns[1]).toMatchObject({
+      kind: "entity",
+      entityName: "event",
+      definition: { __raw: "eventEntity" },
+    });
+  });
+
+  test("writeHandler/queryHandler(handlerRef) resolve as opaque patterns (#998/#1007 fix)", () => {
+    expect(result.patterns).toMatchObject([
+      { kind: "requires" },
+      { kind: "entity" },
+      { kind: "writeHandler", handlerName: undefined },
+      { kind: "queryHandler", handlerName: undefined },
+    ]);
+    expect(result.errors).toEqual([]);
+  });
+
+  test("an imported registrar-wrapper stays invisible when its file can't be resolved (in-memory project, #1008)", () => {
+    // parseInline uses an in-memory ts-morph Project — "./register/screens"
+    // isn't a real file, so getModuleSpecifierSourceFile() returns
+    // undefined and the wrapper is skipped like any other unresolvable
+    // call. Real cross-file resolution against on-disk files is covered by
+    // the parseFeatureFile fixture tests below.
+    expect(result.patterns.some((p) => p.kind === "screen" || p.kind === "nav")).toBe(false);
+  });
+});
+
+describe("cross-file registrar-wrapper resolution against a real filesystem Project (#1008)", () => {
+  const fixture = resolve(__dirname, "fixtures/cross-file-registrar/feature.ts");
+  const result = parseFeatureFile(fixture);
+
+  test("resolves the imported wrapper and recognises the nav pattern it registers", () => {
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toMatchObject([
+      { kind: "requires", featureNames: ["config"] },
+      { kind: "nav", definition: { id: "foo", label: "Foo" } },
+    ]);
+  });
+
+  test("the resolved pattern's source points at the imported file, not the entry file", () => {
+    const navPattern = result.patterns.find((p) => p.kind === "nav");
+    expect(navPattern?.source.file).toBe(
+      resolve(__dirname, "fixtures/cross-file-registrar/screens.ts"),
+    );
+    expect(navPattern?.source.file).not.toBe(fixture);
   });
 });

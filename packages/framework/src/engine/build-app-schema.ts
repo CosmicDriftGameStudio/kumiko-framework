@@ -17,6 +17,8 @@
 //              sind plain literals)
 //   Nav:       verbatim (NavDefinition ist nur strings + literals)
 //   Workspace: verbatim definition + getWorkspaceNavs() von der Registry
+//   Translations: verbatim feature.translations (raw r.translations keys,
+//                 unfiltered — see FeatureSchema.translations doc)
 //
 // Feature-Toggles: BISHER NICHT GEFILTERT. Wenn ein Feature über die
 // feature-toggles-bundled-feature global deaktiviert ist, erscheint es
@@ -49,6 +51,12 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
       entities: projectEntities(feature.entities ?? {}),
       screens: Object.values(feature.screens),
       ...(navs.length > 0 && { navs }),
+      // #1059: verbatim r.translations({keys}) — see FeatureSchema.translations
+      // doc for why this must NOT go through registry.getAllTranslations()
+      // (double-prefixes features that already qualify their own keys).
+      ...(Object.keys(feature.translations ?? {}).length > 0 && {
+        translations: feature.translations,
+      }),
     };
     features.push(featureSchema);
   }

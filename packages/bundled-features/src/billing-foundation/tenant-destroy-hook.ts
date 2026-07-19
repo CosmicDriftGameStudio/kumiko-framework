@@ -6,12 +6,11 @@ import { subscriptionAggregateId } from "./aggregate-id";
 import { SUBSCRIPTION_AGGREGATE_TYPE } from "./events";
 import { subscriptionsProjectionTable } from "./projection";
 
-// No field-level encryption is wired up for `read_subscriptions` (see
-// entities.ts) — a crypto-shredding retention strategy would need that built
-// first (envelope-encrypt on write, decrypt on every read call site, backfill
-// existing rows). Redaction achieves the same GDPR outcome without it: HGB
-// needs the accounting facts (status/tier/period), not the Stripe/Mollie
-// subject identifiers.
+// providerCustomerId/providerSubscriptionId are `tenantOwned: true` on the
+// entity (envelope-encrypted with the tenant subject key, see entities.ts) —
+// eraseSubjectKeys crypto-shreds them for tenants that hard-delete. HGB
+// can not: it needs the accounting facts (status/tier/period) to survive, so
+// it redacts the projection row directly instead of relying on key erasure.
 const REDACTED_PII_VALUE = "[erased]";
 
 /** Tenant-destroy hook for billing PII (#800). HGB retains the accounting

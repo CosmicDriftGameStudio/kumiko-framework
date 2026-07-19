@@ -51,10 +51,10 @@ const statusEnum = z.enum([
 // payload — payload ist domain-clean, metadata ist provider-truth).
 export const subscriptionEventPayloadSchema = z.object({
   providerName: z.string().min(1).max(50),
-  // 1000, not 200: these two are `encrypted: true` on the entity (see
-  // entities.ts) — process-event.write.ts stores the envelope-cipher
-  // ciphertext here, not the raw provider id. A 200-char plaintext id
-  // becomes ~460+ chars of JSON envelope; 1000 leaves headroom.
+  // 1000, not 200: these two are `tenantOwned: true` on the entity (see
+  // entities.ts — crypto-shreds on tenant-destroy, unlike `encrypted`).
+  // process-event.write.ts stores the PII-ciphertext here, not the raw
+  // provider id. A 200-char plaintext id becomes ~300+ chars of ciphertext.
   providerCustomerId: z.string().min(1).max(1000),
   providerSubscriptionId: z.string().min(1).max(1000),
   status: statusEnum,

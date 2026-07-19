@@ -14,7 +14,8 @@ describe("apex-landing: text-content seam", () => {
   test("falls back to the baked-in default when the block is missing", () => {
     const page = buildLandingPage({ plans: SAMPLE_PLANS });
     const hero = page.sections.find((s) => s.kind === "hero");
-    expect(hero?.kind === "hero" && hero.title).toBe("Ship your roadmap, not your spreadsheet");
+    if (hero?.kind !== "hero") throw new Error("no hero section");
+    expect(hero.title).toBe("Ship your roadmap, not your spreadsheet");
   });
 });
 
@@ -51,6 +52,24 @@ describe("apex-landing: tier-engine seam", () => {
     const pro = pricing.tiers.find((t) => t.name === "Pro");
     expect(pro?.featured).toBe(true);
     expect(pro?.badge).toBe("Popular");
+  });
+});
+
+describe("apex-landing: GEO/AEO schema.org JSON-LD", () => {
+  test("renders an @graph with Organization + WebPage nodes", () => {
+    const html = renderLanding({ plans: SAMPLE_PLANS });
+    expect(html).toContain('<script type="application/ld+json">');
+    expect(html).toContain('"@type":"Organization"');
+    expect(html).toContain('"@type":"WebPage"');
+    expect(html).toContain('"name":"Tasklane"');
+  });
+
+  test("WebPage node picks up the seeded meta.title block", () => {
+    const html = renderLanding({
+      blocks: new Map([["index:meta.title", "Custom SEO Title"]]),
+      plans: SAMPLE_PLANS,
+    });
+    expect(html).toContain('"name":"Custom SEO Title"');
   });
 });
 

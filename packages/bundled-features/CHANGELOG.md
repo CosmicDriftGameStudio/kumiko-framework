@@ -1,5 +1,662 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.156.0
+
+### Patch Changes
+
+- Updated dependencies [c7ca222]
+- Updated dependencies [77ea09f]
+  - @cosmicdrift/kumiko-framework@0.156.0
+  - @cosmicdrift/kumiko-headless@0.156.0
+  - @cosmicdrift/kumiko-renderer@0.156.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.156.0
+  - @cosmicdrift/kumiko-renderer-web@0.156.0
+
+## 0.155.1
+
+### Patch Changes
+
+- Updated dependencies [69ac999]
+  - @cosmicdrift/kumiko-renderer@0.155.1
+  - @cosmicdrift/kumiko-headless@0.155.1
+  - @cosmicdrift/kumiko-renderer-web@0.155.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.155.1
+  - @cosmicdrift/kumiko-framework@0.155.1
+
+## 0.155.0
+
+### Patch Changes
+
+- Updated dependencies [137f31a]
+  - @cosmicdrift/kumiko-framework@0.155.0
+  - @cosmicdrift/kumiko-headless@0.155.0
+  - @cosmicdrift/kumiko-renderer@0.155.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.155.0
+  - @cosmicdrift/kumiko-renderer-web@0.155.0
+
+## 0.154.2
+
+### Patch Changes
+
+- Updated dependencies [05c3e11]
+- Updated dependencies [005f6ed]
+  - @cosmicdrift/kumiko-framework@0.154.2
+  - @cosmicdrift/kumiko-renderer-web@0.154.2
+  - @cosmicdrift/kumiko-headless@0.154.2
+  - @cosmicdrift/kumiko-renderer@0.154.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.154.2
+
+## 0.154.1
+
+### Patch Changes
+
+- 618be61: Export `LoginScreen`/`LoginScreenProps`/`AuthLegalLink` from
+  `@cosmicdrift/kumiko-bundled-features/auth-email-password/web`. Every other
+  auth screen (ForgotPasswordScreen, SignupScreen, ResetPasswordScreen, …) was
+  already exported from the barrel with its props type; `LoginScreen` was
+  missed. `makeAuthGate`'s second parameter is typed `LoginScreenProps`, so
+  consumers passing a typed `loginScreenProps` override (e.g.
+  `@cosmicdriftgamestudio/kumiko-designer`) couldn't import the type at all.
+  - @cosmicdrift/kumiko-framework@0.154.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.154.1
+  - @cosmicdrift/kumiko-headless@0.154.1
+  - @cosmicdrift/kumiko-renderer@0.154.1
+  - @cosmicdrift/kumiko-renderer-web@0.154.1
+
+## 0.154.0
+
+### Patch Changes
+
+- Updated dependencies [0d30bf7]
+- Updated dependencies [e40a980]
+  - @cosmicdrift/kumiko-framework@0.154.0
+  - @cosmicdrift/kumiko-headless@0.154.0
+  - @cosmicdrift/kumiko-renderer@0.154.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.154.0
+  - @cosmicdrift/kumiko-renderer-web@0.154.0
+
+## 0.153.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.153.0
+- @cosmicdrift/kumiko-dispatcher-live@0.153.0
+- @cosmicdrift/kumiko-headless@0.153.0
+- @cosmicdrift/kumiko-renderer@0.153.0
+- @cosmicdrift/kumiko-renderer-web@0.153.0
+
+## 0.152.0
+
+### Patch Changes
+
+- Updated dependencies [e32807e]
+- Updated dependencies [3dd1f99]
+  - @cosmicdrift/kumiko-framework@0.152.0
+  - @cosmicdrift/kumiko-headless@0.152.0
+  - @cosmicdrift/kumiko-renderer@0.152.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.152.0
+  - @cosmicdrift/kumiko-renderer-web@0.152.0
+
+## 0.151.1
+
+### Patch Changes
+
+- Updated dependencies [5c1dc93]
+  - @cosmicdrift/kumiko-framework@0.151.1
+  - @cosmicdrift/kumiko-headless@0.151.1
+  - @cosmicdrift/kumiko-renderer@0.151.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.151.1
+  - @cosmicdrift/kumiko-renderer-web@0.151.1
+
+## 0.151.0
+
+### Minor Changes
+
+- 624dcc5: `auth-email-password/web` no longer exports `LoginScreen`/`LoginScreenProps`
+  directly — use the new `createLoginRoute({ loginScreenProps, mfaVerifyScreen,
+onAuthenticated })` instead. `makeAuthGate`/`makeSessionAuthGate` are
+  unaffected (they already build on the same logic internally now).
+
+  Why: a raw `<LoginScreen />` render has no MFA-challenge handling unless the
+  caller remembers to hand-wire `onMfaChallenge` + swap in a verify screen
+  itself — exactly how kumiko-framework#266's login-time MFA step went
+  missing in a real app's standalone apex/marketing login route (it renders
+  outside `emailPasswordClient`'s own gate, which already handled this
+  correctly). `createLoginRoute` is the one place this logic lives now, for
+  both the gated and standalone cases — there's no lower-level piece left to
+  misuse. The `apex-surface-auth` recipe is updated to match.
+
+### Patch Changes
+
+- 97ca76d: Clarify why `MfaEnableScreen` imports `qrcode/lib/browser` (Metro doesn't
+  honor `qrcode`'s package.json#browser remap) and that consuming apps need
+  their own local ambient `.d.ts` shim for the subpath — TypeScript can't
+  auto-discover an ambient declaration sibling from inside a node_modules
+  package when apps typecheck this raw `.tsx` source directly. No runtime
+  change; the previous comment incorrectly suggested a triple-slash
+  reference would work across package boundaries — it doesn't.
+- Updated dependencies [ca4edbf]
+  - @cosmicdrift/kumiko-framework@0.151.0
+  - @cosmicdrift/kumiko-headless@0.151.0
+  - @cosmicdrift/kumiko-renderer@0.151.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.151.0
+  - @cosmicdrift/kumiko-renderer-web@0.151.0
+
+## 0.150.0
+
+### Patch Changes
+
+- 216870d: Fix `auth-mfa`'s two-step verify + enroll flow re-checking stale state and
+  skipping replay protection that `login.write.ts` already enforces:
+
+  - `verify.write.ts` minted a session from a challenge token alone, without
+    re-checking account status or tenant membership. A user restricted/deleted,
+    or removed from the tenant, in the ~10-minute window between password
+    login and MFA verify still got a full session — membership loss even
+    silently fell back to global-only roles instead of refusing. Both gates
+    now mirror `login.write.ts`.
+  - `enable-confirm.write.ts` never burned the setup token on success: the
+    same token could re-enable MFA with an old secret after a `disable`
+    (replay), and two parallel confirms both hit the executor instead of the
+    second seeing `mfa_already_enabled`. The token is now single-use, the
+    same as `login.write.ts`'s magic-link tokens.
+  - `auth-mfa` was missing `r.requires("tenant")` despite `verify.write.ts`
+    dispatching `tenant:query:memberships` — a mount without `tenant` now
+    fails at boot instead of 500ing on first login.
+  - Recovery codes are now normalized (uppercased, punctuation-stripped)
+    before hashing and verifying, so a code retyped lowercase or without the
+    dash still matches — this changes the stored hash format, safe because
+    `auth-mfa` has no deployed consumer with enrolled users yet.
+
+  Also fixes `samples/apps/user-data-rights-demo`'s forget-cleanup test, which
+  asserted on the manual `runForgetCleanup` helper instead of driving the
+  actually-registered cron job through its real `JobContext` wrapper.
+
+- 0e4cec9: Fix-Batch aus dem PR-Review-Prozess (Quellen: #1035, #1036, #1037, #1041, #1042,
+  #1043, #1049, #1050, #1052, #1053, #1056, #1064, #1034).
+
+  - `@cosmicdrift/kumiko-framework/engine` exportiert neu `isEncryptedAtRest(def)` —
+    ein Config-Key gilt als verschlüsselt wenn `encrypted: true` ODER
+    `backing: "secrets"` gesetzt ist. Ersetzt drei bisher unabhängig abweichende
+    Ableitungen (feature-manifest.ts, cascade/values.query.ts) und schließt eine
+    Boot-Validator-Lücke: `computed`/`allowPerRequest` auf einem
+    `backing: "secrets"`-Key failt jetzt am Boot statt zur Laufzeit durchzurutschen.
+  - `RunProdAppOptions` bekommt `observabilityOptions` (Passthrough zur
+    Auto-Instrumentation) — vorher nur über den Low-Level-Entrypoint erreichbar.
+  - `@cosmicdrift/kumiko-bundled-features/auth-mfa`: `currentTotpCode` (Test-Hook,
+    nie ein Runtime-Helper) zieht aus dem Haupt-Barrel in einen neuen
+    `./auth-mfa/testing`-Subpath — Import-Pfad ändert sich für Tests, die den
+    Live-Code direkt aus einem Secret ableiten wollen.
+  - MFA-Enrollment-UI: `mfa-enable-screen.tsx` importiert `qrcode/lib/browser`
+    statt `qrcode` (vermeidet Node-only Deps wie yargs/pngjs im Client-Bundle;
+    Bundle-Impact lokal nicht verifiziert), fängt Fehler jetzt in try/catch statt
+    den Busy-State hängen zu lassen. `mfa-verify-screen.tsx` bekommt ein
+    optionales `onCancel`, damit dead-end-Fehler (challenge_expired,
+    too_many_attempts) einen Weg zurück zum Login haben.
+  - Diverse Low-Sev-Fixes: base32-Decode toleriert `=`-Padding und validiert
+    Restbits, Rate-Limit-Fix im public-share-token-Recipe (ip+handler statt
+    user+handler bei openToAll), i18n-Lücken (mfa_not_supported-Key,
+    styleguide-Sample-Übersetzungen), tote Kommentar-Blöcke gekürzt,
+    password-hashing-Imports innerhalb bundled-features auf die tatsächliche
+    `shared/`-Quelle umgestellt (Barrel-Re-Export in `auth-email-password`
+    bewusst NICHT entfernt — bleibt als öffentlicher Re-Export bestehen, da eine
+    Entfernung ein Breaking Change für published Consumers wäre und ein eigenes
+    Deprecation-Fenster braucht).
+
+- aeb79fa: `@cosmicdrift/kumiko-framework/engine` bekommt `ctx.tryAppendEvent` — ein
+  savepoint-scoped Gegenstück zu `ctx.unsafeAppendEvent`, das
+  `VersionConflictError` als `{ ok: false, conflict }` zurückgibt statt zu
+  werfen, ohne die restliche Handler-Transaktion zu poisonen (Bun.SQL/
+  postgres.js brechen den gesamten `begin()` bei einem ungefangenen Statement-
+  Fehler ab, SQLSTATE 25P02, selbst wenn der JS-Error gefangen wird —
+  `tryAppendEvent` läuft dafür in einem echten `SAVEPOINT`).
+
+  `@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation`: der
+  `ingest-message`-Handler nutzt `ctx.tryAppendEvent` für den Message-Append —
+  zwei parallele Ingest-Aufrufe für dieselbe `providerMessageId` (Watch-Push
+  vs. Poll-Reconciliation-Überschneidung) liefern jetzt beide `{ duplicate:
+true }` statt dass der Verlierer mit einem harten `VersionConflictError`
+  scheitert (#1038, Finding aus PR-Review #952).
+
+- Updated dependencies [0e4cec9]
+- Updated dependencies [aeb79fa]
+  - @cosmicdrift/kumiko-framework@0.150.0
+  - @cosmicdrift/kumiko-headless@0.150.0
+  - @cosmicdrift/kumiko-renderer@0.150.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.150.0
+  - @cosmicdrift/kumiko-renderer-web@0.150.0
+
+## 0.149.2
+
+### Patch Changes
+
+- Updated dependencies [f0a73c0]
+  - @cosmicdrift/kumiko-renderer-web@0.149.2
+  - @cosmicdrift/kumiko-framework@0.149.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.149.2
+  - @cosmicdrift/kumiko-headless@0.149.2
+  - @cosmicdrift/kumiko-renderer@0.149.2
+
+## 0.149.1
+
+### Patch Changes
+
+- 637b599: Fix `auth-mfa` crashing on enable/regenerate for any app with per-subject
+  crypto-shredding (`configurePiiSubjectKms`) active: `recoveryCodes` was a
+  `jsonb` field marked `userOwned`, but the PII-encryption pipeline requires a
+  string value for any subject-owned field — every real enable-confirm write
+  threw `PII field "recoveryCodes" must be a string, got object`.
+
+  `recoveryCodes` is now a `createTextField({ encrypted: true, userOwned })`
+  (JSON-stringified at the write/read boundary), matching `totpSecret`.
+
+  That exposed a second, deeper bug: a field carrying both `encrypted: true`
+  and a subject marker is written as `PII(envelope(plaintext))`, but
+  `decryptForRead` peeled the layers in write order instead of reverse order,
+  so the envelope cipher choked on a still-PII-wrapped string. Fixed
+  `event-store-executor-context.ts`'s `decryptForRead` to unwrap PII first,
+  then envelope — and updated `auth-mfa`'s KEK-reencrypt job (which reads raw
+  rows, bypassing `decryptForRead`) to do the same.
+
+  Also: `MfaEnableScreen` now takes an optional `onEnabled` callback, fired
+  after a successful enable-confirm — hosts that compose it inside their own
+  MFA-status view (like kumiko-studio's account-security screen) need it to
+  know when to refetch and swap away from the embedded enable flow.
+
+- Updated dependencies [637b599]
+  - @cosmicdrift/kumiko-framework@0.149.1
+  - @cosmicdrift/kumiko-headless@0.149.1
+  - @cosmicdrift/kumiko-renderer@0.149.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.149.1
+  - @cosmicdrift/kumiko-renderer-web@0.149.1
+
+## 0.149.0
+
+### Minor Changes
+
+- ab7e41e: `auth-mfa/web` gains `MfaDisableDialog`, `MfaRegenerateRecoveryDialog`, and `MfaRecoveryCodesReveal` — the disable/regenerate-recovery UI deferred from the initial MFA-UI PR (kumiko-framework#266). Also fixes `MfaEnableScreen`'s error banner, which templated the raw snake_case server error code straight into the i18n key (`auth.mfa.errors.invalid_totp_code`) instead of the camelCase key actually registered (`auth.mfa.errors.invalidCode`) — extracted into a shared `mfaManageErrorKey` helper, now used by all three write-triggering components.
+- 9a463ec: `auth-mfa` gains a `status` query (`AuthMfaQueries.status`, wire QN `auth-mfa:query:user-mfa:status`) returning `{ enabled: boolean }` for the calling user — the one thing a settings/security screen needs to decide whether to show the enrollment flow or the disable/regenerate actions. No client-side signal carried this before.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.149.0
+- @cosmicdrift/kumiko-dispatcher-live@0.149.0
+- @cosmicdrift/kumiko-headless@0.149.0
+- @cosmicdrift/kumiko-renderer@0.149.0
+- @cosmicdrift/kumiko-renderer-web@0.149.0
+
+## 0.148.0
+
+### Patch Changes
+
+- c7600c7: `MfaEnableScreen` (auth-mfa) now uses the `Section` primitive instead of a hand-rolled `Card` + footer `div`, matching the standard standalone-card pattern (`privacy-center-screen.tsx`) — correct footer border/background and spacing instead of ad hoc styling. The QR-code enrollment block is now centered instead of left-aligned. Also fixes the screen's title breadcrumb showing the raw i18n key (`screen:auth-mfa-enable.title`) instead of the translated label — the key was registered server-side only, never shipped to the client translation bundle.
+- Updated dependencies [cb5612d]
+  - @cosmicdrift/kumiko-framework@0.148.0
+  - @cosmicdrift/kumiko-renderer-web@0.148.0
+  - @cosmicdrift/kumiko-headless@0.148.0
+  - @cosmicdrift/kumiko-renderer@0.148.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.148.0
+
+## 0.147.3
+
+### Patch Changes
+
+- 0f0f675: `managed-pages`' `GET {basePath}/:slug` render route and `seo`'s `sitemap.xml`/`llms.txt` routes now use the `systemQuery` in-process dispatch (introduced for `legal-pages` in the `resolverTrust` fix) instead of an internal `app.fetch` self-request with a forged `X-Tenant` header. That self-fetch carried no `Host` header (Host is only implied by the request URL, never stored in `Headers`), so a host-based `anonymousAccess.tenantResolver` reading only the header resolved `null` for the inner request. Under `resolverTrust: "authoritative"` there is no client-tenant fallback for a `null` resolution, so the route failed with `tenant_required` (503 "page unavailable" / empty sitemap entries) even for a legitimate, correctly-routed visitor. `systemQuery` forces the already host-resolved tenant in-process — no header round-trip, nothing that can go missing.
+
+  Consumers running `managed-pages` or `seo` with `resolverTrust: "authoritative"` should upgrade — the render/discovery routes were not reliably servable under that mode before this fix.
+
+  - @cosmicdrift/kumiko-framework@0.147.3
+  - @cosmicdrift/kumiko-dispatcher-live@0.147.3
+  - @cosmicdrift/kumiko-headless@0.147.3
+  - @cosmicdrift/kumiko-renderer@0.147.3
+  - @cosmicdrift/kumiko-renderer-web@0.147.3
+
+## 0.147.2
+
+### Patch Changes
+
+- c007b76: `AnonymousAccessConfig.tenantResolver` now requires a `resolverTrust: "authoritative" | "fallback-only"` (compile-time — the type is a discriminated union — plus a runtime boot-throw for callers that bypass the compiler). Previously a client-supplied `X-Tenant` header/`kumiko_tenant` cookie always won over a custom `tenantResolver`, even one deriving the tenant from the subdomain, which the client cannot forge — letting a guest on one tenant's subdomain override the tenant via a forged header. `resolverTrust: "authoritative"` makes the resolver's answer final (a disagreeing client tenant is rejected with `tenant_mismatch`, and a null resolver answer does not fall back to the client tenant either); `resolverTrust: "fallback-only"` preserves the old behavior for resolvers with no more trust than the client's own claim.
+
+  Added `HttpRouteHandlerDeps.systemQuery` — an in-process query-handler dispatch that forces a specific tenant without going through the public `/api/query` HTTP layer, for routes (like `legal-pages`) that need to serve a fixed tenant (e.g. `SYSTEM_TENANT_ID`) regardless of the visited host.
+
+  Consumers with an existing `anonymousAccess.tenantResolver` must add a `resolverTrust` value — pick `"authoritative"` for subdomain/host-derived resolvers, `"fallback-only"` to keep the previous precedence.
+
+- Updated dependencies [3f121df]
+- Updated dependencies [dfb3c26]
+- Updated dependencies [c007b76]
+  - @cosmicdrift/kumiko-framework@0.147.2
+  - @cosmicdrift/kumiko-headless@0.147.2
+  - @cosmicdrift/kumiko-renderer@0.147.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.147.2
+  - @cosmicdrift/kumiko-renderer-web@0.147.2
+
+## 0.147.1
+
+### Patch Changes
+
+- Updated dependencies [63cfcc9]
+  - @cosmicdrift/kumiko-renderer@0.147.1
+  - @cosmicdrift/kumiko-renderer-web@0.147.1
+  - @cosmicdrift/kumiko-framework@0.147.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.147.1
+  - @cosmicdrift/kumiko-headless@0.147.1
+
+## 0.147.0
+
+### Patch Changes
+
+- Updated dependencies [a46b306]
+- Updated dependencies [bdc5e27]
+- Updated dependencies [c93de1a]
+- Updated dependencies [c93de1a]
+  - @cosmicdrift/kumiko-renderer@0.147.0
+  - @cosmicdrift/kumiko-renderer-web@0.147.0
+  - @cosmicdrift/kumiko-framework@0.147.0
+  - @cosmicdrift/kumiko-headless@0.147.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.147.0
+
+## 0.146.4
+
+### Patch Changes
+
+- Updated dependencies [d85f5ae]
+  - @cosmicdrift/kumiko-headless@0.146.4
+  - @cosmicdrift/kumiko-dispatcher-live@0.146.4
+  - @cosmicdrift/kumiko-renderer@0.146.4
+  - @cosmicdrift/kumiko-renderer-web@0.146.4
+  - @cosmicdrift/kumiko-framework@0.146.4
+
+## 0.146.3
+
+### Patch Changes
+
+- Updated dependencies [58a6145]
+  - @cosmicdrift/kumiko-headless@0.146.3
+  - @cosmicdrift/kumiko-dispatcher-live@0.146.3
+  - @cosmicdrift/kumiko-renderer@0.146.3
+  - @cosmicdrift/kumiko-renderer-web@0.146.3
+  - @cosmicdrift/kumiko-framework@0.146.3
+
+## 0.146.2
+
+### Patch Changes
+
+- cc25fd7: seo: fix legal-pages/managed-pages URLs downgrading to http:// in sitemap.xml/llms.txt
+  behind a TLS-terminating reverse proxy (#979 follow-up) — `requestHost()` trusted the raw
+  request URL's scheme, which reflects the proxy's internal (plain HTTP) hop, not what the
+  client actually used. Now prefers `x-forwarded-proto` when present, falling back to the
+  raw URL scheme only for plain local dev without a proxy in front. Found by checking the
+  sitemap.xml of the two production apps (cashcolt.kumiko.rocks, publicstatus.eu) that
+  mount `seo` — both showed `http://` legal-pages entries next to correctly `https://`
+  app-supplied entries (those app callbacks hardcode `https://` themselves, masking the bug).
+  - @cosmicdrift/kumiko-framework@0.146.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.146.2
+  - @cosmicdrift/kumiko-headless@0.146.2
+  - @cosmicdrift/kumiko-renderer@0.146.2
+  - @cosmicdrift/kumiko-renderer-web@0.146.2
+
+## 0.146.1
+
+### Patch Changes
+
+- Updated dependencies [706cea7]
+  - @cosmicdrift/kumiko-framework@0.146.1
+  - @cosmicdrift/kumiko-headless@0.146.1
+  - @cosmicdrift/kumiko-renderer@0.146.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.146.1
+  - @cosmicdrift/kumiko-renderer-web@0.146.1
+
+## 0.146.0
+
+### Minor Changes
+
+- e605b4f: custom-fields: PII-Support entfernt (#972) — custom fields sind für
+  zusätzliche Business-Infos, nicht für personenbezogene Daten. BREAKING:
+  `serializedField.sensitive` wird beim Anlegen/Update rejected, gespeicherte
+  Definitionen mit dem Key werfen beim Parsen (zero-legacy, Feld neu anlegen).
+  Der Self-Projection-Sonderweg und der user-data-rights-Forget-Strip entfallen;
+  jeder `customField.set` trägt seinen Wert im Event — custom fields sind damit
+  vollständig rebuild-safe. PII gehört in Schema-Entity-Felder mit
+  pii/userOwned/tenantOwned-Annotation.
+- 3bb719a: seo: neues bundled-feature für SEO/AEO/GEO-Site-Discovery (#979) — `createSeoFeature`
+  mountet GET /sitemap.xml, /llms.txt und optional /robots.txt (merged aus app-eigenem
+  Callback + legal-pages + managed-pages), plus die additive OG/JSON-LD-Erweiterung für
+  `wrapInLayout` und die pure `organizationSchema`/`webPageSchema`/`faqPageSchema`-Builder
+  für `ApexHead.schemaJson`. `managed-pages` bekommt dafür die neue anonyme
+  `by-tenant-published`-Query. War Teil von #979, hatte aber kein Changeset — daher hier
+  nachgereicht, damit die Version tatsächlich published wird.
+
+### Patch Changes
+
+- Updated dependencies [b00c3ed]
+  - @cosmicdrift/kumiko-framework@0.146.0
+  - @cosmicdrift/kumiko-headless@0.146.0
+  - @cosmicdrift/kumiko-renderer@0.146.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.146.0
+  - @cosmicdrift/kumiko-renderer-web@0.146.0
+
+## 0.145.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.145.1
+- @cosmicdrift/kumiko-dispatcher-live@0.145.1
+- @cosmicdrift/kumiko-headless@0.145.1
+- @cosmicdrift/kumiko-renderer@0.145.1
+- @cosmicdrift/kumiko-renderer-web@0.145.1
+
+## 0.145.0
+
+### Patch Changes
+
+- Updated dependencies [1c60495]
+  - @cosmicdrift/kumiko-renderer-web@0.145.0
+  - @cosmicdrift/kumiko-framework@0.145.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.145.0
+  - @cosmicdrift/kumiko-headless@0.145.0
+  - @cosmicdrift/kumiko-renderer@0.145.0
+
+## 0.144.0
+
+### Patch Changes
+
+- Updated dependencies [c7d0ef8]
+  - @cosmicdrift/kumiko-framework@0.144.0
+  - @cosmicdrift/kumiko-headless@0.144.0
+  - @cosmicdrift/kumiko-renderer@0.144.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.144.0
+  - @cosmicdrift/kumiko-renderer-web@0.144.0
+
+## 0.143.1
+
+### Patch Changes
+
+- Updated dependencies [b8d890d]
+  - @cosmicdrift/kumiko-renderer-web@0.143.1
+  - @cosmicdrift/kumiko-framework@0.143.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.143.1
+  - @cosmicdrift/kumiko-headless@0.143.1
+  - @cosmicdrift/kumiko-renderer@0.143.1
+
+## 0.143.0
+
+### Patch Changes
+
+- Updated dependencies [37bac07]
+  - @cosmicdrift/kumiko-renderer-web@0.143.0
+  - @cosmicdrift/kumiko-framework@0.143.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.143.0
+  - @cosmicdrift/kumiko-headless@0.143.0
+  - @cosmicdrift/kumiko-renderer@0.143.0
+
+## 0.142.0
+
+### Patch Changes
+
+- Updated dependencies [2de19b3]
+  - @cosmicdrift/kumiko-renderer-web@0.142.0
+  - @cosmicdrift/kumiko-framework@0.142.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.142.0
+  - @cosmicdrift/kumiko-headless@0.142.0
+  - @cosmicdrift/kumiko-renderer@0.142.0
+
+## 0.141.0
+
+### Patch Changes
+
+- Updated dependencies [8de61e7]
+  - @cosmicdrift/kumiko-renderer@0.141.0
+  - @cosmicdrift/kumiko-renderer-web@0.141.0
+  - @cosmicdrift/kumiko-framework@0.141.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.141.0
+  - @cosmicdrift/kumiko-headless@0.141.0
+
+## 0.140.0
+
+### Patch Changes
+
+- Updated dependencies [742f15c]
+  - @cosmicdrift/kumiko-renderer@0.140.0
+  - @cosmicdrift/kumiko-renderer-web@0.140.0
+  - @cosmicdrift/kumiko-framework@0.140.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.140.0
+  - @cosmicdrift/kumiko-headless@0.140.0
+
+## 0.139.0
+
+### Patch Changes
+
+- Updated dependencies [56ff9cb]
+  - @cosmicdrift/kumiko-renderer@0.139.0
+  - @cosmicdrift/kumiko-renderer-web@0.139.0
+  - @cosmicdrift/kumiko-framework@0.139.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.139.0
+  - @cosmicdrift/kumiko-headless@0.139.0
+
+## 0.138.0
+
+### Patch Changes
+
+- Updated dependencies [455bddd]
+  - @cosmicdrift/kumiko-renderer-web@0.138.0
+  - @cosmicdrift/kumiko-framework@0.138.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.138.0
+  - @cosmicdrift/kumiko-headless@0.138.0
+  - @cosmicdrift/kumiko-renderer@0.138.0
+
+## 0.137.0
+
+### Patch Changes
+
+- Updated dependencies [fdd7c40]
+  - @cosmicdrift/kumiko-framework@0.137.0
+  - @cosmicdrift/kumiko-renderer-web@0.137.0
+  - @cosmicdrift/kumiko-headless@0.137.0
+  - @cosmicdrift/kumiko-renderer@0.137.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.137.0
+
+## 0.136.1
+
+### Patch Changes
+
+- Updated dependencies [74ed322]
+  - @cosmicdrift/kumiko-renderer-web@0.136.1
+  - @cosmicdrift/kumiko-framework@0.136.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.136.1
+  - @cosmicdrift/kumiko-headless@0.136.1
+  - @cosmicdrift/kumiko-renderer@0.136.1
+
+## 0.136.0
+
+### Patch Changes
+
+- Updated dependencies [f5a7f51]
+  - @cosmicdrift/kumiko-framework@0.136.0
+  - @cosmicdrift/kumiko-renderer-web@0.136.0
+  - @cosmicdrift/kumiko-headless@0.136.0
+  - @cosmicdrift/kumiko-renderer@0.136.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.136.0
+
+## 0.135.0
+
+### Patch Changes
+
+- Updated dependencies [3579d24]
+  - @cosmicdrift/kumiko-renderer-web@0.135.0
+  - @cosmicdrift/kumiko-framework@0.135.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.135.0
+  - @cosmicdrift/kumiko-headless@0.135.0
+  - @cosmicdrift/kumiko-renderer@0.135.0
+
+## 0.134.0
+
+### Patch Changes
+
+- Updated dependencies [9eab762]
+  - @cosmicdrift/kumiko-framework@0.134.0
+  - @cosmicdrift/kumiko-renderer@0.134.0
+  - @cosmicdrift/kumiko-renderer-web@0.134.0
+  - @cosmicdrift/kumiko-headless@0.134.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.134.0
+
+## 0.133.0
+
+### Patch Changes
+
+- Updated dependencies [9521906]
+  - @cosmicdrift/kumiko-framework@0.133.0
+  - @cosmicdrift/kumiko-headless@0.133.0
+  - @cosmicdrift/kumiko-renderer@0.133.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.133.0
+  - @cosmicdrift/kumiko-renderer-web@0.133.0
+
+## 0.132.0
+
+### Patch Changes
+
+- Updated dependencies [2d40746]
+  - @cosmicdrift/kumiko-renderer-web@0.132.0
+  - @cosmicdrift/kumiko-framework@0.132.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.132.0
+  - @cosmicdrift/kumiko-headless@0.132.0
+  - @cosmicdrift/kumiko-renderer@0.132.0
+
+## 0.131.0
+
+### Minor Changes
+
+- d814026: App-Mounting 2.0 Säule A: Mid-Level-Widget-Kit in renderer-web (StatCard, MiniStat, SectionCard, StatusBadge, ProgressBar, CollapsibleSection, DetailList, ModeSwitch, StatusBarChart, TimeseriesChart, EmptyState/LoadingState/ErrorState, QueryTable) + Status-Farb-Tokens (--color-status-\*). Neue Hooks useMutation + useDisclosure. Neues Core-Primitive Link (default/button/muted), Button-Variant "link", Text-Variant "muted"; auth-email-password nutzt sie (authButtonClass/authMutedLinkClass entfernt).
+
+### Patch Changes
+
+- Updated dependencies [99008c9]
+- Updated dependencies [d814026]
+  - @cosmicdrift/kumiko-framework@0.131.0
+  - @cosmicdrift/kumiko-renderer@0.131.0
+  - @cosmicdrift/kumiko-renderer-web@0.131.0
+  - @cosmicdrift/kumiko-headless@0.131.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.131.0
+
+## 0.130.2
+
+### Patch Changes
+
+- 98ed535: Content-Tree + Config-Nav Sysadmin-Shell polish:
+
+  - text-content: Leaf-Knoten tragen jetzt ein `file`-Icon statt eines Dots; der Editor läuft auf der Page-Shell (`Form`-Primitive mit Card statt des entfernten `FormPanelShell`).
+  - Sidebar-Nav bekommt ein Suchfeld, das den Baum live filtert (Treffer + ihre Ancestors bleiben, zugeklappte Ordner öffnen für die Suche).
+  - Ordner-Knoten zeigen `folder-open` wenn ausgeklappt.
+  - NAV_ICONS um `server`, `mail`, `lock`, `hash`, `download`, `folder-open` ergänzt — SMTP-/Config-Nav-Kinder (z.B. „Email-Versand") rendern damit ein Icon statt blank.
+  - Verschachtelte Provider-Ordner (Content-Tree) rendern ihre Kinder in einem `<ul>` (valides HTML + Einrück-Stufe pro Tiefe) statt `<li>`-in-`<li>`.
+  - Platform-Overview: `user:query:user:list` in der Allowlist (behebt den Overview-Crash).
+
+- Updated dependencies [98ed535]
+  - @cosmicdrift/kumiko-renderer-web@0.130.2
+  - @cosmicdrift/kumiko-renderer@0.130.2
+  - @cosmicdrift/kumiko-framework@0.130.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.130.2
+  - @cosmicdrift/kumiko-headless@0.130.2
+
 ## 0.130.1
 
 ### Patch Changes

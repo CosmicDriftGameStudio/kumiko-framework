@@ -3,6 +3,10 @@
 // or tier maps (those stay in bin/server.ts / app run-config).
 
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
+import {
+  type AuthMfaFeatureOptions,
+  createAuthMfaFeature,
+} from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
@@ -61,12 +65,21 @@ export type UserDataRightsStackOptions = {
   readonly includeDefaults?: boolean;
 };
 
+// `sessions` may live on composeIdentityStack OR composeGdprStack — never both
+// with sessions:true. composeOpsStack used to accept it too; combining presets
+// that each push "sessions" crashes createRegistry with "duplicate feature".
 export type OpsStackOptions = {
   readonly delivery?: boolean;
   readonly audit?: boolean;
   readonly jobs?: boolean;
-  readonly sessions?: boolean;
   readonly rateLimiting?: boolean;
+};
+
+/** sessions (+ optional auth-mfa). config/user/tenant/auth-email-password stay
+ *  on composeFeatures(includeBundled). Pass `mfa` options to mount TOTP. */
+export type IdentityStackOptions = {
+  readonly sessions?: boolean;
+  readonly mfa?: AuthMfaFeatureOptions;
 };
 
 export function stackFeatureNames(features: readonly FeatureDefinition[]): string[] {
@@ -135,13 +148,21 @@ export function composeOpsStack(options: OpsStackOptions = {}): FeatureDefinitio
   const delivery = options.delivery ?? true;
   const audit = options.audit ?? true;
   const jobs = options.jobs ?? true;
-  const sessions = options.sessions ?? false;
   const rateLimiting = options.rateLimiting ?? false;
   const out: FeatureDefinition[] = [];
   if (delivery) out.push(createDeliveryFeature());
   if (audit) out.push(createAuditFeature());
   if (jobs) out.push(createJobsFeature());
-  if (sessions) out.push(createSessionsFeature());
   if (rateLimiting) out.push(createRateLimitingFeature());
+  return out;
+}
+
+/** Identity opt-ins: sessions by default; auth-mfa when `mfa` options given.
+ *  Do not also pass `sessions: true` to composeGdprStack — duplicate feature. */
+export function composeIdentityStack(options: IdentityStackOptions = {}): FeatureDefinition[] {
+  const sessions = options.sessions ?? true;
+  const out: FeatureDefinition[] = [];
+  if (sessions) out.push(createSessionsFeature());
+  if (options.mfa !== undefined) out.push(createAuthMfaFeature(options.mfa));
   return out;
 }

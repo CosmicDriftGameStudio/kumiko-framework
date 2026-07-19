@@ -9,15 +9,18 @@ export const testCommand = defineCommand({
   id: "test",
   label: "test",
   description: "Run tests (test | integration | e2e | all | <path>)",
-  help: "Bun test runner with scope shortcuts:\n  test         Unit tests (integration excluded via bunfig.toml)\n  integration  scripts/run-integration-tests.ts (docker required)\n  e2e          Playwright per package/sample with playwright.config.ts\n  all          Unit + integration\n  <path>       bun test with a path filter",
+  help: "Bun test runner with scope shortcuts:\n  test         Unit tests (integration excluded via bunfig.toml)\n  integration  scripts/run-integration-tests.ts (docker required)\n  e2e          Playwright per package/sample with playwright.config.ts\n  all          Unit + integration\n  <path>       bun test with a path filter\n  --verbose/-v  Skip --dots (full per-test output) — works with any scope",
   category: "quality",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
-    const scope = ctx.argv[0];
+    const verbose = ctx.argv.includes("--verbose") || ctx.argv.includes("-v");
+    const args = ctx.argv.filter((a) => a !== "--verbose" && a !== "-v");
+    const testFlags = verbose ? [] : ["--dots"];
+    const scope = args[0];
     if (scope === "all") {
       ctx.out.log("Full broadside — unit + integration...");
       ctx.out.log("");
-      const unit = await runStreaming("bun", ["test", "--dots"], ctx.out, { cwd: ctx.cwd });
+      const unit = await runStreaming("bun", ["test", ...testFlags], ctx.out, { cwd: ctx.cwd });
       if (unit !== 0) return unit;
       return await runStreaming("bun", [INTEGRATION_RUNNER], ctx.out, { cwd: ctx.cwd });
     }
@@ -59,8 +62,8 @@ export const testCommand = defineCommand({
       return lastCode;
     }
     if (scope) {
-      return await runStreaming("bun", ["test", "--dots", scope], ctx.out, { cwd: ctx.cwd });
+      return await runStreaming("bun", ["test", ...testFlags, scope], ctx.out, { cwd: ctx.cwd });
     }
-    return await runStreaming("bun", ["test", "--dots"], ctx.out, { cwd: ctx.cwd });
+    return await runStreaming("bun", ["test", ...testFlags], ctx.out, { cwd: ctx.cwd });
   },
 });

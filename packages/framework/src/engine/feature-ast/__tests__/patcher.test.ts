@@ -120,7 +120,7 @@ describe("FeaturePatcher — typed add helpers for mixed (closure-bearing) patte
     expect(pattern?.kind).toBe("writeHandler");
     if (pattern?.kind === "writeHandler") {
       expect(pattern.handlerName).toBe("task:create");
-      expect(pattern.handlerBody.raw).toContain("isSuccess: true");
+      expect(pattern.handlerBody?.raw).toContain("isSuccess: true");
       expect(pattern.access).toMatchObject({ roles: ["user"] });
     }
   });
@@ -157,48 +157,38 @@ describe("FeaturePatcher — typed add helpers for mixed (closure-bearing) patte
     });
   });
 
-  test("addEntityHook routes type + entity correctly", () => {
+  test("addHook routes entity-wide { allOf } target correctly", () => {
     const sf = makeSourceFile(STARTER);
-    createFeaturePatcher(sf).addEntityHook({
+    createFeaturePatcher(sf).addHook({
       type: "postDelete",
-      entity: "task",
+      target: { allOf: "task" },
       handlerSource: "async (event, ctx) => { /* cleanup */ }",
     });
     const result = parseSourceFile(sf);
     expect(result.patterns[0]).toMatchObject({
-      kind: "entityHook",
+      kind: "hook",
       hookType: "postDelete",
-      entityName: "task",
+      target: { allOf: "task" },
     });
   });
 
-  test("addDefineEvent + addEventMigration form a complete event-versioning chain", () => {
+  test("addDefineEvent with migrations forms a complete event-versioning chain", () => {
     const sf = makeSourceFile(STARTER);
     const p = createFeaturePatcher(sf);
     p.addDefineEvent({
       name: "stepCompleted",
       schemaSource: "z.object({ id: z.string() })",
       version: 2,
-    });
-    p.addEventMigration({
-      event: "stepCompleted",
-      fromVersion: 1,
-      toVersion: 2,
-      transformSource: '(old) => ({ id: old.id ?? "" })',
+      migrations: { "1": '(old) => ({ id: old.id ?? "" })' },
     });
     const result = parseSourceFile(sf);
     expect(result.errors).toEqual([]);
-    expect(result.patterns).toHaveLength(2);
+    expect(result.patterns).toHaveLength(1);
     expect(result.patterns[0]).toMatchObject({
       kind: "defineEvent",
       eventName: "stepCompleted",
       version: 2,
-    });
-    expect(result.patterns[1]).toMatchObject({
-      kind: "eventMigration",
-      eventName: "stepCompleted",
-      fromVersion: 1,
-      toVersion: 2,
+      migrations: { "1": expect.anything() },
     });
   });
 });
@@ -452,9 +442,9 @@ defineFeature("tasks", (r) => {
       handlerSource: "async (q, ctx) => []",
       access: { openToAll: true },
     });
-    p.addEntityHook({
+    p.addHook({
       type: "postDelete",
-      entity: "task",
+      target: { allOf: "task" },
       handlerSource: "async (event, ctx) => { /* cascade-clean */ }",
     });
     const result = parseSourceFile(sf);
@@ -463,7 +453,7 @@ defineFeature("tasks", (r) => {
       "entity",
       "writeHandler",
       "queryHandler",
-      "entityHook",
+      "hook",
     ]);
   });
 });

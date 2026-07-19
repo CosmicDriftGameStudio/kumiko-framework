@@ -1,9 +1,9 @@
 //
 // ToastProvider + useToast pinnt: toast() rendert Title+Description in
-// einem Radix-Toast; mehrere toasts stapeln; Variant=destructive setzt
-// die destructive-Klasse; useToast außerhalb des Providers ist no-op
-// (kein crash); IDs sind kollisionsfrei auch bei zwei Calls im selben
-// Tick (Counter-Race-Bug).
+// einem Radix-Toast; mehrere toasts stapeln; Variant=bad setzt die
+// StatusTone-Klasse; useToast außerhalb des Providers ist no-op (kein
+// crash); IDs sind kollisionsfrei auch bei zwei Calls im selben Tick
+// (Counter-Race-Bug).
 
 import { describe, expect, test } from "bun:test";
 import { act, fireEvent, screen } from "@testing-library/react";
@@ -49,7 +49,7 @@ describe("ToastProvider + useToast", () => {
           options={[
             {
               title: "Konflikt",
-              variant: "destructive",
+              variant: "bad",
               docsUrl: "https://docs.kumiko.rocks/errors/stale_state",
             },
           ]}
@@ -88,18 +88,18 @@ describe("ToastProvider + useToast", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
-  test("variant=destructive: setzt die destructive-Klasse auf den Root", () => {
+  test("variant=bad: setzt die status-bad StatusTone-Klasse auf den Root", () => {
     render(
       <ToastProvider>
-        <ToastTrigger options={[{ title: "Failed", variant: "destructive" }]} />
+        <ToastTrigger options={[{ title: "Failed", variant: "bad" }]} />
       </ToastProvider>,
     );
     // Class-Mapping ist der Public-Vertrag mit Tailwind-Tokens. Wir
     // suchen den nearest Ancestor des Title-Knotens dessen Klassen-
-    // String "destructive" enthält — Radix-Toast.Root rendert in einem
+    // String "status-bad" enthält — Radix-Toast.Root rendert in einem
     // <li>, aber die genaue Role wechselt je nach priority/type.
     let node: HTMLElement | null = screen.getByText("Failed");
-    while (node !== null && !node.className.includes("destructive")) {
+    while (node !== null && !node.className.includes("status-bad")) {
       node = node.parentElement;
     }
     expect(node).not.toBeNull();

@@ -28,12 +28,11 @@ describe("mailFoundationFeature — shape", () => {
 });
 
 describe("mailFoundationFeature.exports — typed handles", () => {
-  test("exposes only the provider-selector config-key", () => {
-    const keys = mailFoundationFeature.exports.configKeys;
-    expect(keys.provider).toBeDefined();
-    // No host/port/from/authUser — those live in the provider-plugin.
-    expect((keys as Record<string, unknown>)["host"]).toBeUndefined();
-    expect((keys as Record<string, unknown>)["port"]).toBeUndefined();
+  test("exposes the provider-selector handle", () => {
+    expect(mailFoundationFeature.exports.providerConfigKey).toBeDefined();
+    expect(mailFoundationFeature.exports.providerConfigKey.name).toBe(
+      "mail-foundation:config:provider",
+    );
   });
 });
 

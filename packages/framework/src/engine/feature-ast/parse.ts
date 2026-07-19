@@ -21,7 +21,13 @@
 // Per-pattern extractors fill in iteratively (C1.5) — each round adds
 // one extractor + a focused test.
 
-import type { ArrowFunction, CallExpression, ParameterDeclaration, SourceFile } from "ts-morph";
+import type {
+  ArrowFunction,
+  CallExpression,
+  Node,
+  ParameterDeclaration,
+  SourceFile,
+} from "ts-morph";
 import { Project, SyntaxKind } from "ts-morph";
 
 import {
@@ -32,9 +38,7 @@ import {
   extractDefineEvent,
   extractDescribe,
   extractEntity,
-  extractEntityHook,
   extractEnvSchema,
-  extractEventMigration,
   extractExposesApi,
   extractExtendsRegistrar,
   extractHook,
@@ -47,6 +51,7 @@ import {
   extractOptionalRequires,
   extractProjection,
   extractQueryHandler,
+  extractRawTable,
   extractReadsConfig,
   extractReferenceData,
   extractRelation,
@@ -56,14 +61,13 @@ import {
   extractSystemScope,
   extractToggleable,
   extractTranslations,
-  extractTree,
   extractTreeActions,
   extractUiHints,
-  extractUnmanagedTable,
   extractUseExtension,
   extractUsesApi,
   extractWorkspace,
   extractWriteHandler,
+  findFunctionLiteral,
 } from "./extractors";
 import type { FeaturePattern, UnknownPattern } from "./patterns";
 import { type SourceLocation, sourceLocationFromNode } from "./source-location";
@@ -146,7 +150,7 @@ export function parseSourceFile(sourceFile: SourceFile): ParseResult {
   const patterns: FeaturePattern[] = [];
   const errors: ParseError[] = [];
 
-  walkSetupCallback(setupCallback, registrarParamName, sourceFile, patterns, errors);
+  walkSetupCallback(setupCallback.getBody(), registrarParamName, sourceFile, patterns, errors);
 
   return { featureName, patterns, errors };
 }
@@ -229,23 +233,129 @@ function extractRegistrarParamName(setup: ArrowFunction): string | undefined {
  * structurally impossible.
  */
 function walkSetupCallback(
-  setup: ArrowFunction,
+  body: Node,
   registrarParamName: string,
   sourceFile: SourceFile,
   patterns: FeaturePattern[],
   errors: ParseError[],
+  visitedWrapperDecls: Set<Node> = new Set(),
 ): void {
-  const body = setup.getBody();
   for (const call of body.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const methodName = extractRegistrarMethodName(call, registrarParamName);
-    if (!methodName) continue; // Not a registrar call — ignore.
-    const result = dispatchExtractor(methodName, call, sourceFile);
-    if (result.kind === "pattern") {
-      patterns.push(result.pattern);
-    } else {
-      errors.push(result.error);
+    if (methodName) {
+      const result = dispatchExtractor(methodName, call, sourceFile);
+      if (result.kind === "pattern") {
+        patterns.push(result.pattern);
+      } else {
+        errors.push(result.error);
+      }
+      continue;
     }
+
+    // Not a direct `<registrarParam>.<method>(...)` call. Check whether it's
+    // a registrar-wrapper call — a function that receives the registrar as
+    // a bare argument, e.g. `registerShowPonyScreens(r)`. Such wrappers are
+    // invisible to a receiver-shape match, so we resolve the callee (same
+    // file, or the declaring file of a named import — #1008) and recurse
+    // into its body with its own parameter name for the registrar slot.
+    const wrapper = resolveRegistrarWrapperCall(call, registrarParamName);
+    if (!wrapper) continue; // Free function call unrelated to the registrar — ignore.
+    if (visitedWrapperDecls.has(wrapper.declNode)) continue; // Cycle guard.
+    visitedWrapperDecls.add(wrapper.declNode);
+    // wrapper.sourceFile, not the outer `sourceFile` param: a cross-file
+    // wrapper's body lives in a different file, and sourceLocationFromNode
+    // uses whichever SourceFile it's given for both the `file` path and
+    // the line/column table — passing the wrong one silently corrupts
+    // both for every pattern found inside the wrapper.
+    walkSetupCallback(
+      wrapper.body,
+      wrapper.paramName,
+      wrapper.sourceFile,
+      patterns,
+      errors,
+      visitedWrapperDecls,
+    );
   }
+}
+
+/**
+ * Resolves a bare call like `registerShowPonyScreens(r)` to the callee's
+ * body + its own parameter name for the registrar slot. The callee may be
+ * declared in the same file (function declaration, or a const initialized
+ * with an arrow/function expression), or imported by name from another
+ * file — resolved via the module specifier's SourceFile (#1008; only
+ * works against a real-filesystem Project, e.g. parseFeatureFile's. The
+ * in-memory Designer Project has no files to resolve against and
+ * getModuleSpecifierSourceFile() returns undefined there, same as any
+ * other unresolvable reference).
+ */
+function resolveRegistrarWrapperCall(
+  call: CallExpression,
+  registrarParamName: string,
+):
+  | {
+      readonly body: Node;
+      readonly paramName: string;
+      readonly declNode: Node;
+      readonly sourceFile: SourceFile;
+    }
+  | undefined {
+  const callee = call.getExpression().asKind(SyntaxKind.Identifier);
+  if (!callee) return undefined;
+
+  const args = call.getArguments();
+  const argIndex = args.findIndex((arg) => arg.getText() === registrarParamName);
+  if (argIndex === -1) return undefined; // Registrar not passed to this call.
+
+  const callSourceFile = call.getSourceFile();
+  const name = callee.getText();
+
+  const local = resolveWrapperDeclarationInFile(callSourceFile, name, argIndex);
+  if (local) return { ...local, sourceFile: callSourceFile };
+
+  const importDecl = callSourceFile
+    .getImportDeclarations()
+    .find((d) =>
+      d.getNamedImports().some((ni) => (ni.getAliasNode()?.getText() ?? ni.getName()) === name),
+    );
+  if (!importDecl) return undefined;
+  const exportedName =
+    importDecl
+      .getNamedImports()
+      .find((ni) => (ni.getAliasNode()?.getText() ?? ni.getName()) === name)
+      ?.getName() ?? name;
+  const targetFile = importDecl.getModuleSpecifierSourceFile();
+  if (!targetFile) return undefined; // Unresolvable: in-memory project, external package, or missing file.
+
+  const imported = resolveWrapperDeclarationInFile(targetFile, exportedName, argIndex);
+  return imported ? { ...imported, sourceFile: targetFile } : undefined;
+}
+
+function resolveWrapperDeclarationInFile(
+  sourceFile: SourceFile,
+  name: string,
+  argIndex: number,
+): { readonly body: Node; readonly paramName: string; readonly declNode: Node } | undefined {
+  const fnDecl = sourceFile.getFunction(name);
+  if (fnDecl) {
+    const param = fnDecl.getParameters()[argIndex];
+    const body = fnDecl.getBody();
+    if (!param || !body) return undefined;
+    return { body, paramName: param.getName(), declNode: fnDecl };
+  }
+
+  const varDecl = sourceFile.getVariableDeclaration(name);
+  const init = varDecl?.getInitializer();
+  const literal = init ? findFunctionLiteral(init) : undefined;
+  const fnLiteral =
+    literal?.asKind(SyntaxKind.ArrowFunction) ?? literal?.asKind(SyntaxKind.FunctionExpression);
+  if (fnLiteral) {
+    const param = fnLiteral.getParameters()[argIndex];
+    if (!param) return undefined;
+    return { body: fnLiteral.getBody(), paramName: param.getName(), declNode: fnLiteral };
+  }
+
+  return undefined;
 }
 
 /**
@@ -331,8 +441,6 @@ function dispatchExtractor(
     // Round 4 — mixed (header + body) patterns
     case "hook":
       return extractHook(call, sourceFile);
-    case "entityHook":
-      return extractEntityHook(call, sourceFile);
     case "authClaims":
       return extractAuthClaims(call, sourceFile);
     case "writeHandler":
@@ -345,8 +453,6 @@ function dispatchExtractor(
       return extractHttpRoute(call, sourceFile);
     case "defineEvent":
       return extractDefineEvent(call, sourceFile);
-    case "eventMigration":
-      return extractEventMigration(call, sourceFile);
     case "notification":
       return extractNotification(call, sourceFile);
     case "projection":
@@ -362,13 +468,11 @@ function dispatchExtractor(
       return extractUsesApi(call, sourceFile);
     case "exposesApi":
       return extractExposesApi(call, sourceFile);
-    case "unmanagedTable":
-      return extractUnmanagedTable(call, sourceFile);
-    // Round 6 — Visual-Tree patterns
+    case "rawTable":
+      return extractRawTable(call, sourceFile);
+    // Round 6 — Tree-Actions pattern
     case "treeActions":
       return extractTreeActions(call, sourceFile);
-    case "tree":
-      return extractTree(call, sourceFile);
     // Round 7 — env-schema contract (opaque, Zod-expression argument)
     case "envSchema":
       return extractEnvSchema(call, sourceFile);

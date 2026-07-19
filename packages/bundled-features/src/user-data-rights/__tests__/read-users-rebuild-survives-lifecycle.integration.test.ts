@@ -46,7 +46,6 @@ import {
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { hashPassword } from "../../auth-email-password/password-hashing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -60,6 +59,7 @@ import { createSessionsFeature } from "../../sessions";
 import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
 import { createSessionCallbacks, type SessionCallbacks } from "../../sessions/session-callbacks";
 import { sessionCallbacksFromLateBound } from "../../sessions/testing";
+import { hashPassword } from "../../shared";
 import { createTenantFeature, tenantMembershipsTable } from "../../tenant";
 import { tenantEntity } from "../../tenant/schema/tenant";
 import { seedTenantMembership } from "../../tenant/seeding";

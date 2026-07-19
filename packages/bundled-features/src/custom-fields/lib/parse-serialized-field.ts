@@ -8,8 +8,8 @@
 // across the bundle.
 //
 // All structured `serializedField`-keys recognised today (`fieldAccess`,
-// `sensitive`, `retention`) live on this shape. New keys go here so the
-// other call-sites can read them via the typed result instead of re-parsing.
+// `retention`) live on this shape. New keys go here so the other call-sites
+// can read them via the typed result instead of re-parsing.
 
 import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 
@@ -19,7 +19,6 @@ export interface SerializedFieldShape {
     readonly read?: ReadonlyArray<string>;
     readonly write?: ReadonlyArray<string>;
   };
-  readonly sensitive?: boolean;
   readonly retention?: {
     readonly keepFor: string;
     readonly strategy: "delete" | "anonymize";
@@ -41,7 +40,16 @@ function isShape(v: unknown): v is SerializedFieldShape {
  */
 export function parseSerializedField(raw: unknown): SerializedFieldShape | null {
   const parsed = typeof raw === "string" ? parseJsonSafe<unknown>(raw, null) : raw;
-  return isShape(parsed) ? parsed : null;
+  if (!isShape(parsed)) return null;
+  // Fail loud instead of silently dropping the key: a stored definition with
+  // `sensitive` predates #972 and its PII expectations (event-log exclusion,
+  // forget-strip) no longer hold — the field must be recreated.
+  if ("sensitive" in parsed) {
+    throw new Error(
+      "custom-field definition contains the removed `sensitive` key (#972) — custom fields don't support PII. Recreate the field without it; model personal data as a schema entity field with a pii annotation.",
+    );
+  }
+  return parsed;
 }
 
 export interface FieldDefinitionRow {

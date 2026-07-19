@@ -16,7 +16,7 @@
 
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { APP_FEATURES } from "../src/run-config";
 
 type FeatureImport = (
@@ -78,6 +78,13 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/auth-email-password",
     factory: "createAuthEmailPasswordFeature",
   },
+  "auth-mfa": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/auth-mfa",
+    factory: "createAuthMfaFeature",
+    defaultArgs:
+      '{ setupTokenSecret: "stub-setup-secret-at-least-32-bytes-long!!", challengeTokenSecret: "stub-challenge-secret-at-least-32-bytes!!", issuer: "stub" }',
+  },
   delivery: {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/delivery",
@@ -98,6 +105,26 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory",
     exportName: "mailTransportInMemoryFeature",
+  },
+  "inbound-mail-foundation": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation",
+    exportName: "inboundMailFoundationFeature",
+    projectionTables: [
+      "mailAccountsProjectionTable",
+      "inboundMessagesProjectionTable",
+      "mailThreadsProjectionTable",
+    ],
+  },
+  "inbound-provider-imap": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/inbound-provider-imap",
+    exportName: "inboundProviderImapFeature",
+  },
+  "inbound-provider-inmemory": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory",
+    exportName: "inboundProviderInMemoryFeature",
   },
   "file-foundation": {
     kind: "named",
@@ -192,6 +219,12 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     factory: "createManagedPagesFeature",
     defaultArgs: "{ resolveApexTenant: () => null, allowCustomCss: true }",
   },
+  seo: {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/seo",
+    factory: "createSeoFeature",
+    defaultArgs: "{ sitemapEntries: () => [], includeLegalPages: true }",
+  },
   "template-resolver": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/template-resolver",
@@ -248,6 +281,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/folders-user-data",
     exportName: "foldersUserDataFeature",
+  },
+  "auth-mfa-user-data": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data",
+    exportName: "authMfaUserDataFeature",
   },
   ledger: {
     kind: "named",

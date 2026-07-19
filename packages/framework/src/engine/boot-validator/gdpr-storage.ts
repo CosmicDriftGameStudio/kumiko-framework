@@ -12,7 +12,7 @@ function entitiesOf(
   feature: FeatureDefinition,
 ): ReadonlyArray<readonly [string, EntityDefinition]> {
   const fromEntities = Object.entries(feature.entities ?? {});
-  const fromProjections = Object.values(feature.projections)
+  const fromProjections = Object.values(feature.projections ?? {})
     .filter((p): p is typeof p & { entity: EntityDefinition } => p.entity !== undefined)
     .map((p) => [p.name, p.entity] as const);
   return [...fromEntities, ...fromProjections];

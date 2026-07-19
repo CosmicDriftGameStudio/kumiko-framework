@@ -19,6 +19,11 @@ import {
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import {
+  AUTH_MFA_FEATURE,
+  AuthMfaHandlers,
+  bindMfaRevokeAllOtherSessionsFromFeature,
+} from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import {
   buildEnvConfigOverrides,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
@@ -64,28 +69,32 @@ import {
 import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
-import { applyBootSeeds } from "./boot/apply-boot-seeds";
-import { resolveBootCrypto } from "./boot/boot-crypto";
+import { applyBootSeeds } from "@cosmicdrift/kumiko-server-runtime/boot/apply-boot-seeds";
+import { resolveBootCrypto } from "@cosmicdrift/kumiko-server-runtime/boot/boot-crypto";
+import {
+  buildComposeAuthOptions,
+  composeFeatures,
+} from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { assertPiiBootInvariants } from "@cosmicdrift/kumiko-server-runtime/pii-boot-gate";
 import { watchAndRegenerate } from "./codegen";
-import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import {
   type CreateKumikoServerOptions,
   createKumikoServer,
   type KumikoServerHandle,
 } from "./create-kumiko-server";
-import { assertPiiBootInvariants } from "./pii-boot-gate";
 import { renderWelcomeBanner } from "./welcome-banner";
 
 // Re-export der shared Auth-Setup-Types damit Apps nur einen Import-Pfad
 // brauchen. PasswordResetSetup / EmailVerificationSetup leben in
-// run-prod-app.ts (single source of truth) — hier nur durchgereicht.
+// @cosmicdrift/kumiko-server-runtime (single source of truth) — hier nur
+// durchgereicht.
 export type {
   AuthMailOptions,
   EmailVerificationSetup,
   InviteSetup,
   PasswordResetSetup,
   SignupSetup,
-} from "./run-prod-app";
+} from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 
 import type {
   AuthMailOptions,
@@ -93,13 +102,13 @@ import type {
   InviteSetup,
   PasswordResetSetup,
   SignupSetup,
-} from "./run-prod-app";
+} from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
   requireEnv,
   resolveAuthMail,
-} from "./run-prod-app";
+} from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 
 export type RunDevAppAuthOptions = {
   /** Admin user to seed at boot. Idempotent — re-runs in persistent-DB
@@ -403,6 +412,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   let patResolver: PatResolver | undefined;
   let lifecycleDb: DbConnection | undefined;
   const patFeature = features.find((f) => f.name === PAT_FEATURE);
+  const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
   const tenantLifecycleFeature = features.find((f) => f.name === TENANT_LIFECYCLE_FEATURE);
   const patAuthFragment = patFeature
     ? {
@@ -486,6 +496,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         ...sessionAuthFragment,
         ...patAuthFragment,
         ...tenantLifecycleAuthFragment,
+        ...(mfaFeature && { mfaVerifyHandler: AuthMfaHandlers.verify }),
         ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
@@ -536,6 +547,14 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
         if (sessionsFeature) {
           bindAutoRevokeFromFeature(sessionsFeature)?.(sessionCallbacks.sessionMassRevoker);
+        }
+        // MFA enable/disable/regenerate mass-revokes every OTHER live
+        // session (stolen-session defense) — only wired when auth-mfa is
+        // mounted.
+        if (mfaFeature) {
+          bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(
+            sessionCallbacks.sessionRevokeAllOthers,
+          );
         }
       }
       if (patFeature) {

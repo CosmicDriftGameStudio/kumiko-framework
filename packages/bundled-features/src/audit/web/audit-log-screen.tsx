@@ -4,12 +4,14 @@
 
 import {
   type DataTableSort,
+  formatWhen,
+  sortByAccessor,
   useDispatcher,
   useNav,
   usePrimitives,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { AUDIT_LOG_DETAIL_SCREEN_ID, AuditQueries } from "../constants";
 
 type AuditRow = {
@@ -52,18 +54,22 @@ export function AuditLogScreen(): ReactNode {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sort, setSort] = useState<DataTableSort | null>(null);
 
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
   const load = useCallback(
-    async (cursor?: string): Promise<void> => {
+    async (cursor?: string, overrideFilters?: Filters): Promise<void> => {
       setState({ kind: "loading" });
+      const f = overrideFilters ?? filtersRef.current;
       const res = await dispatcher.query<AuditResponse>(AuditQueries.list, {
         limit: 50,
         ...(cursor !== undefined && { before: cursor }),
-        ...(filters.eventType.trim() !== "" && { eventType: filters.eventType.trim() }),
-        ...(filters.aggregateType.trim() !== "" && {
-          aggregateType: filters.aggregateType.trim(),
+        ...(f.eventType.trim() !== "" && { eventType: f.eventType.trim() }),
+        ...(f.aggregateType.trim() !== "" && {
+          aggregateType: f.aggregateType.trim(),
         }),
-        ...(filters.from !== "" && { from: toIsoStart(filters.from) }),
-        ...(filters.to !== "" && { to: toIsoEnd(filters.to) }),
+        ...(f.from !== "" && { from: toIsoStart(f.from) }),
+        ...(f.to !== "" && { to: toIsoEnd(f.to) }),
       });
       if (!res.isSuccess) {
         setState({ kind: "error", message: res.error.message });
@@ -71,7 +77,7 @@ export function AuditLogScreen(): ReactNode {
       }
       setState({ kind: "ready", rows: res.data.rows, nextBefore: res.data.nextBefore });
     },
-    [dispatcher, filters],
+    [dispatcher],
   );
 
   useEffect(() => {
@@ -156,6 +162,7 @@ export function AuditLogScreen(): ReactNode {
             onClick={() => {
               setFilters(EMPTY_FILTERS);
               setBefore(undefined);
+              void load(undefined, EMPTY_FILTERS);
             }}
             testId="audit-log-reset-filters"
           >
@@ -179,7 +186,7 @@ export function AuditLogScreen(): ReactNode {
         ]}
         sort={sort}
         onSortChange={setSort}
-        rows={sortAudit(state.rows, sort).map((row) => ({
+        rows={sortByAccessor(state.rows, sort, SORT_ACCESSORS).map((row) => ({
           id: row.id,
           values: {
             when: formatWhen(row.createdAt),
@@ -233,26 +240,6 @@ const SORT_ACCESSORS: Record<string, (r: AuditRow) => string> = {
   when: (r) => r.createdAt,
   type: (r) => r.type,
 };
-
-function sortAudit(rows: readonly AuditRow[], sort: DataTableSort | null): readonly AuditRow[] {
-  if (sort === null) return rows;
-  const accessor = SORT_ACCESSORS[sort.field];
-  if (accessor === undefined) return rows;
-  const factor = sort.dir === "asc" ? 1 : -1;
-  return [...rows].sort((a, b) => {
-    const av = accessor(a);
-    const bv = accessor(b);
-    return av < bv ? -factor : av > bv ? factor : 0;
-  });
-}
-
-function formatWhen(value: string): string {
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
-  }
-}
 
 function toIsoStart(date: string): string {
   return new Date(`${date}T00:00:00.000Z`).toISOString();

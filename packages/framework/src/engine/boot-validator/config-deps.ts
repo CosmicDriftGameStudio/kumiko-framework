@@ -1,3 +1,4 @@
+import { isEncryptedAtRest } from "../config-helpers";
 import type { FeatureDefinition } from "../types";
 
 // --- Toggleable-dependency warnings ---
@@ -79,9 +80,9 @@ export function validateConfigKeyComputed(feature: FeatureDefinition): void {
     // returns a plain value, encrypted expects cipher-text in the row. The
     // cascade doesn't know which one to prefer on write. Rejecting at boot
     // is cheaper than surprising behaviour at runtime.
-    if (keyDef.encrypted) {
+    if (isEncryptedAtRest(keyDef)) {
       throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has both encrypted=true and a computed resolver — these are mutually exclusive paradigms`,
+        `[Feature ${feature.name}] Config key "${keyName}" has both encrypted/backing="secrets" and a computed resolver — these are mutually exclusive paradigms`,
       );
     }
   }
@@ -128,9 +129,9 @@ export function validateConfigKeyAllowPerRequest(feature: FeatureDefinition): vo
     // encrypted + per-request would expose a cipher-text interpretation
     // to query-strings. The secret-value shouldn't be transported this
     // way — reject as a paradigm-mismatch.
-    if (keyDef.encrypted) {
+    if (isEncryptedAtRest(keyDef)) {
       throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but encrypted=true — secret values may not be set via query-params`,
+        `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but encrypted/backing="secrets" — secret values may not be set via query-params`,
       );
     }
   }
@@ -157,6 +158,41 @@ export function validateConfigKeyBacking(feature: FeatureDefinition): void {
     // handlers. The runtime contract is that the app provides
     // `extraContext.secrets` (+ a MasterKeyProvider) — a backing="secrets"
     // read/write without it throws loud at request time, not silently.
+  }
+}
+
+// --- Config key piiEncrypted compatibility (kumiko-platform#231/#459) ---
+
+export function validateConfigKeyPiiEncrypted(feature: FeatureDefinition): void {
+  for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
+    if (!keyDef.piiEncrypted) continue;
+
+    if (keyDef.type !== "text") {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but type="${keyDef.type}" — piiEncrypted only applies to text keys`,
+      );
+    }
+
+    // system scope has no subject (no tenant, no user) for the subject-KMS
+    // to encrypt under.
+    if (keyDef.scope === "system") {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but scope="system" — system-scope has no subject (tenant/user) for the subject-KMS to encrypt under`,
+      );
+    }
+
+    // Mutually exclusive with the shared-cipher path: a config value is
+    // either subject-keyed (piiEncrypted) or master-key-keyed (encrypted/
+    // backing="secrets"), never both — unlike entity fields, which allow
+    // both markers together (double-wrap, e.g. auth-mfa.totpSecret) because
+    // entity rows decrypt through a fixed executor pipeline that peels both
+    // layers. Config values have no such pipeline; picking one keeps the
+    // resolver simple.
+    if (isEncryptedAtRest(keyDef)) {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has both piiEncrypted=true and encrypted/backing="secrets" — pick one: piiEncrypted (subject-KMS, user-visible) or encrypted (shared cipher, server-only values)`,
+      );
+    }
   }
 }
 

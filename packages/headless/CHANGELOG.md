@@ -1,5 +1,304 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.156.0
+
+### Patch Changes
+
+- Updated dependencies [c7ca222]
+- Updated dependencies [77ea09f]
+  - @cosmicdrift/kumiko-framework@0.156.0
+
+## 0.155.1
+
+### Patch Changes
+
+- 69ac999: Migrate three display/build-tooling timestamp call-sites from native `Date` to `Temporal` (identical output format): `formatWhen` (operator-screen timestamps), `formatDateCell` (table-cell date/timestamp formatting, preserves the existing `dateStyle`/`timeStyle` priority order), and `build-prod-bundle`'s `builtAt` field. Surfaced by infra#286's `no-date-api` guard, which now actually scans these packages instead of silently skipping them.
+  - @cosmicdrift/kumiko-framework@0.155.1
+
+## 0.155.0
+
+### Patch Changes
+
+- Updated dependencies [137f31a]
+  - @cosmicdrift/kumiko-framework@0.155.0
+
+## 0.154.2
+
+### Patch Changes
+
+- Updated dependencies [05c3e11]
+  - @cosmicdrift/kumiko-framework@0.154.2
+
+## 0.154.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.154.1
+
+## 0.154.0
+
+### Patch Changes
+
+- Updated dependencies [0d30bf7]
+- Updated dependencies [e40a980]
+  - @cosmicdrift/kumiko-framework@0.154.0
+
+## 0.153.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.153.0
+
+## 0.152.0
+
+### Patch Changes
+
+- Updated dependencies [e32807e]
+- Updated dependencies [3dd1f99]
+  - @cosmicdrift/kumiko-framework@0.152.0
+
+## 0.151.1
+
+### Patch Changes
+
+- Updated dependencies [5c1dc93]
+  - @cosmicdrift/kumiko-framework@0.151.1
+
+## 0.151.0
+
+### Patch Changes
+
+- Updated dependencies [ca4edbf]
+  - @cosmicdrift/kumiko-framework@0.151.0
+
+## 0.150.0
+
+### Patch Changes
+
+- Updated dependencies [0e4cec9]
+- Updated dependencies [aeb79fa]
+  - @cosmicdrift/kumiko-framework@0.150.0
+
+## 0.149.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.149.2
+
+## 0.149.1
+
+### Patch Changes
+
+- Updated dependencies [637b599]
+  - @cosmicdrift/kumiko-framework@0.149.1
+
+## 0.149.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.149.0
+
+## 0.148.0
+
+### Patch Changes
+
+- Updated dependencies [cb5612d]
+  - @cosmicdrift/kumiko-framework@0.148.0
+
+## 0.147.3
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.147.3
+
+## 0.147.2
+
+### Patch Changes
+
+- Updated dependencies [3f121df]
+- Updated dependencies [dfb3c26]
+- Updated dependencies [c007b76]
+  - @cosmicdrift/kumiko-framework@0.147.2
+
+## 0.147.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.147.1
+
+## 0.147.0
+
+### Patch Changes
+
+- Updated dependencies [bdc5e27]
+- Updated dependencies [c93de1a]
+  - @cosmicdrift/kumiko-framework@0.147.0
+
+## 0.146.4
+
+### Patch Changes
+
+- d85f5ae: apex: re-export APEX_LIGHTBOX_SCRIPT_CSP_HASH from the apex barrel (`@cosmicdrift/kumiko-headless/apex`) —
+  it was only exported from the internal `./lightbox` module in the previous patch, so
+  `import { APEX_LIGHTBOX_SCRIPT_CSP_HASH } from "@cosmicdrift/kumiko-headless/apex"` (the
+  only public subpath) failed to resolve it.
+  - @cosmicdrift/kumiko-framework@0.146.4
+
+## 0.146.3
+
+### Patch Changes
+
+- 58a6145: apex: export `APEX_LIGHTBOX_SCRIPT_CSP_HASH` for the screenshot-lightbox's inline
+  `<script>` — apps enforcing a strict `script-src 'self'` CSP (no `'unsafe-inline'`/nonce)
+  on their apex/marketing surface had a silently broken lightbox (Chrome blocked the inline
+  script, no error surfaced anywhere except the browser console). A nonce isn't viable here:
+  apex pages are frequently pre-rendered to static HTML at build time, where there's no
+  per-request nonce to inject. Add the exported hash to your CSP's `script-src` directive
+  instead. A dedicated test ties the constant to the actual script body, so a future edit
+  to the script that forgets to update the hash fails CI rather than silently breaking every
+  strict-CSP consumer.
+  - @cosmicdrift/kumiko-framework@0.146.3
+
+## 0.146.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.146.2
+
+## 0.146.1
+
+### Patch Changes
+
+- Updated dependencies [706cea7]
+  - @cosmicdrift/kumiko-framework@0.146.1
+
+## 0.146.0
+
+### Patch Changes
+
+- Updated dependencies [b00c3ed]
+  - @cosmicdrift/kumiko-framework@0.146.0
+
+## 0.145.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.145.1
+
+## 0.145.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.145.0
+
+## 0.144.0
+
+### Patch Changes
+
+- Updated dependencies [c7d0ef8]
+  - @cosmicdrift/kumiko-framework@0.144.0
+
+## 0.143.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.143.1
+
+## 0.143.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.143.0
+
+## 0.142.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.142.0
+
+## 0.141.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.141.0
+
+## 0.140.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.140.0
+
+## 0.139.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.139.0
+
+## 0.138.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.138.0
+
+## 0.137.0
+
+### Patch Changes
+
+- Updated dependencies [fdd7c40]
+  - @cosmicdrift/kumiko-framework@0.137.0
+
+## 0.136.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.136.1
+
+## 0.136.0
+
+### Patch Changes
+
+- Updated dependencies [f5a7f51]
+  - @cosmicdrift/kumiko-framework@0.136.0
+
+## 0.135.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.135.0
+
+## 0.134.0
+
+### Patch Changes
+
+- Updated dependencies [9eab762]
+  - @cosmicdrift/kumiko-framework@0.134.0
+
+## 0.133.0
+
+### Patch Changes
+
+- Updated dependencies [9521906]
+  - @cosmicdrift/kumiko-framework@0.133.0
+
+## 0.132.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.132.0
+
+## 0.131.0
+
+### Patch Changes
+
+- Updated dependencies [99008c9]
+  - @cosmicdrift/kumiko-framework@0.131.0
+
+## 0.130.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.130.2
+
 ## 0.130.1
 
 ### Patch Changes

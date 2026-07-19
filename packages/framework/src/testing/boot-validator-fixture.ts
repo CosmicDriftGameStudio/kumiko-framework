@@ -1,3 +1,4 @@
+import { SEARCHABLE_FALSE_WHITELIST } from "../engine/boot-validator/entity-list-screens";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
@@ -6,8 +7,6 @@ import type {
 } from "../engine/types";
 import { normalizeListColumn } from "../engine/types/screen";
 import { featureHasI18nSurface, requiredKeysFromFeature } from "../i18n/required-surface-keys";
-
-const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list"]);
 
 function ensureEntityListSortable(feature: FeatureDefinition): FeatureDefinition {
   if (!feature.entities) return feature;

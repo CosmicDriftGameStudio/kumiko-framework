@@ -14,6 +14,8 @@
 
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
+import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import { authMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data";
 import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import {
@@ -39,6 +41,9 @@ import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/f
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
 import { foldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
+import { inboundMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import { inboundProviderImapFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-imap";
+import { inboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import { ledgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
@@ -52,6 +57,7 @@ import { readinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createRendererSimpleFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
+import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createStepDispatcherFeature } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
 import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-mollie";
@@ -86,6 +92,15 @@ export const APP_FEATURES = [
   // foundations not in the auto-mounted bundled-set
   createSecretsFeature(),
   createSessionsFeature(),
+  // auth-mfa: composeFeatures auto-threads mfaStatusCheckerFromFeature into
+  // the auto-mounted auth-email-password login handler when this feature is
+  // present in appFeatures (see dev-server/src/compose-features.ts) — no
+  // manual login.write.ts wiring needed here.
+  createAuthMfaFeature({
+    setupTokenSecret: "smoke-mfa-setup-secret-at-least-32-bytes-long!!",
+    challengeTokenSecret: "smoke-mfa-challenge-secret-at-least-32-bytes-long!!",
+    issuer: "Kumiko Sample",
+  }),
   // Per-domain scopes (like cashcolt's credit/bauspar/miete): the token picks
   // WHICH API × the permission LEVEL (read vs read+write). Each domain declares
   // its read + write QN globs.
@@ -119,6 +134,11 @@ export const APP_FEATURES = [
   mailFoundationFeature,
   mailTransportInMemoryFeature,
   mailTransportSmtpFeature,
+
+  // inbound mail (foundation before providers)
+  inboundMailFoundationFeature,
+  inboundProviderInMemoryFeature,
+  inboundProviderImapFeature,
 
   // files (foundation before provider)
   fileFoundationFeature,
@@ -184,6 +204,16 @@ export const APP_FEATURES = [
   // covered — not standalone-mounted here (smoke = one mount per subpath-export).
   createManagedPagesFeature({ resolveApexTenant: () => null, allowCustomCss: true }),
 
+  // seo: requires config (auto-bundled). Smoke resolver never serves (boot-
+  // only) — includeLegalPages:true gives the boot-check a real source
+  // without needing real page data; managedPages reuses the same never-
+  // resolving smoke resolver as createManagedPagesFeature above.
+  createSeoFeature({
+    sitemapEntries: () => [],
+    includeLegalPages: true,
+    managedPages: { resolveApexTenant: () => null },
+  }),
+
   // operational
   createRateLimitingFeature(),
   createAuditFeature(),
@@ -201,6 +231,10 @@ export const APP_FEATURES = [
   // folders-user-data: GDPR hooks for folder entities. Depends (optionally)
   // on folders + (hard) on user-data-rights — both mounted above.
   foldersUserDataFeature,
+  // auth-mfa-user-data: GDPR hooks for the user-mfa entity. Depends
+  // (optionally) on auth-mfa + (hard) on user-data-rights — both mounted
+  // above.
+  authMfaUserDataFeature,
   // ledger: double-entry bookkeeping primitive (account + immutable transaction).
   ledgerFeature,
 ] as const;

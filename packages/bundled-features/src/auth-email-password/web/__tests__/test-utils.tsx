@@ -26,9 +26,10 @@ export type MakeSessionApiOptions = Partial<SessionState> & {
   readonly login?: SessionApi["login"];
   readonly logout?: SessionApi["logout"];
   readonly switchTenant?: SessionApi["switchTenant"];
+  readonly refresh?: SessionApi["refresh"];
 };
 export function makeSessionApi(overrides: MakeSessionApiOptions = {}): SessionApi {
-  const { login, logout, switchTenant, ...stateOverrides } = overrides;
+  const { login, logout, switchTenant, refresh, ...stateOverrides } = overrides;
   const base: SessionState = {
     status: "authenticated",
     user: {
@@ -44,9 +45,18 @@ export function makeSessionApi(overrides: MakeSessionApiOptions = {}): SessionAp
   };
   return {
     ...base,
-    login: login ?? mock<SessionApi["login"]>(async () => ({ ok: true })),
+    login:
+      login ??
+      mock<SessionApi["login"]>(async () => ({
+        kind: "success",
+        data: {
+          token: "test-token",
+          user: { id: "test-user", tenantId: "tenant-1", roles: ["Admin"] },
+        },
+      })),
     logout: logout ?? mock<SessionApi["logout"]>(async () => {}),
     switchTenant: switchTenant ?? mock<SessionApi["switchTenant"]>(async () => {}),
+    refresh: refresh ?? mock<SessionApi["refresh"]>(async () => {}),
   };
 }
 export function renderWithProviders(

@@ -52,7 +52,7 @@ export type CorpusWarning = {
   /** Human-readable explanation. Currently only "parser-throw" but
    *  kept open-ended so future builders can add more (e.g.
    *  "duplicate-id", "no-feature-name"). */
-  readonly reason: string;
+  readonly message: string;
 };
 
 export type FewShotEntry = {
@@ -161,7 +161,7 @@ export function buildFewShotCorpus(options: BuildFewShotCorpusOptions): FewShotC
       // warning, drop the second occurrence.
       warnings.push({
         sourcePath: entry.sourcePath,
-        reason: `duplicate-id: collides with ${previousPath}`,
+        message: `duplicate-id: collides with ${previousPath}`,
       });
       continue;
     }
@@ -198,7 +198,7 @@ function buildEntry(filePath: string, repoRoot: string): BuildEntryResult {
     // hide newly broken feature-files until L2 hit them.
     const detail = err instanceof Error ? err.message : String(err);
     return {
-      warning: { sourcePath, reason: `parser-throw: ${detail}` },
+      warning: { sourcePath, message: `parser-throw: ${detail}` },
     };
   }
 
@@ -295,6 +295,7 @@ function walkDir(dir: string, acc: string[]): void {
   try {
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {
+    // skip: directory missing/unreadable, nothing to walk
     return;
   }
   for (const entry of entries) {
