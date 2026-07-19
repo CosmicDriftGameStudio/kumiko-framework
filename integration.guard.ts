@@ -1,15 +1,17 @@
 // Guard: integration tests must not use mocks (real HTTP/DB only).
-// Run via: bun integration.guard.js
+// Run via: bun integration.guard.ts
 
-const { readdirSync, readFileSync } = require("node:fs");
-const { join, relative } = require("node:path");
-const { hasDisallowedMock, isMockGuardAllowlisted } = require("./bin/_lib/integration-mock-guard.ts");
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
+import {
+  hasDisallowedMock,
+  isMockGuardAllowlisted,
+} from "./bin/_lib/integration-mock-guard.ts";
 
-// baseDir bestimmt die Allowlist-relativen Pfade — im Guard-Lauf ist das
-// process.cwd(); Tests reichen ihr Temp-Verzeichnis, damit der Walk- und
-// Allowlist-Pfad ohne cwd-Kopplung prüfbar ist.
-function scanForMocks(dir, baseDir = process.cwd()) {
-  const violations = [];
+// baseDir determines allowlist-relative paths — process.cwd() in the guard
+// run; tests pass their temp dir so walk + allowlist stay cwd-independent.
+export function scanForMocks(dir: string, baseDir: string = process.cwd()): string[] {
+  const violations: string[] = [];
   try {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const fullPath = join(dir, entry.name);
@@ -33,10 +35,8 @@ function scanForMocks(dir, baseDir = process.cwd()) {
   return violations;
 }
 
-module.exports = { scanForMocks };
-
-if (require.main === module) {
-  const violations = [];
+if (import.meta.main) {
+  const violations: string[] = [];
   for (const root of ["packages", "samples"]) {
     violations.push(...scanForMocks(join(process.cwd(), root)));
   }

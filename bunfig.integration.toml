@@ -9,6 +9,16 @@ preload = ["./test-setup/integration.preload.ts"]
 timeout = 15000
 concurrency = 1
 
+# Same product-code scope as bunfig.ci.toml (integration coverage pass
+# enables --coverage on the CLI against this config).
+coveragePathIgnorePatterns = [
+  "**/scripts/**",
+  "**/bin/**",
+  "**/test-setup/**",
+  "**/tmp/**",
+  "integration.guard.ts",
+]
+
 pathIgnorePatterns = [
   "**/e2e/**",
   "**/*.spec.ts",
