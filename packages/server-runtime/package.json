@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-server-runtime",
-  "version": "0.157.0",
+  "version": "0.157.1",
   "description": "Production server-boot runtime for Kumiko apps: connections, schema-drift-gate, seeds, lifecycle, graceful shutdown. Symmetric to kumiko-dev-server's runDevApp, without dev/scaffold/codegen tooling.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
