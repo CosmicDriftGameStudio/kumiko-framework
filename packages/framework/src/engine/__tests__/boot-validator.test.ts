@@ -1297,6 +1297,102 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- function-renderer check on the non-entityEdit/entityList screen
+  // types that share the same EditLayout/ListColumnSpec shapes
+  // (action-wiring.ts's validateEditLayoutNoFunctions/validateColumnsNoFunctions) ---
+  describe("function-renderer check on other EditLayout/columns screens", () => {
+    test("actionForm field renderer as a function → Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.screen({
+            id: "restock",
+            type: "actionForm",
+            handler: "shop:write:restock",
+            fields: { qty: { type: "number" } } as never,
+            layout: {
+              sections: [
+                { fields: [{ field: "qty", renderer: (v: unknown) => String(v) }] as never },
+              ],
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /\(actionForm\) field "qty" renderer is a function/,
+      );
+    });
+
+    test("configEdit field renderer as a function → Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.config({
+            keys: { "site-name": createTenantConfig("text", { default: "" }) },
+          });
+          r.screen({
+            id: "settings",
+            type: "configEdit",
+            scope: "tenant",
+            configKeys: { siteName: "shop:config:site-name" },
+            fields: { siteName: { type: "text" } } as never,
+            layout: {
+              sections: [
+                {
+                  fields: [{ field: "siteName", renderer: (v: unknown) => String(v) }] as never,
+                },
+              ],
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /\(configEdit\) field "siteName" renderer is a function/,
+      );
+    });
+
+    test("projectionDetail field renderer as a function → Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.screen({
+            id: "order-detail",
+            type: "projectionDetail",
+            query: "shop:query:order-detail",
+            layout: {
+              sections: [
+                { fields: [{ field: "total", renderer: (v: unknown) => String(v) }] as never },
+              ],
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /\(projectionDetail\) field "total" renderer is a function/,
+      );
+    });
+
+    test("dashboard list-panel column renderer as a function → Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.screen({
+            id: "overview",
+            type: "dashboard",
+            panels: [
+              {
+                kind: "list",
+                id: "recent-orders",
+                label: "Recent Orders",
+                query: "shop:query:recent-orders",
+                columns: [{ field: "total", renderer: (v: unknown) => String(v) }] as never,
+              },
+            ],
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /\(dashboard-list\) column "total" renderer is a function/,
+      );
+    });
+  });
+
   // --- entityList virtual (labeled) columns ---
   // A column whose `field` is not an entity field is allowed IF it carries a
   // `label` — a presentational column drawn by a columnRenderer component (e.g.

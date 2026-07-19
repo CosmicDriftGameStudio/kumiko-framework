@@ -9,7 +9,20 @@ function toPlainDate(raw: string): Temporal.PlainDate {
   } catch {
     // "date"-typed field stored as a full instant (day-boundary timestamp) —
     // take the calendar date in the local zone rather than fail.
-    return Temporal.Instant.from(raw).toZonedDateTimeISO(Temporal.Now.timeZoneId()).toPlainDate();
+    return toInstant(raw).toZonedDateTimeISO(Temporal.Now.timeZoneId()).toPlainDate();
+  }
+}
+
+// Temporal.Instant.from is stricter than the `new Date(raw)` this replaced:
+// it requires a UTC designator/offset (Z/+hh:mm). Timestamps without one
+// (e.g. "2026-07-18T12:00:00", still valid input to `new Date`) throw here
+// instead of parsing — fall back to reading them as a local wall-clock time,
+// same posture as toPlainDate's own fallback above.
+function toInstant(raw: string): Temporal.Instant {
+  try {
+    return Temporal.Instant.from(raw);
+  } catch {
+    return Temporal.PlainDateTime.from(raw).toZonedDateTime(Temporal.Now.timeZoneId()).toInstant();
   }
 }
 
@@ -34,7 +47,7 @@ function formatDateCell(
           dateStyle: opts.dateStyle,
         });
       }
-      return Temporal.Instant.from(raw).toLocaleString(locale, {
+      return toInstant(raw).toLocaleString(locale, {
         dateStyle: opts.dateStyle,
         timeStyle: opts.timeStyle,
       });
@@ -42,7 +55,7 @@ function formatDateCell(
     if (type === "date") {
       return toPlainDate(raw).toLocaleString(locale);
     }
-    return Temporal.Instant.from(raw).toLocaleString(locale, {
+    return toInstant(raw).toLocaleString(locale, {
       year: "numeric",
       month: "short",
       day: "numeric",

@@ -55,6 +55,12 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
       expect(pkg.scripts.start).toBe("bun run server.js");
       expect(Object.keys(pkg.dependencies)).not.toContain("drizzle-kit");
       expect(Object.keys(pkg.dependencies)).not.toContain("drizzle-orm");
+      // Positive counterpart to the negative checks above — a runtime
+      // external accidentally dropped from RUNTIME_EXTERNALS (into
+      // BUILD_ONLY_EXTERNALS instead) would slip through silently. This
+      // is the exact regression class behind the money-horse prod crash
+      // ("Cannot find package 'meilisearch'").
+      expect(Object.keys(pkg.dependencies)).toContain("meilisearch");
 
       expect(result.totalBytes).toBeGreaterThan(0);
     } finally {

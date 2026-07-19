@@ -89,6 +89,28 @@ export function buildUiExtensionsMethods<TName extends string>(
   state: FeatureBuilderState,
   name: TName,
 ) {
+  // Shared by r.nav() and r.screen()'s inline nav-sugar path — one place
+  // for id-validation + collision checks so future registration-time
+  // checks (e.g. parent-format, reserved ids) apply to both call sites
+  // instead of only the standalone r.nav() one.
+  function registerNav(navDefinition: NavDefinition): void {
+    if (!isKebabSegment(navDefinition.id)) {
+      throw new Error(
+        `[Feature ${name}] Nav id "${navDefinition.id}" must be kebab-case ` +
+          `(lowercase letters, digits, dashes; start with a letter). ` +
+          `Got "${navDefinition.id}" — try "${toKebab(navDefinition.id).replace(/_/g, "-")}".`,
+      );
+    }
+    if (state.navs[navDefinition.id]) {
+      throw new Error(
+        `[Feature ${name}] Nav entry "${navDefinition.id}" already registered. ` +
+          `Nav ids must be unique per feature — remove the standalone ` +
+          `r.nav("${navDefinition.id}", ...) call or the screen's inline nav.`,
+      );
+    }
+    state.navs[navDefinition.id] = navDefinition;
+  }
+
   return {
     hook(
       type: LifecycleHookType | "validation",
@@ -334,42 +356,18 @@ export function buildUiExtensionsMethods<TName extends string>(
         // Sugar for the common "one nav entry pointing at this screen"
         // case — synthesizes id/screen from the screen's own id. Beyond
         // label/icon/parent/order, declare a standalone r.nav() instead.
-        if (state.navs[definition.id]) {
-          throw new Error(
-            `[Feature ${name}] Nav entry "${definition.id}" already registered. ` +
-              `Nav ids must be unique per feature — remove the standalone ` +
-              `r.nav("${definition.id}", ...) call or the screen's inline nav.`,
-          );
-        }
-        const navDefinition: NavDefinition = {
+        registerNav({
           id: definition.id,
           label: definition.nav.label,
           icon: definition.nav.icon,
           parent: definition.nav.parent,
           order: definition.nav.order,
           screen: `${name}:screen:${definition.id}`,
-        };
-        state.navs[definition.id] = navDefinition;
+        });
       }
     },
     nav(definition: NavDefinition): void {
-      // Reject kebab-drift at registration-time so the stack trace points at
-      // the feature file, not at registry-boot. Same guard pattern as
-      // r.projection / r.multiStreamProjection / r.screen.
-      if (!isKebabSegment(definition.id)) {
-        throw new Error(
-          `[Feature ${name}] Nav id "${definition.id}" must be kebab-case ` +
-            `(lowercase letters, digits, dashes; start with a letter). ` +
-            `Got "${definition.id}" — try "${toKebab(definition.id).replace(/_/g, "-")}".`,
-        );
-      }
-      if (state.navs[definition.id]) {
-        throw new Error(
-          `[Feature ${name}] Nav entry "${definition.id}" already registered. ` +
-            `Nav ids must be unique per feature.`,
-        );
-      }
-      state.navs[definition.id] = definition;
+      registerNav(definition);
     },
     workspace(definition: WorkspaceDefinition): void {
       // Same kebab guard as r.screen / r.nav so authoring-time mistakes

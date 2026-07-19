@@ -68,4 +68,25 @@ describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
     expect(applyFormatSpec({ format: "timestamp" }, "kein-datum")).toBe("kein-datum");
     expect(applyFormatSpec({ format: "date" }, "kein-datum")).toBe("kein-datum");
   });
+
+  test("offset-lose Timestamps (kein Z/Offset) fallen NICHT auf den Rohstring zurück", () => {
+    // Temporal.Instant.from is stricter than the old `new Date(raw)` —
+    // without a UTC designator/offset it throws. Both forms must still
+    // format instead of passing through raw (see toInstant fallback in
+    // index.ts).
+    const withoutOffset = "2026-01-15T12:00:00";
+    const withoutTime = "2026-01-15 12:00:00";
+    for (const raw of [withoutOffset, withoutTime]) {
+      const out = applyFormatSpec({ format: "timestamp", locale: "en-US" }, raw);
+      expect(out).not.toBe(raw);
+      expect(out).toContain("2026");
+    }
+  });
+
+  test("offset-loser Timestamp im date-Format fällt NICHT auf den Rohstring zurück", () => {
+    const withoutOffset = "2026-01-15T12:00:00";
+    const out = applyFormatSpec({ format: "date", locale: "en-US" }, withoutOffset);
+    expect(out).not.toBe(withoutOffset);
+    expect(out).toContain("2026");
+  });
 });
