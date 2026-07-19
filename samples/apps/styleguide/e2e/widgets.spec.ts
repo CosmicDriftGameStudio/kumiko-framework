@@ -26,6 +26,10 @@ test("Widget-Katalog rendert und ModeSwitch schaltet", async ({ page }) => {
 });
 
 test("deklarativer Dashboard-Screen rendert Stat-, Chart- und List-Panels", async ({ page }) => {
+  // Panel-Labels kommen aus r.translations() (echte i18n-Resolution, anders
+  // als die statischen Demo-Strings im Katalog oben) — Browser-Default-Locale
+  // ist en, also explizit auf de zwingen wie im screenshots-Matrix-Runner.
+  await page.addInitScript(() => localStorage.setItem("kumiko:locale", "de"));
   await page.goto("/widgets-dashboard");
 
   await expect(page.getByTestId("dashboard-widgets-dashboard")).toBeVisible();
