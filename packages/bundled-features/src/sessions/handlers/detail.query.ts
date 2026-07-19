@@ -27,9 +27,9 @@ export const detailQuery = defineQueryHandler({
       createdAt: row.createdAt,
       expiresAt: row.expiresAt,
       revokedAt: row.revokedAt,
-      ip: row.ip ? await decryptStoredPii(row.ip, "sessions:detail") : row.ip,
+      ip: row.ip ? await decryptStoredPii(row.ip, "ip", "sessions:detail") : row.ip,
       userAgent: row.userAgent
-        ? await decryptStoredPii(row.userAgent, "sessions:detail")
+        ? await decryptStoredPii(row.userAgent, "userAgent", "sessions:detail")
         : row.userAgent,
     };
   },

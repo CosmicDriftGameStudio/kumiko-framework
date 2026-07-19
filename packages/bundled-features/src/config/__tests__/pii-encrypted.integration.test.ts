@@ -11,6 +11,7 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
+  PII_CIPHERTEXT_PREFIX,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
@@ -96,7 +97,7 @@ describe("piiEncrypted config keys", () => {
     });
     expect(row).toBeDefined();
     expect(isPiiCiphertext(row?.value)).toBe(true);
-    expect(row?.value).toStartWith(`kumiko-pii:v1:tenant:${tenantAdmin.tenantId}:`);
+    expect(row?.value).toStartWith(`${PII_CIPHERTEXT_PREFIX}tenant:${tenantAdmin.tenantId}:`);
 
     const values = await stack.http.queryOk<
       Record<string, { value: unknown; scope: string; source: string }>
@@ -118,7 +119,7 @@ describe("piiEncrypted config keys", () => {
     });
     expect(row).toBeDefined();
     expect(isPiiCiphertext(row?.value)).toBe(true);
-    expect(row?.value).toStartWith(`kumiko-pii:v1:user:${tenantAdmin.id}:`);
+    expect(row?.value).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${tenantAdmin.id}:`);
 
     const values = await stack.http.queryOk<
       Record<string, { value: unknown; scope: string; source: string }>

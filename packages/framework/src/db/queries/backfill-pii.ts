@@ -236,6 +236,7 @@ export async function backfillEventPiiEncryption(
           subject,
           value,
           kmsCtx,
+          field,
         );
         return "encrypted";
       } catch (e) {

@@ -75,7 +75,7 @@ export async function startDeletionGracePeriod(
     ok: true,
     gracePeriodEnd,
     userEmail: userRow["email"]
-      ? await decryptStoredPii(userRow["email"], "user-data-rights:grace-period")
+      ? await decryptStoredPii(userRow["email"], "email", "user-data-rights:grace-period")
       : "",
     userLocale: userRow["locale"] ?? null,
   };

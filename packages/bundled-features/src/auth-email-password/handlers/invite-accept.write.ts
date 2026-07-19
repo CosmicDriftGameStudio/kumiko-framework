@@ -101,7 +101,11 @@ export function createInviteAcceptHandler() {
           return invalidInviteToken();
 
         const invitationTenantId = invitation.tenantId;
-        const invitationEmail = await decryptStoredPii(invitation.email, "auth:invite-accept");
+        const invitationEmail = await decryptStoredPii(
+          invitation.email,
+          "email",
+          "auth:invite-accept",
+        );
         const invitationRole = invitation.role;
         const invitationVersion = invitation.version;
 
@@ -112,7 +116,7 @@ export function createInviteAcceptHandler() {
           id: event.user.id,
         });
         const userEmail = userRow?.email
-          ? await decryptStoredPii(userRow.email, "auth:invite-accept")
+          ? await decryptStoredPii(userRow.email, "email", "auth:invite-accept")
           : undefined;
         if (!userRow || !userEmail || userEmail.toLowerCase() !== invitationEmail) {
           return inviteEmailMismatch();

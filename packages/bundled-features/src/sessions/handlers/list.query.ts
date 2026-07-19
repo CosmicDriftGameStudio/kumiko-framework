@@ -30,8 +30,10 @@ export const listQuery = defineQueryHandler({
         createdAt: r.createdAt,
         expiresAt: r.expiresAt,
         revokedAt: r.revokedAt,
-        ip: r.ip ? await decryptStoredPii(r.ip, "sessions:list") : r.ip,
-        userAgent: r.userAgent ? await decryptStoredPii(r.userAgent, "sessions:list") : r.userAgent,
+        ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:list") : r.ip,
+        userAgent: r.userAgent
+          ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:list")
+          : r.userAgent,
       })),
     );
   },

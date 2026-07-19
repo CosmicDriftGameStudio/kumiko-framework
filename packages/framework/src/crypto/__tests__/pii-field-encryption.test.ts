@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createCipheriv, randomBytes } from "node:crypto";
 import { createEntity, createTextField } from "../../engine/factories";
 import { InMemoryKmsAdapter } from "../in-memory-kms-adapter";
 import {
@@ -62,7 +63,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
 
     const stored = await encryptPiiFieldValues(row, userLikeEntity, fields, kms, KMS_CTX);
     expect(isPiiCiphertext(stored["email"])).toBe(true);
-    expect(String(stored["email"])).toStartWith(`kumiko-pii:v1:user:${UUID_A}:`);
+    expect(String(stored["email"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${UUID_A}:`);
     expect(stored["role"]).toBe("admin");
     expect(row["email"]).toBe("marc@example.com");
 
@@ -95,7 +96,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       kms,
       KMS_CTX,
     );
-    expect(String(stored["body"])).toStartWith(`kumiko-pii:v1:user:${UUID_B}:`);
+    expect(String(stored["body"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${UUID_B}:`);
   });
 
   test("tenantOwned without tenantId column falls back to write-time tenant", async () => {
@@ -108,7 +109,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       KMS_CTX,
       { tenantId: UUID_B },
     );
-    expect(String(stored["brandColor"])).toStartWith(`kumiko-pii:v1:tenant:${UUID_B}:`);
+    expect(String(stored["brandColor"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}tenant:${UUID_B}:`);
   });
 
   test("subjectSource resolves the owner when the partial row lacks it (update changes)", async () => {
@@ -118,7 +119,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       onlyKeys: ["body"],
       subjectSource: { id: UUID_A, body: "edited", authorId: UUID_B },
     });
-    expect(String(stored["body"])).toStartWith(`kumiko-pii:v1:user:${UUID_B}:`);
+    expect(String(stored["body"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${UUID_B}:`);
   });
 
   test("erased subject: decrypt yields the sentinel, re-encrypt passes it through", async () => {
@@ -243,7 +244,7 @@ describe("piiEncrypted alias (kumiko-platform#457)", () => {
     const row = { id: UUID_A, tenantId: UUID_B, iban: "DE89370400440532013000" };
     const stored = await encryptPiiFieldValues(row, brandingWithAccess, fields, kms, KMS_CTX);
     expect(isPiiCiphertext(stored["iban"])).toBe(true);
-    expect(String(stored["iban"])).toStartWith(`kumiko-pii:v1:tenant:${UUID_B}:`);
+    expect(String(stored["iban"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}tenant:${UUID_B}:`);
 
     const read = await decryptPiiFieldValues(stored, fields, kms, KMS_CTX);
     expect(read["iban"]).toBe("DE89370400440532013000");
@@ -274,27 +275,39 @@ describe("encryptPiiValueForSubject / decryptPiiValueForSubject (kumiko-platform
   test("round-trips a single value for a tenant subject", async () => {
     const kms = new InMemoryKmsAdapter();
     const subject = { kind: "tenant" as const, tenantId: UUID_B };
-    const stored = await encryptPiiValueForSubject(kms, subject, "DE89370400440532013000", KMS_CTX);
+    const stored = await encryptPiiValueForSubject(
+      kms,
+      subject,
+      "DE89370400440532013000",
+      KMS_CTX,
+      "iban",
+    );
     expect(isPiiCiphertext(stored)).toBe(true);
-    expect(stored).toStartWith(`kumiko-pii:v1:tenant:${UUID_B}:`);
+    expect(stored).toStartWith(`${PII_CIPHERTEXT_PREFIX}tenant:${UUID_B}:`);
 
-    const read = await decryptPiiValueForSubject(kms, stored, KMS_CTX);
+    const read = await decryptPiiValueForSubject(kms, stored, KMS_CTX, "iban");
     expect(read).toBe("DE89370400440532013000");
   });
 
   test("erased subject: decrypt yields the sentinel", async () => {
     const kms = new InMemoryKmsAdapter();
     const subject = { kind: "user" as const, userId: UUID_A };
-    const stored = await encryptPiiValueForSubject(kms, subject, "+49 151 00000000", KMS_CTX);
+    const stored = await encryptPiiValueForSubject(
+      kms,
+      subject,
+      "+49 151 00000000",
+      KMS_CTX,
+      "phone",
+    );
     await kms.eraseKey(subject);
 
-    const read = await decryptPiiValueForSubject(kms, stored, KMS_CTX);
+    const read = await decryptPiiValueForSubject(kms, stored, KMS_CTX, "phone");
     expect(read).toBe(PII_ERASED_SENTINEL);
   });
 
   test("plaintext passes through decrypt unchanged (pre-engine rows)", async () => {
     const kms = new InMemoryKmsAdapter();
-    const read = await decryptPiiValueForSubject(kms, "plain-value", KMS_CTX);
+    const read = await decryptPiiValueForSubject(kms, "plain-value", KMS_CTX, "value");
     expect(read).toBe("plain-value");
   });
 });
@@ -308,13 +321,56 @@ describe("cross-subject decrypt leak (kumiko-framework#1190)", () => {
     // existing "ciphertext without a key row fails loud" (KeyNotFoundError) case.
     await kms.createKey(subjectA);
 
-    const storedForB = await encryptPiiValueForSubject(kms, subjectB, "tenant-b-secret", KMS_CTX);
+    const storedForB = await encryptPiiValueForSubject(
+      kms,
+      subjectB,
+      "tenant-b-secret",
+      KMS_CTX,
+      "secret",
+    );
     const blob = storedForB.slice(storedForB.lastIndexOf(":") + 1);
     const forgedForA = `${PII_CIPHERTEXT_PREFIX}${subjectIdToKey(subjectA)}:${blob}`;
 
-    const attempt = decryptPiiValueForSubject(kms, forgedForA, KMS_CTX);
+    const attempt = decryptPiiValueForSubject(kms, forgedForA, KMS_CTX, "secret");
     await expect(attempt).rejects.not.toBeInstanceOf(KeyNotFoundError);
     await expect(attempt).rejects.not.toBeInstanceOf(KeyErasedError);
     await expect(attempt).rejects.toThrow();
+  });
+});
+
+describe("cross-field decrypt leak (kumiko-framework#1263)", () => {
+  test("ciphertext cut-and-pasted into a different field of the SAME subject fails GCM auth", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const subject = { kind: "user" as const, userId: UUID_A };
+    const storedAsEmail = await encryptPiiValueForSubject(
+      kms,
+      subject,
+      "secret@example.com",
+      KMS_CTX,
+      "email",
+    );
+
+    // Same subject, same DEK — only the declared field differs. Key
+    // selection alone can't catch this; AAD must.
+    const attempt = decryptPiiValueForSubject(kms, storedAsEmail, KMS_CTX, "phone");
+    await expect(attempt).rejects.toThrow();
+  });
+
+  test("legacy v1 ciphertext (no AAD) still decrypts under the matching subject/field", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const subject = { kind: "user" as const, userId: UUID_A };
+    await kms.createKey(subject);
+    const dek = await kms.getKey(subject);
+
+    // Hand-roll a pre-#1263 v1 blob (no setAAD) — real pre-migration rows
+    // look exactly like this.
+    const iv = randomBytes(12);
+    const cipher = createCipheriv("aes-256-gcm", dek, iv);
+    const ciphertext = Buffer.concat([cipher.update("legacy-value", "utf8"), cipher.final()]);
+    const blob = Buffer.concat([iv, cipher.getAuthTag(), ciphertext]);
+    const v1 = `kumiko-pii:v1:${subjectIdToKey(subject)}:${blob.toString("base64")}`;
+
+    const read = await decryptPiiValueForSubject(kms, v1, KMS_CTX, "email");
+    expect(read).toBe("legacy-value");
   });
 });

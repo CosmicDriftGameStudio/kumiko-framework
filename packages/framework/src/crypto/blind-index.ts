@@ -93,22 +93,26 @@ export async function computeBlindIndexValues(
   const out: Record<string, unknown> = {};
   for (const name of lookupableFields) {
     if (!(name in values)) continue;
-    out[blindIndexFieldName(name)] = await blindIndexForValue(key, values[name]);
+    out[blindIndexFieldName(name)] = await blindIndexForValue(key, name, values[name]);
   }
   return out;
 }
 
-async function blindIndexForValue(key: Uint8Array, value: unknown): Promise<string | null> {
+async function blindIndexForValue(
+  key: Uint8Array,
+  field: string,
+  value: unknown,
+): Promise<string | null> {
   if (typeof value !== "string" || value === PII_ERASED_SENTINEL) return null;
   if (!isPiiCiphertext(value)) return computeBlindIndex(key, value);
   const kms = configuredPiiSubjectKms();
   // Ciphertext without a KMS can't be decrypted here; the same read would
   // also surface raw ciphertext — misconfiguration is caught at boot.
   if (kms === undefined) return null;
-  const decrypted = await decryptPiiFieldValues({ value }, ["value"], kms, {
+  const decrypted = await decryptPiiFieldValues({ [field]: value }, [field], kms, {
     requestId: requestContext.get()?.requestId ?? "blind-index",
   });
-  const plain = decrypted["value"];
+  const plain = decrypted[field];
   if (typeof plain !== "string" || plain === PII_ERASED_SENTINEL) return null;
   return computeBlindIndex(key, plain);
 }

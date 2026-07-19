@@ -31,10 +31,12 @@ export const invitationsQuery = defineQueryHandler({
       const email = row["email"];
       const invitedBy = row["invitedBy"];
       const decryptedEmail =
-        typeof email === "string" ? await decryptStoredPii(email, "tenant:invitations") : email;
+        typeof email === "string"
+          ? await decryptStoredPii(email, "email", "tenant:invitations")
+          : email;
       const decryptedInvitedBy =
         typeof invitedBy === "string"
-          ? await decryptStoredPii(invitedBy, "tenant:invitations")
+          ? await decryptStoredPii(invitedBy, "invitedBy", "tenant:invitations")
           : invitedBy;
       out.push({ ...row, email: decryptedEmail, invitedBy: decryptedInvitedBy });
     }
