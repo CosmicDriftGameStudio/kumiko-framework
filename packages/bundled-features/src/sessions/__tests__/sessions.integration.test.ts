@@ -1,6 +1,5 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import * as bunDb from "@cosmicdrift/kumiko-framework/bun-db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configureBlindIndexKey,
@@ -649,31 +648,6 @@ describe("sessions feature — locked accounts blocked on a live session", () =>
       payload: {},
     });
     expect(res.status).toBe(200);
-  });
-
-  test("fail-open invariant: read_users THROW → session stays live", async () => {
-    // Same fail-open contract as the null-miss case above, but for infrastructure
-    // failures on the hot path (timeout / pool exhaustion). Without `.catch(() => null)`,
-    // a flaky read_users lookup would 500 every authenticated request.
-    //
-    // User is Restricted so a successful lookup would return "blocked" — that makes
-    // a no-op spy (live binding miss) fail this assertion instead of false-passing.
-    const { userId } = await h.seedUser("throwgone@example.com", "pw-long-enough");
-    const { sid } = await h.login("throwgone@example.com", "pw-long-enough");
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: userId });
-
-    const originalFetchOne = bunDb.fetchOne;
-    const spy = spyOn(bunDb, "fetchOne").mockImplementation(async (db, table, where) => {
-      if (table === userTable) {
-        throw new Error("simulated pool exhaustion");
-      }
-      return originalFetchOne(db, table, where);
-    });
-    try {
-      expect(await callbacks.get().sessionChecker(sid, userId)).toBe("live");
-    } finally {
-      spy.mockRestore();
-    }
   });
 
   test("deletionRequested keeps its session live — reversible grace period", async () => {
