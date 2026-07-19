@@ -5,6 +5,7 @@
 // schreibt den ISO-Wert auf body[data-date], damit der Spec ohne
 // page.evaluate auslesen kann.
 
+import { kumikoDefaultTranslations } from "@cosmicdrift/kumiko-renderer";
 import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
 import { DateInput } from "../../src/primitives/date-input";
@@ -37,7 +38,7 @@ function DateTestPageInner(): ReactNode {
 
 export function DateTestPage(): ReactNode {
   return (
-    <LocaleProvider resolver={localeResolver}>
+    <LocaleProvider resolver={localeResolver} fallbackBundles={[kumikoDefaultTranslations]}>
       <DateTestPageInner />
     </LocaleProvider>
   );
