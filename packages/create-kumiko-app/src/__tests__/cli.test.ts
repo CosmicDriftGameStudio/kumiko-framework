@@ -19,13 +19,22 @@ describe("create-kumiko-app CLI", () => {
   afterEach(() => rmSync(tmp, { recursive: true, force: true }));
 
   test("--yes scaffolds the recommended stack", async () => {
+    const startedAt = performance.now();
     const code = await runCreate({
       name: "demo-app",
       yes: true,
       cwd: tmp,
       log: (line) => logs.push(line),
     });
+    const scaffoldMs = performance.now() - startedAt;
     expect(code).toBe(0);
+    // Onboarding regression gate: the scaffold step is the first thing a new
+    // user waits on. Generous ceiling so slow CI runners pass — what we catch
+    // is an order-of-magnitude blowup, not seconds.
+    expect(
+      scaffoldMs,
+      `scaffold took ${Math.round(scaffoldMs)}ms (ceiling 30s)`,
+    ).toBeLessThan(30_000);
 
     const dest = join(tmp, "demo-app");
     expect(existsSync(dest)).toBe(true);
