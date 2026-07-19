@@ -181,6 +181,7 @@ export function FolderManager({
       if (await write()) {
         setPending(null);
         await catalog.refetch();
+        await filing?.onReassigned();
       }
     } finally {
       setBusy(false);

@@ -149,6 +149,22 @@ describe("FolderManager filing mode", () => {
     );
   });
 
+  test("deleting a folder in filing mode refetches AND tells the host to reassign", async () => {
+    folderRows = [{ id: "f1", name: "A", parentId: null, version: 1 }];
+    const onReassigned = mock(() => {});
+    render(
+      <Wrapper>
+        <FolderManager filing={filingWith(onReassigned)} />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByTestId("folder-delete-f1"));
+    fireEvent.click(await screen.findByTestId("folder-manager-delete-dialog-confirm"));
+    await waitFor(() =>
+      expect(dispatchSpy).toHaveBeenCalledWith(FoldersHandlers.deleteFolder, { id: "f1" }),
+    );
+    await waitFor(() => expect(onReassigned).toHaveBeenCalled());
+  });
+
   test("the in-tree new-folder row opens a draft; submitting (Enter) creates a root folder", async () => {
     folderRows = [];
     render(
