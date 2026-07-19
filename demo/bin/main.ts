@@ -4,7 +4,11 @@
 // passiert via `bunx kumiko dev` (in-repo dev-tool) mit Docker-stack — DX-1.0 deckt nur
 // den boot-mode-Pfad ab; `kumiko dev` kommt in einer späteren DX-Phase.
 
-import { composeFeatures, frameworkCoreEnvSchema, runProdApp } from "@cosmicdrift/kumiko-dev-server";
+import {
+  composeFeatures,
+  frameworkCoreEnvSchema,
+  runProdApp,
+} from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { APP_FEATURES, HAS_AUTH } from "../src/run-config";
@@ -29,6 +33,6 @@ await runProdApp({
           roles: ["TenantAdmin"],
         },
       ],
-    }
-  }
+    },
+  },
 });

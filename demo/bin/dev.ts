@@ -29,6 +29,6 @@ await runDevApp({
           roles: ["TenantAdmin"],
         },
       ],
-    }
-  }
+    },
+  },
 });
