@@ -53,9 +53,9 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
-  createInMemoryLoginRateLimiter,
   createRedisLoginRateLimiter,
   createSseBroker,
+  type LoginRateLimiter,
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
 import {
@@ -864,14 +864,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   let patAuthFragment:
     | {
         patResolver: ReturnType<typeof createPatResolver>;
-        patRateLimiter: ReturnType<typeof createInMemoryLoginRateLimiter>;
+        patRateLimiter: LoginRateLimiter;
       }
     | undefined;
   if (effectiveAuth && patFeature) {
     const rl = patRateLimitFromFeature(patFeature);
     patAuthFragment = {
       patResolver: createPatResolver({ db, scopes: patScopesFromFeature(patFeature) }),
-      patRateLimiter: createInMemoryLoginRateLimiter(rl.maxRequests, rl.windowMs),
+      patRateLimiter: createRedisLoginRateLimiter(redis, rl.maxRequests, rl.windowMs, "pat"),
     };
   }
 
