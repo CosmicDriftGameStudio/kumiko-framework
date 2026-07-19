@@ -129,7 +129,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // the SAME tenant the challenge token already committed to (no
       // "pick a tenant" step here — that already happened at login time).
       const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
-      const userRow = (await ctx.queryAs(systemUser, UserQueries.detail, {
+      const userRow = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
         id: userId,
       })) as { roles?: string | null; status?: string } | null; // @cast-boundary engine-payload
 
