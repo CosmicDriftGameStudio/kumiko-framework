@@ -1,10 +1,21 @@
+import { requestContext } from "@cosmicdrift/kumiko-framework/api";
+import {
+  configuredPiiSubjectKms,
+  encryptPiiValueForSubject,
+  type KmsContext,
+  type SubjectId,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   ConfigScopes,
   defineWriteHandler,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  InternalError,
+  UnprocessableError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { requireConfigEncryption } from "../feature";
 import { configValueEntity, configValuesTable } from "../table";
@@ -46,6 +57,19 @@ export const setWrite = defineWriteHandler({
 
     const scopeError = validateScope(scope, keyDef.scope, event.payload.key);
     if (scopeError) return writeFailure(scopeError);
+
+    // A piiEncrypted key can never be defined with scope="system" (boot-
+    // rejected), but an admin override write can still target scope=
+    // "system" for a tenant/user-scoped key (validateScope allows any
+    // requestedScope <= definedScope) — system-row has no subject.
+    if (keyDef.piiEncrypted && scope === ConfigScopes.system) {
+      return writeFailure(
+        new UnprocessableError("invalid_scope", {
+          i18nKey: "config.errors.invalidScope",
+          details: { key: event.payload.key, definedScope: keyDef.scope, requestedScope: scope },
+        }),
+      );
+    }
 
     const typeError = validateType(event.payload.value, keyDef);
     if (typeError) return writeFailure(typeError);
@@ -90,6 +114,28 @@ export const setWrite = defineWriteHandler({
     if (keyDef.encrypted) {
       const cipher = requireConfigEncryption(ctx, "config:write:set");
       serialized = await cipher.encrypt(serialized, { tenantId });
+    } else if (keyDef.piiEncrypted) {
+      const kms = configuredPiiSubjectKms();
+      if (!kms) {
+        throw new InternalError({
+          message:
+            `[config:write:set] key "${event.payload.key}" declares piiEncrypted=true but no ` +
+            `PII subject-KMS is configured — pass one via runProdApp({ kms }) / ` +
+            `configurePiiSubjectKms(adapter) at boot.`,
+        });
+      }
+      // scope=system was already rejected above, so scope is "tenant" or
+      // "user" here — resolveScopeIds guarantees userId is set for "user".
+      const subject: SubjectId =
+        scope === ConfigScopes.user
+          ? { kind: "user", userId: userId as string }
+          : { kind: "tenant", tenantId };
+      const kmsCtx: KmsContext = {
+        requestId: requestContext.get()?.requestId ?? "config:write:set",
+        tenantId,
+        userId: String(event.user.id),
+      };
+      serialized = await encryptPiiValueForSubject(kms, subject, serialized, kmsCtx);
     }
 
     const existing = await findConfigRow(db, event.payload.key, tenantId, userId);
