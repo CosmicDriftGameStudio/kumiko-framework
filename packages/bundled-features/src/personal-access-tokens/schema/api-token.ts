@@ -58,4 +58,6 @@ export const apiTokenEntity = createEntity({
 // buildEntityTableMeta (not buildEntityTable): this is a direct-write store, so
 // the table must be a WritableTable (post ES-write-brand #742) — same as
 // sessions' userSessionTable. buildEntityTable is branded executor-only.
-export const apiTokenTable = buildEntityTableMeta("api-token", apiTokenEntity);
+export const apiTokenTable = buildEntityTableMeta("api-token", apiTokenEntity, {
+  source: "unmanaged",
+});

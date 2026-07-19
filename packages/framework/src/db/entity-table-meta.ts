@@ -296,6 +296,7 @@ export function resolveTableName(
 export type BuildEntityTableMetaOptions = {
   readonly featureName?: string;
   readonly relations?: EntityRelations;
+  readonly source?: "managed" | "unmanaged";
 };
 
 export function buildEntityTableMeta(
@@ -415,7 +416,7 @@ export function buildEntityTableMeta(
     tableName,
     columns,
     indexes,
-    source: "managed",
+    source: options?.source ?? "managed",
     ...(piiSubjectFields.length > 0 && { piiSubjectFields }),
   };
 }
