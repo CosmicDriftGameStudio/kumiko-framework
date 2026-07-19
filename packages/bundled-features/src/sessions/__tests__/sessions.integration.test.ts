@@ -391,6 +391,41 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(body.error?.details?.reason).toBe("missing");
   });
 
+  // Cross-user check: a valid JWT for Alice paired with Bob's live sid must
+  // look identical to a forged/missing sid — otherwise the checker would be
+  // an existence oracle on other users' sessions.
+  test("sid belonging to another user → 401 reason=missing (no existence oracle)", async () => {
+    const alice = await h.seedUser("alice-xuser@example.com", "pw-long-enough");
+    const bob = await h.seedUser("bob-xuser@example.com", "pw-long-enough");
+    const bobLogin = await h.login("bob-xuser@example.com", "pw-long-enough");
+
+    // Direct invariant: Bob's sid + Alice's userId → missing (not live/revoked).
+    expect(await callbacks.get().sessionChecker(bobLogin.sid, alice.userId)).toBe("missing");
+    expect(await callbacks.get().sessionChecker(bobLogin.sid, bob.userId)).toBe("live");
+
+    // HTTP path: mint Alice's identity onto Bob's sid (stolen-sid scenario).
+    const forged = await stack.jwt.sign({
+      id: alice.userId,
+      tenantId: TENANT,
+      roles: ["User"],
+      sid: bobLogin.sid,
+    });
+    const res = await h.authedPost("/api/query", forged, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe("missing");
+
+    // Control: Bob's own JWT still authenticates — the sid itself is fine.
+    const bobOk = await h.authedPost("/api/query", bobLogin.token, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(bobOk.status).toBe(200);
+  });
+
   test("expired session row → 401 with reason=expired", async () => {
     await h.seedUser("stale@example.com", "pw-long-enough");
     const { token, sid } = await h.login("stale@example.com", "pw-long-enough");

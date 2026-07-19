@@ -32,12 +32,13 @@ import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
 
 let testDb: TestDb;
 let testRedis: TestRedis;
+let registry: ReturnType<typeof createRegistry>;
 let logger: ReturnType<typeof createJobRunLogger>;
 
 beforeAll(async () => {
   testDb = await createTestDb();
   testRedis = await createTestRedis();
-  const registry = createRegistry([createJobsFeature()]);
+  registry = createRegistry([createJobsFeature()]);
   await unsafePushTables(testDb.db, { jobRunsTable, jobRunLogsTable });
   await createEventsTable(testDb.db);
   logger = createJobRunLogger({ db: testDb.db, registry });
@@ -126,5 +127,40 @@ describe("jobRun event shapes", () => {
     expect(events.length).toBe(2);
     const ids = new Set(events.map((e) => e.aggregateId));
     expect(ids.size).toBe(1);
+  });
+
+  test("complete/fail without a prior start skips — does not forge a jobRun stream", async () => {
+    // State-loss path: worker restart with empty cache AND no projection row for
+    // this bullJobId. Dropping the terminal event is intentional — forging an
+    // aggregate from scratch would invent a run that never started.
+    await logger.onJobComplete?.("example:job:orphan", "bull-orphan-complete", 50, []);
+    await logger.onJobFailed?.("example:job:orphan", "bull-orphan-failed", "boom", []);
+
+    const completed = await selectMany(testDb.db, eventsTable, { type: JOB_RUN_COMPLETED_EVENT });
+    const failed = await selectMany(testDb.db, eventsTable, { type: JOB_RUN_FAILED_EVENT });
+    const runs = await selectMany(testDb.db, jobRunsTable);
+
+    expect(completed).toHaveLength(0);
+    expect(failed).toHaveLength(0);
+    expect(runs).toHaveLength(0);
+  });
+
+  test("complete after cache loss recovers runId from the projection (same stream)", async () => {
+    // Simulates worker process restart: in-memory bullJobId→runId cache is gone,
+    // but the run-started projection row still has bull_job_id. A fresh logger
+    // must DB-lookup and append onto the original aggregate — not mint a second.
+    await logger.onJobStart?.("example:job:restart", "bull-restart-1", {});
+    const started = await selectMany(testDb.db, eventsTable, { type: JOB_RUN_STARTED_EVENT });
+    expect(started).toHaveLength(1);
+    const originalAggregateId = started[0]?.aggregateId;
+    expect(originalAggregateId).toBeTruthy();
+
+    const coldLogger = createJobRunLogger({ db: testDb.db, registry });
+    await coldLogger.onJobComplete?.("example:job:restart", "bull-restart-1", 42, []);
+
+    const all = await selectMany(testDb.db, eventsTable, { aggregateType: "jobRun" });
+    expect(all).toHaveLength(2);
+    expect(new Set(all.map((e) => e.aggregateId))).toEqual(new Set([originalAggregateId]));
+    expect(all.some((e) => e.type === JOB_RUN_COMPLETED_EVENT)).toBe(true);
   });
 });

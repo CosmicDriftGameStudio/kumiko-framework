@@ -100,6 +100,35 @@ describe("dispatcher.write", () => {
     expect(result.isSuccess).toBe(true);
   });
 
+  test("user-bucketed handler without RateLimitResolver → internal_error", async () => {
+    // Misconfig: a handler opts into L3 rate-limit but the app never loaded the
+    // rate-limiting feature. User buckets cannot skip (unlike ip+no-IP), so we
+    // fail loud at first write instead of silently running uncapped.
+    const rlFeature = defineFeature("rl-user", (r) => {
+      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.writeHandler(
+        "item:create",
+        z.object({ name: z.string() }),
+        async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
+        {
+          access: { openToAll: true },
+          rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
+        },
+      );
+    });
+    const dispatcher = createDispatcher(createRegistry([rlFeature]), {});
+    const result = await dispatcher.write(
+      "rl-user:write:item:create",
+      { name: "should-not-run" },
+      createTestUser(),
+    );
+    expect(result.isSuccess).toBe(false);
+    if (!result.isSuccess) {
+      expect(result.error.code).toBe("internal_error");
+      expect(result.error.message).toMatch(/RateLimitResolver is configured/);
+    }
+  });
+
   test("ctx.user ist Convenience-Alias auf event.user (gleicher Wert)", async () => {
     // Pinst dass der Handler auf ctx.user zugreifen kann ohne den
     // typo-resistenten event.user-Pfad zu nutzen. Identitätsprüfung

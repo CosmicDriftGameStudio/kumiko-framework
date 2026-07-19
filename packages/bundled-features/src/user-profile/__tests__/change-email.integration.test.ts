@@ -26,6 +26,7 @@ import {
 import { createConfigFeature } from "../../config";
 import { configValuesTable } from "../../config/table";
 import { createDataRetentionFeature } from "../../data-retention";
+import { createFilesFeature } from "../../files";
 import { createSessionsFeature } from "../../sessions";
 import { hashPassword } from "../../shared";
 import { createTenantFeature } from "../../tenant";
@@ -36,6 +37,7 @@ import { UserErrors, UserHandlers, UserQueries } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { createUserDataRightsFeature } from "../../user-data-rights";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import {
   UserDataRightsHandlers,
   UserProfileErrors,
@@ -59,7 +61,9 @@ beforeAll(async () => {
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
       createSessionsFeature(),
+      createFilesFeature(),
       createUserDataRightsFeature(),
+      createUserDataRightsDefaultsFeature(),
       createUserProfileFeature(),
     ],
     authConfig: {
