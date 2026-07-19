@@ -1,20 +1,16 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { demoTranslations } from "./i18n";
 import { orderEditScreen, orderEntity, orderListScreen } from "./schema";
 
 export { orderEntity };
 
 const open = { access: { openToAll: true } } as const;
 
-// r.translations() wants key-first shape ({key: {de, en}}); demoTranslations
-// is locale-first (client TranslationsByLocale shape) — invert here rather
-// than duplicating the strings.
-const REQUIRED_I18N = Object.fromEntries(
-  Object.keys(demoTranslations.de).map((key) => [
-    key,
-    { de: demoTranslations.de[key], en: demoTranslations.en[key] },
-  ]),
-);
+// r.translations() wants key-first shape — screen titles aren't in ./i18n's
+// client bundle (only nav labels are), so declared directly here.
+const REQUIRED_I18N = {
+  "screen:order-list.title": { de: "Aufträge", en: "Orders" },
+  "screen:order-edit.title": { de: "Auftrag", en: "Order" },
+} as const;
 
 export const demoFeature: FeatureDefinition = defineFeature("demo", (r) => {
   r.translations({ keys: REQUIRED_I18N });

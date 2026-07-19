@@ -1,20 +1,16 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { tasksTranslations } from "./i18n";
 import { editScreen, listScreen, taskEntity } from "./schema";
 
 export { taskEntity };
 
 const open = { access: { openToAll: true } } as const;
 
-// r.translations() wants key-first shape ({key: {de, en}}); tasksTranslations
-// is locale-first (client TranslationsByLocale shape) — invert here rather
-// than duplicating the strings.
-const REQUIRED_I18N = Object.fromEntries(
-  Object.keys(tasksTranslations.de).map((key) => [
-    key,
-    { de: tasksTranslations.de[key], en: tasksTranslations.en[key] },
-  ]),
-);
+// r.translations() wants key-first shape — same screen titles already in
+// ./i18n's client (locale-first) bundle.
+const REQUIRED_I18N = {
+  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
+  "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
+} as const;
 
 export const taskFeature = defineFeature("tasks", (r) => {
   r.translations({ keys: REQUIRED_I18N });

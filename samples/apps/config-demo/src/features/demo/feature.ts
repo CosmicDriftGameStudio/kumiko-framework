@@ -7,24 +7,29 @@ import {
   createUserConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { configDemoTranslations } from "./i18n";
 
-// r.translations() wants key-first shape ({key: {de, en}}); configDemoTranslations
-// is locale-first (client TranslationsByLocale shape) — invert here rather
-// than duplicating the strings. Plus the auto-generated Settings-Hub screen
-// titles (buildConfigFeatureSchema: shortId = `${feature}-${scope}`, one
-// screen per scope this feature has masked keys in — system/tenant/user).
+// r.translations() wants key-first shape — same labels already in
+// ./i18n's client (locale-first) bundle, plus the auto-generated
+// Settings-Hub screen titles (buildConfigFeatureSchema: shortId =
+// `${feature}-${scope}`, one screen per scope this feature has masked
+// keys in — system/tenant/user).
 const REQUIRED_I18N = {
-  ...Object.fromEntries(
-    Object.keys(configDemoTranslations.de).map((key) => [
-      key,
-      { de: configDemoTranslations.de[key], en: configDemoTranslations.en[key] },
-    ]),
-  ),
+  "config-demo.settings": { de: "Config Demo", en: "Config Demo" },
+  "config-demo.site-name": { de: "Webseiten-Name", en: "Site Name" },
+  "config-demo.theme-color": { de: "Design-Farbe", en: "Theme Color" },
+  "config-demo.max-upload-size": { de: "Max. Upload-Größe (MB)", en: "Max Upload Size (MB)" },
+  "config-demo.email-notifications": {
+    de: "E-Mail-Benachrichtigungen",
+    en: "Email Notifications",
+  },
+  "config-demo.auto-approve": {
+    de: "Bestellungen automatisch freigeben",
+    en: "Auto-Approve Orders",
+  },
   "screen:config-demo-system.title": { de: "System", en: "System" },
   "screen:config-demo-tenant.title": { de: "Organisation", en: "Organization" },
   "screen:config-demo-user.title": { de: "Persönlich", en: "Personal" },
-};
+} as const;
 
 // Self-Populating Settings-Hub: jeder Key mit `mask` erscheint automatisch im
 // Hub — kein r.screen/r.nav mehr. buildConfigFeatureSchema gruppiert nach Scope

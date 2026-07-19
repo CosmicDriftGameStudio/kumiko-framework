@@ -12,17 +12,18 @@
 // client.ts).
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { demosTranslations } from "./i18n";
 
-// r.translations() wants key-first shape ({key: {de, en}}); demosTranslations
-// is locale-first (client TranslationsByLocale shape) — invert here rather
-// than duplicating the strings.
-const REQUIRED_I18N = Object.fromEntries(
-  Object.keys(demosTranslations.de).map((key) => [
-    key,
-    { de: demosTranslations.de[key], en: demosTranslations.en[key] },
-  ]),
-);
+// r.translations() wants key-first shape — same screen titles already in
+// ./i18n's client (locale-first) bundle.
+const REQUIRED_I18N = {
+  "screen:demo-layout.title": { de: "Layout", en: "Layout" },
+  "screen:demo-buttons.title": { de: "Buttons", en: "Buttons" },
+  "screen:demo-inputs.title": { de: "Inputs", en: "Inputs" },
+  "screen:demo-banner.title": { de: "Banner", en: "Banner" },
+  "screen:demo-dialog.title": { de: "Dialog & Lightbox", en: "Dialog & Lightbox" },
+  "screen:demo-toast.title": { de: "Toast", en: "Toast" },
+  "screen:demo-text.title": { de: "Text", en: "Text" },
+} as const;
 
 export const demosFeature = defineFeature("showcase-demos", (r) => {
   r.translations({ keys: REQUIRED_I18N });
