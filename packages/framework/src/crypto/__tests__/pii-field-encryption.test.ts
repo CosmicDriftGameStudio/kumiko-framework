@@ -1,13 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField } from "../../engine/factories";
 import { InMemoryKmsAdapter } from "../in-memory-kms-adapter";
-import { KeyNotFoundError, type KmsContext, subjectIdFromKey } from "../kms-adapter";
+import {
+  KeyErasedError,
+  KeyNotFoundError,
+  type KmsContext,
+  subjectIdFromKey,
+  subjectIdToKey,
+} from "../kms-adapter";
 import {
   decryptPiiFieldValues,
   decryptPiiValueForSubject,
   encryptPiiFieldValues,
   encryptPiiValueForSubject,
   isPiiCiphertext,
+  PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
 } from "../pii-field-encryption";
 import { collectPiiSubjectFields } from "../subject-resolver";
@@ -289,5 +296,25 @@ describe("encryptPiiValueForSubject / decryptPiiValueForSubject (kumiko-platform
     const kms = new InMemoryKmsAdapter();
     const read = await decryptPiiValueForSubject(kms, "plain-value", KMS_CTX);
     expect(read).toBe("plain-value");
+  });
+});
+
+describe("cross-subject decrypt leak (kumiko-framework#1190)", () => {
+  test("ciphertext forged to a different-but-valid subject's DEK fails GCM auth, not just KeyNotFound", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const subjectA = { kind: "tenant" as const, tenantId: UUID_A };
+    const subjectB = { kind: "tenant" as const, tenantId: UUID_B };
+    // Both subjects must have a real key — otherwise this only re-proves the
+    // existing "ciphertext without a key row fails loud" (KeyNotFoundError) case.
+    await kms.createKey(subjectA);
+
+    const storedForB = await encryptPiiValueForSubject(kms, subjectB, "tenant-b-secret", KMS_CTX);
+    const blob = storedForB.slice(storedForB.lastIndexOf(":") + 1);
+    const forgedForA = `${PII_CIPHERTEXT_PREFIX}${subjectIdToKey(subjectA)}:${blob}`;
+
+    const attempt = decryptPiiValueForSubject(kms, forgedForA, KMS_CTX);
+    await expect(attempt).rejects.not.toBeInstanceOf(KeyNotFoundError);
+    await expect(attempt).rejects.not.toBeInstanceOf(KeyErasedError);
+    await expect(attempt).rejects.toThrow();
   });
 });
