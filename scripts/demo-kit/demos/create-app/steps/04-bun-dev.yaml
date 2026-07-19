@@ -1,0 +1,7 @@
+id: bun-dev
+kind: cli
+preset: bun-dev
+caption:
+  de: Dev-Server starten
+  en: Start the dev server
+verify: skip

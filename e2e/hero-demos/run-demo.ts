@@ -48,19 +48,13 @@ export async function runDemo(
       console.log(`[run-demo] skip recordingOnly step (${step.kind})`);
       continue;
     }
+    if (step.e2eSkip) {
+      console.log(`[run-demo] skip e2eSkip step (${step.kind})`);
+      continue;
+    }
 
     if (step.kind === "cli") {
-      // The webServer / boot-demo already scaffolded + installed + booted
-      // the demo; in the E2E those CLI steps are no-ops. They MUST run in
-      // the recorder for the visual story — same DemoDef, different
-      // execution layer.
       const cmd = step.type;
-      const SKIP_PATTERNS = ["bun dev", "bun install", "kumiko.rocks/install.sh", "create kumiko-app", "docker compose"];
-      if (cmd.startsWith("cd ")) continue;
-      if (SKIP_PATTERNS.some((p) => cmd.includes(p))) {
-        console.log(`[run-demo] cli (skipped, boot-demo handles it): ${cmd}`);
-        continue;
-      }
       console.log(`[run-demo] cli: ${cmd}`);
       execFileSync("bash", ["-c", cmd], { cwd: appDir, stdio: "inherit" });
     } else if (step.kind === "editor") {
@@ -92,3 +86,5 @@ export async function runDemo(
     }
   }
 }
+
+

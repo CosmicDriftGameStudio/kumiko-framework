@@ -4,7 +4,7 @@
 // by the recording session itself — no point mocking it.
 
 import { describe, expect, test } from "bun:test";
-import { parseArgs, resolveDemoByPrefix } from "../record-demo";
+import { geometryFromVisibleFrame, parseArgs, resolveDemoByPrefix } from "../record-demo";
 
 describe("parseArgs", () => {
   test("defaults to 01-create-app, not dry-run", () => {
@@ -35,3 +35,15 @@ describe("resolveDemoByPrefix", () => {
     expect(() => resolveDemoByPrefix("99")).toThrow(/No demo file with prefix/);
   });
 });
+
+describe("geometryFromVisibleFrame", () => {
+  test("splits visible width 50/50 with no overlap", () => {
+    const g = geometryFromVisibleFrame(1728, 994, 0, 38);
+    expect(g.paneW).toBe(864);
+    expect(g.paneH).toBe(994);
+    expect(g.captureW).toBe(1728);
+    expect(g.originY).toBe(38);
+  });
+});
+
+

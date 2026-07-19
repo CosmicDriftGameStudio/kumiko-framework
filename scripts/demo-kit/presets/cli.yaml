@@ -1,0 +1,17 @@
+# CLI presets — expanded at hydrate time with demo vars + step args.
+presets:
+  install-one-liner:
+    template: 'curl -fsSL https://kumiko.rocks/install.sh | bash -s -- {{appName}}{{yesSuffix}}'
+    yesSuffix: " --yes"
+    wait: sleep
+    waitMs: 45000
+
+  cd-app:
+    template: "cd {{appName}}"
+    wait: sleep
+    waitMs: 800
+
+  bun-dev:
+    template: bun dev
+    wait: port
+    waitForPort: "{{port}}"

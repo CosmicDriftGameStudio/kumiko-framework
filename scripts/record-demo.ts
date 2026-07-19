@@ -21,7 +21,7 @@
 
 import { execFileSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { connect } from "node:net";
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { type Browser, chromium, type Page } from "playwright";
@@ -29,14 +29,107 @@ import type { DemoDef } from "./demos/demo";
 import type { Step } from "./demos/step";
 
 // ─── geometry ────────────────────────────────────────────────────────────────
-// Both windows are 1280×720; total capture rect is 2560×720. ffmpeg scales it
-// to 1920×540 for the output GIF (half-width per pane). Keep these in sync
-// with the osascript window-positioning calls below.
-const PANE_W = 1280;
-const PANE_H = 720;
-const GIF_W = 1920; // 2× downscale of 2560 capture
+// Each pane = half the main display's visible frame (no overlap). ffmpeg crops
+// that combined rectangle. Override for debugging: RECORD_DEMO_GEOMETRY=1280x720
+const GIF_W = 1920;
 const GIF_FPS = 15;
-const TYPE_DELAY_MS = 60; // per-keystroke delay for tmux send-keys CLI typing
+const TYPE_DELAY_MS = 60;
+
+export type CaptureGeometry = {
+  readonly originX: number;
+  readonly originY: number;
+  readonly paneW: number;
+  readonly paneH: number;
+  readonly captureW: number;
+  readonly captureH: number;
+};
+
+/** Parse `w,h,x,y` from NSScreen visibleFrame (unit-test hook). */
+export function geometryFromVisibleFrame(
+  visW: number,
+  visH: number,
+  originX: number,
+  originY: number,
+): CaptureGeometry {
+  const paneW = Math.floor(visW / 2);
+  const paneH = visH;
+  return {
+    originX,
+    originY,
+    paneW,
+    paneH,
+    captureW: paneW * 2,
+    captureH: paneH,
+  };
+}
+
+function osascriptLine(script: string): string | undefined {
+  const r = spawnSync("osascript", ["-e", script], { encoding: "utf8", timeout: 5000 });
+  if (r.status !== 0) return undefined;
+  const line = r.stdout?.trim();
+  return line && line.length > 0 ? line : undefined;
+}
+
+function parseGeometryCsv(raw: string): CaptureGeometry | undefined {
+  const parts = raw.split(",").map((s) => Number.parseInt(s, 10));
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return undefined;
+  const [visW, visH, originX, originY] = parts as [number, number, number, number];
+  if (visW < 800 || visH < 600) return undefined;
+  return geometryFromVisibleFrame(visW, visH, originX, originY);
+}
+
+function resolveCaptureGeometry(): CaptureGeometry {
+  const override = process.env.RECORD_DEMO_GEOMETRY;
+  if (override) {
+    const m = /^(\d+)x(\d+)$/.exec(override);
+    if (!m) throw new Error(`RECORD_DEMO_GEOMETRY must be WxH, got "${override}"`);
+    const paneW = Number(m[1]);
+    const paneH = Number(m[2]);
+    return {
+      originX: 0,
+      originY: 0,
+      paneW,
+      paneH,
+      captureW: paneW * 2,
+      captureH: paneH,
+    };
+  }
+
+  // macOS 26+: AppKit `round()` on visibleFrame values throws (-10000). Use `as integer`.
+  const appKit = `
+use framework "AppKit"
+set vf to current application's NSScreen's mainScreen's visibleFrame()
+set w to (current application's NSWidth(vf)) as integer
+set h to (current application's NSHeight(vf)) as integer
+set x to (current application's NSMinX(vf)) as integer
+set y to (current application's NSMinY(vf)) as integer
+return (w as text) & "," & (h as text) & "," & (x as text) & "," & (y as text)`;
+  const fromAppKit = osascriptLine(appKit);
+  if (fromAppKit) {
+    const g = parseGeometryCsv(fromAppKit);
+    if (g) return g;
+  }
+
+  // Fallback: full desktop bounds (menu bar included — good enough for crop).
+  const finder = `tell application "Finder"
+  set b to bounds of window of desktop
+  return "" & (item 3 of b as text) & "," & (item 4 of b as text) & ",0,0"
+end tell`;
+  const fromFinder = osascriptLine(finder);
+  if (fromFinder) {
+    const g = parseGeometryCsv(fromFinder);
+    if (g) return g;
+  }
+
+  // biome-ignore lint/suspicious/noConsole: fallback hint
+  console.warn(
+    "[record-demo] could not read screen size via osascript — using 2560×720 fallback. " +
+      "Set RECORD_DEMO_GEOMETRY=1280x800 to override.",
+  );
+  return geometryFromVisibleFrame(2560, 720, 0, 0);
+}
+
+let geom: CaptureGeometry = geometryFromVisibleFrame(2560, 720, 0, 0);
 
 // ─── output paths ────────────────────────────────────────────────────────────
 const REPO_ROOT = resolve(import.meta.dir, "..");
@@ -95,17 +188,108 @@ function preflight(): void {
 // ─── tmux helpers ────────────────────────────────────────────────────────────
 const SESSION = "kumiko-demo";
 
+/** Isolated cwd — never scaffold into this repo's ./demo/ sample app. */
+const RECORD_WORKDIR =
+  process.env.RECORD_DEMO_WORKDIR ?? join("/tmp", "kumiko-hero-recording");
+
+const PATCH_SCRIPT_SRC = join(import.meta.dir, "demos", "patch-published-scaffold-tasks.ts");
+
+function seedRecordingWorkdir(): void {
+  mkdirSync(RECORD_WORKDIR, { recursive: true });
+  writeFileSync(
+    join(RECORD_WORKDIR, "patch-published-scaffold-tasks.ts"),
+    readFileSync(PATCH_SCRIPT_SRC),
+  );
+}
+
+const OSASCRIPT_MS = 8_000;
+
+function runOsascript(script: string, label: string): boolean {
+  const r = spawnSync("osascript", ["-e", script], {
+    encoding: "utf8",
+    timeout: OSASCRIPT_MS,
+  });
+  if (r.status === 0) return true;
+  const err = (r.stderr ?? "").trim();
+  if (err.includes("assistive access") || err.includes("-1719")) {
+    // biome-ignore lint/suspicious/noConsole: permission hint
+    console.warn(
+      `[record-demo] ${label}: Accessibility denied — enable Terminal/osascript in ` +
+        "System Settings → Privacy & Security → Accessibility.",
+    );
+    return false;
+  }
+  if (r.error?.code === "ETIMEDOUT") {
+    // biome-ignore lint/suspicious/noConsole: permission hint
+    console.warn(`[record-demo] ${label}: osascript timed out`);
+    return false;
+  }
+  if (err) {
+    // biome-ignore lint/suspicious/noConsole: permission hint
+    console.warn(`[record-demo] ${label}: ${err}`);
+  }
+  return false;
+}
+
+/** Playwright's headed chromium on macOS — not "Chromium". */
+const BROWSER_PROCESS_NAMES = [
+  "Google Chrome for Testing",
+  "Chromium",
+  "Google Chrome",
+] as const;
+
 function tmux(args: readonly string[]): void {
   const r = spawnSync("tmux", [...args], { stdio: "inherit" });
   if (r.status !== 0) throw new Error(`tmux ${args.join(" ")} failed`);
 }
 
+/** Opens a visible left-pane terminal attached to the demo tmux session. */
 function tmuxStart(): void {
-  // Detach any prior session so a re-run starts clean.
   spawnSync("tmux", ["kill-session", "-t", SESSION], { stdio: "ignore" });
-  tmux(["new-session", "-d", "-s", SESSION, "-x", "160", "-y", "40"]);
-  // Wait for the session window to register.
+  spawnSync("tmux", ["new-session", "-d", "-s", SESSION, "-x", "200", "-y", "50"], {
+    stdio: "ignore",
+  });
+
+  const termApp = process.env.RECORD_DEMO_TERMINAL ?? "Terminal";
+  if (termApp === "iTerm2") {
+    runOsascript(buildITermAttachScript(geom), "iTerm attach");
+  } else {
+    runOsascript(buildTerminalAttachScript(geom), "Terminal attach");
+  }
+
   spawnSync("tmux", ["send-keys", "-t", SESSION, "clear", "Enter"], { stdio: "ignore" });
+  const cdCmd = `mkdir -p ${RECORD_WORKDIR} && cd ${RECORD_WORKDIR} && clear`;
+  spawnSync("tmux", ["send-keys", "-t", SESSION, "-l", cdCmd], { stdio: "ignore" });
+  spawnSync("tmux", ["send-keys", "-t", SESSION, "Enter"], { stdio: "ignore" });
+}
+
+function buildTerminalAttachScript(g: CaptureGeometry): string {
+  return `
+tell application "Terminal"
+  activate
+  do script "tmux attach -t ${SESSION}"
+  delay 0.6
+end tell
+tell application "System Events" to tell process "Terminal"
+  set position of front window to {${g.originX}, ${g.originY}}
+  set size of front window to {${g.paneW}, ${g.paneH}}
+end tell`;
+}
+
+function buildITermAttachScript(g: CaptureGeometry): string {
+  return `
+tell application "iTerm2"
+  activate
+  create window with default profile
+  tell current session of current window
+    write text "tmux attach -t ${SESSION}"
+  end tell
+  delay 0.6
+end tell
+tell application "System Events" to tell process "iTerm2"
+  set position of front window to {${g.originX}, ${g.originY}}
+  set size of front window to {${g.paneW}, ${g.paneH}}
+end tell`;
 }
 
 function tmuxType(text: string, delayMs = TYPE_DELAY_MS): Promise<void> {
@@ -128,19 +312,50 @@ function tmuxKill(): void {
 }
 
 // ─── window positioning (macOS osascript) ────────────────────────────────────
-// Best-effort: positions the front-most Terminal window LEFT and chromium
-// RIGHT. The user can re-adjust manually before recording starts if needed.
-function positionWindows(): void {
-  const left = `tell application "System Events" to tell process "Terminal"
-    set position of window 1 to {0, 0}
-    set size of window 1 to {${PANE_W}, ${PANE_H}}
+function positionTerminalWindow(g: CaptureGeometry): boolean {
+  const termProcess = process.env.RECORD_DEMO_TERMINAL === "iTerm2" ? "iTerm2" : "Terminal";
+  const script = `tell application "System Events" to tell process "${termProcess}"
+    if (count of windows) > 0 then
+      set frontmost to true
+      set position of front window to {${g.originX}, ${g.originY}}
+      set size of front window to {${g.paneW}, ${g.paneH}}
+    end if
   end tell`;
-  const right = `tell application "System Events" to tell process "Chromium"
-    set position of window 1 to {${PANE_W}, 0}
-    set size of window 1 to {${PANE_W}, ${PANE_H}}
+  return runOsascript(script, `position ${termProcess}`);
+}
+
+function positionBrowserWindow(g: CaptureGeometry): boolean {
+  const rightX = g.originX + g.paneW;
+  for (const processName of BROWSER_PROCESS_NAMES) {
+    const script = `tell application "System Events" to tell process "${processName}"
+    if (count of windows) > 0 then
+      set frontmost to true
+      set position of front window to {${rightX}, ${g.originY}}
+      set size of front window to {${g.paneW}, ${g.paneH}}
+    end if
   end tell`;
-  spawnSync("osascript", ["-e", left], { stdio: "ignore" });
-  spawnSync("osascript", ["-e", right], { stdio: "ignore" });
+    if (runOsascript(script, `position ${processName}`)) {
+      // biome-ignore lint/suspicious/noConsole: setup feedback
+      console.log(
+        `[record-demo] positioned browser (${processName}) ${g.paneW}×${g.paneH} @ ${rightX},${g.originY}`,
+      );
+      return true;
+    }
+  }
+  // biome-ignore lint/suspicious/noConsole: setup warning
+  console.warn(
+    "[record-demo] could not position browser via osascript — relying on --window-position",
+  );
+  return false;
+}
+
+async function layoutSplitScreen(): Promise<void> {
+  for (let i = 0; i < 4; i++) {
+    positionTerminalWindow(geom);
+    await sleep(300);
+    positionBrowserWindow(geom);
+    await sleep(300);
+  }
 }
 
 // ─── ffmpeg capture ──────────────────────────────────────────────────────────
@@ -179,7 +394,7 @@ function startCapture(): void {
     "-i",
     `${screenIdx}:none`,
     "-vf",
-    `crop=${PANE_W * 2}:${PANE_H}:0:0`,
+    `crop=${geom.captureW}:${geom.captureH}:${geom.originX}:${geom.originY}`,
     "-pix_fmt",
     "yuv420p",
     "-y",
@@ -252,12 +467,23 @@ let browser: Browser | undefined;
 let page: Page | undefined;
 
 async function launchBrowser(): Promise<void> {
+  const rightX = geom.originX + geom.paneW;
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log(`[record-demo] launching Chromium @ ${rightX},${geom.originY} …`);
   browser = await chromium.launch({
     headless: false,
-    args: [`--window-size=${PANE_W},${PANE_H}`, `--window-position=${PANE_W},0`],
+    timeout: 30_000,
+    args: [
+      `--window-size=${geom.paneW},${geom.paneH}`,
+      `--window-position=${rightX},${geom.originY}`,
+    ],
   });
-  const ctx = await browser.newContext({ viewport: { width: PANE_W, height: PANE_H } });
+  const ctx = await browser.newContext({
+    viewport: { width: geom.paneW, height: geom.paneH },
+  });
   page = await ctx.newPage();
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] Chromium ready");
 }
 
 async function waitForPort(port: number, timeoutMs: number): Promise<void> {
@@ -374,12 +600,35 @@ async function main(): Promise<void> {
     return;
   }
 
+  geom = resolveCaptureGeometry();
+  seedRecordingWorkdir();
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log(
+    `[record-demo] workdir=${RECORD_WORKDIR}\n` +
+      `[record-demo] geometry: ${geom.paneW}×${geom.paneH} per pane, ` +
+      `capture ${geom.captureW}×${geom.captureH} @ (${geom.originX},${geom.originY})`,
+  );
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log(
+    "[record-demo] Watch THIS terminal for progress — the new Terminal window is only the CLI pane.",
+  );
+
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] step 1/5 — open CLI pane (tmux) …");
   tmuxStart();
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] step 2/5 — launch Chromium …");
   await launchBrowser();
-  positionWindows();
-  await sleep(1500); // give the WM a beat to settle
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] step 3/5 — layout split-screen …");
+  await layoutSplitScreen();
+  await sleep(2500);
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] step 4/5 — start ffmpeg capture …");
   startCapture();
-  await sleep(500); // ffmpeg warm-up before the first action lands
+  await sleep(500);
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] step 5/5 — execute demo steps …");
 
   try {
     const timings = await execute(demo);
@@ -412,3 +661,28 @@ if (import.meta.main) {
 // parseArgs + resolveDemoByPrefix are pure; the rest (tmux/ffmpeg/playwright
 // orchestration) needs a real Mac to exercise and isn't exported.
 export { parseArgs, resolveDemoByPrefix };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

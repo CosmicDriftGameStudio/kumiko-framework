@@ -1,0 +1,8 @@
+id: add-notes
+kind: cli
+command: bun kumiko add feature notes
+waitMs: 4000
+caption:
+  de: Neues Feature hinzufügen
+  en: Add a new feature
+verify: record-only

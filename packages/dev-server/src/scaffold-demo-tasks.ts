@@ -101,6 +101,7 @@ import type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { tasksTranslationKeys } from "./i18n";
 
 const taskEntity = createEntity({
   fields: {
@@ -131,17 +132,8 @@ const editScreen: EntityEditScreenDefinition = {
 
 const open = { access: { openToAll: true } } as const;
 
-const TASKS_I18N = {
-  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
-  "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
-  "tasks:entity:task:field:title": { de: "Titel", en: "Title" },
-  "tasks:entity:task:field:status": { de: "Status", en: "Status" },
-  "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority" },
-  "tasks:entity:task:field:isUrgent": { de: "Dringend", en: "Urgent" },
-} as const;
-
 export const tasksFeature = defineFeature("tasks", (r) => {
-  r.translations({ keys: TASKS_I18N });
+  r.translations({ keys: tasksTranslationKeys });
   r.entity("task", taskEntity);
   r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
   r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
@@ -159,6 +151,52 @@ export const tasksFeature = defineFeature("tasks", (r) => {
     order: 10,
   });
 });
+`;
+}
+
+export function renderDemoTasksI18n(): string {
+  return `// Server-side translation keys for the demo tasks feature.
+
+import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
+
+export const tasksTranslationKeys = {
+  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
+  "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
+  "tasks:entity:task:field:title": { de: "Titel", en: "Title" },
+  "tasks:entity:task:field:status": { de: "Status", en: "Status" },
+  "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority" },
+  "tasks:entity:task:field:isUrgent": { de: "Dringend", en: "Urgent" },
+} as const;
+
+export const tasksTranslations: TranslationsByLocale = {
+  de: {
+    "screen:task-list.title": "Aufgaben",
+    "screen:task-edit.title": "Aufgabe",
+    "tasks:entity:task:field:title": "Titel",
+    "tasks:entity:task:field:status": "Status",
+    "tasks:entity:task:field:priority": "Priorität",
+    "tasks:entity:task:field:isUrgent": "Dringend",
+  },
+  en: {
+    "screen:task-list.title": "Tasks",
+    "screen:task-edit.title": "Task",
+    "tasks:entity:task:field:title": "Title",
+    "tasks:entity:task:field:status": "Status",
+    "tasks:entity:task:field:priority": "Priority",
+    "tasks:entity:task:field:isUrgent": "Urgent",
+  },
+};
+`;
+}
+
+export function renderDemoTasksWebIndex(): string {
+  return `import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import { tasksTranslations } from "../i18n";
+
+export const tasksClient: ClientFeatureDefinition = {
+  name: "tasks",
+  translations: tasksTranslations,
+};
 `;
 }
 

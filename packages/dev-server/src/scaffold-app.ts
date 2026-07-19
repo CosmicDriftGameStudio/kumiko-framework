@@ -26,7 +26,9 @@ import {
   createDemoTasksFeature,
   renderDemoSeedFile,
   renderDemoTasksFeatureFile,
+  renderDemoTasksI18n,
   renderDemoTasksIndex,
+  renderDemoTasksWebIndex,
 } from "./scaffold-demo-tasks";
 import { scaffoldDeploy } from "./scaffold-deploy";
 
@@ -101,11 +103,18 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, "src", "run-config.ts"), renderRunConfig(options.features));
   files.push("src/run-config.ts");
 
-  mkdirSync(join(destination, "src", "features", "tasks"), { recursive: true });
+  mkdirSync(join(destination, "src", "features", "tasks", "web"), { recursive: true });
   write(join(destination, "src", "features", "tasks", "feature.ts"), renderDemoTasksFeatureFile());
   files.push("src/features/tasks/feature.ts");
+  write(join(destination, "src", "features", "tasks", "i18n.ts"), renderDemoTasksI18n());
+  files.push("src/features/tasks/i18n.ts");
   write(join(destination, "src", "features", "tasks", "index.ts"), renderDemoTasksIndex());
   files.push("src/features/tasks/index.ts");
+  write(
+    join(destination, "src", "features", "tasks", "web", "index.ts"),
+    renderDemoTasksWebIndex(),
+  );
+  files.push("src/features/tasks/web/index.ts");
   write(join(destination, "src", "seed.ts"), renderDemoSeedFile());
   files.push("src/seed.ts");
 
@@ -608,6 +617,7 @@ function renderClient(appName: string): string {
     "// here — symmetric to APP_FEATURES on the server side.",
     "",
     'import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";',
+    'import { tasksClient } from "./features/tasks/web";',
     'import { type AppSchema, createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";',
     'import type { ReactNode } from "react";',
     "",
@@ -622,7 +632,7 @@ function renderClient(appName: string): string {
     "",
     "createKumikoApp({",
     "  shell: AppShell,",
-    "  clientFeatures: [emailPasswordClient()],",
+    "  clientFeatures: [emailPasswordClient(), tasksClient],",
     "});",
     "",
   ].join("\n");

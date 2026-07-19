@@ -1,0 +1,33 @@
+{
+  "name": "demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch bin/dev.ts",
+    "build": "bun kumiko-build",
+    "start": "bun run bin/main.ts",
+    "boot": "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "bun --config=bunfig.ci.toml test --dots",
+    "schema:apply": "bun kumiko-schema apply",
+    "schema:generate": "bun kumiko-schema generate"
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "*",
+    "@cosmicdrift/kumiko-dev-server": "*",
+    "@cosmicdrift/kumiko-framework": "*",
+    "@cosmicdrift/kumiko-renderer-web": "*",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
+    "@tailwindcss/cli": "^4.3.0",
+    "bun-types": "^1.3.14",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^6.0.3"
+  }
+}

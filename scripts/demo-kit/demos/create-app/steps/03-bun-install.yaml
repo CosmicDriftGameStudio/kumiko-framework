@@ -1,0 +1,8 @@
+id: install-deps
+kind: cli
+command: bun install
+waitMs: 20000
+caption:
+  de: bun install — Abhängigkeiten laden
+  en: bun install — resolve dependencies
+verify: skip

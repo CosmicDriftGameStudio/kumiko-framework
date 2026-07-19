@@ -121,6 +121,7 @@ describe("scaffoldApp", () => {
     expect(client).toContain(">my-shop</span>");
     expect(client).toContain('from "@cosmicdrift/kumiko-renderer-web"');
     expect(client).toContain('from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web"');
+    expect(client).toContain("tasksClient");
   });
 
   test(".env.example carries KUMIKO_DEV_DB_NAME default so reboots are persistent", async () => {

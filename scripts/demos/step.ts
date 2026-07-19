@@ -25,8 +25,11 @@ export type Caption = {
  *  skips them. Use for actions that only make sense in front of a viewer
  *  (typing a new feature file when the scaffold can't yet auto-mount it,
  *  showing intermediate states the test doesn't need to verify). */
+/** Steps marked `e2eSkip: true` are skipped by the E2E runner but still run
+ *  in the recorder (demo-kit `verify: skip` — boot-demo handles scaffold). */
 export type StepCommon = {
   readonly recordingOnly?: boolean;
+  readonly e2eSkip?: boolean;
 };
 
 export type Step = StepCommon &
@@ -92,3 +95,4 @@ export const step = {
   },
   editor: (input: EditorInput): Step => ({ kind: "editor", ...input }),
 };
+

@@ -1,0 +1,7 @@
+id: wait-nav-notes
+kind: browser
+waitFor: "[data-test=nav-notes]"
+caption:
+  de: Reload → Notes erscheinen
+  en: Reload → Notes appear
+verify: record-only

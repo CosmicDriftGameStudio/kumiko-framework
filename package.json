@@ -66,7 +66,8 @@
     "gen:feature-screenshots": "bun run samples/scripts/gen-feature-screenshots.ts",
     "sync:readme-screenshots": "bash scripts/sync-readme-screenshots.sh",
     "postinstall": "bun run scripts/codegen-samples.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "demo-kit": "bun scripts/demo-kit/engine/cli.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
@@ -93,4 +94,5 @@
     "ink-text-input": "^6.0.0"
   }
 }
+
 

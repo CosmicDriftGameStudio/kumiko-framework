@@ -1,0 +1,42 @@
+# Per-Dockerfile .dockerignore — Buildkit reads this when the
+# Dockerfile lives next to it (`deploy/Dockerfile` + `deploy/Dockerfile.dockerignore`).
+#
+# Keeps the build context lean: source-only excludes (tests, env files,
+# VCS metadata) plus the workspace-internal artefacts that the build
+# stage regenerates from scratch.
+
+# VCS + editor
+.git
+.github
+.gitignore
+.vscode
+.idea
+
+# Local env + secrets — must NEVER leak into a layer
+.env
+.env.local
+.env.*.local
+**/.env
+*.pem
+*.key
+
+# Tests + coverage (not in production image)
+**/__tests__
+**/*.test.ts
+**/*.integration.ts
+coverage
+**/*.tsbuildinfo
+
+# Docs (not in image)
+docs
+CHANGELOG.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+
+# Workspace-internal — `dist/` is build output; runtime stage copies
+# fresh dist/ from the build stage. Local dist/ (from a dev build)
+# stays out.
+node_modules
+.yarn
+**/node_modules
+**/dist

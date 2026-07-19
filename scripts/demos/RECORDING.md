@@ -17,6 +17,12 @@ Grant **Screen Recording** permission to the terminal you run `bun` from:
 Terminal / iTerm / etc**. The first `ffmpeg avfoundation` capture silently
 records a black screen without it.
 
+The recorder opens a **second** window for the CLI pane (left half of the
+GIF): by default **Terminal.app** runs `tmux attach -t kumiko-demo`. Your
+Cursor/iTerm window where you launched `bun scripts/record-demo.ts` is not
+the recorded CLI — watch for the new Terminal window at the top-left.
+For iTerm: `RECORD_DEMO_TERMINAL=iTerm2 bun scripts/record-demo.ts`.
+
 Also start the Postgres + Redis stack the scaffolded app boots against. From
 this repo:
 
@@ -25,6 +31,15 @@ docker compose up -d
 ```
 
 (`bun dev` inside the scaffolded app expects `localhost:5432` + `localhost:6379`.)
+
+## Window geometry
+
+Each pane uses **half the main display visible frame** (NSScreen `visibleFrame` via
+osascript) — terminal left, browser right, no overlap. On start the recorder logs:
+
+`geometry: <paneW>×<paneH> per pane, capture <W>×<H> @ (x,y)`
+
+Override for debugging: `RECORD_DEMO_GEOMETRY=1280x720 bun scripts/record-demo.ts`
 
 ## Run
 
@@ -81,6 +96,12 @@ front-of-stack.
 - **black GIF** → Screen Recording permission missing (see setup above).
 - **chromium opens behind the terminal** → re-run; `osascript` is racy
   with WindowServer the first 1–2 seconds after a window opens.
+- **GIF shows only browser, left half empty** → a detached tmux session was
+  typed into with no visible window. Current recorder opens Terminal.app
+  (or iTerm2 via `RECORD_DEMO_TERMINAL=iTerm2`) with `tmux attach`. Ensure
+  that window sits at the top-left before capture starts; re-run if needed.
+- **Browser window wrong size** → Playwright uses "Google Chrome for Testing"
+  on macOS (not "Chromium"); recorder positions that process via osascript.
 - **tmux session leftover from a crashed run** → `tmux kill-session -t
   kumiko-demo` and retry.
 - **timing too tight, captions cut off** → bump the `sleep(2500)` /
@@ -94,3 +115,6 @@ See `scripts/demos/README.md` for the step schema. Each new
 `scripts/demos/<N>-<name>.ts` is recorded with
 `bun scripts/record-demo.ts --demo=<N>`; output filenames key off the
 demo's `title`.
+
+
+

@@ -1,0 +1,9 @@
+id: install
+kind: cli
+preset: install-one-liner
+args:
+  yes: true
+caption:
+  de: Eine Zeile zum Start
+  en: One line to start
+verify: skip
