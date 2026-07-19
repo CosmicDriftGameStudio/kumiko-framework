@@ -370,6 +370,73 @@ describe("POST /api/batch", () => {
     expect(inTxHookLog).toHaveLength(1);
     expect(afterCommitHookLog).toHaveLength(1);
   });
+
+  test("idempotency: failed batch is cached — retry returns same error without re-exec", async () => {
+    const requestId = "batch-rid-fail-cache";
+    const commands = [
+      { type: "batch:write:item:create", payload: { name: "should-rollback" } },
+      { type: "batch:write:item:fail", payload: { name: "stop" } },
+    ];
+
+    const first = await stack.http.batch(commands, admin, requestId);
+    const firstBody = await first.json();
+    expect(first.status).toBe(422);
+    expect(firstBody.isSuccess).toBe(false);
+    expect(firstBody.failedIndex).toBe(1);
+    expect(inTxHookLog.map((h) => h.name)).toEqual(["should-rollback"]);
+    expect(await selectMany(stack.db, itemTable)).toHaveLength(0);
+
+    inTxHookLog.length = 0;
+    afterCommitHookLog.length = 0;
+
+    const second = await stack.http.batch(commands, admin, requestId);
+    const secondBody = await second.json();
+    expect(second.status).toBe(422);
+    expect(secondBody.isSuccess).toBe(false);
+    expect(secondBody.failedIndex).toBe(firstBody.failedIndex);
+    // HTTP re-serializes the cached failure with a fresh requestId/timestamp —
+    // pin the stable business fields, not the transport envelope.
+    expect(secondBody.error.code).toBe(firstBody.error.code);
+    expect(secondBody.error.details).toEqual(firstBody.error.details);
+    // Cached path must not re-run commands (hooks stay empty, DB empty)
+    expect(inTxHookLog).toHaveLength(0);
+    expect(afterCommitHookLog).toHaveLength(0);
+    expect(await selectMany(stack.db, itemTable)).toHaveLength(0);
+  });
+
+  test("idempotency: corrupted cache entry is treated as miss and re-runs", async () => {
+    const requestId = "batch-rid-corrupt";
+    await stack.redis.redis.set(`kumiko:idempotency:${requestId}`, "{not-json", "EX", 60);
+
+    const res = await stack.http.batch(
+      [{ type: "batch:write:item:create", payload: { name: "after-corrupt" } }],
+      admin,
+      requestId,
+    );
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.isSuccess).toBe(true);
+    expect(await selectMany(stack.db, itemTable)).toHaveLength(1);
+    expect(inTxHookLog.map((h) => h.name)).toEqual(["after-corrupt"]);
+  });
+
+  test("mid-batch handler throw: rolls back prior writes, afterCommit does not fire", async () => {
+    const res = await stack.http.batch(
+      [
+        { type: "batch:write:item:create", payload: { name: "before-throw" } },
+        { type: "batch:write:item:throw", payload: { name: "boom" } },
+        { type: "batch:write:item:create", payload: { name: "never" } },
+      ],
+      admin,
+    );
+    const body = await res.json();
+    expect(body.isSuccess).toBe(false);
+    expect(body.failedIndex).toBe(1);
+    expect(inTxHookLog.map((h) => h.name)).toEqual(["before-throw"]);
+    expect(afterCommitHookLog).toEqual([]);
+    expect(await selectMany(stack.db, itemTable)).toHaveLength(0);
+    expect(await selectMany(stack.db, auditTable)).toHaveLength(0);
+  });
 });
 
 describe("POST /api/write (single write runs in its own transaction)", () => {
@@ -406,3 +473,5 @@ describe("POST /api/write (single write runs in its own transaction)", () => {
     expect(afterAudits).toHaveLength(beforeAudits.length);
   });
 });
+
+
