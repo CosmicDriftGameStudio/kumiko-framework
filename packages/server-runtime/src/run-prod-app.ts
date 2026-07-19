@@ -54,6 +54,7 @@ import {
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
   createInMemoryLoginRateLimiter,
+  createRedisLoginRateLimiter,
   createSseBroker,
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
@@ -915,6 +916,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
+        // Redis-backed, not the in-memory default createAuthRoutes falls
+        // back to — an in-process limiter only rate-limits within a single
+        // replica, so a multi-instance prod deployment would silently give
+        // each replica its own bucket (#1262/#1274). Redis is required infra
+        // here already (REDIS_URL), so this is free.
+        loginRateLimit: createRedisLoginRateLimiter(redis),
         ...(effectiveAuth.cookieDomain !== undefined && {
           cookieDomain: effectiveAuth.cookieDomain,
         }),
@@ -927,7 +934,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         ...sessionAuthFragment,
         ...patAuthFragment,
         ...tenantLifecycleAuthFragment,
-        ...(mfaFeature && { mfaVerifyHandler: AuthMfaHandlers.verify }),
+        ...(mfaFeature && {
+          mfaVerifyHandler: AuthMfaHandlers.verify,
+          mfaVerifyRateLimit: createRedisLoginRateLimiter(
+            redis,
+            undefined,
+            undefined,
+            "mfa-verify",
+          ),
+        }),
         ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,

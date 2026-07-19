@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
+import type Redis from "ioredis";
 import { z } from "zod";
 import { buildSessionRoles } from "../engine/membership-roles";
 import { createSystemUser } from "../engine/system-user";
@@ -457,6 +458,37 @@ export function createInMemoryLoginRateLimiter(
     },
     async reset(key) {
       hits.delete(key);
+    },
+  };
+}
+
+// Redis-backed sibling of createInMemoryLoginRateLimiter — same fixed-window
+// semantics (count <= maxAttempts allows, window anchored on first hit), but
+// shared across replicas via INCR/PEXPIRE instead of an in-process Map.
+// runProdApp defaults to this: an in-memory limiter only rate-limits within
+// a single instance, so a multi-replica prod deployment would silently give
+// each replica its own bucket. namespace separates the login-key keyspace
+// from the mfa-verify one (they share the same LoginRateLimiter shape but
+// key on different values).
+export function createRedisLoginRateLimiter(
+  redis: Redis,
+  maxAttempts = 10,
+  windowMs = 5 * 60_000,
+  namespace = "login",
+): LoginRateLimiter {
+  const prefix = `kumiko:auth:ratelimit:${namespace}:`;
+
+  return {
+    async check(key) {
+      const redisKey = `${prefix}${key}`;
+      const count = await redis.incr(redisKey);
+      if (count === 1) {
+        await redis.pexpire(redisKey, windowMs);
+      }
+      return count <= maxAttempts;
+    },
+    async reset(key) {
+      await redis.del(`${prefix}${key}`);
     },
   };
 }

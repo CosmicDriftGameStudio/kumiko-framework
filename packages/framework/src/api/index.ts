@@ -19,7 +19,11 @@ export type {
   SessionMetadata,
   SessionRevoker,
 } from "./auth-routes";
-export { createAuthRoutes, createInMemoryLoginRateLimiter } from "./auth-routes";
+export {
+  createAuthRoutes,
+  createInMemoryLoginRateLimiter,
+  createRedisLoginRateLimiter,
+} from "./auth-routes";
 export type { CachedResponseInit, CachePolicy } from "./http-cache";
 export {
   cacheControlHeader,
