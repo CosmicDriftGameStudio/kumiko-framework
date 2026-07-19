@@ -419,6 +419,44 @@ describe("event-store-executor — encrypted fields", () => {
     expect(updated.data.data["secretNote"]).toBe("new-note");
   });
 
+  test("update omits a resubmitted-but-unchanged encrypted field — no phantom re-encrypt (#464)", async () => {
+    const created = await crud.create(
+      { email: "noop-enc@test.de", secretNote: "same-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const before = (await asRawClient(testDb.db).unsafe(
+      `SELECT secret_note FROM read_es_exec_encrypted WHERE email = 'noop-enc@test.de' LIMIT 1`,
+    )) as Array<{ secret_note: string }>;
+
+    const updated = await crud.update(
+      {
+        id: created.data.id,
+        version: 1,
+        changes: { secretNote: "same-note", email: "noop-enc-2@test.de" },
+      },
+      adminUser,
+      tdb,
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+
+    const after = (await asRawClient(testDb.db).unsafe(
+      `SELECT secret_note FROM read_es_exec_encrypted WHERE email = 'noop-enc-2@test.de' LIMIT 1`,
+    )) as Array<{ secret_note: string }>;
+
+    // Re-encrypting the same plaintext produces a fresh AEAD nonce → a
+    // different ciphertext even for an unchanged value. Byte-identical
+    // ciphertext proves the column was never touched by this update.
+    expect(after[0]?.secret_note).toBe(before[0]?.secret_note);
+
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT payload FROM kumiko_events WHERE type = 'esExecEncrypted.updated' ORDER BY id DESC LIMIT 1`,
+    )) as Array<{ payload: { changes?: Record<string, unknown> } }>;
+    expect(rows[0]?.payload.changes).not.toHaveProperty("secretNote");
+  });
+
   test("update's persisted event carries ciphertext (not plaintext) for an encrypted field in `previous`", async () => {
     // Regression: `previous` in the STORED event came from loadById(), which
     // decrypts — appending it unchanged would put the plaintext of an

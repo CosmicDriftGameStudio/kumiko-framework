@@ -32,6 +32,13 @@ import { selectMany } from "./query";
 // unchanged from the original, just relocated behind an explicit
 // ExecutorContext instead of capturing the factory's local scope directly.
 
+// Same value resubmitted → skip it. Avoids a phantom re-encrypt (fresh AEAD
+// nonce per call) on pii/encrypted fields, and generic event-log noise on
+// every other field (#464).
+function isUnchangedValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export function createWriteVerbs(
   ctx: ExecutorContext,
 ): Pick<EventStoreExecutor, "create" | "update" | "delete" | "forget" | "restore"> {
@@ -282,9 +289,18 @@ export function createWriteVerbs(
         // Compound-Types Auto-Convert (alle in einem Pass).
         // subjectSource: partial changes may carry a pii field without its
         // ownerField — the merged row still names the subject.
-        const flatChangesPlain = flattenCompoundTypes(payload.changes, entity);
+        //
+        // Value-diff first (#464): a resubmitted-but-unchanged key would
+        // otherwise still get re-encrypted (fresh AEAD nonce → phantom
+        // ciphertext diff) and land in the event as noise.
+        const changedChanges = Object.fromEntries(
+          Object.entries(payload.changes).filter(
+            ([key, value]) => !isUnchangedValue(value, previous[key]),
+          ),
+        );
+        const flatChangesPlain = flattenCompoundTypes(changedChanges, entity);
         const flatChanges = await encryptForStorage(flatChangesPlain, user, {
-          onlyKeys: Object.keys(payload.changes),
+          onlyKeys: Object.keys(changedChanges),
           subjectSource: mergedNew,
         });
 
