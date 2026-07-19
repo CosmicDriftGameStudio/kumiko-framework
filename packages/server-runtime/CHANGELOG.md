@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.158.2
+
+### Patch Changes
+
+- c6487d0: `runProdApp`'s personal-access-token rate limiter now defaults to `createRedisLoginRateLimiter` instead of `createInMemoryLoginRateLimiter` — same bug as #1274, just for PATs: an in-process counter gives each replica its own bucket in a multi-instance prod deployment, so the limit is trivially evaded by spreading requests across replicas (#1287).
+  - @cosmicdrift/kumiko-framework@0.158.2
+  - @cosmicdrift/kumiko-bundled-features@0.158.2
+
 ## 0.158.1
 
 ### Patch Changes
