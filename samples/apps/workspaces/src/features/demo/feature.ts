@@ -5,11 +5,15 @@ export { orderEntity };
 
 const open = { access: { openToAll: true } } as const;
 
-// r.translations() wants key-first shape — screen titles aren't in ./i18n's
-// client bundle (only nav labels are), so declared directly here.
+// r.translations() wants key-first shape — screen + entity-field labels
+// aren't in ./i18n's client bundle (only nav/workspace labels are), so
+// declared directly here.
 const REQUIRED_I18N = {
   "screen:order-list.title": { de: "Aufträge", en: "Orders" },
   "screen:order-edit.title": { de: "Auftrag", en: "Order" },
+  "demo:entity:order:field:label": { de: "Bezeichnung", en: "Label" },
+  "demo:entity:order:field:status": { de: "Status", en: "Status" },
+  "demo:entity:order:field:notes": { de: "Notizen", en: "Notes" },
 } as const;
 
 export const demoFeature: FeatureDefinition = defineFeature("demo", (r) => {
