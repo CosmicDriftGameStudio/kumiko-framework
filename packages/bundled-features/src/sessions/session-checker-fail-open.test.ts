@@ -10,6 +10,8 @@ import { createSessionCallbacks } from "./session-callbacks";
 // Postgres without faking infrastructure failure. Integration tests forbid
 // mocks, so this lives next to the source as a plain *.test.ts.
 
+type FetchOne = typeof bunDb.fetchOne;
+
 describe("sessionChecker fail-open on user-lookup throw", () => {
   test("read_users THROW → live (not 500 / not blocked)", async () => {
     const db = {} as DbConnection;
@@ -19,7 +21,7 @@ describe("sessionChecker fail-open on user-lookup throw", () => {
     const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
 
     const originalFetchOne = bunDb.fetchOne;
-    const spy = spyOn(bunDb, "fetchOne").mockImplementation(async (_db, table) => {
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
       if (table === userSessionTable) {
         return {
           userId,
@@ -31,7 +33,7 @@ describe("sessionChecker fail-open on user-lookup throw", () => {
         throw new Error("simulated pool exhaustion");
       }
       throw new Error("unexpected table in sessionChecker spy");
-    });
+    }) as FetchOne);
 
     try {
       expect(await cbs.sessionChecker(sid, userId)).toBe("live");
@@ -52,7 +54,7 @@ describe("sessionChecker fail-open on user-lookup throw", () => {
     const userId = "00000000-0000-4000-8000-00000000usr2";
     const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
 
-    const spy = spyOn(bunDb, "fetchOne").mockImplementation(async (_db, table) => {
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
       if (table === userSessionTable) {
         return {
           userId,
@@ -64,7 +66,7 @@ describe("sessionChecker fail-open on user-lookup throw", () => {
         return { status: USER_STATUS.Restricted };
       }
       throw new Error("unexpected table in sessionChecker spy");
-    });
+    }) as FetchOne);
 
     try {
       expect(await cbs.sessionChecker(sid, userId)).toBe("blocked");
