@@ -126,6 +126,7 @@ import {
   resolveAuthMail,
 } from "./run-prod-app-boot-context";
 import { buildStaticFallback } from "./run-prod-app-static-files";
+import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers";
 import {
   type ProdSessionsOption,
   resolveProdSessionsConfig,
@@ -569,6 +570,12 @@ export type RunProdAppOptions = {
    *  dieses Feld wird kein L1/L2 verdrahtet (L3 Handler-`rateLimit:`
    *  funktioniert unabhängig davon bereits). */
   readonly rateLimit?: import("@cosmicdrift/kumiko-framework/api").ServerOptions["rateLimit"];
+  /** Default security headers on every response (HSTS, X-Frame-Options,
+   *  X-Content-Type-Options, Referrer-Policy; CSP opt-in). Headers already
+   *  set by a response (e.g. hostDispatch's per-host CSP) are never
+   *  overridden. `false` disables the whole block; per-header overrides
+   *  via the object form — see SecurityHeadersOption. */
+  readonly securityHeaders?: SecurityHeadersOption;
 };
 
 export type ProdAppHandle = {
@@ -1066,14 +1073,17 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //     wired via a wrapper so Hono owns /api/* + extraRoutes and disk
   //     owns the rest. Tests use this directly; listen() wraps it in
   //     Bun.serve.
-  const fetchHandler = options.staticDir
-    ? buildStaticFallback(
-        entrypoint.app.fetch.bind(entrypoint.app),
-        options.staticDir,
-        appSchemaJson,
-        options.hostDispatch,
-      )
-    : entrypoint.app.fetch.bind(entrypoint.app);
+  const fetchHandler = withSecurityHeaders(
+    options.staticDir
+      ? buildStaticFallback(
+          entrypoint.app.fetch.bind(entrypoint.app),
+          options.staticDir,
+          appSchemaJson,
+          options.hostDispatch,
+        )
+      : entrypoint.app.fetch.bind(entrypoint.app),
+    options.securityHeaders,
+  );
 
   // 11. Mark lifecycle ready — health/ready flips to 200 after this.
   entrypoint.lifecycle.markReady();
