@@ -61,6 +61,7 @@ const baseSchema: FeatureSchema = {
   featureName: "tasks",
   entities: { task: taskEntity },
   screens: [editScreen, listScreen],
+  navs: [{ id: "task-edit", label: "tasks:nav.task-edit", screen: "tasks:screen:task-edit" }],
 };
 
 // createKumikoApp ruft createRoot(...).render(...) direkt auf — React 18+
@@ -181,6 +182,7 @@ describe("createKumikoApp", () => {
       featureName: "tasks",
       entities: { task: taskEntity },
       screens: [{ ...listScreen, access: { openToAll: true } }],
+      navs: [{ id: "task-list", label: "tasks:nav.task-list", screen: "tasks:screen:task-list" }],
     };
     const schema: AppSchema = { features: [restrictedFeature, openFeature] };
     await mountApp({ schema, dispatcher: makeDispatcher() });
@@ -229,6 +231,9 @@ describe("createKumikoApp", () => {
           entity: "task",
           columns: [{ field: "color", renderer: { react: { __component: "Swatch" } } }],
         },
+      ],
+      navs: [
+        { id: "color-list", label: "tasks:nav.color-list", screen: "tasks:screen:color-list" },
       ],
     };
 
@@ -283,6 +288,9 @@ describe("createKumikoApp", () => {
       featureName: "tasks",
       entities: { task: colorEntity },
       screens: [colorListScreen],
+      navs: [
+        { id: "color-list", label: "tasks:nav.color-list", screen: "tasks:screen:color-list" },
+      ],
     };
     const dispatcher = createMockDispatcher({
       query: (async () => ({
@@ -328,6 +336,13 @@ describe("createKumikoApp", () => {
       featureName: "cap-counter",
       entities: {},
       screens: [dashboardScreen],
+      navs: [
+        {
+          id: "overview",
+          label: "cap-counter:nav.cap-list",
+          screen: "cap-counter:screen:overview",
+        },
+      ],
       translations: {
         "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" },
       },
@@ -371,6 +386,13 @@ describe("createKumikoApp", () => {
       featureName: "cap-counter",
       entities: {},
       screens: [dashboardScreen],
+      navs: [
+        {
+          id: "overview",
+          label: "cap-counter:nav.cap-list",
+          screen: "cap-counter:screen:overview",
+        },
+      ],
       translations: {
         "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" },
       },
