@@ -216,6 +216,27 @@ describe("buildAppSchema", () => {
     expect(fields["name"]?.["filterable"]).toBeUndefined();
   });
 
+  test("searchable kommt ins Client-Schema (steuert den EntityList-Default, #1194)", () => {
+    const entity = {
+      fields: {
+        title: { type: "text", searchable: true },
+        name: { type: "text" },
+      },
+    } as unknown as EntityDefinition;
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]?.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+    expect(fields["title"]?.["searchable"]).toBe(true);
+    // Fields without searchable don't carry the key (no false-litter).
+    expect(fields["name"]?.["searchable"]).toBeUndefined();
+  });
+
   test("AppSchema ist via JSON.stringify roundtrip-sicher", () => {
     // Echter Smoke-Test des Vertrags — wenn jemand in den project-
     // Helper eine Function reinschmuggelt, würde das hier brennen.
