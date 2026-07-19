@@ -13,7 +13,6 @@
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { AuthMfaHandlers } from "../constants";
-import { mfaManageErrorKey } from "./mfa-error-keys";
 
 export type MfaDisableDialogProps = {
   readonly open: boolean;
@@ -37,7 +36,7 @@ export function MfaDisableDialog({
     const res = await dispatcher.write<{ disabled: boolean }>(AuthMfaHandlers.disable, { code });
     setCode("");
     if (!res.isSuccess) {
-      onError(mfaManageErrorKey(res.error.code));
+      onError(res.error.i18nKey);
       return;
     }
     onDisabled();

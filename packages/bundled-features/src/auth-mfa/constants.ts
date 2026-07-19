@@ -19,10 +19,9 @@ export const AuthMfaQueries = {
   status: "auth-mfa:query:user-mfa:status",
 } as const;
 
-// Write-failure codes shared between errors.ts (server, mints them into
-// UnprocessableError) and web/mfa-error-keys.ts (client, maps them to i18n
-// keys) — one source so a renamed code can't drift out of sync between the
-// two switches.
+// Write-failure codes minted server-side into UnprocessableError (errors.ts).
+// The client reads the i18n key straight off the write result
+// (res.error.i18nKey) instead of re-deriving it from these codes.
 export const AuthMfaErrorCodes = {
   mfaAlreadyEnabled: "mfa_already_enabled",
   mfaNotEnabled: "mfa_not_enabled",
@@ -31,10 +30,6 @@ export const AuthMfaErrorCodes = {
   invalidRecoveryCode: "invalid_recovery_code",
   invalidChallengeToken: "invalid_challenge_token",
   tooManyAttempts: "too_many_attempts",
-  // Client-only: minted by mfa-enable-screen.tsx on a network/QR-render
-  // failure during enrollment, never by errors.ts server-side — kept here
-  // anyway so mfa-error-keys.ts's key-parity test covers it automatically.
-  setupFailed: "setup_failed",
 } as const;
 
 export const MFA_SETUP_TOKEN_TTL_MINUTES = 10;
