@@ -51,6 +51,7 @@ export type {
   UseFormResult,
   UseQueryOptions,
   UseQueryResult,
+  UserRolesProviderProps,
   WorkspaceSchema,
 } from "@cosmicdrift/kumiko-renderer";
 export {
@@ -69,6 +70,7 @@ export {
   RenderField,
   RenderList,
   TokensProvider,
+  UserRolesProvider,
   useDispatcher,
   useDispatcherStatus,
   useForm,
@@ -82,6 +84,7 @@ export {
   useTokenController,
   useTokens,
   useTranslation,
+  useUserRoles,
 } from "@cosmicdrift/kumiko-renderer";
 // --- Web-platform specifics ---
 export { createBrowserLocaleResolver } from "./app/browser-locale";
