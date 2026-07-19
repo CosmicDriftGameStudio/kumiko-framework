@@ -432,6 +432,31 @@ describe("KumikoScreen", () => {
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
   });
 
+  test("entityEdit update-mode: query-Error zeigt übersetzten Text statt rohem i18nKey (issue #1193)", async () => {
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: false,
+        error: {
+          code: "access_denied",
+          httpStatus: 403,
+          i18nKey: "errors.access.denied",
+          message: "",
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="tasks:screen:task-edit" entityId="task-1" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-error")).toBeTruthy());
+    const bannerText = screen.getByTestId("kumiko-screen-error").textContent;
+    expect(bannerText).toBe(kumikoDefaultTranslations["en"]?.["errors.access.denied"] ?? "");
+    expect(bannerText).not.toBe("errors.access.denied");
+  });
+
   // RowActions-Mapping (Tier 2.7a Resolution-Layer): pinst dass
   // EntityListBody die Schema-Form (handler-QN, label-i18nKey, payload-
   // builder, visible-Function, confirmLabel) zu DataTableRowAction
