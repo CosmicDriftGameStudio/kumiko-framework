@@ -175,8 +175,16 @@ describe("rotate-job circuit-breaker", () => {
   // Happy-path counterpart to the failure tests above: a working provider
   // that actually rewraps. Run last — it's the only test that mutates the
   // shared 20-row fixture, so the earlier "stays at 20" assertions must
-  // see it before this runs.
+  // see it before this runs. Enforced below, not just documented: a
+  // precondition check fails loud (not silently-wrong) if a test inserted
+  // between this and the circuit-breaker tests already touched the
+  // fixture — rotateJob's batch scan has no per-row exclusion/ordering
+  // to fall back on, so isolating this test onto a second tenant doesn't
+  // help (rotator would just exhaust maxFailures on the other tenant's
+  // still-V1 rows before ever reaching its own).
   test("successful rotation rewraps the DEK, bumps kekVersion, and preserves plaintext", async () => {
+    expect(await countV1Rows()).toBe(20);
+
     const rotator = createEnvMasterKeyProvider({
       env: {
         KUMIKO_SECRETS_MASTER_KEY_V1: SEED_V1_KEY,
@@ -184,6 +192,17 @@ describe("rotate-job circuit-breaker", () => {
         KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "2",
       },
     });
+
+    // Snapshot pre-rotation ciphertext — rotate.job.ts's header comment
+    // claims "the ciphertext itself never changes, only the DEK wrapper".
+    // Assert that invariant below instead of only checking kekVersion/
+    // plaintext, which a rewrap-that-re-encrypts would also satisfy.
+    const preRotation = await selectMany<{ key: string; envelope: StoredEnvelope }>(
+      stack.db,
+      tenantSecretsTable,
+      { tenantId: admin.tenantId },
+    );
+    const ciphertextByKey = new Map(preRotation.map((row) => [row.key, row.envelope.ciphertext]));
 
     await rotateJob({ batchSize: 10, maxFailures: 5 }, jobCtx(rotator));
 
@@ -209,6 +228,9 @@ describe("rotate-job circuit-breaker", () => {
     expect(rows).toHaveLength(20);
     for (const row of rows) {
       expect(row.kekVersion).toBe(2);
+      const expectedCiphertext = ciphertextByKey.get(row.key);
+      expect(expectedCiphertext).toBeDefined();
+      expect(row.envelope.ciphertext).toBe(expectedCiphertext as string);
       const expectedIndex = row.key.split("-").at(-1);
       const plaintext = await decryptValue(decodeStoredEnvelope(row.envelope), verifier);
       expect(plaintext).toBe(`secret-${expectedIndex}`);

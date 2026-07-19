@@ -503,21 +503,12 @@ export function Gallery(): ReactNode {
               ]}
               rows={INVOICE_ITEMS}
               rowKey={(r) => r.item}
+              footer={[
+                { label: "Subtotal", value: "$2,437.00" },
+                { label: "Tax", value: "$0.00" },
+                { label: "Total Due", value: "$2,437.00", emphasize: true },
+              ]}
             />
-            <div className="mt-3 space-y-1 text-sm">
-              <div className="text-muted-foreground flex justify-between">
-                <span>Subtotal</span>
-                <span className="tabular-nums">$2,437.00</span>
-              </div>
-              <div className="text-muted-foreground flex justify-between">
-                <span>Tax</span>
-                <span className="tabular-nums">$0.00</span>
-              </div>
-              <div className="border-border flex justify-between border-t pt-2 font-semibold">
-                <span>Total Due</span>
-                <span className="tabular-nums">$2,437.00</span>
-              </div>
-            </div>
           </div>
           <div className="flex justify-between gap-2 border-t px-6 py-4">
             <Button variant="secondary">Download PDF</Button>

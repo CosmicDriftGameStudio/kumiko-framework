@@ -6,6 +6,16 @@ export function formatWhen(value: string): string {
   try {
     return Temporal.Instant.from(value).toLocaleString();
   } catch {
-    return value;
+    // Temporal.Instant.from requires a UTC designator/offset — offset-less
+    // timestamps (still valid `new Date` input) throw here. Retry as a
+    // local wall-clock time before giving up and returning the raw string.
+    try {
+      return Temporal.PlainDateTime.from(value)
+        .toZonedDateTime(Temporal.Now.timeZoneId())
+        .toInstant()
+        .toLocaleString();
+    } catch {
+      return value;
+    }
   }
 }

@@ -139,6 +139,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // now. Deliberately NOT re-checking strictEmailVerification here:
       // MfaVerifyOptions has no such flag, and email verification can't
       // regress between login and verify within the 10-minute window.
+      if (!userRow) return invalidChallengeToken();
       if (
         userRow?.status === USER_STATUS.Restricted ||
         userRow?.status === USER_STATUS.DeletionRequested ||

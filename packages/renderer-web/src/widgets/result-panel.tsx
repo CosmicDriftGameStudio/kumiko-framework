@@ -54,6 +54,12 @@ export interface ResultColumn<Row> {
   readonly cell: (row: Row) => ReactNode;
 }
 
+export interface ResultTableFooterRow {
+  readonly label: string;
+  readonly value: ReactNode;
+  readonly emphasize?: boolean;
+}
+
 /** Statische, prop-getriebene Ergebnistabelle für berechnete Zeilen (Tranchen,
  *  Szenarien). Nimmt dem Screen die `<table>`+tabular-nums-Ketten ab.
  *  ponytail: bewusst die minimale Read-only-Tabelle — für Sort/Pager/Facets
@@ -65,6 +71,7 @@ export function ResultTable<Row>({
   testId,
   className,
   card,
+  footer,
 }: {
   readonly columns: readonly ResultColumn<Row>[];
   readonly rows: readonly Row[];
@@ -74,6 +81,11 @@ export function ResultTable<Row>({
   /** Rahmen-Look wie die CRUD-Liste (DataTable): gerundeter Border-Container +
    *  bg-muted-Header-Band. Default = bare (nur die Tabelle, ohne Container). */
   readonly card?: boolean;
+  /** Summary rows (Subtotal/Tax/Total) rendered as real `<tr>`s in the same
+   *  `<table>` instead of a separate flex-div next to it — guarantees
+   *  column-alignment to the last (typically "Amount") column instead of
+   *  approximating it with an independent layout. */
+  readonly footer?: readonly ResultTableFooterRow[];
 }): ReactNode {
   const table = (
     <div className="overflow-x-auto">
@@ -109,6 +121,28 @@ export function ResultTable<Row>({
                   {col.cell(row)}
                 </td>
               ))}
+            </tr>
+          ))}
+          {footer?.map((row, i) => (
+            <tr
+              key={row.label}
+              className={cn(i === 0 && "border-t", row.emphasize === true && "font-semibold")}
+            >
+              <td
+                colSpan={Math.max(columns.length - 1, 1)}
+                className={cn(
+                  "py-1.5 text-muted-foreground",
+                  card === true && "px-3",
+                  row.emphasize === true && "text-foreground",
+                )}
+              >
+                {row.label}
+              </td>
+              {columns.length > 1 && (
+                <td className={cn("py-1.5 text-right tabular-nums", card === true && "px-3")}>
+                  {row.value}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
