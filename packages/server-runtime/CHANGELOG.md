@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.158.0
+
+### Minor Changes
+
+- 7d230f2: runProdApp now sends default security headers on every response: HSTS
+  (`max-age=31536000; includeSubDomains`), `X-Frame-Options: DENY`,
+  `X-Content-Type-Options: nosniff` and `Referrer-Policy:
+strict-origin-when-cross-origin`. A Content-Security-Policy default is
+  opt-in via the new `securityHeaders.csp` option. Headers a response
+  already set (e.g. hostDispatch's per-host CSP) are never overridden;
+  `securityHeaders: false` disables the block, the object form overrides
+  or disables individual headers.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.158.0
+- @cosmicdrift/kumiko-bundled-features@0.158.0
+
 ## 0.157.3
 
 ### Patch Changes
