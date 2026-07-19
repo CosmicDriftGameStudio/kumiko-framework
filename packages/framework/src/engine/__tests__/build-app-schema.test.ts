@@ -233,7 +233,7 @@ describe("buildAppSchema", () => {
       }
     ).fields;
     expect(fields["title"]?.["searchable"]).toBe(true);
-    // Felder ohne searchable tragen den Key nicht (kein false-Müll).
+    // Fields without searchable don't carry the key (no false-litter).
     expect(fields["name"]?.["searchable"]).toBeUndefined();
   });
 
