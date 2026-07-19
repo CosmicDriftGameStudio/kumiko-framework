@@ -40,7 +40,7 @@ export const noteEntity = createEntity({
 // Plain EntityTableMeta, NOT a branded EntityTable: store_notes is a deliberate
 // unmanaged direct-write store (r.storeTable below), so the forget hook may
 // updateMany/deleteMany it directly — the meta carries no executor-only brand.
-export const notesTable = buildEntityTableMeta("note", noteEntity);
+export const notesTable = buildEntityTableMeta("note", noteEntity, { source: "unmanaged" });
 
 export const notesFeature = defineFeature("notes", (r) => {
   r.requires("user-data-rights");
@@ -49,7 +49,7 @@ export const notesFeature = defineFeature("notes", (r) => {
   // it a rebuildable implicit projection whose replay finds zero note events
   // and wipes the table (or un-forgets anonymized rows) on the next rebuild
   // (#498). r.storeTable keeps the DDL, opts out of implicit rebuild.
-  r.storeTable(buildEntityTableMeta("note", noteEntity), {
+  r.storeTable(notesTable, {
     reason: "read_side.notes_direct_write",
   });
 

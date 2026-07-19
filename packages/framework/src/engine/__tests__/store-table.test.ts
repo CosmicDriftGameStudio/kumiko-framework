@@ -62,6 +62,19 @@ describe("r.storeTable — declaration", () => {
     ).toThrow(/options\.reason must be a non-empty string/);
   });
 
+  test("rejects an EntityTableMeta whose source is not 'unmanaged' (#1209)", () => {
+    const managedEntity = createEntity({
+      table: "rt_probe_managed",
+      fields: { name: createTextField() },
+    });
+    const managedMeta = buildEntityTableMeta("rt-probe-managed", managedEntity);
+    expect(() =>
+      defineFeature("probe", (r) => {
+        r.storeTable(managedMeta, { reason: "test" });
+      }),
+    ).toThrow(/requires source: "unmanaged"/);
+  });
+
   test("accepts valid registration and stores meta + reason", () => {
     const feature = defineFeature("probe", (r) => {
       r.storeTable(probeMeta, {
@@ -170,7 +183,7 @@ describe("createRegistry — store tables with PII-annotated fields (#820)", () 
       ip: createTextField({ userOwned: { ownerField: "userId" } }),
     },
   });
-  const piiMeta = buildEntityTableMeta("rt-pii-probe", piiEntity);
+  const piiMeta = buildEntityTableMeta("rt-pii-probe", piiEntity, { source: "unmanaged" });
 
   test("buildEntityTableMeta records the subject-annotated field names", () => {
     expect(piiMeta.piiSubjectFields).toEqual(["ip"]);
