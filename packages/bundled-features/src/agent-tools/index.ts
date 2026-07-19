@@ -1,2 +1,9 @@
 export { buildToolCatalog } from "./tool-catalog";
-export type { RegistrySearchView, ToolDefinition } from "./types";
+export type { ToolCallResult, ToolDispatcher } from "./tool-dispatch";
+export { dispatchToolCall } from "./tool-dispatch";
+export type {
+  RegistrySearchView,
+  ToolCatalog,
+  ToolDefinition,
+  ToolDispatchDescriptor,
+} from "./types";
