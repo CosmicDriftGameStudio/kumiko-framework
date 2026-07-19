@@ -26,10 +26,15 @@ export const membersQuery = defineQueryHandler({
     // small dedicated pool (PgKmsAdapter default max: 4) — firing 2 calls
     // per row concurrently for every row exhausts it once membership counts
     // exceed a handful, surfacing as "the connection was closed".
-    const decryptedByUserId = new Map<string, { email: string | null; displayName: string | null }>();
+    const decryptedByUserId = new Map<
+      string,
+      { email: string | null; displayName: string | null }
+    >();
     for (const user of users) {
       const email =
-        typeof user.email === "string" ? await decryptStoredPii(user.email, "tenant:members") : null;
+        typeof user.email === "string"
+          ? await decryptStoredPii(user.email, "tenant:members")
+          : null;
       const displayName =
         typeof user.displayName === "string"
           ? await decryptStoredPii(user.displayName, "tenant:members")
