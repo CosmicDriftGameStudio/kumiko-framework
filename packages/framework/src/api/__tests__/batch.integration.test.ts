@@ -406,7 +406,7 @@ describe("POST /api/batch", () => {
 
   test("idempotency: corrupted cache entry is treated as miss and re-runs", async () => {
     const requestId = "batch-rid-corrupt";
-    await stack.redis.redis.set(`kumiko:idempotency:${requestId}`, "{not-json", "EX", 60);
+    await stack.redis.redis.set(`${RedisKeys.idempotency}${requestId}`, "{not-json", "EX", 60);
 
     const res = await stack.http.batch(
       [{ type: "batch:write:item:create", payload: { name: "after-corrupt" } }],
@@ -473,5 +473,6 @@ describe("POST /api/write (single write runs in its own transaction)", () => {
     expect(afterAudits).toHaveLength(beforeAudits.length);
   });
 });
+
 
 
