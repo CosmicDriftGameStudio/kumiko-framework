@@ -26,7 +26,9 @@ import {
   createDemoTasksFeature,
   renderDemoSeedFile,
   renderDemoTasksFeatureFile,
+  renderDemoTasksI18n,
   renderDemoTasksIndex,
+  renderDemoTasksWebIndex,
 } from "./scaffold-demo-tasks";
 import { scaffoldDeploy } from "./scaffold-deploy";
 
@@ -101,11 +103,18 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, "src", "run-config.ts"), renderRunConfig(options.features));
   files.push("src/run-config.ts");
 
-  mkdirSync(join(destination, "src", "features", "tasks"), { recursive: true });
+  mkdirSync(join(destination, "src", "features", "tasks", "web"), { recursive: true });
   write(join(destination, "src", "features", "tasks", "feature.ts"), renderDemoTasksFeatureFile());
   files.push("src/features/tasks/feature.ts");
+  write(join(destination, "src", "features", "tasks", "i18n.ts"), renderDemoTasksI18n());
+  files.push("src/features/tasks/i18n.ts");
   write(join(destination, "src", "features", "tasks", "index.ts"), renderDemoTasksIndex());
   files.push("src/features/tasks/index.ts");
+  write(
+    join(destination, "src", "features", "tasks", "web", "index.ts"),
+    renderDemoTasksWebIndex(),
+  );
+  files.push("src/features/tasks/web/index.ts");
   write(join(destination, "src", "seed.ts"), renderDemoSeedFile());
   files.push("src/seed.ts");
 
@@ -600,11 +609,12 @@ function renderClient(): string {
     "// hinzu — symmetrisch zu APP_FEATURES auf der Server-Seite.",
     "",
     'import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";',
+    'import { tasksClient } from "./features/tasks/web";',
     'import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";',
     "",
     "createKumikoApp({",
     "  shell: DefaultAppShell,",
-    "  clientFeatures: [emailPasswordClient()],",
+    "  clientFeatures: [emailPasswordClient(), tasksClient],",
     "});",
     "",
   ].join("\n");

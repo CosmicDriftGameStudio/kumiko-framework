@@ -57,7 +57,7 @@ writeFileSync(
     `TEST_DATABASE_URL=${testDb}`,
     `REDIS_URL=${redisUrl}`,
     "JWT_SECRET=hero-demo-e2e-secret-min-32-chars-aaaaa",
-    "KUMIKO_SECRETS_MASTER_KEY_V1=aGVsbG90aGlzaXMzMmJ5dGVzZm9yYWVzMjU2a2V5cw==",
+    "KUMIKO_SECRETS_MASTER_KEY_V1=QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=",
     `KUMIKO_DEV_DB_NAME=kumiko_hero_${demoName.replace(/-/g, "_")}`,
     "",
   ].join("\n"),
@@ -74,4 +74,5 @@ const forward = (sig: NodeJS.Signals) => () => child.kill(sig);
 process.on("SIGTERM", forward("SIGTERM"));
 process.on("SIGINT", forward("SIGINT"));
 child.on("exit", (code) => process.exit(code ?? 0));
+
 

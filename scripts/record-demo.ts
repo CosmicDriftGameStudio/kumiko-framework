@@ -21,7 +21,7 @@
 
 import { execFileSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { connect } from "node:net";
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { type Browser, chromium, type Page } from "playwright";
@@ -191,6 +191,16 @@ const SESSION = "kumiko-demo";
 /** Isolated cwd — never scaffold into this repo's ./demo/ sample app. */
 const RECORD_WORKDIR =
   process.env.RECORD_DEMO_WORKDIR ?? join("/tmp", "kumiko-hero-recording");
+
+const PATCH_SCRIPT_SRC = join(import.meta.dir, "demos", "patch-published-scaffold-tasks.ts");
+
+function seedRecordingWorkdir(): void {
+  mkdirSync(RECORD_WORKDIR, { recursive: true });
+  writeFileSync(
+    join(RECORD_WORKDIR, "patch-published-scaffold-tasks.ts"),
+    readFileSync(PATCH_SCRIPT_SRC),
+  );
+}
 
 const OSASCRIPT_MS = 8_000;
 
@@ -591,6 +601,7 @@ async function main(): Promise<void> {
   }
 
   geom = resolveCaptureGeometry();
+  seedRecordingWorkdir();
   // biome-ignore lint/suspicious/noConsole: progress UX
   console.log(
     `[record-demo] workdir=${RECORD_WORKDIR}\n` +
@@ -650,6 +661,8 @@ if (import.meta.main) {
 // parseArgs + resolveDemoByPrefix are pure; the rest (tmux/ffmpeg/playwright
 // orchestration) needs a real Mac to exercise and isn't exported.
 export { parseArgs, resolveDemoByPrefix };
+
+
 
 
 

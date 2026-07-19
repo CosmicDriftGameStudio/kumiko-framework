@@ -35,6 +35,7 @@ const listScreen: EntityListScreenDefinition = {
   entity: "task",
   columns: ["title", "status", "isUrgent", "priority"],
   defaultSort: { field: "title", dir: "asc" },
+  rowActions: [{ kind: "navigate", id: "edit", label: "Edit", screen: "task-edit" }],
 };
 
 const editScreen: EntityEditScreenDefinition = {
@@ -48,6 +49,15 @@ const editScreen: EntityEditScreenDefinition = {
 
 const open = { access: { openToAll: true } } as const;
 
+const tasksTranslationKeys = {
+  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
+  "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
+  "tasks:entity:task:field:title": { de: "Titel", en: "Title" },
+  "tasks:entity:task:field:status": { de: "Status", en: "Status" },
+  "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority" },
+  "tasks:entity:task:field:isUrgent": { de: "Dringend", en: "Urgent" },
+} as const;
+
 /** Canonical demo feature — keep in sync with `renderDemoTasksFeatureFile()`. */
 export function createDemoTasksFeature(): FeatureDefinition {
   return defineFeature("tasks", (r) => {
@@ -59,6 +69,7 @@ export function createDemoTasksFeature(): FeatureDefinition {
     r.queryHandler(defineEntityDetailHandler("task", taskEntity, open));
     r.screen(listScreen);
     r.screen(editScreen);
+    r.translations({ keys: tasksTranslationKeys });
     r.nav({ id: "tasks", label: "Tasks", order: 10, screen: "tasks:screen:task-list" });
     r.nav({
       id: "task-new",
@@ -90,6 +101,7 @@ import type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { tasksTranslationKeys } from "./i18n";
 
 const taskEntity = createEntity({
   fields: {
@@ -106,6 +118,7 @@ const listScreen: EntityListScreenDefinition = {
   entity: "task",
   columns: ["title", "status", "isUrgent", "priority"],
   defaultSort: { field: "title", dir: "asc" },
+  rowActions: [{ kind: "navigate", id: "edit", label: "Edit", screen: "task-edit" }],
 };
 
 const editScreen: EntityEditScreenDefinition = {
@@ -128,6 +141,7 @@ export const tasksFeature = defineFeature("tasks", (r) => {
   r.queryHandler(defineEntityDetailHandler("task", taskEntity, open));
   r.screen(listScreen);
   r.screen(editScreen);
+  r.translations({ keys: tasksTranslationKeys });
   r.nav({ id: "tasks", label: "Tasks", order: 10, screen: "tasks:screen:task-list" });
   r.nav({
     id: "task-new",
@@ -137,6 +151,52 @@ export const tasksFeature = defineFeature("tasks", (r) => {
     order: 10,
   });
 });
+`;
+}
+
+export function renderDemoTasksI18n(): string {
+  return `// Server-side translation keys for the demo tasks feature.
+
+import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
+
+export const tasksTranslationKeys = {
+  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
+  "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
+  "tasks:entity:task:field:title": { de: "Titel", en: "Title" },
+  "tasks:entity:task:field:status": { de: "Status", en: "Status" },
+  "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority" },
+  "tasks:entity:task:field:isUrgent": { de: "Dringend", en: "Urgent" },
+} as const;
+
+export const tasksTranslations: TranslationsByLocale = {
+  de: {
+    "screen:task-list.title": "Aufgaben",
+    "screen:task-edit.title": "Aufgabe",
+    "tasks:entity:task:field:title": "Titel",
+    "tasks:entity:task:field:status": "Status",
+    "tasks:entity:task:field:priority": "Priorität",
+    "tasks:entity:task:field:isUrgent": "Dringend",
+  },
+  en: {
+    "screen:task-list.title": "Tasks",
+    "screen:task-edit.title": "Task",
+    "tasks:entity:task:field:title": "Title",
+    "tasks:entity:task:field:status": "Status",
+    "tasks:entity:task:field:priority": "Priority",
+    "tasks:entity:task:field:isUrgent": "Urgent",
+  },
+};
+`;
+}
+
+export function renderDemoTasksWebIndex(): string {
+  return `import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import { tasksTranslations } from "../i18n";
+
+export const tasksClient: ClientFeatureDefinition = {
+  name: "tasks",
+  translations: tasksTranslations,
+};
 `;
 }
 
