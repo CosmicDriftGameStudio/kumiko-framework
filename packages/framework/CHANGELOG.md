@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.156.0
+
+### Minor Changes
+
+- c7ca222: Merge `r.rawTable()` and `r.unmanagedTable()` into a single `r.rawTable(meta, options)`.
+  Both registrars carried the same reason/audit contract and only differed in whether the
+  table value was a legacy Drizzle `PgTable` (`rawTable`) or the framework-native
+  `EntityTableMeta` (`unmanagedTable`, consumed by `migrate-runner`). Now that the
+  drizzle-cut has removed `PgTable` from the framework's own dialect, `r.rawTable()`
+  takes an `EntityTableMeta` — the result of `defineUnmanagedTable(...)` /
+  `buildEntityTableMeta(...)` — same as `r.unmanagedTable()` did. `r.unmanagedTable()` is
+  removed; call sites switch to `r.rawTable(meta, options)` with no other shape change.
+
+### Patch Changes
+
+- 77ea09f: `ctx.systemWriteAs` in seed-migrations accepts an optional `extraRoles` 4th
+  argument. `hasAccess` has no system-bypass — handlers gated on an explicit
+  role (e.g. `access: { roles: ["SystemAdmin"] }` or `["anonymous"]`) reject
+  the bare `system` actor with `access_denied`. Seeds that need to reach such a
+  handler can now pass the required role(s) alongside `createSystemUser`'s
+  existing `extraRoles` support, instead of being unable to call it at all.
+
 ## 0.155.1
 
 ## 0.155.0
