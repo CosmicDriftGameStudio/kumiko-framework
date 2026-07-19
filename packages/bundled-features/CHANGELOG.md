@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.157.2
+
+### Patch Changes
+
+- 08c40d6: Fix `tenant:query:members` / `tenant:query:invitations` decrypting PII fields concurrently via `Promise.all`, which fired 2 `decryptStoredPii` calls per row against `PgKmsAdapter`'s own small dedicated connection pool (default `max: 4`). Tenants with more than a couple members/invitations exhausted that pool, surfacing as `"the connection was closed"` (#1257). Both handlers now decrypt sequentially; `members.query.ts` additionally dedupes by user instead of by membership row.
+  - @cosmicdrift/kumiko-framework@0.157.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.157.2
+  - @cosmicdrift/kumiko-headless@0.157.2
+  - @cosmicdrift/kumiko-renderer@0.157.2
+  - @cosmicdrift/kumiko-renderer-web@0.157.2
+
 ## 0.157.1
 
 ### Patch Changes
