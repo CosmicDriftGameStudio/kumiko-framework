@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.156.1
+
+### Patch Changes
+
+- 9ec4841: Scaffolded demo `tasks` feature ships i18n keys, client translations, and list edit rowAction so `bun dev` boots on current validators.
+  - @cosmicdrift/kumiko-framework@0.156.1
+  - @cosmicdrift/kumiko-bundled-features@0.156.1
+  - @cosmicdrift/kumiko-server-runtime@0.156.1
+
 ## 0.156.0
 
 ### Patch Changes
