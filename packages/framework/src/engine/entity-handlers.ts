@@ -176,7 +176,15 @@ export function defineEntityWriteHandler(
         changes: buildUpdateSchema(entity),
       });
       handler = async (event, ctx) =>
-        executor.update(event.payload as UpdatePayload, event.user, ctx.db); // @cast-boundary engine-payload
+        // skipUnchanged (#464): API-driven updates diff against the stored
+        // row so a resubmitted-but-identical field doesn't force a fresh
+        // pii/encrypted ciphertext. Direct executor.update() callers (e.g.
+        // KEK-rotation, the user-data-rights #494 backfill) don't go through
+        // this handler and keep today's always-re-encrypt behavior, which
+        // they rely on to intentionally force a fresh event/ciphertext.
+        executor.update(event.payload as UpdatePayload, event.user, ctx.db, {
+          skipUnchanged: true,
+        }); // @cast-boundary engine-payload
       break;
     case "delete":
       schema = idSchema;
