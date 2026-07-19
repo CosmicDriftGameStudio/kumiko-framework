@@ -6,7 +6,12 @@ import type {
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import type { ColumnRendererProps, FeatureSchema, NavApi } from "@cosmicdrift/kumiko-renderer";
+import type {
+  AppSchema,
+  ColumnRendererProps,
+  FeatureSchema,
+  NavApi,
+} from "@cosmicdrift/kumiko-renderer";
 import { createStaticLocaleResolver } from "@cosmicdrift/kumiko-renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -146,6 +151,54 @@ describe("createKumikoApp", () => {
     mountRoot();
     const empty: FeatureSchema = { ...baseSchema, screens: [] };
     expect(() => createKumikoApp({ schema: empty, dispatcher: makeDispatcher() })).toThrow(
+      /no screens/,
+    );
+  });
+
+  test("fallback screen skips access-restricted screens across features (#1176)", async () => {
+    mountRoot();
+    const restrictedFeature: FeatureSchema = {
+      featureName: "user",
+      entities: { task: taskEntity },
+      screens: [{ ...listScreen, id: "user-list", access: { roles: ["SystemAdmin"] } }],
+    };
+    const openFeature: FeatureSchema = { ...baseSchema, featureName: "tasks" };
+    const schema: AppSchema = { features: [restrictedFeature, openFeature] };
+    await mountApp({ schema, dispatcher: makeDispatcher() });
+    // Landing on user-list (SystemAdmin-only) would show an access-denied
+    // banner instead — the tasks:task-edit form must win instead.
+    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+  });
+
+  test("fallback screen: an openToAll screen counts as accessible", async () => {
+    mountRoot();
+    const restrictedFeature: FeatureSchema = {
+      featureName: "user",
+      entities: { task: taskEntity },
+      screens: [{ ...editScreen, id: "user-edit", access: { roles: ["SystemAdmin"] } }],
+    };
+    const openFeature: FeatureSchema = {
+      featureName: "tasks",
+      entities: { task: taskEntity },
+      screens: [{ ...listScreen, access: { openToAll: true } }],
+    };
+    const schema: AppSchema = { features: [restrictedFeature, openFeature] };
+    await mountApp({ schema, dispatcher: makeDispatcher() });
+    expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
+  });
+
+  test("all screens access-restricted → throws (no accessible fallback)", () => {
+    mountRoot();
+    const restrictedOnly: AppSchema = {
+      features: [
+        {
+          featureName: "user",
+          entities: { task: taskEntity },
+          screens: [{ ...editScreen, access: { roles: ["SystemAdmin"] } }],
+        },
+      ],
+    };
+    expect(() => createKumikoApp({ schema: restrictedOnly, dispatcher: makeDispatcher() })).toThrow(
       /no screens/,
     );
   });

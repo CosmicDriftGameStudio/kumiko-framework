@@ -129,6 +129,22 @@ function readInjectedSchema(): AppSchema | FeatureSchema | undefined {
   return w.__KUMIKO_SCHEMA__;
 }
 
+// Erstes Screen über alle Features in deklarierter Reihenfolge, dessen
+// `access` niemanden ausschließt (undefined oder openToAll). Die Landing-
+// Route wird VOR Auth-Resolution gewählt, kennt also keine User-Rollen —
+// ein role-restricted Screen (z.B. bundled user/tenant, SystemAdmin-only)
+// darf hier nie gewinnen, sonst landet jeder Nicht-Admin auf einem
+// Access-Denied-Screen (#1176).
+function firstOpenScreenQn(features: readonly FeatureSchema[]): string | undefined {
+  for (const feature of features) {
+    const openScreen = feature.screens.find(
+      (s) => s.access === undefined || "openToAll" in s.access,
+    );
+    if (openScreen !== undefined) return qualifyScreenId(feature.featureName, openScreen.id);
+  }
+  return undefined;
+}
+
 export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonly root: Root } {
   const rootId = options.rootId ?? "root";
   const container = document.getElementById(rootId);
@@ -154,19 +170,11 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   }
   const app = toAppSchema(rawSchema);
 
-  // Fallback-Screen: erstes Screen über alle Features in deklarierter
-  // Reihenfolge. War vorher schema.screens[0], jetzt search the first
-  // feature with screens.
-  const firstFeatureWithScreens = app.features.find((f) => f.screens.length > 0);
-  const firstScreen = firstFeatureWithScreens?.screens[0];
-  const fallbackQn =
-    options.screenQn ??
-    (firstScreen !== undefined && firstFeatureWithScreens !== undefined
-      ? qualifyScreenId(firstFeatureWithScreens.featureName, firstScreen.id)
-      : undefined);
+  // Fallback-Screen falls kein explizites screenQn übergeben wurde.
+  const fallbackQn = options.screenQn ?? firstOpenScreenQn(app.features);
   if (!fallbackQn) {
     throw new Error(
-      "createKumikoApp: schema contains no screens. Add at least one entry to `schema.screens` or pass `screenQn` explicitly.",
+      "createKumikoApp: schema contains no screens accessible without a role restriction. Add at least one entry to `schema.screens` without `access.roles`, or pass `screenQn` explicitly.",
     );
   }
 
