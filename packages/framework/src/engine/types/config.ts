@@ -89,6 +89,13 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly scope: ConfigScope;
   readonly access: ConfigKeyAccess;
   readonly encrypted?: boolean;
+  /** User/admin may legitimately see the value — unlike `encrypted`
+   *  (shared master-key cipher), this is the subject-KMS: the value is
+   *  encrypted under the DEK of the scope actually written to (tenant-row
+   *  → tenant subject, user-row → user subject). Only on `type: "text"`,
+   *  `scope !== "system"` (no subject there), and mutually exclusive with
+   *  `encrypted` (kumiko-platform#231/#459). */
+  readonly piiEncrypted?: boolean;
   readonly options?: readonly string[];
   readonly bounds?: ConfigBounds;
   // Per-key string-pattern validation for type="text". The value must match

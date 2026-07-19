@@ -10,6 +10,7 @@ import type { KumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   checkScopeWriteAccess,
   hasConfigAccess,
+  resolvePiiSubject,
   resolveScopeIds,
   validatePattern,
   validateScope,
@@ -98,6 +99,28 @@ describe("resolveScopeIds", () => {
       tenantId: tenant,
       userId: "user-1",
     });
+  });
+});
+
+describe("resolvePiiSubject (kumiko-platform#231/#459)", () => {
+  const tenant = "tenant-9" as TenantId;
+
+  test("tenant scope resolves to the tenant subject", () => {
+    expect(resolvePiiSubject(ConfigScopes.tenant, tenant, null)).toEqual({
+      kind: "tenant",
+      tenantId: tenant,
+    });
+  });
+
+  test("user scope resolves to the user subject — the row's target user, not necessarily the writer", () => {
+    expect(resolvePiiSubject(ConfigScopes.user, tenant, "user-1")).toEqual({
+      kind: "user",
+      userId: "user-1",
+    });
+  });
+
+  test("user scope without a userId throws instead of silently falling back to tenant", () => {
+    expect(() => resolvePiiSubject(ConfigScopes.user, tenant, null)).toThrow(/userId is null/);
   });
 });
 

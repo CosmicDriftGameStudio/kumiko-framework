@@ -161,6 +161,41 @@ export function validateConfigKeyBacking(feature: FeatureDefinition): void {
   }
 }
 
+// --- Config key piiEncrypted compatibility (kumiko-platform#231/#459) ---
+
+export function validateConfigKeyPiiEncrypted(feature: FeatureDefinition): void {
+  for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
+    if (!keyDef.piiEncrypted) continue;
+
+    if (keyDef.type !== "text") {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but type="${keyDef.type}" — piiEncrypted only applies to text keys`,
+      );
+    }
+
+    // system scope has no subject (no tenant, no user) for the subject-KMS
+    // to encrypt under.
+    if (keyDef.scope === "system") {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but scope="system" — system-scope has no subject (tenant/user) for the subject-KMS to encrypt under`,
+      );
+    }
+
+    // Mutually exclusive with the shared-cipher path: a config value is
+    // either subject-keyed (piiEncrypted) or master-key-keyed (encrypted/
+    // backing="secrets"), never both — unlike entity fields, which allow
+    // both markers together (double-wrap, e.g. auth-mfa.totpSecret) because
+    // entity rows decrypt through a fixed executor pipeline that peels both
+    // layers. Config values have no such pipeline; picking one keeps the
+    // resolver simple.
+    if (isEncryptedAtRest(keyDef)) {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has both piiEncrypted=true and encrypted/backing="secrets" — pick one: piiEncrypted (subject-KMS, user-visible) or encrypted (shared cipher, server-only values)`,
+      );
+    }
+  }
+}
+
 // --- Config key cross-feature reference validation ---
 
 export function validateConfigReads(

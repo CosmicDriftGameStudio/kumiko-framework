@@ -99,6 +99,25 @@ export async function encryptPiiValueForSubject(
   return encryptValue(subject, dek, value);
 }
 
+// Single-value decrypt for callers that don't have an entity/field-map to
+// pass through decryptPiiFieldValues (config values). The subject lives
+// inside the ciphertext itself, so no subject/scope resolution is needed
+// on this side — only the encrypt direction has to pick one.
+export async function decryptPiiValueForSubject(
+  kms: LocalKeyKmsAdapter,
+  value: string,
+  kmsCtx: KmsContext,
+): Promise<string> {
+  if (!isPiiCiphertext(value)) return value;
+  const { subject, blob } = parseCiphertext(value);
+  try {
+    return decryptValue(await kms.getKey(subject, kmsCtx), blob);
+  } catch (e) {
+    if (!(e instanceof KeyErasedError)) throw e;
+    return PII_ERASED_SENTINEL;
+  }
+}
+
 export interface EncryptPiiOptions {
   readonly onlyKeys?: Iterable<string>;
   // Write-time tenant for tenantOwned fields on rows without a tenantId column.

@@ -4,7 +4,9 @@ import { InMemoryKmsAdapter } from "../in-memory-kms-adapter";
 import { KeyNotFoundError, type KmsContext, subjectIdFromKey } from "../kms-adapter";
 import {
   decryptPiiFieldValues,
+  decryptPiiValueForSubject,
   encryptPiiFieldValues,
+  encryptPiiValueForSubject,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "../pii-field-encryption";
@@ -258,5 +260,34 @@ describe("piiEncrypted alias (kumiko-platform#457)", () => {
 
     const read = await decryptPiiFieldValues(stored, fields, kms, KMS_CTX);
     expect(read["iban"]).toBe(PII_ERASED_SENTINEL);
+  });
+});
+
+describe("encryptPiiValueForSubject / decryptPiiValueForSubject (kumiko-platform#459)", () => {
+  test("round-trips a single value for a tenant subject", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const subject = { kind: "tenant" as const, tenantId: UUID_B };
+    const stored = await encryptPiiValueForSubject(kms, subject, "DE89370400440532013000", KMS_CTX);
+    expect(isPiiCiphertext(stored)).toBe(true);
+    expect(stored).toStartWith(`kumiko-pii:v1:tenant:${UUID_B}:`);
+
+    const read = await decryptPiiValueForSubject(kms, stored, KMS_CTX);
+    expect(read).toBe("DE89370400440532013000");
+  });
+
+  test("erased subject: decrypt yields the sentinel", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const subject = { kind: "user" as const, userId: UUID_A };
+    const stored = await encryptPiiValueForSubject(kms, subject, "+49 151 00000000", KMS_CTX);
+    await kms.eraseKey(subject);
+
+    const read = await decryptPiiValueForSubject(kms, stored, KMS_CTX);
+    expect(read).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("plaintext passes through decrypt unchanged (pre-engine rows)", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const read = await decryptPiiValueForSubject(kms, "plain-value", KMS_CTX);
+    expect(read).toBe("plain-value");
   });
 });

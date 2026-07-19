@@ -9,6 +9,7 @@ import {
   validateConfigKeyBacking,
   validateConfigKeyBounds,
   validateConfigKeyComputed,
+  validateConfigKeyPiiEncrypted,
   validateConfigKeyRequired,
   validateConfigReads,
   warnOnToggleableDependencies,
@@ -170,6 +171,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateConfigKeyComputed(feature);
     validateConfigKeyAllowPerRequest(feature);
     validateConfigKeyBacking(feature);
+    validateConfigKeyPiiEncrypted(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateMultiStreamProjections(feature);
     // Vor validateScreens: dessen visible/entityId-Feldref-Checks werfen für
