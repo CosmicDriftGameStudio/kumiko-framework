@@ -14,3 +14,4 @@ export type {
   SignupSetup,
 } from "./run-prod-app";
 export { runProdApp } from "./run-prod-app";
+export type { SecurityHeadersOption } from "./security-headers";
