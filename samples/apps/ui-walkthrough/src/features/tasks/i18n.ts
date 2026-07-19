@@ -7,6 +7,7 @@ export const tasksTranslations: TranslationsByLocale = {
   de: {
     "tasks.nav.list": "Aufgaben",
     "tasks.nav.new": "Neue Aufgabe",
+    "tasks:actions.edit": "Bearbeiten",
 
     "screen:task-list.title": "Aufgaben",
     "screen:task-edit.title": "Aufgabe",
@@ -20,6 +21,7 @@ export const tasksTranslations: TranslationsByLocale = {
   en: {
     "tasks.nav.list": "Tasks",
     "tasks.nav.new": "New task",
+    "tasks:actions.edit": "Edit",
 
     "screen:task-list.title": "Tasks",
     "screen:task-edit.title": "Task",
