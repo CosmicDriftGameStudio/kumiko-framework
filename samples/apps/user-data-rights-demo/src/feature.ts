@@ -47,7 +47,7 @@ import { z } from "zod";
 const FEATURE_NAME = "todos";
 
 export const todoEntity = createEntity({
-  table: "read_todos",
+  table: "store_todos",
   idType: "uuid",
   fields: {
     // nullable: bei DSGVO-anonymize wird authorId auf null gesetzt
@@ -58,8 +58,8 @@ export const todoEntity = createEntity({
   },
 });
 
-// Plain EntityTableMeta, NOT a branded EntityTable: read_todos is a deliberate
-// unmanaged direct-write store (r.rawTable below), so the create handler +
+// Plain EntityTableMeta, NOT a branded EntityTable: store_todos is a deliberate
+// unmanaged direct-write store (r.storeTable below), so the create handler +
 // forget hook write it directly — the meta carries no executor-only brand.
 export const todosTable = buildEntityTableMeta("todo", todoEntity);
 
@@ -100,14 +100,14 @@ const listTodosHandler = defineQueryHandler({
 export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("user-data-rights");
 
-  // read_todos is a direct-write store: the create handler `insertOne`s and
+  // store_todos is a direct-write store: the create handler `insertOne`s and
   // the forget hook `updateMany`/`deleteMany`s rows WITHOUT emitting lifecycle
   // events. Registering it as r.entity would make it a rebuildable implicit
   // projection whose replay finds zero todo events and swaps an empty shadow
   // over the live table — wiping every todo (and silently un-forgetting
-  // anonymized rows) on the next projection rebuild (#498). r.rawTable
+  // anonymized rows) on the next projection rebuild (#498). r.storeTable
   // keeps the migration DDL but opts the table out of implicit rebuild.
-  r.rawTable(buildEntityTableMeta("todo", todoEntity), {
+  r.storeTable(buildEntityTableMeta("todo", todoEntity), {
     reason: "read_side.todos_direct_write",
   });
   r.writeHandler(createTodoHandler);

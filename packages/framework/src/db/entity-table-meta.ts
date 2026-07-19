@@ -95,7 +95,7 @@ export type EntityTableMeta = {
   // discriminator nutzen um Warnungen zu rendern ("X tables are unmanaged").
   readonly source: "managed" | "unmanaged";
   // PII-Subject-annotated field names (pii/userOwned/tenantOwned). Set by
-  // buildEntityTableMeta so the registry can reject r.rawTable stores
+  // buildEntityTableMeta so the registry can reject r.storeTable stores
   // whose direct writes would skip the executor's encryption (#820).
   readonly piiSubjectFields?: readonly string[];
 };
@@ -432,8 +432,8 @@ export function buildEntityTableMeta(
 // jede neue defineUnmanagedTable-Stelle prüfen.
 //
 // Heutige use-cases im framework:
-//   - `read_delivery_attempts` — id kommt aus dem Aggregate-Stream
-//   - `read_job_run_logs` — child-table, serial PK, kein tenant-scope
+//   - `store_delivery_attempts` — id kommt aus dem Aggregate-Stream
+//   - `store_job_run_logs` — child-table, serial PK, kein tenant-scope
 export type UnmanagedTableInput = {
   readonly tableName: string;
   readonly columns: readonly ColumnMeta[];

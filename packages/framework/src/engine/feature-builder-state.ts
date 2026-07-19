@@ -22,13 +22,13 @@ import type {
   PreDeleteHookFn,
   ProjectionDefinition,
   QueryHandlerDef,
-  RawTableEntry,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
   RelationDefinition,
   SearchPayloadContributorFn,
   SecretKeyDefinition,
+  StoreTableEntry,
   TranslationKeys,
   TreeActionDef,
   UiHints,
@@ -86,7 +86,7 @@ export type FeatureBuilderState = {
   projections: Record<string, ProjectionDefinition>;
   multiStreamProjections: Record<string, MultiStreamProjectionDefinition>;
   entityProjectionExtensions: Record<string, EntityProjectionExtension[]>;
-  rawTables: Record<string, RawTableEntry>;
+  storeTables: Record<string, StoreTableEntry>;
   authClaimsHooks: AuthClaimsFn[];
   claimKeys: Record<string, ClaimKeyDefinition>;
   screens: Record<string, ScreenDefinition>;
@@ -144,7 +144,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     projections: {},
     multiStreamProjections: {},
     entityProjectionExtensions: {},
-    rawTables: {},
+    storeTables: {},
     authClaimsHooks: [],
     claimKeys: {},
     screens: {},

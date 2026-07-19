@@ -28,7 +28,7 @@ import {
 // PK = event aggregate-id (uuid). Keeps the projection row linked back to
 // its event stream 1:1 — same convention as jobRunsTable + tenantSecretsTable.
 // Event replays stay idempotent (primary-key conflict instead of duplicate rows).
-export const deliveryAttemptsTable = pgTable("read_delivery_attempts", {
+export const deliveryAttemptsTable = pgTable("store_delivery_attempts", {
   id: uuid("id").primaryKey(),
   tenantId: uuid("tenant_id").notNull(),
   notificationType: text("notification_type").notNull(),
@@ -53,7 +53,7 @@ export const deliveryAttemptsTable = pgTable("read_delivery_attempts", {
 // pgTable bleibt source-of-truth für Query-API; Phase 4 leitet das pgTable
 // aus dieser Meta ab.
 export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
-  tableName: "read_delivery_attempts",
+  tableName: "store_delivery_attempts",
   columns: [
     { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
     { name: "tenant_id", pgType: "uuid", notNull: true },

@@ -18,8 +18,8 @@ Stores. Beide Fristen sind Konstanten (`retention-sweep.ts`), Default
 | Store | Mechanismus | Warum |
 |---|---|---|
 | `read_inbound_messages` (event-sourced) | pro Row `receivedAt < cutoff`: `archiveStream` + Row-Delete + `bodyRef`-Objekt löschen | rebuild-safe, siehe unten |
-| `read_mail_seen_messages` (unmanaged) | `deleteMany` auf `seenAt < cutoff`, tenant-scoped | Dedup-Anker braucht nur das Replay-Fenster |
-| `read_mail_sync_cursors` | bleibt | eine Row pro Account, kein Wachstum |
+| `store_mail_seen_messages` (unmanaged) | `deleteMany` auf `seenAt < cutoff`, tenant-scoped | Dedup-Anker braucht nur das Replay-Fenster |
+| `store_mail_sync_cursors` | bleibt | eine Row pro Account, kein Wachstum |
 
 ### Warum `archiveStream`, nicht `executor.forget`
 

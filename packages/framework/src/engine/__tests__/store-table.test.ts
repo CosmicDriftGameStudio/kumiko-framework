@@ -1,9 +1,9 @@
-// Unit tests for r.rawTable() — declaration-time validation + registry
-// aggregation. Post-drizzle-cut merge of the former r.rawTable() (legacy
+// Unit tests for r.storeTable() — declaration-time validation + registry
+// aggregation. Post-drizzle-cut merge of the former r.storeTable() (legacy
 // Drizzle PgTable) and r.unmanagedTable() (EntityTableMeta) — this file
 // absorbs the former unmanaged-table.test.ts coverage under the new name.
 // Full DB roundtrip (setupTestStack pushes the table → INSERT / SELECT)
-// lives in src/__tests__/raw-table.integration.test.ts.
+// lives in src/__tests__/store-table.integration.test.ts.
 
 import { describe, expect, test } from "bun:test";
 import {
@@ -24,7 +24,7 @@ const probeMetaTwo = defineUnmanagedTable({
   columns: [{ name: "id", pgType: "text", notNull: true, primaryKey: true }],
 });
 
-describe("r.rawTable — declaration", () => {
+describe("r.storeTable — declaration", () => {
   test("rejects an invalid table name", () => {
     const badMeta = defineUnmanagedTable({
       tableName: "BadName",
@@ -32,7 +32,7 @@ describe("r.rawTable — declaration", () => {
     });
     expect(() =>
       defineFeature("probe", (r) => {
-        r.rawTable(badMeta, { reason: "test" });
+        r.storeTable(badMeta, { reason: "test" });
       }),
     ).toThrow(/must be a valid identifier/);
   });
@@ -40,8 +40,8 @@ describe("r.rawTable — declaration", () => {
   test("rejects duplicate registrations within one feature", () => {
     expect(() =>
       defineFeature("probe", (r) => {
-        r.rawTable(probeMeta, { reason: "test" });
-        r.rawTable(probeMeta, { reason: "test" });
+        r.storeTable(probeMeta, { reason: "test" });
+        r.storeTable(probeMeta, { reason: "test" });
       }),
     ).toThrow(/already registered/);
   });
@@ -49,7 +49,7 @@ describe("r.rawTable — declaration", () => {
   test("rejects empty reason", () => {
     expect(() =>
       defineFeature("probe", (r) => {
-        r.rawTable(probeMeta, { reason: "" });
+        r.storeTable(probeMeta, { reason: "" });
       }),
     ).toThrow(/options\.reason must be a non-empty string/);
   });
@@ -57,49 +57,49 @@ describe("r.rawTable — declaration", () => {
   test("rejects whitespace-only reason", () => {
     expect(() =>
       defineFeature("probe", (r) => {
-        r.rawTable(probeMeta, { reason: "   " });
+        r.storeTable(probeMeta, { reason: "   " });
       }),
     ).toThrow(/options\.reason must be a non-empty string/);
   });
 
   test("accepts valid registration and stores meta + reason", () => {
     const feature = defineFeature("probe", (r) => {
-      r.rawTable(probeMeta, {
+      r.storeTable(probeMeta, {
         reason: "read-side projection of an event-stream",
       });
     });
-    expect(feature.rawTables).toHaveProperty("rt_probe");
-    expect(feature.rawTables["rt_probe"]?.reason).toBe("read-side projection of an event-stream");
-    expect(feature.rawTables["rt_probe"]?.meta).toBe(probeMeta);
+    expect(feature.storeTables).toHaveProperty("rt_probe");
+    expect(feature.storeTables["rt_probe"]?.reason).toBe("read-side projection of an event-stream");
+    expect(feature.storeTables["rt_probe"]?.meta).toBe(probeMeta);
   });
 
-  test("two raw tables on one feature register under their tableName", () => {
+  test("two store tables on one feature register under their tableName", () => {
     const feature = defineFeature("dual", (r) => {
-      r.rawTable(probeMeta, { reason: "one" });
-      r.rawTable(probeMetaTwo, { reason: "two" });
+      r.storeTable(probeMeta, { reason: "one" });
+      r.storeTable(probeMetaTwo, { reason: "two" });
     });
-    expect(Object.keys(feature.rawTables).sort()).toEqual(["rt_probe", "rt_probe_two"]);
+    expect(Object.keys(feature.storeTables).sort()).toEqual(["rt_probe", "rt_probe_two"]);
   });
 
-  test("absent rawTables on a feature is ok", () => {
+  test("absent storeTables on a feature is ok", () => {
     const feat = defineFeature("plain", () => {
-      // no r.rawTable calls
+      // no r.storeTable calls
     });
-    expect(feat.rawTables).toEqual({});
+    expect(feat.storeTables).toEqual({});
   });
 });
 
-describe("createRegistry — rawTable aggregation", () => {
-  test("aggregates raw tables across features and tags featureName", () => {
+describe("createRegistry — storeTable aggregation", () => {
+  test("aggregates store tables across features and tags featureName", () => {
     const featA = defineFeature("billing", (r) => {
-      r.rawTable(probeMeta, { reason: "external API cache" });
+      r.storeTable(probeMeta, { reason: "external API cache" });
     });
     const featB = defineFeature("inventory", (r) => {
-      r.rawTable(probeMetaTwo, { reason: "imported pre-ES" });
+      r.storeTable(probeMetaTwo, { reason: "imported pre-ES" });
     });
 
     const registry = createRegistry([featA, featB]);
-    const all = registry.getAllRawTables();
+    const all = registry.getAllStoreTables();
 
     expect(all.size).toBe(2);
     expect(all.get("rt_probe")?.featureName).toBe("billing");
@@ -111,10 +111,10 @@ describe("createRegistry — rawTable aggregation", () => {
     // Two features can't share the same physical tableName — migrate-runner
     // would race two CREATE TABLE statements. Boot-validator catches it.
     const featA = defineFeature("a", (r) => {
-      r.rawTable(probeMeta, { reason: "first" });
+      r.storeTable(probeMeta, { reason: "first" });
     });
     const featB = defineFeature("b", (r) => {
-      r.rawTable(probeMeta, { reason: "second" });
+      r.storeTable(probeMeta, { reason: "second" });
     });
     expect(() => createRegistry([featA, featB])).toThrow(
       /Raw-table "rt_probe" registered by both feature "a" and "b"/,
@@ -123,16 +123,20 @@ describe("createRegistry — rawTable aggregation", () => {
 
   test("two features with distinct tableNames register cleanly", () => {
     const featA = defineFeature("a", (r) => {
-      r.rawTable(probeMeta, { reason: "first" });
+      r.storeTable(probeMeta, { reason: "first" });
     });
     const featB = defineFeature("b", (r) => {
-      r.rawTable(probeMetaTwo, { reason: "second" });
+      r.storeTable(probeMetaTwo, { reason: "second" });
     });
     expect(() => createRegistry([featA, featB])).not.toThrow();
   });
 
-  test("rejects a raw-table that collides with an entity's physical name", () => {
-    const widget = createEntity({ fields: { name: createTextField() } });
+  test("rejects a store-table that collides with an entity's physical name", () => {
+    // Custom `table` override without the read_ prefix — resolveTableName's
+    // default would carry read_, which r.storeTable now rejects outright
+    // (#1220), so the collision case needs a table name storeTable can
+    // actually register.
+    const widget = createEntity({ table: "shop_widgets", fields: { name: createTextField() } });
     // resolveTableName mirrors the migrate-runner — pin the exact physical name.
     const physical = resolveTableName("widget", widget, "shop");
     const clashing = defineUnmanagedTable({
@@ -143,22 +147,22 @@ describe("createRegistry — rawTable aggregation", () => {
       r.entity("widget", widget);
     });
     const tableFeature = defineFeature("other", (r) => {
-      r.rawTable(clashing, { reason: "clash" });
+      r.storeTable(clashing, { reason: "clash" });
     });
 
-    // Entity registered first, then the colliding raw table.
+    // Entity registered first, then the colliding store table.
     expect(() => createRegistry([entityFeature, tableFeature])).toThrow(
       new RegExp(`Raw-table "${physical}".*collides with the physical table of entity "widget"`),
     );
 
-    // Order-independent: raw table registered first, then the entity.
+    // Order-independent: store table registered first, then the entity.
     expect(() => createRegistry([tableFeature, entityFeature])).toThrow(
-      new RegExp(`Entity "widget".*collides with r.rawTable\\("${physical}"\\)`),
+      new RegExp(`Entity "widget".*collides with r.storeTable\\("${physical}"\\)`),
     );
   });
 });
 
-describe("createRegistry — raw tables with PII-annotated fields (#820)", () => {
+describe("createRegistry — store tables with PII-annotated fields (#820)", () => {
   const piiEntity = createEntity({
     table: "rt_pii_probe",
     fields: {
@@ -172,9 +176,9 @@ describe("createRegistry — raw tables with PII-annotated fields (#820)", () =>
     expect(piiMeta.piiSubjectFields).toEqual(["ip"]);
   });
 
-  test("rejects a PII-carrying raw table without piiEncryptedOnWrite", () => {
+  test("rejects a PII-carrying store table without piiEncryptedOnWrite", () => {
     const feat = defineFeature("probe", (r) => {
-      r.rawTable(piiMeta, { reason: "direct-write store" });
+      r.storeTable(piiMeta, { reason: "direct-write store" });
     });
     expect(() => createRegistry([feat])).toThrow(
       /has PII-annotated fields \(ip\) but direct writes bypass the executor's PII encryption/,
@@ -183,7 +187,7 @@ describe("createRegistry — raw tables with PII-annotated fields (#820)", () =>
 
   test("accepts it once the feature declares piiEncryptedOnWrite", () => {
     const feat = defineFeature("probe", (r) => {
-      r.rawTable(piiMeta, {
+      r.storeTable(piiMeta, {
         reason: "direct-write store",
         piiEncryptedOnWrite: true,
       });
@@ -191,9 +195,9 @@ describe("createRegistry — raw tables with PII-annotated fields (#820)", () =>
     expect(() => createRegistry([feat])).not.toThrow();
   });
 
-  test("a PII-free raw table needs no declaration", () => {
+  test("a PII-free store table needs no declaration", () => {
     const feat = defineFeature("probe", (r) => {
-      r.rawTable(probeMeta, { reason: "plain store" });
+      r.storeTable(probeMeta, { reason: "plain store" });
     });
     expect(() => createRegistry([feat])).not.toThrow();
   });

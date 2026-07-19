@@ -1,7 +1,7 @@
 // collectTableMetas — kanonische ENTITY_METAS-Quelle für `kumiko schema
 // generate`. Erfasst dieselben Tabellen-Quellen wie der setupTestStack-
-// auto-push (entities, rawTables, projections, multiStreamProjections) —
-// die frühere Template-Variante sammelte nur entities + rawTables, wodurch
+// auto-push (entities, storeTables, projections, multiStreamProjections) —
+// die frühere Template-Variante sammelte nur entities + storeTables, wodurch
 // projection-only-Tabellen (z.B. billing-foundation read_subscriptions) nie
 // in Migrations landeten und der erste Prod-Write crashte (#255).
 
@@ -59,11 +59,11 @@ export function collectTableMetas(
       metas.push(meta);
       byName.set(meta.tableName, { meta, origin: `entity "${name}" (${feature.name})` });
     }
-    for (const entry of Object.values(feature.rawTables)) {
+    for (const entry of Object.values(feature.storeTables)) {
       metas.push(entry.meta);
       byName.set(entry.meta.tableName, {
         meta: entry.meta,
-        origin: `rawTable "${entry.name}" (${feature.name})`,
+        origin: `storeTable "${entry.name}" (${feature.name})`,
       });
     }
   }

@@ -40,7 +40,7 @@ export function createPersonalAccessTokensFeature(
   const { scopes } = options;
   return defineFeature(PAT_FEATURE, (r) => {
     r.describe(
-      "Long-lived, revocable Personal Access Tokens for headless HTTP-API access. Stores SHA-256 token hashes in the `read_api_tokens` direct-write table; the plaintext is returned once at creation. `create`/`revoke`/`mine` manage a user's own tokens and `available-scopes` lists the app-declared scope catalog. Bearer tokens carrying the PAT prefix are resolved before jwt.verify (roles resolved live, granted scopes enforced fail-closed at the API boundary) — the resolver is wired via run-prod-app, not the dispatcher. Pass { toggleable: { default: false } } to tier-gate the whole feature.",
+      "Long-lived, revocable Personal Access Tokens for headless HTTP-API access. Stores SHA-256 token hashes in the `store_api_tokens` direct-write table; the plaintext is returned once at creation. `create`/`revoke`/`mine` manage a user's own tokens and `available-scopes` lists the app-declared scope catalog. Bearer tokens carrying the PAT prefix are resolved before jwt.verify (roles resolved live, granted scopes enforced fail-closed at the API boundary) — the resolver is wired via run-prod-app, not the dispatcher. Pass { toggleable: { default: false } } to tier-gate the whole feature.",
     );
     r.uiHints({ displayLabel: "Personal Access Tokens", category: "identity", recommended: false });
     // Opt-in tier-gating (mirrors ledger/tags): when set, the feature declares
@@ -50,10 +50,10 @@ export function createPersonalAccessTokensFeature(
     // Resolver reads memberships + users on every PAT request to build live
     // roles — make both boot-time deps so a mis-wiring fails validateBoot.
     r.requires("user", "tenant");
-    // Direct-write store like read_user_sessions: create/revoke write it, the
+    // Direct-write store like store_user_sessions: create/revoke write it, the
     // resolver point-reads it. r.entity would make it a rebuildable projection
     // whose replay (no token events) would wipe every live token (#498/#494).
-    r.rawTable(buildEntityTableMeta("api-token", apiTokenEntity, { source: "unmanaged" }), {
+    r.storeTable(buildEntityTableMeta("api-token", apiTokenEntity, { source: "unmanaged" }), {
       reason: "read_side.api_tokens_direct_write",
       // create.write encrypts `name` via encryptForDirectWrite (#820).
       piiEncryptedOnWrite: true,

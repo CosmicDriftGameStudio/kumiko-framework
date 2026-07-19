@@ -39,7 +39,7 @@ export function createFeatureTogglesFeature(
 ): FeatureDefinition {
   return defineFeature("feature-toggles", (r) => {
     r.describe(
-      'Persists per-feature enabled/disabled state in the `read_global_feature_state` table and exposes a `set` write-handler plus `list`/`registered` query-handlers so operators can flip features at runtime without redeploying. Each API instance keeps an in-memory `GlobalFeatureToggleRuntime` snapshot (initialize it via `createFeatureToggleRuntime`, pass a `() => runtime` accessor to `createFeatureTogglesFeature`) that the dispatcher gate reads on every request; a `toggle-cache-sync` multi-stream projection with `delivery: "per-instance"` syncs the snapshot across instances whenever a `toggle-set` event is appended.',
+      'Persists per-feature enabled/disabled state in the `store_global_feature_state` table and exposes a `set` write-handler plus `list`/`registered` query-handlers so operators can flip features at runtime without redeploying. Each API instance keeps an in-memory `GlobalFeatureToggleRuntime` snapshot (initialize it via `createFeatureToggleRuntime`, pass a `() => runtime` accessor to `createFeatureTogglesFeature`) that the dispatcher gate reads on every request; a `toggle-cache-sync` multi-stream projection with `delivery: "per-instance"` syncs the snapshot across instances whenever a `toggle-set` event is appended.',
     );
     r.uiHints({
       displayLabel: "Feature Toggles · Operator Switches",

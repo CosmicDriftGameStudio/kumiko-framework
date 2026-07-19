@@ -111,7 +111,7 @@ export const MAIL_THREAD_PII_FIELDS = collectPiiSubjectFields(mailThreadEntity);
  *  Write-locked auf privileged — nur Foundation-Handler/Supervisor
  *  schreiben, kein Tenant-Request. */
 export const syncCursorEntity = createEntity({
-  table: "read_mail_sync_cursors",
+  table: "store_mail_sync_cursors",
   softDelete: false,
   fields: {
     accountId: createTextField({
@@ -141,7 +141,7 @@ export const syncCursorEntity = createEntity({
  *  ingest-handler prüft zuerst hier (cheap), der Stream-Scan bleibt
  *  Defense-in-depth. */
 export const seenMessageEntity = createEntity({
-  table: "read_mail_seen_messages",
+  table: "store_mail_seen_messages",
   softDelete: false,
   fields: {
     accountId: createTextField({

@@ -9,7 +9,7 @@ const logInfo = (msg: string): void => console.log(msg);
 /**
  * Push all implicit-projection tables — one per `r.entity()` — that the
  * registry knows about. setupTestStack already handles explicit
- * projections, MSPs, and `r.rawTable()` declarations in its own loop;
+ * projections, MSPs, and `r.storeTable()` declarations in its own loop;
  * implicit projections are the missing piece for a fresh boot.
  *
  * Idempotent via `tableExists` so a persistent dev DB
@@ -20,7 +20,7 @@ const logInfo = (msg: string): void => console.log(msg);
  * Lives next to `setupTestStack` because both are stack-bootstrap
  * helpers that legitimately speak the `unsafe*`-DDL layer; the
  * Table-DDL Guard's stack/** allowlist is the single shared exemption
- * site. Apps still declare data via `r.entity()` / `r.rawTable()` and
+ * site. Apps still declare data via `r.entity()` / `r.storeTable()` and
  * never call this directly.
  */
 export async function pushEntityProjectionTables(

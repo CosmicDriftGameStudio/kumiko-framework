@@ -51,13 +51,13 @@ import {
   extractOptionalRequires,
   extractProjection,
   extractQueryHandler,
-  extractRawTable,
   extractReadsConfig,
   extractReferenceData,
   extractRelation,
   extractRequires,
   extractScreen,
   extractSecret,
+  extractStoreTable,
   extractSystemScope,
   extractToggleable,
   extractTranslations,
@@ -468,8 +468,8 @@ function dispatchExtractor(
       return extractUsesApi(call, sourceFile);
     case "exposesApi":
       return extractExposesApi(call, sourceFile);
-    case "rawTable":
-      return extractRawTable(call, sourceFile);
+    case "storeTable":
+      return extractStoreTable(call, sourceFile);
     // Round 6 — Tree-Actions pattern
     case "treeActions":
       return extractTreeActions(call, sourceFile);

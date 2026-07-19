@@ -1,5 +1,5 @@
 // #1210: buildEntityTableMeta() hardcoded source: "managed", so unmanaged
-// direct-write stores (read_user_sessions, read_api_tokens, mail sync/seen
+// direct-write stores (store_user_sessions, store_api_tokens, mail sync/seen
 // cursors) were misclassified as rebuildable event-sourced projections — a
 // destructive column change would DROP+rebuild-from-events tables that have
 // no events, wiping live data. The options.source escape hatch must produce

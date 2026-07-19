@@ -14,9 +14,9 @@ import type {
   PostSaveHookFn,
   PreDeleteHookFn,
   ProjectionDefinition,
-  RawTableOptions,
   RegistrarExtensionDef,
   SearchPayloadContributorFn,
+  StoreTableOptions,
   TreeActionDef,
   TreeActionsHandle,
   ValidationHookFn,
@@ -414,7 +414,7 @@ export function buildUiExtensionsMethods<TName extends string>(
       }
       state.httpRoutes[key] = definition;
     },
-    rawTable(meta: EntityTableMeta, options: RawTableOptions): void {
+    storeTable(meta: EntityTableMeta, options: StoreTableOptions): void {
       // Name comes from the meta itself — apps already give the table a
       // name when calling defineUnmanagedTable, no need to repeat it.
       const tableName = meta.tableName;
@@ -426,10 +426,20 @@ export function buildUiExtensionsMethods<TName extends string>(
             `valid identifier (lowercase letters, digits, underscores; start with a letter).`,
         );
       }
-      if (state.rawTables[tableName]) {
+      if (state.storeTables[tableName]) {
         throw new Error(
-          `[Feature ${name}] r.rawTable("${tableName}") already registered. ` +
+          `[Feature ${name}] r.storeTable("${tableName}") already registered. ` +
             `Raw-table names must be unique per feature.`,
+        );
+      }
+      // `read_` is reserved for r.entity()/r.projection() (managed,
+      // event-sourced, rebuildable). storeTable is the unmanaged
+      // direct-write escape hatch — the prefix must say so (#1220).
+      if (tableName.startsWith("read_")) {
+        throw new Error(
+          `[Feature ${name}] r.storeTable("${tableName}"): the "read_" prefix is reserved ` +
+            `for managed r.entity()/r.projection() tables. Pick an unprefixed name or a ` +
+            `distinct prefix (e.g. "store_${tableName.slice("read_".length)}").`,
         );
       }
       // The `reason` is the marker that justifies the bypass — empty
@@ -437,12 +447,12 @@ export function buildUiExtensionsMethods<TName extends string>(
       // failure points at the feature file.
       if (typeof options.reason !== "string" || options.reason.trim().length === 0) {
         throw new Error(
-          `[Feature ${name}] r.rawTable("${tableName}"): options.reason must be a ` +
+          `[Feature ${name}] r.storeTable("${tableName}"): options.reason must be a ` +
             `non-empty string. The reason justifies the audit-trail bypass — ` +
             `if you can't write one, declare data via r.entity() instead.`,
         );
       }
-      state.rawTables[tableName] = {
+      state.storeTables[tableName] = {
         name: tableName,
         meta,
         reason: options.reason,

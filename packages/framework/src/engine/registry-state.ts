@@ -29,7 +29,6 @@ import type {
   PreSaveHookFn,
   ProjectionDefinition,
   QueryHandlerDef,
-  RawTableDef,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
@@ -37,6 +36,7 @@ import type {
   ScreenDefinition,
   SearchPayloadContributorFn,
   SecretKeyDefinition,
+  StoreTableDef,
   TreeActionDef,
   WorkspaceDefinition,
   WriteHandlerDef,
@@ -199,7 +199,7 @@ export type RegistryState = {
   projectionsBySource: Map<string, ProjectionDefinition[]>;
   multiStreamProjectionMap: Map<string, MultiStreamProjectionDefinition>;
   multiStreamProjectionFeatureMap: Map<string, string>;
-  rawTableMap: Map<string, RawTableDef>;
+  storeTableMap: Map<string, StoreTableDef>;
   physicalTableOwners: Map<string, { kind: "entity" | "raw"; owner: string; featureName: string }>;
   authClaimsHooks: AuthClaimsHookDef[];
   claimKeyMap: Map<string, ClaimKeyDefinition>;
@@ -260,7 +260,7 @@ export function createInitialState(): RegistryState {
     projectionsBySource: new Map(),
     multiStreamProjectionMap: new Map(),
     multiStreamProjectionFeatureMap: new Map(),
-    rawTableMap: new Map(),
+    storeTableMap: new Map(),
     physicalTableOwners: new Map(),
     authClaimsHooks: [],
     claimKeyMap: new Map(),

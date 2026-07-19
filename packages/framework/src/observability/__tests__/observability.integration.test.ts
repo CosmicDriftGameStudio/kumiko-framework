@@ -213,7 +213,7 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
     const insertSpan = dbSpans.find((s) => s.attributes["db.operation"] === "insert");
     expect(insertSpan).toBeDefined();
     expect(insertSpan?.traceId).toBe(httpSpan.traceId);
-    expect(insertSpan?.attributes["db.table"]).toBe("read_todos");
+    expect(insertSpan?.attributes["db.table"]).toBe("store_todos");
     expect(insertSpan?.attributes["db.system"]).toBe("postgresql");
     // parent chain: insert → ... → dispatcher
     const dispatcherId = dispatcherSpan.spanId;
@@ -239,7 +239,7 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
         e.type === "histogram.observe" &&
         e.name === "kumiko_db_query_duration_seconds" &&
         e.labels?.["operation"] === "insert" &&
-        e.labels?.["table"] === "read_todos",
+        e.labels?.["table"] === "store_todos",
     );
     expect(dbMetric).toBeDefined();
   });

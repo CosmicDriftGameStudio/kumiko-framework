@@ -6,7 +6,7 @@ import {
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-// One row per Personal Access Token. Like read_user_sessions this is a
+// One row per Personal Access Token. Like store_user_sessions this is a
 // direct-write store (r.unmanagedTable): the create/revoke handlers write it and
 // the resolver point-reads it on the hot auth path. `tokenHash` is the SHA-256
 // of the plaintext (never the plaintext); the unique index on it makes the
@@ -14,7 +14,7 @@ import {
 // request can forge ownership/scope/hash by poking a field directly — the
 // handlers mutate them via ctx.db inside the pipeline.
 export const apiTokenEntity = createEntity({
-  table: "read_api_tokens",
+  table: "store_api_tokens",
   // No softDelete: revocation is its own lifecycle (revokedAt timestamp), and
   // we keep revoked rows for the "your tokens" audit list.
   softDelete: false,
@@ -52,7 +52,7 @@ export const apiTokenEntity = createEntity({
     expiresAt: createTimestampField({ access: { write: access.privileged } }),
     revokedAt: createTimestampField({ access: { write: access.privileged } }),
   },
-  indexes: [{ unique: true, columns: ["tokenHash"], name: "read_api_tokens_hash_unique" }],
+  indexes: [{ unique: true, columns: ["tokenHash"], name: "store_api_tokens_hash_unique" }],
 });
 
 // buildEntityTableMeta (not buildEntityTable): this is a direct-write store, so

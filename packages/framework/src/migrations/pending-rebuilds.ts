@@ -200,7 +200,7 @@ export type EnqueueProjectionRebuildDeps = {
   readonly db: DbConnection;
   readonly registry: Registry;
   // Present + projection-rebuild job registered (jobs composed) → tracked,
-  // retryable job (read_job_runs + read_job_run_logs). Absent → inline rebuild.
+  // retryable job (read_job_runs + store_job_run_logs). Absent → inline rebuild.
   readonly jobRunner?: JobRunner;
 };
 
