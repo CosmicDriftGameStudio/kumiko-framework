@@ -44,6 +44,11 @@ describe("create-kumiko-app CLI", () => {
     expect(cfg).toContain("createDeliveryFeature");
     // mail-transport-smtp is opt-in (not recommended, no transitive require) — should NOT auto-mount.
     expect(cfg).not.toContain("mailTransportSmtpFeature");
+    // issue-1174: user-profile (recommended) requires user-data-rights
+    // transitively, which trips the GDPR boot-validator unless
+    // user-data-rights-defaults (the PII export/delete hooks for `user`)
+    // is auto-included too.
+    expect(cfg).toContain("createUserDataRightsDefaultsFeature");
 
     // UX-polish: Next-steps points at `bun dev` (the primary dev path since
     // PR #583 introduced bin/dev.ts), not the CI-only `bun run boot` smoke.
