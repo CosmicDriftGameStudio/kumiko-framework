@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.156.2
+
+### Patch Changes
+
+- f0a76da: `buildServerBundle` (used by `kumiko-build`) moves `meilisearch` from
+  `BUILD_ONLY_EXTERNALS` to `RUNTIME_EXTERNALS`. Apps importing
+  `createMeilisearchAdapter` from `@cosmicdrift/kumiko-framework/search/meilisearch`
+  reference the package at runtime, not just transitively during the build —
+  without this, the generated `dist-server/package.json` omits `meilisearch`
+  and the production container crashes on boot with
+  `Cannot find package 'meilisearch'` (found via a money-horse prod incident).
+- Updated dependencies [838cd4e]
+  - @cosmicdrift/kumiko-framework@0.156.2
+  - @cosmicdrift/kumiko-bundled-features@0.156.2
+  - @cosmicdrift/kumiko-server-runtime@0.156.2
+
 ## 0.156.1
 
 ### Patch Changes
