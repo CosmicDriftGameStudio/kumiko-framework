@@ -423,6 +423,8 @@ function EntityEditUpdateBody({
   readonly onCopyLink?: () => Promise<void> | void;
 }): ReactNode {
   const { Banner, Text } = usePrimitives();
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
   const detailQn = `${toKebab(schema.featureName)}:query:${toKebab(screen.entity)}:detail`;
   const detailQuery = useQuery<Readonly<Record<string, unknown>>>(detailQn, { id: entityId });
 
@@ -436,7 +438,7 @@ function EntityEditUpdateBody({
   if (detailQuery.error) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
-        {detailQuery.error.i18nKey}
+        {dispatcherErrorText(detailQuery.error, effectiveTranslate)}
       </Banner>
     );
   }
@@ -1008,7 +1010,7 @@ function EntityListBody({
   if (rowsQuery.error) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
-        {rowsQuery.error.i18nKey}
+        {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
       </Banner>
     );
   }
@@ -1241,7 +1243,7 @@ function ProjectionListBody({
   if (rowsQuery.error) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
-        {rowsQuery.error.i18nKey}
+        {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
       </Banner>
     );
   }
@@ -1293,6 +1295,8 @@ function ProjectionDetailBody({
   readonly entityId?: string;
 }): ReactNode {
   const { Banner, Text } = usePrimitives();
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
   const nav = useNav();
   const idParam = screen.idParam ?? "id";
   const entity = useMemo(() => synthesizeProjectionDetailEntity(screen.layout), [screen.layout]);
@@ -1325,7 +1329,7 @@ function ProjectionDetailBody({
   if (detailQuery.error) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
-        {detailQuery.error.i18nKey}
+        {dispatcherErrorText(detailQuery.error, effectiveTranslate)}
       </Banner>
     );
   }
@@ -1470,6 +1474,8 @@ function ConfigEditBody({
   readonly translate?: Translate;
 }): ReactNode {
   const { Banner, ConfigCascadeView } = usePrimitives();
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
   const dispatcher = useDispatcher();
 
   // Detail-Load: config:query:values returnt ALLE Keys des Tenants.
@@ -1594,7 +1600,7 @@ function ConfigEditBody({
   if (valuesQuery.error) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
-        {valuesQuery.error.i18nKey}
+        {dispatcherErrorText(valuesQuery.error, effectiveTranslate)}
       </Banner>
     );
   }
