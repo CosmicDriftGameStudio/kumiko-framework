@@ -17,6 +17,7 @@ import {
   projectionRebuildJob,
   projectionRebuildPayloadSchema,
 } from "./handlers/projection-rebuild.job";
+import { reindexEntityJob, reindexEntityPayloadSchema } from "./handlers/reindex-entity.job";
 import { retryWrite } from "./handlers/retry.write";
 import { triggerWrite } from "./handlers/trigger.write";
 import { JOBS_I18N } from "./i18n";
@@ -172,6 +173,16 @@ export function createJobsFeature(): FeatureDefinition {
       "projectionRebuild",
       { trigger: { manual: true }, schema: projectionRebuildPayloadSchema },
       projectionRebuildJob,
+    );
+
+    // Retroactive search backfill (#1206/#1215) — manual + perTenant, so one
+    // `jobs:write:trigger` call with { entity } fans out to every active
+    // tenant (job-runner.ts perTenant dispatch applies to manual triggers
+    // too, not just cron).
+    r.job(
+      "reindexEntity",
+      { trigger: { manual: true }, perTenant: true, schema: reindexEntityPayloadSchema },
+      reindexEntityJob,
     );
 
     const handlers = {
