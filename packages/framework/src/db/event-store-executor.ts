@@ -53,7 +53,7 @@ export type EventStoreExecutor = {
     payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
     db: import("./tenant-db").TenantDb,
-    options?: { skipOptimisticLock?: boolean },
+    options?: { skipOptimisticLock?: boolean; skipUnchanged?: boolean },
   ) => Promise<WriteResult<SaveContext>>;
 
   delete: (

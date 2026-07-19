@@ -419,6 +419,81 @@ describe("event-store-executor — encrypted fields", () => {
     expect(updated.data.data["secretNote"]).toBe("new-note");
   });
 
+  test("update WITHOUT skipUnchanged still re-encrypts a resubmitted-but-unchanged encrypted field (KEK-rotation/backfill contract)", async () => {
+    // Regression guard: direct executor.update() callers that don't opt into
+    // skipUnchanged rely on today's always-re-encrypt behavior to force a
+    // fresh ciphertext for an unchanged plaintext — e.g. auth-mfa's
+    // KEK-rotation job (reencrypt.job.ts) and the user-data-rights #494
+    // backfill both resubmit the CURRENT value on purpose to land a real
+    // event. A blanket value-diff here would silently break both.
+    const created = await crud.create(
+      { email: "force-enc@test.de", secretNote: "same-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const before = (await asRawClient(testDb.db).unsafe(
+      `SELECT secret_note FROM read_es_exec_encrypted WHERE email = 'force-enc@test.de' LIMIT 1`,
+    )) as Array<{ secret_note: string }>;
+
+    const updated = await crud.update(
+      { id: created.data.id, version: 1, changes: { secretNote: "same-note" } },
+      adminUser,
+      tdb,
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+
+    const after = (await asRawClient(testDb.db).unsafe(
+      `SELECT secret_note FROM read_es_exec_encrypted WHERE email = 'force-enc@test.de' LIMIT 1`,
+    )) as Array<{ secret_note: string }>;
+
+    // Fresh AEAD nonce per encrypt call → different ciphertext even though
+    // the plaintext is identical. Byte-identical would mean the write was
+    // skipped, which is exactly what would break KEK rotation.
+    expect(after[0]?.secret_note).toBeDefined();
+    expect(after[0]?.secret_note).not.toBe(before[0]?.secret_note);
+  });
+
+  test("update with skipUnchanged: true omits a resubmitted-but-unchanged encrypted field — no phantom re-encrypt (#464)", async () => {
+    const created = await crud.create(
+      { email: "noop-enc@test.de", secretNote: "same-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const before = (await asRawClient(testDb.db).unsafe(
+      `SELECT secret_note FROM read_es_exec_encrypted WHERE email = 'noop-enc@test.de' LIMIT 1`,
+    )) as Array<{ secret_note: string }>;
+
+    const updated = await crud.update(
+      {
+        id: created.data.id,
+        version: 1,
+        changes: { secretNote: "same-note", email: "noop-enc-2@test.de" },
+      },
+      adminUser,
+      tdb,
+      { skipUnchanged: true },
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+
+    const after = (await asRawClient(testDb.db).unsafe(
+      `SELECT secret_note FROM read_es_exec_encrypted WHERE email = 'noop-enc-2@test.de' LIMIT 1`,
+    )) as Array<{ secret_note: string }>;
+
+    // Re-encrypting the same plaintext produces a fresh AEAD nonce → a
+    // different ciphertext even for an unchanged value. Byte-identical
+    // ciphertext proves the column was never touched by this update.
+    expect(after[0]?.secret_note).toBe(before[0]?.secret_note);
+
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT payload FROM kumiko_events WHERE type = 'esExecEncrypted.updated' ORDER BY id DESC LIMIT 1`,
+    )) as Array<{ payload: { changes?: Record<string, unknown> } }>;
+    expect(rows[0]?.payload.changes).not.toHaveProperty("secretNote");
+  });
+
   test("update's persisted event carries ciphertext (not plaintext) for an encrypted field in `previous`", async () => {
     // Regression: `previous` in the STORED event came from loadById(), which
     // decrypts — appending it unchanged would put the plaintext of an

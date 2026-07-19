@@ -32,6 +32,20 @@ import { selectMany } from "./query";
 // unchanged from the original, just relocated behind an explicit
 // ExecutorContext instead of capturing the factory's local scope directly.
 
+// updateOptions.skipUnchanged (#464) — opt-in: a resubmitted-but-identical
+// key is dropped before encryption so pii/encrypted fields don't get a fresh
+// AEAD ciphertext (new nonce) for no real change, and the event's `changes`
+// don't carry a phantom diff. Opt-in, not the executor's default, because
+// direct executor.update() callers rely on the current behavior to FORCE a
+// re-encrypt of an unchanged plaintext — KEK-rotation (auth-mfa reencrypt.job)
+// and the user-data-rights #494 backfill both resubmit the current value on
+// purpose to land a fresh event/ciphertext. Only the generic entity update
+// handler (entity-handlers.ts) sets this flag; those two call their own
+// executor directly and never see it.
+function isUnchangedValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export function createWriteVerbs(
   ctx: ExecutorContext,
 ): Pick<EventStoreExecutor, "create" | "update" | "delete" | "forget" | "restore"> {
@@ -282,9 +296,16 @@ export function createWriteVerbs(
         // Compound-Types Auto-Convert (alle in einem Pass).
         // subjectSource: partial changes may carry a pii field without its
         // ownerField — the merged row still names the subject.
-        const flatChangesPlain = flattenCompoundTypes(payload.changes, entity);
+        const submittedChanges = updateOptions?.skipUnchanged
+          ? Object.fromEntries(
+              Object.entries(payload.changes).filter(
+                ([key, value]) => !isUnchangedValue(value, previous[key]),
+              ),
+            )
+          : payload.changes;
+        const flatChangesPlain = flattenCompoundTypes(submittedChanges, entity);
         const flatChanges = await encryptForStorage(flatChangesPlain, user, {
-          onlyKeys: Object.keys(payload.changes),
+          onlyKeys: Object.keys(submittedChanges),
           subjectSource: mergedNew,
         });
 
