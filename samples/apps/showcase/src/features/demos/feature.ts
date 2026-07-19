@@ -12,8 +12,21 @@
 // client.ts).
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { demosTranslations } from "./i18n";
+
+// r.translations() wants key-first shape ({key: {de, en}}); demosTranslations
+// is locale-first (client TranslationsByLocale shape) — invert here rather
+// than duplicating the strings.
+const REQUIRED_I18N = Object.fromEntries(
+  Object.keys(demosTranslations.de).map((key) => [
+    key,
+    { de: demosTranslations.de[key], en: demosTranslations.en[key] },
+  ]),
+);
 
 export const demosFeature = defineFeature("showcase-demos", (r) => {
+  r.translations({ keys: REQUIRED_I18N });
+
   r.screen({
     id: "demo-layout",
     type: "custom",

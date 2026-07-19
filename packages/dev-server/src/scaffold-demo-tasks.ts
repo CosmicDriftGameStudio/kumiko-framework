@@ -48,9 +48,15 @@ const editScreen: EntityEditScreenDefinition = {
 
 const open = { access: { openToAll: true } } as const;
 
+const TASKS_I18N = {
+  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
+  "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
+} as const;
+
 /** Canonical demo feature — keep in sync with `renderDemoTasksFeatureFile()`. */
 export function createDemoTasksFeature(): FeatureDefinition {
   return defineFeature("tasks", (r) => {
+    r.translations({ keys: TASKS_I18N });
     r.entity("task", taskEntity);
     r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
     r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
@@ -119,7 +125,13 @@ const editScreen: EntityEditScreenDefinition = {
 
 const open = { access: { openToAll: true } } as const;
 
+const TASKS_I18N = {
+  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
+  "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
+} as const;
+
 export const tasksFeature = defineFeature("tasks", (r) => {
+  r.translations({ keys: TASKS_I18N });
   r.entity("task", taskEntity);
   r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
   r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
