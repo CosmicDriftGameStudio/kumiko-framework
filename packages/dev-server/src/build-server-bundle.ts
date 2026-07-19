@@ -185,7 +185,7 @@ export async function buildServerBundle(
   entries.sort((a, b) => a.file.localeCompare(b.file));
   const totalBytes = [...entries, ...chunks].reduce((sum, e) => sum + e.sizeBytes, 0);
 
-  const runtimeDeps = await resolveRuntimeDepsVersions(repoRoot, [
+  const runtimeDeps = await resolveRuntimeDepsVersions(cwd, repoRoot, [
     ...RUNTIME_EXTERNALS,
     ...(options.extraRuntimeExternals ?? []),
   ]);
@@ -224,23 +224,27 @@ function findRepoRoot(start: string): string | undefined {
   return undefined;
 }
 
-// Versionen für RUNTIME_EXTERNALS auflösen: erst aus framework + bundled-
-// features package.json (Workspace-pinning), Fallback auf "*" wenn nichts
-// gefunden. Ein Repo-Root muss existieren — sonst kann eh kein CLI-Bundle
-// gemacht werden, also wird die Funktion gar nicht erst gerufen.
+// Versionen für RUNTIME_EXTERNALS auflösen: erst aus den installierten
+// node_modules/@cosmicdrift/*-Packages (relativ zu cwd — funktioniert für
+// jede Consumer-App), dann als Zusatz aus packages/framework + bundled-
+// features (Workspace-Checkout des Frameworks selbst). Fallback auf "*"
+// wenn keine Quelle den Namen kennt.
 async function resolveRuntimeDepsVersions(
+  cwd: string,
   repoRoot: string | undefined,
   packages: readonly string[],
 ): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
-  if (!repoRoot) {
-    for (const pkg of packages) out[pkg] = "*";
-    return out;
-  }
 
   const pinSources = [
-    join(repoRoot, "packages/framework/package.json"),
-    join(repoRoot, "packages/bundled-features/package.json"),
+    join(cwd, "node_modules/@cosmicdrift/kumiko-framework/package.json"),
+    join(cwd, "node_modules/@cosmicdrift/kumiko-bundled-features/package.json"),
+    ...(repoRoot
+      ? [
+          join(repoRoot, "packages/framework/package.json"),
+          join(repoRoot, "packages/bundled-features/package.json"),
+        ]
+      : []),
   ];
   const allDeps: Record<string, string> = {};
   for (const path of pinSources) {
