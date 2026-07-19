@@ -3,7 +3,6 @@ import {
   configuredPiiSubjectKms,
   encryptPiiValueForSubject,
   type KmsContext,
-  type SubjectId,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -22,6 +21,7 @@ import { configValueEntity, configValuesTable } from "../table";
 import {
   findConfigRow,
   prepareConfigWrite,
+  resolvePiiSubject,
   validateBounds,
   validatePattern,
   validateScope,
@@ -124,12 +124,12 @@ export const setWrite = defineWriteHandler({
             `configurePiiSubjectKms(adapter) at boot.`,
         });
       }
-      // scope=system was already rejected above, so scope is "tenant" or
-      // "user" here — resolveScopeIds guarantees userId is set for "user".
-      const subject: SubjectId =
-        scope === ConfigScopes.user
-          ? { kind: "user", userId: userId as string }
-          : { kind: "tenant", tenantId };
+      // scope="system" was already rejected above — narrow accordingly.
+      const subject = resolvePiiSubject(
+        scope as Exclude<typeof scope, "system">, // @cast-boundary runtime-checked above
+        tenantId,
+        userId,
+      );
       const kmsCtx: KmsContext = {
         requestId: requestContext.get()?.requestId ?? "config:write:set",
         tenantId,

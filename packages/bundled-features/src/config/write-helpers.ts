@@ -3,6 +3,7 @@
 // have to cross-import from another handler file.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { SubjectId } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigKeyDefinition,
@@ -196,6 +197,27 @@ export function resolveScopeIds(
     default:
       assertUnreachable(scope, "config scope");
   }
+}
+
+// The subject a piiEncrypted config value is encrypted under, for the scope
+// actually written to (kumiko-platform#231/#459). Pure — no I/O — so a bug
+// here (e.g. picking the writer's identity instead of the row's target,
+// see entity fields' explicit userOwned.ownerField for why that
+// distinction matters) is caught by a fast unit test, not only the DB-
+// backed integration test. Caller has already rejected scope="system"
+// (no subject exists for it).
+export function resolvePiiSubject(
+  scope: Exclude<ConfigScope, "system">,
+  tenantId: TenantId,
+  userId: string | null,
+): SubjectId {
+  if (scope === ConfigScopes.user) {
+    if (userId === null) {
+      throw new Error('resolvePiiSubject: scope="user" but userId is null');
+    }
+    return { kind: "user", userId };
+  }
+  return { kind: "tenant", tenantId };
 }
 
 export function validateType(
