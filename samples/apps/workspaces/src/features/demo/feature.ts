@@ -14,6 +14,7 @@ const REQUIRED_I18N = {
   "demo:entity:order:field:label": { de: "Bezeichnung", en: "Label" },
   "demo:entity:order:field:status": { de: "Status", en: "Status" },
   "demo:entity:order:field:notes": { de: "Notizen", en: "Notes" },
+  "demo:actions.edit": { de: "Bearbeiten", en: "Edit" },
 } as const;
 
 export const demoFeature: FeatureDefinition = defineFeature("demo", (r) => {

@@ -6,6 +6,7 @@ export const helpdeskTranslations: TranslationsByLocale = {
   de: {
     "helpdesk:nav.list": "Helpdesk",
     "helpdesk:nav.new": "Neues Ticket",
+    "helpdesk:actions.edit": "Bearbeiten",
 
     "screen:ticket-list.title": "Helpdesk",
     "screen:ticket-edit.title": "Ticket bearbeiten",
@@ -52,6 +53,7 @@ export const helpdeskTranslations: TranslationsByLocale = {
   en: {
     "helpdesk:nav.list": "Helpdesk",
     "helpdesk:nav.new": "New ticket",
+    "helpdesk:actions.edit": "Edit",
 
     "screen:ticket-list.title": "Helpdesk",
     "screen:ticket-edit.title": "Edit ticket",

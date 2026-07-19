@@ -35,6 +35,7 @@ const listScreen: EntityListScreenDefinition = {
   entity: "task",
   columns: ["title", "status", "isUrgent", "priority"],
   defaultSort: { field: "title", dir: "asc" },
+  rowActions: [{ kind: "navigate", id: "edit", label: "Edit", screen: "task-edit" }],
 };
 
 const editScreen: EntityEditScreenDefinition = {
@@ -116,6 +117,7 @@ const listScreen: EntityListScreenDefinition = {
   entity: "task",
   columns: ["title", "status", "isUrgent", "priority"],
   defaultSort: { field: "title", dir: "asc" },
+  rowActions: [{ kind: "navigate", id: "edit", label: "Edit", screen: "task-edit" }],
 };
 
 const editScreen: EntityEditScreenDefinition = {
