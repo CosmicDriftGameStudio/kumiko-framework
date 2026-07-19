@@ -47,6 +47,12 @@ const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
 // ioredis), dynamic-require (postgres, temporal-polyfill) — alles was unter
 // Bun-bundling bricht. (drizzle-kit/drizzle-orm sind raus: der Migrate-Pfad
 // nutzt jetzt den framework-eigenen runMigrationsFromDir, kein drizzle-kit.)
+// meilisearch: bewusst hier, nicht in BUILD_ONLY_EXTERNALS unten — Apps die
+// createMeilisearchAdapter (kumiko-framework/search/meilisearch) importieren,
+// referenzieren das Paket zur Laufzeit (kein natives Binding, reiner
+// HTTP-Client, aber echter Runtime-Import). Bug gefunden 2026-07-19: money-horse
+// Prod-Crash "Cannot find package 'meilisearch'", weil es vorher fälschlich in
+// BUILD_ONLY_EXTERNALS stand.
 const RUNTIME_EXTERNALS = [
   "@node-rs/argon2",
   "bullmq",
@@ -55,6 +61,7 @@ const RUNTIME_EXTERNALS = [
   "temporal-polyfill",
   "pino",
   "pino-pretty",
+  "meilisearch",
 ] as const;
 
 // Pakete die nur im Build-Stack erscheinen (transitive Imports im Framework),
@@ -63,7 +70,6 @@ const RUNTIME_EXTERNALS = [
 // Bundle — der Marker schaltet nur das resolution-during-build ab. NICHT in
 // runtime-deps.
 const BUILD_ONLY_EXTERNALS = [
-  "meilisearch",
   "@planetscale/database",
   "@libsql/client",
   "better-sqlite3",
