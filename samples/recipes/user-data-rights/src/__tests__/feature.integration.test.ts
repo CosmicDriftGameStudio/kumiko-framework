@@ -89,7 +89,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_notes`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM store_notes`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
 });
@@ -160,7 +160,7 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
     });
     expect(result.processedUserIds).toContain(ALICE_ID);
 
-    const remaining = await asRawClient(stack.db).unsafe(`SELECT id FROM read_notes`);
+    const remaining = await asRawClient(stack.db).unsafe(`SELECT id FROM store_notes`);
     expect(remaining.length).toBe(0);
   });
 
@@ -182,7 +182,7 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
     await hooks?.delete?.({ db: stack.db, tenantId: TENANT_A, userId: ALICE_ID }, "anonymize");
 
     const after = (await asRawClient(stack.db).unsafe(
-      `SELECT title, author_id FROM read_notes`,
+      `SELECT title, author_id FROM store_notes`,
     )) as Array<{ title: string; author_id: string | null }>;
     expect(after).toHaveLength(1);
     expect(after[0]?.author_id).toBeNull();

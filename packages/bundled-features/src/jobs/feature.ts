@@ -31,7 +31,7 @@ import { jobRunLogsTable, jobRunLogsTableMeta, jobRunsTable } from "./job-run-ta
 export function createJobsFeature(): FeatureDefinition {
   return defineFeature("jobs", (r) => {
     r.describe(
-      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution appends `run-started`, `run-completed`, and `run-failed` events to the `jobRun` aggregate stream, which two inline projections materialize into `read_job_runs` (current status + duration) and `read_job_run_logs` (per-line log rows). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list` and `jobs:query:details` for the operator UI.",
+      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution appends `run-started`, `run-completed`, and `run-failed` events to the `jobRun` aggregate stream, which two inline projections materialize into `read_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list` and `jobs:query:details` for the operator UI.",
     );
     r.uiHints({
       displayLabel: "Jobs · Audit & Operator UI",
@@ -39,7 +39,7 @@ export function createJobsFeature(): FeatureDefinition {
       recommended: false,
     });
     r.systemScope();
-    r.rawTable(jobRunLogsTableMeta, {
+    r.storeTable(jobRunLogsTableMeta, {
       reason: "read_side.job_run_logs",
     });
     // Events-only aggregate: "jobRun" has no r.entity registration, because

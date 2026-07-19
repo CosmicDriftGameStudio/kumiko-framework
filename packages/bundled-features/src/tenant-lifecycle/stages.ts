@@ -109,7 +109,7 @@ async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<void> {
   const db = createTenantDb(ctx.db, ctx.tenantId, "system");
   // Per-row forget() through the executor, not a bulk deleteMany: memberships
   // are an ES-managed projection (add/remove/update-roles all go through
-  // tenantMembershipCrud), so a raw table write here is eventless — a future
+  // tenantMembershipCrud), so a store table write here is eventless — a future
   // projection rebuild would replay the historical add-member events and
   // resurrect rows this stage removed. forget() (Art.17 hard-purge) keeps the
   // erasure rebuild-safe and gives each membership its own audit event.

@@ -125,18 +125,18 @@ export type SecretKeyHandle = {
   readonly name: string;
 };
 
-// --- Raw tables (declared by features via r.rawTable()) ---
+// --- Store tables (declared by features via r.storeTable()) ---
 // Post-drizzle-cut: unified with the former r.unmanagedTable() — both
 // carried the same reason/audit contract, differing only in whether the
-// table value was a legacy Drizzle PgTable (rawTable) or the framework-
+// table value was a legacy Drizzle PgTable (storeTable) or the framework-
 // native EntityTableMeta (unmanagedTable, consumed by migrate-runner).
-// EntityTableMeta was the forward-compatible shape, so rawTable adopted it.
+// EntityTableMeta was the forward-compatible shape, so storeTable adopted it.
 
-/** Options accepted by `r.rawTable()`. The `reason` is required so the
+/** Options accepted by `r.storeTable()`. The `reason` is required so the
  *  bypass leaves an audit trail at the registration site — reviewers can
  *  judge legitimacy without spelunking into history, and a future cleanup
  *  pass can find candidates for migration to `r.entity()`. */
-export type RawTableOptions = {
+export type StoreTableOptions = {
   /** Why this table needs to bypass the event-sourcing system. Examples:
    *  "imported from pre-ES system, read-only", "external Stripe webhook
    *  payload cache, write-only by webhook handler", "denormalised
@@ -149,22 +149,22 @@ export type RawTableOptions = {
   readonly piiEncryptedOnWrite?: true;
 };
 
-/** Per-feature raw-table registration. `meta` is the `EntityTableMeta`
+/** Per-feature store-table registration. `meta` is the `EntityTableMeta`
  *  (framework-native shape used by `migrate-runner`). Carries the
  *  bypass-justification reason but knows nothing about the owning
  *  feature — that's added when the registry aggregates entries
- *  cross-feature into `RawTableDef`. */
-export type RawTableEntry = {
+ *  cross-feature into `StoreTableDef`. */
+export type StoreTableEntry = {
   readonly name: string;
   readonly meta: EntityTableMeta;
   readonly reason: string;
   readonly piiEncryptedOnWrite?: true;
 };
 
-/** Registry-aggregated raw-table — the per-feature `RawTableEntry` plus
- *  the owning feature name. This is what `Registry.getAllRawTables()`
+/** Registry-aggregated store-table — the per-feature `StoreTableEntry` plus
+ *  the owning feature name. This is what `Registry.getAllStoreTables()`
  *  exposes to readers (dev-server, ops UIs). */
-export type RawTableDef = RawTableEntry & {
+export type StoreTableDef = StoreTableEntry & {
   readonly featureName: string;
 };
 
@@ -341,13 +341,13 @@ export type FeatureDefinition = {
   // den Hono-app (außerhalb /api/*). Pattern symmetrisch zu queryHandlers/
   // writeHandlers — Routes leben mit dem Feature, nicht im Bootstrap.
   readonly httpRoutes: Readonly<Record<string, HttpRouteDefinition>>;
-  // Raw tables declared via r.rawTable() — bypass the event-sourcing
+  // Store tables declared via r.storeTable() — bypass the event-sourcing
   // system. Keyed by feature-local short name (derived from
   // meta.tableName). The registry attaches featureName on aggregation,
-  // lifting RawTableEntry → RawTableDef. `kumiko schema generate`
+  // lifting StoreTableEntry → StoreTableDef. `kumiko schema generate`
   // aggregates these alongside r.entity()-derived metas to build the
   // full schema.
-  readonly rawTables: Readonly<Record<string, RawTableEntry>>;
+  readonly storeTables: Readonly<Record<string, StoreTableEntry>>;
   // Optional Zod-schema for env-vars this feature reads at runtime.
   // Declared via `r.envSchema(z.object({...}))`. `composeEnvSchema` reads
   // this to build one app-wide schema for boot-validation + dry-run
@@ -735,7 +735,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // The required `reason` string is the marker that justifies the bypass —
   // a non-empty string is the contract. If you can't write a reason,
   // declare data via `r.entity()` instead.
-  rawTable(meta: EntityTableMeta, options: RawTableOptions): void;
+  storeTable(meta: EntityTableMeta, options: StoreTableOptions): void;
 
   // Register the tree-actions schema for this feature — a map of
   // action-name → action-definition (with optional typed args). At-most-
@@ -894,12 +894,12 @@ export type Registry = {
   getProjectionsForSource(entityName: string): readonly ProjectionDefinition[];
   getAllProjections(): ReadonlyMap<string, ProjectionDefinition>;
 
-  // All r.rawTable() registrations across all features, keyed by
+  // All r.storeTable() registrations across all features, keyed by
   // feature-local short name. The dev-server iterates this alongside
   // implicit projections at boot. Cross-feature uniqueness is enforced
   // at registry-build — duplicate names from different features fail
   // the boot, so callers can rely on a flat keyspace.
-  getAllRawTables(): ReadonlyMap<string, RawTableDef>;
+  getAllStoreTables(): ReadonlyMap<string, StoreTableDef>;
 
   // Multi-stream projections registered via r.multiStreamProjection().
   // Keyed by qualified name. The server wires each into the event-dispatcher

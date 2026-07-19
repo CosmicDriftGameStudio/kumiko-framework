@@ -1,5 +1,5 @@
-// Integration test for r.rawTable() — proves the full boot path:
-// defineFeature declares a raw table → setupTestStack auto-pushes it →
+// Integration test for r.storeTable() — proves the full boot path:
+// defineFeature declares a store table → setupTestStack auto-pushes it →
 // INSERT/SELECT against the real DB roundtrip. Plan reference:
 // kumiko-platform/docs/plans/architecture/table-ddl-guard.md (Stufe 3).
 
@@ -9,7 +9,7 @@ import { asRawClient, insertOne, selectMany } from "../db/query";
 import { defineFeature } from "../engine";
 import { setupTestStack, type TestStack, unsafePushTables } from "../stack";
 
-// External-system payload cache — the textbook r.rawTable() use case:
+// External-system payload cache — the textbook r.storeTable() use case:
 // write-only by an integration handler, read-only by a query, never
 // event-sourced (the data isn't a domain fact, it's a side-effect
 // snapshot).
@@ -23,7 +23,7 @@ const stripeWebhookCacheMeta = defineUnmanagedTable({
 });
 
 const webhookCacheFeature = defineFeature("webhook-cache", (r) => {
-  r.rawTable(stripeWebhookCacheMeta, {
+  r.storeTable(stripeWebhookCacheMeta, {
     reason: "external Stripe webhook payload cache — write-only by webhook handler",
   });
 });
@@ -38,7 +38,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("r.rawTable — DB roundtrip via setupTestStack", () => {
+describe("r.storeTable — DB roundtrip via setupTestStack", () => {
   test("table is auto-pushed and accepts INSERT + SELECT", async () => {
     const eventId = "evt_test_123";
     const payload = JSON.stringify({ type: "invoice.paid", amount: 4200 });
@@ -52,8 +52,8 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
     expect(rows[0]?.receivedAt).toBeInstanceOf(Temporal.Instant);
   });
 
-  test("registry exposes the raw table with its reason and featureName", () => {
-    const all = stack.registry.getAllRawTables();
+  test("registry exposes the store table with its reason and featureName", () => {
+    const all = stack.registry.getAllStoreTables();
     const entry = all.get("rt_int_stripe_webhook_cache");
     expect(entry).toBeDefined();
     expect(entry?.featureName).toBe("webhook-cache");
@@ -62,9 +62,9 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
   });
 
   test("INSERT bypasses the event store — no kumiko_events row produced", async () => {
-    // Proves that the rawTable lives outside the event-sourcing graph:
+    // Proves that the storeTable lives outside the event-sourcing graph:
     // a write to it shouldn't append anything to kumiko_events. If a
-    // future regression accidentally routed raw-table writes through
+    // future regression accidentally routed store-table writes through
     // the executor, a row would show up here.
     const before = await asRawClient(stack.db).unsafe<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM kumiko_events`,
@@ -84,7 +84,7 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
     expect(afterCount).toBe(beforeCount);
   });
 
-  test("a second push on the same rawTable is idempotent — CREATE IF NOT EXISTS", async () => {
+  test("a second push on the same storeTable is idempotent — CREATE IF NOT EXISTS", async () => {
     // unsafePushTables uses CREATE TABLE IF NOT EXISTS — idempotent by design.
     await expect(
       unsafePushTables(stack.db, { idem: stripeWebhookCacheMeta }),

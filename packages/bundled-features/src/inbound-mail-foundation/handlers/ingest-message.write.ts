@@ -2,7 +2,7 @@
 // (watch-callback + fetchSince-Sync). Nimmt eine normalisierte
 // RawInboundMessage und macht atomic in EINER TX:
 //
-//   1. Idempotency-Check (cheap: read_mail_seen_messages; Defense-in-
+//   1. Idempotency-Check (cheap: store_mail_seen_messages; Defense-in-
 //      depth: Stream-Existenz auf der deterministic aggregateId).
 //   2. threadKey-Normalisierung (Provider-Thread-ID bevorzugt, sonst
 //      References-Chain-Root, sonst Message-ID = Single-Message-Thread).
@@ -115,7 +115,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
     //    ein früherer ingest NACH dem append aber VOR dem seen-insert
     //    gestorben ist (kann in einer TX nicht passieren — aber der
     //    Check ist billig und macht den Handler rebuild-robust falls
-    //    read_mail_seen_messages je getruncated wird).
+    //    store_mail_seen_messages je getruncated wird).
     // ---------------------------------------------------------------
     const seenRows = await selectMany(ctx.db.raw, seenMessageTable, {
       accountId: payload.accountId,

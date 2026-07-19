@@ -58,7 +58,7 @@ export function bindAutoRevokeFromFeature(
   return undefined;
 }
 
-// The sessions feature registers the read_user_sessions table (as an
+// The sessions feature registers the store_user_sessions table (as an
 // unmanaged direct-write store, NOT an r.entity — see below) and the three
 // user-facing handlers (mine/revoke/revoke-all-others). It intentionally does NOT
 // export a sessionCreator/sessionRevoker here — those are produced by
@@ -76,7 +76,7 @@ export function bindAutoRevokeFromFeature(
 export function createSessionsFeature(options?: SessionsFeatureOptions): FeatureDefinition {
   return defineFeature("sessions", (r) => {
     r.describe(
-      "Tracks signed-in clients in the `read_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
+      "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
     );
     r.uiHints({
       displayLabel: "Sessions · Server-side Logout",
@@ -87,16 +87,16 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // gate for locked accounts) — make that a boot-time dependency so a
     // sessions-without-user wiring fails validateBoot instead of 500ing live.
     r.requires("user");
-    // read_user_sessions is a hot-path direct-write store: sessionCreator
+    // store_user_sessions is a hot-path direct-write store: sessionCreator
     // inserts and the revoke handlers update rows WITHOUT emitting lifecycle
     // events (the row columns ARE the audit trail). Registering it as
     // r.entity would make it a rebuildable implicit projection whose replay
     // finds zero session events and swaps an empty shadow over the live
     // table — wiping every active session on the next projection rebuild
-    // (#498/#494). r.rawTable keeps the migration DDL but opts the
+    // (#498/#494). r.storeTable keeps the migration DDL but opts the
     // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
     // which are direct-write stores too.
-    r.rawTable(buildEntityTableMeta("user-session", userSessionEntity, { source: "unmanaged" }), {
+    r.storeTable(buildEntityTableMeta("user-session", userSessionEntity, { source: "unmanaged" }), {
       reason: "read_side.user_sessions_direct_write",
       // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).
       piiEncryptedOnWrite: true,

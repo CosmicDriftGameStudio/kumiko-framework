@@ -22,7 +22,7 @@ import {
 export function createDeliveryFeature(): FeatureDefinition {
   return defineFeature("delivery", (r) => {
     r.describe(
-      "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, logs every attempt to `read_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
+      "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
     );
     r.uiHints({
       displayLabel: "Notifications \u00b7 Dispatch Core",
@@ -36,7 +36,7 @@ export function createDeliveryFeature(): FeatureDefinition {
     r.entity("notification-preference", notificationPreferenceEntity, {
       table: notificationPreferencesTable,
     });
-    r.rawTable(deliveryAttemptsTableMeta, {
+    r.storeTable(deliveryAttemptsTableMeta, {
       reason: "read_side.delivery_attempt_log",
     });
 

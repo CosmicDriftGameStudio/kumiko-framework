@@ -156,12 +156,12 @@ export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATIO
   });
 
   // Sync-Maschinerie: hochfrequenter Tick-State, bewusst NICHT
-  // event-sourced — r.rawTable hält die Migration-DDL, nimmt die
+  // event-sourced — r.storeTable hält die Migration-DDL, nimmt die
   // Tabellen aber aus dem Projection-Rebuild (#494/#498-Klasse).
-  r.rawTable(syncCursorTable, {
+  r.storeTable(syncCursorTable, {
     reason: "read_side.mail_sync_cursors_direct_write",
   });
-  r.rawTable(seenMessageTable, {
+  r.storeTable(seenMessageTable, {
     reason: "read_side.mail_seen_messages_direct_write",
   });
 

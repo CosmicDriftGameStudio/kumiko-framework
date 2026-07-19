@@ -159,8 +159,8 @@ async function seedCustomFieldsAndFolders(
   await stack.eventDispatcher?.runOnce();
 }
 
-// personal-access-tokens — the read_api_tokens store is a direct-write table
-// that the ephemeral screenshot DB doesn't auto-create (rawTable). Create
+// personal-access-tokens — the store_api_tokens store is a direct-write table
+// that the ephemeral screenshot DB doesn't auto-create (storeTable). Create
 // it and seed two demo tokens for the logged-in admin so the "your tokens" list
 // renders populated. Screenshot-only: hashes/prefixes are fake, never resolved.
 async function seedApiTokens(db: DbConnection, tenantId: TenantId): Promise<void> {

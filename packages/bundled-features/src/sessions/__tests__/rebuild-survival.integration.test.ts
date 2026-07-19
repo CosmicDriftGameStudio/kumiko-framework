@@ -19,7 +19,7 @@ import { createUserFeature } from "../../user/feature";
 import { createSessionsFeature } from "../feature";
 import { userSessionEntity, userSessionTable } from "../schema/user-session";
 
-// read_user_sessions is a hot-path direct-write store: sessionCreator inserts
+// store_user_sessions is a hot-path direct-write store: sessionCreator inserts
 // rows and the revoke handlers update them WITHOUT emitting lifecycle events.
 // If the table is registered as an r.entity, the framework makes it a
 // rebuildable implicit projection whose replay finds zero matching events and
@@ -27,7 +27,7 @@ import { userSessionEntity, userSessionTable } from "../schema/user-session";
 // session on the next projection rebuild (deploy / `schema apply`). #498/#494.
 //
 // Pre-fix both tests are RED: the implicit projection "sessions:projection:
-// user-session-entity" exists and rebuilding it empties read_user_sessions.
+// user-session-entity" exists and rebuilding it empties store_user_sessions.
 // Post-fix (r.unmanagedTable) the table is no longer a rebuild target.
 
 const IMPLICIT_PROJECTION = "sessions:projection:user-session-entity";
@@ -48,7 +48,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(
-    "TRUNCATE read_user_sessions, kumiko_events, kumiko_projections RESTART IDENTITY CASCADE",
+    "TRUNCATE store_user_sessions, kumiko_events, kumiko_projections RESTART IDENTITY CASCADE",
   );
 });
 
@@ -70,7 +70,7 @@ async function insertRevokedSession(db: DbConnection): Promise<void> {
   await updateRows(db, userSessionTable, { revokedAt: now }, { id: SID, revokedAt: null });
 }
 
-describe("sessions / read_user_sessions survives projection rebuild", () => {
+describe("sessions / store_user_sessions survives projection rebuild", () => {
   test("is NOT registered as a rebuildable implicit projection", () => {
     const registry = createRegistry([createSessionsFeature(), createUserFeature()]);
     expect(registry.getAllProjections().has(IMPLICIT_PROJECTION)).toBe(false);

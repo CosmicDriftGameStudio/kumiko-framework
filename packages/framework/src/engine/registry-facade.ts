@@ -22,7 +22,6 @@ import type {
   PreSaveHookFn,
   ProjectionDefinition,
   QueryHandlerDef,
-  RawTableDef,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
@@ -30,6 +29,7 @@ import type {
   ScreenDefinition,
   SearchPayloadContributorFn,
   SecretKeyDefinition,
+  StoreTableDef,
   TranslationKeys,
   TreeActionDef,
   WorkspaceDefinition,
@@ -266,8 +266,8 @@ export function buildRegistryFacade(state: RegistryState): Registry {
       return state.projectionMap;
     },
 
-    getAllRawTables(): ReadonlyMap<string, RawTableDef> {
-      return state.rawTableMap;
+    getAllStoreTables(): ReadonlyMap<string, StoreTableDef> {
+      return state.storeTableMap;
     },
 
     getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition> {
