@@ -32,3 +32,11 @@ describe("fileRefEntity base-column drift", () => {
     expect(insertedById[0]?.notNull).toBe(false);
   });
 });
+
+describe("fileRefEntity — DDL (#1205 regression)", () => {
+  test("size column is bigint, not double precision", () => {
+    const size = col("size");
+    expect(size).toHaveLength(1);
+    expect(size[0]?.pgType).toBe("bigint");
+  });
+});

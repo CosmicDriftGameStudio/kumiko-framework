@@ -1,4 +1,4 @@
-import { createEntity, createNumberField, createTextField } from "../engine";
+import { createBigIntField, createEntity, createTextField } from "../engine";
 
 // fileRef — das File-Metadata-Entity. Ganz normales ES-Entity: Upload/Delete
 // laufen über den Standard-Executor (file-routes.ts), die Tabelle `file_refs`
@@ -25,7 +25,7 @@ export const fileRefEntity = createEntity({
     storageKey: createTextField({ required: true }),
     fileName: createTextField({ required: true, pii: true }),
     mimeType: createTextField({ required: true }),
-    size: createNumberField({ required: true }),
+    size: createBigIntField({ required: true }),
     entityType: createTextField(),
     entityId: createTextField(),
     fieldName: createTextField(),

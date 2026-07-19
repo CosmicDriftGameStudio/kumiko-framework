@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-07-17T17:17:25.636Z",
+  "generatedAt": "2026-07-19T15:33:32.830Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -77,8 +77,9 @@
         },
         {
           "name": "size",
-          "pgType": "double precision",
-          "notNull": true
+          "pgType": "bigint",
+          "notNull": true,
+          "bigintJsMode": "number"
         },
         {
           "name": "entity_type",
@@ -251,8 +252,9 @@
         },
         {
           "name": "value",
-          "pgType": "double precision",
+          "pgType": "bigint",
           "notNull": true,
+          "bigintJsMode": "number",
           "defaultSql": "0"
         },
         {
@@ -1178,7 +1180,7 @@
         },
         {
           "name": "duration",
-          "pgType": "double precision",
+          "pgType": "integer",
           "notNull": false
         },
         {

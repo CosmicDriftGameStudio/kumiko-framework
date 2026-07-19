@@ -48,7 +48,7 @@ export const jobRunEntity = createEntity({
     attempt: createNumberField({ required: true, default: 1, integer: true }),
     startedAt: createTimestampField({ required: true }),
     finishedAt: createTimestampField(),
-    duration: createNumberField(),
+    duration: createNumberField({ integer: true }),
     triggeredById: createTextField(),
   },
 });

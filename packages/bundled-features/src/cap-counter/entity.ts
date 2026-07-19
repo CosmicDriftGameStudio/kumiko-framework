@@ -1,6 +1,6 @@
 import {
+  createBigIntField,
   createEntity,
-  createNumberField,
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -41,7 +41,7 @@ export const capCounterEntity = createEntity({
   table: "read_cap_counters",
   fields: {
     capName: createTextField({ required: true, maxLength: 100, sortable: true, searchable: true }),
-    value: createNumberField({ required: true, default: 0 }),
+    value: createBigIntField({ required: true, default: 0 }),
     periodStart: createTimestampField({ required: true }),
     lastSoftWarnedAt: createTimestampField(),
   },
