@@ -562,6 +562,38 @@ function buildWhereClause(
   return { sqlText: conditions.join(" AND "), values };
 }
 
+// #1163: under load the Bun.SQL pool can hand out a connection the server
+// already closed ("The connection was closed.", AbortError code 20) — no
+// validate-on-checkout exists. One retry re-checks out a fresh connection;
+// safe for pure reads. Tx handles are never retried: their transaction is
+// dead once the connection dropped, and a retry would run on the same dead
+// handle. Detection is name+message (not name alone) so a genuine user
+// abort (AbortSignal cancel) is NOT retried.
+function isClosedConnectionError(err: unknown): boolean {
+  if (err === null || typeof err !== "object") return false;
+  const e = err as { name?: unknown; message?: unknown };
+  return (
+    e.name === "AbortError" &&
+    typeof e.message === "string" &&
+    /connection was closed/i.test(e.message)
+  );
+}
+
+async function unsafeRead<TRow>(
+  db: AnyDb,
+  sqlText: string,
+  params: readonly unknown[],
+): Promise<readonly TRow[]> {
+  const raw = asRawClient(db);
+  try {
+    return (await raw.unsafe(sqlText, params)) as readonly TRow[];
+  } catch (err) {
+    // TransactionSql has savepoint(), only a top-level pool client has begin().
+    if (typeof raw.begin !== "function" || !isClosedConnectionError(err)) throw err;
+    return (await raw.unsafe(sqlText, params)) as readonly TRow[];
+  }
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: opt-in default loosens row type for unannotated test fixtures
 export async function selectMany<TRow = any>(
   db: AnyDb,
@@ -598,7 +630,7 @@ export async function selectMany<TRow = any>(
     }
     sqlText += ` LIMIT ${options.limit}`;
   }
-  const raw = (await asRawClient(db).unsafe(sqlText, values)) as readonly Record<string, unknown>[];
+  const raw = (await unsafeRead(db, sqlText, values)) as readonly Record<string, unknown>[];
   return coerceRows(raw, info) as readonly TRow[];
 }
 
@@ -832,7 +864,7 @@ export async function countWhere(
     sqlText += ` WHERE ${w.sqlText}`;
     values = w.values;
   }
-  const rows = (await asRawClient(db).unsafe(sqlText, values)) as readonly { count: number }[];
+  const rows = (await unsafeRead(db, sqlText, values)) as readonly { count: number }[];
   return rows[0]?.count ?? 0;
 }
 
