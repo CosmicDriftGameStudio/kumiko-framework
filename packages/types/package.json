@@ -78,6 +78,10 @@
       "types": "./src/db-connection.ts",
       "default": "./src/db-connection.ts"
     },
+    "./entity-cache": {
+      "types": "./src/entity-cache.ts",
+      "default": "./src/entity-cache.ts"
+    },
     "./file-handle-types": {
       "types": "./src/file-handle-types.ts",
       "default": "./src/file-handle-types.ts"
