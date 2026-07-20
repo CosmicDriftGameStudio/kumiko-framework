@@ -147,6 +147,10 @@
       "types": "./src/schema-cli.ts",
       "default": "./src/schema-cli.ts"
     },
+    "./consumer-cli": {
+      "types": "./src/consumer-cli.ts",
+      "default": "./src/consumer-cli.ts"
+    },
     "./stack": {
       "types": "./src/stack/index.ts",
       "default": "./src/stack/index.ts"
