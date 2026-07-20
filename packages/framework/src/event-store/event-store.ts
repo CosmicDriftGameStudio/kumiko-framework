@@ -281,9 +281,13 @@ export async function getStreamVersion(
   return selectStreamMaxVersion(db, aggregateId, tenantId);
 }
 
-/** MAX(version) for one aggregate — no tenant filter. Used by seed idempotency. */
+/** MAX(version) for one aggregate — no tenant filter. SECURITY: existence-oracle,
+ *  a caller can probe whether an aggregateId has any events regardless of tenant
+ *  membership. Only call from seed/system-internal paths (idempotency checks
+ *  against a known aggregateId) — never from a handler reachable with
+ *  caller-controlled input. */
 // @wrapper-known semantic-alias
-export async function getAggregateStreamMaxVersion(
+export async function getUnscopedAggregateStreamMaxVersion(
   db: DbRunner,
   aggregateId: string,
 ): Promise<number> {
@@ -291,10 +295,11 @@ export async function getAggregateStreamMaxVersion(
 }
 
 /** Stream tenant of an aggregate (the tenant_id its events live under), with no
- *  membership/tenant filter. Recovers the write target for a systemScope
- *  aggregate whose stream tenant isn't one of the subject's memberships.
- *  Returns null for unknown streams. */
-export async function getAggregateStreamTenant(
+ *  membership/tenant filter. SECURITY: existence-oracle, same caveat as
+ *  getUnscopedAggregateStreamMaxVersion — seed/system-internal use only. Recovers
+ *  the write target for a systemScope aggregate whose stream tenant isn't one of
+ *  the subject's memberships. Returns null for unknown streams. */
+export async function getUnscopedAggregateStreamTenant(
   db: DbRunner,
   aggregateId: string,
   aggregateType: string,
