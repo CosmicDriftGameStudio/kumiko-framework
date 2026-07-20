@@ -19,6 +19,22 @@ preload = ["./test-setup/base.preload.ts", "./test-setup/dom.preload.ts"]
 concurrency = 1
 timeout = 15000
 
+# Coverage für den Badge-Merge — der dom-Lauf ist der EINZige, der die
+# tsx-abgedeckten UI-Dateien (renderer-web, widgets, bundled-features web)
+# ausführt; ohne dieses lcov fehlen sie im Badge (waren vor #1330 im
+# unit-lcov enthalten). coverage-badge.ts merged coverage/dom als dritte
+# Quelle neben unit+integration.
+coverage = true
+coverageReporter = ["lcov"]
+coverageDir = "coverage/dom"
+coveragePathIgnorePatterns = [
+  "**/scripts/**",
+  "**/bin/**",
+  "**/test-setup/**",
+  "**/tmp/**",
+  "integration.guard.ts",
+]
+
 pathIgnorePatterns = [
   "**/e2e/**",
   "**/*.spec.ts",

@@ -98,6 +98,16 @@ jobs:
           path: coverage/unit/lcov.info
           retention-days: 1
 
+      - name: Upload dom coverage
+        # lcov aus dem dom-Step des "Run tests"-Laufs (bunfig.dom.toml) —
+        # einzige Suite, die die tsx-abgedeckten UI-Dateien ausführt.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-dom
+          path: coverage/dom/lcov.info
+          retention-days: 1
+
   tz-matrix:
     # Timezones epic (kumiko-framework#268), item 12. Runs the TZ-sensitive
     # tests under several non-UTC process zones, so a future process-TZ-dependent
@@ -466,7 +476,7 @@ jobs:
           docker network rm kumiko-ci || true
 
   coverage-badge:
-    # Merged unit+integration lcov → .github/badges/coverage.json auf einem
+    # Merged unit+integration+dom lcov → .github/badges/coverage.json auf einem
     # eigenen orphan `badges`-Branch (force-push, stateless) — gelesen von der
     # README-Badge via shields.io endpoint (raw.githubusercontent.com). `main`
     # ist branch-protected ("changes via PR only"), ein direkter Commit-Push
@@ -507,6 +517,14 @@ jobs:
         with:
           name: coverage-integration
           path: coverage/integration
+
+      - uses: actions/download-artifact@v4
+        # continue-on-error: fehlt das Artefakt (alter Run vor dem dom-Split),
+        # merged coverage-badge.ts ohne dom-Anteil statt zu crashen.
+        continue-on-error: true
+        with:
+          name: coverage-dom
+          path: coverage/dom
 
       - name: Compute badge
         run: bun scripts/coverage-badge.ts
