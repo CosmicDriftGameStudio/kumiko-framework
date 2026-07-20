@@ -1,23 +1,16 @@
 // V1 — GDPR storage-persistence boot guard. Catches the prod failure class:
 // user-data-rights mounted but exports land in an ephemeral / missing store,
 // and s3-env selected as the GDPR store without its env vars set.
-// V2 — export-without-erase guard. Catches features that register an export
-// hook but no delete hook (Art.17 violation).
-// V3 — PII-entity-without-hook guard. Catches entities with pii/userOwned
-// fields that no feature registers an EXT_USER_DATA hook for.
-// V4 — tenantOwned-entity-without-hook guard. Mirrors V3 for EXT_TENANT_DATA.
+//
+// V2-V4 (export-without-erase / PII-entity-without-hook / tenantOwned-entity-
+// without-hook) moved off this framework-internal validator onto
+// `r.bootCheck()` calls declared by user-data-rights / user-data-rights-
+// defaults (#1314) — see boot-checks.test.ts in the bundled-features package
+// for their coverage.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { integer, type SchemaTable, table, uuid } from "../../db/dialect";
-import {
-  validateGdprHookCompleteness,
-  validateGdprPiiHookCoverage,
-  validateGdprStoragePersistence,
-  validateTenantDataHookCoverage,
-} from "../boot-validator/gdpr-storage";
+import { validateGdprStoragePersistence } from "../boot-validator/gdpr-storage";
 import { defineFeature } from "../define-feature";
-import { EXT_TENANT_DATA, EXT_USER_DATA } from "../extension-names";
-import { createEntity, createLongTextField, createTextField } from "../factories";
 
 const udr = () => defineFeature("user-data-rights", () => {});
 const fileProvider = (name: string) =>
@@ -25,25 +18,7 @@ const fileProvider = (name: string) =>
     r.useExtension("fileProvider", name);
   });
 
-// Throwaway Drizzle table for r.projection() registrations — the projection
-// runtime behaviour isn't under test here, only the guard's field scan.
-const testProjectionTable = table("test_projection", {
-  id: uuid("id").primaryKey(),
-  count: integer("count").notNull().default(0),
-}) as unknown as SchemaTable;
-
 const S3_ENV = ["S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_KEY"] as const;
-
-// V2/V3 are hard boot gates now — capture the thrown message so a single case
-// can assert several substrings (feature, entity, article).
-function catchMessage(fn: () => void): string {
-  try {
-    fn();
-  } catch (e) {
-    return e instanceof Error ? e.message : String(e);
-  }
-  throw new Error("expected function to throw, but it did not");
-}
 
 describe("validateGdprStoragePersistence (V1)", () => {
   let warnSpy: ReturnType<typeof spyOn>;
@@ -101,206 +76,5 @@ describe("validateGdprStoragePersistence (V1)", () => {
   test("user-data-rights + s3 AND s3-env (use-all-bundled shape) → no warn even with env unset", () => {
     validateGdprStoragePersistence([udr(), fileProvider("s3"), fileProvider("s3-env")]);
     expect(warnSpy).not.toHaveBeenCalled();
-  });
-});
-
-describe("validateGdprHookCompleteness (V2)", () => {
-  const exportFn = async () => null;
-  const deleteFn = async () => {};
-
-  test("export + delete hooks → no throw", () => {
-    const f = defineFeature("my-feature", (r) => {
-      r.useExtension(EXT_USER_DATA, "myEntity", { export: exportFn, delete: deleteFn });
-    });
-    expect(() => validateGdprHookCompleteness([f])).not.toThrow();
-  });
-
-  test("export hook without delete hook → Art.17 throw", () => {
-    const f = defineFeature("my-feature", (r) => {
-      r.useExtension(EXT_USER_DATA, "myEntity", { export: exportFn });
-    });
-    const msg = catchMessage(() => validateGdprHookCompleteness([f]));
-    expect(msg).toContain("my-feature");
-    expect(msg).toContain("myEntity");
-    expect(msg).toContain("Art.17");
-  });
-
-  test("delete hook only (no export) → no throw", () => {
-    const f = defineFeature("my-feature", (r) => {
-      r.useExtension(EXT_USER_DATA, "myEntity", { delete: deleteFn });
-    });
-    expect(() => validateGdprHookCompleteness([f])).not.toThrow();
-  });
-
-  test("no EXT_USER_DATA hooks at all → no throw", () => {
-    const f = defineFeature("my-feature", (r) => {
-      r.useExtension("fileProvider", "s3");
-    });
-    expect(() => validateGdprHookCompleteness([f])).not.toThrow();
-  });
-
-  test("multiple features, one missing delete → throws naming the offender", () => {
-    const good = defineFeature("good", (r) => {
-      r.useExtension(EXT_USER_DATA, "entityA", { export: exportFn, delete: deleteFn });
-    });
-    const bad = defineFeature("bad", (r) => {
-      r.useExtension(EXT_USER_DATA, "entityB", { export: exportFn });
-    });
-    const msg = catchMessage(() => validateGdprHookCompleteness([good, bad]));
-    expect(msg).toContain("entityB");
-  });
-});
-
-describe("validateGdprPiiHookCoverage (V3)", () => {
-  const exportFn = async () => null;
-  const deleteFn = async () => {};
-
-  const piiFeature = () =>
-    defineFeature("crm", (r) => {
-      r.entity(
-        "contact",
-        createEntity({
-          fields: {
-            email: createTextField({ pii: true }),
-            note: createLongTextField({ userOwned: { ownerField: "authorId" } }),
-            authorId: { type: "reference", entity: "user" },
-          },
-        }),
-      );
-    });
-
-  test("user-data-rights not mounted → no throw", () => {
-    expect(() => validateGdprPiiHookCoverage([piiFeature()])).not.toThrow();
-  });
-
-  test("pii entity without any EXT_USER_DATA hook → throws naming entity and fields", () => {
-    const msg = catchMessage(() => validateGdprPiiHookCoverage([udr(), piiFeature()]));
-    expect(msg).toContain('"contact"');
-    expect(msg).toContain("email");
-    expect(msg).toContain("note");
-    expect(msg).toContain("Art.17");
-  });
-
-  test("pii entity with hook registered by another feature → no throw", () => {
-    const hooks = defineFeature("crm-user-data", (r) => {
-      r.useExtension(EXT_USER_DATA, "contact", { export: exportFn, delete: deleteFn });
-    });
-    expect(() => validateGdprPiiHookCoverage([udr(), piiFeature(), hooks])).not.toThrow();
-  });
-
-  test("no-op hook is the intentional escape hatch → no throw", () => {
-    const hooks = defineFeature("crm-user-data", (r) => {
-      // Escape hatch: erasure handled elsewhere (crypto-shredding key-erase),
-      // so the pipeline hook is a deliberate no-op.
-      r.useExtension(EXT_USER_DATA, "contact", {
-        export: async () => null,
-        delete: async () => {},
-      });
-    });
-    expect(() => validateGdprPiiHookCoverage([udr(), piiFeature(), hooks])).not.toThrow();
-  });
-
-  test("entity without subject annotations → no throw", () => {
-    const plain = defineFeature("catalog", (r) => {
-      r.entity(
-        "product",
-        createEntity({
-          fields: { sku: createTextField({ allowPlaintext: "is-business-data" }) },
-        }),
-      );
-    });
-    expect(() => validateGdprPiiHookCoverage([udr(), plain])).not.toThrow();
-  });
-
-  test("userOwned field alone counts as user-subject data → throws", () => {
-    const f = defineFeature("notes", (r) => {
-      r.entity(
-        "note",
-        createEntity({
-          fields: {
-            body: createLongTextField({ userOwned: { ownerField: "authorId" } }),
-            authorId: { type: "reference", entity: "user" },
-          },
-        }),
-      );
-    });
-    const msg = catchMessage(() => validateGdprPiiHookCoverage([udr(), f]));
-    expect(msg).toContain('"note"');
-  });
-});
-
-describe("validateTenantDataHookCoverage (V4)", () => {
-  const destroyFn = async () => {};
-  const tenantLifecycle = () => defineFeature("tenant-lifecycle", () => {});
-
-  const tenantEntityFeature = () =>
-    defineFeature("billing", (r) => {
-      r.entity(
-        "subscription",
-        createEntity({
-          fields: { providerCustomerId: createTextField({ tenantOwned: true }) },
-        }),
-      );
-    });
-
-  test("tenant-lifecycle not mounted → no throw", () => {
-    expect(() => validateTenantDataHookCoverage([tenantEntityFeature()])).not.toThrow();
-  });
-
-  test("tenantOwned entity without any EXT_TENANT_DATA hook → throws naming entity and field", () => {
-    const msg = catchMessage(() =>
-      validateTenantDataHookCoverage([tenantLifecycle(), tenantEntityFeature()]),
-    );
-    expect(msg).toContain('"subscription"');
-    expect(msg).toContain("providerCustomerId");
-  });
-
-  test("tenantOwned entity with hook registered → no throw", () => {
-    const hooks = defineFeature("billing-hooks", (r) => {
-      r.useExtension(EXT_TENANT_DATA, "subscription", { destroy: destroyFn });
-    });
-    expect(() =>
-      validateTenantDataHookCoverage([tenantLifecycle(), tenantEntityFeature(), hooks]),
-    ).not.toThrow();
-  });
-
-  // Regression: billing-foundation's real `subscription` shape — r.projection()
-  // (no executor, no r.entity) carrying an `entity` reference for its
-  // tenantOwned fields. Before this fix, feature.entities-only scanning made
-  // this shape invisible to the guard.
-  test("tenantOwned field on a projection-only entity (no r.entity) is still caught", () => {
-    const projectionFeature = defineFeature("billing", (r) => {
-      r.projection({
-        name: "subscription",
-        source: "subscription",
-        table: testProjectionTable,
-        entity: createEntity({
-          fields: { providerCustomerId: createTextField({ tenantOwned: true }) },
-        }),
-        apply: {},
-      });
-    });
-    const msg = catchMessage(() =>
-      validateTenantDataHookCoverage([tenantLifecycle(), projectionFeature]),
-    );
-    expect(msg).toContain("providerCustomerId");
-  });
-
-  test("tenantOwned field on a projection-only entity WITH a hook → no throw", () => {
-    const projectionFeature = defineFeature("billing", (r) => {
-      r.projection({
-        name: "subscription",
-        source: "subscription",
-        table: testProjectionTable,
-        entity: createEntity({
-          fields: { providerCustomerId: createTextField({ tenantOwned: true }) },
-        }),
-        apply: {},
-      });
-      r.useExtension(EXT_TENANT_DATA, "subscription", { destroy: destroyFn });
-    });
-    expect(() =>
-      validateTenantDataHookCoverage([tenantLifecycle(), projectionFeature]),
-    ).not.toThrow();
   });
 });

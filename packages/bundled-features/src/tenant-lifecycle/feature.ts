@@ -7,6 +7,7 @@ import {
   EXT_TENANT_DATA,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { validateTenantDataHookCoverage } from "./boot-checks";
 import {
   DESTRUCTION_CANCELLED_EVENT_SHORT,
   DESTRUCTION_REQUESTED_EVENT_SHORT,
@@ -52,6 +53,12 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
     r.extendsRegistrar(EXT_EXTERNAL_RESOURCE, {});
     r.extendsRegistrar(EXT_STORAGE_PROVIDER, {});
     r.extendsRegistrar(EXT_INFRA_RESOURCE, {});
+
+    // GDPR-storage guard V4 (#1314) — moved off the framework-internal
+    // boot-validator onto this feature's own r.bootCheck(), since it owns
+    // EXT_TENANT_DATA: its own mount is the trigger, matching the original
+    // guard's "tenant-lifecycle mounted" gate exactly.
+    r.bootCheck(({ features }) => validateTenantDataHookCoverage(features));
 
     r.defineEvent(DESTRUCTION_REQUESTED_EVENT_SHORT, destructionRequestedSchema);
     r.defineEvent(DESTRUCTION_CANCELLED_EVENT_SHORT, destructionCancelledSchema);
