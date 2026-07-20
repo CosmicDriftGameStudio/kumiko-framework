@@ -29,7 +29,10 @@ function fakeClient(failures: Error[], opts: { tx?: boolean } = {}): FakeClient 
     },
   };
   // A top-level pool client has begin(); a transaction handle does not.
-  if (!opts.tx) client.begin = () => { throw new Error("not used in test"); };
+  if (!opts.tx)
+    client.begin = () => {
+      throw new Error("not used in test");
+    };
   return client;
 }
 
@@ -59,7 +62,9 @@ describe("selectMany — closed-connection retry (#1163)", () => {
   });
 
   test("does not retry a genuine user abort (different message)", async () => {
-    const userAbort = Object.assign(new Error("The operation was aborted."), { name: "AbortError" });
+    const userAbort = Object.assign(new Error("The operation was aborted."), {
+      name: "AbortError",
+    });
     const db = fakeClient([userAbort]);
     await expect(selectMany(db, table)).rejects.toThrow("operation was aborted");
     expect(db.calls).toBe(1);
