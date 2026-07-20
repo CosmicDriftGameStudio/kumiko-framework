@@ -41,6 +41,13 @@ export function createSearchEventConsumer(
 ): EventConsumer {
   return {
     name: SEARCH_CONSUMER_NAME,
+    // ponytail: count-based maxAttempts, not real backoff — retries hammer
+    // the search adapter every pollIntervalMs during an outage instead of
+    // spacing out. 1200 attempts * 100ms default poll ~= 2min budget for a
+    // still-provisioning Meilisearch to come up at boot (was 10 = ~1s,
+    // killing the consumer near-instantly). Upgrade path: time-based
+    // dead-lettering in event-dispatcher-delivery.ts if 2min isn't enough.
+    errorPolicy: { maxAttempts: 1200 },
     handler: async (event) => {
       const entityName = event.aggregateType;
       const verb = event.type.split(".").pop();

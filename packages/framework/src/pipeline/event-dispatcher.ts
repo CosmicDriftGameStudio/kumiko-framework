@@ -66,6 +66,11 @@ export type EventConsumerHandler = (event: StoredEvent, ctx: AppContext) => Prom
 // the EventConsumer (see api/server.ts MSP wiring).
 export type EventConsumerErrorPolicy = {
   readonly skipApplyErrors?: boolean;
+  // Per-consumer override of EventDispatcherOptions.maxAttempts. A consumer
+  // that depends on infra which may still be provisioning at boot (search
+  // adapter, external APIs) needs more retry headroom than the dispatcher-
+  // wide default before it gets dead-lettered.
+  readonly maxAttempts?: number;
 };
 
 export type EventConsumer = {
