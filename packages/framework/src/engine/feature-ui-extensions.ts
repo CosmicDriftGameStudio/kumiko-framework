@@ -3,6 +3,7 @@ import { LifecycleHookTypes } from "./constants";
 import type { FeatureBuilderState } from "./feature-builder-state";
 import { isKebabSegment, toKebab } from "./qualified-name";
 import type {
+  BootCheckFn,
   EntityProjectionExtension,
   HookPhase,
   LifecycleHookFn,
@@ -254,6 +255,9 @@ export function buildUiExtensionsMethods<TName extends string>(
      */
     usesApi(apiName: string): void {
       state.usedApis.add(apiName);
+    },
+    bootCheck(fn: BootCheckFn): void {
+      state.bootChecks.push(fn);
     },
     projection(definition: ProjectionDefinition): void {
       // Reject names that would blow up at registry-boot when we qualify them.

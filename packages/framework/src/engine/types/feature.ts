@@ -204,6 +204,13 @@ export type UiHints = {
 
 // --- Feature Definition (output of defineFeature) ---
 
+// Ctx passed to r.bootCheck(fn) — the full mounted-feature set, so a check
+// can inspect any other feature's shape (entities, PII fields, etc.).
+export type BootCheckContext = {
+  readonly features: readonly FeatureDefinition[];
+};
+export type BootCheckFn = (ctx: BootCheckContext) => void;
+
 export type FeatureDefinition = {
   readonly name: string;
   // Docs-lead paragraph declared via r.describe(). Flows through the
@@ -276,6 +283,13 @@ export type FeatureDefinition = {
    * UND das Provider-Feature muss in requires/optionalRequires sein.
    */
   readonly usedApis: ReadonlySet<string>;
+  /**
+   * Boot-time mount-invariant checks declared via `r.bootCheck(fn)`. Run
+   * once per feature after all other boot-validators, each with a ctx
+   * exposing the full mounted-feature set — throw to fail the boot with a
+   * feature-authored message (framework wraps it with `[Feature <name>]`).
+   */
+  readonly bootChecks: readonly BootCheckFn[];
   readonly referenceData: readonly ReferenceDataDef[];
   readonly notifications: Readonly<Record<string, NotificationDefinition>>;
   readonly events: Readonly<Record<string, EventDef>>;
@@ -616,6 +630,37 @@ export type FeatureRegistrar<TFeature extends string = string> = {
    * ```
    */
   usesApi(apiName: string): void;
+
+  /**
+   * Declares a boot-time mount-invariant for this feature. `fn` runs once
+   * at boot with a ctx exposing every mounted feature — throw to fail the
+   * boot with a clear message. Multiple calls per feature are allowed.
+   *
+   * Use for cross-feature invariants that `r.requires` can't express
+   * because they're conditional (only fail when the feature has a
+   * specific shape), e.g. "if this feature has PII entities, some
+   * user-data-hook feature must be mounted" (the prompt-store trap,
+   * kumiko-enterprise#229 — a UserData feature was written but never
+   * mounted, and nothing caught it at boot):
+   *
+   * ```ts
+   * defineFeature("prompt-store", (r) => {
+   *   const promptFields = { text: { type: "text", pii: true } };
+   *   r.entity("prompt", { fields: promptFields });
+   *   r.bootCheck(({ features }) => {
+   *     // Conditional on this feature's own shape (has a pii field) —
+   *     // r.requires("user-data-hook") can't express that, it would fail
+   *     // even for a prompt-store variant with no PII fields at all.
+   *     const hasPiiField = Object.values(promptFields).some((f) => f.pii);
+   *     const hasUserDataHook = features.some((f) => f.name === "user-data-hook");
+   *     if (hasPiiField && !hasUserDataHook) {
+   *       throw new Error("prompt-store has PII fields but no user-data-hook feature is mounted");
+   *     }
+   *   });
+   * });
+   * ```
+   */
+  bootCheck(fn: BootCheckFn): void;
 
   // Declare a metric. Short name (without kumiko_<feature>_ prefix) — Framework
   // qualifies it on boot. Validation (snake_case + typ-suffix) runs at boot.

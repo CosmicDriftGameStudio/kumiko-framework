@@ -62,6 +62,8 @@ export type {
   KumikoHandlerResultMap,
 } from "./event-type-map";
 export type {
+  BootCheckContext,
+  BootCheckFn,
   FeatureDefinition,
   FeatureMetricDef,
   FeatureMetricType,
