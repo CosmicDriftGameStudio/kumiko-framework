@@ -1,4 +1,5 @@
-import type { OnDeleteStrategy } from "../constants";
+// Keep in sync with OnDeleteStrategies in ../constants.ts.
+type OnDeleteStrategy = "cascade" | "restrict" | "setNull" | "nothing";
 
 // --- Relations ---
 

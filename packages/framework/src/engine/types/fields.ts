@@ -1,12 +1,11 @@
 // --- Field Types ---
 
-import type { DEFAULT_CURRENCIES } from "../field-helpers";
-// OwnershipMap is declared in engine/ownership.ts — field-access maps to
+// OwnershipMap is declared in ./ownership.ts — field-access maps to
 // per-role ownership rules. A legacy `readonly string[]` form is still
 // accepted at the type layer during migration: features that pass an
 // array are auto-normalized to { [role]: "all" } at registry build.
 // Long-term: string[] disappears.
-import type { OwnershipMap } from "../ownership";
+import type { OwnershipMap } from "./ownership";
 
 export type FieldAccess = {
   readonly read?: OwnershipMap | readonly string[];
@@ -313,7 +312,23 @@ export type ReferenceFieldDef = {
 
 // --- Currency ---
 
-export type DefaultCurrency = (typeof DEFAULT_CURRENCIES)[number];
+// Keep in sync with DEFAULT_CURRENCIES in ../field-helpers.ts.
+export type DefaultCurrency =
+  | "EUR"
+  | "USD"
+  | "GBP"
+  | "CHF"
+  | "JPY"
+  | "SEK"
+  | "NOK"
+  | "DKK"
+  | "PLN"
+  | "CZK"
+  | "CAD"
+  | "AUD"
+  | "NZD"
+  | "CNY"
+  | "INR";
 
 // --- Embedded Object ---
 
