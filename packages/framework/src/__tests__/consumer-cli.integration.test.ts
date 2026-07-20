@@ -1,9 +1,8 @@
-// Integration-Test für `runConsumerCli` (kumiko-framework#1351).
+// Integration test for `runConsumerCli` (kumiko-framework#1351).
 //
-// Standalone Ops-CLI-Wrapper um getConsumerState/restartConsumer — die
-// Recovery-Semantik selbst ist bereits in event-dispatcher-recovery
-// abgedeckt, hier nur der CLI-Layer: argv-parsing, DB-Connection-Handling,
-// Exit-Codes, Output-Formatierung.
+// Recovery semantics themselves are already covered by
+// event-dispatcher-recovery — this only exercises the CLI layer: argv
+// parsing, DB-connection handling, exit codes, output formatting.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../bun-db/__tests__/bun-test-db";
