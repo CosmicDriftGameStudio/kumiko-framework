@@ -12,6 +12,7 @@ import {
   seedAdmin,
   seedUserWithPassword,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   AuthMfaHandlers,
   base32Decode,
@@ -66,7 +67,6 @@ import {
   deleteRows,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import * as jose from "jose";
 import { composeIdentityStack, composeOpsStack, composeRendererStack } from "../compose-stacks";
