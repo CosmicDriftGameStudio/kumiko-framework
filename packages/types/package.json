@@ -93,6 +93,10 @@
     "./config-scope": {
       "types": "./src/config-scope.ts",
       "default": "./src/config-scope.ts"
+    },
+    "./write-error-info-types": {
+      "types": "./src/write-error-info-types.ts",
+      "default": "./src/write-error-info-types.ts"
     }
   },
   "dependencies": {
