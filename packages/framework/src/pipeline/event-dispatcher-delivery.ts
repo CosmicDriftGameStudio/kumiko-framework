@@ -43,7 +43,7 @@ export type ConsumerStateRowShape = {
 };
 export type ConsumerStateRow = ConsumerStateRowShape;
 
-type StoredEventRow = {
+export type StoredEventRow = {
   readonly id: bigint;
   readonly aggregateId: string;
   readonly aggregateType: string;
@@ -183,6 +183,7 @@ export async function deliverEvents(
   let attempts = state.attempts;
   let lastError: string | null = state.lastError ?? null;
   let deadLettered = false;
+  const effectiveMaxAttempts = consumer.errorPolicy?.maxAttempts ?? maxAttempts;
   let processed = 0;
   let failed = 0;
 
@@ -231,7 +232,7 @@ export async function deliverEvents(
       attempts += 1;
       lastError = errMessage;
       failed += 1;
-      if (attempts >= maxAttempts) deadLettered = true;
+      if (attempts >= effectiveMaxAttempts) deadLettered = true;
       break;
     }
   }
