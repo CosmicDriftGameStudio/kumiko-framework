@@ -1,9 +1,9 @@
 # Isolated runner for the #457 DOM screen tests. These render tests corrupt
 # under the shared single-process happy-dom after ~30 prior DOM test files have
-# mounted/unmounted (React event delegation stops firing). They are therefore
-# excluded from the shared `kumiko check` run via the pathIgnorePatterns in both
-# bunfig.toml and bunfig.ci.toml, and run here in their own `bun test` process —
-# pass the test file as an explicit path argument.
+# mounted/unmounted (React event delegation stops firing) — CI-only, locally
+# the full tsx run is green. They are therefore excluded from the shared dom
+# run via the pathIgnorePatterns in bunfig.dom.toml and run here in their own
+# `bun test` process — pass the test file as an explicit path argument.
 #
 # This config deliberately does NOT list the screen tests in pathIgnorePatterns:
 # bun applies pathIgnorePatterns to explicitly-passed paths too, so listing them

@@ -5,9 +5,11 @@ linker = "hoisted"
 "@cosmicdriftgamestudio" = { url = "https://npm.pkg.github.com", token = "$GITHUB_TOKEN" }
 
 [test]
-# Unit-test default: polyfill-only preload (no service-URL env). Integration
-# runs pull service defaults via bunfig.integration.toml → integration.preload.ts.
-preload = ["./test-setup/base.preload.ts", "./test-setup/dom.preload.ts"]
+# Unit-test default: polyfill-only preload (no service-URL env, no DOM).
+# Integration runs pull service defaults via bunfig.integration.toml →
+# integration.preload.ts. DOM/render tests (*.test.tsx) laufen über
+# bunfig.dom.toml (Issue #1330) — hier wird happy-dom nicht mehr geladen.
+preload = ["./test-setup/base.preload.ts"]
 concurrency = 8
 
 # *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst
@@ -15,6 +17,10 @@ concurrency = 8
 # (siehe "Playwright Test did not expect test() to be called here").
 pathIgnorePatterns = [
   "**/*.integration.test.ts",
+  # *.test.tsx brauchen happy-dom → eigener Lauf via bunfig.dom.toml
+  # (`bun run test:dom`). Hier raus, damit der node-only Default kein
+  # window-Global mehr unterlegt bekommt.
+  "**/*.test.tsx",
   "**/e2e/**",
   "**/*.spec.ts",
   "**/*.spec.tsx",
@@ -22,9 +28,5 @@ pathIgnorePatterns = [
   # ohne Exclude scant bun test BEIDE Kopien (duplicates kämpfen um
   # ephemerale DBs, sieht aus wie flaky-Tests).
   "**/dist/**",
-  # #457: DOM screen tests that corrupt under the shared single-process happy-dom.
-  # Run them isolated via `bun test --config=bunfig.ci-dom.toml ./<file>` instead.
-  "**/user-data-rights/web/__tests__/deletion-screens.test.tsx",
-  "**/user-data-rights/web/__tests__/privacy-center-screen.test.tsx",
 ]
 

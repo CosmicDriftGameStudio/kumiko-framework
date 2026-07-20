@@ -5,14 +5,15 @@ linker = "hoisted"
 "@cosmicdriftgamestudio" = { url = "https://npm.pkg.github.com", token = "$GITHUB_TOKEN" }
 
 [test]
-# Unit-test default: polyfill-only preload (no service-URL env). Integration
-# runs pull service defaults via bunfig.integration.toml → integration.preload.ts.
-# CI: concurrency=1 — single-CPU cdgs-runner; shared happy-dom under concurrency>1
-# collides and inflates RAM. Local dev keeps concurrency=8 in bunfig.toml.
+# Unit-test default: polyfill-only preload (no service-URL env, no DOM).
+# Integration runs pull service defaults via bunfig.integration.toml →
+# integration.preload.ts. DOM/render tests (*.test.tsx) laufen über
+# bunfig.dom.toml (Issue #1330) — hier wird happy-dom nicht mehr geladen.
+# CI: concurrency=1 — single-CPU cdgs-runner. Local dev keeps concurrency=8
+# in bunfig.toml.
 preload = [
   "./test-setup/ci-log.preload.ts",
   "./test-setup/base.preload.ts",
-  "./test-setup/dom.preload.ts",
 ]
 concurrency = 1
 
@@ -37,6 +38,9 @@ coveragePathIgnorePatterns = [
 pathIgnorePatterns = [
   "**/*.integration.test.ts",
   "**/*.integration.ts",
+  # *.test.tsx brauchen happy-dom → eigener CI-Step via bunfig.dom.toml
+  # (`bun run test:dom`), siehe ci.yml "Run DOM tests".
+  "**/*.test.tsx",
   "**/e2e/**",
   "**/*.spec.ts",
   "**/*.spec.tsx",
@@ -44,13 +48,5 @@ pathIgnorePatterns = [
   # ohne Exclude scant bun test BEIDE Kopien (duplicates kämpfen um
   # ephemerale DBs, sieht aus wie flaky-Tests).
   "**/dist/**",
-  # #457: these DOM screen tests corrupt under the shared single-process happy-dom
-  # after ~30 prior DOM test files. Excluded from the shared `kumiko check` run and
-  # run isolated via their own ci.yml step using `--config=bunfig.ci-dom.toml`
-  # instead — that config has no matching ignore entries, so the tests run there.
-  # (pathIgnorePatterns applies even to explicitly-passed paths within the SAME
-  # config — an explicit path does NOT override it. See bunfig.ci-dom.toml.)
-  "**/user-data-rights/web/__tests__/deletion-screens.test.tsx",
-  "**/user-data-rights/web/__tests__/privacy-center-screen.test.tsx",
 ]
 
