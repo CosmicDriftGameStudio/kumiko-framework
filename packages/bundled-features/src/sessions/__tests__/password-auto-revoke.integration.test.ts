@@ -5,7 +5,6 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
-  TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
