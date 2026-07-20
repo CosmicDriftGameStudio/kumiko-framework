@@ -53,7 +53,7 @@ describe("envelope — encryptValue/decryptValue", () => {
       ...envelope,
       ciphertext: Buffer.concat([
         envelope.ciphertext.subarray(0, 1),
-        Buffer.from([envelope.ciphertext[0]! ^ 0xff]),
+        Buffer.from([envelope.ciphertext[1]! ^ 0xff]),
         envelope.ciphertext.subarray(2),
       ]),
     };
