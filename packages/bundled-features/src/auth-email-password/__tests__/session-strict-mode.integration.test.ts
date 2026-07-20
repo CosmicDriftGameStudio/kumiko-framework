@@ -1,8 +1,6 @@
-// Tests the `sessionStrictMode` flag on AuthRoutesConfig. When enabled, a
-// JWT that arrives WITHOUT a `jti` is rejected at the middleware — useful
-// after a rolling deploy has been emitting sids longer than the JWT TTL,
-// so legacy stateless tokens are expected to have expired. Default false
-// keeps pre-upgrade tokens working; this suite flips it on and asserts.
+// Pins the default sessionChecker behavior: a JWT that arrives WITHOUT a
+// `jti` is rejected at the middleware. There is no relaxed mode — any app
+// that wires sessionChecker gets this for free.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -21,12 +19,8 @@ let stack: TestStack;
 const TENANT: TenantId = testTenantId(1);
 const userId = TestUsers.systemAdmin.id;
 
-// Stub checker that always accepts. The strictMode branch runs BEFORE the
-// checker is even consulted (no jti → nothing to check), so the stub never
-// fires in the strict-mode path. It's present to satisfy the framework's
-// "you wired sessionChecker, so we'll run it if we have an sid" contract.
-// Accepts the full AuthSessionChecker signature (sid + expectedUserId)
-// even though it doesn't use the args.
+// Stub checker that always accepts. Accepts the full AuthSessionChecker
+// signature (sid + expectedUserId) even though it doesn't use the args.
 async function stubChecker(_sid: string, _expectedUserId: string): Promise<"live"> {
   return "live";
 }
@@ -42,7 +36,6 @@ beforeAll(async () => {
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       sessionChecker: stubChecker,
-      sessionStrictMode: true,
     },
   });
 });
@@ -51,7 +44,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("sessionStrictMode: sidless JWTs are rejected", () => {
+describe("sessionChecker wired: sidless JWTs are rejected", () => {
   test("JWT without jti → 401 with reason=no_sid", async () => {
     // Hand-signed JWT that carries id + tenantId + roles but NO jti. The
     // standard testing request-helper signs JWTs the same way on user
@@ -93,7 +86,7 @@ describe("sessionStrictMode: sidless JWTs are rejected", () => {
     expect(res.status).not.toBe(401);
     // Narrow the "not 401" to exclude other 4xx middleware errors too.
     // A 403 from access-layer or a 400 from shape-validation wouldn't
-    // come from sessionStrictMode, but either would be a different code
+    // come from the sid gate, but either would be a different code
     // path than the one we're testing — flag them if they surface.
     expect(res.status).not.toBe(403);
     expect(res.status).not.toBe(400);

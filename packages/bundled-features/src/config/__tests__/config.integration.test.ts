@@ -1086,6 +1086,20 @@ describe("encrypted config", () => {
     const value = await configFn("integration:config:api-secret");
     expect(value).toBe("sk-super-secret-key-12345");
   });
+
+  test("reading an encrypted value with no cipher wired throws instead of leaking ciphertext", async () => {
+    const noCipherResolver = createConfigResolver({});
+    const configFn = createConfigAccessor(
+      stack.registry,
+      noCipherResolver,
+      "00000000-0000-4000-8000-000000000001",
+      systemAdmin.id,
+      db,
+    );
+    await expect(configFn("integration:config:api-secret")).rejects.toThrow(
+      /encrypted but no cipher/,
+    );
+  });
 });
 
 // --- Config lifecycle events ---

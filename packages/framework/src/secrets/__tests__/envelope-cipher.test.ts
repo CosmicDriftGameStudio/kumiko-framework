@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { createEncryptionProvider } from "../../db/encryption";
 import { createEnvMasterKeyProvider } from "../env-master-key-provider";
 import { createEnvelopeCipher } from "../envelope-cipher";
 import { isStoredEnvelope } from "../stored-envelope";
@@ -42,33 +41,6 @@ describe("envelope-cipher — encrypt/decrypt", () => {
   });
 });
 
-describe("envelope-cipher — legacy fallback", () => {
-  test("decrypts legacy single-key values when the legacy provider is configured", async () => {
-    const legacy = createEncryptionProvider(randomBytes(32).toString("base64"));
-    const legacyStored = legacy.encrypt("pre-envelope value");
-    // legacy wire format is base64 — never starts with "{"
-    expect(legacyStored.startsWith("{")).toBe(false);
-
-    const cipher = createEnvelopeCipher(makeProvider(), { legacy });
-    expect(await cipher.decrypt(legacyStored)).toBe("pre-envelope value");
-  });
-
-  test("throws with a remediation message when a legacy value has no legacy key", async () => {
-    const legacy = createEncryptionProvider(randomBytes(32).toString("base64"));
-    const legacyStored = legacy.encrypt("orphaned");
-
-    const cipher = createEnvelopeCipher(makeProvider());
-    await expect(cipher.decrypt(legacyStored)).rejects.toThrow(/legacy/);
-  });
-
-  test("never encrypts into the legacy format even when a legacy key is present", async () => {
-    const legacy = createEncryptionProvider(randomBytes(32).toString("base64"));
-    const cipher = createEnvelopeCipher(makeProvider(), { legacy });
-    const stored = await cipher.encrypt("always-envelope");
-    expect(stored.startsWith("{")).toBe(true);
-  });
-});
-
 describe("envelope-cipher — malformed input", () => {
   test("rejects invalid JSON that looks like an envelope", async () => {
     const cipher = createEnvelopeCipher(makeProvider());
@@ -80,8 +52,8 @@ describe("envelope-cipher — malformed input", () => {
     await expect(cipher.decrypt('{"foo":"bar"}')).rejects.toThrow(/not a StoredEnvelope/);
   });
 
-  test("empty string routes to the legacy branch and throws without a legacy key", async () => {
+  test("empty string is not valid JSON", async () => {
     const cipher = createEnvelopeCipher(makeProvider());
-    await expect(cipher.decrypt("")).rejects.toThrow(/legacy/);
+    await expect(cipher.decrypt("")).rejects.toThrow(/not valid JSON/);
   });
 });

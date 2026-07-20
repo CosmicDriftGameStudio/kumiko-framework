@@ -120,7 +120,7 @@ export type RunDevAppAuthOptions = {
   /** Opt-in: revocable server-side sessions. Caller MUSS
    *  `createSessionsFeature()` zu `features` adden — runDevApp wired
    *  hier nur die Auth-Callbacks (creator/revoker/checker) gegen
-   *  stack.db, plus sessionStrictMode=true.
+   *  stack.db (sidless JWTs werden dann abgelehnt).
    *
    *  Standardverhalten ohne diese Option: stateless JWTs ohne sid,
    *  Logout ist client-side cookie-clear, Karten­haus existing-Apps
@@ -449,11 +449,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           sessionRevoker: (sid: string) => requireSessions().sessionRevoker(sid),
           sessionChecker: (sid: string, userId: string) =>
             requireSessions().sessionChecker(sid, userId),
-          // strict-mode: jede neue Plattform-App startet ohne legacy-
-          // JWTs ohne sid, daher safe als Default. Wer Sessions opt-in
-          // wählt, will explizite Server-side Revocation — strict-mode
-          // ist der einzige Modus der das tatsächlich erzwingt.
-          sessionStrictMode: true,
         }
       : {};
 

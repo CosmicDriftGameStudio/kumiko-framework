@@ -68,11 +68,6 @@ export type AuthMiddlewareOptions = {
   // hit the middleware sets the returned SessionUser and skips the JWT path
   // entirely. Omit to disable PAT auth (bearer PATs then fail jwt.verify → 401).
   readonly patResolver?: PatResolver;
-  // When true, a JWT WITHOUT a sid is rejected. Leave false during rollout
-  // so already-issued stateless JWTs keep working until they expire; flip
-  // to true once the server has been emitting sid for longer than the JWT
-  // TTL. Has no effect when sessionChecker is undefined.
-  readonly strictMode?: boolean;
   // Opt-in: when set, requests without a JWT are treated as anonymous
   // callers instead of being rejected with 401. The middleware synthesises
   // a SessionUser with id="anonymous" and roles=["anonymous"], scoped to a
@@ -222,13 +217,7 @@ function extractToken(
 }
 
 export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = {}) {
-  const {
-    sessionChecker,
-    strictMode = false,
-    anonymousAccess,
-    patResolver,
-    resolveTenantLifecycleStatus,
-  } = options;
+  const { sessionChecker, anonymousAccess, patResolver, resolveTenantLifecycleStatus } = options;
 
   // Fail loud at boot, not silently at request time: a tenantResolver
   // without a declared resolverTrust is an ambiguous trust decision no
@@ -302,15 +291,16 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     }
 
     // Session liveness check — only when both a checker is wired AND the
-    // token carries a sid. strictMode governs the no-sid case below so that
-    // both old JWTs (no sid) and rolling-deploy gaps can be handled.
+    // token carries a sid.
+    // A checker wired without a sid on the token means the token predates
+    // session tracking (or the JWT was forged) — reject.
     if (sessionChecker) {
       if (payload.jti) {
         const status = await sessionChecker(payload.jti, payload.sub);
         if (status !== "live") {
           return sessionInvalid(c, status);
         }
-      } else if (strictMode) {
+      } else {
         return sessionInvalid(c, "no_sid");
       }
     }

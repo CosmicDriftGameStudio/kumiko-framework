@@ -94,6 +94,13 @@ async function markVerified(userId: string): Promise<void> {
   await updateRows(stack.db, userTable, { emailVerified: true }, { id: userId });
 }
 
+// writeOk drives real HTTP through the auth middleware, so a hand-built
+// actor needs a live sid — sessionChecker rejects sidless JWTs.
+async function withSession(user: SessionUser): Promise<SessionUser> {
+  const sid = await callbacks.get().sessionCreator(user, { ip: "127.0.0.1", userAgent: "test" });
+  return { ...user, sid };
+}
+
 beforeAll(async () => {
   configureEntityFieldEncryption(createTestEnvelopeCipher());
   const bound = sessionCallbacksFromLateBound(callbacks);
@@ -147,8 +154,8 @@ beforeAll(async () => {
     }),
     authConfig: {
       ...bound.asAuthConfig(),
-      // No sessionStrictMode: seed/writeOk uses TestUsers JWTs without sid.
-      // Login still gets jti via sessionCreator (asserted below).
+      // sessionChecker rejects sidless JWTs — hand-built actors used with
+      // writeOk go through withSession() to get a live sid first.
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
       mfaVerifyHandler: AuthMfaHandlers.verify,
@@ -293,7 +300,7 @@ describe("saas-identity-wire", () => {
     });
     await markVerified(adminId);
 
-    const admin: SessionUser = { id: adminId, tenantId, roles: ["Admin"] };
+    const admin = await withSession({ id: adminId, tenantId, roles: ["Admin"] });
     const invitee = "carol-wire@example.com";
     await stack.http.writeOk(AuthHandlers.inviteCreate, { email: invitee, role: "User" }, admin);
     expect(emailTransport.sent.length).toBeGreaterThanOrEqual(1);
@@ -368,7 +375,7 @@ describe("saas-identity-wire", () => {
       ],
     });
     await markVerified(userId);
-    const user: SessionUser = { id: userId, tenantId, roles: ["User"] };
+    const user = await withSession({ id: userId, tenantId, roles: ["User"] });
 
     const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
       AuthMfaHandlers.enableStart,

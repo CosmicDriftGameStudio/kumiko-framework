@@ -3,7 +3,7 @@
  * full prod boot).
  *
  * Secure-by-default: mounting the `sessions` feature turns server-side session
- * revocation + sessionStrictMode ON automatically — there is no separate opt-in. The
+ * revocation ON automatically — there is no separate opt-in. The
  * `auth.sessions` option only overrides the config, and `auth.sessions: false` is the
  * explicit opt-out (back to stateless JWTs).
  */
