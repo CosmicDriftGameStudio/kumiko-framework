@@ -4,6 +4,7 @@ import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-ha
 import type { RegisterEntityCrudOptions } from "./entity-handlers";
 import { registerEntityCrud } from "./entity-handlers";
 import type { FeatureBuilderState } from "./feature-builder-state";
+import { resolveName } from "./handler-helpers";
 import { splitNamedDefinition } from "./object-form";
 import type {
   AccessRule,
@@ -16,7 +17,6 @@ import type {
   RelationDefinition,
   WriteHandlerFn,
 } from "./types";
-import { resolveName } from "./types/handlers";
 import type { PipelineDef } from "./types/step";
 
 const CRUD_VERBS = new Set(["create", "update", "delete"]);

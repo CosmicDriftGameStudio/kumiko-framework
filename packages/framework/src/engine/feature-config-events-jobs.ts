@@ -1,5 +1,6 @@
 import { ZodObject, type ZodType, type z } from "zod";
 import type { FeatureBuilderState } from "./feature-builder-state";
+import { resolveName } from "./handler-helpers";
 import { splitNamedDefinition, unwrapArrayForm } from "./object-form";
 import { QnTypes, qn, toKebab } from "./qualified-name";
 import type {
@@ -26,7 +27,6 @@ import type {
   SecretOptions,
   TranslationsDef,
 } from "./types";
-import { resolveName } from "./types/handlers";
 
 // Builds config/secrets/claims/events/jobs/notifications registrar methods.
 export function buildConfigEventsJobsMethods<TName extends string>(

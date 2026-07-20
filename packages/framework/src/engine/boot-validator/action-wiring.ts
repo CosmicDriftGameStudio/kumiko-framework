@@ -1,3 +1,4 @@
+import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
 import type {
   EditFieldSpec,
   EditLayout,
@@ -6,7 +7,6 @@ import type {
   RowAction,
   ToolbarAction,
 } from "../types";
-import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../types/screen";
 
 const FUNCTION_DROPPED_HINT =
   "functions are dropped by JSON.stringify when the screen config reaches the client " +

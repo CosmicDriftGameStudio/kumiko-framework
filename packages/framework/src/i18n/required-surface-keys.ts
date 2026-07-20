@@ -1,3 +1,4 @@
+import { isExtensionEditSection, normalizeListColumn } from "../engine/screen-helpers";
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
@@ -15,7 +16,6 @@ import type {
   ToolbarAction,
   WorkspaceDefinition,
 } from "../engine/types";
-import { isExtensionEditSection, normalizeListColumn } from "../engine/types/screen";
 
 /** Pseudo-entity for actionForm field labels (renderer action-form-shim). */
 export const ACTION_FORM_ENTITY = "__action-form__";
