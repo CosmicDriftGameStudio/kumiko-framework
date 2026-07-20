@@ -338,12 +338,15 @@ export async function loadEventsAfterVersion(
 
 // Load every event for an aggregate_type across all tenants. Ordered by
 // (created_at, id) — chronological replay order for projection rebuilds.
-//
-// CAUTION — buffers ALL matching events in memory. Safe for smaller
-// aggregate-types (≤ 100k events), a memory cliff for large stores.
-// For >100k events use `streamAllEventsByType` (yields batchwise).
 // Mostly called from tests today — production rebuild goes through
 // projection-rebuild's own streaming path.
+//
+// Fails loud past LOAD_ALL_EVENTS_ROW_LIMIT rather than silently buffering
+// an unbounded result set — that's the memory cliff this guard exists to
+// prevent.
+export const LOAD_ALL_EVENTS_ROW_LIMIT = 100_000;
+
+/** @deprecated buffers ALL matching events in memory — a memory cliff for large stores. Use `streamAllEventsByType` (yields batchwise) instead. */
 export async function loadAllEventsByType(
   db: DbRunner,
   aggregateType: string,
@@ -357,8 +360,15 @@ export async function loadAllEventsByType(
         { col: "createdAt", direction: "asc" },
         { col: "id", direction: "asc" },
       ],
+      limit: LOAD_ALL_EVENTS_ROW_LIMIT + 1,
     },
   );
+  if (rows.length > LOAD_ALL_EVENTS_ROW_LIMIT) {
+    throw new Error(
+      `loadAllEventsByType("${aggregateType}") exceeds ${LOAD_ALL_EVENTS_ROW_LIMIT} rows — ` +
+        "use streamAllEventsByType instead of buffering the full result set in memory.",
+    );
+  }
   return rows.map(toStoredEvent);
 }
 
