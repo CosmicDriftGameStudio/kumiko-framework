@@ -123,6 +123,7 @@ export async function createEventConsumerStateTable(db: DbConnection): Promise<v
         " NOT NULL",
       );
     }
+    // skip: table (+ any missing column) is already up to date
     return;
   }
   await unsafePushTables(db, { kumikoEventConsumers: eventConsumerStateTable });
