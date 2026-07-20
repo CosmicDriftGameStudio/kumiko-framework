@@ -5,7 +5,6 @@
 // buildBootExtraContext + applyBootSeeds so resolver, set-handler and
 // seeds share the same cipher instance (and DEK cache).
 
-import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import {
   createDekCache,
   createEnvelopeCipher,
@@ -27,12 +26,10 @@ export function envHasMasterKek(env: Record<string, string | undefined>): boolea
 export type BootCrypto = {
   readonly masterKeyProvider?: MasterKeyProvider;
   // Cipher for encrypted config keys. Present exactly when a master key is
-  // available. Decrypts legacy CONFIG_ENCRYPTION_KEY values as fallback
-  // until the config re-encrypt job migrated them.
+  // available.
   readonly configCipher?: EnvelopeCipher;
-  // Cipher for `encrypted: true` entity fields — same master key, but the
-  // legacy fallback reads the pre-envelope ENCRYPTION_KEY format. Identical
-  // to configCipher when no ENCRYPTION_KEY is set.
+  // Cipher for `encrypted: true` entity fields — same master key and
+  // instance as configCipher (kept as a separate field for API stability).
   readonly entityFieldCipher?: EnvelopeCipher;
   readonly dekCache: DekCache;
 };
@@ -56,22 +53,10 @@ export function resolveBootCrypto(
       : undefined);
 
   const dekCache = createDekCache();
-  const legacyConfigKey = envSource["CONFIG_ENCRYPTION_KEY"];
   const configCipher = masterKeyProvider
-    ? createEnvelopeCipher(masterKeyProvider, {
-        dekCache,
-        ...(legacyConfigKey ? { legacy: createEncryptionProvider(legacyConfigKey) } : {}),
-      })
+    ? createEnvelopeCipher(masterKeyProvider, { dekCache })
     : undefined;
-
-  const legacyEntityKey = envSource["ENCRYPTION_KEY"];
-  const entityFieldCipher =
-    masterKeyProvider && legacyEntityKey
-      ? createEnvelopeCipher(masterKeyProvider, {
-          dekCache,
-          legacy: createEncryptionProvider(legacyEntityKey),
-        })
-      : configCipher;
+  const entityFieldCipher = configCipher;
 
   return {
     ...(masterKeyProvider && { masterKeyProvider }),

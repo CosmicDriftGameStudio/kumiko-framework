@@ -1,7 +1,6 @@
 // Regression guard for kumiko-framework#1187: proves the config
-// KEK-rotation job handles a real version-N → version-N+1 rotation, not
-// just legacy-format → envelope (see encrypted-legacy-migration.integration
-// .test.ts for that story). Modeled directly on auth-mfa's
+// KEK-rotation job handles a real version-N → version-N+1 rotation. Modeled
+// directly on auth-mfa's
 // reencrypt-job.integration.test.ts, which is the reference regression
 // guard for this exact bug class (kumiko-framework#266 Step 8): rotation
 // must go through executor.update() (a real event), not a raw UPDATE on

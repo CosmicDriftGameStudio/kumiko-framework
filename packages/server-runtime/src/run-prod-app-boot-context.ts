@@ -216,7 +216,6 @@ export function buildProdSessionAuth(
   readonly sessionCreator: ReturnType<typeof createSessionCallbacks>["sessionCreator"];
   readonly sessionRevoker: ReturnType<typeof createSessionCallbacks>["sessionRevoker"];
   readonly sessionChecker: ReturnType<typeof createSessionCallbacks>["sessionChecker"];
-  readonly sessionStrictMode: true;
 } {
   const cbs = createSessionCallbacks({
     db,
@@ -236,6 +235,5 @@ export function buildProdSessionAuth(
     sessionCreator: cbs.sessionCreator,
     sessionRevoker: cbs.sessionRevoker,
     sessionChecker: cbs.sessionChecker,
-    sessionStrictMode: true,
   };
 }

@@ -58,10 +58,8 @@ export function createConfigFeature(): FeatureDefinition {
       readiness: r.queryHandler(readinessQuery),
     };
 
-    // Migration + KEK-rotation for encrypted values (legacy-format →
-    // envelope, old kekVersion → current). Manual trigger — ops runs it
-    // once after adding a new master key version or before retiring the
-    // legacy CONFIG_ENCRYPTION_KEY.
+    // KEK-rotation for encrypted values. Manual trigger — ops runs it once
+    // after adding a new master key version.
     r.job("reencrypt", { trigger: { manual: true } }, reencryptJob);
 
     r.translations({ keys: CONFIG_FEATURE_I18N });

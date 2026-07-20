@@ -279,7 +279,7 @@ export type RunProdAppAuthOptions = {
   /** Opt-in: revocable server-side sessions. Caller MUSS
    *  `createSessionsFeature()` zu `features` adden — runProdApp wired
    *  hier nur die Auth-Callbacks (creator/revoker/checker) gegen die
-   *  echte db-connection, plus sessionStrictMode=true.
+   *  echte db-connection (sidless JWTs werden dann abgelehnt).
    *
    *  Standardverhalten ohne diese Option: stateless JWTs ohne sid
    *  (legacy-Verhalten, Karten­haus existing-Apps unangefasst). */
@@ -852,14 +852,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
   // Sessions opt-in: db ist hier schon konkret (createDbConnection oben),
   // also direkt verdrahten — kein late-bound nötig wie bei runDevApp.
-  // sessionStrictMode=true: Prod-Sessions sollen nicht stillschweigend
-  // von einem JWT-ohne-sid umgangen werden können. sessionMassRevoker
+  // Ein JWT ohne sid wird abgelehnt, sobald ein sessionChecker verdrahtet ist —
+  // Prod-Sessions können nicht stillschweigend umgangen werden. sessionMassRevoker
   // (4. callback aus createSessionCallbacks) ist nicht Teil der
   // AuthRoutesConfig-Surface — der geht via bindAutoRevokeFromFeature ans
   // sessions-Feature (Password-Change/-Reset revoked alle Sessions), nicht
   // über die auth-routes.
   // Secure-by-default: if the sessions feature is mounted, server-side revocation +
-  // sessionStrictMode + auto-revoke-on-password-change are wired automatically;
+  // auto-revoke-on-password-change are wired automatically;
   // `auth.sessions` only overrides the config, and `auth.sessions: false` is the
   // explicit opt-out (back to stateless JWTs).
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);

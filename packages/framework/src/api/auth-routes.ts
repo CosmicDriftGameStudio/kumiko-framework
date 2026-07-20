@@ -260,10 +260,6 @@ export type AuthRoutesConfig = {
   // at login, check it here on every request. Leaving this empty disables
   // the revocation path — old JWTs stay valid until they expire naturally.
   sessionChecker?: SessionChecker;
-  // When true, a JWT WITHOUT a sid is rejected. Use during deploy-rollouts
-  // once all fresh JWTs emit a sid and the legacy stateless tokens are
-  // expected to have expired. Default false keeps old tokens working.
-  sessionStrictMode?: boolean;
   // Resolves bearer Personal Access Tokens (PAT_TOKEN_PREFIX) into a
   // SessionUser, consulted BEFORE jwt.verify. Wired by the
   // personal-access-tokens feature; unwired = PAT auth disabled.
