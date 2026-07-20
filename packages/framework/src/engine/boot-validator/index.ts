@@ -31,12 +31,7 @@ import {
   validateTransitions,
 } from "./entity-handler";
 import { validateEntityListScreens } from "./entity-list-screens";
-import {
-  validateGdprHookCompleteness,
-  validateGdprPiiHookCoverage,
-  validateGdprStoragePersistence,
-  validateTenantDataHookCoverage,
-} from "./gdpr-storage";
+import { validateGdprStoragePersistence } from "./gdpr-storage";
 import { validateI18nSurfaceKeys } from "./i18n-keys";
 import {
   collectKnownRoles,
@@ -199,9 +194,6 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   validateEntityListScreens(features);
   validateExtensionPreSaveWiring(features);
   validateGdprStoragePersistence(features);
-  validateGdprHookCompleteness(features);
-  validateGdprPiiHookCoverage(features);
-  validateTenantDataHookCoverage(features);
   validateFeatureBootChecks(features);
 
   if (hasEncryptedFields) {

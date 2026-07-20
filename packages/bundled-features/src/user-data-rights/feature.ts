@@ -5,6 +5,7 @@ import {
   type FeatureDefinition,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks";
 import { PRIVACY_CENTER_SCREEN_ID } from "./constants";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write";
@@ -154,6 +155,13 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // (kein Export) muessen file-foundation nicht mounten.
 
     r.extendsRegistrar(EXT_USER_DATA, {});
+
+    // GDPR-storage guards V2+V3 (#1314) — moved off the framework-internal
+    // boot-validator onto this feature's own r.bootCheck(), since it's the
+    // EXT_USER_DATA channel owner: any r.useExtension(EXT_USER_DATA, ...)
+    // usage already requires user-data-rights to be mounted.
+    r.bootCheck(({ features }) => validateGdprHookCompleteness(features));
+    r.bootCheck(({ features }) => validateGdprPiiHookCoverage(features));
 
     // App-level tenant-occupancy model. Default "multi-user" → tenant-scoped
     // contributors (e.g. credit) NEVER erase tenant data on a per-user forget
