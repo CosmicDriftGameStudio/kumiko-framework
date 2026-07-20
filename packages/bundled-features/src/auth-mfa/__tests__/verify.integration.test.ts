@@ -272,4 +272,24 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
     );
     expectErrorIncludes(err, "invalid_challenge_token");
   });
+
+  test("user row deleted between login and verify → challenge rejected (the !userRow gate)", async () => {
+    const { user, secret } = await enableMfaFor(7);
+    const challengeToken = challengeFor(user.id, user.tenantId);
+
+    // Simulate the read_users row disappearing after the challenge token
+    // was issued but before verify runs — hits verify.write.ts's
+    // `if (!userRow) return invalidChallengeToken()` gate directly, distinct
+    // from a revoked membership or a restricted-but-present user row.
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}" WHERE id = $1`, [
+      user.id,
+    ]);
+
+    const err = await stack.http.writeErr(
+      AuthMfaHandlers.verify,
+      { challengeToken, code: currentTotpCode(secret) },
+      GUEST,
+    );
+    expectErrorIncludes(err, "invalid_challenge_token");
+  });
 });

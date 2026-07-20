@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { integer, type SchemaTable, table, uuid } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -8,6 +9,7 @@ import {
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
+import { z } from "zod";
 import { EXT_SESSION_STORE } from "../../auth-foundation";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature";
 import { createConfigFeature } from "../../config/feature";
@@ -79,6 +81,47 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
       r.entity("contact", createEntity({ fields: { email: createTextField({ pii: true }) } }));
     });
     expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/EXT_USER_DATA hook.*Art\.17 gap/);
+  });
+
+  test("V3: pii field on a projection-only entity (no r.entity) is still caught", () => {
+    const projectionTable = table("crm_contact_summary", {
+      id: uuid("id").primaryKey(),
+      count: integer("count").notNull().default(0),
+    }) as unknown as SchemaTable;
+    const bad = defineFeature("crm", (r) => {
+      const contactCreated = r.defineEvent("contact-created", z.unknown());
+      r.projection({
+        name: "contact-summary",
+        source: "contact",
+        table: projectionTable,
+        apply: { [contactCreated.name]: async () => {} },
+        entity: createEntity({ fields: { email: createTextField({ pii: true }) } }),
+      });
+    });
+    expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/EXT_USER_DATA hook.*Art\.17 gap/);
+  });
+
+  test("V3: projection-only pii entity WITH EXT_USER_DATA hook registered for its entity name → no throw", () => {
+    const projectionTable = table("crm_contact_summary_hooked", {
+      id: uuid("id").primaryKey(),
+      count: integer("count").notNull().default(0),
+    }) as unknown as SchemaTable;
+    const hooked = defineFeature("crm-hooked", (r) => {
+      r.requires("user-data-rights");
+      const contactCreated = r.defineEvent("contact-hooked-created", z.unknown());
+      r.projection({
+        name: "contact-summary",
+        source: "contact",
+        table: projectionTable,
+        apply: { [contactCreated.name]: async () => {} },
+        entity: createEntity({ fields: { email: createTextField({ pii: true }) } }),
+      });
+      r.useExtension(EXT_USER_DATA, "contact-summary", {
+        export: async () => null,
+        delete: async () => {},
+      });
+    });
+    expect(() => validateBoot([...baseFeatures(), hooked])).not.toThrow();
   });
 
   test("V4: tenantOwned entity without EXT_TENANT_DATA hook, tenant-lifecycle mounted → throws the guard's own message", () => {

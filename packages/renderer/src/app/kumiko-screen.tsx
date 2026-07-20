@@ -120,7 +120,7 @@ export function qualifyNavId(featureName: string, navId: string): string {
 // Duplicated instead of imported from framework/engine's hasAccess (pulls
 // server-side deps) — same bundle-purity reasoning as headless/nav's
 // resolve.ts:userCanSee, which this mirrors.
-function screenAccessAllows(
+export function screenAccessAllows(
   access: AccessRule | undefined,
   userRoles: readonly string[] | undefined,
 ): boolean {

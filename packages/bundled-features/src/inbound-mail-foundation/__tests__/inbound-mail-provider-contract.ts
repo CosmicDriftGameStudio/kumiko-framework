@@ -22,6 +22,13 @@ export function describeInboundMailProviderContract(
   factory: () => InboundMailProviderContractFixture | Promise<InboundMailProviderContractFixture>,
   opts?: { readonly skip?: boolean },
 ): void {
+  // Eager sync probe so a provider without `watch` produces a visible
+  // test.skip instead of a silent 0-assertion pass (#1337). Both current
+  // factories (imap, inmemory) are sync object literals; an async factory
+  // falls back to the old runtime `if (!plugin.watch) return` check below.
+  const probe = factory();
+  const watchProbe = probe instanceof Promise ? undefined : Boolean(probe.plugin.watch);
+
   describe(`${name} — InboundMailProviderPlugin contract`, () => {
     const t = opts?.skip ? test.skip : test;
     t("verify resolves for a valid account", async () => {
@@ -50,9 +57,10 @@ export function describeInboundMailProviderContract(
       },
     );
 
-    t("watch: pushes a seeded message via onMessages", async () => {
+    const watchTest = watchProbe === false ? test.skip : t;
+    watchTest("watch: pushes a seeded message via onMessages", async () => {
       const { plugin, ctx, account, seed } = await factory();
-      if (!plugin.watch) return;
+      if (!plugin.watch) return; // fallback for an async factory (watchProbe undefined)
       const subject = `contract-watch-${crypto.randomUUID()}`;
 
       const pushed = new Promise<void>((resolve, reject) => {

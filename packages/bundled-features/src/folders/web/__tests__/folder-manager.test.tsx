@@ -165,11 +165,12 @@ describe("FolderManager filing mode", () => {
     await waitFor(() => expect(onReassigned).toHaveBeenCalled());
   });
 
-  test("the in-tree new-folder row opens a draft; submitting (Enter) creates a root folder", async () => {
+  test("the in-tree new-folder row opens a draft; submitting (Enter) creates a root folder and reassigns", async () => {
     folderRows = [];
+    const onReassigned = mock(() => {});
     render(
       <Wrapper>
-        <FolderManager />
+        <FolderManager filing={filingWith(onReassigned)} />
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("folder-manager-new-root"));
@@ -180,6 +181,30 @@ describe("FolderManager filing mode", () => {
     await waitFor(() =>
       expect(dispatchSpy).toHaveBeenCalledWith(FoldersHandlers.createFolder, { name: "Inbox" }),
     );
+    await waitFor(() => expect(onReassigned).toHaveBeenCalled());
+  });
+
+  test("renaming a folder dispatches update-folder and reassigns", async () => {
+    folderRows = [{ id: "f1", name: "A", parentId: null, version: 1 }];
+    const onReassigned = mock(() => {});
+    render(
+      <Wrapper>
+        <FolderManager filing={filingWith(onReassigned)} />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByTestId("folder-rename-f1"));
+    fireEvent.change(document.getElementById("folder-manager-draft") as HTMLInputElement, {
+      target: { value: "Renamed" },
+    });
+    fireEvent.submit(screen.getByTestId("folder-manager-draft"));
+    await waitFor(() =>
+      expect(dispatchSpy).toHaveBeenCalledWith(FoldersHandlers.updateFolder, {
+        id: "f1",
+        version: 1,
+        changes: { name: "Renamed" },
+      }),
+    );
+    await waitFor(() => expect(onReassigned).toHaveBeenCalled());
   });
 
   test("a mixed-type tree files each leaf under its own entityType (per-leaf override + fallback)", async () => {
