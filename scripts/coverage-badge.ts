@@ -27,12 +27,14 @@ async function parseLines(path: string): Promise<LineMap> {
 
 const unit = await parseLines("coverage/unit/lcov.info");
 const integ = await parseLines("coverage/integration/lcov.info");
+// dom run (bunfig.dom.toml) — only suite executing the tsx-covered UI files.
+const dom = await parseLines("coverage/dom/lcov.info");
 
 let totalLf = 0;
 let totalLh = 0;
-for (const file of new Set([...unit.keys(), ...integ.keys()])) {
+for (const file of new Set([...unit.keys(), ...integ.keys(), ...dom.keys()])) {
   const lines = new Map<number, number>();
-  for (const src of [unit.get(file), integ.get(file)]) {
+  for (const src of [unit.get(file), integ.get(file), dom.get(file)]) {
     if (!src) continue;
     for (const [line, count] of src) lines.set(line, Math.max(lines.get(line) ?? 0, count));
   }
@@ -45,4 +47,4 @@ const color = pct >= 80 ? "brightgreen" : pct >= 60 ? "yellow" : "red";
 const badge = { schemaVersion: 1, label: "coverage", message: `${pct.toFixed(1)}%`, color };
 
 await Bun.write(".github/badges/coverage.json", JSON.stringify(badge));
-console.log(`coverage: ${pct.toFixed(1)}% (${totalLh}/${totalLf} lines, unit+integration merged)`);
+console.log(`coverage: ${pct.toFixed(1)}% (${totalLh}/${totalLf} lines, unit+integration+dom merged)`);
