@@ -103,8 +103,8 @@ describe("subscription-mollie — plugin-registration", () => {
       createPortalSession?: unknown;
       cancelSubscription?: unknown;
     };
-    // Prüft das gemountete Feature (der Contract weiter unten baut sein
-    // Plugin handgewiring und würde fehlendes Wiring hier nicht bemerken).
+    // Checks the mounted feature (the contract below builds its plugin
+    // by hand-wiring and would not catch a wiring gap here).
     expect(typeof plugin?.verifyAndParseWebhook).toBe("function");
     expect(typeof plugin?.createCheckoutSession).toBe("function");
     expect(plugin?.createPortalSession).toBeUndefined();
@@ -172,7 +172,7 @@ function buildMollieContractFixture() {
         VALID_OPTIONS.priceToConfig,
         VALID_OPTIONS.webhookUrl,
       ),
-      // createPortalSession + cancelSubscription bewusst nicht — Mollie-Limit.
+      // createPortalSession + cancelSubscription deliberately omitted — Mollie limitation.
     },
     ctx: {} as HandlerContext,
     checkout: {

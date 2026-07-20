@@ -78,9 +78,9 @@ describe("subscription-stripe — plugin-registration", () => {
     // entsprechende Foundation-write-handler zur Laufzeit als
     // "method not supported"-error brechen — type-check würde es nicht
     // fangen weil die useExtension-options als `unknown` durchgereicht
-    // werden. Prüft das gemountete Feature — der Contract weiter unten
-    // baut sein Plugin handgewiring, würde ein hier fehlendes Wiring
-    // NICHT bemerken.
+    // werden.
+    // Checks the mounted feature — the contract below builds its plugin
+    // by hand-wiring, so it would not catch a wiring gap here.
     const feature = createSubscriptionStripeFeature(OPTIONS);
     const usage = feature.extensionUsages.find((u) => u.entityName === STRIPE_PROVIDER_NAME);
     expect(usage).toBeDefined();
