@@ -70,6 +70,14 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     factory: "createPersonalAccessTokensFeature",
     defaultArgs: "{ scopes: {} }",
   },
+  // Owns the tokenVerifier extension-point personal-access-tokens registers
+  // against. No r.entity → generate.ts skips it silently. Listed for
+  // schema-check ↔ mounted-set consistency (kumiko-framework#1369).
+  "auth-foundation": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/auth-foundation",
+    exportName: "authFoundationFeature",
+  },
   // auth-email-password auto-mounted via composeFeatures(includeBundled:true).
   // Kein r.entity → generate.ts skipt silent. Listed für schema-check ↔
   // mounted-set Konsistenz.

@@ -14,6 +14,7 @@
 
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { authMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data";
 import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
@@ -101,6 +102,10 @@ export const APP_FEATURES = [
     challengeTokenSecret: "smoke-mfa-challenge-secret-at-least-32-bytes-long!!",
     issuer: "Kumiko Sample",
   }),
+  // Owns the `tokenVerifier` extension-point personal-access-tokens
+  // registers against below — required whenever a bearer-auth provider is
+  // mounted (kumiko-framework#1369).
+  authFoundationFeature,
   // Per-domain scopes (like cashcolt's credit/bauspar/miete): the token picks
   // WHICH API × the permission LEVEL (read vs read+write). Each domain declares
   // its read + write QN globs.

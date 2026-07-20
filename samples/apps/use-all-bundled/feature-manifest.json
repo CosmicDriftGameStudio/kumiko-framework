@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 55,
+  "featureCount": 56,
   "features": [
     {
       "name": "admin-shell",
@@ -102,6 +102,25 @@
             "default": false
           }
         ]
+      }
+    },
+    {
+      "name": "auth-foundation",
+      "description": "Defines the `tokenVerifier` extension point for Bearer-token verification. Provider-features register a static `shape` (how to recognize their own tokens) plus a `build()` that produces a verifier — mount together with at least one auth-provider-* feature and call `resolveTokenVerifier(deps, rawToken)` to find the matching one.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Auth Provider Foundation",
+        "category": "identity",
+        "recommended": false
       }
     },
     {
@@ -1326,17 +1345,23 @@
     },
     {
       "name": "personal-access-tokens",
-      "description": "Long-lived, revocable Personal Access Tokens for headless HTTP-API access. Stores SHA-256 token hashes in the `store_api_tokens` direct-write table; the plaintext is returned once at creation. `create`/`revoke`/`mine` manage a user's own tokens and `available-scopes` lists the app-declared scope catalog. Bearer tokens carrying the PAT prefix are resolved before jwt.verify (roles resolved live, granted scopes enforced fail-closed at the API boundary) — the resolver is wired via run-prod-app, not the dispatcher. Pass { toggleable: { default: false } } to tier-gate the whole feature.",
+      "description": "Long-lived, revocable Personal Access Tokens for headless HTTP-API access. Stores SHA-256 token hashes in the `store_api_tokens` direct-write table; the plaintext is returned once at creation. `create`/`revoke`/`mine` manage a user's own tokens and `available-scopes` lists the app-declared scope catalog. Bearer tokens carrying the PAT prefix are resolved before jwt.verify (roles resolved live, granted scopes enforced fail-closed at the API boundary) — registered as an auth-foundation tokenVerifier provider, resolved generically by the middleware. Pass { toggleable: { default: false } } to tier-gate the whole feature.",
       "toggleableDefault": null,
       "requires": [
         "user",
-        "tenant"
+        "tenant",
+        "auth-foundation"
       ],
       "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "tokenVerifier",
+          "entityName": "pat"
+        }
+      ],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [

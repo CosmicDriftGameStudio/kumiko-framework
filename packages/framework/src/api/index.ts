@@ -5,10 +5,10 @@ export type {
   AuthMiddlewareOptions,
   AuthSessionChecker,
   AuthSessionStatus,
-  PatResolver,
   TenantExists,
   TenantLifecycleStatusResolver,
   TenantResolver,
+  TokenVerifier,
 } from "./auth-middleware";
 export { authMiddleware, getUser, PAT_TOKEN_PREFIX } from "./auth-middleware";
 export type {

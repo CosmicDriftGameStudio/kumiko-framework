@@ -1,4 +1,4 @@
-import type { PatResolver } from "@cosmicdrift/kumiko-framework/api";
+import type { TokenVerifier } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -16,7 +16,7 @@ import { expandScopes, type PatScopeConfig } from "./scopes";
 export function createPatResolver(opts: {
   readonly db: DbConnection;
   readonly scopes: PatScopeConfig;
-}): PatResolver {
+}): TokenVerifier {
   const { db, scopes } = opts;
   return async (rawToken: string): Promise<SessionUser | null> => {
     const row = await fetchOne<{

@@ -19,6 +19,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { authFoundationFeature } from "../../auth-foundation";
 import { createChannelInAppFeature, inAppMessagesTable } from "../../channel-in-app";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { configValueEntity, createConfigFeature } from "../../config";
@@ -72,6 +73,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createTenantFeature(),
       createPersonalAccessTokensFeature({ scopes: PAT_SCOPES }),
+      authFoundationFeature,
       createDeliveryFeature(),
       createChannelInAppFeature(),
       createJobsFeature(),
