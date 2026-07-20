@@ -1,9 +1,8 @@
-// Coverage-Batch: die fünf Write-Verbs (create/update/delete/forget/restore)
-// in event-store-executor-write.ts haben mehrere Fehlerpfade, die die
-// bestehenden Suiten (event-store-executor.integration.test.ts,
-// unique-violation-mapping.integration.test.ts) nicht anfassen: Ownership-
-// Denials (entity- und field-level), explizite version-Konflikte, der
-// forget()-Verb komplett, und restore()s beide Vorbedingungs-Fehler.
+// The five write-verbs (create/update/delete/forget/restore) have several
+// error paths the existing suites (event-store-executor.integration.test.ts,
+// unique-violation-mapping.integration.test.ts) don't touch: entity- and
+// field-level ownership denials, explicit version conflicts, the forget()
+// verb entirely, and restore()'s two precondition failures.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../db/query";
