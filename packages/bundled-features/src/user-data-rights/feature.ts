@@ -87,7 +87,7 @@ export type UserDataRightsOptions = {
   readonly sendExportFailedEmail?: SendExportFailedEmailFn;
   /** Base-URL fuer den Magic-Link, z.B.
    *  "https://app.example.com/user-export/by-token". Worker bauen
-   *  `${appExportDownloadUrl}?token=<plain>`. Required wenn
+   *  ein URL-Fragment (`#token=<plain>`, issue #1271). Required wenn
    *  sendExportReadyEmail gesetzt. Per-Tenant via reverse-proxy host
    *  routing — nicht via per-Tenant-config-key (App-Author-Decision). */
   readonly appExportDownloadUrl?: string;
@@ -282,10 +282,17 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       access: { openToAll: true },
     });
 
-    // Magic-Link-Pfad (anonymous): GET /user-export/by-token?token=<plain>.
-    // Ruft via app.fetch /api/query → success: 302-Redirect zur signed-URL →
-    // Browser folgt → Download startet beim Object-Store. Bei error:
-    // passthrough (404/410/501) als JSON.
+    // Magic-Link-Pfad (anonymous): der Email-Link traegt den Token als
+    // URL-Fragment (`#token=<plain>`) statt als Query-Param — Fragmente
+    // verlaesst der Browser nie an den Server, landen also nicht in
+    // Proxy-/Access-Logs (issue #1271). Diese Route liefert nur die
+    // Interstitial-Seite; das externe Script liest das Fragment client-
+    // seitig aus und tauscht den Token per POST gegen die signed-URL.
+    //
+    // Das alte Token-per-Query-Format bleibt zusaetzlich als Fallback bestehen (nicht als
+    // Uebergangs-Shim, sondern dauerhaft): bereits verschickte Email-Links
+    // aus der Zeit vor diesem Deploy nutzen noch das alte Format und muessen
+    // bis zu ihrem TTL-Ablauf funktionieren.
     //
     // Path liegt AUSSERHALB /api/* weil r.httpRoute den /api-namespace nicht
     // claimen darf (reserved fuer write/query/batch/auth/sse-dispatcher).
@@ -302,7 +309,9 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         const url = new URL(c.req.url);
         const token = url.searchParams.get("token");
         if (!token) {
-          return c.json({ error: "missing_token" }, 400);
+          return c.body(TOKEN_EXCHANGE_PAGE_HTML, 200, {
+            "content-type": "text/html; charset=utf-8",
+          });
         }
         const queryRes = await app.fetch(
           new Request(`${url.origin}/api/query`, {
@@ -315,6 +324,58 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           }),
         );
         return mapQueryResponseToRedirect(c, queryRes);
+      },
+    });
+
+    // Externes Script fuer die Interstitial-Seite oben — same-origin file
+    // statt inline <script>, damit die Seite auch unter einer strikten
+    // `script-src 'self'`-CSP funktioniert (Apps setzen CSP per
+    // security-headers-Option, kein `unsafe-inline` vorausgesetzt).
+    r.httpRoute({
+      method: "GET",
+      path: "/user-export/by-token.js",
+      anonymous: true,
+      handler: async (c) => {
+        return c.body(TOKEN_EXCHANGE_PAGE_JS, 200, {
+          "content-type": "application/javascript; charset=utf-8",
+        });
+      },
+    });
+
+    // Exchange-Endpoint fuer die Interstitial-Seite: der Token kommt hier
+    // per POST-Body statt Query-String (issue #1271). Eigene Route statt
+    // dass die Browser-JS direkt /api/query aufruft, aus zwei Gruenden:
+    //   1. IP/UA-Audit — extractAuditMeta braucht die raw-Request-Header,
+    //      die hat nur der Server, nicht der Browser (siehe GET-Pfad oben).
+    //      Ohne diese Route wuerde jeder Fragment-Download mit
+    //      lastUsedFromIp/UA = null in download-attempt landen.
+    //   2. /api/query ist der reservierte Dispatcher-Namespace fuer
+    //      authenticated Writes/Queries — ein anonymer Cross-Origin-POST
+    //      dorthin ist nicht garantiert erreichbar (Origin-Guard).
+    r.httpRoute({
+      method: "POST",
+      path: "/user-export/by-token",
+      anonymous: true,
+      handler: async (c, { app }) => {
+        const url = new URL(c.req.url);
+        const parsedBody = await c.req.json().catch(() => null);
+        const token =
+          parsedBody && typeof parsedBody === "object" && "token" in parsedBody
+            ? (parsedBody as { token?: unknown }).token
+            : undefined;
+        if (typeof token !== "string" || token.length === 0) {
+          return c.json({ error: "missing_token" }, 400);
+        }
+        return app.fetch(
+          new Request(`${url.origin}/api/query`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              type: "user-data-rights:query:download-by-token",
+              payload: { token, auditMeta: extractAuditMeta(c.req.raw.headers) },
+            }),
+          }),
+        );
       },
     });
 
@@ -504,3 +565,44 @@ function extractAuditMeta(headers: Headers): { ip: string | null; userAgent: str
   }
   return { ip, userAgent: headers.get("user-agent") };
 }
+
+// Interstitial-Seite fuer den Magic-Link-Fragment-Austausch (siehe httpRoute
+// oben). Reines statisches Markup — kein Build-Step, kein i18n-Lookup (der
+// Server kennt hier noch kein User-Locale; anonymer Pfad).
+const TOKEN_EXCHANGE_PAGE_HTML = `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Export Download</title></head>
+<body>
+<p id="status">Preparing your download…</p>
+<script src="/user-export/by-token.js"></script>
+</body>
+</html>`;
+
+// Liest den Token client-seitig aus dem URL-Fragment (nie an den Server
+// gesendet) und tauscht ihn per POST gegen die signed-URL. Same-origin
+// External-File statt inline <script>, damit die Seite auch unter einer
+// strikten `script-src 'self'`-CSP funktioniert.
+const TOKEN_EXCHANGE_PAGE_JS = `(async () => {
+  const status = document.getElementById("status");
+  const params = new URLSearchParams(location.hash.slice(1));
+  const token = params.get("token");
+  if (!token) {
+    status.textContent = "Invalid download link.";
+    return;
+  }
+  try {
+    const res = await fetch("/user-export/by-token", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const body = await res.json();
+    if (!res.ok || !body || !body.data || !body.data.url) {
+      status.textContent = "This download link is invalid or has expired.";
+      return;
+    }
+    location.href = body.data.url;
+  } catch {
+    status.textContent = "Could not start the download.";
+  }
+})();`;

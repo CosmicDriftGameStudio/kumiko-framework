@@ -464,13 +464,25 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
     expect(body.error?.i18nKey).toBe("userDataRights.errors.download.notFound");
   });
 
-  test("missing token query-param → 400", async () => {
+  test("no query token (fragment-Pfad) → serviert Interstitial-HTML statt 400", async () => {
     const res = await stack.app.fetch(
       new Request("http://test/user-export/by-token", { method: "GET" }),
     );
-    expect(res.status).toBe(400);
-    const body = (await res.json()) as { error?: string };
-    expect(body.error).toBe("missing_token");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const body = await res.text();
+    expect(body).toContain("/user-export/by-token.js");
+  });
+
+  test("by-token.js → same-origin exchange-script, application/javascript", async () => {
+    const res = await stack.app.fetch(
+      new Request("http://test/user-export/by-token.js", { method: "GET" }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/javascript");
+    const body = await res.text();
+    expect(body).toContain("location.hash");
+    expect(body).toContain("/user-export/by-token");
   });
 
   test("Audit-Update: useCount + IP/UA aus httpRoute-Headers (nicht aus payload)", async () => {
@@ -494,6 +506,47 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
     // X-Forwarded-For: erster Wert, comma-trimmed
     expect(row?.lastUsedFromIp).toBe("198.51.100.7");
     expect(row?.lastUsedUserAgent).toBe("e2e-test/2.0");
+  });
+
+  test("POST-Exchange (Fragment-Pfad): happy-path + IP/UA-Audit aus httpRoute-Headers", async () => {
+    const { jobId, plainToken } = await seedDoneJobWithToken();
+
+    const res = await stack.app.fetch(
+      new Request("http://test/user-export/by-token", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "e2e-test/3.0",
+          "x-forwarded-for": "203.0.113.9, 10.0.0.1",
+        },
+        body: JSON.stringify({ token: plainToken }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: { url?: string } };
+    expect(body.data?.url).toBeTruthy();
+
+    const [row] = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
+      useCount: number;
+      lastUsedFromIp: string | null;
+      lastUsedUserAgent: string | null;
+    }>;
+    expect(row?.useCount).toBe(1);
+    expect(row?.lastUsedFromIp).toBe("203.0.113.9");
+    expect(row?.lastUsedUserAgent).toBe("e2e-test/3.0");
+  });
+
+  test("POST-Exchange: missing token → 400", async () => {
+    const res = await stack.app.fetch(
+      new Request("http://test/user-export/by-token", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("missing_token");
   });
 });
 
