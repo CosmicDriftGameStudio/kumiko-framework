@@ -21,12 +21,6 @@ import {
 import type { JwtHelper } from "./jwt";
 import { generateToken } from "./tokens";
 
-// Cookie lifetime must track the JWT's exp claim — both are issued together,
-// both reference the same session. jwt.ts's createJwtHelper hardcodes
-// setExpirationTime("24h"); if that ever becomes configurable this constant
-// follows it.
-const JWT_TTL_SECONDS = 24 * 60 * 60;
-
 // Resolves the Secure cookie flag. Locked off in dev/test so Playwright
 // against http://localhost:… can actually receive the cookie. Production
 // flips it on — browsers drop Secure cookies on http, so a misconfigured
@@ -48,6 +42,10 @@ function setAuthCookies(
     csrfToken: string;
     sameSite: "lax" | "strict";
     domain?: string | undefined;
+    // Cookie lifetime must track the JWT's exp claim — both are issued
+    // together, both reference the same session. Callers pass jwt.ttlSeconds
+    // so the two never drift apart.
+    ttlSeconds: number;
   },
 ): void {
   const sameSite = opts.sameSite === "strict" ? "Strict" : "Lax";
@@ -55,7 +53,7 @@ function setAuthCookies(
     secure: cookieSecure(),
     sameSite,
     path: "/",
-    maxAge: JWT_TTL_SECONDS,
+    maxAge: opts.ttlSeconds,
     ...(opts.domain !== undefined && { domain: opts.domain }),
   } as const;
 
@@ -518,7 +516,13 @@ export function createAuthRoutes(
     }
     const token = await jwt.sign(sessionForJwt);
     const csrfToken = generateToken();
-    setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+    setAuthCookies(c, {
+      token,
+      csrfToken,
+      sameSite: cookieSameSite,
+      domain: cookieDomain,
+      ttlSeconds: jwt.ttlSeconds,
+    });
     return token;
   }
 

@@ -23,6 +23,9 @@ export type JwtPayload = {
 export type JwtHelper = {
   sign(user: SessionUser): Promise<string>;
   verify(token: string): Promise<JwtPayload>;
+  // The TTL this helper signs tokens with, in seconds — the single source for
+  // callers (e.g. the auth-cookie's maxAge) that must stay coupled to the JWT's exp.
+  readonly ttlSeconds: number;
 };
 
 // kid → secret. All entries verify; `signKid` picks the sign-key. Rotation:
@@ -88,9 +91,12 @@ async function verifyWithKeyring(token: string, keyring: NormalizedKeyring, issu
     : new Error("JWT verification failed: no matching key");
 }
 
+const DEFAULT_JWT_TTL_SECONDS = 24 * 60 * 60;
+
 export function createJwtHelper(
   secretOrKeyring: string | JwtKeyring,
   issuer = "kumiko",
+  ttlSeconds = DEFAULT_JWT_TTL_SECONDS,
 ): JwtHelper {
   const keyring = normalizeKeyring(secretOrKeyring);
 
@@ -106,12 +112,16 @@ export function createJwtHelper(
         ? { alg: "HS256", kid: keyring.signKid }
         : { alg: "HS256" };
 
+      // iat/exp share one `now` — jose's setIssuedAt()/setExpirationTime(Date)
+      // each read the clock separately, letting `exp - iat` drift by a
+      // second and making TTL-precision tests flaky.
+      const nowSec = Math.floor(Date.now() / 1000);
       const builder = new jose.SignJWT(body)
         .setProtectedHeader(header)
         .setSubject(String(user.id))
         .setIssuer(issuer)
-        .setIssuedAt()
-        .setExpirationTime("24h");
+        .setIssuedAt(nowSec)
+        .setExpirationTime(nowSec + ttlSeconds);
       if (user.sid) builder.setJti(user.sid);
 
       return builder.sign(keyring.signKey);
@@ -154,6 +164,7 @@ export function createJwtHelper(
       }
       return result;
     },
+    ttlSeconds,
   };
 }
 

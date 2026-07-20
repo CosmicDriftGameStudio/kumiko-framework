@@ -210,3 +210,25 @@ describe("loadJwtSecretOrKeyring", () => {
     ).toThrow(/JWT_SECRET_V1 must be ≥32 chars/);
   });
 });
+
+describe("createJwtHelper — ttlSeconds", () => {
+  it("defaults to 24h", () => {
+    const jwt = createJwtHelper(SECRET);
+    expect(jwt.ttlSeconds).toBe(24 * 60 * 60);
+  });
+
+  it("exposes a custom ttlSeconds", () => {
+    const jwt = createJwtHelper(SECRET, ISSUER, 60 * 60);
+    expect(jwt.ttlSeconds).toBe(60 * 60);
+  });
+
+  it("signs a token whose exp - iat exactly equals ttlSeconds", async () => {
+    const ttlSeconds = 60 * 60;
+    const jwt = createJwtHelper(SECRET, ISSUER, ttlSeconds);
+    const token = await jwt.sign(user);
+    const claims = jose.decodeJwt(token);
+    expect(claims.exp).toBeDefined();
+    expect(claims.iat).toBeDefined();
+    expect(claims.exp! - claims.iat!).toBe(ttlSeconds);
+  });
+});
