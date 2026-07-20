@@ -18,6 +18,7 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import { resolveTokenVerifier } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   AUTH_MFA_FEATURE,
   AuthMfaHandlers,
@@ -28,10 +29,8 @@ import {
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
-  createPatResolver,
   PAT_FEATURE,
   patRateLimitFromFeature,
-  patScopesFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
   bindAutoRevokeFromFeature,
@@ -44,7 +43,7 @@ import {
   resolveTenantLifecycleGate,
   TENANT_LIFECYCLE_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
-import type { PatResolver, SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
+import type { SessionMetadata, TokenVerifier } from "@cosmicdrift/kumiko-framework/api";
 import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
@@ -410,21 +409,21 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     }
     return sessionCallbacks;
   };
-  // PAT opt-in: same late-bound holder pattern — the resolver needs the real
-  // db (only concrete after setupTestStack). Wired when the feature is mounted;
-  // scopes come from the feature's exports (single source with its handlers).
-  let patResolver: PatResolver | undefined;
+  // Token-verifier opt-in: same late-bound holder pattern — resolveTokenVerifier
+  // needs the real db+registry (only concrete after setupTestStack). Wired
+  // whenever a provider feature (personal-access-tokens today) is mounted.
+  let tokenVerifier: TokenVerifier | undefined;
   let lifecycleDb: DbConnection | undefined;
   const patFeature = features.find((f) => f.name === PAT_FEATURE);
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
   const tenantLifecycleFeature = features.find((f) => f.name === TENANT_LIFECYCLE_FEATURE);
   const patAuthFragment = patFeature
     ? {
-        patResolver: (rawToken: string) => {
-          if (!patResolver) {
-            throw new Error("[runDevApp] pat-resolver accessed before onAfterSetup");
+        tokenVerifier: (rawToken: string) => {
+          if (!tokenVerifier) {
+            throw new Error("[runDevApp] token-verifier accessed before onAfterSetup");
           }
-          return patResolver(rawToken);
+          return tokenVerifier(rawToken);
         },
         patRateLimiter: (() => {
           const rl = patRateLimitFromFeature(patFeature);
@@ -563,7 +562,8 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         }
       }
       if (patFeature) {
-        patResolver = createPatResolver({ db: stack.db, scopes: patScopesFromFeature(patFeature) });
+        tokenVerifier = (rawToken) =>
+          resolveTokenVerifier({ db: stack.db, registry: stack.registry }, rawToken);
       }
       if (effectiveAuth) {
         await seedAdmin(stack.db, effectiveAuth.admin);

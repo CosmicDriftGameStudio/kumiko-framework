@@ -45,12 +45,14 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import {
+  EXT_TOKEN_VERIFIER,
+  resolveTokenVerifier,
+} from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { AUTH_MFA_FEATURE, AuthMfaHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import {
-  createPatResolver,
   PAT_FEATURE,
   patRateLimitFromFeature,
-  patScopesFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { SESSIONS_FEATURE } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
@@ -65,6 +67,7 @@ import {
   type LoginRateLimiter,
   loadJwtSecretOrKeyring,
   type SseBroker,
+  type TokenVerifier,
 } from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
@@ -889,20 +892,24 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       )
     : undefined;
 
-  // PAT opt-in: if the personal-access-tokens feature is mounted, wire its
-  // resolver (bearer PATs → SessionUser, before jwt.verify). Scopes come from
-  // the feature's exports — the same declaration its handlers use.
+  // Token-verifier opt-in: any provider feature (personal-access-tokens, a
+  // future auth-provider-jwt, ...) self-registers via
+  // r.useExtension(EXT_TOKEN_VERIFIER, ...) — wire one generic resolver
+  // whenever at least one is mounted, resolved by shape at request-time.
+  // PAT keeps its own per-token rate limiter (patRateLimiter), unrelated to
+  // verification.
   const patFeature = features.find((f) => f.name === PAT_FEATURE);
+  const hasTokenVerifierProviders = registry.getExtensionUsages(EXT_TOKEN_VERIFIER).length > 0;
   let patAuthFragment:
     | {
-        patResolver: ReturnType<typeof createPatResolver>;
+        tokenVerifier: TokenVerifier;
         patRateLimiter: LoginRateLimiter;
       }
     | undefined;
-  if (effectiveAuth && patFeature) {
+  if (effectiveAuth && patFeature && hasTokenVerifierProviders) {
     const rl = patRateLimitFromFeature(patFeature);
     patAuthFragment = {
-      patResolver: createPatResolver({ db, scopes: patScopesFromFeature(patFeature) }),
+      tokenVerifier: (rawToken) => resolveTokenVerifier({ db, registry }, rawToken),
       patRateLimiter: createRedisLoginRateLimiter(redis, rl.maxRequests, rl.windowMs, "pat"),
     };
   }

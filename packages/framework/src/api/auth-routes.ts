@@ -16,7 +16,7 @@ import {
   type AuthSessionStatus,
   CSRF_COOKIE_NAME,
   getUser,
-  type PatResolver,
+  type TokenVerifier,
 } from "./auth-middleware";
 import type { JwtHelper } from "./jwt";
 import { generateToken } from "./tokens";
@@ -260,10 +260,11 @@ export type AuthRoutesConfig = {
   // at login, check it here on every request. Leaving this empty disables
   // the revocation path — old JWTs stay valid until they expire naturally.
   sessionChecker?: SessionChecker;
-  // Resolves bearer Personal Access Tokens (PAT_TOKEN_PREFIX) into a
-  // SessionUser, consulted BEFORE jwt.verify. Wired by the
-  // personal-access-tokens feature; unwired = PAT auth disabled.
-  patResolver?: PatResolver;
+  // Resolves bearer tokens (any registered auth-foundation `tokenVerifier`
+  // provider — PAT today, future JWT-provider), consulted BEFORE jwt.verify.
+  // Wired by run-prod-app/run-dev-app when at least one provider feature is
+  // mounted; unwired = no non-JWT bearer auth.
+  tokenVerifier?: TokenVerifier;
   // Per-token request-rate limiter for PAT-authenticated requests, keyed by
   // the token id (SessionUser.pat.tokenId). Cookie/JWT requests are unaffected.
   // Reuses the LoginRateLimiter shape (a generic keyed check/reset limiter).

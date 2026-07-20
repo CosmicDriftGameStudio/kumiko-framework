@@ -1,9 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import {
-  createInMemoryLoginRateLimiter,
-  type PatResolver,
-} from "@cosmicdrift/kumiko-framework/api";
+import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
 import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configureBlindIndexKey,
@@ -25,6 +22,7 @@ import { createTestEnvelopeCipher, deleteRows } from "@cosmicdrift/kumiko-framew
 import { Temporal } from "temporal-polyfill";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
+import { authFoundationFeature, resolveTokenVerifier } from "../../auth-foundation";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
@@ -39,7 +37,6 @@ import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { PatHandlers, PatQueries } from "../constants";
 import { createPersonalAccessTokensFeature } from "../feature";
-import { createPatResolver } from "../resolver";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token";
 import type { PatScopeConfig } from "../scopes";
 
@@ -51,7 +48,6 @@ import type { PatScopeConfig } from "../scopes";
 
 let stack: TestStack;
 let h: ReturnType<typeof makeSessionHelpers>;
-let patResolver: PatResolver | undefined;
 
 const encryptionKey = randomBytes(32).toString("base64");
 const TENANT: TenantId = testTenantId(1);
@@ -91,21 +87,22 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature(),
       createSessionsFeature(),
       createPersonalAccessTokensFeature({ scopes: SCOPES }),
+      authFoundationFeature,
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
-      patResolver: (raw: string) => {
-        if (!patResolver) throw new Error("resolver not set");
-        return patResolver(raw);
-      },
+      // PAT registers itself as a tokenVerifier provider (auth-foundation)
+      // instead of the app wiring a dedicated patResolver — resolved
+      // generically here, same as run-prod-app/run-dev-app do.
+      tokenVerifier: (raw: string) =>
+        resolveTokenVerifier({ db: stack.db, registry: stack.registry }, raw),
       // Low per-token cap so the rate-limit test can exhaust it. Other tests do
       // ≤2 requests per (distinct) token, so this ceiling never trips them.
       patRateLimiter: createInMemoryLoginRateLimiter(3, 60_000),
     },
   });
-  patResolver = createPatResolver({ db: stack.db, scopes: SCOPES });
   h = makeSessionHelpers(stack, TENANT);
 
   await unsafeCreateEntityTable(stack.db, userEntity);
