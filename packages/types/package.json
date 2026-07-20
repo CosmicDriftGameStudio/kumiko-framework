@@ -45,6 +45,34 @@
     "./tree-node": {
       "types": "./src/tree-node.ts",
       "default": "./src/tree-node.ts"
+    },
+    "./logger": {
+      "types": "./src/logger.ts",
+      "default": "./src/logger.ts"
+    },
+    "./search-adapter": {
+      "types": "./src/search-adapter.ts",
+      "default": "./src/search-adapter.ts"
+    },
+    "./geo-tz": {
+      "types": "./src/geo-tz.ts",
+      "default": "./src/geo-tz.ts"
+    },
+    "./observability": {
+      "types": "./src/observability/index.ts",
+      "default": "./src/observability/index.ts"
+    },
+    "./observability/metric": {
+      "types": "./src/observability/metric.ts",
+      "default": "./src/observability/metric.ts"
+    },
+    "./observability/provider": {
+      "types": "./src/observability/provider.ts",
+      "default": "./src/observability/provider.ts"
+    },
+    "./observability/span": {
+      "types": "./src/observability/span.ts",
+      "default": "./src/observability/span.ts"
     }
   },
   "dependencies": {
