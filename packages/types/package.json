@@ -85,6 +85,14 @@
     "./file-handle-types": {
       "types": "./src/file-handle-types.ts",
       "default": "./src/file-handle-types.ts"
+    },
+    "./concurrency-mode": {
+      "types": "./src/concurrency-mode.ts",
+      "default": "./src/concurrency-mode.ts"
+    },
+    "./config-scope": {
+      "types": "./src/config-scope.ts",
+      "default": "./src/config-scope.ts"
     }
   },
   "dependencies": {
