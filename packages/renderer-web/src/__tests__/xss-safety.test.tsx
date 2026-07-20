@@ -1,9 +1,9 @@
 //
-// Pinnt das XSS-Escaping-Verhalten für tenant-/pattern-authored Content
-// (kumiko-framework#1321). renderer-web hat kein dangerouslySetInnerHTML
-// und keine href/src-Pipeline für tenant-Daten — dieser Test sichert das
-// JSX-Auto-Escaping gegen künftige Regressionen ab (z.B. falls jemand
-// Rich-Text/Markdown-Support via dangerouslySetInnerHTML nachrüstet).
+// Pins the XSS-escaping behavior for tenant-/pattern-authored content
+// (kumiko-framework#1321). renderer-web has no dangerouslySetInnerHTML
+// and no href/src pipeline for tenant data — this test guards JSX
+// auto-escaping against future regressions (e.g. if someone adds
+// rich-text/markdown support via dangerouslySetInnerHTML).
 
 import { describe, expect, test } from "bun:test";
 import { defaultPrimitives } from "../primitives";
