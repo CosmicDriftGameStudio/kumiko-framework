@@ -48,6 +48,7 @@
     "./subscription-stripe": "./src/subscription-stripe/index.ts",
     "./subscription-mollie": "./src/subscription-mollie/index.ts",
     "./foundation-shared": "./src/foundation-shared/index.ts",
+    "./auth-foundation": "./src/auth-foundation/index.ts",
     "./mail-foundation": "./src/mail-foundation/index.ts",
     "./inbound-mail-foundation": "./src/inbound-mail-foundation/index.ts",
     "./inbound-provider-inmemory": "./src/inbound-provider-inmemory/index.ts",
