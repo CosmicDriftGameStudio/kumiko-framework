@@ -2,11 +2,7 @@
 // Shows: how a feature declares its own mount-invariant via r.bootCheck,
 // for conditional cross-feature requirements r.requires can't express.
 
-import {
-  createEntity,
-  createTextField,
-  defineFeature,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 // The prompt-store trap (kumiko-enterprise#229): a feature with a PII field
 // was mounted without its required companion feature, and nothing caught
