@@ -34,8 +34,8 @@ export {
   etagMatches,
   parseIfNoneMatch,
 } from "./http-cache";
-export type { JwtHelper, JwtPayload } from "./jwt";
-export { createJwtHelper } from "./jwt";
+export type { JwtHelper, JwtKeyring, JwtPayload } from "./jwt";
+export { createJwtHelper, loadJwtSecretOrKeyring } from "./jwt";
 export { patAllows, qnMatches } from "./pat-scope";
 export { type RequestContextData, requestContext } from "./request-context";
 export { requestIdMiddleware } from "./request-id-middleware";

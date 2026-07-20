@@ -32,7 +32,7 @@
 
 import type { Hono } from "hono";
 import type { AuthRoutesConfig } from "../api/auth-routes";
-import type { JwtHelper } from "../api/jwt";
+import type { JwtHelper, JwtKeyring } from "../api/jwt";
 import type { KumikoServer, ServerOptions } from "../api/server";
 import { buildServer } from "../api/server";
 import type { SseBroker } from "../api/sse-broker";
@@ -54,7 +54,7 @@ import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
 export type BaseEntrypointOptions = {
   readonly registry: Registry;
   readonly context: AppContext;
-  readonly jwtSecret: string;
+  readonly jwtSecret: string | JwtKeyring;
   readonly jwtIssuer?: string;
   readonly observability?: ObservabilityProvider;
   readonly observabilityOptions?: ObservabilityOptions;
