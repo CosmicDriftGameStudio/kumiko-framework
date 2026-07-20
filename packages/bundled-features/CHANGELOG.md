@@ -1,5 +1,40 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 1.0.0
+
+### Major Changes
+
+- 114faef: `user-data-rights:write:lift-restriction` is now operator-only: `access` changed from `openToAll` to `access.admin` (Admin/SystemAdmin/TenantAdmin), and the payload now requires an explicit `userId` target instead of implicitly acting on the caller. A Restricted user's own session is unconditionally rejected by `sessionChecker`'s blocked-status check, so there was never a working self-service path through this handler — apps calling it as the affected user themselves need to switch to an admin/operator actor with `{ userId }`.
+
+  `user-data-rights:write:restrict-account` stays self-service by default (`userId` in the payload is optional, defaults to the caller) but now also accepts an admin-targeted `userId` for an operator to restrict an account the user themselves can no longer reach.
+
+### Minor Changes
+
+- d97fcda: PII ciphertext is now GCM-bound to `subjectKey|field` as AAD (format bump to
+  `kumiko-pii:v2:`). Without it, cut-and-pasting ciphertext between two fields
+  of the same subject (same DEK) decrypted silently — key selection alone only
+  catches a wrong subject, not a wrong field. `v1` ciphertext (no AAD) stays
+  decrypt-only for pre-existing rows; every new write emits `v2`.
+
+  `encryptPiiValueForSubject` and `decryptPiiValueForSubject`
+  (`@cosmicdrift/kumiko-framework`) and `decryptStoredPii`
+  (`@cosmicdrift/kumiko-bundled-features`) now take a mandatory `field`
+  parameter that must match the field name used at encrypt time.
+
+### Patch Changes
+
+- Updated dependencies [9db805c]
+- Updated dependencies [d0280c8]
+- Updated dependencies [a997cc8]
+- Updated dependencies [d97fcda]
+- Updated dependencies [2fc542b]
+- Updated dependencies [6254cc8]
+  - @cosmicdrift/kumiko-framework@1.0.0
+  - @cosmicdrift/kumiko-headless@1.0.0
+  - @cosmicdrift/kumiko-renderer@1.0.0
+  - @cosmicdrift/kumiko-dispatcher-live@1.0.0
+  - @cosmicdrift/kumiko-renderer-web@1.0.0
+
 ## 0.158.2
 
 ### Patch Changes

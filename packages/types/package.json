@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-types",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Framework-Type-Definitions für Kumiko — FeatureDefinition, BootCheck-Types und die reinen Engine-Types, ohne Runtime-Code. Erlaubt Downstream-Konsumenten, gegen die Type-Contracts zu bauen, ohne das ganze Framework-Package zu importieren.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",

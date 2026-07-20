@@ -1,5 +1,35 @@
 # @cosmicdrift/kumiko-framework
 
+## 1.0.0
+
+### Minor Changes
+
+- d97fcda: PII ciphertext is now GCM-bound to `subjectKey|field` as AAD (format bump to
+  `kumiko-pii:v2:`). Without it, cut-and-pasting ciphertext between two fields
+  of the same subject (same DEK) decrypted silently — key selection alone only
+  catches a wrong subject, not a wrong field. `v1` ciphertext (no AAD) stays
+  decrypt-only for pre-existing rows; every new write emits `v2`.
+
+  `encryptPiiValueForSubject` and `decryptPiiValueForSubject`
+  (`@cosmicdrift/kumiko-framework`) and `decryptStoredPii`
+  (`@cosmicdrift/kumiko-bundled-features`) now take a mandatory `field`
+  parameter that must match the field name used at encrypt time.
+
+- 2fc542b: `ServerOptions.jwtTtl` (`@cosmicdrift/kumiko-framework/api`) — configurable JWT lifetime in seconds, passed through to `createJwtHelper`'s new third param. `JwtHelper.ttlSeconds` exposes the resolved value; `createAuthRoutes` now derives the auth-cookie's `maxAge` from it instead of a separately hardcoded constant, so the two can never drift apart.
+
+  **Behavior change:** when `jwtTtl` is omitted, the default now depends on whether `auth.sessionChecker` is wired. With a session checker (revocation possible) it stays at the previous 24h default. Without one (stateless JWTs, no revocation) it drops to 1h — a leaked stateless token now has a much smaller exposure window. Set `jwtTtl` explicitly to opt out of the new stateless default.
+
+- 6254cc8: Renamed `getAggregateStreamMaxVersion` → `getUnscopedAggregateStreamMaxVersion` and `getAggregateStreamTenant` → `getUnscopedAggregateStreamTenant` (both from `@cosmicdrift/kumiko-framework/event-store`). Both have no tenant filter and can be used to probe whether a foreign tenant's aggregate exists — the rename makes that unscoped, existence-oracle nature visible at every callsite. No behavior change; update any direct imports to the new names (#1269).
+
+### Patch Changes
+
+- 9db805c: `loadJwtSecretOrKeyring` (`@cosmicdrift/kumiko-framework/api`) — env-loader for `createJwtHelper`'s keyring param, analog to `secrets`' `loadKeyring`: reads `JWT_SECRET_V<n>` + `JWT_SECRET_CURRENT_VERSION` for zero-downtime rotation, falling back to plain `JWT_SECRET` when no versioned key is set. `runProdApp` now wires it through `entrypoint`/`ServerOptions.jwtSecret` (widened to `string | JwtKeyring`) instead of the plain `JWT_SECRET` string. Without `kid`-tagged rotation (#1291), every key rotation invalidated all sessions at once (#1265, #1292).
+- d0280c8: `@cosmicdrift/kumiko-types` gains its first real content: `identifiers`, `target-ref`, `event-type-map`, and `http-route` move out of `packages/framework/src/engine/types/`. The old paths stay as re-export shims, so no internal import site changes. Framework now depends on `@cosmicdrift/kumiko-types` for these.
+- a997cc8: `relations` and `tree-node` move from `packages/framework/src/engine/types/` to `@cosmicdrift/kumiko-types`. The old paths stay as re-export shims, so no internal import site changes.
+- Updated dependencies [d0280c8]
+- Updated dependencies [a997cc8]
+  - @cosmicdrift/kumiko-types@1.0.0
+
 ## 0.158.2
 
 ## 0.158.1
