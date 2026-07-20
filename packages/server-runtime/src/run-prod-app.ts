@@ -31,6 +31,7 @@
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
 import {
+  type AccountUnlockOptions,
   AuthErrors,
   AuthHandlers,
   type AuthMailLocale,
@@ -252,6 +253,13 @@ export type SignupSetup = SignupOptions;
  *  AuthHandlers (analog signup). */
 export type InviteSetup = InviteOptions;
 
+/** Wrapper API for the account-unlock flow (#1266). = AccountUnlockOptions
+ *  (appUrl via delivery, symmetric to PasswordResetSetup). Self-service
+ *  escape hatch for accountLockout's monotonic failure counter — only
+ *  meaningful when `auth.accountLockout` is also set, but wired
+ *  independently like the other flows. */
+export type AccountUnlockSetup = AccountUnlockOptions;
+
 /** Auth-Mail-Convenience-Optionen — shared zwischen runProdApp + runDevApp.
  *  Verdrahtet alle 4 Mail-Flows aus einem env-SMTP-Transport + Standard-
  *  Templates (siehe `auth.mail` + resolveAuthMail). */
@@ -316,6 +324,11 @@ export type RunProdAppAuthOptions = {
    *  /api/auth/invite-accept-with-login, /api/auth/invite-signup-complete
    *  are mounted. */
   readonly invite?: InviteSetup;
+  /** Account-unlock flow (#1266). When set, /api/auth/request-account-unlock
+   *  + /api/auth/confirm-account-unlock are mounted. Self-service escape
+   *  hatch for accountLockout's monotonic failure-counter — confirming
+   *  clears the Redis lockout state, no entity write. */
+  readonly accountUnlock?: AccountUnlockSetup;
   /** Domain attribute for both auth cookies (see
    *  AuthRoutesConfig.cookieDomain). Set to the registrable parent
    *  domain when login and app live on different subdomains. */
@@ -972,6 +985,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           emailVerification: {
             requestHandler: AuthHandlers.requestEmailVerification,
             confirmHandler: AuthHandlers.verifyEmail,
+          },
+        }),
+        ...(effectiveAuth.accountUnlock && {
+          accountUnlock: {
+            requestHandler: AuthHandlers.requestAccountUnlock,
+            confirmHandler: AuthHandlers.confirmAccountUnlock,
           },
         }),
         ...(effectiveAuth.signup && {

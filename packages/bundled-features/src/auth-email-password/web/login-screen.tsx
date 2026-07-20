@@ -40,6 +40,13 @@ export type LoginScreenProps = {
    *  Link. Apps die den Reset-Flow NICHT anbieten (z.B. nur Magic-Link),
    *  setzen das einfach nicht — Login bleibt minimalistisch. */
   readonly forgotPasswordHref?: string;
+  /** Optional href to RequestAccountUnlockScreen (#1266). When set, an
+   *  account_locked login error renders an "Unlock account?" link inline —
+   *  the account-lockout escape hatch, since forgotPasswordHref does NOT
+   *  help here: the lockout gate blocks login before password verify even
+   *  runs, so it also blocks the post-reset login. Apps without
+   *  accountUnlock configured just leave this unset. */
+  readonly unlockAccountHref?: string;
   /** Optional href zum SignupScreen. Wenn gesetzt rendert die LoginScreen
    *  einen "Account erstellen"-Link. Apps die kein Self-Signup wollen
    *  (closed-invite-only) setzen das einfach nicht. */
@@ -100,6 +107,7 @@ export function LoginScreen({
   subtitle,
   submitLabel,
   forgotPasswordHref,
+  unlockAccountHref,
   signupHref,
   legalLinks,
   onMfaChallenge,
@@ -229,6 +237,13 @@ export function LoginScreen({
                       </Button>
                     </span>
                   )}
+                {error.reason === "account_locked" && unlockAccountHref !== undefined && (
+                  <span className="self-start">
+                    <Link href={unlockAccountHref} variant="default">
+                      {t("auth.login.unlockAccount")}
+                    </Link>
+                  </span>
+                )}
                 {resendStatus.kind === "rateLimited" && (
                   <span className="text-xs">{t("auth.login.resendRateLimited")}</span>
                 )}

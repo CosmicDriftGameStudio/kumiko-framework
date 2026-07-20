@@ -286,6 +286,12 @@ export type AuthRoutesConfig = {
   passwordReset?: PasswordResetConfig;
   // Email-verification flow. Symmetric to passwordReset.
   emailVerification?: EmailVerificationConfig;
+  // Account-unlock flow (#1266). When wired, POST
+  // /auth/request-account-unlock + /auth/confirm-account-unlock are
+  // mounted as public routes. Confirm needs no extra body field
+  // (token-only, like email-verification) — the handler only clears the
+  // Redis lockout state, no entity write.
+  accountUnlock?: AccountUnlockConfig;
   // Self-Signup (Magic-Link). Wenn wired, mountet POST
   // /auth/signup-request + /auth/signup-confirm. Confirm returnt JWT-
   // Cookie + Session-Body wie login.
@@ -353,6 +359,13 @@ export type PasswordResetConfig = {
 
 export type EmailVerificationConfig = {
   requestHandler: string;
+  confirmHandler: string;
+};
+
+export type AccountUnlockConfig = {
+  requestHandler: string;
+  // Token-only body (mirrors EmailVerificationConfig) — no entity write, so
+  // there's no newPassword-equivalent field.
   confirmHandler: string;
 };
 
@@ -729,6 +742,26 @@ export function createAuthRoutes(
       dispatcher,
       path: Routes.authVerifyEmail,
       confirmHandler: ev.confirmHandler,
+      schema: VerifyEmailBody,
+    });
+  }
+
+  // Account-unlock mirrors email-verification (token-only confirm body) —
+  // clears the Redis lockout state instead of an entity field, see
+  // confirm-account-unlock.write.ts.
+  if (config.accountUnlock) {
+    const au = config.accountUnlock;
+    registerTokenRequestRoute({
+      api,
+      dispatcher,
+      path: Routes.authRequestAccountUnlock,
+      requestHandler: au.requestHandler,
+    });
+    registerTokenConfirmRoute({
+      api,
+      dispatcher,
+      path: Routes.authConfirmAccountUnlock,
+      confirmHandler: au.confirmHandler,
       schema: VerifyEmailBody,
     });
   }
