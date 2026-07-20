@@ -37,6 +37,14 @@
     "./http-route": {
       "types": "./src/http-route.ts",
       "default": "./src/http-route.ts"
+    },
+    "./relations": {
+      "types": "./src/relations.ts",
+      "default": "./src/relations.ts"
+    },
+    "./tree-node": {
+      "types": "./src/tree-node.ts",
+      "default": "./src/tree-node.ts"
     }
   },
   "dependencies": {

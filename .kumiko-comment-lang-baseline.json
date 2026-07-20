@@ -558,7 +558,6 @@
     "packages/framework/src/engine/types/projection.ts": 4,
     "packages/framework/src/engine/types/screen.ts": 114,
     "packages/framework/src/engine/types/step.ts": 1,
-    "packages/framework/src/engine/types/tree-node.ts": 47,
     "packages/framework/src/errors/__tests__/write-failures.test.ts": 5,
     "packages/framework/src/errors/kumiko-error.ts": 4,
     "packages/framework/src/errors/transition-details.ts": 6,
@@ -814,6 +813,7 @@
     "packages/server-runtime/src/try-hono-first.ts": 10,
     "packages/types/src/event-type-map.ts": 8,
     "packages/types/src/http-route.ts": 13,
-    "packages/types/src/target-ref.ts": 7
+    "packages/types/src/target-ref.ts": 7,
+    "packages/types/src/tree-node.ts": 47
   }
 }
