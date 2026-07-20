@@ -35,7 +35,7 @@ import {
   type DbRunner,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { getUnscopedAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { assertAssignableMembershipRoles } from "./membership-roles";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
@@ -99,7 +99,7 @@ export async function seedTenant(
   // (Projection-Drift nach rebuild, manuellem DELETE, oder async-lag). Wenn
   // Stream-Version > 0 → kein create() — wäre version_conflict. Caller
   // bekommt die ID, Projection wird beim nächsten Dispatcher-Cycle aufgebaut.
-  const streamVersion = await getAggregateStreamMaxVersion(db, options.id);
+  const streamVersion = await getUnscopedAggregateStreamMaxVersion(db, options.id);
   if (streamVersion > 0) return { id: options.id };
 
   const result = await tenantExecutor.create(
