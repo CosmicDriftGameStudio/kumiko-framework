@@ -152,7 +152,7 @@ export interface RunExportJobsArgs {
   readonly sendExportFailedEmail?: SendExportFailedEmailFn;
   /** Base-URL fuer den Magic-Link. App-Author setzt das (z.B.
    *  "https://app.example.com/user-export/by-token"). Worker baut
-   *  `${appExportDownloadUrl}?token=<plain>` und reicht das im
+   *  a URL fragment (not a query param — see issue #1271) and passes that
    *  Callback durch. Required wenn sendExportReadyEmail gesetzt. */
   readonly appExportDownloadUrl?: string;
 }
@@ -844,7 +844,7 @@ async function fireExportReadyCallback(args: {
       "user-data-rights: sendExportReadyEmail gesetzt aber appExportDownloadUrl fehlt — beide muessen zusammen konfiguriert sein",
     );
   }
-  const downloadUrl = `${baseUrl}?token=${encodeURIComponent(args.plainToken)}`;
+  const downloadUrl = `${baseUrl}#token=${encodeURIComponent(args.plainToken)}`;
   await args.send({
     userId: args.job.userId,
     userEmail: contact.email,
