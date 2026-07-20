@@ -87,7 +87,7 @@ export type UserDataRightsOptions = {
   readonly sendExportFailedEmail?: SendExportFailedEmailFn;
   /** Base-URL fuer den Magic-Link, z.B.
    *  "https://app.example.com/user-export/by-token". Worker bauen
-   *  ein URL-Fragment (`#token=<plain>`, issue #1271). Required wenn
+   *  a URL fragment (`#token=<plain>`, issue #1271). Required wenn
    *  sendExportReadyEmail gesetzt. Per-Tenant via reverse-proxy host
    *  routing — nicht via per-Tenant-config-key (App-Author-Decision). */
   readonly appExportDownloadUrl?: string;
@@ -282,17 +282,16 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       access: { openToAll: true },
     });
 
-    // Magic-Link-Pfad (anonymous): der Email-Link traegt den Token als
-    // URL-Fragment (`#token=<plain>`) statt als Query-Param — Fragmente
-    // verlaesst der Browser nie an den Server, landen also nicht in
-    // Proxy-/Access-Logs (issue #1271). Diese Route liefert nur die
-    // Interstitial-Seite; das externe Script liest das Fragment client-
-    // seitig aus und tauscht den Token per POST gegen die signed-URL.
+    // Magic-link path (anonymous): the email link carries the token as a
+    // URL fragment (`#token=<plain>`) instead of a query param — fragments
+    // never leave the browser, so they never hit proxy/access logs
+    // (issue #1271). This route only serves the interstitial page; the
+    // external script reads the fragment client-side and exchanges the
+    // token via POST for the signed URL.
     //
-    // Das alte Token-per-Query-Format bleibt zusaetzlich als Fallback bestehen (nicht als
-    // Uebergangs-Shim, sondern dauerhaft): bereits verschickte Email-Links
-    // aus der Zeit vor diesem Deploy nutzen noch das alte Format und muessen
-    // bis zu ihrem TTL-Ablauf funktionieren.
+    // The old token-in-query format stays supported as a fallback (not a
+    // transitional shim — permanent): emails sent before this deploy still
+    // use the old format and must keep working until their TTL expires.
     //
     // Path liegt AUSSERHALB /api/* weil r.httpRoute den /api-namespace nicht
     // claimen darf (reserved fuer write/query/batch/auth/sse-dispatcher).
@@ -327,10 +326,10 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       },
     });
 
-    // Externes Script fuer die Interstitial-Seite oben — same-origin file
-    // statt inline <script>, damit die Seite auch unter einer strikten
-    // `script-src 'self'`-CSP funktioniert (Apps setzen CSP per
-    // security-headers-Option, kein `unsafe-inline` vorausgesetzt).
+    // External script for the interstitial page above — same-origin file
+    // instead of inline <script>, so the page also works under a strict
+    // `script-src 'self'` CSP (apps set CSP via the security-headers
+    // option, without assuming `unsafe-inline`).
     r.httpRoute({
       method: "GET",
       path: "/user-export/by-token.js",
@@ -342,16 +341,17 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       },
     });
 
-    // Exchange-Endpoint fuer die Interstitial-Seite: der Token kommt hier
-    // per POST-Body statt Query-String (issue #1271). Eigene Route statt
-    // dass die Browser-JS direkt /api/query aufruft, aus zwei Gruenden:
-    //   1. IP/UA-Audit — extractAuditMeta braucht die raw-Request-Header,
-    //      die hat nur der Server, nicht der Browser (siehe GET-Pfad oben).
-    //      Ohne diese Route wuerde jeder Fragment-Download mit
-    //      lastUsedFromIp/UA = null in download-attempt landen.
-    //   2. /api/query ist der reservierte Dispatcher-Namespace fuer
-    //      authenticated Writes/Queries — ein anonymer Cross-Origin-POST
-    //      dorthin ist nicht garantiert erreichbar (Origin-Guard).
+    // Exchange endpoint for the interstitial page: the token arrives here
+    // as a POST body instead of a query string (issue #1271). A dedicated
+    // route rather than letting the browser JS call /api/query directly,
+    // for two reasons:
+    //   1. IP/UA audit — extractAuditMeta needs the raw request headers,
+    //      which only the server has, not the browser (see the GET path
+    //      above). Without this route every fragment-path download would
+    //      land in download-attempt with lastUsedFromIp/UA = null.
+    //   2. /api/query is the reserved dispatcher namespace for
+    //      authenticated writes/queries — an anonymous cross-origin POST
+    //      there isn't guaranteed to be reachable (origin guard).
     r.httpRoute({
       method: "POST",
       path: "/user-export/by-token",
@@ -566,9 +566,9 @@ function extractAuditMeta(headers: Headers): { ip: string | null; userAgent: str
   return { ip, userAgent: headers.get("user-agent") };
 }
 
-// Interstitial-Seite fuer den Magic-Link-Fragment-Austausch (siehe httpRoute
-// oben). Reines statisches Markup — kein Build-Step, kein i18n-Lookup (der
-// Server kennt hier noch kein User-Locale; anonymer Pfad).
+// Interstitial page for the magic-link fragment exchange (see the
+// httpRoute above). Plain static markup — no build step, no i18n lookup
+// (the server doesn't know a user locale here; anonymous path).
 const TOKEN_EXCHANGE_PAGE_HTML = `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>Export Download</title></head>
@@ -578,10 +578,10 @@ const TOKEN_EXCHANGE_PAGE_HTML = `<!doctype html>
 </body>
 </html>`;
 
-// Liest den Token client-seitig aus dem URL-Fragment (nie an den Server
-// gesendet) und tauscht ihn per POST gegen die signed-URL. Same-origin
-// External-File statt inline <script>, damit die Seite auch unter einer
-// strikten `script-src 'self'`-CSP funktioniert.
+// Reads the token client-side from the URL fragment (never sent to the
+// server) and exchanges it via POST for the signed URL. Same-origin
+// external file instead of inline <script>, so the page also works under
+// a strict `script-src 'self'` CSP.
 const TOKEN_EXCHANGE_PAGE_JS = `(async () => {
   const status = document.getElementById("status");
   const params = new URLSearchParams(location.hash.slice(1));

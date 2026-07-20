@@ -152,7 +152,7 @@ export interface RunExportJobsArgs {
   readonly sendExportFailedEmail?: SendExportFailedEmailFn;
   /** Base-URL fuer den Magic-Link. App-Author setzt das (z.B.
    *  "https://app.example.com/user-export/by-token"). Worker baut
-   *  ein URL-Fragment (kein Query-Param — siehe issue #1271) und reicht das
+   *  a URL fragment (not a query param — see issue #1271) and passes that
    *  Callback durch. Required wenn sendExportReadyEmail gesetzt. */
   readonly appExportDownloadUrl?: string;
 }
