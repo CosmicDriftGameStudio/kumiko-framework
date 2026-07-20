@@ -1,5 +1,5 @@
+import { normalizeListColumn } from "../screen-helpers";
 import type { EntityListScreenDefinition, FeatureDefinition } from "../types";
-import { normalizeListColumn } from "../types/screen";
 
 /** Operator lists default searchable; low-cardinality audit trails stay opt-out. */
 export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list"]);

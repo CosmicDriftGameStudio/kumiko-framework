@@ -1,5 +1,6 @@
 // --- Field Types ---
 
+import type { DEFAULT_CURRENCIES } from "../field-helpers";
 // OwnershipMap is declared in engine/ownership.ts — field-access maps to
 // per-role ownership rules. A legacy `readonly string[]` form is still
 // accepted at the type layer during migration: features that pass an
@@ -312,24 +313,6 @@ export type ReferenceFieldDef = {
 
 // --- Currency ---
 
-export const DEFAULT_CURRENCIES = [
-  "EUR",
-  "USD",
-  "GBP",
-  "CHF",
-  "JPY",
-  "SEK",
-  "NOK",
-  "DKK",
-  "PLN",
-  "CZK",
-  "CAD",
-  "AUD",
-  "NZD",
-  "CNY",
-  "INR",
-] as const;
-
 export type DefaultCurrency = (typeof DEFAULT_CURRENCIES)[number];
 
 // --- Embedded Object ---
@@ -530,16 +513,6 @@ export type FieldDefinition =
 // Union of all field variants that represent uploaded files. They share
 // `maxSize` and `accept`, which is what upload validation cares about.
 export type AnyFileFieldDef = FileFieldDef | ImageFieldDef | FilesFieldDef | ImagesFieldDef;
-
-export function isFileField(field: FieldDefinition | undefined): field is AnyFileFieldDef {
-  if (!field) return false;
-  return (
-    field.type === "file" ||
-    field.type === "image" ||
-    field.type === "files" ||
-    field.type === "images"
-  );
-}
 
 // --- Derived (computed) fields ---
 //

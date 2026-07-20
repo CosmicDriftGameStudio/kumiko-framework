@@ -1,6 +1,7 @@
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { LifecycleHookTypes } from "./constants";
 import type { FeatureBuilderState } from "./feature-builder-state";
+import { resolveName } from "./handler-helpers";
 import { isKebabSegment, toKebab } from "./qualified-name";
 import type {
   BootCheckFn,
@@ -23,7 +24,6 @@ import type {
   ValidationHookFn,
 } from "./types";
 import { HookPhases } from "./types";
-import { resolveName } from "./types/handlers";
 import type { HttpRouteDefinition } from "./types/http-route";
 import type { NavDefinition } from "./types/nav";
 import type { ScreenDefinition } from "./types/screen";

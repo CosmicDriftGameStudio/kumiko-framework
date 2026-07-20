@@ -7,6 +7,7 @@
 import { rowMetaFieldNames } from "../../db/table-builder";
 import { qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
+import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
 import type { FeatureDefinition } from "../types";
 import type {
   DashboardCustomPanel,
@@ -20,7 +21,6 @@ import type {
   ScreenDefinition,
   ToolbarAction,
 } from "../types/screen";
-import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../types/screen";
 
 // --- Screen validation ---
 //
