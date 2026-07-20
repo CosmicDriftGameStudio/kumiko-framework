@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import * as jose from "jose";
 import type { SessionUser } from "../../engine/types";
-import { createJwtHelper } from "../jwt";
+import { createJwtHelper, loadJwtSecretOrKeyring } from "../jwt";
 
 const SECRET = "test-secret-at-least-32-characters-long-aa";
 const TENANT = "11111111-1111-4111-8111-111111111111";
@@ -138,5 +138,75 @@ describe("createJwtHelper — keyring form", () => {
 
   it("throws at creation when signKid is not present in the keyring", () => {
     expect(() => createJwtHelper({ keys: { v1: SECRET }, signKid: "v2" })).toThrow(/signKid/);
+  });
+});
+
+describe("loadJwtSecretOrKeyring", () => {
+  it("no JWT_SECRET_V<n> → falls back to plain JWT_SECRET", () => {
+    expect(loadJwtSecretOrKeyring({ JWT_SECRET: SECRET })).toBe(SECRET);
+  });
+
+  it("neither JWT_SECRET_V<n> nor JWT_SECRET set → throws", () => {
+    expect(() => loadJwtSecretOrKeyring({})).toThrow(/JWT_SECRET not set/);
+  });
+
+  it("JWT_SECRET_V1 + JWT_SECRET_CURRENT_VERSION=1 → single-key keyring, signKid v1", () => {
+    expect(
+      loadJwtSecretOrKeyring({
+        JWT_SECRET_V1: SECRET,
+        JWT_SECRET_CURRENT_VERSION: "1",
+      }),
+    ).toEqual({ keys: { v1: SECRET }, signKid: "v1" });
+  });
+
+  it("rotation: two versions, current-version picks the sign key, both stay verifiable", () => {
+    const OLD_SECRET = "old-secret-at-least-32-characters-long!!";
+    expect(
+      loadJwtSecretOrKeyring({
+        JWT_SECRET_V1: OLD_SECRET,
+        JWT_SECRET_V2: SECRET,
+        JWT_SECRET_CURRENT_VERSION: "2",
+      }),
+    ).toEqual({ keys: { v1: OLD_SECRET, v2: SECRET }, signKid: "v2" });
+  });
+
+  it("JWT_SECRET_V<n> present but JWT_SECRET_CURRENT_VERSION missing → throws", () => {
+    expect(() => loadJwtSecretOrKeyring({ JWT_SECRET_V1: SECRET })).toThrow(
+      /JWT_SECRET_CURRENT_VERSION not set/,
+    );
+  });
+
+  it("JWT_SECRET_CURRENT_VERSION points at a version with no matching JWT_SECRET_V<n> → throws", () => {
+    expect(() =>
+      loadJwtSecretOrKeyring({
+        JWT_SECRET_V1: SECRET,
+        JWT_SECRET_CURRENT_VERSION: "2",
+      }),
+    ).toThrow(/not present in the keyring/);
+  });
+
+  it("plain JWT_SECRET is ignored once a keyring is present", () => {
+    expect(
+      loadJwtSecretOrKeyring({
+        JWT_SECRET: "should-be-ignored-once-keyring-present-aa",
+        JWT_SECRET_V1: SECRET,
+        JWT_SECRET_CURRENT_VERSION: "1",
+      }),
+    ).toEqual({ keys: { v1: SECRET }, signKid: "v1" });
+  });
+
+  it("plain JWT_SECRET under 32 chars → throws", () => {
+    expect(() => loadJwtSecretOrKeyring({ JWT_SECRET: "too-short" })).toThrow(
+      /JWT_SECRET must be ≥32 chars/,
+    );
+  });
+
+  it("JWT_SECRET_V<n> under 32 chars → throws (bypasses the env-schema check otherwise)", () => {
+    expect(() =>
+      loadJwtSecretOrKeyring({
+        JWT_SECRET_V1: "too-short",
+        JWT_SECRET_CURRENT_VERSION: "1",
+      }),
+    ).toThrow(/JWT_SECRET_V1 must be ≥32 chars/);
   });
 });

@@ -1063,7 +1063,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
     expect(sent.userEmail).toBe("alice@example.com");
     expect(sent.jobId).toBe(jobId);
     expect(sent.downloadUrl).toMatch(
-      /^https:\/\/app\.example\.com\/user-export\/by-token\?token=[A-Za-z0-9_%-]+$/,
+      /^https:\/\/app\.example\.com\/user-export\/by-token#token=[A-Za-z0-9_%-]+$/,
     );
     // plain-token aus dem callback-arg entspricht dem result.tokenByJobId
     const plainFromResult = result.tokenByJobId.get(jobId);

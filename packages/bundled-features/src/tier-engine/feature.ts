@@ -62,7 +62,7 @@ import {
   type TierResolverPlugin,
   type TrialGate,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { getUnscopedAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { tenantTable } from "../tenant";
@@ -365,7 +365,7 @@ export function createTierEngineFeature<
 
           // Idempotency: stream-existence-check vor create. Pattern aus
           // seedTenant.ts. Bei re-replay (rebuild) nicht versionsbumpen.
-          const streamVersion = await getAggregateStreamMaxVersion(rawDb, aggregateId);
+          const streamVersion = await getUnscopedAggregateStreamMaxVersion(rawDb, aggregateId);
           // skip: idempotent — tier-assignment stream already seeded (rebuild/replay).
           if (streamVersion > 0) return;
 

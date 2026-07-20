@@ -348,7 +348,7 @@ describe("POST /auth/reset-password", () => {
     // never blanket-opens zero-membership.
     // Build a fully-populated user row with NO event stream: seed a normal
     // user (gets all NOT-NULL columns), capture its row, then re-key it to a
-    // fresh id + email. getAggregateStreamTenant(orphanId) finds no events
+    // fresh id + email. getUnscopedAggregateStreamTenant(orphanId) finds no events
     // (the stream lives under the original id), and no membership is seeded
     // → tenantOrder is empty.
     const donor = await seedUser({ email: "donor@example.com", password: "donor-pw-1234" });
