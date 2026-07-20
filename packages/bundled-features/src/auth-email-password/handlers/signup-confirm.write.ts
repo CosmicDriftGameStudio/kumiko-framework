@@ -33,6 +33,7 @@ import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import signup-confirm reads tenants.key for slug-uniqueness check (TOCTOU + DB-unique-index zusammen)
 import { tenantTable } from "../../tenant/schema/tenant";
 import { invalidSignupToken, signupEmailAlreadyRegistered } from "../errors";
+import { passwordSchema } from "../password-policy";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { INITIAL_SIGNUP_ROLES, provisionSignupAccount } from "../seeding";
 import {
@@ -44,7 +45,7 @@ import {
 
 const SignupConfirmSchema = z.object({
   token: z.string().min(8),
-  password: z.string().min(8).max(200),
+  password: passwordSchema,
 });
 
 // Mirror der login-handler-Shape (kind: "auth-session", session: SessionUser)
