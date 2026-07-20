@@ -102,7 +102,7 @@ function offsetOf(cursor: SyncCursorPayload | null): number {
   return typeof raw === "number" && Number.isInteger(raw) && raw >= 0 ? raw : 0;
 }
 
-const plugin: InboundMailProviderPlugin = {
+export const inMemoryInboundMailPlugin: InboundMailProviderPlugin = {
   verify: async (_ctx, account: MailAccountRecord) => {
     const state = stateFor(account.id);
     if (state.nextVerifyError) {
@@ -150,5 +150,5 @@ export const inboundProviderInMemoryFeature = defineFeature(FEATURE_NAME, (r) =>
     recommended: false,
   });
   r.requires("inbound-mail-foundation");
-  r.useExtension("inboundMailProvider", INMEMORY_PROVIDER_KEY, plugin);
+  r.useExtension("inboundMailProvider", INMEMORY_PROVIDER_KEY, inMemoryInboundMailPlugin);
 });
