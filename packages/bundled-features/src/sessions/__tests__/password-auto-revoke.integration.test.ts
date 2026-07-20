@@ -5,6 +5,7 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
+  TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
@@ -78,7 +79,7 @@ beforeAll(async () => {
     },
   });
   callbacks.set(createSessionCallbacks({ db: stack.db }));
-  h = makeSessionHelpers(stack, TENANT);
+  h = makeSessionHelpers(stack, TENANT, bound.asAuthConfig().sessionCreator);
 
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
@@ -99,7 +100,7 @@ beforeEach(async () => {
 
 describe("password change mass-revokes every live session", () => {
   test("changing the password revokes ALL sessions including the caller's", async () => {
-    await h.seedUser("rotate@example.com", "first-password");
+    const { userId } = await h.seedUser("rotate@example.com", "first-password");
 
     const a = await h.login("rotate@example.com", "first-password");
     const b = await h.login("rotate@example.com", "first-password");
@@ -147,7 +148,7 @@ describe("password change mass-revokes every live session", () => {
 
     // DB state confirms: zero live rows for this user
     const liveRows = await selectMany(stack.db, userSessionTable);
-    const stillLive = liveRows.filter((r) => r["revokedAt"] === null);
+    const stillLive = liveRows.filter((r) => r["userId"] === userId && r["revokedAt"] === null);
     expect(stillLive).toHaveLength(0);
 
     // And logging in again with the NEW password works

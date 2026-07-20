@@ -19,7 +19,10 @@ import {
   userSessionEntity,
   userSessionTable,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
-import { sessionCallbacksFromLateBound } from "@cosmicdrift/kumiko-bundled-features/sessions/testing";
+import {
+  sessionCallbacksFromLateBound,
+  withMintedSession,
+} from "@cosmicdrift/kumiko-bundled-features/sessions/testing";
 import {
   createTenantFeature,
   tenantEntity,
@@ -88,10 +91,14 @@ beforeEach(async () => {
 describe("session-revocation sample wiring", () => {
   test("end-to-end: login, use, logout, reject", async () => {
     const hash = await hashPassword("super-long-password");
+    const actor = await withMintedSession(
+      (user, meta) => callbacks.get().sessionCreator(user, meta),
+      TestUsers.systemAdmin,
+    );
     const created = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       { email: "demo@example.com", passwordHash: hash, displayName: "Demo" },
-      TestUsers.systemAdmin,
+      actor,
     );
     await seedTenantMembership(stack.db, {
       userId: created.id,
