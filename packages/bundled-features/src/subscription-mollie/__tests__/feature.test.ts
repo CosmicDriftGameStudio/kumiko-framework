@@ -1,8 +1,13 @@
 // feature.ts contract tests for subscription-mollie.
 
 import { describe, expect, test } from "bun:test";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { MollieClient } from "@mollie/api-client";
+import { describeSubscriptionProviderContract } from "../../billing-foundation/__tests__/subscription-provider-contract";
 import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "../constants";
 import { createSubscriptionMollieFeature } from "../feature";
+import { createMollieCheckoutSession } from "../plugin-methods";
+import { type MollieClientShape, verifyAndParseMollieWebhook } from "../verify-webhook";
 
 const VALID_OPTIONS = {
   apiKey: "test_dummy_apikey",
@@ -98,9 +103,91 @@ describe("subscription-mollie — plugin-registration", () => {
       createPortalSession?: unknown;
       cancelSubscription?: unknown;
     };
+    // Prüft das gemountete Feature (der Contract weiter unten baut sein
+    // Plugin handgewiring und würde fehlendes Wiring hier nicht bemerken).
     expect(typeof plugin?.verifyAndParseWebhook).toBe("function");
     expect(typeof plugin?.createCheckoutSession).toBe("function");
     expect(plugin?.createPortalSession).toBeUndefined();
     expect(plugin?.cancelSubscription).toBeUndefined();
   });
 });
+
+// =============================================================================
+// SubscriptionProviderPlugin contract
+// =============================================================================
+//
+// Built directly from the plugin-method constructors (not from
+// createSubscriptionMollieFeature's mounted plugin) — same reasoning as
+// subscription-stripe's contract fixture: keeps SDK-call mocking local to
+// the fixture instead of routing through the full feature-mount.
+
+const CONTRACT_TENANT_ID = "tenant-contract";
+const CONTRACT_PRICE_ID = "plan_pro";
+
+function buildMollieContractFixture() {
+  const subscription = {
+    id: "sub_contract_001",
+    customerId: "cst_contract_001",
+    status: "active",
+    nextPaymentDate: "2026-06-15",
+    startDate: "2026-05-15",
+    metadata: { tenantId: CONTRACT_TENANT_ID, priceId: CONTRACT_PRICE_ID },
+    // biome-ignore lint/suspicious/noExplicitAny: minimal Mollie-SDK-shape mock
+  } as any;
+  const payment = {
+    id: "tr_contract_001",
+    customerId: "cst_contract_001",
+    subscriptionId: "sub_contract_001",
+    sequenceType: "first",
+    status: "paid",
+    // biome-ignore lint/suspicious/noExplicitAny: minimal Mollie-SDK-shape mock
+  } as any;
+
+  const webhookClient: MollieClientShape = {
+    payments: { get: async () => payment },
+    customerSubscriptions: {
+      get: async () => subscription,
+      list: async () => [],
+      create: async () => subscription,
+    },
+  };
+
+  const checkoutClient = {
+    customers: { create: async () => ({ id: "cus_contract" }) },
+    payments: {
+      create: async () => ({
+        getCheckoutUrl: () => "https://www.mollie.com/checkout/contract-test",
+      }),
+    },
+  } as unknown as MollieClient;
+
+  return {
+    plugin: {
+      verifyAndParseWebhook: verifyAndParseMollieWebhook(webhookClient, {
+        priceToTier: VALID_OPTIONS.priceToTier,
+        priceToConfig: VALID_OPTIONS.priceToConfig,
+      }),
+      createCheckoutSession: createMollieCheckoutSession(
+        checkoutClient,
+        VALID_OPTIONS.priceToConfig,
+        VALID_OPTIONS.webhookUrl,
+      ),
+      // createPortalSession + cancelSubscription bewusst nicht — Mollie-Limit.
+    },
+    ctx: {} as HandlerContext,
+    checkout: {
+      priceId: CONTRACT_PRICE_ID,
+      tenantId: CONTRACT_TENANT_ID,
+      successUrl: "https://example.com/success",
+      cancelUrl: "https://example.com/cancel",
+    },
+    webhook: {
+      rawBody: JSON.stringify({ id: "tr_contract_001" }),
+      headers: { "content-type": "application/json" },
+      expectedTenantId: CONTRACT_TENANT_ID,
+      expectedTier: "pro",
+    },
+  };
+}
+
+describeSubscriptionProviderContract("subscription-mollie", buildMollieContractFixture);
