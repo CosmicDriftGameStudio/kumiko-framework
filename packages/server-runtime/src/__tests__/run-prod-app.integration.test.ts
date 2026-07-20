@@ -263,6 +263,26 @@ describe("runProdApp", () => {
     expect(res.status).toBe(200);
   });
 
+  test("unrecognized KUMIKO_DRY_RUN_ENV value warns and falls through to a normal boot", async () => {
+    const originalWarn = console.warn;
+    const warnings: string[] = [];
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(" "));
+    };
+    const original = process.env["KUMIKO_DRY_RUN_ENV"];
+    process.env["KUMIKO_DRY_RUN_ENV"] = "not-a-real-mode";
+    try {
+      const handle = await boot();
+      const res = await handle.entrypoint.app.fetch(new Request("http://test/health"));
+      expect(res.status).toBe(200);
+    } finally {
+      console.warn = originalWarn;
+      if (original === undefined) delete process.env["KUMIKO_DRY_RUN_ENV"];
+      else process.env["KUMIKO_DRY_RUN_ENV"] = original;
+    }
+    expect(warnings.some((line) => line.includes("unrecognized"))).toBe(true);
+  });
+
   test("second boot against the same DB is idempotent — no crash, no duplicate tables", async () => {
     await boot();
     // First boot left tables in place. Restart on the same DB —
