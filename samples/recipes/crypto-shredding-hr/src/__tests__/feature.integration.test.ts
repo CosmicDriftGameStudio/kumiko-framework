@@ -9,6 +9,7 @@ import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
+  PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
@@ -81,8 +82,8 @@ describe("crypto-shredding-hr", () => {
     const employeeId = await createEmployee();
 
     const raw = await rawEmployeeRow(employeeId);
-    expect(raw.display_name).toStartWith(`kumiko-pii:v1:user:${employeeId}:`);
-    expect(raw.email).toStartWith(`kumiko-pii:v1:user:${employeeId}:`);
+    expect(raw.display_name).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${employeeId}:`);
+    expect(raw.email).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${employeeId}:`);
 
     const detail = await stack.http.queryOk<Record<string, unknown>>(
       "hr:query:employee:detail",
@@ -111,7 +112,7 @@ describe("crypto-shredding-hr", () => {
     // biome-ignore lint/suspicious/noExplicitAny: raw sql result shape
     const rows = ((result as any).rows ?? result) as Array<{ body: string }>;
     // The comment row's ciphertext names the EMPLOYEE as subject, not the row.
-    expect(rows[0]?.body).toStartWith(`kumiko-pii:v1:user:${employeeId}:`);
+    expect(rows[0]?.body).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${employeeId}:`);
   });
 
   test("forget: eraseKey renders [[erased]] for the employee AND comments about them", async () => {
@@ -146,7 +147,7 @@ describe("crypto-shredding-hr", () => {
     // The ciphertext itself is untouched — rows and events keep their bytes,
     // they just can never be decrypted again.
     const raw = await rawEmployeeRow(employeeId);
-    expect(raw.email).toStartWith(`kumiko-pii:v1:user:${employeeId}:`);
+    expect(raw.email).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${employeeId}:`);
   });
 });
 
