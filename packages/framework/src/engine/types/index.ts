@@ -218,6 +218,17 @@ export type { EntityId, TenantId } from "./identifiers";
 export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./identifiers";
 export type { NavDefinition } from "./nav";
 export type {
+  FromRule,
+  FromRuleKind,
+  OwnershipClause,
+  OwnershipMap,
+  OwnershipRef,
+  OwnershipRule,
+  SqlFragment,
+  WhereRule,
+  WhereRuleContext,
+} from "./ownership";
+export type {
   EntityProjectionExtension,
   MspErrorMode,
   MspErrorPolicy,
