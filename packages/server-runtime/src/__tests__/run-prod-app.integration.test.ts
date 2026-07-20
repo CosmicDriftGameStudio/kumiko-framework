@@ -27,6 +27,10 @@ import {
   createEventsTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import {
+  createNoopProvider,
+  createPrometheusMeter,
+} from "@cosmicdrift/kumiko-framework/observability";
+import {
   createEventConsumerStateTable,
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
@@ -953,5 +957,38 @@ describe("hard PII boot gate (#818 step 2)", () => {
       allowPlaintextPii: "test: kms rollout pending",
     });
     expect(handle).toBeDefined();
+  });
+});
+
+// Regression for fw#1352: runProdApp wires the metrics route through two
+// independently forwarded options (observability, metrics). Wrong nesting
+// or a renamed key in ApiEntrypointOptions would silently no-op instead of
+// erroring the boot, and /metrics would stay 404 or empty.
+describe("runProdApp — /metrics endpoint (fw#1352)", () => {
+  test("observability (PrometheusMeter) + metrics.token wired → GET /metrics mit Bearer liefert OpenMetrics-Body", async () => {
+    const meter = createPrometheusMeter();
+    meter.registerMetric({ name: "kumiko_probe_total", type: "counter" });
+    meter.counter("kumiko_probe_total").inc(2);
+
+    const handle = await boot(undefined, {
+      observability: { ...createNoopProvider(), meter },
+      metrics: { token: "t" },
+    });
+
+    const res = await handle.entrypoint.app.fetch(
+      new Request("http://test/metrics", { headers: { Authorization: "Bearer t" } }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toMatch(/openmetrics-text/);
+    const body = await res.text();
+    expect(body).toContain("kumiko_probe_total 2");
+    expect(body).toMatch(/# EOF\n$/);
+  });
+
+  test("ohne observability und ohne metrics-Option → /metrics ist keine Route (404)", async () => {
+    const handle = await boot();
+
+    const res = await handle.entrypoint.app.fetch(new Request("http://test/metrics"));
+    expect(res.status).toBe(404);
   });
 });
