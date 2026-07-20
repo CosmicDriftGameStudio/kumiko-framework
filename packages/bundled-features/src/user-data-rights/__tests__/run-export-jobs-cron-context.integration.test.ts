@@ -10,6 +10,7 @@
 // jeden Export auf "failed" setzte).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -65,6 +66,7 @@ beforeAll(async () => {
       fileProviderInMemoryFeature,
       mailFoundationFeature,
       mailTransportInMemoryFeature,
+      authFoundationFeature,
       createSessionsFeature(),
       // appExportDownloadUrl set → the default export-ready mail is enabled, so
       // this also proves the export cron's mail bridge end-to-end (C6).

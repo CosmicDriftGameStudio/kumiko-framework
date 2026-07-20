@@ -12,6 +12,7 @@ import {
   seedAdmin,
   seedUserWithPassword,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   AuthMfaHandlers,
   base32Decode,
@@ -117,6 +118,7 @@ beforeAll(async () => {
 
   const features = composeFeatures(
     [
+      authFoundationFeature,
       ...identity,
       ...composeOpsStack({ delivery: true, audit: false, jobs: false }),
       ...composeRendererStack(),

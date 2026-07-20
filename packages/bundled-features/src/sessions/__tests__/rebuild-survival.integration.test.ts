@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -72,14 +73,22 @@ async function insertRevokedSession(db: DbConnection): Promise<void> {
 
 describe("sessions / store_user_sessions survives projection rebuild", () => {
   test("is NOT registered as a rebuildable implicit projection", () => {
-    const registry = createRegistry([createSessionsFeature(), createUserFeature()]);
+    const registry = createRegistry([
+      authFoundationFeature,
+      createSessionsFeature(),
+      createUserFeature(),
+    ]);
     expect(registry.getAllProjections().has(IMPLICIT_PROJECTION)).toBe(false);
   });
 
   test("direct-written rows (incl. revoked state) survive a rebuild", async () => {
     await insertRevokedSession(createTenantDb(testDb.db, TENANT));
 
-    const registry = createRegistry([createSessionsFeature(), createUserFeature()]);
+    const registry = createRegistry([
+      authFoundationFeature,
+      createSessionsFeature(),
+      createUserFeature(),
+    ]);
     // Pre-fix: the implicit projection exists → rebuild swaps an empty shadow
     // → rows wiped. Post-fix: absent → no rebuild → rows untouched. Either way
     // a regression (re-adding r.entity) makes this fail.

@@ -11,7 +11,13 @@
 // per-deployment, so boot is the right time to catch it).
 
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { EXT_TOKEN_VERIFIER, isAuthProviderPlugin, tokenShapeKey } from "./types";
+import {
+  EXT_SESSION_STORE,
+  EXT_TOKEN_VERIFIER,
+  isAuthProviderPlugin,
+  isSessionStoreProvider,
+  tokenShapeKey,
+} from "./types";
 
 export function validateTokenVerifierMultiplicity(features: readonly FeatureDefinition[]): void {
   const namesByShape = new Map<string, string[]>();
@@ -47,5 +53,39 @@ export function validateTokenVerifierMultiplicity(features: readonly FeatureDefi
           `Give each provider a distinct shape.`,
       );
     }
+  }
+}
+
+// Multiplicity boot-check for the `sessionStore` extension point (#1370).
+// Single-provider, unlike tokenVerifier — no shape to route on, so exactly
+// one registration is required; 0 or ≥2 both fail boot.
+export function validateSessionStoreMultiplicity(features: readonly FeatureDefinition[]): void {
+  const names: string[] = [];
+
+  for (const feature of features) {
+    for (const usage of feature.extensionUsages) {
+      if (usage.extensionName !== EXT_SESSION_STORE) continue;
+      if (!isSessionStoreProvider(usage.options)) {
+        throw new Error(
+          `[auth-foundation] sessionStore provider "${usage.entityName}" (feature "${feature.name}") ` +
+            `registered without a valid SessionStoreProvider — options must have a { build } shape.`,
+        );
+      }
+      names.push(usage.entityName);
+    }
+  }
+
+  if (names.length === 0) {
+    throw new Error(
+      "[auth-foundation] no sessionStore provider registered — mount a feature that " +
+        "registers one via r.useExtension(EXT_SESSION_STORE, ...) alongside auth-foundation.",
+    );
+  }
+
+  if (names.length >= 2) {
+    throw new Error(
+      `[auth-foundation] ${names.length} sessionStore providers registered (${names.join(", ")}) — ` +
+        `only one sessionStore provider may be mounted at a time.`,
+    );
   }
 }

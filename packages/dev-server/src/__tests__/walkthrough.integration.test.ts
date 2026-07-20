@@ -13,6 +13,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createRegistry, defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
@@ -77,18 +79,32 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     // a dummy defineFeature here — the scaffold-side of "notesFeature"
     // (file-content) is pinned in test 2; this test pins the runtime-side
     // (composeFeatures auto-prepend behaviour the walkthrough claims).
+    //
+    // sessions now requires auth-foundation (#1370/#1371), which itself
+    // needs a tokenVerifier provider mounted (#1368) — PAT here, mirroring
+    // the scaffold picker's real-world default. Not part of the walkthrough's
+    // advertised 7-feature count (that count is about includeBundled's
+    // auto-mount, unrelated to this coupling), so both are added on top.
     const notesFeature = defineFeature("notes", () => {});
-    const APP_FEATURES = [createSecretsFeature(), createSessionsFeature(), notesFeature];
+    const APP_FEATURES = [
+      createSecretsFeature(),
+      authFoundationFeature,
+      createPersonalAccessTokensFeature({ scopes: {} }),
+      createSessionsFeature(),
+      notesFeature,
+    ];
 
     const composed = composeFeatures(APP_FEATURES, { includeBundled: true });
-    // 3 explicit + 4 auto-mounted bundled = 7 total features.
-    expect(composed.length).toBe(7);
+    // 5 explicit + 4 auto-mounted bundled = 9 total features.
+    expect(composed.length).toBe(9);
 
     const composedNames = composed.map((f) => f.name).sort();
     expect(composedNames).toEqual([
       "auth-email-password",
+      "auth-foundation",
       "config",
       "notes",
+      "personal-access-tokens",
       "secrets",
       "sessions",
       "tenant",
@@ -97,9 +113,9 @@ describe("walkthrough — DX-3.1 snapshot", () => {
 
     // validateBoot must pass (no missing-requires, no schema-errors).
     expect(() => validateBoot(composed)).not.toThrow();
-    // Registry must contain all 7 features.
+    // Registry must contain all 9 features.
     const registry = createRegistry(composed);
-    expect(registry.features.size).toBe(7);
+    expect(registry.features.size).toBe(9);
   });
 
   test("bin/main.ts contains the auth.admin stub the walkthrough relies on", async () => {

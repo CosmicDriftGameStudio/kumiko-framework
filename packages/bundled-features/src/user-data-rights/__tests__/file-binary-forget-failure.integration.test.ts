@@ -10,6 +10,7 @@
 // still unvollständig).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
@@ -86,6 +87,7 @@ beforeAll(async () => {
       createTestFileProviderFeature(flakyProvider, "test"),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),

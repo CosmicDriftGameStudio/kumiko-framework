@@ -7,6 +7,7 @@
 // only actually booting the resolved set through validateBoot can.
 
 import { describe, expect, test } from "bun:test";
+import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
   createRegistry,
   type FeatureDefinition,
@@ -53,6 +54,11 @@ describe("--yes resolved set boots (issue-1174 regression)", () => {
 
   test("the resolved --yes feature set boots without the GDPR PII-hook-coverage error", async () => {
     const instances = await instantiateResolved(resolved.featureNames);
+    // sessions (auto-included, session-list/detail screens are recommended)
+    // requires auth-foundation, which the dep-resolver already pulls in
+    // transitively — it just needs a tokenVerifier provider mounted too.
+    // PAT is what publicstatus/money-horse mount for this today.
+    instances.push(createPersonalAccessTokensFeature({ scopes: {} }));
     const composed = composeFeatures(instances, { includeBundled: true });
     expect(() => validateBoot(composed)).not.toThrow();
     expect(() => createRegistry(composed)).not.toThrow();

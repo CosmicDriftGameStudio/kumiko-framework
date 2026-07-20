@@ -16,6 +16,7 @@
 //      die Policy entscheidet pro Tenant.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
@@ -68,6 +69,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),

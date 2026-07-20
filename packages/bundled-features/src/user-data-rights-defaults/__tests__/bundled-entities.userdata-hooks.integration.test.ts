@@ -95,6 +95,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),

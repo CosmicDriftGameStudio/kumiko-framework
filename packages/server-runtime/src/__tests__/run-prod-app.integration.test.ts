@@ -13,6 +13,8 @@ import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
   createSessionsFeature,
   userSessionEntity,
@@ -854,9 +856,14 @@ describe("runProdApp — session boot gate (#1262/#1275)", () => {
 
   test("auth mounted, sessions feature mounted → boots cleanly (the happy path the gate guards)", async () => {
     const handle = await boot(undefined, {
-      // "user" is auto-mounted via includeBundled whenever auth.admin is set —
-      // only createSessionsFeature() needs to be explicit here.
-      features: [createSessionsFeature()],
+      // "user" is auto-mounted via includeBundled whenever auth.admin is set.
+      // sessions requires auth-foundation, which needs a tokenVerifier
+      // provider — PAT.
+      features: [
+        authFoundationFeature,
+        createPersonalAccessTokensFeature({ scopes: {} }),
+        createSessionsFeature(),
+      ],
       auth: {
         admin: ADMIN,
         cookieDomain: "example.eu",

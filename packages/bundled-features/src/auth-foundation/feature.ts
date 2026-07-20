@@ -18,21 +18,24 @@
 
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { defineFeature, type Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { validateTokenVerifierMultiplicity } from "./boot-checks";
+import { validateSessionStoreMultiplicity, validateTokenVerifierMultiplicity } from "./boot-checks";
 import {
   type AuthProviderBuildDeps,
+  EXT_SESSION_STORE,
   EXT_TOKEN_VERIFIER,
   isAuthProviderPlugin,
+  isSessionStoreProvider,
+  type SessionStore,
   tokenShapeMatches,
 } from "./types";
 
-export { EXT_TOKEN_VERIFIER } from "./types";
+export { EXT_SESSION_STORE, EXT_TOKEN_VERIFIER } from "./types";
 
 const FEATURE_NAME = "auth-foundation";
 
 export const authFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
-    "Defines the `tokenVerifier` extension point for Bearer-token verification. Provider-features register a static `shape` (how to recognize their own tokens) plus a `build()` that produces a verifier — mount together with at least one auth-provider-* feature and call `resolveTokenVerifier(deps, rawToken)` to find the matching one.",
+    "Declares the `tokenVerifier` (Bearer-token auth) and `sessionStore` extension points. Provider-features register a static `shape` plus a `build()` for tokenVerifier — mount together with at least one auth-provider-* feature (e.g. personal-access-tokens) and call `resolveTokenVerifier(deps, rawToken)` to find the matching one; sessions self-registers as the single sessionStore provider.",
   );
   r.uiHints({
     displayLabel: "Auth Provider Foundation",
@@ -50,6 +53,15 @@ export const authFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   // Owns EXT_TOKEN_VERIFIER, so its own mount is the trigger — same
   // convention as tenant-lifecycle/user-data-rights' self-bootCheck.
   r.bootCheck(({ features }) => validateTokenVerifierMultiplicity(features));
+
+  r.extendsRegistrar(EXT_SESSION_STORE, {
+    onRegister: () => {
+      // No side-effects at register-time — registry stores the usage,
+      // resolveSessionStore looks it up at request-time.
+    },
+  });
+
+  r.bootCheck(({ features }) => validateSessionStoreMultiplicity(features));
 });
 
 /**
@@ -70,4 +82,22 @@ export async function resolveTokenVerifier(
     return verify(rawToken);
   }
   return null;
+}
+
+/**
+ * Resolves the single registered sessionStore provider. Assumes
+ * validateSessionStoreMultiplicity already ran at boot — a missing provider
+ * here means the app booted without going through the framework's boot
+ * validator, not a runtime state resolveSessionStore should model.
+ */
+export async function resolveSessionStore(
+  deps: AuthProviderBuildDeps & { readonly registry: Registry },
+): Promise<SessionStore> {
+  const usage = deps.registry.getExtensionUsages(EXT_SESSION_STORE)[0];
+  if (!usage || !isSessionStoreProvider(usage.options)) {
+    throw new Error(
+      "[auth-foundation] no sessionStore provider registered — did the boot validator run?",
+    );
+  }
+  return usage.options.build(deps);
 }
