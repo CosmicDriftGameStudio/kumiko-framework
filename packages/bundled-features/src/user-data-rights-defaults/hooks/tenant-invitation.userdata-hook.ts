@@ -42,7 +42,7 @@ async function resolveUserEmail(ctx: UserDataHookCtx): Promise<string | null> {
   if (!row) return null;
   // Stored value is ciphertext with an active KMS; lowercasing a base64
   // blob would break both lookup arms — decrypt first.
-  const email = await decryptStoredPii(row.email, "user-data-rights:invitation-hook");
+  const email = await decryptStoredPii(row.email, "email", "user-data-rights:invitation-hook");
   return email.toLowerCase();
 }
 

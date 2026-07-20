@@ -33,11 +33,11 @@ export const membersQuery = defineQueryHandler({
     for (const user of users) {
       const email =
         typeof user.email === "string"
-          ? await decryptStoredPii(user.email, "tenant:members")
+          ? await decryptStoredPii(user.email, "email", "tenant:members")
           : null;
       const displayName =
         typeof user.displayName === "string"
-          ? await decryptStoredPii(user.displayName, "tenant:members")
+          ? await decryptStoredPii(user.displayName, "displayName", "tenant:members")
           : null;
       decryptedByUserId.set(String(user.id), { email, displayName });
     }

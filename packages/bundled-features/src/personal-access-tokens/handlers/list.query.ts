@@ -29,7 +29,7 @@ export const listPatQuery = defineQueryHandler({
     return Promise.all(
       rows.map(async (r) => ({
         id: r.id,
-        name: await decryptStoredPii(r.name, "pat:list"),
+        name: await decryptStoredPii(r.name, "name", "pat:list"),
         prefix: r.prefix,
         scopes: parseScopeNames(r.scopes),
         createdAt: r.createdAt,

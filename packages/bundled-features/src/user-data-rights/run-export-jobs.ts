@@ -801,7 +801,7 @@ async function lookupUserContact(
     locale: string | null;
   } | null;
   if (!row?.email) return null;
-  const email = await decryptStoredPii(row.email, "user-data-rights:export-ready");
+  const email = await decryptStoredPii(row.email, "email", "user-data-rights:export-ready");
   if (email === PII_ERASED_SENTINEL) return null;
   return { email, locale: row.locale ?? null };
 }

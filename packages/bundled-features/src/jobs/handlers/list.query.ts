@@ -6,7 +6,7 @@ import { jobRunsTable } from "../job-run-table";
 
 async function decryptRunPayload<T extends Record<string, unknown>>(row: T): Promise<T> {
   if (typeof row["payload"] !== "string") return row;
-  return { ...row, payload: await decryptStoredPii(row["payload"], "job-runs") };
+  return { ...row, payload: await decryptStoredPii(row["payload"], "payload", "job-runs") };
 }
 
 export const listQuery = defineQueryHandler({

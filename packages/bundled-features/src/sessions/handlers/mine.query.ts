@@ -32,8 +32,10 @@ export const mineQuery = defineQueryHandler({
         id: r.id,
         createdAt: r.createdAt,
         expiresAt: r.expiresAt,
-        ip: r.ip ? await decryptStoredPii(r.ip, "sessions:mine") : r.ip,
-        userAgent: r.userAgent ? await decryptStoredPii(r.userAgent, "sessions:mine") : r.userAgent,
+        ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:mine") : r.ip,
+        userAgent: r.userAgent
+          ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:mine")
+          : r.userAgent,
         current: currentSid === r.id,
       })),
     );

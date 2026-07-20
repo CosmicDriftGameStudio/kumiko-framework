@@ -2,21 +2,24 @@ import { PII_CIPHERTEXT_PREFIX } from "@cosmicdrift/kumiko-framework/crypto";
 import type { EmailMessage, EmailTransport } from "./types";
 
 const isProductionEnv = () => process.env["NODE_ENV"] === "production";
-const CIPHERTEXT_RE = /kumiko-pii:v1:[^"\s<>\\]*/g;
+// Version-agnostic: catches both the current PII_CIPHERTEXT_PREFIX and any
+// older/decrypt-only format version still present in unmigrated rows.
+const CIPHERTEXT_MARKER = "kumiko-pii:v";
+const CIPHERTEXT_RE = /kumiko-pii:v\d+:[^"\s<>\\]*/g;
 
 // A PII ciphertext never belongs in an outgoing mail. A ciphertext RECIPIENT
 // is always refused (the address is garbage — better no mail than a leaked
 // blob); ciphertext in subject/body fails loud in dev and is redacted+logged
 // in prod.
 export function guardEmailMessage(message: EmailMessage): EmailMessage {
-  if (message.to.includes(PII_CIPHERTEXT_PREFIX)) {
+  if (message.to.includes(CIPHERTEXT_MARKER)) {
     throw new Error(
       "[channel-email] refusing to send: recipient address is a PII ciphertext " +
         `("${PII_CIPHERTEXT_PREFIX}…") — decrypt the stored value before mailing (decryptStoredPii).`,
     );
   }
   const leaking =
-    message.subject.includes(PII_CIPHERTEXT_PREFIX) || message.html.includes(PII_CIPHERTEXT_PREFIX);
+    message.subject.includes(CIPHERTEXT_MARKER) || message.html.includes(CIPHERTEXT_MARKER);
   if (!leaking) return message;
   const detail =
     "[channel-email] mail subject/body contains a PII ciphertext " +

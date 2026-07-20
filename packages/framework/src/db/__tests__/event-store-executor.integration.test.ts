@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { InMemoryKmsAdapter, PII_ERASED_SENTINEL } from "../../crypto";
+import { InMemoryKmsAdapter, PII_CIPHERTEXT_PREFIX, PII_ERASED_SENTINEL } from "../../crypto";
 import { asRawClient } from "../../db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import { append, createEventsTable, loadEventsAfterVersion } from "../../event-store";
@@ -726,13 +726,13 @@ describe("event-store-executor — pii subject encryption", () => {
     const rawRows = (await asRawClient(testDb.db).unsafe(
       `SELECT email, plain FROM read_es_exec_pii LIMIT 1`,
     )) as Array<{ email: string; plain: string }>;
-    expect(rawRows[0]!.email).toStartWith(`kumiko-pii:v1:user:${result.data.id}:`);
+    expect(rawRows[0]!.email).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${result.data.id}:`);
     expect(rawRows[0]!.plain).toBe("visible");
 
     const events = (await asRawClient(testDb.db).unsafe(
       `SELECT payload FROM kumiko_events WHERE type = 'esExecPii.created' LIMIT 1`,
     )) as Array<{ payload: { email?: string } }>;
-    expect(events[0]?.payload.email).toStartWith("kumiko-pii:v1:");
+    expect(events[0]?.payload.email).toStartWith(PII_CIPHERTEXT_PREFIX);
 
     const detail = await crud.detail({ id: result.data.id }, adminUser, tdb);
     expect(detail?.["email"]).toBe("pii@test.de");
@@ -759,7 +759,7 @@ describe("event-store-executor — pii subject encryption", () => {
     const rawRows = (await asRawClient(testDb.db).unsafe(
       `SELECT note FROM read_es_exec_pii LIMIT 1`,
     )) as Array<{ note: string }>;
-    expect(rawRows[0]!.note).toStartWith(`kumiko-pii:v1:user:${TestUsers.admin.id}:`);
+    expect(rawRows[0]!.note).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${TestUsers.admin.id}:`);
   });
 
   test("eraseKey: detail renders the sentinel, stored events stay byte-identical", async () => {
@@ -805,7 +805,7 @@ describe("event-store-executor — pii subject encryption", () => {
     const rawRows = (await asRawClient(testDb.db).unsafe(
       `SELECT email FROM read_es_exec_pii LIMIT 1`,
     )) as Array<{ email: string }>;
-    expect(rawRows[0]!.email).toStartWith("kumiko-pii:v1:");
+    expect(rawRows[0]!.email).toStartWith(PII_CIPHERTEXT_PREFIX);
     expect(rawRows[0]!.email).not.toContain("rebuild@test.de");
 
     const detail = await crud.detail({ id: created.data.id }, adminUser, tdb);
