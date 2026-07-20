@@ -8,6 +8,7 @@ import {
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
+import { EXT_SESSION_STORE } from "../../auth-foundation";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature";
 import { createConfigFeature } from "../../config/feature";
 import { createDataRetentionFeature } from "../../data-retention/feature";
@@ -27,10 +28,18 @@ import { createUserDataRightsFeature } from "../feature";
 // Unlike the old direct-function tests, these only run inside a real
 // validateBoot() pass — exercising the actual `r.bootCheck()` plumbing, not
 // just the guard logic.
+// Stub instead of the real auth-foundation — these boot-checks are about
+// GDPR-storage guards, not auth; only sessions' sessionStore registration
+// needs an owner present.
+const sessionStoreOwnerStub = defineFeature("auth-foundation", (r) => {
+  r.extendsRegistrar(EXT_SESSION_STORE, {});
+});
+
 function baseFeatures() {
   return [
     createConfigFeature(),
     createUserFeature(),
+    sessionStoreOwnerStub,
     createSessionsFeature(),
     createDataRetentionFeature(),
     createComplianceProfilesFeature(),

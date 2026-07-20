@@ -11,6 +11,11 @@
 // looking at the raw bearer value); `resolveTokenVerifier` tries each
 // provider's shape in turn and calls the first match's verifier.
 
+import type {
+  SessionChecker,
+  SessionCreator,
+  SessionRevoker,
+} from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 
@@ -70,4 +75,33 @@ export function tokenShapeMatches(shape: TokenShape, rawToken: string): boolean 
 /** Static discriminator used by the multiplicity boot-check to detect two providers claiming the same shape. */
 export function tokenShapeKey(shape: TokenShape): string {
   return shape.kind === "jwt" ? "jwt" : `prefix:${shape.prefix}`;
+}
+
+// Session-store extension point (#1370). Unlike EXT_TOKEN_VERIFIER, this is
+// single-provider — sessions have no per-provider shape to route on, so
+// exactly one implementation must be registered (boot-fails on 0 or ≥2).
+
+export const EXT_SESSION_STORE = "sessionStore";
+
+/** Mass-revoke every live session for a user. Used by password-change and "sign out everywhere". */
+export type SessionMassRevoker = (userId: string) => Promise<number>;
+
+export type SessionStore = {
+  readonly creator: SessionCreator;
+  readonly revoker: SessionRevoker;
+  readonly checker: SessionChecker;
+  readonly massRevoker: SessionMassRevoker;
+};
+
+export type SessionStoreProvider = {
+  readonly build: (deps: AuthProviderBuildDeps) => Promise<SessionStore> | SessionStore;
+};
+
+export function isSessionStoreProvider(o: unknown): o is SessionStoreProvider {
+  return (
+    typeof o === "object" &&
+    o !== null &&
+    "build" in o &&
+    typeof (o as { build: unknown }).build === "function"
+  );
 }

@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
@@ -14,11 +16,21 @@ import { APP_FEATURES } from "../run-config";
 // composeFeatures({ includeBundled: true }) mirrors runDevApp's auto-mount of
 // config/user/tenant/auth; sessions is added explicitly here (the live app
 // pulls it via its auth config), since user-data-rights usesApi sessions.
+// sessions requires auth-foundation, which needs a tokenVerifier provider —
+// PAT, mirroring publicstatus/money-horse.
 
 describe("user-data-rights-demo inspector nav wire-proof", () => {
-  const composed = composeFeatures([...APP_FEATURES, createSessionsFeature()], {
-    includeBundled: true,
-  });
+  const composed = composeFeatures(
+    [
+      ...APP_FEATURES,
+      authFoundationFeature,
+      createPersonalAccessTokensFeature({ scopes: {} }),
+      createSessionsFeature(),
+    ],
+    {
+      includeBundled: true,
+    },
+  );
 
   test("the app boot-validates with the inspector navs wired", () => {
     expect(() => validateBoot(composed)).not.toThrow();

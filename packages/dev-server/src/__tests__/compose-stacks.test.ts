@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import {
@@ -110,9 +112,15 @@ describe("composeStacks", () => {
     expect(names.filter((n) => n === "sessions")).toHaveLength(2);
     expect(() =>
       validateBoot(
-        composeFeatures([...composeIdentityStack(), ...composeGdprStack({ sessions: true })], {
-          includeBundled: true,
-        }),
+        composeFeatures(
+          [
+            authFoundationFeature,
+            createPersonalAccessTokensFeature({ scopes: {} }),
+            ...composeIdentityStack(),
+            ...composeGdprStack({ sessions: true }),
+          ],
+          { includeBundled: true },
+        ),
       ),
     ).toThrow(/duplicate feature/i);
   });
@@ -123,6 +131,8 @@ describe("composeStacks boots for real", () => {
   test("studio-shaped combined stack passes validateBoot (not just name-list comparison)", () => {
     const features = composeFeatures(
       [
+        authFoundationFeature,
+        createPersonalAccessTokensFeature({ scopes: {} }),
         ...composeOpsStack({ rateLimiting: true }),
         ...composePagesStack(),
         ...composeMailStack({ transports: ["inmemory"] }),

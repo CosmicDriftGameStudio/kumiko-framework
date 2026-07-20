@@ -106,7 +106,7 @@
     },
     {
       "name": "auth-foundation",
-      "description": "Defines the `tokenVerifier` extension point for Bearer-token verification. Provider-features register a static `shape` (how to recognize their own tokens) plus a `build()` that produces a verifier — mount together with at least one auth-provider-* feature and call `resolveTokenVerifier(deps, rawToken)` to find the matching one.",
+      "description": "Declares the `tokenVerifier` (Bearer-token auth) and `sessionStore` extension points. Provider-features register a static `shape` plus a `build()` for tokenVerifier — mount together with at least one auth-provider-* feature (e.g. personal-access-tokens) and call `resolveTokenVerifier(deps, rawToken)` to find the matching one; sessions self-registers as the single sessionStore provider.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -1628,10 +1628,11 @@
     },
     {
       "name": "sessions",
-      "description": "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
+      "description": "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
       "toggleableDefault": null,
       "requires": [
-        "user"
+        "user",
+        "auth-foundation"
       ],
       "optionalRequires": [],
       "configReads": [],
@@ -1639,7 +1640,12 @@
         "sessions.revokeAllForUser"
       ],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "sessionStore",
+          "entityName": "default"
+        }
+      ],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [

@@ -1,3 +1,8 @@
+import {
+  EXT_SESSION_STORE,
+  type SessionStore,
+  type SessionStoreProvider,
+} from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
@@ -14,7 +19,11 @@ import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write";
 import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write";
 import { SESSIONS_I18N } from "./i18n";
 import { userSessionEntity } from "./schema/user-session";
-import type { SessionAllOthersRevoker, SessionMassRevoker } from "./session-callbacks";
+import {
+  createSessionCallbacks,
+  type SessionAllOthersRevoker,
+  type SessionMassRevoker,
+} from "./session-callbacks";
 
 export type SessionsFeatureOptions = {
   // A successful update on the `user` entity that changes the `passwordHash`
@@ -76,7 +85,7 @@ export function bindAutoRevokeFromFeature(
 export function createSessionsFeature(options?: SessionsFeatureOptions): FeatureDefinition {
   return defineFeature("sessions", (r) => {
     r.describe(
-      "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
+      "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
     );
     r.uiHints({
       displayLabel: "Sessions · Server-side Logout",
@@ -86,7 +95,9 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // sessionChecker reads read_users on every authenticated request (status
     // gate for locked accounts) — make that a boot-time dependency so a
     // sessions-without-user wiring fails validateBoot instead of 500ing live.
-    r.requires("user");
+    // auth-foundation owns EXT_SESSION_STORE, which the useExtension below
+    // registers against.
+    r.requires("user", "auth-foundation");
     // store_user_sessions is a hot-path direct-write store: sessionCreator
     // inserts and the revoke handlers update rows WITHOUT emitting lifecycle
     // events (the row columns ARE the audit trail). Registering it as
@@ -101,6 +112,23 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).
       piiEncryptedOnWrite: true,
     });
+
+    // Self-registers as auth-foundation's sessionStore provider (#1371) —
+    // wraps the same createSessionCallbacks() used by the manual
+    // buildServer({ auth: { ... } }) wiring above; a future issue (#1372)
+    // removes that manual wiring once the middleware resolves generically
+    // via resolveSessionStore().
+    r.useExtension(EXT_SESSION_STORE, "default", {
+      build: (deps): SessionStore => {
+        const callbacks = createSessionCallbacks({ db: deps.db });
+        return {
+          creator: callbacks.sessionCreator,
+          revoker: callbacks.sessionRevoker,
+          checker: callbacks.sessionChecker,
+          massRevoker: callbacks.sessionMassRevoker,
+        };
+      },
+    } satisfies SessionStoreProvider);
 
     const handlers = {
       revoke: r.writeHandler(revokeWrite),
