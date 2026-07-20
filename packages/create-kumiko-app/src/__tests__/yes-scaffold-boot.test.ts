@@ -7,7 +7,6 @@
 // only actually booting the resolved set through validateBoot can.
 
 import { describe, expect, test } from "bun:test";
-import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
   createRegistry,
   type FeatureDefinition,
@@ -31,11 +30,11 @@ async function instantiateResolved(names: readonly string[]): Promise<FeatureDef
     if (!entry) continue; // mirrors index.ts:47-49 — auto-mounted core deps have no entry
     const mod = (await import(entry.importPath)) as Record<string, unknown>;
     const exp = mod[entry.exportName];
-    instances.push(
-      entry.callExpression.endsWith("()")
-        ? (exp as () => FeatureDefinition)()
-        : (exp as FeatureDefinition),
-    );
+    if (typeof exp === "function") {
+      instances.push((exp as (...args: unknown[]) => FeatureDefinition)(...(entry.callArgs ?? [])));
+    } else {
+      instances.push(exp as FeatureDefinition);
+    }
   }
   return instances;
 }
@@ -56,9 +55,8 @@ describe("--yes resolved set boots (issue-1174 regression)", () => {
     const instances = await instantiateResolved(resolved.featureNames);
     // sessions (auto-included, session-list/detail screens are recommended)
     // requires auth-foundation, which the dep-resolver already pulls in
-    // transitively — it just needs a tokenVerifier provider mounted too.
-    // PAT is what publicstatus/money-horse mount for this today.
-    instances.push(createPersonalAccessTokensFeature({ scopes: {} }));
+    // transitively — personal-access-tokens (recommended, satisfies the
+    // tokenVerifier boot invariant) is resolved into the set too.
     const composed = composeFeatures(instances, { includeBundled: true });
     expect(() => validateBoot(composed)).not.toThrow();
     expect(() => createRegistry(composed)).not.toThrow();
