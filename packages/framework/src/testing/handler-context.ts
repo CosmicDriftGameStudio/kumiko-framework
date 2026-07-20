@@ -117,7 +117,7 @@ export function bridgeStub(opts?: {
     ) as unknown as HandlerContext["resolveAuthClaims"],
     // Stub defaults to always-enabled — matches the dispatcher's behaviour
     // when no effectiveFeatures resolver is wired (tests without toggles).
-    hasFeature: () => true,
+    hasFeature: async () => true,
     metrics: createNoopMetricsHandle(),
     tracer: noopTracer,
     // Echter TzContext, kein notAvailable — Test-Code nutzt ctx.tz häufig

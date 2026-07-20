@@ -48,8 +48,9 @@ export type EffectiveFeaturesResolver = ((tenantId: TenantId) => ReadonlySet<str
    * Signup-Datum des Tenants live (tenant.inserted_at) und returnt true wenn
    * der Tenant im Trial-Fenster ist UND das Feature zum Trial-Tier gehört.
    * Async + nicht im Boot-Cache, weil der Trial zeit-abgeleitet ist (ändert
-   * sich zwischen Requests). Nur die 2 Gate-Aufrufstellen awaiten ihn; der
-   * synchrone Hot-Path (ctx.hasFeature, Feature-Set) bleibt unberührt.
+   * sich zwischen Requests). Konsultiert an 3 Stellen: den 2 Dispatch-Gate-
+   * Aufrufstellen (checkFeatureEnabled) UND ctx.hasFeature im Handler-Body
+   * (fällt darauf zurück, wenn der synchrone Feature-Set-Check negativ ist).
    */
   readonly trialGate?: TrialGate;
 };

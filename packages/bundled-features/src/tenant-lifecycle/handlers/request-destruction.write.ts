@@ -67,7 +67,7 @@ export const requestDestructionWrite = defineWriteHandler({
       },
     });
 
-    if (ctx.hasFeature("sessions")) {
+    if (await ctx.hasFeature("sessions")) {
       await revokeTenantSessions(ctx.db.raw, tenantId);
     }
 

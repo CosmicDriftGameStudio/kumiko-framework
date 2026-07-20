@@ -21,7 +21,11 @@ export function createBrandingQuery(opts: { readonly allowCustomCss: boolean }) 
     access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
     handler: async (_query, ctx) => {
       const base = await readBranding(ctx.config);
-      if (!opts.allowCustomCss || !ctx.config || !ctx.hasFeature(MANAGED_PAGES_CSS_FEATURE)) {
+      if (
+        !opts.allowCustomCss ||
+        !ctx.config ||
+        !(await ctx.hasFeature(MANAGED_PAGES_CSS_FEATURE))
+      ) {
         return base;
       }
       return { ...base, customCss: await readCustomCss(ctx.config) };
