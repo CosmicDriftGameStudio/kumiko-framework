@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
+import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createEnvMasterKeyProvider,
   decodeStoredEnvelope,
@@ -234,6 +235,36 @@ describe("rotate-job circuit-breaker", () => {
       const expectedIndex = row.key.split("-").at(-1);
       const plaintext = await decryptValue(decodeStoredEnvelope(row.envelope), verifier);
       expect(plaintext).toBe(`secret-${expectedIndex}`);
+    }
+
+    // Regression guard (kumiko-framework#1189): rotate.job.ts's
+    // executor.update() call carries no options, so it deliberately
+    // never sets skipUnchanged — every rotation writes a real .updated
+    // event, not a raw UPDATE. A full projection rebuild replays those
+    // events; if a future refactor added skipUnchanged (or swapped the
+    // event write for a raw column update) the rebuild would resurrect
+    // the pre-rotation V1 envelopes instead of landing on V2, exactly
+    // the #464 failure class config/auth-mfa already guard against.
+    //
+    // Vacuous-rebuild guard: confirm the projection name actually exists
+    // and the rebuild really replayed events, so a wrong projection name
+    // can't silently no-op the assertion below into a false pass.
+    const projectionName = "secrets:projection:tenant-secret-entity";
+    expect(stack.registry.getAllProjections().has(projectionName)).toBe(true);
+    const rebuildResult = await rebuildProjection(projectionName, {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    expect(rebuildResult.eventsProcessed).toBeGreaterThan(0);
+
+    const rowsAfterRebuild = await selectMany<{ key: string; kekVersion: number }>(
+      stack.db,
+      tenantSecretsTable,
+      { tenantId: admin.tenantId },
+    );
+    expect(rowsAfterRebuild).toHaveLength(20);
+    for (const row of rowsAfterRebuild) {
+      expect(row.kekVersion).toBe(2);
     }
   });
 });
