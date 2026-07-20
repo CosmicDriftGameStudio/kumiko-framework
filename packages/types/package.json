@@ -73,10 +73,15 @@
     "./observability/span": {
       "types": "./src/observability/span.ts",
       "default": "./src/observability/span.ts"
+    },
+    "./db-connection": {
+      "types": "./src/db-connection.ts",
+      "default": "./src/db-connection.ts"
     }
   },
   "dependencies": {
-    "hono": "^4.12.18"
+    "hono": "^4.12.18",
+    "postgres": "^3.4.9"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
