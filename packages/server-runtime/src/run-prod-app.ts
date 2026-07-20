@@ -20,7 +20,13 @@
 // Container/Coolify setzt:
 //   DATABASE_URL=postgresql://...
 //   REDIS_URL=redis://...
-//   JWT_SECRET=<random-32+>
+//   JWT_SECRET=<random-32+>  (always required — also signs the password-
+//     reset/email-verification HMAC tokens, a separate non-rotating family)
+//     — additionally, for zero-downtime rotation of the session-JWT
+//     signing key specifically:
+//   JWT_SECRET_V1=<random-32+>  (repeat _V2, _V3, ... per rotation)
+//   JWT_SECRET_CURRENT_VERSION=1  (which V<n> signs new tokens; the others
+//     still verify in-flight tokens until they expire)
 //   PORT=3000
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
@@ -56,6 +62,7 @@ import {
   createRedisLoginRateLimiter,
   createSseBroker,
   type LoginRateLimiter,
+  loadJwtSecretOrKeyring,
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
 import {
@@ -661,7 +668,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    configured.
   const databaseUrl = requireEnv("DATABASE_URL", envSource);
   const redisUrl = requireEnv("REDIS_URL", envSource);
+  // JWT_SECRET stays mandatory (also the resolveAuthMail hmacSecret
+  // fallback below — a separate, non-rotating HMAC token family, not the
+  // session JWT). jwtSecretOrKeyring is the OPTIONAL upgrade: set
+  // JWT_SECRET_V<n> + JWT_SECRET_CURRENT_VERSION for zero-downtime
+  // rotation of the session-JWT signing key — see loadJwtSecretOrKeyring.
   const jwtSecret = requireEnv("JWT_SECRET", envSource);
+  const jwtSecretOrKeyring = loadJwtSecretOrKeyring(envSource);
   const jwtIssuer = readEnv("JWT_ISSUER", envSource);
   const instanceId = readEnv("KUMIKO_INSTANCE_ID", envSource);
   const port = options.port ?? Number.parseInt(envSource["PORT"] ?? "3000", 10);
@@ -901,7 +914,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ...extraContext,
     },
     sseBroker,
-    jwtSecret,
+    jwtSecret: jwtSecretOrKeyring,
     ...(jwtIssuer && { jwtIssuer }),
     ...(instanceId && { instanceId }),
     dispatcherOptions: {

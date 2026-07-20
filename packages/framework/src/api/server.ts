@@ -50,7 +50,7 @@ import { PUBLIC_API_PATHS } from "./api-constants";
 import { type AnonymousAccessConfig, authMiddleware, getUser } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
-import { createJwtHelper, type JwtHelper } from "./jwt";
+import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
 import { assertOriginGuardConfig, originMiddleware } from "./origin-middleware";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard";
@@ -69,7 +69,7 @@ import { createSseRoute } from "./sse-route";
 export type ServerOptions = {
   registry: Registry;
   context: AppContext;
-  jwtSecret: string;
+  jwtSecret: string | JwtKeyring;
   jwtIssuer?: string;
   dispatcherOptions?: Omit<DispatcherOptions, "lifecycle">;
   systemHooks?: SystemHooks;
