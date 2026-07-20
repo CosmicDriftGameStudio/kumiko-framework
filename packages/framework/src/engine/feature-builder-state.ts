@@ -2,6 +2,7 @@ import type { ZodType, z } from "zod";
 import { LifecycleHookTypes } from "./constants";
 import type {
   AuthClaimsFn,
+  BootCheckFn,
   ClaimKeyDefinition,
   ConfigKeyDefinition,
   ConfigSeedDef,
@@ -79,6 +80,7 @@ export type FeatureBuilderState = {
   extensionSelectors: ExtensionSelectorDef[];
   exposedApis: Set<string>;
   usedApis: Set<string>;
+  bootChecks: BootCheckFn[];
   referenceData: ReferenceDataDef[];
   handlerEntityMappings: Record<string, string>;
   metrics: Record<string, FeatureMetricDef>;
@@ -137,6 +139,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     extensionSelectors: [],
     exposedApis: new Set(),
     usedApis: new Set(),
+    bootChecks: [],
     referenceData: [],
     handlerEntityMappings: {},
     metrics: {},

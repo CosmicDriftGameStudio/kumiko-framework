@@ -136,6 +136,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     extensionSelectors: state.extensionSelectors,
     exposedApis: state.exposedApis,
     usedApis: state.usedApis,
+    bootChecks: state.bootChecks,
     referenceData: state.referenceData,
     events: state.events,
     eventMigrations: state.eventMigrations,
