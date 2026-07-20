@@ -45,6 +45,26 @@ Dieses Dokument bündelt die **technischen Fakten** zur DSGVO-Pipeline
 | `read_tenant_retention_overrides` | Per-Tenant Retention-Override pro Entity | nein | unbounded (Konfiguration) | Aufbewahrungspflicht-Edge-Cases |
 | Storage-Provider (Local / S3) | Export-ZIPs + File-Binaries | indirekt (Inhalt) | Local: per `exportDownloadTtl` Cleanup. S3: lifecycle-Policy (App-Author-Verantwortung) | Daten-Export-Auslieferung |
 
+### Bekanntes Residuum: `createdBy` / `metadata.userId` in `kumiko_events`
+
+Nach der Forget-Pipeline (Art. 17, Abschnitt 1) bleiben `kumiko_events.created_by`
+und `metadata.userId` (Event-Store-Schema `events-schema.ts`, EventMetadata-Feld)
+als Klartext-UUID stehen. Die Forget-Hooks aus `user-data-rights-defaults` fassen
+`kumiko_events` nicht an — `createdBy`/`metadata.userId` sind keine über
+`defineEvent(..., { piiFields })` deklarierten Payload-PII-Felder (siehe
+`packages/framework/src/crypto/event-pii.ts`) und laufen deshalb nicht durch die
+Payload-Verschlüsselung. Löschung dieser Rows erfolgt ausschließlich über die
+zeitbasierte `data-retention`-Policy (`keepFor`, s. `kumiko_events`-Zeile in Abschnitt
+2 oben), unabhängig vom User-Forget-Antrag.
+
+Technische Basis: Der `read_users`-Row zur betroffenen UUID wird beim Forget-Run
+in-place anonymisiert, nicht hard-gelöscht (Sentinel-Pattern, siehe Abschnitt 4
+„Integrität"). Email, Displayname und Passwort-Hash werden dabei entfernt/ersetzt —
+das ist der Schlüssel, der die Verknüpfung kappt: Sobald diese Felder weg sind, gibt
+es keinen Rückweg von der UUID in `created_by` zu einer realen Identität mehr. Die
+UUID bleibt als stabiler, aber orphaned Pseudonym-Wert bestehen, bis die
+Retention-Policy irgendwann das Event selbst löscht.
+
 ---
 
 ## 3. Compliance-Profile
