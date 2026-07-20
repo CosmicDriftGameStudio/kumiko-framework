@@ -99,6 +99,8 @@ export type ServerOptions = {
     pollIntervalMs?: number;
     batchSize?: number;
     maxAttempts?: number;
+    rearmCooldownMs?: number;
+    maxRearmCount?: number;
     // Opt out of building the dispatcher even if consumers exist — e.g. ops
     // runs a dedicated dispatcher process, or a test needs to control the
     // consumer lifecycle manually.

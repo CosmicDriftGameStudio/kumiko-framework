@@ -134,6 +134,17 @@ export type EventDispatcherOptions = {
   readonly batchSize?: number;
   readonly pollIntervalMs?: number;
   readonly maxAttempts?: number;
+  // Bounded auto-revival of a "dead" consumer. A dead consumer whose last
+  // write is older than rearmCooldownMs gets reset to idle and retried.
+  // rearmCount tracks re-arms since the last delivery that actually
+  // advanced the cursor — a poison event never advances it, so it climbs
+  // 1→maxRearmCount and then stays dead permanently; a transient failure
+  // that later delivers successfully resets it back to 0, so an unrelated
+  // future outage gets its own fresh budget. restartConsumer()/
+  // enableConsumer()/skipPoisonEvent() also reset it (an operator vouching
+  // the consumer is healthy again).
+  readonly rearmCooldownMs?: number;
+  readonly maxRearmCount?: number;
   readonly tracer?: Tracer;
   readonly meter?: Meter;
   // Identifies THIS dispatcher process in the consumer-state table. Used as
@@ -155,6 +166,8 @@ export type EventDispatcherOptions = {
 const DEFAULT_BATCH_SIZE = 200;
 const DEFAULT_POLL_MS = 100;
 const DEFAULT_MAX_ATTEMPTS = 10;
+const DEFAULT_REARM_COOLDOWN_MS = 5 * 60_000;
+const DEFAULT_MAX_REARM_COUNT = 3;
 
 export function createEventDispatcher(options: EventDispatcherOptions): EventDispatcher {
   const {
@@ -164,6 +177,8 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     batchSize = DEFAULT_BATCH_SIZE,
     pollIntervalMs = DEFAULT_POLL_MS,
     maxAttempts = DEFAULT_MAX_ATTEMPTS,
+    rearmCooldownMs = DEFAULT_REARM_COOLDOWN_MS,
+    maxRearmCount = DEFAULT_MAX_REARM_COUNT,
   } = options;
 
   // Fail-fast on misconfigured per-instance wiring. Catching this at
@@ -278,7 +293,13 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
 
     try {
       await db.begin(async (tx: DbTx) => {
-        const acquired = await acquireConsumerState(tx, consumer.name, instanceId);
+        const acquired = await acquireConsumerState(
+          tx,
+          consumer.name,
+          instanceId,
+          rearmCooldownMs,
+          maxRearmCount,
+        );
         // skip: another instance holds the lock, or the consumer is
         // disabled/dead. Nothing to deliver this pass.
         if (acquired.skip !== null) {
