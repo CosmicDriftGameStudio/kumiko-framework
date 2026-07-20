@@ -10,27 +10,10 @@
 // suffix before the file extension — `foo/bar.jpg` + `"medium"` →
 // `foo/bar.medium.jpg`. Stable, reversible, no extra lookup tables.
 
+import type { FileContext, FileHandle } from "@cosmicdrift/kumiko-types/file-handle-types";
 import type { FileStorageProvider } from "./types";
 
-export type FileHandle = {
-  readonly key: string;
-  read(): Promise<Uint8Array>;
-  write(data: Uint8Array, mimeType?: string): Promise<void>;
-  delete(): Promise<void>;
-  exists(): Promise<boolean>;
-  // Produce a handle for a derived key (e.g. a thumbnail). Does not touch
-  // storage; only computes the key. Writing to the derived handle is the
-  // caller's job.
-  derive(suffix: string): FileHandle;
-};
-
-// The `ctx.files` service — a factory that materialises a FileHandle for a
-// storage key. One per request/event, bound to a single tenant: the provider
-// is resolved per-tenant through file-foundation, so uploads, ctx.files and the
-// GDPR jobs all hit the same store by construction.
-export type FileContext = {
-  ref(key: string): FileHandle;
-};
+export type { FileContext, FileHandle };
 
 // `getProvider` is a lazily-resolved, memoized accessor — the provider is
 // resolved (config + s3.secretAccessKey secret read) only when a handle method
