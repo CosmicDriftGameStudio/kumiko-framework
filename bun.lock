@@ -381,6 +381,12 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/boot-check": {
+      "name": "@cosmicdrift/kumiko-sample-boot-check",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "samples/recipes/compliance-profiles-demo": {
       "name": "@cosmicdrift/kumiko-sample-compliance-profiles-demo",
       "dependencies": {
@@ -804,6 +810,8 @@
     "@cosmicdrift/kumiko-sample-auth-mfa": ["@cosmicdrift/kumiko-sample-auth-mfa@workspace:samples/recipes/auth-mfa"],
 
     "@cosmicdrift/kumiko-sample-basic-entity": ["@cosmicdrift/kumiko-sample-basic-entity@workspace:samples/recipes/basic-entity"],
+
+    "@cosmicdrift/kumiko-sample-boot-check": ["@cosmicdrift/kumiko-sample-boot-check@workspace:samples/recipes/boot-check"],
 
     "@cosmicdrift/kumiko-sample-cap-billing-demo": ["@cosmicdrift/kumiko-sample-cap-billing-demo@workspace:samples/apps/cap-billing-demo"],
 

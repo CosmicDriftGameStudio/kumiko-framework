@@ -1,0 +1,8 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-boot-check",
+  "description": "A feature declares its own mount-invariant via r.bootCheck.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
