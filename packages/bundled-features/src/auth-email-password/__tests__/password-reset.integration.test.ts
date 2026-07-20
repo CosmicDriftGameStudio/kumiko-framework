@@ -252,6 +252,18 @@ describe("POST /auth/reset-password", () => {
     expect(res.status).toBe(400);
   });
 
+  test("common newPassword → 400 (schema rejects breach-list password)", async () => {
+    const seed = await seedUser({ email: "frank@example.com", password: "original" });
+    const { token } = signResetToken(seed.id, 15, resetSecret);
+
+    const res = await post("/api/auth/reset-password", {
+      token,
+      newPassword: "password1",
+    });
+
+    expect(res.status).toBe(400);
+  });
+
   test("expired token via the route → 422 invalid_reset_token", async () => {
     const seed = await seedUser({ email: "time@example.com", password: "once-valid-1234" });
     // Sign with now set far in the past so expiry already fired.
