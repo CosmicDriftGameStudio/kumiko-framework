@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
+import { describeFileProviderContract } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createS3ProviderFromEnv } from "../env-helper";
 import { createS3Provider } from "../s3-provider";
@@ -219,3 +220,9 @@ describe("createS3ProviderFromEnv", () => {
     expect(() => createS3ProviderFromEnv("NON_EXISTENT_PREFIX_")).toThrow(/missing_env/);
   });
 });
+
+describeFileProviderContract("S3Provider (Minio)", () => provider);
+
+describeFileProviderContract("createS3ProviderFromEnv (Minio)", () =>
+  createS3ProviderFromEnv("MINIO_"),
+);

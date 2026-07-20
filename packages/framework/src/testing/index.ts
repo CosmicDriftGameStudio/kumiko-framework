@@ -15,6 +15,7 @@ export {
   generateZodFixture,
 } from "./e2e-generator";
 export { expectErrorIncludes } from "./expect-error";
+export { describeFileProviderContract } from "./file-provider-contract";
 export { bridgeStub } from "./handler-context";
 export {
   getSetCookieRaw,
