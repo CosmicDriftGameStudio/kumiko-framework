@@ -26,6 +26,7 @@ import {
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id";
@@ -99,6 +100,7 @@ function buildThreadKey(p: IngestMessagePayload, effectiveMessageIdHeader: strin
   return `mid:${effectiveMessageIdHeader}`.slice(0, 500);
 }
 
+const THREAD_ROLLUP_MAX_ATTEMPTS = 5;
 export const ingestMessageHandler: WriteHandlerDef = {
   name: "ingest-message",
   schema: ingestMessageSchema,
@@ -221,46 +223,33 @@ export const ingestMessageHandler: WriteHandlerDef = {
     }
 
     // ---------------------------------------------------------------
-    // 5. Thread-Rollup. Der Handler berechnet den NEUEN Snapshot
-    //    (count via Live-COUNT, max(lastMessageAt)) — die apply ist ein
-    //    dummer UPSERT und bleibt replay-idempotent. lastMessageAtIso ist
-    //    kein PII (Zeitpunkt), damit plaintext-vergleichbar; subject
-    //    wird frisch encrypted (jede Thread-Version trägt das Subject
-    //    der jüngsten Mail).
+    // 5. Thread-Rollup. New snapshot (live COUNT + max(lastMessageAt)) via
+    //    ctx.tryAppendEvent in a bounded retry loop — the apply stays a
+    //    dumb, replay-idempotent UPSERT. lastMessageAtIso is not PII (a
+    //    timestamp), so it stays plaintext-comparable; subject is
+    //    encrypted once up front (constant across retries, doesn't
+    //    depend on the thread's prior state).
     //
-    //    messageCount kommt bewusst NICHT aus einem frueher gelesenen
-    //    threadEvents-Snapshot (previousCount+1): getStreamVersion in
-    //    unsafeAppendEvent liest die Stream-Version FRISCH zum
-    //    Append-Zeitpunkt, unabhaengig vom Read hier — zwei parallele
-    //    ingests auf denselben Thread (Watch-Push + Poll-Reconciliation)
-    //    koennten beide denselben previousCount sehen und der Append der
-    //    zweiten TX wuerde trotzdem gelingen (kein VersionConflictError,
-    //    da der Version-Check nur die Stream-Version prueft), sodass
-    //    previousCount+1 dauerhaft nach unten drieftet.
+    //    messageCount deliberately does NOT come from a previously loaded
+    //    threadEvents snapshot (previousCount+1): two concurrent ingests
+    //    on the same thread (Watch-Push vs. Poll-Reconciliation overlap,
+    //    or two different messages of the same thread arriving at once)
+    //    can both read the same stream version before either commits.
+    //    tryAppendEvent's fresh version-read at append time then makes
+    //    the loser's append fail with a VersionConflictError instead of
+    //    silently succeeding — so we retry: reload the thread stream,
+    //    recompute the live row-count and lastMessageAt, and append
+    //    again. Unlike step 4, a lost race here must NOT be treated as a
+    //    no-op duplicate — skipping would leave this message's
+    //    contribution to messageCount/lastMessageAt out of the thread
+    //    forever. Exhausting all attempts throws, rolling back the whole
+    //    TX (including the step-4 message append) for a clean re-ingest
+    //    on the next poll — never return success with a stale snapshot.
     //
-    //    Ein COUNT gegen read_inbound_messages SCHLIESST das Race-Fenster
-    //    NICHT (COUNT und Append sind weiterhin zwei getrennte Statements —
-    //    zwischen COUNT und Append kann die andere TX committen und derselbe
-    //    Drift theoretisch weiterhin auftreten). Was der COUNT aendert: er
-    //    macht den Fehler SELBSTKORRIGIEREND statt kumulativ — jeder
-    //    nachfolgende ingest liest den echten Row-Count neu, statt einen
-    //    frueher falsch geschriebenen previousCount fortzuschreiben. Eine
-    //    echte Race-freie Loesung braucht ein atomares Read+Append (z.B.
-    //    SELECT ... FOR UPDATE oder eine Advisory-Lock auf threadAggId) —
-    //    das ist bewusst nicht Teil dieses Fixes (siehe PR-Beschreibung).
+    //    A true race-free read+append (e.g. SELECT ... FOR UPDATE or an
+    //    advisory lock on threadAggId) is deliberately not part of this
+    //    fix — two writers (watch + poll) make bounded retry sufficient.
     // ---------------------------------------------------------------
-    const threadEvents = await ctx.loadAggregate(threadAggId);
-    const lastThreadEvent = threadEvents[threadEvents.length - 1];
-    // @cast-boundary engine-payload — eigene events, shape via defineEvent
-    const previousThread = lastThreadEvent?.payload as MailThreadEventPayload | undefined;
-    const previousLastAt = previousThread?.lastMessageAtIso ?? "";
-    const newLastAt =
-      payload.receivedAtIso > previousLastAt ? payload.receivedAtIso : previousLastAt;
-    const messageCount = await countWhere(ctx.db.raw, inboundMessagesProjectionTable, {
-      tenantId,
-      threadKey,
-    });
-
     const threadPlainPii = { tenantId, subject: payload.subject };
     const encryptedThreadFields = piiKms
       ? await encryptPiiFieldValues(
@@ -275,19 +264,40 @@ export const ingestMessageHandler: WriteHandlerDef = {
         )
       : threadPlainPii;
 
-    const threadEventPayload: MailThreadEventPayload = {
-      threadKey,
-      subject: encryptedThreadFields["subject"] as string,
-      lastMessageAtIso: newLastAt,
-      messageCount,
-    };
-    await ctx.unsafeAppendEvent({
-      aggregateId: threadAggId,
-      aggregateType: MAIL_THREAD_AGGREGATE_TYPE,
-      type: MAIL_THREAD_UPDATED_EVENT_QN,
-      payload: threadEventPayload,
-      headers: messageHeaders,
-    });
+    let threadAppendOk = false;
+    for (let attempt = 1; attempt <= THREAD_ROLLUP_MAX_ATTEMPTS && !threadAppendOk; attempt++) {
+      const threadEvents = await ctx.loadAggregate(threadAggId);
+      const lastThreadEvent = threadEvents[threadEvents.length - 1];
+      // @cast-boundary engine-payload — eigene events, shape via defineEvent
+      const previousThread = lastThreadEvent?.payload as MailThreadEventPayload | undefined;
+      const previousLastAt = previousThread?.lastMessageAtIso ?? "";
+      const newLastAt =
+        payload.receivedAtIso > previousLastAt ? payload.receivedAtIso : previousLastAt;
+      const messageCount = await countWhere(ctx.db.raw, inboundMessagesProjectionTable, {
+        tenantId,
+        threadKey,
+      });
+
+      const threadEventPayload: MailThreadEventPayload = {
+        threadKey,
+        subject: encryptedThreadFields["subject"] as string,
+        lastMessageAtIso: newLastAt,
+        messageCount,
+      };
+      const threadAppend = await ctx.tryAppendEvent({
+        aggregateId: threadAggId,
+        aggregateType: MAIL_THREAD_AGGREGATE_TYPE,
+        type: MAIL_THREAD_UPDATED_EVENT_QN,
+        payload: threadEventPayload,
+        headers: messageHeaders,
+      });
+      threadAppendOk = threadAppend.ok;
+    }
+    if (!threadAppendOk) {
+      throw new InternalError({
+        message: `ingest-message: thread-rollup append for "${threadAggId}" lost the version-conflict race ${THREAD_ROLLUP_MAX_ATTEMPTS} times in a row — aborting for a clean re-ingest instead of persisting a stale messageCount.`,
+      });
+    }
 
     // ---------------------------------------------------------------
     // 6. Dedup-Anchor. Läuft in derselben TX wie die appends — stirbt
