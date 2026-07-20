@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 1.0.0
+
+### Patch Changes
+
+- 9db805c: `loadJwtSecretOrKeyring` (`@cosmicdrift/kumiko-framework/api`) — env-loader for `createJwtHelper`'s keyring param, analog to `secrets`' `loadKeyring`: reads `JWT_SECRET_V<n>` + `JWT_SECRET_CURRENT_VERSION` for zero-downtime rotation, falling back to plain `JWT_SECRET` when no versioned key is set. `runProdApp` now wires it through `entrypoint`/`ServerOptions.jwtSecret` (widened to `string | JwtKeyring`) instead of the plain `JWT_SECRET` string. Without `kid`-tagged rotation (#1291), every key rotation invalidated all sessions at once (#1265, #1292).
+- aa52aa1: `runProdApp` now aborts boot when auth is mounted but the `sessions` feature is not and `auth.sessions` wasn't explicitly set to `false`. Without this, an app that forgets to mount `sessions` silently falls back to stateless JWTs (no server-side revocation, valid until the 24h expiry) with no warning — the `sessions` feature is not part of the auto-mounted auth foundation (config/user/tenant/auth-email-password), so this had no gate at all (#1262, #1275). Existing apps that intentionally run stateless need to pass `{ auth: { sessions: false } }`.
+- Updated dependencies [9db805c]
+- Updated dependencies [d0280c8]
+- Updated dependencies [a997cc8]
+- Updated dependencies [114faef]
+- Updated dependencies [d97fcda]
+- Updated dependencies [2fc542b]
+- Updated dependencies [6254cc8]
+  - @cosmicdrift/kumiko-framework@1.0.0
+  - @cosmicdrift/kumiko-bundled-features@1.0.0
+
 ## 0.158.2
 
 ### Patch Changes
