@@ -59,6 +59,13 @@ export type {
   WriteHandlerDefinition,
   WriteHandlerInput,
 } from "./define-handler";
+export type {
+  EntityCrudRegistrar,
+  EntityCrudVerb,
+  EntityHandlerOptions,
+  EntityQueryHandlerOptions,
+  RegisterEntityCrudOptions,
+} from "./entity-handlers";
 // Cross-Feature Compile-Time-Type-Map — features extend per declare-module.
 export type {
   KumikoEntityTypeMap,
