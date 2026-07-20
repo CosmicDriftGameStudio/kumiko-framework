@@ -92,6 +92,7 @@ describe("scaffoldApp", () => {
 
     const kumikoBin = readFileSync(join(dest, "bin/kumiko.ts"), "utf-8");
     expect(kumikoBin).toContain("runSchemaCli");
+    expect(kumikoBin).toContain("runConsumerCli");
     expect(kumikoBin).toContain("includeBundled: HAS_AUTH");
   });
 
