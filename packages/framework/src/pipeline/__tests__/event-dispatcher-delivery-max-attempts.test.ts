@@ -50,6 +50,7 @@ function stubState(): ConsumerStateRow {
     lastProcessedEventId: 0n,
     status: "idle",
     attempts: 0,
+    rearmCount: 0,
     lastError: null,
     updatedAt: Temporal.Now.instant(),
   };

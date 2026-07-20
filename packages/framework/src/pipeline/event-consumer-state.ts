@@ -10,7 +10,8 @@ import {
   sql,
   text,
 } from "../db/dialect";
-import { tableExists } from "../db/schema-inspection";
+import { alterTableAddColumn } from "../db/queries/test-stack";
+import { columnNamesOf, tableExists } from "../db/schema-inspection";
 import { unsafePushTables } from "../stack";
 
 // Reserved sentinel used in the instance_id column for consumers whose
@@ -72,6 +73,14 @@ export const eventConsumerStateTable = pgTable(
       .default(sql`0`),
     status: text("status").notNull().default("idle"),
     attempts: integer("attempts").notNull().default(0),
+    // Counts automatic dead→idle revivals since the last delivery that
+    // advanced the cursor (event-dispatcher.ts's cooldown re-arm, see
+    // acquireConsumerState). A poison event never advances the cursor, so
+    // this climbs to maxRearmCount and then stays dead permanently. A
+    // successful delivery resets it to 0 (proof the consumer isn't
+    // poisoned), as does a manual restartConsumer()/enableConsumer()/
+    // skipPoisonEvent() — an operator vouching the consumer is healthy.
+    rearmCount: integer("rearm_count").notNull().default(0),
     lastError: text("last_error"),
     updatedAt: instant("updated_at", { precision: 3 }).notNull().default(sql`now()`),
   },
@@ -99,7 +108,23 @@ export type ConsumerStatus = (typeof ConsumerStatuses)[keyof typeof ConsumerStat
 //
 // guard:dup-ok — intentionale Parallele zu createProjectionStateTable; symmetrische State-Tabellen by design
 export async function createEventConsumerStateTable(db: DbConnection): Promise<void> {
-  // skip: table already exists — bootstrap is called from multiple paths
-  if (await tableExists(db, "public.kumiko_event_consumers")) return;
+  // skip: table already exists — bootstrap is called from multiple paths.
+  // Still check for columns added after the table's first deploy (e.g.
+  // rearm_count) so an older DB catches up without a dedicated migration.
+  if (await tableExists(db, "public.kumiko_event_consumers")) {
+    const cols = await columnNamesOf(db, "kumiko_event_consumers");
+    if (!cols.has("rearm_count")) {
+      await alterTableAddColumn(
+        db,
+        "kumiko_event_consumers",
+        "rearm_count",
+        "integer",
+        " DEFAULT 0",
+        " NOT NULL",
+      );
+    }
+    // skip: table (+ any missing column) is already up to date
+    return;
+  }
   await unsafePushTables(db, { kumikoEventConsumers: eventConsumerStateTable });
 }

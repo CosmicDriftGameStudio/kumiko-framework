@@ -34,6 +34,7 @@ function normalizeConsumerState(row: ConsumerStateRowShape): ConsumerRecoverySta
     status: row.status,
     lastProcessedEventId: row.lastProcessedEventId,
     attempts: row.attempts,
+    rearmCount: row.rearmCount,
     lastError: row.lastError,
     updatedAt: row.updatedAt,
   };
@@ -45,6 +46,7 @@ export type ConsumerRecoveryState = {
   readonly status: string;
   readonly lastProcessedEventId: bigint;
   readonly attempts: number;
+  readonly rearmCount: number;
   readonly lastError: string | null;
   readonly updatedAt: Temporal.Instant;
 };
@@ -170,6 +172,7 @@ export async function getConsumerState(
   readonly status: string;
   readonly lastProcessedEventId: bigint;
   readonly attempts: number;
+  readonly rearmCount: number;
   readonly lastError: string | null;
   readonly updatedAt: Temporal.Instant;
 } | null> {
@@ -184,6 +187,7 @@ export async function getConsumerState(
     status: row.status,
     lastProcessedEventId: row.lastProcessedEventId,
     attempts: row.attempts,
+    rearmCount: row.rearmCount,
     lastError: row.lastError,
     updatedAt: row.updatedAt,
   };
