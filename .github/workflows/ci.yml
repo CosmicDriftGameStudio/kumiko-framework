@@ -98,16 +98,16 @@ jobs:
           path: coverage/unit/lcov.info
           retention-days: 1
 
-      - name: Run isolated DOM screen tests (#457)
-        # These render tests corrupt under the shared single-process happy-dom
-        # after ~30 prior DOM test files mount/unmount — React event delegation
-        # stops firing (#457). They are excluded from `kumiko check` above via
-        # bunfig.ci.toml pathIgnorePatterns; `bun run test:dom-isolated` (704/2)
-        # runs each in its own fresh `bun test` process via bunfig.ci-dom.toml
-        # (which does NOT ignore them) — same script a local dev would find.
+      - name: Run DOM tests
+        # *.test.tsx laufen im dedizierten dom-Lauf (bunfig.dom.toml,
+        # happy-dom preload, concurrency=1) — der node-only Unit-Lauf oben
+        # lädt kein window-Global mehr (Issue #1330). Enthält auch die
+        # ehemals isolierten #457-Screen-Tests: im reinen tsx-Prozess
+        # reproduziert die Korruption nicht mehr (verifiziert lokal,
+        # 82 Files/750 Tests in einem Prozess grün).
         run: |
           ulimit -n 65536 || true
-          bun run test:dom-isolated
+          bun run test:dom
 
   tz-matrix:
     # Timezones epic (kumiko-framework#268), item 12. Runs the TZ-sensitive

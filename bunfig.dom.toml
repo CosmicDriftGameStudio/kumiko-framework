@@ -1,0 +1,27 @@
+# Dedizierter Lauf für DOM/Render-Tests (*.test.tsx). Der Default-Unit-Lauf
+# (bunfig.toml / bunfig.ci.toml) lädt happy-dom nicht mehr — node-only Tests
+# bekommen kein fake-window mehr untergelegt (Issue #1330).
+#
+# Aufruf: bun test --config=bunfig.dom.toml .test.tsx
+# (bun filtert positional args als Substring auf den Dateipfad.)
+#
+# concurrency=1: shared single-process happy-dom kollidiert unter
+# Parallelität (RAM + React event delegation, #457).
+
+[install]
+linker = "hoisted"
+
+[install.scopes]
+"@cosmicdriftgamestudio" = { url = "https://npm.pkg.github.com", token = "$GITHUB_TOKEN" }
+
+[test]
+preload = ["./test-setup/base.preload.ts", "./test-setup/dom.preload.ts"]
+concurrency = 1
+timeout = 15000
+
+pathIgnorePatterns = [
+  "**/e2e/**",
+  "**/*.spec.ts",
+  "**/*.spec.tsx",
+  "**/dist/**",
+]
