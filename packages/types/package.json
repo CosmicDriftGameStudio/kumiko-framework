@@ -77,6 +77,10 @@
     "./db-connection": {
       "types": "./src/db-connection.ts",
       "default": "./src/db-connection.ts"
+    },
+    "./file-handle-types": {
+      "types": "./src/file-handle-types.ts",
+      "default": "./src/file-handle-types.ts"
     }
   },
   "dependencies": {
