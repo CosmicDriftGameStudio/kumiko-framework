@@ -1,7 +1,8 @@
+import type { ConcurrencyMode } from "@cosmicdrift/kumiko-types/concurrency-mode";
+import type { ConfigScope } from "@cosmicdrift/kumiko-types/config-scope";
 import type { ZodType } from "zod";
 import type { DbConnection } from "../../db/connection";
 import type { TenantDb } from "../../db/tenant-db";
-import type { ConcurrencyMode, ConfigScope } from "../constants";
 import type { FieldDefinition } from "./fields";
 import type { AppContext } from "./handlers";
 import type {
