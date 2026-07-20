@@ -136,7 +136,10 @@ const noopLog = {
 // that's the point in migrateRow right after decrypt, right before its own
 // executor.update, so the job's captured row.version is guaranteed stale by
 // the time it issues that update.
-function racyJobCtx(rowVersionAtBatchRead: number): Parameters<typeof reencryptJob>[1] {
+function racyJobCtx(
+  rowVersionAtBatchRead: number,
+  log: typeof noopLog = noopLog,
+): Parameters<typeof reencryptJob>[1] {
   let fired = false;
   const racyCipher: EnvelopeCipher = {
     decrypt: (stored, scope) => cipher.decrypt(stored, scope),
@@ -153,7 +156,7 @@ function racyJobCtx(rowVersionAtBatchRead: number): Parameters<typeof reencryptJ
     registry: stack.registry,
     masterKeyProvider: mutableProvider,
     configEncryption: racyCipher,
-    log: noopLog,
+    log,
   } as unknown as Parameters<typeof reencryptJob>[1]; // @cast-boundary test-seam — job only reads db/registry/masterKeyProvider/configEncryption/log
 }
 
@@ -187,7 +190,21 @@ describe("config KEK-rotation job — concurrent write race (kumiko-framework#11
       }),
     );
 
-    await reencryptJob({}, racyJobCtx(seeded.version));
+    // Distinguishes "skipped" (version_conflict, row already fine) from
+    // "failed" (any other rejection) — both leave the row's end-state
+    // identical (reencrypt.job.ts:159-166), so a regression that silently
+    // turns this branch into "failed" would pass every assertion below it.
+    // The warn log at reencrypt.job.ts:171 is the only observable signature
+    // that fires on "failed" but not on "skipped" — assert it stayed silent.
+    const warnCalls: unknown[][] = [];
+    const spyLog = {
+      ...noopLog,
+      warn: (...args: unknown[]) => {
+        warnCalls.push(args);
+      },
+    };
+    await reencryptJob({}, racyJobCtx(seeded.version, spyLog));
+    expect(warnCalls).toEqual([]);
 
     // The concurrent write already lands under the current key — its
     // envelope must survive untouched; the rotation job's own update lost

@@ -75,6 +75,18 @@ describe("r.storeTable — declaration", () => {
     ).toThrow(/requires source: "unmanaged"/);
   });
 
+  test("rejects a table name with the reserved read_ prefix (#1220)", () => {
+    const readPrefixed = defineUnmanagedTable({
+      tableName: "read_rt_probe",
+      columns: [{ name: "id", pgType: "text", notNull: true, primaryKey: true }],
+    });
+    expect(() =>
+      defineFeature("probe", (r) => {
+        r.storeTable(readPrefixed, { reason: "test" });
+      }),
+    ).toThrow(/the "read_" prefix is reserved/);
+  });
+
   test("accepts valid registration and stores meta + reason", () => {
     const feature = defineFeature("probe", (r) => {
       r.storeTable(probeMeta, {

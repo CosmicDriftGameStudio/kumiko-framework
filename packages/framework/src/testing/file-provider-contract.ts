@@ -29,6 +29,13 @@ export function describeFileProviderContract(
       expect(decode(await provider.read(key))).toBe("hello contract");
     });
 
+    test("write on an existing key overwrites it (last-write-wins)", async () => {
+      const key = `contract/${crypto.randomUUID()}.bin`;
+      await provider.write(key, bytes("first"));
+      await provider.write(key, bytes("second"));
+      expect(decode(await provider.read(key))).toBe("second");
+    });
+
     test("read throws for a missing key", async () => {
       await expect(provider.read(`contract/missing-${crypto.randomUUID()}`)).rejects.toThrow();
     });

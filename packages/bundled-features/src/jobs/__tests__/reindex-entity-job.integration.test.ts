@@ -12,7 +12,12 @@ import {
   createEventStoreExecutor,
   createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  type JobContext,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
@@ -20,6 +25,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import { createJobsFeature } from "../feature";
 import { reindexEntityJob } from "../handlers/reindex-entity.job";
 
@@ -42,6 +48,16 @@ const widgetFeature = defineFeature("reindex-job-test", (r) => {
 
 let stack: TestStack;
 const admin = TestUsers.admin;
+
+const noopLogger: JobContext["log"] = {
+  info() {},
+  warn() {},
+  error() {},
+  debug() {},
+  child() {
+    return noopLogger;
+  },
+};
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [widgetFeature, createJobsFeature()] });
@@ -82,6 +98,42 @@ describe("reindexEntityJob", () => {
     );
 
     const postResults = await stack.search.search(admin.tenantId, "backfillable", {
+      filterType: "widget",
+    });
+    expect(postResults.some((r) => r.entityId === created.data.id)).toBe(true);
+  });
+
+  test("the registered job handler resolves a systemUser-scoped fan-out run and actually indexes (not reindexEntityJob called directly)", async () => {
+    // The two direct-call tests above bypass jobRunner.dispatch()'s
+    // ctx-resolution/guard chain entirely — a bug there (e.g. a systemUser
+    // that isn't wired through) would be invisible to them. Invoke the
+    // ACTUAL registered handler, same as retention-cleanup's handler test.
+    const executor = createEventStoreExecutor(widgetTable, widgetEntity, { entityName: "widget" });
+    const tenantDb = createTenantDb(stack.db, admin.tenantId, "system");
+    const created = await executor.create({ name: "Registry-Resolved Widget" }, admin, tenantDb);
+    if (!created.isSuccess) throw new Error("seed failed");
+
+    const preResults = await stack.search.search(admin.tenantId, "registry-resolved", {
+      filterType: "widget",
+    });
+    expect(preResults).toHaveLength(0);
+
+    const job = stack.registry.getJob(REINDEX_ENTITY_JOB);
+    expect(job).toBeDefined();
+    if (!job) return;
+
+    const ctx: JobContext = {
+      db: stack.db,
+      registry: stack.registry,
+      searchAdapter: stack.search,
+      systemUser: admin,
+      log: noopLogger,
+      triggeredBy: null,
+      ...bridgeStub(),
+    };
+    await job.handler({ entity: "widget" }, ctx);
+
+    const postResults = await stack.search.search(admin.tenantId, "registry-resolved", {
       filterType: "widget",
     });
     expect(postResults.some((r) => r.entityId === created.data.id)).toBe(true);

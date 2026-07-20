@@ -330,6 +330,7 @@ export const LOAD_ALL_EVENTS_ROW_LIMIT = 100_000;
 export async function loadAllEventsByType(
   db: DbRunner,
   aggregateType: string,
+  rowLimit: number = LOAD_ALL_EVENTS_ROW_LIMIT,
 ): Promise<readonly StoredEvent[]> {
   const rows = await selectMany<SelectedEvent>(
     db,
@@ -340,12 +341,12 @@ export async function loadAllEventsByType(
         { col: "createdAt", direction: "asc" },
         { col: "id", direction: "asc" },
       ],
-      limit: LOAD_ALL_EVENTS_ROW_LIMIT + 1,
+      limit: rowLimit + 1,
     },
   );
-  if (rows.length > LOAD_ALL_EVENTS_ROW_LIMIT) {
+  if (rows.length > rowLimit) {
     throw new Error(
-      `loadAllEventsByType("${aggregateType}") exceeds ${LOAD_ALL_EVENTS_ROW_LIMIT} rows — ` +
+      `loadAllEventsByType("${aggregateType}") exceeds ${rowLimit} rows — ` +
         "use streamAllEventsByType instead of buffering the full result set in memory.",
     );
   }
