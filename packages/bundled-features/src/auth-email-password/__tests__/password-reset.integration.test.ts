@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -76,6 +77,7 @@ beforeAll(async () => {
       // "user.postSave" that triggers autoRevokeOnPasswordChange whenever
       // the passwordHash delta is present. Integration-test proves the
       // reset-flow's changes.passwordHash triggers the same hook.
+      authFoundationFeature,
       createSessionsFeature({
         autoRevokeOnPasswordChange: async (userId) => {
           autoRevokeCalls.push(userId);

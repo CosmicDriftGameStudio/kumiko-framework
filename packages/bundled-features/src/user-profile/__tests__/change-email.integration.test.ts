@@ -4,6 +4,7 @@
 // dispatcht genau diese Strings).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -60,6 +61,7 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       createFilesFeature(),
       createUserDataRightsFeature(),

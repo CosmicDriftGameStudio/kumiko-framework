@@ -13,6 +13,7 @@
 //     Alices Forget; Bobs Daten landen NICHT in Alices Export-Bundle.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineUnmanagedTable } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -118,6 +119,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
 
       createUserDataRightsFeature(),

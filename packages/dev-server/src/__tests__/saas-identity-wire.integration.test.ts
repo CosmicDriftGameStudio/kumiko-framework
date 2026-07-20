@@ -66,6 +66,7 @@ import {
   deleteRows,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import * as jose from "jose";
 import { composeIdentityStack, composeOpsStack, composeRendererStack } from "../compose-stacks";
@@ -117,6 +118,7 @@ beforeAll(async () => {
 
   const features = composeFeatures(
     [
+      authFoundationFeature,
       ...identity,
       ...composeOpsStack({ delivery: true, audit: false, jobs: false }),
       ...composeRendererStack(),

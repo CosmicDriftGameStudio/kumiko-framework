@@ -12,6 +12,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -77,6 +78,7 @@ beforeAll(async () => {
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
       createAuthEmailPasswordFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       createUserDataRightsFeature(),
     ],
