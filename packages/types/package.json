@@ -85,6 +85,10 @@
     "./file-handle-types": {
       "types": "./src/file-handle-types.ts",
       "default": "./src/file-handle-types.ts"
+    },
+    "./write-error-info-types": {
+      "types": "./src/write-error-info-types.ts",
+      "default": "./src/write-error-info-types.ts"
     }
   },
   "dependencies": {
