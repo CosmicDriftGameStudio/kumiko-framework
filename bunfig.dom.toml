@@ -24,4 +24,9 @@ pathIgnorePatterns = [
   "**/*.spec.ts",
   "**/*.spec.tsx",
   "**/dist/**",
+  # #457: diese 2 Screen-Tests korruptieren im shared single-process happy-dom
+  # (CI-only — lokal ist der volle tsx-Lauf grün). Sie laufen je in eigenem
+  # `bun test`-Prozess via bunfig.ci-dom.toml (`bun run test:dom:isolated`).
+  "**/user-data-rights/web/__tests__/deletion-screens.test.tsx",
+  "**/user-data-rights/web/__tests__/privacy-center-screen.test.tsx",
 ]

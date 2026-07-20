@@ -98,17 +98,6 @@ jobs:
           path: coverage/unit/lcov.info
           retention-days: 1
 
-      - name: Run DOM tests
-        # *.test.tsx laufen im dedizierten dom-Lauf (bunfig.dom.toml,
-        # happy-dom preload, concurrency=1) — der node-only Unit-Lauf oben
-        # lädt kein window-Global mehr (Issue #1330). Enthält auch die
-        # ehemals isolierten #457-Screen-Tests: im reinen tsx-Prozess
-        # reproduziert die Korruption nicht mehr (verifiziert lokal,
-        # 82 Files/750 Tests in einem Prozess grün).
-        run: |
-          ulimit -n 65536 || true
-          bun run test:dom
-
   tz-matrix:
     # Timezones epic (kumiko-framework#268), item 12. Runs the TZ-sensitive
     # tests under several non-UTC process zones, so a future process-TZ-dependent

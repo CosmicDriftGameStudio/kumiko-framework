@@ -352,6 +352,15 @@ const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: stri
         cmd: `cd ${absPath} && bun test --dots --config=bunfig.dom.toml .test.tsx`,
       });
     }
+
+    // #457: Screen-Tests die im shared happy-dom-Prozess korruptieren (CI-only)
+    // laufen je in eigenem Prozess — Repos mit bunfig.ci-dom.toml.
+    if (existsSync(join(absPath, "bunfig.ci-dom.toml"))) {
+      steps.push({
+        name: `DOM Tests isolated (${root.kind})`,
+        cmd: `cd ${absPath} && bun run test:dom:isolated`,
+      });
+    }
   }
   return steps;
 })();

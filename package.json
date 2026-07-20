@@ -53,6 +53,7 @@
     "kumiko": "bun run bin/kumiko.ts",
     "test": "bun test --dots",
     "test:dom": "bun test --dots --config=bunfig.dom.toml .test.tsx",
+    "test:dom:isolated": "bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/deletion-screens.test.tsx && bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/privacy-center-screen.test.tsx",
     "test:run": "bun test --dots",
     "test:verbose": "bun test",
     "test:integration": "bun scripts/run-integration-tests.ts",
