@@ -30,6 +30,7 @@
   ],
   "workspaces": [
     "packages/framework",
+    "packages/types",
     "packages/bundled-features",
     "packages/cli",
     "packages/create-kumiko-app",
