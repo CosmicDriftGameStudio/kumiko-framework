@@ -664,10 +664,10 @@ describe("runPostDelete", () => {
 // --- Batch hooks ---
 
 describe("runPostSaveBatch / runPostDeleteBatch", () => {
-  test("no batch hooks registered → no-op", async () => {
+  test("no batch hooks registered → resolves without throwing", async () => {
     const pipeline = createLifecycleHooks(makeRegistry());
-    await pipeline.runPostSaveBatch([savectx], {});
-    await pipeline.runPostDeleteBatch([deletectx], {});
+    await expect(pipeline.runPostSaveBatch([savectx], {})).resolves.toBeUndefined();
+    await expect(pipeline.runPostDeleteBatch([deletectx], {})).resolves.toBeUndefined();
     // Should not throw — nothing registered.
   });
 
