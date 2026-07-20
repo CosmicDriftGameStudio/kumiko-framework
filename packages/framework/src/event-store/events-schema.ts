@@ -15,6 +15,7 @@ import {
 import { unsafePushTables } from "../stack";
 import { createArchivedStreamsTable } from "./archive";
 import { createSnapshotsTable } from "./snapshot";
+import type { EventMetadata } from "./types";
 
 // Event-store schema as a Drizzle table. The typed select/insert path handles
 // most operations; append() for subsequent versions uses raw SQL because
@@ -24,16 +25,6 @@ import { createSnapshotsTable } from "./snapshot";
 // (Redis-backed check + cached-response replay). The event-store itself
 // imposes no idempotency index — a single HTTP request may write N events
 // freely, metadata.requestId is purely a trace marker.
-export type EventMetadata = {
-  readonly userId: string;
-  readonly requestId?: string;
-  readonly correlationId?: string;
-  readonly causationId?: string;
-  // App-specific free key/value (Marten "headers"). Mirror of the canonical
-  // type in event-store.ts — kept duplicate because events-schema must stay
-  // import-cycle-free vs the event-store module.
-  readonly headers?: Readonly<Record<string, string | number | boolean>>;
-};
 
 export const eventsTable = pgTable(
   "kumiko_events",
