@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "description": "Framework-Type-Definitions für Kumiko — FeatureDefinition, BootCheck-Types und die reinen Engine-Types, ohne Runtime-Code. Erlaubt Downstream-Konsumenten, gegen die Type-Contracts zu bauen, ohne das ganze Framework-Package zu importieren.",
   "license": "BUSL-1.1",
-  "private": true,
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
     "type": "git",
@@ -22,7 +21,26 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./identifiers": {
+      "types": "./src/identifiers.ts",
+      "default": "./src/identifiers.ts"
+    },
+    "./target-ref": {
+      "types": "./src/target-ref.ts",
+      "default": "./src/target-ref.ts"
+    },
+    "./event-type-map": {
+      "types": "./src/event-type-map.ts",
+      "default": "./src/event-type-map.ts"
+    },
+    "./http-route": {
+      "types": "./src/http-route.ts",
+      "default": "./src/http-route.ts"
     }
+  },
+  "dependencies": {
+    "hono": "^4.12.18"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

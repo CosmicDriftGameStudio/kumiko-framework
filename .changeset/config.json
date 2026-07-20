@@ -5,6 +5,7 @@
   "fixed": [
     [
       "@cosmicdrift/kumiko-framework",
+      "@cosmicdrift/kumiko-types",
       "@cosmicdrift/kumiko-bundled-features",
       "@cosmicdrift/kumiko-dev-server",
       "@cosmicdrift/kumiko-server-runtime",

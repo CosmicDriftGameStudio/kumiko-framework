@@ -105,6 +105,7 @@
       "name": "@cosmicdrift/kumiko-framework",
       "version": "0.158.2",
       "dependencies": {
+        "@cosmicdrift/kumiko-types": "workspace:*",
         "bullmq": "^5.76.7",
         "bun-types": "^1.3.13",
         "hono": "^4.12.18",
@@ -201,6 +202,9 @@
     "packages/types": {
       "name": "@cosmicdrift/kumiko-types",
       "version": "0.0.1",
+      "dependencies": {
+        "hono": "^4.12.18",
+      },
     },
     "samples/apps/admin-console": {
       "name": "@cosmicdrift/kumiko-sample-admin-console",
