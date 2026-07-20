@@ -7,6 +7,13 @@
 			"reason": "Transitive dev dependency via Vite/Astro (kumiko-platform docs/marketing). Windows dev-server file-read advisory only — Kumiko CI/prod runs macOS/Linux; dev tooling not exposed publicly. Tracked for upstream bump to esbuild >=0.28.1.",
 			"reviewedBy": "Marc, 2026-07-13",
 			"expires": "2026-08-13"
+		},
+		{
+			"advisory": "GHSA-52cp-r559-cp3m",
+			"package": "js-yaml",
+			"reason": "Transitive dev dependency via @changesets/parse (release tooling only). js-yaml@4.2.0 is already the latest release and still affected — no fix available upstream yet. DoS-via-merge-key-chains only triggers on attacker-controlled YAML input; changesets only parses repo-authored .changeset/*.md frontmatter, no untrusted input reaches it.",
+			"reviewedBy": "Marc, 2026-07-20",
+			"expires": "2026-08-19"
 		}
 	]
 }
