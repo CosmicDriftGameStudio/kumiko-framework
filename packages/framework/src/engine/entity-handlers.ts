@@ -18,6 +18,21 @@ import type {
   QueryHandlerDef,
   WriteHandlerDef,
 } from "./types";
+import type {
+  EntityCrudRegistrar,
+  EntityCrudVerb,
+  EntityHandlerOptions,
+  EntityQueryHandlerOptions,
+  RegisterEntityCrudOptions,
+} from "./types/entity-handlers";
+
+export type {
+  EntityCrudRegistrar,
+  EntityCrudVerb,
+  EntityHandlerOptions,
+  EntityQueryHandlerOptions,
+  RegisterEntityCrudOptions,
+} from "./types/entity-handlers";
 
 // Convention-based handler factories for event-sourced aggregates.
 //
@@ -330,16 +345,6 @@ export function defineEntityQueryHandler(
 // would need a Branded-EntityDefinition with `softDelete: true` literal
 // — feasible but not yet wired; the runtime guard catches misuse.
 
-type EntityHandlerOptions = { readonly access?: AccessRule };
-type EntityQueryHandlerOptions = EntityHandlerOptions & {
-  /** Reads across every tenant instead of the caller's own — for a
-   *  SystemAdmin-only operator inspector over an otherwise tenant-scoped
-   *  entity. Scope this to the ONE handler that needs it rather than making
-   *  the whole feature r.systemScope(), which would drop tenant isolation
-   *  from every other handler the feature registers too. */
-  readonly crossTenant?: boolean;
-};
-
 // @wrapper-known semantic-alias
 export function defineEntityCreateHandler(
   entityName: string,
@@ -445,23 +450,6 @@ export function defineProjectionQueryHandler(
     ...(options?.access && { access: options.access }),
   };
 }
-
-type EntityCrudVerb = "create" | "update" | "delete" | "restore" | "list" | "detail";
-
-export type RegisterEntityCrudOptions = {
-  readonly write?: EntityHandlerOptions;
-  readonly read?: EntityQueryHandlerOptions;
-  readonly verbs?: Partial<Record<EntityCrudVerb, boolean>>;
-  /** Default true. Set false when the entity was already registered (e.g. before r.relation). */
-  readonly registerEntity?: boolean;
-};
-
-/** Minimal registrar surface — keeps entity-handlers free of define-feature imports. */
-export type EntityCrudRegistrar = {
-  entity(name: string, definition: EntityDefinition): unknown;
-  writeHandler(def: WriteHandlerDef): unknown;
-  queryHandler(def: QueryHandlerDef): unknown;
-};
 
 function defaultCrudVerbs(entity: EntityDefinition): Record<EntityCrudVerb, boolean> {
   return {
