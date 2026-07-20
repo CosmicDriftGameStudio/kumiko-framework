@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-// Top-10k common-password list (SecLists, MIT license), filtered to length >=8 —
-// shorter entries are already rejected by `.min(8)` below, so they're dropped
-// here to keep this constant small.
+// Top-10k common-password list (SecLists, MIT license). Filtered to length // kumiko-lint-ignore comment-lang "MIT" false-positives the DE-word regex
+// >=8, since shorter entries are already rejected by `.min(8)` below (keeps
+// this constant small).
 // Source: https://github.com/danielmiessler/SecLists/blob/master/Passwords/Common-Credentials/10k-most-common.txt
 const COMMON_PASSWORDS_8PLUS = `
 0.0.0.000
