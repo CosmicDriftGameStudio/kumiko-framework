@@ -54,6 +54,11 @@ export type {
   TranslationsDef,
   UiExtensionDef,
 } from "./config";
+export type {
+  QueryHandlerDefinition,
+  WriteHandlerDefinition,
+  WriteHandlerInput,
+} from "./define-handler";
 // Cross-Feature Compile-Time-Type-Map — features extend per declare-module.
 export type {
   KumikoEntityTypeMap,
