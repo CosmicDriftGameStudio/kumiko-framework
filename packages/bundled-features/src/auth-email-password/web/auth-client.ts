@@ -233,6 +233,39 @@ export async function verifyEmail(
   return { ok: false, error: await parseTokenFailure(res) };
 }
 
+// POST /api/auth/request-account-unlock. Same silent-success semantik wie
+// request-password-reset. 429 → rate-limit-Failure.
+export async function requestAccountUnlock(
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
+  const res = await fetch("/api/auth/request-account-unlock", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...csrfHeader() },
+    body: JSON.stringify({ email }),
+  });
+  if (res.ok) return { ok: true };
+  return { ok: false, error: await parseTokenFailure(res) };
+}
+
+// POST /api/auth/confirm-account-unlock. Auto-submitted by
+// ConfirmAccountUnlockScreen after parsing `?token=...`. Server collapses
+// every verify failure into `invalid_unlock_token` (anti-enumeration,
+// parallel to reset/verify). Only clears the Redis lockout state, no
+// entity write.
+export async function confirmAccountUnlock(
+  token: string,
+): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
+  const res = await fetch("/api/auth/confirm-account-unlock", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...csrfHeader() },
+    body: JSON.stringify({ token }),
+  });
+  if (res.ok) return { ok: true };
+  return { ok: false, error: await parseTokenFailure(res) };
+}
+
 // POST /api/auth/signup-request. Always-200 (anti-enumeration; wir
 // sagen nicht ob die Email schon registriert ist). Server schickt
 // Activation-Mail an die Adresse — beim Klick auf den Link landet der

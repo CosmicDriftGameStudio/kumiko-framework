@@ -48,7 +48,7 @@
     },
     {
       "name": "auth-email-password",
-      "description": "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows — password reset, email verification, magic-link self-signup, and tenant invite — are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`) to `createAuthEmailPasswordFeature(opts)`. All four magic-link flows (reset, verification, signup activation, tenant invite) dispatch their mail through the `delivery` feature via `ctx.notify`, so mounting any of them additionally requires `delivery`. Tokens are HMAC-signed (reset/verify) or opaque-random in Redis (signup/invite). Requires the `user` and `tenant` features, and declares `JWT_SECRET` (≥ 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
+      "description": "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows — password reset, email verification, magic-link self-signup, tenant invite, and account-unlock — are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`, `accountUnlock`) to `createAuthEmailPasswordFeature(opts)`. All five magic-link flows dispatch their mail through the `delivery` feature via `ctx.notify`, so mounting any of them additionally requires `delivery`. Tokens are HMAC-signed (reset/verify/unlock) or opaque-random in Redis (signup/invite). `accountUnlock` is the self-service escape hatch for `accountLockout`'s monotonic failure-counter (#1266): confirming the mailed token clears the Redis lockout state without touching the user entity. Requires the `user` and `tenant` features, and declares `JWT_SECRET` (≥ 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
       "toggleableDefault": null,
       "requires": [
         "user",
@@ -92,6 +92,12 @@
           {
             "key": "invite",
             "label": "Tenant-Invite-Flow",
+            "type": "boolean",
+            "default": false
+          },
+          {
+            "key": "accountUnlock",
+            "label": "Account-Unlock-Flow",
             "type": "boolean",
             "default": false
           }

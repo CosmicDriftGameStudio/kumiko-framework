@@ -31,9 +31,13 @@ export type LockoutState = {
 // Consequence of the monotonic counter: once a user has been locked, the
 // NEXT wrong password after the lock expires re-locks immediately — the
 // INCR still returns a value ≥ threshold, so the SET NX re-arms the lock.
-// A successful login is the only way to reset the streak. Intentional:
-// brute-force resistance favours strictness over UX, and a legitimate user
-// who hit the lock once can just log in correctly to clear it.
+// A successful login is one way to reset the streak; the other is the
+// account-unlock magic-link flow (#1266, see
+// handlers/confirm-account-unlock.write.ts), a deliberate escape hatch for
+// a legitimate user who can't currently produce the right password (e.g.
+// they forgot it too) but can prove mailbox ownership. Intentional:
+// brute-force resistance favours strictness over UX for anonymous login
+// attempts, while the unlock flow keeps the DoS from being permanent.
 const COUNT_KEY_PREFIX = "kumiko:auth:lockout:count:";
 const UNTIL_KEY_PREFIX = "kumiko:auth:lockout:until:";
 
@@ -111,8 +115,9 @@ export async function recordFailedAttempt(
   return { failureCount: count, lockedUntil };
 }
 
-// Called on successful login. Idempotent — deleting missing keys is a no-op.
-// The ONLY path that resets the counter; intentional.
+// Called on successful login, and on a confirmed account-unlock token
+// (#1266). Idempotent — deleting missing keys is a no-op, so a replayed
+// unlock link just re-clears harmlessly.
 export async function clearLockoutState(redis: Redis, userId: string): Promise<void> {
   await redis.del(countKey(userId), untilKey(userId));
 }

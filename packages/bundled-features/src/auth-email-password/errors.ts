@@ -38,6 +38,15 @@ export function invalidResetToken() {
 }
 
 // @wrapper-known error-helper
+export function invalidUnlockToken() {
+  return writeFailure(
+    new UnprocessableError(AuthErrors.invalidUnlockToken, {
+      i18nKey: "auth.errors.invalidUnlockToken",
+    }),
+  );
+}
+
+// @wrapper-known error-helper
 export function invalidVerificationToken() {
   return writeFailure(
     new UnprocessableError(AuthErrors.invalidVerificationToken, {

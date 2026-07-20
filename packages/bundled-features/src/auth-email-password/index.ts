@@ -22,10 +22,12 @@ export {
   renderActivationEmail,
   renderInviteEmail,
   renderResetPasswordEmail,
+  renderUnlockAccountEmail,
   renderVerifyEmail,
 } from "./email-templates";
 export type {
   AccountLockoutOptions,
+  AccountUnlockOptions,
   AuthEmailPasswordOptions,
   EmailVerificationOptions,
   InviteOptions,

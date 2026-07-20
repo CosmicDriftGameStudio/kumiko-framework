@@ -18,7 +18,9 @@ export type {
   VerifyEmailFailure,
 } from "./auth-client";
 export {
+  confirmAccountUnlock,
   confirmSignup,
+  requestAccountUnlock,
   requestEmailVerification,
   requestPasswordReset,
   requestSignup,
@@ -34,6 +36,8 @@ export type {
   EmailPasswordClientOptions,
 } from "./client-plugin";
 export { emailPasswordClient } from "./client-plugin";
+export type { ConfirmAccountUnlockScreenProps } from "./confirm-account-unlock-screen";
+export { ConfirmAccountUnlockScreen } from "./confirm-account-unlock-screen";
 export type { DefaultTopbarActionsProps } from "./default-topbar-actions";
 export { DefaultTopbarActions } from "./default-topbar-actions";
 export type { ForgotPasswordScreenProps } from "./forgot-password-screen";
@@ -42,6 +46,8 @@ export type { InviteAcceptScreenProps } from "./invite-accept-screen";
 export { InviteAcceptScreen } from "./invite-accept-screen";
 export type { AuthLegalLink, LoginScreenProps } from "./login-screen";
 export { LoginScreen } from "./login-screen";
+export type { RequestAccountUnlockScreenProps } from "./request-account-unlock-screen";
+export { RequestAccountUnlockScreen } from "./request-account-unlock-screen";
 export type { ResetPasswordScreenProps } from "./reset-password-screen";
 export { ResetPasswordScreen } from "./reset-password-screen";
 export type { SessionApi, SessionState, SessionStatus } from "./session";

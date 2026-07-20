@@ -89,6 +89,7 @@ import { renderWelcomeBanner } from "./welcome-banner";
 // @cosmicdrift/kumiko-server-runtime (single source of truth) — hier nur
 // durchgereicht.
 export type {
+  AccountUnlockSetup,
   AuthMailOptions,
   EmailVerificationSetup,
   InviteSetup,
@@ -97,6 +98,7 @@ export type {
 } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 
 import type {
+  AccountUnlockSetup,
   AuthMailOptions,
   EmailVerificationSetup,
   InviteSetup,
@@ -145,6 +147,8 @@ export type RunDevAppAuthOptions = {
   readonly signup?: SignupSetup;
   /** Tenant-Invite flow (Magic-Link). Symmetric. */
   readonly invite?: InviteSetup;
+  /** Account-unlock flow (#1266). Symmetric zu RunProdAppAuthOptions. */
+  readonly accountUnlock?: AccountUnlockSetup;
   /** Domain attribute for both auth cookies (see
    *  AuthRoutesConfig.cookieDomain). Symmetric zu RunProdAppAuthOptions. */
   readonly cookieDomain?: string;
@@ -502,6 +506,12 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           emailVerification: {
             requestHandler: AuthHandlers.requestEmailVerification,
             confirmHandler: AuthHandlers.verifyEmail,
+          },
+        }),
+        ...(effectiveAuth.accountUnlock && {
+          accountUnlock: {
+            requestHandler: AuthHandlers.requestAccountUnlock,
+            confirmHandler: AuthHandlers.confirmAccountUnlock,
           },
         }),
         ...(effectiveAuth.signup && {

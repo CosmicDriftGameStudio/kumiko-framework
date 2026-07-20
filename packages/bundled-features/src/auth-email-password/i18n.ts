@@ -18,6 +18,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.login.submit": "Einloggen",
     "auth.login.submitting": "…",
     "auth.login.forgotPassword": "Passwort vergessen?",
+    "auth.login.unlockAccount": "Konto entsperren?",
     "auth.login.resendVerification": "Bestätigungs-Mail erneut senden",
     "auth.login.resendSuccess": "Wir haben dir eine neue Bestätigungs-Mail geschickt.",
     "auth.login.resendRateLimited": "Bitte warte kurz und versuche es erneut.",
@@ -37,6 +38,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.invalidResetToken":
       "Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
     "auth.errors.invalidVerificationToken": "Der Bestätigungs-Link ist ungültig oder abgelaufen.",
+    "auth.errors.invalidUnlockToken":
+      "Der Entsperren-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
     "auth.errors.invalidSignupToken":
       "Der Aktivierungs-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
     "auth.errors.signupEmailAlreadyRegistered":
@@ -74,6 +77,25 @@ export const defaultTranslations: TranslationsByLocale = {
       "Der Link ist ungültig oder abgelaufen. Bitte fordere eine neue Bestätigungs-Mail an.",
     "auth.verifyEmail.goToLogin": "Zum Login",
     "auth.verifyEmail.missingToken": "Der Bestätigungs-Link enthält keinen Token.",
+    "auth.requestUnlock.title": "Konto entsperren",
+    "auth.requestUnlock.intro":
+      "Gib deine E-Mail-Adresse ein. Falls dein Konto gesperrt ist, schicken wir dir einen Entsperren-Link.",
+    "auth.requestUnlock.email": "E-Mail",
+    "auth.requestUnlock.submit": "Link anfordern",
+    "auth.requestUnlock.submitting": "…",
+    "auth.requestUnlock.successTitle": "Mail gesendet",
+    "auth.requestUnlock.successBody":
+      "Falls die E-Mail in unserem System existiert und gesperrt ist, ist eine Nachricht mit einem Entsperren-Link unterwegs. Bitte schau in deinen Posteingang.",
+    "auth.requestUnlock.backToLogin": "Zurück zum Login",
+    "auth.unlockAccount.verifying": "Konto wird entsperrt …",
+    "auth.unlockAccount.successTitle": "Konto entsperrt",
+    "auth.unlockAccount.successBody":
+      "Dein Konto ist wieder entsperrt. Du kannst dich jetzt anmelden.",
+    "auth.unlockAccount.errorTitle": "Entsperren fehlgeschlagen",
+    "auth.unlockAccount.errorBody":
+      "Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Entsperren-Link an.",
+    "auth.unlockAccount.goToLogin": "Zum Login",
+    "auth.unlockAccount.missingToken": "Der Entsperren-Link enthält keinen Token.",
     "auth.signup.title": "Account erstellen",
     "auth.signup.intro":
       "Gib deine E-Mail-Adresse ein. Wir schicken dir einen Aktivierungs-Link, mit dem du dein Passwort setzt.",
@@ -122,6 +144,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.login.submit": "Sign in",
     "auth.login.submitting": "…",
     "auth.login.forgotPassword": "Forgot password?",
+    "auth.login.unlockAccount": "Unlock account?",
     "auth.login.resendVerification": "Send verification email again",
     "auth.login.resendSuccess": "We've sent you a new verification email.",
     "auth.login.resendRateLimited": "Please wait a moment and try again.",
@@ -140,6 +163,8 @@ export const defaultTranslations: TranslationsByLocale = {
       "This app doesn't support two-factor verification. Please contact support.",
     "auth.errors.invalidResetToken": "Link is invalid or expired. Please request a new one.",
     "auth.errors.invalidVerificationToken": "Verification link is invalid or expired.",
+    "auth.errors.invalidUnlockToken":
+      "Unlock link is invalid or expired. Please request a new one.",
     "auth.errors.invalidSignupToken":
       "Activation link is invalid or expired. Please request a new one.",
     "auth.errors.signupEmailAlreadyRegistered":
@@ -176,6 +201,23 @@ export const defaultTranslations: TranslationsByLocale = {
       "Link is invalid or expired. Please request a new verification email.",
     "auth.verifyEmail.goToLogin": "Go to sign in",
     "auth.verifyEmail.missingToken": "Verification link is missing a token.",
+    "auth.requestUnlock.title": "Unlock account",
+    "auth.requestUnlock.intro":
+      "Enter your email address. If your account is locked, we'll send you an unlock link.",
+    "auth.requestUnlock.email": "Email",
+    "auth.requestUnlock.submit": "Request link",
+    "auth.requestUnlock.submitting": "…",
+    "auth.requestUnlock.successTitle": "Email sent",
+    "auth.requestUnlock.successBody":
+      "If that email exists in our system and is locked, a message with an unlock link is on its way. Please check your inbox.",
+    "auth.requestUnlock.backToLogin": "Back to sign in",
+    "auth.unlockAccount.verifying": "Unlocking account …",
+    "auth.unlockAccount.successTitle": "Account unlocked",
+    "auth.unlockAccount.successBody": "Your account is unlocked again. You can sign in now.",
+    "auth.unlockAccount.errorTitle": "Unlock failed",
+    "auth.unlockAccount.errorBody": "Link is invalid or expired. Please request a new unlock link.",
+    "auth.unlockAccount.goToLogin": "Go to sign in",
+    "auth.unlockAccount.missingToken": "Unlock link is missing a token.",
     "auth.signup.title": "Create account",
     "auth.signup.intro":
       "Enter your email. We'll send you an activation link to set your password.",

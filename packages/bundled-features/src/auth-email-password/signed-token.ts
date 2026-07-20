@@ -82,4 +82,5 @@ export function verifyToken(
 export const TokenPurpose = {
   passwordReset: "reset",
   emailVerification: "verify",
+  accountUnlock: "unlock",
 } as const;

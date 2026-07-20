@@ -3,6 +3,7 @@ import { z } from "zod";
 import { MIN_HMAC_SECRET_LENGTH } from "./constants";
 import type { AuthMailLocale } from "./email-templates";
 import { changePasswordWrite } from "./handlers/change-password.write";
+import { createConfirmAccountUnlockHandler } from "./handlers/confirm-account-unlock.write";
 import { createInviteAcceptHandler } from "./handlers/invite-accept.write";
 import { createInviteAcceptWithLoginHandler } from "./handlers/invite-accept-with-login.write";
 import {
@@ -12,6 +13,10 @@ import {
 import { createInviteSignupCompleteHandler } from "./handlers/invite-signup-complete.write";
 import { createLoginHandler, type LoginHandlerOptions } from "./handlers/login.write";
 import { logoutWrite } from "./handlers/logout.write";
+import {
+  createRequestAccountUnlockHandler,
+  type RequestAccountUnlockOptions,
+} from "./handlers/request-account-unlock.write";
 import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write";
 import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write";
 import { createResetPasswordHandler } from "./handlers/reset-password.write";
@@ -109,6 +114,15 @@ export type SignupOptions = SignupRequestOptions;
 // 7 Tage (industry standard).
 export type InviteOptions = InviteCreateOptions;
 
+// Account-Unlock Magic-Link (#1266). When set, registers the
+// request-account-unlock + confirm-account-unlock handlers — the
+// self-service escape hatch for the monotonic lockout counter (see
+// lockout-store.ts). Only meaningful paired with `accountLockout`, but
+// wired independently like passwordReset/emailVerification — no implicit
+// auto-enable, so apps without lockout don't get an unasked-for new
+// public endpoint.
+export type AccountUnlockOptions = RequestAccountUnlockOptions;
+
 export type AuthEmailPasswordOptions = {
   // Second-factor gate. auth-mfa (if mounted) wires this in via
   // mfaStatusCheckerFromFeature() at app-composition time — see
@@ -119,6 +133,7 @@ export type AuthEmailPasswordOptions = {
   readonly accountLockout?: AccountLockoutOptions;
   readonly signup?: SignupOptions;
   readonly invite?: InviteOptions;
+  readonly accountUnlock?: AccountUnlockOptions;
 };
 
 // Auth feature — email+password login. Depends on the user feature for
@@ -140,13 +155,18 @@ export function createAuthEmailPasswordFeature(
       `[auth-email-password] emailVerification.hmacSecret must be ≥${MIN_HMAC_SECRET_LENGTH} chars (HMAC-SHA256 token signing)`,
     );
   }
+  if (opts.accountUnlock && opts.accountUnlock.hmacSecret.length < MIN_HMAC_SECRET_LENGTH) {
+    throw new Error(
+      `[auth-email-password] accountUnlock.hmacSecret must be ≥${MIN_HMAC_SECRET_LENGTH} chars (HMAC-SHA256 token signing)`,
+    );
+  }
 
   const strictVerification =
     opts.emailVerification !== undefined && (opts.emailVerification.mode ?? "strict") === "strict";
 
   return defineFeature("auth-email-password", (r) => {
     r.describe(
-      "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows \u2014 password reset, email verification, magic-link self-signup, and tenant invite \u2014 are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`) to `createAuthEmailPasswordFeature(opts)`. All four magic-link flows (reset, verification, signup activation, tenant invite) dispatch their mail through the `delivery` feature via `ctx.notify`, so mounting any of them additionally requires `delivery`. Tokens are HMAC-signed (reset/verify) or opaque-random in Redis (signup/invite). Requires the `user` and `tenant` features, and declares `JWT_SECRET` (\u2265 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
+      "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows — password reset, email verification, magic-link self-signup, tenant invite, and account-unlock — are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`, `accountUnlock`) to `createAuthEmailPasswordFeature(opts)`. All five magic-link flows dispatch their mail through the `delivery` feature via `ctx.notify`, so mounting any of them additionally requires `delivery`. Tokens are HMAC-signed (reset/verify/unlock) or opaque-random in Redis (signup/invite). `accountUnlock` is the self-service escape hatch for `accountLockout`'s monotonic failure-counter (#1266): confirming the mailed token clears the Redis lockout state without touching the user entity. Requires the `user` and `tenant` features, and declares `JWT_SECRET` (≥ 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
     );
     r.uiHints({
       displayLabel: "Auth \u00b7 Email + Password",
@@ -162,14 +182,21 @@ export function createAuthEmailPasswordFeature(
         },
         { key: "signup", label: "Self-Signup-Flow", type: "boolean", default: false },
         { key: "invite", label: "Tenant-Invite-Flow", type: "boolean", default: false },
+        { key: "accountUnlock", label: "Account-Unlock-Flow", type: "boolean", default: false },
       ],
     });
     r.requires("user");
     r.requires("tenant");
-    // All four magic-link flows (reset/verify/signup/invite) dispatch via
-    // ctx.notify → delivery must be mounted. Fail closed at boot instead of
-    // silently dropping the mail.
-    if (opts.passwordReset || opts.emailVerification || opts.signup || opts.invite) {
+    // All five magic-link flows (reset/verify/signup/invite/unlock) dispatch
+    // via ctx.notify → delivery must be mounted. Fail closed at boot instead
+    // of silently dropping the mail.
+    if (
+      opts.passwordReset ||
+      opts.emailVerification ||
+      opts.signup ||
+      opts.invite ||
+      opts.accountUnlock
+    ) {
       r.requires("delivery");
     }
     r.envSchema(authEmailPasswordEnvSchema);
@@ -206,6 +233,11 @@ export function createAuthEmailPasswordFeature(
       r.writeHandler(createInviteAcceptHandler());
       r.writeHandler(createInviteAcceptWithLoginHandler());
       r.writeHandler(createInviteSignupCompleteHandler());
+    }
+
+    if (opts.accountUnlock) {
+      r.writeHandler(createRequestAccountUnlockHandler(opts.accountUnlock));
+      r.writeHandler(createConfirmAccountUnlockHandler(opts.accountUnlock));
     }
 
     return { handlers };

@@ -12,6 +12,7 @@
 // auf Frühere referenzieren (z.B. authClaims-Hooks an user/tenant).
 
 import {
+  type AccountUnlockOptions,
   type AuthEmailPasswordOptions,
   type AuthMailLocale,
   createAuthEmailPasswordFeature,
@@ -102,6 +103,7 @@ export type AuthOptionsCarrier = {
   readonly emailVerification?: EmailVerificationOptions;
   readonly signup?: SignupOptions;
   readonly invite?: InviteOptions;
+  readonly accountUnlock?: AccountUnlockOptions;
 };
 
 /** Baut den authOptions-Block für composeFeatures aus einem
@@ -158,7 +160,17 @@ export function buildComposeAuthOptions(
   if (auth.invite) {
     opts.invite = pickMailFields(auth.invite);
   }
-  return opts.passwordReset || opts.emailVerification || opts.signup || opts.invite
+  if (auth.accountUnlock) {
+    opts.accountUnlock = {
+      hmacSecret: auth.accountUnlock.hmacSecret,
+      ...pickMailFields(auth.accountUnlock),
+    };
+  }
+  return opts.passwordReset ||
+    opts.emailVerification ||
+    opts.signup ||
+    opts.invite ||
+    opts.accountUnlock
     ? opts
     : undefined;
 }
