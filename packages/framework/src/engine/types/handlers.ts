@@ -354,7 +354,13 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // is on, add extra columns to the export"). The dispatcher gate already
   // blocks calls to handlers of disabled features — this is the fine-grained
   // opt-in counterpart, not a substitute for the gate.
-  readonly hasFeature: (featureName: string) => boolean;
+  //
+  // Async: falls back to the live trial-gate (tenant.inserted_at-derived,
+  // can't live in the boot-cached sync resolver) whenever the synchronous
+  // feature-set says a feature is off — otherwise trial tenants checking a
+  // companion feature (not their own handler's owning feature) would see a
+  // stale `false`.
+  readonly hasFeature: (featureName: string) => Promise<boolean>;
 
   // Append a domain event to a specific aggregate stream in the current tx.
   // Marten-aligned: every event belongs to exactly one aggregate. The runtime

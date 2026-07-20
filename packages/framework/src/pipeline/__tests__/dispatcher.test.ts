@@ -509,7 +509,7 @@ describe("dispatcher feature-gate", () => {
       r.queryHandler(
         "check",
         z.object({}).passthrough(),
-        async (_event, ctx) => ({ enabled: ctx.hasFeature("toggled") }),
+        async (_event, ctx) => ({ enabled: await ctx.hasFeature("toggled") }),
         { access: { openToAll: true } },
       );
     });
@@ -530,6 +530,43 @@ describe("dispatcher feature-gate", () => {
       enabled: true,
     });
     await expect(dispatcher.query("probe:query:check", {}, userB)).resolves.toEqual({
+      enabled: false,
+    });
+  });
+
+  test("issue #1233: ctx.hasFeature falls back to trialGate for a companion feature the tenant doesn't own", async () => {
+    // Regression for the trial-tenant bug: a handler owned by an always-on
+    // feature checks a DIFFERENT (trial-tier) feature via ctx.hasFeature.
+    // The sync resolver never carries trial features, so without the
+    // trialGate fallback this silently reads false for a trial tenant even
+    // though the tenant is genuinely in-trial for that companion feature —
+    // mirrors packages/bundled-features/src/managed-pages/handlers/branding.query.ts
+    // checking MANAGED_PAGES_CSS_FEATURE, which no handler owns.
+    const trialTenant = "00000000-0000-4000-8000-0000000000c5" as TenantId;
+    const plainTenant = "00000000-0000-4000-8000-0000000000d6" as TenantId;
+
+    const probe = defineFeature("probe", (r) => {
+      r.queryHandler(
+        "check",
+        z.object({}).passthrough(),
+        async (_event, ctx) => ({ enabled: await ctx.hasFeature("premium-companion") }),
+        { access: { openToAll: true } },
+      );
+    });
+    const registry = createRegistry([probe]);
+    const effectiveFeatures = Object.assign(() => new Set(["probe"]), {
+      trialGate: async (tenantId: TenantId, feature: string) =>
+        tenantId === trialTenant && feature === "premium-companion",
+    });
+    const dispatcher = createDispatcher(registry, {}, { effectiveFeatures });
+
+    const trialUser = createTestUser({ id: "u-c5", tenantId: trialTenant, roles: ["Admin"] });
+    const plainUser = createTestUser({ id: "u-d6", tenantId: plainTenant, roles: ["Admin"] });
+
+    await expect(dispatcher.query("probe:query:check", {}, trialUser)).resolves.toEqual({
+      enabled: true,
+    });
+    await expect(dispatcher.query("probe:query:check", {}, plainUser)).resolves.toEqual({
       enabled: false,
     });
   });
