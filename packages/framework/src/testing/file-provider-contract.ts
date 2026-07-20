@@ -64,7 +64,8 @@ export function describeFileProviderContract(
     });
 
     test("getSignedUrl, when implemented, returns a URL string", async () => {
-      if (!provider.getSignedUrl) return; // optional per contract — feature-detected
+      // skip: getSignedUrl is optional on the contract — feature-detected
+      if (!provider.getSignedUrl) return;
 
       const key = `contract/${crypto.randomUUID()}.txt`;
       await provider.write(key, bytes("signed"));
