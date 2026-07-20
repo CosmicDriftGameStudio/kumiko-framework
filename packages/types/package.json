@@ -77,6 +77,10 @@
     "./db-connection": {
       "types": "./src/db-connection.ts",
       "default": "./src/db-connection.ts"
+    },
+    "./entity-cache": {
+      "types": "./src/entity-cache.ts",
+      "default": "./src/entity-cache.ts"
     }
   },
   "dependencies": {
