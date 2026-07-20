@@ -204,6 +204,7 @@
       "version": "0.0.1",
       "dependencies": {
         "hono": "^4.12.18",
+        "postgres": "^3.4.9",
       },
     },
     "samples/apps/admin-console": {
