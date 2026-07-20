@@ -13,6 +13,11 @@ import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import {
+  createSessionsFeature,
+  userSessionEntity,
+} from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { InMemoryKmsAdapter, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -200,6 +205,8 @@ async function migrateTestDb(): Promise<void> {
     await createProjectionStateTable(db);
     await createEventConsumerStateTable(db);
     await unsafeEnsureEntityTable(db, widgetEntity, "widget");
+    await unsafeEnsureEntityTable(db, userEntity, "user");
+    await unsafeEnsureEntityTable(db, userSessionEntity, "user-session");
     await asRawClient(db).unsafe(
       `CREATE TABLE IF NOT EXISTS prod_probe_pings (
          id BIGSERIAL PRIMARY KEY,
@@ -843,6 +850,21 @@ describe("runProdApp — session boot gate (#1262/#1275)", () => {
         allowPlaintextPii: "test: session-gate focus, not crypto",
       }),
     ).rejects.toThrow(/BOOT ABORTED.*sessions.*stateless/s);
+  });
+
+  test("auth mounted, sessions feature mounted → boots cleanly (the happy path the gate guards)", async () => {
+    const handle = await boot(undefined, {
+      // "user" is auto-mounted via includeBundled whenever auth.admin is set —
+      // only createSessionsFeature() needs to be explicit here.
+      features: [createSessionsFeature()],
+      auth: {
+        admin: ADMIN,
+        cookieDomain: "example.eu",
+        allowedOrigins: ["https://app.example.eu"],
+      },
+      allowPlaintextPii: "test: session-gate focus, not crypto",
+    });
+    expect(handle).toBeDefined();
   });
 });
 

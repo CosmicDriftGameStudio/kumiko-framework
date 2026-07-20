@@ -63,4 +63,15 @@ describe("firstOpenScreenQn", () => {
     ];
     expect(firstOpenScreenQn(features)).toBeUndefined();
   });
+
+  test("resolves a bare screen id in nav to the qualified screen name", () => {
+    const features: readonly FeatureSchema[] = [
+      feature({
+        featureName: "shop",
+        screens: [customScreen({ id: "catalog" })],
+        navs: [{ id: "catalog", label: "shop:nav.catalog", screen: "catalog" }],
+      }),
+    ];
+    expect(firstOpenScreenQn(features)).toBe("shop:screen:catalog");
+  });
 });

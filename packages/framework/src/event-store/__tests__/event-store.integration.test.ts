@@ -456,6 +456,37 @@ describe("event-store: loadAllEventsByType", () => {
     expect(all.map((e) => e.version)).toEqual([1, 2, 3, 4]);
     expect(all.map((e) => (e.payload as { v: number }).v)).toEqual([0, 1, 2, 3]);
   });
+
+  test("throws once rows exceed the given rowLimit", async () => {
+    for (let v = 0; v < 3; v++) {
+      await append(testDb.db, {
+        aggregateId: uuid(),
+        aggregateType: "task",
+        tenantId: tenantA,
+        expectedVersion: 0,
+        type: "task.created",
+        payload: { v },
+        metadata: { userId: userA },
+      });
+    }
+    await expect(loadAllEventsByType(testDb.db, "task", 2)).rejects.toThrow(/exceeds 2 rows/);
+  });
+
+  test("does not throw when rows equal the given rowLimit", async () => {
+    for (let v = 0; v < 2; v++) {
+      await append(testDb.db, {
+        aggregateId: uuid(),
+        aggregateType: "task",
+        tenantId: tenantA,
+        expectedVersion: 0,
+        type: "task.created",
+        payload: { v },
+        metadata: { userId: userA },
+      });
+    }
+    const all = await loadAllEventsByType(testDb.db, "task", 2);
+    expect(all).toHaveLength(2);
+  });
 });
 
 describe("event-store: streamAllEventsByType (memory-bounded iteration)", () => {

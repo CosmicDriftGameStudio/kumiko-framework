@@ -192,6 +192,23 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(sessionsAfter.every((s) => s.revokedAt !== null)).toBe(true);
   });
 
+  test("non-admin targets another user's account: 403 admin_required_for_other_user", async () => {
+    const { userId: targetId } = await seedAliceWithMembership();
+    const attacker = await mintActor({
+      id: crypto.randomUUID(),
+      tenantId: TENANT,
+      roles: ["Member"],
+    });
+    const err = await stack.http.writeErr(RESTRICT, { userId: targetId }, attacker);
+    expect(err.httpStatus).toBe(403);
+    expect(reasonOf(err)).toBe("admin_required_for_other_user");
+
+    const userRow = (await selectMany(stack.db, userTable, { id: targetId })) as Array<{
+      status: string;
+    }>;
+    expect(userRow[0]?.status).toBe(USER_STATUS.Active);
+  });
+
   test("Restricted → Restricted (Idempotenz-Guard): 422 already_restricted", async () => {
     const { userId } = await seedAliceWithMembership(USER_STATUS.Restricted);
     // Alice's own session is blocked while Restricted — an admin targets
