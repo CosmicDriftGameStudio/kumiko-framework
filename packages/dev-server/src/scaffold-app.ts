@@ -42,6 +42,8 @@ export type ScaffoldFeatureEntry = {
   readonly importPath: string;
   readonly exportName: string;
   readonly callExpression: string;
+  /** Runtime args for factory-style exports that need config the codegen text can't parse back out (e.g. `{ scopes: {} }`). Omit for zero-arg factories and object-style exports. */
+  readonly callArgs?: readonly unknown[];
 };
 
 export type ScaffoldAppOptions = {
@@ -850,11 +852,8 @@ async function instantiateScaffoldFeatures(
         `scaffoldApp: ${entry.importPath} missing export ${entry.exportName} for ${entry.callExpression}`,
       );
     }
-    if (entry.callExpression.endsWith("()")) {
-      if (typeof exp !== "function") {
-        throw new Error(`scaffoldApp: ${entry.exportName} is not callable (${entry.importPath})`);
-      }
-      instances.push((exp as () => FeatureDefinition)());
+    if (typeof exp === "function") {
+      instances.push((exp as (...args: unknown[]) => FeatureDefinition)(...(entry.callArgs ?? [])));
     } else {
       instances.push(exp as FeatureDefinition);
     }
