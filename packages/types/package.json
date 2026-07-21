@@ -113,6 +113,10 @@
     "./hook-phase": {
       "types": "./src/hook-phase.ts",
       "default": "./src/hook-phase.ts"
+    },
+    "./schema-table-types": {
+      "types": "./src/schema-table-types.ts",
+      "default": "./src/schema-table-types.ts"
     }
   },
   "dependencies": {

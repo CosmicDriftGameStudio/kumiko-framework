@@ -13,6 +13,12 @@
 // The framework no longer imports drizzle-orm at runtime — schema-files
 // use only this module.
 
+import {
+  type ColumnHandle,
+  KUMIKO_COLUMNS_SYMBOL,
+  KUMIKO_NAME_SYMBOL,
+  type SchemaTable,
+} from "@cosmicdrift/kumiko-types/schema-table-types";
 import type {
   ColumnMeta,
   CompositePrimaryKeyMeta,
@@ -20,6 +26,8 @@ import type {
   IndexMeta,
   PgType,
 } from "./entity-table-meta";
+
+export type { ColumnHandle, SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 
 // Public type aliases — historical compat for callers that used to import
 // these from drizzle-orm/pg-core. SelectQuery is no longer a meaningful
@@ -29,30 +37,11 @@ export type TableColumns<_T = any> = SchemaTable;
 // biome-ignore lint/suspicious/noExplicitAny: legacy type — chain API is gone
 export type SelectQuery = any;
 
-// Column handle exposed on the SchemaTable. The `name` is the SQL column
-// name (snake_case); legacy code accesses `table.fieldName.name` to
-// produce raw SQL.
-export type ColumnHandle = {
-  readonly name: string;
-  readonly pgType: PgType;
-  readonly getSQLType: () => string;
-};
-
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
-const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
 // Shadow-proof handle on the EntityTableMeta. The column handles below are
 // spread as enumerable props, so an entity field named `source`/`columns`/
 // `tableName`/… would overwrite the matching meta key. extractTableInfo reads
 // the canonical meta from this symbol instead of the (shadowable) props.
 const KUMIKO_META_SYMBOL = Symbol.for("kumiko:schema:Meta");
-
-// SchemaTable — opaque shape with both EntityTableMeta + Symbol-based
-// introspection. Returned by `table(...)`.
-export type SchemaTable = EntityTableMeta & {
-  readonly [KUMIKO_NAME_SYMBOL]: string;
-  readonly [KUMIKO_COLUMNS_SYMBOL]: Record<string, ColumnHandle>;
-  readonly [field: string]: unknown;
-};
 
 function isNumericPgType(t: PgType): t is `numeric(${number},${number})` {
   return t.startsWith("numeric(");
