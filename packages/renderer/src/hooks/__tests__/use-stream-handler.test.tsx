@@ -75,7 +75,11 @@ describe("useStreamHandler", () => {
     const gate = new Promise<void>((r) => {
       release = r;
     });
-    const dispatcher = makeDispatcher(async function* (_t: string, _p: unknown, opts?: { signal?: AbortSignal }) {
+    const dispatcher = makeDispatcher(async function* (
+      _t: string,
+      _p: unknown,
+      opts?: { signal?: AbortSignal },
+    ) {
       yield { i: 0 };
       await gate;
       if (opts?.signal?.aborted) {
