@@ -93,6 +93,12 @@ export type { UseMutationResult } from "./hooks/use-mutation";
 export { useMutation } from "./hooks/use-mutation";
 export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query";
 export { useQuery } from "./hooks/use-query";
+export type {
+  StreamStatus,
+  UseStreamHandlerOptions,
+  UseStreamHandlerResult,
+} from "./hooks/use-stream-handler";
+export { useStreamHandler } from "./hooks/use-stream-handler";
 export { useStore, useStoreSelector } from "./hooks/use-store";
 export type {
   LocaleProviderProps,
@@ -153,3 +159,4 @@ export type {
   TokensProviderProps,
 } from "./tokens";
 export { cssVarTokens, TokensProvider, useTokenController, useTokens } from "./tokens";
+

@@ -60,6 +60,9 @@ function createFakeDispatcher(options?: {
       return result;
     },
     statusStore,
+    async *stream() {
+      // streams unsupported in the sync fake — empty generator
+    },
     pendingWrites: () => pendingWritesStore,
     pendingFiles: () => pendingFilesStore,
     setStatus(next) {
@@ -158,3 +161,4 @@ describe("Dispatcher contract", () => {
     expect(disp.pendingFiles()).toEqual([]);
   });
 });
+

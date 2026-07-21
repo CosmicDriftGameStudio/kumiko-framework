@@ -34,6 +34,7 @@ export type {
   PendingWrite,
   QueryOpts,
   QueryResult,
+  StreamOpts,
   WriteOpts,
   WriteResult,
 } from "./dispatcher";
@@ -92,3 +93,4 @@ export type {
   Translate,
 } from "./view-model";
 export { computeEditViewModel, computeListViewModel, fieldLabelKey } from "./view-model";
+

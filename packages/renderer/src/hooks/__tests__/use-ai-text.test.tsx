@@ -14,6 +14,7 @@ function makeDispatcher(query: Dispatcher["query"]): Dispatcher {
       getState: () => "online",
       subscribe: () => () => {},
     } as unknown as Dispatcher["statusStore"],
+    async *stream() {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   };
@@ -174,3 +175,4 @@ describe("useCompletion", () => {
     expect(result.current.suggestion).toBeNull();
   });
 });
+

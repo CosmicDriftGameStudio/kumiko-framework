@@ -14,6 +14,7 @@ function makeDispatcher(write: Dispatcher["write"]): Dispatcher {
       getState: () => "online",
       subscribe: () => () => {},
     } as unknown as Dispatcher["statusStore"],
+    async *stream() {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   };
@@ -74,3 +75,4 @@ describe("useMutation", () => {
     expect(result.current.data).toBeNull();
   });
 });
+
