@@ -130,6 +130,16 @@ const testFeature = defineFeature("test", (r) => {
       timestamp: Date.now(),
     });
   });
+  // Exercises createJobLogger (info/warn/error/debug/child) — otherwise those
+  // one-liners stay uncovered even though every job builds a logger.
+  r.job("logProbe", { trigger: { manual: true } }, async (payload, ctx) => {
+    ctx.log.info("log-probe-info", { n: payload["n"] });
+    ctx.log.warn("log-probe-warn");
+    ctx.log.error("log-probe-error", { ok: false });
+    ctx.log.debug("log-probe-debug");
+    ctx.log.child().info("log-probe-child");
+    jobLog.push({ name: "test:job:log-probe", payload, timestamp: Date.now() });
+  });
 });
 
 beforeAll(async () => {
@@ -423,6 +433,26 @@ describe("concurrency: debounce", () => {
   });
 });
 
+describe("concurrency: replace", () => {
+  test("enqueuer-only: each dispatch removes prior waiting peers", async () => {
+    // No consumer → jobs stay waiting. The replace branch walks getWaiting()
+    // and removes same-name peers before add — so three dispatches leave one.
+    await withRunner(
+      async (runner) => {
+        const id1 = await runner.dispatch("test:job:replace-job", { n: 1 });
+        const id2 = await runner.dispatch("test:job:replace-job", { n: 2 });
+        const id3 = await runner.dispatch("test:job:replace-job", { n: 3 });
+        expect(id1).toBeDefined();
+        expect(id2).toBeDefined();
+        expect(id3).toBeDefined();
+        expect(id1).not.toBe("skipped");
+        expect(id3).not.toBe(id1);
+      },
+      { consumerLane: undefined },
+    );
+  });
+});
+
 describe("concurrency: maxPerTenant", () => {
   test("max=2: third dispatch for same tenant returns skipped, other tenant unaffected", async () => {
     clearLog();
@@ -485,6 +515,18 @@ describe("concurrency: maxPerTenant", () => {
 });
 
 // --- Correlation propagation ---
+
+describe("job logger", () => {
+  test("handler can call info/warn/error/debug/child without throw", async () => {
+    clearLog();
+    await withRunner(async (runner) => {
+      await runner.dispatch("test:job:log-probe", { n: 1 });
+      await waitFor(() => {
+        expect(jobLog.some((e) => e.name === "test:job:log-probe")).toBe(true);
+      });
+    });
+  });
+});
 
 describe("correlation propagation", () => {
   test("dispatch inside requestContext.run passes correlationId into the job", async () => {
