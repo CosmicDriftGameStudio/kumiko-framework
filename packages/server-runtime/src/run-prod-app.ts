@@ -359,9 +359,7 @@ export type RunProdAppDeps = {
 
 export type AnonymousAccessOption =
   | import("@cosmicdrift/kumiko-framework/api").AnonymousAccessConfig
-  | ((
-      deps: RunProdAppDeps,
-    ) => import("@cosmicdrift/kumiko-framework/api").AnonymousAccessConfig);
+  | ((deps: RunProdAppDeps) => import("@cosmicdrift/kumiko-framework/api").AnonymousAccessConfig);
 
 export type ExtraContextOption =
   | Record<string, unknown>
@@ -855,10 +853,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ? options.anonymousAccess(deps)
       : options.anonymousAccess;
   // #1374: tenantResolver / tenantExists come from auth-foundation providers.
-  const resolvedAnonymousAccess = await resolveAnonymousAccessFromRegistry(
-    baseAnonymousAccess,
-    { db, registry },
-  );
+  const resolvedAnonymousAccess = await resolveAnonymousAccessFromRegistry(baseAnonymousAccess, {
+    db,
+    registry,
+  });
 
   // Sessions opt-in: db ist hier schon konkret (createDbConnection oben),
   // also direkt verdrahten — kein late-bound nötig wie bei runDevApp.

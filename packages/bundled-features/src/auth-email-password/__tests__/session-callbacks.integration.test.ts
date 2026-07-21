@@ -158,6 +158,11 @@ async function seedUser(opts: {
       roles: t.roles,
     });
   }
+  // request-helper mints a sid for systemAdmin when sessionCreator is wired
+  // (#1372) — that is seed plumbing, not the auth-route behavior under test.
+  store.live.clear();
+  store.created.length = 0;
+  store.revoked.length = 0;
   return { userId: created.id };
 }
 

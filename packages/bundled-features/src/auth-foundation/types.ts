@@ -168,5 +168,3 @@ export function isTenantExistenceProvider(o: unknown): o is TenantExistenceProvi
     typeof (o as { build: unknown }).build === "function"
   );
 }
-
-

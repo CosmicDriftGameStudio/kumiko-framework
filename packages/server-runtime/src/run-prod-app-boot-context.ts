@@ -1,4 +1,5 @@
 import { makeAuthPaths } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { resolveSessionStore } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { bindMfaRevokeAllOtherSessionsFromFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createSmtpTransportFromEnv } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
@@ -15,7 +16,6 @@ import {
   createSecretsContext,
   SECRETS_FEATURE_NAME,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import { resolveSessionStore } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { bindAutoRevokeFromFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";

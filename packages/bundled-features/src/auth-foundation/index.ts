@@ -2,11 +2,11 @@
 
 export {
   authFoundationFeature,
+  type ResolvedTenantResolver,
   resolveSessionStore,
   resolveTenantExistence,
   resolveTenantResolver,
   resolveTokenVerifier,
-  type ResolvedTenantResolver,
 } from "./feature";
 export { resolveAnonymousAccessFromRegistry } from "./resolve-anonymous-access";
 export {

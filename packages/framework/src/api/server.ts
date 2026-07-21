@@ -47,11 +47,7 @@ import {
 import type { SearchAdapter } from "../search/types";
 import { assertUnreachable, generateId } from "../utils";
 import { PUBLIC_API_PATHS } from "./api-constants";
-import {
-  type AnonymousAccessResolved,
-  authMiddleware,
-  getUser,
-} from "./auth-middleware";
+import { type AnonymousAccessResolved, authMiddleware, getUser } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
 import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
