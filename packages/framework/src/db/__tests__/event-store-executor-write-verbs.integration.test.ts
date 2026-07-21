@@ -9,6 +9,7 @@ import { asRawClient } from "../../db/query";
 import { createEntity, createTextField } from "../../engine";
 import { from } from "../../engine/ownership";
 import { createEventsTable } from "../../event-store";
+import type { EntityCache } from "../../pipeline/entity-cache";
 import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
@@ -303,3 +304,93 @@ async function unsafeCreateEntityTableFor(
 ): Promise<void> {
   await unsafeCreateEntityTable(testDb.db, entity, name);
 }
+
+// =============================================================================
+// Concurrent update race → EventStoreVersionConflict catch + entityCache.del
+// on forget/restore (create/update/delete already exercise cache in the
+// main suite; forget/restore del() stayed uncovered).
+// =============================================================================
+
+const raceEntity = createEntity({
+  table: "read_es_write_race",
+  fields: {
+    email: createTextField({ required: true }),
+  },
+  softDelete: true,
+});
+const raceTable = buildEntityTable("esWriteRace", raceEntity);
+
+describe("event-store-executor write-verbs — concurrent version race + cache", () => {
+  const store = new Map<string, Record<string, unknown>>();
+  const entityCache: EntityCache = {
+    get: async (tenantId, name, id) => store.get(`${tenantId}:${name}:${id}`) ?? null,
+    mget: async () => new Map(),
+    set: async (tenantId, name, id, data) => {
+      store.set(`${tenantId}:${name}:${id}`, data);
+    },
+    mset: async (tenantId, name, entries) => {
+      for (const { id, data } of entries) store.set(`${tenantId}:${name}:${id}`, data);
+    },
+    del: async (tenantId, name, id) => {
+      store.delete(`${tenantId}:${name}:${id}`);
+    },
+  };
+  const crud = createEventStoreExecutor(raceTable, raceEntity, {
+    entityName: "esWriteRace",
+    entityCache,
+  });
+
+  beforeAll(async () => {
+    await unsafeCreateEntityTableFor(raceEntity, "esWriteRace");
+  });
+
+  beforeEach(async () => {
+    store.clear();
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_write_race RESTART IDENTITY CASCADE`,
+    );
+  });
+
+  test("two concurrent updates with the same version → one wins, one version_conflict", async () => {
+    const created = await crud.create({ email: "race@test.de" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+    const id = created.data.id;
+
+    const [a, b] = await Promise.all([
+      crud.update({ id, version: 1, changes: { email: "a@test.de" } }, admin, tdb),
+      crud.update({ id, version: 1, changes: { email: "b@test.de" } }, admin, tdb),
+    ]);
+
+    const results = [a, b];
+    expect(results.filter((r) => r.isSuccess)).toHaveLength(1);
+    expect(results.filter((r) => !r.isSuccess && r.error.code === "version_conflict")).toHaveLength(
+      1,
+    );
+  });
+
+  test("forget with entityCache clears the cache entry", async () => {
+    const created = await crud.create({ email: "cache-forget@test.de" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+    const id = created.data.id;
+    const key = `${admin.tenantId}:esWriteRace:${id}`;
+    store.set(key, { email: "poison" });
+
+    const result = await crud.forget({ id }, admin, tdb);
+    expect(result.isSuccess).toBe(true);
+    expect(store.has(key)).toBe(false);
+  });
+
+  test("restore with entityCache clears the cache entry", async () => {
+    const created = await crud.create({ email: "cache-restore@test.de" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+    const id = created.data.id;
+    await crud.delete({ id }, admin, tdb);
+
+    const key = `${admin.tenantId}:esWriteRace:${id}`;
+    store.set(key, { email: "poison" });
+
+    const result = await crud.restore({ id }, admin, tdb);
+    expect(result.isSuccess).toBe(true);
+    expect(store.has(key)).toBe(false);
+  });
+});

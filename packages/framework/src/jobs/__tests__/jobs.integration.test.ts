@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { requestContext } from "../../api/request-context";
 import { createRegistry, defineFeature } from "../../engine";
+import { z } from "zod";
 import type { AppContext, Registry } from "../../engine/types";
-import { createTestRedis, type TestRedis } from "../../stack";
+import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
 import { sleep, waitFor } from "../../testing";
 import {
   createJobRunner,
@@ -100,6 +101,30 @@ const testFeature = defineFeature("test", (r) => {
     { trigger: { manual: true }, concurrency: "parallel", maxPerTenant: 2 },
     async (payload) => {
       jobLog.push({ name: "test:job:per-tenant-limited", payload, timestamp: Date.now() });
+      await sleep(500);
+    },
+  );
+  r.writeHandler(
+    "capped-event",
+    z.object({ n: z.number() }),
+    async (event) => ({ isSuccess: true, data: { n: event.payload.n } }),
+    { access: { openToAll: true } },
+  );
+  // Event-triggered twin — exercises handleEvent's maxPerTenant guard
+  // (dispatch and handleEvent share isOverPerTenantLimit).
+  r.job(
+    "perTenantLimitedEvent",
+    {
+      trigger: { on: "test:write:capped-event" },
+      concurrency: "parallel",
+      maxPerTenant: 2,
+    },
+    async (payload) => {
+      jobLog.push({
+        name: "test:job:per-tenant-limited-event",
+        payload,
+        timestamp: Date.now(),
+      });
       await sleep(500);
     },
   );
@@ -641,6 +666,38 @@ describe("error handling", () => {
       await waitFor(() => {
         expect(jobLog.some((e) => e.name === "test:job:manual-report")).toBe(true);
       });
+    });
+  });
+
+  test("perTenant with getActiveTenantIds fans out one run per tenant", async () => {
+    clearLog();
+    const tenants = ["tenant-fan-a", "tenant-fan-b"];
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:per-tenant-fanout", { n: 7 });
+        await waitFor(() => {
+          const runs = jobLog.filter((e) => e.name === "test:job:per-tenant-fanout");
+          expect(runs.length).toBe(2);
+          expect(runs.every((e) => e.payload["n"] === 7)).toBe(true);
+        });
+      },
+      { getActiveTenantIds: async () => tenants },
+    );
+  });
+});
+
+describe("handleEvent maxPerTenant", () => {
+  test("skips enqueue when tenant is already at the cap", async () => {
+    clearLog();
+    await withRunner(async (runner) => {
+      const user = { ...TestUsers.admin, tenantId: "cap-tenant-evt" };
+      await runner.handleEvent("test:write:capped-event", { n: 1 }, user);
+      await runner.handleEvent("test:write:capped-event", { n: 2 }, user);
+      // Third must be skipped by the maxPerTenant guard.
+      await runner.handleEvent("test:write:capped-event", { n: 3 }, user);
+      await sleep(200);
+      const started = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");
+      expect(started.length).toBeLessThanOrEqual(2);
     });
   });
 });

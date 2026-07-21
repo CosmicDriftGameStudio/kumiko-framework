@@ -115,4 +115,16 @@ describe("validateAppOverrides", () => {
       }),
     ).toThrow(/computed resolver.*app-overrides would silently bypass/i);
   });
+
+  test("throws on type mismatch — text key, number value", () => {
+    const reg = registryStub({
+      "a:config:s": createTenantConfig("text"),
+    });
+    expect(() =>
+      validateAppOverrides(reg, {
+        "a:config:s": 42,
+      }),
+    ).toThrow(/expected string, got number/i);
+  });
 });
+
