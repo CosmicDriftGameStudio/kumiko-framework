@@ -387,6 +387,47 @@ describe("runExportJobs :: storage-cleanup", () => {
     expect(result.cleanedJobIds).not.toContain(jobId);
     expect(await provider.exists(storageKey)).toBe(true);
   });
+
+  test("storage-delete Throw → Job bleibt uncleaned (retry naechster Pass)", async () => {
+    const jobId = await seedPendingJob();
+    const T = getTemporal();
+    const longAgo = T.Instant.fromEpochMilliseconds(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const storageKey = `${tenantA}/exports/${jobId}.zip`;
+    const provider = await buildProvider(tenantA);
+    await provider.write(storageKey, new Uint8Array([7, 8, 9]));
+
+    await updateRows(
+      stack.db,
+      exportJobsTable,
+      {
+        status: EXPORT_JOB_STATUS.Done,
+        startedAt: longAgo,
+        completedAt: longAgo,
+        downloadStorageKey: storageKey,
+        expiresAt: longAgo,
+      },
+      { id: jobId },
+    );
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: async () => ({
+        ...provider,
+        delete: async () => {
+          throw new Error("synthetic storage delete failure");
+        },
+      }),
+      now: NOW(),
+    });
+
+    expect(result.cleanedJobIds).not.toContain(jobId);
+    expect(await provider.exists(storageKey)).toBe(true);
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+      downloadStorageKey: string | null;
+    }>;
+    expect(row?.downloadStorageKey).toBe(storageKey);
+  });
 });
 
 describe("runExportJobs :: idempotency", () => {
