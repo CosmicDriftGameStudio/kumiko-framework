@@ -32,11 +32,16 @@ beforeEach(() => {
     async () => new Response(JSON.stringify({ tenantId: "tenant-new" }), { status: 200 }),
   ) as unknown as typeof fetch;
 });
+
+// Capture once — afterEach must restore the real Location, not `{...location}`
+// (plain objects break `new URL(window.location.href)` in useUrlToken → ResetPasswordScreen).
+const originalLocation = window.location;
+
 afterEach(() => {
   Object.defineProperty(window, "location", {
-    writable: true,
     configurable: true,
-    value: { ...window.location, assign: () => {} },
+    writable: true,
+    value: originalLocation,
   });
 });
 
@@ -71,9 +76,9 @@ describe("InviteAcceptScreen — logged-in branch", () => {
   test("accept logged-in success redirects via loggedInHref function", async () => {
     const assign = mock<(url: string) => void>();
     Object.defineProperty(window, "location", {
-      writable: true,
       configurable: true,
-      value: { ...window.location, assign },
+      writable: true,
+      value: { href: originalLocation.href, search: originalLocation.search, assign },
     });
     renderWithProviders(
       <InviteAcceptScreen token="tok-123" loggedInHref={({ tenantId }) => `/${tenantId}/home`} />,
