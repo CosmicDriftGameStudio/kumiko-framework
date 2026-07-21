@@ -5,7 +5,11 @@
 
 import { describe, expect, test } from "bun:test";
 import { createEntity, defineFeature } from "../index";
-import { findTierResolverUsage, TENANT_TIER_RESOLVER_EXT } from "../tier-resolver-extension";
+import {
+  findTierResolverUsage,
+  isTierResolverPlugin,
+  TENANT_TIER_RESOLVER_EXT,
+} from "../tier-resolver-extension";
 
 function tierResolverFeature(name: string) {
   return defineFeature(name, (r) => {
@@ -47,5 +51,19 @@ describe("findTierResolverUsage", () => {
 
   test("leere Feature-Liste → undefined", () => {
     expect(findTierResolverUsage([])).toBeUndefined();
+  });
+});
+
+describe("isTierResolverPlugin", () => {
+  test("true when build is a function", () => {
+    expect(isTierResolverPlugin({ build: async () => new Set() })).toBe(true);
+  });
+
+  test("false for null, non-objects, and missing/non-fn build", () => {
+    expect(isTierResolverPlugin(null)).toBe(false);
+    expect(isTierResolverPlugin(undefined)).toBe(false);
+    expect(isTierResolverPlugin("x")).toBe(false);
+    expect(isTierResolverPlugin({})).toBe(false);
+    expect(isTierResolverPlugin({ build: 1 })).toBe(false);
   });
 });
