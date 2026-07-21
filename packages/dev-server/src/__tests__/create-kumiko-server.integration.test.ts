@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -334,5 +334,102 @@ describe("createKumikoServer extraRoutes-deps", () => {
     expect(body.isSuccess).toBe(true);
     expect(body.data?.tenantSeen).toBe(tenantId);
     expect(body.data?.roles).toContain("SystemAdmin");
+  });
+});
+
+describe("createKumikoServer — real Bun.build (buildClient)", () => {
+  test("clientEntry without _buildBundle produces a JS bundle via Bun.build", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "kumiko-real-build-"));
+    const entry = join(tmpDir, "client.tsx");
+    // Minimal entry Bun.build can emit — no JSX, no imports.
+    writeFileSync(entry, "export const ping = 1;\n");
+    // Empty dirs matching a glob — exercises expandWatchPatterns without
+    // writing files (avoids process.exit(75) from bare .tsx events).
+    mkdirSync(join(tmpDir, "pkg-a"));
+    mkdirSync(join(tmpDir, "pkg-b"));
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+        clientEntry: entry,
+        stylesheet: false,
+        watchDirs: [join(tmpDir, "pkg-*")],
+      });
+      const res = await handle.fetch(new Request("http://localhost/client.js"));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toMatch(/application\/javascript/);
+      const body = await res.text();
+      expect(body.length).toBeGreaterThan(0);
+      expect(body).toMatch(/ping/);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("createKumikoServer — hot-reload broadcast", () => {
+  test("file change under web/ rebuilds and broadcasts SSE reload", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "kumiko-watch-"));
+    const entry = join(tmpDir, "client.tsx");
+    const webDir = join(tmpDir, "web");
+    mkdirSync(webDir);
+    writeFileSync(entry, "export const ping = 1;\n");
+
+    let builds = 0;
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+        clientEntry: entry,
+        stylesheet: false,
+        // Only the entry dir is watched (no extra watchDirs) — a nested
+        // web/page.tsx event arrives as "web/page.tsx" → hot-reload.
+        // Watching web/ separately would fire bare "page.tsx" → restart
+        // → process.exit(75) and kill the test runner.
+        _buildBundle: async () => {
+          builds += 1;
+          return { js: `// build-${builds}`, map: "" };
+        },
+      });
+
+      const sseRes = await handle.fetch(new Request("http://localhost/_reload"));
+      expect(sseRes.status).toBe(200);
+      const reader = sseRes.body?.getReader();
+      expect(reader).toBeDefined();
+      if (!reader) return;
+
+      await reader.read(); // drain connected comment
+
+      const initialBuilds = builds;
+      writeFileSync(join(webDir, "page.tsx"), "export const x = 1;\n");
+
+      const deadline = Date.now() + 3000;
+      let sawReload = false;
+      while (Date.now() < deadline && !sawReload) {
+        const readPromise = reader.read();
+        const timeout = new Promise<{ done: true; value: undefined }>((resolve) =>
+          setTimeout(() => resolve({ done: true, value: undefined }), 200),
+        );
+        const { value, done } = await Promise.race([readPromise, timeout]);
+        if (done || value === undefined) continue;
+        const chunk = new TextDecoder().decode(value);
+        if (chunk.includes("event: reload")) sawReload = true;
+      }
+      await reader.cancel();
+
+      expect(builds).toBeGreaterThan(initialBuilds);
+      expect(sawReload).toBe(true);
+
+      const js = await handle.fetch(new Request("http://localhost/client.js"));
+      expect(await js.text()).toMatch(/build-/);
+
+      // Abort watchers before teardown rmSync can fire a restart event.
+      await handle.stop();
+      handle = undefined;
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
