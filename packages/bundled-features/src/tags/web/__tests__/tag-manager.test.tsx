@@ -220,10 +220,14 @@ describe("TagManager — catalog CRUD", () => {
   });
 
   test("failed write shows action error banner", async () => {
-    dispatchSpy.mockImplementationOnce(async () => ({
-      isSuccess: false,
-      error: { i18nKey: "tags.section.empty" },
-    }));
+    dispatchSpy.mockImplementationOnce(
+      async () =>
+        ({ isSuccess: false, error: { i18nKey: "tags.section.empty" } }) as {
+          isSuccess: boolean;
+          data?: { id: string } | undefined;
+          error?: { i18nKey: string };
+        },
+    );
     render(
       <Wrapper>
         <TagManager />

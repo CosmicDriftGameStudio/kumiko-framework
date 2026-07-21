@@ -1,5 +1,5 @@
-// UpdateChecker DOM coverage: fetchServerBuild + Banner bei ID-Drift.
-// shouldShowUpdate/isKumikoBuild bleiben in update-checker.test.ts.
+// UpdateChecker DOM coverage: fetchServerBuild + banner on id drift.
+// shouldShowUpdate/isKumikoBuild stay in update-checker.test.ts (unit).
 
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { screen, waitFor } from "@testing-library/react";
@@ -77,7 +77,7 @@ describe("UpdateChecker", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  test("kaputtes JSON (parse error) → no banner", async () => {
+  test("broken JSON (parse error) → no banner", async () => {
     window.__KUMIKO_BUILD__ = LOADED_BUILD;
     mockBuildInfoFetch(async (url) => {
       if (url.endsWith("/build-info.json")) {

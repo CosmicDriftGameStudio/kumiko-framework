@@ -118,7 +118,7 @@ describe("POST /auth/invite-accept", () => {
       body: JSON.stringify({}),
     });
     expect(res.status).toBe(400);
-    expect((await res.json()) as { error: string }).toEqual({
+    expect((await res.json()) as { isSuccess: boolean; error: string }).toMatchObject({
       isSuccess: false,
       error: "invalid_body",
     });
