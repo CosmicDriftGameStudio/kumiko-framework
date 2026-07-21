@@ -247,4 +247,129 @@ describe("LoginScreen", () => {
       expect(screen.queryByRole("button", { name: /erneut senden/i })).toBeNull();
     });
   });
+
+  test("account_locked without retry → unlock link when href set", async () => {
+    const session = makeSessionApi({
+      status: "unauthenticated",
+      user: null,
+      login: mock<SessionApi["login"]>(async () => ({
+        kind: "failure",
+        error: { reason: "account_locked" },
+      })),
+    });
+    renderWithProviders(<LoginScreen unlockAccountHref="/unlock" />, { session });
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toContain("vorübergehend gesperrt");
+    });
+    expect(screen.getByRole("link", { name: /Konto entsperren/i }).getAttribute("href")).toBe(
+      "/unlock",
+    );
+  });
+
+  test("reasonToKey covers no_membership, rate_limited, invalid_body, default", async () => {
+    const cases: Array<{ reason: string; needle: string }> = [
+      { reason: "no_membership", needle: "keinen Tenant-Zugang" },
+      { reason: "rate_limited", needle: "Zu viele Login-Versuche" },
+      { reason: "invalid_body", needle: "Ungültige Eingabe" },
+      { reason: "weird_unknown", needle: "Login fehlgeschlagen" },
+    ];
+    for (const { reason, needle } of cases) {
+      const session = makeSessionApi({
+        status: "unauthenticated",
+        user: null,
+        login: mock<SessionApi["login"]>(async () => ({
+          kind: "failure",
+          error: { reason },
+        })),
+      });
+      const { unmount } = renderWithProviders(<LoginScreen />, { session });
+      fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
+      fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
+      fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+      await waitFor(() => {
+        expect(screen.getByRole("alert").textContent).toContain(needle);
+      });
+      unmount();
+    }
+  });
+
+  test("mfa-challenge with onMfaChallenge fires token", async () => {
+    const onMfaChallenge = mock<(t: string) => void>();
+    const session = makeSessionApi({
+      status: "unauthenticated",
+      user: null,
+      login: mock<SessionApi["login"]>(async () => ({
+        kind: "mfa-challenge",
+        challengeToken: "chal-1",
+      })),
+    });
+    renderWithProviders(<LoginScreen onMfaChallenge={onMfaChallenge} />, { session });
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    await waitFor(() => {
+      expect(onMfaChallenge).toHaveBeenCalledWith("chal-1");
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  test("mfa-challenge without callback → mfa_not_supported", async () => {
+    const session = makeSessionApi({
+      status: "unauthenticated",
+      user: null,
+      login: mock<SessionApi["login"]>(async () => ({
+        kind: "mfa-challenge",
+        challengeToken: "chal-1",
+      })),
+    });
+    renderWithProviders(<LoginScreen />, { session });
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toMatch(/MFA|Zwei-Faktor|nicht unterstützt/i);
+    });
+  });
+
+  test("mfa-setup-required with and without onMfaSetupRequired", async () => {
+    const onMfaSetupRequired = mock<() => void>();
+    const sessionOk = makeSessionApi({
+      status: "unauthenticated",
+      user: null,
+      login: mock<SessionApi["login"]>(async () => ({ kind: "mfa-setup-required" })),
+    });
+    const { unmount } = renderWithProviders(
+      <LoginScreen onMfaSetupRequired={onMfaSetupRequired} />,
+      { session: sessionOk },
+    );
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    await waitFor(() => {
+      expect(onMfaSetupRequired).toHaveBeenCalled();
+    });
+    unmount();
+
+    const sessionBare = makeSessionApi({
+      status: "unauthenticated",
+      user: null,
+      login: mock<SessionApi["login"]>(async () => ({ kind: "mfa-setup-required" })),
+    });
+    renderWithProviders(<LoginScreen />, { session: sessionBare });
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toContain("Zwei-Faktor-Bestätigung");
+    });
+  });
+
+  test("signupHref renders signup link", () => {
+    renderWithProviders(<LoginScreen signupHref="/signup" />);
+    const link = screen.getByRole("link", { name: "Account erstellen" });
+    expect(link.getAttribute("href")).toBe("/signup");
+  });
 });
