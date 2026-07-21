@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.160.0
+
+### Patch Changes
+
+- d3e815c: Add client `Dispatcher.stream` + `useStreamHandler` for POST /api/stream SSE (#1382).
+  - @cosmicdrift/kumiko-types@0.160.0
+
 ## 0.159.1
 
 ### Patch Changes

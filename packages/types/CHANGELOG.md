@@ -1,5 +1,7 @@
 # @cosmicdrift/kumiko-types
 
+## 0.160.0
+
 ## 0.159.1
 
 ### Patch Changes
