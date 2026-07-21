@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import type { SessionCreator } from "../api/auth-routes";
 import type { JwtHelper } from "../api/jwt";
 import type { SessionUser } from "../engine/types";
 
@@ -98,9 +99,25 @@ export type RequestHelper = {
   ) => Promise<Response>;
 };
 
-export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
+export type RequestHelperOptions = {
+  // When sessionChecker is wired (sessions feature), JWTs without jti are
+  // rejected as no_sid. Seed/test helpers that only jwt.sign(user) need a
+  // live sid — create one via the same sessionCreator login uses (#1372).
+  readonly sessionCreator?: SessionCreator;
+};
+
+export function createRequestHelper(
+  app: Hono,
+  jwt: JwtHelper,
+  options: RequestHelperOptions = {},
+): RequestHelper {
   async function authHeader(user: SessionUser): Promise<Record<string, string>> {
-    const token = await jwt.sign(user);
+    let forJwt = user;
+    if (options.sessionCreator && !user.sid) {
+      const sid = await options.sessionCreator(user, { ip: "test", userAgent: "request-helper" });
+      forJwt = { ...user, sid };
+    }
+    const token = await jwt.sign(forJwt);
     return { Authorization: `Bearer ${token}` };
   }
 

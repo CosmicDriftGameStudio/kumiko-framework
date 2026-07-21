@@ -47,7 +47,7 @@ import {
 import type { SearchAdapter } from "../search/types";
 import { assertUnreachable, generateId } from "../utils";
 import { PUBLIC_API_PATHS } from "./api-constants";
-import { type AnonymousAccessConfig, authMiddleware, getUser } from "./auth-middleware";
+import { type AnonymousAccessResolved, authMiddleware, getUser } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
 import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
@@ -201,9 +201,10 @@ export type ServerOptions = {
   instanceId?: string;
   // Opt-in: serve unauthenticated requests on handlers that allow
   // roles=["anonymous"]. When omitted, every /api/* request still requires
-  // a valid JWT (status quo). See AnonymousAccessConfig for the resolution
-  // chain (header → cookie → resolver → defaultTenantId).
-  anonymousAccess?: AnonymousAccessConfig;
+  // a valid JWT (status quo). App-facing config is AnonymousAccessConfig
+  // (defaultTenantId only); run{Prod,Dev}App merge auth-foundation tenant
+  // providers into AnonymousAccessResolved before calling buildServer.
+  anonymousAccess?: AnonymousAccessResolved;
 };
 
 export type KumikoServer = {

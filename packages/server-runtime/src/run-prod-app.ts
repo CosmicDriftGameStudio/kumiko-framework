@@ -46,7 +46,9 @@ import {
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import {
+  EXT_SESSION_STORE,
   EXT_TOKEN_VERIFIER,
+  resolveAnonymousAccessFromRegistry,
   resolveTokenVerifier,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { AUTH_MFA_FEATURE, AuthMfaHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
@@ -140,11 +142,7 @@ import {
 import { buildStaticFallback } from "./run-prod-app-static-files";
 import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers";
 import { assertSessionBootInvariants } from "./session-boot-gate";
-import {
-  type ProdSessionsOption,
-  resolveProdSessionsConfig,
-  shouldWireProdSessions,
-} from "./session-wiring";
+import { shouldWireProdSessions } from "./session-wiring";
 
 export { buildBunServeOptions } from "./bun-serve-options";
 export {
@@ -287,14 +285,6 @@ export type RunProdAppAuthOptions = {
   readonly admin: SeedAdminOptions;
   /** Optional override of the login error → HTTP status map. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
-  /** Opt-in: revocable server-side sessions. Caller MUSS
-   *  `createSessionsFeature()` zu `features` adden — runProdApp wired
-   *  hier nur die Auth-Callbacks (creator/revoker/checker) gegen die
-   *  echte db-connection (sidless JWTs werden dann abgelehnt).
-   *
-   *  Standardverhalten ohne diese Option: stateless JWTs ohne sid
-   *  (legacy-Verhalten, Karten­haus existing-Apps unangefasst). */
-  readonly sessions?: ProdSessionsOption;
   /** Auth-Mail-Convenience: verdrahtet alle 4 Mail-Flows (passwordReset,
    *  emailVerification, signup, invite) aus `auth.mail.baseUrl` + Standard-
    *  Pfaden. Alle vier mailen via delivery (ctx.notify) — ersetzt das per-App
@@ -368,10 +358,8 @@ export type RunProdAppDeps = {
 };
 
 export type AnonymousAccessOption =
-  | import("@cosmicdrift/kumiko-framework/api").ServerOptions["anonymousAccess"]
-  | ((
-      deps: RunProdAppDeps,
-    ) => import("@cosmicdrift/kumiko-framework/api").ServerOptions["anonymousAccess"]);
+  | import("@cosmicdrift/kumiko-framework/api").AnonymousAccessConfig
+  | ((deps: RunProdAppDeps) => import("@cosmicdrift/kumiko-framework/api").AnonymousAccessConfig);
 
 export type ExtraContextOption =
   | Record<string, unknown>
@@ -726,12 +714,11 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     mode: "prod",
   });
   const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
+  const registry = createRegistry(features);
   assertSessionBootInvariants({
     hasAuth: Boolean(effectiveAuth),
-    sessionsFeatureMounted: sessionsFeature !== undefined,
-    sessionsOption: effectiveAuth?.sessions,
+    sessionStoreProviderMounted: registry.getExtensionUsages(EXT_SESSION_STORE).length > 0,
   });
-  const registry = createRegistry(features);
 
   // C1 boot-mode exit: validators ran + registry built; no DB/Redis client
   // is constructed at all in this branch (the eager `new Redis(...)` below
@@ -861,10 +848,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     { ...autoExtraContext, ...resolvedExtraContext },
     registry,
   );
-  const resolvedAnonymousAccess =
+  const baseAnonymousAccess =
     typeof options.anonymousAccess === "function"
       ? options.anonymousAccess(deps)
       : options.anonymousAccess;
+  // #1374: tenantResolver / tenantExists come from auth-foundation providers.
+  const resolvedAnonymousAccess = await resolveAnonymousAccessFromRegistry(baseAnonymousAccess, {
+    db,
+    registry,
+  });
 
   // Sessions opt-in: db ist hier schon konkret (createDbConnection oben),
   // also direkt verdrahten — kein late-bound nötig wie bei runDevApp.
@@ -874,22 +866,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // AuthRoutesConfig-Surface — der geht via bindAutoRevokeFromFeature ans
   // sessions-Feature (Password-Change/-Reset revoked alle Sessions), nicht
   // über die auth-routes.
-  // Secure-by-default: if the sessions feature is mounted, server-side revocation +
-  // auto-revoke-on-password-change are wired automatically;
-  // `auth.sessions` only overrides the config, and `auth.sessions: false` is the
-  // explicit opt-out (back to stateless JWTs).
+  // Secure-by-default (#1372): sessionStore provider → resolveSessionStore.
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
   const sessionAuthFragment = shouldWireProdSessions(
     Boolean(effectiveAuth),
-    sessionsFeature !== undefined,
-    effectiveAuth?.sessions,
+    registry.getExtensionUsages(EXT_SESSION_STORE).length > 0,
   )
-    ? buildProdSessionAuth(
-        db,
-        resolveProdSessionsConfig(effectiveAuth?.sessions),
-        sessionsFeature,
-        mfaFeature,
-      )
+    ? await buildProdSessionAuth(db, registry, sessionsFeature, mfaFeature)
     : undefined;
 
   // Token-verifier opt-in: any provider feature (personal-access-tokens, a

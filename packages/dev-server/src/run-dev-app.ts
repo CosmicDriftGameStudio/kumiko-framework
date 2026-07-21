@@ -18,7 +18,12 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import { resolveTokenVerifier } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import {
+  EXT_SESSION_STORE,
+  resolveSessionStore,
+  resolveTokenVerifier,
+  type SessionStore,
+} from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   AUTH_MFA_FEATURE,
   AuthMfaHandlers,
@@ -34,9 +39,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
   bindAutoRevokeFromFeature,
-  createSessionCallbacks,
   SESSIONS_FEATURE,
-  type SessionCallbacks,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
@@ -118,17 +121,6 @@ export type RunDevAppAuthOptions = {
   /** Optional override of the login error → HTTP status map. Default
    *  maps invalidCredentials → 401, noMembership → 403. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
-  /** Opt-in: revocable server-side sessions. Caller MUSS
-   *  `createSessionsFeature()` zu `features` adden — runDevApp wired
-   *  hier nur die Auth-Callbacks (creator/revoker/checker) gegen
-   *  stack.db (sidless JWTs werden dann abgelehnt).
-   *
-   *  Standardverhalten ohne diese Option: stateless JWTs ohne sid,
-   *  Logout ist client-side cookie-clear, Karten­haus existing-Apps
-   *  bleibt unangefasst. */
-  readonly sessions?: {
-    readonly expiresInMs?: number;
-  };
   /** Auth-Mail-Convenience — symmetrisch zu RunProdAppAuthOptions.mail.
    *  Verdrahtet alle 4 Mail-Flows aus env-SMTP + Standard-Templates;
    *  hmacSecret = `JWT_SECRET`-env (Dev-Fallback wenn ungesetzt). Ohne
@@ -395,19 +387,15 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     return { ...boot, ...base };
   };
 
-  // Sessions opt-in: Holder lebt im closure, `createSessionCallbacks`
-  // kennt erst nach setupTestStack die echte db-connection. Inline
-  // statt @cosmicdrift/kumiko-framework/testing's createLateBoundHolder zu reusen,
-  // weil dev-server (dev-runtime) keine Tooling aus framework/testing
-  // (test-runtime) importieren darf — Runtime-Isolation Guard.
-  // Server-Start passiert NACH onAfterSetup (siehe create-kumiko-server.ts),
-  // daher ist `sessionCallbacks` zur ersten Login-Request konkret.
-  let sessionCallbacks: SessionCallbacks | undefined;
-  const requireSessions = (): SessionCallbacks => {
-    if (!sessionCallbacks) {
-      throw new Error("[runDevApp] session-callbacks accessed before onAfterSetup");
+  // Sessions: late-bound holder — resolveSessionStore needs concrete db+
+  // registry (only after setupTestStack). Wired when sessions feature is
+  // mounted (#1372); no auth.sessions opt-in anymore.
+  let sessionStore: SessionStore | undefined;
+  const requireSessionStore = (): SessionStore => {
+    if (!sessionStore) {
+      throw new Error("[runDevApp] sessionStore accessed before onAfterSetup");
     }
-    return sessionCallbacks;
+    return sessionStore;
   };
   // Token-verifier opt-in: same late-bound holder pattern — resolveTokenVerifier
   // needs the real db+registry (only concrete after setupTestStack). Wired
@@ -444,14 +432,19 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       }
     : {};
 
+  // Parity with runProdApp (#1372 review): gate on sessionStore provider, not
+  // the sessions feature name — a custom provider must also wire auth callbacks.
+  const sessionStoreProviderMounted = features.some((f) =>
+    f.extensionUsages.some((u) => u.extensionName === EXT_SESSION_STORE),
+  );
   const sessionAuthFragment =
-    effectiveAuth?.sessions !== undefined
+    effectiveAuth && sessionStoreProviderMounted
       ? {
           sessionCreator: (user: SessionUser, meta: SessionMetadata) =>
-            requireSessions().sessionCreator(user, meta),
-          sessionRevoker: (sid: string) => requireSessions().sessionRevoker(sid),
+            requireSessionStore().creator(user, meta),
+          sessionRevoker: (sid: string) => requireSessionStore().revoker(sid),
           sessionChecker: (sid: string, userId: string) =>
-            requireSessions().sessionChecker(sid, userId),
+            requireSessionStore().checker(sid, userId),
         }
       : {};
 
@@ -540,26 +533,21 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           registry: stack.registry,
         });
       }
-      if (effectiveAuth?.sessions !== undefined) {
-        const expiresInMs = effectiveAuth.sessions.expiresInMs;
-        sessionCallbacks = createSessionCallbacks({
+      if (effectiveAuth && stack.registry.getExtensionUsages(EXT_SESSION_STORE).length > 0) {
+        // Secure-by-default (#1372): resolve sessionStore provider; bind
+        // password-change mass-revoke + MFA revokeAllOthers.
+        const store = await resolveSessionStore({
           db: stack.db,
-          ...(expiresInMs !== undefined && { expiresInMs }),
+          registry: stack.registry,
         });
-        // Secure-by-default (symmetrisch zu runProdApp): Password-Change/
-        // -Reset mass-revoked die Sessions des Users ohne App-Opt-in.
         const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
         if (sessionsFeature) {
-          bindAutoRevokeFromFeature(sessionsFeature)?.(sessionCallbacks.sessionMassRevoker);
+          bindAutoRevokeFromFeature(sessionsFeature)?.(store.massRevoker);
         }
-        // MFA enable/disable/regenerate mass-revokes every OTHER live
-        // session (stolen-session defense) — only wired when auth-mfa is
-        // mounted.
         if (mfaFeature) {
-          bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(
-            sessionCallbacks.sessionRevokeAllOthers,
-          );
+          bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(store.revokeAllOthers);
         }
+        sessionStore = store;
       }
       if (patFeature) {
         tokenVerifier = (rawToken) =>

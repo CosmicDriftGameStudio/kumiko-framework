@@ -13,9 +13,13 @@
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
   EXT_SESSION_STORE,
+  EXT_TENANT_EXISTENCE,
+  EXT_TENANT_RESOLVER,
   EXT_TOKEN_VERIFIER,
   isAuthProviderPlugin,
   isSessionStoreProvider,
+  isTenantExistenceProvider,
+  isTenantResolverProvider,
   tokenShapeKey,
 } from "./types";
 
@@ -86,6 +90,56 @@ export function validateSessionStoreMultiplicity(features: readonly FeatureDefin
     throw new Error(
       `[auth-foundation] ${names.length} sessionStore providers registered (${names.join(", ")}) — ` +
         `only one sessionStore provider may be mounted at a time.`,
+    );
+  }
+}
+
+// Optional single-provider (#1373). Zero registrations = OK (single-tenant /
+// header-cookie path). ≥2 or malformed = boot fail.
+export function validateTenantResolverMultiplicity(features: readonly FeatureDefinition[]): void {
+  const names: string[] = [];
+
+  for (const feature of features) {
+    for (const usage of feature.extensionUsages) {
+      if (usage.extensionName !== EXT_TENANT_RESOLVER) continue;
+      if (!isTenantResolverProvider(usage.options)) {
+        throw new Error(
+          `[auth-foundation] tenantResolver provider "${usage.entityName}" (feature "${feature.name}") ` +
+            `registered without a valid TenantResolverProvider — options must have { trust, build }.`,
+        );
+      }
+      names.push(usage.entityName);
+    }
+  }
+
+  if (names.length >= 2) {
+    throw new Error(
+      `[auth-foundation] ${names.length} tenantResolver providers registered (${names.join(", ")}) — ` +
+        `only one tenantResolver provider may be mounted at a time.`,
+    );
+  }
+}
+
+export function validateTenantExistenceMultiplicity(features: readonly FeatureDefinition[]): void {
+  const names: string[] = [];
+
+  for (const feature of features) {
+    for (const usage of feature.extensionUsages) {
+      if (usage.extensionName !== EXT_TENANT_EXISTENCE) continue;
+      if (!isTenantExistenceProvider(usage.options)) {
+        throw new Error(
+          `[auth-foundation] tenantExistence provider "${usage.entityName}" (feature "${feature.name}") ` +
+            `registered without a valid TenantExistenceProvider — options must have a { build } shape.`,
+        );
+      }
+      names.push(usage.entityName);
+    }
+  }
+
+  if (names.length >= 2) {
+    throw new Error(
+      `[auth-foundation] ${names.length} tenantExistence providers registered (${names.join(", ")}) — ` +
+        `only one tenantExistence provider may be mounted at a time.`,
     );
   }
 }

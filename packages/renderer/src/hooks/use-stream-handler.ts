@@ -45,6 +45,8 @@ export function useStreamHandler<TChunk = unknown>(
   const abort = useCallback((): void => {
     activeCtrl.current?.abort();
     activeCtrl.current = null;
+    // User cancel — exit streaming so UI can re-enable the start button.
+    setStatus((s) => (s === "streaming" ? "idle" : s));
   }, []);
 
   const reset = useCallback((): void => {
@@ -70,19 +72,31 @@ export function useStreamHandler<TChunk = unknown>(
         const accumulated: TChunk[] = [];
         for await (const chunk of dispatcher.stream<TChunk>(type, body, { signal: ctrl.signal })) {
           // skip: a newer start() already superseded this run
-          if (ctrl.signal.aborted) return;
+          if (ctrl.signal.aborted) {
+            if (activeCtrl.current === null || activeCtrl.current === ctrl) setStatus("idle");
+            return;
+          }
           accumulated.push(chunk);
           setChunks([...accumulated]);
         }
         // skip: aborted after last chunk, don't mark done
-        if (ctrl.signal.aborted) return;
+        if (ctrl.signal.aborted) {
+          if (activeCtrl.current === null || activeCtrl.current === ctrl) setStatus("idle");
+          return;
+        }
         setStatus("done");
       } catch (e) {
         // skip: abort is not an error toast
-        if (ctrl.signal.aborted) return;
+        if (ctrl.signal.aborted) {
+          if (activeCtrl.current === null || activeCtrl.current === ctrl) setStatus("idle");
+          return;
+        }
         const mapped = asDispatcherError(e);
         // skip: dispatcher-mapped abort (fetch cancelled)
-        if (mapped.code === "aborted") return;
+        if (mapped.code === "aborted") {
+          if (activeCtrl.current === null || activeCtrl.current === ctrl) setStatus("idle");
+          return;
+        }
         setError(mapped);
         setStatus("error");
       }

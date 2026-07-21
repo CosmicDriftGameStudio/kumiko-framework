@@ -823,7 +823,12 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
   test("cookieDomain without allowedOrigins fails closed — guard is wired through runProdApp", async () => {
     await expect(
       boot(undefined, {
-        auth: { admin: ADMIN, cookieDomain: "example.eu", sessions: false },
+        features: [
+          authFoundationFeature,
+          createPersonalAccessTokensFeature({ scopes: {} }),
+          createSessionsFeature(),
+        ],
+        auth: { admin: ADMIN, cookieDomain: "example.eu" },
         allowPlaintextPii: "test: origin-guard focus, not crypto",
       }),
     ).rejects.toThrow(/allowedOrigins is empty/);
@@ -836,11 +841,15 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
     let bootError: unknown;
     try {
       const handle = await boot(undefined, {
+        features: [
+          authFoundationFeature,
+          createPersonalAccessTokensFeature({ scopes: {} }),
+          createSessionsFeature(),
+        ],
         auth: {
           admin: ADMIN,
           cookieDomain: "example.eu",
           allowedOrigins: ["https://app.example.eu"],
-          sessions: false,
         },
       });
       expect(handle).toBeDefined();
@@ -861,7 +870,7 @@ describe("runProdApp — session boot gate (#1262/#1275)", () => {
     memberships: [],
   };
 
-  test("auth mounted, sessions feature missing, no opt-out → aborts boot", async () => {
+  test("auth mounted, sessions feature missing → aborts boot", async () => {
     await expect(
       boot(undefined, {
         auth: {
@@ -871,7 +880,7 @@ describe("runProdApp — session boot gate (#1262/#1275)", () => {
         },
         allowPlaintextPii: "test: session-gate focus, not crypto",
       }),
-    ).rejects.toThrow(/BOOT ABORTED.*sessions.*stateless/s);
+    ).rejects.toThrow(/BOOT ABORTED.*sessionStore/);
   });
 
   test("auth mounted, sessions feature mounted → boots cleanly (the happy path the gate guards)", async () => {

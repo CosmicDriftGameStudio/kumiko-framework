@@ -19,6 +19,7 @@ import { existsSync, mkdtempSync, statSync } from "node:fs";
 import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { resolveAnonymousAccessFromRegistry } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -673,6 +674,7 @@ export async function createKumikoServer(
     ...(options.auth !== undefined && { authConfig: options.auth }),
     ...(options.extraContext !== undefined && { extraContext: options.extraContext }),
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
+    enrichAnonymousAccess: (base, deps) => resolveAnonymousAccessFromRegistry(base, deps),
     ...(options.files !== undefined && { files: options.files }),
     ...(options.effectiveFeatures !== undefined && {
       effectiveFeatures: options.effectiveFeatures,

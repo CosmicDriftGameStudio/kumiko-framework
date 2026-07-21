@@ -42,6 +42,9 @@ export type SessionsFeatureOptions = {
   // only to supply a custom revoker — an explicit value wins over the
   // runtime binding.
   readonly autoRevokeOnPasswordChange?: SessionMassRevoker;
+  // Session JWT / store_user_sessions TTL. Was previously auth.sessions.expiresInMs
+  // (#1372) — lives on the sessions feature now that sessionStore is the wiring.
+  readonly expiresInMs?: number;
 };
 
 export type BindAutoRevokeOnPasswordChange = (revoker: SessionMassRevoker) => void;
@@ -120,12 +123,16 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // via resolveSessionStore().
     r.useExtension(EXT_SESSION_STORE, "default", {
       build: (deps): SessionStore => {
-        const callbacks = createSessionCallbacks({ db: deps.db });
+        const callbacks = createSessionCallbacks({
+          db: deps.db,
+          ...(options?.expiresInMs !== undefined && { expiresInMs: options.expiresInMs }),
+        });
         return {
           creator: callbacks.sessionCreator,
           revoker: callbacks.sessionRevoker,
           checker: callbacks.sessionChecker,
           massRevoker: callbacks.sessionMassRevoker,
+          revokeAllOthers: callbacks.sessionRevokeAllOthers,
         };
       },
     } satisfies SessionStoreProvider);

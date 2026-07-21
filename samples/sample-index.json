@@ -29,6 +29,7 @@
     "auth-foundation": {
       "samples": [
         "recipes-apex-surface-auth",
+        "recipes-auth-foundation-providers",
         "recipes-user-profile"
       ],
       "hasVisualOutput": true,

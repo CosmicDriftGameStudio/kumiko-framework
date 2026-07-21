@@ -75,7 +75,7 @@ export type AuthMiddlewareOptions = {
   // callers instead of being rejected with 401. The middleware synthesises
   // a SessionUser with id="anonymous" and roles=["anonymous"], scoped to a
   // tenantId resolved through the chain documented on AnonymousAccessConfig.
-  readonly anonymousAccess?: AnonymousAccessConfig;
+  readonly anonymousAccess?: AnonymousAccessResolved;
   // Consulted after tenantId is resolved (JWT/PAT/anonymous). Returns 410
   // when the tenant is in teardown (destroyRequested/destroying/destroyed).
   // cancel-destruction is exempt while status=destroyRequested.
@@ -96,50 +96,23 @@ export type TenantResolver = (c: Context) => Promise<TenantId | null> | TenantId
 // deployments where a caller could otherwise probe arbitrary ids.
 export type TenantExists = (tenantId: TenantId) => Promise<boolean> | boolean;
 
-// Single-tenant shortcut. When set, the server runs in **locked** mode:
-//   - no client-supplied tenant: defaultTenantId is used.
-//   - client supplies a matching tenant (header/cookie/resolver): allowed.
-//   - client supplies a non-matching tenant: 400 tenant_mismatch (the
-//     server is single-tenant; rejecting protects against confused clients
-//     who think they're talking to a different deployment).
-// The framework does NOT verify defaultTenantId against the DB at boot;
-// the caller is responsible (see sample for the pattern).
-// Per-request existence check for header/cookie/resolver-supplied ids.
-// Skipped for the defaultTenantId path (the caller already vetted that
-// value when configuring the server).
-type AnonymousAccessConfigCommon = {
+// App-facing anonymous-access config (#1374). tenantResolver / tenantExists
+// / resolverTrust come from auth-foundation providers (EXT_TENANT_RESOLVER /
+// EXT_TENANT_EXISTENCE), resolved at boot into AnonymousAccessResolved.
+//
+// Single-tenant shortcut: when defaultTenantId is set, the server runs in
+// **locked** mode (client must agree or get tenant_mismatch).
+export type AnonymousAccessConfig = {
   readonly defaultTenantId?: TenantId;
-  readonly tenantExists?: TenantExists;
 };
 
-// Union, not one flat optional-everything type: a tenantResolver without a
-// declared resolverTrust is an ambiguous trust decision the compiler should
-// catch, not a silent runtime default. Set resolverTrust to:
-//   - "authoritative": the resolver is trusted (e.g. it derives the tenant
-//     from the subdomain, which the client cannot forge) and is consulted
-//     FIRST. A client-supplied tenant that disagrees with the resolver's
-//     answer is rejected with 400 tenant_mismatch — it is never used to
-//     override the resolver, and it is never used as a substitute answer
-//     when the resolver returns null either (that would just reopen the
-//     same override via an unrecognised host). Pick this whenever the
-//     resolver derives the tenant from something the caller cannot control
-//     (subdomain, mTLS cert, etc.) — the whole point of such a resolver is
-//     defeated if a client header can still override it.
-//   - "fallback-only": a client-supplied header/cookie wins outright; the
-//     resolver only runs when neither is present. Pick this only when the
-//     resolver is a pure convenience fallback for callers that never send
-//     a tenant of their own (e.g. a bare API host with no per-tenant
-//     subdomains) and its answer carries no more trust than the client's
-//     own claim.
-export type AnonymousAccessConfig =
-  | (AnonymousAccessConfigCommon & {
-      readonly tenantResolver?: undefined;
-      readonly resolverTrust?: undefined;
-    })
-  | (AnonymousAccessConfigCommon & {
-      readonly tenantResolver: TenantResolver;
-      readonly resolverTrust: "authoritative" | "fallback-only";
-    });
+// Runtime config consumed by authMiddleware after boot merges registry
+// providers onto the app-facing AnonymousAccessConfig.
+export type AnonymousAccessResolved = AnonymousAccessConfig & {
+  readonly tenantResolver?: TenantResolver;
+  readonly tenantExists?: TenantExists;
+  readonly resolverTrust?: "authoritative" | "fallback-only";
+};
 
 // Where the candidate tenant came from. Drives the validation policy:
 //   - header / cookie / resolver: untrusted, must pass tenantExists if set.
@@ -409,7 +382,7 @@ async function handleVerifiedBearerUser(
 //      no CSRF vector to defend against).
 async function handleAnonymous(
   c: Context,
-  config: AnonymousAccessConfig,
+  config: AnonymousAccessResolved,
   next: Next,
   resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver,
 ): Promise<Response | undefined> {
@@ -495,7 +468,7 @@ type ResolveError = { error: RejectArgs };
 // clients that think they're talking to a different installation.
 async function resolveTenant(
   c: Context,
-  config: AnonymousAccessConfig,
+  config: AnonymousAccessResolved,
   clientTenant: { id: TenantId; source: "header" | "cookie" } | null,
 ): Promise<ResolvedTenant | ResolveError> {
   if (config.defaultTenantId !== undefined) {

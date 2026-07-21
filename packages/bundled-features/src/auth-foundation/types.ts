@@ -86,11 +86,18 @@ export const EXT_SESSION_STORE = "sessionStore";
 /** Mass-revoke every live session for a user. Used by password-change and "sign out everywhere". */
 export type SessionMassRevoker = (userId: string) => Promise<number>;
 
+/** Keep current sid (if any); revoke every other live session. Used by auth-mfa. */
+export type SessionRevokeAllOthers = (
+  userId: string,
+  currentSid: string | undefined,
+) => Promise<number>;
+
 export type SessionStore = {
   readonly creator: SessionCreator;
   readonly revoker: SessionRevoker;
   readonly checker: SessionChecker;
   readonly massRevoker: SessionMassRevoker;
+  readonly revokeAllOthers: SessionRevokeAllOthers;
 };
 
 export type SessionStoreProvider = {
@@ -98,6 +105,62 @@ export type SessionStoreProvider = {
 };
 
 export function isSessionStoreProvider(o: unknown): o is SessionStoreProvider {
+  return (
+    typeof o === "object" &&
+    o !== null &&
+    "build" in o &&
+    typeof (o as { build: unknown }).build === "function"
+  );
+}
+
+// Tenant-resolution extension points (#1373). Both are single-provider and
+// optional — zero registered means today's single-tenant / header-cookie
+// path (no subdomain resolver, no existence check). ≥2 fails boot.
+
+export const EXT_TENANT_RESOLVER = "tenantResolver";
+export const EXT_TENANT_EXISTENCE = "tenantExistence";
+
+/** Trust mode for a registered tenantResolver — mirrors AnonymousAccessConfig.resolverTrust. */
+export type TenantResolverTrust = "authoritative" | "fallback-only";
+
+/**
+ * Resolves the tenant for an unauthenticated request. Return null when no
+ * tenant can be determined — middleware rejects with 400. Throw only on
+ * infrastructure failures.
+ */
+export type TenantResolverFn = (
+  // Hono Context — typed loosely so auth-foundation stays free of a hono dep.
+  // Callers cast at the boundary (same shape as framework TenantResolver).
+  c: unknown,
+) => Promise<string | null> | string | null;
+
+export type TenantExistsFn = (tenantId: string) => Promise<boolean> | boolean;
+
+export type TenantResolverProvider = {
+  readonly trust: TenantResolverTrust;
+  readonly build: (deps: AuthProviderBuildDeps) => Promise<TenantResolverFn> | TenantResolverFn;
+};
+
+export type TenantExistenceProvider = {
+  readonly build: (deps: AuthProviderBuildDeps) => Promise<TenantExistsFn> | TenantExistsFn;
+};
+
+export function isTenantResolverTrust(v: unknown): v is TenantResolverTrust {
+  return v === "authoritative" || v === "fallback-only";
+}
+
+export function isTenantResolverProvider(o: unknown): o is TenantResolverProvider {
+  return (
+    typeof o === "object" &&
+    o !== null &&
+    "build" in o &&
+    typeof (o as { build: unknown }).build === "function" &&
+    "trust" in o &&
+    isTenantResolverTrust((o as { trust: unknown }).trust)
+  );
+}
+
+export function isTenantExistenceProvider(o: unknown): o is TenantExistenceProvider {
   return (
     typeof o === "object" &&
     o !== null &&

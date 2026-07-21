@@ -1,4 +1,5 @@
 import { makeAuthPaths } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { resolveSessionStore } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { bindMfaRevokeAllOtherSessionsFromFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createSmtpTransportFromEnv } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
@@ -15,10 +16,7 @@ import {
   createSecretsContext,
   SECRETS_FEATURE_NAME,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import {
-  bindAutoRevokeFromFeature,
-  createSessionCallbacks,
-} from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { bindAutoRevokeFromFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
@@ -38,7 +36,6 @@ import type {
   PasswordResetSetup,
   SignupSetup,
 } from "./run-prod-app";
-import type { ProdSessionsConfig } from "./session-wiring";
 
 // Boot-time context helpers for runProdApp: ctx-extra-context wiring
 // (textContent/delivery/secrets/config-resolver), auth-mail convenience
@@ -214,33 +211,27 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
   };
 }
 
-export function buildProdSessionAuth(
+export async function buildProdSessionAuth(
   db: DbConnection,
-  opts: ProdSessionsConfig,
+  registry: Registry,
   sessionsFeature: FeatureDefinition | undefined,
   mfaFeature: FeatureDefinition | undefined,
-): {
-  readonly sessionCreator: ReturnType<typeof createSessionCallbacks>["sessionCreator"];
-  readonly sessionRevoker: ReturnType<typeof createSessionCallbacks>["sessionRevoker"];
-  readonly sessionChecker: ReturnType<typeof createSessionCallbacks>["sessionChecker"];
-} {
-  const cbs = createSessionCallbacks({
-    db,
-    ...(opts.expiresInMs !== undefined && { expiresInMs: opts.expiresInMs }),
-  });
-  // Secure-by-default: password-change/-reset mass-revokes the user's live
-  // sessions without the app opting in via autoRevokeOnPasswordChange.
+): Promise<{
+  readonly sessionCreator: Awaited<ReturnType<typeof resolveSessionStore>>["creator"];
+  readonly sessionRevoker: Awaited<ReturnType<typeof resolveSessionStore>>["revoker"];
+  readonly sessionChecker: Awaited<ReturnType<typeof resolveSessionStore>>["checker"];
+}> {
+  // Resolve the sessions feature sessionStore provider (#1372).
+  const store = await resolveSessionStore({ db, registry });
   if (sessionsFeature) {
-    bindAutoRevokeFromFeature(sessionsFeature)?.(cbs.sessionMassRevoker);
+    bindAutoRevokeFromFeature(sessionsFeature)?.(store.massRevoker);
   }
-  // MFA enable/disable/regenerate mass-revokes every OTHER live session
-  // (stolen-session defense) — only wired when auth-mfa is mounted.
   if (mfaFeature) {
-    bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(cbs.sessionRevokeAllOthers);
+    bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(store.revokeAllOthers);
   }
   return {
-    sessionCreator: cbs.sessionCreator,
-    sessionRevoker: cbs.sessionRevoker,
-    sessionChecker: cbs.sessionChecker,
+    sessionCreator: store.creator,
+    sessionRevoker: store.revoker,
+    sessionChecker: store.checker,
   };
 }

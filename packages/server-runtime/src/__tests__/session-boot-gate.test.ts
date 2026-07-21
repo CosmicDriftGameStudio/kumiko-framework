@@ -1,54 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import { assertSessionBootInvariants } from "../session-boot-gate";
 
-describe("assertSessionBootInvariants", () => {
-  test("no auth mounted → nothing to gate", () => {
+describe("assertSessionBootInvariants (#1372)", () => {
+  test("no auth → no throw", () => {
     expect(() =>
-      assertSessionBootInvariants({
-        hasAuth: false,
-        sessionsFeatureMounted: false,
-        sessionsOption: undefined,
-      }),
+      assertSessionBootInvariants({ hasAuth: false, sessionStoreProviderMounted: false }),
     ).not.toThrow();
   });
 
-  test("auth mounted, sessions feature missing, no opt-out → aborts boot", () => {
+  test("auth + sessionStore → no throw", () => {
     expect(() =>
-      assertSessionBootInvariants({
-        hasAuth: true,
-        sessionsFeatureMounted: false,
-        sessionsOption: undefined,
-      }),
-    ).toThrow(/BOOT ABORTED.*sessions.*stateless/s);
-  });
-
-  test("auth mounted, sessions feature missing, explicit sessions:false → boots", () => {
-    expect(() =>
-      assertSessionBootInvariants({
-        hasAuth: true,
-        sessionsFeatureMounted: false,
-        sessionsOption: false,
-      }),
+      assertSessionBootInvariants({ hasAuth: true, sessionStoreProviderMounted: true }),
     ).not.toThrow();
   });
 
-  test("auth mounted, sessions feature wired → boots", () => {
+  test("auth without sessionStore → throws", () => {
     expect(() =>
-      assertSessionBootInvariants({
-        hasAuth: true,
-        sessionsFeatureMounted: true,
-        sessionsOption: undefined,
-      }),
-    ).not.toThrow();
-  });
-
-  test("auth mounted, sessions feature wired AND an expiresInMs override → boots", () => {
-    expect(() =>
-      assertSessionBootInvariants({
-        hasAuth: true,
-        sessionsFeatureMounted: true,
-        sessionsOption: { expiresInMs: 60_000 },
-      }),
-    ).not.toThrow();
+      assertSessionBootInvariants({ hasAuth: true, sessionStoreProviderMounted: false }),
+    ).toThrow(/BOOT ABORTED/);
   });
 });
