@@ -70,7 +70,7 @@ describe("useStreamHandler", () => {
     expect(result.current.error?.code).toBe("access_denied");
   });
 
-  test("abort during stream leaves status without late done", async () => {
+  test("abort during stream resets status to idle (no late done)", async () => {
     let release!: () => void;
     const gate = new Promise<void>((r) => {
       release = r;
@@ -102,6 +102,6 @@ describe("useStreamHandler", () => {
     release();
     await started;
     expect(result.current.chunks).toEqual([{ i: 0 }]);
-    expect(result.current.status).not.toBe("done");
+    expect(result.current.status).toBe("idle");
   });
 });

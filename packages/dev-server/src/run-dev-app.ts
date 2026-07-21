@@ -432,9 +432,13 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       }
     : {};
 
-  const sessionsFeatureMounted = features.some((f) => f.name === SESSIONS_FEATURE);
+  // Parity with runProdApp (#1372 review): gate on sessionStore provider, not
+  // the sessions feature name — a custom provider must also wire auth callbacks.
+  const sessionStoreProviderMounted = features.some((f) =>
+    f.extensionUsages.some((u) => u.extensionName === EXT_SESSION_STORE),
+  );
   const sessionAuthFragment =
-    effectiveAuth && sessionsFeatureMounted
+    effectiveAuth && sessionStoreProviderMounted
       ? {
           sessionCreator: (user: SessionUser, meta: SessionMetadata) =>
             requireSessionStore().creator(user, meta),
@@ -529,10 +533,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           registry: stack.registry,
         });
       }
-      if (
-        effectiveAuth &&
-        stack.registry.getExtensionUsages(EXT_SESSION_STORE).length > 0
-      ) {
+      if (effectiveAuth && stack.registry.getExtensionUsages(EXT_SESSION_STORE).length > 0) {
         // Secure-by-default (#1372): resolve sessionStore provider; bind
         // password-change mass-revoke + MFA revokeAllOthers.
         const store = await resolveSessionStore({

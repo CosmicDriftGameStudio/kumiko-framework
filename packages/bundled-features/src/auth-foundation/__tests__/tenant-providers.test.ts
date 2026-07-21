@@ -2,16 +2,14 @@
 
 import { describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   validateTenantExistenceMultiplicity,
   validateTenantResolverMultiplicity,
 } from "../boot-checks";
-import {
-  authFoundationFeature,
-  resolveTenantExistence,
-  resolveTenantResolver,
-} from "../feature";
+import { authFoundationFeature, resolveTenantExistence, resolveTenantResolver } from "../feature";
+import { resolveAnonymousAccessFromRegistry } from "../resolve-anonymous-access";
 import {
   EXT_TENANT_EXISTENCE,
   EXT_TENANT_RESOLVER,
@@ -120,5 +118,19 @@ describe("validateTenantExistenceMultiplicity", () => {
     expect(() => validateTenantExistenceMultiplicity([...registry.features.values()])).toThrow(
       /2 tenantExistence providers/,
     );
+  });
+});
+
+describe("resolveAnonymousAccessFromRegistry — fail-closed trust", () => {
+  test("inline tenantResolver without resolverTrust throws", async () => {
+    const registry = createRegistry([authFoundationFeature]);
+    await expect(
+      resolveAnonymousAccessFromRegistry(
+        {
+          tenantResolver: () => "00000000-0000-4000-8000-000000000001" as TenantId,
+        },
+        { db: fakeDb, registry },
+      ),
+    ).rejects.toThrow(/resolverTrust/);
   });
 });

@@ -24,6 +24,21 @@ export async function resolveAnonymousAccessFromRegistry(
 
   if (!base && !tenantResolver && !tenantExists) return undefined;
 
+  // Fail-closed (#1374 security): inline tenantResolver without trust is the
+  // old ambiguous config — providers always carry trust; test stacks must too.
+  if (
+    !tenantResolver &&
+    base &&
+    "tenantResolver" in base &&
+    base.tenantResolver !== undefined &&
+    base.resolverTrust === undefined
+  ) {
+    throw new Error(
+      "[auth-foundation] anonymousAccess.tenantResolver is set without resolverTrust — " +
+        'declare "authoritative" or "fallback-only" (or mount an EXT_TENANT_RESOLVER provider).',
+    );
+  }
+
   // Providers win (#1374). When none are mounted, keep any test-injected
   // Resolved callbacks so framework middleware suites stay self-contained.
   return {
