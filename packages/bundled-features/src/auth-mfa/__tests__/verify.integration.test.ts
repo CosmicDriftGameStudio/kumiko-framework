@@ -292,4 +292,28 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
     );
     expectErrorIncludes(err, "invalid_challenge_token");
   });
+
+  test("user row homed in a DIFFERENT tenant than the challenge → verify succeeds (#1235)", async () => {
+    const { user, secret } = await enableMfaFor(8);
+
+    // Re-home the read_users row into another tenant — the #1235 layout:
+    // the user entity is tenant-agnostic (systemStream), so its row's
+    // tenant_id need not match the tenant being logged into. The old
+    // tenant-scoped UserQueries.detail lookup returned null here and every
+    // verify died with invalid_challenge_token; the unscoped findForAuth
+    // must resolve the row regardless.
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${userTable.tableName}" SET tenant_id = $1 WHERE id = $2`,
+      ["00000000-0000-4000-8000-0000000000fe", user.id],
+    );
+
+    const challengeToken = challengeFor(user.id, user.tenantId);
+    const res = await stack.http.writeOk<{ session: SessionUser }>(
+      AuthMfaHandlers.verify,
+      { challengeToken, code: currentTotpCode(secret) },
+      GUEST,
+    );
+    expect(res.session.id).toBe(user.id);
+    expect(res.session.tenantId).toBe(user.tenantId);
+  });
 });
