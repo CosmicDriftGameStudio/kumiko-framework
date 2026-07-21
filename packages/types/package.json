@@ -97,6 +97,10 @@
     "./write-error-info-types": {
       "types": "./src/write-error-info-types.ts",
       "default": "./src/write-error-info-types.ts"
+    },
+    "./hook-phase": {
+      "types": "./src/hook-phase.ts",
+      "default": "./src/hook-phase.ts"
     }
   },
   "dependencies": {
