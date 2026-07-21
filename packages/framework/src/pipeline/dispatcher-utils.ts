@@ -38,7 +38,7 @@ export function describeShape(result: unknown): string {
 
 export function dispatcherSpanAttributes(
   type: string,
-  operation: "query" | "write",
+  operation: "query" | "write" | "stream",
   user: SessionUser,
   feature: string | undefined,
 ) {

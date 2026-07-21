@@ -25,6 +25,17 @@ const echoFeature = defineFeature("echo", (r) => {
     { access: { openToAll: true } },
   );
 
+  r.streamHandler(
+    "item:tail",
+    z.object({ count: z.number().int().min(0) }),
+    async function* (query) {
+      for (let i = 0; i < query.payload.count; i++) {
+        yield { i };
+      }
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
   r.hook("validation", "item:create", (data) => {
     if (data["name"] === "forbidden") return [{ field: "name", error: "forbidden_name" }];
     return null;
@@ -214,6 +225,55 @@ describe("dispatcher.query", () => {
   });
 });
 
+async function collect<T>(gen: AsyncGenerator<T>): Promise<T[]> {
+  const out: T[] = [];
+  for await (const chunk of gen) out.push(chunk);
+  return out;
+}
+
+describe("dispatcher.stream", () => {
+  test("validates and calls stream handler, yielding chunks in order", async () => {
+    const dispatcher = createTestDispatcher();
+    const chunks = await collect(
+      dispatcher.stream(
+        "echo:stream:item:tail",
+        { count: 3 },
+        createTestUser({ roles: ["Admin"] }),
+      ),
+    );
+
+    expect(chunks).toEqual([{ i: 0 }, { i: 1 }, { i: 2 }]);
+  });
+
+  test("gates fire on first pull, not on the stream() call itself", async () => {
+    const dispatcher = createTestDispatcher();
+    const gen = dispatcher.stream(
+      "echo:stream:item:tail",
+      { count: -1 },
+      createTestUser({ roles: ["Admin"] }),
+    );
+
+    await expect(collect(gen)).rejects.toMatchObject({ code: "validation_error", httpStatus: 400 });
+  });
+
+  test("rejects unauthorized user", async () => {
+    const dispatcher = createTestDispatcher();
+    const guest = createTestUser({ roles: ["Guest"] });
+
+    await expect(
+      collect(dispatcher.stream("echo:stream:item:tail", { count: 1 }, guest)),
+    ).rejects.toMatchObject({ code: "access_denied" });
+  });
+
+  test("throws for unknown stream handler", async () => {
+    const dispatcher = createTestDispatcher();
+
+    await expect(
+      collect(dispatcher.stream("nonexistent", {}, createTestUser({ roles: ["Admin"] }))),
+    ).rejects.toMatchObject({ code: "not_found", httpStatus: 404 });
+  });
+});
+
 // --- postQuery hooks on standalone (entity-less) queries ---
 
 describe("dispatcher.query postQuery hooks", () => {
@@ -362,6 +422,20 @@ describe("dispatcher feature-gate", () => {
         async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
         { access: { roles: ["Admin"] } },
       );
+      r.streamHandler(
+        "widget:tail",
+        z.object({}).passthrough(),
+        async function* () {
+          // Never completes on its own — the mid-stream toggle-off test
+          // relies on the generator staying open past the first yield.
+          let i = 0;
+          while (true) {
+            yield { i };
+            i++;
+          }
+        },
+        { access: { openToAll: true } },
+      );
     });
   }
 
@@ -395,6 +469,28 @@ describe("dispatcher feature-gate", () => {
     await expect(dispatcher.query("toggled:query:widget:list", {}, user)).resolves.toEqual({
       items: [],
     });
+  });
+
+  test("disabling the feature mid-stream aborts an already-open stream", async () => {
+    const registry = createRegistry([toggled()]);
+    const disabled = new Set<string>();
+    const dispatcher = createDispatcher(
+      registry,
+      {},
+      {
+        effectiveFeatures: () => {
+          const all = new Set(registry.features.keys());
+          for (const d of disabled) all.delete(d);
+          return all;
+        },
+      },
+    );
+
+    const gen = dispatcher.stream("toggled:stream:widget:tail", {}, user);
+    expect((await gen.next()).value).toEqual({ i: 0 });
+
+    disabled.add("toggled");
+    await expect(gen.next()).rejects.toThrow(/feature toggled is disabled/);
   });
 
   test("write of disabled feature returns WriteFailure with feature_disabled reason", async () => {

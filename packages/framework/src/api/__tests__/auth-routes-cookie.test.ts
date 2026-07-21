@@ -37,6 +37,7 @@ function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
     async query(): Promise<unknown> {
       return [];
     },
+    async *stream(): AsyncGenerator<unknown> {},
     async command(): Promise<void> {},
     async batch(): Promise<BatchResult> {
       const ok: BatchResult = { isSuccess: true, results: [] };

@@ -8,6 +8,7 @@ import { runBatch, unwrapSingle } from "./dispatch-batch";
 import { executeQuery } from "./dispatch-query";
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared";
 import { resolveAuthClaimsFn } from "./dispatch-shared";
+import { executeStream } from "./dispatch-stream";
 import { type HandlerType, resolveType } from "./dispatcher-utils";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
@@ -52,6 +53,10 @@ export type Dispatcher = {
     requestId?: string,
   ): Promise<WriteResult>;
   query(type: HandlerType, payload: unknown, user: SessionUser): Promise<unknown>;
+  // AsyncGenerator, not Promise — gates (feature/rate-limit/access/
+  // validation) fire on the consumer's first `.next()` pull, not on this
+  // call, since they live inside the underlying async function*.
+  stream(type: HandlerType, payload: unknown, user: SessionUser): AsyncGenerator<unknown>;
   command(type: HandlerType, payload: unknown, user: SessionUser): Promise<void>;
   // Atomic multi-command write: all commands run in a single DB transaction.
   // On any failure, the transaction rolls back and afterCommit hooks do NOT fire.
@@ -113,6 +118,8 @@ export function createDispatcher(
     batch: (commands, user, requestId?) => runBatch(ctx, commands, user, requestId),
 
     query: (typeOrRef, payload, user) => executeQuery(ctx, resolveType(typeOrRef), payload, user),
+
+    stream: (typeOrRef, payload, user) => executeStream(ctx, resolveType(typeOrRef), payload, user),
 
     async command(typeOrRef, payload, user) {
       const type = resolveType(typeOrRef);
