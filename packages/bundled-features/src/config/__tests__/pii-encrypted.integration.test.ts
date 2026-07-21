@@ -156,4 +156,24 @@ describe("piiEncrypted config keys", () => {
       configurePiiSubjectKms(kms);
     }
   });
+
+  test("read of stored piiEncrypted ciphertext without KMS fails loud", async () => {
+    // Plant ciphertext while KMS is wired, then strip it so the READ path
+    // (decryptPiiEncrypted) — not just the write path — fails loud.
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: BILLING_ADDRESS_KEY, value: "planted-for-read" },
+      tenantAdmin,
+    );
+
+    resetPiiSubjectKmsForTests();
+    expect(configuredPiiSubjectKms()).toBeUndefined();
+
+    try {
+      const res = await stack.http.query(ConfigQueries.values, {}, tenantAdmin);
+      expect(res.status).toBe(500);
+    } finally {
+      configurePiiSubjectKms(kms);
+    }
+  });
 });

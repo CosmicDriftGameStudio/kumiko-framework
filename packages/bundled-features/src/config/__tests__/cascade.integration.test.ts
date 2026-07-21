@@ -527,3 +527,42 @@ describe("config:query:cascade handler", () => {
     expect(data[TENANT_KEY]).toBeDefined();
   });
 });
+
+// getAll / getAllWithSource are bulk readers used by admin UIs — never
+// reached via the cascade query handlers above, so they stay uncovered
+// unless called directly on the resolver.
+describe("getAll / getAllWithSource", () => {
+  test("getAll picks the most specific row (user > tenant > system)", async () => {
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: TENANT_KEY, value: "TENANT_BULK" },
+      tenantAdmin,
+    );
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: USER_KEY, value: "USER_BULK" },
+      tenantAdmin,
+    );
+
+    const all = await resolver.getAll(tenantAdmin.tenantId, tenantAdmin.id, db);
+    // getAll returns raw stored strings (JSON-serialized); deserialize for asserts.
+    expect(JSON.parse(all.get(TENANT_KEY)?.value ?? "null")).toBe("TENANT_BULK");
+    expect(JSON.parse(all.get(USER_KEY)?.value ?? "null")).toBe("USER_BULK");
+    // System seed still present for keys without a more-specific row.
+    expect(JSON.parse(all.get(SYSTEM_KEY)?.value ?? "null")).toBe("SEED_SYSTEM");
+  });
+
+  test("getAllWithSource tags the winning row's source", async () => {
+    const withSource = await resolver.getAllWithSource(tenantAdmin.tenantId, tenantAdmin.id, db);
+
+    const userRow = withSource.get(USER_KEY);
+    expect(userRow?.source).toBe("user-row");
+    expect(JSON.parse(userRow?.value ?? "null")).toBe("USER_BULK");
+
+    const tenantRow = withSource.get(TENANT_KEY);
+    expect(tenantRow?.source).toBe("tenant-row");
+
+    const systemRow = withSource.get(SYSTEM_KEY);
+    expect(systemRow?.source).toBe("system-row");
+  });
+});
