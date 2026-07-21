@@ -384,3 +384,171 @@ defineFeature("legacy", (r) => {
     expect(text).not.toContain('r.entity("item"');
   });
 });
+
+describe("addPattern — error paths", () => {
+  test("throws when no defineFeature call is present", () => {
+    const sf = makeSourceFile("export const x = 1;");
+    expect(() => addPattern(sf, newSecretPattern)).toThrow(/no defineFeature/);
+  });
+});
+
+describe("callMatchesId — positional and object-form lookups", () => {
+  const LEGACY = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("legacy", (r) => {
+  r.relation("task", "owner", { kind: "belongsTo", to: "user" });
+
+  r.hook("postSave", "task", () => {});
+
+  r.hook("preDelete", { allOf: "task" }, () => {});
+
+  r.job("nightly", { trigger: { cron: "0 0 * * *" } }, async () => {});
+
+  r.writeHandler("task:create", z.object({}), async () => ({}));
+
+  r.queryHandler("task:list", z.object({}), async () => []);
+
+  r.notification("taskCreated", {
+    trigger: { on: "task" },
+    recipient: () => ({}),
+    data: () => ({}),
+  });
+});
+`;
+
+  test("removePattern finds a positional relation by entity+name", () => {
+    const sf = makeSourceFile(LEGACY);
+    removePattern(sf, { kind: "relation", entityName: "task", relationName: "owner" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "relation")).toBeUndefined();
+  });
+
+  test("removePattern finds a positional hook by type+string target", () => {
+    const sf = makeSourceFile(LEGACY);
+    removePattern(sf, { kind: "hook", hookType: "postSave", target: "task" });
+    expect(parseSourceFile(sf).patterns.filter((p) => p.kind === "hook")).toHaveLength(1);
+  });
+
+  test("removePattern finds a positional hook with an allOf target", () => {
+    const sf = makeSourceFile(LEGACY);
+    removePattern(sf, { kind: "hook", hookType: "preDelete", target: { allOf: "task" } });
+    expect(parseSourceFile(sf).patterns.filter((p) => p.kind === "hook")).toHaveLength(1);
+  });
+
+  test("removePattern finds a positional job by name", () => {
+    const sf = makeSourceFile(LEGACY);
+    removePattern(sf, { kind: "job", jobName: "nightly" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "job")).toBeUndefined();
+  });
+
+  test("removePattern finds a writeHandler by positional name", () => {
+    const sf = makeSourceFile(LEGACY);
+    removePattern(sf, { kind: "writeHandler", handlerName: "task:create" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "writeHandler")).toBeUndefined();
+  });
+
+  test("removePattern finds a queryHandler by positional name", () => {
+    const sf = makeSourceFile(LEGACY);
+    removePattern(sf, { kind: "queryHandler", handlerName: "task:list" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "queryHandler")).toBeUndefined();
+  });
+
+  test("removePattern finds a positional notification by name", () => {
+    const sf = makeSourceFile(LEGACY);
+    removePattern(sf, { kind: "notification", notificationName: "taskCreated" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "notification")).toBeUndefined();
+  });
+});
+
+describe("removePattern — blank-line collapse", () => {
+  test("removing an appended pattern collapses the preceding blank line", () => {
+    const sf = makeSourceFile(STARTER);
+    addPattern(sf, newSecretPattern);
+    const linesBefore = sf.getFullText().split("\n").length;
+    removePattern(sf, { kind: "secret", shortName: "stripeKey" });
+    const linesAfter = sf.getFullText().split("\n").length;
+    expect(linesAfter).toBeLessThan(linesBefore);
+    expect(parseSourceFile(sf).patterns.map((p) => p.kind)).toEqual(["entity", "metric"]);
+  });
+});
+
+describe("replacePattern — object-form hook with allOf target", () => {
+  test("replaces an object-form hook registered with an allOf target", () => {
+    const file = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("hooks", (r) => {
+  r.hook({ type: "postSave", target: { allOf: "task" }, handler: () => {} });
+});
+`;
+    const sf = makeSourceFile(file);
+    replacePattern(
+      sf,
+      { kind: "hook", hookType: "postSave", target: { allOf: "task" } },
+      {
+        kind: "hook",
+        source: SAMPLE_LOC,
+        hookType: "postSave",
+        target: { allOf: "task" },
+        fnBody: { ...SAMPLE_LOC, raw: "() => { /* updated */ }" },
+      },
+    );
+    expect(sf.getFullText()).toContain("/* updated */");
+  });
+});
+describe("callMatchesId — object-form lookups", () => {
+  const OBJECT_FORM = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("object", (r) => {
+  r.relation({ entity: "task", name: "owner", kind: "belongsTo", to: "user" });
+
+  r.job({ name: "nightly", trigger: { cron: "0 0 * * *" }, handler: async () => {} });
+
+  r.useExtension({ name: "audit", entity: "task" });
+
+  r.writeHandler({
+    name: "task:create",
+    schema: z.object({}),
+    handler: async () => ({}),
+  });
+
+  r.notification({
+    name: "taskCreated",
+    trigger: { on: "task" },
+    recipient: () => ({}),
+    data: () => ({}),
+  });
+});
+`;
+
+  test("removePattern finds an object-form relation", () => {
+    const sf = makeSourceFile(OBJECT_FORM);
+    removePattern(sf, { kind: "relation", entityName: "task", relationName: "owner" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "relation")).toBeUndefined();
+  });
+
+  test("removePattern finds an object-form job", () => {
+    const sf = makeSourceFile(OBJECT_FORM);
+    removePattern(sf, { kind: "job", jobName: "nightly" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "job")).toBeUndefined();
+  });
+
+  test("removePattern finds an object-form useExtension", () => {
+    const sf = makeSourceFile(OBJECT_FORM);
+    removePattern(sf, { kind: "useExtension", extensionName: "audit", entityName: "task" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "useExtension")).toBeUndefined();
+  });
+
+  test("removePattern finds an object-form writeHandler", () => {
+    const sf = makeSourceFile(OBJECT_FORM);
+    removePattern(sf, { kind: "writeHandler", handlerName: "task:create" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "writeHandler")).toBeUndefined();
+  });
+
+  test("removePattern finds an object-form notification", () => {
+    const sf = makeSourceFile(OBJECT_FORM);
+    removePattern(sf, { kind: "notification", notificationName: "taskCreated" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "notification")).toBeUndefined();
+  });
+});

@@ -64,6 +64,22 @@ describe("resolveStylesheet", () => {
     }
   });
 
+  test("Bun.resolveSync failure → undefined (catch path, no throw)", () => {
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-resolve-catch-")));
+    const cwdBefore = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      const out = resolveStylesheet({
+        features: [],
+        clientEntry: "./entry.tsx",
+      });
+      expect(out).toBeUndefined();
+    } finally {
+      process.chdir(cwdBefore);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test("undefined + clientEntry + src/styles.css existiert → returns App-Theme-Override", () => {
     // Auto-Detection greift VOR dem renderer-web-Fallback: Wenn die App
     // ein eigenes src/styles.css hat (App-Theme-Pattern), wird das

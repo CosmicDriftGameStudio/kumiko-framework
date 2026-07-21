@@ -1,19 +1,32 @@
 import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-// Bun.Glob is only used by scanForCandidates / runCodemod, not by
-// analyzeFile or convertFile. Those higher-level functions are tested
-// in the integration suite; unit tests here focus on file-level
-// operations which don't need Glob. A stub class prevents import
-// errors in bun (which runs on Node, not Bun).
-mock.module("bun", () => {
-  class StubGlob {
-    scanSync(): never {
-      throw new Error("Bun.Glob is not available in unit-test mode");
+// Bun.Glob is only used by scanForCandidates / runCodemod. Emulate
+// **/*.write.ts via node:fs so scan/convert paths stay testable.
+function collectWriteTsRelPaths(rootDir: string, dir = rootDir, prefix = ""): string[] {
+  const out: string[] = [];
+  for (const name of readdirSync(dir)) {
+    const rel = prefix ? `${prefix}/${name}` : name;
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) {
+      out.push(...collectWriteTsRelPaths(rootDir, full, rel));
+    } else if (name.endsWith(".write.ts")) {
+      out.push(rel);
     }
   }
-  return { Glob: StubGlob };
+  return out;
+}
+
+mock.module("bun", () => {
+  class FsGlob {
+    constructor(private readonly pattern: string) {}
+    scanSync(rootDir: string): string[] {
+      if (this.pattern !== "**/*.write.ts") return [];
+      return collectWriteTsRelPaths(rootDir).sort();
+    }
+  }
+  return { Glob: FsGlob };
 });
 
 import {
@@ -21,6 +34,8 @@ import {
   analyzeHandlerArrow,
   convertFile,
   generatePerformBlock,
+  runCodemod,
+  scanForCandidates,
 } from "../codemod/index";
 
 const tmpDir = join(__dirname, "__codemod_fixtures__");
@@ -29,6 +44,20 @@ function writeFixture(name: string, content: string): string {
   const p = join(tmpDir, name);
   writeFileSync(p, content, "utf8");
   return p;
+}
+
+function writeFixtureIn(dir: string, name: string, content: string): string {
+  const p = join(dir, name);
+  mkdirSync(join(p, ".."), { recursive: true });
+  writeFileSync(p, content, "utf8");
+  return p;
+}
+
+function freshScanRoot(name: string): string {
+  const dir = join(tmpDir, name);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
 beforeAll(() => {
@@ -399,6 +428,31 @@ export const h = defineWriteHandler({
       // ts-morph should handle this gracefully (parse error → no call found)
       expect(result.status).toBe("skipped");
     });
+
+    it("returns error when the path is not a readable file", async () => {
+      const dirPath = join(tmpDir, "dir-not-file.write.ts");
+      rmSync(dirPath, { recursive: true, force: true });
+      mkdirSync(dirPath, { recursive: true });
+      const result = await convertFile(dirPath);
+      expect(result.status).toBe("error");
+      expect(result.reason).toBeDefined();
+    });
+
+    it("verbose logs when skipping a non-trivial handler", async () => {
+      const p = writeFixture("verbose-skip-file.write.ts", complexContent);
+      const logs: string[] = [];
+      const origLog = console.log;
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "));
+      };
+      try {
+        const result = await convertFile(p, undefined, { verbose: true });
+        expect(result.status).toBe("skipped");
+        expect(logs.some((l) => l.includes("non-trivial handler"))).toBe(true);
+      } finally {
+        console.log = origLog;
+      }
+    });
   });
 });
 
@@ -508,6 +562,81 @@ describe("analyzeHandlerArrow", () => {
     }`);
     expect(result.isGuardedCreate).toBe(true);
     expect(result.isSimpleExecutorCreate).toBe(false);
+  });
+
+  it("returns non-convertible defaults for async ( without =>", () => {
+    const result = analyzeHandlerArrow("async (event, ctx) { return { isSuccess: true } }");
+    expect(result.isStaticReturn).toBe(false);
+    expect(result.isSimpleExecutorCreate).toBe(false);
+    expect(result.isSimpleExecutorUpdate).toBe(false);
+    expect(result.hasConditionalLogic).toBe(false);
+    expect(result.isExpressionBodyCreate).toBe(false);
+    expect(result.isGuardedCreate).toBe(false);
+  });
+});
+
+describe("scanForCandidates", () => {
+  it("returns empty list when no *.write.ts files exist", () => {
+    const root = freshScanRoot("scan-empty");
+    expect(scanForCandidates(root)).toEqual([]);
+  });
+
+  it("finds and classifies *.write.ts fixtures under rootDir", () => {
+    const root = freshScanRoot("scan-mixed");
+    writeFixtureIn(root, "freeform.write.ts", staticReturnContent);
+    writeFixtureIn(root, "already-pipeline.write.ts", alreadyPipelineContent);
+    writeFixtureIn(root, "nested/deep.write.ts", queryHandlerContent);
+
+    const results = scanForCandidates(root);
+    expect(results.map((r) => r.filePath).sort()).toEqual(
+      [
+        join(root, "already-pipeline.write.ts"),
+        join(root, "freeform.write.ts"),
+        join(root, "nested/deep.write.ts"),
+      ].sort(),
+    );
+    expect(results.find((r) => r.pattern === "free-form-write")?.convertible).toBe(true);
+    expect(results.find((r) => r.pattern === "pipeline-write")?.convertible).toBe(false);
+    expect(results.find((r) => r.pattern === "query-handler")?.convertible).toBe(false);
+  });
+});
+
+describe("runCodemod", () => {
+  it("returns empty report when scan finds no convertible handlers", async () => {
+    const root = freshScanRoot("run-empty");
+    const report = await runCodemod(root);
+    expect(report).toEqual({ results: [], converted: 0, skipped: 0, errors: 0 });
+  });
+
+  it("converts free-form write handlers discovered by scan", async () => {
+    const root = freshScanRoot("run-convert");
+    const p = writeFixtureIn(root, "to-convert.write.ts", staticReturnContent);
+    const report = await runCodemod(root);
+    expect(report.converted).toBe(1);
+    expect(report.skipped).toBe(0);
+    expect(report.errors).toBe(0);
+    expect(readFileSync(p, "utf8")).toContain("perform: stepsPipeline");
+  });
+
+  it("verbose logs per-file outcomes", async () => {
+    const root = freshScanRoot("run-verbose");
+    writeFixtureIn(root, "verbose-convert.write.ts", staticReturnContent);
+    writeFixtureIn(root, "verbose-skip.write.ts", complexContent);
+
+    const logs: string[] = [];
+    const origLog = console.log;
+    console.log = (...args: unknown[]) => {
+      logs.push(args.map(String).join(" "));
+    };
+    try {
+      const report = await runCodemod(root, { verbose: true });
+      expect(report.converted).toBe(1);
+      expect(report.skipped).toBe(1);
+      expect(logs.some((l) => l.includes("verbose-convert.write.ts"))).toBe(true);
+      expect(logs.some((l) => l.includes("verbose-skip.write.ts"))).toBe(true);
+    } finally {
+      console.log = origLog;
+    }
   });
 });
 

@@ -43,6 +43,7 @@ import {
   InboundCursorInvalidError,
   InboundMailAccountStatuses,
   InboundMailFoundationHandlers,
+  InboundRateLimitError,
   inboundMailFoundationFeature,
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
@@ -267,5 +268,158 @@ describe("watch-supervisor — error semantics", () => {
       "cursor-ok-1@example.com",
       "cursor-ok-2@example.com",
     ]);
+  });
+
+  test("InboundRateLimitError on fetch keeps the account active for the next tick", async () => {
+    const admin = adminFor(4107);
+    const accountId = await connectSharedAccount(admin);
+    failNextFetchWith(accountId, new InboundRateLimitError("slow down", 30_000));
+
+    const supervisor = createSupervisor();
+    await supervisor.pollOnce();
+
+    const accounts = await selectMany(db, mailAccountsProjectionTable, { id: accountId });
+    expect(accounts[0]?.["status"]).toBe(InboundMailAccountStatuses.active);
+  });
+});
+
+describe("watch-supervisor — watch restart + ingest resilience", () => {
+  test("transient watch error schedules backoff restart and re-arms watch", async () => {
+    const admin = adminFor(4108);
+    const accountId = await connectSharedAccount(admin);
+    const supervisor = createSupervisor();
+    try {
+      await supervisor.start();
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(true);
+      });
+
+      emitWatchError(accountId, new Error("socket dropped"));
+
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(true);
+      });
+
+      const accounts = await selectMany(db, mailAccountsProjectionTable, { id: accountId });
+      expect(accounts[0]?.["status"]).toBe(InboundMailAccountStatuses.active);
+      expect(String(accounts[0]?.["watchState"])).toMatch(/^watching|backoff:/);
+    } finally {
+      await supervisor.stop();
+    }
+  });
+
+  test("watch-ingest failure is logged; poll reconciliation still ingests", async () => {
+    const admin = adminFor(4109);
+    const accountId = await connectSharedAccount(admin);
+    let ingestCalls = 0;
+    const supervisor = createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db,
+      dispatchWrite: ({ handlerQn, payload, tenantId }) => {
+        if (handlerQn === InboundMailFoundationHandlers.ingestMessage) {
+          ingestCalls += 1;
+          if (ingestCalls === 1) {
+            return Promise.resolve({ isSuccess: false, error: { code: "simulated" } });
+          }
+        }
+        return stack.dispatcher.write(
+          handlerQn,
+          payload,
+          createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
+        );
+      },
+      pollIntervalMs: 60_000,
+      watchBackoffInitialMs: 50,
+      watchBackoffMaxMs: 200,
+    });
+    try {
+      await supervisor.start();
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(true);
+      });
+
+      await seedInboundMessage(
+        accountId,
+        rawMsg({ providerMessageId: "watch-ingest-fail-1", subject: "via watch" }),
+      );
+
+      await supervisor.pollOnce();
+
+      const rows = await selectMany(db, inboundMessagesProjectionTable, { accountId });
+      expect(rows.some((r) => r["messageIdHeader"] === "watch-ingest-fail-1@example.com")).toBe(
+        true,
+      );
+    } finally {
+      await supervisor.stop();
+    }
+  });
+
+  test("storeBody hook persists raw MIME references on poll ingest", async () => {
+    const admin = adminFor(4110);
+    const accountId = await connectSharedAccount(admin);
+    const stored: string[] = [];
+    const supervisor = createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db,
+      dispatchWrite: ({ handlerQn, payload, tenantId }) =>
+        stack.dispatcher.write(
+          handlerQn,
+          payload,
+          createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
+        ),
+      storeBody: async (_account, msg) => {
+        stored.push(msg.providerMessageId);
+        return `body-ref:${msg.providerMessageId}`;
+      },
+      pollIntervalMs: 60_000,
+    });
+    await seedInboundMessage(
+      accountId,
+      rawMsg({
+        providerMessageId: "body-store-1",
+        rawMime: new TextEncoder().encode("raw-mime-bytes"),
+      }),
+    );
+    await supervisor.pollOnce();
+    expect(stored).toEqual(["body-store-1"]);
+  });
+
+  test("disconnecting an account tears down its watcher on the next pollOnce", async () => {
+    const admin = adminFor(4111);
+    const accountId = await connectSharedAccount(admin);
+    const supervisor = createSupervisor();
+    try {
+      await supervisor.start();
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(true);
+      });
+
+      await stack.http.writeOk(
+        InboundMailFoundationHandlers.disconnectAccount,
+        { accountId, reason: "test" },
+        admin,
+      );
+      await supervisor.pollOnce();
+
+      expect(isWatching(accountId)).toBe(false);
+    } finally {
+      await supervisor.stop();
+    }
+  });
+
+  test("start() is idempotent — second start keeps the watcher armed", async () => {
+    const admin = adminFor(4112);
+    const accountId = await connectSharedAccount(admin);
+    const supervisor = createSupervisor();
+    try {
+      await supervisor.start();
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(true);
+      });
+      await supervisor.start();
+      expect(isWatching(accountId)).toBe(true);
+    } finally {
+      await supervisor.stop();
+    }
   });
 });

@@ -5,8 +5,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildProdBundle } from "../build-prod-bundle";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(__dirname, "../../../..");
 
 describe("buildProdBundle in-process (Bun.build)", () => {
   let tmp = "";
@@ -80,6 +84,61 @@ describe("buildProdBundle in-process (Bun.build)", () => {
     await expect(buildProdBundle({ cwd: tmp, stylesheet: false })).rejects.toThrow(
       /Bundle failed|Bun\.build failed/,
     );
+  });
+
+  test("stylesheet override src/styles.css → hashed styles.css in manifest", async () => {
+    // Temp under REPO_ROOT so @tailwindcss/cli + tailwindcss peer resolve
+    // (same constraint as renderer-web-css-relocation.integration.test.ts).
+    const dir = await mkdtemp(join(REPO_ROOT, ".inproc-styles-"));
+    const cwd = join(dir, "app");
+    try {
+      await mkdir(join(cwd, "src"), { recursive: true });
+      await writeFile(
+        join(cwd, "src/client.ts"),
+        `const root = document.getElementById("root"); if (root) root.textContent = "hi";`,
+      );
+      await writeFile(join(cwd, "src/styles.css"), "body { margin: 0; }\n");
+      await mkdir(join(cwd, "public"), { recursive: true });
+      await writeFile(
+        join(cwd, "public/index.html"),
+        `<!doctype html><html><head><link rel="stylesheet" href="/styles.css" /></head><body><div id="root"></div><script type="module" src="/client.js"></script></body></html>`,
+      );
+      await writeFile(join(cwd, "package.json"), `{"name":"inproc-styles","private":true}`);
+
+      const result = await buildProdBundle({ cwd, stylesheet: "src/styles.css" });
+
+      expect(result.manifest["styles.css"]).toMatch(/^\/assets\/styles-[a-z0-9]+\.css$/);
+      const cssPath = join(cwd, "dist", result.manifest["styles.css"] ?? "");
+      expect(existsSync(cssPath)).toBe(true);
+      expect(await readFile(cssPath, "utf8")).toMatch(/margin:\s*0/);
+
+      const html = await readFile(join(cwd, "dist/index.html"), "utf8");
+      expect(html).toContain(`href="${result.manifest["styles.css"]}"`);
+      expect(html).not.toContain('href="/styles.css"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("missing stylesheet override → tailwind rejects", async () => {
+    const dir = await mkdtemp(join(REPO_ROOT, ".inproc-styles-miss-"));
+    const cwd = join(dir, "app");
+    try {
+      await mkdir(join(cwd, "src"), { recursive: true });
+      await writeFile(join(cwd, "src/client.ts"), `console.log("hi");`);
+      await mkdir(join(cwd, "public"), { recursive: true });
+      await writeFile(
+        join(cwd, "public/index.html"),
+        `<!doctype html><html><body><div id="root"></div><script type="module" src="/client.js"></script></body></html>`,
+      );
+      await writeFile(join(cwd, "package.json"), `{"name":"inproc-styles-miss","private":true}`);
+
+      await expect(buildProdBundle({ cwd, stylesheet: "src/missing-theme.css" })).rejects.toThrow(
+        /tailwind|Bundle failed|tailwindcss/i,
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   test("multi-entry client-admin + client-public → two hashed bundles", async () => {
