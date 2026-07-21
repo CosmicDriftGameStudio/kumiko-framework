@@ -54,7 +54,7 @@ export const changeEmailWrite = defineWriteHandler({
     }
 
     const newEmail = event.payload.newEmail.toLowerCase();
-    const currentEmail = await decryptStoredPii(me.email, "user-profile:change-email");
+    const currentEmail = await decryptStoredPii(me.email, "email", "user-profile:change-email");
     if (newEmail === currentEmail.toLowerCase()) {
       return writeFailure(
         new UnprocessableError(UserProfileErrors.emailUnchanged, {

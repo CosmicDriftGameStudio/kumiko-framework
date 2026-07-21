@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 55,
+  "featureCount": 56,
   "features": [
     {
       "name": "admin-shell",
@@ -48,7 +48,7 @@
     },
     {
       "name": "auth-email-password",
-      "description": "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows — password reset, email verification, magic-link self-signup, and tenant invite — are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`) to `createAuthEmailPasswordFeature(opts)`. All four magic-link flows (reset, verification, signup activation, tenant invite) dispatch their mail through the `delivery` feature via `ctx.notify`, so mounting any of them additionally requires `delivery`. Tokens are HMAC-signed (reset/verify) or opaque-random in Redis (signup/invite). Requires the `user` and `tenant` features, and declares `JWT_SECRET` (≥ 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
+      "description": "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows — password reset, email verification, magic-link self-signup, tenant invite, and account-unlock — are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`, `accountUnlock`) to `createAuthEmailPasswordFeature(opts)`. All five magic-link flows dispatch their mail through the `delivery` feature via `ctx.notify`, so mounting any of them additionally requires `delivery`. Tokens are HMAC-signed (reset/verify/unlock) or opaque-random in Redis (signup/invite). `accountUnlock` is the self-service escape hatch for `accountLockout`'s monotonic failure-counter (#1266): confirming the mailed token clears the Redis lockout state without touching the user entity. Requires the `user` and `tenant` features, and declares `JWT_SECRET` (≥ 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
       "toggleableDefault": null,
       "requires": [
         "user",
@@ -94,8 +94,33 @@
             "label": "Tenant-Invite-Flow",
             "type": "boolean",
             "default": false
+          },
+          {
+            "key": "accountUnlock",
+            "label": "Account-Unlock-Flow",
+            "type": "boolean",
+            "default": false
           }
         ]
+      }
+    },
+    {
+      "name": "auth-foundation",
+      "description": "Declares the `tokenVerifier` (Bearer-token auth) and `sessionStore` extension points. Provider-features register a static `shape` plus a `build()` for tokenVerifier — mount together with at least one auth-provider-* feature (e.g. personal-access-tokens) and call `resolveTokenVerifier(deps, rawToken)` to find the matching one; sessions self-registers as the single sessionStore provider.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Auth Provider Foundation",
+        "category": "identity",
+        "recommended": false
       }
     },
     {
@@ -425,7 +450,7 @@
     },
     {
       "name": "delivery",
-      "description": "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, logs every attempt to `read_delivery_attempts`, and enforces idempotency and rate-limiting — add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
+      "description": "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting — add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -446,7 +471,7 @@
     },
     {
       "name": "feature-toggles",
-      "description": "Persists per-feature enabled/disabled state in the `read_global_feature_state` table and exposes a `set` write-handler plus `list`/`registered` query-handlers so operators can flip features at runtime without redeploying. Each API instance keeps an in-memory `GlobalFeatureToggleRuntime` snapshot (initialize it via `createFeatureToggleRuntime`, pass a `() => runtime` accessor to `createFeatureTogglesFeature`) that the dispatcher gate reads on every request; a `toggle-cache-sync` multi-stream projection with `delivery: \"per-instance\"` syncs the snapshot across instances whenever a `toggle-set` event is appended.",
+      "description": "Persists per-feature enabled/disabled state in the `store_global_feature_state` table and exposes a `set` write-handler plus `list`/`registered` query-handlers so operators can flip features at runtime without redeploying. Each API instance keeps an in-memory `GlobalFeatureToggleRuntime` snapshot (initialize it via `createFeatureToggleRuntime`, pass a `() => runtime` accessor to `createFeatureTogglesFeature`) that the dispatcher gate reads on every request; a `toggle-cache-sync` multi-stream projection with `delivery: \"per-instance\"` syncs the snapshot across instances whenever a `toggle-set` event is appended.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -860,7 +885,7 @@
     },
     {
       "name": "jobs",
-      "description": "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution appends `run-started`, `run-completed`, and `run-failed` events to the `jobRun` aggregate stream, which two inline projections materialize into `read_job_runs` (current status + duration) and `read_job_run_logs` (per-line log rows). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list` and `jobs:query:details` for the operator UI.",
+      "description": "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution appends `run-started`, `run-completed`, and `run-failed` events to the `jobRun` aggregate stream, which two inline projections materialize into `read_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list` and `jobs:query:details` for the operator UI.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -1320,17 +1345,23 @@
     },
     {
       "name": "personal-access-tokens",
-      "description": "Long-lived, revocable Personal Access Tokens for headless HTTP-API access. Stores SHA-256 token hashes in the `read_api_tokens` direct-write table; the plaintext is returned once at creation. `create`/`revoke`/`mine` manage a user's own tokens and `available-scopes` lists the app-declared scope catalog. Bearer tokens carrying the PAT prefix are resolved before jwt.verify (roles resolved live, granted scopes enforced fail-closed at the API boundary) — the resolver is wired via run-prod-app, not the dispatcher. Pass { toggleable: { default: false } } to tier-gate the whole feature.",
+      "description": "Long-lived, revocable Personal Access Tokens for headless HTTP-API access. Stores SHA-256 token hashes in the `store_api_tokens` direct-write table; the plaintext is returned once at creation. `create`/`revoke`/`mine` manage a user's own tokens and `available-scopes` lists the app-declared scope catalog. Bearer tokens carrying the PAT prefix are resolved before jwt.verify (roles resolved live, granted scopes enforced fail-closed at the API boundary) — registered as an auth-foundation tokenVerifier provider, resolved generically by the middleware. Pass { toggleable: { default: false } } to tier-gate the whole feature.",
       "toggleableDefault": null,
       "requires": [
         "user",
-        "tenant"
+        "tenant",
+        "auth-foundation"
       ],
       "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "tokenVerifier",
+          "entityName": "pat"
+        }
+      ],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [
@@ -1340,7 +1371,7 @@
       "uiHints": {
         "displayLabel": "Personal Access Tokens",
         "category": "identity",
-        "recommended": false
+        "recommended": true
       }
     },
     {
@@ -1597,10 +1628,11 @@
     },
     {
       "name": "sessions",
-      "description": "Tracks signed-in clients in the `read_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
+      "description": "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
       "toggleableDefault": null,
       "requires": [
-        "user"
+        "user",
+        "auth-foundation"
       ],
       "optionalRequires": [],
       "configReads": [],
@@ -1608,7 +1640,12 @@
         "sessions.revokeAllForUser"
       ],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "sessionStore",
+          "entityName": "default"
+        }
+      ],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [

@@ -236,6 +236,27 @@ describe("scenario 5: change-password success", () => {
   });
 });
 
+describe("scenario 5c: change-password common-password rejection (#1340)", () => {
+  test("common newPassword → 400 (schema rejects breach-list password)", async () => {
+    const seed = await seedLoginUser({ email: "common-cp@example.com", password: "good-old-pw" });
+    const signedIn = createTestUser({ id: seed.id, tenantId: seed.tenantId, roles: ["User"] });
+
+    const error = await stack.http.writeErr(
+      AuthHandlers.changePassword,
+      { oldPassword: "good-old-pw", newPassword: "password1" },
+      signedIn,
+    );
+    expect(error.httpStatus).toBe(400);
+
+    // Old password still works — the rejected change never landed.
+    const loginRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: "common-cp@example.com",
+      password: "good-old-pw",
+    });
+    expect(loginRes.status).toBe(200);
+  });
+});
+
 describe("scenario 5b: change-password when the aggregate stream tenant != session tenant (sysadmin pattern)", () => {
   test("user whose stream lives in a non-session tenant still changes password", async () => {
     // Sysadmin pattern: created via systemAdmin (stream = systemAdmin.tenantId),

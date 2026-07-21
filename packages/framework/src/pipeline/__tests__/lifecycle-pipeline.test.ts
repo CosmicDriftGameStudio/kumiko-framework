@@ -4,6 +4,7 @@ import {
   createEntity,
   createRegistry,
   createTextField,
+  type DeleteContext,
   defineFeature,
   type PostSaveHookFn,
   type PreSaveHookFn,
@@ -526,5 +527,212 @@ describe("buildEventId — dedup key construction", () => {
     // id=0 is also treated as absent: serial PKs start at 1, so 0 means
     // "never inserted" — safer to skip dedup than to collide on a sentinel.
     expect(buildEventId("handler", { id: 0 }, "phase")).toBeNull();
+  });
+});
+
+// --- PreDelete / PostDelete pipeline ---
+
+const deletectx: DeleteContext = {
+  kind: "delete",
+  id: 1,
+  data: { email: "test@test.de" },
+  entityName: "user",
+};
+
+describe("runPreDelete", () => {
+  test("runs feature + entity + system hooks, all inTransaction (throw on error)", async () => {
+    const calls: string[] = [];
+    const feature = defineFeature("test", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+        access: { openToAll: true },
+      });
+      r.hook("preDelete", "user", async () => {
+        calls.push("handler");
+      });
+      r.hook("preDelete", { allOf: "user" }, async () => {
+        calls.push("entity");
+      });
+    });
+    const registry = createRegistry([feature]);
+    const systemHooks: SystemHooks = {
+      preDelete: [
+        {
+          name: "sys",
+          priority: 1000,
+          fn: async () => {
+            calls.push("system");
+          },
+        },
+      ],
+    };
+    const pipeline = createLifecycleHooks(registry, systemHooks);
+    await pipeline.runPreDelete("test:write:user", deletectx, {});
+    expect(calls).toEqual(["handler", "entity", "system"]);
+  });
+
+  test("a hook throwing aborts the delete (rejects, not swallowed)", async () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+        access: { openToAll: true },
+      });
+      r.hook("preDelete", "user", async () => {
+        throw new Error("blocked-delete");
+      });
+    });
+    const registry = createRegistry([feature]);
+    const pipeline = createLifecycleHooks(registry);
+    await expect(pipeline.runPreDelete("test:write:user", deletectx, {})).rejects.toThrow(
+      "blocked-delete",
+    );
+  });
+
+  test("system hook with a non-inTransaction phase is skipped", async () => {
+    const registry = makeRegistry();
+    const calls: string[] = [];
+    const systemHooks: SystemHooks = {
+      preDelete: [
+        {
+          name: "sys",
+          priority: 1000,
+          phase: "afterCommit",
+          fn: async () => {
+            calls.push("system");
+          },
+        },
+      ],
+    };
+    const pipeline = createLifecycleHooks(registry, systemHooks);
+    await pipeline.runPreDelete("test:write:user", deletectx, {});
+    expect(calls).toEqual([]);
+  });
+});
+
+describe("runPostDelete", () => {
+  test("runs feature then system hooks (best-effort by default phase)", async () => {
+    const calls: string[] = [];
+    const feature = defineFeature("test", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+        access: { openToAll: true },
+      });
+      r.hook("postDelete", "user", async () => {
+        calls.push("feature");
+      });
+    });
+    const registry = createRegistry([feature]);
+    const systemHooks: SystemHooks = {
+      postDelete: [
+        {
+          name: "sys",
+          priority: 1000,
+          fn: async () => {
+            calls.push("system");
+          },
+        },
+      ],
+    };
+    const pipeline = createLifecycleHooks(registry, systemHooks);
+    await pipeline.runPostDelete("test:write:user", deletectx, {});
+    expect(calls).toEqual(["feature", "system"]);
+  });
+
+  test("inTransaction phase: hook errors throw", async () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+        access: { openToAll: true },
+      });
+      r.hook(
+        "postDelete",
+        "user",
+        async () => {
+          throw new Error("postDelete-inTx-boom");
+        },
+        { phase: "inTransaction" },
+      );
+    });
+    const registry = createRegistry([feature]);
+    const pipeline = createLifecycleHooks(registry);
+    await expect(
+      pipeline.runPostDelete("test:write:user", deletectx, {}, "inTransaction"),
+    ).rejects.toThrow("postDelete-inTx-boom");
+  });
+});
+
+// --- Batch hooks ---
+
+describe("runPostSaveBatch / runPostDeleteBatch", () => {
+  test("no batch hooks registered → resolves without throwing", async () => {
+    const pipeline = createLifecycleHooks(makeRegistry());
+    await expect(pipeline.runPostSaveBatch([savectx], {})).resolves.toBeUndefined();
+    await expect(pipeline.runPostDeleteBatch([deletectx], {})).resolves.toBeUndefined();
+    // Should not throw — nothing registered.
+  });
+
+  test("runPostSaveBatch runs all system hooks concurrently with the batch payload", async () => {
+    const seen: (readonly SaveContext[])[] = [];
+    const systemHooks: SystemHooks = {
+      postSaveBatch: [
+        {
+          name: "a",
+          priority: 1000,
+          fn: async (results) => {
+            seen.push(results);
+          },
+        },
+      ],
+    };
+    const pipeline = createLifecycleHooks(makeRegistry(), systemHooks);
+    await pipeline.runPostSaveBatch([savectx], {});
+    expect(seen).toEqual([[savectx]]);
+  });
+
+  test("runPostDeleteBatch runs all system hooks with the batch payload", async () => {
+    const seen: (readonly DeleteContext[])[] = [];
+    const systemHooks: SystemHooks = {
+      postDeleteBatch: [
+        {
+          name: "a",
+          priority: 1000,
+          fn: async (payloads) => {
+            seen.push(payloads);
+          },
+        },
+      ],
+    };
+    const pipeline = createLifecycleHooks(makeRegistry(), systemHooks);
+    await pipeline.runPostDeleteBatch([deletectx], {});
+    expect(seen).toEqual([[deletectx]]);
+  });
+
+  test("one batch hook throwing doesn't stop the others (Promise.allSettled) — logged, never thrown", async () => {
+    const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
+    const calls: string[] = [];
+    const systemHooks: SystemHooks = {
+      postSaveBatch: [
+        {
+          name: "failing",
+          priority: 1000,
+          fn: async () => {
+            throw new Error("batch-hook-boom");
+          },
+        },
+        {
+          name: "ok",
+          priority: 1001,
+          fn: async () => {
+            calls.push("ok-ran");
+          },
+        },
+      ],
+    };
+    const pipeline = createLifecycleHooks(makeRegistry(), systemHooks);
+    // Must not throw.
+    await pipeline.runPostSaveBatch([savectx], {});
+    expect(calls).toEqual(["ok-ran"]);
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 });

@@ -19,6 +19,11 @@
 //     drizzle's getTableName + getTableColumns (drizzle weiterhin als type-
 //     reference, NICHT als runtime-API-call)
 
+import type {
+  SelectOptions,
+  WhereObject,
+  WhereOperator,
+} from "@cosmicdrift/kumiko-types/where-clause-types";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index";
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { type NotExecutorOnly, toSnakeCase } from "../db/table-builder";
@@ -183,19 +188,13 @@ function assertNotTenantScoped(db: unknown, fnName: string): void {
 
 export type AnyDb = BunDbRunner | unknown;
 
-// WhereValue: primitive für eq, array für IN, null für IS NULL, oder
-// operator-object für range/comparisons.
-export type WhereOperator = {
-  readonly gt?: unknown;
-  readonly gte?: unknown;
-  readonly lt?: unknown;
-  readonly lte?: unknown;
-  readonly ne?: unknown;
-  readonly in?: readonly unknown[];
-  readonly like?: string;
-};
-export type WhereValue = unknown | WhereOperator;
-export type WhereObject = Record<string, WhereValue>;
+export type {
+  OrderByClause,
+  SelectOptions,
+  WhereObject,
+  WhereOperator,
+  WhereValue,
+} from "@cosmicdrift/kumiko-types/where-clause-types";
 
 function isWhereOperator(v: unknown): v is WhereOperator {
   if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
@@ -206,18 +205,6 @@ function isWhereOperator(v: unknown): v is WhereOperator {
   const opKeys = ["gt", "gte", "lt", "lte", "ne", "in", "like"];
   return keys.every((k) => opKeys.includes(k));
 }
-export type OrderByClause = {
-  readonly col: string;
-  readonly direction?: "asc" | "desc";
-};
-
-export type SelectOptions = {
-  readonly limit?: number;
-  // Single column or array for multi-column tie-breaks (e.g.
-  // [{col: "createdAt"}, {col: "id"}] for chronological-with-stable-id).
-  readonly orderBy?: OrderByClause | readonly OrderByClause[];
-};
-
 // Akzeptiert EITHER. Beide haben einen tableName und field→column-mapping.
 // biome-ignore lint/suspicious/noExplicitAny: legacy drizzle pgTable surface
 type TableLike = EntityTableMeta | any;
@@ -562,6 +549,38 @@ function buildWhereClause(
   return { sqlText: conditions.join(" AND "), values };
 }
 
+// #1163: under load the Bun.SQL pool can hand out a connection the server
+// already closed ("The connection was closed.", AbortError code 20) — no
+// validate-on-checkout exists. One retry re-checks out a fresh connection;
+// safe for pure reads. Tx handles are never retried: their transaction is
+// dead once the connection dropped, and a retry would run on the same dead
+// handle. Detection is name+message (not name alone) so a genuine user
+// abort (AbortSignal cancel) is NOT retried.
+function isClosedConnectionError(err: unknown): boolean {
+  if (err === null || typeof err !== "object") return false;
+  const e = err as { name?: unknown; message?: unknown };
+  return (
+    e.name === "AbortError" &&
+    typeof e.message === "string" &&
+    /connection was closed/i.test(e.message)
+  );
+}
+
+async function unsafeRead<TRow>(
+  db: AnyDb,
+  sqlText: string,
+  params: readonly unknown[],
+): Promise<readonly TRow[]> {
+  const raw = asRawClient(db);
+  try {
+    return (await raw.unsafe(sqlText, params)) as readonly TRow[];
+  } catch (err) {
+    // TransactionSql has savepoint(), only a top-level pool client has begin().
+    if (typeof raw.begin !== "function" || !isClosedConnectionError(err)) throw err;
+    return (await raw.unsafe(sqlText, params)) as readonly TRow[];
+  }
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: opt-in default loosens row type for unannotated test fixtures
 export async function selectMany<TRow = any>(
   db: AnyDb,
@@ -598,7 +617,7 @@ export async function selectMany<TRow = any>(
     }
     sqlText += ` LIMIT ${options.limit}`;
   }
-  const raw = (await asRawClient(db).unsafe(sqlText, values)) as readonly Record<string, unknown>[];
+  const raw = (await unsafeRead(db, sqlText, values)) as readonly Record<string, unknown>[];
   return coerceRows(raw, info) as readonly TRow[];
 }
 
@@ -832,7 +851,7 @@ export async function countWhere(
     sqlText += ` WHERE ${w.sqlText}`;
     values = w.values;
   }
-  const rows = (await asRawClient(db).unsafe(sqlText, values)) as readonly { count: number }[];
+  const rows = (await unsafeRead(db, sqlText, values)) as readonly { count: number }[];
   return rows[0]?.count ?? 0;
 }
 

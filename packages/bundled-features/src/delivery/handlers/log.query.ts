@@ -31,7 +31,7 @@ export const logQuery = defineQueryHandler({
           ...row,
           recipientAddress:
             typeof row["recipientAddress"] === "string"
-              ? await decryptStoredPii(row["recipientAddress"], "delivery-log")
+              ? await decryptStoredPii(row["recipientAddress"], "recipientAddress", "delivery-log")
               : row["recipientAddress"],
         })),
       ),

@@ -343,6 +343,24 @@ const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: stri
         cmd: `cd ${absPath} && KUMIKO_CHECK=1 bun${ciFlag} --env-file=../.env test`,
       });
     }
+
+    // DOM/render tests (*.test.tsx) laufen getrennt vom node-only Unit-Lauf
+    // (Issue #1330) — Repos mit bunfig.dom.toml kriegen einen eigenen Step.
+    if (existsSync(join(absPath, "bunfig.dom.toml"))) {
+      steps.push({
+        name: `DOM Tests (${root.kind})`,
+        cmd: `cd ${absPath} && bun test --dots --config=bunfig.dom.toml .test.tsx`,
+      });
+    }
+
+    // #457: Screen-Tests die im shared happy-dom-Prozess korruptieren (CI-only)
+    // laufen je in eigenem Prozess — Repos mit bunfig.ci-dom.toml.
+    if (existsSync(join(absPath, "bunfig.ci-dom.toml"))) {
+      steps.push({
+        name: `DOM Tests isolated (${root.kind})`,
+        cmd: `cd ${absPath} && bun run test:dom:isolated`,
+      });
+    }
   }
   return steps;
 })();
@@ -518,8 +536,11 @@ const commands = {
     run: async () => {
       const scope = Bun.argv[3];
       if (scope === "all") {
-        console.log("Volle Breitseite — Unit + Integration...\n");
+        console.log("Volle Breitseite — Unit + DOM + Integration...\n");
         await $`bun test --dots`;
+        if (existsSync("bunfig.dom.toml")) {
+          await $`bun test --dots --config=bunfig.dom.toml .test.tsx`;
+        }
         await $`bun ${INTEGRATION_RUNNER}`;
       } else if (scope === "integration") {
         console.log("Integration Tests (Docker muss laufen)...\n");

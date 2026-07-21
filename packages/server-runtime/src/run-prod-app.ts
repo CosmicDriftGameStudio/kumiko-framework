@@ -20,11 +20,18 @@
 // Container/Coolify setzt:
 //   DATABASE_URL=postgresql://...
 //   REDIS_URL=redis://...
-//   JWT_SECRET=<random-32+>
+//   JWT_SECRET=<random-32+>  (always required — also signs the password-
+//     reset/email-verification HMAC tokens, a separate non-rotating family)
+//     — additionally, for zero-downtime rotation of the session-JWT
+//     signing key specifically:
+//   JWT_SECRET_V1=<random-32+>  (repeat _V2, _V3, ... per rotation)
+//   JWT_SECRET_CURRENT_VERSION=1  (which V<n> signs new tokens; the others
+//     still verify in-flight tokens until they expire)
 //   PORT=3000
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
 import {
+  type AccountUnlockOptions,
   AuthErrors,
   AuthHandlers,
   type AuthMailLocale,
@@ -38,12 +45,14 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import {
+  EXT_TOKEN_VERIFIER,
+  resolveTokenVerifier,
+} from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { AUTH_MFA_FEATURE, AuthMfaHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import {
-  createPatResolver,
   PAT_FEATURE,
   patRateLimitFromFeature,
-  patScopesFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { SESSIONS_FEATURE } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
@@ -53,9 +62,12 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
-  createInMemoryLoginRateLimiter,
+  createRedisLoginRateLimiter,
   createSseBroker,
+  type LoginRateLimiter,
+  loadJwtSecretOrKeyring,
   type SseBroker,
+  type TokenVerifier,
 } from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
@@ -126,6 +138,8 @@ import {
   resolveAuthMail,
 } from "./run-prod-app-boot-context";
 import { buildStaticFallback } from "./run-prod-app-static-files";
+import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers";
+import { assertSessionBootInvariants } from "./session-boot-gate";
 import {
   type ProdSessionsOption,
   resolveProdSessionsConfig,
@@ -242,6 +256,13 @@ export type SignupSetup = SignupOptions;
  *  AuthHandlers (analog signup). */
 export type InviteSetup = InviteOptions;
 
+/** Wrapper API for the account-unlock flow (#1266). = AccountUnlockOptions
+ *  (appUrl via delivery, symmetric to PasswordResetSetup). Self-service
+ *  escape hatch for accountLockout's monotonic failure counter — only
+ *  meaningful when `auth.accountLockout` is also set, but wired
+ *  independently like the other flows. */
+export type AccountUnlockSetup = AccountUnlockOptions;
+
 /** Auth-Mail-Convenience-Optionen — shared zwischen runProdApp + runDevApp.
  *  Verdrahtet alle 4 Mail-Flows aus einem env-SMTP-Transport + Standard-
  *  Templates (siehe `auth.mail` + resolveAuthMail). */
@@ -269,7 +290,7 @@ export type RunProdAppAuthOptions = {
   /** Opt-in: revocable server-side sessions. Caller MUSS
    *  `createSessionsFeature()` zu `features` adden — runProdApp wired
    *  hier nur die Auth-Callbacks (creator/revoker/checker) gegen die
-   *  echte db-connection, plus sessionStrictMode=true.
+   *  echte db-connection (sidless JWTs werden dann abgelehnt).
    *
    *  Standardverhalten ohne diese Option: stateless JWTs ohne sid
    *  (legacy-Verhalten, Karten­haus existing-Apps unangefasst). */
@@ -306,6 +327,11 @@ export type RunProdAppAuthOptions = {
    *  /api/auth/invite-accept-with-login, /api/auth/invite-signup-complete
    *  are mounted. */
   readonly invite?: InviteSetup;
+  /** Account-unlock flow (#1266). When set, /api/auth/request-account-unlock
+   *  + /api/auth/confirm-account-unlock are mounted. Self-service escape
+   *  hatch for accountLockout's monotonic failure-counter — confirming
+   *  clears the Redis lockout state, no entity write. */
+  readonly accountUnlock?: AccountUnlockSetup;
   /** Domain attribute for both auth cookies (see
    *  AuthRoutesConfig.cookieDomain). Set to the registrable parent
    *  domain when login and app live on different subdomains. */
@@ -569,6 +595,12 @@ export type RunProdAppOptions = {
    *  dieses Feld wird kein L1/L2 verdrahtet (L3 Handler-`rateLimit:`
    *  funktioniert unabhängig davon bereits). */
   readonly rateLimit?: import("@cosmicdrift/kumiko-framework/api").ServerOptions["rateLimit"];
+  /** Default security headers on every response (HSTS, X-Frame-Options,
+   *  X-Content-Type-Options, Referrer-Policy; CSP opt-in). Headers already
+   *  set by a response (e.g. hostDispatch's per-host CSP) are never
+   *  overridden. `false` disables the whole block; per-header overrides
+   *  via the object form — see SecurityHeadersOption. */
+  readonly securityHeaders?: SecurityHeadersOption;
 };
 
 export type ProdAppHandle = {
@@ -652,7 +684,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    configured.
   const databaseUrl = requireEnv("DATABASE_URL", envSource);
   const redisUrl = requireEnv("REDIS_URL", envSource);
+  // JWT_SECRET stays mandatory (also the resolveAuthMail hmacSecret
+  // fallback below — a separate, non-rotating HMAC token family, not the
+  // session JWT). jwtSecretOrKeyring is the OPTIONAL upgrade: set
+  // JWT_SECRET_V<n> + JWT_SECRET_CURRENT_VERSION for zero-downtime
+  // rotation of the session-JWT signing key — see loadJwtSecretOrKeyring.
   const jwtSecret = requireEnv("JWT_SECRET", envSource);
+  const jwtSecretOrKeyring = loadJwtSecretOrKeyring(envSource);
   const jwtIssuer = readEnv("JWT_ISSUER", envSource);
   const instanceId = readEnv("KUMIKO_INSTANCE_ID", envSource);
   const port = options.port ?? Number.parseInt(envSource["PORT"] ?? "3000", 10);
@@ -686,6 +724,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     blindIndexKey: options.blindIndexKey,
     allowPlaintextPii: options.allowPlaintextPii,
     mode: "prod",
+  });
+  const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
+  assertSessionBootInvariants({
+    hasAuth: Boolean(effectiveAuth),
+    sessionsFeatureMounted: sessionsFeature !== undefined,
+    sessionsOption: effectiveAuth?.sessions,
   });
   const registry = createRegistry(features);
 
@@ -824,17 +868,16 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
   // Sessions opt-in: db ist hier schon konkret (createDbConnection oben),
   // also direkt verdrahten — kein late-bound nötig wie bei runDevApp.
-  // sessionStrictMode=true: Prod-Sessions sollen nicht stillschweigend
-  // von einem JWT-ohne-sid umgangen werden können. sessionMassRevoker
+  // Ein JWT ohne sid wird abgelehnt, sobald ein sessionChecker verdrahtet ist —
+  // Prod-Sessions können nicht stillschweigend umgangen werden. sessionMassRevoker
   // (4. callback aus createSessionCallbacks) ist nicht Teil der
   // AuthRoutesConfig-Surface — der geht via bindAutoRevokeFromFeature ans
   // sessions-Feature (Password-Change/-Reset revoked alle Sessions), nicht
   // über die auth-routes.
   // Secure-by-default: if the sessions feature is mounted, server-side revocation +
-  // sessionStrictMode + auto-revoke-on-password-change are wired automatically;
+  // auto-revoke-on-password-change are wired automatically;
   // `auth.sessions` only overrides the config, and `auth.sessions: false` is the
   // explicit opt-out (back to stateless JWTs).
-  const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
   const sessionAuthFragment = shouldWireProdSessions(
     Boolean(effectiveAuth),
@@ -849,21 +892,25 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       )
     : undefined;
 
-  // PAT opt-in: if the personal-access-tokens feature is mounted, wire its
-  // resolver (bearer PATs → SessionUser, before jwt.verify). Scopes come from
-  // the feature's exports — the same declaration its handlers use.
+  // Token-verifier opt-in: any provider feature (personal-access-tokens, a
+  // future auth-provider-jwt, ...) self-registers via
+  // r.useExtension(EXT_TOKEN_VERIFIER, ...) — wire one generic resolver
+  // whenever at least one is mounted, resolved by shape at request-time.
+  // PAT keeps its own per-token rate limiter (patRateLimiter), unrelated to
+  // verification.
   const patFeature = features.find((f) => f.name === PAT_FEATURE);
+  const hasTokenVerifierProviders = registry.getExtensionUsages(EXT_TOKEN_VERIFIER).length > 0;
   let patAuthFragment:
     | {
-        patResolver: ReturnType<typeof createPatResolver>;
-        patRateLimiter: ReturnType<typeof createInMemoryLoginRateLimiter>;
+        tokenVerifier: TokenVerifier;
+        patRateLimiter: LoginRateLimiter;
       }
     | undefined;
-  if (effectiveAuth && patFeature) {
+  if (effectiveAuth && patFeature && hasTokenVerifierProviders) {
     const rl = patRateLimitFromFeature(patFeature);
     patAuthFragment = {
-      patResolver: createPatResolver({ db, scopes: patScopesFromFeature(patFeature) }),
-      patRateLimiter: createInMemoryLoginRateLimiter(rl.maxRequests, rl.windowMs),
+      tokenVerifier: (rawToken) => resolveTokenVerifier({ db, registry }, rawToken),
+      patRateLimiter: createRedisLoginRateLimiter(redis, rl.maxRequests, rl.windowMs, "pat"),
     };
   }
 
@@ -887,7 +934,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ...extraContext,
     },
     sseBroker,
-    jwtSecret,
+    jwtSecret: jwtSecretOrKeyring,
     ...(jwtIssuer && { jwtIssuer }),
     ...(instanceId && { instanceId }),
     dispatcherOptions: {
@@ -908,6 +955,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
+        // Redis-backed, not the in-memory default createAuthRoutes falls
+        // back to — an in-process limiter only rate-limits within a single
+        // replica, so a multi-instance prod deployment would silently give
+        // each replica its own bucket (#1262/#1274). Redis is required infra
+        // here already (REDIS_URL), so this is free.
+        loginRateLimit: createRedisLoginRateLimiter(redis),
         ...(effectiveAuth.cookieDomain !== undefined && {
           cookieDomain: effectiveAuth.cookieDomain,
         }),
@@ -920,7 +973,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         ...sessionAuthFragment,
         ...patAuthFragment,
         ...tenantLifecycleAuthFragment,
-        ...(mfaFeature && { mfaVerifyHandler: AuthMfaHandlers.verify }),
+        ...(mfaFeature && {
+          mfaVerifyHandler: AuthMfaHandlers.verify,
+          mfaVerifyRateLimit: createRedisLoginRateLimiter(
+            redis,
+            undefined,
+            undefined,
+            "mfa-verify",
+          ),
+        }),
         ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
@@ -931,6 +992,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           emailVerification: {
             requestHandler: AuthHandlers.requestEmailVerification,
             confirmHandler: AuthHandlers.verifyEmail,
+          },
+        }),
+        ...(effectiveAuth.accountUnlock && {
+          accountUnlock: {
+            requestHandler: AuthHandlers.requestAccountUnlock,
+            confirmHandler: AuthHandlers.confirmAccountUnlock,
           },
         }),
         ...(effectiveAuth.signup && {
@@ -1066,14 +1133,17 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //     wired via a wrapper so Hono owns /api/* + extraRoutes and disk
   //     owns the rest. Tests use this directly; listen() wraps it in
   //     Bun.serve.
-  const fetchHandler = options.staticDir
-    ? buildStaticFallback(
-        entrypoint.app.fetch.bind(entrypoint.app),
-        options.staticDir,
-        appSchemaJson,
-        options.hostDispatch,
-      )
-    : entrypoint.app.fetch.bind(entrypoint.app);
+  const fetchHandler = withSecurityHeaders(
+    options.staticDir
+      ? buildStaticFallback(
+          entrypoint.app.fetch.bind(entrypoint.app),
+          options.staticDir,
+          appSchemaJson,
+          options.hostDispatch,
+        )
+      : entrypoint.app.fetch.bind(entrypoint.app),
+    options.securityHeaders,
+  );
 
   // 11. Mark lifecycle ready — health/ready flips to 200 after this.
   entrypoint.lifecycle.markReady();

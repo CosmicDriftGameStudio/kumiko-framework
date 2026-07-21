@@ -1,5 +1,59 @@
 # @cosmicdrift/kumiko-dispatcher-live
 
+## 0.159.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.159.1
+
+## 1.0.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@1.0.0
+
+## 0.158.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.158.2
+
+## 0.158.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.158.1
+
+## 0.158.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.158.0
+
+## 0.157.3
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.157.3
+
+## 0.157.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.157.2
+
+## 0.157.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.157.1
+
+## 0.157.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.157.0
+
 ## 0.156.3
 
 ### Patch Changes

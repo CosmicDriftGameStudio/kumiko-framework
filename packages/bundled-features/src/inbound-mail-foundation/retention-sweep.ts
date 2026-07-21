@@ -13,7 +13,7 @@
 //     loadAggregate leer → received wird gar nicht erst repliziert. Gleiches
 //     Muster wie tenant-destroy-hook, nur per-Row-cutoff statt ganzer Tenant.
 //
-//   read_mail_seen_messages (unmanaged, direct-write, nicht event-sourced):
+//   store_mail_seen_messages (unmanaged, direct-write, nicht event-sourced):
 //     Dedup-Anker braucht nur das Backfill-/Replay-Fenster → seenAt-cutoff
 //     via plain deleteMany, kein Stream/Archiv. Gescoped direkt über die
 //     tenant_id-Spalte der Tabelle (table-builder-Konvention), kein Account-Join.

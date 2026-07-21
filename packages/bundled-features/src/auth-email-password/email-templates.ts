@@ -73,6 +73,14 @@ const STRINGS = {
     inviteExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
     inviteIgnore:
       "Falls du diese Einladung nicht erwartet hast, kannst du diese E-Mail ignorieren.",
+    unlockSubject: (app: string) => `${app} — Konto entsperren`,
+    unlockGreeting: "Hallo,",
+    unlockIntro: (app: string) =>
+      `dein ${app}-Konto wurde nach mehreren fehlgeschlagenen Anmeldeversuchen vorübergehend gesperrt. Klicke auf den folgenden Link, um es sofort zu entsperren:`,
+    unlockButton: "Konto entsperren",
+    unlockExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
+    unlockIgnore:
+      "Falls du diese Sperre nicht ausgelöst hast, kannst du diese E-Mail ignorieren — die Sperre läuft von selbst ab.",
   },
   en: {
     resetSubject: (app: string) => `${app} — Reset your password`,
@@ -105,6 +113,14 @@ const STRINGS = {
     inviteButton: "Accept invitation",
     inviteExpiry: (when: string) => `The link expires on ${when}.`,
     inviteIgnore: "If you weren't expecting this invitation, you can ignore this email.",
+    unlockSubject: (app: string) => `${app} — Unlock your account`,
+    unlockGreeting: "Hi,",
+    unlockIntro: (app: string) =>
+      `your ${app} account was temporarily locked after several failed sign-in attempts. Click the link below to unlock it immediately:`,
+    unlockButton: "Unlock account",
+    unlockExpiry: (when: string) => `The link expires on ${when}.`,
+    unlockIgnore:
+      "If you didn't trigger this lock, you can ignore this email — the lock expires on its own.",
   },
 } as const;
 
@@ -148,6 +164,22 @@ export function renderResetPasswordEmail(args: RenderTokenContentArgs): AuthMail
     buttonUrl: args.url,
     expiry: t.resetExpiry(formatExpiry(args.expiresAt)),
     ignore: t.resetIgnore,
+  });
+}
+
+export function renderUnlockAccountEmail(args: RenderTokenContentArgs): AuthMailContent {
+  const locale = args.locale ?? "en";
+  const appName = args.appName ?? (locale === "de" ? "Konto" : "Account");
+  const t = STRINGS[locale];
+  return tokenMailContent({
+    subject: t.unlockSubject(appName),
+    header: t.unlockButton,
+    greeting: t.unlockGreeting,
+    intro: t.unlockIntro(appName),
+    buttonLabel: t.unlockButton,
+    buttonUrl: args.url,
+    expiry: t.unlockExpiry(formatExpiry(args.expiresAt)),
+    ignore: t.unlockIgnore,
   });
 }
 

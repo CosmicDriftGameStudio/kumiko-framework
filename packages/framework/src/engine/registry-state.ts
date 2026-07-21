@@ -29,7 +29,6 @@ import type {
   PreSaveHookFn,
   ProjectionDefinition,
   QueryHandlerDef,
-  RawTableDef,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
@@ -37,6 +36,8 @@ import type {
   ScreenDefinition,
   SearchPayloadContributorFn,
   SecretKeyDefinition,
+  StoreTableDef,
+  StreamHandlerDef,
   TreeActionDef,
   WorkspaceDefinition,
   WriteHandlerDef,
@@ -165,6 +166,7 @@ export type RegistryState = {
   relationMap: Map<string, Record<string, RelationDefinition>>;
   writeHandlerMap: Map<string, WriteHandlerDef>;
   queryHandlerMap: Map<string, QueryHandlerDef>;
+  streamHandlerMap: Map<string, StreamHandlerDef>;
   preSaveHooks: Map<string, OwnedFn<PreSaveHookFn>[]>;
   postSaveHooks: Map<string, PhasedHook<PostSaveHookFn>[]>;
   preDeleteHooks: Map<string, PhasedHook<PreDeleteHookFn>[]>;
@@ -199,7 +201,7 @@ export type RegistryState = {
   projectionsBySource: Map<string, ProjectionDefinition[]>;
   multiStreamProjectionMap: Map<string, MultiStreamProjectionDefinition>;
   multiStreamProjectionFeatureMap: Map<string, string>;
-  rawTableMap: Map<string, RawTableDef>;
+  storeTableMap: Map<string, StoreTableDef>;
   physicalTableOwners: Map<string, { kind: "entity" | "raw"; owner: string; featureName: string }>;
   authClaimsHooks: AuthClaimsHookDef[];
   claimKeyMap: Map<string, ClaimKeyDefinition>;
@@ -229,6 +231,7 @@ export function createInitialState(): RegistryState {
     relationMap: new Map(),
     writeHandlerMap: new Map(),
     queryHandlerMap: new Map(),
+    streamHandlerMap: new Map(),
     preSaveHooks: new Map(),
     postSaveHooks: new Map(),
     preDeleteHooks: new Map(),
@@ -260,7 +263,7 @@ export function createInitialState(): RegistryState {
     projectionsBySource: new Map(),
     multiStreamProjectionMap: new Map(),
     multiStreamProjectionFeatureMap: new Map(),
-    rawTableMap: new Map(),
+    storeTableMap: new Map(),
     physicalTableOwners: new Map(),
     authClaimsHooks: [],
     claimKeyMap: new Map(),

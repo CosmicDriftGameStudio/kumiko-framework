@@ -101,6 +101,46 @@ describe("getAllQueryHandlers", () => {
   });
 });
 
+describe("getAllStreamHandlers", () => {
+  test("returns every registered stream handler, qualified, across multiple features", () => {
+    const aiFeature = defineFeature("registry-test-ai", (r) => {
+      r.streamHandler("chat:complete", z.object({ prompt: z.string() }), async function* () {}, {
+        access: { openToAll: true },
+      });
+    });
+    const otherFeature = defineFeature("registry-test-other", (r) => {
+      r.streamHandler("chat:complete", z.object({ prompt: z.string() }), async function* () {}, {
+        access: { openToAll: true },
+      });
+    });
+
+    const registry = createRegistry([aiFeature, otherFeature]);
+    const handlers = registry.getAllStreamHandlers();
+
+    expect(handlers.get("registry-test-ai:stream:chat:complete")).toBeDefined();
+    expect(handlers.get("registry-test-other:stream:chat:complete")).toBeDefined();
+    // Same Map instance getStreamHandler reads from, not a copy that can drift.
+    expect(handlers.get("registry-test-ai:stream:chat:complete")).toBe(
+      registry.getStreamHandler("registry-test-ai:stream:chat:complete"),
+    );
+  });
+
+  test("empty registry returns an empty map, not undefined", () => {
+    const registry = createRegistry([]);
+    expect(registry.getAllStreamHandlers().size).toBe(0);
+  });
+
+  test("duplicate stream-handler short-name across features qualifies independently, no collision", () => {
+    const aiFeature = defineFeature("registry-test-dup-a", (r) => {
+      r.streamHandler("chat:complete", z.object({}), async function* () {});
+    });
+    const otherFeature = defineFeature("registry-test-dup-b", (r) => {
+      r.streamHandler("chat:complete", z.object({}), async function* () {});
+    });
+    expect(() => createRegistry([aiFeature, otherFeature])).not.toThrow();
+  });
+});
+
 describe("extensionSelector boot-validation", () => {
   function foundationFeature() {
     return defineFeature("probe-foundation", (r) => {

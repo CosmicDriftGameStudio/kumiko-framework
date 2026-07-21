@@ -11,6 +11,7 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
+  PII_CIPHERTEXT_PREFIX,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
@@ -96,7 +97,7 @@ describe("piiEncrypted config keys", () => {
     });
     expect(row).toBeDefined();
     expect(isPiiCiphertext(row?.value)).toBe(true);
-    expect(row?.value).toStartWith(`kumiko-pii:v1:tenant:${tenantAdmin.tenantId}:`);
+    expect(row?.value).toStartWith(`${PII_CIPHERTEXT_PREFIX}tenant:${tenantAdmin.tenantId}:`);
 
     const values = await stack.http.queryOk<
       Record<string, { value: unknown; scope: string; source: string }>
@@ -118,7 +119,7 @@ describe("piiEncrypted config keys", () => {
     });
     expect(row).toBeDefined();
     expect(isPiiCiphertext(row?.value)).toBe(true);
-    expect(row?.value).toStartWith(`kumiko-pii:v1:user:${tenantAdmin.id}:`);
+    expect(row?.value).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${tenantAdmin.id}:`);
 
     const values = await stack.http.queryOk<
       Record<string, { value: unknown; scope: string; source: string }>
@@ -152,6 +153,26 @@ describe("piiEncrypted config keys", () => {
       expect(res.status).toBe(500);
     } finally {
       // Restore for any test running after this one in the file.
+      configurePiiSubjectKms(kms);
+    }
+  });
+
+  test("read of stored piiEncrypted ciphertext without KMS fails loud", async () => {
+    // Plant ciphertext while KMS is wired, then strip it so the READ path
+    // (decryptPiiEncrypted) — not just the write path — fails loud.
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: BILLING_ADDRESS_KEY, value: "planted-for-read" },
+      tenantAdmin,
+    );
+
+    resetPiiSubjectKmsForTests();
+    expect(configuredPiiSubjectKms()).toBeUndefined();
+
+    try {
+      const res = await stack.http.query(ConfigQueries.values, {}, tenantAdmin);
+      expect(res.status).toBe(500);
+    } finally {
       configurePiiSubjectKms(kms);
     }
   });

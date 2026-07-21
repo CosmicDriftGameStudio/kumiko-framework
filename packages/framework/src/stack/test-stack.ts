@@ -10,7 +10,7 @@ import type { FeatureDefinition, JobRunIn, Registry, TenantId } from "../engine/
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
 import { createJobRunner, type JobRunner } from "../jobs";
 import type { Lifecycle } from "../lifecycle";
-import type { ObservabilityProvider } from "../observability";
+import { createNoopProvider, type ObservabilityProvider } from "../observability";
 import type { Dispatcher, EventDispatcher } from "../pipeline";
 import { createEntityCache, createEventDedup, createIdempotencyGuard } from "../pipeline";
 import { createInMemorySearchAdapter } from "../search";
@@ -230,16 +230,66 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const events = createEventCollector();
   const registry = createRegistry([...options.features]);
 
+  // Wire SSE broker with event collector — built early (not just before
+  // buildServer) because extraContext + the job context below both need it.
+  const sseBroker = createSseBroker();
+  sseBroker.addClient(
+    "tenant:00000000-0000-4000-8000-000000000001",
+    (event) => events.sse.push(event),
+    () => {},
+  );
+
+  const entityCache = createEntityCache(testRedis.redis, { ttlSeconds: 60 });
+
+  // A static `files.storageProvider` is wired as the per-tenant resolver — the
+  // framework test seam that doesn't require mounting config + file-foundation.
+  // (Bundled GDPR tests mount the real provider features instead.)
+  let fileProviderResolver: import("../files").FileProviderResolver | undefined;
+  if (options.files) {
+    const provider = options.files.storageProvider;
+    fileProviderResolver = () => Promise.resolve(provider);
+  }
+
+  const observability = options.observability ?? createNoopProvider();
+
+  // Same AppContext buildServer() gets below (db/redis/searchAdapter/
+  // entityCache/masterKeyProvider/fileProviderResolver/extraContext) —
+  // shared so the job context can't drift from the request-path context
+  // (kumiko-framework#1232: a reduced `{ db, registry }` literal let jobs
+  // pass in tests while reaching for fields only prod's context has).
+  //
+  // effectiveFeatures is included per the issue's explicit ask, even though
+  // prod's job context never gets it today (only dispatcherOptions.
+  // effectiveFeatures, consumed by the command-dispatcher — see
+  // buildJobRunnerWithHook in entrypoint/index.ts). Tracked as a real prod
+  // gap in a follow-up issue rather than silently matched here.
+  const appContext = {
+    db: testDb.db,
+    redis: testRedis.redis,
+    searchAdapter,
+    entityCache,
+    registry,
+    ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
+    ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
+    ...(options.effectiveFeatures ? { effectiveFeatures: options.effectiveFeatures } : {}),
+    ...(typeof options.extraContext === "function"
+      ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
+      : options.extraContext),
+  };
+
   // Built before buildServer() so it can be merged into dispatcherOptions
   // (write handlers' `ctx.jobRunner.dispatch(...)` and the afterCommit
   // event-trigger hook both need it present at dispatcher-construction
   // time, same as the prod entrypoint's buildJobRunnerWithHook). Uses the
   // test-stack's own ephemeral redis — no separate `redisUrl` seam needed.
+  //
+  // context = appContext + tracer/meter, mirroring the prod entrypoint's
+  // `contextWithObservability(options.context, observability)`.
   let jobRunner: JobRunner | undefined;
   if (options.jobs && registry.getAllJobs().size > 0) {
     jobRunner = createJobRunner({
       registry,
-      context: { db: testDb.db, registry },
+      context: { ...appContext, tracer: observability.tracer, meter: observability.meter },
       // The real REDIS_URL, not one rebuilt from `.options` — that lost
       // password/username/tls/path (pr-review kumiko-framework #1036/2).
       redisUrl: testRedis.redisUrl,
@@ -291,42 +341,14 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       }
     }
 
-    // Wire SSE broker with event collector
-    const sseBroker = createSseBroker();
-    sseBroker.addClient(
-      "tenant:00000000-0000-4000-8000-000000000001",
-      (event) => events.sse.push(event),
-      () => {},
-    );
-
     const idempotency = createIdempotencyGuard(testRedis.redis, { ttlSeconds: 60 });
     const eventDedup = createEventDedup(testRedis.redis, { ttlSeconds: 60 });
-    const entityCache = createEntityCache(testRedis.redis, { ttlSeconds: 60 });
-
-    // A static `files.storageProvider` is wired as the per-tenant resolver — the
-    // framework test seam that doesn't require mounting config + file-foundation.
-    // (Bundled GDPR tests mount the real provider features instead.)
-    let fileProviderResolver: import("../files").FileProviderResolver | undefined;
-    if (options.files) {
-      const provider = options.files.storageProvider;
-      fileProviderResolver = () => Promise.resolve(provider);
-    }
 
     const server = buildServer({
       registry,
-      context: {
-        db: testDb.db,
-        redis: testRedis.redis,
-        searchAdapter,
-        entityCache,
-        registry,
-        ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
-        ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
-        ...(typeof options.extraContext === "function"
-          ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
-          : options.extraContext),
-      },
+      context: appContext,
       jwtSecret,
+      ...(options.observability ? { observability: options.observability } : {}),
       dispatcherOptions: {
         idempotency,
         ...(options.effectiveFeatures && { effectiveFeatures: options.effectiveFeatures }),
@@ -358,7 +380,6 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
             },
           }
         : {}),
-      ...(options.observability ? { observability: options.observability } : {}),
       ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
       ...(options.rateLimit ? { rateLimit: options.rateLimit } : {}),
       ...(options.anonymousAccess

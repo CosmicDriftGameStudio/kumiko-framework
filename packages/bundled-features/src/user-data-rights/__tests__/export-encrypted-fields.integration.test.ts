@@ -4,6 +4,7 @@
 // (never the raw ciphertext) without one.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
@@ -74,6 +75,7 @@ beforeAll(async () => {
     createUserFeature(),
     createDataRetentionFeature(),
     createComplianceProfilesFeature(),
+    authFoundationFeature,
     createSessionsFeature(),
     createUserDataRightsFeature(),
     vaultFeature,

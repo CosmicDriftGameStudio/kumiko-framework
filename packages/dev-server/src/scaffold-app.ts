@@ -42,6 +42,8 @@ export type ScaffoldFeatureEntry = {
   readonly importPath: string;
   readonly exportName: string;
   readonly callExpression: string;
+  /** Runtime args for factory-style exports that need config the codegen text can't parse back out (e.g. `{ scopes: {} }`). Omit for zero-arg factories and object-style exports. */
+  readonly callArgs?: readonly unknown[];
 };
 
 export type ScaffoldAppOptions = {
@@ -765,7 +767,7 @@ deploys. Build context = app repo root; migrations ship in \`kumiko/migrations/\
 - \`kumiko/schema.ts\` — same feature set → \`ENTITY_METAS\` for \`kumiko schema\`.
 - \`bin/dev.ts\` — dev-server entry (\`bun dev\`).
 - \`bin/main.ts\` — production-bootstrap (\`bun run start\`).
-- \`bin/kumiko.ts\` — schema-CLI bundled into \`dist-server/kumiko.js\`.
+- \`bin/kumiko.ts\` — schema + consumer-ops CLI bundled into \`dist-server/kumiko.js\`.
 - \`docker-compose.yml\` — local Postgres + Redis for \`bun dev\`.
 
 For full docs see https://docs.kumiko.rocks.
@@ -806,25 +808,32 @@ function renderBinKumiko(): string {
   return [
     "#!/usr/bin/env bun",
     "",
-    "// Standalone kumiko schema-CLI for the production bundle. The deploy",
-    "// migrate-step runs `bun /app/kumiko.js schema apply`; kumiko-build bundles",
-    "// this file to dist-server/kumiko.js.",
+    "// Standalone kumiko CLI for the production bundle. The deploy migrate-step",
+    "// runs `bun /app/kumiko.js schema apply`; ops runs `bun /app/kumiko.js",
+    "// consumer status|restart <name>` to recover a dead event consumer without",
+    "// ad-hoc SQL. kumiko-build bundles this file to dist-server/kumiko.js.",
     "",
     'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
+    'import { runConsumerCli } from "@cosmicdrift/kumiko-framework/consumer-cli";',
     'import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";',
     'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
     "",
     "const [, , cmd, ...rest] = Bun.argv;",
-    'if (cmd !== "schema") {',
-    "  // biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
-    '  console.error("\\n  Unknown: kumiko " + (cmd ?? "") + " — only \'kumiko schema <sub>\' in the standalone bundle.\\n");',
-    "  process.exit(1);",
-    "}",
-    "",
-    "const features = composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH });",
     "// biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
     "const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };",
-    "process.exit(await runSchemaCli(rest, process.env.INIT_CWD ?? process.cwd(), out, { features }));",
+    "",
+    'if (cmd === "schema") {',
+    "  const features = composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH });",
+    "  process.exit(await runSchemaCli(rest, process.env.INIT_CWD ?? process.cwd(), out, { features }));",
+    "}",
+    "",
+    'if (cmd === "consumer") {',
+    "  process.exit(await runConsumerCli(rest, out));",
+    "}",
+    "",
+    "// biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
+    'console.error("\\n  Unknown: kumiko " + (cmd ?? "") + " — only \'kumiko schema <sub>\' or \'kumiko consumer <sub>\' in the standalone bundle.\\n");',
+    "process.exit(1);",
     "",
   ].join("\n");
 }
@@ -843,11 +852,8 @@ async function instantiateScaffoldFeatures(
         `scaffoldApp: ${entry.importPath} missing export ${entry.exportName} for ${entry.callExpression}`,
       );
     }
-    if (entry.callExpression.endsWith("()")) {
-      if (typeof exp !== "function") {
-        throw new Error(`scaffoldApp: ${entry.exportName} is not callable (${entry.importPath})`);
-      }
-      instances.push((exp as () => FeatureDefinition)());
+    if (typeof exp === "function") {
+      instances.push((exp as (...args: unknown[]) => FeatureDefinition)(...(entry.callArgs ?? [])));
     } else {
       instances.push(exp as FeatureDefinition);
     }

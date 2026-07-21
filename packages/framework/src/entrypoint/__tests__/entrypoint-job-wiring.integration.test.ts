@@ -225,3 +225,69 @@ describe("createAllInOneEntrypoint — kumiko_job_queue_depth sees the SAME mete
     }
   });
 });
+
+// Regression test for #1253 — effectiveFeatures was wired into
+// dispatcherOptions (command-dispatcher's feature-gate) but never merged
+// into the job-runner's context. A job handler reading
+// `context.effectiveFeatures?.(tenantId)` always saw undefined in prod.
+const featuresSeenByJob: Array<ReadonlySet<string> | undefined> = [];
+
+const featureGateJobFeature = defineFeature("featuregate", (r) => {
+  r.writeHandler(
+    "ping",
+    z.object({ msg: z.string() }),
+    async (event) => ({
+      isSuccess: true as const,
+      data: { id: 1, msg: event.payload.msg },
+    }),
+    { access: { openToAll: true } },
+  );
+  r.job(
+    "record-features",
+    { trigger: { on: "featuregate:write:ping" }, runIn: "worker" },
+    async (_payload, context) => {
+      featuresSeenByJob.push(context.effectiveFeatures?.(adminUser.tenantId));
+    },
+  );
+});
+
+describe("createAllInOneEntrypoint — job context sees dispatcherOptions.effectiveFeatures (#1253)", () => {
+  test("job handler reads the same effectiveFeatures resolver as the command-dispatcher's feature-gate", async () => {
+    featuresSeenByJob.length = 0;
+    const registry = createRegistry([featureGateJobFeature]);
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const entry = createAllInOneEntrypoint({
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl,
+      queueNamePrefix: `wiring-features-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      dispatcherOptions: {
+        effectiveFeatures: () => new Set(["featuregate", "some-feature"]),
+      },
+    });
+    await entry.start();
+    try {
+      const token = await entry.jwt.sign(adminUser);
+      const res = await entry.app.request("/api/write", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ type: "featuregate:write:ping", payload: { msg: "hi" } }),
+      });
+      const result = (await res.json()) as { isSuccess: boolean };
+      expect(result.isSuccess).toBe(true);
+
+      // Without the fix, context.effectiveFeatures is undefined and this
+      // stays empty forever — waitFor times out on the missing entry.
+      await waitFor(() => {
+        expect(featuresSeenByJob.length).toBeGreaterThan(0);
+        expect(featuresSeenByJob[0]?.has("some-feature")).toBe(true);
+      });
+    } finally {
+      await entry.stop();
+    }
+  });
+});

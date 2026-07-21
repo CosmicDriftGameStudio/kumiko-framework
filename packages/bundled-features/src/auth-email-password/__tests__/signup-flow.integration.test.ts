@@ -320,4 +320,16 @@ describe("POST /api/auth/signup-confirm", () => {
     const loginAttacker = await postLogin(email, attackerPassword);
     expect(loginAttacker.status).not.toBe(200);
   });
+
+  test("common password → 400 (schema rejects breach-list password) (#1340)", async () => {
+    const email = "common-signup@example.com";
+    const token = await requestSignup(email);
+
+    const confirmRes = await postSignupConfirm(token, "password1");
+    expect(confirmRes.status).toBe(400);
+
+    // No user created — the rejected confirm never landed.
+    const userRows = await selectMany(stack.db, userTable, { email });
+    expect(userRows).toHaveLength(0);
+  });
 });

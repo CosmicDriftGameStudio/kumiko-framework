@@ -67,4 +67,32 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("pins runtime-deps from node_modules/@cosmicdrift/* for consumer apps without a packages/ dir", async () => {
+    // Reproduziert #1217: findRepoRoot liefert für eine Consumer-App die
+    // App-Wurzel selbst (kein packages/-Ordner) — die Version muss aus den
+    // installierten node_modules/@cosmicdrift/*-Packages kommen, nicht "*".
+    const dir = makeFixture();
+    try {
+      const frameworkPkgDir = join(dir, "node_modules/@cosmicdrift/kumiko-framework");
+      mkdirSync(frameworkPkgDir, { recursive: true });
+      writeFileSync(
+        join(frameworkPkgDir, "package.json"),
+        `${JSON.stringify({ name: "@cosmicdrift/kumiko-framework", dependencies: { meilisearch: "^0.58.0" } })}\n`,
+      );
+      const bundledFeaturesPkgDir = join(dir, "node_modules/@cosmicdrift/kumiko-bundled-features");
+      mkdirSync(bundledFeaturesPkgDir, { recursive: true });
+      writeFileSync(
+        join(bundledFeaturesPkgDir, "package.json"),
+        `${JSON.stringify({ name: "@cosmicdrift/kumiko-bundled-features", dependencies: { ioredis: "^5.4.1" } })}\n`,
+      );
+
+      const result = await buildServerBundle({ cwd: dir, outDir: join(dir, "dist-server") });
+
+      expect(result.runtimeDeps["meilisearch"]).toBe("^0.58.0");
+      expect(result.runtimeDeps["ioredis"]).toBe("^5.4.1");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

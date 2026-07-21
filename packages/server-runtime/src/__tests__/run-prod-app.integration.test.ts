@@ -13,6 +13,13 @@ import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import {
+  createSessionsFeature,
+  userSessionEntity,
+} from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { InMemoryKmsAdapter, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -26,6 +33,10 @@ import {
   createArchivedStreamsTable,
   createEventsTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  createNoopProvider,
+  createPrometheusMeter,
+} from "@cosmicdrift/kumiko-framework/observability";
 import {
   createEventConsumerStateTable,
   createProjectionStateTable,
@@ -196,6 +207,8 @@ async function migrateTestDb(): Promise<void> {
     await createProjectionStateTable(db);
     await createEventConsumerStateTable(db);
     await unsafeEnsureEntityTable(db, widgetEntity, "widget");
+    await unsafeEnsureEntityTable(db, userEntity, "user");
+    await unsafeEnsureEntityTable(db, userSessionEntity, "user-session");
     await asRawClient(db).unsafe(
       `CREATE TABLE IF NOT EXISTS prod_probe_pings (
          id BIGSERIAL PRIMARY KEY,
@@ -248,6 +261,26 @@ describe("runProdApp", () => {
 
     const res = await handle.entrypoint.app.fetch(new Request("http://test/health"));
     expect(res.status).toBe(200);
+  });
+
+  test("unrecognized KUMIKO_DRY_RUN_ENV value warns and falls through to a normal boot", async () => {
+    const originalWarn = console.warn;
+    const warnings: string[] = [];
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(" "));
+    };
+    const original = process.env["KUMIKO_DRY_RUN_ENV"];
+    process.env["KUMIKO_DRY_RUN_ENV"] = "not-a-real-mode";
+    try {
+      const handle = await boot();
+      const res = await handle.entrypoint.app.fetch(new Request("http://test/health"));
+      expect(res.status).toBe(200);
+    } finally {
+      console.warn = originalWarn;
+      if (original === undefined) delete process.env["KUMIKO_DRY_RUN_ENV"];
+      else process.env["KUMIKO_DRY_RUN_ENV"] = original;
+    }
+    expect(warnings.some((line) => line.includes("unrecognized"))).toBe(true);
   });
 
   test("second boot against the same DB is idempotent — no crash, no duplicate tables", async () => {
@@ -790,7 +823,7 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
   test("cookieDomain without allowedOrigins fails closed — guard is wired through runProdApp", async () => {
     await expect(
       boot(undefined, {
-        auth: { admin: ADMIN, cookieDomain: "example.eu" },
+        auth: { admin: ADMIN, cookieDomain: "example.eu", sessions: false },
         allowPlaintextPii: "test: origin-guard focus, not crypto",
       }),
     ).rejects.toThrow(/allowedOrigins is empty/);
@@ -807,6 +840,7 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
           admin: ADMIN,
           cookieDomain: "example.eu",
           allowedOrigins: ["https://app.example.eu"],
+          sessions: false,
         },
       });
       expect(handle).toBeDefined();
@@ -816,6 +850,48 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
     if (bootError !== undefined) {
       expect(String(bootError)).not.toMatch(/allowedOrigins is empty/);
     }
+  });
+});
+
+describe("runProdApp — session boot gate (#1262/#1275)", () => {
+  const ADMIN = {
+    email: "session-gate@example.eu",
+    password: "test-pw-strong-1234",
+    displayName: "Admin",
+    memberships: [],
+  };
+
+  test("auth mounted, sessions feature missing, no opt-out → aborts boot", async () => {
+    await expect(
+      boot(undefined, {
+        auth: {
+          admin: ADMIN,
+          cookieDomain: "example.eu",
+          allowedOrigins: ["https://app.example.eu"],
+        },
+        allowPlaintextPii: "test: session-gate focus, not crypto",
+      }),
+    ).rejects.toThrow(/BOOT ABORTED.*sessions.*stateless/s);
+  });
+
+  test("auth mounted, sessions feature mounted → boots cleanly (the happy path the gate guards)", async () => {
+    const handle = await boot(undefined, {
+      // "user" is auto-mounted via includeBundled whenever auth.admin is set.
+      // sessions requires auth-foundation, which needs a tokenVerifier
+      // provider — PAT.
+      features: [
+        authFoundationFeature,
+        createPersonalAccessTokensFeature({ scopes: {} }),
+        createSessionsFeature(),
+      ],
+      auth: {
+        admin: ADMIN,
+        cookieDomain: "example.eu",
+        allowedOrigins: ["https://app.example.eu"],
+      },
+      allowPlaintextPii: "test: session-gate focus, not crypto",
+    });
+    expect(handle).toBeDefined();
   });
 });
 
@@ -930,5 +1006,38 @@ describe("hard PII boot gate (#818 step 2)", () => {
       allowPlaintextPii: "test: kms rollout pending",
     });
     expect(handle).toBeDefined();
+  });
+});
+
+// Regression for fw#1352: runProdApp wires the metrics route through two
+// independently forwarded options (observability, metrics). Wrong nesting
+// or a renamed key in ApiEntrypointOptions would silently no-op instead of
+// erroring the boot, and /metrics would stay 404 or empty.
+describe("runProdApp — /metrics endpoint (fw#1352)", () => {
+  test("observability (PrometheusMeter) + metrics.token wired → GET /metrics mit Bearer liefert OpenMetrics-Body", async () => {
+    const meter = createPrometheusMeter();
+    meter.registerMetric({ name: "kumiko_probe_total", type: "counter" });
+    meter.counter("kumiko_probe_total").inc(2);
+
+    const handle = await boot(undefined, {
+      observability: { ...createNoopProvider(), meter },
+      metrics: { token: "t" },
+    });
+
+    const res = await handle.entrypoint.app.fetch(
+      new Request("http://test/metrics", { headers: { Authorization: "Bearer t" } }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toMatch(/openmetrics-text/);
+    const body = await res.text();
+    expect(body).toContain("kumiko_probe_total 2");
+    expect(body).toMatch(/# EOF\n$/);
+  });
+
+  test("ohne observability und ohne metrics-Option → /metrics ist keine Route (404)", async () => {
+    const handle = await boot();
+
+    const res = await handle.entrypoint.app.fetch(new Request("http://test/metrics"));
+    expect(res.status).toBe(404);
   });
 });

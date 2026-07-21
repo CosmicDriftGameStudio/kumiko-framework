@@ -20,7 +20,7 @@ const counterTable = table("read_unit_counters", {
 }) as unknown as SchemaTable;
 
 describe("collectTableMetas (#255)", () => {
-  test("collects entity, projection, MSP and rawTable tables — same sources as the test-stack auto-push", () => {
+  test("collects entity, projection, MSP and storeTable tables — same sources as the test-stack auto-push", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("unit", exampleEntity());
       r.projection({
@@ -39,16 +39,16 @@ describe("collectTableMetas (#255)", () => {
       });
       // side-effect-only MSP — no table, must be skipped without throwing
       r.multiStreamProjection({ name: "unit-notify", apply: { "unit.created": async () => {} } });
-      r.rawTable(
+      r.storeTable(
         defineUnmanagedTable({
           tableName: "unit_cache",
           columns: [{ name: "id", pgType: "uuid", notNull: true, primaryKey: true }],
         }),
         { reason: "test fixture" },
       );
-      r.rawTable(
+      r.storeTable(
         defineUnmanagedTable({
-          tableName: "read_unit_log",
+          tableName: "store_unit_log",
           columns: [{ name: "id", pgType: "serial", notNull: true, primaryKey: true }],
         }),
         { reason: "test fixture" },
@@ -59,8 +59,8 @@ describe("collectTableMetas (#255)", () => {
     expect(names).toContain("read_units"); // entity
     expect(names).toContain("read_unit_counters"); // r.projection
     expect(names).toContain("read_unit_audit"); // r.multiStreamProjection
-    expect(names).toContain("unit_cache"); // r.rawTable
-    expect(names).toContain("read_unit_log"); // r.rawTable (second registration)
+    expect(names).toContain("unit_cache"); // r.storeTable
+    expect(names).toContain("store_unit_log"); // r.storeTable (second registration)
     expect(names).toHaveLength(5);
   });
 

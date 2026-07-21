@@ -60,7 +60,7 @@ export const jobRunsTable = buildEntityTable("job-run", jobRunEntity);
 // uuid of the parent jobRun. Existing detail-query callers treat it as an
 // opaque identifier, so the type-switch is backward-compatible at the
 // query surface.
-export const jobRunLogsTable = pgTable("read_job_run_logs", {
+export const jobRunLogsTable = pgTable("store_job_run_logs", {
   id: serial("id").primaryKey(),
   runId: text("run_id").notNull(),
   level: text("level").notNull().$type<JobLogLevel>(),
@@ -76,7 +76,7 @@ export const jobRunLogsTable = pgTable("read_job_run_logs", {
 // pgTable bleibt source-of-truth für Query-API; Phase 4 leitet das pgTable
 // aus dieser Meta ab.
 export const jobRunLogsTableMeta: EntityTableMeta = defineUnmanagedTable({
-  tableName: "read_job_run_logs",
+  tableName: "store_job_run_logs",
   columns: [
     { name: "id", pgType: "serial", notNull: true, primaryKey: true },
     { name: "run_id", pgType: "text", notNull: true },

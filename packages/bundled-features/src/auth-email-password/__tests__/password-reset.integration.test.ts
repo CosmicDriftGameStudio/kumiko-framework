@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -76,6 +77,7 @@ beforeAll(async () => {
       // "user.postSave" that triggers autoRevokeOnPasswordChange whenever
       // the passwordHash delta is present. Integration-test proves the
       // reset-flow's changes.passwordHash triggers the same hook.
+      authFoundationFeature,
       createSessionsFeature({
         autoRevokeOnPasswordChange: async (userId) => {
           autoRevokeCalls.push(userId);
@@ -252,6 +254,18 @@ describe("POST /auth/reset-password", () => {
     expect(res.status).toBe(400);
   });
 
+  test("common newPassword → 400 (schema rejects breach-list password)", async () => {
+    const seed = await seedUser({ email: "frank@example.com", password: "original" });
+    const { token } = signResetToken(seed.id, 15, resetSecret);
+
+    const res = await post("/api/auth/reset-password", {
+      token,
+      newPassword: "password1",
+    });
+
+    expect(res.status).toBe(400);
+  });
+
   test("expired token via the route → 422 invalid_reset_token", async () => {
     const seed = await seedUser({ email: "time@example.com", password: "once-valid-1234" });
     // Sign with now set far in the past so expiry already fired.
@@ -348,7 +362,7 @@ describe("POST /auth/reset-password", () => {
     // never blanket-opens zero-membership.
     // Build a fully-populated user row with NO event stream: seed a normal
     // user (gets all NOT-NULL columns), capture its row, then re-key it to a
-    // fresh id + email. getAggregateStreamTenant(orphanId) finds no events
+    // fresh id + email. getUnscopedAggregateStreamTenant(orphanId) finds no events
     // (the stream lives under the original id), and no membership is seeded
     // → tenantOrder is empty.
     const donor = await seedUser({ email: "donor@example.com", password: "donor-pw-1234" });

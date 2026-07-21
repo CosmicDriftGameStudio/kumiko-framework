@@ -1,7 +1,7 @@
 // GET /api/query → user-data-rights:query:download-by-token (S2.U3 Atom 4b).
 //
 // **Magic-Link-Pfad** (anonymous): User klickt Email-Link mit
-// `?token=<plain>`. Worker hat beim done-flip Token-Hash in DB
+// `#token=<plain>` (URL fragment, issue #1271). Worker hat beim done-flip Token-Hash in DB
 // persistiert (Atom 4a). Verify-Pipeline:
 //
 //   1. hashDownloadToken(plain) → fetchOne in download-tokens

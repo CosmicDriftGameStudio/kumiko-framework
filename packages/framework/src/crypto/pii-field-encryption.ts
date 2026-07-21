@@ -3,7 +3,12 @@
 // erase subject — kms.eraseKey(subject) makes every value unreadable at once.
 // Storage format is a sniffable string that fits existing text columns and
 // names its subject inline, so decrypt needs no schema change and no resolver:
-//   kumiko-pii:v1:<subjectKey>:<base64(iv|tag|ciphertext)>
+//   kumiko-pii:v2:<subjectKey>:<base64(iv|tag|ciphertext)>
+// v2 GCM-binds the ciphertext to `subjectKey|field` as AAD (#1263) — subject
+// selects the DEK, field stops a cut-and-paste between two fields of the
+// SAME subject (same DEK, so key selection alone can't catch that) from
+// decrypting silently. v1 (no AAD) stays decrypt-only for pre-#1263 rows;
+// every new write emits v2.
 
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import type { EntityDefinition } from "../engine/types/fields";
@@ -26,24 +31,40 @@ import { resolveSubjectForField } from "./subject-resolver";
 // Spec value (crypto-shredding.md) — renderers show it verbatim.
 export const PII_ERASED_SENTINEL = "[[erased]]";
 
-export const PII_CIPHERTEXT_PREFIX = "kumiko-pii:v1:";
+const PII_CIPHERTEXT_PREFIX_V1 = "kumiko-pii:v1:";
+export const PII_CIPHERTEXT_PREFIX = "kumiko-pii:v2:";
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
 export function isPiiCiphertext(value: unknown): value is string {
-  return typeof value === "string" && value.startsWith(PII_CIPHERTEXT_PREFIX);
+  return (
+    typeof value === "string" &&
+    (value.startsWith(PII_CIPHERTEXT_PREFIX) || value.startsWith(PII_CIPHERTEXT_PREFIX_V1))
+  );
 }
 
-function encryptValue(subject: SubjectId, dek: SubjectDek, plaintext: string): string {
+function buildAad(subject: SubjectId, field: string): Buffer {
+  return Buffer.from(`${subjectIdToKey(subject)}|${field}`, "utf8");
+}
+
+function encryptValue(
+  subject: SubjectId,
+  dek: SubjectDek,
+  plaintext: string,
+  field: string,
+): string {
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv("aes-256-gcm", dek, iv);
+  cipher.setAAD(buildAad(subject, field));
   const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   const blob = Buffer.concat([iv, cipher.getAuthTag(), ciphertext]);
   return `${PII_CIPHERTEXT_PREFIX}${subjectIdToKey(subject)}:${blob.toString("base64")}`;
 }
 
-function parseCiphertext(value: string): { subject: SubjectId; blob: Buffer } {
-  const rest = value.slice(PII_CIPHERTEXT_PREFIX.length);
+function parseCiphertext(value: string): { subject: SubjectId; blob: Buffer; hasAad: boolean } {
+  const hasAad = value.startsWith(PII_CIPHERTEXT_PREFIX);
+  const prefix = hasAad ? PII_CIPHERTEXT_PREFIX : PII_CIPHERTEXT_PREFIX_V1;
+  const rest = value.slice(prefix.length);
   // subjectKey itself contains ":" ("user:<id>") — base64 never does, so the
   // last ":" is always the key/blob separator.
   const sep = rest.lastIndexOf(":");
@@ -51,14 +72,22 @@ function parseCiphertext(value: string): { subject: SubjectId; blob: Buffer } {
   return {
     subject: subjectIdFromKey(rest.slice(0, sep)),
     blob: Buffer.from(rest.slice(sep + 1), "base64"),
+    hasAad,
   };
 }
 
-function decryptValue(dek: SubjectDek, blob: Buffer): string {
+function decryptValue(
+  dek: SubjectDek,
+  blob: Buffer,
+  subject: SubjectId,
+  field: string,
+  hasAad: boolean,
+): string {
   const iv = blob.subarray(0, IV_LENGTH);
   const tag = blob.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
   const ciphertext = blob.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
   const decipher = createDecipheriv("aes-256-gcm", dek, iv);
+  if (hasAad) decipher.setAAD(buildAad(subject, field));
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
 }
@@ -87,31 +116,36 @@ async function getOrCreateDek(
 
 // Single-value encrypt for callers that resolve the subject themselves
 // (event-pii catalog, backfill). Ciphertext/sentinel inputs pass through —
-// idempotent like the field-map variant.
+// idempotent like the field-map variant. `field` names the value's storage
+// slot (payload field / config key) — part of the AAD, so it must match the
+// `field` passed to decryptPiiValueForSubject for the same value.
 export async function encryptPiiValueForSubject(
   kms: LocalKeyKmsAdapter,
   subject: SubjectId,
   value: string,
   kmsCtx: KmsContext,
+  field: string,
 ): Promise<string> {
   if (isPiiCiphertext(value) || value === PII_ERASED_SENTINEL) return value;
   const dek = await getOrCreateDek(kms, subject, kmsCtx);
-  return encryptValue(subject, dek, value);
+  return encryptValue(subject, dek, value, field);
 }
 
 // Single-value decrypt for callers that don't have an entity/field-map to
 // pass through decryptPiiFieldValues (config values). The subject lives
 // inside the ciphertext itself, so no subject/scope resolution is needed
-// on this side — only the encrypt direction has to pick one.
+// on this side — only the encrypt direction has to pick one. `field` must
+// match the one used at encrypt time (AAD) or decrypt fails loud.
 export async function decryptPiiValueForSubject(
   kms: LocalKeyKmsAdapter,
   value: string,
   kmsCtx: KmsContext,
+  field: string,
 ): Promise<string> {
   if (!isPiiCiphertext(value)) return value;
-  const { subject, blob } = parseCiphertext(value);
+  const { subject, blob, hasAad } = parseCiphertext(value);
   try {
-    return decryptValue(await kms.getKey(subject, kmsCtx), blob);
+    return decryptValue(await kms.getKey(subject, kmsCtx), blob, subject, field, hasAad);
   } catch (e) {
     if (!(e instanceof KeyErasedError)) throw e;
     return PII_ERASED_SENTINEL;
@@ -156,7 +190,7 @@ export async function encryptPiiFieldValues(
     // skip: collectPiiSubjectFields only yields annotated fields — null is unreachable, kept as a type guard
     if (subject === null) continue;
     const dek = await getOrCreateDek(kms, subject, kmsCtx);
-    out[name] = encryptValue(subject, dek, value);
+    out[name] = encryptValue(subject, dek, value, name);
   }
   return out;
 }
@@ -174,9 +208,9 @@ export async function decryptPiiFieldValues(
     // Pre-engine plaintext rows pass through unchanged (mixed-state reads
     // work during rollout; backfill is tracked in kumiko-framework#799).
     if (!isPiiCiphertext(value)) continue;
-    const { subject, blob } = parseCiphertext(value);
+    const { subject, blob, hasAad } = parseCiphertext(value);
     try {
-      out[name] = decryptValue(await kms.getKey(subject, kmsCtx), blob);
+      out[name] = decryptValue(await kms.getKey(subject, kmsCtx), blob, subject, name, hasAad);
     } catch (e) {
       // KeyNotFound deliberately propagates: ciphertext without a key row
       // means the key store is wrong (not shredded) — fail loud.

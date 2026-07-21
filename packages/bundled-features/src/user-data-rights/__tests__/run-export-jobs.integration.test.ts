@@ -17,6 +17,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -59,6 +60,7 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
 
       createUserDataRightsFeature(),
@@ -385,6 +387,47 @@ describe("runExportJobs :: storage-cleanup", () => {
     expect(result.cleanedJobIds).not.toContain(jobId);
     expect(await provider.exists(storageKey)).toBe(true);
   });
+
+  test("storage-delete Throw → Job bleibt uncleaned (retry naechster Pass)", async () => {
+    const jobId = await seedPendingJob();
+    const T = getTemporal();
+    const longAgo = T.Instant.fromEpochMilliseconds(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const storageKey = `${tenantA}/exports/${jobId}.zip`;
+    const provider = await buildProvider(tenantA);
+    await provider.write(storageKey, new Uint8Array([7, 8, 9]));
+
+    await updateRows(
+      stack.db,
+      exportJobsTable,
+      {
+        status: EXPORT_JOB_STATUS.Done,
+        startedAt: longAgo,
+        completedAt: longAgo,
+        downloadStorageKey: storageKey,
+        expiresAt: longAgo,
+      },
+      { id: jobId },
+    );
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: async () => ({
+        ...provider,
+        delete: async () => {
+          throw new Error("synthetic storage delete failure");
+        },
+      }),
+      now: NOW(),
+    });
+
+    expect(result.cleanedJobIds).not.toContain(jobId);
+    expect(await provider.exists(storageKey)).toBe(true);
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+      downloadStorageKey: string | null;
+    }>;
+    expect(row?.downloadStorageKey).toBe(storageKey);
+  });
 });
 
 describe("runExportJobs :: idempotency", () => {
@@ -706,6 +749,145 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(row?.errorMessage).toMatch(/Token-Creation failed/);
   });
 
+  test("failed-Job: sendExportFailedEmail wird mit errorMessage + userEmail gerufen", async () => {
+    const jobId = await seedPendingJob();
+
+    // Force a deterministic failure the same way as the UNIQUE-violation
+    // test above — pre-seed a token row for this jobId so the worker's
+    // tokenCrud.create hits the unique index and the job flips to failed.
+    await asRawClient(stack.db).unsafe(
+      `
+      INSERT INTO read_export_download_tokens
+        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
+      VALUES (
+        gen_random_uuid(),
+        $1,
+        $2,
+        $3,
+        now(),
+        now() + interval '7 days',
+        1,
+        now(),
+        now()
+      )
+    `,
+      [tenantA, jobId, "existing-hash"],
+    );
+
+    type SentArgs = {
+      userId: string;
+      userEmail: string;
+      jobId: string;
+      errorMessage: string;
+      tenantId: string;
+    };
+    const sentEmails: SentArgs[] = [];
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+      sendExportFailedEmail: async (args) => {
+        sentEmails.push(args);
+      },
+    });
+
+    expect(result.failedJobIds).toContain(jobId);
+    expect(sentEmails).toHaveLength(1);
+    const sent = sentEmails[0];
+    if (!sent) throw new Error("expected 1 sent email");
+    expect(sent.userId).toBe(String(aliceUser.id));
+    expect(sent.userEmail).toBe("alice@example.com");
+    expect(sent.jobId).toBe(jobId);
+    expect(sent.errorMessage).toMatch(/Token-Creation failed/);
+  });
+
+  test("failed-Job ohne Callback: kein Email, Worker-Run succeeded", async () => {
+    const jobId = await seedPendingJob();
+    await asRawClient(stack.db).unsafe(
+      `
+      INSERT INTO read_export_download_tokens
+        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, now(), now() + interval '7 days', 1, now(), now())
+    `,
+      [tenantA, jobId, "existing-hash"],
+    );
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+      // Kein sendExportFailedEmail
+    });
+    expect(result.failedJobIds).toContain(jobId);
+    // Kein Email, kein Throw — Worker laeuft normal durch
+  });
+
+  test("failed-Job, sendExportFailedEmail-Throw wird abgefangen (best-effort, kein Batch-Abbruch)", async () => {
+    const jobId = await seedPendingJob();
+    await asRawClient(stack.db).unsafe(
+      `
+      INSERT INTO read_export_download_tokens
+        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, now(), now() + interval '7 days', 1, now(), now())
+    `,
+      [tenantA, jobId, "existing-hash"],
+    );
+
+    // Should not throw despite the callback throwing — the try/catch
+    // around fireExportFailedCallback swallows it (operator-visibility
+    // via console.warn only).
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+      sendExportFailedEmail: async () => {
+        throw new Error("synthetic email transport failure");
+      },
+    });
+    expect(result.failedJobIds).toContain(jobId);
+  });
+
+  test("failed-Job, user ohne email → sendExportFailedEmail skipped (kein Throw)", async () => {
+    await resetTestTables(stack.db, [userTable]);
+    await seedRow(stack.db, userTable, {
+      id: String(aliceUser.id),
+      tenantId: tenantA,
+      email: "" as string,
+      passwordHash: "hashed",
+      displayName: "Alice",
+      locale: "de",
+      emailVerified: true,
+      roles: '["Member"]',
+      status: USER_STATUS.Active,
+    });
+    const jobId = await seedPendingJob();
+    await asRawClient(stack.db).unsafe(
+      `
+      INSERT INTO read_export_download_tokens
+        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, now(), now() + interval '7 days', 1, now(), now())
+    `,
+      [tenantA, jobId, "existing-hash"],
+    );
+
+    let callbackInvoked = false;
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+      sendExportFailedEmail: async () => {
+        callbackInvoked = true;
+      },
+    });
+    expect(result.failedJobIds).toContain(jobId);
+    expect(callbackInvoked).toBe(false);
+  });
+
   test("failed-Job mit downloadStorageKey → ZIP wird im Cleanup-Pass entfernt (orphan-fix)", async () => {
     // Atom 4a.fix orphan-cleanup: failed-Jobs haben downloadStorageKey
     // gesetzt (path-pre-claim) — der ZIP-Pfad ist persistiert ab claim.
@@ -803,6 +985,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
         createUserFeature(),
         createDataRetentionFeature(),
         createComplianceProfilesFeature(),
+        authFoundationFeature,
         createSessionsFeature(),
 
         createUserDataRightsFeature(),
@@ -1063,7 +1246,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
     expect(sent.userEmail).toBe("alice@example.com");
     expect(sent.jobId).toBe(jobId);
     expect(sent.downloadUrl).toMatch(
-      /^https:\/\/app\.example\.com\/user-export\/by-token\?token=[A-Za-z0-9_%-]+$/,
+      /^https:\/\/app\.example\.com\/user-export\/by-token#token=[A-Za-z0-9_%-]+$/,
     );
     // plain-token aus dem callback-arg entspricht dem result.tokenByJobId
     const plainFromResult = result.tokenByJobId.get(jobId);

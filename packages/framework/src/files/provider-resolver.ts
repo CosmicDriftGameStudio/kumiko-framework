@@ -12,11 +12,12 @@
 // file-foundation re-exports `createFileProviderForTenant` + the plugin types
 // (moved here from there) so existing imports keep working.
 
+import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
 import type { DbConnection } from "../db/connection";
 import type { TenantDb } from "../db/tenant-db";
 import { EXT_FILE_PROVIDER, FILE_PROVIDER_CONFIG_KEY } from "../engine/extension-names";
 import { SYSTEM_USER_ID } from "../engine/system-user";
-import type { ConfigAccessor, ConfigAccessorFactory, Registry, TenantId } from "../engine/types";
+import type { ConfigAccessor, ConfigAccessorFactory, Registry } from "../engine/types";
 import type { SecretsContext } from "../secrets";
 import type { FileStorageProvider } from "./types";
 
@@ -120,10 +121,7 @@ export async function createFileProviderForTenant(
   return usage.options.build(ctx, tenantId);
 }
 
-// A bound, per-tenant provider resolver. One instance serves all tenants
-// (tenantId is the call argument) — the single spine shared by upload routes,
-// ctx.files and the GDPR jobs.
-export type FileProviderResolver = (tenantId: TenantId) => Promise<FileStorageProvider>;
+export type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
 
 export type FileProviderResolverDeps = {
   readonly registry?: Registry;

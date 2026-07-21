@@ -20,6 +20,8 @@ export const Routes = {
   authResetPassword: "/auth/reset-password",
   authRequestEmailVerification: "/auth/request-email-verification",
   authVerifyEmail: "/auth/verify-email",
+  authRequestAccountUnlock: "/auth/request-account-unlock",
+  authConfirmAccountUnlock: "/auth/confirm-account-unlock",
   authSignupRequest: "/auth/signup-request",
   authSignupConfirm: "/auth/signup-confirm",
   // Tenant-Invite (Magic-Link): 3 separate accept-Endpoints für klare
@@ -42,6 +44,8 @@ export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.authResetPassword}`,
   `/api${Routes.authRequestEmailVerification}`,
   `/api${Routes.authVerifyEmail}`,
+  `/api${Routes.authRequestAccountUnlock}`,
+  `/api${Routes.authConfirmAccountUnlock}`,
   `/api${Routes.authSignupRequest}`,
   `/api${Routes.authSignupConfirm}`,
   // invite-accept braucht JWT (logged-in User, Branch 1) — NICHT public.

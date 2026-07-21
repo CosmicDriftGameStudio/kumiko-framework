@@ -8,6 +8,7 @@ import { z } from "zod";
 import { hashPassword, verifyPassword } from "../../shared";
 import { UserHandlers, UserQueries } from "../../user";
 import { invalidCredentials } from "../errors";
+import { passwordSchema } from "../password-policy";
 
 // Change-password — authenticated. The user supplies their current password
 // (re-auth) and the new one. The new hash is written via ctx.writeAs(system)
@@ -17,7 +18,7 @@ export const changePasswordWrite = defineWriteHandler({
   name: "change-password",
   schema: z.object({
     oldPassword: z.string().min(1),
-    newPassword: z.string().min(8).max(200),
+    newPassword: passwordSchema,
   }),
   access: { roles: access.authenticated },
   handler: async (event, ctx) => {

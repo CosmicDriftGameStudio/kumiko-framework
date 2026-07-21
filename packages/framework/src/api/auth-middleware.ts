@@ -17,9 +17,9 @@ export const CSRF_COOKIE_NAME = "kumiko_csrf";
 export const CSRF_HEADER_NAME = "X-CSRF-Token";
 
 // Prefix that marks a bearer token as a long-lived Personal Access Token
-// rather than a JWT session. The PAT feature mints tokens with this prefix;
-// the middleware uses it to route to patResolver instead of jwt.verify. Kept
-// here so both sides import the same literal.
+// rather than a JWT session. The personal-access-tokens feature mints tokens
+// with this prefix and declares it as its tokenVerifier shape (kind:
+// "prefix") — kept here so both sides import the same literal.
 export const PAT_TOKEN_PREFIX = "kpat_";
 
 // Which wire the current request authenticated over. Downstream
@@ -47,13 +47,13 @@ export type AuthSessionChecker = (
   expectedUserId: string,
 ) => Promise<AuthSessionStatus>;
 
-// Resolves a raw Personal Access Token (bearer, prefixed PAT_TOKEN_PREFIX)
-// into a SessionUser, or null when the token is unknown/revoked/expired. The
-// PAT feature owns the DB-backed implementation: hash the token, look up the
-// row, resolve the user's CURRENT roles live (not a snapshot), and expand the
-// token's granted scopes into `pat.allowedQns`. Middleware just consults it
-// and short-circuits the JWT path on a hit.
-export type PatResolver = (rawToken: string) => Promise<SessionUser | null>;
+// Resolves a raw bearer token into a SessionUser, or null when no registered
+// provider claims it (or the claiming provider rejects it as unknown/revoked/
+// expired). Wired generically from the auth-foundation `tokenVerifier`
+// extension-point registry — the middleware has no PAT/JWT-specific
+// knowledge, it just consults whatever the app wired in and short-circuits
+// the JWT path on a hit.
+export type TokenVerifier = (rawToken: string) => Promise<SessionUser | null>;
 
 export type TenantLifecycleStatusResolver = (
   tenantId: TenantId,
@@ -64,15 +64,13 @@ export type AuthMiddlewareOptions = {
   // reports anything other than "live", the request is rejected with 401.
   // Omit to run in stateless-JWT mode (any valid JWT is accepted).
   readonly sessionChecker?: AuthSessionChecker;
-  // Called for bearer tokens carrying the PAT prefix, BEFORE jwt.verify. On a
-  // hit the middleware sets the returned SessionUser and skips the JWT path
-  // entirely. Omit to disable PAT auth (bearer PATs then fail jwt.verify → 401).
-  readonly patResolver?: PatResolver;
-  // When true, a JWT WITHOUT a sid is rejected. Leave false during rollout
-  // so already-issued stateless JWTs keep working until they expire; flip
-  // to true once the server has been emitting sid for longer than the JWT
-  // TTL. Has no effect when sessionChecker is undefined.
-  readonly strictMode?: boolean;
+  // Called for bearer tokens, BEFORE jwt.verify. On a hit the middleware
+  // sets the returned SessionUser and skips the JWT path entirely; on a
+  // miss (null) falls through to jwt.verify. Wired from the auth-foundation
+  // `tokenVerifier` extension-point registry — generic across providers
+  // (PAT, future JWT-provider, ...), the middleware itself has no
+  // provider-specific knowledge. Omit to disable non-JWT bearer auth.
+  readonly tokenVerifier?: TokenVerifier;
   // Opt-in: when set, requests without a JWT are treated as anonymous
   // callers instead of being rejected with 401. The middleware synthesises
   // a SessionUser with id="anonymous" and roles=["anonymous"], scoped to a
@@ -222,13 +220,7 @@ function extractToken(
 }
 
 export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = {}) {
-  const {
-    sessionChecker,
-    strictMode = false,
-    anonymousAccess,
-    patResolver,
-    resolveTenantLifecycleStatus,
-  } = options;
+  const { sessionChecker, anonymousAccess, tokenVerifier, resolveTenantLifecycleStatus } = options;
 
   // Fail loud at boot, not silently at request time: a tenantResolver
   // without a declared resolverTrust is an ambiguous trust decision no
@@ -282,11 +274,17 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     }
     const { token, transport } = extracted;
 
-    // PAT path: a bearer token carrying the PAT prefix is a long-lived
-    // Personal Access Token, not a JWT. Short-circuit the JWT path entirely.
-    // Cookie transport is never a PAT (the browser holds the JWT).
-    if (patResolver && transport === "bearer" && token.startsWith(PAT_TOKEN_PREFIX)) {
-      return await handlePat(c, patResolver, token, next, resolveTenantLifecycleStatus);
+    // Generic bearer-verifier path: try the wired tokenVerifier (PAT, future
+    // JWT-provider, ...) BEFORE jwt.verify. A hit short-circuits the JWT path
+    // entirely; a miss (null — no provider's shape matched, or the matching
+    // provider rejected the token) falls through to the normal JWT flow below,
+    // which rejects it uniformly as invalid_token. Cookie transport is never
+    // routed here (the browser holds the JWT).
+    if (tokenVerifier && transport === "bearer") {
+      const verifiedUser = await tokenVerifier(token);
+      if (verifiedUser) {
+        return await handleVerifiedBearerUser(c, verifiedUser, next, resolveTenantLifecycleStatus);
+      }
     }
 
     let payload: Awaited<ReturnType<JwtHelper["verify"]>>;
@@ -302,15 +300,16 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     }
 
     // Session liveness check — only when both a checker is wired AND the
-    // token carries a sid. strictMode governs the no-sid case below so that
-    // both old JWTs (no sid) and rolling-deploy gaps can be handled.
+    // token carries a sid.
+    // A checker wired without a sid on the token means the token predates
+    // session tracking (or the JWT was forged) — reject.
     if (sessionChecker) {
       if (payload.jti) {
         const status = await sessionChecker(payload.jti, payload.sub);
         if (status !== "live") {
           return sessionInvalid(c, status);
         }
-      } else if (strictMode) {
+      } else {
         return sessionInvalid(c, "no_sid");
       }
     }
@@ -360,49 +359,39 @@ export function getAuthTransport(c: Context): AuthTransport | undefined {
   return c.get(AUTH_TRANSPORT_KEY) as AuthTransport | undefined;
 }
 
-// PAT request flow. Resolve the hashed token → SessionUser (live roles +
-// granted scopes), then apply the same X-Tenant-mismatch guard as the JWT
-// path before continuing. A null resolve is an invalid/revoked/expired token
-// → 401. Structured like handleAnonymous so authMiddleware stays flat.
-async function handlePat(
+// Verified-bearer request flow. `user` was already resolved by the wired
+// tokenVerifier (PAT today, future JWT-provider). Apply the same
+// X-Tenant-mismatch guard as the JWT path before continuing. Structured like
+// handleAnonymous so authMiddleware stays flat.
+async function handleVerifiedBearerUser(
   c: Context,
-  patResolver: PatResolver,
-  token: string,
+  user: SessionUser,
   next: Next,
   resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver,
 ): Promise<Response | undefined> {
-  const patUser = await patResolver(token);
-  if (!patUser) {
-    return middlewareReject(c, {
-      code: "invalid_token",
-      status: 401,
-      message: "personal access token invalid, revoked or expired",
-      i18nKey: "auth.errors.invalidToken",
-    });
-  }
-  // The PAT carries its own tenant; an X-Tenant header pointing elsewhere is a
-  // confused client — reject loudly, same stance as the JWT path.
+  // The token carries its own tenant; an X-Tenant header pointing elsewhere is
+  // a confused client — reject loudly, same stance as the JWT path.
   const headerTenant = c.req.header(TENANT_HEADER_NAME);
-  if (headerTenant !== undefined && headerTenant !== patUser.tenantId) {
+  if (headerTenant !== undefined && headerTenant !== user.tenantId) {
     return middlewareReject(c, {
       code: "tenant_mismatch",
       status: 400,
-      message: "PAT tenantId and X-Tenant header disagree",
+      message: "token tenantId and X-Tenant header disagree",
       i18nKey: "auth.errors.tenantMismatch",
-      details: { patTenantId: patUser.tenantId, headerTenantId: headerTenant },
+      details: { tokenTenantId: user.tenantId, headerTenantId: headerTenant },
     });
   }
-  c.set(USER_KEY, patUser);
+  c.set(USER_KEY, user);
   c.set(AUTH_TRANSPORT_KEY, "bearer");
   const lifecycleReject = await rejectIfTenantTeardown(
     c,
-    patUser.tenantId,
+    user.tenantId,
     resolveTenantLifecycleStatus,
   );
   if (lifecycleReject) return lifecycleReject;
   await next();
-  // skip: PAT path completed — next() ran; explicit return keeps the
-  // Response|undefined union honest (same as handleAnonymous).
+  // skip: verified-bearer path completed — next() ran; explicit return keeps
+  // the Response|undefined union honest (same as handleAnonymous).
   return;
 }
 

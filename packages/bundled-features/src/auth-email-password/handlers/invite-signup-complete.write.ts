@@ -112,6 +112,7 @@ export function createInviteSignupCompleteHandler() {
         const invitationTenantId = invitation.tenantId;
         const invitationEmail = await decryptStoredPii(
           invitation.email,
+          "email",
           "auth:invite-signup-complete",
         );
         const invitationRole = invitation.role;

@@ -92,7 +92,7 @@ export type RawInboundMessage = {
 
 /** Provider-opaker Cursor: IMAP {uidValidity,lastUid} · Graph {deltaLink}
  *  · Gmail {historyId}. Foundation persisted ihn JSON-stringified in
- *  read_mail_sync_cursors, interpretiert ihn nie. */
+ *  store_mail_sync_cursors, interpretiert ihn nie. */
 export type SyncCursorPayload = Readonly<Record<string, unknown>>;
 
 export type InboundFetchResult = {

@@ -6,60 +6,11 @@ export type FileMetadata = {
   readonly size: number;
 };
 
-// Options for `getSignedUrl`. `contentDisposition` lets the caller hint the
-// browser to download-with-name vs inline-display (maps to ResponseContent-
-// Disposition on S3). Keep the option-bag small and additive; provider impls
-// that don't support a given hint should ignore it rather than error.
-export type SignedUrlOptions = {
-  readonly contentDisposition?: string;
-};
-
-// Options fuer `writeStream`. `mimeType` ist Content-Type-Hint analog zu
-// `write`. `contentLength` ist optional fuer Provider die einen Length-
-// Header brauchen (S3 multipart hat einen TransferManager, kann auch ohne
-// length); local-Provider ignoriert beides.
-export type WriteStreamOptions = {
-  readonly mimeType?: string;
-  readonly contentLength?: number;
-};
-
-// Primitive storage contract: key+bytes in, bytes out. Metadata (fileName,
-// mimeType, size) lives on the FileRef row — the provider only needs to
-// shuttle bytes. `mimeType` on write() is a hint for providers that need a
-// Content-Type header (S3/R2/…); local filesystems can ignore it.
-//
-// **Streaming (`writeStream` + `readStream`) ist PFLICHT** — beide
-// Methoden sind required, kein optional-feature. Begruendung:
-//   - User-Data-Export (Atom 3c) braucht beide, sonst silent fail bei
-//     erstem Job mit fileRefs in Production.
-//   - Apps die nur kleine Files (Avatar-Uploads, Profile-Pics) handeln,
-//     koennen trivial via `oneShot`-Pattern den Stream-Contract erfuellen
-//     (single-chunk yield von write/read-Bytes). 5 Zeilen pro Provider.
-//   - Optional-Type wuerde TypeScript-Lying erlauben: Type sagt "kann
-//     fehlen", Worker throws zur Runtime → App-Authors sehen den Bug
-//     erst in Production. Required + TS-enforced ist ehrlich.
-//
-// `getSignedUrl` BLEIBT optional: object-store backends (S3/R2/GCS)
-// implement it so clients can download directly from the provider after
-// the server has checked access — offloads bandwidth and enables browser-
-// native caching. Filesystem providers leave it undefined; the route then
-// returns 501 and the client falls back to streaming via GET /files/:id.
-// Callers must feature-detect via `typeof provider.getSignedUrl === "function"`.
-// Hier ist Optional korrekt weil die Fallback-Pfad existiert — kein
-// silent-fail, sondern 501 + alternativer download.
-export type FileStorageProvider = {
-  write(key: string, data: Uint8Array, mimeType?: string): Promise<void>;
-  writeStream(
-    key: string,
-    source: AsyncIterable<Uint8Array>,
-    options?: WriteStreamOptions,
-  ): Promise<void>;
-  read(key: string): Promise<Uint8Array>;
-  readStream(key: string): AsyncIterable<Uint8Array>;
-  delete(key: string): Promise<void>;
-  exists(key: string): Promise<boolean>;
-  getSignedUrl?(key: string, expiresInSeconds: number, options?: SignedUrlOptions): Promise<string>;
-};
+export type {
+  FileStorageProvider,
+  SignedUrlOptions,
+  WriteStreamOptions,
+} from "@cosmicdrift/kumiko-types/file-storage-provider-types";
 
 export type FileValidationOptions = {
   readonly maxSize?: string | undefined;

@@ -108,6 +108,7 @@ export function createInviteAcceptWithLoginHandler() {
         const invitationTenantId = invitation.tenantId;
         const invitationEmail = await decryptStoredPii(
           invitation.email,
+          "email",
           "auth:invite-accept-with-login",
         );
         const invitationRole = invitation.role;

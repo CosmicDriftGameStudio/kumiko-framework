@@ -16,6 +16,7 @@
 // der end-to-end-Default-Pfad (delete).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
@@ -67,6 +68,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
 
       createUserDataRightsFeature(),

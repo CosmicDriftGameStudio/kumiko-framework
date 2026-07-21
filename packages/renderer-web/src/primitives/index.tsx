@@ -1661,6 +1661,15 @@ function DefaultText({ variant = "body", children, testId }: TextProps): ReactNo
 
 // ---- Link (anchor mit Button-/Muted-Optik) ----
 
+// http(s)/mailto or scheme-less (relative/anchor) allowed; javascript:, data:,
+// vbscript:, etc. rejected. Mirrors renderer-mail-html's renderSafeMarkdown
+// href guard — no sanitizer dependency needed for a four-line regex check.
+function isSafeHref(href: string): boolean {
+  const trimmed = href.trim().toLowerCase();
+  if (!/^[a-z][a-z0-9+.-]*:/.test(trimmed)) return true;
+  return /^(?:https?|mailto):/.test(trimmed);
+}
+
 // `button` nutzt die Primary-Buttonfläche auf einem semantischen <a> —
 // der Standard für „weiter zu"-Navigationen nach Success-States (ehem.
 // authButtonClass), `muted` der dezente Sekundär-Link (ehem.
@@ -1681,7 +1690,7 @@ function DefaultLink({
         : "text-primary underline-offset-4 hover:underline";
   return (
     <a
-      href={href}
+      href={isSafeHref(href) ? href : "#"}
       target={target}
       rel={target === "_blank" ? "noreferrer" : undefined}
       data-testid={testId}

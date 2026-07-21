@@ -1,5 +1,83 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.159.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.159.1
+- @cosmicdrift/kumiko-renderer@0.159.1
+- @cosmicdrift/kumiko-dispatcher-live@0.159.1
+
+## 1.0.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@1.0.0
+- @cosmicdrift/kumiko-renderer@1.0.0
+- @cosmicdrift/kumiko-dispatcher-live@1.0.0
+
+## 0.158.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.158.2
+- @cosmicdrift/kumiko-headless@0.158.2
+- @cosmicdrift/kumiko-renderer@0.158.2
+
+## 0.158.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.158.1
+- @cosmicdrift/kumiko-renderer@0.158.1
+- @cosmicdrift/kumiko-dispatcher-live@0.158.1
+
+## 0.158.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.158.0
+- @cosmicdrift/kumiko-headless@0.158.0
+- @cosmicdrift/kumiko-renderer@0.158.0
+
+## 0.157.3
+
+### Patch Changes
+
+- a403e28: `createKumikoApp`'s fallback landing-route selection (`firstOpenScreenQn`) now also requires the candidate screen be reachable via `r.nav`, not just free of a role restriction. Previously a dormant `type: "custom"` screen a feature registers only for manual app-side placement (e.g. `auth-mfa`'s enable screen) could win the fallback by declaration order alone, landing apps without an explicit `screenQn` on a screen nobody wired a client component for (#1258). Apps that rely on the implicit fallback and have no open, nav-placed screen now get a clear boot-time error instead of a silent broken render.
+  - @cosmicdrift/kumiko-dispatcher-live@0.157.3
+  - @cosmicdrift/kumiko-headless@0.157.3
+  - @cosmicdrift/kumiko-renderer@0.157.3
+
+## 0.157.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.157.2
+- @cosmicdrift/kumiko-headless@0.157.2
+- @cosmicdrift/kumiko-renderer@0.157.2
+
+## 0.157.1
+
+### Patch Changes
+
+- c4b9a88: Fix `KumikoScreen` rendering role-gated screens for users without a matching role (#1203). `access.roles` was only enforced for nav/workspace visibility (`filterByAccess` in `workspace-shell.tsx`) — the actual screen-render path had no independent check, so any authenticated user reaching a role-gated screen via a direct URL, bookmark, or the app's `screenQn` fallback saw the screen's chrome regardless of role. Data stayed safe (query/write handlers are still server-side role-checked), this was a chrome leak, not a data leak.
+
+  `KumikoScreen` now gates on `screen.access` using the same roles the shells already pass for nav filtering, threaded down via a new `UserRolesProvider`/`useUserRoles` (exported from `@cosmicdrift/kumiko-renderer`). `WorkspaceShell` and `DefaultAppShell` wrap their children with it using `user?.roles`. Consistent with `filterByAccess`'s existing default-deny: no provider mounted, or `roles` not passed, denies role-gated screens — apps with role-gated screens must wire `user` into their shell (the same prop they already pass for nav) or those screens render an "access denied" placeholder instead of their content.
+
+- Updated dependencies [c4b9a88]
+  - @cosmicdrift/kumiko-renderer@0.157.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.157.1
+  - @cosmicdrift/kumiko-headless@0.157.1
+
+## 0.157.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.157.0
+- @cosmicdrift/kumiko-renderer@0.157.0
+- @cosmicdrift/kumiko-dispatcher-live@0.157.0
+
 ## 0.156.3
 
 ### Patch Changes

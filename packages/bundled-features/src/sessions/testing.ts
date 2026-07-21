@@ -17,7 +17,8 @@
 // sessions feature owns. framework/testing only provides the generic
 // `createLateBoundHolder<T>` — shape-independent.
 
-import type { AuthRoutesConfig } from "@cosmicdrift/kumiko-framework/api";
+import type { AuthRoutesConfig, SessionCreator } from "@cosmicdrift/kumiko-framework/api";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { LateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import type { SessionCallbacks, SessionMassRevoker } from "./session-callbacks";
 
@@ -39,4 +40,16 @@ export function sessionCallbacksFromLateBound(
     }),
     asMassRevoker: () => (userId) => holder.get().sessionMassRevoker(userId),
   };
+}
+
+// Bootstrap actors (system-admin seed writes) need a real sid once a
+// sessionChecker is wired — auth-middleware rejects sidless JWTs as
+// forged/pre-session-tracking. Mints a live session row and returns the
+// actor with `sid` attached so `stack.http.writeOk(..., actor)` passes.
+export async function withMintedSession(
+  sessionCreator: SessionCreator,
+  user: SessionUser,
+): Promise<SessionUser> {
+  const sid = await sessionCreator(user, { ip: "127.0.0.1", userAgent: "test" });
+  return { ...user, sid };
 }

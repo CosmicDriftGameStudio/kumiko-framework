@@ -19,7 +19,9 @@
       "@cosmicdrift/kumiko-framework": ["./packages/framework/src"],
       "@cosmicdrift/kumiko-framework/*": ["./packages/framework/src/*"],
       "@cosmicdrift/kumiko-bundled-features": ["./packages/bundled-features/src"],
-      "@cosmicdrift/kumiko-bundled-features/*": ["./packages/bundled-features/src/*"]
+      "@cosmicdrift/kumiko-bundled-features/*": ["./packages/bundled-features/src/*"],
+      "@cosmicdrift/kumiko-types": ["./packages/types/src"],
+      "@cosmicdrift/kumiko-types/*": ["./packages/types/src/*"]
     },
     "types": [
       "bun-types"
@@ -27,6 +29,7 @@
   },
   "references": [
     { "path": "./packages/framework" },
+    { "path": "./packages/types" },
     { "path": "./packages/bundled-features" },
     { "path": "./packages/headless" },
     { "path": "./packages/dispatcher-live" },

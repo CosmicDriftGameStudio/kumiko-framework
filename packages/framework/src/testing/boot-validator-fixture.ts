@@ -1,11 +1,11 @@
 import { SEARCHABLE_FALSE_WHITELIST } from "../engine/boot-validator/entity-list-screens";
+import { normalizeListColumn } from "../engine/screen-helpers";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
   FeatureDefinition,
   TranslationEntry,
 } from "../engine/types";
-import { normalizeListColumn } from "../engine/types/screen";
 import { featureHasI18nSurface, requiredKeysFromFeature } from "../i18n/required-surface-keys";
 
 function ensureEntityListSortable(feature: FeatureDefinition): FeatureDefinition {

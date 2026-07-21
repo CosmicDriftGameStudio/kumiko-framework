@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-bundled-features",
-  "version": "0.156.3",
+  "version": "0.159.1",
   "description": "Built-in features — tenant, user, auth, delivery. The stuff you'd rewrite anyway, already typed.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -48,6 +48,7 @@
     "./subscription-stripe": "./src/subscription-stripe/index.ts",
     "./subscription-mollie": "./src/subscription-mollie/index.ts",
     "./foundation-shared": "./src/foundation-shared/index.ts",
+    "./auth-foundation": "./src/auth-foundation/index.ts",
     "./mail-foundation": "./src/mail-foundation/index.ts",
     "./inbound-mail-foundation": "./src/inbound-mail-foundation/index.ts",
     "./inbound-provider-inmemory": "./src/inbound-provider-inmemory/index.ts",

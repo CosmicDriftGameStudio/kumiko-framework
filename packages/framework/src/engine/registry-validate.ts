@@ -1,4 +1,5 @@
 import { configureEventPiiCatalog } from "../crypto/event-pii";
+import { resolveName } from "./handler-helpers";
 import type { RegistryState } from "./registry-state";
 import { buildImplicitProjection, hasFieldAccessRules, qualify } from "./registry-state";
 import {
@@ -11,7 +12,6 @@ import {
 } from "./soft-delete-cleanup";
 import type { EventPiiFields, EventUpcastFn, FeatureDefinition } from "./types";
 import { HookPhases } from "./types";
-import { resolveName } from "./types/handlers";
 
 function allHandlerQns(state: RegistryState): ReadonlySet<string> {
   return new Set([...state.writeHandlerMap.keys(), ...state.queryHandlerMap.keys()]);

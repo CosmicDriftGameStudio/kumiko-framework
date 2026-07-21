@@ -10,6 +10,7 @@
 // #624: "App mountet mail-foundation+transport → GDPR-Mails ohne Callback-Code".
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
@@ -56,6 +57,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       mailFoundationFeature,
       mailTransportInMemoryFeature,

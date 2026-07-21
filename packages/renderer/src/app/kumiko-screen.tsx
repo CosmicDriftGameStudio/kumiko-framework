@@ -1,5 +1,6 @@
 import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
 import type {
+  AccessRule,
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
   DashboardScreenDefinition,
@@ -29,6 +30,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { RenderEdit } from "../components/render-edit";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
+import { useUserRoles } from "../context/user-roles-context";
 import { useListUrlState } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
@@ -112,6 +114,22 @@ export function qualifyNavId(featureName: string, navId: string): string {
   return `${featureName}:nav:${navId}`;
 }
 
+// Minimal role-gate for the screen-render path (#1203 — nav filtering via
+// filterByAccess in workspace-shell.tsx hid role-gated screens from the
+// menu, but a direct URL/screenQn hit reached KumikoScreen unchecked).
+// Duplicated instead of imported from framework/engine's hasAccess (pulls
+// server-side deps) — same bundle-purity reasoning as headless/nav's
+// resolve.ts:userCanSee, which this mirrors.
+export function screenAccessAllows(
+  access: AccessRule | undefined,
+  userRoles: readonly string[] | undefined,
+): boolean {
+  if (!access) return true;
+  if ("openToAll" in access) return access.openToAll;
+  if (userRoles === undefined) return false;
+  return access.roles.some((role) => userRoles.includes(role));
+}
+
 export function KumikoScreen({
   schema,
   qn,
@@ -121,6 +139,7 @@ export function KumikoScreen({
   onCopyLink,
 }: KumikoScreenProps): ReactNode {
   const { Banner, Text } = usePrimitives();
+  const userRoles = useUserRoles();
   const screen = useMemo(
     () =>
       schema.screens.find(
@@ -133,6 +152,14 @@ export function KumikoScreen({
     return (
       <Banner padded variant="error" testId="kumiko-screen-not-found">
         Screen not found: <Text variant="code">{qn}</Text>
+      </Banner>
+    );
+  }
+
+  if (!screenAccessAllows(screen.access, userRoles)) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-access-denied">
+        Access denied: <Text variant="code">{qn}</Text>
       </Banner>
     );
   }
@@ -423,6 +450,8 @@ function EntityEditUpdateBody({
   readonly onCopyLink?: () => Promise<void> | void;
 }): ReactNode {
   const { Banner, Text } = usePrimitives();
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
   const detailQn = `${toKebab(schema.featureName)}:query:${toKebab(screen.entity)}:detail`;
   const detailQuery = useQuery<Readonly<Record<string, unknown>>>(detailQn, { id: entityId });
 
@@ -436,7 +465,7 @@ function EntityEditUpdateBody({
   if (detailQuery.error) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
-        {detailQuery.error.i18nKey}
+        {dispatcherErrorText(detailQuery.error, effectiveTranslate)}
       </Banner>
     );
   }
@@ -1008,7 +1037,7 @@ function EntityListBody({
   if (rowsQuery.error) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
-        {rowsQuery.error.i18nKey}
+        {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
       </Banner>
     );
   }
@@ -1241,7 +1270,7 @@ function ProjectionListBody({
   if (rowsQuery.error) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
-        {rowsQuery.error.i18nKey}
+        {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
       </Banner>
     );
   }
@@ -1293,6 +1322,8 @@ function ProjectionDetailBody({
   readonly entityId?: string;
 }): ReactNode {
   const { Banner, Text } = usePrimitives();
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
   const nav = useNav();
   const idParam = screen.idParam ?? "id";
   const entity = useMemo(() => synthesizeProjectionDetailEntity(screen.layout), [screen.layout]);
@@ -1325,7 +1356,7 @@ function ProjectionDetailBody({
   if (detailQuery.error) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
-        {detailQuery.error.i18nKey}
+        {dispatcherErrorText(detailQuery.error, effectiveTranslate)}
       </Banner>
     );
   }
@@ -1470,6 +1501,8 @@ function ConfigEditBody({
   readonly translate?: Translate;
 }): ReactNode {
   const { Banner, ConfigCascadeView } = usePrimitives();
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
   const dispatcher = useDispatcher();
 
   // Detail-Load: config:query:values returnt ALLE Keys des Tenants.
@@ -1594,7 +1627,7 @@ function ConfigEditBody({
   if (valuesQuery.error) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
-        {valuesQuery.error.i18nKey}
+        {dispatcherErrorText(valuesQuery.error, effectiveTranslate)}
       </Banner>
     );
   }

@@ -7,9 +7,9 @@ export async function deleteStaleSessionsBatch(
   batchSize: number,
 ): Promise<number> {
   const rows = (await asRawClient(db).unsafe(
-    `DELETE FROM "read_user_sessions"
+    `DELETE FROM "store_user_sessions"
      WHERE "id" IN (
-       SELECT "id" FROM "read_user_sessions"
+       SELECT "id" FROM "store_user_sessions"
        WHERE "expires_at" < now() - ($1::int * interval '1 day')
           OR "revoked_at" < now() - ($1::int * interval '1 day')
        LIMIT $2

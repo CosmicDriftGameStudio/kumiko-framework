@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
+import type Redis from "ioredis";
 import { z } from "zod";
 import { buildSessionRoles } from "../engine/membership-roles";
 import { createSystemUser } from "../engine/system-user";
@@ -15,16 +16,10 @@ import {
   type AuthSessionStatus,
   CSRF_COOKIE_NAME,
   getUser,
-  type PatResolver,
+  type TokenVerifier,
 } from "./auth-middleware";
 import type { JwtHelper } from "./jwt";
 import { generateToken } from "./tokens";
-
-// Cookie lifetime must track the JWT's exp claim — both are issued together,
-// both reference the same session. jwt.ts's createJwtHelper hardcodes
-// setExpirationTime("24h"); if that ever becomes configurable this constant
-// follows it.
-const JWT_TTL_SECONDS = 24 * 60 * 60;
 
 // Resolves the Secure cookie flag. Locked off in dev/test so Playwright
 // against http://localhost:… can actually receive the cookie. Production
@@ -47,6 +42,10 @@ function setAuthCookies(
     csrfToken: string;
     sameSite: "lax" | "strict";
     domain?: string | undefined;
+    // Cookie lifetime must track the JWT's exp claim — both are issued
+    // together, both reference the same session. Callers pass jwt.ttlSeconds
+    // so the two never drift apart.
+    ttlSeconds: number;
   },
 ): void {
   const sameSite = opts.sameSite === "strict" ? "Strict" : "Lax";
@@ -54,7 +53,7 @@ function setAuthCookies(
     secure: cookieSecure(),
     sameSite,
     path: "/",
-    maxAge: JWT_TTL_SECONDS,
+    maxAge: opts.ttlSeconds,
     ...(opts.domain !== undefined && { domain: opts.domain }),
   } as const;
 
@@ -261,14 +260,11 @@ export type AuthRoutesConfig = {
   // at login, check it here on every request. Leaving this empty disables
   // the revocation path — old JWTs stay valid until they expire naturally.
   sessionChecker?: SessionChecker;
-  // When true, a JWT WITHOUT a sid is rejected. Use during deploy-rollouts
-  // once all fresh JWTs emit a sid and the legacy stateless tokens are
-  // expected to have expired. Default false keeps old tokens working.
-  sessionStrictMode?: boolean;
-  // Resolves bearer Personal Access Tokens (PAT_TOKEN_PREFIX) into a
-  // SessionUser, consulted BEFORE jwt.verify. Wired by the
-  // personal-access-tokens feature; unwired = PAT auth disabled.
-  patResolver?: PatResolver;
+  // Resolves bearer tokens (any registered auth-foundation `tokenVerifier`
+  // provider — PAT today, future JWT-provider), consulted BEFORE jwt.verify.
+  // Wired by run-prod-app/run-dev-app when at least one provider feature is
+  // mounted; unwired = no non-JWT bearer auth.
+  tokenVerifier?: TokenVerifier;
   // Per-token request-rate limiter for PAT-authenticated requests, keyed by
   // the token id (SessionUser.pat.tokenId). Cookie/JWT requests are unaffected.
   // Reuses the LoginRateLimiter shape (a generic keyed check/reset limiter).
@@ -287,6 +283,12 @@ export type AuthRoutesConfig = {
   passwordReset?: PasswordResetConfig;
   // Email-verification flow. Symmetric to passwordReset.
   emailVerification?: EmailVerificationConfig;
+  // Account-unlock flow (#1266). When wired, POST
+  // /auth/request-account-unlock + /auth/confirm-account-unlock are
+  // mounted as public routes. Confirm needs no extra body field
+  // (token-only, like email-verification) — the handler only clears the
+  // Redis lockout state, no entity write.
+  accountUnlock?: AccountUnlockConfig;
   // Self-Signup (Magic-Link). Wenn wired, mountet POST
   // /auth/signup-request + /auth/signup-confirm. Confirm returnt JWT-
   // Cookie + Session-Body wie login.
@@ -354,6 +356,13 @@ export type PasswordResetConfig = {
 
 export type EmailVerificationConfig = {
   requestHandler: string;
+  confirmHandler: string;
+};
+
+export type AccountUnlockConfig = {
+  requestHandler: string;
+  // Token-only body (mirrors EmailVerificationConfig) — no entity write, so
+  // there's no newPassword-equivalent field.
   confirmHandler: string;
 };
 
@@ -461,6 +470,37 @@ export function createInMemoryLoginRateLimiter(
   };
 }
 
+// Redis-backed sibling of createInMemoryLoginRateLimiter — same fixed-window
+// semantics (count <= maxAttempts allows, window anchored on first hit), but
+// shared across replicas via INCR/PEXPIRE instead of an in-process Map.
+// runProdApp defaults to this: an in-memory limiter only rate-limits within
+// a single instance, so a multi-replica prod deployment would silently give
+// each replica its own bucket. namespace separates the login-key keyspace
+// from the mfa-verify one (they share the same LoginRateLimiter shape but
+// key on different values).
+export function createRedisLoginRateLimiter(
+  redis: Redis,
+  maxAttempts = 10,
+  windowMs = 5 * 60_000,
+  namespace = "login",
+): LoginRateLimiter {
+  const prefix = `kumiko:auth:ratelimit:${namespace}:`;
+
+  return {
+    async check(key) {
+      const redisKey = `${prefix}${key}`;
+      const count = await redis.incr(redisKey);
+      if (count === 1) {
+        await redis.pexpire(redisKey, windowMs);
+      }
+      return count <= maxAttempts;
+    },
+    async reset(key) {
+      await redis.del(`${prefix}${key}`);
+    },
+  };
+}
+
 export function createAuthRoutes(
   dispatcher: Dispatcher,
   jwt: JwtHelper,
@@ -486,7 +526,13 @@ export function createAuthRoutes(
     }
     const token = await jwt.sign(sessionForJwt);
     const csrfToken = generateToken();
-    setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+    setAuthCookies(c, {
+      token,
+      csrfToken,
+      sameSite: cookieSameSite,
+      domain: cookieDomain,
+      ttlSeconds: jwt.ttlSeconds,
+    });
     return token;
   }
 
@@ -693,6 +739,26 @@ export function createAuthRoutes(
       dispatcher,
       path: Routes.authVerifyEmail,
       confirmHandler: ev.confirmHandler,
+      schema: VerifyEmailBody,
+    });
+  }
+
+  // Account-unlock mirrors email-verification (token-only confirm body) —
+  // clears the Redis lockout state instead of an entity field, see
+  // confirm-account-unlock.write.ts.
+  if (config.accountUnlock) {
+    const au = config.accountUnlock;
+    registerTokenRequestRoute({
+      api,
+      dispatcher,
+      path: Routes.authRequestAccountUnlock,
+      requestHandler: au.requestHandler,
+    });
+    registerTokenConfirmRoute({
+      api,
+      dispatcher,
+      path: Routes.authConfirmAccountUnlock,
+      confirmHandler: au.confirmHandler,
       schema: VerifyEmailBody,
     });
   }

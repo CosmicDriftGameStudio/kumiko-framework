@@ -36,6 +36,27 @@ const manualDispatchFeature = defineFeature("manualdispatch", (r) => {
   });
 });
 
+// kumiko-framework#1232: setupTestStack used to hand jobs a bare
+// `{ db, registry }` context literal — nothing else buildServer's request
+// path gets (tracer/meter, searchAdapter, ...). A job could pass in tests
+// while reading a field only prod's context has, then break silently on
+// deploy. This job records which fields actually arrived.
+const jobContextFields: Array<{
+  hasTracer: boolean;
+  hasSearchAdapter: boolean;
+  hasEffectiveFeatures: boolean;
+}> = [];
+
+const jobContextFeature = defineFeature("jobcontextcheck", (r) => {
+  r.job("record", { trigger: { manual: true }, runIn: "worker" }, async (_payload, context) => {
+    jobContextFields.push({
+      hasTracer: context.tracer !== undefined,
+      hasSearchAdapter: context.searchAdapter !== undefined,
+      hasEffectiveFeatures: context.effectiveFeatures !== undefined,
+    });
+  });
+});
+
 let stack: TestStack | undefined;
 
 afterEach(async () => {
@@ -74,5 +95,27 @@ describe("setupTestStack({ jobs }) wires ctx.jobRunner for manual dispatch", () 
       TestUsers.admin,
     );
     expect(err.code).toBe("internal_error");
+  });
+});
+
+describe("setupTestStack({ jobs }) job context matches the request-path context", () => {
+  test("job handler's context carries tracer + searchAdapter + effectiveFeatures, not a reduced literal", async () => {
+    jobContextFields.length = 0;
+    stack = await setupTestStack({
+      features: [jobContextFeature],
+      jobs: { consumerLane: "worker" },
+      effectiveFeatures: () => new Set(["jobcontextcheck"]),
+    });
+
+    await stack.jobRunner?.dispatch("jobcontextcheck:job:record");
+
+    await waitFor(() => {
+      expect(jobContextFields.length).toBeGreaterThan(0);
+    });
+    expect(jobContextFields[0]).toEqual({
+      hasTracer: true,
+      hasSearchAdapter: true,
+      hasEffectiveFeatures: true,
+    });
   });
 });

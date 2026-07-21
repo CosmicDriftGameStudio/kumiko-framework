@@ -1,20 +1,12 @@
 // DB-Connection-Types: provider-agnostic via db/api.ts.
 // createConnection delegiert an postgres-provider (default) oder bun-provider (DB_PROVIDER=bun).
+import type { DbConnection, PgClient } from "@cosmicdrift/kumiko-types/db-connection";
 import postgres from "postgres";
 import { readPositiveIntEnv } from "../utils/env-parse";
 
-export { createConnection, type DbConnectionOptions } from "./api";
-
 // Legacy Types — für Aufrufer die direkt diese Module importieren
-// biome-ignore lint/suspicious/noExplicitAny: Bun.SQL global type
-export type DbConnection = ReturnType<typeof postgres> | any;
-// biome-ignore lint/suspicious/noExplicitAny: postgres-js namespace lookup
-export type DbTx = postgres.TransactionSql<any> | any;
-export type DbRunner = DbConnection | DbTx;
-export type DbRow = Record<string, unknown>;
-export type PgClient = ReturnType<typeof postgres>;
-
-export type PgListenClient = ReturnType<typeof postgres>;
+export * from "@cosmicdrift/kumiko-types/db-connection";
+export { createConnection, type DbConnectionOptions } from "./api";
 
 // Legacy: postgres-js only. Neue Aufrufer: createConnection() aus api.ts.
 // guard:dup-ok — andere Layer als createPgConnection (gibt DbConnection zurück, nicht postgres-Instanz)

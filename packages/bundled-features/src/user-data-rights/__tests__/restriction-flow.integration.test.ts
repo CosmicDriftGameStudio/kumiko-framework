@@ -12,6 +12,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -44,7 +45,7 @@ import { createSessionsFeature } from "../../sessions";
 import { SessionHandlers } from "../../sessions/constants";
 import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
 import { createSessionCallbacks, type SessionCallbacks } from "../../sessions/session-callbacks";
-import { sessionCallbacksFromLateBound } from "../../sessions/testing";
+import { sessionCallbacksFromLateBound, withMintedSession } from "../../sessions/testing";
 import { hashPassword } from "../../shared";
 import { createTenantFeature, tenantMembershipsTable } from "../../tenant";
 import { tenantEntity } from "../../tenant/schema/tenant";
@@ -77,6 +78,7 @@ beforeAll(async () => {
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
       createAuthEmailPasswordFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       createUserDataRightsFeature(),
     ],
@@ -115,10 +117,14 @@ async function seedAliceWithMembership(
   status: string = USER_STATUS.Active,
 ): Promise<{ userId: string }> {
   const hash = await hashPassword(ALICE_PW);
+  const actor = await withMintedSession(
+    (user, meta) => callbacks.get().sessionCreator(user, meta),
+    TestUsers.systemAdmin,
+  );
   const created = await stack.http.writeOk<{ id: string }>(
     UserHandlers.create,
     { email: ALICE_EMAIL, passwordHash: hash, displayName: "Alice" },
-    TestUsers.systemAdmin,
+    actor,
   );
   if (status !== USER_STATUS.Active) {
     await updateRows(stack.db, userTable, { status }, { id: created.id });
@@ -134,6 +140,12 @@ async function seedAliceWithMembership(
 async function login(email: string, password: string): Promise<{ status: number; body: unknown }> {
   const res = await stack.http.raw("POST", "/api/auth/login", { email, password });
   return { status: res.status, body: await res.json() };
+}
+
+// Any actor hitting a write handler needs a live sid once sessionChecker
+// is wired (same gate as seedAliceWithMembership's bootstrap actor above).
+function mintActor(user: { id: string; tenantId: TenantId; roles: readonly string[] }) {
+  return withMintedSession((u, meta) => callbacks.get().sessionCreator(u, meta), user);
 }
 
 function reasonOf(err: { details?: unknown }): string | undefined {
@@ -156,11 +168,11 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(sessionsBefore.every((s) => s.revokedAt === null)).toBe(true);
 
     // Restrict-Account.
-    const aliceUser = {
+    const aliceUser = await mintActor({
       id: userId,
       tenantId: TENANT,
       roles: ["Member"],
-    };
+    });
     const result = await stack.http.writeOk<{ userId: string; status: string }>(
       RESTRICT,
       {},
@@ -182,17 +194,36 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(sessionsAfter.every((s) => s.revokedAt !== null)).toBe(true);
   });
 
+  test("non-admin targets another user's account: 403 admin_required_for_other_user", async () => {
+    const { userId: targetId } = await seedAliceWithMembership();
+    const attacker = await mintActor({
+      id: crypto.randomUUID(),
+      tenantId: TENANT,
+      roles: ["Member"],
+    });
+    const err = await stack.http.writeErr(RESTRICT, { userId: targetId }, attacker);
+    expect(err.httpStatus).toBe(403);
+    expect(reasonOf(err)).toBe("admin_required_for_other_user");
+
+    const userRow = (await selectMany(stack.db, userTable, { id: targetId })) as Array<{
+      status: string;
+    }>;
+    expect(userRow[0]?.status).toBe(USER_STATUS.Active);
+  });
+
   test("Restricted → Restricted (Idempotenz-Guard): 422 already_restricted", async () => {
     const { userId } = await seedAliceWithMembership(USER_STATUS.Restricted);
-    const aliceUser = { id: userId, tenantId: TENANT, roles: ["Member"] };
-    const err = await stack.http.writeErr(RESTRICT, {}, aliceUser);
+    // Alice's own session is blocked while Restricted — an admin targets
+    // her account instead, same as production would have to.
+    const admin = await mintActor(TestUsers.admin);
+    const err = await stack.http.writeErr(RESTRICT, { userId }, admin);
     expect(err.httpStatus).toBe(422);
     expect(reasonOf(err)).toBe("already_restricted");
   });
 
   test("DeletionRequested → restrict-account: 422 user_not_in_active_state", async () => {
     const { userId } = await seedAliceWithMembership(USER_STATUS.DeletionRequested);
-    const aliceUser = { id: userId, tenantId: TENANT, roles: ["Member"] };
+    const aliceUser = await mintActor({ id: userId, tenantId: TENANT, roles: ["Member"] });
     const err = await stack.http.writeErr(RESTRICT, {}, aliceUser);
     expect(reasonOf(err)).toBe("user_not_in_active_state");
   });
@@ -201,9 +232,11 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
 describe("S2.U6 :: lift-restriction state-transitions", () => {
   test("Restricted → Active: status flippt zurueck", async () => {
     const { userId } = await seedAliceWithMembership(USER_STATUS.Restricted);
-    const aliceUser = { id: userId, tenantId: TENANT, roles: ["Member"] };
+    // lift-restriction is operator-only (access.admin) — Alice's own
+    // session is blocked while Restricted anyway.
+    const admin = await mintActor(TestUsers.admin);
 
-    const result = await stack.http.writeOk<{ status: string }>(LIFT, {}, aliceUser);
+    const result = await stack.http.writeOk<{ status: string }>(LIFT, { userId }, admin);
     expect(result.status).toBe(USER_STATUS.Active);
 
     const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
@@ -214,15 +247,15 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
 
   test("Active → lift-restriction: 422 not_restricted (Idempotenz-Guard)", async () => {
     const { userId } = await seedAliceWithMembership(USER_STATUS.Active);
-    const aliceUser = { id: userId, tenantId: TENANT, roles: ["Member"] };
-    const err = await stack.http.writeErr(LIFT, {}, aliceUser);
+    const admin = await mintActor(TestUsers.admin);
+    const err = await stack.http.writeErr(LIFT, { userId }, admin);
     expect(reasonOf(err)).toBe("not_restricted");
   });
 
   test("DeletionRequested → lift-restriction: 422 not_restricted", async () => {
     const { userId } = await seedAliceWithMembership(USER_STATUS.DeletionRequested);
-    const aliceUser = { id: userId, tenantId: TENANT, roles: ["Member"] };
-    const err = await stack.http.writeErr(LIFT, {}, aliceUser);
+    const admin = await mintActor(TestUsers.admin);
+    const err = await stack.http.writeErr(LIFT, { userId }, admin);
     expect(reasonOf(err)).toBe("not_restricted");
   });
 });
@@ -286,11 +319,11 @@ describe("S2.U6 :: Cross-Feature sessions.revokeAllForUser direct", () => {
     expect(liveBefore.length).toBe(2);
 
     // System-Caller.
-    const systemUser = {
+    const systemUser = await mintActor({
       id: "00000000-0000-4000-8000-000000000000",
       tenantId: TENANT,
       roles: ["SystemAdmin"],
-    };
+    });
     const result = await stack.http.writeOk<{ count: number; userId: string }>(
       SessionHandlers.revokeAllForUser,
       { userId },

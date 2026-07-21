@@ -8,6 +8,7 @@
 // functional registry instance; the end-to-end cascade is covered consumer-side.
 
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEntity,
@@ -66,6 +67,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createUserFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),

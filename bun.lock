@@ -13,7 +13,7 @@
       "devDependencies": {
         "@biomejs/biome": "^2.4.15",
         "@changesets/cli": "^2.31.0",
-        "@cosmicdriftgamestudio/kumiko-guards": "^0.20.0",
+        "@cosmicdriftgamestudio/kumiko-guards": "^0.21.0",
         "@happy-dom/global-registrator": "^20.9.0",
         "@playwright/test": "^1.60.0",
         "@testing-library/dom": "^10.4.1",
@@ -27,7 +27,7 @@
     },
     "packages/bundled-features": {
       "name": "@cosmicdrift/kumiko-bundled-features",
-      "version": "0.156.3",
+      "version": "0.159.1",
       "dependencies": {
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
@@ -56,7 +56,7 @@
     },
     "packages/cli": {
       "name": "@cosmicdrift/kumiko-cli",
-      "version": "0.2.218",
+      "version": "0.2.227",
       "bin": {
         "kumiko": "./bin/cli.ts",
       },
@@ -66,7 +66,7 @@
     },
     "packages/create-kumiko-app": {
       "name": "create-kumiko-app",
-      "version": "0.4.131",
+      "version": "0.4.140",
       "bin": {
         "create-kumiko-app": "./bin/cli.ts",
       },
@@ -80,7 +80,7 @@
     },
     "packages/dev-server": {
       "name": "@cosmicdrift/kumiko-dev-server",
-      "version": "0.156.3",
+      "version": "0.159.1",
       "bin": {
         "kumiko-build": "./bin/kumiko-build.ts",
         "kumiko-dev": "./bin/kumiko-dev.ts",
@@ -96,15 +96,16 @@
     },
     "packages/dispatcher-live": {
       "name": "@cosmicdrift/kumiko-dispatcher-live",
-      "version": "0.156.3",
+      "version": "0.159.1",
       "dependencies": {
         "@cosmicdrift/kumiko-headless": "workspace:*",
       },
     },
     "packages/framework": {
       "name": "@cosmicdrift/kumiko-framework",
-      "version": "0.156.3",
+      "version": "0.159.1",
       "dependencies": {
+        "@cosmicdrift/kumiko-types": "workspace:*",
         "bullmq": "^5.76.7",
         "bun-types": "^1.3.13",
         "hono": "^4.12.18",
@@ -127,7 +128,7 @@
     },
     "packages/headless": {
       "name": "@cosmicdrift/kumiko-headless",
-      "version": "0.156.3",
+      "version": "0.159.1",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "temporal-polyfill": "^0.3.2",
@@ -136,7 +137,7 @@
     },
     "packages/renderer": {
       "name": "@cosmicdrift/kumiko-renderer",
-      "version": "0.156.3",
+      "version": "0.159.1",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
@@ -151,7 +152,7 @@
     },
     "packages/renderer-web": {
       "name": "@cosmicdrift/kumiko-renderer-web",
-      "version": "0.156.3",
+      "version": "0.159.1",
       "dependencies": {
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
@@ -191,11 +192,19 @@
     },
     "packages/server-runtime": {
       "name": "@cosmicdrift/kumiko-server-runtime",
-      "version": "0.156.3",
+      "version": "0.159.1",
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "temporal-polyfill": "^0.3.2",
+      },
+    },
+    "packages/types": {
+      "name": "@cosmicdrift/kumiko-types",
+      "version": "0.159.1",
+      "dependencies": {
+        "hono": "^4.12.18",
+        "postgres": "^3.4.9",
       },
     },
     "samples/apps/admin-console": {
@@ -377,6 +386,12 @@
     },
     "samples/recipes/basic-entity": {
       "name": "@cosmicdrift/kumiko-sample-basic-entity",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
+    "samples/recipes/boot-check": {
+      "name": "@cosmicdrift/kumiko-sample-boot-check",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
@@ -695,6 +710,7 @@
     "@parcel/watcher",
   ],
   "overrides": {
+    "brace-expansion": "^5.0.7",
     "react": "19.2.6",
     "react-dom": "19.2.6",
   },
@@ -804,6 +820,8 @@
     "@cosmicdrift/kumiko-sample-auth-mfa": ["@cosmicdrift/kumiko-sample-auth-mfa@workspace:samples/recipes/auth-mfa"],
 
     "@cosmicdrift/kumiko-sample-basic-entity": ["@cosmicdrift/kumiko-sample-basic-entity@workspace:samples/recipes/basic-entity"],
+
+    "@cosmicdrift/kumiko-sample-boot-check": ["@cosmicdrift/kumiko-sample-boot-check@workspace:samples/recipes/boot-check"],
 
     "@cosmicdrift/kumiko-sample-cap-billing-demo": ["@cosmicdrift/kumiko-sample-cap-billing-demo@workspace:samples/apps/cap-billing-demo"],
 
@@ -917,7 +935,9 @@
 
     "@cosmicdrift/kumiko-server-runtime": ["@cosmicdrift/kumiko-server-runtime@workspace:packages/server-runtime"],
 
-    "@cosmicdriftgamestudio/kumiko-guards": ["@cosmicdriftgamestudio/kumiko-guards@0.20.0", "https://npm.pkg.github.com/download/@cosmicdriftgamestudio/kumiko-guards/0.20.0/c943127191756df6b57bb4713477b23f37eb899e", { "dependencies": { "ts-morph": "^28.0.0" }, "bin": { "kumiko-check-as-casts": "check-as-casts.ts", "kumiko-check-licenses": "check-licenses.ts", "kumiko-check-outdated": "check-outdated.ts", "kumiko-check-predicates": "check-predicates.ts", "kumiko-check-renovate-presets": "check-renovate-presets.ts", "kumiko-check-runtime-isolation": "check-runtime-isolation.ts", "kumiko-check-secret-literals": "check-secret-literals.ts", "kumiko-check-security": "check-security.ts", "kumiko-check-subpath-exports": "check-subpath-exports.ts", "kumiko-docs-status-index": "docs-status-index.ts", "kumiko-guard-admin-api": "guard-admin-api.ts", "kumiko-guard-app-feature-structure": "guard-app-feature-structure.ts", "kumiko-guard-comment-lang": "guard-comment-lang.ts", "kumiko-guard-cross-feature-imports": "guard-cross-feature-imports.ts", "kumiko-guard-direct-entity-writes": "guard-direct-entity-writes.ts", "kumiko-guard-doc-status": "guard-doc-status.ts", "kumiko-guard-docs-plain-words": "guard-docs-plain-words.ts", "kumiko-guard-error-reasons": "guard-error-reasons.ts", "kumiko-guard-fake-tests": "guard-fake-tests.ts", "kumiko-guard-feature-integration-tests": "guard-feature-integration-tests.ts", "kumiko-guard-html-escape": "guard-html-escape.ts", "kumiko-guard-i18n-keys": "guard-i18n-keys.ts", "kumiko-guard-i18n-ui-strings": "guard-i18n-ui-strings.ts", "kumiko-guard-legal-template-drift": "guard-legal-template-drift.ts", "kumiko-guard-lib-test-coverage": "guard-lib-test-coverage.ts", "kumiko-guard-loadall-events": "guard-loadall-events.ts", "kumiko-guard-no-custom-primitives": "guard-no-custom-primitives.ts", "kumiko-guard-no-date-api": "guard-no-date-api.ts", "kumiko-guard-no-direct-process-env": "guard-no-direct-process-env.ts", "kumiko-guard-no-inline-styles": "guard-no-inline-styles.ts", "kumiko-guard-no-logic-in-views": "guard-no-logic-in-views.ts", "kumiko-guard-no-raw-hooks": "guard-no-raw-hooks.ts", "kumiko-guard-pii-annotations": "guard-pii-annotations.ts", "kumiko-guard-pre-es-patterns": "guard-pre-es-patterns.ts", "kumiko-guard-primitives-discipline": "guard-primitives-discipline.ts", "kumiko-guard-raw-classname": "guard-raw-classname.ts", "kumiko-guard-raw-sql": "guard-raw-sql.ts", "kumiko-guard-renderer-boundaries": "guard-renderer-boundaries.ts", "kumiko-guard-semantic-duplicates": "guard-semantic-duplicates.ts", "kumiko-guard-silent-skip": "guard-silent-skip.ts", "kumiko-guard-table-ddl": "guard-table-ddl.ts", "kumiko-guard-test-stack-drift": "guard-test-stack-drift.ts", "kumiko-guard-thin-wrappers": "guard-thin-wrappers.ts", "kumiko-guard-ui": "run-ui-guards.ts", "kumiko-guard-unsafe-json-parse": "guard-unsafe-json-parse.ts", "kumiko-guards-run": "run-guards.ts" } }, "sha512-iTJcpbJXlb7KsvB59nAe9yZA1GI17gO12R647bLVhQyOVnGyAUOEEwEBy7YzPSwIHu31MUq5s5+QqygBoxZfMA=="],
+    "@cosmicdrift/kumiko-types": ["@cosmicdrift/kumiko-types@workspace:packages/types"],
+
+    "@cosmicdriftgamestudio/kumiko-guards": ["@cosmicdriftgamestudio/kumiko-guards@0.21.0", "https://npm.pkg.github.com/download/@cosmicdriftgamestudio/kumiko-guards/0.21.0/7828f68522c9ecaf6b3e828ff50577272daa1d17", { "dependencies": { "ts-morph": "^28.0.0" }, "bin": { "kumiko-check-as-casts": "check-as-casts.ts", "kumiko-check-licenses": "check-licenses.ts", "kumiko-check-outdated": "check-outdated.ts", "kumiko-check-predicates": "check-predicates.ts", "kumiko-check-renovate-presets": "check-renovate-presets.ts", "kumiko-check-runtime-isolation": "check-runtime-isolation.ts", "kumiko-check-secret-literals": "check-secret-literals.ts", "kumiko-check-security": "check-security.ts", "kumiko-check-subpath-exports": "check-subpath-exports.ts", "kumiko-docs-status-index": "docs-status-index.ts", "kumiko-guard-admin-api": "guard-admin-api.ts", "kumiko-guard-app-feature-structure": "guard-app-feature-structure.ts", "kumiko-guard-comment-lang": "guard-comment-lang.ts", "kumiko-guard-cross-feature-imports": "guard-cross-feature-imports.ts", "kumiko-guard-direct-entity-writes": "guard-direct-entity-writes.ts", "kumiko-guard-doc-status": "guard-doc-status.ts", "kumiko-guard-docs-plain-words": "guard-docs-plain-words.ts", "kumiko-guard-error-reasons": "guard-error-reasons.ts", "kumiko-guard-fake-tests": "guard-fake-tests.ts", "kumiko-guard-feature-integration-tests": "guard-feature-integration-tests.ts", "kumiko-guard-html-escape": "guard-html-escape.ts", "kumiko-guard-i18n-keys": "guard-i18n-keys.ts", "kumiko-guard-i18n-ui-strings": "guard-i18n-ui-strings.ts", "kumiko-guard-legal-template-drift": "guard-legal-template-drift.ts", "kumiko-guard-lib-test-coverage": "guard-lib-test-coverage.ts", "kumiko-guard-loadall-events": "guard-loadall-events.ts", "kumiko-guard-no-custom-primitives": "guard-no-custom-primitives.ts", "kumiko-guard-no-date-api": "guard-no-date-api.ts", "kumiko-guard-no-direct-process-env": "guard-no-direct-process-env.ts", "kumiko-guard-no-inline-styles": "guard-no-inline-styles.ts", "kumiko-guard-no-logic-in-views": "guard-no-logic-in-views.ts", "kumiko-guard-no-raw-hooks": "guard-no-raw-hooks.ts", "kumiko-guard-pii-annotations": "guard-pii-annotations.ts", "kumiko-guard-pre-es-patterns": "guard-pre-es-patterns.ts", "kumiko-guard-primitives-discipline": "guard-primitives-discipline.ts", "kumiko-guard-raw-classname": "guard-raw-classname.ts", "kumiko-guard-raw-sql": "guard-raw-sql.ts", "kumiko-guard-renderer-boundaries": "guard-renderer-boundaries.ts", "kumiko-guard-restricted-symbols": "guard-restricted-symbols.ts", "kumiko-guard-semantic-duplicates": "guard-semantic-duplicates.ts", "kumiko-guard-silent-skip": "guard-silent-skip.ts", "kumiko-guard-table-ddl": "guard-table-ddl.ts", "kumiko-guard-test-stack-drift": "guard-test-stack-drift.ts", "kumiko-guard-thin-wrappers": "guard-thin-wrappers.ts", "kumiko-guard-ui": "run-ui-guards.ts", "kumiko-guard-unsafe-json-parse": "guard-unsafe-json-parse.ts", "kumiko-guards-run": "run-guards.ts" } }, "sha512-r8Im/C+W27P65PEOtDoZtjTlGEf4gqzDBmS8p5okh46H8CUiZ7oetbMKHW5DFRfL25zVjUcHDhU/SbX92biG/w=="],
 
     "@csstools/color-helpers": ["@csstools/color-helpers@6.0.2", "", {}, "sha512-LMGQLS9EuADloEFkcTBR3BwV/CGHV7zyDxVRtVDTwdI2Ca4it0CCVTT9wCkxSgokjE5Ho41hEPgb8OEUwoXr6Q=="],
 
@@ -1337,7 +1357,7 @@
 
     "bidi-js": ["bidi-js@1.0.3", "", { "dependencies": { "require-from-string": "^2.0.2" } }, "sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw=="],
 
-    "brace-expansion": ["brace-expansion@5.0.6", "", { "dependencies": { "balanced-match": "^4.0.2" } }, "sha512-kLpxurY4Z4r9sgMsyG0Z9uzsBlgiU/EFKhj/h91/8yHu0edo7XuixOIH3VcJ8kkxs6/jPzoI6U9Vj3WqbMQ94g=="],
+    "brace-expansion": ["brace-expansion@5.0.7", "", { "dependencies": { "balanced-match": "^4.0.2" } }, "sha512-7oFy703dxfY3/NLxC1fh2SUCQ0H9rmAY+5EpDVfXjUTTs+HEwR2nYaqLv+GWcTsumwxPfiz6CzCNkwXwBUwqCA=="],
 
     "braces": ["braces@3.0.3", "", { "dependencies": { "fill-range": "^7.1.1" } }, "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA=="],
 

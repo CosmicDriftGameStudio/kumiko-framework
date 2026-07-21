@@ -14,6 +14,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { tenantComplianceProfileEntity } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import {
   configValueEntity,
@@ -70,6 +71,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       createAuthEmailPasswordFeature({}),
       ...APP_FEATURES,
@@ -114,7 +116,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_todos`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM store_todos`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
   await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
@@ -236,7 +238,7 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
     expect(cronRow[0]?.status).toBe(USER_STATUS.Deleted);
 
     const remaining = (await asRawClient(stack.db).unsafe(
-      `SELECT id FROM read_todos WHERE author_id = $1`,
+      `SELECT id FROM store_todos WHERE author_id = $1`,
       [alice.id],
     )) as unknown[];
     expect(remaining).toHaveLength(0);
@@ -275,25 +277,25 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
     );
 
     const todoRows = (await asRawClient(stack.db).unsafe(
-      `SELECT id, title, author_id FROM read_todos`,
+      `SELECT id, title, author_id FROM store_todos`,
     )) as Array<{ id: string; title: string; author_id: string | null }>;
     expect(todoRows).toHaveLength(1);
     expect(todoRows[0]?.title).toBe("anonymize-me");
     expect(todoRows[0]?.author_id).toBeNull();
   });
 
-  // #498/#525: read_todos ist ein Direct-Write-Store (der create-Handler
+  // #498/#525: store_todos ist ein Direct-Write-Store (der create-Handler
   // insertOne't ohne Lifecycle-Event). Als r.entity registriert wäre es eine
   // rebuildbare implizite Projektion, deren Replay null todo-Events findet und
   // eine leere Shadow-Tabelle drüber swappt → jeder Todo (und un-forget der
   // anonymisierten Rows) wäre beim nächsten Projection-Rebuild weg. Die
-  // r.rawTable-Registrierung hält read_todos AUS dem Rebuild-Set raus —
-  // hier strukturell gepinnt: ein Revert zu r.entity ließe read_todos als
+  // r.storeTable-Registrierung hält store_todos AUS dem Rebuild-Set raus —
+  // hier strukturell gepinnt: ein Revert zu r.entity ließe store_todos als
   // rebuildbare Projektion auftauchen und failte diesen Test.
-  test("#498: read_todos is not a rebuildable projection (r.rawTable guard)", () => {
+  test("#498: store_todos is not a rebuildable projection (r.storeTable guard)", () => {
     expect(stack.registry.getAllProjections().size).toBeGreaterThan(0);
     const rebuildable = [...stack.registry.getAllProjections().values()].some(
-      (p) => extractTableName(p.table) === "read_todos",
+      (p) => extractTableName(p.table) === "store_todos",
     );
     expect(rebuildable).toBe(false);
   });

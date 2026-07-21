@@ -28,7 +28,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const noteEntity = createEntity({
-  table: "read_notes",
+  table: "store_notes",
   idType: "uuid",
   fields: {
     authorId: createTextField({}),
@@ -37,19 +37,19 @@ export const noteEntity = createEntity({
   },
 });
 
-// Plain EntityTableMeta, NOT a branded EntityTable: read_notes is a deliberate
-// unmanaged direct-write store (r.rawTable below), so the forget hook may
+// Plain EntityTableMeta, NOT a branded EntityTable: store_notes is a deliberate
+// unmanaged direct-write store (r.storeTable below), so the forget hook may
 // updateMany/deleteMany it directly — the meta carries no executor-only brand.
-export const notesTable = buildEntityTableMeta("note", noteEntity);
+export const notesTable = buildEntityTableMeta("note", noteEntity, { source: "unmanaged" });
 
 export const notesFeature = defineFeature("notes", (r) => {
   r.requires("user-data-rights");
-  // read_notes is a direct-write store: the forget hook below `updateMany`/
+  // store_notes is a direct-write store: the forget hook below `updateMany`/
   // `deleteMany`s rows WITHOUT emitting lifecycle events. r.entity would make
   // it a rebuildable implicit projection whose replay finds zero note events
   // and wipes the table (or un-forgets anonymized rows) on the next rebuild
-  // (#498). r.rawTable keeps the DDL, opts out of implicit rebuild.
-  r.rawTable(buildEntityTableMeta("note", noteEntity), {
+  // (#498). r.storeTable keeps the DDL, opts out of implicit rebuild.
+  r.storeTable(notesTable, {
     reason: "read_side.notes_direct_write",
   });
 

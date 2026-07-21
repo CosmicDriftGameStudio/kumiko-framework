@@ -12,6 +12,7 @@
 // for `jobRow.requestedFromTenantId` instead.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -76,6 +77,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       fileFoundationFeature,
       fileProviderInMemoryFeature,
+      authFoundationFeature,
       createSessionsFeature(),
       createUserDataRightsFeature(),
     ],

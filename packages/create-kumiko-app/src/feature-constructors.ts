@@ -29,6 +29,19 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
     exportName: "createUserFeature",
     callExpression: "createUserFeature()",
   },
+  "auth-foundation": {
+    name: "auth-foundation",
+    importPath: "@cosmicdrift/kumiko-bundled-features/auth-foundation",
+    exportName: "authFoundationFeature",
+    callExpression: "authFoundationFeature",
+  },
+  "personal-access-tokens": {
+    name: "personal-access-tokens",
+    importPath: "@cosmicdrift/kumiko-bundled-features/personal-access-tokens",
+    exportName: "createPersonalAccessTokensFeature",
+    callExpression: "createPersonalAccessTokensFeature({ scopes: {} })",
+    callArgs: [{ scopes: {} }],
+  },
   sessions: {
     name: "sessions",
     importPath: "@cosmicdrift/kumiko-bundled-features/sessions",

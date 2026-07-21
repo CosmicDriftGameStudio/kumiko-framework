@@ -4,7 +4,67 @@
 // build-fn presence).
 
 import { describe, expect, test } from "bun:test";
+import type { ConfigAccessor } from "@cosmicdrift/kumiko-framework/engine";
+import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import { createSecret } from "@cosmicdrift/kumiko-framework/secrets";
+import { isMailTransportPlugin, type MailTransportPlugin } from "../../mail-foundation";
+import { describeMailTransportContract } from "../../mail-foundation/__tests__/mail-transport-contract";
 import { mailTransportSmtpFeature, SMTP_PASSWORD } from "../feature";
+
+function registeredPlugin(): MailTransportPlugin {
+  const usage = mailTransportSmtpFeature.extensionUsages.find(
+    (u) => u.extensionName === "mailTransport" && u.entityName === "smtp",
+  );
+  if (!usage || !isMailTransportPlugin(usage.options)) {
+    throw new Error("mail-transport-smtp: plugin not registered under 'smtp'");
+  }
+  return usage.options;
+}
+
+function fakeConfig(
+  overrides: Partial<
+    Record<"host" | "port" | "secure" | "from" | "authUser", string | number | boolean>
+  > = {},
+): ConfigAccessor {
+  const keys = mailTransportSmtpFeature.exports.configKeys;
+  const values = new Map<string, string | number | boolean>([
+    [keys.host.name, overrides.host ?? "smtp.contract-test.invalid"],
+    [keys.port.name, overrides.port ?? 587],
+    [keys.secure.name, overrides.secure ?? false],
+    [keys.from.name, overrides.from ?? "noreply@contract-test.invalid"],
+    [keys.authUser.name, overrides.authUser ?? "contract-test-user"],
+  ]);
+  return (async (handle: string | { readonly name: string }) => {
+    const key = typeof handle === "string" ? handle : handle.name;
+    return values.get(key);
+  }) as ConfigAccessor;
+}
+
+function fakeSecrets(): SecretsContext {
+  return {
+    get: async () => createSecret("contract-test-password"),
+    has: async () => true,
+    set: async () => {},
+    delete: async () => true,
+  };
+}
+
+describeMailTransportContract("mail-transport-smtp", () => ({
+  plugin: registeredPlugin(),
+  ctx: { config: fakeConfig(), secrets: fakeSecrets(), _userId: "contract-test-user" },
+  tenantId: "contract-test-tenant",
+}));
+
+describe("mailTransportSmtpFeature — build error path", () => {
+  test("build rejects when a required config-key (host) is unset", async () => {
+    const ctx = {
+      config: fakeConfig({ host: "" }),
+      secrets: fakeSecrets(),
+      _userId: "contract-test-user",
+    };
+    await expect(registeredPlugin().build(ctx, "contract-test-tenant")).rejects.toThrow(/host/);
+  });
+});
 
 describe("mailTransportSmtpFeature — shape", () => {
   test("has the expected name", () => {

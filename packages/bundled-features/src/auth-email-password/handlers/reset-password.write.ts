@@ -4,6 +4,7 @@ import { z } from "zod";
 import { hashPassword } from "../../shared";
 import { AuthErrors } from "../constants";
 import { invalidResetToken } from "../errors";
+import { passwordSchema } from "../password-policy";
 import { verifyResetToken } from "../reset-token";
 import { runConfirmTokenFlow } from "./confirm-token-flow";
 
@@ -22,7 +23,7 @@ export function createResetPasswordHandler(opts: ResetPasswordOptions) {
     name: "reset-password",
     schema: z.object({
       token: z.string().min(1),
-      newPassword: z.string().min(8).max(200),
+      newPassword: passwordSchema,
     }),
     access: { roles: ["all"] },
     handler: async (event, ctx) => {

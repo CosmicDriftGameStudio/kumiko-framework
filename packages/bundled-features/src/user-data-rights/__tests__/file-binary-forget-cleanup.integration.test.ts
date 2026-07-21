@@ -6,6 +6,7 @@
 // Datei ihre Bytes dauerhaft auf Disk (Issue gefunden im Review zu #177).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
@@ -78,6 +79,7 @@ beforeAll(async () => {
       createTestFileProviderFeature(provider, "test"),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),

@@ -31,7 +31,9 @@ export async function nullBlindIndexesForSubject(
   features: ReadonlyMap<string, FeatureDefinition>,
   subjectKey: string,
 ): Promise<void> {
-  const likePattern = `kumiko-pii:v1:${escapeLikePattern(subjectKey)}:%`;
+  // "v%" matches any format version (v1 no-AAD, v2 AAD-bound, #1263) — the
+  // subject key placement is stable across versions.
+  const likePattern = `kumiko-pii:v%:${escapeLikePattern(subjectKey)}:%`;
   for (const feature of features.values()) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       const lookupable = collectLookupableFields(entity);

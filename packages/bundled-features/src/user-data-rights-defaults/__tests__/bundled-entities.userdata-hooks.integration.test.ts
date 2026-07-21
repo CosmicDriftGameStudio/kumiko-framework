@@ -19,6 +19,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { authFoundationFeature } from "../../auth-foundation";
 import { createChannelInAppFeature, inAppMessagesTable } from "../../channel-in-app";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { configValueEntity, createConfigFeature } from "../../config";
@@ -72,6 +73,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createTenantFeature(),
       createPersonalAccessTokensFeature({ scopes: PAT_SCOPES }),
+      authFoundationFeature,
       createDeliveryFeature(),
       createChannelInAppFeature(),
       createJobsFeature(),
@@ -93,6 +95,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
@@ -146,7 +149,7 @@ async function seedUser(id: string): Promise<void> {
 describe("user-session userData-hooks", () => {
   async function seedSession(id: string, userId: string, tenantId: string): Promise<void> {
     await asRawClient(full.db).unsafe(
-      `INSERT INTO read_user_sessions (id, user_id, tenant_id, created_at, expires_at, ip, user_agent)
+      `INSERT INTO store_user_sessions (id, user_id, tenant_id, created_at, expires_at, ip, user_agent)
        VALUES ($1, $2, $3, now(), now() + interval '1 day', '203.0.113.7', 'TestAgent/1.0')`,
       [id, userId, tenantId],
     );
@@ -170,11 +173,11 @@ describe("user-session userData-hooks", () => {
     await userSessionDeleteHook(ctx("sess-user-2"), "delete");
 
     const a = await rawSelect(
-      "SELECT * FROM read_user_sessions WHERE user_id = $1 AND tenant_id = $2",
+      "SELECT * FROM store_user_sessions WHERE user_id = $1 AND tenant_id = $2",
       ["sess-user-2", TENANT_A],
     );
     const b = await rawSelect(
-      "SELECT * FROM read_user_sessions WHERE user_id = $1 AND tenant_id = $2",
+      "SELECT * FROM store_user_sessions WHERE user_id = $1 AND tenant_id = $2",
       ["sess-user-2", TENANT_B],
     );
     expect(a).toHaveLength(0);
@@ -185,7 +188,7 @@ describe("user-session userData-hooks", () => {
 describe("api-token userData-hooks", () => {
   async function seedToken(id: string, userId: string): Promise<void> {
     await asRawClient(full.db).unsafe(
-      `INSERT INTO read_api_tokens (id, user_id, tenant_id, name, token_hash, prefix, scopes, created_at)
+      `INSERT INTO store_api_tokens (id, user_id, tenant_id, name, token_hash, prefix, scopes, created_at)
        VALUES ($1, $2, $3, 'My MacBook', $4, 'kum_ab12', '["read"]', now())`,
       [id, userId, TENANT_A, `hash-${id}`],
     );
@@ -207,7 +210,7 @@ describe("api-token userData-hooks", () => {
 
     await apiTokenDeleteHook(ctx("pat-user-2"), "delete");
 
-    const rows = await rawSelect("SELECT * FROM read_api_tokens WHERE user_id = $1", [
+    const rows = await rawSelect("SELECT * FROM store_api_tokens WHERE user_id = $1", [
       "pat-user-2",
     ]);
     expect(rows).toHaveLength(0);
@@ -371,7 +374,7 @@ describe("config-value userData-hooks", () => {
 describe("delivery-attempt userData-hooks (#799)", () => {
   async function seedAttempt(id: string, recipientId: string, tenantId: string): Promise<void> {
     await asRawClient(full.db).unsafe(
-      `INSERT INTO read_delivery_attempts
+      `INSERT INTO store_delivery_attempts
          (id, tenant_id, notification_type, channel, recipient_id, recipient_address, status, priority)
        VALUES ($1, $2, 'app:notify:ping', 'email', $3, $4, 'sent', 'normal')`,
       [id, tenantId, recipientId, `user-${recipientId}@example.com`],

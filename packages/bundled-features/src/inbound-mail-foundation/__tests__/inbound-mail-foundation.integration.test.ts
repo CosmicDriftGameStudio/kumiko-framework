@@ -274,12 +274,13 @@ describe("scenario 2b: ingest-message — Thread-Rollup selbstkorrigierend statt
     );
     const threadAggId = mailThreadAggregateId(admin.tenantId, "mid:self-heal-root@example.com");
 
-    // Simuliert exakt den Drift, den ein Race auf getStreamVersion (siehe
-    // Handler-Kommentar Schritt 5) verursachen kann: 2 Message-Rows liegen
-    // vor, aber der ZULETZT geschriebene Thread-Event traegt einen zu
-    // niedrigen Snapshot (previousCount+1 aus einer stale-Read). Das Event
-    // ist die Quelle, die previousCount+1 (alter Code) liest — der Live-
-    // COUNT (neuer Code) ignoriert es und liest read_inbound_messages neu.
+    // Simuliert den Snapshot-Drift, den ein verlorener Version-Conflict-
+    // Retry (siehe Handler-Kommentar Schritt 5) theoretisch trotz der
+    // Retry-Schleife hinterlassen könnte: 2 Message-Rows liegen vor, aber
+    // der ZULETZT geschriebene Thread-Event trägt einen zu niedrigen
+    // Snapshot. Der neue ingest liest den Live-COUNT gegen
+    // read_inbound_messages neu statt dem Event-Snapshot zu vertrauen —
+    // der Fehler ist selbstkorrigierend, nicht kumulativ.
     const expectedVersion = await getStreamVersion(db, threadAggId, admin.tenantId);
     const corruptedPayload: MailThreadEventPayload = {
       threadKey: "mid:self-heal-root@example.com",
@@ -316,6 +317,56 @@ describe("scenario 2b: ingest-message — Thread-Rollup selbstkorrigierend statt
     const healed = await selectMany(db, mailThreadsProjectionTable, { id: threadAggId });
     expect(healed).toHaveLength(1);
     expect(healed[0]?.["messageCount"]).toBe(3);
+  });
+});
+
+describe("scenario 2c: ingest-message — concurrent thread-rollup race (issue #1229)", () => {
+  // Probabilistic — looped per house convention (mehrere Durchläufe, z.B.
+  // 20x): the version-conflict race between two step-5 thread-rollup
+  // appends only fires on genuine transaction-timing interleaving, which
+  // a single run can't force deterministically.
+  const ITERATIONS = 20;
+  const CONCURRENCY = 3;
+
+  test(`${CONCURRENCY} concurrent ingests of different messages in the same thread never 500 and converge on the correct messageCount, ${ITERATIONS} rounds`, async () => {
+    const admin = adminFor(4022);
+    const accountId = await connectSharedAccount(admin);
+
+    for (let round = 0; round < ITERATIONS; round++) {
+      const rootMessageIdHeader = `race-root-${round}@example.com`;
+
+      const responses = await Promise.all(
+        Array.from({ length: CONCURRENCY }, (_, n) =>
+          stack.http.write(
+            InboundMailFoundationHandlers.ingestMessage,
+            ingestPayload(accountId, {
+              providerMessageId: `race-${round}-${n}`,
+              messageIdHeader: `race-${round}-${n}@example.com`,
+              references: [rootMessageIdHeader],
+            }),
+            admin,
+          ),
+        ),
+      );
+
+      // No writer's transaction fails with a 500 from the thread-rollup
+      // version conflict — each of the CONCURRENCY distinct messages is
+      // its own aggregate, so step 4 never races; only step 5 (shared
+      // threadAggId) does, and the bounded retry loop must absorb it.
+      for (const res of responses) {
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { isSuccess: boolean; data: { duplicate: boolean } };
+        expect(body.isSuccess).toBe(true);
+        expect(body.data.duplicate).toBe(false);
+      }
+
+      const threadAggId = mailThreadAggregateId(admin.tenantId, `mid:${rootMessageIdHeader}`);
+      const threadRows = await selectMany(db, mailThreadsProjectionTable, { id: threadAggId });
+      expect(threadRows).toHaveLength(1);
+      // Every message's contribution landed — no drift from a silently
+      // stale-read-and-succeed append (the bug the retry loop replaces).
+      expect(threadRows[0]?.["messageCount"]).toBe(CONCURRENCY);
+    }
   });
 });
 

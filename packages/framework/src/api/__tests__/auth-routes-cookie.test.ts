@@ -52,8 +52,11 @@ function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
 async function buildApp(
   overrides: Partial<AuthRoutesConfig> = {},
   dispatcher: Dispatcher = createStubDispatcher(),
+  ttlSeconds?: number,
 ): Promise<{ app: Hono; validToken: string }> {
-  const jwt = createJwtHelper(JWT_SECRET);
+  const jwt = ttlSeconds
+    ? createJwtHelper(JWT_SECRET, undefined, ttlSeconds)
+    : createJwtHelper(JWT_SECRET);
   const validToken = await jwt.sign(TestUsers.user);
   const config: AuthRoutesConfig = {
     membershipQuery: "tenant:query:memberships",
@@ -127,6 +130,18 @@ describe("auth-routes cookie behaviour on /auth/login", () => {
     expect(body.isSuccess).toBe(true);
     expect(typeof body.token).toBe("string");
     expect(body.token.length).toBeGreaterThan(20);
+  });
+
+  test("cookie maxAge tracks the jwt helper's ttlSeconds, not a hardcoded default", async () => {
+    const customTtl = 60 * 60; // 1h — distinct from the 24h default
+    const { app } = await buildApp({}, undefined, customTtl);
+    const res = await app.request("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "a@b.c", password: "pw" }),
+    });
+    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(new RegExp(`Max-Age=${customTtl}\\b`));
+    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).toMatch(new RegExp(`Max-Age=${customTtl}\\b`));
   });
 });
 

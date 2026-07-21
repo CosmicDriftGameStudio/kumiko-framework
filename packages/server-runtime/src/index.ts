@@ -4,6 +4,7 @@
 // Dev-Tooling mehr in ihre node_modules.
 export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features";
 export type {
+  AccountUnlockSetup,
   EmailVerificationSetup,
   InviteSetup,
   PasswordResetSetup,
@@ -14,3 +15,4 @@ export type {
   SignupSetup,
 } from "./run-prod-app";
 export { runProdApp } from "./run-prod-app";
+export type { SecurityHeadersOption } from "./security-headers";

@@ -1,5 +1,5 @@
 // Single enumeration of every table-bearing registration on a feature
-// (r.projection, r.multiStreamProjection with table, r.rawTable).
+// (r.projection, r.multiStreamProjection with table, r.storeTable).
 // Consumed by BOTH the setupTestStack auto-push and collectTableMetas —
 // one list, so test-DB-push and `kumiko schema generate` cannot drift
 // apart again (#255).
@@ -29,8 +29,8 @@ export function enumerateFeatureTableSources(
       origin: `multiStreamProjection "${name}" (${feature.name})`,
     });
   }
-  for (const [name, raw] of Object.entries(feature.rawTables)) {
-    sources.push({ table: raw.meta, origin: `rawTable "${name}" (${feature.name})` });
+  for (const [name, raw] of Object.entries(feature.storeTables)) {
+    sources.push({ table: raw.meta, origin: `storeTable "${name}" (${feature.name})` });
   }
   return sources;
 }

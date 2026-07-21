@@ -19,6 +19,12 @@ export const AuthHandlers = {
   resetPassword: "auth-email-password:write:reset-password",
   requestEmailVerification: "auth-email-password:write:request-email-verification",
   verifyEmail: "auth-email-password:write:verify-email",
+  // Account-Unlock Magic-Link (fixes the lockout-DoS where the monotonic
+  // failure-counter re-locks immediately after expiry, #1266). Mirrors
+  // reset: request mints an HMAC token + mails it, confirm clears the
+  // Redis lockout state.
+  requestAccountUnlock: "auth-email-password:write:request-account-unlock",
+  confirmAccountUnlock: "auth-email-password:write:confirm-account-unlock",
   // Magic-Link Self-Signup (Pre-Activation-Token-Pattern). request mintet
   // einen opaken Random-Token, speichert ihn bidirektional in Redis und
   // sendet eine Aktivierungs-Mail. confirm löst den Token ein und legt
@@ -59,6 +65,11 @@ export const AuthErrors = {
   invalidVerificationToken: "invalid_verification_token",
   verificationNotConfigured: "email_verification_not_configured",
   emailNotVerified: "email_not_verified",
+  // Account-Unlock: mirrors the reset-token handling — every verify
+  // failure (malformed/bad-signature/expired) collapses to this single
+  // code so a probing client can't distinguish tampered from stale.
+  invalidUnlockToken: "invalid_unlock_token",
+  unlockNotConfigured: "account_unlock_not_configured",
   // Self-Signup: alle confirm-Failures (unbekannter Token, schon
   // konsumiert, abgelaufen) collapsen auf diesen Code — gleicher
   // anti-enumeration-Trade-off wie reset/verify.
@@ -102,6 +113,10 @@ export const AuthErrors = {
 // threshold, a short cooldown.
 export const AUTH_LOCKOUT_DEFAULT_MAX_FAILED_ATTEMPTS = 5;
 export const AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES = 15;
+
+// Account-unlock token TTL — same as reset (15min): short-lived, the user
+// clicks it right after hitting the lockout screen.
+export const AUTH_UNLOCK_DEFAULT_TTL_MINUTES = 15;
 
 export const AUTH_RESET_DEFAULT_TTL_MINUTES = 15;
 // Verification tokens live longer by default because the user may not be

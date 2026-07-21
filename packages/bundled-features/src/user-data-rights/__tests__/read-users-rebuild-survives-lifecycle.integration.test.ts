@@ -13,6 +13,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createRegistry,
@@ -58,7 +59,7 @@ import { createDataRetentionFeature } from "../../data-retention";
 import { createSessionsFeature } from "../../sessions";
 import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
 import { createSessionCallbacks, type SessionCallbacks } from "../../sessions/session-callbacks";
-import { sessionCallbacksFromLateBound } from "../../sessions/testing";
+import { sessionCallbacksFromLateBound, withMintedSession } from "../../sessions/testing";
 import { hashPassword } from "../../shared";
 import { createTenantFeature, tenantMembershipsTable } from "../../tenant";
 import { tenantEntity } from "../../tenant/schema/tenant";
@@ -91,6 +92,7 @@ function buildFeatures() {
     createDataRetentionFeature(),
     createComplianceProfilesFeature(),
     createAuthEmailPasswordFeature(),
+    authFoundationFeature,
     createSessionsFeature(),
     createUserDataRightsFeature(),
   ];
@@ -137,6 +139,12 @@ beforeEach(async () => {
   ]);
 });
 
+// Any actor hitting a write handler needs a live sid once sessionChecker
+// is wired.
+function mintActor(user: { id: string; tenantId: TenantId; roles: readonly string[] }) {
+  return withMintedSession((u, meta) => callbacks.get().sessionCreator(u, meta), user);
+}
+
 describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
   test("Restricted-Status ueberlebt einen Projection-Rebuild (T_create != T_active)", async () => {
     // Diskriminierende Praemisse: user.created landet auf systemAdmin.tenantId
@@ -149,7 +157,7 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     const created = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       { email: ALICE_EMAIL, passwordHash: hash, displayName: "Alice" },
-      TestUsers.systemAdmin,
+      await mintActor(TestUsers.systemAdmin),
     );
     // Mitgliedschaft + Lifecycle auf einem ANDEREN, aktiven Tenant.
     await seedTenantMembership(stack.db, {
@@ -158,7 +166,7 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
       roles: ["Member"],
     });
 
-    const aliceActive = { id: created.id, tenantId: T_ACTIVE, roles: ["Member"] };
+    const aliceActive = await mintActor({ id: created.id, tenantId: T_ACTIVE, roles: ["Member"] });
     const restricted = await stack.http.writeOk<{ status: string }>(RESTRICT, {}, aliceActive);
     expect(restricted.status).toBe(USER_STATUS.Restricted);
 
@@ -187,7 +195,7 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     const created = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       { email: "grace.rebuild@example.com", passwordHash: hash, displayName: "Grace" },
-      TestUsers.systemAdmin,
+      await mintActor(TestUsers.systemAdmin),
     );
 
     const T = getTemporal();
@@ -218,7 +226,7 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     const created = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       { email: "legacy.rebuild@example.com", passwordHash: hash, displayName: "Legacy" },
-      TestUsers.systemAdmin,
+      await mintActor(TestUsers.systemAdmin),
     );
 
     // Prae-Fix-Zustand simulieren: roher Write OHNE Event.
@@ -256,14 +264,14 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     const goodRow = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       { email: "healthy.rebuild@example.com", passwordHash: hash, displayName: "Healthy" },
-      TestUsers.systemAdmin,
+      await mintActor(TestUsers.systemAdmin),
     );
     await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: goodRow.id });
 
     const badRow = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       { email: "corrupt.rebuild@example.com", passwordHash: hash, displayName: "Corrupt" },
-      TestUsers.systemAdmin,
+      await mintActor(TestUsers.systemAdmin),
     );
     await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: badRow.id });
     // userEntity is systemStream:true (schema/user.ts) — its event stream

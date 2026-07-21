@@ -3,6 +3,7 @@ import type { DbConnection, DbTx } from "../db/connection";
 import {
   insertConsumerIfAbsent,
   markConsumerProcessing,
+  rearmDeadConsumer,
   selectConsumerForUpdateSkipLocked,
   updateConsumerDeliveryOutcome,
 } from "../db/queries/event-consumer";
@@ -38,12 +39,13 @@ export type ConsumerStateRowShape = {
   readonly lastProcessedEventId: bigint;
   readonly status: string;
   readonly attempts: number;
+  readonly rearmCount: number;
   readonly lastError: string | null;
   readonly updatedAt: Temporal.Instant;
 };
 export type ConsumerStateRow = ConsumerStateRowShape;
 
-type StoredEventRow = {
+export type StoredEventRow = {
   readonly id: bigint;
   readonly aggregateId: string;
   readonly aggregateType: string;
@@ -80,6 +82,8 @@ export async function acquireConsumerState(
   tx: DbTx,
   name: string,
   instanceId: string,
+  rearmCooldownMs: number,
+  maxRearmCount: number,
 ): Promise<AcquireOutcome> {
   const rawState = await selectConsumerForUpdateSkipLocked(tx, name, instanceId);
 
@@ -100,7 +104,28 @@ export async function acquireConsumerState(
   }
 
   if (state.status === ConsumerStatuses.disabled) return { state: null, skip: "disabled" };
-  if (state.status === ConsumerStatuses.dead) return { state: null, skip: "dead" };
+  if (state.status === ConsumerStatuses.dead) {
+    // Bounded auto-revival: a transient failure (e.g. a Meilisearch blip)
+    // shouldn't need an operator to notice and run restartConsumer() once
+    // the cause is long gone. Cooldown since the last write (the death or
+    // a prior re-arm) gates the retry; maxRearmCount stops a poison event
+    // from looping forever (re-arm → same event fails → dead → re-arm →
+    // ...) — after the cap it stays dead until a human intervenes.
+    const cooldownDeadline = Temporal.Now.instant().subtract({ milliseconds: rearmCooldownMs });
+    const cooldownElapsed = Temporal.Instant.compare(state.updatedAt, cooldownDeadline) <= 0;
+    if (cooldownElapsed && state.rearmCount < maxRearmCount) {
+      const rearmed = await rearmDeadConsumer(tx, name, instanceId);
+      const rearmedState =
+        rearmed &&
+        (coerceRow(rearmed, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
+      if (rearmedState) return { state: rearmedState, skip: null };
+    }
+    // ponytail: no log/metric fires when the rearm budget is exhausted here
+    // (the exact "braucht manuellen Eingriff" moment) — queryable via
+    // getConsumerState but silent otherwise. Add an emitDispatcherError-style
+    // signal if ops needs a push instead of a dead+lag poll.
+    return { state: null, skip: "dead" };
+  }
   return { state, skip: null };
 }
 
@@ -183,6 +208,7 @@ export async function deliverEvents(
   let attempts = state.attempts;
   let lastError: string | null = state.lastError ?? null;
   let deadLettered = false;
+  const effectiveMaxAttempts = consumer.errorPolicy?.maxAttempts ?? maxAttempts;
   let processed = 0;
   let failed = 0;
 
@@ -231,7 +257,7 @@ export async function deliverEvents(
       attempts += 1;
       lastError = errMessage;
       failed += 1;
-      if (attempts >= maxAttempts) deadLettered = true;
+      if (attempts >= effectiveMaxAttempts) deadLettered = true;
       break;
     }
   }

@@ -31,7 +31,7 @@
 
 import type { AccessRule } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
-import { qualifyNavId, toAppSchema, useNav } from "@cosmicdrift/kumiko-renderer";
+import { qualifyNavId, toAppSchema, UserRolesProvider, useNav } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
 import { useResolvers } from "../app/resolvers-context";
 import {
@@ -239,7 +239,11 @@ export function WorkspaceShell({
           {...(topbarActions !== undefined && { headerActions: topbarActions })}
         />
         <main className="flex-1 overflow-auto">
-          {activeTarget !== undefined ? <EditorPanel resolvers={resolvers} /> : children}
+          {activeTarget !== undefined ? (
+            <EditorPanel resolvers={resolvers} />
+          ) : (
+            <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
+          )}
         </main>
       </SidebarInset>
     </SidebarProvider>

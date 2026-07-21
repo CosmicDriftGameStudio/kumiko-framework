@@ -63,7 +63,7 @@ export type InboundMailSupervisorDeps = {
    *  Credential-Reads der Provider). */
   readonly providerCtx: InboundMailContext;
   /** App-DB — direct reads auf read_mail_accounts (Account-Snapshot)
-   *  + direct writes auf read_mail_sync_cursors (unmanaged store). */
+   *  + direct writes auf store_mail_sync_cursors (unmanaged store). */
   readonly db: DbConnection;
   /** Standard-Dispatcher mit SystemUser — trägt ingest-message +
    *  update-account. */

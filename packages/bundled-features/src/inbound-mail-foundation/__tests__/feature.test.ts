@@ -44,7 +44,7 @@ describe("inboundMailFoundationFeature — shape", () => {
   test("SyncCursor + SeenMessage sind unmanaged (NICHT event-sourced, Plan §3.4)", () => {
     // Drift-Pin: als r.entity würden die Tick-State-Tabellen (a) das
     // Event-Log fluten und (b) beim Projection-Rebuild gewischt.
-    const unmanaged = Object.keys(inboundMailFoundationFeature.rawTables);
+    const unmanaged = Object.keys(inboundMailFoundationFeature.storeTables);
     expect(unmanaged.length).toBe(2);
   });
 });

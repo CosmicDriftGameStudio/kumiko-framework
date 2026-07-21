@@ -25,6 +25,7 @@ import {
   type MailAccountRecord,
   type RawInboundMessage,
 } from "../../inbound-mail-foundation";
+import { describeInboundMailProviderContract } from "../../inbound-mail-foundation/__tests__/inbound-mail-provider-contract";
 import { imapInboundMailPlugin } from "../feature";
 
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "127.0.0.1";
@@ -192,3 +193,14 @@ describe("imap-live — echter Server (greenmail)", () => {
     20_000,
   );
 });
+
+describeInboundMailProviderContract(
+  "imap (greenmail)",
+  () => ({
+    plugin: imapInboundMailPlugin,
+    ctx: ctxWithCredentials(credentialDoc(PASSWORD)),
+    account,
+    seed: (subject) => sendTestMail(subject, "contract seed"),
+  }),
+  { skip: !available },
+);

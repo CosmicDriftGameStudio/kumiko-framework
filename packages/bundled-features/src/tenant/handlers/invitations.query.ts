@@ -22,13 +22,24 @@ export const invitationsQuery = defineQueryHandler({
       tenantId: query.user.tenantId,
       status: INVITATION_STATUS.pending,
     });
-    return Promise.all(
-      (rows ?? []).map(async (row) => {
-        const email = row["email"];
-        return typeof email === "string"
-          ? { ...row, email: await decryptStoredPii(email, "tenant:invitations") }
-          : row;
-      }),
-    );
+    // Sequential, not Promise.all: each decrypt hits the KMS adapter's own
+    // small dedicated pool (PgKmsAdapter default max: 4) — firing 2 calls
+    // per row concurrently for every row exhausts it once invitation counts
+    // exceed a handful, surfacing as "the connection was closed".
+    const out: Record<string, unknown>[] = [];
+    for (const row of rows ?? []) {
+      const email = row["email"];
+      const invitedBy = row["invitedBy"];
+      const decryptedEmail =
+        typeof email === "string"
+          ? await decryptStoredPii(email, "email", "tenant:invitations")
+          : email;
+      const decryptedInvitedBy =
+        typeof invitedBy === "string"
+          ? await decryptStoredPii(invitedBy, "invitedBy", "tenant:invitations")
+          : invitedBy;
+      out.push({ ...row, email: decryptedEmail, invitedBy: decryptedInvitedBy });
+    }
+    return out;
   },
 });

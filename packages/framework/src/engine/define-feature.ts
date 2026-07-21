@@ -106,6 +106,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     relations: state.relations,
     writeHandlers: state.writeHandlers,
     queryHandlers: state.queryHandlers,
+    streamHandlers: state.streamHandlers,
     translations: state.translations,
     hooks: {
       validation: state.validationHooks,
@@ -136,6 +137,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     extensionSelectors: state.extensionSelectors,
     exposedApis: state.exposedApis,
     usedApis: state.usedApis,
+    bootChecks: state.bootChecks,
     referenceData: state.referenceData,
     events: state.events,
     eventMigrations: state.eventMigrations,
@@ -152,7 +154,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     navs: state.navs,
     workspaces: state.workspaces,
     httpRoutes: state.httpRoutes,
-    rawTables: state.rawTables,
+    storeTables: state.storeTables,
     ...(state.treeActions !== undefined && { treeActions: state.treeActions }),
     ...(state.envSchema !== undefined && { envSchema: state.envSchema }),
   };

@@ -1,3 +1,4 @@
+import type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
 import { encryptEventPayloadPii } from "../crypto/event-pii";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
@@ -16,28 +17,7 @@ import { VersionConflictError } from "./errors";
 import { eventsTable } from "./events-schema";
 import { toStoredEvent } from "./row-to-stored-event";
 
-export type EventMetadata = {
-  readonly userId: string;
-  readonly requestId?: string;
-  // End-to-end business-operation id. Root HTTP requests get it from the
-  // x-correlation-id header (default: requestId). MSP-applies inherit it
-  // from the triggering event. Lets you trace "which user click caused
-  // this email 3 streams later?".
-  readonly correlationId?: string;
-  // Stored event id that triggered this write. Null for root commands;
-  // set to event.id when an MSP-apply runs ctx.appendEvent. Together with
-  // correlationId forms a causation DAG across aggregate streams.
-  readonly causationId?: string;
-  // Marten-conform free key/value space for app-specific metadata that
-  // doesn't deserve its own EventMetadata field. Examples: A/B-test bucket,
-  // feature-flag snapshot, geo-region, client SDK version. Persisted into
-  // events.metadata jsonb (no schema change — it's already a free-form
-  // jsonb column), survives upcasters untouched, available on every
-  // StoredEvent.metadata.headers. Framework does not interpret values; the
-  // app reads them when filtering/auditing. Keep values JSON-primitive
-  // (string|number|boolean) so JSON serialization stays bulletproof.
-  readonly headers?: Readonly<Record<string, string | number | boolean>>;
-};
+export type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
 
 export type EventToAppend = {
   readonly aggregateId: string;
@@ -49,25 +29,6 @@ export type EventToAppend = {
   readonly eventVersion?: number;
   readonly payload: Record<string, unknown>;
   readonly metadata: EventMetadata;
-};
-
-// Generic über payload-shape. Default = Record<string, unknown> macht
-// alle existierenden Konsumenten backwards-compatible. Konkrete Apply-
-// Handler / Tests können `StoredEvent<MyEventPayload>` annotieren um
-// payload typed zu lesen. Type-Propagation kommt durch r.defineEvent +
-// SingleStreamApplyFn<T> in apply-Maps.
-export type StoredEvent<TPayload = Record<string, unknown>> = {
-  readonly id: string;
-  readonly aggregateId: string;
-  readonly aggregateType: string;
-  readonly tenantId: TenantId;
-  readonly version: number;
-  readonly type: string;
-  readonly eventVersion: number;
-  readonly payload: TPayload;
-  readonly metadata: EventMetadata;
-  readonly createdAt: Temporal.Instant;
-  readonly createdBy: string;
 };
 
 type SelectedEvent = {
@@ -281,9 +242,13 @@ export async function getStreamVersion(
   return selectStreamMaxVersion(db, aggregateId, tenantId);
 }
 
-/** MAX(version) for one aggregate — no tenant filter. Used by seed idempotency. */
+/** MAX(version) for one aggregate — no tenant filter. SECURITY: existence-oracle,
+ *  a caller can probe whether an aggregateId has any events regardless of tenant
+ *  membership. Only call from seed/system-internal paths (idempotency checks
+ *  against a known aggregateId) — never from a handler reachable with
+ *  caller-controlled input. */
 // @wrapper-known semantic-alias
-export async function getAggregateStreamMaxVersion(
+export async function getUnscopedAggregateStreamMaxVersion(
   db: DbRunner,
   aggregateId: string,
 ): Promise<number> {
@@ -291,10 +256,11 @@ export async function getAggregateStreamMaxVersion(
 }
 
 /** Stream tenant of an aggregate (the tenant_id its events live under), with no
- *  membership/tenant filter. Recovers the write target for a systemScope
- *  aggregate whose stream tenant isn't one of the subject's memberships.
- *  Returns null for unknown streams. */
-export async function getAggregateStreamTenant(
+ *  membership/tenant filter. SECURITY: existence-oracle, same caveat as
+ *  getUnscopedAggregateStreamMaxVersion — seed/system-internal use only. Recovers
+ *  the write target for a systemScope aggregate whose stream tenant isn't one of
+ *  the subject's memberships. Returns null for unknown streams. */
+export async function getUnscopedAggregateStreamTenant(
   db: DbRunner,
   aggregateId: string,
   aggregateType: string,
@@ -333,15 +299,19 @@ export async function loadEventsAfterVersion(
 
 // Load every event for an aggregate_type across all tenants. Ordered by
 // (created_at, id) — chronological replay order for projection rebuilds.
-//
-// CAUTION — buffers ALL matching events in memory. Safe for smaller
-// aggregate-types (≤ 100k events), a memory cliff for large stores.
-// For >100k events use `streamAllEventsByType` (yields batchwise).
 // Mostly called from tests today — production rebuild goes through
 // projection-rebuild's own streaming path.
+//
+// Fails loud past LOAD_ALL_EVENTS_ROW_LIMIT rather than silently buffering
+// an unbounded result set — that's the memory cliff this guard exists to
+// prevent.
+export const LOAD_ALL_EVENTS_ROW_LIMIT = 100_000;
+
+/** @deprecated buffers ALL matching events in memory — a memory cliff for large stores. Use `streamAllEventsByType` (yields batchwise) instead. */
 export async function loadAllEventsByType(
   db: DbRunner,
   aggregateType: string,
+  rowLimit: number = LOAD_ALL_EVENTS_ROW_LIMIT,
 ): Promise<readonly StoredEvent[]> {
   const rows = await selectMany<SelectedEvent>(
     db,
@@ -352,8 +322,15 @@ export async function loadAllEventsByType(
         { col: "createdAt", direction: "asc" },
         { col: "id", direction: "asc" },
       ],
+      limit: rowLimit + 1,
     },
   );
+  if (rows.length > rowLimit) {
+    throw new Error(
+      `loadAllEventsByType("${aggregateType}") exceeds ${rowLimit} rows — ` +
+        "use streamAllEventsByType instead of buffering the full result set in memory.",
+    );
+  }
   return rows.map(toStoredEvent);
 }
 

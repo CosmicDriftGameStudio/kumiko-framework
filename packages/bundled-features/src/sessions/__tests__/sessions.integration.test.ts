@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configureBlindIndexKey,
@@ -13,6 +14,7 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
+  TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
@@ -65,6 +67,7 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
@@ -75,7 +78,7 @@ beforeAll(async () => {
     },
   });
   callbacks.set(createSessionCallbacks({ db: stack.db }));
-  h = makeSessionHelpers(stack, TENANT);
+  h = makeSessionHelpers(stack, TENANT, bound.asAuthConfig().sessionCreator);
 
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
@@ -97,9 +100,10 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     const { sid } = await h.login("persist@example.com", "pw-long-enough");
 
     const rows = await selectMany(stack.db, userSessionTable);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.["id"]).toBe(sid);
-    expect(rows[0]?.["revokedAt"]).toBeNull();
+    const userRows = rows.filter((r) => r["userId"] !== TestUsers.systemAdmin.id);
+    expect(userRows).toHaveLength(1);
+    expect(userRows[0]?.["id"]).toBe(sid);
+    expect(userRows[0]?.["revokedAt"]).toBeNull();
   });
 
   test("authenticated request passes while session is live, 401s once revoked", async () => {
@@ -138,8 +142,9 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(logoutRes.status).toBe(200);
 
     const rows = await selectMany(stack.db, userSessionTable);
-    expect(rows[0]?.["id"]).toBe(sid);
-    expect(rows[0]?.["revokedAt"]).not.toBeNull();
+    const row = rows.find((r) => r["id"] === sid);
+    expect(row?.["id"]).toBe(sid);
+    expect(row?.["revokedAt"]).not.toBeNull();
 
     const next = await h.authedPost("/api/query", token, {
       type: "user:query:user:me",
@@ -294,12 +299,13 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(body.error?.details?.reason).toBe("ownership_denied");
   });
 
-  test("revoke-all-others on a sidless JWT refuses loudly (session_required)", async () => {
+  test("revoke-all-others on a sidless JWT is rejected by the middleware (no_sid)", async () => {
     const { userId } = await h.seedUser("sidless@example.com", "pw-long-enough");
 
-    // Hand-sign a JWT without jti — simulates a stateless-JWT deployment
-    // or a rolling-deploy gap. "sign out everywhere else" is ill-defined
-    // without knowing which session is "current", so refuse.
+    // Hand-sign a JWT without jti. Once a sessionChecker is wired there is
+    // no relaxed mode (see session-strict-mode.integration.test.ts) — the
+    // middleware rejects it with no_sid before the handler's own
+    // session_required guard is ever reached.
     const tokenNoSid = await stack.jwt.sign({ id: userId, tenantId: TENANT, roles: ["User"] });
 
     const res = await stack.http.raw(
@@ -308,9 +314,9 @@ describe("sessions feature — login → check → revoke → rejected", () => {
       { type: SessionHandlers.revokeAllOthers, payload: {} },
       { Authorization: `Bearer ${tokenNoSid}` },
     );
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(401);
     const body = (await res.json()) as { error?: { details?: { reason?: string } } };
-    expect(body.error?.details?.reason).toBe("session_required");
+    expect(body.error?.details?.reason).toBe("no_sid");
   });
 
   test("N concurrent revoke+logout requests on the same sid converge safely", async () => {
@@ -491,10 +497,13 @@ describe("sessions feature — login → check → revoke → rejected", () => {
         revokedAt: string | null;
       }>;
     };
-    // Three rows total: Alice's pre-promotion session, Alice's post-promotion
-    // session, Bob's session. Two distinct users.
-    expect(body.data).toHaveLength(3);
-    const userIds = new Set(body.data.map((r) => r.userId));
+    // Three rows total for the two test users: Alice's pre-promotion session,
+    // Alice's post-promotion session, Bob's session. seedUser's bootstrap
+    // actor (systemAdmin) also holds live sessions in this tenant — exclude
+    // them, they aren't part of what this test pins.
+    const nonSystemRows = body.data.filter((r) => r.userId !== TestUsers.systemAdmin.id);
+    expect(nonSystemRows).toHaveLength(3);
+    const userIds = new Set(nonSystemRows.map((r) => r.userId));
     expect(userIds.size).toBe(2);
 
     // Order: most-recently-created first. aliceAsAdmin's session was the
@@ -552,7 +561,9 @@ describe("sessions feature — login → check → revoke → rejected", () => {
   // different tenant must not be able to read another tenant's session rows.
   test("session:detail and session:list never leak sessions across tenants", async () => {
     const TENANT_2 = testTenantId(2);
-    const h2 = makeSessionHelpers(stack, TENANT_2);
+    const h2 = makeSessionHelpers(stack, TENANT_2, (user, meta) =>
+      callbacks.get().sessionCreator(user, meta),
+    );
 
     const { userId: carolId } = await h.seedUser("carol4@example.com", "pw-long-enough");
     await updateRows(

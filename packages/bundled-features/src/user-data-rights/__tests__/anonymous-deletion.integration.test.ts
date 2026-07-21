@@ -6,6 +6,7 @@
 // Beweist end-to-end via echte /api/write-Calls OHNE Auth (anonymousAccess).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -53,6 +54,7 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
       createUserDataRightsFeature({
         deletionTokenSecret: DELETION_SECRET,
@@ -331,6 +333,7 @@ describe("anonymous deletion flow — not configured (kein Secret)", () => {
         createUserFeature(),
         createDataRetentionFeature(),
         createComplianceProfilesFeature(),
+        authFoundationFeature,
         createSessionsFeature(),
         createUserDataRightsFeature({
           sendDeletionVerificationEmail: async (args) => {

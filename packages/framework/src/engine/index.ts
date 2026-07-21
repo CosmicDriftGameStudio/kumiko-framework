@@ -42,6 +42,7 @@ export { crossTenantOverrideDenied } from "./cross-tenant";
 export { defineFeature } from "./define-feature";
 export type {
   QueryHandlerDefinition,
+  StreamHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
 } from "./define-handler";
@@ -177,6 +178,7 @@ export {
   checkWriteFieldRoles,
   filterReadFields,
 } from "./field-access";
+export { resolveName, withResponseData } from "./handler-helpers";
 // findForbiddenMembershipRole/isForbiddenMembershipRole/
 // stripForbiddenMembershipRoles/buildSessionRoles are Public API for host
 // apps that build their own membership handlers. FORBIDDEN_MEMBERSHIP_ROLES
@@ -203,6 +205,7 @@ export { runsInLane } from "./run-in";
 export type { StepListOutcome } from "./run-pipeline";
 export { runPipeline, runStepList } from "./run-pipeline";
 export { buildInsertSchema, buildUpdateSchema, fieldToZod } from "./schema-builder";
+export { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "./screen-helpers";
 export type { TransitionGraph } from "./state-machine";
 export { defineTransitions, guardTransition } from "./state-machine";
 export {
@@ -362,6 +365,8 @@ export type {
   SecretKeyHandle,
   SelectFieldDef,
   SessionUser,
+  StreamHandlerDef,
+  StreamHandlerFn,
   Subscribe,
   TargetRef,
   TenantId,
@@ -385,9 +390,7 @@ export type {
   WriteResult,
 } from "./types";
 export { DEFAULT_CURRENCIES, HookPhases } from "./types";
-export { resolveName, withResponseData } from "./types/handlers";
 export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
-export { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "./types/screen";
 export type {
   PipelineBuildCtx,
   PipelineCtx,

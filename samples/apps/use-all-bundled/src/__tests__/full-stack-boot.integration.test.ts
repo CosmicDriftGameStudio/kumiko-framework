@@ -33,7 +33,7 @@ describe("use-all-bundled full-stack boot", () => {
     const rows = await asRawClient(handle.stack.db).unsafe(
       `SELECT
          to_regclass('public.read_job_runs') IS NOT NULL AS "jobs",
-         to_regclass('public.read_delivery_attempts') IS NOT NULL AS "delivery",
+         to_regclass('public.store_delivery_attempts') IS NOT NULL AS "delivery",
          to_regclass('public.read_tenants') IS NOT NULL AS "tenant"`,
     );
     const probe = (rows as Array<Record<string, unknown>>)[0];

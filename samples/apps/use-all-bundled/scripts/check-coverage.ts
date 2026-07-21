@@ -39,6 +39,7 @@ const EXPECTED_HELD_BACK = new Set([
   "foundation-shared", // utilities (requireDefined/requireNonEmpty), kein feature
   "page-render", // shared HTML render/cache helpers (legal/managed-pages), kein defineFeature
   "presets", // feature-bundle helpers (dsgvoSelfServiceFeatures), kein defineFeature
+  "auth-foundation", // scaffold-only (#1368): bootCheck wirft ohne gemountete auth-provider-*, die es noch nicht gibt
 ]);
 
 // Sub-paths in bundled-features's package.json exports (./tenant/seeding,

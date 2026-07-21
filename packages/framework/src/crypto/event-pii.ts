@@ -59,6 +59,7 @@ export async function encryptEventPayloadPii(
       { kind: "user", userId: subjectId },
       value,
       { requestId: requestContext.get()?.requestId ?? "append-event" },
+      field,
     );
     if (encrypted !== value) {
       out ??= { ...payload };

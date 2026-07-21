@@ -203,6 +203,24 @@ describe("config backing=secrets — fail-loud when secrets unwired", () => {
       await unwired.cleanup();
     }
   });
+
+  test("cascade read on backing=secrets without secretsReader throws", async () => {
+    // Write succeeds on the wired stack; then resolve via a bare resolver
+    // (no secretsReader) so readBackingSecret fails loud on the cascade path.
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: API_KEY, value: "sk-live-planted", scope: "system" },
+      systemAdmin,
+    );
+
+    const bare = createConfigResolver();
+    const keyDef = stack.registry.getConfigKey(API_KEY);
+    expect(keyDef).toBeDefined();
+
+    await expect(
+      bare.getCascade(API_KEY, keyDef!, systemAdmin.tenantId, systemAdmin.id, stack.db),
+    ).rejects.toThrow(/backing="secrets".*without a secrets/);
+  });
 });
 
 describe("config backing=secrets — reset dispatch", () => {

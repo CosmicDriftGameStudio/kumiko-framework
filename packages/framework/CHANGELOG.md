@@ -1,5 +1,81 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.159.1
+
+### Patch Changes
+
+- 6d37eb5: `FileContext`/`FileHandle` move from `packages/framework/src/files/file-handle.ts` to `@cosmicdrift/kumiko-types/file-handle-types`. The old path stays a re-export, so no internal import site changes. `FileStorageProvider` (from `files/types.ts`) is unrelated to these two types and stays put.
+- Updated dependencies [6d37eb5]
+  - @cosmicdrift/kumiko-types@0.159.1
+
+## 1.0.0
+
+### Minor Changes
+
+- d97fcda: PII ciphertext is now GCM-bound to `subjectKey|field` as AAD (format bump to
+  `kumiko-pii:v2:`). Without it, cut-and-pasting ciphertext between two fields
+  of the same subject (same DEK) decrypted silently — key selection alone only
+  catches a wrong subject, not a wrong field. `v1` ciphertext (no AAD) stays
+  decrypt-only for pre-existing rows; every new write emits `v2`.
+
+  `encryptPiiValueForSubject` and `decryptPiiValueForSubject`
+  (`@cosmicdrift/kumiko-framework`) and `decryptStoredPii`
+  (`@cosmicdrift/kumiko-bundled-features`) now take a mandatory `field`
+  parameter that must match the field name used at encrypt time.
+
+- 2fc542b: `ServerOptions.jwtTtl` (`@cosmicdrift/kumiko-framework/api`) — configurable JWT lifetime in seconds, passed through to `createJwtHelper`'s new third param. `JwtHelper.ttlSeconds` exposes the resolved value; `createAuthRoutes` now derives the auth-cookie's `maxAge` from it instead of a separately hardcoded constant, so the two can never drift apart.
+
+  **Behavior change:** when `jwtTtl` is omitted, the default now depends on whether `auth.sessionChecker` is wired. With a session checker (revocation possible) it stays at the previous 24h default. Without one (stateless JWTs, no revocation) it drops to 1h — a leaked stateless token now has a much smaller exposure window. Set `jwtTtl` explicitly to opt out of the new stateless default.
+
+- 6254cc8: Renamed `getAggregateStreamMaxVersion` → `getUnscopedAggregateStreamMaxVersion` and `getAggregateStreamTenant` → `getUnscopedAggregateStreamTenant` (both from `@cosmicdrift/kumiko-framework/event-store`). Both have no tenant filter and can be used to probe whether a foreign tenant's aggregate exists — the rename makes that unscoped, existence-oracle nature visible at every callsite. No behavior change; update any direct imports to the new names (#1269).
+
+### Patch Changes
+
+- 9db805c: `loadJwtSecretOrKeyring` (`@cosmicdrift/kumiko-framework/api`) — env-loader for `createJwtHelper`'s keyring param, analog to `secrets`' `loadKeyring`: reads `JWT_SECRET_V<n>` + `JWT_SECRET_CURRENT_VERSION` for zero-downtime rotation, falling back to plain `JWT_SECRET` when no versioned key is set. `runProdApp` now wires it through `entrypoint`/`ServerOptions.jwtSecret` (widened to `string | JwtKeyring`) instead of the plain `JWT_SECRET` string. Without `kid`-tagged rotation (#1291), every key rotation invalidated all sessions at once (#1265, #1292).
+- d0280c8: `@cosmicdrift/kumiko-types` gains its first real content: `identifiers`, `target-ref`, `event-type-map`, and `http-route` move out of `packages/framework/src/engine/types/`. The old paths stay as re-export shims, so no internal import site changes. Framework now depends on `@cosmicdrift/kumiko-types` for these.
+- a997cc8: `relations` and `tree-node` move from `packages/framework/src/engine/types/` to `@cosmicdrift/kumiko-types`. The old paths stay as re-export shims, so no internal import site changes.
+- Updated dependencies [d0280c8]
+- Updated dependencies [a997cc8]
+  - @cosmicdrift/kumiko-types@1.0.0
+
+## 0.158.2
+
+## 0.158.1
+
+### Patch Changes
+
+- da816ee: Add `createRedisLoginRateLimiter` (`@cosmicdrift/kumiko-framework/api`) and default `runProdApp`'s `/auth/login` + `/auth/mfa/verify` rate limiting to it instead of `createInMemoryLoginRateLimiter`. The in-memory limiter counts per process — a multi-replica prod deployment silently gave each replica its own bucket, so an attacker spread across replicas evaded the limit without any warning or error (#1262, #1274). Redis is already required infra for `runProdApp` (`REDIS_URL`), so this closes the gap with no new config.
+
+## 0.158.0
+
+## 0.157.3
+
+## 0.157.2
+
+## 0.157.1
+
+## 0.157.0
+
+### Minor Changes
+
+- 1371d8b: Rename `r.rawTable()` to `r.storeTable()` and reject `read_` as a table-name prefix
+  at registration (#1220). `read_` is reserved for `r.entity()`/`r.projection()`
+  (managed, event-sourced, rebuildable) — `r.storeTable()` is the unmanaged
+  direct-write escape hatch, and a `read_`-prefixed name on it was misleading. Types
+  follow the same rename: `RawTableOptions`/`RawTableEntry`/`RawTableDef` →
+  `StoreTableOptions`/`StoreTableEntry`/`StoreTableDef`, `getAllRawTables()` →
+  `getAllStoreTables()`. Unprefixed names (e.g. `in_app_messages`) stay legal — the
+  guard bans `read_`, it doesn't mandate a `store_` prefix.
+
+  Bundled features rename their `read_`-prefixed direct-write tables to a `store_`
+  prefix: `mail_sync_cursors`, `mail_seen_messages`, `delivery_attempts`,
+  `job_run_logs`, `user_sessions`, `api_tokens`, `global_feature_state`. Kumiko has
+  no `ALTER TABLE RENAME` migration path (table identity is name-keyed), so
+  consumers regenerating migrations against this version will see a destructive
+  drop+create pair for these 7 tables instead of a rename — plan a maintenance
+  window if they carry data you need (sessions/API-tokens will force re-auth,
+  mail-sync-cursors will force a full resync).
+
 ## 0.156.3
 
 ### Patch Changes

@@ -2,6 +2,7 @@ import type { ZodType, z } from "zod";
 import { LifecycleHookTypes } from "./constants";
 import type {
   AuthClaimsFn,
+  BootCheckFn,
   ClaimKeyDefinition,
   ConfigKeyDefinition,
   ConfigSeedDef,
@@ -22,13 +23,14 @@ import type {
   PreDeleteHookFn,
   ProjectionDefinition,
   QueryHandlerDef,
-  RawTableEntry,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
   RelationDefinition,
   SearchPayloadContributorFn,
   SecretKeyDefinition,
+  StoreTableEntry,
+  StreamHandlerDef,
   TranslationKeys,
   TreeActionDef,
   UiHints,
@@ -56,6 +58,7 @@ export type FeatureBuilderState = {
   relations: Record<string, Record<string, RelationDefinition>>;
   writeHandlers: Record<string, WriteHandlerDef>;
   queryHandlers: Record<string, QueryHandlerDef>;
+  streamHandlers: Record<string, StreamHandlerDef>;
   validationHooks: Record<string, ValidationHookFn>;
   lifecycleHooks: Record<string, Record<string, OwnedFn<LifecycleHookFn>[]>>;
   phasedLifecycleHooks: Record<
@@ -79,6 +82,7 @@ export type FeatureBuilderState = {
   extensionSelectors: ExtensionSelectorDef[];
   exposedApis: Set<string>;
   usedApis: Set<string>;
+  bootChecks: BootCheckFn[];
   referenceData: ReferenceDataDef[];
   handlerEntityMappings: Record<string, string>;
   metrics: Record<string, FeatureMetricDef>;
@@ -86,7 +90,7 @@ export type FeatureBuilderState = {
   projections: Record<string, ProjectionDefinition>;
   multiStreamProjections: Record<string, MultiStreamProjectionDefinition>;
   entityProjectionExtensions: Record<string, EntityProjectionExtension[]>;
-  rawTables: Record<string, RawTableEntry>;
+  storeTables: Record<string, StoreTableEntry>;
   authClaimsHooks: AuthClaimsFn[];
   claimKeys: Record<string, ClaimKeyDefinition>;
   screens: Record<string, ScreenDefinition>;
@@ -117,6 +121,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     relations: {},
     writeHandlers: {},
     queryHandlers: {},
+    streamHandlers: {},
     validationHooks: {},
     lifecycleHooks,
     phasedLifecycleHooks: { postSave: {}, preDelete: {}, postDelete: {} },
@@ -137,6 +142,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     extensionSelectors: [],
     exposedApis: new Set(),
     usedApis: new Set(),
+    bootChecks: [],
     referenceData: [],
     handlerEntityMappings: {},
     metrics: {},
@@ -144,7 +150,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     projections: {},
     multiStreamProjections: {},
     entityProjectionExtensions: {},
-    rawTables: {},
+    storeTables: {},
     authClaimsHooks: [],
     claimKeys: {},
     screens: {},

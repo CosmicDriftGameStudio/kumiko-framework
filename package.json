@@ -30,6 +30,7 @@
   ],
   "workspaces": [
     "packages/framework",
+    "packages/types",
     "packages/bundled-features",
     "packages/cli",
     "packages/create-kumiko-app",
@@ -52,7 +53,8 @@
   "scripts": {
     "kumiko": "bun run bin/kumiko.ts",
     "test": "bun test --dots",
-    "test:dom-isolated": "bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/deletion-screens.test.tsx && bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/privacy-center-screen.test.tsx",
+    "test:dom": "bun test --dots --config=bunfig.dom.toml .test.tsx",
+    "test:dom:isolated": "bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/deletion-screens.test.tsx && bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/privacy-center-screen.test.tsx",
     "test:run": "bun test --dots",
     "test:verbose": "bun test",
     "test:integration": "bun scripts/run-integration-tests.ts",
@@ -72,7 +74,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
     "@changesets/cli": "^2.31.0",
-    "@cosmicdriftgamestudio/kumiko-guards": "^0.20.0",
+    "@cosmicdriftgamestudio/kumiko-guards": "^0.21.0",
     "@happy-dom/global-registrator": "^20.9.0",
     "@playwright/test": "^1.60.0",
     "@testing-library/dom": "^10.4.1",
@@ -85,7 +87,8 @@
   },
   "resolutions": {
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "brace-expansion": "^5.0.7"
   },
   "dependencies": {
     "ink": "^7.0.3",
@@ -94,5 +97,3 @@
     "ink-text-input": "^6.0.0"
   }
 }
-
-

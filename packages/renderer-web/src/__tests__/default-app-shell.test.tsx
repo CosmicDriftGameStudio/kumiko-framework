@@ -7,9 +7,11 @@
 // pinst dass DefaultAppShell user nun akzeptiert UND durchreicht.
 
 import { describe, expect, test } from "bun:test";
+import type { EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
+import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
 import { DefaultAppShell } from "../layout/default-app-shell";
-import { render, screen } from "./test-utils";
+import { createMockDispatcher, render, screen } from "./test-utils";
 
 function makeSchema(): FeatureSchema {
   return {
@@ -82,5 +84,49 @@ describe("DefaultAppShell headerActions-Slot (Topbar rechts)", () => {
       </DefaultAppShell>,
     );
     expect(document.querySelector("[data-kumiko-layout='header-actions']")).toBeNull();
+  });
+});
+
+// DefaultAppShell threads `user.roles` into a UserRolesProvider around
+// children (#1203) — KumikoScreen reads that to gate role-restricted
+// screens at render time, not just in nav.
+describe("DefaultAppShell wires user.roles into children for screen-level access (#1203)", () => {
+  const restrictedScreen: EntityListScreenDefinition = {
+    id: "restricted",
+    type: "entityList",
+    entity: "x",
+    columns: [],
+    access: { roles: ["SystemAdmin"] },
+  };
+  const restrictedSchema: FeatureSchema = {
+    featureName: "showcase",
+    entities: {},
+    screens: [restrictedScreen],
+  } as FeatureSchema;
+
+  test("no user prop → role-gated screen child shows access-denied", () => {
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher()}>
+        <DefaultAppShell brand={<span>Brand</span>} schema={restrictedSchema}>
+          <KumikoScreen schema={restrictedSchema} qn="showcase:screen:restricted" />
+        </DefaultAppShell>
+      </DispatcherProvider>,
+    );
+    expect(screen.getByTestId("kumiko-screen-access-denied")).toBeTruthy();
+  });
+
+  test("user prop with matching role → role-gated screen child renders", () => {
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher()}>
+        <DefaultAppShell
+          brand={<span>Brand</span>}
+          schema={restrictedSchema}
+          user={{ id: "u1", roles: ["SystemAdmin"] }}
+        >
+          <KumikoScreen schema={restrictedSchema} qn="showcase:screen:restricted" />
+        </DefaultAppShell>
+      </DispatcherProvider>,
+    );
+    expect(screen.queryByTestId("kumiko-screen-access-denied")).toBeNull();
   });
 });

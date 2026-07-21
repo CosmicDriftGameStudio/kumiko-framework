@@ -1,8 +1,10 @@
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { LifecycleHookTypes } from "./constants";
 import type { FeatureBuilderState } from "./feature-builder-state";
+import { resolveName } from "./handler-helpers";
 import { isKebabSegment, toKebab } from "./qualified-name";
 import type {
+  BootCheckFn,
   EntityProjectionExtension,
   HookPhase,
   LifecycleHookFn,
@@ -14,15 +16,14 @@ import type {
   PostSaveHookFn,
   PreDeleteHookFn,
   ProjectionDefinition,
-  RawTableOptions,
   RegistrarExtensionDef,
   SearchPayloadContributorFn,
+  StoreTableOptions,
   TreeActionDef,
   TreeActionsHandle,
   ValidationHookFn,
 } from "./types";
 import { HookPhases } from "./types";
-import { resolveName } from "./types/handlers";
 import type { HttpRouteDefinition } from "./types/http-route";
 import type { NavDefinition } from "./types/nav";
 import type { ScreenDefinition } from "./types/screen";
@@ -255,6 +256,9 @@ export function buildUiExtensionsMethods<TName extends string>(
     usesApi(apiName: string): void {
       state.usedApis.add(apiName);
     },
+    bootCheck(fn: BootCheckFn): void {
+      state.bootChecks.push(fn);
+    },
     projection(definition: ProjectionDefinition): void {
       // Reject names that would blow up at registry-boot when we qualify them.
       // Catch it at the registration site so the stack trace points at the
@@ -414,7 +418,7 @@ export function buildUiExtensionsMethods<TName extends string>(
       }
       state.httpRoutes[key] = definition;
     },
-    rawTable(meta: EntityTableMeta, options: RawTableOptions): void {
+    storeTable(meta: EntityTableMeta, options: StoreTableOptions): void {
       // Name comes from the meta itself — apps already give the table a
       // name when calling defineUnmanagedTable, no need to repeat it.
       const tableName = meta.tableName;
@@ -426,10 +430,33 @@ export function buildUiExtensionsMethods<TName extends string>(
             `valid identifier (lowercase letters, digits, underscores; start with a letter).`,
         );
       }
-      if (state.rawTables[tableName]) {
+      if (state.storeTables[tableName]) {
         throw new Error(
-          `[Feature ${name}] r.rawTable("${tableName}") already registered. ` +
+          `[Feature ${name}] r.storeTable("${tableName}") already registered. ` +
             `Raw-table names must be unique per feature.`,
+        );
+      }
+      // `read_` is reserved for r.entity()/r.projection() (managed,
+      // event-sourced, rebuildable). storeTable is the unmanaged
+      // direct-write escape hatch — the prefix must say so (#1220).
+      if (tableName.startsWith("read_")) {
+        throw new Error(
+          `[Feature ${name}] r.storeTable("${tableName}"): the "read_" prefix is reserved ` +
+            `for managed r.entity()/r.projection() tables. Pick an unprefixed name or a ` +
+            `distinct prefix (e.g. "store_${tableName.slice("read_".length)}").`,
+        );
+      }
+      // meta.source must agree with the r.storeTable() escape hatch, or the
+      // migrate-generator treats schema drift on this table as safe to
+      // DROP+rebuild-from-events — wiping direct-write data with no events
+      // to replay it from (#1209).
+      if (meta.source !== "unmanaged") {
+        throw new Error(
+          `[Feature ${name}] r.storeTable("${tableName}") was given an EntityTableMeta with ` +
+            `source: "${meta.source}". r.storeTable() requires source: "unmanaged" (via ` +
+            `defineUnmanagedTable(), or buildEntityTableMeta(..., { source: "unmanaged" })) — ` +
+            `otherwise the migration generator will treat schema drift on this table as safe ` +
+            `to DROP+rebuild, wiping any direct-write data.`,
         );
       }
       // The `reason` is the marker that justifies the bypass — empty
@@ -437,12 +464,12 @@ export function buildUiExtensionsMethods<TName extends string>(
       // failure points at the feature file.
       if (typeof options.reason !== "string" || options.reason.trim().length === 0) {
         throw new Error(
-          `[Feature ${name}] r.rawTable("${tableName}"): options.reason must be a ` +
+          `[Feature ${name}] r.storeTable("${tableName}"): options.reason must be a ` +
             `non-empty string. The reason justifies the audit-trail bypass — ` +
             `if you can't write one, declare data via r.entity() instead.`,
         );
       }
-      state.rawTables[tableName] = {
+      state.storeTables[tableName] = {
         name: tableName,
         meta,
         reason: options.reason,

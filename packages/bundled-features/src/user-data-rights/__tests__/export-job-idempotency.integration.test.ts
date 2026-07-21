@@ -10,6 +10,7 @@
 // reale Postgres + Drizzle-customType-Codec-Path braucht.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { extractPgError } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -43,6 +44,7 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      authFoundationFeature,
       createSessionsFeature(),
 
       createUserDataRightsFeature(),

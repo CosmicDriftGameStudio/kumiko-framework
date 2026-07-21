@@ -135,7 +135,13 @@ export const setWrite = defineWriteHandler({
         tenantId,
         userId: String(event.user.id),
       };
-      serialized = await encryptPiiValueForSubject(kms, subject, serialized, kmsCtx);
+      serialized = await encryptPiiValueForSubject(
+        kms,
+        subject,
+        serialized,
+        kmsCtx,
+        event.payload.key,
+      );
     }
 
     const existing = await findConfigRow(db, event.payload.key, tenantId, userId);

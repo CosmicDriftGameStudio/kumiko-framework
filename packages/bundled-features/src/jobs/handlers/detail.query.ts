@@ -21,7 +21,7 @@ export const detailQuery = defineQueryHandler({
 
     // payload is stored encrypted under the triggering user's DEK (#799).
     if (typeof row["payload"] === "string") {
-      row["payload"] = await decryptStoredPii(row["payload"], "job-run-detail");
+      row["payload"] = await decryptStoredPii(row["payload"], "payload", "job-run-detail");
     }
 
     const logs = await selectMany(

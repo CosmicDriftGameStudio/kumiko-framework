@@ -117,7 +117,7 @@ async function decryptPiiEncrypted(raw: string, qualifiedKey: string): Promise<s
     });
   }
   const kmsCtx: KmsContext = { requestId: requestContext.get()?.requestId ?? "config:resolver" };
-  return decryptPiiValueForSubject(kms, raw, kmsCtx);
+  return decryptPiiValueForSubject(kms, raw, kmsCtx, qualifiedKey);
 }
 
 // backing="secrets" keys store their value in the secrets store (flat per

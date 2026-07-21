@@ -50,7 +50,7 @@ import { PUBLIC_API_PATHS } from "./api-constants";
 import { type AnonymousAccessConfig, authMiddleware, getUser } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
-import { createJwtHelper, type JwtHelper } from "./jwt";
+import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
 import { assertOriginGuardConfig, originMiddleware } from "./origin-middleware";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard";
@@ -69,8 +69,13 @@ import { createSseRoute } from "./sse-route";
 export type ServerOptions = {
   registry: Registry;
   context: AppContext;
-  jwtSecret: string;
+  jwtSecret: string | JwtKeyring;
   jwtIssuer?: string;
+  // JWT lifetime in seconds. Explicit always wins. When omitted, the default
+  // depends on `auth.sessionChecker`: wired (revocation possible) keeps the
+  // long-lived 24h default; unwired (stateless JWTs, no revocation) drops to
+  // 1h so a leaked stateless token has a much smaller exposure window.
+  jwtTtl?: number;
   dispatcherOptions?: Omit<DispatcherOptions, "lifecycle">;
   systemHooks?: SystemHooks;
   eventDedup?: EventDedup;
@@ -94,6 +99,8 @@ export type ServerOptions = {
     pollIntervalMs?: number;
     batchSize?: number;
     maxAttempts?: number;
+    rearmCooldownMs?: number;
+    maxRearmCount?: number;
     // Opt out of building the dispatcher even if consumers exist — e.g. ops
     // runs a dedicated dispatcher process, or a test needs to control the
     // consumer lifecycle manually.
@@ -238,7 +245,15 @@ export function buildServer(options: ServerOptions): KumikoServer {
     );
   }
 
-  const jwt = createJwtHelper(options.jwtSecret, options.jwtIssuer);
+  // Stateless JWTs (no sessionChecker → no revocation) default to a shorter
+  // TTL than session-backed ones, since a leaked stateless token can't be
+  // revoked and stays valid until it expires. Explicit jwtTtl always wins.
+  const defaultJwtTtl = options.auth?.sessionChecker ? 24 * 60 * 60 : 60 * 60;
+  const jwt = createJwtHelper(
+    options.jwtSecret,
+    options.jwtIssuer,
+    options.jwtTtl ?? defaultJwtTtl,
+  );
   const sseBroker = options.sseBroker ?? createSseBroker();
 
   // Resolve the per-process instance identifier. Prefer explicit
@@ -566,8 +581,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // middleware can reject revoked sids on every request.
   const jwtGuard = authMiddleware(jwt, {
     ...(options.auth?.sessionChecker ? { sessionChecker: options.auth.sessionChecker } : {}),
-    ...(options.auth?.sessionStrictMode ? { strictMode: options.auth.sessionStrictMode } : {}),
-    ...(options.auth?.patResolver ? { patResolver: options.auth.patResolver } : {}),
+    ...(options.auth?.tokenVerifier ? { tokenVerifier: options.auth.tokenVerifier } : {}),
     ...(options.auth?.resolveTenantLifecycleStatus
       ? { resolveTenantLifecycleStatus: options.auth.resolveTenantLifecycleStatus }
       : {}),

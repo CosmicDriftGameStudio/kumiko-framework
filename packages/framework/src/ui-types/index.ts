@@ -22,6 +22,13 @@
 
 export type { ParsedRefTarget } from "../engine/parse-ref-target";
 export { parseRefTarget } from "../engine/parse-ref-target";
+export {
+  evalFieldCondition,
+  isExtensionEditSection,
+  isFormatSpec,
+  normalizeEditField,
+  normalizeListColumn,
+} from "../engine/screen-helpers";
 // Entity + field types. EntityDefinition is the canonical shape that
 // view-model builders iterate; FieldDefinition is the per-field union
 // (text, number, boolean, ...) they branch on. AccessRule is used by
@@ -78,13 +85,6 @@ export type {
   ScreenFilterOp,
   ScreenSlots,
   ToolbarAction,
-} from "../engine/types/screen";
-export {
-  evalFieldCondition,
-  isExtensionEditSection,
-  isFormatSpec,
-  normalizeEditField,
-  normalizeListColumn,
 } from "../engine/types/screen";
 export type { TargetRef } from "../engine/types/target-ref";
 export type { TreeAction, TreeNode, TreeNodeState } from "../engine/types/tree-node";

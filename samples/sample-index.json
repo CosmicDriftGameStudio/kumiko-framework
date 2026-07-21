@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 36,
+  "featureCount": 37,
   "features": {
     "admin-shell": {
       "samples": [
@@ -25,6 +25,14 @@
       "whenToUse": "Users sign in with email and password — login, signup, verification, and password reset on your apex surface or behind AuthGate in the admin app.",
       "sampleBlurb": "Walks through login, signup, password reset, and email verification on the public apex surface — copy the AuthGate mount and handler wiring into your app.",
       "screenshot": "/screenshots/features/auth-login.png"
+    },
+    "auth-foundation": {
+      "samples": [
+        "recipes-apex-surface-auth",
+        "recipes-user-profile"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Four public routes: — /login, /signup, /forgot-password, /delete-account (+ confirm) using bundled auth screens. - **createPublicSurface** — stacks clientFeatures providers and i18n only, **not** their gates (an AuthGate would lock the public surface). - **AuthShellProvider** — auth card inside marketing chrome instead of fullscreen (optional; default fullscreen still works). - **composeApexAccountApp()** — server feature list for all four flows. - **Anonymous deletion** — email-verified magic-link flow when the user cannot log in (GDPR Art. 17 lockout case). - **anonymousAccess** — lets unauthenticated /api/write hit anonymous handlers on the apex host tenant."
     },
     "auth-mfa": {
       "samples": [
@@ -249,7 +257,8 @@
     },
     "personal-access-tokens": {
       "samples": [
-        "apps-use-all-bundled"
+        "recipes-apex-surface-auth",
+        "recipes-user-profile"
       ],
       "hasVisualOutput": true,
       "readmeSummary": "Canonical smoke-sample. Mounts every bundled-feature so framework-CI catches feature-coverage gaps that real apps (which mount only what they use) silently miss.",

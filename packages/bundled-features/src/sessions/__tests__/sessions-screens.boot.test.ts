@@ -1,17 +1,26 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+import { EXT_SESSION_STORE } from "../../auth-foundation";
 import { createConfigFeature } from "../../config/feature";
 import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user/feature";
 import { SESSION_DETAIL_SCREEN_ID, SESSION_LIST_SCREEN_ID } from "../constants";
 import { createSessionsFeature } from "../feature";
 
+// Stub instead of the real auth-foundation — this test is about screen/query
+// wiring, not auth; the real feature also mandates a tokenVerifier provider
+// which is out of scope here.
+const sessionStoreOwnerStub = defineFeature("auth-foundation", (r) => {
+  r.extendsRegistrar(EXT_SESSION_STORE, {});
+});
+
 describe("sessions screens + query access alignment (kumiko-framework#255)", () => {
   const features = [
     createConfigFeature(),
     createUserFeature(),
     createTenantFeature(),
+    sessionStoreOwnerStub,
     createSessionsFeature(),
   ];
 

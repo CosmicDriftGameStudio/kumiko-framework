@@ -2,7 +2,10 @@ import type { MiddlewareHandler } from "hono";
 import { configuredPiiSubjectKms, PII_CIPHERTEXT_PREFIX } from "../crypto";
 
 const isProductionEnv = () => process.env["NODE_ENV"] === "production";
-const CIPHERTEXT_RE = /kumiko-pii:v1:[^"\s<>\\]*/g;
+// Version-agnostic: catches both the current PII_CIPHERTEXT_PREFIX and any
+// older/decrypt-only format version still present in unmigrated rows.
+const CIPHERTEXT_MARKER = "kumiko-pii:v";
+const CIPHERTEXT_RE = /kumiko-pii:v\d+:[^"\s<>\\]*/g;
 
 // A PII subject ciphertext never belongs in an API response — its presence
 // means a raw DB read (fetchOne/selectMany) leaked to the surface. Dev/test
@@ -19,7 +22,7 @@ export function piiCiphertextResponseGuard(): MiddlewareHandler {
     if (!contentType.includes("application/json")) return;
     const text = await c.res.clone().text();
     // skip: clean response — the common case
-    if (!text.includes(PII_CIPHERTEXT_PREFIX)) return;
+    if (!text.includes(CIPHERTEXT_MARKER)) return;
 
     const detail =
       `[api] JSON response for ${c.req.method} ${c.req.path} contains a PII ciphertext ` +

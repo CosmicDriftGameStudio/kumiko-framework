@@ -1,14 +1,8 @@
-// Barrel: re-exports all types from logical modules
+// Barrel: re-exports all types from @cosmicdrift/kumiko-types, plus the
+// runtime helpers below that stay framework-side.
 // Duplicate types (OnDeleteStrategy, ConfigScope, ConcurrencyMode, LifecycleHookType)
 // are defined ONLY in constants.ts — re-exported here for backwards compatibility.
 
-// Re-export types that were duplicated in types.ts but are canonical in constants.ts
-export type {
-  ConcurrencyMode,
-  ConfigScope,
-  LifecycleHookType,
-  OnDeleteStrategy,
-} from "../constants";
 export type {
   ConfigAccessor,
   ConfigAccessorFactory,
@@ -53,30 +47,45 @@ export type {
   TranslationKeys,
   TranslationsDef,
   UiExtensionDef,
-} from "./config";
+} from "@cosmicdrift/kumiko-types/config";
+export type {
+  QueryHandlerDefinition,
+  StreamHandlerDefinition,
+  WriteHandlerDefinition,
+  WriteHandlerInput,
+} from "@cosmicdrift/kumiko-types/define-handler";
+export type {
+  EntityCrudRegistrar,
+  EntityCrudVerb,
+  EntityHandlerOptions,
+  EntityQueryHandlerOptions,
+  RegisterEntityCrudOptions,
+} from "@cosmicdrift/kumiko-types/entity-handlers";
 // Cross-Feature Compile-Time-Type-Map — features extend per declare-module.
 export type {
   KumikoEntityTypeMap,
   KumikoEventTypeMap,
   KumikoHandlerPayloadMap,
   KumikoHandlerResultMap,
-} from "./event-type-map";
+} from "@cosmicdrift/kumiko-types/event-type-map";
 export type {
+  BootCheckContext,
+  BootCheckFn,
   FeatureDefinition,
   FeatureMetricDef,
   FeatureMetricType,
   FeatureRegistrar,
   MetricOptions,
-  RawTableDef,
-  RawTableEntry,
-  RawTableOptions,
   Registry,
   SecretKeyDefinition,
   SecretKeyHandle,
   SecretOptions,
+  StoreTableDef,
+  StoreTableEntry,
+  StoreTableOptions,
   UiHintOption,
   UiHints,
-} from "./feature";
+} from "@cosmicdrift/kumiko-types/feature";
 export type {
   AnyFileFieldDef,
   BigIntFieldDef,
@@ -114,8 +123,7 @@ export type {
   TimestampFieldDef,
   TransitionMap,
   TzFieldDef,
-} from "./fields";
-export { DEFAULT_CURRENCIES, isFileField } from "./fields";
+} from "@cosmicdrift/kumiko-types/fields";
 export type {
   AccessRule,
   AggregateStreamHandle,
@@ -154,6 +162,8 @@ export type {
   RateLimitOption,
   RateLimitPer,
   SessionUser,
+  StreamHandlerDef,
+  StreamHandlerFn,
   TryAppendEventFn,
   TryAppendEventResult,
   UnsafeAppendEventFn,
@@ -161,8 +171,7 @@ export type {
   WriteHandlerDef,
   WriteHandlerFn,
   WriteResult,
-} from "./handlers";
-export { resolveName, withResponseData } from "./handlers";
+} from "@cosmicdrift/kumiko-types/handlers";
 export type {
   DeleteContext,
   EntityHookMap,
@@ -185,18 +194,32 @@ export type {
   SearchPayloadContributorFn,
   ValidationError,
   ValidationHookFn,
-} from "./hooks";
-export { HookPhases } from "./hooks";
+} from "@cosmicdrift/kumiko-types/hooks";
 export type {
   HttpRouteDefinition,
   HttpRouteHandler,
   HttpRouteHandlerDeps,
   HttpRouteMethod,
-} from "./http-route";
+} from "@cosmicdrift/kumiko-types/http-route";
 // Domain-identifier type aliases — see identifiers.ts for rationale.
-export type { EntityId, TenantId } from "./identifiers";
-export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./identifiers";
-export type { NavDefinition } from "./nav";
+export type { EntityId, TenantId } from "@cosmicdrift/kumiko-types/identifiers";
+export {
+  isSystemTenant,
+  parseTenantId,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-types/identifiers";
+export type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
+export type {
+  FromRule,
+  FromRuleKind,
+  OwnershipClause,
+  OwnershipMap,
+  OwnershipRef,
+  OwnershipRule,
+  SqlFragment,
+  WhereRule,
+  WhereRuleContext,
+} from "@cosmicdrift/kumiko-types/ownership";
 export type {
   EntityProjectionExtension,
   MspErrorMode,
@@ -206,14 +229,14 @@ export type {
   ProjectionDefinition,
   ProjectionTable,
   SingleStreamApplyFn,
-} from "./projection";
+} from "@cosmicdrift/kumiko-types/projection";
 export type {
   BelongsToRelation,
   EntityRelations,
   HasManyRelation,
   ManyToManyRelation,
   RelationDefinition,
-} from "./relations";
+} from "@cosmicdrift/kumiko-types/relations";
 export type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
@@ -252,14 +275,8 @@ export type {
   ScreenFilterOp,
   ScreenSlots,
   ToolbarAction,
-} from "./screen";
-export {
-  isExtensionEditSection,
-  isFormatSpec,
-  normalizeEditField,
-  normalizeListColumn,
-} from "./screen";
-export type { TargetRef } from "./target-ref";
+} from "@cosmicdrift/kumiko-types/screen";
+export type { TargetRef } from "@cosmicdrift/kumiko-types/target-ref";
 export type {
   Subscribe,
   TreeAction,
@@ -268,5 +285,21 @@ export type {
   TreeChildrenSubscribe,
   TreeNode,
   TreeNodeState,
-} from "./tree-node";
-export type { WorkspaceDefinition } from "./workspace";
+} from "@cosmicdrift/kumiko-types/tree-node";
+export type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
+// Re-export types that were duplicated in types.ts but are canonical in constants.ts
+export type {
+  ConcurrencyMode,
+  ConfigScope,
+  LifecycleHookType,
+  OnDeleteStrategy,
+} from "../constants";
+export { DEFAULT_CURRENCIES, isFileField } from "../field-helpers";
+export { resolveName, withResponseData } from "../handler-helpers";
+export { HookPhases } from "../hook-helpers";
+export {
+  isExtensionEditSection,
+  isFormatSpec,
+  normalizeEditField,
+  normalizeListColumn,
+} from "../screen-helpers";

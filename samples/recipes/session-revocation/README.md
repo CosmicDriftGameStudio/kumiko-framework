@@ -8,7 +8,7 @@ The production wiring shape: an app builds `createSessionCallbacks()` against a 
 
 ## The wiring in 3 sentences
 
-1. `createSessionCallbacks({ db })` returns `sessionCreator`, `sessionRevoker`, and `sessionChecker` backed by `read_user_sessions`.
+1. `createSessionCallbacks({ db })` returns `sessionCreator`, `sessionRevoker`, and `sessionChecker` backed by `store_user_sessions`.
 2. `buildServer({ auth: { sessionCreator, sessionRevoker, sessionChecker, ... } })` links the JWT `jti` claim to that table on every request.
 3. After logout (or mass-revoke on password change), the same JWT returns 401 even though the signature is still valid.
 

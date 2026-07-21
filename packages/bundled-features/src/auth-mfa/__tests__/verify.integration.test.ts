@@ -90,14 +90,25 @@ async function enableMfaFor(idSeed: number): Promise<{
     { setupToken: start.setupToken, code: currentTotpCode(secret) },
     user,
   );
-  // verify.write.ts re-checks tenant membership the same way login.write.ts
-  // does — without a seeded row here every verify would now hit the
-  // membership-revoked gate below instead of the scenario each test means
-  // to exercise.
+  // verify.write.ts re-checks tenant membership AND the user's own row
+  // (status gate) the way login.write.ts does — auth-mfa never writes a
+  // read_users row itself (enableStart/enableConfirm only touch user-mfa),
+  // so both need seeding here, not just per-test where a scenario cares.
   await seedRow(stack.db, tenantMembershipsTable, {
     userId: user.id,
     tenantId: user.tenantId,
     roles: JSON.stringify(["User"]),
+  });
+  await seedRow(stack.db, userTable, {
+    id: user.id,
+    tenantId: user.tenantId,
+    email: `user-${user.id}@example.com`,
+    passwordHash: "h",
+    displayName: `Test User ${idSeed}`,
+    locale: "de",
+    emailVerified: true,
+    roles: "[]",
+    status: USER_STATUS.Active,
   });
   return { user, secret, recoveryCodes: start.recoveryCodes };
 }
@@ -247,25 +258,32 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
     const { user, secret } = await enableMfaFor(6);
     const challengeToken = challengeFor(user.id, user.tenantId);
 
-    // auth-mfa never writes a read_users row itself (enableMfaFor only
-    // drives enable-start/enable-confirm) — seed one so the status gate has
-    // a row to actually flip, then flip it to simulate a restriction landing
-    // between login and verify.
-    await seedRow(stack.db, userTable, {
-      id: user.id,
-      tenantId: user.tenantId,
-      email: `user-${user.id}@example.com`,
-      passwordHash: "h",
-      displayName: "Restricted User",
-      locale: "de",
-      emailVerified: true,
-      roles: "[]",
-      status: USER_STATUS.Active,
-    });
+    // enableMfaFor already seeded the user row Active — flip it to simulate
+    // a restriction landing between login and verify.
     await asRawClient(stack.db).unsafe(
       `UPDATE "${userTable.tableName}" SET status = $1 WHERE id = $2`,
       [USER_STATUS.Restricted, user.id],
     );
+
+    const err = await stack.http.writeErr(
+      AuthMfaHandlers.verify,
+      { challengeToken, code: currentTotpCode(secret) },
+      GUEST,
+    );
+    expectErrorIncludes(err, "invalid_challenge_token");
+  });
+
+  test("user row deleted between login and verify → challenge rejected (the !userRow gate)", async () => {
+    const { user, secret } = await enableMfaFor(7);
+    const challengeToken = challengeFor(user.id, user.tenantId);
+
+    // Simulate the read_users row disappearing after the challenge token
+    // was issued but before verify runs — hits verify.write.ts's
+    // `if (!userRow) return invalidChallengeToken()` gate directly, distinct
+    // from a revoked membership or a restricted-but-present user row.
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}" WHERE id = $1`, [
+      user.id,
+    ]);
 
     const err = await stack.http.writeErr(
       AuthMfaHandlers.verify,

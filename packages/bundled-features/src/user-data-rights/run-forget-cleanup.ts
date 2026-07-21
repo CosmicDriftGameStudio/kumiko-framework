@@ -281,7 +281,7 @@ async function processUser(args: {
   });
   const userEmailBeforeDelete =
     userPreTx?.email && userPreTx.email.length > 0
-      ? await decryptStoredPii(userPreTx.email, "user-data-rights:forget-cleanup")
+      ? await decryptStoredPii(userPreTx.email, "email", "user-data-rights:forget-cleanup")
       : null;
   const userLocaleBeforeDelete = userPreTx?.locale ?? null;
 

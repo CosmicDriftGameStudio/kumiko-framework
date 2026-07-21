@@ -19,86 +19,25 @@
 //      append-only-logs mit serial PK, aggregate-ID ohne DEFAULT, …).
 
 import { collectPiiSubjectFields } from "../crypto";
+import type { EntityDefinition, EntityIndexDef, FieldDefinition } from "../engine/types";
 import type {
-  EntityDefinition,
-  EntityIndexDef,
-  EntityRelations,
-  FieldDefinition,
-} from "../engine/types";
+  BuildEntityTableMetaOptions,
+  ColumnMeta,
+  EntityTableMeta,
+  IndexMeta,
+  UnmanagedTableInput,
+} from "./entity-table-meta-types";
 import { READ_MODEL_PREFIX, toSnakeCase, toTableName } from "./table-builder";
 
-// PG-Type-Repertoire das die Read-Model-Tabellen brauchen. Bewusst
-// schmal — keine Vendor-spezifischen Typen (TSVECTOR, HSTORE, etc.).
-// App-Author die solche braucht greift in der reviewten SQL-Migration
-// hand-edit ein, nicht im Generator.
-export type PgType =
-  | "uuid"
-  | "text"
-  | "boolean"
-  | "integer"
-  | "double precision"
-  | "bigint"
-  | "serial"
-  | "bigserial"
-  | "jsonb"
-  | "timestamptz"
-  | "timestamptz(3)"
-  // Exact decimal — precision/scale are encoded in the type string so the
-  // DDL renderer and read-coercion need no side-channel metadata.
-  | `numeric(${number},${number})`;
-
-export type ColumnMeta = {
-  readonly name: string; // snake_case PG column name
-  readonly pgType: PgType;
-  readonly notNull: boolean;
-  // Raw SQL-default-expression (e.g. `now()`, `gen_random_uuid()`,
-  // `'[]'::jsonb`). undefined = no DEFAULT clause.
-  readonly defaultSql?: string;
-  readonly primaryKey?: boolean;
-  readonly identity?: boolean;
-  // bigint/bigserial only: JS round-trip mode. `number` = createBigIntField /
-  // drizzle mode:"number" (safe ≤2^53). `bigint` = money cents, raw unmanaged.
-  readonly bigintJsMode?: "number" | "bigint";
-};
-
-export type IndexMeta = {
-  readonly name: string;
-  readonly columns: readonly string[]; // snake_case PG column names
-  readonly unique?: boolean;
-  // Raw SQL-where-expression for partial indexes. Caller is responsible
-  // for safety — emitted verbatim.
-  readonly whereSql?: string;
-  // Set wenn die EntityDefinition ein partial-Index hat (def.where als
-  // drizzle SQL-AST), der vom Generator nicht zuverlässig renderbar ist.
-  // Renderer emittiert das Statement dann AUSKOMMENTIERT mit Warn-Hint —
-  // App-Author muss das WHERE manuell im generierten SQL hinzufügen.
-  readonly needsManualWhere?: boolean;
-};
-
-export type CompositePrimaryKeyMeta = {
-  readonly name: string;
-  readonly columns: readonly string[];
-};
-
-export type EntityTableMeta = {
-  readonly tableName: string;
-  readonly columns: readonly ColumnMeta[];
-  readonly indexes: readonly IndexMeta[];
-  // For tables with composite PK (no single id column, e.g. snapshots
-  // keyed by aggregate_id+version). When set, no column should have
-  // primaryKey:true; the constraint is emitted at table-level.
-  readonly compositePrimaryKey?: CompositePrimaryKeyMeta;
-  // Source-hint für Diagnose/Tests — nicht funktional verwendet.
-  // "managed" = aus EntityDefinition (mit base-columns + audit-trail).
-  // "unmanaged" = via defineUnmanagedTable — kein Standard-Audit, App
-  // trägt Verantwortung. Migration-Generator + Tooling können den
-  // discriminator nutzen um Warnungen zu rendern ("X tables are unmanaged").
-  readonly source: "managed" | "unmanaged";
-  // PII-Subject-annotated field names (pii/userOwned/tenantOwned). Set by
-  // buildEntityTableMeta so the registry can reject r.rawTable stores
-  // whose direct writes would skip the executor's encryption (#820).
-  readonly piiSubjectFields?: readonly string[];
-};
+export type {
+  BuildEntityTableMetaOptions,
+  ColumnMeta,
+  CompositePrimaryKeyMeta,
+  EntityTableMeta,
+  IndexMeta,
+  PgType,
+  UnmanagedTableInput,
+} from "./entity-table-meta-types";
 
 // Standard base-columns für event-sourced Read-Model-Tabellen. Spiegelt
 // `buildBaseColumns()` aus table-builder.ts (drizzle-Variante).
@@ -293,12 +232,6 @@ export function resolveTableName(
   return `${featureName}_${baseName}`;
 }
 
-export type BuildEntityTableMetaOptions = {
-  readonly featureName?: string;
-  readonly relations?: EntityRelations;
-  readonly source?: "managed" | "unmanaged";
-};
-
 export function buildEntityTableMeta(
   entityName: string,
   entity: EntityDefinition,
@@ -432,15 +365,8 @@ export function buildEntityTableMeta(
 // jede neue defineUnmanagedTable-Stelle prüfen.
 //
 // Heutige use-cases im framework:
-//   - `read_delivery_attempts` — id kommt aus dem Aggregate-Stream
-//   - `read_job_run_logs` — child-table, serial PK, kein tenant-scope
-export type UnmanagedTableInput = {
-  readonly tableName: string;
-  readonly columns: readonly ColumnMeta[];
-  readonly indexes?: readonly IndexMeta[];
-  readonly compositePrimaryKey?: CompositePrimaryKeyMeta;
-};
-
+//   - `store_delivery_attempts` — id kommt aus dem Aggregate-Stream
+//   - `store_job_run_logs` — child-table, serial PK, kein tenant-scope
 function sqlExpressionText(where: unknown): string | undefined {
   if (
     typeof where === "object" &&

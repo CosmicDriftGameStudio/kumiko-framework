@@ -484,8 +484,18 @@ export function buildHandlerContext(
     // When the feature-toggles or tier-engine feature isn't wired (no
     // effectiveFeatures callback), always returns true — apps without
     // tier-cuts treat all features on.
-    hasFeature: (featureName: string): boolean =>
-      effectiveFeatures ? effectiveFeatures(user.tenantId).has(featureName) : true,
+    //
+    // Falls back to the live trialGate when the sync set says the feature
+    // is off — the sync set never contains trial-tier features (time-
+    // derived, can't boot-cache), so without this a trial tenant checking
+    // a companion feature's toggle would silently read `false` even though
+    // the dispatch gate already lets trial-tier handlers run.
+    hasFeature: async (featureName: string): Promise<boolean> => {
+      if (!effectiveFeatures) return true;
+      if (effectiveFeatures(user.tenantId).has(featureName)) return true;
+      if (!effectiveFeatures.trialGate) return false;
+      return effectiveFeatures.trialGate(user.tenantId, featureName);
+    },
   };
 
   // Registry is always the dispatcher's registry — injecting it here lets

@@ -3,6 +3,7 @@ import { QnTypes, qualifyEntityName } from "../qualified-name";
 import type { ClaimKeyDefinition, FeatureDefinition } from "../types";
 import { validateActionWiring, validateFieldWiring } from "./action-wiring";
 import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext";
+import { validateFeatureBootChecks } from "./boot-check";
 import {
   validateCircularDeps,
   validateConfigKeyAllowPerRequest,
@@ -30,12 +31,7 @@ import {
   validateTransitions,
 } from "./entity-handler";
 import { validateEntityListScreens } from "./entity-list-screens";
-import {
-  validateGdprHookCompleteness,
-  validateGdprPiiHookCoverage,
-  validateGdprStoragePersistence,
-  validateTenantDataHookCoverage,
-} from "./gdpr-storage";
+import { validateGdprStoragePersistence } from "./gdpr-storage";
 import { validateI18nSurfaceKeys } from "./i18n-keys";
 import {
   collectKnownRoles,
@@ -198,9 +194,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   validateEntityListScreens(features);
   validateExtensionPreSaveWiring(features);
   validateGdprStoragePersistence(features);
-  validateGdprHookCompleteness(features);
-  validateGdprPiiHookCoverage(features);
-  validateTenantDataHookCoverage(features);
+  validateFeatureBootChecks(features);
 
   if (hasEncryptedFields) {
     // Availability check, not env-presence: eagerly building the keyring

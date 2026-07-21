@@ -160,6 +160,13 @@ type AuthMailNormalizable = {
   readonly invite?: InviteSetup;
 };
 
+// accountUnlock (#1266) deliberately does NOT join this convenience block —
+// unlike reset/verify/signup/invite it's only meaningful paired with
+// `accountLockout`, which itself isn't wired through RunProdAppAuthOptions
+// today. Apps that mount `accountLockout` set `auth.accountUnlock` alongside
+// it explicitly (same shape as `passwordReset`), so `mail` alone can't
+// silently expose a new public endpoint an app didn't ask for.
+
 export function resolveAuthMail<T extends AuthMailNormalizable>(
   auth: T,
   hmacSecret: string,
@@ -216,7 +223,6 @@ export function buildProdSessionAuth(
   readonly sessionCreator: ReturnType<typeof createSessionCallbacks>["sessionCreator"];
   readonly sessionRevoker: ReturnType<typeof createSessionCallbacks>["sessionRevoker"];
   readonly sessionChecker: ReturnType<typeof createSessionCallbacks>["sessionChecker"];
-  readonly sessionStrictMode: true;
 } {
   const cbs = createSessionCallbacks({
     db,
@@ -236,6 +242,5 @@ export function buildProdSessionAuth(
     sessionCreator: cbs.sessionCreator,
     sessionRevoker: cbs.sessionRevoker,
     sessionChecker: cbs.sessionChecker,
-    sessionStrictMode: true,
   };
 }

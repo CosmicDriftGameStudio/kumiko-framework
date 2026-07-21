@@ -1,5 +1,81 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.159.1
+
+### Patch Changes
+
+- Updated dependencies [6d37eb5]
+  - @cosmicdrift/kumiko-framework@0.159.1
+  - @cosmicdrift/kumiko-headless@0.159.1
+
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies [9db805c]
+- Updated dependencies [d0280c8]
+- Updated dependencies [a997cc8]
+- Updated dependencies [d97fcda]
+- Updated dependencies [2fc542b]
+- Updated dependencies [6254cc8]
+  - @cosmicdrift/kumiko-framework@1.0.0
+  - @cosmicdrift/kumiko-headless@1.0.0
+
+## 0.158.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.158.2
+- @cosmicdrift/kumiko-headless@0.158.2
+
+## 0.158.1
+
+### Patch Changes
+
+- Updated dependencies [da816ee]
+  - @cosmicdrift/kumiko-framework@0.158.1
+  - @cosmicdrift/kumiko-headless@0.158.1
+
+## 0.158.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.158.0
+- @cosmicdrift/kumiko-headless@0.158.0
+
+## 0.157.3
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.157.3
+- @cosmicdrift/kumiko-headless@0.157.3
+
+## 0.157.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.157.2
+- @cosmicdrift/kumiko-headless@0.157.2
+
+## 0.157.1
+
+### Patch Changes
+
+- c4b9a88: Fix `KumikoScreen` rendering role-gated screens for users without a matching role (#1203). `access.roles` was only enforced for nav/workspace visibility (`filterByAccess` in `workspace-shell.tsx`) — the actual screen-render path had no independent check, so any authenticated user reaching a role-gated screen via a direct URL, bookmark, or the app's `screenQn` fallback saw the screen's chrome regardless of role. Data stayed safe (query/write handlers are still server-side role-checked), this was a chrome leak, not a data leak.
+
+  `KumikoScreen` now gates on `screen.access` using the same roles the shells already pass for nav filtering, threaded down via a new `UserRolesProvider`/`useUserRoles` (exported from `@cosmicdrift/kumiko-renderer`). `WorkspaceShell` and `DefaultAppShell` wrap their children with it using `user?.roles`. Consistent with `filterByAccess`'s existing default-deny: no provider mounted, or `roles` not passed, denies role-gated screens — apps with role-gated screens must wire `user` into their shell (the same prop they already pass for nav) or those screens render an "access denied" placeholder instead of their content.
+
+  - @cosmicdrift/kumiko-framework@0.157.1
+  - @cosmicdrift/kumiko-headless@0.157.1
+
+## 0.157.0
+
+### Patch Changes
+
+- Updated dependencies [1371d8b]
+  - @cosmicdrift/kumiko-framework@0.157.0
+  - @cosmicdrift/kumiko-headless@0.157.0
+
 ## 0.156.3
 
 ### Patch Changes

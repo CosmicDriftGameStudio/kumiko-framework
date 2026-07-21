@@ -23,7 +23,7 @@ export function populateFeatureCore(state: RegistryState, feature: FeatureDefini
     if (clash?.kind === "raw") {
       throw new Error(
         `Entity "${name}" (feature "${feature.name}") has physical table "${physical}" which ` +
-          `collides with r.rawTable("${physical}") (feature "${clash.featureName}"). ` +
+          `collides with r.storeTable("${physical}") (feature "${clash.featureName}"). ` +
           `Pick a different tableName — both would emit CREATE TABLE "${physical}".`,
       );
     }
@@ -78,6 +78,16 @@ export function populateHandlers(state: RegistryState, feature: FeatureDefinitio
       throw new Error(`Duplicate query handler: "${qualified}" (registered by multiple features)`);
     }
     state.queryHandlerMap.set(qualified, { ...handler, name: qualified });
+    state.handlerFeatureMap.set(qualified, feature.name);
+  }
+
+  // Stream handlers: scope:stream:name
+  for (const [name, handler] of Object.entries(feature.streamHandlers ?? {})) {
+    const qualified = qualify(feature.name, "stream", name);
+    if (state.streamHandlerMap.has(qualified)) {
+      throw new Error(`Duplicate stream handler: "${qualified}" (registered by multiple features)`);
+    }
+    state.streamHandlerMap.set(qualified, { ...handler, name: qualified });
     state.handlerFeatureMap.set(qualified, feature.name);
   }
 }
@@ -249,7 +259,7 @@ export function populateMetricsAndSecrets(state: RegistryState, feature: Feature
   }
 }
 
-// Explicit + multi-stream projections (source-entity indexed) + raw tables +
+// Explicit + multi-stream projections (source-entity indexed) + store tables +
 // unmanaged tables (both cross-feature-uniqueness-by-physical-name guarded).
 export function populateProjectionsAndTables(
   state: RegistryState,
@@ -300,15 +310,15 @@ export function populateProjectionsAndTables(
     state.multiStreamProjectionFeatureMap.set(qualified, feature.name);
   }
 
-  // Raw tables: aggregated by feature-local short name (unprefixed —
+  // Store tables: aggregated by feature-local short name (unprefixed —
   // these bypass the qualified-name namespace because they have no
   // event-stream binding to disambiguate). Reject cross-feature
   // duplicates at boot so the dev-server doesn't race two CREATE TABLE
   // statements that target the same physical table name. Two features
   // registering the same physical tableName would also race two CREATE
   // TABLE statements via migrate-runner.
-  for (const [rawName, rawDef] of Object.entries(feature.rawTables ?? {})) {
-    const existing = state.rawTableMap.get(rawName);
+  for (const [rawName, rawDef] of Object.entries(feature.storeTables ?? {})) {
+    const existing = state.storeTableMap.get(rawName);
     if (existing) {
       throw new Error(
         `Raw-table "${rawName}" registered by both feature "${existing.featureName}" and ` +
@@ -337,7 +347,7 @@ export function populateProjectionsAndTables(
       owner: rawName,
       featureName: feature.name,
     });
-    state.rawTableMap.set(rawName, { ...rawDef, featureName: feature.name });
+    state.storeTableMap.set(rawName, { ...rawDef, featureName: feature.name });
   }
 }
 
