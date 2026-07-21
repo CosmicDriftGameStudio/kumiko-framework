@@ -19,6 +19,11 @@
 //     drizzle's getTableName + getTableColumns (drizzle weiterhin als type-
 //     reference, NICHT als runtime-API-call)
 
+import type {
+  SelectOptions,
+  WhereObject,
+  WhereOperator,
+} from "@cosmicdrift/kumiko-types/where-clause-types";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index";
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { type NotExecutorOnly, toSnakeCase } from "../db/table-builder";
@@ -183,19 +188,13 @@ function assertNotTenantScoped(db: unknown, fnName: string): void {
 
 export type AnyDb = BunDbRunner | unknown;
 
-// WhereValue: primitive für eq, array für IN, null für IS NULL, oder
-// operator-object für range/comparisons.
-export type WhereOperator = {
-  readonly gt?: unknown;
-  readonly gte?: unknown;
-  readonly lt?: unknown;
-  readonly lte?: unknown;
-  readonly ne?: unknown;
-  readonly in?: readonly unknown[];
-  readonly like?: string;
-};
-export type WhereValue = unknown | WhereOperator;
-export type WhereObject = Record<string, WhereValue>;
+export type {
+  OrderByClause,
+  SelectOptions,
+  WhereObject,
+  WhereOperator,
+  WhereValue,
+} from "@cosmicdrift/kumiko-types/where-clause-types";
 
 function isWhereOperator(v: unknown): v is WhereOperator {
   if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
@@ -206,18 +205,6 @@ function isWhereOperator(v: unknown): v is WhereOperator {
   const opKeys = ["gt", "gte", "lt", "lte", "ne", "in", "like"];
   return keys.every((k) => opKeys.includes(k));
 }
-export type OrderByClause = {
-  readonly col: string;
-  readonly direction?: "asc" | "desc";
-};
-
-export type SelectOptions = {
-  readonly limit?: number;
-  // Single column or array for multi-column tie-breaks (e.g.
-  // [{col: "createdAt"}, {col: "id"}] for chronological-with-stable-id).
-  readonly orderBy?: OrderByClause | readonly OrderByClause[];
-};
-
 // Akzeptiert EITHER. Beide haben einen tableName und field→column-mapping.
 // biome-ignore lint/suspicious/noExplicitAny: legacy drizzle pgTable surface
 type TableLike = EntityTableMeta | any;

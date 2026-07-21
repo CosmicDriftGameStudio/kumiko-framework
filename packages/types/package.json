@@ -121,6 +121,10 @@
     "./executor-brand": {
       "types": "./src/executor-brand.ts",
       "default": "./src/executor-brand.ts"
+    },
+    "./where-clause-types": {
+      "types": "./src/where-clause-types.ts",
+      "default": "./src/where-clause-types.ts"
     }
   },
   "dependencies": {
