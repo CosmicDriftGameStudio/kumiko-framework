@@ -1,10 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
-// Relative import: parent workspace symlinks @cosmicdrift/* → primary
-// kumiko-framework checkout; worktree PRs must exercise this package's
-// createLiveDispatcher.stream, not an older published/linked build.
-import { createLiveDispatcher } from "../../../../dispatcher-live/src/dispatcher-live";
 import { generateToken } from "../../api/tokens";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, selectMany } from "../../db/query";
@@ -293,7 +290,3 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
   // unreliable (body often fully buffered before abort lands). Abort
   // mapping for stream is covered in dispatcher-live unit tests.
 });
-
-
-
-

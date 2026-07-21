@@ -161,4 +161,3 @@ describe("Dispatcher contract", () => {
     expect(disp.pendingFiles()).toEqual([]);
   });
 });
-

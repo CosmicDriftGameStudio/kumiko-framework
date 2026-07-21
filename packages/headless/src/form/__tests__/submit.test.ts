@@ -316,5 +316,3 @@ describe("createFormController — submit()", () => {
     expect(disp.writeSpy).not.toHaveBeenCalled();
   });
 });
-
-

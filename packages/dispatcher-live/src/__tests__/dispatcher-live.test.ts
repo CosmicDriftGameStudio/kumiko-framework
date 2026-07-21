@@ -418,5 +418,3 @@ describe("createLiveDispatcher", () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 });
-
-

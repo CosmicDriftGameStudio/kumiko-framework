@@ -180,4 +180,3 @@ export function createMockDispatcher(state: MockDispatcherState = {}): Dispatche
     pendingFiles: (): readonly PendingFile[] => [],
   };
 }
-

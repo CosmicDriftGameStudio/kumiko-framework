@@ -175,4 +175,3 @@ describe("useCompletion", () => {
     expect(result.current.suggestion).toBeNull();
   });
 });
-

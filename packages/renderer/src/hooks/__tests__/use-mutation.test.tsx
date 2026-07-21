@@ -75,4 +75,3 @@ describe("useMutation", () => {
     expect(result.current.data).toBeNull();
   });
 });
-

@@ -93,4 +93,3 @@ export type {
   Translate,
 } from "./view-model";
 export { computeEditViewModel, computeListViewModel, fieldLabelKey } from "./view-model";
-

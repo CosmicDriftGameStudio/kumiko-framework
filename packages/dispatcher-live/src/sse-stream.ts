@@ -52,6 +52,7 @@ export async function* iterateSseChunks<TChunk>(
         const frame = parseSseBlock(part);
         if (frame === null) continue;
         if (frame.event === "ping") continue;
+        // skip: terminal SSE done frame — end the generator cleanly
         if (frame.event === "done") return;
         if (frame.event === "error") {
           throw frameDataToDispatcherError(frame.data);

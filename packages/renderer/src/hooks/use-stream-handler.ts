@@ -69,15 +69,19 @@ export function useStreamHandler<TChunk = unknown>(
       try {
         const accumulated: TChunk[] = [];
         for await (const chunk of dispatcher.stream<TChunk>(type, body, { signal: ctrl.signal })) {
+          // skip: a newer start() already superseded this run
           if (ctrl.signal.aborted) return;
           accumulated.push(chunk);
           setChunks([...accumulated]);
         }
+        // skip: aborted after last chunk, don't mark done
         if (ctrl.signal.aborted) return;
         setStatus("done");
       } catch (e) {
+        // skip: abort is not an error toast
         if (ctrl.signal.aborted) return;
         const mapped = asDispatcherError(e);
+        // skip: dispatcher-mapped abort (fetch cancelled)
         if (mapped.code === "aborted") return;
         setError(mapped);
         setStatus("error");
@@ -87,6 +91,7 @@ export function useStreamHandler<TChunk = unknown>(
   );
 
   useEffect(() => {
+    // skip: autoStart off — streams are usually user-triggered
     if (!autoStart) return;
     void start();
     return () => {
