@@ -104,20 +104,14 @@ describe("getAllQueryHandlers", () => {
 describe("getAllStreamHandlers", () => {
   test("returns every registered stream handler, qualified, across multiple features", () => {
     const aiFeature = defineFeature("registry-test-ai", (r) => {
-      r.streamHandler(
-        "chat:complete",
-        z.object({ prompt: z.string() }),
-        async function* () {},
-        { access: { openToAll: true } },
-      );
+      r.streamHandler("chat:complete", z.object({ prompt: z.string() }), async function* () {}, {
+        access: { openToAll: true },
+      });
     });
     const otherFeature = defineFeature("registry-test-other", (r) => {
-      r.streamHandler(
-        "chat:complete",
-        z.object({ prompt: z.string() }),
-        async function* () {},
-        { access: { openToAll: true } },
-      );
+      r.streamHandler("chat:complete", z.object({ prompt: z.string() }), async function* () {}, {
+        access: { openToAll: true },
+      });
     });
 
     const registry = createRegistry([aiFeature, otherFeature]);
