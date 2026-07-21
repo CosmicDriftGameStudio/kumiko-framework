@@ -106,7 +106,7 @@
     },
     {
       "name": "auth-foundation",
-      "description": "Declares the `tokenVerifier` (Bearer-token auth) and `sessionStore` extension points. Provider-features register a static `shape` plus a `build()` for tokenVerifier — mount together with at least one auth-provider-* feature (e.g. personal-access-tokens) and call `resolveTokenVerifier(deps, rawToken)` to find the matching one; sessions self-registers as the single sessionStore provider.",
+      "description": "Declares auth-middleware extension points: `tokenVerifier` (Bearer), `sessionStore` (revocable JWT sid), optional `tenantResolver` + `tenantExistence` for anonymous multi-tenant. Provider-features register via r.useExtension; mount auth-foundation with the matching provider features.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],

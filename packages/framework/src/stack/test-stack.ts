@@ -421,7 +421,11 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     // timer loop call start() again (idempotent) after setup.
     if (eventDispatcher) await eventDispatcher.ensureRegistered();
 
-    const http = createRequestHelper(server.app, server.jwt);
+    const http = createRequestHelper(server.app, server.jwt, {
+      ...(options.authConfig?.sessionCreator !== undefined && {
+        sessionCreator: options.authConfig.sessionCreator,
+      }),
+    });
 
     return {
       app: server.app,
