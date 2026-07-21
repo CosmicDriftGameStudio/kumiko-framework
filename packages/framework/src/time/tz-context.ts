@@ -13,65 +13,18 @@
 // `tenant` + `user` sind die TZ-Defaults für den aktuellen Request. Aktueller
 // Stand: beide default auf "UTC" — sobald tenant.timezone +
 // user.timezone Felder existieren, lese ich sie aus dem Request-Context.
+//
+// Die reinen Type-Contracts (TzContext, TzContextOptions, LocatedTimestampJson)
+// leben in @cosmicdrift/kumiko-types/tz-context — hier nur die Factories.
 
-import type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz";
+import type { TzContext, TzContextOptions } from "@cosmicdrift/kumiko-types/tz-context";
 import { ensureTemporalPolyfill, getTemporal } from "./polyfill";
 
-// JSON-Form für Wall-Clock+TZ — siehe createLocatedTimestampField() in
-// engine/factories.ts. Zwei Felder, idiotensicher.
-export type LocatedTimestampJson = {
-  /** Wall-Clock-ISO ohne Offset, z.B. "2026-04-03T10:00:00" */
-  readonly at: string;
-  /** IANA-Zone, z.B. "Europe/Lisbon" */
-  readonly tz: string;
-};
-
-export type TzContext = {
-  /** Default-TZ des Mandanten (aus tenant.timezone, default "UTC"). */
-  readonly tenant: string;
-  /** Anzeige-TZ des aktuellen Users (User-Profil-Override, fallback Tenant). */
-  readonly user: string;
-
-  /** Aktueller Moment als UTC-Instant. */
-  now(): Temporal.Instant;
-  /** Aktueller Moment als ZonedDateTime in der gewünschten Zone. */
-  nowIn(tz: string): Temporal.ZonedDateTime;
-
-  /** Heutiges Kalender-Datum in der gewünschten Zone. */
-  today(tz: string): Temporal.PlainDate;
-  /** Tagesgrenzen (00:00 bis 24:00 nächster Tag) als UTC-Instants — für DB-Range-Queries. */
-  todayRange(tz: string): { readonly start: Temporal.Instant; readonly end: Temporal.Instant };
-
-  /** Wall-Clock-String + IANA-Zone → ZonedDateTime. */
-  parse(wallClock: string, tz: string): Temporal.ZonedDateTime;
-
-  /** ZonedDateTime → UTC-Instant. */
-  toInstant(zdt: Temporal.ZonedDateTime): Temporal.Instant;
-
-  /** ZonedDateTime → JSON-Pair { at, tz } (API-Boundary). */
-  toLocatedJson(zdt: Temporal.ZonedDateTime): LocatedTimestampJson;
-
-  /** JSON-Pair { at, tz } → ZonedDateTime (Wall-Clock + IANA). */
-  fromLocatedJson(obj: LocatedTimestampJson): Temporal.ZonedDateTime;
-
-  /** Geo-Koordinaten → IANA-Zone via konfiguriertem GeoTzProvider.
-   *  Wirft wenn kein Provider konfiguriert ist (v1-Default). */
-  fromCoordinates(coords: GeoCoordinates): Promise<string>;
-  /** Postadresse → IANA-Zone via GeoTzProvider. Wirft wenn kein Provider
-   *  konfiguriert ist ODER der Provider kein fromAddress unterstützt (der
-   *  Offline-lat/lng-Provider tut das nicht). */
-  fromAddress(address: GeoAddress): Promise<string>;
-};
-
-export type TzContextOptions = {
-  /** Tenant-Default-TZ. Default "UTC" wenn nicht gesetzt. */
-  readonly tenant?: string;
-  /** User-Override. Default = tenant. */
-  readonly user?: string;
-  /** Optionaler Geo→Zone-Adapter für ctx.tz.fromCoordinates / fromAddress.
-   *  Ohne Provider werfen diese Methoden. */
-  readonly geoTz?: GeoTzProvider;
-};
+export type {
+  LocatedTimestampJson,
+  TzContext,
+  TzContextOptions,
+} from "@cosmicdrift/kumiko-types/tz-context";
 
 /**
  * Factory: erzeugt einen TzContext für den aktuellen Request.
