@@ -3,22 +3,20 @@
 // kekVersion inside makes every value rotatable via the MasterKeyProvider
 // keyring.
 
+import type { EnvelopeCipher } from "@cosmicdrift/kumiko-types/envelope-cipher-types";
 import { InternalError } from "../errors/classes";
 import type { DekCache } from "./dek-cache";
 import { createDekCache, withDekCache } from "./dek-cache";
 import { decryptValue, encryptValue } from "./envelope";
 import { decodeStoredEnvelope, encodeStoredEnvelope, isStoredEnvelope } from "./stored-envelope";
-import type { KeyScope, MasterKeyProvider } from "./types";
+import type { MasterKeyProvider } from "./types";
+
+export type { EnvelopeCipher } from "@cosmicdrift/kumiko-types/envelope-cipher-types";
 
 export type EnvelopeCipherOptions = {
   // Shared DEK cache — pass the app-wide instance so config/entity reads
   // amortise KEK unwraps together with ctx.secrets.
   readonly dekCache?: DekCache;
-};
-
-export type EnvelopeCipher = {
-  encrypt(plaintext: string, scope?: KeyScope): Promise<string>;
-  decrypt(stored: string, scope?: KeyScope): Promise<string>;
 };
 
 export function createEnvelopeCipher(
