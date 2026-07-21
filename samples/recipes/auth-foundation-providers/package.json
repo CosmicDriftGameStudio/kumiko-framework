@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-auth-foundation-providers",
+  "description": "Register custom tenantResolver / tenantExistence via auth-foundation extension points (no anonymousAccess callbacks).",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}

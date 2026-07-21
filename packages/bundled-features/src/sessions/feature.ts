@@ -126,6 +126,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
           revoker: callbacks.sessionRevoker,
           checker: callbacks.sessionChecker,
           massRevoker: callbacks.sessionMassRevoker,
+          revokeAllOthers: callbacks.sessionRevokeAllOthers,
         };
       },
     } satisfies SessionStoreProvider);
@@ -240,3 +241,4 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     return { handlers, queries, bindAutoRevokeOnPasswordChange };
   });
 }
+

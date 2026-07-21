@@ -124,6 +124,16 @@ export type TestStackOptions = {
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => import("../api/server").ServerOptions["anonymousAccess"]);
+  /** Optional post-factory enricher (e.g. merge auth-foundation tenant
+   *  providers). Keeps framework free of a bundled-features dependency. */
+  enrichAnonymousAccess?: (
+    base: import("../api/server").ServerOptions["anonymousAccess"] | undefined,
+    deps: {
+      registry: Registry;
+      // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection
+      db: any;
+    },
+  ) => Promise<import("../api/server").ServerOptions["anonymousAccess"] | undefined>;
   /** Opt-in JobRunner wired into ctx.jobRunner and merged into
    *  dispatcherOptions so event-triggered jobs enqueue on commit — mirrors
    *  the prod entrypoint's `buildJobRunnerWithHook`. Unlike prod (which
@@ -382,19 +392,24 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
         : {}),
       ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
       ...(options.rateLimit ? { rateLimit: options.rateLimit } : {}),
-      ...(options.anonymousAccess
-        ? {
-            anonymousAccess:
-              typeof options.anonymousAccess === "function"
-                ? options.anonymousAccess({
-                    registry,
-                    db: testDb.db,
-                    sseBroker,
-                    redis: testRedis.redis,
-                  })
-                : options.anonymousAccess,
-          }
-        : {}),
+      ...(await (async () => {
+        const baseAnon =
+          typeof options.anonymousAccess === "function"
+            ? options.anonymousAccess({
+                registry,
+                db: testDb.db,
+                sseBroker,
+                redis: testRedis.redis,
+              })
+            : options.anonymousAccess;
+        const resolvedAnon = options.enrichAnonymousAccess
+          ? await options.enrichAnonymousAccess(baseAnon, {
+              registry,
+              db: testDb.db,
+            })
+          : baseAnon;
+        return resolvedAnon ? { anonymousAccess: resolvedAnon } : {};
+      })()),
     });
 
     const eventDispatcher: EventDispatcher | undefined = server.eventDispatcher;

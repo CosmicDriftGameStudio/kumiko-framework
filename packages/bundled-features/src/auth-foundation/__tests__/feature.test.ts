@@ -4,7 +4,12 @@
 
 import { describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "../feature";
-import { EXT_SESSION_STORE, EXT_TOKEN_VERIFIER } from "../types";
+import {
+  EXT_SESSION_STORE,
+  EXT_TENANT_EXISTENCE,
+  EXT_TENANT_RESOLVER,
+  EXT_TOKEN_VERIFIER,
+} from "../types";
 
 describe("authFoundationFeature — shape", () => {
   test("has the expected name", () => {
@@ -24,10 +29,18 @@ describe("authFoundationFeature — registers extension-point", () => {
   test("declares the sessionStore extension-point", () => {
     expect(authFoundationFeature.registrarExtensions[EXT_SESSION_STORE]).toBeDefined();
   });
+
+  test("declares the tenantResolver extension-point", () => {
+    expect(authFoundationFeature.registrarExtensions[EXT_TENANT_RESOLVER]).toBeDefined();
+  });
+
+  test("declares the tenantExistence extension-point", () => {
+    expect(authFoundationFeature.registrarExtensions[EXT_TENANT_EXISTENCE]).toBeDefined();
+  });
 });
 
 describe("authFoundationFeature — multiplicity boot-check", () => {
-  test("registers a bootCheck per extension-point (tokenVerifier + sessionStore)", () => {
-    expect(authFoundationFeature.bootChecks.length).toBeGreaterThanOrEqual(2);
+  test("registers a bootCheck per extension-point (token/session/tenant×2)", () => {
+    expect(authFoundationFeature.bootChecks.length).toBeGreaterThanOrEqual(4);
   });
 });

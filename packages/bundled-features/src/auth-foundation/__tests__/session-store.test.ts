@@ -17,6 +17,7 @@ function mockStore(): SessionStore {
     revoker: async () => undefined,
     checker: async () => "live",
     massRevoker: async () => 0,
+    revokeAllOthers: async () => 0,
   };
 }
 
@@ -76,3 +77,4 @@ describe("validateSessionStoreMultiplicity", () => {
     );
   });
 });
+

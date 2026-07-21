@@ -2,6 +2,7 @@ export type { SetTenantCookieOptions } from "./anonymous-cookie";
 export { deleteTenantCookie, setTenantCookie } from "./anonymous-cookie";
 export type {
   AnonymousAccessConfig,
+  AnonymousAccessResolved,
   AuthMiddlewareOptions,
   AuthSessionChecker,
   AuthSessionStatus,
