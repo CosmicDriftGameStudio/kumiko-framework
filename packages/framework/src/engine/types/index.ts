@@ -50,6 +50,7 @@ export type {
 } from "@cosmicdrift/kumiko-types/config";
 export type {
   QueryHandlerDefinition,
+  StreamHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
 } from "@cosmicdrift/kumiko-types/define-handler";
@@ -161,6 +162,8 @@ export type {
   RateLimitOption,
   RateLimitPer,
   SessionUser,
+  StreamHandlerDef,
+  StreamHandlerFn,
   TryAppendEventFn,
   TryAppendEventResult,
   UnsafeAppendEventFn,

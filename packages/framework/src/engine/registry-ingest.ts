@@ -80,6 +80,16 @@ export function populateHandlers(state: RegistryState, feature: FeatureDefinitio
     state.queryHandlerMap.set(qualified, { ...handler, name: qualified });
     state.handlerFeatureMap.set(qualified, feature.name);
   }
+
+  // Stream handlers: scope:stream:name
+  for (const [name, handler] of Object.entries(feature.streamHandlers ?? {})) {
+    const qualified = qualify(feature.name, "stream", name);
+    if (state.streamHandlerMap.has(qualified)) {
+      throw new Error(`Duplicate stream handler: "${qualified}" (registered by multiple features)`);
+    }
+    state.streamHandlerMap.set(qualified, { ...handler, name: qualified });
+    state.handlerFeatureMap.set(qualified, feature.name);
+  }
 }
 
 // Config keys: scope:config:name, duplicate-guarded.

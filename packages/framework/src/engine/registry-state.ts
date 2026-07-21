@@ -37,6 +37,7 @@ import type {
   SearchPayloadContributorFn,
   SecretKeyDefinition,
   StoreTableDef,
+  StreamHandlerDef,
   TreeActionDef,
   WorkspaceDefinition,
   WriteHandlerDef,
@@ -165,6 +166,7 @@ export type RegistryState = {
   relationMap: Map<string, Record<string, RelationDefinition>>;
   writeHandlerMap: Map<string, WriteHandlerDef>;
   queryHandlerMap: Map<string, QueryHandlerDef>;
+  streamHandlerMap: Map<string, StreamHandlerDef>;
   preSaveHooks: Map<string, OwnedFn<PreSaveHookFn>[]>;
   postSaveHooks: Map<string, PhasedHook<PostSaveHookFn>[]>;
   preDeleteHooks: Map<string, PhasedHook<PreDeleteHookFn>[]>;
@@ -229,6 +231,7 @@ export function createInitialState(): RegistryState {
     relationMap: new Map(),
     writeHandlerMap: new Map(),
     queryHandlerMap: new Map(),
+    streamHandlerMap: new Map(),
     preSaveHooks: new Map(),
     postSaveHooks: new Map(),
     preDeleteHooks: new Map(),

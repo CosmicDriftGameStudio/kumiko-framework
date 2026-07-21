@@ -30,6 +30,7 @@ import type {
   SearchPayloadContributorFn,
   SecretKeyDefinition,
   StoreTableEntry,
+  StreamHandlerDef,
   TranslationKeys,
   TreeActionDef,
   UiHints,
@@ -57,6 +58,7 @@ export type FeatureBuilderState = {
   relations: Record<string, Record<string, RelationDefinition>>;
   writeHandlers: Record<string, WriteHandlerDef>;
   queryHandlers: Record<string, QueryHandlerDef>;
+  streamHandlers: Record<string, StreamHandlerDef>;
   validationHooks: Record<string, ValidationHookFn>;
   lifecycleHooks: Record<string, Record<string, OwnedFn<LifecycleHookFn>[]>>;
   phasedLifecycleHooks: Record<
@@ -119,6 +121,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     relations: {},
     writeHandlers: {},
     queryHandlers: {},
+    streamHandlers: {},
     validationHooks: {},
     lifecycleHooks,
     phasedLifecycleHooks: { postSave: {}, preDelete: {}, postDelete: {} },

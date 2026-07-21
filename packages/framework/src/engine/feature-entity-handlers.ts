@@ -1,6 +1,10 @@
 import type { ZodType, z } from "zod";
 import { toTableName } from "../db/table-builder";
-import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
+import type {
+  QueryHandlerDefinition,
+  StreamHandlerDefinition,
+  WriteHandlerDefinition,
+} from "./define-handler";
 import type { RegisterEntityCrudOptions } from "./entity-handlers";
 import { registerEntityCrud } from "./entity-handlers";
 import type { FeatureBuilderState } from "./feature-builder-state";
@@ -15,6 +19,7 @@ import type {
   QueryHandlerFn,
   RateLimitOption,
   RelationDefinition,
+  StreamHandlerFn,
   WriteHandlerFn,
 } from "./types";
 import type { PipelineDef } from "./types/step";
@@ -162,6 +167,35 @@ export function buildEntityHandlerMethods<TName extends string>(
         ...(options?.rateLimit && { rateLimit: options.rateLimit }),
       };
       tryMapEntity(state, name, nameOrDef);
+      return { name: nameOrDef };
+    },
+    streamHandler<TName extends string, TSchema extends ZodType>(
+      nameOrDef: string | StreamHandlerDefinition<TName, TSchema>,
+      schema?: TSchema,
+      handler?: StreamHandlerFn<z.infer<TSchema>>,
+      options?: { access?: AccessRule; rateLimit?: RateLimitOption },
+    ): HandlerRef {
+      if (typeof nameOrDef === "object") {
+        const def = nameOrDef;
+        state.streamHandlers[def.name] = {
+          name: def.name,
+          schema: def.schema,
+          // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
+          handler: def.handler as StreamHandlerFn, // @cast-boundary engine-bridge
+          ...(def.access && { access: def.access }),
+          ...(def.rateLimit && { rateLimit: def.rateLimit }),
+        };
+        return { name: def.name };
+      }
+      if (!schema || !handler)
+        throw new Error("streamHandler inline form requires schema + handler");
+      state.streamHandlers[nameOrDef] = {
+        name: nameOrDef,
+        schema,
+        handler: handler as StreamHandlerFn, // @cast-boundary engine-bridge
+        ...(options?.access && { access: options.access }),
+        ...(options?.rateLimit && { rateLimit: options.rateLimit }),
+      };
       return { name: nameOrDef };
     },
   };

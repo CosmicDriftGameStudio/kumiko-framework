@@ -14,6 +14,7 @@ import {
   createTextField,
 } from "../factories";
 import { createApp, createRegistry, defineFeature } from "../index";
+import { buildMinimalCtx } from "./_pipeline-test-utils";
 
 // --- defineFeature ---
 
@@ -116,6 +117,33 @@ describe("defineFeature", () => {
       });
     });
     expect(ref?.name).toBe("order:list");
+  });
+
+  test("streamHandler registers on feature.streamHandlers with schema/access/handler intact", async () => {
+    let ref: { name: string } | undefined;
+    const feature = defineFeature("test", (r) => {
+      ref = r.streamHandler(
+        "chat:complete",
+        z.object({ prompt: z.string() }),
+        async function* (query) {
+          yield `echo:${query.payload.prompt}`;
+        },
+        { access: { openToAll: true } },
+      );
+    });
+    expect(ref?.name).toBe("chat:complete");
+
+    const stored = feature.streamHandlers["chat:complete"];
+    expect(stored?.access).toEqual({ openToAll: true });
+
+    const chunks: string[] = [];
+    for await (const chunk of stored!.handler(
+      { type: "chat:complete", payload: { prompt: "hi" }, user: createTestUser() },
+      buildMinimalCtx(),
+    )) {
+      chunks.push(chunk as string);
+    }
+    expect(chunks).toEqual(["echo:hi"]);
   });
 
   test("r.defineEvent returns typed EventDef and registers on feature", () => {

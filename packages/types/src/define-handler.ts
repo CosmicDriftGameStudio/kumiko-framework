@@ -92,3 +92,24 @@ export type QueryHandlerDefinition<
     context: HandlerContext<TMap>,
   ) => Promise<TResult>;
 };
+
+// --- Stream Handler Definition ---
+//
+// Scaffolding only (#1376) — access/rateLimit read by the boot-validator
+// (#1377), dispatch-time consumption (async-generator, SSE) lands in #1378.
+
+export type StreamHandlerDefinition<
+  TName extends string = string,
+  TSchema extends ZodType = ZodType,
+  TChunk = unknown,
+  TMap extends object = KumikoEventTypeMap,
+> = {
+  readonly name: TName;
+  readonly schema: TSchema;
+  readonly access?: AccessRule;
+  readonly rateLimit?: RateLimitOption;
+  readonly handler: (
+    query: QueryEvent<z.infer<TSchema>>,
+    context: HandlerContext<TMap>,
+  ) => AsyncGenerator<TChunk>;
+};
