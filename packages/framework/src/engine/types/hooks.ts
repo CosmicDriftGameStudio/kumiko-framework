@@ -1,5 +1,5 @@
+import type { HookPhase } from "@cosmicdrift/kumiko-types/hook-phase";
 import type { StoredEvent } from "../../event-store/event-store";
-import type { HookPhases } from "../hook-helpers";
 import type { AppContext } from "./handlers";
 import type { EntityId } from "./identifiers";
 
@@ -102,7 +102,7 @@ export type LifecycleHookFn =
   | PreQueryHookFn
   | PostQueryHookFn;
 
-export type HookPhase = (typeof HookPhases)[keyof typeof HookPhases];
+export type { HookPhase } from "@cosmicdrift/kumiko-types/hook-phase";
 
 // Owner-tag shared across every hook structure. The lifecycle pipeline uses
 // it to skip hooks whose owning feature is globally disabled:
