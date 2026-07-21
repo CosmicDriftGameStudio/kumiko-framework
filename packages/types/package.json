@@ -117,6 +117,10 @@
     "./schema-table-types": {
       "types": "./src/schema-table-types.ts",
       "default": "./src/schema-table-types.ts"
+    },
+    "./executor-brand": {
+      "types": "./src/executor-brand.ts",
+      "default": "./src/executor-brand.ts"
     }
   },
   "dependencies": {
