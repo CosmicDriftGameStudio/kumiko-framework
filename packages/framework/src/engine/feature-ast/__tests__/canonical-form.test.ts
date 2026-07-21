@@ -78,6 +78,15 @@ defineFeature("todoList", (r) => {
     access: { openToAll: true },
   });
 
+  r.streamHandler({
+    name: "task:stream",
+    schema: z.object({ prompt: z.string() }),
+    handler: async function* (input, ctx) {
+      yield "token";
+    },
+    access: { roles: ["user"] },
+  });
+
   r.hook({
     type: "postSave",
     target: "task",
@@ -195,7 +204,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     expect(unknowns).toEqual([]);
   });
 
-  test("alle 28 Pattern-Kinds sind erfasst", () => {
+  test("alle Pattern-Kinds sind erfasst", () => {
     const kinds: ReadonlySet<string> = new Set(result.patterns.map((p) => p.kind));
     const expected = [
       // Static
@@ -219,6 +228,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
       "screen",
       "writeHandler",
       "queryHandler",
+      "streamHandler",
       "hook",
       "job",
       "notification",

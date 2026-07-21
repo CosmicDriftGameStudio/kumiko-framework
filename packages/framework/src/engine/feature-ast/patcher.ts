@@ -104,6 +104,14 @@ export type AddQueryHandlerArgs = {
   readonly rateLimit?: RateLimitOption;
 };
 
+export type AddStreamHandlerArgs = {
+  readonly name: string;
+  readonly schemaSource: string;
+  readonly handlerSource: string;
+  readonly access?: AccessRule;
+  readonly rateLimit?: RateLimitOption;
+};
+
 export type AddHookArgs = {
   readonly type: LifecycleHookType | "validation";
   // `{ allOf: entity }` — entity-wide target, fires for every write/query
@@ -233,6 +241,7 @@ export type FeaturePatcher = {
   readonly addScreen: (args: AddScreenArgs) => void;
   readonly addWriteHandler: (args: AddWriteHandlerArgs) => void;
   readonly addQueryHandler: (args: AddQueryHandlerArgs) => void;
+  readonly addStreamHandler: (args: AddStreamHandlerArgs) => void;
   readonly addHook: (args: AddHookArgs) => void;
   readonly addJob: (args: AddJobArgs) => void;
   readonly addNotification: (args: AddNotificationArgs) => void;
@@ -383,6 +392,18 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
     addQueryHandler({ name, schemaSource, handlerSource, access, rateLimit }) {
       add({
         kind: "queryHandler",
+        source: SYNTHETIC_LOC,
+        handlerName: name,
+        schemaSource: rawLoc(schemaSource),
+        handlerBody: rawLoc(handlerSource),
+        ...(access !== undefined && { access }),
+        ...(rateLimit !== undefined && { rateLimit }),
+      });
+    },
+
+    addStreamHandler({ name, schemaSource, handlerSource, access, rateLimit }) {
+      add({
+        kind: "streamHandler",
         source: SYNTHETIC_LOC,
         handlerName: name,
         schemaSource: rawLoc(schemaSource),

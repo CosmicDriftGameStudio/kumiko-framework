@@ -646,6 +646,45 @@ r.queryHandler({
     },
   },
   {
+    kind: "streamHandler",
+    tsType: "StreamHandlerPattern",
+    editability: "mixed",
+    de: {
+      description: "Streaming-Read-Handler — Schema, Access-Check, Async-Generator-Body (SSE).",
+      body: `Registriert einen Streaming-Read-Handler. Wie \`queryHandler\`, aber der Body ist ein Async-Generator — jeder \`yield\` wird als SSE-Chunk an den Client gestreamt.
+
+\`\`\`typescript
+r.streamHandler({
+  name: "chat:complete",
+  schema: z.object({ prompt: z.string() }),
+  access: { roles: ["User"] },
+  handler: async function* (input, ctx) {
+    yield "token";
+  },
+});
+\`\`\`
+
+**Siehe auch:** [\`queryHandler\`](/de/patterns/queryhandler/)`,
+    },
+    en: {
+      description: "Streaming read handler — schema, access check, async-generator body (SSE).",
+      body: `Registers a streaming read handler. Like \`queryHandler\`, but the body is an async generator — every \`yield\` is streamed to the client as an SSE chunk.
+
+\`\`\`typescript
+r.streamHandler({
+  name: "chat:complete",
+  schema: z.object({ prompt: z.string() }),
+  access: { roles: ["User"] },
+  handler: async function* (input, ctx) {
+    yield "token";
+  },
+});
+\`\`\`
+
+**See also:** [\`queryHandler\`](/en/patterns/queryhandler/)`,
+    },
+  },
+  {
     kind: "hook",
     tsType: "HookPattern",
     editability: "mixed",

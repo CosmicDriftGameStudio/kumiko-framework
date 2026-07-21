@@ -125,6 +125,43 @@ export const queryHandlerSchema: PatternFormSchema = {
   ],
 };
 
+export const streamHandlerSchema: PatternFormSchema = {
+  kind: "streamHandler",
+  label: { en: "Stream handler", de: "Stream-Handler" },
+  summary: { en: "Streaming read endpoint (SSE) with Zod schema + async-generator body." },
+  category: "behaviour",
+  editability: "mixed",
+  fields: [
+    {
+      path: "handlerName",
+      label: { en: "Name", de: "Name" },
+      input: "text",
+      required: true,
+      placeholder: "chat:complete",
+    },
+    {
+      path: "schemaSource",
+      label: { en: "Zod schema (source)", de: "Zod-Schema (Source)" },
+      input: "code-block",
+      language: "zod",
+      readOnly: true,
+    },
+    {
+      path: "handlerBody",
+      label: { en: "Handler body (source)", de: "Handler-Body (Source)" },
+      input: "code-block",
+      language: "typescript",
+      readOnly: true,
+    },
+    accessRuleField,
+    {
+      path: "rateLimit",
+      label: { en: "Rate limit", de: "Rate-Limit" },
+      input: "json-readonly",
+    },
+  ],
+};
+
 export const hookSchema: PatternFormSchema = {
   kind: "hook",
   label: { en: "Lifecycle hook", de: "Lifecycle-Hook" },

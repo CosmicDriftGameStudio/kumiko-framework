@@ -442,6 +442,12 @@ defineFeature("tasks", (r) => {
       handlerSource: "async (q, ctx) => []",
       access: { openToAll: true },
     });
+    p.addStreamHandler({
+      name: "task:stream",
+      schemaSource: "z.object({ prompt: z.string() })",
+      handlerSource: 'async function* (input, ctx) { yield "token"; }',
+      access: { roles: ["user"] },
+    });
     p.addHook({
       type: "postDelete",
       target: { allOf: "task" },
@@ -453,6 +459,7 @@ defineFeature("tasks", (r) => {
       "entity",
       "writeHandler",
       "queryHandler",
+      "streamHandler",
       "hook",
     ]);
   });

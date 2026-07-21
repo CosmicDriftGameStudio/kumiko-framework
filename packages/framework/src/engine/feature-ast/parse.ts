@@ -58,6 +58,7 @@ import {
   extractScreen,
   extractSecret,
   extractStoreTable,
+  extractStreamHandler,
   extractSystemScope,
   extractToggleable,
   extractTranslations,
@@ -447,6 +448,8 @@ function dispatchExtractor(
       return extractWriteHandler(call, sourceFile);
     case "queryHandler":
       return extractQueryHandler(call, sourceFile);
+    case "streamHandler":
+      return extractStreamHandler(call, sourceFile);
     case "job":
       return extractJob(call, sourceFile);
     case "httpRoute":

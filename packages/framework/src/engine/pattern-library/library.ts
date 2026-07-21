@@ -25,6 +25,7 @@ import {
   projectionSchema,
   queryHandlerSchema,
   screenSchema,
+  streamHandlerSchema,
   writeHandlerSchema,
 } from "./mixed-schemas";
 import {
@@ -79,6 +80,7 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   screen: screenSchema,
   writeHandler: writeHandlerSchema,
   queryHandler: queryHandlerSchema,
+  streamHandler: streamHandlerSchema,
   hook: hookSchema,
   job: jobSchema,
   notification: notificationSchema,

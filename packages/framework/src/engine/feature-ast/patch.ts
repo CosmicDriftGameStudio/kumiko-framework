@@ -53,6 +53,7 @@ export type PatternId =
   | { readonly kind: "screen"; readonly id: string }
   | { readonly kind: "writeHandler"; readonly handlerName: string }
   | { readonly kind: "queryHandler"; readonly handlerName: string }
+  | { readonly kind: "streamHandler"; readonly handlerName: string }
   | {
       readonly kind: "hook";
       readonly hookType: string;
@@ -353,6 +354,7 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
       return matchObjectProperty(call, "id", id.id);
     case "writeHandler":
     case "queryHandler":
+    case "streamHandler":
       return (
         matchFirstArgString(call, id.handlerName) ||
         matchObjectProperty(call, "name", id.handlerName)
