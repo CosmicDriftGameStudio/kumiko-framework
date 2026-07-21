@@ -125,6 +125,10 @@
     "./where-clause-types": {
       "types": "./src/where-clause-types.ts",
       "default": "./src/where-clause-types.ts"
+    },
+    "./tenant-db-types": {
+      "types": "./src/tenant-db-types.ts",
+      "default": "./src/tenant-db-types.ts"
     }
   },
   "dependencies": {
