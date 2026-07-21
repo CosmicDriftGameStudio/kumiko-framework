@@ -129,6 +129,102 @@
     "./tenant-db-types": {
       "types": "./src/tenant-db-types.ts",
       "default": "./src/tenant-db-types.ts"
+    },
+    "./config": {
+      "types": "./src/config.ts",
+      "default": "./src/config.ts"
+    },
+    "./define-handler": {
+      "types": "./src/define-handler.ts",
+      "default": "./src/define-handler.ts"
+    },
+    "./entity-handlers": {
+      "types": "./src/entity-handlers.ts",
+      "default": "./src/entity-handlers.ts"
+    },
+    "./feature": {
+      "types": "./src/feature.ts",
+      "default": "./src/feature.ts"
+    },
+    "./fields": {
+      "types": "./src/fields.ts",
+      "default": "./src/fields.ts"
+    },
+    "./handlers": {
+      "types": "./src/handlers.ts",
+      "default": "./src/handlers.ts"
+    },
+    "./hooks": {
+      "types": "./src/hooks.ts",
+      "default": "./src/hooks.ts"
+    },
+    "./nav": {
+      "types": "./src/nav.ts",
+      "default": "./src/nav.ts"
+    },
+    "./ownership": {
+      "types": "./src/ownership.ts",
+      "default": "./src/ownership.ts"
+    },
+    "./projection": {
+      "types": "./src/projection.ts",
+      "default": "./src/projection.ts"
+    },
+    "./screen": {
+      "types": "./src/screen.ts",
+      "default": "./src/screen.ts"
+    },
+    "./step": {
+      "types": "./src/step.ts",
+      "default": "./src/step.ts"
+    },
+    "./workspace": {
+      "types": "./src/workspace.ts",
+      "default": "./src/workspace.ts"
+    },
+    "./cursor-types": {
+      "types": "./src/cursor-types.ts",
+      "default": "./src/cursor-types.ts"
+    },
+    "./file-storage-provider-types": {
+      "types": "./src/file-storage-provider-types.ts",
+      "default": "./src/file-storage-provider-types.ts"
+    },
+    "./file-provider-resolver-types": {
+      "types": "./src/file-provider-resolver-types.ts",
+      "default": "./src/file-provider-resolver-types.ts"
+    },
+    "./event-store-executor-types": {
+      "types": "./src/event-store-executor-types.ts",
+      "default": "./src/event-store-executor-types.ts"
+    },
+    "./multi-stream-apply-context-types": {
+      "types": "./src/multi-stream-apply-context-types.ts",
+      "default": "./src/multi-stream-apply-context-types.ts"
+    },
+    "./secrets-types": {
+      "types": "./src/secrets-types.ts",
+      "default": "./src/secrets-types.ts"
+    },
+    "./event-store-errors": {
+      "types": "./src/event-store-errors.ts",
+      "default": "./src/event-store-errors.ts"
+    },
+    "./kms-adapter-types": {
+      "types": "./src/kms-adapter-types.ts",
+      "default": "./src/kms-adapter-types.ts"
+    },
+    "./envelope-cipher-types": {
+      "types": "./src/envelope-cipher-types.ts",
+      "default": "./src/envelope-cipher-types.ts"
+    },
+    "./rate-limit-types": {
+      "types": "./src/rate-limit-types.ts",
+      "default": "./src/rate-limit-types.ts"
+    },
+    "./snapshot-types": {
+      "types": "./src/snapshot-types.ts",
+      "default": "./src/snapshot-types.ts"
     }
   },
   "dependencies": {
