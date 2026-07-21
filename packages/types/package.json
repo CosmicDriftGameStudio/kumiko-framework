@@ -102,6 +102,14 @@
       "types": "./src/write-error-info-types.ts",
       "default": "./src/write-error-info-types.ts"
     },
+    "./entity-table-meta-types": {
+      "types": "./src/entity-table-meta-types.ts",
+      "default": "./src/entity-table-meta-types.ts"
+    },
+    "./event-store-types": {
+      "types": "./src/event-store-types.ts",
+      "default": "./src/event-store-types.ts"
+    },
     "./hook-phase": {
       "types": "./src/hook-phase.ts",
       "default": "./src/hook-phase.ts"

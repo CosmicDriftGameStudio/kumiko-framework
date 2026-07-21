@@ -1,3 +1,4 @@
+import type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
 import { encryptEventPayloadPii } from "../crypto/event-pii";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
@@ -15,9 +16,8 @@ import { isStreamArchived } from "./archive";
 import { VersionConflictError } from "./errors";
 import { eventsTable } from "./events-schema";
 import { toStoredEvent } from "./row-to-stored-event";
-import type { EventMetadata } from "./types";
 
-export type { EventMetadata } from "./types";
+export type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
 
 export type EventToAppend = {
   readonly aggregateId: string;
@@ -29,25 +29,6 @@ export type EventToAppend = {
   readonly eventVersion?: number;
   readonly payload: Record<string, unknown>;
   readonly metadata: EventMetadata;
-};
-
-// Generic über payload-shape. Default = Record<string, unknown> macht
-// alle existierenden Konsumenten backwards-compatible. Konkrete Apply-
-// Handler / Tests können `StoredEvent<MyEventPayload>` annotieren um
-// payload typed zu lesen. Type-Propagation kommt durch r.defineEvent +
-// SingleStreamApplyFn<T> in apply-Maps.
-export type StoredEvent<TPayload = Record<string, unknown>> = {
-  readonly id: string;
-  readonly aggregateId: string;
-  readonly aggregateType: string;
-  readonly tenantId: TenantId;
-  readonly version: number;
-  readonly type: string;
-  readonly eventVersion: number;
-  readonly payload: TPayload;
-  readonly metadata: EventMetadata;
-  readonly createdAt: Temporal.Instant;
-  readonly createdBy: string;
 };
 
 type SelectedEvent = {
