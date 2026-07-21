@@ -133,11 +133,13 @@ const testFeature = defineFeature("test", (r) => {
   // Exercises createJobLogger (info/warn/error/debug/child) — otherwise those
   // one-liners stay uncovered even though every job builds a logger.
   r.job("logProbe", { trigger: { manual: true } }, async (payload, ctx) => {
-    ctx.log.info("log-probe-info", { n: payload["n"] });
-    ctx.log.warn("log-probe-warn");
-    ctx.log.error("log-probe-error", { ok: false });
-    ctx.log.debug("log-probe-debug");
-    ctx.log.child().info("log-probe-child");
+    expect(ctx.log).toBeDefined();
+    const log = ctx.log!;
+    log.info("log-probe-info", { n: payload["n"] });
+    log.warn("log-probe-warn");
+    log.error("log-probe-error", { ok: false });
+    log.debug("log-probe-debug");
+    log.child({ probe: true }).info("log-probe-child");
     jobLog.push({ name: "test:job:log-probe", payload, timestamp: Date.now() });
   });
 });

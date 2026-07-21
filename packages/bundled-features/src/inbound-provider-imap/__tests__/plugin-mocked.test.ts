@@ -184,7 +184,9 @@ beforeEach(() => {
 
 describe("imapInboundMailPlugin — mocked imapflow", () => {
   test("verify: connect+logout happy path", async () => {
-    await imapInboundMailPlugin.verify(ctxWithDoc(goodDoc), account);
+    await expect(
+      imapInboundMailPlugin.verify(ctxWithDoc(goodDoc), account),
+    ).resolves.toBeUndefined();
   });
 
   test("verify: auth failure → InboundAuthError", async () => {
