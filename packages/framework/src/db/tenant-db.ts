@@ -1,3 +1,5 @@
+import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
+import type { TenantDb, TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import {
   asEntityTableMeta,
   asRawClient,
@@ -12,61 +14,10 @@ import {
 import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";
-import type { TableColumns } from "./dialect";
-import type { EntityTableMeta } from "./entity-table-meta";
-import type { NotExecutorOnly } from "./table-builder";
 
-// biome-ignore lint/suspicious/noExplicitAny: Dynamic tables — keys depend on user-defined schema.
-type Table = TableColumns<any>;
+type Table = SchemaTable;
 
-// Method-form writes reject the executor-only brand exactly like the free-function
-// helpers (#742): a managed EntityTable is a rebuildable projection, so writing it
-// directly — free-function OR method-form — drifts the row past its event stream and
-// a rebuild wipes it. The permissive base stays (raw pgTables AND unmanaged entity
-// metas are not projections → writable); `& NotExecutorOnly` strips only branded
-// EntityTables (its `[EXECUTOR_ONLY]: true` violates the optional-never). Reads keep
-// the plain `Table` param.
-type WritableTable = (Table | EntityTableMeta) & NotExecutorOnly;
-
-/**
- * TenantDb scope modes:
- *
- * - "tenant" (default): SELECT/UPDATE/DELETE filtered by tenantId + reference data (tenantId=SYSTEM_TENANT_ID).
- *   INSERT forces tenantId — handler cannot override.
- *
- * - "system" (r.systemScope()): No tenant filter on reads/updates/deletes.
- *   INSERT uses tenantId as default but handler can override.
- *
- * Tables without a tenantId column are always unfiltered regardless of mode.
- */
-export type TenantDbMode = "tenant" | "system";
-
-export type TenantDb = {
-  readonly tenantId: TenantId;
-  readonly mode: TenantDbMode;
-  /**
-   * Underlying DbRunner. Framework-internal use (event-store, migrations) —
-   * bypasses tenant-filter. Feature code uses the typed helpers above so the
-   * automatic scoping stays intact.
-   */
-  readonly raw: DbRunner;
-  selectMany<T = Record<string, unknown>>(
-    table: Table,
-    where?: WhereObject,
-    options?: SelectOptions,
-  ): Promise<readonly T[]>;
-  fetchOne<T = Record<string, unknown>>(table: Table, where: WhereObject): Promise<T | undefined>;
-  insertOne<T = Record<string, unknown>>(
-    table: WritableTable,
-    values: Record<string, unknown>,
-  ): Promise<T | undefined>;
-  updateMany<T = Record<string, unknown>>(
-    table: WritableTable,
-    set: Record<string, unknown>,
-    where: WhereObject,
-  ): Promise<readonly T[]>;
-  deleteMany(table: WritableTable, where: WhereObject): Promise<void>;
-};
+export type { TenantDb, TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
 
 // @cast-boundary tenant-db-row
 export function castTenantRows<T>(rows: readonly Record<string, unknown>[]): readonly T[] {
