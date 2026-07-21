@@ -590,6 +590,52 @@ describe("boot-validator", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
+  test("throws when a stream handler has no access rule", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.streamHandler("chat:complete", z.object({}), async function* () {});
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/a:stream:chat:complete.*missing an access rule/i);
+  });
+
+  test("accepts openToAll access rule on a stream handler", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.streamHandler("chat:complete", z.object({}), async function* () {}, {
+          access: { openToAll: true },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("throws when an anonymous stream handler uses a user-bucketed rate limit", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.streamHandler("chat:complete", z.object({}), async function* () {}, {
+          access: { roles: ["anonymous"] },
+          rateLimit: { per: "user", limit: 10, windowSeconds: 60 },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /stream handler "a:stream:chat:complete" allows anonymous callers/i,
+    );
+  });
+
+  test("accepts an anonymous stream handler with an ip-bucketed rate limit", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.streamHandler("chat:complete", z.object({}), async function* () {}, {
+          access: { roles: ["anonymous"] },
+          rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
   describe("config key bounds consistency", () => {
     test("accepts number key with consistent bounds + default", () => {
       const features = [

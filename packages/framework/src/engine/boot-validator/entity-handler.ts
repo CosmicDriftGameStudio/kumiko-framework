@@ -119,11 +119,20 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
     }
     validateAnonymousRateLimit(feature.name, "query", name, handler.access, handler.rateLimit);
   }
+  for (const [name, handler] of Object.entries(feature.streamHandlers)) {
+    if (!handler.access) {
+      throw new Error(
+        `Stream handler "${feature.name}:stream:${name}" is missing an access rule. ` +
+          `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
+      );
+    }
+    validateAnonymousRateLimit(feature.name, "stream", name, handler.access, handler.rateLimit);
+  }
 }
 
 export function validateAnonymousRateLimit(
   featureName: string,
-  kind: "write" | "query",
+  kind: "write" | "query" | "stream",
   handlerName: string,
   access: NonNullable<FeatureDefinition["writeHandlers"][string]["access"]>,
   rateLimit: FeatureDefinition["writeHandlers"][string]["rateLimit"],
