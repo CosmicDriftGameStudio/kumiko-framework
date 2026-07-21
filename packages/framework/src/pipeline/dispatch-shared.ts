@@ -559,7 +559,7 @@ export function buildHandlerContext(
 export async function runHandlerInstrumented<T>(
   ctx: DispatchContext,
   type: string,
-  operation: "query" | "write",
+  operation: "query" | "write" | "stream",
   user: SessionUser,
   inner: () => Promise<T>,
 ): Promise<T> {
@@ -598,6 +598,44 @@ export async function runHandlerInstrumented<T>(
       },
     );
   } finally {
+    if (!success && errorClass) {
+      emitDispatcherError(dispatcherMeter, { handler: type, errorClass });
+    }
+    emitDispatcherHandler(
+      dispatcherMeter,
+      { handler: type, success },
+      (performance.now() - start) / 1000,
+    );
+  }
+}
+
+// Generator-native counterpart to runHandlerInstrumented — a stream's
+// lifetime spans every `for await` pull the caller makes, so the span
+// can't be scoped via withSpan's single-callback shape. startSpan/end
+// bracket the whole yield* instead; metrics land in the same finally
+// path so success/failure/throw all hit one emit, like the Promise path.
+export async function* runStreamInstrumented<T>(
+  ctx: DispatchContext,
+  type: string,
+  user: SessionUser,
+  inner: () => AsyncGenerator<T>,
+): AsyncGenerator<T> {
+  const { tracer: dispatcherTracer, meter: dispatcherMeter, registry } = ctx;
+  const start = performance.now();
+  let success = true;
+  let errorClass: string | undefined;
+  const span = dispatcherTracer.startSpan("kumiko.dispatcher.handler", {
+    attributes: dispatcherSpanAttributes(type, "stream", user, registry.getHandlerFeature(type)),
+  });
+  try {
+    yield* inner();
+  } catch (error) {
+    success = false;
+    errorClass = error instanceof Error && error.name ? error.name : "UnknownError";
+    span.setStatus("error", errorClass);
+    throw error;
+  } finally {
+    span.end();
     if (!success && errorClass) {
       emitDispatcherError(dispatcherMeter, { handler: type, errorClass });
     }
