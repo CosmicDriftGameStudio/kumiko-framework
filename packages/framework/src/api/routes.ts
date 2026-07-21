@@ -1,4 +1,5 @@
 import { type Context, Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { SessionUser } from "../engine/types/handlers";
 import {
@@ -16,6 +17,7 @@ import { Routes } from "./api-constants";
 import { getUser } from "./auth-middleware";
 import { patAllows } from "./pat-scope";
 import { requestContext } from "./request-context";
+import { SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route";
 
 export function createApiRoutes(dispatcher: Dispatcher) {
   const api = new Hono();
@@ -119,6 +121,61 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     } catch (e) {
       return queryErrorResponse(c, toKumiko(e), body.type);
     }
+  });
+
+  // Dispatcher-driven SSE, full auth/CSRF/rate-limit chain (unlike the
+  // broker-based /sse route). Frame contract for clients: "chunk" (one per
+  // yielded value, JSON-encoded), "ping" (heartbeat, empty data), "done"
+  // (terminal, empty data), "error" (terminal, JSON error envelope — the
+  // response status stays 200 since SSE headers are already flushed before
+  // dispatch gates run on the generator's first pull).
+  api.post(Routes.stream, async (c) => {
+    const user = getUser(c);
+    const body = await c.req.json<{ type: string; payload: unknown }>();
+    const requestId = requestContext.get()?.requestId;
+
+    try {
+      assertPatAllowed(user, body.type);
+    } catch (e) {
+      return queryErrorResponse(c, toKumiko(e), body.type);
+    }
+
+    return streamSSE(c, async (stream) => {
+      const generator = dispatcher.stream(body.type, body.payload, user);
+      stream.onAbort(() => {
+        void generator.return(undefined);
+      });
+
+      try {
+        let pending = generator.next();
+        while (true) {
+          let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
+          const heartbeat = new Promise<"heartbeat">((resolve) => {
+            heartbeatTimer = setTimeout(() => resolve("heartbeat"), SSE_HEARTBEAT_INTERVAL_MS);
+          });
+          let outcome: Awaited<typeof pending> | "heartbeat";
+          try {
+            outcome = await Promise.race([pending, heartbeat]);
+          } finally {
+            clearTimeout(heartbeatTimer);
+          }
+
+          if (outcome === "heartbeat") {
+            await stream.writeSSE({ event: "ping", data: "" });
+            continue;
+          }
+          if (outcome.done) break;
+          await stream.writeSSE({ event: "chunk", data: stringifyJson(outcome.value) });
+          pending = generator.next();
+        }
+        await stream.writeSSE({ event: "done", data: "" });
+      } catch (e) {
+        const err = toKumiko(e);
+        logServerFault(err, requestId, body.type);
+        const { error } = serializeError(err, requestId);
+        await stream.writeSSE({ event: "error", data: stringifyJson(error) });
+      }
+    });
   });
 
   return api;

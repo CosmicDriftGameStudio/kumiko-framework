@@ -28,6 +28,17 @@ const testFeature = defineFeature("test", (r) => {
     async () => [{ id: 1, name: "Test" }],
     { access: { openToAll: true } },
   );
+
+  r.streamHandler(
+    "item:tail",
+    z.object({ count: z.number().int().min(0) }),
+    async function* (query) {
+      for (let i = 0; i < query.payload.count; i++) {
+        yield { i };
+      }
+    },
+    { access: { roles: ["Admin"] } },
+  );
 });
 
 const registry = createRegistry([testFeature]);
@@ -212,6 +223,60 @@ describe("GET /api/sse", () => {
     const res = await app.request("/api/sse", { headers });
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/event-stream");
+  });
+});
+
+// --- Stream (dispatcher-driven SSE) ---
+
+function parseSseFrames(text: string): Array<{ event: string; data: string }> {
+  return text
+    .split("\n\n")
+    .filter((frame) => frame.trim().length > 0)
+    .map((frame) => {
+      const event = /^event: (.*)$/m.exec(frame)?.[1] ?? "";
+      const data = /^data: (.*)$/m.exec(frame)?.[1] ?? "";
+      return { event, data };
+    });
+}
+
+describe("POST /api/stream", () => {
+  test("dispatches stream handler and yields chunk frames then done", async () => {
+    const headers = await authHeader(adminUser);
+    const res = await req(
+      "POST",
+      "/api/stream",
+      { type: "test:stream:item:tail", payload: { count: 3 } },
+      headers,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    const frames = parseSseFrames(await res.text());
+    expect(frames).toEqual([
+      { event: "chunk", data: JSON.stringify({ i: 0 }) },
+      { event: "chunk", data: JSON.stringify({ i: 1 }) },
+      { event: "chunk", data: JSON.stringify({ i: 2 }) },
+      { event: "done", data: "" },
+    ]);
+  });
+
+  test("access-denied gate surfaces as an error frame, not an HTTP error status", async () => {
+    // Dispatch gates (feature/rate-limit/access/validation) fire on the
+    // generator's first pull, which happens after SSE headers are already
+    // flushed — so an access-denied mid-stream stays HTTP 200.
+    const headers = await authHeader(guestUser);
+    const res = await req(
+      "POST",
+      "/api/stream",
+      { type: "test:stream:item:tail", payload: { count: 1 } },
+      headers,
+    );
+
+    expect(res.status).toBe(200);
+    const frames = parseSseFrames(await res.text());
+    expect(frames).toHaveLength(1);
+    expect(frames[0]?.event).toBe("error");
+    expect(JSON.parse(frames[0]?.data ?? "{}")).toMatchObject({ code: "access_denied" });
   });
 });
 
