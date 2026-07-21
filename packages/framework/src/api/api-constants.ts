@@ -10,6 +10,7 @@ export const Routes = {
   query: "/query",
   command: "/command",
   sse: "/sse",
+  stream: "/stream",
   auth: "/auth",
   authLogin: "/auth/login",
   authMfaVerify: "/auth/mfa/verify",
