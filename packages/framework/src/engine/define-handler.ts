@@ -10,6 +10,7 @@ import type {
 
 export type {
   QueryHandlerDefinition,
+  StreamHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
 } from "./types/define-handler";

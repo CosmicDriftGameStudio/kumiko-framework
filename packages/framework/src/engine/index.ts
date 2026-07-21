@@ -42,6 +42,7 @@ export { crossTenantOverrideDenied } from "./cross-tenant";
 export { defineFeature } from "./define-feature";
 export type {
   QueryHandlerDefinition,
+  StreamHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
 } from "./define-handler";
@@ -364,6 +365,8 @@ export type {
   SecretKeyHandle,
   SelectFieldDef,
   SessionUser,
+  StreamHandlerDef,
+  StreamHandlerFn,
   Subscribe,
   TargetRef,
   TenantId,

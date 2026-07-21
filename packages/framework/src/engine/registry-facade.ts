@@ -30,6 +30,7 @@ import type {
   SearchPayloadContributorFn,
   SecretKeyDefinition,
   StoreTableDef,
+  StreamHandlerDef,
   TranslationKeys,
   TreeActionDef,
   WorkspaceDefinition,
@@ -70,6 +71,14 @@ export function buildRegistryFacade(state: RegistryState): Registry {
 
     getAllQueryHandlers(): ReadonlyMap<string, QueryHandlerDef> {
       return state.queryHandlerMap;
+    },
+
+    getStreamHandler(name: string): StreamHandlerDef | undefined {
+      return state.streamHandlerMap.get(name);
+    },
+
+    getAllStreamHandlers(): ReadonlyMap<string, StreamHandlerDef> {
+      return state.streamHandlerMap;
     },
 
     getSearchableFields(entityName: string): readonly string[] {

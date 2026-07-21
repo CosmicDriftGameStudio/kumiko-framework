@@ -510,6 +510,13 @@ export type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (
   context: HandlerContext,
 ) => Promise<TResult>;
 
+// Dispatch (#1378) awaits this as an async-generator rather than a single
+// response — the chunk-by-chunk shape is load-bearing, not a Promise<TResult>.
+export type StreamHandlerFn<TPayload = unknown, TChunk = unknown> = (
+  query: QueryEvent<TPayload>,
+  context: HandlerContext,
+) => AsyncGenerator<TChunk>;
+
 // --- Event Definitions ---
 
 /**
@@ -816,6 +823,14 @@ export type QueryHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: QueryHandlerFn;
+  readonly access?: AccessRule;
+  readonly rateLimit?: RateLimitOption;
+};
+
+export type StreamHandlerDef = {
+  readonly name: string;
+  readonly schema: ZodType;
+  readonly handler: StreamHandlerFn;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
 };

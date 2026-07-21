@@ -106,6 +106,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     relations: state.relations,
     writeHandlers: state.writeHandlers,
     queryHandlers: state.queryHandlers,
+    streamHandlers: state.streamHandlers,
     translations: state.translations,
     hooks: {
       validation: state.validationHooks,

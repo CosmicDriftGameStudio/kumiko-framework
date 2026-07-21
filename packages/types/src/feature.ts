@@ -17,7 +17,11 @@ import type {
   TranslationKeys,
   TranslationsDef,
 } from "./config";
-import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
+import type {
+  QueryHandlerDefinition,
+  StreamHandlerDefinition,
+  WriteHandlerDefinition,
+} from "./define-handler";
 import type { RegisterEntityCrudOptions } from "./entity-handlers";
 import type { EntityTableMeta } from "./entity-table-meta-types";
 import type { EntityDefinition } from "./fields";
@@ -40,6 +44,8 @@ import type {
   QueryHandlerDef,
   QueryHandlerFn,
   RateLimitOption,
+  StreamHandlerDef,
+  StreamHandlerFn,
   WriteHandlerDef,
   WriteHandlerFn,
 } from "./handlers";
@@ -253,6 +259,7 @@ export type FeatureDefinition = {
   readonly relations: Readonly<Record<string, EntityRelations>>;
   readonly writeHandlers: Readonly<Record<string, WriteHandlerDef>>;
   readonly queryHandlers: Readonly<Record<string, QueryHandlerDef>>;
+  readonly streamHandlers: Readonly<Record<string, StreamHandlerDef>>;
   readonly translations: TranslationKeys;
   readonly hooks?: HookMap;
   readonly entityHooks?: EntityHookMap;
@@ -451,6 +458,16 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     name: string,
     schema: TSchema,
     handler: QueryHandlerFn<z.infer<TSchema>>,
+    options?: { access?: AccessRule; rateLimit?: RateLimitOption },
+  ): HandlerRef;
+
+  streamHandler<TName extends string, TSchema extends ZodType>(
+    def: StreamHandlerDefinition<TName, TSchema>,
+  ): HandlerRef;
+  streamHandler<TSchema extends ZodType>(
+    name: string,
+    schema: TSchema,
+    handler: StreamHandlerFn<z.infer<TSchema>>,
     options?: { access?: AccessRule; rateLimit?: RateLimitOption },
   ): HandlerRef;
 
@@ -832,6 +849,8 @@ export type Registry = {
   getWriteHandler(name: string): WriteHandlerDef | undefined;
   getQueryHandler(name: string): QueryHandlerDef | undefined;
   getAllQueryHandlers(): ReadonlyMap<string, QueryHandlerDef>;
+  getStreamHandler(name: string): StreamHandlerDef | undefined;
+  getAllStreamHandlers(): ReadonlyMap<string, StreamHandlerDef>;
   getSearchableFields(entityName: string): readonly string[];
   getSortableFields(entityName: string): readonly string[];
   getRelations(entityName: string): EntityRelations;
