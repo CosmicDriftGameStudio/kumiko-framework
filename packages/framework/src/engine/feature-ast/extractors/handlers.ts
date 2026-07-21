@@ -1,7 +1,7 @@
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { AccessRule, RateLimitOption } from "../../types/handlers";
-import type { QueryHandlerPattern, WriteHandlerPattern } from "../patterns";
+import type { QueryHandlerPattern, StreamHandlerPattern, WriteHandlerPattern } from "../patterns";
 import type { SourceLocation } from "../source-location";
 import { sourceLocationFromNode } from "../source-location";
 import { readOptionalAccessRule, readOptionalRateLimit } from "./hooks";
@@ -44,7 +44,7 @@ function resolveObjectLiteralArg(node: Node) {
 export function parseHandlerCall(
   call: CallExpression,
   sourceFile: SourceFile,
-  methodName: "writeHandler" | "queryHandler",
+  methodName: "writeHandler" | "queryHandler" | "streamHandler",
 ): ExtractOutput<ParsedHandlerCall> {
   const args = call.getArguments();
   const first = args[0];
@@ -212,6 +212,23 @@ export function extractQueryHandler(
   if (parsed.kind === "error") return parsed;
   return ok({
     kind: "queryHandler",
+    source: parsed.pattern.source,
+    handlerName: parsed.pattern.handlerName,
+    schemaSource: parsed.pattern.schemaSource,
+    handlerBody: parsed.pattern.handlerBody,
+    ...(parsed.pattern.access !== undefined && { access: parsed.pattern.access }),
+    ...(parsed.pattern.rateLimit !== undefined && { rateLimit: parsed.pattern.rateLimit }),
+  });
+}
+
+export function extractStreamHandler(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<StreamHandlerPattern> {
+  const parsed = parseHandlerCall(call, sourceFile, "streamHandler");
+  if (parsed.kind === "error") return parsed;
+  return ok({
+    kind: "streamHandler",
     source: parsed.pattern.source,
     handlerName: parsed.pattern.handlerName,
     schemaSource: parsed.pattern.schemaSource,

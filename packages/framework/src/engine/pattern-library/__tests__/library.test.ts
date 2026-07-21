@@ -46,6 +46,7 @@ const ALL_KINDS: FeaturePatternKind[] = [
   "screen",
   "writeHandler",
   "queryHandler",
+  "streamHandler",
   "hook",
   "job",
   "notification",
@@ -263,6 +264,14 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
         handlerBody: PLACEHOLDER_BODY_LOC,
       };
     case "queryHandler":
+      return {
+        kind,
+        source: PLACEHOLDER_LOC,
+        handlerName: "x",
+        schemaSource: PLACEHOLDER_BODY_LOC,
+        handlerBody: PLACEHOLDER_BODY_LOC,
+      };
+    case "streamHandler":
       return {
         kind,
         source: PLACEHOLDER_LOC,

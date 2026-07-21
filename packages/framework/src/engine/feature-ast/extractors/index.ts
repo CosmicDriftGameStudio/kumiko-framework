@@ -4,6 +4,7 @@ export {
 } from "./events";
 export {
   extractQueryHandler,
+  extractStreamHandler,
   extractWriteHandler,
   type ParsedHandlerCall,
   parseHandlerCall,

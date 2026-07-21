@@ -206,6 +206,15 @@ defineFeature("workflow", (r) => {
     { access: { openToAll: true } },
   );
 
+  r.streamHandler(
+    "step:stream",
+    z.object({ prompt: z.string() }),
+    async function* (input, ctx) {
+      yield "token";
+    },
+    { access: { roles: ["user"] } },
+  );
+
   r.hook("postSave", "step", async (event, ctx) => {
     console.log("step saved");
   });

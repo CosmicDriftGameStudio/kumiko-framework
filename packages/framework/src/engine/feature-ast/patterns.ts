@@ -374,6 +374,20 @@ export type QueryHandlerPattern = {
   readonly rateLimit?: RateLimitOption;
 };
 
+// `r.streamHandler(...)` — registers a streaming read handler: name, Zod
+// input schema, async-generator handler closure, plus optional `access` and
+// `rateLimit` rules. Same header/body split and opaque single-reference
+// case as QueryHandlerPattern.
+export type StreamHandlerPattern = {
+  readonly kind: "streamHandler";
+  readonly source: SourceLocation;
+  readonly handlerName?: string;
+  readonly schemaSource?: SourceLocation;
+  readonly handlerBody?: SourceLocation;
+  readonly access?: AccessRule;
+  readonly rateLimit?: RateLimitOption;
+};
+
 // `r.hook(type, target, fn, options?)` — attaches a lifecycle hook
 // (`validation`, `preSave`, `postSave`, `preDelete`, `postDelete`,
 // `preQuery`, `postQuery`) to one or more target handlers, or — for
@@ -592,6 +606,7 @@ export type FeaturePattern =
   | ScreenPattern
   | WriteHandlerPattern
   | QueryHandlerPattern
+  | StreamHandlerPattern
   | HookPattern
   | JobPattern
   | NotificationPattern
@@ -647,6 +662,7 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "screen":
     case "writeHandler":
     case "queryHandler":
+    case "streamHandler":
     case "hook":
     case "job":
     case "notification":

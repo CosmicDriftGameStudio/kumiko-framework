@@ -43,6 +43,7 @@ export type {
   AddRequiresArgs,
   AddScreenArgs,
   AddSecretArgs,
+  AddStreamHandlerArgs,
   AddToggleableArgs,
   AddTranslationsArgs,
   AddUseExtensionArgs,
@@ -79,6 +80,7 @@ export type {
   // Mixed patterns
   ScreenPattern,
   SecretPattern,
+  StreamHandlerPattern,
   SystemScopePattern,
   ToggleablePattern,
   TranslationsPattern,

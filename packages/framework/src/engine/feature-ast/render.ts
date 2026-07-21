@@ -44,6 +44,7 @@ import type {
   RequiresPattern,
   ScreenPattern,
   SecretPattern,
+  StreamHandlerPattern,
   SystemScopePattern,
   ToggleablePattern,
   TranslationsPattern,
@@ -109,6 +110,8 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderWriteHandler(pattern);
     case "queryHandler":
       return renderQueryHandler(pattern);
+    case "streamHandler":
+      return renderStreamHandler(pattern);
     case "hook":
       return renderHook(pattern);
     case "job":
@@ -386,6 +389,18 @@ function renderWriteHandler(p: WriteHandlerPattern): string {
 function renderQueryHandler(p: QueryHandlerPattern): string {
   if (p.handlerName === undefined) return p.source.raw;
   const lines: string[] = ["r.queryHandler({"];
+  lines.push(`  name: ${JSON.stringify(p.handlerName)},`);
+  lines.push(`  schema: ${reindentBody(p.schemaSource?.raw ?? "", PATTERN_INDENT)},`);
+  lines.push(`  handler: ${reindentBody(p.handlerBody?.raw ?? "", PATTERN_INDENT)},`);
+  if (p.access !== undefined) lines.push(`  access: ${renderValue(p.access)},`);
+  if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
+  lines.push("});");
+  return lines.join("\n");
+}
+
+function renderStreamHandler(p: StreamHandlerPattern): string {
+  if (p.handlerName === undefined) return p.source.raw;
+  const lines: string[] = ["r.streamHandler({"];
   lines.push(`  name: ${JSON.stringify(p.handlerName)},`);
   lines.push(`  schema: ${reindentBody(p.schemaSource?.raw ?? "", PATTERN_INDENT)},`);
   lines.push(`  handler: ${reindentBody(p.handlerBody?.raw ?? "", PATTERN_INDENT)},`);

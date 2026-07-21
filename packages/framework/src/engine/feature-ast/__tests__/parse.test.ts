@@ -1092,6 +1092,58 @@ defineFeature("f", (r) => {
   });
 });
 
+describe("extractStreamHandler", () => {
+  test("inline form: name, schema, handler, options", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.streamHandler("chat:complete", z.object({ prompt: z.string() }), async function* (input, ctx) {
+    yield "token";
+  }, { access: { roles: ["User"] } });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "streamHandler",
+      handlerName: "chat:complete",
+      access: { roles: ["User"] },
+    });
+  });
+
+  test("object form: name, schema, handler", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.streamHandler({
+    name: "chat:complete",
+    schema: z.object({ prompt: z.string() }),
+    handler: async function* (input, ctx) { yield "token"; },
+    access: { openToAll: true },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "streamHandler",
+      handlerName: "chat:complete",
+      access: { openToAll: true },
+    });
+  });
+
+  test("keeps an unresolvable ref as an opaque pattern instead of failing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.streamHandler(chatCompleteHandler);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "streamHandler",
+      handlerName: undefined,
+      source: { raw: "r.streamHandler(chatCompleteHandler)" },
+    });
+    expect(result.errors).toEqual([]);
+  });
+});
+
 describe("extractJob", () => {
   test("captures jobName, options and handler body", () => {
     const result = parseInline(`
