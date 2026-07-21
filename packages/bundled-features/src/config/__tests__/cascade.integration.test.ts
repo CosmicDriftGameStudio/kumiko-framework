@@ -553,11 +553,7 @@ describe("getAll / getAllWithSource", () => {
   });
 
   test("getAllWithSource tags the winning row's source", async () => {
-    const withSource = await resolver.getAllWithSource(
-      tenantAdmin.tenantId,
-      tenantAdmin.id,
-      db,
-    );
+    const withSource = await resolver.getAllWithSource(tenantAdmin.tenantId, tenantAdmin.id, db);
 
     const userRow = withSource.get(USER_KEY);
     expect(userRow?.source).toBe("user-row");
@@ -570,4 +566,3 @@ describe("getAll / getAllWithSource", () => {
     expect(systemRow?.source).toBe("system-row");
   });
 });
-

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { z } from "zod";
 import { requestContext } from "../../api/request-context";
 import { createRegistry, defineFeature } from "../../engine";
-import { z } from "zod";
 import type { AppContext, Registry } from "../../engine/types";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
 import { sleep, waitFor } from "../../testing";
@@ -671,7 +671,7 @@ describe("error handling", () => {
 
   test("perTenant with getActiveTenantIds fans out one run per tenant", async () => {
     clearLog();
-    const tenants = ["tenant-fan-a", "tenant-fan-b"];
+    const tenants = [101, 102];
     await withRunner(
       async (runner) => {
         await runner.dispatch("test:job:per-tenant-fanout", { n: 7 });

@@ -127,4 +127,3 @@ describe("validateAppOverrides", () => {
     ).toThrow(/expected string, got number/i);
   });
 });
-
