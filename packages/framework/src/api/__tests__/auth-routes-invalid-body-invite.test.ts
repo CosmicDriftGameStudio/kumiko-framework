@@ -33,6 +33,8 @@ function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
     async resolveAuthClaims(): Promise<Record<string, unknown>> {
       return {};
     },
+    // Stream API added with r.streamHandler (#1446) — stub unused in these routes.
+    async *stream(): AsyncGenerator<unknown> {},
   };
   return { ...base, ...overrides };
 }

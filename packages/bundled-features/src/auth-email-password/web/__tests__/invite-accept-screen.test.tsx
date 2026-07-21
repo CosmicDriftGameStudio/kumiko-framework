@@ -86,7 +86,9 @@ describe("InviteAcceptScreen — logged-in branch", () => {
   });
 
   test("accept logged-in failure shows invalidInviteToken banner", async () => {
-    globalThis.fetch = mock(async () => new Response(null, { status: 422 })) as unknown as typeof fetch;
+    globalThis.fetch = mock(
+      async () => new Response(null, { status: 422 }),
+    ) as unknown as typeof fetch;
     renderWithProviders(<InviteAcceptScreen token="bad" />, {
       session: makeSessionApi({ status: "authenticated" }),
     });
@@ -147,7 +149,9 @@ describe("InviteAcceptScreen — anonymous branches", () => {
   });
 
   test("anon failure shows invalidInviteToken banner", async () => {
-    globalThis.fetch = mock(async () => new Response(null, { status: 422 })) as unknown as typeof fetch;
+    globalThis.fetch = mock(
+      async () => new Response(null, { status: 422 }),
+    ) as unknown as typeof fetch;
     renderWithoutSessionProvider("tok-123");
     fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@example.com" } });
     fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "wrong" } });
@@ -157,4 +161,3 @@ describe("InviteAcceptScreen — anonymous branches", () => {
     });
   });
 });
-

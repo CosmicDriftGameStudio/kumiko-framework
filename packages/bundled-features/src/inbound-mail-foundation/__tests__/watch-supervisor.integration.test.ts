@@ -407,15 +407,19 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
     }
   });
 
-  test("start() is idempotent — second start does not throw", async () => {
+  test("start() is idempotent — second start keeps the watcher armed", async () => {
+    const admin = adminFor(4112);
+    const accountId = await connectSharedAccount(admin);
     const supervisor = createSupervisor();
     try {
       await supervisor.start();
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(true);
+      });
       await supervisor.start();
+      expect(isWatching(accountId)).toBe(true);
     } finally {
       await supervisor.stop();
     }
   });
 });
-
-
