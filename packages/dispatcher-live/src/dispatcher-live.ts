@@ -9,11 +9,13 @@ import {
   type PendingWrite,
   type QueryOpts,
   type QueryResult,
+  type StreamOpts,
   type WriteOpts,
   type WriteResult,
 } from "@cosmicdrift/kumiko-headless";
 import { CSRF_HEADER_NAME, readCsrfToken } from "./csrf";
 import { buildAbortError, buildNetworkError, mapServerError } from "./error-mapping";
+import { iterateSseChunks } from "./sse-stream";
 
 // HTTP-only dispatcher. Maps Kumiko's client-side Dispatcher contract to
 // `POST /api/{write,query,batch}`. No local store, no queue, no retry —
@@ -55,6 +57,7 @@ export type LiveDispatcherOptions = {
 const PATH_WRITE = "/api/write";
 const PATH_QUERY = "/api/query";
 const PATH_BATCH = "/api/batch";
+const PATH_STREAM = "/api/stream";
 
 export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispatcher {
   const baseUrl = options.baseUrl ?? "";
@@ -181,6 +184,81 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
       body["requestId"] = opts?.requestId ?? generateRequestId();
       const call = await callJson(PATH_BATCH, body, opts?.signal);
       return normalizeBatchResponse(call);
+    },
+
+    async *stream<TChunk = unknown>(
+      type: string,
+      payload: unknown,
+      opts?: StreamOpts,
+    ): AsyncGenerator<TChunk, void, undefined> {
+      const f = options.fetch ?? globalThis.fetch;
+      if (!f) {
+        throw buildNetworkError(
+          "fetch is not available in this runtime — inject via LiveDispatcherOptions.fetch",
+        );
+      }
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      };
+      const csrf = readCsrf();
+      if (csrf !== undefined) headers[CSRF_HEADER_NAME] = csrf;
+
+      let response: Response;
+      try {
+        response = await f(`${baseUrl}${PATH_STREAM}`, {
+          method: "POST",
+          credentials: "include",
+          headers,
+          body: JSON.stringify({ type, payload }),
+          signal: opts?.signal,
+        });
+      } catch (e) {
+        if (isAbortError(e)) throw buildAbortError();
+        observeNetworkOutcome(false);
+        throw buildNetworkError(e);
+      }
+
+      observeNetworkOutcome(true);
+
+      const contentType = response.headers.get("content-type") ?? "";
+      // Pre-SSE gate failures (PAT deny, etc.) return a normal JSON error
+      // envelope — map them like /api/query before trying to read SSE.
+      if (!contentType.includes("text/event-stream")) {
+        let parsed: unknown;
+        try {
+          parsed = await response.json();
+        } catch (e) {
+          throw buildNetworkError(
+            `invalid stream response (${response.status}): ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        }
+        const body = parsed as { error?: ServerErrorLike };
+        if (body?.error) {
+          throw mapServerError({
+            ...body.error,
+            httpStatus: body.error.httpStatus ?? response.status,
+          });
+        }
+        throw buildNetworkError(`unexpected non-SSE stream response (${response.status})`);
+      }
+
+      if (!response.body) {
+        throw buildNetworkError("stream response has no body");
+      }
+
+      try {
+        yield* iterateSseChunks<TChunk>(response.body);
+      } catch (e) {
+        // Abort can surface on the initial fetch OR while reading the SSE
+        // body — both must map to the same `aborted` envelope so hooks
+        // (useStreamHandler) can ignore user-cancel without an error toast.
+        if (isAbortError(e) || opts?.signal?.aborted) throw buildAbortError();
+        throw e;
+      }
     },
 
     statusStore,

@@ -34,6 +34,7 @@ export type {
   PendingWrite,
   QueryOpts,
   QueryResult,
+  StreamOpts,
   WriteOpts,
   WriteResult,
 } from "./dispatcher";

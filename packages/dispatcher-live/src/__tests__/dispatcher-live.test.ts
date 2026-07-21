@@ -299,6 +299,93 @@ describe("createLiveDispatcher", () => {
     expect(disp.pendingFiles()).toEqual([]);
   });
 
+  test("stream: POSTs to /api/stream, yields chunk frames, stops on done", async () => {
+    const sse = [
+      "event: chunk",
+      'data: {"i":0}',
+      "",
+      "event: ping",
+      "data: ",
+      "",
+      "event: chunk",
+      'data: {"i":1}',
+      "",
+      "event: done",
+      "data: ",
+      "",
+    ].join("\n");
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = mock(async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return new Response(sse, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    }) as unknown as typeof globalThis.fetch;
+
+    const disp = createLiveDispatcher({ fetch: fetchMock, readCsrf: () => "csrf-s" });
+    const chunks: unknown[] = [];
+    for await (const c of disp.stream("app:stream:x:tail", { n: 2 })) chunks.push(c);
+
+    expect(chunks).toEqual([{ i: 0 }, { i: 1 }]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe("/api/stream");
+    expect(calls[0]?.init.method).toBe("POST");
+    const headers = calls[0]?.init.headers as Record<string, string>;
+    expect(headers["Accept"]).toBe("text/event-stream");
+    expect(headers["X-CSRF-Token"]).toBe("csrf-s");
+    expect(JSON.parse(calls[0]?.init.body as string)).toEqual({
+      type: "app:stream:x:tail",
+      payload: { n: 2 },
+    });
+  });
+
+  test("stream: non-SSE JSON error envelope maps like query failures", async () => {
+    const fetchMock = mock(async () =>
+      Response.json(
+        {
+          error: {
+            code: "csrf_token_mismatch",
+            httpStatus: 403,
+            i18nKey: "errors.csrf",
+            message: "csrf",
+          },
+        },
+        { status: 403 },
+      ),
+    ) as unknown as typeof globalThis.fetch;
+
+    const disp = createLiveDispatcher({ fetch: fetchMock, readCsrf: () => undefined });
+    let thrown: unknown;
+    try {
+      for await (const _ of disp.stream("app:stream:x:tail", {})) {
+        // no chunks
+      }
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toMatchObject({ code: "csrf_token_mismatch" });
+  });
+
+  test("stream: AbortError on fetch maps to code aborted", async () => {
+    const fetchMock = mock(async (_url: string, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }) as unknown as typeof globalThis.fetch;
+
+    const disp = createLiveDispatcher({ fetch: fetchMock, readCsrf: () => "t" });
+    const ctrl = new AbortController();
+    let thrown: unknown;
+    try {
+      for await (const _ of disp.stream("app:stream:x:tail", {}, { signal: ctrl.signal })) {
+        // no chunks
+      }
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toMatchObject({ code: "aborted" });
+  });
+
   test("subscribeStatus returns unsubscribe handle", async () => {
     const fetch = mock(async () => {
       throw new Error("boom");

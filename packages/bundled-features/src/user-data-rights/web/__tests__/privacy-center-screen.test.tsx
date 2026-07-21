@@ -71,6 +71,7 @@ function makeDispatcher(
     query,
     batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
     statusStore,
+    async *stream() {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   } as unknown as Dispatcher; // @cast-boundary test-stub

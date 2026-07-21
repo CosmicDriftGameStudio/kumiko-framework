@@ -48,6 +48,17 @@ const itemFeature = defineFeature("dlive", (r) => {
     },
     { access: { roles: ["Admin"] } },
   );
+
+  r.streamHandler(
+    "item:tail",
+    z.object({ count: z.number().int().min(0) }),
+    async function* (query) {
+      for (let i = 0; i < query.payload.count; i++) {
+        yield { i, name: `n-${i}` };
+      }
+    },
+    { access: { roles: ["Admin"] } },
+  );
 });
 
 let stack: TestStack;
@@ -215,4 +226,67 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
     const rows = await selectMany(stack.db, itemTable);
     expect(rows).toHaveLength(0);
   });
+
+  test("stream: yields every chunk then completes (live dispatcher ↔ POST /api/stream)", async () => {
+    const { fetch, csrfToken } = await buildFetch();
+    const dispatcher = createLiveDispatcher({ fetch, readCsrf: () => csrfToken });
+
+    const chunks: Array<{ i: number; name: string }> = [];
+    for await (const chunk of dispatcher.stream<{ i: number; name: string }>(
+      "dlive:stream:item:tail",
+      { count: 3 },
+    )) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toEqual([
+      { i: 0, name: "n-0" },
+      { i: 1, name: "n-1" },
+      { i: 2, name: "n-2" },
+    ]);
+  });
+
+  test("stream: access-denied mid-stream throws mapped DispatcherError (HTTP still 200 SSE)", async () => {
+    // Non-Admin JWT — stream handler requires Admin. Gate fires after SSE
+    // headers are flushed, so the client sees an error frame, not HTTP 403.
+    const csrfToken = generateToken();
+    const guestJwt = await stack.jwt.sign(TestUsers.user);
+    const cookieHeader = `kumiko_auth=${guestJwt}; kumiko_csrf=${csrfToken}`;
+    const fetchImpl = (async (url: unknown, init: RequestInit | undefined) => {
+      return stack.app.request(String(url), {
+        ...(init ?? {}),
+        headers: { ...(init?.headers ?? {}), Cookie: cookieHeader },
+      });
+    }) as unknown as typeof fetch;
+    const dispatcher = createLiveDispatcher({ fetch: fetchImpl, readCsrf: () => csrfToken });
+
+    let thrown: unknown;
+    try {
+      for await (const _ of dispatcher.stream("dlive:stream:item:tail", { count: 1 })) {
+        // should not yield
+      }
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toMatchObject({ code: "access_denied" });
+  });
+
+  test("stream: validation failure throws mapped DispatcherError from error frame", async () => {
+    const { fetch, csrfToken } = await buildFetch();
+    const dispatcher = createLiveDispatcher({ fetch, readCsrf: () => csrfToken });
+
+    let thrown: unknown;
+    try {
+      for await (const _ of dispatcher.stream("dlive:stream:item:tail", { count: -1 })) {
+        // should not yield
+      }
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toMatchObject({ code: "validation_error" });
+  });
+
+  // AbortSignal mid-stream against Hono's in-memory `app.request` is
+  // unreliable (body often fully buffered before abort lands). Abort
+  // mapping for stream is covered in dispatcher-live unit tests.
 });

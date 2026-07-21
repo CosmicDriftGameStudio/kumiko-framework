@@ -21,6 +21,7 @@ function makeDispatcher(response?: WriteResult): Dispatcher & {
     async batch() {
       return { isSuccess: true, results: [] };
     },
+    async *stream() {},
     statusStore: createStore("online"),
     pendingWrites: () => [],
     pendingFiles: () => [],
@@ -166,6 +167,7 @@ describe("createFormController — submit()", () => {
         return { isSuccess: true as const, results: [] };
       },
       statusStore: createStore("online"),
+      async *stream() {},
       pendingWrites: () => [],
       pendingFiles: () => [],
     };
@@ -269,6 +271,7 @@ describe("createFormController — submit()", () => {
         return { isSuccess: true as const, results: [] };
       },
       statusStore: createStore("online"),
+      async *stream() {},
       pendingWrites: () => [],
       pendingFiles: () => [],
     };

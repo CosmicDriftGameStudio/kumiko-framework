@@ -175,6 +175,7 @@ export function createMockDispatcher(state: MockDispatcherState = {}): Dispatche
     query,
     batch,
     statusStore: ONLINE_STORE,
+    async *stream() {},
     pendingWrites: (): readonly PendingWrite[] => [],
     pendingFiles: (): readonly PendingFile[] => [],
   };

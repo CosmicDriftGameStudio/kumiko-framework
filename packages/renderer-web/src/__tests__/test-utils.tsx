@@ -157,6 +157,7 @@ export function createMockDispatcher(options: MockDispatcherOptions = {}): Dispa
       options.batch ??
       ((async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"]),
     statusStore,
+    async *stream() {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   };

@@ -37,6 +37,7 @@ function makeDispatcher(me: Record<string, unknown>): Dispatcher {
     query: (async () => ({ isSuccess: true, data: me })) as unknown as Dispatcher["query"],
     batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
     statusStore,
+    async *stream() {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   } as unknown as Dispatcher; // @cast-boundary test-stub

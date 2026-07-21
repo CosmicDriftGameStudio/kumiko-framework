@@ -149,6 +149,10 @@ export type QueryOpts = {
   readonly signal?: AbortSignal;
 };
 
+export type StreamOpts = {
+  readonly signal?: AbortSignal;
+};
+
 // ---------------------------------------------------------------------------
 // The contract
 // ---------------------------------------------------------------------------
@@ -172,6 +176,17 @@ export type Dispatcher = {
   ): Promise<QueryResult<TData>>;
 
   batch(commands: readonly Command[], opts?: WriteOpts): Promise<BatchResult>;
+
+  // Dispatcher-driven SSE (`POST /api/stream`, #1380/#1382). Yields one
+  // value per `chunk` frame. Terminal `done` ends the generator; terminal
+  // `error` rejects with a DispatcherError (thrown). Heartbeat `ping`
+  // frames are swallowed. Abort via opts.signal cancels the fetch and
+  // rejects with code `aborted`.
+  stream<TChunk = unknown>(
+    type: string,
+    payload: unknown,
+    opts?: StreamOpts,
+  ): AsyncGenerator<TChunk, void, undefined>;
 
   // --- Status ---
 

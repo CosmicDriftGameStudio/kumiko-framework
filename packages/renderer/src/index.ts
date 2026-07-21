@@ -95,6 +95,12 @@ export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query";
 export { useQuery } from "./hooks/use-query";
 export { useStore, useStoreSelector } from "./hooks/use-store";
 export type {
+  StreamStatus,
+  UseStreamHandlerOptions,
+  UseStreamHandlerResult,
+} from "./hooks/use-stream-handler";
+export { useStreamHandler } from "./hooks/use-stream-handler";
+export type {
   LocaleProviderProps,
   TranslationBundle,
   TranslationsByKey,
