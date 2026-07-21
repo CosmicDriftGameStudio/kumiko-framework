@@ -483,6 +483,60 @@ defineFeature("f", (r) => {
 
     expect(result.errors[0]?.methodName).toBe("entity");
   });
+
+  test("object form captures name + definition", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.entity({ name: "task", fields: { title: { type: "text" } } });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "entity",
+      entityName: "task",
+      definition: { fields: { title: { type: "text" } } },
+    });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.entity();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("entity");
+  });
+
+  test("emits ParseError when object form is missing the name property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.entity({ fields: {} });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("entity");
+  });
+
+  test("emits ParseError when object form definition contains a function value", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.entity({ name: "task", fields: { title: { type: "text", default: () => "x" } } });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("entity");
+  });
+
+  test("emits ParseError when the positional definition argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.entity("task");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("entity");
+  });
 });
 
 describe("extractRelation", () => {
@@ -525,6 +579,71 @@ defineFeature("f", (r) => {
 
     expect(result.errors[0]?.methodName).toBe("relation");
   });
+
+  test("object form captures entity, name and definition", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.relation({ entity: "task", name: "owner", kind: "belongsTo", to: "user" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "relation",
+      entityName: "task",
+      relationName: "owner",
+      definition: { kind: "belongsTo", to: "user" },
+    });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.relation();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("relation");
+  });
+
+  test("emits ParseError when object form is missing the entity property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.relation({ name: "owner", kind: "belongsTo" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("relation");
+  });
+
+  test("emits ParseError when object form is missing the name property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.relation({ entity: "task", kind: "belongsTo" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("relation");
+  });
+
+  test("emits ParseError when the relation name is not a string literal", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.relation("task", REL, { kind: "belongsTo" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("relation");
+  });
+
+  test("emits ParseError when the positional definition argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.relation("task", "owner");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("relation");
+  });
 });
 
 describe("extractNav", () => {
@@ -540,6 +659,26 @@ defineFeature("f", (r) => {
       definition: { id: "tasks", label: "Tasks", screen: "tasks:screen:list" },
     });
   });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.nav();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("nav");
+  });
+
+  test("emits ParseError when the definition is not a plain object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.nav(() => {});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("nav");
+  });
 });
 
 describe("extractWorkspace", () => {
@@ -554,6 +693,16 @@ defineFeature("f", (r) => {
       kind: "workspace",
       definition: { id: "admin", label: "Admin" },
     });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.workspace();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("workspace");
   });
 });
 
@@ -592,6 +741,26 @@ defineFeature("f", (r) => {
 
     expect(result.errors[0]?.methodName).toBe("config");
   });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.config();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("config");
+  });
+
+  test("emits ParseError when the argument is not a plain object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.config(() => {});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("config");
+  });
 });
 
 describe("extractTranslations", () => {
@@ -615,6 +784,26 @@ defineFeature("f", (r) => {
       },
     });
   });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.translations();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("translations");
+  });
+
+  test("emits ParseError when keys property is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.translations({});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("translations");
+  });
 });
 
 describe("extractMetric", () => {
@@ -631,6 +820,70 @@ defineFeature("f", (r) => {
       options: { type: "counter", description: "API requests" },
     });
   });
+
+  test("object form captures name + options", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.metric({ name: "requests", type: "counter", description: "API requests" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "metric",
+      shortName: "requests",
+      options: { type: "counter", description: "API requests" },
+    });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.metric();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("metric");
+  });
+
+  test("emits ParseError when object form is missing the name property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.metric({ type: "counter" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("metric");
+  });
+
+  test("emits ParseError when the name is not a string literal", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.metric(NAME, { type: "counter" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("metric");
+  });
+
+  test("emits ParseError when the options argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.metric("requests");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("metric");
+  });
+
+  test("emits ParseError when options is not a plain object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.metric("requests", () => {});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("metric");
+  });
 });
 
 describe("extractSecret", () => {
@@ -646,6 +899,30 @@ defineFeature("f", (r) => {
       shortName: "apiKey",
       options: { description: "Stripe API key" },
     });
+  });
+
+  test("object form captures name + options", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.secret({ name: "apiKey", description: "Stripe API key" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "secret",
+      shortName: "apiKey",
+      options: { description: "Stripe API key" },
+    });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.secret();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("secret");
   });
 });
 
@@ -668,6 +945,30 @@ defineFeature("f", (r) => {
     const result = parseInline(`
 defineFeature("f", (r) => {
   r.claimKey("teamId", { type: "bigint" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("claimKey");
+  });
+
+  test("object form captures name + type", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.claimKey({ name: "teamId", type: "string" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "claimKey",
+      shortName: "teamId",
+      claimType: "string",
+    });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.claimKey();
 });
 `);
 
@@ -767,6 +1068,16 @@ defineFeature("f", (r) => {
     expect(result.errors[0]?.methodName).toBe("referenceData");
   });
 
+  test("emits ParseError when object form is missing the entity property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData({ data: [{ id: "open" }] });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
   test("emits ParseError when object form's data is not an array of plain objects", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
@@ -791,6 +1102,37 @@ defineFeature("f", (r) => {
     const result = parseInline(`
 defineFeature("f", (r) => {
   r.referenceData("status", [{ id: "open" }], { upsertKey: 123 });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
+  test("emits ParseError when object form entity ref is unresolvable", () => {
+    const result = parseInline(`
+const ent = { name: "status" };
+defineFeature("f", (r) => {
+  r.referenceData({ entity: ent, data: [{ id: "open" }] });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
+  test("emits ParseError when positional data is not an array of plain objects", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData("status", "not-an-array");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
+  test("emits ParseError when positional options is not a plain object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData("status", [{ id: "open" }], () => {});
 });
 `);
 
@@ -910,6 +1252,37 @@ defineFeature("f", (r) => {
 
     expect(result.errors[0]?.methodName).toBe("useExtension");
   });
+
+  test("emits ParseError when the extension name is not a string literal", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension(EXT, "task");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("useExtension");
+  });
+
+  test("emits ParseError when the positional entity ref is unresolvable", () => {
+    const result = parseInline(`
+const ent = { name: "task" };
+defineFeature("f", (r) => {
+  r.useExtension("audit", ent);
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("useExtension");
+  });
+
+  test("emits ParseError when object form is missing the name property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension({ entity: "task" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("useExtension");
+  });
 });
 
 // =============================================================================
@@ -947,6 +1320,143 @@ defineFeature("f", (r) => {
     const result = parseInline(`
 defineFeature("f", (r) => {
   r.hook("postCommit", "task", () => {});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+
+  test("object form captures type, target and handler", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook({ type: "preSave", target: "task", handler: (event, ctx) => {} });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "hook",
+      hookType: "preSave",
+      target: "task",
+    });
+  });
+
+  test("emits ParseError when object form has an unknown hook type", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook({ type: "postCommit", target: "task", handler: () => {} });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+
+  test("emits ParseError when object form is missing the handler property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook({ type: "postSave", target: "task" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+
+  test("emits ParseError when object form handler is not an inline function", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook({ type: "postSave", target: "task", handler: handlerRef });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+
+  test("captures a multi-entity target array", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook("postSave", ["task", "note"], () => {});
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "hook",
+      target: ["task", "note"],
+    });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+
+  test("emits ParseError when object form is missing the type property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook({ target: "task", handler: () => {} });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+
+  test("emits ParseError when object form is missing the target property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook({ type: "postSave", handler: () => {} });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+
+  test("emits ParseError when the handler is not an inline function", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook("postSave", "task", handlerRef);
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+
+  test("emits ParseError when the hook type is not a string literal", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook(TYPE, "task", () => {});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+
+  test("emits ParseError when the target argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook("postSave");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+
+  test("emits ParseError when object form target is not a valid ref", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook({ type: "postSave", target: 123, handler: () => {} });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+
+  test("emits ParseError when the hook function argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook("postSave", "task");
 });
 `);
 
@@ -1003,6 +1513,26 @@ defineFeature("f", (r) => {
 `);
 
     expect(result.patterns[0]).toMatchObject({ kind: "authClaims" });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.authClaims();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("authClaims");
+  });
+
+  test("emits ParseError when the argument is not an inline function", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.authClaims(handlerRef);
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("authClaims");
   });
 });
 
@@ -1157,6 +1687,124 @@ defineFeature("f", (r) => {
       jobName: "daily-cleanup",
     });
   });
+
+  test("object form captures name, handler and extra options", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job({
+    name: "daily-cleanup",
+    trigger: { cron: "0 3 * * *" },
+    handler: async (ctx) => {},
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "job",
+      jobName: "daily-cleanup",
+      options: { trigger: { cron: "0 3 * * *" } },
+    });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("job");
+  });
+
+  test("emits ParseError when object form is missing the name property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job({ handler: async () => {} });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("job");
+  });
+
+  test("emits ParseError when object form is missing the handler property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job({ name: "daily-cleanup", trigger: { cron: "0 3 * * *" } });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("job");
+  });
+
+  test("emits ParseError when object form option value is not readable", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job({ name: "daily-cleanup", handler: async () => {}, onComplete: () => {} });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("job");
+  });
+
+  test("emits ParseError when object form handler is not an inline function", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job({ name: "daily-cleanup", handler: handlerRef });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("job");
+  });
+
+  test("emits ParseError when the job name is not a string literal", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job(NAME, {}, async () => {});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("job");
+  });
+
+  test("emits ParseError when the options argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job("daily-cleanup");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("job");
+  });
+
+  test("emits ParseError when the handler argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job("daily-cleanup", { trigger: { cron: "0 3 * * *" } });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("job");
+  });
+
+  test("emits ParseError when options is not a plain object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job("daily-cleanup", () => {}, async () => {});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("job");
+  });
+
+  test("emits ParseError when the positional handler is not an inline function", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job("daily-cleanup", { trigger: { cron: "0 3 * * *" } }, handlerRef);
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("job");
+  });
 });
 
 describe("extractHttpRoute", () => {
@@ -1179,6 +1827,66 @@ defineFeature("f", (r) => {
       anonymous: true,
     });
   });
+
+  test("emits ParseError when the argument is not an inline object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.httpRoute("GET", "/feed.xml");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("httpRoute");
+  });
+
+  test("emits ParseError when method is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.httpRoute({ path: "/feed.xml", handler: async () => {} });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("httpRoute");
+  });
+
+  test("emits ParseError when method is not a valid HTTP verb", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.httpRoute({ method: "FETCH", path: "/feed.xml", handler: async () => {} });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("httpRoute");
+  });
+
+  test("emits ParseError when path is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.httpRoute({ method: "GET", handler: async () => {} });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("httpRoute");
+  });
+
+  test("emits ParseError when handler is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.httpRoute({ method: "GET", path: "/feed.xml" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("httpRoute");
+  });
+
+  test("emits ParseError when handler is not an inline function", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.httpRoute({ method: "GET", path: "/feed.xml", handler: handlerRef });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("httpRoute");
+  });
 });
 
 describe("extractDefineEvent", () => {
@@ -1194,6 +1902,76 @@ defineFeature("f", (r) => {
       eventName: "incidentOpened",
       version: 2,
     });
+  });
+
+  test("object form captures name, schema, version and migrations", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent({
+    name: "incidentOpened",
+    schema: z.object({ id: z.string() }),
+    version: 2,
+    migrations: { "1": (payload) => payload },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "defineEvent",
+      eventName: "incidentOpened",
+      version: 2,
+      migrations: { "1": expect.anything() },
+    });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("defineEvent");
+  });
+
+  test("emits ParseError when object form is missing the name property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent({ schema: z.object({ id: z.string() }) });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("defineEvent");
+  });
+
+  test("emits ParseError when object form is missing the schema property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent({ name: "incidentOpened" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("defineEvent");
+  });
+
+  test("emits ParseError when the event name is not a string literal", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent(EVENT, z.object({ id: z.string() }));
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("defineEvent");
+  });
+
+  test("emits ParseError when the schema argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent("incidentOpened");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("defineEvent");
   });
 });
 
@@ -1239,6 +2017,26 @@ defineFeature("f", (r) => {
       migrations: { "1": expect.anything() },
     });
   });
+
+  test("skips malformed migration array entries instead of failing the whole extract", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent("incidentOpened", z.object({ id: z.string() }), {
+    migrations: [
+      "skip-me",
+      { fromVersion: "bad", transform: (payload) => payload },
+      { fromVersion: 1, transform: (payload) => ({ ...payload, ok: true }) },
+    ],
+  });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "defineEvent",
+      migrations: { "1": expect.anything() },
+    });
+  });
 });
 
 describe("extractNotification", () => {
@@ -1258,6 +2056,136 @@ defineFeature("f", (r) => {
       notificationName: "incidentOpened",
       trigger: { on: "incident:create" },
     });
+  });
+
+  test("object form captures name + trigger/recipient/data", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.notification({
+    name: "incidentOpened",
+    trigger: { on: "incident:create" },
+    recipient: (event) => ({ tenant: event.tenantId }),
+    data: (event) => ({ id: event.id }),
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "notification",
+      notificationName: "incidentOpened",
+    });
+  });
+
+  test("captures optional template bodies", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.notification("incidentOpened", {
+    trigger: { on: "incident:create" },
+    recipient: (event) => ({}),
+    data: (event) => ({}),
+    templates: {
+      email: (payload) => payload.subject,
+      inApp: (payload) => payload.title,
+    },
+  });
+});
+`);
+
+    const templates = (result.patterns[0] as { templates?: Record<string, unknown> } | undefined)
+      ?.templates;
+    expect(Object.keys(templates ?? {})).toEqual(["email", "inApp"]);
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.notification();
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("notification");
+  });
+
+  test("emits ParseError when object form is missing the name property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.notification({ trigger: { on: "x" }, recipient: () => ({}), data: () => ({}) });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("notification");
+  });
+
+  test("emits ParseError when the notification name is not a string literal", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.notification(NAME, { trigger: { on: "x" }, recipient: () => ({}), data: () => ({}) });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("notification");
+  });
+
+  test("emits ParseError when the definition object is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.notification("incidentOpened");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("notification");
+  });
+
+  test("emits ParseError when trigger is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.notification("incidentOpened", { recipient: () => ({}), data: () => ({}) });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("notification");
+  });
+
+  test("emits ParseError when trigger.on is not a string/ref", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.notification("incidentOpened", {
+    trigger: { on: 123 },
+    recipient: () => ({}),
+    data: () => ({}),
+  });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("notification");
+  });
+
+  test("emits ParseError when recipient is not an inline function", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.notification("incidentOpened", {
+    trigger: { on: "incident:create" },
+    recipient: recipientRef,
+    data: () => ({}),
+  });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("notification");
+  });
+
+  test("emits ParseError when data is not an inline function", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.notification("incidentOpened", {
+    trigger: { on: "incident:create" },
+    recipient: () => ({}),
+    data: dataRef,
+  });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("notification");
   });
 });
 

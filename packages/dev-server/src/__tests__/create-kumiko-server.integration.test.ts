@@ -337,6 +337,29 @@ describe("createKumikoServer extraRoutes-deps", () => {
   });
 });
 
+describe("createKumikoServer — stylesheet tailwind failure (graceful)", () => {
+  test("missing stylesheet entry boots without CSS — GET /styles.css → 404", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "kumiko-css-fail-"));
+    const entry = join(tmpDir, "client.tsx");
+    writeFileSync(entry, "export const x = 1;\n");
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+        clientEntry: entry,
+        stylesheet: join(tmpDir, "does-not-exist.css"),
+        _buildBundle: async () => ({ js: "// stub", map: "" }),
+      });
+      const cssRes = await handle.fetch(new Request("http://localhost/styles.css"));
+      expect(cssRes.status).toBe(404);
+      expect(await cssRes.text()).toBe("no stylesheet");
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("createKumikoServer — real Bun.build (buildClient)", () => {
   test("clientEntry without _buildBundle produces a JS bundle via Bun.build", async () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "kumiko-real-build-"));
