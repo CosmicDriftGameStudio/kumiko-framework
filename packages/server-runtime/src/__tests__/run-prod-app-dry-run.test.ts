@@ -70,7 +70,7 @@ describe("runProdApp dry-run / bootErrorReporter", () => {
     }
 
     expect(logs.some((l) => l.includes("DRY_RUN_PROBE") || l.includes("Optional"))).toBe(true);
-    const res = handle!.fetch(new Request("http://test/"));
+    const res = await handle!.fetch(new Request("http://test/"));
     expect(res.status).toBe(503);
     expect(await res.text()).toBe("dry-run");
     await handle!.stop();

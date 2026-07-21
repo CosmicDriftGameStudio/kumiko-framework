@@ -111,11 +111,7 @@ describe("buildStaticFallback hostDispatch", () => {
   });
 
   test("/api/* always hits apiHandler", async () => {
-    const handler = buildStaticFallback(
-      () => new Response("from-api", { status: 200 }),
-      tmp,
-      "{}",
-    );
+    const handler = buildStaticFallback(() => new Response("from-api", { status: 200 }), tmp, "{}");
     const res = await handler(new Request("http://t/api/query", { method: "POST" }));
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("from-api");
@@ -123,11 +119,7 @@ describe("buildStaticFallback hostDispatch", () => {
 
   test("serves disk asset under staticDir", async () => {
     await writeFile(join(tmp, "logo.png"), "PNGDATA");
-    const handler = buildStaticFallback(
-      () => new Response("404", { status: 404 }),
-      tmp,
-      "{}",
-    );
+    const handler = buildStaticFallback(() => new Response("404", { status: 404 }), tmp, "{}");
     const res = await handler(new Request("http://t/logo.png"));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/png");
