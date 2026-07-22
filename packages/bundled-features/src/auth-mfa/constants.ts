@@ -34,6 +34,7 @@ export const AuthMfaErrorCodes = {
 
 export const MFA_SETUP_TOKEN_TTL_MINUTES = 10;
 export const MFA_CHALLENGE_TOKEN_TTL_MINUTES = 10;
+export const MFA_PREAUTH_SETUP_TOKEN_TTL_MINUTES = 10;
 export const MFA_VERIFY_MAX_ATTEMPTS = 5;
 export const MFA_VERIFY_LOCKOUT_MINUTES = 5;
 
