@@ -3,6 +3,7 @@
 // or tier maps (those stay in bin/server.ts / app run-config).
 
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   type AuthMfaFeatureOptions,
   createAuthMfaFeature,
@@ -76,10 +77,17 @@ export type OpsStackOptions = {
 };
 
 /** sessions (+ optional auth-mfa). config/user/tenant/auth-email-password stay
- *  on composeFeatures(includeBundled). Pass `mfa` options to mount TOTP. */
+ *  on composeFeatures(includeBundled). Pass `mfa` options to mount TOTP.
+ *  When `sessions` is on (the default), auth-foundation is mounted alongside it —
+ *  the framework's registry now hard-requires it (sessions.requires("auth-foundation")).
+ *  Pass `providers` for the tokenVerifier(s) auth-foundation itself requires at least
+ *  one of (e.g. createPersonalAccessTokensFeature({ scopes })) — PAT scopes are
+ *  app-specific (which write-handlers an API token may call), so they stay caller-owned
+ *  instead of a framework default. */
 export type IdentityStackOptions = {
   readonly sessions?: boolean;
   readonly mfa?: AuthMfaFeatureOptions;
+  readonly providers?: readonly FeatureDefinition[];
 };
 
 export function stackFeatureNames(features: readonly FeatureDefinition[]): string[] {
@@ -131,7 +139,7 @@ export function composeGdprStack(options: GdprStackOptions = {}): FeatureDefinit
   const out: FeatureDefinition[] =
     order === "compliance-first" ? [compliance, retention] : [retention, compliance];
   if (options.tenantLifecycle) out.push(createTenantLifecycleFeature());
-  if (options.sessions) out.push(createSessionsFeature());
+  if (options.sessions) out.push(authFoundationFeature, createSessionsFeature());
   return out;
 }
 
@@ -162,7 +170,10 @@ export function composeOpsStack(options: OpsStackOptions = {}): FeatureDefinitio
 export function composeIdentityStack(options: IdentityStackOptions = {}): FeatureDefinition[] {
   const sessions = options.sessions ?? true;
   const out: FeatureDefinition[] = [];
-  if (sessions) out.push(createSessionsFeature());
+  if (sessions) {
+    out.push(authFoundationFeature, createSessionsFeature());
+    if (options.providers) out.push(...options.providers);
+  }
   if (options.mfa !== undefined) out.push(createAuthMfaFeature(options.mfa));
   return out;
 }

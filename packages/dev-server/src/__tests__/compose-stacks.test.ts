@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
@@ -56,6 +55,7 @@ describe("composeStacks", () => {
       "data-retention",
       "compliance-profiles",
       "tenant-lifecycle",
+      "auth-foundation",
       "sessions",
     ]);
   });
@@ -87,12 +87,13 @@ describe("composeStacks", () => {
     ]);
   });
 
-  test("composeIdentityStack defaults sessions only", () => {
-    expect(stackFeatureNames(composeIdentityStack())).toEqual(["sessions"]);
+  test("composeIdentityStack defaults auth-foundation + sessions", () => {
+    expect(stackFeatureNames(composeIdentityStack())).toEqual(["auth-foundation", "sessions"]);
   });
 
   test("composeIdentityStack mounts auth-mfa when mfa options given", () => {
     expect(stackFeatureNames(composeIdentityStack({ mfa: TEST_MFA }))).toEqual([
+      "auth-foundation",
       "sessions",
       "auth-mfa",
     ]);
@@ -114,7 +115,6 @@ describe("composeStacks", () => {
       validateBoot(
         composeFeatures(
           [
-            authFoundationFeature,
             createPersonalAccessTokensFeature({ scopes: {} }),
             ...composeIdentityStack(),
             ...composeGdprStack({ sessions: true }),
@@ -131,7 +131,6 @@ describe("composeStacks boots for real", () => {
   test("studio-shaped combined stack passes validateBoot (not just name-list comparison)", () => {
     const features = composeFeatures(
       [
-        authFoundationFeature,
         createPersonalAccessTokensFeature({ scopes: {} }),
         ...composeOpsStack({ rateLimiting: true }),
         ...composePagesStack(),
