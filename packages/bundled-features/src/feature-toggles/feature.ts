@@ -1,6 +1,7 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { FEATURE_TOGGLE_SET_EVENT_NAME, TOGGLE_ADMIN_SCREEN_ID } from "./constants";
 import { featureToggleSetSchema } from "./events";
+import { globalFeatureStateTableMeta } from "./global-feature-state-table";
 import { listQuery } from "./handlers/list.query";
 import { registeredQuery } from "./handlers/registered.query";
 import { createSetWriteHandler } from "./handlers/set.write";
@@ -47,6 +48,9 @@ export function createFeatureTogglesFeature(
       recommended: false,
     });
     r.systemScope();
+    r.storeTable(globalFeatureStateTableMeta, {
+      reason: "feature_toggles.global_override_snapshot",
+    });
 
     // Toggle-change domain event. The event ends up in the events-table
     // alongside every other write — audit.list picks it up automatically,
@@ -127,7 +131,7 @@ export function createFeatureTogglesFeature(
 }
 
 export { FEATURE_TOGGLE_SET_EVENT_NAME, FeatureToggleErrors } from "./constants";
-export { globalFeatureStateTable } from "./global-feature-state-table";
+export { globalFeatureStateTable, globalFeatureStateTableMeta } from "./global-feature-state-table";
 // Re-export the runtime factory + class so app-boot code has a single
 // import path: "@cosmicdrift/kumiko-bundled-features/feature-toggles".
 export {
