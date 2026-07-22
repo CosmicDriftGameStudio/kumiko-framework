@@ -119,6 +119,13 @@ export {
 } from "./rebuild-marker";
 export { seedReferenceData } from "./reference-data";
 export { renderTableDdl, renderTablesDdl } from "./render-ddl";
+export {
+  diffReplayAgainstSnapshot,
+  type ReplayedSchema,
+  type ReplayedTable,
+  type ReplayMismatch,
+  replayMigrationsDir,
+} from "./replay-migration-sql";
 export { tableExists } from "./schema-inspection";
 export {
   buildBaseColumns,

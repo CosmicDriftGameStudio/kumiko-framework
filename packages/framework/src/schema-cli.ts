@@ -14,6 +14,7 @@ import {
   baselineMigrations,
   createDbConnection,
   type DbConnection,
+  diffReplayAgainstSnapshot,
   fetchAppliedMigrations,
   generateMigration,
   loadMigrationsFromDir,
@@ -21,6 +22,7 @@ import {
   readRebuildMarker,
   rebuildTablesFromDiff,
   type renderTablesDdl,
+  replayMigrationsDir,
   runMigrationsFromDir,
   tableExists,
   writeRebuildMarker,
@@ -198,11 +200,18 @@ export async function runSchemaCli(
 
     case "validate": {
       // Static, DB-free boot-blocking checks for CI — catches "this won't boot"
-      // before deploy. Two layers, no database:
+      // before deploy. Three layers, no database:
       //   1. schema drift: would `generate` write a migration? (= an entity was
       //      added/changed but never generated → missing table → prod 500)
       //   2. boot validity: validateBoot over the composed FEATURES (QN/screen/
       //      nav/role refs). Runs only if kumiko/schema.ts exports FEATURES.
+      //   3. migration-content drift: replay every committed *.sql file and
+      //      diff the result against .snapshot.json — catches a migration
+      //      file whose SQL body doesn't match what its own snapshot entry
+      //      claims (e.g. an accidental copy-paste from an earlier file).
+      //      Layer 1 alone misses this: it only compares ENTITY_METAS to the
+      //      snapshot, never the snapshot to the SQL that's supposed to have
+      //      produced it.
       // The DB-level gate (assertKumikoSchemaCurrent) stays at boot/deploy.
       if (!existsSync(schemaFile)) {
         out.err(`  ${schemaFile} fehlt.`);
@@ -260,6 +269,28 @@ export async function runSchemaCli(
         out.log(
           "  · boot: skipped — add `export const FEATURES = composeFeatures(APP_FEATURES, { includeBundled: true })` to kumiko/schema.ts to enable validateBoot.",
         );
+      }
+
+      // 3. Migration-content drift — replay the committed *.sql files and
+      // diff the reconstructed schema against .snapshot.json.
+      const committedSnapshot = existsSync(snapshotPath) ? loadSnapshotJson(snapshotPath) : null;
+      if (existsSync(migrationsDir) && committedSnapshot !== null) {
+        const replayed = replayMigrationsDir(migrationsDir);
+        const mismatches = diffReplayAgainstSnapshot(replayed, committedSnapshot);
+        if (mismatches.length === 0) {
+          out.log("  ✓ migrations: committed SQL matches .snapshot.json");
+        } else {
+          ok = false;
+          out.err(
+            "  ✗ migration-content drift: committed *.sql files don't produce .snapshot.json.",
+          );
+          for (const m of mismatches) {
+            out.err(`    ${m.tableName} (${m.kind}): ${m.detail}`);
+          }
+          out.err(
+            "    Fix: a migration file's body doesn't match what it (or the snapshot) claims — hand-fix the file, or ship a corrective migration if it's already applied in prod.",
+          );
+        }
       }
 
       return ok ? 0 : 1;

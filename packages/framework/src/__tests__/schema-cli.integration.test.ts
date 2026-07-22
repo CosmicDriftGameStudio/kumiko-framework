@@ -177,6 +177,27 @@ describe("runSchemaCli — validate (static CI gate, no DB)", () => {
     const code = await runSchemaCli(["validate"], appCwd, cap.out);
     expect(code).toBe(0);
     expect(cap.log.join("\n")).toContain("migrations match");
+    expect(cap.log.join("\n")).toContain("committed SQL matches .snapshot.json");
+  });
+
+  // Reproduces the kumiko-studio 0016 incident: a migration file gets
+  // hand-edited (or copy-pasted from another file) after `generate` wrote
+  // it — the snapshot still matches ENTITY_METAS (layer 1 stays green), but
+  // the .sql content no longer produces what the snapshot claims.
+  test("migration file edited after generate to not match its snapshot entry → drift, exit 1", async () => {
+    writeSchemaFile(appCwd, "read_widgets");
+    await runSchemaCli(["generate", "init"], appCwd, captureOut().out);
+    writeFileSync(
+      join(appCwd, "kumiko/migrations/0001_init.sql"),
+      `-- oops: hand-edited to the wrong table name after the snapshot was written
+CREATE TABLE IF NOT EXISTS "read_widgets_v2" ("id" uuid PRIMARY KEY);
+`,
+    );
+    const cap = captureOut();
+    const code = await runSchemaCli(["validate"], appCwd, cap.out);
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain("migration-content drift");
+    expect(cap.err.join("\n")).toContain("read_widgets");
   });
 
   test("no FEATURES export → validateBoot skipped (drift still checked)", async () => {
