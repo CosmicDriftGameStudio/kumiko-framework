@@ -14,6 +14,7 @@ export const Routes = {
   auth: "/auth",
   authLogin: "/auth/login",
   authMfaVerify: "/auth/mfa/verify",
+  authMfaPreauthEnableStart: "/auth/mfa/preauth-enable-start",
   authLogout: "/auth/logout",
   authTenants: "/auth/tenants",
   authSwitchTenant: "/auth/switch-tenant",
@@ -41,6 +42,7 @@ export const Routes = {
 export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.authLogin}`,
   `/api${Routes.authMfaVerify}`,
+  `/api${Routes.authMfaPreauthEnableStart}`,
   `/api${Routes.authRequestPasswordReset}`,
   `/api${Routes.authResetPassword}`,
   `/api${Routes.authRequestEmailVerification}`,

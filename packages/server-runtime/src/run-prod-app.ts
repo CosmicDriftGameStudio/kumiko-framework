@@ -958,6 +958,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         ...tenantLifecycleAuthFragment,
         ...(mfaFeature && {
           mfaVerifyHandler: AuthMfaHandlers.verify,
+          mfaPreauthEnableStartHandler: AuthMfaHandlers.enableStartPreauth,
           mfaVerifyRateLimit: createRedisLoginRateLimiter(
             redis,
             undefined,

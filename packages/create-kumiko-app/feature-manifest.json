@@ -168,6 +168,7 @@
         "auth-mfa:write:disable",
         "auth-mfa:write:enable-confirm",
         "auth-mfa:write:enable-start",
+        "auth-mfa:write:enable-start-preauth",
         "auth-mfa:write:regenerate-recovery",
         "auth-mfa:write:verify"
       ],

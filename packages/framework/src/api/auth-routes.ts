@@ -106,6 +106,17 @@ const MfaVerifyBody = z.object({
   code: z.string().min(6).max(9),
 });
 
+// Body schema for POST /auth/mfa/preauth-enable-start. preauthSetupToken is
+// opaque to the framework — minted by login.write.ts's mfaStatusChecker
+// (auth-mfa) when enforcement policy blocks an unenrolled user, verified
+// entirely by the mfaPreauthEnableStartHandler. accountLabel is
+// client-supplied (the email the user just typed at login) for the
+// otpauth:// URI, mirroring auth-mfa's own enable-start.write.ts.
+const MfaPreauthEnableStartBody = z.object({
+  preauthSetupToken: z.string().min(1),
+  accountLabel: z.string().min(1).max(200),
+});
+
 const ResetPasswordBody = z.object({
   token: z.string().min(1),
   newPassword: z.string().min(8).max(200),
@@ -248,6 +259,21 @@ export type AuthRoutesConfig = {
   // and per-account guessing protection are different threats, neither
   // substitutes for the other.
   mfaVerifyRateLimit?: LoginRateLimiter | null;
+  // Optional: qualified write handler generating a TOTP secret + QR for a
+  // user blocked at login by MFA enforcement but not yet enrolled (see
+  // mfaStatusChecker's setupRequired branch, auth-mfa). When set, POST
+  // /auth/mfa/preauth-enable-start dispatches { preauthSetupToken,
+  // accountLabel } to this handler with a guest identity — no session is
+  // minted, the response is just { setupToken, otpauthUri, recoveryCodes }
+  // (same shape as auth-mfa's own enable-start.write.ts). No dedicated
+  // rate-limiter here (unlike mfaVerifyRateLimit): the route already
+  // inherits the generic L2 authEndpointRateLimit on /api/auth/*, and this
+  // handler checks no TOTP code, so there's no per-account guessing
+  // surface to cap — that cap belongs on the later confirm handler.
+  mfaPreauthEnableStartHandler?: string;
+  // Maps mfaPreauthEnableStartHandler error codes to HTTP status codes,
+  // same pattern as mfaVerifyErrorStatusMap.
+  mfaPreauthEnableStartErrorStatusMap?: Readonly<Record<string, number>>;
   // Session-lifecycle callbacks. When both are wired the JWT carries a `jti`
   // (sid) and the server can revoke individual sessions (logout, compromise,
   // password-change). When unwired the framework issues plain stateless JWTs.
@@ -706,6 +732,56 @@ export function createAuthRoutes(
         token,
         user: { id: data.session.id, tenantId: data.session.tenantId, roles: data.session.roles },
       });
+    });
+  }
+
+  // POST /auth/mfa/preauth-enable-start — lets a user blocked at login by
+  // MFA enforcement (mfa-setup-required) generate a TOTP secret + QR
+  // without a session, using the preauthSetupToken login.write.ts issued.
+  // No JWT is minted here (unlike /auth/login and /auth/mfa/verify) — the
+  // handler's response carries a secret-bearing setupToken that a later
+  // pre-auth confirm step (the same shape auth-mfa's own enable-confirm
+  // consumes) verifies. No dedicated rate-limiter: see
+  // AuthRoutesConfig.mfaPreauthEnableStartHandler's doc comment for why
+  // the generic L2 /api/auth/* limiter is enough here.
+  if (config.mfaPreauthEnableStartHandler) {
+    const mfaPreauthEnableStartQn = config.mfaPreauthEnableStartHandler;
+    const statusMap = config.mfaPreauthEnableStartErrorStatusMap ?? {};
+
+    api.post(Routes.authMfaPreauthEnableStart, async (c) => {
+      const raw = await c.req.json().catch(() => null);
+      const parsed = MfaPreauthEnableStartBody.safeParse(raw);
+      if (!parsed.success) {
+        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+      }
+      const body = parsed.data;
+
+      const result = await dispatcher.write(mfaPreauthEnableStartQn, body, GUEST_USER);
+
+      if (!result.isSuccess) {
+        // @cast-boundary error-details — KumikoError.details shape is per-error
+        const reason =
+          (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
+        // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
+        const status = (statusMap[reason] ?? result.error.httpStatus) as
+          | 400
+          | 401
+          | 403
+          | 422
+          | 429
+          | 500;
+        return c.json({ isSuccess: false, error: result.error }, status);
+      }
+
+      // @cast-boundary engine-payload — generic dispatcher.write result for
+      // the preauth-enable-start handler
+      const data = result.data as {
+        setupToken: string;
+        otpauthUri: string;
+        recoveryCodes: readonly string[];
+      };
+
+      return c.json({ isSuccess: true, ...data });
     });
   }
 

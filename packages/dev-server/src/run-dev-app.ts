@@ -487,7 +487,10 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         ...sessionAuthFragment,
         ...patAuthFragment,
         ...tenantLifecycleAuthFragment,
-        ...(mfaFeature && { mfaVerifyHandler: AuthMfaHandlers.verify }),
+        ...(mfaFeature && {
+          mfaVerifyHandler: AuthMfaHandlers.verify,
+          mfaPreauthEnableStartHandler: AuthMfaHandlers.enableStartPreauth,
+        }),
         ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
