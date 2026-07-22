@@ -20,6 +20,7 @@ import {
 import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write";
 import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write";
 import { createResetPasswordHandler } from "./handlers/reset-password.write";
+import { selfRegistrationStatusQuery } from "./handlers/self-registration-status.query";
 import { createSignupConfirmHandler } from "./handlers/signup-confirm.write";
 import {
   createSignupRequestHandler,
@@ -223,6 +224,12 @@ export function createAuthEmailPasswordFeature(
       r.writeHandler(createVerifyEmailHandler(opts.emailVerification));
     }
 
+    const queries = {
+      ...(opts.signup && {
+        signupRegistrationStatus: r.queryHandler(selfRegistrationStatusQuery),
+      }),
+    };
+
     if (opts.signup) {
       r.writeHandler(createSignupRequestHandler(opts.signup));
       r.writeHandler(createSignupConfirmHandler());
@@ -240,6 +247,6 @@ export function createAuthEmailPasswordFeature(
       r.writeHandler(createConfirmAccountUnlockHandler(opts.accountUnlock));
     }
 
-    return { handlers };
+    return { handlers, queries };
   });
 }

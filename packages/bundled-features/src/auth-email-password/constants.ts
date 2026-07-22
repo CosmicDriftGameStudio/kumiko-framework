@@ -46,6 +46,12 @@ export const AuthHandlers = {
   inviteCancel: "auth-email-password:write:invite-cancel",
 } as const;
 
+// Qualified query names. Anonymous-readable status so the (unauthenticated)
+// signup page can decide whether to show its own link/form.
+export const AuthQueries = {
+  signupRegistrationStatus: "auth-email-password:query:signup-registration-status",
+} as const;
+
 // Error codes — kept intentionally generic so clients can't distinguish
 // "email doesn't exist" from "password wrong". Both surface as invalid_credentials.
 // Soft-deleted users also collapse into invalid_credentials to avoid enumeration.

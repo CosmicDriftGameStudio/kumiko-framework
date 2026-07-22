@@ -7,7 +7,7 @@
 // its own changeset + deliberate deprecation window, not a silent drop.
 export { hashPassword, verifyPassword } from "../shared/password-hashing";
 export { type AuthPaths, DEFAULT_AUTH_PATHS, makeAuthPaths } from "./auth-paths";
-export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers } from "./constants";
+export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers, AuthQueries } from "./constants";
 // Renderers for the auth mails. All four magic-link flows (reset, verify,
 // signup-activation, invite) emit structured AuthMailContent through delivery
 // (ctx.notify).
@@ -35,6 +35,10 @@ export type {
   SignupOptions,
 } from "./feature";
 export { authEmailPasswordEnvSchema, createAuthEmailPasswordFeature } from "./feature";
+export {
+  AUTH_SELF_REGISTRATION_FEATURE,
+  createAuthSelfRegistrationToggleFeature,
+} from "./self-registration-toggle";
 // Generic HMAC-signed single-purpose token helpers. Re-exported damit
 // app-spezifische out-of-band-Flows (subscriber-confirm, magic-links,
 // invite-tokens) denselben battle-tested signer/verifier nutzen können

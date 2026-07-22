@@ -31,6 +31,7 @@ import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants";
 import type { AuthMailLocale } from "../email-templates";
 import { renderActivationEmail } from "../email-templates";
 import { dispatchMagicLinkMail } from "../magic-link-mail";
+import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle";
 import { getTokenForSignupEmail, normalizeEmail, storeSignupToken } from "../signup-token-store";
 
 const SIGNUP_NOTIFICATION_TYPE = "auth-email-password:signup-activation";
@@ -68,6 +69,16 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
     schema: SignupRequestSchema,
     access: { roles: ["all"] },
     handler: async (event, ctx) => {
+      // Silent no-op when off, matching the route's own always-200
+      // anti-enumeration contract (registerTokenRequestRoute swallows every
+      // handler failure into `{isSuccess:true}` regardless) — no mail goes
+      // out, but the caller can't distinguish "disabled" from "unknown
+      // email" either way. The client-visible signal is the `status` query
+      // on auth-self-registration, which the signup page uses to hide its
+      // own link/form instead of collecting input that silently no-ops.
+      if (!(await ctx.hasFeature(AUTH_SELF_REGISTRATION_FEATURE))) {
+        return { isSuccess: true, data: { kind: "no-op" } };
+      }
       if (!ctx.redis) {
         return writeFailure(
           new InternalError({
