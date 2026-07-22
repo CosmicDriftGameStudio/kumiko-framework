@@ -63,6 +63,7 @@ export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions)
           userId,
           totpSecretBase32: base32Encode(secret),
           recoveryCodeHashes,
+          tenantId,
         },
         MFA_SETUP_TOKEN_TTL_MINUTES,
         opts.setupTokenSecret,

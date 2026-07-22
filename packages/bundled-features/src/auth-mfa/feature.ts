@@ -3,6 +3,7 @@ import { mfaRequiredConfigKey } from "./config";
 import { MFA_ENABLE_SCREEN_ID } from "./constants";
 import { createDisableHandler } from "./handlers/disable.write";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write";
+import { createEnableConfirmPreauthHandler } from "./handlers/enable-confirm-preauth.write";
 import { createEnableStartHandler } from "./handlers/enable-start.write";
 import { createEnableStartPreauthHandler } from "./handlers/enable-start-preauth.write";
 import { mfaReencryptJob } from "./handlers/reencrypt.job";
@@ -129,6 +130,12 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       ),
       enableConfirm: r.writeHandler(
         createEnableConfirmHandler({
+          setupTokenSecret: opts.setupTokenSecret,
+          revokeAllOtherSessions: sharedRevoker,
+        }),
+      ),
+      enableConfirmPreauth: r.writeHandler(
+        createEnableConfirmPreauthHandler({
           setupTokenSecret: opts.setupTokenSecret,
           revokeAllOtherSessions: sharedRevoker,
         }),

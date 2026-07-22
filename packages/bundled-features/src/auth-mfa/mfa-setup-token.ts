@@ -16,6 +16,11 @@ export type MfaSetupPayload = {
   readonly userId: string;
   readonly totpSecretBase32: string;
   readonly recoveryCodeHashes: readonly string[];
+  // Set only by enable-start-preauth.write.ts — the session-authed
+  // enable-start.write.ts has no tenantId to carry (event.user.tenantId
+  // already covers that path). The pre-auth confirm handler has no session
+  // to fall back on, so this is the only source of which tenant to scope to.
+  readonly tenantId?: string;
 };
 
 type EncodedBody = MfaSetupPayload & { readonly expiresAtMs: number };
@@ -49,7 +54,8 @@ function isEncodedBody(value: unknown): value is EncodedBody {
     typeof v["totpSecretBase32"] === "string" &&
     Array.isArray(v["recoveryCodeHashes"]) &&
     v["recoveryCodeHashes"].every((h) => typeof h === "string") &&
-    typeof v["expiresAtMs"] === "number"
+    typeof v["expiresAtMs"] === "number" &&
+    (v["tenantId"] === undefined || typeof v["tenantId"] === "string")
   );
 }
 
