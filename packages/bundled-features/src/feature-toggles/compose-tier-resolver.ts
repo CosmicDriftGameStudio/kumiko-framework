@@ -1,4 +1,9 @@
-import type { EffectiveFeaturesResolver } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  computeEffectiveFeatures,
+  type EffectiveFeaturesResolver,
+  type Registry,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type { GlobalFeatureToggleRuntime } from "./toggle-runtime";
 
 // Composes a tenantTierResolver (tier-engine) with a GlobalFeatureToggleRuntime
@@ -12,24 +17,43 @@ import type { GlobalFeatureToggleRuntime } from "./toggle-runtime";
 // combine them itself. This is that combination, factored out here instead
 // of duplicated per app.
 //
-// Semantics: the global toggle layer can only NARROW what the tier grants,
-// never widen it — an explicit `enabled: false` row removes a feature the
-// tier would otherwise include; no row, or an explicit `true` row, leaves
-// the tier's grant untouched. Deliberately NOT computeEffectiveFeatures'
-// cascade (which falls back to a toggleable feature's declared default):
-// under tier-engine, a toggleable feature with no override row is governed
-// by the TIER, not by its own default — falling back to the default would
-// silently kill every tier-gated toggleable feature (e.g. a Team-tier
-// feature defaulting `false`) the moment feature-toggles gets composed in.
+// Two disjoint classes of toggleable feature exist once both are mounted:
+//   - tier-managed (e.g. a Team-tier perk like personal-access-tokens): the
+//     TIER decides membership, not the feature's own default — a toggleable
+//     feature with no override row must stay governed by its tier, or every
+//     tier-gated toggleable would silently leak/vanish the moment
+//     feature-toggles is composed in. The global layer may only NARROW this
+//     (`enabled: false` removes it; no row / `true` leaves the tier's grant
+//     untouched).
+//   - tier-unaware (e.g. a pure operator kill-switch with no tier
+//     differentiation at all, such as auth-self-registration): no tier's
+//     `features` list ever mentions it, so it would never appear in ANY
+//     tenant's tier-set — narrowing alone can only remove features, never
+//     grant this one. Its membership must come from computeEffectiveFeatures'
+//     normal cascade (override ?? toggleableDefault) instead.
+//
+// `tierResolver(SYSTEM_TENANT_ID)` is tier-engine's documented convention for
+// "union of every tier's features" (operator-tooling/async-dispatch
+// convention) — used here purely to classify which toggleable names are
+// tier-managed, without needing the app's TierMap as a separate parameter.
 export function composeTierResolverWithGlobalToggles(
   tierResolver: EffectiveFeaturesResolver,
   toggleRuntime: GlobalFeatureToggleRuntime,
+  registry: Registry,
 ): EffectiveFeaturesResolver {
+  const tierManaged = tierResolver(SYSTEM_TENANT_ID);
+
   const composed = ((tenantId) => {
     const tierSet = tierResolver(tenantId);
     const result = new Set<string>();
     for (const name of tierSet) {
       if (toggleRuntime.readOverride(name) !== false) result.add(name);
+    }
+    const globalCascade = computeEffectiveFeatures(registry, (name) =>
+      toggleRuntime.readOverride(name),
+    );
+    for (const name of globalCascade) {
+      if (!tierManaged.has(name)) result.add(name);
     }
     return result;
   }) as EffectiveFeaturesResolver;
