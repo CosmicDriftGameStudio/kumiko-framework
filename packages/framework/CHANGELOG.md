@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.161.0
+
+### Minor Changes
+
+- c7ac572: Auth-foundation migration (#1372–#1375): tenantResolver/tenantExistence EPs, sessionStore wiring without auth.sessions, slim AnonymousAccessConfig, recipe auth-foundation-providers.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-types@0.161.0
+
 ## 0.160.0
 
 ### Patch Changes
