@@ -117,6 +117,15 @@ const MfaPreauthEnableStartBody = z.object({
   accountLabel: z.string().min(1).max(200),
 });
 
+// Body schema for POST /auth/mfa/preauth-confirm. setupToken is opaque to
+// the framework — minted by the mfaPreauthEnableStartHandler, verified
+// entirely by the mfaPreauthConfirmHandler. code is TOTP-only (no recovery
+// codes at enrollment time), mirroring auth-mfa's own enable-confirm.write.ts.
+const MfaPreauthConfirmBody = z.object({
+  setupToken: z.string().min(1),
+  code: z.string().length(6),
+});
+
 const ResetPasswordBody = z.object({
   token: z.string().min(1),
   newPassword: z.string().min(8).max(200),
@@ -274,6 +283,27 @@ export type AuthRoutesConfig = {
   // Maps mfaPreauthEnableStartHandler error codes to HTTP status codes,
   // same pattern as mfaVerifyErrorStatusMap.
   mfaPreauthEnableStartErrorStatusMap?: Readonly<Record<string, number>>;
+  // Optional: qualified write handler completing the enrollment started by
+  // mfaPreauthEnableStartHandler — takes the secret-carrying setupToken
+  // from that step plus a TOTP code. When set, POST /auth/mfa/preauth-
+  // confirm dispatches { setupToken, code } to this handler with a guest
+  // identity. On success the handler must return { kind: "mfa-preauth-
+  // confirm-success", session: SessionUser } and the route mints a JWT
+  // exactly like /auth/mfa/verify — this call both finishes enrollment AND
+  // completes the login that was blocked by mfa-setup-required. Unlike
+  // mfaPreauthEnableStartHandler, THIS is the per-account TOTP-guessing
+  // surface the enable-start doc comment refers to — the handler owns its
+  // own brute-force cap (mirroring mfaVerifyHandler's), and this route adds
+  // its own IP-scoped rate limiter for the same reason mfaVerifyRateLimit
+  // exists separately from loginRateLimit.
+  mfaPreauthConfirmHandler?: string;
+  // Maps mfaPreauthConfirmHandler error codes to HTTP status codes, same
+  // pattern as mfaVerifyErrorStatusMap.
+  mfaPreauthConfirmErrorStatusMap?: Readonly<Record<string, number>>;
+  // Rate-limit for POST /auth/mfa/preauth-confirm, keyed by client IP. Same
+  // reasoning as mfaVerifyRateLimit — defaults to in-memory 10/5min, pass
+  // `null` to disable.
+  mfaPreauthConfirmRateLimit?: LoginRateLimiter | null;
   // Session-lifecycle callbacks. When both are wired the JWT carries a `jti`
   // (sid) and the server can revoke individual sessions (logout, compromise,
   // password-change). When unwired the framework issues plain stateless JWTs.
@@ -782,6 +812,76 @@ export function createAuthRoutes(
       };
 
       return c.json({ isSuccess: true, ...data });
+    });
+  }
+
+  // POST /auth/mfa/preauth-confirm — completes both the enrollment started
+  // by preauth-enable-start AND the login mfa-setup-required blocked.
+  // Mirrors /auth/mfa/verify structurally (public, GUEST_USER dispatch,
+  // mintSessionAndRespond on success) with its OWN rate limiter
+  // (mfaPreauthConfirmRateLimit) — same reasoning as mfaVerifyRateLimit.
+  // Per-account brute-force protection (capping wrong-code guesses against
+  // one still-valid setupToken) is owned by the handler itself — see
+  // AuthRoutesConfig.mfaPreauthConfirmHandler's doc comment.
+  if (config.mfaPreauthConfirmHandler) {
+    const mfaPreauthConfirmQn = config.mfaPreauthConfirmHandler;
+    const statusMap = config.mfaPreauthConfirmErrorStatusMap ?? {};
+    const rateLimiter =
+      config.mfaPreauthConfirmRateLimit === null
+        ? null
+        : (config.mfaPreauthConfirmRateLimit ?? createInMemoryLoginRateLimiter());
+
+    api.post(Routes.authMfaPreauthConfirm, async (c) => {
+      const raw = await c.req.json().catch(() => null);
+      const parsed = MfaPreauthConfirmBody.safeParse(raw);
+      if (!parsed.success) {
+        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+      }
+      const body = parsed.data;
+
+      const clientIp =
+        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+        c.req.header("x-real-ip") ??
+        "unknown";
+
+      if (rateLimiter) {
+        const allowed = await rateLimiter.check(clientIp);
+        if (!allowed) {
+          return c.json({ isSuccess: false, error: "rate_limited" }, 429);
+        }
+      }
+
+      const result = await dispatcher.write(mfaPreauthConfirmQn, body, GUEST_USER);
+
+      if (!result.isSuccess) {
+        // @cast-boundary error-details — KumikoError.details shape is per-error
+        const reason =
+          (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
+        // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
+        const status = (statusMap[reason] ?? result.error.httpStatus) as
+          | 400
+          | 401
+          | 403
+          | 422
+          | 429
+          | 500;
+        return c.json({ isSuccess: false, error: result.error }, status);
+      }
+
+      // @cast-boundary engine-payload — generic dispatcher.write result for mfa-preauth-confirm handler
+      const data = result.data as { kind: "mfa-preauth-confirm-success"; session: SessionUser };
+
+      const token = await mintSessionAndRespond(c, data.session);
+
+      if (rateLimiter) {
+        await rateLimiter.reset(clientIp);
+      }
+
+      return c.json({
+        isSuccess: true,
+        token,
+        user: { id: data.session.id, tenantId: data.session.tenantId, roles: data.session.roles },
+      });
     });
   }
 

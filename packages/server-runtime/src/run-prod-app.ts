@@ -959,11 +959,18 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         ...(mfaFeature && {
           mfaVerifyHandler: AuthMfaHandlers.verify,
           mfaPreauthEnableStartHandler: AuthMfaHandlers.enableStartPreauth,
+          mfaPreauthConfirmHandler: AuthMfaHandlers.enableConfirmPreauth,
           mfaVerifyRateLimit: createRedisLoginRateLimiter(
             redis,
             undefined,
             undefined,
             "mfa-verify",
+          ),
+          mfaPreauthConfirmRateLimit: createRedisLoginRateLimiter(
+            redis,
+            undefined,
+            undefined,
+            "mfa-preauth-confirm",
           ),
         }),
         ...(effectiveAuth.passwordReset && {

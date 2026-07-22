@@ -11,6 +11,7 @@ export const AuthMfaHandlers = {
   enableStart: "auth-mfa:write:enable-start",
   enableStartPreauth: "auth-mfa:write:enable-start-preauth",
   enableConfirm: "auth-mfa:write:enable-confirm",
+  enableConfirmPreauth: "auth-mfa:write:enable-confirm-preauth",
   disable: "auth-mfa:write:disable",
   regenerateRecovery: "auth-mfa:write:regenerate-recovery",
   verify: "auth-mfa:write:verify",
