@@ -153,6 +153,10 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       })) as ReadonlyArray<{ tenantId: string; roles: readonly string[] }>; // @cast-boundary engine-payload
       const membership = memberships.find((m) => m.tenantId === tenantId);
       if (!membership) return invalidSetupToken();
+      // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
+      // roles from the membership portion (globalRoles keeps SystemAdmin) —
+      // read-time backstop against a rebuild-resurrected role, same as
+      // verify.write.ts.
       const mergedRoles = buildSessionRoles(globalRoles, membership.roles);
 
       const baseSession: SessionUser = { id: userId, tenantId, roles: mergedRoles };
