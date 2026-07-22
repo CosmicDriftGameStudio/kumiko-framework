@@ -64,10 +64,13 @@ export type LoginScreenProps = {
    *  hang, but apps mounting auth-mfa must wire this. */
   readonly onMfaChallenge?: (challengeToken: string) => void;
   /** Called when the tenant's enforcement policy requires MFA but this
-   *  user has no factor enrolled yet. Apps typically route to an
-   *  enrollment flow. Without a handler, the user sees a "setup required,
-   *  contact your administrator" error. */
-  readonly onMfaSetupRequired?: () => void;
+   *  user has no factor enrolled yet. Carries the preauthSetupToken the
+   *  login response issued plus the typed email (no session to derive it
+   *  from) — apps typically swap this screen out for auth-mfa's
+   *  MfaSetupPreauthScreen(preauthSetupToken, accountLabel). Without a
+   *  handler, the user sees a "setup required, contact your administrator"
+   *  error. */
+  readonly onMfaSetupRequired?: (preauthSetupToken: string, accountLabel: string) => void;
 };
 
 // Map vom Reason-Code des Login-Handlers auf einen i18n-Key plus
@@ -147,7 +150,7 @@ export function LoginScreen({
     }
     if (res.kind === "mfa-setup-required") {
       if (onMfaSetupRequired) {
-        onMfaSetupRequired();
+        onMfaSetupRequired(res.preauthSetupToken, email);
         return;
       }
       setError({ reason: "mfa_setup_required" });

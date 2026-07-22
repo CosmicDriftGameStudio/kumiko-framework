@@ -70,6 +70,43 @@ describe("createLoginRoute", () => {
     return <div data-testid="mfa-verify">{challengeToken}</div>;
   }
 
+  function LoginWithMfaSetupTrigger({
+    onMfaSetupRequired,
+  }: {
+    readonly onMfaSetupRequired?: (preauthSetupToken: string, accountLabel: string) => void;
+  }): ReactNode {
+    return (
+      <button
+        type="button"
+        data-testid="trigger-mfa-setup"
+        onClick={() => onMfaSetupRequired?.("setup-token-123", "user@example.com")}
+      >
+        trigger
+      </button>
+    );
+  }
+
+  function CustomMfaSetup({
+    preauthSetupToken,
+    accountLabel,
+    onSuccess,
+  }: {
+    readonly preauthSetupToken: string;
+    readonly accountLabel: string;
+    readonly onSuccess?: () => void;
+  }): ReactNode {
+    return (
+      <div data-testid="mfa-setup">
+        <span data-testid="mfa-setup-info">
+          {preauthSetupToken}:{accountLabel}
+        </span>
+        <button type="button" data-testid="complete-mfa-setup" onClick={() => onSuccess?.()}>
+          complete
+        </button>
+      </div>
+    );
+  }
+
   test("authenticated + onAuthenticated → renders nothing, fires onAuthenticated exactly once", () => {
     const onAuthenticated = mock(() => {});
     const LoginRoute = createLoginRoute({ loginScreen: CustomLogin, onAuthenticated });
@@ -108,5 +145,47 @@ describe("createLoginRoute", () => {
     );
     fireEvent.click(screen.getByTestId("trigger-mfa"));
     expect(screen.getByTestId("mfa-verify").textContent).toBe("token-123");
+  });
+
+  test("onMfaSetupRequired → renders MfaSetupComponent with token and accountLabel", () => {
+    const LoginRoute = createLoginRoute({
+      loginScreen: LoginWithMfaSetupTrigger,
+      mfaSetupScreen: CustomMfaSetup,
+    });
+    const session = makeSessionApi({ status: "unauthenticated" });
+    renderWithProviders(<LoginRoute />, { session });
+    fireEvent.click(screen.getByTestId("trigger-mfa-setup"));
+    expect(screen.getByTestId("mfa-setup-info").textContent).toBe(
+      "setup-token-123:user@example.com",
+    );
+  });
+
+  test("MfaSetupComponent onSuccess → gate clears the request and refreshes the session", () => {
+    const LoginRoute = createLoginRoute({
+      loginScreen: LoginWithMfaSetupTrigger,
+      mfaSetupScreen: CustomMfaSetup,
+    });
+    const session = makeSessionApi({ status: "unauthenticated" });
+    renderWithProviders(<LoginRoute />, { session });
+    fireEvent.click(screen.getByTestId("trigger-mfa-setup"));
+    expect(screen.getByTestId("mfa-setup")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("complete-mfa-setup"));
+    expect(session.refresh).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("mfa-setup")).toBeNull();
+  });
+
+  test("makeAuthGate delegates mfaSetupScreen wiring to createLoginRoute", () => {
+    const Gate = makeAuthGate(LoginWithMfaSetupTrigger, undefined, undefined, CustomMfaSetup);
+    const session = makeSessionApi({ status: "unauthenticated" });
+    renderWithProviders(
+      <Gate>
+        <div data-testid="protected">secret</div>
+      </Gate>,
+      { session },
+    );
+    fireEvent.click(screen.getByTestId("trigger-mfa-setup"));
+    expect(screen.getByTestId("mfa-setup-info").textContent).toBe(
+      "setup-token-123:user@example.com",
+    );
   });
 });
