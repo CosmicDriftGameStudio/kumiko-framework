@@ -56,38 +56,31 @@ function applyStatement(schema: Map<string, { columns: Set<string> }>, statement
   );
   const createTableName = create?.[1];
   const createBody = create?.[2];
-  if (createTableName !== undefined && createBody !== undefined) {
-    schema.set(createTableName, { columns: parseColumnNames(createBody) });
-    return;
-  }
 
   const addColumn = statement.match(/^ALTER TABLE\s+"([^"]+)"\s+ADD COLUMN\s+"([^"]+)"/i);
   const addColumnTable = addColumn?.[1];
   const addColumnName = addColumn?.[2];
-  if (addColumnTable !== undefined && addColumnName !== undefined) {
-    const table = schema.get(addColumnTable);
-    if (table) table.columns.add(addColumnName);
-    else schema.set(addColumnTable, { columns: new Set([addColumnName]) });
-    return;
-  }
 
   const dropTable = statement.match(/^DROP TABLE\s+(?:IF EXISTS\s+)?"([^"]+)"/i);
   const dropTableName = dropTable?.[1];
-  if (dropTableName !== undefined) {
-    schema.delete(dropTableName);
-    return;
-  }
 
   const dropColumn = statement.match(/^ALTER TABLE\s+"([^"]+)"\s+DROP COLUMN\s+"([^"]+)"/i);
   const dropColumnTable = dropColumn?.[1];
   const dropColumnName = dropColumn?.[2];
-  if (dropColumnTable !== undefined && dropColumnName !== undefined) {
-    schema.get(dropColumnTable)?.columns.delete(dropColumnName);
-    return;
-  }
 
-  // CREATE INDEX, ALTER COLUMN (TYPE/DEFAULT/NOT NULL) and everything else
-  // don't change the table/column shape this replay tracks.
+  if (createTableName !== undefined && createBody !== undefined) {
+    schema.set(createTableName, { columns: parseColumnNames(createBody) });
+  } else if (addColumnTable !== undefined && addColumnName !== undefined) {
+    const table = schema.get(addColumnTable);
+    if (table) table.columns.add(addColumnName);
+    else schema.set(addColumnTable, { columns: new Set([addColumnName]) });
+  } else if (dropTableName !== undefined) {
+    schema.delete(dropTableName);
+  } else if (dropColumnTable !== undefined && dropColumnName !== undefined) {
+    schema.get(dropColumnTable)?.columns.delete(dropColumnName);
+  }
+  // else: CREATE INDEX, ALTER COLUMN (TYPE/DEFAULT/NOT NULL) and everything
+  // else don't change the table/column shape this replay tracks.
 }
 
 // Reads `<migrationsDir>/*.sql` in sequence order and replays every
