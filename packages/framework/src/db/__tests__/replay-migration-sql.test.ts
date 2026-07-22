@@ -56,6 +56,38 @@ CREATE INDEX IF NOT EXISTS "read_accounts_tenant_id_idx" ON "read_accounts" ("te
     }
   });
 
+  // Hand-edited migrations legitimately add "IF NOT EXISTS"/"IF EXISTS" to
+  // ADD/DROP COLUMN (the generator itself never emits it, but app authors
+  // are explicitly allowed to hand-edit before committing — see the header
+  // comment every generated migration carries).
+  test("ADD COLUMN IF NOT EXISTS (hand-edited) still extends the table", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(dir, "0001_init.sql", `CREATE TABLE IF NOT EXISTS "read_a" ("id" uuid PRIMARY KEY);`);
+      write(dir, "0002_add-col.sql", `ALTER TABLE "read_a" ADD COLUMN IF NOT EXISTS "title" text;`);
+      const replayed = replayMigrationsDir(dir);
+      expect([...(replayed.get("read_a")?.columns ?? [])].sort()).toEqual(["id", "title"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("DROP COLUMN IF EXISTS (hand-edited) still removes the column", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(
+        dir,
+        "0001_init.sql",
+        `CREATE TABLE IF NOT EXISTS "read_a" ("id" uuid PRIMARY KEY, "title" text);`,
+      );
+      write(dir, "0002_drop-col.sql", `ALTER TABLE "read_a" DROP COLUMN IF EXISTS "title";`);
+      const replayed = replayMigrationsDir(dir);
+      expect([...(replayed.get("read_a")?.columns ?? [])]).toEqual(["id"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("commented-out destructive DROP TABLE is not replayed", () => {
     const dir = tmpMigrationsDir();
     try {

@@ -57,14 +57,18 @@ function applyStatement(schema: Map<string, { columns: Set<string> }>, statement
   const createTableName = create?.[1];
   const createBody = create?.[2];
 
-  const addColumn = statement.match(/^ALTER TABLE\s+"([^"]+)"\s+ADD COLUMN\s+"([^"]+)"/i);
+  const addColumn = statement.match(
+    /^ALTER TABLE\s+"([^"]+)"\s+ADD COLUMN\s+(?:IF NOT EXISTS\s+)?"([^"]+)"/i,
+  );
   const addColumnTable = addColumn?.[1];
   const addColumnName = addColumn?.[2];
 
   const dropTable = statement.match(/^DROP TABLE\s+(?:IF EXISTS\s+)?"([^"]+)"/i);
   const dropTableName = dropTable?.[1];
 
-  const dropColumn = statement.match(/^ALTER TABLE\s+"([^"]+)"\s+DROP COLUMN\s+"([^"]+)"/i);
+  const dropColumn = statement.match(
+    /^ALTER TABLE\s+"([^"]+)"\s+DROP COLUMN\s+(?:IF EXISTS\s+)?"([^"]+)"/i,
+  );
   const dropColumnTable = dropColumn?.[1];
   const dropColumnName = dropColumn?.[2];
 
