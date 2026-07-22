@@ -109,16 +109,23 @@ export function createSignupConfirmHandler() {
 
         let provisioned: { readonly userId: string; readonly tenantId: TenantId };
         try {
-          provisioned = await provisionSignupAccount(dbConn, {
-            email,
-            password: event.payload.password,
-            displayName,
-            tenantId,
-            tenantKey,
-            // Tenant-Display-Name als Default = Email. User wechselt das im
-            // Settings-Screen. Konzept "Tenant" leakt nicht in die Signup-UI.
-            tenantName: email,
-          });
+          provisioned = await provisionSignupAccount(
+            dbConn,
+            {
+              email,
+              password: event.payload.password,
+              displayName,
+              tenantId,
+              tenantKey,
+              // Tenant-Display-Name als Default = Email. User wechselt das im
+              // Settings-Screen. Konzept "Tenant" leakt nicht in die Signup-UI.
+              tenantName: email,
+            },
+            // #1463: seedTenant's postSave hooks (tier-engine's auto-default-
+            // tier, an app's auto-default-compliance) must fire on self-signup
+            // exactly like they do on the regular TenantHandlers.create path.
+            { registry: ctx.registry, context: ctx },
+          );
         } catch (err) {
           // Email hat bereits ein Konto — provisionSignupAccount ist create-only
           // (#365): sauberer User-Fehler, KEINE Session für den fremden Account.
