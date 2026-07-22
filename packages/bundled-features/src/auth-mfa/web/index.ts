@@ -7,8 +7,12 @@
 export type { AuthMfaClientFeature, AuthMfaClientOptions } from "./client-plugin";
 export { authMfaClient } from "./client-plugin";
 export { defaultTranslations, mergeTranslations } from "./i18n";
-export type { MfaVerifyResult } from "./mfa-client";
-export { verifyMfaChallenge } from "./mfa-client";
+export type {
+  MfaSetupPreauthStart,
+  MfaSetupPreauthStartResult,
+  MfaVerifyResult,
+} from "./mfa-client";
+export { confirmMfaSetupPreauth, startMfaSetupPreauth, verifyMfaChallenge } from "./mfa-client";
 export type { MfaDisableDialogProps } from "./mfa-disable-dialog";
 export { MfaDisableDialog } from "./mfa-disable-dialog";
 export type { MfaEnableScreenProps } from "./mfa-enable-screen";
@@ -17,5 +21,7 @@ export type { MfaRecoveryCodesRevealProps } from "./mfa-recovery-codes-reveal";
 export { MfaRecoveryCodesReveal } from "./mfa-recovery-codes-reveal";
 export type { MfaRegenerateRecoveryDialogProps } from "./mfa-regenerate-recovery-dialog";
 export { MfaRegenerateRecoveryDialog } from "./mfa-regenerate-recovery-dialog";
+export type { MfaSetupPreauthScreenProps } from "./mfa-setup-preauth-screen";
+export { MfaSetupPreauthScreen } from "./mfa-setup-preauth-screen";
 export type { MfaVerifyScreenProps } from "./mfa-verify-screen";
 export { MfaVerifyScreen } from "./mfa-verify-screen";

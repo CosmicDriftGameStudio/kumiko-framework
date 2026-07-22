@@ -40,6 +40,13 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.enable.cancel": "Abbrechen",
     "auth.mfa.enable.confirm": "Aktivieren",
     "auth.mfa.enable.success": "Zwei-Faktor-Authentifizierung ist jetzt aktiv.",
+    "auth.mfa.setup.title": "Zwei-Faktor-Authentifizierung erforderlich",
+    "auth.mfa.setup.subtitle":
+      "Dein Konto verlangt Zwei-Faktor-Authentifizierung. Richte sie jetzt ein, um dich anzumelden.",
+    "auth.mfa.setup.intro":
+      "Scanne den QR-Code mit einer Authenticator-App (z.B. Google Authenticator, 1Password).",
+    "auth.mfa.setup.start": "Einrichtung starten",
+    "auth.mfa.setup.confirm": "Einrichtung abschließen",
     "auth.mfa.disable.title": "Zwei-Faktor-Authentifizierung deaktivieren",
     "auth.mfa.disable.description":
       "Bestätige mit einem Code aus deiner Authenticator-App oder einem Recovery-Code. Dein Konto ist danach nur noch durch dein Passwort geschützt.",
@@ -93,6 +100,13 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.enable.cancel": "Cancel",
     "auth.mfa.enable.confirm": "Enable",
     "auth.mfa.enable.success": "Two-factor authentication is now enabled.",
+    "auth.mfa.setup.title": "Two-factor authentication required",
+    "auth.mfa.setup.subtitle":
+      "Your account requires two-factor authentication. Set it up now to sign in.",
+    "auth.mfa.setup.intro":
+      "Scan the QR code with an authenticator app (e.g. Google Authenticator, 1Password).",
+    "auth.mfa.setup.start": "Start setup",
+    "auth.mfa.setup.confirm": "Complete setup",
     "auth.mfa.disable.title": "Disable two-factor authentication",
     "auth.mfa.disable.description":
       "Confirm with a code from your authenticator app or a recovery code. Your account will then be protected by your password alone.",
