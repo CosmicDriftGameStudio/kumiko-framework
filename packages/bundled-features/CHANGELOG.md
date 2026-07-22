@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.162.0
+
+### Minor Changes
+
+- 5066725: auth-email-password: runtime toggle for self-registration. A new handler-less companion feature (`auth-self-registration`, toggleable, default on) lets an operator flip self-signup off at runtime via feature-toggles without redeploying. `signup-request` silently no-ops when off (matching its always-200 anti-enumeration contract), and a new anonymous-readable query (`auth-email-password:query:signup-registration-status`) lets the public signup page hide its own link/form.
+- 6d2063c: feature-toggles: add `composeTierResolverWithGlobalToggles` to combine a tier-engine `tenantTierResolver` with a global `GlobalFeatureToggleRuntime` into a single `effectiveFeatures` resolver. Apps running both tier-engine (per-tenant feature cuts) and feature-toggles (global operator switches, e.g. a runtime kill-switch not tied to any tier) previously had no way to compose them — the framework only auto-wires one `tenantTierResolver` plugin. The global layer only narrows what the tier grants (an explicit `enabled:false` row removes a feature; no row or `true` leaves the tier's grant untouched) — it never falls back to a toggleable feature's own default, which would otherwise silently disable every tier-gated toggleable feature the moment feature-toggles gets composed in. Also adds `GlobalFeatureToggleRuntime.readOverride(name)` for the raw per-feature override, bypassing the requires() cascade.
+
+### Patch Changes
+
+- Updated dependencies [08abac2]
+  - @cosmicdrift/kumiko-framework@0.162.0
+  - @cosmicdrift/kumiko-headless@0.162.0
+  - @cosmicdrift/kumiko-renderer@0.162.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.162.0
+  - @cosmicdrift/kumiko-renderer-web@0.162.0
+
 ## 0.161.0
 
 ### Minor Changes
