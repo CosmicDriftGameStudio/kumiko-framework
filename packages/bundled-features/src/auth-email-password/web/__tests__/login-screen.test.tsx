@@ -275,6 +275,7 @@ describe("LoginScreen", () => {
       { reason: "rate_limited", needle: "Zu viele Login-Versuche" },
       { reason: "invalid_body", needle: "Ungültige Eingabe" },
       { reason: "weird_unknown", needle: "Login fehlgeschlagen" },
+      { reason: "mfa_setup_required", needle: "Zwei-Faktor-Authentifizierung erforderlich" },
     ];
     for (const { reason, needle } of cases) {
       const session = makeSessionApi({
@@ -363,7 +364,9 @@ describe("LoginScreen", () => {
     fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("Zwei-Faktor-Bestätigung");
+      expect(screen.getByRole("alert").textContent).toContain(
+        "Zwei-Faktor-Authentifizierung erforderlich",
+      );
     });
   });
 

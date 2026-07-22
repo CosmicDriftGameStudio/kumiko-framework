@@ -35,6 +35,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.loginFailed": "Login fehlgeschlagen.",
     "auth.errors.mfaNotSupported":
       "Diese App unterstützt keine Zwei-Faktor-Bestätigung. Bitte an den Support wenden.",
+    "auth.errors.mfaSetupRequired":
+      "Zwei-Faktor-Authentifizierung erforderlich. Bitte an den Administrator wenden.",
     "auth.errors.invalidResetToken":
       "Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
     "auth.errors.invalidVerificationToken": "Der Bestätigungs-Link ist ungültig oder abgelaufen.",
@@ -161,6 +163,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.loginFailed": "Login failed.",
     "auth.errors.mfaNotSupported":
       "This app doesn't support two-factor verification. Please contact support.",
+    "auth.errors.mfaSetupRequired":
+      "Two-factor authentication required. Please contact your administrator.",
     "auth.errors.invalidResetToken": "Link is invalid or expired. Please request a new one.",
     "auth.errors.invalidVerificationToken": "Verification link is invalid or expired.",
     "auth.errors.invalidUnlockToken":

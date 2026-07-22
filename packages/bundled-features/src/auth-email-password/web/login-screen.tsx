@@ -65,7 +65,8 @@ export type LoginScreenProps = {
   readonly onMfaChallenge?: (challengeToken: string) => void;
   /** Called when the tenant's enforcement policy requires MFA but this
    *  user has no factor enrolled yet. Apps typically route to an
-   *  enrollment flow. Same fallback behavior as onMfaChallenge when unset. */
+   *  enrollment flow. Without a handler, the user sees a "setup required,
+   *  contact your administrator" error. */
   readonly onMfaSetupRequired?: () => void;
 };
 
@@ -97,6 +98,8 @@ function reasonToKey(failure: LoginFailure): {
       return { key: "auth.errors.invalidBody" };
     case "mfa_not_supported":
       return { key: "auth.errors.mfaNotSupported" };
+    case "mfa_setup_required":
+      return { key: "auth.errors.mfaSetupRequired" };
     default:
       return { key: "auth.errors.loginFailed" };
   }
@@ -147,7 +150,7 @@ export function LoginScreen({
         onMfaSetupRequired();
         return;
       }
-      setError({ reason: "mfa_not_supported" });
+      setError({ reason: "mfa_setup_required" });
       setFailedLoginEmail(email);
       return;
     }
