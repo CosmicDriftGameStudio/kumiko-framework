@@ -4,6 +4,7 @@ import { MFA_ENABLE_SCREEN_ID } from "./constants";
 import { createDisableHandler } from "./handlers/disable.write";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write";
 import { createEnableStartHandler } from "./handlers/enable-start.write";
+import { createEnableStartPreauthHandler } from "./handlers/enable-start-preauth.write";
 import { mfaReencryptJob } from "./handlers/reencrypt.job";
 import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.write";
 import { mfaStatusQuery } from "./handlers/status.query";
@@ -118,6 +119,13 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     const handlers = {
       enableStart: r.writeHandler(
         createEnableStartHandler({ setupTokenSecret: opts.setupTokenSecret, issuer: opts.issuer }),
+      ),
+      enableStartPreauth: r.writeHandler(
+        createEnableStartPreauthHandler({
+          challengeTokenSecret: opts.challengeTokenSecret,
+          setupTokenSecret: opts.setupTokenSecret,
+          issuer: opts.issuer,
+        }),
       ),
       enableConfirm: r.writeHandler(
         createEnableConfirmHandler({
