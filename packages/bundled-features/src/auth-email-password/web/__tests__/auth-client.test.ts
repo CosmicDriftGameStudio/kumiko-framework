@@ -95,12 +95,16 @@ describe("login", () => {
 
   test("MFA enforcement blocks unenrolled user → kind:mfa-setup-required", async () => {
     globalThis.fetch = mock(async () =>
-      jsonResponse({ isSuccess: true, mfaSetupRequired: true }),
+      jsonResponse({
+        isSuccess: true,
+        mfaSetupRequired: true,
+        preauthSetupToken: "setup-token-value",
+      }),
     ) as unknown as typeof fetch;
 
     const res = await login({ email: "a@b.c", password: "secret" });
 
-    expect(res).toEqual({ kind: "mfa-setup-required" });
+    expect(res).toEqual({ kind: "mfa-setup-required", preauthSetupToken: "setup-token-value" });
   });
 
   test("string error → kind:failure with reason from string", async () => {

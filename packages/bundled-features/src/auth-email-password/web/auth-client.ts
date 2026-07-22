@@ -53,7 +53,7 @@ export function csrfHeader(): Record<string, string> {
 export type LoginResult =
   | { readonly kind: "success"; readonly data: LoginResponse }
   | { readonly kind: "mfa-challenge"; readonly challengeToken: string }
-  | { readonly kind: "mfa-setup-required" }
+  | { readonly kind: "mfa-setup-required"; readonly preauthSetupToken: string }
   | { readonly kind: "failure"; readonly error: LoginFailure };
 
 // POST /api/auth/login. Success → token + user; MFA-enrolled user → a
@@ -80,6 +80,7 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
     mfaRequired?: boolean;
     challengeToken?: string;
     mfaSetupRequired?: boolean;
+    preauthSetupToken?: string;
     error?:
       | {
           code?: string;
@@ -92,8 +93,8 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
     if (body.mfaRequired === true && typeof body.challengeToken === "string") {
       return { kind: "mfa-challenge", challengeToken: body.challengeToken };
     }
-    if (body.mfaSetupRequired === true) {
-      return { kind: "mfa-setup-required" };
+    if (body.mfaSetupRequired === true && typeof body.preauthSetupToken === "string") {
+      return { kind: "mfa-setup-required", preauthSetupToken: body.preauthSetupToken };
     }
     if (body.token !== undefined && body.user !== undefined) {
       return { kind: "success", data: { token: body.token, user: body.user } };

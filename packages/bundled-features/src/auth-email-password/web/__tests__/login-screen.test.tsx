@@ -340,7 +340,10 @@ describe("LoginScreen", () => {
     const sessionOk = makeSessionApi({
       status: "unauthenticated",
       user: null,
-      login: mock<SessionApi["login"]>(async () => ({ kind: "mfa-setup-required" })),
+      login: mock<SessionApi["login"]>(async () => ({
+        kind: "mfa-setup-required",
+        preauthSetupToken: "setup-token-value",
+      })),
     });
     const { unmount } = renderWithProviders(
       <LoginScreen onMfaSetupRequired={onMfaSetupRequired} />,
@@ -357,7 +360,10 @@ describe("LoginScreen", () => {
     const sessionBare = makeSessionApi({
       status: "unauthenticated",
       user: null,
-      login: mock<SessionApi["login"]>(async () => ({ kind: "mfa-setup-required" })),
+      login: mock<SessionApi["login"]>(async () => ({
+        kind: "mfa-setup-required",
+        preauthSetupToken: "setup-token-value",
+      })),
     });
     renderWithProviders(<LoginScreen />, { session: sessionBare });
     fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });

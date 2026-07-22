@@ -598,13 +598,17 @@ export function createAuthRoutes(
       const data = result.data as
         | { kind: "auth-session"; session: SessionUser }
         | { kind: "mfa-challenge"; challengeToken: string }
-        | { kind: "mfa-setup-required" };
+        | { kind: "mfa-setup-required"; preauthSetupToken: string };
 
       if (data.kind === "mfa-setup-required") {
         // No session, no challenge — the client must show an
         // enrollment-required message. No rate-limit reset (same reasoning
         // as the mfa-challenge branch below).
-        return c.json({ isSuccess: true, mfaSetupRequired: true });
+        return c.json({
+          isSuccess: true,
+          mfaSetupRequired: true,
+          preauthSetupToken: data.preauthSetupToken,
+        });
       }
 
       if (data.kind === "mfa-challenge") {

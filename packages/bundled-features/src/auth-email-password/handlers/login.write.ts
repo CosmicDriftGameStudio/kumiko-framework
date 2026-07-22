@@ -58,7 +58,7 @@ export type LoginHandlerOptions = {
   ) => Promise<
     | { readonly required: false }
     | { readonly required: true; readonly challengeToken: string }
-    | { readonly setupRequired: true }
+    | { readonly setupRequired: true; readonly preauthSetupToken: string }
   >;
 };
 
@@ -70,7 +70,7 @@ const SYSTEM_USER_ID = "00000000-0000-4000-8000-000000000000";
 type LoginResult =
   | { readonly kind: "auth-session"; readonly session: SessionUser }
   | { readonly kind: "mfa-challenge"; readonly challengeToken: string }
-  | { readonly kind: "mfa-setup-required" };
+  | { readonly kind: "mfa-setup-required"; readonly preauthSetupToken: string };
 
 // Login — unauthenticated entry point. The route is wired public (no JWT
 // middleware), synthesising a guest SessionUser for the handler's access
@@ -226,7 +226,10 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
           };
         }
         if ("setupRequired" in mfaStatus) {
-          return { isSuccess: true, data: { kind: "mfa-setup-required" } };
+          return {
+            isSuccess: true,
+            data: { kind: "mfa-setup-required", preauthSetupToken: mfaStatus.preauthSetupToken },
+          };
         }
       }
 
