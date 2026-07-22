@@ -336,7 +336,7 @@ describe("LoginScreen", () => {
   });
 
   test("mfa-setup-required with and without onMfaSetupRequired", async () => {
-    const onMfaSetupRequired = mock<() => void>();
+    const onMfaSetupRequired = mock<(preauthSetupToken: string, accountLabel: string) => void>();
     const sessionOk = makeSessionApi({
       status: "unauthenticated",
       user: null,
@@ -353,7 +353,7 @@ describe("LoginScreen", () => {
     fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
     await waitFor(() => {
-      expect(onMfaSetupRequired).toHaveBeenCalled();
+      expect(onMfaSetupRequired).toHaveBeenCalledWith("setup-token-value", "a@b.c");
     });
     unmount();
 

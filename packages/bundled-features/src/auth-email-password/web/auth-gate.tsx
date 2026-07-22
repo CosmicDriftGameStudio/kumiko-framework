@@ -23,10 +23,21 @@ export type MfaVerifyComponentProps = {
   readonly onCancel?: () => void;
 };
 
+// Same coupling reasoning as MfaVerifyComponentProps above — generic, not
+// auth-mfa's MfaSetupPreauthScreenProps directly. Apps wire auth-mfa's
+// MfaSetupPreauthScreen in here via EmailPasswordClientOptions.
+export type MfaSetupComponentProps = {
+  readonly preauthSetupToken: string;
+  readonly accountLabel: string;
+  readonly onSuccess?: () => void;
+  readonly onCancel?: () => void;
+};
+
 export type LoginRouteOptions = {
   readonly loginScreen?: ComponentType<LoginScreenProps>;
   readonly loginScreenProps?: LoginScreenProps;
   readonly mfaVerifyScreen?: ComponentType<MfaVerifyComponentProps>;
+  readonly mfaSetupScreen?: ComponentType<MfaSetupComponentProps>;
   /** Called once the session becomes authenticated. makeAuthGate ignores
    *  this (it renders `children` on its own authenticated branch instead);
    *  standalone routes — no parent gate, e.g. an anonymous apex/marketing
@@ -51,14 +62,19 @@ export function createLoginRoute(
 ): ComponentType<Record<string, never>> {
   const LoginComponent = opts.loginScreen ?? LoginScreen;
   const MfaVerifyComponent = opts.mfaVerifyScreen;
+  const MfaSetupComponent = opts.mfaSetupScreen;
 
   function LoginRoute(): ReactNode {
-    const { status } = useSession();
+    const { status, refresh } = useSession();
     const { onAuthenticated } = opts;
     // Pending challenge-token from LoginScreen's onMfaChallenge. Lives here
     // (not in SessionState) because it's a UI-only transition — the server
     // never considers this session authenticated until verify succeeds.
     const [challengeToken, setChallengeToken] = useState<string | null>(null);
+    const [setupRequest, setSetupRequest] = useState<{
+      readonly preauthSetupToken: string;
+      readonly accountLabel: string;
+    } | null>(null);
 
     useEffect(() => {
       if (status === "authenticated") onAuthenticated?.();
@@ -85,11 +101,34 @@ export function createLoginRoute(
         />
       );
     }
+    // Pending preauthSetupToken from LoginScreen's onMfaSetupRequired. Same
+    // reasoning as challengeToken — a UI-only transition, not session state.
+    if (setupRequest !== null && MfaSetupComponent) {
+      return (
+        <MfaSetupComponent
+          preauthSetupToken={setupRequest.preauthSetupToken}
+          accountLabel={setupRequest.accountLabel}
+          onSuccess={() => {
+            setSetupRequest(null);
+            // MfaSetupPreauthScreen has no session to refresh itself with
+            // (it runs pre-auth) — the gate owns the session, so it refreshes.
+            void refresh();
+          }}
+          onCancel={() => setSetupRequest(null)}
+        />
+      );
+    }
     return (
       <LoginComponent
         {...opts.loginScreenProps}
         onMfaChallenge={
           MfaVerifyComponent ? setChallengeToken : opts.loginScreenProps?.onMfaChallenge
+        }
+        onMfaSetupRequired={
+          MfaSetupComponent
+            ? (preauthSetupToken, accountLabel) =>
+                setSetupRequest({ preauthSetupToken, accountLabel })
+            : opts.loginScreenProps?.onMfaSetupRequired
         }
       />
     );
@@ -101,11 +140,13 @@ export function makeAuthGate(
   LoginComponent: ComponentType<LoginScreenProps> = LoginScreen,
   loginProps?: LoginScreenProps,
   MfaVerifyComponent?: ComponentType<MfaVerifyComponentProps>,
+  MfaSetupComponent?: ComponentType<MfaSetupComponentProps>,
 ): ComponentType<{ children: ReactNode }> {
   const LoginRoute = createLoginRoute({
     loginScreen: LoginComponent,
     loginScreenProps: loginProps,
     mfaVerifyScreen: MfaVerifyComponent,
+    mfaSetupScreen: MfaSetupComponent,
   });
   function AuthGate({ children }: { readonly children: ReactNode }): ReactNode {
     const { status } = useSession();
@@ -122,8 +163,9 @@ export function makeSessionAuthGate(
   LoginComponent: ComponentType<LoginScreenProps> = LoginScreen,
   loginProps?: LoginScreenProps,
   MfaVerifyComponent?: ComponentType<MfaVerifyComponentProps>,
+  MfaSetupComponent?: ComponentType<MfaSetupComponentProps>,
 ): ComponentType<{ children: ReactNode }> {
-  const AuthGate = makeAuthGate(LoginComponent, loginProps, MfaVerifyComponent);
+  const AuthGate = makeAuthGate(LoginComponent, loginProps, MfaVerifyComponent, MfaSetupComponent);
   function SessionAuthGate({ children }: { readonly children: ReactNode }): ReactNode {
     return (
       <SessionProvider>
