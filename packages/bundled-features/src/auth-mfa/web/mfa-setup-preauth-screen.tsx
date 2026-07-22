@@ -1,19 +1,18 @@
 // @runtime client
-// Pre-Auth-fähiges Gegenstück zu MfaEnableScreen: ein per Policy blockierter,
-// noch nicht enrollter User landet hier direkt aus dem Login-Flow — es gibt
-// noch keine Session. Identität kommt ausschließlich aus dem preauthSetup-
-// Token, das login()'s mfa-setup-required-Ergebnis mitbringt (siehe
-// auth-client.ts's LoginResult). Ruft startMfaSetupPreauth/confirmMfaSetup-
-// Preauth direkt per fetch (mfa-client.ts) — kein useSession(), kein
-// useDispatcher(), beide setzen eine echte Session voraus, die hier nicht
-// existiert.
+// Pre-auth twin of MfaEnableScreen: a user blocked at login by MFA
+// enforcement and not yet enrolled lands here straight out of the login
+// flow — there is no session yet. Identity comes entirely from the
+// preauthSetupToken login()'s mfa-setup-required result carries (see
+// auth-client.ts's LoginResult). Calls startMfaSetupPreauth/confirmMfa-
+// SetupPreauth directly via fetch (mfa-client.ts) — no useSession(), no
+// useDispatcher(), both assume a real session that doesn't exist here.
 //
-// Session-Kontrakt: ein erfolgreicher confirm mintet Cookie+JWT server-
-// seitig, aber DIESE Komponente refresht die Session nicht selbst (anders
-// als MfaVerifyScreen, das intern session.refresh() aufruft). onSuccess
-// feuert direkt nach dem confirm — der Caller (z.B. auth-gate's LoginRoute,
-// die useSession() ohnehin im Scope hat) muss dort selbst refresh() rufen,
-// sonst bleibt die App bis zum nächsten Reload auf "unauthenticated".
+// Session contract: a successful confirm mints cookie+JWT server-side, but
+// THIS component does not refresh the session itself (unlike MfaVerify-
+// Screen, which calls session.refresh() internally). onSuccess fires right
+// after confirm — the caller (e.g. auth-gate's LoginRoute, which already
+// has useSession() in scope) must call refresh() there, otherwise the app
+// stays "unauthenticated" until the next reload.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 // qrcode's package.json#browser remap avoids Node-only deps (yargs/pngjs)
@@ -59,8 +58,8 @@ function reasonToKey(reason: string): string {
 
 export type MfaSetupPreauthScreenProps = {
   readonly preauthSetupToken: string;
-  /** Account-Label fürs otpauth:// URI (typisch die Email aus dem Login-
-   *  Formular) — ohne Session gibt es kein session.user.email zum Ableiten. */
+  /** Account label for the otpauth:// URI (typically the email typed at
+   *  login) — without a session there's no session.user.email to derive it from. */
   readonly accountLabel: string;
   readonly title?: string;
   readonly subtitle?: ReactNode;
@@ -79,7 +78,7 @@ export function MfaSetupPreauthScreen({
   onCancel,
 }: MfaSetupPreauthScreenProps): ReactNode {
   const t = useTranslation();
-  const { Button, Banner, Field, Input, Section } = usePrimitives();
+  const { Button, Banner, Field, Form, Input, Section } = usePrimitives();
 
   const [setup, setSetup] = useState<SetupState | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
@@ -168,7 +167,7 @@ export function MfaSetupPreauthScreen({
         )}
 
         {setup && (
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          <Form onSubmit={onSubmit}>
             <Section
               testId="mfa-setup-preauth-setup"
               actions={
@@ -229,7 +228,7 @@ export function MfaSetupPreauthScreen({
                 />
               </Field>
             </Section>
-          </form>
+          </Form>
         )}
 
         {onCancel ? (
