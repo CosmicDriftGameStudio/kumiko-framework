@@ -1,10 +1,10 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { FEATURE_TOGGLE_SET_EVENT_NAME, TOGGLE_ADMIN_SCREEN_ID } from "./constants";
 import { featureToggleSetSchema } from "./events";
+import { globalFeatureStateTableMeta } from "./global-feature-state-table";
 import { listQuery } from "./handlers/list.query";
 import { registeredQuery } from "./handlers/registered.query";
 import { createSetWriteHandler } from "./handlers/set.write";
-import { globalFeatureStateTableMeta } from "./global-feature-state-table";
 import { FEATURE_TOGGLES_I18N } from "./i18n";
 import type { GlobalFeatureToggleRuntime } from "./toggle-runtime";
 
@@ -49,7 +49,7 @@ export function createFeatureTogglesFeature(
     });
     r.systemScope();
     r.storeTable(globalFeatureStateTableMeta, {
-      reason: "operator override snapshot for r.toggleable() features — read by GlobalFeatureToggleRuntime",
+      reason: "feature_toggles.global_override_snapshot",
     });
 
     // Toggle-change domain event. The event ends up in the events-table
