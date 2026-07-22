@@ -19,7 +19,7 @@ import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { hashPassword } from "../shared";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
-import { seedTenant, seedTenantMembership } from "../tenant/seeding";
+import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import signup create-only guard reads the user projection by email
 import { userTable } from "../user/schema/user";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
@@ -115,6 +115,12 @@ export type ProvisionSignupAccountOptions = {
 export async function provisionSignupAccount(
   db: DbConnection,
   options: ProvisionSignupAccountOptions,
+  // Optional, append-only — existing callers (tests, seed scripts) that
+  // don't pass hooks keep today's behavior. The real signup-confirm
+  // handler DOES pass it (#1463) so seedTenant's postSave hooks
+  // (tier-engine's auto-default-tier, app auto-default-compliance) fire
+  // on self-signup, same as they do on the regular tenant-create path.
+  hooks?: SeedTenantHooks,
 ): Promise<{ readonly userId: string; readonly tenantId: TenantId }> {
   // Create-only-Guard VOR seedTenant: bei bereits registrierter Email hart
   // abbrechen, sonst entstünde ein verwaister Tenant und seedUser (idempotent
@@ -124,11 +130,15 @@ export async function provisionSignupAccount(
   if (existingUser) {
     throw new ConflictError({ message: "signup: email already registered" });
   }
-  await seedTenant(db, {
-    id: options.tenantId,
-    key: options.tenantKey,
-    name: options.tenantName,
-  });
+  await seedTenant(
+    db,
+    {
+      id: options.tenantId,
+      key: options.tenantKey,
+      name: options.tenantName,
+    },
+    hooks,
+  );
   const { id: userId } = await seedUserWithPassword(db, {
     email: options.email,
     password: options.password,

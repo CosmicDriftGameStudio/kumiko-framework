@@ -26,6 +26,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   setupTestStack,
   type TestStack,
@@ -44,10 +45,17 @@ import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
+// kumiko-lint-ignore cross-feature-import regression-proof for #1463: seedTenant
+// must fire tier-engine's entity postSave hook on self-signup, not just on the
+// TenantHandlers.create HTTP path.
+import { tierAssignmentEntity } from "../../tier-engine/entity";
+import { createTierEngineFeature } from "../../tier-engine/feature";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
+
+const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
 
@@ -78,6 +86,12 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature({
         signup: { tokenTtlMinutes: 60, appUrl: APP_ACTIVATION_URL },
       }),
+      // Regression-proof for #1463: seedTenant must fire the entity postSave
+      // hook on self-signup too, not just on the TenantHandlers.create path.
+      createTierEngineFeature({
+        defaultTier: "free",
+        tierMap: { free: { features: [], caps: {} } },
+      }),
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
@@ -102,6 +116,7 @@ beforeAll(async () => {
     configValuesTable,
     tenantMembershipsTable,
     notificationPreferencesTable,
+    tierAssignmentTable,
   });
 });
 
@@ -112,6 +127,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tierAssignmentTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
   emailTransport.sent.length = 0;
   // Redis-cleanup damit Resend-Tests keine state-leaks haben.
@@ -219,6 +235,15 @@ describe("POST /api/auth/signup-confirm", () => {
     if (typeof rolesRaw === "string") {
       expect(JSON.parse(rolesRaw) as string[]).toContain("Admin");
     }
+
+    // #1463 regression: seedTenant fires the tenant entity's postSave
+    // hooks — tier-engine's auto-default-tier hook must run on self-signup
+    // exactly like it does on the regular TenantHandlers.create HTTP path.
+    const tierRows = await selectMany(stack.db, tierAssignmentTable, {
+      tenantId: body.user?.tenantId ?? "",
+    });
+    expect(tierRows).toHaveLength(1);
+    expect(tierRows[0]?.["tier"]).toBe("free");
 
     // Authority-Beweis: Login mit dem gesetzten Password funktioniert.
     const loginRes = await postLogin(email, password);

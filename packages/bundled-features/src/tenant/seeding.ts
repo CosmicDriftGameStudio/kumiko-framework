@@ -34,8 +34,15 @@ import {
   createTenantDb,
   type DbRunner,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AppContext,
+  HookPhases,
+  type Registry,
+  type SessionUser,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { getUnscopedAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { createLifecycleHooks } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { assertAssignableMembershipRoles } from "./membership-roles";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
@@ -74,6 +81,19 @@ export type SeedTenantOptions = {
   readonly by?: SessionUser;
 };
 
+// seedTenant runs through the raw event-store executor, which fires no
+// postSave hooks (#1463) — feature-registered entity hooks on "tenant"
+// (e.g. tier-engine's auto-default-tier, an app's auto-default-compliance)
+// silently never run for tenants created this way. Pass `hooks` to fire
+// them explicitly, same lookup as the dispatcher (registry.getEntityPostSaveHooks
+// by result.entityName), just without the full dispatch roundtrip. Omit it
+// to keep today's hook-less behavior (existing fixture call-sites that don't
+// care about hooks need no changes).
+export type SeedTenantHooks = {
+  readonly registry: Registry;
+  readonly context: AppContext;
+};
+
 /**
  * Seed a tenant through the event-store executor. Idempotent add-only:
  * a second call for the same `id` is a no-op (no update path). Same
@@ -83,6 +103,7 @@ export type SeedTenantOptions = {
 export async function seedTenant(
   db: DbRunner,
   options: SeedTenantOptions,
+  hooks?: SeedTenantHooks,
 ): Promise<{ id: TenantId }> {
   const by = options.by ?? TestUsers.systemAdmin;
   // executor.create erwartet eine TenantDb (mit .insert()-API), nicht
@@ -112,6 +133,24 @@ export async function seedTenant(
       `seedTenant failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
+
+  if (hooks) {
+    // Fresh instance per call, no systemHooks — only feature-registered
+    // entity/handler hooks fire (search-index/SSE system hooks are wired
+    // at server-boot and out of reach here, same as before this fix).
+    // "tenant:seed" matches no handler-scoped hook, only entity-scoped ones
+    // (keyed by result.entityName === "tenant") — that's exactly what
+    // tier-engine's `r.hook("postSave", { allOf: "tenant" }, ...)` needs.
+    const lifecycle = createLifecycleHooks(hooks.registry);
+    await lifecycle.runPostSave(
+      "tenant:seed",
+      result.data,
+      hooks.context,
+      HookPhases.inTransaction,
+    );
+    await lifecycle.runPostSave("tenant:seed", result.data, hooks.context, HookPhases.afterCommit);
+  }
+
   return { id: options.id };
 }
 
