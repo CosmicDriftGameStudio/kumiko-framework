@@ -47,6 +47,20 @@ export class GlobalFeatureToggleRuntime {
     this.snapshot.set(featureName, enabled);
   }
 
+  // Raw per-feature override, bypassing the requires() cascade —
+  // `undefined` means "no explicit row, inherits toggleableDefault"
+  // (distinct from an explicit `false`). Used by composeTierResolver to
+  // layer a global kill-switch UNDER a tenantTierResolver: the composed
+  // resolver must only ever narrow what the tier already grants, never
+  // fall back to a toggleable feature's declared default the way
+  // effectiveFeatures()/computeEffectiveFeatures do — that default exists
+  // for apps with no tier resolver, and would otherwise turn tier-gated
+  // toggleable features (e.g. a Team-tier feature defaulting off) globally
+  // off the moment feature-toggles is composed in.
+  readOverride(featureName: string): boolean | undefined {
+    return this.snapshot.get(featureName);
+  }
+
   // The callback shape the dispatcher expects. Computes the effective
   // feature set from the current snapshot + the registry's requires()
   // cascade every call. Cheap: the cascade is a DFS over O(features);

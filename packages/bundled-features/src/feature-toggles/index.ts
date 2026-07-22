@@ -1,3 +1,4 @@
+export { composeTierResolverWithGlobalToggles } from "./compose-tier-resolver";
 export {
   FEATURE_TOGGLES_FEATURE,
   FeatureToggleHandlers,
