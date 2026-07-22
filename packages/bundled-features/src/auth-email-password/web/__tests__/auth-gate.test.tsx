@@ -97,7 +97,9 @@ describe("createLoginRoute", () => {
   }): ReactNode {
     return (
       <div data-testid="mfa-setup">
-        {preauthSetupToken}:{accountLabel}
+        <span data-testid="mfa-setup-info">
+          {preauthSetupToken}:{accountLabel}
+        </span>
         <button type="button" data-testid="complete-mfa-setup" onClick={() => onSuccess?.()}>
           complete
         </button>
@@ -153,7 +155,9 @@ describe("createLoginRoute", () => {
     const session = makeSessionApi({ status: "unauthenticated" });
     renderWithProviders(<LoginRoute />, { session });
     fireEvent.click(screen.getByTestId("trigger-mfa-setup"));
-    expect(screen.getByTestId("mfa-setup").textContent).toBe("setup-token-123:user@example.com");
+    expect(screen.getByTestId("mfa-setup-info").textContent).toBe(
+      "setup-token-123:user@example.com",
+    );
   });
 
   test("MfaSetupComponent onSuccess → gate clears the request and refreshes the session", () => {
@@ -180,6 +184,8 @@ describe("createLoginRoute", () => {
       { session },
     );
     fireEvent.click(screen.getByTestId("trigger-mfa-setup"));
-    expect(screen.getByTestId("mfa-setup").textContent).toBe("setup-token-123:user@example.com");
+    expect(screen.getByTestId("mfa-setup-info").textContent).toBe(
+      "setup-token-123:user@example.com",
+    );
   });
 });
