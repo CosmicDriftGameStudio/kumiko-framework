@@ -79,7 +79,7 @@ import {
 import { FileUploadInput } from "./file-upload";
 import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
-import { MoneyInput } from "./money-input";
+import { currencyDecimals, MoneyInput } from "./money-input";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
 
@@ -1256,6 +1256,15 @@ export function isComponentRendererRef(renderer: unknown): { readonly name: stri
 // applyFormatSpec re-exported from headless (platform-agnostic).
 export { applyFormatSpec };
 
+function isMoneyValue(value: unknown): value is { amount: number; currency: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>)["amount"] === "number" &&
+    typeof (value as Record<string, unknown>)["currency"] === "string"
+  );
+}
+
 // Type-spezifische Default-Cell-Renderer. Author kann pro Spalte einen
 // expliziten renderer setzen (FormatSpec oder PlatformComponent); ohne
 // expliziten renderer fällt DataTableCell hier durch.
@@ -1263,6 +1272,7 @@ export { applyFormatSpec };
 //   - boolean → ✓ / leer
 //   - timestamp/date → locale-formatiert (kein roher ISO-String)
 //   - select → human-lesbar (kebab-case → Title Case)
+//   - money → { amount, currency } formatted via Intl (not "[object Object]")
 //   - text/number/sonst → toString
 export function defaultCellRender(
   value: unknown,
@@ -1272,6 +1282,16 @@ export function defaultCellRender(
   if (value === null || value === undefined || value === "") return "";
   if (type === "boolean") return value === true ? "✓" : "";
   if (type === "timestamp" || type === "date") return applyFormatSpec({ format: type }, value);
+  if (type === "money") {
+    if (!isMoneyValue(value)) return String(value);
+    const decimals = currencyDecimals(value.currency);
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: value.currency,
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(value.amount / 10 ** decimals);
+  }
   if (type === "select") {
     const raw = String(value);
     // Translated Label aus dem ViewModel-Builder (Convention-Key

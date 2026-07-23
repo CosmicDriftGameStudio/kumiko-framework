@@ -164,4 +164,19 @@ describe("defaultCellRender", () => {
     expect(defaultCellRender("hallo", "text")).toBe("hallo");
     expect(defaultCellRender(42, "number")).toBe("42");
   });
+
+  test("money → { amount, currency } formatiert, kein [object Object]", () => {
+    const result = defaultCellRender({ amount: 45000, currency: "EUR" }, "money");
+    expect(result).not.toBe("[object Object]");
+    expect(result.replace(/[^0-9]/g, "")).toBe("45000");
+  });
+
+  test("money → JPY ohne Nachkommastellen (currencyDecimals)", () => {
+    const result = defaultCellRender({ amount: 1000, currency: "JPY" }, "money");
+    expect(result.replace(/[^0-9]/g, "")).toBe("1000");
+  });
+
+  test("money → unerwarteter Value-Shape fällt auf String zurück", () => {
+    expect(defaultCellRender(45000, "money")).toBe("45000");
+  });
 });
