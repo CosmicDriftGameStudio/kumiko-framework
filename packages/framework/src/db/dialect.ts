@@ -12,6 +12,9 @@
 //
 // The framework no longer imports drizzle-orm at runtime — schema-files
 // use only this module.
+//
+// Static import, not the ambient global: Bun doesn't expose Temporal on
+// globalThis, so instantToDriver crashed on timestamptz writes (#1480).
 
 import {
   type ColumnHandle,
@@ -19,6 +22,7 @@ import {
   KUMIKO_NAME_SYMBOL,
   type SchemaTable,
 } from "@cosmicdrift/kumiko-types/schema-table-types";
+import { Temporal } from "temporal-polyfill";
 import type {
   ColumnMeta,
   CompositePrimaryKeyMeta,

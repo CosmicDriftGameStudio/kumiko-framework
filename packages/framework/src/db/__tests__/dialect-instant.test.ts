@@ -11,11 +11,8 @@
 // die invalid-Probe (echte Garbage muss weiterhin throwen — kein silent
 // swallowing).
 
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-
-await ensureTemporalPolyfill();
-
 import { describe, expect, test } from "bun:test";
+import { Temporal } from "temporal-polyfill";
 import { instantToDriver as toDriver } from "../dialect";
 
 describe("instant() customType — toDriver", () => {
