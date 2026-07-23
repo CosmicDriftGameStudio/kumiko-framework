@@ -145,11 +145,19 @@ export type UserDataExportHook = (ctx: UserDataHookCtx) => Promise<UserDataExpor
  *
  * Idempotent — wenn der Job zweimal läuft (Crash-Recovery), darf der
  * Hook nicht crashen.
+ *
+ * Return additive to `void`: a hook can return `{status:"ok"}` or
+ * `{status:"incomplete", reason}` to signal a partial success to the
+ * cleanup runner (e.g. an external provider call failed) without
+ * throwing/rolling back the sub-transaction. Existing `void` returners
+ * stay valid unchanged.
  */
 export type UserDataDeleteHook = (
   ctx: UserDataHookCtx,
   strategy: UserDataDeleteStrategy,
-) => Promise<void>;
+) => Promise<
+  undefined | { readonly status: "ok" } | { readonly status: "incomplete"; readonly reason: string }
+>;
 
 /**
  * Komplette Hook-Tafel für EXT_USER_DATA. Sprint 2 user-data-rights
