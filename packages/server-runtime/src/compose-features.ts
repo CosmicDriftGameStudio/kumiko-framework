@@ -16,6 +16,7 @@ import {
   type AuthEmailPasswordOptions,
   type AuthMailLocale,
   createAuthEmailPasswordFeature,
+  createAuthSelfRegistrationToggleFeature,
   type EmailVerificationOptions,
   type InviteOptions,
   type PasswordResetOptions,
@@ -75,6 +76,14 @@ export function composeFeatures(
     createUserFeature(),
     createTenantFeature(),
     createAuthEmailPasswordFeature(authOptions ?? {}),
+    // signup-request/signup-confirm are registered whenever authOptions.signup
+    // is set (see above), but the handler itself no-ops unless the companion
+    // toggle feature is mounted (ctx.hasFeature(AUTH_SELF_REGISTRATION_FEATURE))
+    // — without this, apps using the includeBundled convenience path get
+    // self-signup silently broken (always-200 anti-enumeration contract masks
+    // it as success). Mount it alongside signup, default ON, matching the
+    // "on unless an operator flips it off at runtime" contract.
+    ...(authOptions?.signup !== undefined ? [createAuthSelfRegistrationToggleFeature()] : []),
   ];
   const bundledNames = new Set(bundled.map((f) => f.name));
   const filteredApp: FeatureDefinition[] = [];
