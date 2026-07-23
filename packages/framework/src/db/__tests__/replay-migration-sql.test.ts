@@ -72,6 +72,54 @@ CREATE INDEX IF NOT EXISTS "read_accounts_tenant_id_idx" ON "read_accounts" ("te
     }
   });
 
+  // Regression: publicstatus#0007_fix-secrets-table-columns adds three
+  // columns in ONE statement (comma-separated ADD COLUMN clauses) — the
+  // replay used to only pick up the first, reporting "metadata" and
+  // "last_rotated_at" as missing even though the migration creates them.
+  test("multiple ADD COLUMN clauses in a single ALTER TABLE statement all extend the table", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(dir, "0001_init.sql", `CREATE TABLE IF NOT EXISTS "read_a" ("id" uuid PRIMARY KEY);`);
+      write(
+        dir,
+        "0002_add-cols.sql",
+        `ALTER TABLE "read_a"
+  ADD COLUMN IF NOT EXISTS "envelope" jsonb NOT NULL,
+  ADD COLUMN IF NOT EXISTS "metadata" jsonb DEFAULT '{}'::jsonb NOT NULL,
+  ADD COLUMN IF NOT EXISTS "last_rotated_at" timestamp with time zone DEFAULT now() NOT NULL;`,
+      );
+      const replayed = replayMigrationsDir(dir);
+      expect([...(replayed.get("read_a")?.columns ?? [])].sort()).toEqual([
+        "envelope",
+        "id",
+        "last_rotated_at",
+        "metadata",
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("mixed ADD + DROP COLUMN clauses in one statement apply in order", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(
+        dir,
+        "0001_init.sql",
+        `CREATE TABLE IF NOT EXISTS "read_a" ("id" uuid PRIMARY KEY, "legacy" text);`,
+      );
+      write(
+        dir,
+        "0002_migrate-cols.sql",
+        `ALTER TABLE "read_a" DROP COLUMN IF EXISTS "legacy", ADD COLUMN IF NOT EXISTS "title" text;`,
+      );
+      const replayed = replayMigrationsDir(dir);
+      expect([...(replayed.get("read_a")?.columns ?? [])].sort()).toEqual(["id", "title"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("DROP COLUMN IF EXISTS (hand-edited) still removes the column", () => {
     const dir = tmpMigrationsDir();
     try {
