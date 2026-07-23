@@ -1,6 +1,6 @@
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { FileStorageProvider } from "./types";
 
@@ -8,9 +8,23 @@ import type { FileStorageProvider } from "./types";
 // pick an object-store provider (S3/R2/…). mimeType is ignored here; the
 // filesystem tracks no metadata beyond what the caller stores on FileRef.
 export function createLocalProvider(basePath: string): FileStorageProvider {
+  const resolvedBase = resolve(basePath);
+
+  // Callers are expected to only ever pass keys built by buildStorageKey(),
+  // but the storage layer shouldn't rely solely on that — this resolves the
+  // real path and rejects anything that escapes basePath (e.g. a `..`
+  // segment that slipped past an upstream check), regardless of the key's
+  // source.
+  function resolveContainedPath(key: string): string {
+    const filePath = resolve(join(basePath, key));
+    if (filePath !== resolvedBase && !filePath.startsWith(resolvedBase + sep)) {
+      throw new Error(`storage key escapes basePath: "${key}"`);
+    }
+    return filePath;
+  }
   return {
     async write(key: string, data: Uint8Array, _mimeType?: string): Promise<void> {
-      const filePath = join(basePath, key);
+      const filePath = resolveContainedPath(key);
       await mkdir(dirname(filePath), { recursive: true });
       await writeFile(filePath, data);
     },
@@ -26,7 +40,7 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
       // Hygiene; ein periodischer cron-cleanup auf alten `.tmp`-Files
       // ist die saubere Loesung wenn das in Production realistisch
       // greift.
-      const filePath = join(basePath, key);
+      const filePath = resolveContainedPath(key);
       const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
       await mkdir(dirname(filePath), { recursive: true });
       try {
@@ -41,7 +55,7 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
     },
 
     async read(key: string): Promise<Uint8Array> {
-      const filePath = join(basePath, key);
+      const filePath = resolveContainedPath(key);
       return readFile(filePath);
     },
 
@@ -55,7 +69,7 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
       // (z.B. ENOENT bei Missing-File faellt erst beim ersten chunk-
       // pull, nicht beim readStream-Aufruf — gleiches Lazy-Verhalten
       // wie inmemory + S3).
-      const filePath = join(basePath, key);
+      const filePath = resolveContainedPath(key);
       const stream = createReadStream(filePath);
       return {
         async *[Symbol.asyncIterator]() {
@@ -76,13 +90,13 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
     },
 
     async delete(key: string): Promise<void> {
-      const filePath = join(basePath, key);
+      const filePath = resolveContainedPath(key);
       await rm(filePath, { force: true });
     },
 
     async exists(key: string): Promise<boolean> {
       try {
-        await stat(join(basePath, key));
+        await stat(resolveContainedPath(key));
         return true;
       } catch {
         return false;
