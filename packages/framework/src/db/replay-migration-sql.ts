@@ -54,37 +54,38 @@ function applyStatement(schema: Map<string, { columns: Set<string> }>, statement
   const create = statement.match(
     /^CREATE TABLE\s+(?:IF NOT EXISTS\s+)?"([^"]+)"\s*\(([\s\S]*)\);?\s*$/i,
   );
-  const createTableName = create?.[1];
-  const createBody = create?.[2];
-
-  const addColumn = statement.match(
-    /^ALTER TABLE\s+"([^"]+)"\s+ADD COLUMN\s+(?:IF NOT EXISTS\s+)?"([^"]+)"/i,
-  );
-  const addColumnTable = addColumn?.[1];
-  const addColumnName = addColumn?.[2];
+  if (create?.[1] !== undefined && create[2] !== undefined) {
+    schema.set(create[1], { columns: parseColumnNames(create[2]) });
+    return;
+  }
 
   const dropTable = statement.match(/^DROP TABLE\s+(?:IF EXISTS\s+)?"([^"]+)"/i);
-  const dropTableName = dropTable?.[1];
-
-  const dropColumn = statement.match(
-    /^ALTER TABLE\s+"([^"]+)"\s+DROP COLUMN\s+(?:IF EXISTS\s+)?"([^"]+)"/i,
-  );
-  const dropColumnTable = dropColumn?.[1];
-  const dropColumnName = dropColumn?.[2];
-
-  if (createTableName !== undefined && createBody !== undefined) {
-    schema.set(createTableName, { columns: parseColumnNames(createBody) });
-  } else if (addColumnTable !== undefined && addColumnName !== undefined) {
-    const table = schema.get(addColumnTable);
-    if (table) table.columns.add(addColumnName);
-    else schema.set(addColumnTable, { columns: new Set([addColumnName]) });
-  } else if (dropTableName !== undefined) {
-    schema.delete(dropTableName);
-  } else if (dropColumnTable !== undefined && dropColumnName !== undefined) {
-    schema.get(dropColumnTable)?.columns.delete(dropColumnName);
+  if (dropTable?.[1] !== undefined) {
+    schema.delete(dropTable[1]);
+    return;
   }
-  // else: CREATE INDEX, ALTER COLUMN (TYPE/DEFAULT/NOT NULL) and everything
-  // else don't change the table/column shape this replay tracks.
+
+  // A single ALTER TABLE statement can carry multiple comma-separated
+  // ADD/DROP COLUMN clauses (e.g. migration 0007_fix-secrets-table-columns'
+  // three-column fix in one statement) — matchAll over the whole body
+  // instead of matching only the first clause, in statement order so an
+  // add-then-drop of the same column (unusual, but not impossible) resolves
+  // correctly.
+  const alterTable = statement.match(/^ALTER TABLE\s+"([^"]+)"\s+([\s\S]*?);?\s*$/i);
+  const alterTableName = alterTable?.[1];
+  const alterBody = alterTable?.[2];
+  if (alterTableName !== undefined && alterBody !== undefined) {
+    const table = schema.get(alterTableName) ?? { columns: new Set<string>() };
+    schema.set(alterTableName, table);
+    const clauseRe = /(ADD|DROP)\s+COLUMN\s+(?:IF (?:NOT )?EXISTS\s+)?"([^"]+)"/gi;
+    for (const [, verb, name] of alterBody.matchAll(clauseRe)) {
+      if (verb === undefined || name === undefined) continue;
+      if (verb.toUpperCase() === "ADD") table.columns.add(name);
+      else table.columns.delete(name);
+    }
+  }
+  // else: CREATE INDEX and everything else don't change the table/column
+  // shape this replay tracks.
 }
 
 // Reads `<migrationsDir>/*.sql` in sequence order and replays every
