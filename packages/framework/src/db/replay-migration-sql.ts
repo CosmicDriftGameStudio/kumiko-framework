@@ -56,12 +56,14 @@ function applyStatement(schema: Map<string, { columns: Set<string> }>, statement
   );
   if (create?.[1] !== undefined && create[2] !== undefined) {
     schema.set(create[1], { columns: parseColumnNames(create[2]) });
+    // skip: CREATE TABLE fully handled above, no other clause can also match
     return;
   }
 
   const dropTable = statement.match(/^DROP TABLE\s+(?:IF EXISTS\s+)?"([^"]+)"/i);
   if (dropTable?.[1] !== undefined) {
     schema.delete(dropTable[1]);
+    // skip: DROP TABLE fully handled above, no other clause can also match
     return;
   }
 
