@@ -76,6 +76,24 @@ describe("composeFeatures", () => {
     expect(handlerNames).toContain("signup-confirm");
   });
 
+  // Regression: signup-request no-ops silently (always-200 anti-enumeration
+  // contract) unless "auth-self-registration" is mounted. composeFeatures
+  // must bundle it alongside authOptions.signup, not leave apps using the
+  // includeBundled convenience path to mount it by hand.
+  test("authOptions.signup → auth-self-registration mounted, default ON", () => {
+    const features = composeFeatures([noopFeature], {
+      includeBundled: true,
+      authOptions: { signup: { appUrl: "https://app/signup/complete" } },
+    });
+    const toggle = features.find((f) => f.name === "auth-self-registration");
+    expect(toggle).toBeDefined();
+  });
+
+  test("no authOptions.signup → auth-self-registration NOT mounted", () => {
+    const features = composeFeatures([noopFeature], { includeBundled: true });
+    expect(features.map((f) => f.name)).not.toContain("auth-self-registration");
+  });
+
   test("OHNE authOptions → KEINE reset/verify-handlers (anti-default-deploy-bug)", () => {
     // Genau der Bug der vom Review-Agent gefangen wurde: composeFeatures
     // ohne authOptions registriert die handler nicht. Wenn jemand das
