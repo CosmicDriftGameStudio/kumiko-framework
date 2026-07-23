@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.163.3
+
+### Patch Changes
+
+- 5c43259: `UserDataDeleteHook` return type is additive: `void | { status: "ok" } | { status: "incomplete", reason }`, so hooks can report that a delete request finished without fully anonymizing identifiable data (e.g. single-user tenants where severing `ownerUserId` is cosmetic).
+  - @cosmicdrift/kumiko-types@0.163.3
+
 ## 0.163.2
 
 ### Patch Changes
