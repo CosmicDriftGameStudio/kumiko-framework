@@ -112,6 +112,19 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const entityId = typeof body["entityId"] === "string" ? body["entityId"] : undefined;
     const fieldName = typeof body["fieldName"] === "string" ? body["fieldName"] : undefined;
 
+    // These interpolate directly into the storage key (buildStorageKey below) —
+    // reject anything but a safe identifier so a client can't path-traverse
+    // out of its tenant's storage prefix (../.. segments, absolute paths).
+    for (const [field, value] of [
+      ["entityType", entityType],
+      ["entityId", entityId],
+      ["fieldName", fieldName],
+    ] as const) {
+      if (value !== undefined && !/^[A-Za-z0-9_-]+$/.test(value)) {
+        return c.json({ error: `invalid_${field}: must match /^[A-Za-z0-9_-]+$/` }, 400);
+      }
+    }
+
     // Validate against entity field definition if available.
     let maxSize = options.maxUploadSize ?? "10mb";
     let accept: readonly string[] | undefined;

@@ -593,6 +593,30 @@ describe("error handling", () => {
     expect(body.error).toContain("invalid_file_type");
   });
 
+  test("upload with path-traversal entityType is rejected before it reaches storage", async () => {
+    const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
+      entityType: "../../tenantB",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("invalid_entityType");
+  });
+
+  test("upload with path-traversal fieldName is rejected before it reaches storage", async () => {
+    const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "../../escape",
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("invalid_fieldName");
+  });
+
   test("upload without auth returns 401", async () => {
     const formData = new FormData();
     formData.append("file", new File([new Uint8Array(10)], "test.png", { type: "image/png" }));

@@ -147,6 +147,19 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
     const data = await provider.read("k");
     expect(Array.from(data)).toEqual([2, 2, 2]);
   });
+
+  test("write/read/delete reject a key that escapes basePath; exists reports false", async () => {
+    const provider = createLocalProvider(basePath);
+    const escapingKey = "../../etc/passwd";
+
+    await expect(provider.write(escapingKey, new Uint8Array([1]))).rejects.toThrow(
+      /escapes basePath/,
+    );
+    await expect(provider.read(escapingKey)).rejects.toThrow(/escapes basePath/);
+    await expect(provider.delete(escapingKey)).rejects.toThrow(/escapes basePath/);
+    // exists() treats any stat failure (missing file, escaping key) as "not there".
+    expect(await provider.exists(escapingKey)).toBe(false);
+  });
 });
 
 describe("FileStorageProvider.writeStream — Streaming-Property", () => {
