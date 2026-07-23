@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.163.0
+
+### Minor Changes
+
+- 867e236: tenant: seedTenant fires entity postSave hooks (#1463). `seedTenant` writes through the raw event-store executor, which never fired postSave hooks — self-signup (`provisionSignupAccount` → `signup-confirm`) silently skipped feature-registered entity hooks like tier-engine's auto-default-tier and app-level auto-default-compliance, leaving new tenants without a tier/compliance row. `seedTenant` and `provisionSignupAccount` take a new optional `hooks: { registry, context }` param; passing it fires the same entity-scoped postSave hooks the dispatcher would, without the full dispatch roundtrip. Existing call-sites are unaffected — the param is optional and append-only.
+
+### Patch Changes
+
+- 0ee7b33: feature-toggles: register `store_global_feature_state` via `r.storeTable()` (exported as `globalFeatureStateTableMeta`). Previously the table was only a plain Drizzle export with no store-table meta, so `collectTableMetas(FEATURES)` never saw it — `kumiko schema generate` reported no changes for any app mounting `createFeatureTogglesFeature()`, and the table was missing in any DB that wasn't manually provisioned (e.g. via `unsafePushTables` in tests). `setupTestStack` now auto-provisions the table like every other `r.storeTable()` feature.
+- c8b05f0: feature-toggles: fix `composeTierResolverWithGlobalToggles` to actually grant tier-unaware toggleable features. The previous version only ever narrowed the tier resolver's own set — a toggleable feature that no tier's `features` list mentions at all (e.g. a pure operator kill-switch like a self-registration toggle, never differentiated by plan) could never appear, regardless of its declared default or an explicit `true` override, because narrowing can only remove names, never add ones the tier never granted. Now takes a third `registry` argument and unions in `computeEffectiveFeatures`' normal cascade for every feature name absent from `tierResolver(SYSTEM_TENANT_ID)` (the tier-managed set) — tier-managed toggleables keep the narrow-only semantics from before, tier-unaware ones are governed purely by their own default/override.
+- Updated dependencies [dc76328]
+  - @cosmicdrift/kumiko-framework@0.163.0
+  - @cosmicdrift/kumiko-headless@0.163.0
+  - @cosmicdrift/kumiko-renderer@0.163.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.163.0
+  - @cosmicdrift/kumiko-renderer-web@0.163.0
+
 ## 0.162.0
 
 ### Minor Changes
