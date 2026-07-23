@@ -133,6 +133,17 @@ export interface ForgetCleanupError {
   readonly message: string;
 }
 
+/** A hook reporting `{status:"incomplete", reason}` — no throw, no
+ *  rollback, the user still gets flipped to Deleted (see Header
+ *  "incomplete is not a hard failure"). Collected for operator
+ *  visibility, NOT in `errors` (those stand for hook throws + rollback). */
+export interface ForgetCleanupIncomplete {
+  readonly userId: string;
+  readonly tenantId: TenantId;
+  readonly entityName: string;
+  readonly reason: string;
+}
+
 export interface RunForgetCleanupResult {
   /** User die in diesem Lauf von DeletionRequested → Deleted geflippt wurden. */
   readonly processedUserIds: readonly string[];
@@ -140,6 +151,8 @@ export interface RunForgetCleanupResult {
   readonly hookCallsAttempted: number;
   /** Hook-Errors fuer Operator-Visibility. Lauf bricht nicht ab — siehe Header. */
   readonly errors: readonly ForgetCleanupError[];
+  /** Hooks that reported `{status:"incomplete"}` — partial success, user still Deleted. */
+  readonly incomplete: readonly ForgetCleanupIncomplete[];
 }
 
 interface HookEntry {
@@ -170,7 +183,7 @@ export async function runForgetCleanup(
   );
 
   if (dueUsers.length === 0) {
-    return { processedUserIds: [], hookCallsAttempted: 0, errors: [] };
+    return { processedUserIds: [], hookCallsAttempted: 0, errors: [], incomplete: [] };
   }
 
   // Step 2: Sammle alle EXT_USER_DATA-Usages einmalig — Liste der
@@ -192,6 +205,7 @@ export async function runForgetCleanup(
     .sort((a, b) => a.order - b.order);
 
   const errors: ForgetCleanupError[] = [];
+  const incomplete: ForgetCleanupIncomplete[] = [];
   const processedUserIds: string[] = [];
   let hookCallsAttempted = 0;
 
@@ -208,6 +222,7 @@ export async function runForgetCleanup(
     });
     hookCallsAttempted += userResult.hookCallsAttempted;
     errors.push(...userResult.errors);
+    incomplete.push(...userResult.incomplete);
     if (userResult.success) {
       processedUserIds.push(user.id);
 
@@ -241,13 +256,14 @@ export async function runForgetCleanup(
     }
   }
 
-  return { processedUserIds, hookCallsAttempted, errors };
+  return { processedUserIds, hookCallsAttempted, errors, incomplete };
 }
 
 interface ProcessUserResult {
   readonly success: boolean;
   readonly hookCallsAttempted: number;
   readonly errors: readonly ForgetCleanupError[];
+  readonly incomplete: readonly ForgetCleanupIncomplete[];
   /** Atom 5b: userEmail VOR Tx gecacht (user-Hook anonymisiert in Tx).
    *  null wenn user-Row beim Pre-Tx-Lookup nicht (mehr) existiert oder
    *  email leer ist. */
@@ -269,6 +285,7 @@ async function processUser(args: {
 }): Promise<ProcessUserResult> {
   const { db, registry, userId, hookEntries, buildStorageProvider, appTenantModel, kms } = args;
   const errors: ForgetCleanupError[] = [];
+  const incomplete: ForgetCleanupIncomplete[] = [];
   let hookCallsAttempted = 0;
 
   // Atom 5b — userEmail VOR der Tx cachen. user-Hook (user-data-rights-
@@ -333,7 +350,7 @@ async function processUser(args: {
           const strategy = policyToStrategy(policy.policy?.strategy ?? null);
 
           hookCallsAttempted++;
-          await entry.deleteHook(
+          const hookResult = await entry.deleteHook(
             {
               db: tx,
               registry,
@@ -345,6 +362,21 @@ async function processUser(args: {
             },
             strategy,
           );
+          // "incomplete" is not a hard failure (see Header): no throw,
+          // no rollback, eraseKey + status flip proceed unchanged.
+          // Only collected + logged for operator visibility.
+          if (hookResult?.status === "incomplete") {
+            incomplete.push({
+              userId,
+              tenantId,
+              entityName: entry.entityName,
+              reason: hookResult.reason,
+            });
+            // biome-ignore lint/suspicious/noConsole: operator-visibility for partial hook completion
+            console.warn(
+              `[user-data-rights:run-forget-cleanup] hook incomplete userId=${userId} tenantId=${tenantId} entityName=${entry.entityName} reason=${hookResult.reason}`,
+            );
+          }
         }
       }
 
@@ -399,6 +431,10 @@ async function processUser(args: {
     success: txSucceeded,
     hookCallsAttempted,
     errors,
+    // Only surfaced on a committed sub-tx — a later throw in the same
+    // user's loop rolls this back too, so a rolled-back "incomplete"
+    // report would misreport a non-deleted user as partially cleaned up.
+    incomplete: txSucceeded ? incomplete : [],
     userEmailBeforeDelete,
     userLocaleBeforeDelete,
     tenantIdsBeforeDelete,
