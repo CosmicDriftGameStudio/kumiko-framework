@@ -1,17 +1,17 @@
-// composeFeatures — single source of truth für die Feature-Liste die
-// Boot UND Schema-Generator sehen.
+// composeFeatures — single source of truth for the feature list that
+// boot AND the schema generator see.
 //
-// Sowohl runDevApp als auch runProdApp mischen im auth-mode dieselben
-// Bundled-Features dazu (config + user + tenant + auth-email-password,
-// plus auth-self-registration wenn authOptions.signup gesetzt ist).
-// Damit der drizzle-Schema-Generator pro App genau dieselbe Feature-
-// Liste sieht wie die Runtime, leben die Komposition hier — beide
-// Bootstrap-Wrapper UND der per-app drizzle/generate.ts rufen sie auf.
+// Both runDevApp and runProdApp mix in the same bundled features in
+// auth-mode (config + user + tenant + auth-email-password, plus
+// auth-self-registration when authOptions.signup is set). So the
+// drizzle schema generator sees the exact same feature list per app as
+// the runtime, the composition lives here — both bootstrap wrappers AND
+// each app's drizzle/generate.ts call it.
 //
-// Reihenfolge: Infrastruktur-Features (config/user/tenant) zuerst, dann
-// auth-email-password (+ auth-self-registration wenn authOptions.signup
-// gesetzt ist), dann die App-Features. Spätere Features dürfen auf
-// Frühere referenzieren (z.B. authClaims-Hooks an user/tenant).
+// Order: infrastructure features (config/user/tenant) first, then
+// auth-email-password (+ auth-self-registration when authOptions.signup
+// is set), then the app features. Later features may reference earlier
+// ones (e.g. authClaims hooks on user/tenant).
 
 import {
   type AccountUnlockOptions,
