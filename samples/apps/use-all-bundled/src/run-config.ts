@@ -34,6 +34,7 @@ import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import type { NotificationRenderer } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { documentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
 import { createFeatureTogglesFeature } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
 import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
@@ -242,4 +243,7 @@ export const APP_FEATURES = [
   authMfaUserDataFeature,
   // ledger: double-entry bookkeeping primitive (account + immutable transaction).
   ledgerFeature,
+  // document-ingest-foundation: Phase-1 skeleton — documentExtract entity +
+  // ocrLanguage/maxPagesPerFile config, no handlers yet (kumiko-framework#1497).
+  documentIngestFoundationFeature,
 ] as const;

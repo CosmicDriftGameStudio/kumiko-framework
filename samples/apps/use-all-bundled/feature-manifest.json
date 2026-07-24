@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 56,
+  "featureCount": 57,
   "features": [
     {
       "name": "admin-shell",
@@ -469,6 +469,70 @@
         "displayLabel": "Notifications · Dispatch Core",
         "category": "notifications",
         "recommended": true
+      }
+    },
+    {
+      "name": "document-ingest-foundation",
+      "description": "Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, and the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys consumed by the ingest provider. Provider wiring (fileRef.created trigger, LiteParse) lands in follow-up features.",
+      "toggleableDefault": null,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "max-pages-per-file",
+          "qualifiedName": "document-ingest-foundation:config:max-pages-per-file",
+          "type": "number",
+          "scope": "tenant",
+          "default": 50,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin",
+            "User"
+          ]
+        },
+        {
+          "key": "ocr-language",
+          "qualifiedName": "document-ingest-foundation:config:ocr-language",
+          "type": "text",
+          "scope": "tenant",
+          "default": "deu+eng",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin",
+            "User"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Document Ingest Foundation",
+        "category": "storage",
+        "recommended": false
       }
     },
     {

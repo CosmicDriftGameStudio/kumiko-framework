@@ -24,6 +24,7 @@ import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom
 import { tagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
 import { ledgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
+import { documentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
 
 const _config = createConfigFeature();
 const _user = createUserFeature();
@@ -44,6 +45,7 @@ const _customFields = customFieldsFeature;
 const _tags = tagsFeature;
 const _folders = foldersFeature;
 const _ledger = ledgerFeature;
+const _documentIngestFoundation = documentIngestFoundationFeature;
 
 export const configValueTable = buildEntityTable("config-value", _config.entities["config-value"]!);
 export const userTable = buildEntityTable("user", _user.entities["user"]!);
@@ -72,6 +74,7 @@ export const folderAssignmentTable = buildEntityTable("folder-assignment", _fold
 export const accountTable = buildEntityTable("account", _ledger.entities["account"]!);
 export const transactionTable = buildEntityTable("transaction", _ledger.entities["transaction"]!);
 export const scheduleTable = buildEntityTable("schedule", _ledger.entities["schedule"]!);
+export const documentExtractTable = buildEntityTable("documentExtract", _documentIngestFoundation.entities["documentExtract"]!);
 export { deliveryAttemptsTable } from "@cosmicdrift/kumiko-bundled-features/delivery";
 export { mailAccountsProjectionTable, inboundMessagesProjectionTable, mailThreadsProjectionTable } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 export { subscriptionsProjectionTable } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
