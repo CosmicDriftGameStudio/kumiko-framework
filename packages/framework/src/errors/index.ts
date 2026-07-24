@@ -13,6 +13,7 @@ export {
   AccessDeniedError,
   ConflictError,
   FeatureDisabledError,
+  IdempotentReplayError,
   InternalError,
   NotFoundError,
   RateLimitError,

@@ -3,6 +3,7 @@ import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership
 import type { EntityId } from "../engine/types";
 import {
   VersionConflictError as FrameworkVersionConflict,
+  IdempotentReplayError,
   InternalError,
   NotFoundError,
   UnprocessableError,
@@ -10,6 +11,7 @@ import {
 } from "../errors";
 import {
   append,
+  IdempotentAppendConflictError as EventStoreIdempotentAppendConflict,
   VersionConflictError as EventStoreVersionConflict,
   getStreamVersion,
 } from "../event-store";
@@ -159,6 +161,9 @@ export function createWriteVerbs(
               currentVersion,
             }),
           );
+        }
+        if (e instanceof EventStoreIdempotentAppendConflict) {
+          return writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey }));
         }
         throw e;
       }
@@ -389,6 +394,9 @@ export function createWriteVerbs(
               currentVersion,
             }),
           );
+        }
+        if (e instanceof EventStoreIdempotentAppendConflict) {
+          return writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey }));
         }
         throw e;
       }

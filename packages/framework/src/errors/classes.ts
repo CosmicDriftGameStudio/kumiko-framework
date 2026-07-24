@@ -138,6 +138,27 @@ export class VersionConflictError extends ConflictError {
   }
 }
 
+// The caller retried a write with an idempotencyKey it had already used —
+// the event-store's partial unique index on metadata.idempotencyKey caught
+// the duplicate. Distinct from unique_violation/version_conflict: this is
+// not an error the caller should retry, it means the earlier attempt
+// already succeeded and this one is a no-op replay.
+export class IdempotentReplayError extends ConflictError {
+  override readonly code: string = "idempotent_replay";
+
+  constructor(
+    details: { readonly idempotencyKey: string },
+    opts?: Pick<ErrorOpts, "i18nKey" | "cause">,
+  ) {
+    super({
+      message: `event with idempotencyKey "${details.idempotencyKey}" was already appended`,
+      i18nKey: opts?.i18nKey ?? "errors.idempotentReplay",
+      details,
+      ...(opts?.cause && { cause: opts.cause }),
+    });
+  }
+}
+
 // Entity-level unique-index violation. Distinct from VersionConflictError:
 // version_conflict means "two writers raced on the events_aggregate_version
 // _uq index" (optimistic-concurrency); unique_violation means "you tried to

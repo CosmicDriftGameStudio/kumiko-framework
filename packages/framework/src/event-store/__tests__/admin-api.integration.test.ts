@@ -15,7 +15,7 @@ import { asRawClient, selectMany } from "../../db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";
 import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api";
-import { VersionConflictError } from "../errors";
+import { IdempotentAppendConflictError, VersionConflictError } from "../errors";
 import { append, loadAggregate } from "../event-store";
 import { createEventsTable, eventsTable } from "../events-schema";
 
@@ -185,6 +185,32 @@ describe("appendRaw — single event", () => {
     await expect(
       appendRaw(testDb.db, makeEvent({ aggregateId, expectedVersion: 0 })),
     ).rejects.toBeInstanceOf(VersionConflictError);
+  });
+
+  test("appendRaw distinguishes an idempotency-key replay from a version conflict (#1499)", async () => {
+    const idempotencyKey = uuid();
+    await appendRaw(
+      testDb.db,
+      makeEvent({
+        aggregateId: uuid(),
+        expectedVersion: 0,
+        metadata: { userId: userMigration, idempotencyKey },
+      }),
+    );
+
+    // A second, different aggregate reusing the same idempotencyKey hits
+    // the tenant-scoped partial unique index — distinct from a version
+    // race on the same aggregate, and must not be reported as one.
+    await expect(
+      appendRaw(
+        testDb.db,
+        makeEvent({
+          aggregateId: uuid(),
+          expectedVersion: 0,
+          metadata: { userId: userMigration, idempotencyKey },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(IdempotentAppendConflictError);
   });
 
   test("version_conflict on missing predecessor (appendRaw v=5 without v=1..4)", async () => {
