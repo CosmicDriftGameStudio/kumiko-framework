@@ -7,7 +7,7 @@
 import type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz";
 
 // JSON form for wall-clock + TZ — see createLocatedTimestampField() in
-// engine/factories.ts. Two fields, foolproof.
+// @cosmicdrift/kumiko-framework, engine/factories.ts. Two fields, foolproof.
 export type LocatedTimestampJson = {
   /** Wall-clock ISO without offset, e.g. "2026-04-03T10:00:00" */
   readonly at: string;

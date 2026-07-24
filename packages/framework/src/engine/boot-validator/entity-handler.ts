@@ -101,32 +101,21 @@ const USER_BUCKETED_RATE_LIMIT_PER: ReadonlySet<string> = new Set(["user", "user
 // at runtime, but we fail at boot to turn an easy-to-miss security regression
 // into a loud configuration error.
 export function validateHandlerAccess(feature: FeatureDefinition): void {
-  for (const [name, handler] of Object.entries(feature.writeHandlers)) {
-    if (!handler.access) {
-      throw new Error(
-        `Write handler "${feature.name}:write:${name}" is missing an access rule. ` +
-          `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
-      );
+  const kinds = [
+    { kind: "write" as const, label: "Write", handlers: feature.writeHandlers },
+    { kind: "query" as const, label: "Query", handlers: feature.queryHandlers },
+    { kind: "stream" as const, label: "Stream", handlers: feature.streamHandlers },
+  ];
+  for (const { kind, label, handlers } of kinds) {
+    for (const [name, handler] of Object.entries(handlers)) {
+      if (!handler.access) {
+        throw new Error(
+          `${label} handler "${feature.name}:${kind}:${name}" is missing an access rule. ` +
+            `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
+        );
+      }
+      validateAnonymousRateLimit(feature.name, kind, name, handler.access, handler.rateLimit);
     }
-    validateAnonymousRateLimit(feature.name, "write", name, handler.access, handler.rateLimit);
-  }
-  for (const [name, handler] of Object.entries(feature.queryHandlers)) {
-    if (!handler.access) {
-      throw new Error(
-        `Query handler "${feature.name}:query:${name}" is missing an access rule. ` +
-          `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
-      );
-    }
-    validateAnonymousRateLimit(feature.name, "query", name, handler.access, handler.rateLimit);
-  }
-  for (const [name, handler] of Object.entries(feature.streamHandlers)) {
-    if (!handler.access) {
-      throw new Error(
-        `Stream handler "${feature.name}:stream:${name}" is missing an access rule. ` +
-          `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
-      );
-    }
-    validateAnonymousRateLimit(feature.name, "stream", name, handler.access, handler.rateLimit);
   }
 }
 

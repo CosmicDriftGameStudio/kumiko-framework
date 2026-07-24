@@ -2,14 +2,16 @@
 // Boot UND Schema-Generator sehen.
 //
 // Sowohl runDevApp als auch runProdApp mischen im auth-mode dieselben
-// vier Bundled-Features dazu (config + user + tenant + auth-email-pw).
+// Bundled-Features dazu (config + user + tenant + auth-email-password,
+// plus auth-self-registration wenn authOptions.signup gesetzt ist).
 // Damit der drizzle-Schema-Generator pro App genau dieselbe Feature-
 // Liste sieht wie die Runtime, leben die Komposition hier — beide
 // Bootstrap-Wrapper UND der per-app drizzle/generate.ts rufen sie auf.
 //
 // Reihenfolge: Infrastruktur-Features (config/user/tenant) zuerst, dann
-// auth-email-password, dann die App-Features. Spätere Features dürfen
-// auf Frühere referenzieren (z.B. authClaims-Hooks an user/tenant).
+// auth-email-password (+ auth-self-registration wenn authOptions.signup
+// gesetzt ist), dann die App-Features. Spätere Features dürfen auf
+// Frühere referenzieren (z.B. authClaims-Hooks an user/tenant).
 
 import {
   type AccountUnlockOptions,
@@ -33,7 +35,8 @@ import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 export type ComposeFeaturesOptions = {
   /** When true, prepends config + user + tenant + auth-email-password
-   *  before the app features. Mirror of "auth-mode" in run{Dev,Prod}App. */
+   *  (+ auth-self-registration when authOptions.signup is set) before the
+   *  app features. Mirror of "auth-mode" in run{Dev,Prod}App. */
   readonly includeBundled: boolean;
   /** Optional auth-feature-options durchgereicht an
    *  createAuthEmailPasswordFeature. Wenn passwordReset / emailVerification

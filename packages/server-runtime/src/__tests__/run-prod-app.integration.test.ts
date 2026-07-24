@@ -836,8 +836,8 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
 
   test("cookieDomain + allowedOrigins clears the guard — allowlist reaches buildServer", async () => {
     // Without the forwarding fix this would ALSO throw /allowedOrigins is empty/.
-    // It may still fail later on the minimal harness (no auth tables migrated),
-    // but never on the origin guard — that is the forwarding proof.
+    // auth tables are migrated for this file (migrateTestDb() above); this test
+    // isolates only that a later boot failure is never the origin-guard message.
     let bootError: unknown;
     try {
       const handle = await boot(undefined, {

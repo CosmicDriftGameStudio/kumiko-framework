@@ -309,7 +309,9 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
   // (generate.ts skipt sie silent in der entity-loop) — gelistet für
   // check-coverage.ts (Maintenance-Lint M5 erwartet jeden mounted
   // feature-export im Registry). Ausnahme: feature-toggles trägt die
-  // Projection-Table store_global_feature_state (siehe projectionTables).
+  // Store-Table store_global_feature_state (r.storeTable, siehe
+  // global-feature-state-table.ts) — der projectionTables-Key hier steuert
+  // nur den Drizzle-Schema-Export, ist keine echte Projection.
   "channel-email": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/channel-email",

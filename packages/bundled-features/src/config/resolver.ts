@@ -12,7 +12,6 @@ import type {
   ConfigKeyDefinition,
   ConfigResolver,
   ConfigSecretsReader,
-  ConfigStoredRowWithSource,
   ConfigValueSource,
   ConfigValueWithSource,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -441,12 +440,12 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       return { value: undefined, source: "missing" };
     },
 
-    // NOTE: getAll / getAllWithSource read only config_values rows and do NOT
-    // dispatch to the secrets store (unlike get/getCascade/getWithSource). A
-    // backing="secrets" key has no config_values row, so it is simply ABSENT
-    // from the result map — never a stale/undefined value. Callers needing a
-    // secrets-backed value must use get/getCascade; these bulk readers are for
-    // the config_values-backed keys only.
+    // NOTE: getAll reads only config_values rows and does NOT dispatch to the
+    // secrets store (unlike get/getCascade/getWithSource). A backing="secrets"
+    // key has no config_values row, so it is simply ABSENT from the result map
+    // — never a stale/undefined value. Callers needing a secrets-backed value
+    // must use get/getCascade; this bulk reader is for config_values-backed
+    // keys only.
     async getAll(tenantId, userId, db) {
       // Only load rows relevant to this user/tenant (system + tenant + user scope)
       const rows = await selectConfigRowsForScope(db, SYSTEM_TENANT_ID, tenantId, userId);
@@ -462,48 +461,6 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
         if (!existing || specificityOf(r) > specificityOf(existing)) {
           result.set(r.key, r);
         }
-      }
-
-      return result;
-    },
-
-    async getAllWithSource(tenantId, userId, db) {
-      // Load ALL potentially relevant rows (user + tenant + system)
-      const rows = await selectConfigRowsForScope(db, SYSTEM_TENANT_ID, tenantId, userId);
-
-      const result = new Map<string, ConfigStoredRowWithSource>();
-
-      // Group rows by key so we can determine the winner and its source
-      const groups = new Map<string, ConfigRow[]>();
-      for (const r of rows) {
-        const g = groups.get(r.key) ?? [];
-        g.push(r);
-        groups.set(r.key, g);
-      }
-
-      for (const [key, keyRows] of groups) {
-        const specificityOf = (candidate: ConfigRow) =>
-          (candidate.userId !== null ? 2 : 0) + (candidate.tenantId !== SYSTEM_TENANT_ID ? 1 : 0);
-
-        const first = keyRows[0];
-        if (!first) continue;
-        let winner: ConfigRow = first;
-        for (const r of keyRows) {
-          if (specificityOf(r) > specificityOf(winner)) {
-            winner = r;
-          }
-        }
-
-        let source: ConfigValueSource;
-        if (winner.userId !== null) {
-          source = "user-row";
-        } else if (winner.tenantId !== SYSTEM_TENANT_ID) {
-          source = "tenant-row";
-        } else {
-          source = "system-row";
-        }
-
-        result.set(key, { ...winner, source });
       }
 
       return result;

@@ -18,7 +18,7 @@ function toPlainDate(raw: string): Temporal.PlainDate {
 // (e.g. "2026-07-18T12:00:00", still valid input to `new Date`) throw here
 // instead of parsing — fall back to reading them as a local wall-clock time,
 // same posture as toPlainDate's own fallback above.
-function toInstant(raw: string): Temporal.Instant {
+export function toInstant(raw: string): Temporal.Instant {
   try {
     return Temporal.Instant.from(raw);
   } catch {

@@ -194,7 +194,8 @@ export type DeliveryOutcome = {
 
 // Deliver events to the consumer's handler in events.id order. Halt-on-
 // poison: a throw breaks the loop, the cursor stays at the last successful
-// event, and attempts climb. At maxAttempts the caller persists status=
+// event, and attempts climb. At the consumer's effectiveMaxAttempts
+// (errorPolicy.maxAttempts ?? maxAttempts) the caller persists status=
 // "dead" and the consumer is parked until ops intervenes (see
 // restartConsumer / skipPoisonEvent).
 export async function deliverEvents(

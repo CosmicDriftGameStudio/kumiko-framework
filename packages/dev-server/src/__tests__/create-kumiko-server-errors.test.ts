@@ -1,23 +1,14 @@
 // createKumikoServer error / graceful-degradation paths — boot rejects,
 // stylesheet pipeline failures, missing CSS route.
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createKumikoServer, type KumikoServerHandle } from "../create-kumiko-server";
+import { createKumikoServer } from "../create-kumiko-server";
 
 const emptyFeature = defineFeature("dev-server-errors-probe", () => {});
-
-let handle: KumikoServerHandle | undefined;
-
-afterEach(async () => {
-  if (handle) {
-    await handle.stop();
-    handle = undefined;
-  }
-});
 
 describe("createKumikoServer — client bundle failure", () => {
   test("broken clientEntry rejects at boot with client bundle failed", async () => {

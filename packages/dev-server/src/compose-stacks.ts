@@ -59,10 +59,10 @@ export type GdprStackOptions = {
   readonly order?: GdprStackOrder;
   readonly sessions?: boolean;
   readonly tenantLifecycle?: boolean;
-  /** tokenVerifier provider(s) for auth-foundation when `sessions` is on —
-   *  same contract as composeIdentityStack's `providers`. Without at least
-   *  one, auth-foundation's boot check throws ("no tokenVerifier providers
-   *  registered"). Omit only if the app mounts a provider itself elsewhere. */
+  /** tokenVerifier provider(s) for auth-foundation when `sessions` is on.
+   *  Without at least one, auth-foundation's boot check throws ("no
+   *  tokenVerifier providers registered"). Omit only if the app mounts a
+   *  provider itself elsewhere. */
   readonly providers?: readonly FeatureDefinition[];
 };
 
@@ -84,15 +84,14 @@ export type OpsStackOptions = {
 /** sessions (+ optional auth-mfa). config/user/tenant/auth-email-password stay
  *  on composeFeatures(includeBundled). Pass `mfa` options to mount TOTP.
  *  When `sessions` is on (the default), auth-foundation is mounted alongside it —
- *  the framework's registry now hard-requires it (sessions.requires("auth-foundation")).
- *  Pass `providers` for the tokenVerifier(s) auth-foundation itself requires at least
- *  one of (e.g. createPersonalAccessTokensFeature({ scopes })) — PAT scopes are
- *  app-specific (which write-handlers an API token may call), so they stay caller-owned
- *  instead of a framework default. */
+ *  the framework's registry now hard-requires it (sessions.requires("auth-foundation")),
+ *  which in turn needs at least one tokenVerifier provider mounted by the caller
+ *  (e.g. createPersonalAccessTokensFeature({ scopes })) — PAT scopes are app-specific
+ *  (which write-handlers an API token may call), so they stay caller-owned instead of
+ *  a framework default. */
 export type IdentityStackOptions = {
   readonly sessions?: boolean;
   readonly mfa?: AuthMfaFeatureOptions;
-  readonly providers?: readonly FeatureDefinition[];
 };
 
 export function stackFeatureNames(features: readonly FeatureDefinition[]): string[] {
@@ -180,7 +179,6 @@ export function composeIdentityStack(options: IdentityStackOptions = {}): Featur
   const out: FeatureDefinition[] = [];
   if (sessions) {
     out.push(authFoundationFeature, createSessionsFeature());
-    if (options.providers) out.push(...options.providers);
   }
   if (options.mfa !== undefined) out.push(createAuthMfaFeature(options.mfa));
   return out;

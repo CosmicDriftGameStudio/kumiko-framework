@@ -61,6 +61,7 @@ export {
   html,
   RawHtml,
   raw,
+  toInstant,
 } from "./format";
 export type {
   NavDefinition,

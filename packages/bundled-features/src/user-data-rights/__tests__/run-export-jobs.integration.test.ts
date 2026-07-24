@@ -147,6 +147,21 @@ async function seedPendingJob(opts: { user?: typeof aliceUser } = {}): Promise<s
   return result.jobId;
 }
 
+// Force a UNIQUE-violation on read_export_download_tokens.job_id (test-fixture,
+// direct-INSERT is a test-only exemption) — the worker's tokenCrud.create then
+// fails with constraintName "read_export_download_tokens_one_per_job",
+// deterministically flipping the job to failed for the tests below.
+async function seedConflictingDownloadToken(jobId: string): Promise<void> {
+  await asRawClient(stack.db).unsafe(
+    `
+      INSERT INTO read_export_download_tokens
+        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, now(), now() + interval '7 days', 1, now(), now())
+    `,
+    [tenantA, jobId, "existing-hash"],
+  );
+}
+
 describe("runExportJobs :: happy path", () => {
   test("pending Job → Worker pickt → done mit downloadStorageKey + bytesWritten", async () => {
     const jobId = await seedPendingJob();
@@ -707,28 +722,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // schreibt ZIP, versucht Token-create → UNIQUE hits → throw.
     const jobId = await seedPendingJob();
 
-    // Force UNIQUE-violation: pre-seed eine Token-Row mit jobId via
-    // direct-INSERT (Test-Exemption). Worker's tokenCrud.create wird
-    // dann mit constraintName "read_export_download_tokens_one_per_job"
-    // failen.
-    await asRawClient(stack.db).unsafe(
-      `
-      INSERT INTO read_export_download_tokens
-        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
-      VALUES (
-        gen_random_uuid(),
-        $1,
-        $2,
-        $3,
-        now(),
-        now() + interval '7 days',
-        1,
-        now(),
-        now()
-      )
-    `,
-      [tenantA, jobId, "existing-hash"],
-    );
+    await seedConflictingDownloadToken(jobId);
 
     const result = await runExportJobs({
       db: stack.db,
@@ -752,27 +746,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
   test("failed-Job: sendExportFailedEmail wird mit errorMessage + userEmail gerufen", async () => {
     const jobId = await seedPendingJob();
 
-    // Force a deterministic failure the same way as the UNIQUE-violation
-    // test above — pre-seed a token row for this jobId so the worker's
-    // tokenCrud.create hits the unique index and the job flips to failed.
-    await asRawClient(stack.db).unsafe(
-      `
-      INSERT INTO read_export_download_tokens
-        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
-      VALUES (
-        gen_random_uuid(),
-        $1,
-        $2,
-        $3,
-        now(),
-        now() + interval '7 days',
-        1,
-        now(),
-        now()
-      )
-    `,
-      [tenantA, jobId, "existing-hash"],
-    );
+    await seedConflictingDownloadToken(jobId);
 
     type SentArgs = {
       userId: string;
@@ -805,14 +779,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
 
   test("failed-Job ohne Callback: kein Email, Worker-Run succeeded", async () => {
     const jobId = await seedPendingJob();
-    await asRawClient(stack.db).unsafe(
-      `
-      INSERT INTO read_export_download_tokens
-        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
-      VALUES (gen_random_uuid(), $1, $2, $3, now(), now() + interval '7 days', 1, now(), now())
-    `,
-      [tenantA, jobId, "existing-hash"],
-    );
+    await seedConflictingDownloadToken(jobId);
 
     const result = await runExportJobs({
       db: stack.db,
@@ -845,14 +812,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     const jobAId = await seedPendingJob();
     const jobBId = await seedPendingJob({ user: bobUser });
     for (const jobId of [jobAId, jobBId]) {
-      await asRawClient(stack.db).unsafe(
-        `
-        INSERT INTO read_export_download_tokens
-          (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
-        VALUES (gen_random_uuid(), $1, $2, $3, now(), now() + interval '7 days', 1, now(), now())
-      `,
-        [tenantA, jobId, "existing-hash"],
-      );
+      await seedConflictingDownloadToken(jobId);
     }
 
     const calls: string[] = [];
@@ -889,14 +849,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
       status: USER_STATUS.Active,
     });
     const jobId = await seedPendingJob();
-    await asRawClient(stack.db).unsafe(
-      `
-      INSERT INTO read_export_download_tokens
-        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
-      VALUES (gen_random_uuid(), $1, $2, $3, now(), now() + interval '7 days', 1, now(), now())
-    `,
-      [tenantA, jobId, "existing-hash"],
-    );
+    await seedConflictingDownloadToken(jobId);
 
     let callbackInvoked = false;
     const result = await runExportJobs({

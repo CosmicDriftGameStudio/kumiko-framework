@@ -6,8 +6,11 @@
 // event-dispatcher.ts. Bun.sql 1.2.20 hat kein listen() (PR oven-sh/bun#25511
 // pending). Nach Landung des Bun-LISTEN-Supports: peer raus.
 
+import type { PgListenClient } from "@cosmicdrift/kumiko-types/db-connection";
 import postgres from "postgres";
 import { readPositiveIntEnv } from "../utils/env-parse";
+
+export type { PgListenClient };
 
 // Bun.SQL ist callable als tagged template `sql\`...\`` PLUS hat methods
 // (.begin / .unsafe / .end / .file / .reserve etc.). DbConnection-Type
@@ -20,9 +23,6 @@ export type BunDbTx = BunDbConnection;
 
 // Beide austauschbar im normalen call-path.
 export type BunDbRunner = BunDbConnection | BunDbTx;
-
-// Postgres-js peer NUR für event-dispatcher LISTEN.
-export type PgListenClient = ReturnType<typeof postgres>;
 
 export type BunDbConnectionOptions = {
   readonly maxConnections?: number;

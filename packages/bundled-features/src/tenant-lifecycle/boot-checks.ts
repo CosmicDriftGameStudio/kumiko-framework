@@ -1,24 +1,9 @@
 import {
-  type EntityDefinition,
   EXT_TENANT_DATA,
   type FeatureDefinition,
   type PiiAnnotations,
 } from "@cosmicdrift/kumiko-framework/engine";
-
-// r.entity(...) is not the only way a feature exposes an entity shape:
-// r.projection(...) can carry an optional `entity` too (raw read-models with
-// no executor, e.g. billing-foundation's subscription table). Need every
-// entity a feature declares, not just the r.entity ones, or a tenantOwned
-// field on a projection-only entity is invisible to the guard below.
-function entitiesOf(
-  feature: FeatureDefinition,
-): ReadonlyArray<readonly [string, EntityDefinition]> {
-  const fromEntities = Object.entries(feature.entities ?? {});
-  const fromProjections = Object.values(feature.projections ?? {})
-    .filter((p): p is typeof p & { entity: EntityDefinition } => p.entity !== undefined)
-    .map((p) => [p.name, p.entity] as const);
-  return [...fromEntities, ...fromProjections];
-}
+import { entitiesOf } from "../shared";
 
 // V4: tenantOwned-entity-without-hook gate. Mirrors user-data-rights' V3
 // (validateGdprPiiHookCoverage) but for EXT_TENANT_DATA. Registered as this

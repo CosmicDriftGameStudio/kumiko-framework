@@ -204,21 +204,24 @@ export function extractWriteHandler(
   });
 }
 
-export function extractQueryHandler(
-  call: CallExpression,
-  sourceFile: SourceFile,
-): ExtractOutput<QueryHandlerPattern> {
-  const parsed = parseHandlerCall(call, sourceFile, "queryHandler");
-  if (parsed.kind === "error") return parsed;
-  return ok({
-    kind: "queryHandler",
+function readHandlerFields(parsed: Extract<ExtractOutput<ParsedHandlerCall>, { kind: "pattern" }>) {
+  return {
     source: parsed.pattern.source,
     handlerName: parsed.pattern.handlerName,
     schemaSource: parsed.pattern.schemaSource,
     handlerBody: parsed.pattern.handlerBody,
     ...(parsed.pattern.access !== undefined && { access: parsed.pattern.access }),
     ...(parsed.pattern.rateLimit !== undefined && { rateLimit: parsed.pattern.rateLimit }),
-  });
+  };
+}
+
+export function extractQueryHandler(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<QueryHandlerPattern> {
+  const parsed = parseHandlerCall(call, sourceFile, "queryHandler");
+  if (parsed.kind === "error") return parsed;
+  return ok({ kind: "queryHandler", ...readHandlerFields(parsed) });
 }
 
 export function extractStreamHandler(
@@ -227,13 +230,5 @@ export function extractStreamHandler(
 ): ExtractOutput<StreamHandlerPattern> {
   const parsed = parseHandlerCall(call, sourceFile, "streamHandler");
   if (parsed.kind === "error") return parsed;
-  return ok({
-    kind: "streamHandler",
-    source: parsed.pattern.source,
-    handlerName: parsed.pattern.handlerName,
-    schemaSource: parsed.pattern.schemaSource,
-    handlerBody: parsed.pattern.handlerBody,
-    ...(parsed.pattern.access !== undefined && { access: parsed.pattern.access }),
-    ...(parsed.pattern.rateLimit !== undefined && { rateLimit: parsed.pattern.rateLimit }),
-  });
+  return ok({ kind: "streamHandler", ...readHandlerFields(parsed) });
 }

@@ -1,5 +1,4 @@
-// Barrel for observability types. Split into span/metric/provider files so
-// each module stays focused; consumers still import from "./types".
+// Barrel for observability types. Split into span/metric/provider so each module stays focused.
 
 export type {
   Counter,

@@ -50,7 +50,7 @@ describe("event-store-executor write-verbs — entity-level ownership_denied", (
   });
 
   beforeAll(async () => {
-    await unsafeCreateEntityTableFor(restrictedEntity, "esWriteRestricted");
+    await unsafeCreateEntityTable(testDb.db, restrictedEntity, "esWriteRestricted");
   });
 
   beforeEach(async () => {
@@ -158,7 +158,7 @@ describe("event-store-executor write-verbs — restore without softDelete", () =
   });
 
   beforeAll(async () => {
-    await unsafeCreateEntityTableFor(hardDeleteEntity, "esWriteHard");
+    await unsafeCreateEntityTable(testDb.db, hardDeleteEntity, "esWriteHard");
   });
 
   beforeEach(async () => {
@@ -199,7 +199,7 @@ describe("event-store-executor write-verbs — field-level ownership_denied", ()
   });
 
   beforeAll(async () => {
-    await unsafeCreateEntityTableFor(ownedFieldEntity, "esWriteOwnedField");
+    await unsafeCreateEntityTable(testDb.db, ownedFieldEntity, "esWriteOwnedField");
   });
 
   beforeEach(async () => {
@@ -264,7 +264,7 @@ describe("event-store-executor write-verbs — version_conflict edge cases", () 
   });
 
   beforeAll(async () => {
-    await unsafeCreateEntityTableFor(versionEntity, "esWriteVersion");
+    await unsafeCreateEntityTable(testDb.db, versionEntity, "esWriteVersion");
   });
 
   beforeEach(async () => {
@@ -297,13 +297,6 @@ describe("event-store-executor write-verbs — version_conflict edge cases", () 
     expect(result.error.code).toBe("version_conflict");
   });
 });
-
-async function unsafeCreateEntityTableFor(
-  entity: Parameters<typeof buildEntityTable>[1],
-  name: string,
-): Promise<void> {
-  await unsafeCreateEntityTable(testDb.db, entity, name);
-}
 
 // =============================================================================
 // Concurrent update race → EventStoreVersionConflict catch + entityCache.del
@@ -341,7 +334,7 @@ describe("event-store-executor write-verbs — concurrent version race + cache",
   });
 
   beforeAll(async () => {
-    await unsafeCreateEntityTableFor(raceEntity, "esWriteRace");
+    await unsafeCreateEntityTable(testDb.db, raceEntity, "esWriteRace");
   });
 
   beforeEach(async () => {
