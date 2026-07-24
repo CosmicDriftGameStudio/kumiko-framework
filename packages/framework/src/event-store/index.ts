@@ -12,7 +12,7 @@ export {
   isStreamArchived,
   restoreStream,
 } from "./archive";
-export { ArchivedStreamError, VersionConflictError } from "./errors";
+export { ArchivedStreamError, IdempotentAppendConflictError, VersionConflictError } from "./errors";
 export {
   append,
   EVENTS_PUBSUB_CHANNEL,

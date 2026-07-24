@@ -15,6 +15,25 @@ export class VersionConflictError extends Error {
   }
 }
 
+// Thrown when append() collides on the partial unique index over
+// metadata.idempotencyKey (tenant-scoped). Distinct from VersionConflictError:
+// a version conflict means two writers raced the same predecessor; this
+// means the same idempotency key was used twice, which is a caller-side
+// retry that must have already appended once. Callers that set
+// idempotencyKey should treat this as "already applied" rather than retry.
+export class IdempotentAppendConflictError extends Error {
+  public readonly tenantId: string;
+  public readonly idempotencyKey: string;
+  constructor(tenantId: string, idempotencyKey: string) {
+    super(
+      `Idempotency conflict on tenant ${tenantId}: an event with idempotencyKey "${idempotencyKey}" was already appended.`,
+    );
+    this.name = "IdempotentAppendConflictError";
+    this.tenantId = tenantId;
+    this.idempotencyKey = idempotencyKey;
+  }
+}
+
 // Thrown when ctx.appendEvent targets an archived stream. Archived aggregates
 // are read-only — restoreStream() makes them writable again. The archive
 // state is not carried on the events themselves; it lives on the sparse

@@ -6,6 +6,7 @@ import { generateId as uuid } from "../../utils";
 import {
   append,
   createEventsTable,
+  IdempotentAppendConflictError,
   loadAggregate,
   loadAggregateAsOf,
   loadAllEventsByType,
@@ -90,6 +91,129 @@ describe("event-store: append + load", () => {
     const events = await loadAggregate(testDb.db, aggregateId, tenantA);
     expect(events.map((e) => e.version)).toEqual([1, 2, 3]);
     expect(events.map((e) => e.type)).toEqual(["task.created", "task.updated", "task.completed"]);
+  });
+});
+
+describe("event-store: idempotency-key conflict", () => {
+  test("second append with a reused idempotencyKey (new aggregate+version) throws IdempotentAppendConflictError", async () => {
+    const first = uuid();
+    const second = uuid();
+    const key = uuid();
+
+    await append(testDb.db, {
+      aggregateId: first,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { title: "Orig" },
+      metadata: { userId: userA, idempotencyKey: key },
+    });
+
+    // A retried command that re-runs after the Redis idempotency guard
+    // missed its window: different aggregate, fresh expectedVersion=0 — the
+    // aggregate-version unique index has nothing to say about this pair, so
+    // only the idempotency-key index catches the duplicate.
+    await expect(
+      append(testDb.db, {
+        aggregateId: second,
+        aggregateType: "task",
+        tenantId: tenantA,
+        expectedVersion: 0,
+        type: "task.created",
+        payload: { title: "Retry" },
+        metadata: { userId: userA, idempotencyKey: key },
+      }),
+    ).rejects.toThrow(IdempotentAppendConflictError);
+
+    const events = await loadAggregate(testDb.db, second, tenantA);
+    expect(events).toHaveLength(0);
+  });
+
+  test("subsequent-event append (expectedVersion > 0) also enforces the idempotency key", async () => {
+    const aggregateId = uuid();
+    const key = uuid();
+
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { title: "Orig" },
+      metadata: { userId: userA },
+    });
+
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 1,
+      type: "task.updated",
+      payload: { title: "V2" },
+      metadata: { userId: userA, idempotencyKey: key },
+    });
+
+    // Retry of the v2 update: goes through insertSubsequentEventRow's raw
+    // INSERT ... SELECT ... WHERE EXISTS path, not insertFirstEvent — the
+    // idempotency index must catch it there too.
+    await expect(
+      append(testDb.db, {
+        aggregateId,
+        aggregateType: "task",
+        tenantId: tenantA,
+        expectedVersion: 2,
+        type: "task.updated",
+        payload: { title: "V3-retry" },
+        metadata: { userId: userA, idempotencyKey: key },
+      }),
+    ).rejects.toThrow(IdempotentAppendConflictError);
+
+    const events = await loadAggregate(testDb.db, aggregateId, tenantA);
+    expect(events).toHaveLength(2);
+  });
+
+  test("same idempotencyKey on a different tenant does not conflict", async () => {
+    const key = uuid();
+
+    const a = await append(testDb.db, {
+      aggregateId: uuid(),
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: {},
+      metadata: { userId: userA, idempotencyKey: key },
+    });
+    const b = await append(testDb.db, {
+      aggregateId: uuid(),
+      aggregateType: "task",
+      tenantId: tenantB,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: {},
+      metadata: { userId: userA, idempotencyKey: key },
+    });
+
+    expect(a.version).toBe(1);
+    expect(b.version).toBe(1);
+  });
+
+  test("omitting idempotencyKey allows unlimited appends, unchanged from before", async () => {
+    const events = await Promise.all(
+      Array.from({ length: 3 }, () =>
+        append(testDb.db, {
+          aggregateId: uuid(),
+          aggregateType: "task",
+          tenantId: tenantA,
+          expectedVersion: 0,
+          type: "task.created",
+          payload: {},
+          metadata: { userId: userA },
+        }),
+      ),
+    );
+    expect(events).toHaveLength(3);
   });
 });
 

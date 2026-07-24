@@ -12,6 +12,7 @@ import {
   uniqueIndex,
   uuid,
 } from "../db/dialect";
+import { ensureIdempotencyKeyIndex } from "../db/queries/event-store";
 import { unsafePushTables } from "../stack";
 import { createArchivedStreamsTable } from "./archive";
 import { createSnapshotsTable } from "./snapshot";
@@ -22,9 +23,11 @@ import type { EventMetadata } from "./types";
 // INSERT ... SELECT ... WHERE EXISTS isn't ergonomic in the typed builder.
 //
 // HTTP-level retry idempotency is handled by pipeline/idempotency.ts
-// (Redis-backed check + cached-response replay). The event-store itself
-// imposes no idempotency index — a single HTTP request may write N events
-// freely, metadata.requestId is purely a trace marker.
+// (Redis-backed check + cached-response replay); metadata.requestId is
+// purely a trace marker (no uniqueness constraint — one request may write
+// N events). Callers that need a hard per-event guarantee as a second line
+// of defense set metadata.idempotencyKey, enforced by the tenant-scoped
+// partial unique index ensureIdempotencyKeyIndex() creates below.
 
 export const eventsTable = pgTable(
   "kumiko_events",
@@ -77,6 +80,10 @@ export async function createEventsTable(db: DbConnection): Promise<void> {
   if (!(await tableExists(db, "public.kumiko_events"))) {
     await unsafePushTables(db, { kumikoEvents: eventsTable });
   }
+  // Runs unconditionally (both fresh + already-existing table) so installs
+  // that predate the idempotency-key index get healed the same way
+  // ensureSnapshotVersionColumn heals kumiko_snapshots.
+  await ensureIdempotencyKeyIndex(db);
   await createArchivedStreamsTable(db);
   await createSnapshotsTable(db);
 }

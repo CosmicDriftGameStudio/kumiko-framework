@@ -3,7 +3,7 @@
 // unwrap both layers so callers don't have to know which layer produced the
 // error. Used by the event-store to distinguish a unique-violation on the
 // aggregate-version index (optimistic-concurrency conflict) from the one on
-// the request-id idempotency index (replay signal).
+// the idempotency-key index (caller-side replay signal).
 
 export type PgErrorInfo = {
   readonly code: string | undefined;
