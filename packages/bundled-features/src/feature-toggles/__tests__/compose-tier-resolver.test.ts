@@ -151,3 +151,51 @@ describe("composeTierResolverWithGlobalToggles", () => {
     expect(composed.trialGate).toBe(trialGate);
   });
 });
+
+describe("composeTierResolverWithGlobalToggles — non-toggleable + requires() interaction", () => {
+  // Separate registry from the toggleable-only one above: a non-toggleable
+  // (always-on) feature and a toggleable one that requires() a tier-managed
+  // feature. Kept in its own describe so these additions can't shift the
+  // exact-array assertions in the suite above.
+  const registry = createRegistry([
+    defineFeature("personal-access-tokens", (r) => {
+      r.toggleable({ default: false });
+    }),
+    // Always-on, non-toggleable — no `r.toggleable()` call at all.
+    defineFeature("tenant", () => {}),
+    // Tier-unaware (no tier ever lists it) but depends on a tier-managed
+    // feature — its own eligibility must still respect that dependency.
+    defineFeature("pat-companion", (r) => {
+      r.toggleable({ default: true });
+      r.requires("personal-access-tokens");
+    }),
+  ]);
+
+  test("a non-toggleable feature stays granted even when the real tierResolver's mergeAlwaysOn puts it in the SYSTEM union", () => {
+    // Mirrors tier-engine's real mergeAlwaysOn: always-on features are
+    // merged into every tenant's set, not just the SYSTEM_TENANT_ID union —
+    // otherwise composeTierResolverWithGlobalToggles' `!tierManaged.has()`
+    // filter would incorrectly drop it (tier-managed but absent from this
+    // tenant's own tier subset).
+    const tierResolver = ((tenantId: TenantId) =>
+      tenantId === SYSTEM_TENANT_ID
+        ? new Set(["tenant", "personal-access-tokens"])
+        : new Set(["tenant"])) as EffectiveFeaturesResolver;
+    const runtime = new GlobalFeatureToggleRuntime(fakeDb, registry);
+    const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, registry);
+    expect([...composed("t1" as TenantId)]).toContain("tenant");
+  });
+
+  test("a tier-unaware feature requiring a tier-managed feature the tenant's tier doesn't grant is excluded", () => {
+    // "pat-companion" is tier-unaware (no tier ever lists it) but requires
+    // "personal-access-tokens", which IS tier-managed and this tenant's own
+    // tier grants nothing — the dependency must not silently resolve true.
+    const tierResolver = ((tenantId: TenantId) =>
+      tenantId === SYSTEM_TENANT_ID
+        ? new Set(["personal-access-tokens"])
+        : new Set<string>()) as EffectiveFeaturesResolver;
+    const runtime = new GlobalFeatureToggleRuntime(fakeDb, registry);
+    const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, registry);
+    expect([...composed("t1" as TenantId)]).not.toContain("pat-companion");
+  });
+});

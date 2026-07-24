@@ -3,12 +3,10 @@ import {
   createTestUser,
   setupTestStack,
   type TestStack,
-  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { FeatureToggleHandlers, FeatureToggleQueries, TOGGLE_ADMIN_SCREEN_ID } from "../constants";
 import { createFeatureTogglesFeature } from "../feature";
-import { globalFeatureStateTable } from "../global-feature-state-table";
 
 let stack: TestStack;
 
@@ -16,7 +14,9 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [createFeatureTogglesFeature()],
   });
-  await unsafePushTables(stack.db, { globalFeatureStateTable });
+  // globalFeatureStateTable is auto-provisioned by setupTestStack — no
+  // manual unsafePushTables needed (that used to mask a missing
+  // r.storeTable() registration entirely).
 });
 
 afterAll(async () => {

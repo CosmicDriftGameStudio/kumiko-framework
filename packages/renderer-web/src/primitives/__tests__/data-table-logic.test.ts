@@ -173,7 +173,14 @@ describe("defaultCellRender", () => {
 
   test("money → JPY ohne Nachkommastellen (currencyDecimals)", () => {
     const result = defaultCellRender({ amount: 1000, currency: "JPY" }, "money");
-    expect(result.replace(/[^0-9]/g, "")).toBe("1000");
+    const expected = new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "JPY",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(1000);
+    expect(result).toBe(expected);
+    expect(result).not.toMatch(/[.,]\d\d$/);
   });
 
   test("money → unerwarteter Value-Shape fällt auf String zurück", () => {

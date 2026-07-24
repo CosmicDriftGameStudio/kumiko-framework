@@ -87,11 +87,26 @@ describe("composeFeatures", () => {
     });
     const toggle = features.find((f) => f.name === "auth-self-registration");
     expect(toggle).toBeDefined();
+    // The security-relevant part isn't that the feature is mounted, it's
+    // that self-signup defaults ON — a flip to `default: false` upstream
+    // would silently no-op signup (always-200 anti-enumeration masks it)
+    // while this assertion alone (toBeDefined) stayed green.
+    expect(toggle?.toggleableDefault).toBe(true);
   });
 
   test("no authOptions.signup → auth-self-registration NOT mounted", () => {
     const features = composeFeatures([noopFeature], { includeBundled: true });
     expect(features.map((f) => f.name)).not.toContain("auth-self-registration");
+  });
+
+  test("authOptions.signup + app also mounts its own auth-self-registration stub → deduped to exactly one", () => {
+    const pickerSelfRegDupe = defineFeature("auth-self-registration", () => {});
+    const features = composeFeatures([noopFeature, pickerSelfRegDupe], {
+      includeBundled: true,
+      authOptions: { signup: { appUrl: "https://app/signup/complete" } },
+    });
+    const names = features.map((f) => f.name).filter((n) => n === "auth-self-registration");
+    expect(names).toEqual(["auth-self-registration"]);
   });
 
   test("OHNE authOptions → KEINE reset/verify-handlers (anti-default-deploy-bug)", () => {

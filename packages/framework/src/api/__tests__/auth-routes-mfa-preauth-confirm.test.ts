@@ -80,7 +80,11 @@ function preauthConfirmRequest(body: unknown): Request {
 
 describe("POST /auth/mfa/preauth-confirm", () => {
   test("is public — reachable without a JWT", async () => {
-    expect(PUBLIC_API_PATHS.has("/api/auth/mfa/preauth-confirm")).toBe(true);
+    const { app } = await buildApp();
+    const res = await app.request(preauthConfirmRequest({ setupToken: "t", code: "123456" }));
+    // No Authorization header sent at all — if the route required a JWT,
+    // authMiddleware would reject with 401 before the handler ever runs.
+    expect(res.status).not.toBe(401);
   });
 
   test("not mounted when mfaPreauthConfirmHandler is unset", async () => {
@@ -100,12 +104,24 @@ describe("POST /auth/mfa/preauth-confirm", () => {
         };
       },
     });
-    const { app } = await buildApp({}, dispatcher);
+    // An active limiter, not null — "before rate-limit" is only checkable
+    // when there's a rate-limit to (not) consume.
+    const { app } = await buildApp(
+      { mfaPreauthConfirmRateLimit: createInMemoryLoginRateLimiter(2, 60_000) },
+      dispatcher,
+    );
     const res = await app.request(preauthConfirmRequest({ setupToken: "t" }));
     expect(res.status).toBe(400);
     const body = (await res.json()) as { isSuccess: boolean; error: string };
     expect(body.error).toBe("invalid_body");
     expect(dispatched).toBe(false);
+
+    // The limiter's cap (2) must still be fully available — a malformed
+    // body must not have consumed an attempt.
+    for (let i = 0; i < 5; i++) {
+      const retry = await app.request(preauthConfirmRequest({ setupToken: "t" }));
+      expect(retry.status).toBe(400);
+    }
   });
 
   test("on success: dispatches to mfaPreauthConfirmHandler, mints a JWT + cookies", async () => {

@@ -59,6 +59,11 @@ export type GdprStackOptions = {
   readonly order?: GdprStackOrder;
   readonly sessions?: boolean;
   readonly tenantLifecycle?: boolean;
+  /** tokenVerifier provider(s) for auth-foundation when `sessions` is on —
+   *  same contract as composeIdentityStack's `providers`. Without at least
+   *  one, auth-foundation's boot check throws ("no tokenVerifier providers
+   *  registered"). Omit only if the app mounts a provider itself elsewhere. */
+  readonly providers?: readonly FeatureDefinition[];
 };
 
 export type UserDataRightsStackOptions = {
@@ -139,7 +144,10 @@ export function composeGdprStack(options: GdprStackOptions = {}): FeatureDefinit
   const out: FeatureDefinition[] =
     order === "compliance-first" ? [compliance, retention] : [retention, compliance];
   if (options.tenantLifecycle) out.push(createTenantLifecycleFeature());
-  if (options.sessions) out.push(authFoundationFeature, createSessionsFeature());
+  if (options.sessions) {
+    out.push(authFoundationFeature, createSessionsFeature());
+    if (options.providers) out.push(...options.providers);
+  }
   return out;
 }
 

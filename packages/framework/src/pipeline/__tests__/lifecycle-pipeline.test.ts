@@ -707,30 +707,43 @@ describe("runPostSaveBatch / runPostDeleteBatch", () => {
     expect(seen).toEqual([[deletectx]]);
   });
 
-  test("one batch hook throwing doesn't stop the others (Promise.allSettled) — logged, never thrown", async () => {
+  test.each([
+    [
+      "postSaveBatch",
+      (hooks: { name: string; priority: number; fn: () => Promise<void> }[]) =>
+        ({ postSaveBatch: hooks }) satisfies SystemHooks,
+      (pipeline: ReturnType<typeof createLifecycleHooks>) =>
+        pipeline.runPostSaveBatch([savectx], {}),
+    ],
+    [
+      "postDeleteBatch",
+      (hooks: { name: string; priority: number; fn: () => Promise<void> }[]) =>
+        ({ postDeleteBatch: hooks }) satisfies SystemHooks,
+      (pipeline: ReturnType<typeof createLifecycleHooks>) =>
+        pipeline.runPostDeleteBatch([deletectx], {}),
+    ],
+  ])("one %s hook throwing doesn't stop the others (Promise.allSettled) — logged, never thrown", async (_name, buildHooks, run) => {
     const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
     const calls: string[] = [];
-    const systemHooks: SystemHooks = {
-      postSaveBatch: [
-        {
-          name: "failing",
-          priority: 1000,
-          fn: async () => {
-            throw new Error("batch-hook-boom");
-          },
+    const systemHooks = buildHooks([
+      {
+        name: "failing",
+        priority: 1000,
+        fn: async () => {
+          throw new Error("batch-hook-boom");
         },
-        {
-          name: "ok",
-          priority: 1001,
-          fn: async () => {
-            calls.push("ok-ran");
-          },
+      },
+      {
+        name: "ok",
+        priority: 1001,
+        fn: async () => {
+          calls.push("ok-ran");
         },
-      ],
-    };
+      },
+    ]);
     const pipeline = createLifecycleHooks(makeRegistry(), systemHooks);
     // Must not throw.
-    await pipeline.runPostSaveBatch([savectx], {});
+    await run(pipeline);
     expect(calls).toEqual(["ok-ran"]);
     expect(consoleSpy).toHaveBeenCalled();
     consoleSpy.mockRestore();

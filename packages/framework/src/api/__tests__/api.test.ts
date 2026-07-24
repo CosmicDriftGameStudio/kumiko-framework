@@ -8,6 +8,7 @@ import {
   type TenantId,
 } from "../../engine";
 import { createTestUser, TestUsers } from "../../stack";
+import { pumpStream } from "../routes";
 import { buildServer } from "../server";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
@@ -207,6 +208,65 @@ describe("POST /api/command", () => {
       headers,
     );
     expect(res.status).toBe(403);
+  });
+});
+
+// --- pumpStream (SSE pull loop) ---
+
+function fakeSseWriter() {
+  const frames: Array<{ event: string; data: string }> = [];
+  return {
+    frames,
+    async writeSSE(message: { event: string; data: string }) {
+      frames.push(message);
+    },
+  };
+}
+
+async function* delayedGenerator(values: readonly unknown[], delayMsByIndex: readonly number[]) {
+  for (let i = 0; i < values.length; i++) {
+    const delay = delayMsByIndex[i] ?? 0;
+    if (delay > 0) await Bun.sleep(delay);
+    yield values[i];
+  }
+}
+
+describe("pumpStream", () => {
+  test("emits a ping when the handler is slow, then still delivers the pending chunk (no loss)", async () => {
+    const writer = fakeSseWriter();
+    // heartbeatMs (10) fires before the 40ms-delayed second chunk resolves.
+    const gen = delayedGenerator([{ i: 0 }, { i: 1 }], [0, 40]);
+
+    await pumpStream(writer, gen, 10);
+
+    const events = writer.frames.map((f) => f.event);
+    expect(events[0]).toBe("chunk");
+    expect(events).toContain("ping");
+    expect(events.at(-1)).toBe("done");
+    // Both chunks arrive despite the ping in between — no chunk dropped.
+    const chunkData = writer.frames.filter((f) => f.event === "chunk").map((f) => f.data);
+    expect(chunkData).toEqual([JSON.stringify({ i: 0 }), JSON.stringify({ i: 1 })]);
+  });
+
+  test("no heartbeat fires when the handler is faster than heartbeatMs — chunks then done", async () => {
+    const writer = fakeSseWriter();
+    const gen = delayedGenerator([{ i: 0 }, { i: 1 }, { i: 2 }], [0, 0, 0]);
+
+    await pumpStream(writer, gen, 1000);
+
+    expect(writer.frames.map((f) => f.event)).toEqual(["chunk", "chunk", "chunk", "done"]);
+  });
+
+  test("a handler generator that throws propagates the error instead of swallowing it", async () => {
+    const writer = fakeSseWriter();
+    async function* throwing() {
+      yield { i: 0 };
+      throw new Error("handler-boom");
+    }
+
+    await expect(pumpStream(writer, throwing(), 1000)).rejects.toThrow("handler-boom");
+    // The chunk before the throw still made it out.
+    expect(writer.frames.map((f) => f.event)).toEqual(["chunk"]);
   });
 });
 

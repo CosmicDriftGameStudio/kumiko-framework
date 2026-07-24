@@ -813,6 +813,126 @@ describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architek
       ).delete = originalUserDelete;
     }
   });
+
+  test("hook incomplete on one tenant, then throws on a later tenant → the incomplete report is discarded by the rollback", async () => {
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+    await seedMembership(ALICE_ID, TENANT_B);
+
+    const usages = stack.registry.getExtensionUsages("userData");
+    const userUsage = usages.find((u) => u.entityName === "user");
+    if (!userUsage?.options) throw new Error("user usage not found");
+    const originalUserDelete = (
+      userUsage.options as {
+        delete: (
+          ctx: { userId: string; tenantId: string; db: unknown },
+          strategy: string,
+        ) => Promise<undefined | { status: "ok" } | { status: "incomplete"; reason: string }>;
+      }
+    ).delete;
+    (
+      userUsage.options as {
+        delete: (
+          ctx: { userId: string; tenantId: string; db: unknown },
+          strategy: string,
+        ) => Promise<undefined | { status: "ok" } | { status: "incomplete"; reason: string }>;
+      }
+    ).delete = async (ctx: { userId: string; tenantId: string; db: unknown }, strategy: string) => {
+      if (ctx.userId === ALICE_ID && ctx.tenantId === TENANT_A) {
+        return { status: "incomplete", reason: "synthetic partial cleanup for alice (tenant A)" };
+      }
+      if (ctx.userId === ALICE_ID && ctx.tenantId === TENANT_B) {
+        throw new Error("synthetic hook failure for alice (tenant B)");
+      }
+      return originalUserDelete(ctx, strategy);
+    };
+
+    try {
+      const result = await runForgetCleanup({
+        db: stack.db,
+        registry: stack.registry,
+        now: NOW(),
+      });
+
+      // The whole per-user sub-tx rolled back — no incomplete entry from
+      // tenant A survives, and the failure surfaces as a hard error instead.
+      expect(result.incomplete.some((i) => i.userId === ALICE_ID)).toBe(false);
+      expect(result.errors.some((e) => e.userId === ALICE_ID)).toBe(true);
+      expect(result.processedUserIds).not.toContain(ALICE_ID);
+
+      const aliceRow = await fetchUser(ALICE_ID);
+      expect(aliceRow?.status).toBe(USER_STATUS.DeletionRequested);
+    } finally {
+      (
+        userUsage.options as {
+          delete: (
+            ctx: { userId: string; tenantId: string; db: unknown },
+            strategy: string,
+          ) => Promise<undefined | { status: "ok" } | { status: "incomplete"; reason: string }>;
+        }
+      ).delete = originalUserDelete;
+    }
+  });
+
+  test("hook returns {status:'ok'} → treated as a clean completion, not incomplete", async () => {
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    const usages = stack.registry.getExtensionUsages("userData");
+    const userUsage = usages.find((u) => u.entityName === "user");
+    if (!userUsage?.options) throw new Error("user usage not found");
+    const originalUserDelete = (
+      userUsage.options as {
+        delete: (
+          ctx: { userId: string; tenantId: string; db: unknown },
+          strategy: string,
+        ) => Promise<undefined | { status: "ok" } | { status: "incomplete"; reason: string }>;
+      }
+    ).delete;
+    (
+      userUsage.options as {
+        delete: (
+          ctx: { userId: string; tenantId: string; db: unknown },
+          strategy: string,
+        ) => Promise<undefined | { status: "ok" } | { status: "incomplete"; reason: string }>;
+      }
+    ).delete = async (ctx: { userId: string; tenantId: string; db: unknown }, strategy: string) => {
+      if (ctx.userId === ALICE_ID) {
+        return { status: "ok" };
+      }
+      return originalUserDelete(ctx, strategy);
+    };
+
+    try {
+      const result = await runForgetCleanup({
+        db: stack.db,
+        registry: stack.registry,
+        now: NOW(),
+      });
+
+      expect(result.processedUserIds).toContain(ALICE_ID);
+      expect(result.errors.some((e) => e.userId === ALICE_ID)).toBe(false);
+      expect(result.incomplete.some((i) => i.userId === ALICE_ID)).toBe(false);
+
+      const aliceRow = await fetchUser(ALICE_ID);
+      expect(aliceRow?.status).toBe(USER_STATUS.Deleted);
+    } finally {
+      (
+        userUsage.options as {
+          delete: (
+            ctx: { userId: string; tenantId: string; db: unknown },
+            strategy: string,
+          ) => Promise<undefined | { status: "ok" } | { status: "incomplete"; reason: string }>;
+        }
+      ).delete = originalUserDelete;
+    }
+  });
 });
 
 // eraseKey never fails in the in-memory adapter, so the rollback test

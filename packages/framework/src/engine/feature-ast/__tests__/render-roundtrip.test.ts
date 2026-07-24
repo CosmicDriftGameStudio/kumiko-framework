@@ -258,6 +258,7 @@ describe("render → parse roundtrip — mixed patterns (header data + opaque bo
 // from the parsed FeaturePattern shape alone.
 const RAW_REF_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { chatCompleteHandler } from "./handlers";
 
 const eventEntity = {
   fields: { name: { type: "text", required: true } },
@@ -284,6 +285,7 @@ defineFeature("refs", (r) => {
   r.entity("event", eventEntity);
   r.entity("task", { fields: buildFields() });
   r.writeHandler(makeHandler());
+  r.streamHandler(chatCompleteHandler);
   r.screen(eventListScreen);
 });
 `;
@@ -297,6 +299,7 @@ describe("render → parse roundtrip — unresolved references (raw-ref sentinel
       { kind: "entity", entityName: "event", definition: { __raw: "eventEntity" } },
       { kind: "entity", entityName: "task", definition: { fields: { __raw: "buildFields()" } } },
       { kind: "writeHandler", handlerName: undefined },
+      { kind: "streamHandler", handlerName: undefined },
       { kind: "screen", definition: { __raw: "eventListScreen" } },
     ]);
   });
@@ -310,6 +313,7 @@ describe("render → parse roundtrip — unresolved references (raw-ref sentinel
     expect(rendered).toContain("eventEntity");
     expect(rendered).toContain("buildFields()");
     expect(rendered).toContain("r.writeHandler(makeHandler())");
+    expect(rendered).toContain("r.streamHandler(chatCompleteHandler)");
     expect(rendered).toContain("r.screen(eventListScreen);");
     // Would only appear if buildFields()'s return value got inlined.
     expect(rendered).not.toContain("title:");
