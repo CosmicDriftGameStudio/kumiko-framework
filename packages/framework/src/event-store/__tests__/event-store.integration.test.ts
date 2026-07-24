@@ -200,20 +200,34 @@ describe("event-store: idempotency-key conflict", () => {
   });
 
   test("omitting idempotencyKey allows unlimited appends, unchanged from before", async () => {
-    const events = await Promise.all(
-      Array.from({ length: 3 }, () =>
-        append(testDb.db, {
-          aggregateId: uuid(),
-          aggregateType: "task",
-          tenantId: tenantA,
-          expectedVersion: 0,
-          type: "task.created",
-          payload: {},
-          metadata: { userId: userA },
-        }),
-      ),
-    );
-    expect(events).toHaveLength(3);
+    // Same tenant for both, unlike the different-aggregateId version this
+    // replaces — Postgres treats every NULL as distinct even in a plain
+    // unique index, so this does NOT exercise the partial index's `WHERE
+    // ... IS NOT NULL` clause specifically (that's provable only by a
+    // duplicate NON-null key, covered above). What this does pin: a fully-
+    // omitted key and an explicit `idempotencyKey: undefined` both serialize
+    // to a JSON-absent key (JSON.stringify drops undefined) and must behave
+    // identically, rather than one silently colliding on `"idempotencyKey":null`.
+    const omitted = await append(testDb.db, {
+      aggregateId: uuid(),
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: {},
+      metadata: { userId: userA },
+    });
+    const explicitUndefined = await append(testDb.db, {
+      aggregateId: uuid(),
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: {},
+      metadata: { userId: userA, idempotencyKey: undefined },
+    });
+    expect(omitted.version).toBe(1);
+    expect(explicitUndefined.version).toBe(1);
   });
 });
 

@@ -1,7 +1,7 @@
 // Unit coverage for mimeTypeFor + hostDispatch edge in buildStaticFallback.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -55,6 +55,12 @@ describe("readStaticFile / serveDiskFile", () => {
     expect(file?.mime).toBe("text/css; charset=utf-8");
     expect(new TextDecoder().decode(file!.bytes)).toBe("body{}");
     expect(await readStaticFile(join(tmp, "missing.css"))).toBeUndefined();
+  });
+
+  test("readStaticFile on a directory → undefined (EISDIR), not a throw", async () => {
+    const dirPath = join(tmp, "sub");
+    await mkdir(dirPath);
+    expect(await readStaticFile(dirPath)).toBeUndefined();
   });
 
   test("serveDiskFile sets content-type from mime", async () => {
@@ -124,6 +130,15 @@ describe("buildStaticFallback hostDispatch", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/png");
     expect(await res.text()).toBe("PNGDATA");
+  });
+
+  test("a request for a directory copied verbatim from public/ falls back to index.html instead of 500ing", async () => {
+    await mkdir(join(tmp, "sub"));
+    await writeFile(join(tmp, "index.html"), "<!doctype html><html><body>spa-shell</body></html>");
+    const handler = buildStaticFallback(() => new Response("404", { status: 404 }), tmp, "{}");
+    const res = await handler(new Request("http://t/sub"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("spa-shell");
   });
 
   test("hostDispatch html with CSP + Vary: Host", async () => {

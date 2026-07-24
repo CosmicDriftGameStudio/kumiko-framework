@@ -826,29 +826,53 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
   });
 
   test("failed-Job, sendExportFailedEmail-Throw wird abgefangen (best-effort, kein Batch-Abbruch)", async () => {
-    const jobId = await seedPendingJob();
-    await asRawClient(stack.db).unsafe(
-      `
-      INSERT INTO read_export_download_tokens
-        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
-      VALUES (gen_random_uuid(), $1, $2, $3, now(), now() + interval '7 days', 1, now(), now())
-    `,
-      [tenantA, jobId, "existing-hash"],
-    );
+    // Two jobs, both forced to fail via the same token-collision mechanism
+    // as the tests above — the callback throws for job A only, proving the
+    // throw doesn't kill the batch loop before job B's callback fires.
+    const bobUser = createTestUser({ id: 8, tenantId: tenantA, roles: ["Member"] });
+    await seedRow(stack.db, userTable, {
+      id: String(bobUser.id),
+      tenantId: tenantA,
+      email: "bob-failed@example.com",
+      passwordHash: "h",
+      displayName: "Bob",
+      locale: "de",
+      emailVerified: true,
+      roles: '["Member"]',
+      status: USER_STATUS.Active,
+    });
 
-    // Should not throw despite the callback throwing — the try/catch
+    const jobAId = await seedPendingJob();
+    const jobBId = await seedPendingJob({ user: bobUser });
+    for (const jobId of [jobAId, jobBId]) {
+      await asRawClient(stack.db).unsafe(
+        `
+        INSERT INTO read_export_download_tokens
+          (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
+        VALUES (gen_random_uuid(), $1, $2, $3, now(), now() + interval '7 days', 1, now(), now())
+      `,
+        [tenantA, jobId, "existing-hash"],
+      );
+    }
+
+    const calls: string[] = [];
+    // Should not throw despite job A's callback throwing — the try/catch
     // around fireExportFailedCallback swallows it (operator-visibility
-    // via console.warn only).
+    // via console.warn only) and the loop continues to job B.
     const result = await runExportJobs({
       db: stack.db,
       registry: stack.registry,
       buildStorageProvider: buildProvider,
       now: NOW(),
-      sendExportFailedEmail: async () => {
-        throw new Error("synthetic email transport failure");
+      sendExportFailedEmail: async (args) => {
+        calls.push(args.jobId);
+        if (args.jobId === jobAId) {
+          throw new Error("synthetic email transport failure for job A");
+        }
       },
     });
-    expect(result.failedJobIds).toContain(jobId);
+    expect(result.failedJobIds).toEqual(expect.arrayContaining([jobAId, jobBId]));
+    expect(calls.sort()).toEqual([jobAId, jobBId].sort());
   });
 
   test("failed-Job, user ohne email → sendExportFailedEmail skipped (kein Throw)", async () => {

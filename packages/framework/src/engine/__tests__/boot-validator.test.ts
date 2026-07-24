@@ -599,6 +599,20 @@ describe("boot-validator", () => {
     expect(() => validateBoot(features)).toThrow(/a:stream:chat:complete.*missing an access rule/i);
   });
 
+  test("object-form streamHandler with access rule passes boot", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.streamHandler({
+          name: "chat:complete",
+          schema: z.object({}),
+          handler: async function* () {},
+          access: { roles: ["User"] },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
   test("accepts openToAll access rule on a stream handler", () => {
     const features = [
       defineFeature("a", (r) => {

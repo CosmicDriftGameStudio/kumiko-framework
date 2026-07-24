@@ -199,4 +199,78 @@ describe("MfaSetupPreauthScreen", () => {
     );
     expect(screen.queryByRole("button", { name: "Zurück zum Login" })).toBeNull();
   });
+
+  test("confirm schlägt mit invalid_totp_code fehl → übersetztes Banner, onSuccess NICHT gefeuert, Formular weiter bedienbar", async () => {
+    const onSuccess = mock(() => {});
+    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("preauth-enable-start")) return jsonResponse(startBody);
+      if (url.includes("preauth-confirm")) {
+        return jsonResponse({ isSuccess: false, error: "invalid_totp_code" });
+      }
+      return jsonResponse({ isSuccess: false, error: "unexpected_url" }, 500);
+    }) as unknown as typeof fetch;
+
+    render(
+      <Wrapper>
+        <MfaSetupPreauthScreen
+          preauthSetupToken="preauth-1"
+          accountLabel="user@example.com"
+          onSuccess={onSuccess}
+        />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    await waitFor(() => {
+      expect(screen.getByText("ABCD1234")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
+    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+      target: { value: "000000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Einrichtung abschließen" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Ungültiger Code. Bitte erneut versuchen.")).toBeTruthy();
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+    // Form stays usable — QR/recovery section is still there, a retry is possible.
+    expect(screen.getByText("ABCD1234")).toBeTruthy();
+    const confirm = screen.getByRole("button", {
+      name: "Einrichtung abschließen",
+    }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(false);
+  });
+
+  test("confirm schlägt mit invalid_setup_token fehl → übersetztes Banner (Neustart-Pfad)", async () => {
+    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("preauth-enable-start")) return jsonResponse(startBody);
+      if (url.includes("preauth-confirm")) {
+        return jsonResponse({ isSuccess: false, error: "invalid_setup_token" });
+      }
+      return jsonResponse({ isSuccess: false, error: "unexpected_url" }, 500);
+    }) as unknown as typeof fetch;
+
+    render(
+      <Wrapper>
+        <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    await waitFor(() => {
+      expect(screen.getByText("ABCD1234")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
+    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Einrichtung abschließen" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Die Einrichtung ist abgelaufen. Bitte erneut starten."),
+      ).toBeTruthy();
+    });
+  });
 });

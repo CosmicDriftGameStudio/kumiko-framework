@@ -21,7 +21,6 @@ import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { createFeatureTogglesFeature } from "../../feature-toggles/feature";
-import { globalFeatureStateTable } from "../../feature-toggles/global-feature-state-table";
 import { JobQueries } from "../../jobs/constants";
 import { createJobsFeature } from "../../jobs/feature";
 import { jobRunLogsTable, jobRunsTable } from "../../jobs/job-run-table";
@@ -79,10 +78,12 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
+  // globalFeatureStateTable is auto-provisioned by setupTestStack — no
+  // manual push needed (that used to mask a missing r.storeTable()
+  // registration entirely).
   await unsafePushTables(stack.db, {
     configValuesTable,
     tenantMembershipsTable,
-    globalFeatureStateTable,
     jobRunsTable,
     jobRunLogsTable,
   });

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
+import { signMfaChallengeToken, verifyMfaChallengeToken } from "../mfa-challenge-token";
 import { signMfaPreauthSetupToken, verifyMfaPreauthSetupToken } from "../mfa-preauth-setup-token";
 
 const SECRET = "test-mfa-preauth-setup-secret-at-least-32-bytes!!";
@@ -29,6 +30,31 @@ describe("mfa-preauth-setup-token", () => {
     const [bodyB64] = token.split(".");
     const forged = `${bodyB64}.${Buffer.from("not-the-real-signature-bytes").toString("base64url")}`;
     expect(verifyMfaPreauthSetupToken(forged, SECRET)).toEqual({
+      ok: false,
+      reason: "bad_signature",
+    });
+  });
+
+  test("a genuine mfa-challenge token cannot be replayed as a preauth-setup token, and vice versa", () => {
+    // Both bodies share the identical JSON shape ({userId, tenantId,
+    // expiresAtMs}), so this only fails if the domain-separated signing
+    // string (`mfa-challenge:` vs `mfa-preauth-setup:`) actually differs.
+    const { token: challengeToken } = signMfaChallengeToken(
+      { userId: USER_ID, tenantId: TENANT_ID },
+      10,
+      SECRET,
+    );
+    expect(verifyMfaPreauthSetupToken(challengeToken, SECRET)).toEqual({
+      ok: false,
+      reason: "bad_signature",
+    });
+
+    const { token: setupToken } = signMfaPreauthSetupToken(
+      { userId: USER_ID, tenantId: TENANT_ID },
+      10,
+      SECRET,
+    );
+    expect(verifyMfaChallengeToken(setupToken, SECRET)).toEqual({
       ok: false,
       reason: "bad_signature",
     });

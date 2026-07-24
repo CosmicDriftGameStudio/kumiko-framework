@@ -84,6 +84,36 @@ describe("runConsumerCli status", () => {
     expect(code).toBe(1);
     expect(lines.join("\n")).toContain("DATABASE_URL not set");
   });
+
+  test("--instance-id flag → status looks up the per-instance consumer, not shared", async () => {
+    prevDbUrl = process.env["DATABASE_URL"];
+    process.env["DATABASE_URL"] = testUrl;
+    await insertConsumerIfAbsent(testDb.db, "test:consumer:inst", "inst-1");
+    const { out, lines } = captureOut();
+    const code = await runConsumerCli(
+      ["status", "test:consumer:inst", "--instance-id", "inst-1"],
+      out,
+    );
+    expect(code).toBe(0);
+    const joined = lines.join("\n");
+    expect(joined).toContain('instance_id="inst-1"');
+  });
+});
+
+describe("runConsumerCli — unknown/empty subcommand exit codes", () => {
+  test("no subcommand at all → exit 0 (usage, not an error)", async () => {
+    const { out, lines } = captureOut();
+    const code = await runConsumerCli([], out);
+    expect(code).toBe(0);
+    expect(lines.join("\n")).toContain("Subcommands:");
+  });
+
+  test("an unrecognized subcommand → exit 1", async () => {
+    const { out, lines } = captureOut();
+    const code = await runConsumerCli(["bogus"], out);
+    expect(code).toBe(1);
+    expect(lines.join("\n")).toContain("Subcommands:");
+  });
 });
 
 describe("runConsumerCli restart", () => {

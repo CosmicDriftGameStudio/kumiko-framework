@@ -331,7 +331,7 @@ describe("LoginScreen", () => {
     fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toMatch(/MFA|Zwei-Faktor|nicht unterstützt/i);
+      expect(screen.getByRole("alert").textContent).toContain("unterstützt keine Zwei-Faktor");
     });
   });
 

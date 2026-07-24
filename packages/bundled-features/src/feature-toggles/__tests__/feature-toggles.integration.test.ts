@@ -23,7 +23,6 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
-  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
@@ -163,10 +162,12 @@ beforeAll(async () => {
     systemHooks: [],
   });
 
-  await unsafePushTables(stack.db, { globalFeatureStateTable });
-  // widgetTrackerTable is auto-pushed by setupTestStack because it's the
-  // projection-table of a registered r.multiStreamProjection — manually
-  // pushing again would re-run the CREATE TABLE and fail duplicate.
+  // globalFeatureStateTable is auto-provisioned by setupTestStack, same as
+  // any other r.storeTable() feature — no manual unsafePushTables needed
+  // (that used to mask a missing r.storeTable() registration entirely, see
+  // the finding this replaces). widgetTrackerTable is auto-pushed too,
+  // it's the projection-table of a registered r.multiStreamProjection —
+  // manually pushing again would re-run the CREATE TABLE and fail duplicate.
   await unsafeCreateEntityTable(stack.db, widgetEntity);
   await unsafeCreateEntityTable(stack.db, widgetAuditEntity, "widget-audit");
 

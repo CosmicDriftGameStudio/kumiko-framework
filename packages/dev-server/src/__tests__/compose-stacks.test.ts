@@ -144,6 +144,31 @@ describe("composeStacks boots for real", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
+  test("money-horse-shaped composeGdprStack({sessions:true}) without a tokenVerifier provider fails boot", () => {
+    // Regression pin for the open design question this stack shape raised:
+    // composeGdprStack({sessions:true}) mounts auth-foundation, which
+    // hard-requires at least one tokenVerifier provider. Without composing
+    // one in (money-horse/solon's real run-config passes none), boot must
+    // fail loudly instead of silently shipping an unauthenticatable app.
+    const features = composeFeatures([...composeGdprStack({ sessions: true })], {
+      includeBundled: true,
+    });
+    expect(() => validateBoot(features)).toThrow(/no tokenVerifier providers registered/i);
+  });
+
+  test("composeGdprStack({sessions:true, providers:[...]}) passes boot with a tokenVerifier mounted", () => {
+    const features = composeFeatures(
+      [
+        ...composeGdprStack({
+          sessions: true,
+          providers: [createPersonalAccessTokensFeature({ scopes: {} })],
+        }),
+      ],
+      { includeBundled: true },
+    );
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
   // auth-mfa's encrypted fields need a runtime KEK (env or configureEntityFieldEncryption
   // + secrets). Name-list + saas-identity-wire.integration.test.ts cover identity boot.
   test("identity stack names compose with ops + renderer under includeBundled", () => {

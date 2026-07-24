@@ -163,9 +163,32 @@ describe("POST /auth/mfa/preauth-enable-start", () => {
       accountLabel: "unenrolled@example.com",
     });
 
-    expect(res.status).not.toBe(200);
+    expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.isSuccess).toBe(false);
+    expect(body.error.details.reason).toBe("invalid_challenge_token");
+    expect(body.setupToken).toBeUndefined();
+  });
+
+  test("structurally-valid preauthSetupToken signed with the WRONG secret (setup instead of challenge) is rejected", async () => {
+    // EnableStartPreauthOptions warns explicitly about this secret mix-up —
+    // signing with SETUP_TOKEN_SECRET instead of the CHALLENGE_TOKEN_SECRET
+    // that preauth-enable-start actually verifies against must fail exactly
+    // like a garbage token, not silently pass signature verification.
+    const { token: wrongSecretToken } = signMfaPreauthSetupToken(
+      { userId: "11111111-1111-4111-8111-111111111111", tenantId: TENANT_ID },
+      10,
+      SETUP_TOKEN_SECRET,
+    );
+    const res = await stack.http.raw("POST", "/api/auth/mfa/preauth-enable-start", {
+      preauthSetupToken: wrongSecretToken,
+      accountLabel: "unenrolled@example.com",
+    });
+
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.isSuccess).toBe(false);
+    expect(body.error.details.reason).toBe("invalid_challenge_token");
     expect(body.setupToken).toBeUndefined();
   });
 

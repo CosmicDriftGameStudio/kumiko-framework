@@ -139,6 +139,42 @@ describe("getAllStreamHandlers", () => {
     });
     expect(() => createRegistry([aiFeature, otherFeature])).not.toThrow();
   });
+
+  test("two distinct feature names that kebab-collide throw on the qualified stream-handler clash", () => {
+    // "registry-test-kebab-dup" and "registryTestKebabDup" are different raw
+    // feature.name values (so the earlier Duplicate-feature guard doesn't
+    // fire) but toKebab() collapses both to the same qualified name.
+    const featureA = defineFeature("registry-test-kebab-dup", (r) => {
+      r.streamHandler("chat:complete", z.object({}), async function* () {});
+    });
+    const featureB = defineFeature("registryTestKebabDup", (r) => {
+      r.streamHandler("chat:complete", z.object({}), async function* () {});
+    });
+    expect(() => createRegistry([featureA, featureB])).toThrow(/Duplicate stream handler/);
+  });
+
+  test("object-form streamHandler registration preserves schema/access/rateLimit", () => {
+    const schema = z.object({ prompt: z.string() });
+    const handlerFn = async function* () {};
+    const feature = defineFeature("registry-test-object-form", (r) => {
+      r.streamHandler({
+        name: "chat:complete",
+        schema,
+        handler: handlerFn,
+        access: { openToAll: true },
+        rateLimit: { per: "ip+handler", limit: 5, windowSeconds: 60 },
+      });
+    });
+
+    const registry = createRegistry([feature]);
+    const registered = registry.getStreamHandler("registry-test-object-form:stream:chat:complete");
+
+    expect(registered).toBeDefined();
+    expect(registered?.schema).toBe(schema);
+    expect(registered?.handler).toBe(handlerFn);
+    expect(registered?.access).toEqual({ openToAll: true });
+    expect(registered?.rateLimit).toEqual({ per: "ip+handler", limit: 5, windowSeconds: 60 });
+  });
 });
 
 describe("extensionSelector boot-validation", () => {

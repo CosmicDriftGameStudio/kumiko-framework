@@ -91,11 +91,13 @@ beforeAll(async () => {
 
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
+  // globalFeatureStateTable is auto-provisioned by setupTestStack — no
+  // manual push needed (that used to mask a missing r.storeTable()
+  // registration entirely).
   await unsafePushTables(stack.db, {
     configValuesTable,
     tenantMembershipsTable,
     notificationPreferencesTable,
-    globalFeatureStateTable,
   });
 
   runtime = new GlobalFeatureToggleRuntime(stack.db, stack.registry);
@@ -162,6 +164,105 @@ describe("auth-self-registration toggle", () => {
       payload: {},
     });
     expect((await offRes.json()) as { data?: { enabled: boolean } }).toMatchObject({
+      data: { enabled: false },
+    });
+  });
+});
+
+// Regression for Finding 1 (#1468): the suite above always composes the
+// companion toggle feature alongside feature-toggles. An app that mounts
+// createFeatureTogglesFeature + a real effectiveFeatures resolver but
+// forgets (or never knew to) compose createAuthSelfRegistrationToggleFeature
+// must not go silently signup-dead — ctx.hasFeature() is checked against a
+// feature name the registry never registered.
+describe("auth-self-registration toggle — companion feature NOT composed", () => {
+  const bareEmailTransport = createInMemoryTransport();
+  let bareStack: TestStack;
+  let bareRuntime: GlobalFeatureToggleRuntime;
+
+  beforeAll(async () => {
+    const runtimeHolder = createLateBoundHolder<GlobalFeatureToggleRuntime>("bare-runtime");
+    let effective: () => ReadonlySet<string> = () => new Set();
+
+    bareStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createTemplateResolverFeature(),
+        createRendererFoundationFeature(),
+        createDeliveryFeature(),
+        createRendererSimpleFeature(),
+        createChannelEmailFeature({
+          transport: bareEmailTransport,
+          renderer: simpleRenderer,
+          resolveEmail: async () => "unused@test.local",
+        }),
+        createAuthEmailPasswordFeature({
+          signup: { tokenTtlMinutes: 60, appUrl: APP_ACTIVATION_URL },
+        }),
+        // Deliberately NO createAuthSelfRegistrationToggleFeature().
+        createFeatureTogglesFeature({ getRuntime: () => runtimeHolder.get() }),
+      ],
+      effectiveFeatures: () => effective(),
+      extraContext: (deps) => ({
+        ...createDeliveryTestContext(deps),
+        configResolver: createConfigResolver(),
+      }),
+      systemHooks: [],
+      anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
+      authConfig: {
+        membershipQuery: "tenant:query:memberships",
+        loginHandler: AuthHandlers.login,
+        signup: {
+          requestHandler: AuthHandlers.signupRequest,
+          confirmHandler: AuthHandlers.signupConfirm,
+        },
+      },
+    });
+
+    await unsafeCreateEntityTable(bareStack.db, userEntity);
+    await unsafeCreateEntityTable(bareStack.db, tenantEntity);
+    await unsafePushTables(bareStack.db, {
+      configValuesTable,
+      tenantMembershipsTable,
+      notificationPreferencesTable,
+    });
+
+    bareRuntime = new GlobalFeatureToggleRuntime(bareStack.db, bareStack.registry);
+    await bareRuntime.initialize();
+    effective = bareRuntime.effectiveFeatures;
+    runtimeHolder.set(bareRuntime);
+  });
+
+  afterAll(async () => {
+    await bareStack.cleanup();
+  });
+
+  // KNOWN GAP (found while writing this regression pin, not yet decided):
+  // ctx.hasFeature() checks the effective-feature SET, which only ever
+  // contains registered feature names (computeEffectiveFeatures iterates
+  // registry.features). A name nothing ever registered is never a member,
+  // so hasFeature("auth-self-registration") is false here — signup-request
+  // silently no-ops (200, anti-enumeration success shape, but no mail) the
+  // moment an app wires a real effectiveFeatures resolver without also
+  // composing createAuthSelfRegistrationToggleFeature. This pins the
+  // CURRENT (broken) behavior rather than asserting the desired one —
+  // flagged for a follow-up decision, not silently fixed here.
+  test("[KNOWN GAP] signup-request silently drops mail when the companion toggle feature was never composed", async () => {
+    const res = await bareStack.http.raw("POST", "/api/auth/signup-request", {
+      email: "not-toggle-aware@example.com",
+    });
+    expect(res.status).toBe(200);
+    expect(bareEmailTransport.sent).toHaveLength(0);
+  });
+
+  test("[KNOWN GAP] signup-registration-status reports enabled:false with no toggle feature mounted", async () => {
+    const res = await bareStack.http.raw("POST", "/api/query", {
+      type: "auth-email-password:query:signup-registration-status",
+      payload: {},
+    });
+    expect((await res.json()) as { data?: { enabled: boolean } }).toMatchObject({
       data: { enabled: false },
     });
   });

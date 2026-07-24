@@ -147,28 +147,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       });
 
       try {
-        let pending = generator.next();
-        while (true) {
-          let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
-          const heartbeat = new Promise<"heartbeat">((resolve) => {
-            heartbeatTimer = setTimeout(() => resolve("heartbeat"), SSE_HEARTBEAT_INTERVAL_MS);
-          });
-          let outcome: Awaited<typeof pending> | "heartbeat";
-          try {
-            outcome = await Promise.race([pending, heartbeat]);
-          } finally {
-            clearTimeout(heartbeatTimer);
-          }
-
-          if (outcome === "heartbeat") {
-            await stream.writeSSE({ event: "ping", data: "" });
-            continue;
-          }
-          if (outcome.done) break;
-          await stream.writeSSE({ event: "chunk", data: stringifyJson(outcome.value) });
-          pending = generator.next();
-        }
-        await stream.writeSSE({ event: "done", data: "" });
+        await pumpStream(stream, generator, SSE_HEARTBEAT_INTERVAL_MS);
       } catch (e) {
         const err = toKumiko(e);
         logServerFault(err, requestId, body.type);
@@ -179,6 +158,46 @@ export function createApiRoutes(dispatcher: Dispatcher) {
   });
 
   return api;
+}
+
+export type SseWriter = {
+  readonly writeSSE: (message: { readonly event: string; readonly data: string }) => Promise<void>;
+};
+
+// Pull loop for /api/stream: races each generator.next() against a
+// heartbeat timer so a slow/idle handler still keeps the connection alive
+// ("ping" frames), forwards yielded chunks as "chunk" frames, and emits
+// "done" once the generator completes. Factored out of the route handler
+// so the heartbeat/ping and abort/cleanup paths are unit-testable with a
+// fast heartbeatMs instead of only reachable through SSE_HEARTBEAT_INTERVAL_MS
+// (15s) in a full HTTP round-trip.
+export async function pumpStream(
+  stream: SseWriter,
+  generator: AsyncGenerator<unknown>,
+  heartbeatMs: number,
+): Promise<void> {
+  let pending = generator.next();
+  while (true) {
+    let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
+    const heartbeat = new Promise<"heartbeat">((resolve) => {
+      heartbeatTimer = setTimeout(() => resolve("heartbeat"), heartbeatMs);
+    });
+    let outcome: Awaited<typeof pending> | "heartbeat";
+    try {
+      outcome = await Promise.race([pending, heartbeat]);
+    } finally {
+      clearTimeout(heartbeatTimer);
+    }
+
+    if (outcome === "heartbeat") {
+      await stream.writeSSE({ event: "ping", data: "" });
+      continue;
+    }
+    if (outcome.done) break;
+    await stream.writeSSE({ event: "chunk", data: stringifyJson(outcome.value) });
+    pending = generator.next();
+  }
+  await stream.writeSSE({ event: "done", data: "" });
 }
 
 function jsonResponse(c: Context, body: unknown, status: ContentfulStatusCode = 200) {

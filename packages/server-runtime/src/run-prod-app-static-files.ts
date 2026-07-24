@@ -43,7 +43,12 @@ export async function readStaticFile(
     const [bytes, fileStat] = await Promise.all([readFile(filePath), stat(filePath)]);
     return { bytes, mime: mimeTypeFor(filePath), mtimeMs: fileStat.mtimeMs };
   } catch (err) {
-    if ((err as { code?: string }).code === "ENOENT") return undefined;
+    const code = (err as { code?: string }).code;
+    // ENOENT: no such path. EISDIR: readFile() on a directory (e.g. GET
+    // /assets where "assets" is a subfolder copied verbatim from public/)
+    // — both mean "not a servable file", so fall through to the SPA
+    // fallback instead of a 500.
+    if (code === "ENOENT" || code === "EISDIR") return undefined;
     throw err;
   }
 }

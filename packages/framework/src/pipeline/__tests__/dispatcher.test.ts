@@ -2,8 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { TenantId } from "../../engine/types/identifiers";
+import { createSecret } from "../../secrets/types";
 import { createTestUser } from "../../stack";
 import { createDispatcher } from "../dispatcher";
+
+const streamCleanupState = { closed: false };
 
 const echoFeature = defineFeature("echo", (r) => {
   r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
@@ -31,6 +34,29 @@ const echoFeature = defineFeature("echo", (r) => {
     async function* (query) {
       for (let i = 0; i < query.payload.count; i++) {
         yield { i };
+      }
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  r.streamHandler(
+    "item:tail-leak",
+    z.object({}),
+    async function* () {
+      yield { apiKey: createSecret("leak-me") };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  r.streamHandler(
+    "item:tail-cleanup",
+    z.object({}),
+    async function* () {
+      try {
+        yield { i: 0 };
+        yield { i: 1 };
+      } finally {
+        streamCleanupState.closed = true;
       }
     },
     { access: { roles: ["Admin"] } },
@@ -271,6 +297,32 @@ describe("dispatcher.stream", () => {
     await expect(
       collect(dispatcher.stream("nonexistent", {}, createTestUser({ roles: ["Admin"] }))),
     ).rejects.toMatchObject({ code: "not_found", httpStatus: 404 });
+  });
+
+  test("a chunk containing a Secret<> value aborts the stream instead of leaking it", async () => {
+    const dispatcher = createTestDispatcher();
+
+    await expect(
+      collect(
+        dispatcher.stream("echo:stream:item:tail-leak", {}, createTestUser({ roles: ["Admin"] })),
+      ),
+    ).rejects.toMatchObject({ message: expect.stringContaining("Secret<> leaked") });
+  });
+
+  test("consumer breaking out of for-await runs the handler generator's finally block", async () => {
+    streamCleanupState.closed = false;
+    const dispatcher = createTestDispatcher();
+    const gen = dispatcher.stream(
+      "echo:stream:item:tail-cleanup",
+      {},
+      createTestUser({ roles: ["Admin"] }),
+    );
+
+    for await (const _chunk of gen) {
+      break;
+    }
+
+    expect(streamCleanupState.closed).toBe(true);
   });
 });
 

@@ -6,7 +6,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -38,7 +38,7 @@ import { base32Decode } from "../base32";
 import { mfaRequiredConfigHandle } from "../config";
 import { AuthMfaHandlers } from "../constants";
 import { createAuthMfaFeature, mfaStatusCheckerFromFeature } from "../feature";
-import { userMfaEntity } from "../schema/user-mfa";
+import { userMfaEntity, userMfaTable } from "../schema/user-mfa";
 import { currentTotpCode } from "../totp";
 
 let stack: TestStack;
@@ -163,7 +163,7 @@ describe("POST /auth/mfa/preauth-confirm", () => {
 
   test("wrong TOTP code → invalid_totp_code, no enrollment persisted", async () => {
     const email = "wrongcode@example.com";
-    const { preauthSetupToken } = await loginBlockedByEnforcement(email);
+    const { preauthSetupToken, userId } = await loginBlockedByEnforcement(email);
     const { setupToken } = await startEnrollment(preauthSetupToken, email);
 
     const res = await stack.http.raw("POST", "/api/auth/mfa/preauth-confirm", {
@@ -176,11 +176,16 @@ describe("POST /auth/mfa/preauth-confirm", () => {
     expect(body.isSuccess).toBe(false);
     expect(body.error.details.reason).toBe("invalid_totp_code");
     expect(body.token).toBeUndefined();
+    // "no enrollment persisted" is the actual claim in the test name — the
+    // reason string alone doesn't prove it. Scoped to this test's own user:
+    // the table isn't truncated between tests in this file.
+    const rows = await selectMany(stack.db, userMfaTable, { userId });
+    expect(rows).toHaveLength(0);
   });
 
   test("replaying the same setupToken after a successful confirm → invalid_setup_token (burned), not a second enrollment", async () => {
     const email = "race@example.com";
-    const { preauthSetupToken } = await loginBlockedByEnforcement(email);
+    const { preauthSetupToken, userId } = await loginBlockedByEnforcement(email);
     const { setupToken, secret } = await startEnrollment(preauthSetupToken, email);
     const code = currentTotpCode(secret);
 
@@ -200,6 +205,9 @@ describe("POST /auth/mfa/preauth-confirm", () => {
     expect(second.status).not.toBe(200);
     const secondBody = await second.json();
     expect(secondBody.error.details.reason).toBe("invalid_setup_token");
+    // "not a second enrollment" — pin the row count, not just the error reason.
+    const rows = await selectMany(stack.db, userMfaTable, { userId });
+    expect(rows).toHaveLength(1);
   });
 
   test("a session-issued setupToken (no tenantId) is rejected, not silently accepted", async () => {
