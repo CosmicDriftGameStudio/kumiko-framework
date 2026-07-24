@@ -33,7 +33,7 @@ const ALLOWED_MIME_TYPES = new Set(["application/pdf", "image/png", "image/jpeg"
 // maxPagesPerFile as tenant-configurable. Runs BEFORE the mime check for
 // the same reason it must run before isComplex() downstream: rejecting on
 // size is O(1), the checks after it are not (Spike: 699-page PDF). Chosen
-// on domain grounds — scanned Rechnungen/Behördenschreiben routinely land
+// on domain grounds — scanned invoices and official letters routinely land
 // in the 10-20mb range, well above file-routes.ts' unconstrained-upload
 // default (10mb); tests raise maxUploadSize instead of shrinking this.
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
