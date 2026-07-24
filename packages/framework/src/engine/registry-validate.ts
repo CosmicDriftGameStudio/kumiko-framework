@@ -564,7 +564,11 @@ export function validateEntityHookTargets(
 }
 
 export function validateJobTriggers(state: RegistryState): void {
-  // Validate: job event triggers must reference existing handlers.
+  // Validate: job event triggers must reference an existing write/query
+  // handler OR an existing r.defineEvent registration. The latter is
+  // delivered async via the job-trigger event-consumer (server.ts), not
+  // the synchronous write-handler dispatch path — see
+  // createJobTriggerEventConsumer in pipeline/system-hooks.ts.
   // Multi-Trigger-Form: jeden Eintrag im Array gegen allHandlers prüfen,
   // auch wenn nur einer fehlt fail-fast.
   const allHandlers = allHandlerQns(state);
@@ -575,8 +579,9 @@ export function validateJobTriggers(state: RegistryState): void {
     for (const t of triggers) {
       const rawName = resolveName(t);
       if (allHandlers.has(rawName)) continue;
+      if (state.eventMap.has(rawName)) continue;
       throw new Error(
-        `Job "${jobName}" triggers on "${rawName}" but no handler with that name exists`,
+        `Job "${jobName}" triggers on "${rawName}" but no handler or event with that name exists`,
       );
     }
   }
