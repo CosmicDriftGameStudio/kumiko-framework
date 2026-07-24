@@ -1,4 +1,8 @@
-import type { FileStorageProvider, SignedUrlOptions } from "@cosmicdrift/kumiko-framework/files";
+import {
+  assertSafeStorageKey,
+  type FileStorageProvider,
+  type SignedUrlOptions,
+} from "@cosmicdrift/kumiko-framework/files";
 
 // =============================================================================
 // Operator-Pflicht-Setup (Multipart-Upload-Cleanup)
@@ -72,10 +76,12 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
 
   return {
     async write(key, data, mimeType): Promise<void> {
+      assertSafeStorageKey(key);
       await client.write(key, data, mimeType !== undefined ? { type: mimeType } : undefined);
     },
 
     async writeStream(key, source, options): Promise<void> {
+      assertSafeStorageKey(key);
       // Echtes multipart-streaming via Bun's S3-Writer — partSize steuert die
       // Part-Boundary intern (AWS/R2 verlangen non-final Parts >= 5 MiB,
       // sonst EntityTooSmall beim CompleteMultipartUpload). Manuelles flush()
@@ -96,10 +102,12 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
     },
 
     async read(key): Promise<Uint8Array> {
+      assertSafeStorageKey(key);
       return new Uint8Array(await client.file(key).arrayBuffer());
     },
 
     readStream(key): AsyncIterable<Uint8Array> {
+      assertSafeStorageKey(key);
       // Lazy: erst beim ersten chunk-pull wird der GET-Request abgesetzt.
       // Existiert der Key nicht, faellt der Error genau dort (nicht beim
       // readStream-Aufruf) — gleiches Lazy-Verhalten wie inmemory + local.
@@ -113,10 +121,12 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
     },
 
     async delete(key): Promise<void> {
+      assertSafeStorageKey(key);
       await client.delete(key);
     },
 
     async exists(key): Promise<boolean> {
+      assertSafeStorageKey(key);
       return client.exists(key);
     },
 
@@ -125,6 +135,7 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
       expiresInSeconds: number,
       options?: SignedUrlOptions,
     ): Promise<string> {
+      assertSafeStorageKey(key);
       // contentDisposition wird von Bun als response-content-disposition
       // Query-Param signiert (Response-Override fuer den GET-Download) —
       // der Browser sieht den Original-Dateinamen statt des UUID-Keys.
