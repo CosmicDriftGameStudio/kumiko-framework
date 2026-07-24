@@ -21,13 +21,6 @@
 			"reason": "Transitive via CSS/SVG tooling (dev-time). removeScripts incompleteness is build-tooling only — no untrusted SVG in prod runtime. Track upstream patch.",
 			"reviewedBy": "Marc, 2026-07-21",
 			"expires": "2026-08-20"
-		},
-		{
-			"advisory": "GHSA-3jxr-9vmj-r5cp",
-			"package": "brace-expansion",
-			"reason": "Transitive dev dependency via ts-morph/glob (build tooling only). No patched release yet. ReDoS is CI/local-build-time only.",
-			"reviewedBy": "Marc, 2026-07-21",
-			"expires": "2026-08-19"
 		}
 	]
 }
