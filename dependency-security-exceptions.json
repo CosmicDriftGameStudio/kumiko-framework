@@ -28,6 +28,13 @@
 			"reason": "Transitive dev dependency via ts-morph/glob (build tooling only). No patched release yet. ReDoS is CI/local-build-time only.",
 			"reviewedBy": "Marc, 2026-07-21",
 			"expires": "2026-08-19"
+		},
+		{
+			"advisory": "GHSA-mh99-v99m-4gvg",
+			"package": "brace-expansion",
+			"reason": "Same transitive dev dependency (ts-morph/glob, build tooling only) as GHSA-3jxr-9vmj-r5cp above — unbounded expansion length DoS. No patched release yet. CI/local-build-time only, no untrusted input reaches this path in prod.",
+			"reviewedBy": "Marc, 2026-07-25",
+			"expires": "2026-08-24"
 		}
 	]
 }
