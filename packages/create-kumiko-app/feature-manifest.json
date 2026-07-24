@@ -473,7 +473,7 @@
     },
     {
       "name": "document-ingest-foundation",
-      "description": "Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, and the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys consumed by the ingest provider. Provider wiring (fileRef.created trigger, LiteParse) lands in follow-up features.",
+      "description": "Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys, and a fileRef.created trigger that validates mime/size and requests ingest via `documentIngest.requested`. LiteParse provider wiring lands in follow-up features.",
       "toggleableDefault": null,
       "requires": [
         "config"
