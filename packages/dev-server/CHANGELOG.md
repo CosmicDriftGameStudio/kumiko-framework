@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.165.0
+
+### Minor Changes
+
+- cf56745: Removes dead public API with zero verified consumers across all Kumiko repos:
+
+  - `@cosmicdrift/kumiko-framework`: `getUnscopedAggregateStreamTenant` (event-store), `createEncryptionProvider`/`EncryptionProvider` (legacy single-key db encryption, superseded by `createEnvelopeCipher`), and the unused `tx` parameter on `executeStream`/`dispatcher.stream()`.
+  - `@cosmicdrift/kumiko-types`: `ConfigResolver.getAllWithSource` and the corresponding resolver implementation.
+  - `@cosmicdrift/kumiko-dispatcher-live`: `SseFrame`, `iterateSseChunks`, `parseSseFrames` re-exports (internal consumers already import from `./sse-stream` directly).
+  - `@cosmicdrift/kumiko-dev-server`: `IdentityStackOptions.providers` (never wired by any app — provider features are appended positionally instead; `GdprStackOptions.providers` is unaffected, it has real callers/tests).
+
+  Adds `toInstant` to `@cosmicdrift/kumiko-headless`'s public barrel (previously an unexported helper duplicated by `@cosmicdrift/kumiko-renderer`'s `formatWhen`).
+
+### Patch Changes
+
+- Updated dependencies [cf56745]
+  - @cosmicdrift/kumiko-framework@0.165.0
+  - @cosmicdrift/kumiko-bundled-features@0.165.0
+  - @cosmicdrift/kumiko-server-runtime@0.165.0
+
 ## 0.164.0
 
 ### Patch Changes
