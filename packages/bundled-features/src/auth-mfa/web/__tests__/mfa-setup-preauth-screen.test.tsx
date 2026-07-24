@@ -234,7 +234,7 @@ describe("MfaSetupPreauthScreen", () => {
       expect(screen.getByText("Ungültiger Code. Bitte erneut versuchen.")).toBeTruthy();
     });
     expect(onSuccess).not.toHaveBeenCalled();
-    // Formular bleibt bedienbar — QR/Recovery-Bereich ist noch da, ein neuer Versuch ist möglich.
+    // Form stays usable — QR/recovery section is still there, a retry is possible.
     expect(screen.getByText("ABCD1234")).toBeTruthy();
     const confirm = screen.getByRole("button", {
       name: "Einrichtung abschließen",
