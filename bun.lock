@@ -34,6 +34,7 @@
         "@cosmicdrift/kumiko-headless": "workspace:*",
         "@cosmicdrift/kumiko-renderer": "workspace:*",
         "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+        "@cosmicdrift/kumiko-types": "workspace:*",
         "@mollie/api-client": "^4.5.0",
         "@node-rs/argon2": "^2.0.2",
         "@types/nodemailer": "^8.0.0",
@@ -204,6 +205,11 @@
       "version": "0.164.0",
       "dependencies": {
         "hono": "^4.12.18",
+      },
+      "devDependencies": {
+        "postgres": "^3.4.9",
+      },
+      "peerDependencies": {
         "postgres": "^3.4.9",
       },
     },

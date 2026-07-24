@@ -123,6 +123,7 @@
     "@cosmicdrift/kumiko-headless": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
     "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+    "@cosmicdrift/kumiko-types": "workspace:*",
     "@mollie/api-client": "^4.5.0",
     "imapflow": "^1.3.3",
     "mailparser": "^3.9.8",
