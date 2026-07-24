@@ -354,6 +354,15 @@ export type JobTrigger =
   // maintenance.start) statt N r.job-Calls mit demselben Handler-Body.
   // Im Handler-payload landet `_triggerName: string` damit der Code
   // weiß, welcher Trigger gefeuert hat.
+  //
+  // Two delivery semantics depending on what `on` resolves to (kumiko-
+  // framework#1505): a write/query-handler QN dispatches synchronously
+  // from dispatch-write.ts's afterCommitHooks — effectively once. An
+  // r.defineEvent QN (e.g. one an r.multiStreamProjection appends via
+  // ctx.unsafeAppendEvent) dispatches async via the job-trigger
+  // event-consumer (createJobTriggerEventConsumer, pipeline/system-
+  // hooks.ts) — cursor delivery, at-least-once. Handlers triggered on an
+  // r.defineEvent QN must be idempotent.
   | { readonly on: import("./handlers").NameOrRef | readonly import("./handlers").NameOrRef[] }
   | { readonly cron: string }
   | { readonly manual: true };

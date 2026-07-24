@@ -34,6 +34,7 @@ import { createEventDispatcher } from "../pipeline/event-dispatcher";
 import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
 import { createMultiStreamApplyContext } from "../pipeline/multi-stream-apply-context";
 import {
+  createJobTriggerEventConsumer,
   createSearchEventConsumer,
   createSseBroadcastEventConsumer,
 } from "../pipeline/system-hooks";
@@ -105,12 +106,14 @@ export type ServerOptions = {
     // runs a dedicated dispatcher process, or a test needs to control the
     // consumer lifecycle manually.
     disabled?: boolean;
-    // Opt out of the auto-built system consumers (SSE, Search) while still
-    // running feature r.multiStreamProjection consumers. Useful for tests
-    // that assert only on subscriber behaviour, or for a deployment that
-    // routes SSE via a different transport. Default: both enabled when the
-    // respective dependency (sseBroker / context.searchAdapter) is available.
-    systemConsumers?: { sse?: boolean; search?: boolean };
+    // Opt out of the auto-built system consumers (SSE, Search, Job-Trigger)
+    // while still running feature r.multiStreamProjection consumers. Useful
+    // for tests that assert only on subscriber behaviour, or for a
+    // deployment that routes SSE via a different transport. Default: sse/
+    // search enabled when the respective dependency (sseBroker /
+    // context.searchAdapter) is available; jobTrigger enabled when a
+    // jobRunner is wired via dispatcherOptions.
+    systemConsumers?: { sse?: boolean; search?: boolean; jobTrigger?: boolean };
     // Raw postgres.js client for LISTEN/NOTIFY wake-up (Sprint E.4). When
     // present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL — delivery
     // latency drops from pollIntervalMs to TCP-round-trip. The poll timer
@@ -398,6 +401,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
 
   const sseConsumerEnabled = options.eventDispatcher?.systemConsumers?.sse ?? true;
   const searchConsumerEnabled = options.eventDispatcher?.systemConsumers?.search ?? true;
+  const jobTriggerConsumerEnabled = options.eventDispatcher?.systemConsumers?.jobTrigger ?? true;
+  const jobRunnerForTriggers = options.dispatcherOptions?.jobRunner;
 
   const systemConsumers: EventConsumer[] = [];
   if (sseConsumerEnabled) {
@@ -405,6 +410,9 @@ export function buildServer(options: ServerOptions): KumikoServer {
   }
   if (searchConsumerEnabled && searchAdapter) {
     systemConsumers.push(createSearchEventConsumer(searchAdapter, options.registry));
+  }
+  if (jobTriggerConsumerEnabled && jobRunnerForTriggers) {
+    systemConsumers.push(createJobTriggerEventConsumer(jobRunnerForTriggers, options.registry));
   }
 
   // MultiStreamProjections: one EventConsumer per MSP. Handler routes by
