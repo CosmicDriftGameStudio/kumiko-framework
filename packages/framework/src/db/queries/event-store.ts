@@ -6,6 +6,20 @@ export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void>
   await asRawClient(db).unsafe(`SELECT pg_notify($1, '')`, [channel]);
 }
 
+// Tenant-scoped partial unique index over metadata.idempotencyKey.
+// Expression index straight on the jsonb column — no dedicated key column,
+// so it needs no INSERT-path change and covers admin-api's raw appends too
+// (same metadata jsonb). CREATE ... IF NOT EXISTS makes this safe to call
+// on every boot, same "ensure" pattern as ensureSnapshotVersionColumn: heals
+// installs that predate the index without a table rebuild.
+export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
+  await asRawClient(db).unsafe(
+    `CREATE UNIQUE INDEX IF NOT EXISTS "events_idempotency_uq" ON "kumiko_events" ` +
+      `("tenant_id", (("metadata"->>'idempotencyKey'))) ` +
+      `WHERE "metadata"->>'idempotencyKey' IS NOT NULL`,
+  );
+}
+
 export type SubsequentEventInsertParams = {
   readonly aggregateId: string;
   readonly aggregateType: string;

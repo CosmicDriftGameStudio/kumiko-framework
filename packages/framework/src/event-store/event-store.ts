@@ -1,7 +1,7 @@
 import type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
 import { encryptEventPayloadPii } from "../crypto/event-pii";
 import type { DbRunner } from "../db";
-import { isUniqueViolation } from "../db/pg-error";
+import { constraintOf, isUniqueViolation } from "../db/pg-error";
 import {
   insertSubsequentEventRow,
   notifyPgChannel,
@@ -13,7 +13,7 @@ import {
 import { insertOne, selectMany } from "../db/query";
 import type { TenantId } from "../engine/types";
 import { isStreamArchived } from "./archive";
-import { VersionConflictError } from "./errors";
+import { IdempotentAppendConflictError, VersionConflictError } from "./errors";
 import { eventsTable } from "./events-schema";
 import { toStoredEvent } from "./row-to-stored-event";
 
@@ -91,10 +91,15 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     return buildStoredEvent(toStore, newVersion, eventVersion, row);
   } catch (e) {
     if (isUniqueViolation(e)) {
-      // Only constraint left on the events table: events_aggregate_version_uq
-      // on (tenant_id, aggregate_id, version). A unique violation here always
-      // means a concurrent writer in the same tenant won the race to the
-      // next version — retry-able conflict.
+      // Two unique constraints on this table: events_aggregate_version_uq
+      // (tenant_id, aggregate_id, version) — a concurrent writer won the
+      // race to the next version — and events_idempotency_uq (tenant_id,
+      // metadata->>'idempotencyKey') — the caller reused an idempotency key.
+      // constraintOf() tells them apart; unknown/renamed constraint falls
+      // back to VersionConflictError, the pre-existing behaviour.
+      if (constraintOf(e) === "events_idempotency_uq" && event.metadata.idempotencyKey) {
+        throw new IdempotentAppendConflictError(event.tenantId, event.metadata.idempotencyKey);
+      }
       throw new VersionConflictError(event.aggregateId, event.expectedVersion);
     }
     throw e;
