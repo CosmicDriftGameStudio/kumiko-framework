@@ -6,7 +6,6 @@ import {
   insertSubsequentEventRow,
   notifyPgChannel,
   selectAggregateMaxVersion,
-  selectAggregateStreamTenant,
   selectEventsHighWaterMark,
   selectStreamMaxVersion,
 } from "../db/queries/event-store";
@@ -260,21 +259,6 @@ export async function getUnscopedAggregateStreamMaxVersion(
   return selectAggregateMaxVersion(db, aggregateId);
 }
 
-/** Stream tenant of an aggregate (the tenant_id its events live under), with no
- *  membership/tenant filter. SECURITY: existence-oracle, same caveat as
- *  getUnscopedAggregateStreamMaxVersion — seed/system-internal use only. Recovers
- *  the write target for a systemScope aggregate whose stream tenant isn't one of
- *  the subject's memberships. Returns null for unknown streams. */
-export async function getUnscopedAggregateStreamTenant(
-  db: DbRunner,
-  aggregateId: string,
-  aggregateType: string,
-): Promise<TenantId | null> {
-  const tenantId = await selectAggregateStreamTenant(db, aggregateId, aggregateType);
-  // DB-boundary: kumiko_events.tenant_id is a TenantId-shaped uuid column.
-  return tenantId as TenantId | null;
-}
-
 // Global high-water-mark = MAX(events.id). Marten/Wolverine standard for
 // projection/consumer lag math: lag = HWM - cursor. Single-row aggregate over
 // the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
@@ -312,7 +296,7 @@ export async function loadEventsAfterVersion(
 // prevent.
 export const LOAD_ALL_EVENTS_ROW_LIMIT = 100_000;
 
-/** @deprecated buffers ALL matching events in memory — a memory cliff for large stores. Use `streamAllEventsByType` (yields batchwise) instead. */
+/** Buffers ALL matching events in memory — a memory cliff for large stores. Use `streamAllEventsByType` (yields batchwise) for production reads; this is test-only in practice. */
 export async function loadAllEventsByType(
   db: DbRunner,
   aggregateType: string,

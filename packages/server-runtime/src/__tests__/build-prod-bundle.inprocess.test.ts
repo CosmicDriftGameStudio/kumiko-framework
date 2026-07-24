@@ -5,12 +5,10 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { buildProdBundle } from "../build-prod-bundle";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, "../../../..");
+const REPO_ROOT = resolve(import.meta.dir, "../../../..");
 
 describe("buildProdBundle in-process (Bun.build)", () => {
   let tmp = "";

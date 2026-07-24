@@ -1,14 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { Glob } from "bun";
 
-// getUnscopedAggregateStreamMaxVersion / getUnscopedAggregateStreamTenant have
-// no tenant filter — a caller can use them to probe whether a foreign tenant's
-// aggregate exists (see event-store.ts SECURITY doc). Restricted to known
-// seed/system-internal callers; extend only for genuine new ones.
-const RESTRICTED_SYMBOLS = [
-  "getUnscopedAggregateStreamMaxVersion",
-  "getUnscopedAggregateStreamTenant",
-];
+// getUnscopedAggregateStreamMaxVersion has no tenant filter — a caller can use
+// it to probe whether a foreign tenant's aggregate exists (see event-store.ts
+// SECURITY doc). Restricted to known seed/system-internal callers; extend
+// only for genuine new ones.
+const RESTRICTED_SYMBOLS = ["getUnscopedAggregateStreamMaxVersion"];
 
 const ALLOWED_FILES = new Set([
   "packages/framework/src/event-store/event-store.ts",

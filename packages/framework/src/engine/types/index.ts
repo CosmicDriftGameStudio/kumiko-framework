@@ -1,7 +1,5 @@
 // Barrel: re-exports all types from @cosmicdrift/kumiko-types, plus the
 // runtime helpers below that stay framework-side.
-// Duplicate types (OnDeleteStrategy, ConfigScope, ConcurrencyMode, LifecycleHookType)
-// are defined ONLY in constants.ts — re-exported here for backwards compatibility.
 
 export type {
   ConfigAccessor,

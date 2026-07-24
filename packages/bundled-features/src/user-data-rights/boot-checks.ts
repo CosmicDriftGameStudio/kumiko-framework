@@ -1,25 +1,9 @@
 import {
-  type EntityDefinition,
   EXT_USER_DATA,
   type FeatureDefinition,
   type PiiAnnotations,
 } from "@cosmicdrift/kumiko-framework/engine";
-
-// r.entity(...) is not the only way a feature exposes an entity shape:
-// r.projection(...) can carry an optional `entity` too (raw read-models with
-// no executor, e.g. billing-foundation's subscription table). V3 below needs
-// every entity a feature declares, not just the r.entity ones, or a pii/
-// userOwned field on a projection-only entity is invisible to the guard it
-// was annotated for.
-function entitiesOf(
-  feature: FeatureDefinition,
-): ReadonlyArray<readonly [string, EntityDefinition]> {
-  const fromEntities = Object.entries(feature.entities ?? {});
-  const fromProjections = Object.values(feature.projections ?? {})
-    .filter((p): p is typeof p & { entity: EntityDefinition } => p.entity !== undefined)
-    .map((p) => [p.name, p.entity] as const);
-  return [...fromEntities, ...fromProjections];
-}
+import { entitiesOf } from "../shared";
 
 // V2: export-without-erase gate. A feature that registers an EXT_USER_DATA
 // export hook without a matching delete hook exports data under Art.20 but

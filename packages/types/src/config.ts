@@ -202,8 +202,8 @@ export type ConfigStoredRow = {
   readonly userId: string | null;
 };
 
-// Extended row returned by ConfigResolver.getAllWithSource — includes the
-// resolution source so the UI can display where each value came from.
+// Extended row with resolution source so the UI can display where each
+// value came from.
 export type ConfigStoredRowWithSource = ConfigStoredRow & {
   readonly source: ConfigValueSource;
 };
@@ -279,16 +279,6 @@ export type ConfigResolver = {
     userId: string,
     db: DbConnection | TenantDb,
   ): Promise<ReadonlyMap<string, ConfigStoredRow>>;
-
-  // Like getAll() but also reports the resolution source for each key.
-  // Use when the caller needs to display the cascade origin (e.g. the
-  // values.query handler serves the UI's hierarchy badge). Hot-path
-  // callers should prefer getAll() for the narrower return type.
-  getAllWithSource(
-    tenantId: TenantId,
-    userId: string,
-    db: DbConnection | TenantDb,
-  ): Promise<ReadonlyMap<string, ConfigStoredRowWithSource>>;
 
   // Returns ALL cascade levels for a single key — not just the winner.
   // Each level shows its value (or undefined if not set) and whether it

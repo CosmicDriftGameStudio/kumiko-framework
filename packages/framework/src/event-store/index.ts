@@ -21,7 +21,6 @@ export {
   getEventsHighWaterMark,
   getStreamVersion,
   getUnscopedAggregateStreamMaxVersion,
-  getUnscopedAggregateStreamTenant,
   LOAD_ALL_EVENTS_ROW_LIMIT,
   loadAggregate,
   loadAggregateAsOf,

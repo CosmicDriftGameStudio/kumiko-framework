@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-/** Merges unit + integration lcov (line-level union, not per-file max — a
+/** Merges unit + integration + dom lcov (line-level union, not per-file max — a
  *  file exercised by different lines in each suite needs the union of hit
  *  lines, not the larger of two file-level LH counts) → shields.io endpoint JSON. */
 

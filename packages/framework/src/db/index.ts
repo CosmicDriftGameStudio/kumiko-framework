@@ -35,8 +35,6 @@ export {
   enrichRowWithReferences,
   enrichWithReferences,
 } from "./eagerload";
-export type { EncryptionProvider } from "./encryption";
-export { createEncryptionProvider } from "./encryption";
 export {
   collectEncryptedFieldNames,
   configuredEntityFieldEncryption,

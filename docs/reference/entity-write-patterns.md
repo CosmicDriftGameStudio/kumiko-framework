@@ -63,7 +63,7 @@ const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user
 
 ```ts
 // Hot path: sessionCreator + revoke handlers write without lifecycle events.
-r.storeTable(buildEntityTableMeta("user-session", userSessionEntity), {
+r.storeTable(buildEntityTableMeta("user-session", userSessionEntity, { source: "unmanaged" }), {
   reason: "read_side.user_sessions_direct_write",
 });
 ```
@@ -74,7 +74,7 @@ See `packages/bundled-features/src/sessions/feature.ts` and
 ### GDPR forget hook on a direct-write table (`user-data-rights` recipe)
 
 ```ts
-r.storeTable(buildEntityTableMeta("note", noteEntity), {
+r.storeTable(buildEntityTableMeta("note", noteEntity, { source: "unmanaged" }), {
   reason: "read_side.notes_direct_write",
 });
 // forget hook may updateMany/deleteMany without events — rebuild must not replay

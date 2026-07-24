@@ -108,9 +108,6 @@ export function useStreamHandler<TChunk = unknown>(
     // skip: autoStart off — streams are usually user-triggered
     if (!autoStart) return;
     void start();
-    return () => {
-      activeCtrl.current?.abort();
-    };
   }, [autoStart, start]);
 
   useEffect(() => {

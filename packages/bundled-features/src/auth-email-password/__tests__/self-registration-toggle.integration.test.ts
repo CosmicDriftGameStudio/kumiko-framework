@@ -1,6 +1,6 @@
 // Runtime on/off switch for self-signup (#self-registration-toggle). Pins:
 //   1. Default (no override row) → signup-request works.
-//   2. runtime.apply(off) → signup-request 403 feature_disabled, no mail sent.
+//   2. runtime.apply(off) → signup-request still 200 (silent no-op, anti-enumeration), no mail sent.
 //   3. runtime.apply(on) → works again.
 // Mirrors samples/recipes/feature-toggles' runtime.apply() pattern — flips the
 // in-memory snapshot directly instead of going through the set-handler/HTTP,

@@ -22,13 +22,12 @@ concurrency = 1
 coverage = true
 coverageReporter = ["lcov"]
 coverageDir = "coverage/unit"
-# Tooling/preload/ephemeral — not product code. Without these the badge
-# counts CLI scripts + /tmp test scaffolds and stalls ~1pp under 80%.
+# **/scripts/** + **/bin/** exclude CLI tooling with no product coverage;
+# test-setup/ and integration.guard.ts are test infrastructure, not product code.
 coveragePathIgnorePatterns = [
   "**/scripts/**",
   "**/bin/**",
   "**/test-setup/**",
-  "**/tmp/**",
   "integration.guard.ts",
 ]
 
@@ -39,7 +38,7 @@ pathIgnorePatterns = [
   "**/*.integration.test.ts",
   "**/*.integration.ts",
   # *.test.tsx brauchen happy-dom → eigener CI-Step via bunfig.dom.toml
-  # (`bun run test:dom`), siehe ci.yml "Run DOM tests".
+  # (`bun run test:dom`), siehe bin/kumiko-legacy.ts "DOM Tests" step.
   "**/*.test.tsx",
   "**/e2e/**",
   "**/*.spec.ts",

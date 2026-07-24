@@ -1,4 +1,3 @@
-import type { DbTx } from "../db/connection";
 import { hasAccess } from "../engine/access";
 import type { SessionUser } from "../engine/types";
 import { AccessDeniedError, NotFoundError, validationErrorFromZod } from "../errors";
@@ -22,11 +21,8 @@ export async function* executeStream(
   type: string,
   payload: unknown,
   user: SessionUser,
-  tx?: DbTx,
 ): AsyncGenerator<unknown> {
-  yield* runStreamInstrumented(ctx, type, user, () =>
-    executeStreamInner(ctx, type, payload, user, tx),
-  );
+  yield* runStreamInstrumented(ctx, type, user, () => executeStreamInner(ctx, type, payload, user));
 }
 
 async function* executeStreamInner(
@@ -34,7 +30,6 @@ async function* executeStreamInner(
   type: string,
   payload: unknown,
   user: SessionUser,
-  tx?: DbTx,
 ): AsyncGenerator<unknown> {
   const { registry } = ctx;
   const handler = registry.getStreamHandler(type);
@@ -58,7 +53,7 @@ async function* executeStreamInner(
     throw validationErrorFromZod(parsed.error);
   }
 
-  const handlerContext = buildHandlerContext(ctx, type, user, tx);
+  const handlerContext = buildHandlerContext(ctx, type, user);
   const chunks = handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
   // Consumer-driven pull (for await) is the backpressure mechanism — the
