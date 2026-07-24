@@ -57,6 +57,7 @@
     "./mail-transport-inmemory": "./src/mail-transport-inmemory/index.ts",
     "./file-foundation": "./src/file-foundation/index.ts",
     "./file-provider-s3": "./src/file-provider-s3/index.ts",
+    "./document-ingest-foundation": "./src/document-ingest-foundation/index.ts",
     "./file-provider-s3-env": "./src/file-provider-s3-env/index.ts",
     "./file-provider-inmemory": "./src/file-provider-inmemory/index.ts",
     "./files": "./src/files/index.ts",
