@@ -107,6 +107,8 @@ export async function fireEntityPostSave(
   pseudoType: string,
   entityData: SaveContext,
 ): Promise<void> {
+  // skip: caller opted out of hooks (existing fixture/test call-sites that
+  // don't pass them keep today's hook-less behavior, see seedTenant's doc).
   if (!hooks) return;
   const lifecycle = createLifecycleHooks(hooks.registry);
   await lifecycle.runPostSave(pseudoType, entityData, hooks.context, HookPhases.inTransaction);

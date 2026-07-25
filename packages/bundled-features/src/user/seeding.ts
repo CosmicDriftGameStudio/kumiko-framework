@@ -18,8 +18,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-// kumiko-lint-ignore cross-feature-import shares the postSave-hooks fixture
-// contract with tenant/seeding — one hooks shape, one firing helper (#1478)
+// kumiko-lint-ignore cross-feature-import shares the postSave-hooks fixture contract with tenant/seeding (#1478)
 import { fireEntityPostSave, type SeedTenantHooks } from "../tenant/seeding";
 import { userEntity, userTable } from "./schema/user";
 
