@@ -15,7 +15,7 @@ export async function alterTableAddColumn(
   notNull: string,
 ): Promise<void> {
   await asRawClient(db).unsafe(
-    `ALTER TABLE ${quoteTableIdent(tableName)} ADD COLUMN ${quoteTableIdent(columnName)} ${columnType}${defaultClause}${notNull}`,
+    `ALTER TABLE ${quoteTableIdent(tableName)} ADD COLUMN IF NOT EXISTS ${quoteTableIdent(columnName)} ${columnType}${defaultClause}${notNull}`,
   );
 }
 
