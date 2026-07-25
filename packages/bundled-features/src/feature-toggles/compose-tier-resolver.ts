@@ -1,5 +1,6 @@
 import {
   type EffectiveFeaturesResolver,
+  isToggleableFeature,
   type Registry,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -38,13 +39,7 @@ import type { GlobalFeatureToggleRuntime } from "./toggle-runtime";
 export function composeTierResolverWithGlobalToggles(
   tierResolver: EffectiveFeaturesResolver,
   toggleRuntime: GlobalFeatureToggleRuntime,
-  // Not redundant with toggleRuntime (which holds its own registry
-  // reference privately) — needed here for registry.getFeature(name)
-  // toggleability lookups in the tier-narrowing loop below. The genuinely
-  // redundant part (a second computeEffectiveFeatures(registry, reader)
-  // call re-deriving what toggleRuntime.effectiveFeatures() already gives)
-  // is gone; this signature doesn't need a changeset bump since it's
-  // unchanged (#1479/1).
+  // registry needed for toggleability lookups; toggleRuntime keeps its own registry reference private.
   registry: Registry,
 ): EffectiveFeaturesResolver {
   // Lazy + memoized: computed on first composed(tenantId) call, not at
@@ -53,14 +48,10 @@ export function composeTierResolverWithGlobalToggles(
   // composeTierResolverWithGlobalToggles itself runs.
   let tierManaged: ReadonlySet<string> | undefined;
 
-  const composed = ((tenantId) => {
+  const composed: EffectiveFeaturesResolver = (tenantId) => {
     if (tierManaged === undefined) {
       const managed = tierResolver(SYSTEM_TENANT_ID);
-      // fail-loud: a tierResolver implementing the SYSTEM_TENANT_ID union
-      // convention always includes at least the always-on (non-toggleable)
-      // features, so an empty set means the resolver doesn't implement the
-      // convention at all — silently treating every feature as tier-unaware
-      // would disable tier-gating entirely instead of surfacing the bug.
+      // fail-loud: an empty union means the resolver doesn't implement the SYSTEM_TENANT_ID convention at all.
       if (managed.size === 0) {
         throw new Error(
           "composeTierResolverWithGlobalToggles: tierResolver(SYSTEM_TENANT_ID) " +
@@ -71,7 +62,17 @@ export function composeTierResolverWithGlobalToggles(
             "all tier-gating (every feature would be treated as tier-unaware).",
         );
       }
-      tierManaged = managed;
+      // Structural Rule 1: only the TOGGLEABLE subset of the union is tier-managed.
+      // Non-toggleable (always-on) names must keep reaching `result` through the
+      // globalCascade loop below even if this resolver's SYSTEM_TENANT_ID answer
+      // satisfies the emptiness guard above without also merging always-on into
+      // every per-tenant tierSet (framework#1528).
+      tierManaged = new Set(
+        [...managed].filter((name) => {
+          const feature = registry.getFeature(name);
+          return feature !== undefined && isToggleableFeature(feature);
+        }),
+      );
     }
 
     const tierSet = tierResolver(tenantId);
@@ -83,7 +84,8 @@ export function composeTierResolverWithGlobalToggles(
       // reach a non-toggleable feature via seed-scripts/ops-SQL/an
       // r.toggleable() removal after the fact (readOverride/refresh() have
       // no toggleability gate of their own).
-      const isToggleable = registry.getFeature(name)?.toggleableDefault !== undefined;
+      const feature = registry.getFeature(name);
+      const isToggleable = feature !== undefined && isToggleableFeature(feature);
       if (!isToggleable || toggleRuntime.readOverride(name) !== false) {
         result.add(name);
       }
@@ -123,7 +125,7 @@ export function composeTierResolverWithGlobalToggles(
     }
 
     return result;
-  }) as EffectiveFeaturesResolver;
+  };
 
   if (tierResolver.trialGate) {
     return Object.assign(composed, { trialGate: tierResolver.trialGate });
