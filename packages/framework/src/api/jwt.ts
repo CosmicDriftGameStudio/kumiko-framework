@@ -191,7 +191,13 @@ export function loadJwtSecretOrKeyring(
   const keys: Record<string, string> = {};
   for (const [name, value] of Object.entries(env)) {
     const match = name.match(JWT_KEY_VAR_PATTERN);
-    if (!match || !value) continue;
+    if (!match) continue;
+    if (!value) {
+      throw new Error(
+        `[jwt] ${name} is set but empty — an empty versioned secret is almost certainly a ` +
+          "deploy mistake, not an intentional skip. Unset the var entirely if it's unused.",
+      );
+    }
     assertMinLength(name, value);
     // biome-ignore lint/style/noNonNullAssertion: regex group 1 always present
     keys[`v${match[1]!}`] = value;
@@ -231,14 +237,13 @@ export function loadJwtSecretOrKeyring(
   // if the plain secret isn't one of them, every in-flight session breaks the
   // moment rotation is adopted, exactly the mass-invalidation this keyring
   // exists to avoid. Never becomes signKid — only JWT_SECRET_V<n> can sign.
-  // Carry the pre-rotation plain JWT_SECRET into the ring as a verify-only
-  // legacy key: sessions signed before JWT_SECRET_V<n> was first set have no
-  // `kid`, so verifyWithKeyring's no-kid fallback tries every key in `keys` —
-  // if the plain secret isn't one of them, every in-flight session breaks the
-  // moment rotation is adopted, exactly the mass-invalidation this keyring
-  // exists to avoid. Never becomes signKid — only JWT_SECRET_V<n> can sign.
+  // Retirement: has no automatic expiry — verifies unbounded as long as
+  // JWT_SECRET stays set. Operators must explicitly unset JWT_SECRET once
+  // max token TTL (`ttlSeconds`) has elapsed since cutover to actually
+  // retire a rotated-out secret (see run-prod-app.ts boot warning).
   const legacySecret = env["JWT_SECRET"];
   if (legacySecret && !keys["legacy"]) {
+    assertMinLength("JWT_SECRET", legacySecret);
     keys["legacy"] = legacySecret;
   }
   return { keys, signKid };

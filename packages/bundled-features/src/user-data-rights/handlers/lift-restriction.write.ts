@@ -1,7 +1,12 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  AccessDeniedError,
+  UnprocessableError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+import { tenantMembershipsTable } from "../../tenant";
 import { USER_STATUS, userTable } from "../../user";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
@@ -12,6 +17,16 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 // flips — their JWT/login can't reach this or any other authenticated
 // endpoint. There is no self-service path today, so lifting a restriction
 // always targets someone else's account by id.
+//
+// Tenant scope: `access.admin` includes TenantAdmin, which is tenant-
+// scoped even though the User-entity lookup below uses `ctx.db.raw`
+// (bypasses the auto-tenant-filter, same as restrict-account.write.ts —
+// User status is intentionally global, see user-data-rights.md
+// "Cross-Tenant-Semantik"). Without a membership check, a TenantAdmin
+// from tenant A could unrestrict/reactivate a user who has never been a
+// member of tenant A. Only SystemAdmin (platform-wide) skips the check;
+// TenantAdmin/Admin must have an active membership in the target's own
+// tenantId.
 //
 // State-Transitions:
 //   Restricted → Active        ✓
@@ -24,6 +39,21 @@ export const liftRestrictionWrite = defineWriteHandler({
   access: { roles: access.admin },
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId;
+
+    if (!event.user.roles.some((role) => access.systemAdmin.includes(role))) {
+      const membership = await fetchOne(ctx.db.raw, tenantMembershipsTable, {
+        userId: targetUserId,
+        tenantId: event.user.tenantId,
+      });
+      if (!membership) {
+        return writeFailure(
+          new AccessDeniedError({
+            details: { reason: "target_user_not_in_admin_tenant" },
+          }),
+        );
+      }
+    }
+
     const userRow = await fetchOne<{ status: string }>(ctx.db.raw, userTable, {
       id: targetUserId,
     });

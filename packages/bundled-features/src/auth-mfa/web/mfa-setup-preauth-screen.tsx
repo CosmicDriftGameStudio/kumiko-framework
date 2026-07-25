@@ -85,14 +85,17 @@ export function MfaSetupPreauthScreen({
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
 
   const startSetup = async (): Promise<void> => {
     setBusy(true);
     setError(null);
+    setRetryAfterSeconds(null);
     try {
       const res = await startMfaSetupPreauth(preauthSetupToken, accountLabel);
       if (res.kind !== "success") {
         setError(res.error.reason);
+        setRetryAfterSeconds(res.error.retryAfterSeconds ?? null);
         return;
       }
       // errorCorrectionLevel "H" (~30% redundancy) — more resilient to
@@ -121,10 +124,12 @@ export function MfaSetupPreauthScreen({
     if (!setup) return;
     setBusy(true);
     setError(null);
+    setRetryAfterSeconds(null);
     try {
       const res = await confirmMfaSetupPreauth(setup.setupToken, code);
       if (res.kind !== "success") {
         setError(res.error.reason);
+        setRetryAfterSeconds(res.error.retryAfterSeconds ?? null);
         // An expired or already-burned setupToken can never succeed again —
         // drop back to the intro so the "start setup" button reappears,
         // otherwise the user is stuck on this screen with no way forward
@@ -158,7 +163,13 @@ export function MfaSetupPreauthScreen({
       subtitle={subtitle ?? t("auth.mfa.setup.subtitle")}
     >
       <div className="p-6 pt-0 flex flex-col gap-4">
-        {error !== null ? <Banner variant="error">{t(reasonToKey(error))}</Banner> : null}
+        {error !== null ? (
+          <Banner variant="error">
+            {error === "too_many_attempts" && retryAfterSeconds !== null
+              ? t("auth.mfa.errors.tooManyAttemptsWithSeconds", { seconds: retryAfterSeconds })
+              : t(reasonToKey(error))}
+          </Banner>
+        ) : null}
 
         {!setup && (
           <Section
@@ -187,7 +198,7 @@ export function MfaSetupPreauthScreen({
                   type="submit"
                   variant="primary"
                   loading={busy}
-                  disabled={busy || !acknowledged || code.length < 6}
+                  disabled={busy || !acknowledged || code.length !== 6}
                 >
                   {t("auth.mfa.setup.confirm")}
                 </Button>

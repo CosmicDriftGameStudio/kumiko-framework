@@ -59,8 +59,10 @@ export {
   escapeXml,
   type HtmlValue,
   html,
+  isSafeHref,
   RawHtml,
   raw,
+  stripControlChars,
   toInstant,
 } from "./format";
 export type {

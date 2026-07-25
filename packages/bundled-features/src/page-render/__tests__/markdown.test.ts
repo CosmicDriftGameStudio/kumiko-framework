@@ -20,6 +20,18 @@ describe("renderSafeMarkdown — XSS-Härtung", () => {
     expect(html).toContain('href="#"');
   });
 
+  // kumiko-framework#1522/#1523: CommonMark allows a tab inside a
+  // <...>-bracketed link destination; `.trim()` only strips leading/
+  // trailing whitespace, so "java\tscript:" survived isSafeHref's scheme
+  // regex (the tab breaks the character class before ":", the check falls
+  // through to `return true`) and the browser normalizes it back to
+  // "javascript:" on click. Mirrors xss-safety.test.tsx's UNSAFE_HREFS.
+  test("java\\tscript:-Link-href (tab-obfuscated scheme via <...> destination) wird neutralisiert", () => {
+    const html = renderSafeMarkdown("[klick](<java\tscript:alert(1)>)");
+    expect(html.toLowerCase()).not.toContain("javascript:");
+    expect(html).toContain('href="#"');
+  });
+
   test("data:-Image-src wird neutralisiert", () => {
     const html = renderSafeMarkdown("![x](data:text/html;base64,PHNjcmlwdD4=)");
     expect(html.toLowerCase()).not.toContain("data:");

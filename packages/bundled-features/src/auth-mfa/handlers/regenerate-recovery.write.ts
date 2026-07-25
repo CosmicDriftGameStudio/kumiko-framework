@@ -1,5 +1,6 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { findUserMfaRow } from "../db/queries";
 import { invalidTotpCode, mfaNotEnabled } from "../errors";
@@ -34,7 +35,20 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
       // (deliberately) one of the very codes about to be replaced both
       // count, since either way the presented code is consumed/irrelevant
       // afterward.
-      const replay = ctx.redis ? { redis: ctx.redis, userId: event.user.id } : undefined;
+      //
+      // Fail closed, matching verify.write.ts/enable-confirm-preauth.write.ts
+      // (#1467): without ctx.redis, verifyMfaFactor's TOTP-replay burn is
+      // skipped, letting an observed code be replayed within the ±1-step
+      // window to regenerate (and thus invalidate) recovery codes — a
+      // session-authed route, so pre-unwiring JWTs stay a valid attack path.
+      if (!ctx.redis) {
+        return writeFailure(
+          new InternalError({
+            message: "regenerate-recovery (mfa) requires ctx.redis for TOTP replay protection",
+          }),
+        );
+      }
+      const replay = { redis: ctx.redis, userId: event.user.id };
       const verify = await verifyMfaFactor(row, event.payload.code, replay);
       if (!verify.ok) return invalidTotpCode();
 
