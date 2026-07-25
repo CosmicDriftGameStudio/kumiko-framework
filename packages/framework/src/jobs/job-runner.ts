@@ -10,6 +10,7 @@ import {
   type SessionUser,
   SYSTEM_TENANT_ID,
 } from "../engine/types";
+import { createFileContext } from "../files/file-handle";
 import type { Logger } from "../logging/types";
 import {
   emitJobQueueDepth,
@@ -336,8 +337,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // jobContext.triggerName freigegeben damit der Handler nicht selbst
     // im rohen Payload kramen muss.
     const triggerName = rawData["_triggerName"] as string | undefined; // @cast-boundary dynamic-key
+    // Mirror dispatch-shared.ts buildHandlerContext: ctx.files must resolve
+    // through the same _fileProviderResolver for jobs as for write-handlers,
+    // otherwise event-triggered jobs silently get an unresolved ctx.files.
+    const fileResolver = context._fileProviderResolver;
+    const files = fileResolver ? createFileContext(() => fileResolver(tenantId)) : context.files;
     const jobContext: AppContext = {
       ...context,
+      files,
       // The runner owns the registry it resolved this job from — expose it so
       // workers can reach projections/jobs without the app author duplicating
       // it into `context` (the JobContext contract guarantees `registry`).
