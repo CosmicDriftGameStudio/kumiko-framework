@@ -60,86 +60,80 @@ export function validateTokenVerifierMultiplicity(features: readonly FeatureDefi
   }
 }
 
-// Multiplicity boot-check for the `sessionStore` extension point (#1370).
-// Single-provider, unlike tokenVerifier — no shape to route on, so exactly
-// one registration is required; 0 or ≥2 both fail boot.
-export function validateSessionStoreMultiplicity(features: readonly FeatureDefinition[]): void {
+// Shared by the three single-provider extension points below: collect every
+// registration for `ext`, validating each usage's options against `guard`,
+// then fail boot on ≥2 (resolve*() has no way to route between them). Zero
+// registrations is NOT checked here — it's valid for all three (a
+// machine-API-only auth-foundation with PAT-bearer auth and no browser
+// sessions, single-tenant deployments with no tenantResolver, etc.); the
+// runtime already models "extension point unmounted" as a legal
+// configuration (run-prod-app.ts only wires sessions when
+// EXT_SESSION_STORE has ≥1 usage), and resolve*() throws its own clear
+// error if a caller requests a provider that was never registered.
+function validateSingleProvider(
+  features: readonly FeatureDefinition[],
+  opts: {
+    readonly ext: string;
+    readonly label: string;
+    readonly guard: (options: unknown) => boolean;
+    readonly shapeHint: string;
+  },
+): void {
+  const { ext, label, guard, shapeHint } = opts;
   const names: string[] = [];
 
   for (const feature of features) {
     for (const usage of feature.extensionUsages) {
-      if (usage.extensionName !== EXT_SESSION_STORE) continue;
-      if (!isSessionStoreProvider(usage.options)) {
+      if (usage.extensionName !== ext) continue;
+      if (!guard(usage.options)) {
         throw new Error(
-          `[auth-foundation] sessionStore provider "${usage.entityName}" (feature "${feature.name}") ` +
-            `registered without a valid SessionStoreProvider — options must have a { build } shape.`,
+          `[auth-foundation] ${label} provider "${usage.entityName}" (feature "${feature.name}") ` +
+            `registered without a valid ${shapeHint}.`,
         );
       }
       names.push(usage.entityName);
     }
   }
 
-  if (names.length === 0) {
-    throw new Error(
-      "[auth-foundation] no sessionStore provider registered — mount a feature that " +
-        "registers one via r.useExtension(EXT_SESSION_STORE, ...) alongside auth-foundation.",
-    );
-  }
-
   if (names.length >= 2) {
     throw new Error(
-      `[auth-foundation] ${names.length} sessionStore providers registered (${names.join(", ")}) — ` +
-        `only one sessionStore provider may be mounted at a time.`,
+      `[auth-foundation] ${names.length} ${label} providers registered (${names.join(", ")}) — ` +
+        `only one ${label} provider may be mounted at a time.`,
     );
   }
+}
+
+// Multiplicity boot-check for the `sessionStore` extension point (#1370).
+// Single-provider, unlike tokenVerifier — no shape to route on, so ≥2 fails
+// boot. Zero registrations is a valid configuration (see
+// validateSingleProvider doc) — a pure machine API using auth-foundation for
+// PAT-bearer auth alone can mount it without also pulling in the whole
+// sessions feature.
+export function validateSessionStoreMultiplicity(features: readonly FeatureDefinition[]): void {
+  validateSingleProvider(features, {
+    ext: EXT_SESSION_STORE,
+    label: "sessionStore",
+    guard: isSessionStoreProvider,
+    shapeHint: "SessionStoreProvider — options must have a { build } shape",
+  });
 }
 
 // Optional single-provider (#1373). Zero registrations = OK (single-tenant /
 // header-cookie path). ≥2 or malformed = boot fail.
 export function validateTenantResolverMultiplicity(features: readonly FeatureDefinition[]): void {
-  const names: string[] = [];
-
-  for (const feature of features) {
-    for (const usage of feature.extensionUsages) {
-      if (usage.extensionName !== EXT_TENANT_RESOLVER) continue;
-      if (!isTenantResolverProvider(usage.options)) {
-        throw new Error(
-          `[auth-foundation] tenantResolver provider "${usage.entityName}" (feature "${feature.name}") ` +
-            `registered without a valid TenantResolverProvider — options must have { trust, build }.`,
-        );
-      }
-      names.push(usage.entityName);
-    }
-  }
-
-  if (names.length >= 2) {
-    throw new Error(
-      `[auth-foundation] ${names.length} tenantResolver providers registered (${names.join(", ")}) — ` +
-        `only one tenantResolver provider may be mounted at a time.`,
-    );
-  }
+  validateSingleProvider(features, {
+    ext: EXT_TENANT_RESOLVER,
+    label: "tenantResolver",
+    guard: isTenantResolverProvider,
+    shapeHint: "TenantResolverProvider — options must have { trust, build }",
+  });
 }
 
 export function validateTenantExistenceMultiplicity(features: readonly FeatureDefinition[]): void {
-  const names: string[] = [];
-
-  for (const feature of features) {
-    for (const usage of feature.extensionUsages) {
-      if (usage.extensionName !== EXT_TENANT_EXISTENCE) continue;
-      if (!isTenantExistenceProvider(usage.options)) {
-        throw new Error(
-          `[auth-foundation] tenantExistence provider "${usage.entityName}" (feature "${feature.name}") ` +
-            `registered without a valid TenantExistenceProvider — options must have a { build } shape.`,
-        );
-      }
-      names.push(usage.entityName);
-    }
-  }
-
-  if (names.length >= 2) {
-    throw new Error(
-      `[auth-foundation] ${names.length} tenantExistence providers registered (${names.join(", ")}) — ` +
-        `only one tenantExistence provider may be mounted at a time.`,
-    );
-  }
+  validateSingleProvider(features, {
+    ext: EXT_TENANT_EXISTENCE,
+    label: "tenantExistence",
+    guard: isTenantExistenceProvider,
+    shapeHint: "TenantExistenceProvider — options must have a { build } shape",
+  });
 }

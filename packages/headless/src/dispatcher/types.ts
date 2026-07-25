@@ -153,6 +153,18 @@ export type StreamOpts = {
   readonly signal?: AbortSignal;
 };
 
+// SSE frame event names for POST /api/stream — shared across the server route,
+// the live-dispatcher wire parser, and their tests so a typo on one side
+// fails the type-checker instead of the integration test.
+export const StreamFrame = {
+  chunk: "chunk",
+  ping: "ping",
+  done: "done",
+  error: "error",
+} as const;
+
+export type StreamFrameEvent = (typeof StreamFrame)[keyof typeof StreamFrame];
+
 // ---------------------------------------------------------------------------
 // The contract
 // ---------------------------------------------------------------------------

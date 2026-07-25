@@ -121,11 +121,16 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // an admin can restrict/delete the account or revoke its tenant
       // membership in the window between preauth-enable-start and
       // preauth-confirm (up to MFA_SETUP_TOKEN_TTL_MINUTES). Checking after
-      // the write left three irreversible side effects behind an
+      // the write left two irreversible side effects behind an
       // already-signed, non-forgeable setupToken that then just returns
-      // invalidSetupToken(): the MFA row persisted, the setup token burned,
-      // and (formerly) all other sessions revoked — with mfaAlreadyEnabled()
-      // blocking any re-enrollment until an operator manually disables MFA.
+      // invalidSetupToken(): the MFA row persisted and (formerly) all other
+      // sessions revoked — with mfaAlreadyEnabled() blocking any
+      // re-enrollment until an operator manually disables MFA. NOT fixed by
+      // this ordering: burnToken() above still runs before this check, so a
+      // mid-flight restricted/deleted user still burns their setup token
+      // (framework#1523/5) — moving the burn later would need care around
+      // the existing userId-unique-constraint backstop between the
+      // `existing` check above and executor.create() below.
       const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
       const userRow = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
         id: userId,
@@ -161,9 +166,8 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       );
       if (!result.isSuccess) return result;
 
-      if (ctx.redis) {
-        await clearMfaVerifyAttempts(ctx.redis, userId);
-      }
+      // ctx.redis is guaranteed by the fail-closed check above.
+      await clearMfaVerifyAttempts(ctx.redis, userId);
 
       // Re-derive the full session the way verify.write.ts does — the
       // setupToken only proves "password + new TOTP secret", not roles;

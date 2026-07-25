@@ -44,11 +44,9 @@ describe("resolveSessionStore — finds the single registered provider", () => {
 });
 
 describe("validateSessionStoreMultiplicity", () => {
-  test("0 providers registered → throws (fail-fast, nothing to store sessions in)", () => {
+  test("0 providers registered → does not throw (valid: PAT-only / machine-API deployments mount no sessionStore)", () => {
     const registry = createRegistry([authFoundationFeature]);
-    expect(() => validateSessionStoreMultiplicity([...registry.features.values()])).toThrow(
-      /no sessionStore provider registered/,
-    );
+    expect(() => validateSessionStoreMultiplicity([...registry.features.values()])).not.toThrow();
   });
 
   test("exactly 1 provider → no throw", () => {

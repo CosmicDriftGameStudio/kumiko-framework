@@ -3,7 +3,13 @@ import { Queue } from "bullmq";
 import { z } from "zod";
 import { requestContext } from "../../api/request-context";
 import { createRegistry, defineFeature } from "../../engine";
-import type { AppContext, Registry } from "../../engine/types";
+import type {
+  AppContext,
+  ConfigAccessor,
+  ConfigAccessorFactory,
+  NotifyFactory,
+  Registry,
+} from "../../engine/types";
 import { createInMemoryFileProvider } from "../../files/in-memory-provider";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
 import { sleep, waitFor } from "../../testing";
@@ -180,6 +186,19 @@ const testFeature = defineFeature("test", (r) => {
       timestamp: Date.now(),
     });
   });
+
+  // job-runner must build ctx.notify/ctx.config the same way dispatch-shared.ts
+  // does for write-handlers — regression guard for #1532 (only ctx.files got
+  // the same fix; ctx.notify/ctx.config stayed undefined for every job).
+  r.job("notifyProbe", { trigger: { manual: true } }, async (payload, ctx) => {
+    await ctx.notify!("test-notification", { to: payload["toUserId"] as string });
+    jobLog.push({ name: "test:job:notify-probe", payload, timestamp: Date.now() });
+  });
+
+  r.job("configProbe", { trigger: { manual: true } }, async (_payload, ctx) => {
+    const value = await ctx.config!("test:config:probe-key");
+    jobLog.push({ name: "test:job:config-probe", payload: { value }, timestamp: Date.now() });
+  });
 });
 
 beforeAll(async () => {
@@ -307,6 +326,55 @@ describe("scenario 3b: ctx.files resolves through the file provider", () => {
         });
       },
       { context: { _fileProviderResolver: () => Promise.resolve(provider) } },
+    );
+  });
+});
+
+describe("scenario 3c: ctx.notify resolves through the notify factory (#1532)", () => {
+  test("job handler can call ctx.notify and the factory is bound to the job's system user + tenant", async () => {
+    clearLog();
+    const calls: Array<{ readonly notifierTenantId: string; readonly notificationType: string }> =
+      [];
+    const notifyFactory: NotifyFactory = (_user, tenantId) => async (notificationType) => {
+      calls.push({ notifierTenantId: tenantId, notificationType });
+    };
+
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:notify-probe", { toUserId: "u1" });
+        await waitFor(() => {
+          const entries = jobLog.filter((e) => e.name === "test:job:notify-probe");
+          expect(entries.length).toBe(1);
+        });
+        expect(calls).toHaveLength(1);
+        expect(calls[0]?.notificationType).toBe("test-notification");
+      },
+      { context: { _notifyFactory: notifyFactory } },
+    );
+  });
+});
+
+describe("scenario 3d: ctx.config resolves through the config accessor factory (#1532)", () => {
+  test("job handler can call ctx.config and the factory receives a tenant-scoped db", async () => {
+    clearLog();
+    let receivedDb: unknown;
+    const configAccessorFactory: ConfigAccessorFactory = (deps) => {
+      receivedDb = deps.db;
+      // Stub accessor: only the string-key overload is exercised here.
+      return (async () => "probe-value") as ConfigAccessor;
+    };
+
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:config-probe", {});
+        await waitFor(() => {
+          const entries = jobLog.filter((e) => e.name === "test:job:config-probe");
+          expect(entries.length).toBe(1);
+          expect(entries[0]?.payload["value"]).toBe("probe-value");
+        });
+        expect(receivedDb).toBeDefined();
+      },
+      { context: { _configAccessorFactory: configAccessorFactory, db: {} as AppContext["db"] } },
     );
   });
 });

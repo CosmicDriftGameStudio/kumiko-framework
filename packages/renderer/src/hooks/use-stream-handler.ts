@@ -38,7 +38,6 @@ export function useStreamHandler<TChunk = unknown>(
   const [error, setError] = useState<DispatcherError | null>(null);
 
   const activeCtrl = useRef<AbortController | null>(null);
-  const payloadKey = JSON.stringify(payload);
   const payloadRef = useRef(payload);
   payloadRef.current = payload;
 
@@ -56,7 +55,12 @@ export function useStreamHandler<TChunk = unknown>(
     setError(null);
   }, [abort]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: payload via payloadKey / payloadRef
+  // Shared by every abort-detection branch below: only touch status if this
+  // run is still the active one (or activeCtrl was already cleared by abort()).
+  const settleAborted = useCallback((ctrl: AbortController): void => {
+    if (activeCtrl.current === null || activeCtrl.current === ctrl) setStatus("idle");
+  }, []);
+
   const start = useCallback(
     async (overridePayload?: unknown): Promise<void> => {
       activeCtrl.current?.abort();
@@ -69,39 +73,37 @@ export function useStreamHandler<TChunk = unknown>(
 
       const body = overridePayload !== undefined ? overridePayload : payloadRef.current;
       try {
-        const accumulated: TChunk[] = [];
         for await (const chunk of dispatcher.stream<TChunk>(type, body, { signal: ctrl.signal })) {
           // skip: a newer start() already superseded this run
           if (ctrl.signal.aborted) {
-            if (activeCtrl.current === null || activeCtrl.current === ctrl) setStatus("idle");
+            settleAborted(ctrl);
             return;
           }
-          accumulated.push(chunk);
-          setChunks([...accumulated]);
+          setChunks((prev) => [...prev, chunk]);
         }
         // skip: aborted after last chunk, don't mark done
         if (ctrl.signal.aborted) {
-          if (activeCtrl.current === null || activeCtrl.current === ctrl) setStatus("idle");
+          settleAborted(ctrl);
           return;
         }
         setStatus("done");
       } catch (e) {
         // skip: abort is not an error toast
         if (ctrl.signal.aborted) {
-          if (activeCtrl.current === null || activeCtrl.current === ctrl) setStatus("idle");
+          settleAborted(ctrl);
           return;
         }
         const mapped = asDispatcherError(e);
         // skip: dispatcher-mapped abort (fetch cancelled)
         if (mapped.code === "aborted") {
-          if (activeCtrl.current === null || activeCtrl.current === ctrl) setStatus("idle");
+          settleAborted(ctrl);
           return;
         }
         setError(mapped);
         setStatus("error");
       }
     },
-    [dispatcher, type, payloadKey],
+    [dispatcher, type, settleAborted],
   );
 
   useEffect(() => {

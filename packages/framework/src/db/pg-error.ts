@@ -41,6 +41,14 @@ export function isTableAlreadyExists(e: unknown): boolean {
   return extractPgError(e)?.code === "42P07";
 }
 
+// PG SQLSTATE 55P03 — "lock not available". Raised by a NOWAIT-style lock
+// request that couldn't be granted; a CREATE/DROP INDEX CONCURRENTLY racing
+// another session's DDL on the same relation can hit this instead of a
+// duplicate-relation error, depending on exact timing.
+export function isLockNotAvailable(e: unknown): boolean {
+  return extractPgError(e)?.code === "55P03";
+}
+
 export function constraintOf(e: unknown): string | undefined {
   return extractPgError(e)?.constraint_name;
 }
