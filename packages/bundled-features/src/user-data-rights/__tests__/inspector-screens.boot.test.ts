@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { access, defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
-import { EXT_SESSION_STORE } from "../../auth-foundation";
+import { authFoundationFeature } from "../../auth-foundation";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature";
 import { createConfigFeature } from "../../config/feature";
 import { createDataRetentionFeature } from "../../data-retention/feature";
+import { createPersonalAccessTokensFeature } from "../../personal-access-tokens";
 import { createSessionsFeature } from "../../sessions/feature";
+import { createTenantFeature } from "../../tenant/feature";
 import { createUserFeature } from "../../user/feature";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature";
 import { createUserDataRightsFeature } from "../feature";
@@ -18,13 +20,6 @@ import { createUserDataRightsFeature } from "../feature";
 // entities (export-job, download-attempt) are r.entity, not direct-write stores,
 // so an entityList binding is rebuild-safe (unlike jobs/sessions read-models).
 
-// Stub instead of the real auth-foundation — this test is about screen
-// wiring, not auth; only sessions' sessionStore registration needs an owner
-// present.
-const sessionStoreOwnerStub = defineFeature("auth-foundation", (r) => {
-  r.extendsRegistrar(EXT_SESSION_STORE, {});
-});
-
 describe("user-data-rights read-only inspector screens", () => {
   // A realistic assembly: mounting user-data-rights without its default hooks
   // now fails the V3 boot gate (the framework `user` entity holds PII with no
@@ -33,7 +28,9 @@ describe("user-data-rights read-only inspector screens", () => {
   const features = [
     createConfigFeature(),
     createUserFeature(),
-    sessionStoreOwnerStub,
+    createTenantFeature(),
+    authFoundationFeature,
+    createPersonalAccessTokensFeature({ scopes: {} }),
     createSessionsFeature(),
     createDataRetentionFeature(),
     createComplianceProfilesFeature(),

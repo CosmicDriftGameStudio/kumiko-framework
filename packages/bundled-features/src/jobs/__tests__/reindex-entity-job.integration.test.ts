@@ -103,11 +103,15 @@ describe("reindexEntityJob", () => {
     expect(postResults.some((r) => r.entityId === created.data.id)).toBe(true);
   });
 
-  test("the registered job handler resolves a systemUser-scoped fan-out run and actually indexes (not reindexEntityJob called directly)", async () => {
-    // The two direct-call tests above bypass jobRunner.dispatch()'s
-    // ctx-resolution/guard chain entirely — a bug there (e.g. a systemUser
-    // that isn't wired through) would be invisible to them. Invoke the
-    // ACTUAL registered handler, same as retention-cleanup's handler test.
+  test("the job is registered under REINDEX_ENTITY_JOB and its handler indexes", async () => {
+    // Honest scope: this still hand-builds JobContext (same as
+    // retention-cleanup's handler test) rather than going through
+    // jobRunner.dispatch() — it does NOT cover the dispatch chain's own
+    // ctx-resolution/guard logic, only that registry.getJob(REINDEX_ENTITY_JOB)
+    // resolves to a handler and that handler indexes correctly when called
+    // with a well-formed ctx. A bug in dispatch()'s ctx-resolution itself
+    // (e.g. a systemUser that isn't wired through) would be invisible here,
+    // same as in the two direct-call tests above.
     const executor = createEventStoreExecutor(widgetTable, widgetEntity, { entityName: "widget" });
     const tenantDb = createTenantDb(stack.db, admin.tenantId, "system");
     const created = await executor.create({ name: "Registry-Resolved Widget" }, admin, tenantDb);
