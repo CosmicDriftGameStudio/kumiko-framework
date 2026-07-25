@@ -5,6 +5,7 @@
 // by feature.integration.test.ts.
 
 import { describe, expect, test } from "bun:test";
+import { documentExtractEntity } from "../entity";
 import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "../events";
 import { documentIngestFoundationFeature } from "../feature";
 
@@ -21,6 +22,21 @@ describe("documentIngestFoundationFeature — shape", () => {
     expect(Object.keys(documentIngestFoundationFeature.entities ?? {})).toEqual([
       "documentExtract",
     ]);
+  });
+
+  test("documentExtract entity pins table name, field set, and pages encryption (#1501)", () => {
+    expect(documentExtractEntity.table).toBe("read_document_extracts");
+    expect(Object.keys(documentExtractEntity.fields)).toEqual([
+      "fileRefId",
+      "storageKey",
+      "pages",
+      "meta",
+    ]);
+    expect(documentExtractEntity.fields.pages).toMatchObject({
+      type: "longText",
+      encrypted: true,
+    });
+    expect(documentExtractEntity.fields.meta).toMatchObject({ type: "jsonb" });
   });
 
   test("registers NO write/query handlers — only entity, config, event, and MSP", () => {

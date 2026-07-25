@@ -1,4 +1,4 @@
-import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
+import { KUMIKO_NAME_SYMBOL, type SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TenantDb, TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import {
   asEntityTableMeta,
@@ -24,10 +24,8 @@ export function castTenantRows<T>(rows: readonly Record<string, unknown>[]): rea
   return rows as unknown as readonly T[];
 }
 
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
-
 function tableNameOf(table: Table): string {
-  const sym = (table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
+  const sym = table[KUMIKO_NAME_SYMBOL];
   return typeof sym === "string" ? sym : "<unknown>";
 }
 

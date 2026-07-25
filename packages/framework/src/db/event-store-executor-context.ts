@@ -1,3 +1,4 @@
+import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { requestContext } from "../api/request-context";
 import {
   collectPiiSubjectFields,
@@ -359,9 +360,7 @@ export function buildExecutorContext(
     }
     // ownership has raw SQL — splice it into a raw query alongside the
     // idFilter + tenant-filter that TenantDb would have added.
-    const tableName = String(
-      (table as unknown as Record<symbol, unknown>)[Symbol.for("kumiko:schema:Name")],
-    );
+    const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
     const colSql = (field: string): string =>
       `"${(table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field)}"`;
     const whereParts: string[] = [];

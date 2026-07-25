@@ -7,8 +7,12 @@ import { KumikoError } from "./kumiko-error";
 import { FrameworkReasons } from "./reasons";
 import { buildInvalidTransitionDetails } from "./transition-details";
 
-// @deprecated Import from @cosmicdrift/kumiko-types/write-error-info-types directly.
-export type * from "@cosmicdrift/kumiko-types/write-error-info-types";
+// Re-exported so a caller importing this module directly (instead of via
+// the `./errors` barrel, which already re-exports these by name) still
+// gets the types — explicit, not a wildcard: this module isn't a public
+// subpath export (see package.json `exports`), so the only readers are
+// framework-internal.
+export type { WriteErrorInfo, WriteFailure };
 
 // Convenience for call sites that return a failed WriteResult. Keeps the
 // pattern `return writeFailure(new NotFoundError(...))` compact so handlers

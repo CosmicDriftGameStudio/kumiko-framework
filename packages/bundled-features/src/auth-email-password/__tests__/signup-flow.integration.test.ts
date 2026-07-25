@@ -72,6 +72,21 @@ const userHookVendorFeature = defineFeature("user-hook-vendor-test", (r) => {
   });
 });
 
+// Regression-proof for #1478/#1526: seedTenantMembership must fire the
+// `tenantMembership` entity's postSave hooks (e.g. a Welcome-notification
+// hook) on self-signup too — pins the `fireEntityPostSave` call added at
+// seeding.ts's seedTenantMembership, not just the `user`/`tenant` ones.
+const tenantMembershipPostSaveFired = { count: 0 };
+const tenantMembershipHookVendorFeature = defineFeature(
+  "tenant-membership-hook-vendor-test",
+  (r) => {
+    r.requires("tenant");
+    r.hook("postSave", { allOf: "tenant-membership" }, async (ctx) => {
+      if (ctx.isNew) tenantMembershipPostSaveFired.count++;
+    });
+  },
+);
+
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
 
 // Activation mails now go through delivery (ctx.notify → channel-email). The
@@ -108,6 +123,7 @@ beforeAll(async () => {
         tierMap: { free: { features: [], caps: {} } },
       }),
       userHookVendorFeature,
+      tenantMembershipHookVendorFeature,
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
@@ -147,6 +163,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
   emailTransport.sent.length = 0;
   userPostSaveFired.count = 0;
+  tenantMembershipPostSaveFired.count = 0;
   // Redis-cleanup damit Resend-Tests keine state-leaks haben.
   const allKeys = await stack.redis.redis.keys("signup:*");
   if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
@@ -266,6 +283,11 @@ describe("POST /api/auth/signup-confirm", () => {
     // provisionSignupAccount) fires the `user` entity's postSave hooks too —
     // before this fix, only seedTenant's hooks param was wired through.
     expect(userPostSaveFired.count).toBe(1);
+
+    // #1478/#1526 regression: seedTenantMembership (called from
+    // provisionSignupAccount) fires the `tenant-membership` entity's postSave
+    // hooks too — before this fix, only seedTenant's hooks param was wired.
+    expect(tenantMembershipPostSaveFired.count).toBe(1);
 
     // Authority-Beweis: Login mit dem gesetzten Password funktioniert.
     const loginRes = await postLogin(email, password);

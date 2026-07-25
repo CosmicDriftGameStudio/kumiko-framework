@@ -150,14 +150,22 @@ export type UserDataExportHook = (ctx: UserDataHookCtx) => Promise<UserDataExpor
  * `{status:"incomplete", reason}` to signal a partial success to the
  * cleanup runner (e.g. an external provider call failed) without
  * throwing/rolling back the sub-transaction. Existing `void` returners
- * stay valid unchanged.
+ * stay valid unchanged — including ones explicitly typed
+ * `Promise<void>` (an explicitly-annotated hook, unlike a contextually-
+ * typed arrow literal, needs `void` in the union itself: `void` is not
+ * assignable to `undefined`).
  */
+// Intentional: void (not undefined) is required here so an explicitly-typed
+// `Promise<void>` hook stays assignable (see UserDataDeleteHook's doc
+// comment above).
+export type UserDataDeleteHookResult =
+  // biome-ignore lint/suspicious/noConfusingVoidType: see comment above
+  void | { readonly status: "ok" } | { readonly status: "incomplete"; readonly reason: string };
+
 export type UserDataDeleteHook = (
   ctx: UserDataHookCtx,
   strategy: UserDataDeleteStrategy,
-) => Promise<
-  undefined | { readonly status: "ok" } | { readonly status: "incomplete"; readonly reason: string }
->;
+) => Promise<UserDataDeleteHookResult>;
 
 /**
  * Komplette Hook-Tafel für EXT_USER_DATA. Sprint 2 user-data-rights

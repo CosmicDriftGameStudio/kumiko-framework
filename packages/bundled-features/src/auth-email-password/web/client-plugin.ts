@@ -57,12 +57,12 @@ export function emailPasswordClient(
     name: "auth-email-password",
     providers: [],
     gates: [
-      makeSessionAuthGate(
-        options.loginScreen,
-        options.loginScreenProps,
-        options.mfaVerifyScreen,
-        options.mfaSetupScreen,
-      ),
+      makeSessionAuthGate({
+        loginScreen: options.loginScreen,
+        loginScreenProps: options.loginScreenProps,
+        mfaVerifyScreen: options.mfaVerifyScreen,
+        mfaSetupScreen: options.mfaSetupScreen,
+      }),
     ],
     translations,
   };

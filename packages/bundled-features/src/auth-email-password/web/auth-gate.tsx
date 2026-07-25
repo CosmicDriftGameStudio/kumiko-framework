@@ -136,18 +136,10 @@ export function createLoginRoute(
   return LoginRoute;
 }
 
-export function makeAuthGate(
-  LoginComponent: ComponentType<LoginScreenProps> = LoginScreen,
-  loginProps?: LoginScreenProps,
-  MfaVerifyComponent?: ComponentType<MfaVerifyComponentProps>,
-  MfaSetupComponent?: ComponentType<MfaSetupComponentProps>,
-): ComponentType<{ children: ReactNode }> {
-  const LoginRoute = createLoginRoute({
-    loginScreen: LoginComponent,
-    loginScreenProps: loginProps,
-    mfaVerifyScreen: MfaVerifyComponent,
-    mfaSetupScreen: MfaSetupComponent,
-  });
+export function makeAuthGate(opts: LoginRouteOptions = {}): ComponentType<{
+  children: ReactNode;
+}> {
+  const LoginRoute = createLoginRoute(opts);
   function AuthGate({ children }: { readonly children: ReactNode }): ReactNode {
     const { status } = useSession();
     if (status === "authenticated") return <>{children}</>;
@@ -159,13 +151,10 @@ export function makeAuthGate(
 // SessionProvider + AuthGate as one gate, so a public gate in front (e.g.
 // /calculator) doesn't mount the session bootstrap — createKumikoApp stacks
 // providers outside all gates, so SessionProvider can't be a provider anymore.
-export function makeSessionAuthGate(
-  LoginComponent: ComponentType<LoginScreenProps> = LoginScreen,
-  loginProps?: LoginScreenProps,
-  MfaVerifyComponent?: ComponentType<MfaVerifyComponentProps>,
-  MfaSetupComponent?: ComponentType<MfaSetupComponentProps>,
-): ComponentType<{ children: ReactNode }> {
-  const AuthGate = makeAuthGate(LoginComponent, loginProps, MfaVerifyComponent, MfaSetupComponent);
+export function makeSessionAuthGate(opts: LoginRouteOptions = {}): ComponentType<{
+  children: ReactNode;
+}> {
+  const AuthGate = makeAuthGate(opts);
   function SessionAuthGate({ children }: { readonly children: ReactNode }): ReactNode {
     return (
       <SessionProvider>

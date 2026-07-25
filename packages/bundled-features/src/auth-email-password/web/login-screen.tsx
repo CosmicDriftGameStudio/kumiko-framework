@@ -11,7 +11,11 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { type LoginFailure, requestEmailVerification } from "./auth-client";
+import {
+  type KnownLoginFailureReason,
+  type LoginFailure,
+  requestEmailVerification,
+} from "./auth-client";
 import { AuthCard } from "./auth-form-primitives";
 import { useSession } from "./session";
 
@@ -144,7 +148,7 @@ export function LoginScreen({
         onMfaChallenge(res.challengeToken);
         return;
       }
-      setError({ reason: "mfa_not_supported" });
+      setError({ reason: "mfa_not_supported" satisfies KnownLoginFailureReason });
       setFailedLoginEmail(email);
       return;
     }
@@ -153,7 +157,7 @@ export function LoginScreen({
         onMfaSetupRequired(res.preauthSetupToken, email);
         return;
       }
-      setError({ reason: "mfa_setup_required" });
+      setError({ reason: "mfa_setup_required" satisfies KnownLoginFailureReason });
       setFailedLoginEmail(email);
       return;
     }

@@ -132,22 +132,22 @@ export type RunDevAppAuthOptions = {
    *  der request/confirm-Handler im auth-email-password-Feature wird
    *  registriert. Symmetrisch zu RunProdAppAuthOptions.passwordReset. */
   readonly passwordReset?: PasswordResetSetup;
-  /** Email-verification flow. Symmetric zu passwordReset. */
+  /** Email-verification flow. Symmetric to passwordReset. */
   readonly emailVerification?: EmailVerificationSetup;
-  /** Self-Signup flow (Magic-Link). Symmetric zu RunProdAppAuthOptions. */
+  /** Self-signup flow (magic link). Symmetric to RunProdAppAuthOptions. */
   readonly signup?: SignupSetup;
-  /** Tenant-Invite flow (Magic-Link). Symmetric. */
+  /** Tenant-invite flow (magic link). Symmetric. */
   readonly invite?: InviteSetup;
-  /** Account-unlock flow (#1266). Symmetric zu RunProdAppAuthOptions. */
+  /** Account-unlock flow (#1266). Symmetric to RunProdAppAuthOptions. */
   readonly accountUnlock?: AccountUnlockSetup;
   /** Domain attribute for both auth cookies (see
-   *  AuthRoutesConfig.cookieDomain). Symmetric zu RunProdAppAuthOptions. */
+   *  AuthRoutesConfig.cookieDomain). Symmetric to RunProdAppAuthOptions. */
   readonly cookieDomain?: string;
   /** Server-side Origin allowlist for the CSRF guard (see
-   *  AuthRoutesConfig.allowedOrigins). Symmetric zu RunProdAppAuthOptions —
+   *  AuthRoutesConfig.allowedOrigins). Symmetric to RunProdAppAuthOptions —
    *  required once `cookieDomain` is set. */
   readonly allowedOrigins?: readonly string[];
-  /** Opt out of the Origin guard. Symmetric zu RunProdAppAuthOptions. */
+  /** Opt out of the Origin guard. Symmetric to RunProdAppAuthOptions. */
   readonly unsafeSkipOriginCheck?: boolean;
 };
 

@@ -10,7 +10,7 @@ describe("makeAuthGate", () => {
   }
 
   test("loading → renders placeholder, not children, not login", () => {
-    const Gate = makeAuthGate(CustomLogin);
+    const Gate = makeAuthGate({ loginScreen: CustomLogin });
     const session = makeSessionApi({ status: "loading", user: null });
     const { container } = renderWithProviders(
       <Gate>
@@ -25,7 +25,7 @@ describe("makeAuthGate", () => {
   });
 
   test("unauthenticated → renders LoginComponent, not children", () => {
-    const Gate = makeAuthGate(CustomLogin);
+    const Gate = makeAuthGate({ loginScreen: CustomLogin });
     const session = makeSessionApi({ status: "unauthenticated", user: null });
     renderWithProviders(
       <Gate>
@@ -38,7 +38,7 @@ describe("makeAuthGate", () => {
   });
 
   test("authenticated → renders children, not login", () => {
-    const Gate = makeAuthGate(CustomLogin);
+    const Gate = makeAuthGate({ loginScreen: CustomLogin });
     renderWithProviders(
       <Gate>
         <div data-testid="protected">secret</div>
@@ -154,7 +154,10 @@ describe("createLoginRoute", () => {
   });
 
   test("makeAuthGate delegates mfaVerifyScreen wiring to createLoginRoute", () => {
-    const Gate = makeAuthGate(LoginWithMfaTrigger, undefined, CustomMfaVerify);
+    const Gate = makeAuthGate({
+      loginScreen: LoginWithMfaTrigger,
+      mfaVerifyScreen: CustomMfaVerify,
+    });
     const session = makeSessionApi({ status: "unauthenticated" });
     renderWithProviders(
       <Gate>
@@ -194,7 +197,10 @@ describe("createLoginRoute", () => {
   });
 
   test("makeAuthGate delegates mfaSetupScreen wiring to createLoginRoute", () => {
-    const Gate = makeAuthGate(LoginWithMfaSetupTrigger, undefined, undefined, CustomMfaSetup);
+    const Gate = makeAuthGate({
+      loginScreen: LoginWithMfaSetupTrigger,
+      mfaSetupScreen: CustomMfaSetup,
+    });
     const session = makeSessionApi({ status: "unauthenticated" });
     renderWithProviders(
       <Gate>

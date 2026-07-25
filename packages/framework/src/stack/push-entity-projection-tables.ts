@@ -1,3 +1,4 @@
+import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { tableExists } from "../db/schema-inspection";
 import type { Registry } from "../engine/types";
 import { unsafePushTables } from "./table-helpers";
@@ -35,7 +36,7 @@ export async function pushEntityProjectionTables(
     if (seen.has(proj.table)) continue;
     seen.add(proj.table);
     const tableRec = proj.table as unknown as Record<symbol, unknown>;
-    const physical = tableRec[Symbol.for("kumiko:schema:Name")] as string;
+    const physical = tableRec[KUMIKO_NAME_SYMBOL] as string;
     if (await tableExists(stack.db, `public.${physical}`)) {
       logInfo(`[kumiko-stack] table ${physical} already exists — skipping create`);
       continue;

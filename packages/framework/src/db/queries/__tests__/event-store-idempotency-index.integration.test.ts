@@ -37,8 +37,29 @@ describe("ensureIdempotencyKeyIndex (#1499)", () => {
   // must be swallowed the same way createEventsTable already tolerates a
   // racing CREATE TABLE, not crash-loop the booting pod.
   test("concurrent calls from two racing boots don't throw", async () => {
-    await Promise.all([ensureIdempotencyKeyIndex(testDb.db), ensureIdempotencyKeyIndex(testDb.db)]);
-    expect(await indexValidity()).toBe(true);
+    // The prior test already built the index — without dropping it here,
+    // both calls below would just hit the IF NOT EXISTS no-op path (indeed
+    // what the original single-connection version of this test silently
+    // did) and never actually contend on a real CONCURRENTLY build.
+    await asRawClient(testDb.db).unsafe(
+      `DROP INDEX CONCURRENTLY IF EXISTS "events_idempotency_uq"`,
+    );
+
+    // Two independent connections against the SAME database, mirroring two
+    // pods — a single shared `testDb.db` pool would serialize both calls
+    // and never pin the race (kumiko-framework#1522).
+    const secondPodDb = await createTestDb({ dbName: testDb.dbName, persistent: true });
+    try {
+      await Promise.all([
+        ensureIdempotencyKeyIndex(testDb.db),
+        ensureIdempotencyKeyIndex(secondPodDb.db),
+      ]);
+      expect(await indexValidity()).toBe(true);
+    } finally {
+      // persistent: true → cleanup() only closes this pool, doesn't drop the
+      // shared DB (testDb's afterAll still owns that).
+      await secondPodDb.cleanup();
+    }
   });
 
   test("an INVALID leftover from a killed CONCURRENTLY build gets dropped and rebuilt", async () => {

@@ -99,7 +99,7 @@ describe("setupTestStack({ jobs }) wires ctx.jobRunner for manual dispatch", () 
 });
 
 describe("setupTestStack({ jobs }) job context matches the request-path context", () => {
-  test("job handler's context carries tracer + searchAdapter + effectiveFeatures, not a reduced literal", async () => {
+  test("job handler's context carries tracer + searchAdapter, mirrors prod's effectiveFeatures-less job context", async () => {
     jobContextFields.length = 0;
     stack = await setupTestStack({
       features: [jobContextFeature],
@@ -112,10 +112,14 @@ describe("setupTestStack({ jobs }) job context matches the request-path context"
     await waitFor(() => {
       expect(jobContextFields.length).toBeGreaterThan(0);
     });
+    // #1255: effectiveFeatures deliberately stays OUT of the job/appContext
+    // (prod only carries it in dispatcherOptions.effectiveFeatures, consumed
+    // by the command-dispatcher) — putting it here would let a job read
+    // `ctx.effectiveFeatures` green in tests and break on deploy.
     expect(jobContextFields[0]).toEqual({
       hasTracer: true,
       hasSearchAdapter: true,
-      hasEffectiveFeatures: true,
+      hasEffectiveFeatures: false,
     });
   });
 });

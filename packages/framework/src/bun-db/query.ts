@@ -19,6 +19,7 @@
 //     drizzle's getTableName + getTableColumns (drizzle weiterhin als type-
 //     reference, NICHT als runtime-API-call)
 
+import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type {
   SelectOptions,
   WhereObject,
@@ -51,7 +52,6 @@ import type { BunDbRunner } from "./connection";
 // enumerable props, so an entity field named `source`/`columns`/`tableName`/…
 // would overwrite the matching meta key — reading the meta from the symbol is
 // the only collision-safe path.
-const KUMIKO_META_SYMBOL = Symbol.for("kumiko:schema:Meta");
 
 function isEntityTableMeta(v: unknown): v is EntityTableMeta {
   return (
