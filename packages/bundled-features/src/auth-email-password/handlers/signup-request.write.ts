@@ -76,7 +76,14 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       // email" either way. The client-visible signal is the `status` query
       // on auth-self-registration, which the signup page uses to hide its
       // own link/form instead of collecting input that silently no-ops.
-      if (!(await ctx.hasFeature(AUTH_SELF_REGISTRATION_FEATURE))) {
+      // Fail-open when the companion toggle feature isn't composed at all —
+      // ctx.hasFeature() is fail-closed for *unregistered* names the moment
+      // feature-toggles/tier-engine is wired, which silently kills
+      // self-signup for every existing app that mounts auth-email-password
+      // without also composing createAuthSelfRegistrationToggleFeature()
+      // (#1468). Only gate when the toggle actually exists.
+      const gated = ctx.registry.getFeature(AUTH_SELF_REGISTRATION_FEATURE) !== undefined;
+      if (gated && !(await ctx.hasFeature(AUTH_SELF_REGISTRATION_FEATURE))) {
         return { isSuccess: true, data: { kind: "no-op" } };
       }
       if (!ctx.redis) {

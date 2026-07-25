@@ -14,7 +14,10 @@ export const selfRegistrationStatusQuery = defineQueryHandler({
   name: "signup-registration-status",
   schema: z.object({}),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
-  handler: async (_query, ctx) => ({
-    enabled: await ctx.hasFeature(AUTH_SELF_REGISTRATION_FEATURE),
-  }),
+  handler: async (_query, ctx) => {
+    // Same fail-open reasoning as signup-request.write.ts (#1468): only
+    // report disabled when the toggle feature is actually composed.
+    const gated = ctx.registry.getFeature(AUTH_SELF_REGISTRATION_FEATURE) !== undefined;
+    return { enabled: gated ? await ctx.hasFeature(AUTH_SELF_REGISTRATION_FEATURE) : true };
+  },
 });
