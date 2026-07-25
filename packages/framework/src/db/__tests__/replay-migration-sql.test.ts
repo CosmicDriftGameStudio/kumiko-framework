@@ -284,6 +284,31 @@ describe("diffReplayAgainstSnapshot", () => {
     }
   });
 
+  test("kumiko-framework#1473: an unparsed ALTER TABLE RENAME statement fails loud instead of vanishing", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(
+        dir,
+        "0001_init.sql",
+        `CREATE TABLE IF NOT EXISTS "widgets" ("id" uuid PRIMARY KEY);
+ALTER TABLE "widgets" RENAME TO "gadgets";`,
+      );
+      expect(() => replayMigrationsDir(dir)).toThrow(/unparsed table-DDL statement/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("kumiko-framework#1473: an unparsed CREATE TABLE with an unquoted identifier fails loud", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(dir, "0001_init.sql", `CREATE TABLE widgets ("id" uuid PRIMARY KEY);`);
+      expect(() => replayMigrationsDir(dir)).toThrow(/unparsed table-DDL statement/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("unexpected table: migrations create a table the snapshot doesn't know about", () => {
     const dir = tmpMigrationsDir();
     try {

@@ -69,7 +69,11 @@ function parseColumnNames(body: string): Set<string> {
   return columns;
 }
 
-function applyStatement(schema: Map<string, { columns: Set<string> }>, statement: string): void {
+function applyStatement(
+  schema: Map<string, { columns: Set<string> }>,
+  statement: string,
+  context: { readonly file: string },
+): void {
   const create = statement.match(
     /^CREATE TABLE\s+(IF NOT EXISTS\s+)?"([^"]+)"\s*\(([\s\S]*)\);?\s*$/i,
   );
@@ -111,14 +115,47 @@ function applyStatement(schema: Map<string, { columns: Set<string> }>, statement
     const table = schema.get(alterTableName) ?? { columns: new Set<string>() };
     schema.set(alterTableName, table);
     const clauseRe = /(ADD|DROP)\s+COLUMN\s+(?:IF (?:NOT )?EXISTS\s+)?"([^"]+)"/gi;
+    let matchedAClause = false;
     for (const [, verb, name] of alterBody.matchAll(clauseRe)) {
       if (verb === undefined || name === undefined) continue;
+      matchedAClause = true;
       if (verb.toUpperCase() === "ADD") table.columns.add(name);
       else table.columns.delete(name);
     }
+    // ALTER COLUMN <name> TYPE <newtype> — a real, committed pattern in this
+    // repo's own migrations (e.g. the #1085 int/bigint-catchup fixes). Type
+    // changes don't add/remove/rename a column, so this replay (which only
+    // tracks column presence, not types) correctly has nothing to do here —
+    // recognized explicitly so it doesn't fall through as "unparsed".
+    const alterColumnTypeRe = /ALTER COLUMN\s+"([^"]+)"\s+TYPE\b/gi;
+    if (alterBody.match(alterColumnTypeRe)) matchedAClause = true;
+    // An ALTER TABLE that matched the outer "ALTER TABLE <name> <body>" shape
+    // but whose body contains no recognized clause (e.g. RENAME TO/RENAME
+    // COLUMN) would otherwise silently no-op here — fall through to the
+    // fail-loud check below instead of returning, so it's reported rather
+    // than vanishing.
+    // skip: at least one recognized ADD/DROP COLUMN or ALTER COLUMN TYPE
+    // clause matched — this ALTER TABLE is fully handled, nothing left to do.
+    if (matchedAClause) return;
   }
   // else: CREATE INDEX and everything else don't change the table/column
-  // shape this replay tracks.
+  // shape this replay tracks — but a statement that clearly INTENDED to
+  // touch a table's shape (starts with CREATE/ALTER/DROP TABLE) and matched
+  // none of the three patterns above must fail loud, not vanish silently.
+  // The generator header explicitly invites hand-editing ("add partial-
+  // indexes, BRIN-variants") — RENAME TO/RENAME COLUMN, an unquoted
+  // identifier, or other hand-written DDL shapes all fall through here
+  // otherwise, producing a misleading missing-table/column-drift report
+  // instead of pointing at the actual unparsed statement.
+  if (/^(CREATE|ALTER|DROP)\s+TABLE\b/i.test(statement)) {
+    const prefix = statement.slice(0, 200).replace(/\s+/g, " ").trim();
+    throw new Error(
+      `replayMigrationsDir: unparsed table-DDL statement in ${context.file} — ` +
+        `starts with CREATE/ALTER/DROP TABLE but matched none of the replay's ` +
+        `recognized patterns (quoted CREATE TABLE, quoted DROP TABLE, quoted ` +
+        `ALTER TABLE ADD/DROP COLUMN). Statement: ${prefix}${statement.length > 200 ? "…" : ""}`,
+    );
+  }
 }
 
 // Reads `<migrationsDir>/*.sql` in sequence order and replays every
@@ -131,7 +168,7 @@ export function replayMigrationsDir(migrationsDir: string): ReplayedSchema {
   for (const file of files) {
     const raw = readFileSync(join(migrationsDir, file), "utf8");
     const statements = splitSqlStatements(expandDestructiveMarkers(raw));
-    for (const statement of statements) applyStatement(schema, statement);
+    for (const statement of statements) applyStatement(schema, statement, { file });
   }
   return schema;
 }

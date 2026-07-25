@@ -49,11 +49,16 @@ function fakeSecrets(): SecretsContext {
   };
 }
 
-describeMailTransportContract("mail-transport-smtp", () => ({
-  plugin: registeredPlugin(),
-  ctx: { config: fakeConfig(), secrets: fakeSecrets(), _userId: "contract-test-user" },
-  tenantId: "contract-test-tenant",
-}));
+describeMailTransportContract(
+  "mail-transport-smtp",
+  () => ({
+    plugin: registeredPlugin(),
+    ctx: { config: fakeConfig(), secrets: fakeSecrets(), _userId: "contract-test-user" },
+    tenantId: "contract-test-tenant",
+  }),
+  // send() needs a live SMTP server — can't assert real delivery here.
+  { verifiesDelivery: false },
+);
 
 describe("mailTransportSmtpFeature — build error path", () => {
   test("build rejects when a required config-key (host) is unset", async () => {

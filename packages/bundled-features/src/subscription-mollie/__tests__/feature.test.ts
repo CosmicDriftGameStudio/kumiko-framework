@@ -190,4 +190,8 @@ function buildMollieContractFixture() {
   };
 }
 
-describeSubscriptionProviderContract("subscription-mollie", buildMollieContractFixture);
+describeSubscriptionProviderContract("subscription-mollie", buildMollieContractFixture, {
+  // Mollie has no customer-portal or programmatic cancel API.
+  hasPortal: false,
+  hasCancel: false,
+});

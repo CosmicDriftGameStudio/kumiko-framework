@@ -25,9 +25,19 @@ export type SubscriptionProviderContractFixture = {
   };
 };
 
+export type SubscriptionProviderContractOptions = {
+  // Providers without portal/cancel support (e.g. Mollie) must say so
+  // explicitly — a bare `if (!plugin.x) return` inside the test body makes
+  // the skip invisible in test output (a coverage illusion: Stripe's
+  // portal/cancel tests and Mollie's "skip" both show as green) (#1339).
+  readonly hasPortal: boolean;
+  readonly hasCancel: boolean;
+};
+
 export function describeSubscriptionProviderContract(
   name: string,
   factory: () => SubscriptionProviderContractFixture | Promise<SubscriptionProviderContractFixture>,
+  options: SubscriptionProviderContractOptions,
 ): void {
   describe(`${name} — SubscriptionProviderPlugin contract`, () => {
     test("implements verifyAndParseWebhook", async () => {
@@ -52,18 +62,32 @@ export function describeSubscriptionProviderContract(
       expect(result.url.length).toBeGreaterThan(0);
     });
 
-    test("createPortalSession returns a hosted-page url — providers without a portal skip", async () => {
-      const { plugin, ctx, portal } = await factory();
-      if (!plugin.createPortalSession || !portal) return;
-      const result = await plugin.createPortalSession(ctx, portal);
-      expect(typeof result.url).toBe("string");
-      expect(result.url.length).toBeGreaterThan(0);
-    });
+    (options.hasPortal ? test : test.skip)(
+      "createPortalSession returns a hosted-page url",
+      async () => {
+        const { plugin, ctx, portal } = await factory();
+        if (!plugin.createPortalSession || !portal) {
+          throw new Error(
+            "describeSubscriptionProviderContract: hasPortal:true but the fixture has no createPortalSession/portal",
+          );
+        }
+        const result = await plugin.createPortalSession(ctx, portal);
+        expect(typeof result.url).toBe("string");
+        expect(result.url.length).toBeGreaterThan(0);
+      },
+    );
 
-    test("cancelSubscription resolves without throwing — providers without cancel-support skip", async () => {
-      const { plugin, ctx, cancelSubscriptionId } = await factory();
-      if (!plugin.cancelSubscription || !cancelSubscriptionId) return;
-      await expect(plugin.cancelSubscription(ctx, cancelSubscriptionId)).resolves.toBeUndefined();
-    });
+    (options.hasCancel ? test : test.skip)(
+      "cancelSubscription resolves without throwing",
+      async () => {
+        const { plugin, ctx, cancelSubscriptionId } = await factory();
+        if (!plugin.cancelSubscription || !cancelSubscriptionId) {
+          throw new Error(
+            "describeSubscriptionProviderContract: hasCancel:true but the fixture has no cancelSubscription/cancelSubscriptionId",
+          );
+        }
+        await expect(plugin.cancelSubscription(ctx, cancelSubscriptionId)).resolves.toBeUndefined();
+      },
+    );
   });
 }
