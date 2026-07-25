@@ -53,6 +53,17 @@ export function createApp(config: AppConfig): App {
         }
       }
     }
+    for (const handler of Object.values(feature.streamHandlers)) {
+      if (handler.access && "roles" in handler.access) {
+        for (const role of handler.access.roles) {
+          if (!validRoles.has(role)) {
+            throw new Error(
+              `Unknown role "${role}" in stream handler "${handler.name}" of feature "${feature.name}". Valid roles: ${config.roles.join(", ")}`,
+            );
+          }
+        }
+      }
+    }
     for (const [key, keyDef] of Object.entries(feature.configKeys)) {
       for (const role of [...keyDef.access.read, ...keyDef.access.write]) {
         if (!systemRoles.has(role) && !validRoles.has(role)) {

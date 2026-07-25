@@ -115,6 +115,11 @@ export function collectKnownRoles(features: readonly FeatureDefinition[]): Set<s
         for (const r of def.access.roles) roles.add(r);
       }
     }
+    for (const def of Object.values(f.streamHandlers)) {
+      if (def.access && "roles" in def.access) {
+        for (const r of def.access.roles) roles.add(r);
+      }
+    }
   }
   return roles;
 }

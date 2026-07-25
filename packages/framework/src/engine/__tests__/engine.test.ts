@@ -739,6 +739,36 @@ describe("createApp", () => {
     ).not.toThrow();
   });
 
+  test("validates stream handler roles against app-defined roles (#1442)", () => {
+    const feature = defineFeature("admin", (r) => {
+      r.streamHandler("admin.tail", z.object({}), async function* () {}, {
+        access: { roles: ["SuperAdmin"] },
+      });
+    });
+
+    expect(() =>
+      createApp({
+        roles: ["Admin", "User"] as const,
+        features: [feature],
+      }),
+    ).toThrow(/unknown role.*SuperAdmin/i);
+  });
+
+  test("passes when stream handler roles are valid (#1442)", () => {
+    const feature = defineFeature("admin", (r) => {
+      r.streamHandler("admin.tail", z.object({}), async function* () {}, {
+        access: { roles: ["Admin"] },
+      });
+    });
+
+    expect(() =>
+      createApp({
+        roles: ["Admin", "User"] as const,
+        features: [feature],
+      }),
+    ).not.toThrow();
+  });
+
   test("createApp returns registry", () => {
     const feature = defineFeature("test", () => {});
     const app = createApp({ roles: ["Admin"] as const, features: [feature] });
