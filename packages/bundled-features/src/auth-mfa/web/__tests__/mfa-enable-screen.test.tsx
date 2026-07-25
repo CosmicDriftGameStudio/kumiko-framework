@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -33,6 +33,15 @@ mock.module("@cosmicdrift/kumiko-renderer", () => ({
 mock.module("qrcode/lib/browser", () => ({
   default: { toString: mock(async () => "<svg></svg>") },
 }));
+
+// bun's mock.module is process-global and outlives this file — without
+// restoring it, any later suite in the same test run that needs the real
+// useDispatcher from @cosmicdrift/kumiko-renderer silently gets this mock
+// instead (green-by-accident or a confusing foreign-suite failure,
+// depending on test order).
+afterAll(() => {
+  mock.module("@cosmicdrift/kumiko-renderer", () => actual_renderer);
+});
 
 const { MfaEnableScreen } = await import("../mfa-enable-screen");
 

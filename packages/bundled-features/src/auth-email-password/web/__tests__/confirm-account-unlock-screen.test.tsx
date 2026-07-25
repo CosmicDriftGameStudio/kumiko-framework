@@ -33,6 +33,7 @@ describe("ConfirmAccountUnlockScreen", () => {
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({ "Content-Type": "application/json" }),
+          credentials: "same-origin",
           body: JSON.stringify({ token: "unlock-tok" }),
         }),
       );

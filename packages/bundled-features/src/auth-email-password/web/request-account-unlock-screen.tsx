@@ -50,7 +50,7 @@ export function RequestAccountUnlockScreen({
             : undefined;
         setError(
           minutes !== undefined
-            ? t("auth.errors.accountLockedRetry", { minutes })
+            ? t("auth.requestUnlock.rateLimited", { minutes })
             : t("auth.errors.rateLimited"),
         );
       } else {

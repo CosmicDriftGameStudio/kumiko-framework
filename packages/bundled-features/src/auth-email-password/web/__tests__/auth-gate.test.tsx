@@ -134,6 +134,25 @@ describe("createLoginRoute", () => {
     expect(screen.getByTestId("mfa-verify").textContent).toBe("token-123");
   });
 
+  test("no mfaVerifyScreen → onMfaChallenge passes through to loginScreenProps.onMfaChallenge (#266 footgun)", () => {
+    // The silent-no-MFA-fallback path: an app that wires its own
+    // onMfaChallenge via loginScreenProps but forgets mfaVerifyScreen still
+    // gets that callback invoked (createLoginRoute can't detect the
+    // omission) instead of the internal setChallengeToken/MfaVerifyComponent
+    // machinery kicking in. Covered here so a future refactor of that
+    // ternary can't silently swap the fallback direction.
+    const onMfaChallenge = mock<(challengeToken: string) => void>();
+    const LoginRoute = createLoginRoute({
+      loginScreen: LoginWithMfaTrigger,
+      loginScreenProps: { onMfaChallenge },
+    });
+    const session = makeSessionApi({ status: "unauthenticated" });
+    renderWithProviders(<LoginRoute />, { session });
+    fireEvent.click(screen.getByTestId("trigger-mfa"));
+    expect(onMfaChallenge).toHaveBeenCalledWith("token-123");
+    expect(screen.queryByTestId("mfa-verify")).toBeNull();
+  });
+
   test("makeAuthGate delegates mfaVerifyScreen wiring to createLoginRoute", () => {
     const Gate = makeAuthGate(LoginWithMfaTrigger, undefined, CustomMfaVerify);
     const session = makeSessionApi({ status: "unauthenticated" });

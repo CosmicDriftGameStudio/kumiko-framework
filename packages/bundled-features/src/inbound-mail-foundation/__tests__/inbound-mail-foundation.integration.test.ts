@@ -22,12 +22,13 @@ import {
   PII_ERASED_SENTINEL,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   append,
   createEventsTable,
   getStreamVersion,
   loadAggregate,
+  VersionConflictError,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
@@ -37,6 +38,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -54,6 +56,7 @@ import {
   type MailThreadEventPayload,
 } from "../events";
 import { inboundMailFoundationFeature } from "../feature";
+import { ingestMessageHandler } from "../handlers/ingest-message.write";
 import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
@@ -367,6 +370,79 @@ describe("scenario 2c: ingest-message — concurrent thread-rollup race (issue #
       // stale-read-and-succeed append (the bug the retry loop replaces).
       expect(threadRows[0]?.["messageCount"]).toBe(CONCURRENCY);
     }
+  });
+});
+
+describe("scenario 2d: ingest-message — thread-rollup retry exhaustion (#1229)", () => {
+  // The version-conflict retry loop (THREAD_ROLLUP_MAX_ATTEMPTS = 5) is
+  // exercised by scenario 2c above only on its happy path (some attempt
+  // within the bound eventually wins). New behavior added alongside it —
+  // exhausting all 5 attempts — is untested: does it actually surface as an
+  // InternalError instead of silently persisting a stale messageCount?
+  // Forces exhaustion deterministically by calling the handler directly
+  // with a ctx whose tryAppendEvent always loses the version-conflict race
+  // for the thread aggregate specifically (the message-append itself still
+  // goes through a real, conflict-free append — there's no concurrent
+  // writer for a brand-new message aggregateId).
+  //
+  // Honest scope: this drives the handler directly (no dispatcher, no
+  // enclosing TX), same as reindex-entity-job's direct-call tests — it
+  // does NOT exercise the dispatcher's own TX-rollback-on-throw behavior,
+  // only that the handler itself throws instead of returning success after
+  // exhausting the attempts.
+  test("5 lost version-conflict races → InternalError, not a silent success", async () => {
+    const admin = adminFor(4023);
+    const accountId = await connectSharedAccount(admin);
+    const messageIdHeader = "exhaustion-root@example.com";
+
+    const tenantDb = createTenantDb(db, admin.tenantId, "system");
+    let threadAppendAttempts = 0;
+    const ctx = {
+      db: tenantDb,
+      registry: stack.registry,
+      ...bridgeStub({ user: admin }),
+      loadAggregate: (aggregateId: string) => loadAggregate(db, aggregateId, admin.tenantId),
+      tryAppendEvent: async (args: {
+        aggregateId: string;
+        aggregateType: string;
+        type: string;
+        payload: unknown;
+        headers?: unknown;
+      }) => {
+        if (args.aggregateType === MAIL_THREAD_AGGREGATE_TYPE) {
+          threadAppendAttempts++;
+          return { ok: false as const, conflict: new VersionConflictError(args.aggregateId, 0) };
+        }
+        // Step 4 (message append): fresh aggregateId, no concurrent writer
+        // in this test — a real, conflict-free append via expectedVersion 0.
+        const event = await append(db, {
+          aggregateId: args.aggregateId,
+          aggregateType: args.aggregateType,
+          tenantId: admin.tenantId,
+          expectedVersion: 0,
+          type: args.type,
+          payload: args.payload as Record<string, unknown>,
+          metadata: { userId: String(admin.id) },
+        });
+        return { ok: true as const, event };
+      },
+      // biome-ignore lint/suspicious/noExplicitAny: hand-built ctx narrower than HandlerContext, cast at the test/framework boundary
+    } as any;
+
+    await expect(
+      ingestMessageHandler.handler(
+        {
+          type: InboundMailFoundationHandlers.ingestMessage,
+          user: admin,
+          payload: ingestPayload(accountId, {
+            providerMessageId: "exhaustion-1",
+            messageIdHeader,
+          }),
+        },
+        ctx,
+      ),
+    ).rejects.toThrow(/lost the version-conflict race 5 times in a row/);
+    expect(threadAppendAttempts).toBe(5);
   });
 });
 

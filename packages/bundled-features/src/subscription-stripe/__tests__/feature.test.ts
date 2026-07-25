@@ -134,17 +134,21 @@ async function buildStripeContractFixture() {
   const stripe = new Stripe(CONTRACT_API_KEY);
   spyOn(stripe.checkout.sessions, "create").mockResolvedValue({
     url: "https://checkout.stripe.com/c/pay/contract-test",
-    // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-  } as any);
+    // Only `.url` is read by createStripeCheckoutSession. mockResolvedValue
+    // wants Stripe.Response<Session> (adds lastResponse metadata) — the SDK
+    // wrapper type makes a structural mock impractical, so double-cast at
+    // the test/SDK boundary instead of `as any`.
+  } as unknown as Stripe.Response<Stripe.Checkout.Session>);
   spyOn(stripe.billingPortal.sessions, "create").mockResolvedValue({
     url: "https://billing.stripe.com/p/session/contract-test",
-    // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-  } as any);
+    // Only `.url` is read by createStripePortalSession, see above.
+  } as unknown as Stripe.Response<Stripe.BillingPortal.Session>);
   spyOn(stripe.subscriptions, "cancel").mockResolvedValue({
     id: "sub_contract",
     status: "canceled",
-    // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-  } as any);
+    // Return value isn't read by createStripeCancelSubscription (fire-and-
+    // forget) — double-cast at the test/SDK boundary instead of `as any`.
+  } as unknown as Stripe.Response<Stripe.Subscription>);
   const runtime = contractCtxRuntime(stripe);
 
   const stripeForWebhookFixture = new Stripe(CONTRACT_API_KEY);

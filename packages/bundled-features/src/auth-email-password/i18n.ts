@@ -89,6 +89,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.requestUnlock.successBody":
       "Falls die E-Mail in unserem System existiert und gesperrt ist, ist eine Nachricht mit einem Entsperren-Link unterwegs. Bitte schau in deinen Posteingang.",
     "auth.requestUnlock.backToLogin": "Zurück zum Login",
+    "auth.requestUnlock.rateLimited": "Zu viele Anfragen. Neuer Versuch in {minutes} Minuten.",
     "auth.unlockAccount.verifying": "Konto wird entsperrt …",
     "auth.unlockAccount.successTitle": "Konto entsperrt",
     "auth.unlockAccount.successBody":
@@ -215,6 +216,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.requestUnlock.successBody":
       "If that email exists in our system and is locked, a message with an unlock link is on its way. Please check your inbox.",
     "auth.requestUnlock.backToLogin": "Back to sign in",
+    "auth.requestUnlock.rateLimited": "Too many requests. Try again in {minutes} minutes.",
     "auth.unlockAccount.verifying": "Unlocking account …",
     "auth.unlockAccount.successTitle": "Account unlocked",
     "auth.unlockAccount.successBody": "Your account is unlocked again. You can sign in now.",

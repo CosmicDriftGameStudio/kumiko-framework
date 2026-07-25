@@ -67,9 +67,11 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       // ponytail: burned here, not unburned on a later executor.create
       // failure (unlike login.write.ts's unburnToken pattern) — self-service
       // enable-start always mints a fresh setup token on demand (no mailed
-      // link to go stale), so the realistic failure path (double-confirm
-      // race sans Redis) is meant to leave the burn standing. Add
-      // unburnToken here if create-failure retries turn out to matter.
+      // link to go stale), so the realistic remaining failure path (a
+      // double-confirm race where executor.create itself fails, e.g. a
+      // concurrent mfa_already_enabled() write) is meant to leave the burn
+      // standing. Add unburnToken here if create-failure retries turn out
+      // to matter.
       const burnResult = await burnToken(ctx.redis, "mfa-setup", event.user.id, verify.expiresAtMs);
       if (burnResult === "already-used") return invalidSetupToken();
 

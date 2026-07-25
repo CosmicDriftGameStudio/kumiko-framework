@@ -2,7 +2,11 @@
 
 import { describe, expect, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import type { MollieClient } from "@mollie/api-client";
+import type {
+  MollieClient,
+  Payment as MolliePayment,
+  Subscription as MollieSubscription,
+} from "@mollie/api-client";
 import { describeSubscriptionProviderContract } from "../../billing-foundation/__tests__/subscription-provider-contract";
 import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "../constants";
 import { createSubscriptionMollieFeature } from "../feature";
@@ -132,16 +136,18 @@ function buildMollieContractFixture() {
     nextPaymentDate: "2026-06-15",
     startDate: "2026-05-15",
     metadata: { tenantId: CONTRACT_TENANT_ID, priceId: CONTRACT_PRICE_ID },
-    // biome-ignore lint/suspicious/noExplicitAny: minimal Mollie-SDK-shape mock
-  } as any;
+    // Minimal Mollie-SDK-shape mock — full Subscription has more fields
+    // than the plugin reads; double-cast at the test/SDK boundary instead
+    // of `as any` per coding-standards.
+  } as unknown as MollieSubscription;
   const payment = {
     id: "tr_contract_001",
     customerId: "cst_contract_001",
     subscriptionId: "sub_contract_001",
     sequenceType: "first",
     status: "paid",
-    // biome-ignore lint/suspicious/noExplicitAny: minimal Mollie-SDK-shape mock
-  } as any;
+    // Minimal Mollie-SDK-shape mock, see subscription above.
+  } as unknown as MolliePayment;
 
   const webhookClient: MollieClientShape = {
     payments: { get: async () => payment },
