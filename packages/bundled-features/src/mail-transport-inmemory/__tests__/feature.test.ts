@@ -15,12 +15,16 @@ function registeredPlugin(): MailTransportPlugin {
   return usage.options;
 }
 
-describeMailTransportContract("mail-transport-inmemory", () => ({
-  plugin: registeredPlugin(),
-  ctx: {},
-  tenantId: "contract-test-tenant",
-  readBack: getInbox,
-}));
+describeMailTransportContract(
+  "mail-transport-inmemory",
+  () => ({
+    plugin: registeredPlugin(),
+    ctx: {},
+    tenantId: "contract-test-tenant",
+    readBack: getInbox,
+  }),
+  { verifiesDelivery: true },
+);
 
 describe("mailTransportInMemoryFeature — shape", () => {
   test("has the expected name", () => {

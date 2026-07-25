@@ -218,4 +218,7 @@ async function buildStripeContractFixture() {
   };
 }
 
-describeSubscriptionProviderContract("subscription-stripe", buildStripeContractFixture);
+describeSubscriptionProviderContract("subscription-stripe", buildStripeContractFixture, {
+  hasPortal: true,
+  hasCancel: true,
+});
