@@ -126,28 +126,34 @@ export function createApiRoutes(dispatcher: Dispatcher) {
   // Dispatcher-driven SSE, full auth/CSRF/rate-limit chain (unlike the
   // broker-based /sse route). Frame contract for clients: "chunk" (one per
   // yielded value, JSON-encoded), "ping" (heartbeat, empty data), "done"
-  // (terminal, empty data), "error" (terminal, JSON error envelope — the
-  // response status stays 200 since SSE headers are already flushed before
-  // dispatch gates run on the generator's first pull).
+  // (terminal, empty data), "error" (terminal, JSON error envelope — only
+  // reachable once the stream is already open, i.e. failures from the
+  // second chunk onward). The generator's first `.next()` — which runs the
+  // dispatch gates (feature/rate-limit/access/validation) plus the handler's
+  // first yield — is pulled BEFORE streamSSE, so a gate failure maps to its
+  // real HTTP status via queryErrorResponse instead of a flushed-200 error
+  // frame (framework#1517).
   api.post(Routes.stream, async (c) => {
     const user = getUser(c);
     const body = await c.req.json<{ type: string; payload: unknown }>();
     const requestId = requestContext.get()?.requestId;
 
+    const generator = dispatcher.stream(body.type, body.payload, user);
+    let first: IteratorResult<unknown>;
     try {
       assertPatAllowed(user, body.type);
+      first = await generator.next();
     } catch (e) {
       return queryErrorResponse(c, toKumiko(e), body.type);
     }
 
     return streamSSE(c, async (stream) => {
-      const generator = dispatcher.stream(body.type, body.payload, user);
       stream.onAbort(() => {
         void generator.return(undefined);
       });
 
       try {
-        await pumpStream(stream, generator, SSE_HEARTBEAT_INTERVAL_MS);
+        await pumpStream(stream, generator, SSE_HEARTBEAT_INTERVAL_MS, first);
       } catch (e) {
         const err = toKumiko(e);
         logServerFault(err, requestId, body.type);
@@ -175,8 +181,12 @@ export async function pumpStream(
   stream: SseWriter,
   generator: AsyncGenerator<unknown>,
   heartbeatMs: number,
+  // Pre-pulled first `.next()` outcome (see the /api/stream route: it pulls
+  // this before streamSSE to surface gate failures as real HTTP statuses).
+  // Passing it here avoids pulling the generator a second time.
+  firstOutcome?: IteratorResult<unknown>,
 ): Promise<void> {
-  let pending = generator.next();
+  let pending = firstOutcome !== undefined ? Promise.resolve(firstOutcome) : generator.next();
   while (true) {
     let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
     const heartbeat = new Promise<"heartbeat">((resolve) => {

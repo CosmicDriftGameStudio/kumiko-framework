@@ -40,6 +40,17 @@ const testFeature = defineFeature("test", (r) => {
     },
     { access: { roles: ["Admin"] } },
   );
+
+  r.streamHandler(
+    "item:tail-fail-mid",
+    z.object({}),
+    async function* () {
+      yield { i: 0 };
+      yield { i: 1 };
+      throw new Error("boom");
+    },
+    { access: { roles: ["Admin"] } },
+  );
 });
 
 const registry = createRegistry([testFeature]);
@@ -320,10 +331,11 @@ describe("POST /api/stream", () => {
     ]);
   });
 
-  test("access-denied gate surfaces as an error frame, not an HTTP error status", async () => {
-    // Dispatch gates (feature/rate-limit/access/validation) fire on the
-    // generator's first pull, which happens after SSE headers are already
-    // flushed — so an access-denied mid-stream stays HTTP 200.
+  test("access-denied gate surfaces as a real 403, not an HTTP 200 error frame", async () => {
+    // Dispatch gates (feature/rate-limit/access/validation) run on the
+    // generator's first pull, which the route now performs BEFORE opening
+    // the SSE response — so a gate failure maps to its real HTTP status
+    // instead of a flushed-200 error frame (framework#1517).
     const headers = await authHeader(guestUser);
     const res = await req(
       "POST",
@@ -332,11 +344,55 @@ describe("POST /api/stream", () => {
       headers,
     );
 
+    expect(res.status).toBe(403);
+    expect(res.headers.get("content-type")).not.toContain("text/event-stream");
+    const body = await res.json();
+    expect(body.error).toMatchObject({ code: "access_denied" });
+  });
+
+  test("returns 404 for unknown stream handler", async () => {
+    const headers = await authHeader(adminUser);
+    const res = await req("POST", "/api/stream", { type: "nope", payload: {} }, headers);
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).not.toContain("text/event-stream");
+  });
+
+  test("returns 400 for schema validation failure", async () => {
+    const headers = await authHeader(adminUser);
+    const res = await req(
+      "POST",
+      "/api/stream",
+      { type: "test:stream:item:tail", payload: { count: -1 } },
+      headers,
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.headers.get("content-type")).not.toContain("text/event-stream");
+  });
+
+  test("handler failure after chunks already sent stays HTTP 200 with an error frame", async () => {
+    // Boundary between the pre-pull fix and the still-open SSE stream: a
+    // failure that happens AFTER the first chunk (headers already flushed)
+    // must keep surfacing as a 200 + "error" frame, not a real HTTP status.
+    const headers = await authHeader(adminUser);
+    const res = await req(
+      "POST",
+      "/api/stream",
+      { type: "test:stream:item:tail-fail-mid", payload: {} },
+      headers,
+    );
+
     expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
     const frames = parseSseFrames(await res.text());
-    expect(frames).toHaveLength(1);
-    expect(frames[0]?.event).toBe("error");
-    expect(JSON.parse(frames[0]?.data ?? "{}")).toMatchObject({ code: "access_denied" });
+    expect(frames).toHaveLength(3);
+    expect(frames.slice(0, 2)).toEqual([
+      { event: "chunk", data: JSON.stringify({ i: 0 }) },
+      { event: "chunk", data: JSON.stringify({ i: 1 }) },
+    ]);
+    expect(frames[2]?.event).toBe("error");
+    expect(JSON.parse(frames[2]?.data ?? "{}")).toMatchObject({ code: "internal_error" });
   });
 });
 
