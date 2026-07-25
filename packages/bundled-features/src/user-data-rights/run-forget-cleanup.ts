@@ -175,6 +175,15 @@ interface HookEntry {
 // hook that nulls that column. See custom-fields wire-user-data-rights.ts.
 const HOOK_ORDER_DEFAULT = EXT_USER_DATA_ORDER.DEFAULT;
 
+// Hook-reported reasons are external input (provider error messages can embed
+// user-controlled filenames/emails) — strip newlines before a single-line
+// console.warn so a crafted reason can't forge extra log lines, and cap the
+// length against a log-flood. The unsanitized reason still lands in the
+// returned `incomplete` entry untouched.
+function sanitizeReasonForLog(reason: string): string {
+  return reason.replace(/[\r\n]+/g, " ").slice(0, 500);
+}
+
 export async function runForgetCleanup(
   args: RunForgetCleanupArgs,
 ): Promise<RunForgetCleanupResult> {
@@ -292,7 +301,7 @@ async function processUser(args: {
 }): Promise<ProcessUserResult> {
   const { db, registry, userId, hookEntries, buildStorageProvider, appTenantModel, kms } = args;
   const errors: ForgetCleanupError[] = [];
-  const incomplete: ForgetCleanupIncomplete[] = [];
+  const incomplete: Omit<ForgetCleanupIncomplete, "rolledBack">[] = [];
   let hookCallsAttempted = 0;
 
   // Atom 5b — userEmail VOR der Tx cachen. user-Hook (user-data-rights-
@@ -378,14 +387,10 @@ async function processUser(args: {
               tenantId,
               entityName: entry.entityName,
               reason: hookResult.reason,
-              // Overwritten by the final `incomplete.map(...)` below once
-              // txSucceeded is known — placeholder here since a push can
-              // happen before a LATER hook in the same sub-tx decides that.
-              rolledBack: false,
             });
             // biome-ignore lint/suspicious/noConsole: operator-visibility for partial hook completion
             console.warn(
-              `[user-data-rights:run-forget-cleanup] hook incomplete userId=${userId} tenantId=${tenantId} entityName=${entry.entityName} reason=${hookResult.reason}`,
+              `[user-data-rights:run-forget-cleanup] hook incomplete userId=${userId} tenantId=${tenantId} entityName=${entry.entityName} reason=${sanitizeReasonForLog(hookResult.reason)}`,
             );
           }
         }

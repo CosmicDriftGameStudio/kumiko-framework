@@ -275,20 +275,32 @@ export async function runSchemaCli(
       // diff the reconstructed schema against .snapshot.json.
       const committedSnapshot = existsSync(snapshotPath) ? loadSnapshotJson(snapshotPath) : null;
       if (existsSync(migrationsDir) && committedSnapshot !== null) {
-        const replayed = replayMigrationsDir(migrationsDir);
-        const mismatches = diffReplayAgainstSnapshot(replayed, committedSnapshot);
-        if (mismatches.length === 0) {
-          out.log("  ✓ migrations: committed SQL matches .snapshot.json");
-        } else {
-          ok = false;
-          out.err(
-            "  ✗ migration-content drift: committed *.sql files don't produce .snapshot.json.",
-          );
-          for (const m of mismatches) {
-            out.err(`    ${m.tableName} (${m.kind}): ${m.detail}`);
+        try {
+          const replayed = replayMigrationsDir(migrationsDir);
+          const mismatches = diffReplayAgainstSnapshot(replayed, committedSnapshot);
+          if (mismatches.length === 0) {
+            out.log("  ✓ migrations: committed SQL matches .snapshot.json");
+          } else {
+            ok = false;
+            out.err(
+              "  ✗ migration-content drift: committed *.sql files don't produce .snapshot.json.",
+            );
+            for (const m of mismatches) {
+              out.err(`    ${m.tableName} (${m.kind}): ${m.detail}`);
+            }
+            out.err(
+              "    Fix: a migration file's body doesn't match what it (or the snapshot) claims — hand-fix the file, or ship a corrective migration if it's already applied in prod.",
+            );
           }
+        } catch (e) {
+          // replayMigrationsDir fail-loud's on a table-DDL statement it can't
+          // parse — that must surface as a normal ✗ line like every other
+          // check here, not a raw stack trace that kills the process before
+          // any later check (or the Fix: help) ever runs (framework#1535).
+          ok = false;
+          out.err(`  ✗ migration-content: ${e instanceof Error ? e.message : String(e)}`);
           out.err(
-            "    Fix: a migration file's body doesn't match what it (or the snapshot) claims — hand-fix the file, or ship a corrective migration if it's already applied in prod.",
+            "    Fix: a statement in a migration file isn't recognizable to the replay parser — extend the parser's recognized patterns, or reword the migration to one it understands.",
           );
         }
       }

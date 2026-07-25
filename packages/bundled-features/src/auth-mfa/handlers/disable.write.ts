@@ -1,5 +1,6 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { findUserMfaRow } from "../db/queries";
 import { invalidTotpCode, mfaNotEnabled } from "../errors";
@@ -30,7 +31,21 @@ export function createDisableHandler(opts: DisableOptions) {
       const row = await findUserMfaRow(ctx.db, event.user);
       if (!row) return mfaNotEnabled();
 
-      const replay = ctx.redis ? { redis: ctx.redis, userId: event.user.id } : undefined;
+      // Fail closed, matching verify.write.ts/enable-confirm-preauth.write.ts
+      // (#1467): without ctx.redis, verifyMfaFactor's TOTP-replay burn is
+      // skipped, and a code observed once (phishing proxy/shoulder-surfing)
+      // could be replayed within the ±1-step window to disable MFA outright.
+      // "no ctx.redis means no one gets through MFA login" doesn't cover
+      // this route — it's session-authed, and JWTs issued before Redis was
+      // unwired stay valid until they expire.
+      if (!ctx.redis) {
+        return writeFailure(
+          new InternalError({
+            message: "disable (mfa) requires ctx.redis for TOTP replay protection",
+          }),
+        );
+      }
+      const replay = { redis: ctx.redis, userId: event.user.id };
       const verify = await verifyMfaFactor(row, event.payload.code, replay);
       if (!verify.ok) return invalidTotpCode();
 

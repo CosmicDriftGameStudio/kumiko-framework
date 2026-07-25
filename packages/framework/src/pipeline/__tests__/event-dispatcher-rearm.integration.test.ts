@@ -151,6 +151,26 @@ describe("issue #1350 — bounded dead-consumer re-arm", () => {
     expect(deadAgain?.rearmCount).toBe(0);
   });
 
+  test("kumiko-framework#1525: cooldown-elapsed re-arm check works without relying on globalThis.Temporal", async () => {
+    poisonNames.add("poison");
+    await appendWidget("poison");
+    await driveUntilDead();
+    await backdateUpdatedAt(10);
+
+    const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
+    delete (globalThis as { Temporal?: unknown }).Temporal;
+    try {
+      await stack.eventDispatcher?.runOnce();
+    } finally {
+      if (savedGlobal === undefined) delete (globalThis as { Temporal?: unknown }).Temporal;
+      else (globalThis as { Temporal?: unknown }).Temporal = savedGlobal;
+    }
+
+    const revived = await getConsumerState(stack.db, qn);
+    expect(revived?.status).toBe("idle");
+    expect(revived?.rearmCount).toBe(1);
+  });
+
   test("permanently dead after maxRearmCount cycles, even once cooldown elapses again", async () => {
     poisonNames.add("poison");
     await appendWidget("poison");

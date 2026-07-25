@@ -258,6 +258,37 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
     const err = await stack.http.writeErr(LIFT, { userId }, admin);
     expect(reasonOf(err)).toBe("not_restricted");
   });
+
+  // kumiko-framework#1342: access.admin includes TenantAdmin/Admin, which
+  // are tenant-scoped roles, but the User-entity lookup uses ctx.db.raw
+  // (no auto-tenant-filter — User status is intentionally global). Without
+  // a membership check, an Admin from a DIFFERENT tenant than the target
+  // user could still pass the access-gate and flip the target's status.
+  test("Admin aus fremdem Tenant: 403 target_user_not_in_admin_tenant, Status bleibt Restricted", async () => {
+    const { userId } = await seedAliceWithMembership(USER_STATUS.Restricted);
+    const otherTenantAdmin = await mintActor(TestUsers.otherTenant);
+
+    const err = await stack.http.writeErr(LIFT, { userId }, otherTenantAdmin);
+    expect(err.httpStatus).toBe(403);
+    expect(reasonOf(err)).toBe("target_user_not_in_admin_tenant");
+
+    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
+      status: string;
+    }>;
+    expect(userRow[0]?.status).toBe(USER_STATUS.Restricted);
+  });
+
+  test("SystemAdmin darf tenant-übergreifend liften (platform-weiter Operator)", async () => {
+    const { userId } = await seedAliceWithMembership(USER_STATUS.Restricted);
+    const systemAdmin = await mintActor({
+      id: crypto.randomUUID(),
+      tenantId: testTenantId(2),
+      roles: ["SystemAdmin"],
+    });
+
+    const result = await stack.http.writeOk<{ status: string }>(LIFT, { userId }, systemAdmin);
+    expect(result.status).toBe(USER_STATUS.Active);
+  });
 });
 
 describe("S2.U6 :: Login-Block fuer Restricted/DeletionRequested/Deleted", () => {

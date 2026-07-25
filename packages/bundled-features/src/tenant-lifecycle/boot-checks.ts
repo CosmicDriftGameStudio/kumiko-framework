@@ -25,7 +25,7 @@ export function validateTenantDataHookCoverage(features: readonly FeatureDefinit
       if (hookedEntities.has(entityName)) continue;
       const tenantSubjectFields = Object.entries(entity.fields)
         .filter(([, field]) => {
-          const annot = field as PiiAnnotations;
+          const annot = field as PiiAnnotations; // @cast-boundary schema-walk
           return Boolean(annot.tenantOwned);
         })
         .map(([name]) => name);

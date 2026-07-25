@@ -6,7 +6,8 @@
 // out) entry point, own DB connection) so `kumiko-consumer` ships the same
 // way `kumiko-schema` does.
 
-import { createDbConnection } from "./db";
+import { createConnection } from "./db/api";
+import { dbConnectionOptionsFromEnv } from "./db/connection";
 import { getConsumerState, restartConsumer } from "./pipeline";
 import { ensureTemporalPolyfill } from "./time";
 
@@ -73,11 +74,18 @@ export async function runConsumerCli(
   const { sub, name, instanceId } = parsed;
 
   if (sub !== "status" && sub !== "restart") {
-    out.log("");
-    out.log("  Subcommands:");
-    out.log("    status <name> [--instance-id <id>]   Zeigt Status + Cursor eines Consumers");
-    out.log("    restart <name> [--instance-id <id>]  Reaktiviert einen dead-Consumer (idle)");
-    out.log("");
+    // Unknown subcommand must be visible on stderr, not just a bare exit 1 —
+    // ops invocations piping `2>&1 >/dev/null` or log pipelines that only
+    // watch stderr would otherwise see a failure with zero explanation
+    // (#1412). A bare help call (no subcommand at all) is not an error, so
+    // it keeps exit 0 + stdout.
+    const write = sub === undefined ? out.log : out.err;
+    if (sub !== undefined) out.err(`  Unknown subcommand: ${sub}`);
+    write("");
+    write("  Subcommands:");
+    write("    status <name> [--instance-id <id>]   Zeigt Status + Cursor eines Consumers");
+    write("    restart <name> [--instance-id <id>]  Reaktiviert einen dead-Consumer (idle)");
+    write("");
     return sub === undefined ? 0 : 1;
   }
 
@@ -91,7 +99,7 @@ export async function runConsumerCli(
     out.err("  DATABASE_URL not set.");
     return 1;
   }
-  const { db, close } = createDbConnection(dbUrl);
+  const { db, close } = await createConnection(dbUrl, dbConnectionOptionsFromEnv());
   try {
     if (sub === "status") {
       const state = await getConsumerState(db, name, instanceId);

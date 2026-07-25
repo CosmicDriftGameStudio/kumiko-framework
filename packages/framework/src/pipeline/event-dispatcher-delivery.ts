@@ -1,3 +1,7 @@
+// Value-only import, aliased to avoid shadowing the ambient global
+// `Temporal` TYPE that ConsumerStateRow.updatedAt/StoredEventRow.createdAt
+// resolve against (same #1438 dual-package-hazard pattern as event-store.ts).
+import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbTx } from "../db/connection";
 import {
@@ -111,8 +115,18 @@ export async function acquireConsumerState(
     // a prior re-arm) gates the retry; maxRearmCount stops a poison event
     // from looping forever (re-arm → same event fails → dead → re-arm →
     // ...) — after the cap it stays dead until a human intervenes.
-    const cooldownDeadline = Temporal.Now.instant().subtract({ milliseconds: rearmCooldownMs });
-    const cooldownElapsed = Temporal.Instant.compare(state.updatedAt, cooldownDeadline) <= 0;
+    const cooldownDeadline = TemporalPolyfill.Now.instant().subtract({
+      milliseconds: rearmCooldownMs,
+    });
+    // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
+    // at runtime — state.updatedAt is DB-row-typed against the ambient
+    // global, two distinct nominal types across the two .d.ts sources (see
+    // event-store.ts).
+    const cooldownElapsed =
+      TemporalPolyfill.Instant.compare(
+        state.updatedAt as unknown as InstanceType<typeof TemporalPolyfill.Instant>,
+        cooldownDeadline,
+      ) <= 0;
     if (cooldownElapsed && state.rearmCount < maxRearmCount) {
       const rearmed = await rearmDeadConsumer(tx, name, instanceId);
       const rearmedState =

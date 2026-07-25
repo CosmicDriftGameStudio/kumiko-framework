@@ -513,7 +513,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             ? makeDefaultDeletionExecutedEmail(forgetMailResolver, opts.mailDefaults)
             : undefined);
 
-        await runForgetCleanup({
+        const forgetResult = await runForgetCleanup({
           db: forgetDb,
           registry: forgetRegistry,
           now: T.Now.instant(),
@@ -530,6 +530,22 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           }),
           ...(sendDeletionExecutedEmail && { sendDeletionExecutedEmail }),
         });
+
+        // rolledBack:true means the hook's own non-transactional side effect
+        // (e.g. an S3 delete) already ran even though the sub-tx that would
+        // have flipped the user to Deleted rolled back — the cron result was
+        // previously discarded entirely, so this was the only signal an
+        // operator could ever see for that case (see run-forget-cleanup.ts's
+        // ForgetCleanupIncomplete.rolledBack doc).
+        const rolledBackIncomplete = forgetResult.incomplete.filter((i) => i.rolledBack);
+        if (rolledBackIncomplete.length > 0) {
+          // biome-ignore lint/suspicious/noConsole: operator-visibility for a rolled-back partial side effect
+          console.warn(
+            `[user-data-rights:run-forget-cleanup] ${rolledBackIncomplete.length} incomplete hook(s) rolled back after a non-transactional side effect already ran: ${rolledBackIncomplete
+              .map((i) => `userId=${i.userId} tenantId=${i.tenantId} entityName=${i.entityName}`)
+              .join(", ")}`,
+          );
+        }
       },
     );
   });

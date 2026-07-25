@@ -52,7 +52,7 @@ export { defineStep, getStep, listStepKinds } from "./define-step";
 export type { WorkflowDefinition, WorkflowInput, WorkflowTrigger } from "./define-workflow";
 export { computeDefinitionFingerprint, defineWorkflow } from "./define-workflow";
 export type { ToggleReader } from "./effective-features";
-export { computeEffectiveFeatures } from "./effective-features";
+export { computeEffectiveFeatures, isToggleableFeature } from "./effective-features";
 export {
   createEntityExecutor,
   defineEntityCreateHandler,

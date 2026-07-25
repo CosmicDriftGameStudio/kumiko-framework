@@ -4,6 +4,7 @@ import { createEntity, createRegistry, createTextField, defineFeature } from "..
 import type { TenantId } from "../../engine/types/identifiers";
 import { createSecret } from "../../secrets/types";
 import { createTestUser } from "../../stack";
+import { createRecordingProvider } from "../../testing";
 import { createDispatcher } from "../dispatcher";
 
 const streamCleanupState = { closed: false };
@@ -323,6 +324,41 @@ describe("dispatcher.stream", () => {
     }
 
     expect(streamCleanupState.closed).toBe(true);
+  });
+
+  test("activates the dispatcher span in observabilityContext for every pull, not just the first", async () => {
+    // Regression for #1516: runStreamInstrumented used to start the span but
+    // never run the stream inside observabilityContext.run(...), so a
+    // handler-side startSpan() picked up whatever ALS context happened to be
+    // active at that pull (or none) instead of the stream's dispatcher span.
+    const provider = createRecordingProvider();
+    const nestedFeature = defineFeature("nested", (r) => {
+      r.streamHandler(
+        "tail",
+        z.object({ count: z.number().int().min(0) }),
+        async function* (query, handlerCtx) {
+          for (let i = 0; i < query.payload.count; i++) {
+            const child = handlerCtx.tracer.startSpan("nested.child");
+            child.end();
+            yield { i };
+          }
+        },
+        { access: { openToAll: true } },
+      );
+    });
+    const dispatcher = createDispatcher(createRegistry([nestedFeature]), {
+      tracer: provider.tracer,
+      meter: provider.meter,
+    });
+
+    await collect(dispatcher.stream("nested:stream:tail", { count: 3 }, createTestUser()));
+
+    const dispatcherSpan = provider.spansByName("kumiko.dispatcher.handler")[0]!;
+    const childSpans = provider.spansByName("nested.child");
+    expect(childSpans).toHaveLength(3);
+    for (const child of childSpans) {
+      expect(child.parentSpanId).toBe(dispatcherSpan.spanId);
+    }
   });
 });
 

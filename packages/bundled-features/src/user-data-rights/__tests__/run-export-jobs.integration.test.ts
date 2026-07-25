@@ -845,7 +845,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     await seedRow(stack.db, userTable, {
       id: String(aliceUser.id),
       tenantId: tenantA,
-      email: "" as string,
+      email: "", // empty string — lookupUserEmail returnt null
       passwordHash: "hashed",
       displayName: "Alice",
       locale: "de",

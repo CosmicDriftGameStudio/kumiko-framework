@@ -115,4 +115,24 @@ describe("createRedisLoginRateLimiter", () => {
       testRedis.redis.pexpire = origPexpire;
     }
   });
+
+  // kumiko-framework#1522 idx=5: a key that already exists WITHOUT a TTL
+  // (exactly what the pre-fix INCR-then-PEXPIRE race could leave behind)
+  // must get one applied on the very next check(), not stay permanently
+  // uncapped. Simulates the orphan directly via INCR (no TTL) rather than
+  // trying to hit the original race window, which isn't reproducible from
+  // outside the eval script.
+  test("heals a pre-existing key that has no TTL (orphaned by the old two-call race)", async () => {
+    const limiter = createRedisLoginRateLimiter(testRedis.redis, 5, 60_000, "heal-test");
+    const key = "1.2.3.4|orphan@test.local";
+    const redisKey = `kumiko:auth:ratelimit:heal-test:${key}`;
+
+    await testRedis.redis.incr(redisKey);
+    expect(await testRedis.redis.pttl(redisKey)).toBe(-1);
+
+    await limiter.check(key);
+
+    const ttlMs = await testRedis.redis.pttl(redisKey);
+    expect(ttlMs).toBeGreaterThan(0);
+  });
 });

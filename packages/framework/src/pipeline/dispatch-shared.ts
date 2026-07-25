@@ -56,6 +56,7 @@ import {
   emitDispatcherHandler,
   type getFallbackMeter,
   getFallbackTracer,
+  observabilityContext,
 } from "../observability";
 import { buildBucketKey } from "../rate-limit";
 import { createTzContext } from "../time";
@@ -633,14 +634,32 @@ export async function* runStreamInstrumented<T>(
   const span = dispatcherTracer.startSpan("kumiko.dispatcher.handler", {
     attributes: dispatcherSpanAttributes(type, "stream", user, registry.getHandlerFeature(type)),
   });
+  const it = inner();
   try {
-    yield* inner();
+    let next = await observabilityContext.run({ activeSpan: span }, () => it.next());
+    while (!next.done) {
+      try {
+        yield next.value;
+      } catch (sendError) {
+        next = await observabilityContext.run({ activeSpan: span }, () => it.throw(sendError));
+        if (next.done) return next.value;
+        continue;
+      }
+      next = await observabilityContext.run({ activeSpan: span }, () => it.next());
+    }
+    return next.value;
   } catch (error) {
     success = false;
     errorClass = error instanceof Error && error.name ? error.name : "UnknownError";
     span.setStatus("error", errorClass);
     throw error;
   } finally {
+    // forward close so inner()'s finally still fires — yield* did this for free
+    try {
+      await observabilityContext.run({ activeSpan: span }, () => it.return?.(undefined));
+    } catch {
+      // best-effort cleanup call; the original error (if any) already wins
+    }
     span.end();
     if (!success && errorClass) {
       emitDispatcherError(dispatcherMeter, { handler: type, errorClass });

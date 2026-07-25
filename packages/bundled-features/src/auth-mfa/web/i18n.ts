@@ -20,6 +20,8 @@ export const defaultTranslations: TranslationsByLocale = {
       "Die Anmeldung ist abgelaufen. Bitte erneut einloggen.",
     "auth.mfa.errors.challengeExpired": "Die Anmeldung ist abgelaufen. Bitte erneut einloggen.",
     "auth.mfa.errors.tooManyAttempts": "Zu viele Fehlversuche. Bitte erneut einloggen.",
+    "auth.mfa.errors.tooManyAttemptsWithSeconds":
+      "Zu viele Fehlversuche. Bitte in {seconds} Sekunden erneut versuchen oder neu einloggen.",
     "auth.mfa.errors.verifyFailed": "Bestätigung fehlgeschlagen.",
     "auth.mfa.errors.mfaAlreadyEnabled": "Zwei-Faktor-Authentifizierung ist bereits aktiv.",
     "auth.mfa.errors.mfaNotEnabled": "Zwei-Faktor-Authentifizierung ist nicht aktiv.",
@@ -80,6 +82,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.errors.invalidChallengeToken": "Your sign-in has expired. Please sign in again.",
     "auth.mfa.errors.challengeExpired": "Your sign-in has expired. Please sign in again.",
     "auth.mfa.errors.tooManyAttempts": "Too many failed attempts. Please sign in again.",
+    "auth.mfa.errors.tooManyAttemptsWithSeconds":
+      "Too many failed attempts. Try again in {seconds} seconds, or sign in again.",
     "auth.mfa.errors.verifyFailed": "Verification failed.",
     "auth.mfa.errors.mfaAlreadyEnabled": "Two-factor authentication is already enabled.",
     "auth.mfa.errors.mfaNotEnabled": "Two-factor authentication is not enabled.",

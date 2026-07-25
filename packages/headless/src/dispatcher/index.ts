@@ -13,3 +13,4 @@ export type {
   WriteOpts,
   WriteResult,
 } from "./types";
+export { StreamFrame, type StreamFrameEvent } from "./types";

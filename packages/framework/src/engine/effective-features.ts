@@ -1,4 +1,4 @@
-import type { Registry } from "./types";
+import type { FeatureDefinition, Registry } from "./types";
 
 // Callback that returns the current global-toggle override for a feature.
 // `true`  = explicit global row says enabled.
@@ -10,6 +10,16 @@ import type { Registry } from "./types";
 // callers that fetch toggles from a DB should batch-load upfront and expose
 // a Map lookup to keep compute() allocation-light.
 export type ToggleReader = (featureName: string) => boolean | undefined;
+
+// A feature is toggleable iff it declared r.toggleable() at define-time
+// (toggleableDefault set). Non-toggleable features are always-on and ignore
+// overrides entirely — used here, by compose-tier-resolver, and by
+// tier-engine's always-on set to agree on the same rule.
+export function isToggleableFeature(
+  feature: FeatureDefinition,
+): feature is FeatureDefinition & { toggleableDefault: boolean } {
+  return feature.toggleableDefault !== undefined;
+}
 
 // Compute the set of effectively-enabled features for the current call.
 //
@@ -35,7 +45,7 @@ export function computeEffectiveFeatures(
   // Raw enablement, before cascade.
   const raw = new Map<string, boolean>();
   for (const feature of registry.features.values()) {
-    if (feature.toggleableDefault === undefined) {
+    if (!isToggleableFeature(feature)) {
       raw.set(feature.name, true);
       continue;
     }

@@ -8,7 +8,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
+import {
+  configureEntityFieldEncryption,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   type SessionUser,
   SYSTEM_TENANT_ID,
@@ -22,6 +26,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+import { Temporal } from "temporal-polyfill";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { createTenantFeature } from "../../tenant";
@@ -31,7 +36,7 @@ import { AuthMfaHandlers } from "../constants";
 import { createAuthMfaFeature } from "../feature";
 import { signMfaChallengeToken } from "../mfa-challenge-token";
 import { signMfaSetupToken } from "../mfa-setup-token";
-import { userMfaEntity } from "../schema/user-mfa";
+import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa";
 import { generateTotpSecret } from "../totp";
 
 let stack: TestStack;
@@ -81,6 +86,32 @@ beforeAll(async () => {
 afterAll(async () => {
   await stack.cleanup();
 });
+
+// disable/regenerate-recovery are session-authed and only reachable once
+// MFA is already enabled — but enable-confirm itself now requires
+// ctx.redis (#1467), so it can't run against this no-redis stack to seed
+// the row. Insert the row directly via the same executor.create the
+// handler uses, bypassing the HTTP layer entirely (irrelevant to what
+// this test is pinning: the handler's own ctx.redis gate).
+const userMfaExecutor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
+  entityName: "user-mfa",
+});
+
+async function seedEnabledMfa(user: SessionUser): Promise<void> {
+  const tdb = createTenantDb(stack.db, user.tenantId, "system");
+  const result = await userMfaExecutor.create(
+    {
+      userId: user.id,
+      totpSecret: base32Encode(generateTotpSecret()),
+      recoveryCodes: encodeRecoveryCodes([]),
+      enabledAt: Temporal.Now.instant(),
+      lastUsedAt: null,
+    },
+    user,
+    tdb,
+  );
+  if (!result.isSuccess) throw new Error(`seedEnabledMfa failed: ${result.error.code}`);
+}
 
 describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
   test("verify: fails closed with internal_error instead of skipping the brute-force cap/burn", async () => {
@@ -139,6 +170,36 @@ describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
     const err = await stack.http.writeErr(
       AuthMfaHandlers.enableConfirm,
       { setupToken: token, code: "123456" },
+      user,
+    );
+    expect(err.httpStatus).toBeGreaterThanOrEqual(500);
+    expect(err.code).toBe("internal_error");
+    expect(err.message).toContain("requires ctx.redis");
+  });
+
+  // kumiko-framework#1534: disable/regenerate-recovery used to keep the
+  // old two-factor-authenticate-then-verify flow working even without
+  // ctx.redis (verifyMfaFactor's replay-burn silently no-ops), so an
+  // observed TOTP code could be replayed within the ±1-step window against
+  // a session-authed route — unlike verify/enable-confirm-preauth, no
+  // guest-token expiry limits the attack window.
+  test("disable: fails closed with internal_error instead of skipping TOTP replay protection", async () => {
+    const user = createTestUser({ id: 501, tenantId: TENANT_ID });
+    await seedEnabledMfa(user);
+
+    const err = await stack.http.writeErr(AuthMfaHandlers.disable, { code: "123456" }, user);
+    expect(err.httpStatus).toBeGreaterThanOrEqual(500);
+    expect(err.code).toBe("internal_error");
+    expect(err.message).toContain("requires ctx.redis");
+  });
+
+  test("regenerate-recovery: fails closed with internal_error instead of skipping TOTP replay protection", async () => {
+    const user = createTestUser({ id: 502, tenantId: TENANT_ID });
+    await seedEnabledMfa(user);
+
+    const err = await stack.http.writeErr(
+      AuthMfaHandlers.regenerateRecovery,
+      { code: "123456" },
       user,
     );
     expect(err.httpStatus).toBeGreaterThanOrEqual(500);
