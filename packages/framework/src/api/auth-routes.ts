@@ -218,6 +218,12 @@ export type SessionCreator = (user: SessionUser, meta: SessionMetadata) => Promi
 // there's nothing to revoke.
 export type SessionRevoker = (sid: string) => Promise<void>;
 
+// Mass-revoke every live session for a user. Used by password-change and
+// "sign out everywhere" (sessions feature) and by auth-foundation's
+// SessionStore extension point — canonical home so both can re-export
+// the same type instead of restating it.
+export type SessionMassRevoker = (userId: string) => Promise<number>;
+
 // Status reported by the session-store to the auth-middleware. The concrete
 // type lives on auth-middleware to keep the tight coupling visible there;
 // auth-routes just re-uses the alias for the AuthRoutesConfig surface.

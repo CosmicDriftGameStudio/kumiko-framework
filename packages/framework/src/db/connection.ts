@@ -5,7 +5,7 @@ import postgres from "postgres";
 import { readPositiveIntEnv } from "../utils/env-parse";
 
 // Legacy Types — für Aufrufer die direkt diese Module importieren
-export * from "@cosmicdrift/kumiko-types/db-connection";
+export type * from "@cosmicdrift/kumiko-types/db-connection";
 export { createConnection, type DbConnectionOptions } from "./api";
 
 // Legacy: postgres-js only. Neue Aufrufer: createConnection() aus api.ts.

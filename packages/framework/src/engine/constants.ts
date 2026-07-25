@@ -1,5 +1,6 @@
 import type { ConcurrencyMode } from "@cosmicdrift/kumiko-types/concurrency-mode";
 import type { ConfigScope } from "@cosmicdrift/kumiko-types/config-scope";
+import type { OnDeleteStrategy as OnDeleteStrategyType } from "@cosmicdrift/kumiko-types/relations";
 import type { TenantId } from "./types/identifiers";
 
 // All framework constants as `as const` objects with inferred union types.
@@ -74,9 +75,9 @@ export const OnDeleteStrategies = {
   restrict: "restrict",
   setNull: "setNull",
   nothing: "nothing",
-} as const;
+} as const satisfies Record<OnDeleteStrategyType, OnDeleteStrategyType>;
 
-export type OnDeleteStrategy = (typeof OnDeleteStrategies)[keyof typeof OnDeleteStrategies];
+export type OnDeleteStrategy = OnDeleteStrategyType;
 
 // --- Concurrency Modes ---
 // Value object satisfies the canonical ConcurrencyMode union from

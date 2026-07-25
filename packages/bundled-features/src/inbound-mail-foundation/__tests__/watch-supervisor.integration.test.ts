@@ -295,7 +295,14 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
       });
 
       emitWatchError(accountId, new Error("socket dropped"));
-      expect(isWatching(accountId)).toBe(false);
+      // No assertion here: isWatching(accountId) flips to false as a side
+      // effect of emitWatchError itself (inbound-provider-inmemory's
+      // feature.ts sets state.watch = null before handlers.onError runs),
+      // and the restart re-arms fast enough that the persisted `backoff:`
+      // projection state isn't reliably observable between the two either
+      // — asserting either one here pins test-helper bookkeeping, not
+      // production behavior. The real assertions are below: the watch
+      // recovers, and the account stays active with a valid watchState.
 
       await waitFor(() => {
         expect(isWatching(accountId)).toBe(true);

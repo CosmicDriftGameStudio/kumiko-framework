@@ -84,6 +84,10 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       // (#1468). Only gate when the toggle actually exists.
       const gated = ctx.registry.getFeature(AUTH_SELF_REGISTRATION_FEATURE) !== undefined;
       if (gated && !(await ctx.hasFeature(AUTH_SELF_REGISTRATION_FEATURE))) {
+        // No email address here — this fires on every no-op request, PII
+        // must not accumulate in logs just for the "was this toggled off"
+        // signal a support ticket needs.
+        ctx.log?.info("signup-request skipped: self-registration disabled");
         return { isSuccess: true, data: { kind: "no-op" } };
       }
       if (!ctx.redis) {

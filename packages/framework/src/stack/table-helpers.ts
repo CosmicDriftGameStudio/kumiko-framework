@@ -9,8 +9,8 @@ import {
   alterTableAddColumn,
   createIndexIfNotExists,
   executeDdlStatement,
-  truncateTablesRestartIdentity,
-} from "../db/queries/test-stack";
+} from "../db/queries/ddl";
+import { truncateTablesRestartIdentity } from "../db/queries/test-stack";
 import { renderTableDdl } from "../db/render-ddl";
 import { tableExists } from "../db/schema-inspection";
 import { buildEntityTable, toTableName } from "../db/table-builder";

@@ -38,6 +38,7 @@ describe("RequestAccountUnlockScreen", () => {
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({ "Content-Type": "application/json" }),
+          credentials: "same-origin",
           body: JSON.stringify({ email: "user@example.com" }),
         }),
       );
@@ -59,7 +60,7 @@ describe("RequestAccountUnlockScreen", () => {
     );
   });
 
-  test("429 with retryAfterSeconds → accountLockedRetry banner", async () => {
+  test("429 with retryAfterSeconds → requestUnlock.rateLimited banner (#1333)", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(JSON.stringify({ error: { details: { retryAfterSeconds: 180 } } }), {

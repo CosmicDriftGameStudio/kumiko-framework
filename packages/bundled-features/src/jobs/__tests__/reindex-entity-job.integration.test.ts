@@ -92,10 +92,16 @@ describe("reindexEntityJob", () => {
     });
     expect(preResults).toHaveLength(0);
 
-    await reindexEntityJob(
-      { entity: "widget" },
-      { db: stack.db, registry: stack.registry, searchAdapter: stack.search, systemUser: admin },
-    );
+    const ctx: JobContext = {
+      db: stack.db,
+      registry: stack.registry,
+      searchAdapter: stack.search,
+      systemUser: admin,
+      log: noopLogger,
+      triggeredBy: null,
+      ...bridgeStub(),
+    };
+    await reindexEntityJob({ entity: "widget" }, ctx);
 
     const postResults = await stack.search.search(admin.tenantId, "backfillable", {
       filterType: "widget",

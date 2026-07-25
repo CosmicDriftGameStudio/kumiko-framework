@@ -12,8 +12,6 @@ const ALLOWED_FILES = new Set([
   "packages/framework/src/event-store/index.ts",
   "packages/bundled-features/src/tenant/seeding.ts",
   "packages/bundled-features/src/tier-engine/feature.ts",
-  "packages/bundled-features/src/auth-email-password/__tests__/email-verification.integration.test.ts",
-  "packages/bundled-features/src/auth-email-password/__tests__/password-reset.integration.test.ts",
   "packages/framework/src/event-store/__tests__/unscoped-stream-primitives.guard.test.ts",
 ]);
 
@@ -30,7 +28,22 @@ describe("unscoped stream primitives — caller allowlist", () => {
     const matches = new Set<string>();
     for await (const relPath of glob.scan({ cwd: REPO_ROOT })) {
       const content = await Bun.file(`${REPO_ROOT}/${relPath}`).text();
-      if (RESTRICTED_SYMBOLS.some((symbol) => content.includes(symbol))) {
+      // Strip full-line `//` comments before scanning — a bare
+      // `content.includes(symbol)` also matches a symbol only mentioned in
+      // prose (e.g. explaining why a helper isn't needed), which would force
+      // an unrelated file into the allowlist for a reference that isn't an
+      // actual import or call.
+      const code = content
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("//"))
+        .join("\n");
+      const referencesSymbol = (symbol: string): boolean =>
+        new RegExp(`\\b${symbol}\\s*\\(`).test(code) ||
+        // Covers both `import { symbol } from "..."` and a re-export barrel
+        // (`export { symbol } from "./event-store"`) — a new barrel that
+        // surfaces the oracle primitive must widen the allowlist too.
+        new RegExp(`\\b(import|export)\\b[^;]*\\b${symbol}\\b`).test(code);
+      if (RESTRICTED_SYMBOLS.some(referencesSymbol)) {
         matches.add(relPath);
       }
     }

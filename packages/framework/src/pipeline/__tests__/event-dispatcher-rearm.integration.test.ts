@@ -11,6 +11,13 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient } from "../../db/query";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
+import {
+  DEFAULT_SENSITIVE_CONFIG,
+  type MetricEvent,
+  type ObservabilityProvider,
+  RecordingMeter,
+  RecordingTracer,
+} from "../../observability";
 import { getConsumerState } from "../../pipeline";
 import {
   resetEventStore,
@@ -196,5 +203,63 @@ describe("issue #1350 — bounded dead-consumer re-arm", () => {
     const stillExhausted = await getConsumerState(stack.db, qn);
     expect(stillExhausted?.status).toBe("dead");
     expect(stillExhausted?.rearmCount).toBe(3);
+  });
+
+  test("kumiko_event_consumer_rearm_exhausted_total fires once, not per still-dead pass (#1362)", async () => {
+    // Dedicated stack with a RecordingMeter — module-level `stack` above is
+    // shared across every test in this file and has no metric capture.
+    const metricEvents: MetricEvent[] = [];
+    const meter = new RecordingMeter((e) => metricEvents.push(e));
+    const tracer = new RecordingTracer({
+      sensitiveConfig: DEFAULT_SENSITIVE_CONFIG,
+      onSpanEnd: () => {},
+    });
+    const recordingProvider: ObservabilityProvider = {
+      name: "recording",
+      meter,
+      tracer,
+      shutdown: async () => {},
+    };
+
+    const recStack = await setupTestStack({
+      features: [rearmFeature],
+      systemHooks: [],
+      observability: recordingProvider,
+    });
+    try {
+      await unsafeCreateEntityTable(recStack.db, sharedWidgetEntity, "widget");
+      const recTdb = createTenantDb(recStack.db, admin.tenantId);
+
+      poisonNames.add("poison-metric");
+      await executor.create({ name: "poison-metric" }, admin, recTdb);
+      for (let i = 0; i < 10; i++) {
+        await recStack.eventDispatcher?.runOnce();
+      }
+      // The 10th pass is the one whose failed delivery flips status to
+      // "dead" (persisted for the NEXT pass to see) — acquireConsumerState's
+      // dead-branch (where the exhausted-metric fires) only runs starting
+      // from the pass AFTER that transition, same as the "stays dead within
+      // cooldown window" test above needing one extra runOnce().
+      await recStack.eventDispatcher?.runOnce();
+
+      const exhaustedEvents = () =>
+        metricEvents.filter(
+          (e) =>
+            e.type === "counter.inc" && e.name === "kumiko_event_consumer_rearm_exhausted_total",
+        );
+      expect(exhaustedEvents().length).toBe(1);
+
+      // Several more passes while it's still dead — must stay at 1, not
+      // re-fire on every pass that observes "still dead" (log/metric spam
+      // the finding flagged).
+      for (let i = 0; i < 5; i++) {
+        await recStack.eventDispatcher?.runOnce();
+      }
+      expect(exhaustedEvents().length).toBe(1);
+      expect(exhaustedEvents()[0]?.labels?.["consumer"]).toBe(qn);
+    } finally {
+      await resetEventStore(recStack, ["read_widgets"]);
+      await recStack.cleanup();
+    }
   });
 });

@@ -1,1 +1,1 @@
-export * from "@cosmicdrift/kumiko-types/geo-tz";
+export type * from "@cosmicdrift/kumiko-types/geo-tz";

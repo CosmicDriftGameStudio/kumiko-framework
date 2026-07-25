@@ -1,1 +1,1 @@
-export * from "@cosmicdrift/kumiko-types/search-adapter";
+export type * from "@cosmicdrift/kumiko-types/search-adapter";

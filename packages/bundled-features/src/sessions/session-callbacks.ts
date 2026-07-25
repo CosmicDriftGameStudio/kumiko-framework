@@ -2,9 +2,13 @@ import type {
   AuthSessionStatus,
   SessionChecker,
   SessionCreator,
+  SessionMassRevoker,
   SessionMetadata,
   SessionRevoker,
 } from "@cosmicdrift/kumiko-framework/api";
+
+export type { SessionMassRevoker } from "@cosmicdrift/kumiko-framework/api";
+
 import { fetchOne, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
@@ -27,11 +31,6 @@ const BLOCKED_STATUSES: ReadonlySet<UserStatus> = new Set([
 // dispatcher: session-create/revoke/check run on the hot path of every
 // login and every request. The (createdAt/revokedAt/ip/userAgent) columns
 // already are the audit trail — a dispatcher roundtrip buys nothing.
-
-// Mass-revoke for a single user. Used by the password-change hook and
-// "sign out everywhere" flows. Returns the count of rows flipped so a
-// caller can log "revoked N other sessions".
-export type SessionMassRevoker = (userId: string) => Promise<number>;
 
 // "Sign out everywhere else, keep this one" — used both by the user-facing
 // revoke-all-others handler and by other features (auth-mfa) that need the

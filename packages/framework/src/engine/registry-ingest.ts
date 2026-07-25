@@ -20,7 +20,7 @@ export function populateFeatureCore(state: RegistryState, feature: FeatureDefini
     state.entityMap.set(name, entity);
     const physical = resolveTableName(name, entity, feature.name);
     const clash = state.physicalTableOwners.get(physical);
-    if (clash?.kind === "raw") {
+    if (clash?.kind === "store") {
       throw new Error(
         `Entity "${name}" (feature "${feature.name}") has physical table "${physical}" which ` +
           `collides with r.storeTable("${physical}") (feature "${clash.featureName}"). ` +
@@ -317,37 +317,37 @@ export function populateProjectionsAndTables(
   // statements that target the same physical table name. Two features
   // registering the same physical tableName would also race two CREATE
   // TABLE statements via migrate-runner.
-  for (const [rawName, rawDef] of Object.entries(feature.storeTables ?? {})) {
-    const existing = state.storeTableMap.get(rawName);
+  for (const [storeName, storeDef] of Object.entries(feature.storeTables ?? {})) {
+    const existing = state.storeTableMap.get(storeName);
     if (existing) {
       throw new Error(
-        `Raw-table "${rawName}" registered by both feature "${existing.featureName}" and ` +
+        `Store-table "${storeName}" registered by both feature "${existing.featureName}" and ` +
           `"${feature.name}". Pick a feature-prefixed name to disambiguate.`,
       );
     }
-    const physicalClash = state.physicalTableOwners.get(rawName);
+    const physicalClash = state.physicalTableOwners.get(storeName);
     if (physicalClash?.kind === "entity") {
       throw new Error(
-        `Raw-table "${rawName}" (feature "${feature.name}") collides with the physical ` +
+        `Store-table "${storeName}" (feature "${feature.name}") collides with the physical ` +
           `table of entity "${physicalClash.owner}" (feature "${physicalClash.featureName}"). ` +
-          `Pick a different tableName — both would emit CREATE TABLE "${rawName}".`,
+          `Pick a different tableName — both would emit CREATE TABLE "${storeName}".`,
       );
     }
-    const piiFields = rawDef.meta.piiSubjectFields ?? [];
-    if (piiFields.length > 0 && !rawDef.piiEncryptedOnWrite) {
+    const piiFields = storeDef.meta.piiSubjectFields ?? [];
+    if (piiFields.length > 0 && !storeDef.piiEncryptedOnWrite) {
       throw new Error(
-        `Raw-table "${rawName}" (feature "${feature.name}") has PII-annotated fields ` +
+        `Store-table "${storeName}" (feature "${feature.name}") has PII-annotated fields ` +
           `(${piiFields.join(", ")}) but direct writes bypass the executor's PII encryption. ` +
           `Encrypt those fields before every insert/update (encryptPiiFieldValues) and declare ` +
           `{ piiEncryptedOnWrite: true }, or drop the subject annotations.`,
       );
     }
-    state.physicalTableOwners.set(rawName, {
-      kind: "raw",
-      owner: rawName,
+    state.physicalTableOwners.set(storeName, {
+      kind: "store",
+      owner: storeName,
       featureName: feature.name,
     });
-    state.storeTableMap.set(rawName, { ...rawDef, featureName: feature.name });
+    state.storeTableMap.set(storeName, { ...storeDef, featureName: feature.name });
   }
 }
 

@@ -237,14 +237,16 @@ async function resolveRuntimeDepsVersions(
   const out: Record<string, string> = {};
 
   const pinSources = [
-    join(cwd, "node_modules/@cosmicdrift/kumiko-framework/package.json"),
-    join(cwd, "node_modules/@cosmicdrift/kumiko-bundled-features/package.json"),
     ...(repoRoot
       ? [
           join(repoRoot, "packages/framework/package.json"),
           join(repoRoot, "packages/bundled-features/package.json"),
         ]
       : []),
+    // node_modules applied last so its versions win over the repo-root
+    // fallback — see the function comment above (#1217 bug class).
+    join(cwd, "node_modules/@cosmicdrift/kumiko-framework/package.json"),
+    join(cwd, "node_modules/@cosmicdrift/kumiko-bundled-features/package.json"),
   ];
   const allDeps: Record<string, string> = {};
   for (const path of pinSources) {

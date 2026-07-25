@@ -4,6 +4,7 @@ import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
 import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store";
 import {
   emitEventConsumerPassOutcome,
+  emitEventConsumerRearmExhausted,
   emitEventDispatcherListenConnected,
   getFallbackMeter,
   getFallbackTracer,
@@ -201,6 +202,14 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   }
   const tracer: Tracer = options.tracer ?? getFallbackTracer();
   const meter: Meter = options.meter ?? getFallbackMeter();
+  // Tracks which (consumer, instanceId) pairs already fired
+  // kumiko_event_consumer_rearm_exhausted_total, so a consumer stuck dead
+  // across many poll passes emits the ops-signal once, not every pass
+  // (that would be log/metric spam for a state that hasn't changed).
+  // Process-lifetime only — restarting the dispatcher re-arms reporting,
+  // which is fine: a fresh process re-observing a still-dead consumer is
+  // exactly the "still needs a human" signal ops wants.
+  const reportedDeadConsumers = new Set<string>();
 
   let running = false;
   // Separate from `running` on purpose: pre-registration of consumer state
@@ -304,8 +313,21 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         // disabled/dead. Nothing to deliver this pass.
         if (acquired.skip !== null) {
           span.setAttribute("consumer.skip_reason", acquired.skip);
+          if (acquired.skip === "dead") {
+            const reportKey = `${consumer.name}:${instanceId}`;
+            if (!reportedDeadConsumers.has(reportKey)) {
+              reportedDeadConsumers.add(reportKey);
+              emitEventConsumerRearmExhausted(meter, { consumer: consumer.name, instanceId });
+            }
+          }
+          // skip: skip reason already recorded on the span above (and, for
+          // "dead", already emitted as a metric) — nothing left to deliver.
           return;
         }
+        // Acquired normally (including via a successful auto-rearm) — clear
+        // any prior dead-report so a future exhaustion re-emits instead of
+        // staying permanently suppressed by this process's Set.
+        reportedDeadConsumers.delete(`${consumer.name}:${instanceId}`);
 
         const events = await fetchPendingEvents(tx, acquired.state.lastProcessedEventId, batchSize);
         // skip: nothing to deliver — no markProcessing/persistConsumerOutcome write,

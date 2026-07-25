@@ -374,13 +374,26 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         if (typeof token !== "string" || token.length === 0) {
           return c.json({ error: "missing_token" }, 400);
         }
+        const auditMeta = extractAuditMeta(c.req.raw.headers);
         return app.fetch(
           new Request(`${url.origin}/api/query`, {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            headers: {
+              "content-type": "application/json",
+              // download-by-token.query.ts's `rateLimit: { per: "ip", limit: 30 }`
+              // keys off request-id-middleware's own x-forwarded-for read on
+              // THIS internal request — without forwarding it, every fragment-
+              // POST download shares the request's own (empty/localhost) IP,
+              // turning the per-user 30/min backstop into one global bucket
+              // (#1307). Forwarding the same value extractAuditMeta already
+              // computed from the original request's headers doesn't widen the
+              // trust boundary: it's the identical XFF-trusts-first-hop model
+              // request-id-middleware.ts already applies framework-wide.
+              ...(auditMeta.ip ? { "x-forwarded-for": auditMeta.ip } : {}),
+            },
             body: JSON.stringify({
               type: "user-data-rights:query:download-by-token",
-              payload: { token, auditMeta: extractAuditMeta(c.req.raw.headers) },
+              payload: { token, auditMeta },
             }),
           }),
         );

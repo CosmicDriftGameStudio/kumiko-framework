@@ -12,10 +12,8 @@ export type WriteErrorInfo = {
   readonly details?: unknown;
 };
 
-// The failure half of WriteResult — `{ isSuccess: false } + error`. Named
-// so the write-failure factories in write-error-info.ts and WriteResult
-// share one shape instead of restating it. Not generic: the error carries
-// zero data, so there's nothing for the caller to narrow.
+// The failure half of WriteResult — `{ isSuccess: false } + error`. Not
+// generic: the error carries zero data, so there's nothing to narrow.
 export type WriteFailure = {
   readonly isSuccess: false;
   readonly error: WriteErrorInfo;

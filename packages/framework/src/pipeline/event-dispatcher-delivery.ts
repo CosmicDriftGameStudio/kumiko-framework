@@ -134,10 +134,10 @@ export async function acquireConsumerState(
         (coerceRow(rearmed, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
       if (rearmedState) return { state: rearmedState, skip: null };
     }
-    // ponytail: no log/metric fires when the rearm budget is exhausted here
-    // (the exact "braucht manuellen Eingriff" moment) — queryable via
-    // getConsumerState but silent otherwise. Add an emitDispatcherError-style
-    // signal if ops needs a push instead of a dead+lag poll.
+    // Caller (event-dispatcher.ts's processConsumer) emits
+    // kumiko_event_consumer_rearm_exhausted_total once per (consumer,
+    // instance) transition into this branch — it has the process-lifetime
+    // state to dedupe across poll passes that this pure function doesn't.
     return { state: null, skip: "dead" };
   }
   return { state, skip: null };

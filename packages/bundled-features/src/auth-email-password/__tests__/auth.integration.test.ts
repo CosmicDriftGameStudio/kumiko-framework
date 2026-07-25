@@ -247,7 +247,12 @@ describe("scenario 5c: change-password common-password rejection (#1340)", () =>
       signedIn,
     );
     expect(error.httpStatus).toBe(400);
+    // "errors.validation.custom" alone is generic — any .refine() failure
+    // on the schema would match. Pin the field too, so this only passes
+    // for a rejection on newPassword specifically (the common-password
+    // refine), not an unrelated validation error elsewhere in the schema.
     expectErrorIncludes(error, "errors.validation.custom");
+    expectErrorIncludes(error, "newPassword");
 
     // Old password still works — the rejected change never landed.
     const loginRes = await stack.http.raw("POST", "/api/auth/login", {
