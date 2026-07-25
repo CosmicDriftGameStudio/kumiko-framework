@@ -55,6 +55,7 @@ export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
         `WHERE "metadata"->>'idempotencyKey' IS NOT NULL`,
     );
   } catch (e) {
+    // skip: benign — the losing pod's index already exists valid, courtesy of the winner
     if (isBenignConcurrentIndexBuildRace(e)) return;
     throw duplicateIdempotencyKeyErrorOr(e);
   }
