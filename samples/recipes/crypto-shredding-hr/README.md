@@ -14,7 +14,7 @@ manager's comment dies with the employee's key, not the manager's.
 
 - **`pii: true` on a field** — encrypted under the subject key of its own
   row (`user:<row.id>`). At rest the column holds a
-  `kumiko-pii:v1:<subjectKey>:<ciphertext>` envelope; the API returns
+  `kumiko-pii:v2:<subjectKey>:<ciphertext>` envelope; the API returns
   plaintext as long as the key exists.
 - **`userOwned: { ownerField }`** — encrypted under the key of the user
   another field points at. Erasing that user's key makes every row about

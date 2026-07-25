@@ -25,12 +25,16 @@ function renderScreen(ui: ReactElement, session = makeSessionApi()): RenderResul
   );
 }
 
+const originalFetch = globalThis.fetch;
+
 beforeEach(() => {
   globalThis.fetch = mock(
     async () => new Response(null, { status: 200 }),
   ) as unknown as typeof fetch;
 });
-afterEach(() => {});
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 describe("MfaVerifyScreen", () => {
   test("rendert Titel + Code-Feld + Submit-Button (de)", () => {

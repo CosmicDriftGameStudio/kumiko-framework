@@ -1,12 +1,16 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { confirmMfaSetupPreauth, startMfaSetupPreauth, verifyMfaChallenge } from "../mfa-client";
 
+const originalFetch = globalThis.fetch;
+
 beforeEach(() => {
   globalThis.fetch = mock(
     async () => new Response(null, { status: 200 }),
   ) as unknown as typeof fetch;
 });
-afterEach(() => {});
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });

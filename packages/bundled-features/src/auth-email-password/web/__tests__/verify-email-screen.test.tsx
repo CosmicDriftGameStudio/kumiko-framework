@@ -3,12 +3,16 @@ import { screen, waitFor } from "@testing-library/react";
 import { VerifyEmailScreen } from "../verify-email-screen";
 import { renderWithProviders } from "./test-utils";
 
+const originalFetch = globalThis.fetch;
+
 beforeEach(() => {
   globalThis.fetch = mock(
     async () => new Response(null, { status: 200 }),
   ) as unknown as typeof fetch;
 });
-afterEach(() => {});
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 describe("VerifyEmailScreen", () => {
   test("ohne Token → missing-token-Page", () => {

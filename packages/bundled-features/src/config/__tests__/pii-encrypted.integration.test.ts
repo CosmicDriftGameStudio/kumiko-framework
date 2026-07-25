@@ -141,10 +141,10 @@ describe("piiEncrypted config keys", () => {
   });
 
   test("write without a configured KMS fails loud instead of silently storing plaintext", async () => {
-    resetPiiSubjectKmsForTests();
-    expect(configuredPiiSubjectKms()).toBeUndefined();
-
     try {
+      resetPiiSubjectKmsForTests();
+      expect(configuredPiiSubjectKms()).toBeUndefined();
+
       const res = await stack.http.write(
         ConfigHandlers.set,
         { key: BILLING_ADDRESS_KEY, value: "no-kms-value" },
@@ -166,10 +166,10 @@ describe("piiEncrypted config keys", () => {
       tenantAdmin,
     );
 
-    resetPiiSubjectKmsForTests();
-    expect(configuredPiiSubjectKms()).toBeUndefined();
-
     try {
+      resetPiiSubjectKmsForTests();
+      expect(configuredPiiSubjectKms()).toBeUndefined();
+
       const res = await stack.http.query(ConfigQueries.values, {}, tenantAdmin);
       expect(res.status).toBe(500);
     } finally {

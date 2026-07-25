@@ -13,7 +13,7 @@ import {
   isPiiCiphertext,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
@@ -33,7 +33,7 @@ import { tenantMembershipsTable } from "../membership-table";
 import { tenantEntity } from "../schema/tenant";
 import { seedTenant, seedTenantMembership } from "../seeding";
 
-const tenantId = testTenantId(1) as TenantId;
+const tenantId = testTenantId(1);
 
 let stack: TestStack;
 
