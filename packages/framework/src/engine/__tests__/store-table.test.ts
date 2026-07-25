@@ -142,7 +142,7 @@ describe("createRegistry — storeTable aggregation", () => {
       r.storeTable(probeMeta, { reason: "second" });
     });
     expect(() => createRegistry([featA, featB])).toThrow(
-      /Raw-table "rt_probe" registered by both feature "a" and "b"/,
+      /Store-table "rt_probe" registered by both feature "a" and "b"/,
     );
   });
 
@@ -177,7 +177,7 @@ describe("createRegistry — storeTable aggregation", () => {
 
     // Entity registered first, then the colliding store table.
     expect(() => createRegistry([entityFeature, tableFeature])).toThrow(
-      new RegExp(`Raw-table "${physical}".*collides with the physical table of entity "widget"`),
+      new RegExp(`Store-table "${physical}".*collides with the physical table of entity "widget"`),
     );
 
     // Order-independent: store table registered first, then the entity.

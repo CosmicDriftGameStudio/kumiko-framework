@@ -83,6 +83,20 @@ export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
       "Event deliveries that threw. Repeated failures on the same event lead to dead-letter.",
     labels: ["consumer", "instance_id"],
   },
+  // Fires once per (consumer, instance) transition into "stuck dead" —
+  // the rearm-cooldown/rearm-budget in event-dispatcher-delivery.ts gave up
+  // and the consumer now needs an operator (restartConsumer()) to recover.
+  // Without this, "dead + auto-rearm exhausted" is only visible via a
+  // getConsumerState poll — ops has no push signal that a consumer crossed
+  // from "will self-heal" to "needs a human". Deliberately a counter, not a
+  // gauge: emitted once per transition (event-dispatcher.ts tracks which
+  // consumers already fired this), not once per still-dead poll pass.
+  {
+    name: "kumiko_event_consumer_rearm_exhausted_total",
+    type: "counter",
+    description: "Consumer transitioned to dead with its auto-rearm budget exhausted.",
+    labels: ["consumer", "instance_id"],
+  },
   // LISTEN-subscription health. 1 = active, 0 = dropped. Drops to 0 while
   // the dispatcher is running signal that delivery latency has regressed
   // from sub-millisecond (LISTEN) to pollIntervalMs (timer fallback); ops
@@ -198,6 +212,19 @@ export function emitEventConsumerLag(
   lagEvents: number,
 ): void {
   meter.gauge("kumiko_event_consumer_lag_events").set(lagEvents, {
+    consumer: labels.consumer,
+    instance_id: labels.instanceId,
+  });
+}
+
+// Caller (event-dispatcher.ts) is responsible for calling this exactly
+// once per (consumer, instanceId) transition into exhausted-dead — not
+// once per poll pass while it stays dead.
+export function emitEventConsumerRearmExhausted(
+  meter: Meter,
+  labels: { readonly consumer: string; readonly instanceId: string },
+): void {
+  meter.counter("kumiko_event_consumer_rearm_exhausted_total").inc(1, {
     consumer: labels.consumer,
     instance_id: labels.instanceId,
   });

@@ -10,7 +10,7 @@ import {
   sql,
   text,
 } from "../db/dialect";
-import { alterTableAddColumn } from "../db/queries/test-stack";
+import { alterTableAddColumn } from "../db/queries/ddl";
 import { tableExists } from "../db/schema-inspection";
 import { unsafePushTables } from "../stack";
 

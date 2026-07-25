@@ -52,6 +52,16 @@ const testFeature = defineFeature("test", (r) => {
     },
     { access: { roles: ["Admin"] } },
   );
+
+  r.streamHandler(
+    "item:tail-fail-first",
+    z.object({}),
+    // biome-ignore lint/correctness/useYield: deliberately throws before any yield — tests the pre-pull failure path
+    async function* () {
+      throw new Error("boom");
+    },
+    { access: { roles: ["Admin"] } },
+  );
 });
 
 const registry = createRegistry([testFeature]);
@@ -417,6 +427,26 @@ describe("POST /api/stream", () => {
     ]);
     expect(frames[2]?.event).toBe("error");
     expect(JSON.parse(frames[2]?.data ?? "{}")).toMatchObject({ code: "internal_error" });
+  });
+
+  test("handler failure before the first yield surfaces as a real HTTP 500, not an SSE error frame", async () => {
+    // Contract-pin for routes.ts's "error frames only reachable once the
+    // stream is already open" comment: a generator that throws before its
+    // first yield is caught by the same pre-pull gate as feature/access/
+    // rate-limit/validation failures — the client sees 500 + JSON, not a
+    // 200 with an SSE error frame.
+    const headers = await authHeader(adminUser);
+    const res = await req(
+      "POST",
+      "/api/stream",
+      { type: "test:stream:item:tail-fail-first", payload: {} },
+      headers,
+    );
+
+    expect(res.status).toBe(500);
+    expect(res.headers.get("content-type")).not.toContain("text/event-stream");
+    const body = await res.json();
+    expect(body.error).toMatchObject({ code: "internal_error" });
   });
 });
 

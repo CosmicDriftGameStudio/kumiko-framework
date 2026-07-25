@@ -426,14 +426,14 @@ export function buildUiExtensionsMethods<TName extends string>(
         // EntityTableMeta uses snake_case for tableName (matches Postgres
         // convention); we just guard against truly broken input.
         throw new Error(
-          `[Feature ${name}] Raw-table name "${tableName}" must be a ` +
+          `[Feature ${name}] Store-table name "${tableName}" must be a ` +
             `valid identifier (lowercase letters, digits, underscores; start with a letter).`,
         );
       }
       if (state.storeTables[tableName]) {
         throw new Error(
           `[Feature ${name}] r.storeTable("${tableName}") already registered. ` +
-            `Raw-table names must be unique per feature.`,
+            `Store-table names must be unique per feature.`,
         );
       }
       // `read_` is reserved for r.entity()/r.projection() (managed,

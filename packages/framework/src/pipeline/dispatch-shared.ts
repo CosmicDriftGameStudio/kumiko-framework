@@ -630,6 +630,13 @@ export async function* runStreamInstrumented<T>(
   const { tracer: dispatcherTracer, meter: dispatcherMeter, registry } = ctx;
   const start = performance.now();
   let success = true;
+  // Set only once `inner()` has drained on its own — NOT set when the
+  // consumer walks away early (generator.return(), the normal SSE-abort
+  // path in api/routes.ts). yield* forwards that .return() straight through
+  // without throwing, so without this flag an aborted stream would fall
+  // through to the success-metric branch below and get counted as a clean
+  // completion.
+  let completedNormally = false;
   let errorClass: string | undefined;
   const span = dispatcherTracer.startSpan("kumiko.dispatcher.handler", {
     attributes: dispatcherSpanAttributes(type, "stream", user, registry.getHandlerFeature(type)),
@@ -642,15 +649,20 @@ export async function* runStreamInstrumented<T>(
         yield next.value;
       } catch (sendError) {
         next = await observabilityContext.run({ activeSpan: span }, () => it.throw(sendError));
-        if (next.done) return next.value;
+        if (next.done) {
+          completedNormally = true;
+          return next.value;
+        }
         continue;
       }
       next = await observabilityContext.run({ activeSpan: span }, () => it.next());
     }
+    completedNormally = true;
     return next.value;
   } catch (error) {
     success = false;
     errorClass = error instanceof Error && error.name ? error.name : "UnknownError";
+    if (error instanceof Error) span.recordException(error);
     span.setStatus("error", errorClass);
     throw error;
   } finally {
@@ -664,9 +676,15 @@ export async function* runStreamInstrumented<T>(
     if (!success && errorClass) {
       emitDispatcherError(dispatcherMeter, { handler: type, errorClass });
     }
+    // A bare consumer-abort (generator.return(), no throw) leaves `success`
+    // at its true default — fold in completedNormally so an abandoned
+    // stream is labeled success:false (no errorClass, so the error counter
+    // above stays clean) instead of counting as a completed run. Still
+    // emitted — the duration sample itself remains useful even for an
+    // aborted stream, unlike a fully skipped metric would.
     emitDispatcherHandler(
       dispatcherMeter,
-      { handler: type, success },
+      { handler: type, success: success && completedNormally },
       (performance.now() - start) / 1000,
     );
   }
