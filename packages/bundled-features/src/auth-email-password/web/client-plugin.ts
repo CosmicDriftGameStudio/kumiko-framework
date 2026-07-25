@@ -8,7 +8,11 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
 import { defaultTranslations, mergeTranslations } from "../i18n";
-import { type MfaVerifyComponentProps, makeSessionAuthGate } from "./auth-gate";
+import {
+  type MfaSetupComponentProps,
+  type MfaVerifyComponentProps,
+  makeSessionAuthGate,
+} from "./auth-gate";
 import type { LoginScreenProps } from "./login-screen";
 
 export type EmailPasswordClientOptions = {
@@ -24,6 +28,10 @@ export type EmailPasswordClientOptions = {
    *  auth-mfa simply don't pass this — LoginScreen's built-in fallback
    *  error covers that case. */
   readonly mfaVerifyScreen?: ComponentType<MfaVerifyComponentProps>;
+  /** auth-mfa's MfaSetupPreauthScreen, wired in from the app the same way
+   *  as mfaVerifyScreen above. Apps not mounting auth-mfa simply don't
+   *  pass this. */
+  readonly mfaSetupScreen?: ComponentType<MfaSetupComponentProps>;
   /** Key-Overrides pro Locale. Wird mit den Default-Bundles (de/en)
    *  aus `translations.ts` gemerged — jeder hier gesetzte Key gewinnt.
    *  Für Branding ("Sign in" → "Login to Acme") oder weitere Sprachen
@@ -49,7 +57,12 @@ export function emailPasswordClient(
     name: "auth-email-password",
     providers: [],
     gates: [
-      makeSessionAuthGate(options.loginScreen, options.loginScreenProps, options.mfaVerifyScreen),
+      makeSessionAuthGate(
+        options.loginScreen,
+        options.loginScreenProps,
+        options.mfaVerifyScreen,
+        options.mfaSetupScreen,
+      ),
     ],
     translations,
   };

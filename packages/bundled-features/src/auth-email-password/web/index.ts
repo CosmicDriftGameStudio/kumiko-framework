@@ -29,7 +29,11 @@ export {
 } from "./auth-client";
 export type { AuthCardProps, AuthShellRenderer } from "./auth-form-primitives";
 export { AuthCard, AuthShellProvider, useAuthShell } from "./auth-form-primitives";
-export type { LoginRouteOptions, MfaVerifyComponentProps } from "./auth-gate";
+export type {
+  LoginRouteOptions,
+  MfaSetupComponentProps,
+  MfaVerifyComponentProps,
+} from "./auth-gate";
 export { createLoginRoute, makeAuthGate, makeSessionAuthGate } from "./auth-gate";
 export type {
   EmailPasswordClientFeature,
