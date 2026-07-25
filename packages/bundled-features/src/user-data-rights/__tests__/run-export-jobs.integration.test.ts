@@ -12,7 +12,7 @@
 //      downloadStorageKey wird genullt + storage-key geloescht
 //   6. Idempotency: 2× run → kein Re-Processing von done/failed-Jobs
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -818,7 +818,10 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     const calls: string[] = [];
     // Should not throw despite job A's callback throwing — the try/catch
     // around fireExportFailedCallback swallows it (operator-visibility
-    // via console.warn only) and the loop continues to job B.
+    // via console.warn only) and the loop continues to job B. A regress to
+    // a fully silent swallow (no log call at all) would still pass every
+    // assertion below unless the warn itself is pinned.
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     const result = await runExportJobs({
       db: stack.db,
       registry: stack.registry,
@@ -833,6 +836,8 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     });
     expect(result.failedJobIds).toEqual(expect.arrayContaining([jobAId, jobBId]));
     expect(calls.sort()).toEqual([jobAId, jobBId].sort());
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 
   test("failed-Job, user ohne email → sendExportFailedEmail skipped (kein Throw)", async () => {

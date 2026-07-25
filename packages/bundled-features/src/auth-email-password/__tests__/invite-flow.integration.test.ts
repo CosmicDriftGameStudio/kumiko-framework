@@ -362,6 +362,16 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     const body = (await res.json()) as { error?: { details?: { reason?: string } } };
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
   });
+
+  test("common password → 400 (schema rejects breach-list password) (#1340)", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+    const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: "password1",
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("invite-signup-complete (Branch 3: anon + new email)", () => {
@@ -395,6 +405,15 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
       password: CAROL_PASSWORD,
     });
     expect(loginRes.status).toBe(200);
+  });
+
+  test("common password → 400 (schema rejects breach-list password) (#1340)", async () => {
+    const token = await inviteEmail(CAROL_EMAIL, "Editor");
+    const res = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
+      token,
+      password: "password1",
+    });
+    expect(res.status).toBe(400);
   });
 
   test("Existing email → invalid_invite_token (User soll Branch 2 nutzen)", async () => {

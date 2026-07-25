@@ -63,4 +63,23 @@ describe("createRedisLoginRateLimiter", () => {
 
     expect(await limiter.check("k")).toBe(true);
   });
+
+  // Regression for the INCR-then-PEXPIRE race: two separate round-trips left
+  // a window for a crash/network blip right after the key is created
+  // (count===1) to skip the PEXPIRE call entirely, leaving the key
+  // permanently without a TTL. The single-eval fix closes that window by
+  // construction (one round-trip, can't be interrupted mid-way), but this
+  // assertion alone can't distinguish old from new: the old two-call code
+  // also leaves a TTL set on the non-crashing path. There's no cheap way to
+  // simulate the crash-between-round-trips window itself, so this only
+  // pins "TTL exists after check()", not the race fix directly.
+  test("first check sets a TTL — sanity check for the atomic eval path", async () => {
+    const limiter = createRedisLoginRateLimiter(testRedis.redis, 3, 60_000);
+    const key = "1.2.3.4|ttl-race@test.local";
+
+    expect(await limiter.check(key)).toBe(true);
+
+    const ttlMs = await testRedis.redis.pttl(`kumiko:auth:ratelimit:login:${key}`);
+    expect(ttlMs).toBeGreaterThan(0);
+  });
 });

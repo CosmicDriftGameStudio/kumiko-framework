@@ -37,11 +37,16 @@ import { userEntity, userTable } from "../../user/schema/user";
 import { base32Decode } from "../base32";
 import { mfaRequiredConfigHandle } from "../config";
 import { AuthMfaHandlers } from "../constants";
-import { createAuthMfaFeature, mfaStatusCheckerFromFeature } from "../feature";
+import {
+  bindMfaRevokeAllOtherSessionsFromFeature,
+  createAuthMfaFeature,
+  mfaStatusCheckerFromFeature,
+} from "../feature";
 import { userMfaEntity, userMfaTable } from "../schema/user-mfa";
 import { currentTotpCode } from "../totp";
 
 let stack: TestStack;
+const revokedForUserIds: string[] = [];
 
 const CHALLENGE_TOKEN_SECRET = "integration-test-challenge-token-secret-not-real-0001";
 const SETUP_TOKEN_SECRET = "integration-test-setup-token-secret-not-real-0002";
@@ -84,6 +89,15 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, userMfaEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+
+  // Wire a spy in place of the real session-revoke callback (run-prod-app
+  // only binds this once the sessions feature is mounted — not the case in
+  // this test stack) so #1467's regression can observe whether
+  // revokeAllOtherSessions actually fires, instead of silently no-op'ing.
+  bindMfaRevokeAllOtherSessionsFromFeature(authMfaFeature)?.((userId) => {
+    revokedForUserIds.push(userId);
+    return Promise.resolve(0);
+  });
 });
 
 afterAll(async () => {
@@ -93,6 +107,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  revokedForUserIds.length = 0;
 });
 
 async function loginBlockedByEnforcement(
@@ -159,6 +174,10 @@ describe("POST /auth/mfa/preauth-confirm", () => {
       { Authorization: `Bearer ${body.token}` },
     );
     expect(meRes.status).toBe(200);
+
+    // Positive control for the #1467 regression below — proves the spy
+    // wiring actually observes a real revoke call, not just silent no-ops.
+    expect(revokedForUserIds).toContain(body.user.id);
   });
 
   test("wrong TOTP code → invalid_totp_code, no enrollment persisted", async () => {
@@ -245,6 +264,42 @@ describe("POST /auth/mfa/preauth-confirm", () => {
     const body = await res.json();
     expect(body.isSuccess).toBe(false);
     expect(body.error.details.reason).toBe("invalid_setup_token");
+  });
+
+  // #1467: findForAuth's status check + membership lookup used to run AFTER
+  // the entity-write and the revokeAllOtherSessions call — an admin
+  // restricting/deleting the account between preauth-enable-start and
+  // preauth-confirm still got invalid_setup_token back correctly (the
+  // handler's whole DB transaction rolls back on a non-success return, so
+  // the MFA row itself never actually persisted), but revokeAllOtherSessions
+  // is an external side effect outside that transaction — it fired
+  // regardless, logging the user's other devices out over an enrollment
+  // attempt that was rejected. Regression: with status/membership checked
+  // BEFORE the write, the revoke call must not fire at all for this case.
+  test("user restricted between start and confirm → invalid_setup_token, no session revoked (#1467)", async () => {
+    const email = "restricted-midflight@example.com";
+    const { preauthSetupToken, userId } = await loginBlockedByEnforcement(email);
+    const { setupToken, secret } = await startEnrollment(preauthSetupToken, email);
+
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${userTable.tableName}" SET "status" = 'restricted' WHERE "id" = $1`,
+      [userId],
+    );
+
+    const res = await stack.http.raw("POST", "/api/auth/mfa/preauth-confirm", {
+      setupToken,
+      code: currentTotpCode(secret),
+    });
+
+    expect(res.status).not.toBe(200);
+    const body = await res.json();
+    expect(body.error.details.reason).toBe("invalid_setup_token");
+    expect(revokedForUserIds).not.toContain(userId);
+    // Enrollment write itself rolls back with the handler's failure return —
+    // pinned here too so a future change to that transactional behavior
+    // doesn't silently reintroduce the original "row persists" half of the bug.
+    const rows = await selectMany(stack.db, userMfaTable, { userId });
+    expect(rows).toHaveLength(0);
   });
 
   test("expired/garbage setupToken → invalid_setup_token, no session minted", async () => {

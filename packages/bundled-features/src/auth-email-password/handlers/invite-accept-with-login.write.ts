@@ -46,11 +46,12 @@ import {
   getInvitationIdForToken,
   unburnInviteToken,
 } from "../invite-token-store";
+import { passwordSchema } from "../password-policy";
 
 const InviteAcceptWithLoginSchema = z.object({
   token: z.string().min(1),
   email: z.email(),
-  password: z.string().min(8).max(200),
+  password: passwordSchema,
 });
 
 export type InviteAcceptWithLoginData = {

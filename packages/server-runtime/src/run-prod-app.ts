@@ -966,6 +966,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
             undefined,
             "mfa-verify",
           ),
+          mfaPreauthEnableStartRateLimit: createRedisLoginRateLimiter(
+            redis,
+            undefined,
+            undefined,
+            "mfa-preauth-start",
+          ),
           mfaPreauthConfirmRateLimit: createRedisLoginRateLimiter(
             redis,
             undefined,

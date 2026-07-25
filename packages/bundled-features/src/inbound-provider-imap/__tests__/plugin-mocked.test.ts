@@ -254,10 +254,11 @@ describe("imapInboundMailPlugin — mocked imapflow", () => {
       { uidValidity: "17", lastUid: 1 },
       { backfillWindowDays: 7, maxMessages: 2 },
     );
-    // search returns 2,3,4 (> lastUid=1); maxMessages=2 → hasMore
-    expect(result.messages.length).toBeLessThanOrEqual(2);
+    // search returns 2,3,4 (> lastUid=1); maxMessages=2 → hasMore, uid 1
+    // filtered out and only the first 2 of the 3 remaining survive the cap.
+    expect(result.messages.map((m) => m.subject)).toEqual(["two", "three"]);
     expect(result.hasMore).toBe(true);
-    expect(result.nextCursor["uidValidity"]).toBe("17");
+    expect(result.nextCursor).toEqual({ uidValidity: "17", lastUid: 3 });
   });
 
   test("fetch: UIDVALIDITY change → InboundCursorInvalidError", async () => {

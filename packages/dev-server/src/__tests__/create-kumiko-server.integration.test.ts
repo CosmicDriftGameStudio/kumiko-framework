@@ -385,6 +385,13 @@ describe("createKumikoServer — real Bun.build (buildClient)", () => {
       const body = await res.text();
       expect(body.length).toBeGreaterThan(0);
       expect(body).toMatch(/ping/);
+
+      // Stop the watcher before teardown rmSync deletes clientEntry out from
+      // under it — a bare "client.tsx" delete event classifies as "restart"
+      // (classifyChange only special-cases endsWith("/client.tsx")) and
+      // process.exit(75) kills the whole bun test runner mid-suite.
+      await handle.stop();
+      handle = undefined;
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }

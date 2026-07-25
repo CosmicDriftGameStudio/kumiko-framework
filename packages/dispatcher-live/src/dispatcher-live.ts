@@ -257,6 +257,7 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
         // body — both must map to the same `aborted` envelope so hooks
         // (useStreamHandler) can ignore user-cancel without an error toast.
         if (isAbortError(e) || opts?.signal?.aborted) throw buildAbortError();
+        observeNetworkOutcome(false);
         throw e;
       }
     },

@@ -50,12 +50,13 @@ import {
   getInvitationIdForToken,
   unburnInviteToken,
 } from "../invite-token-store";
+import { passwordSchema } from "../password-policy";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { seedUserWithPassword } from "../seeding";
 
 const InviteSignupCompleteSchema = z.object({
   token: z.string().min(1),
-  password: z.string().min(8).max(200),
+  password: passwordSchema,
 });
 
 export type InviteSignupCompleteData = {
