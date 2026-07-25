@@ -347,6 +347,27 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
   });
 });
 
+describe("verifyAndParseMollieWebhook — kumiko-framework#1525: no ambient Temporal global", () => {
+  const verify = (client: MollieClientShape) =>
+    verifyAndParseMollieWebhook(client, {
+      priceToTier: { plan_pro: "pro" },
+      priceToConfig: TEST_PRICE_CONFIG,
+    });
+
+  test("computes currentPeriodEnd without relying on globalThis.Temporal", async () => {
+    const client = buildClient();
+    const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
+    delete (globalThis as { Temporal?: unknown }).Temporal;
+    try {
+      const event = await verify(client)("id=tr_test_001", {});
+      expect(event?.currentPeriodEnd).toBe("2026-06-15T00:00:00Z");
+    } finally {
+      if (savedGlobal === undefined) delete (globalThis as { Temporal?: unknown }).Temporal;
+      else (globalThis as { Temporal?: unknown }).Temporal = savedGlobal;
+    }
+  });
+});
+
 // =============================================================================
 // Mapping-helpers
 // =============================================================================

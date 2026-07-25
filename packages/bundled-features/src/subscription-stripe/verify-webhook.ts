@@ -40,6 +40,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type Stripe from "stripe";
+import { Temporal } from "temporal-polyfill";
 import { STRIPE_PROVIDER_NAME, StripeEventTypes } from "./constants";
 import type { StripeWebhookRuntime } from "./runtime";
 
@@ -138,8 +139,8 @@ export function verifyAndParseStripeWebhook(
     const status = mapStripeStatus(sub.status);
     const periodEndUnixSec = sub.items.data[0]?.current_period_end ?? 0;
     // Stripe returns Unix-seconds; Temporal.Instant.fromEpochMilliseconds
-    // expects ms. Multiply, then ISO. (No-Date-API-Guard verbietet
-    // `new Date()` — Temporal ist global verfügbar via polyfill.)
+    // expects ms. Multiply, then ISO. (No-Date-API-Guard forbids
+    // `new Date()` — static import above, not the ambient global, see #1490.)
     const currentPeriodEnd = Temporal.Instant.fromEpochMilliseconds(
       periodEndUnixSec * 1000,
     ).toString();

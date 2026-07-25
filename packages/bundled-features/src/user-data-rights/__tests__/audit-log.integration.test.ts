@@ -22,6 +22,8 @@ import { createSessionsFeature } from "../../sessions";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { createUserDataRightsFeature } from "../feature";
+import { listDownloadAttemptsQuery } from "../handlers/list-download-attempts.query";
+import { myAuditLogQuery } from "../handlers/my-audit-log.query";
 import { downloadAttemptEntity, downloadAttemptsTable } from "../schema/download-attempt";
 
 const MY_AUDIT = "user-data-rights:query:my-audit-log";
@@ -155,6 +157,69 @@ describe("my-audit-log", () => {
     );
     expect(filtered.rows.length).toBe(1);
     expect(filtered.rows[0]?.type).toBe("user.requested-deletion");
+  });
+});
+
+describe("my-audit-log — kumiko-framework#1525: no ambient Temporal global", () => {
+  test("from/to filter works without deleting globalThis.Temporal for handler-internal state", async () => {
+    // Seed with Temporal intact — only the handler call runs ambient-free,
+    // mirroring the audit feature's #1525 regression test (going through
+    // full HTTP dispatch would also break buildHandlerContext's unrelated
+    // ctx.tz setup, which isn't what this pins down).
+    await seedEvent(alice.id, tenantA, "user.x", { from: "range-test" });
+
+    const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
+    delete (globalThis as { Temporal?: unknown }).Temporal;
+    try {
+      const res = await myAuditLogQuery.handler(
+        {
+          payload: { limit: 50, from: "2020-01-01T00:00:00Z", to: "2030-01-01T00:00:00Z" },
+          user: alice,
+        } as Parameters<typeof myAuditLogQuery.handler>[0],
+        { db: { raw: stack.db } } as Parameters<typeof myAuditLogQuery.handler>[1],
+      );
+      expect(res.rows.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      if (savedGlobal === undefined) delete (globalThis as { Temporal?: unknown }).Temporal;
+      else (globalThis as { Temporal?: unknown }).Temporal = savedGlobal;
+    }
+  });
+});
+
+describe("list-download-attempts — kumiko-framework#1525: no ambient Temporal global", () => {
+  test("from/to filter works without relying on globalThis.Temporal", async () => {
+    const T = await import("@cosmicdrift/kumiko-framework/time");
+    const now = T.getTemporal().Now.instant();
+    await seedRows(stack.db, downloadAttemptsTable, [
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        tenantId: tenantA,
+        result: "notFound",
+        via: "token",
+        tokenHash: "abc",
+        jobId: null,
+        attemptedByUserId: null,
+        ip: "1.2.3.4",
+        userAgent: "test",
+        attemptedAt: now,
+      },
+    ]);
+
+    const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
+    delete (globalThis as { Temporal?: unknown }).Temporal;
+    try {
+      const res = await listDownloadAttemptsQuery.handler(
+        {
+          payload: { limit: 50, from: "2020-01-01T00:00:00Z", to: "2030-01-01T00:00:00Z" },
+          user: admin,
+        } as Parameters<typeof listDownloadAttemptsQuery.handler>[0],
+        { db: stack.db } as Parameters<typeof listDownloadAttemptsQuery.handler>[1],
+      );
+      expect(res.rows.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      if (savedGlobal === undefined) delete (globalThis as { Temporal?: unknown }).Temporal;
+      else (globalThis as { Temporal?: unknown }).Temporal = savedGlobal;
+    }
   });
 });
 
