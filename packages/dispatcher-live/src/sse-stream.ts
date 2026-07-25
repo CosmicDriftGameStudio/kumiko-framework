@@ -41,6 +41,7 @@ export async function* iterateSseChunks<TChunk>(
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let sawDone = false;
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -53,25 +54,60 @@ export async function* iterateSseChunks<TChunk>(
         if (frame === null) continue;
         if (frame.event === "ping") continue;
         // skip: terminal SSE done frame — end the generator cleanly
-        if (frame.event === "done") return;
+        if (frame.event === "done") {
+          sawDone = true;
+          return;
+        }
         if (frame.event === "error") {
           throw frameDataToDispatcherError(frame.data);
         }
         if (frame.event === "chunk") {
-          yield JSON.parse(frame.data) as TChunk;
+          yield parseChunkData<TChunk>(frame.data);
         }
       }
     }
     // Trailing buffer without final blank line (some runtimes).
     const frame = parseSseBlock(buffer);
     if (frame?.event === "chunk") {
-      yield JSON.parse(frame.data) as TChunk;
+      yield parseChunkData<TChunk>(frame.data);
     } else if (frame?.event === "error") {
       throw frameDataToDispatcherError(frame.data);
+    } else if (frame?.event === "done") {
+      sawDone = true;
+    }
+    if (!sawDone) {
+      throw buildTruncatedStreamError();
     }
   } finally {
-    reader.releaseLock();
+    // cancel() releases the reader's lock too (safe on an already-drained
+    // stream) and, unlike releaseLock() alone, tells the underlying HTTP
+    // response to close instead of leaving the connection open until the
+    // server finishes writing a body no one is reading anymore.
+    await reader.cancel().catch(() => {});
   }
+}
+
+function parseChunkData<TChunk>(data: string): TChunk {
+  try {
+    return JSON.parse(data) as TChunk;
+  } catch (e) {
+    const cause = e instanceof Error ? e.message : String(e);
+    throw {
+      code: "stream_error",
+      httpStatus: 200,
+      i18nKey: "errors.unknown",
+      message: `malformed chunk frame: ${cause}`,
+    } satisfies DispatcherError;
+  }
+}
+
+function buildTruncatedStreamError(): DispatcherError {
+  return {
+    code: "stream_error",
+    httpStatus: 200,
+    i18nKey: "errors.unknown",
+    message: "stream ended without a done frame",
+  };
 }
 
 function frameDataToDispatcherError(data: string): DispatcherError {

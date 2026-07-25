@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { Queue } from "bullmq";
 import { z } from "zod";
 import { requestContext } from "../../api/request-context";
 import { createRegistry, defineFeature } from "../../engine";
@@ -464,6 +465,7 @@ describe("concurrency: replace", () => {
   test("enqueuer-only: each dispatch removes prior waiting peers", async () => {
     // No consumer → jobs stay waiting. The replace branch walks getWaiting()
     // and removes same-name peers before add — so three dispatches leave one.
+    const queueNamePrefix = `kumiko-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     await withRunner(
       async (runner) => {
         const id1 = await runner.dispatch("test:job:replace-job", { n: 1 });
@@ -474,8 +476,21 @@ describe("concurrency: replace", () => {
         expect(id3).toBeDefined();
         expect(id1).not.toBe("skipped");
         expect(id3).not.toBe(id1);
+
+        const queue = new Queue(`${queueNamePrefix}-worker`, {
+          connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
+        });
+        try {
+          const waiting = (await queue.getWaiting()).filter(
+            (job) => job.name === "test:job:replace-job",
+          );
+          expect(waiting).toHaveLength(1);
+          expect(waiting[0]?.data.n).toBe(3);
+        } finally {
+          await queue.close();
+        }
       },
-      { consumerLane: undefined },
+      { consumerLane: undefined, queueNamePrefix },
     );
   });
 });
@@ -693,11 +708,15 @@ describe("handleEvent maxPerTenant", () => {
       const user = { ...TestUsers.admin, tenantId: "cap-tenant-evt" };
       await runner.handleEvent("test:write:capped-event", { n: 1 }, user);
       await runner.handleEvent("test:write:capped-event", { n: 2 }, user);
+      await waitFor(() => {
+        const started = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");
+        expect(started.length).toBe(2);
+      });
       // Third must be skipped by the maxPerTenant guard.
       await runner.handleEvent("test:write:capped-event", { n: 3 }, user);
       await sleep(200);
       const started = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");
-      expect(started.length).toBeLessThanOrEqual(2);
+      expect(started.length).toBe(2);
     });
   });
 });

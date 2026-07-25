@@ -136,7 +136,13 @@ CREATE INDEX IF NOT EXISTS "read_accounts_tenant_id_idx" ON "read_accounts" ("te
     }
   });
 
-  test("commented-out destructive DROP TABLE is not replayed", () => {
+  // The real migrate-runner never executes a DESTRUCTIVE marker (it's a
+  // commented-out suggestion an operator uncomments deliberately) — but the
+  // snapshot already reflects the post-drop state as the intended end state,
+  // so replay must count the marker as applied or "unexpected-table"/
+  // "unexpected columns" fires forever against a table the snapshot
+  // correctly omits.
+  test("commented-out destructive DROP TABLE is replayed as applied", () => {
     const dir = tmpMigrationsDir();
     try {
       write(dir, "0001_init.sql", `CREATE TABLE IF NOT EXISTS "read_a" ("id" uuid PRIMARY KEY);`);
@@ -146,7 +152,27 @@ CREATE INDEX IF NOT EXISTS "read_accounts_tenant_id_idx" ON "read_accounts" ("te
         `-- DESTRUCTIVE: DROP TABLE IF EXISTS "read_a";  -- uncomment + ensure backup`,
       );
       const replayed = replayMigrationsDir(dir);
-      expect([...replayed.keys()]).toEqual(["read_a"]);
+      expect([...replayed.keys()]).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("commented-out destructive DROP COLUMN is replayed as applied", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(
+        dir,
+        "0001_init.sql",
+        `CREATE TABLE IF NOT EXISTS "read_a" ("id" uuid PRIMARY KEY, "legacy" text);`,
+      );
+      write(
+        dir,
+        "0002_drop-col.sql",
+        `-- DESTRUCTIVE: ALTER TABLE "read_a" DROP COLUMN "legacy";  -- uncomment + ensure backup`,
+      );
+      const replayed = replayMigrationsDir(dir);
+      expect([...(replayed.get("read_a")?.columns ?? [])]).toEqual(["id"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

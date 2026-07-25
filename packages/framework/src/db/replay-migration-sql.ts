@@ -9,8 +9,27 @@
 // either. Reuses `loadMigrationsFromDir`'s statement-splitting so the replay
 // sees exactly what the real runner would execute.
 
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Snapshot } from "./migrate-generator";
-import { loadMigrationsFromDir } from "./migrate-runner";
+import { splitSqlStatements } from "./migrate-runner";
+
+// Migration files comment out destructive ops (DROP TABLE/COLUMN) as
+// `-- DESTRUCTIVE: <stmt>;  -- uncomment + ensure backup` so the real
+// migrate-runner never executes them unattended. For replay purposes the
+// snapshot represents the INTENDED end state, so a commented-out drop must
+// still count as applied here — otherwise a table/column the snapshot
+// already omits shows up as "unexpected" forever. splitSqlStatements (the
+// real runner's splitter) strips `--`-comments outright, which would erase
+// these markers before they ever reach applyStatement.
+const DESTRUCTIVE_MARKER = /^--\s*DESTRUCTIVE:\s*(.+?;)/i;
+
+function expandDestructiveMarkers(sqlText: string): string {
+  return sqlText
+    .split("\n")
+    .map((line) => DESTRUCTIVE_MARKER.exec(line.trim())?.[1] ?? line)
+    .join("\n");
+}
 
 export type ReplayedTable = {
   readonly columns: ReadonlySet<string>;
@@ -94,8 +113,13 @@ function applyStatement(schema: Map<string, { columns: Set<string> }>, statement
 // CREATE/ALTER/DROP TABLE statement to reconstruct the resulting schema.
 export function replayMigrationsDir(migrationsDir: string): ReplayedSchema {
   const schema = new Map<string, { columns: Set<string> }>();
-  for (const migration of loadMigrationsFromDir(migrationsDir)) {
-    for (const statement of migration.statements) applyStatement(schema, statement);
+  const files = readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+  for (const file of files) {
+    const raw = readFileSync(join(migrationsDir, file), "utf8");
+    const statements = splitSqlStatements(expandDestructiveMarkers(raw));
+    for (const statement of statements) applyStatement(schema, statement);
   }
   return schema;
 }
