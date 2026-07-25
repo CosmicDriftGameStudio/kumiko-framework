@@ -1,4 +1,4 @@
-import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
+import { type DispatcherError, StreamFrame } from "@cosmicdrift/kumiko-headless";
 import { mapServerError } from "./error-mapping";
 
 // Parse the SSE wire format produced by Hono `streamSSE` for POST /api/stream:
@@ -52,27 +52,27 @@ export async function* iterateSseChunks<TChunk>(
       for (const part of parts) {
         const frame = parseSseBlock(part);
         if (frame === null) continue;
-        if (frame.event === "ping") continue;
+        if (frame.event === StreamFrame.ping) continue;
         // skip: terminal SSE done frame — end the generator cleanly
-        if (frame.event === "done") {
+        if (frame.event === StreamFrame.done) {
           sawDone = true;
           return;
         }
-        if (frame.event === "error") {
+        if (frame.event === StreamFrame.error) {
           throw frameDataToDispatcherError(frame.data);
         }
-        if (frame.event === "chunk") {
+        if (frame.event === StreamFrame.chunk) {
           yield parseChunkData<TChunk>(frame.data);
         }
       }
     }
     // Trailing buffer without final blank line (some runtimes).
     const frame = parseSseBlock(buffer);
-    if (frame?.event === "chunk") {
+    if (frame?.event === StreamFrame.chunk) {
       yield parseChunkData<TChunk>(frame.data);
-    } else if (frame?.event === "error") {
+    } else if (frame?.event === StreamFrame.error) {
       throw frameDataToDispatcherError(frame.data);
-    } else if (frame?.event === "done") {
+    } else if (frame?.event === StreamFrame.done) {
       sawDone = true;
     }
     if (!sawDone) {

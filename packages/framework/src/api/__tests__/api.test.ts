@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { parseSseFrames } from "@cosmicdrift/kumiko-dispatcher-live";
 import { z } from "zod";
 import {
   createEntity,
@@ -8,7 +9,7 @@ import {
   type TenantId,
 } from "../../engine";
 import { createTestUser, TestUsers } from "../../stack";
-import { pumpStream } from "../routes";
+import { pumpStream, StreamFrame } from "../routes";
 import { buildServer } from "../server";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
@@ -279,6 +280,40 @@ describe("pumpStream", () => {
     // The chunk before the throw still made it out.
     expect(writer.frames.map((f) => f.event)).toEqual(["chunk"]);
   });
+
+  test("closes the generator when writeSSE throws mid-loop (e.g. client disconnected on a ping)", async () => {
+    let cleanedUp = false;
+    async function* gen() {
+      try {
+        await Bun.sleep(50);
+        yield { i: 0 };
+      } finally {
+        cleanedUp = true;
+      }
+    }
+    const frames: Array<{ event: string; data: string }> = [];
+    const writer = {
+      frames,
+      async writeSSE(message: { event: string; data: string }) {
+        if (message.event === StreamFrame.ping) throw new Error("client disconnected");
+        frames.push(message);
+      },
+    };
+
+    await expect(pumpStream(writer, gen(), 5)).rejects.toThrow("client disconnected");
+    expect(cleanedUp).toBe(true);
+  });
+
+  test("serializes an undefined yielded value as an explicit null chunk instead of an invalid frame", async () => {
+    const writer = fakeSseWriter();
+    async function* gen() {
+      yield undefined;
+    }
+
+    await pumpStream(writer, gen(), 1000);
+
+    expect(writer.frames[0]).toEqual({ event: StreamFrame.chunk, data: "null" });
+  });
 });
 
 // --- SSE ---
@@ -298,17 +333,6 @@ describe("GET /api/sse", () => {
 });
 
 // --- Stream (dispatcher-driven SSE) ---
-
-function parseSseFrames(text: string): Array<{ event: string; data: string }> {
-  return text
-    .split("\n\n")
-    .filter((frame) => frame.trim().length > 0)
-    .map((frame) => {
-      const event = /^event: (.*)$/m.exec(frame)?.[1] ?? "";
-      const data = /^data: (.*)$/m.exec(frame)?.[1] ?? "";
-      return { event, data };
-    });
-}
 
 describe("POST /api/stream", () => {
   test("dispatches stream handler and yields chunk frames then done", async () => {

@@ -38,6 +38,7 @@ export type {
   WriteOpts,
   WriteResult,
 } from "./dispatcher";
+export { StreamFrame, type StreamFrameEvent } from "./dispatcher";
 export type {
   FieldConditionPredicate,
   FieldConditions,

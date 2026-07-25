@@ -19,6 +19,16 @@ import { patAllows } from "./pat-scope";
 import { requestContext } from "./request-context";
 import { SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route";
 
+// SSE frame event names for POST /api/stream (framework-owned; dispatcher-live
+// has no dependency on this package and keeps its own copy in sse-stream.ts —
+// a drift between the two fails the real-HTTP frame assertions in api.test.ts).
+export const StreamFrame = {
+  chunk: "chunk",
+  ping: "ping",
+  done: "done",
+  error: "error",
+} as const;
+
 export function createApiRoutes(dispatcher: Dispatcher) {
   const api = new Hono();
 
@@ -124,27 +134,58 @@ export function createApiRoutes(dispatcher: Dispatcher) {
   });
 
   // Dispatcher-driven SSE, full auth/CSRF/rate-limit chain (unlike the
-  // broker-based /sse route). Frame contract for clients: "chunk" (one per
-  // yielded value, JSON-encoded), "ping" (heartbeat, empty data), "done"
-  // (terminal, empty data), "error" (terminal, JSON error envelope — only
-  // reachable once the stream is already open, i.e. failures from the
+  // broker-based /sse route). Frame contract for clients: StreamFrame.chunk
+  // (one per yielded value, JSON-encoded), .ping (heartbeat, empty data),
+  // .done (terminal, empty data), .error (terminal, JSON error envelope —
+  // only reachable once the stream is already open, i.e. failures from the
   // second chunk onward). The generator's first `.next()` — which runs the
   // dispatch gates (feature/rate-limit/access/validation) plus the handler's
-  // first yield — is pulled BEFORE streamSSE, so a gate failure maps to its
-  // real HTTP status via queryErrorResponse instead of a flushed-200 error
-  // frame (framework#1517).
+  // first yield — is raced against a heartbeat timeout BEFORE streamSSE, so
+  // a gate failure that settles in time maps to its real HTTP status via
+  // queryErrorResponse instead of a flushed-200 error frame (framework#1517).
   api.post(Routes.stream, async (c) => {
     const user = getUser(c);
     const body = await c.req.json<{ type: string; payload: unknown }>();
     const requestId = requestContext.get()?.requestId;
 
     const generator = dispatcher.stream(body.type, body.payload, user);
-    let first: IteratorResult<unknown>;
     try {
       assertPatAllowed(user, body.type);
-      first = await generator.next();
     } catch (e) {
       return queryErrorResponse(c, toKumiko(e), body.type);
+    }
+
+    // stream.onAbort() only exists once streamSSE opens the response below.
+    // Hook the raw request signal directly so a client disconnect during the
+    // pre-pull still reclaims the generator instead of leaking a Redis
+    // subscription/DB cursor held open inside its still-unresolved first
+    // `.next()` (framework#1528).
+    const signal = c.req.raw.signal;
+    const onPrePullAbort = () => void generator.return(undefined);
+    signal.addEventListener("abort", onPrePullAbort);
+
+    const firstPull = generator.next();
+    let prePullTimer: ReturnType<typeof setTimeout> | undefined;
+    const settledInTime = await Promise.race([
+      firstPull.then(() => true).catch(() => true),
+      new Promise<false>((resolve) => {
+        prePullTimer = setTimeout(() => resolve(false), SSE_HEARTBEAT_INTERVAL_MS);
+      }),
+    ]);
+    clearTimeout(prePullTimer);
+    signal.removeEventListener("abort", onPrePullAbort);
+
+    if (settledInTime) {
+      try {
+        await firstPull;
+      } catch (e) {
+        return queryErrorResponse(c, toKumiko(e), body.type);
+      }
+    }
+
+    if (signal.aborted) {
+      await generator.return(undefined);
+      return c.body(null, 499 as ContentfulStatusCode); // @cast-boundary non-standard client-closed-request status, Hono's union doesn't include it
     }
 
     return streamSSE(c, async (stream) => {
@@ -153,12 +194,12 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       });
 
       try {
-        await pumpStream(stream, generator, SSE_HEARTBEAT_INTERVAL_MS, first);
+        await pumpStream(stream, generator, SSE_HEARTBEAT_INTERVAL_MS, firstPull);
       } catch (e) {
         const err = toKumiko(e);
         logServerFault(err, requestId, body.type);
         const { error } = serializeError(err, requestId);
-        await stream.writeSSE({ event: "error", data: stringifyJson(error) });
+        await stream.writeSSE({ event: StreamFrame.error, data: stringifyJson(error) });
       }
     });
   });
@@ -170,44 +211,44 @@ export type SseWriter = {
   readonly writeSSE: (message: { readonly event: string; readonly data: string }) => Promise<void>;
 };
 
-// Pull loop for /api/stream: races each generator.next() against a
-// heartbeat timer so a slow/idle handler still keeps the connection alive
-// ("ping" frames), forwards yielded chunks as "chunk" frames, and emits
-// "done" once the generator completes. Factored out of the route handler
-// so the heartbeat/ping and abort/cleanup paths are unit-testable with a
-// fast heartbeatMs instead of only reachable through SSE_HEARTBEAT_INTERVAL_MS
-// (15s) in a full HTTP round-trip.
+// Races each generator.next() against a heartbeat timer so an idle handler keeps the SSE connection alive.
 export async function pumpStream(
   stream: SseWriter,
   generator: AsyncGenerator<unknown>,
   heartbeatMs: number,
-  // Pre-pulled first `.next()` outcome (see the /api/stream route: it pulls
-  // this before streamSSE to surface gate failures as real HTTP statuses).
-  // Passing it here avoids pulling the generator a second time.
-  firstOutcome?: IteratorResult<unknown>,
+  // Pending (or already-settled) first `.next()` — see the /api/stream route,
+  // which races this against a heartbeat timeout before opening streamSSE.
+  firstPull?: Promise<IteratorResult<unknown>>,
 ): Promise<void> {
-  let pending = firstOutcome !== undefined ? Promise.resolve(firstOutcome) : generator.next();
-  while (true) {
-    let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
-    const heartbeat = new Promise<"heartbeat">((resolve) => {
-      heartbeatTimer = setTimeout(() => resolve("heartbeat"), heartbeatMs);
-    });
-    let outcome: Awaited<typeof pending> | "heartbeat";
-    try {
-      outcome = await Promise.race([pending, heartbeat]);
-    } finally {
-      clearTimeout(heartbeatTimer);
-    }
+  let pending = firstPull ?? generator.next();
+  try {
+    while (true) {
+      let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
+      const heartbeat = new Promise<"heartbeat">((resolve) => {
+        heartbeatTimer = setTimeout(() => resolve("heartbeat"), heartbeatMs);
+      });
+      let outcome: Awaited<typeof pending> | "heartbeat";
+      try {
+        outcome = await Promise.race([pending, heartbeat]);
+      } finally {
+        clearTimeout(heartbeatTimer);
+      }
 
-    if (outcome === "heartbeat") {
-      await stream.writeSSE({ event: "ping", data: "" });
-      continue;
+      if (outcome === "heartbeat") {
+        await stream.writeSSE({ event: StreamFrame.ping, data: "" });
+        continue;
+      }
+      if (outcome.done) break;
+      await stream.writeSSE({
+        event: StreamFrame.chunk,
+        data: stringifyJson(outcome.value ?? null),
+      });
+      pending = generator.next();
     }
-    if (outcome.done) break;
-    await stream.writeSSE({ event: "chunk", data: stringifyJson(outcome.value) });
-    pending = generator.next();
+    await stream.writeSSE({ event: StreamFrame.done, data: "" });
+  } finally {
+    await generator.return(undefined).catch(() => {});
   }
-  await stream.writeSSE({ event: "done", data: "" });
 }
 
 function jsonResponse(c: Context, body: unknown, status: ContentfulStatusCode = 200) {
