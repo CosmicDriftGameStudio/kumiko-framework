@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
@@ -458,15 +459,38 @@ export type SignupConfig = {
   confirmHandler: string;
 };
 
+// Derives the caller IP from proxy headers, single source for the
+// rate-limiter keys below and requestMeta. kumiko-framework#1523/#1522:
+// this trusts `x-forwarded-for`/`x-real-ip` at face value — there is no
+// trusted-proxy/hop-count config anywhere in the framework yet, so behind
+// an ingress that appends rather than overwrites (e.g. plain nginx
+// `$proxy_add_x_forwarded_for`), an attacker can freely set the header and
+// rotate it per request to reset the bucket. Fixing this for real needs a
+// trusted-hop-count (or `getConnInfo`-based) config surface threaded from
+// the app — tracked separately, NOT done here. Until then this is a
+// best-effort key, not a hard boundary; callers that need a hard boundary
+// (preauth-enable-start) additionally key on something the caller can't
+// freely choose (see preauthTokenKeyOf below).
+function clientIpOf(c: { req: { header(name: string): string | undefined } }): string {
+  return (
+    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? c.req.header("x-real-ip") ?? "unknown"
+  );
+}
+
+// Second rate-limit axis for preauth-enable-start: unlike the IP, a
+// preauthSetupToken isn't freely choosable by the attacker (it's minted by
+// login.write.ts), so hashing it into a bucket key still caps the replay
+// even when the IP-based bucket is bypassed via header rotation.
+function preauthTokenKeyOf(token: string): string {
+  return `preauth-token:${createHash("sha256").update(token).digest("hex")}`;
+}
+
 // Extract `ip` and `user-agent` for the sessionCreator.
 // Hono's `c.req.header(...)` returns undefined for missing headers; we coerce
 // them to "unknown" rather than throwing because auth-routes are a public
 // surface and we don't want header-sniffing bugs to break login.
 function requestMeta(c: { req: { header(name: string): string | undefined } }): SessionMetadata {
-  const ip =
-    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-    c.req.header("x-real-ip") ??
-    "unknown";
+  const ip = clientIpOf(c);
   const userAgent = c.req.header("user-agent") ?? "unknown";
   return { ip, userAgent };
 }
@@ -540,6 +564,12 @@ export function createInMemoryLoginRateLimiter(
 // each replica its own bucket. namespace separates the login-key keyspace
 // from the mfa-verify one (they share the same LoginRateLimiter shape but
 // key on different values).
+// Fail-closed on Redis outage, unlike the in-memory limiter (which never
+// throws): `check`/`reset` propagate any Redis error, so callers 500
+// instead of falling back to unlimited attempts. Deliberate — Redis is
+// already required infra for a multi-replica deployment, and for a
+// security-relevant limiter "briefly unavailable" should read as "briefly
+// down", not "briefly unlimited".
 export function createRedisLoginRateLimiter(
   redis: Redis,
   maxAttempts = 10,
@@ -558,10 +588,14 @@ export function createRedisLoginRateLimiter(
       // operator manually resets/deletes the key. One atomic eval closes
       // the gap: the TTL is set in the same script invocation that creates
       // the key, so no observer (including a crash) can see count===1
-      // without the expiry already applied.
+      // without the expiry already applied. The `PTTL < 0` branch also
+      // heals keys that already exist without a TTL from before this fix
+      // shipped (PTTL returns -1 for "no expiry set, key exists") — without
+      // it, those pre-existing keys would grow forever with no way back to
+      // a normal window.
       const count = (await redis.eval(
         `local c = redis.call('INCR', KEYS[1])
-         if c == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+         if c == 1 or redis.call('PTTL', KEYS[1]) < 0 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
          return c`,
         1,
         redisKey,
@@ -630,13 +664,7 @@ export function createAuthRoutes(
       }
       const body = parsed.data;
 
-      // Client IP derivation is shared between rate-limit check and reset,
-      // so compute once. Falls back to "unknown" when no proxy header is
-      // present — consistent bucket for direct-to-server test setups.
-      const clientIp =
-        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-        c.req.header("x-real-ip") ??
-        "unknown";
+      const clientIp = clientIpOf(c);
       const rateLimitKey = `${clientIp}|${body.email.toLowerCase()}`;
 
       if (rateLimiter) {
@@ -737,10 +765,7 @@ export function createAuthRoutes(
       }
       const body = parsed.data;
 
-      const clientIp =
-        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-        c.req.header("x-real-ip") ??
-        "unknown";
+      const clientIp = clientIpOf(c);
 
       if (rateLimiter) {
         const allowed = await rateLimiter.check(clientIp);
@@ -809,14 +834,19 @@ export function createAuthRoutes(
       }
       const body = parsed.data;
 
-      const clientIp =
-        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-        c.req.header("x-real-ip") ??
-        "unknown";
+      const clientIp = clientIpOf(c);
 
       if (rateLimiter) {
         const allowed = await rateLimiter.check(clientIp);
         if (!allowed) {
+          return c.json({ isSuccess: false, error: "rate_limited" }, 429);
+        }
+        // Second axis, independent of the IP-derived bucket above: the
+        // preauthSetupToken is minted by login.write.ts and not freely
+        // choosable, so this cap survives an attacker rotating
+        // x-forwarded-for to bypass the IP bucket (kumiko-framework#1522).
+        const tokenAllowed = await rateLimiter.check(preauthTokenKeyOf(body.preauthSetupToken));
+        if (!tokenAllowed) {
           return c.json({ isSuccess: false, error: "rate_limited" }, 429);
         }
       }
@@ -874,10 +904,7 @@ export function createAuthRoutes(
       }
       const body = parsed.data;
 
-      const clientIp =
-        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-        c.req.header("x-real-ip") ??
-        "unknown";
+      const clientIp = clientIpOf(c);
 
       if (rateLimiter) {
         const allowed = await rateLimiter.check(clientIp);

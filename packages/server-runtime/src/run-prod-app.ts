@@ -30,7 +30,12 @@
 //   Adopting rotation for the first time (no JWT_SECRET_V<n> set yet): the
 //   plain JWT_SECRET above stays set and is carried into the keyring as a
 //   verify-only legacy key (loadJwtSecretOrKeyring), so sessions signed
-//   before the cutover keep verifying — no mass-logout at adoption.
+//   before the cutover keep verifying — no mass-logout at adoption. This
+//   legacy key never expires on its own (boot logs a warning while it's
+//   present) — once max token TTL has elapsed since cutover, unset
+//   JWT_SECRET to retire it. Check first whether an app relies on the
+//   auth.mail convenience default for passwordReset/emailVerification
+//   hmacSecret (falls back to this same JWT_SECRET) before unsetting it.
 //   PORT=3000
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
@@ -683,6 +688,16 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // rotation of the session-JWT signing key — see loadJwtSecretOrKeyring.
   const jwtSecret = requireEnv("JWT_SECRET", envSource);
   const jwtSecretOrKeyring = loadJwtSecretOrKeyring(envSource);
+  if (typeof jwtSecretOrKeyring === "object" && Object.hasOwn(jwtSecretOrKeyring.keys, "legacy")) {
+    // biome-ignore lint/suspicious/noConsole: boot-time ops hint, no logger configured this early
+    console.warn(
+      "[runProdApp] JWT keyring carries a legacy (pre-rotation) verify-only key — " +
+        "it never expires on its own. Once max token TTL has elapsed since the " +
+        "rotation cutover, unset JWT_SECRET to retire it (but confirm no auth.mail " +
+        "convenience default still relies on JWT_SECRET as the password-reset / " +
+        "email-verification hmacSecret first — see resolveAuthMail).",
+    );
+  }
   const jwtIssuer = readEnv("JWT_ISSUER", envSource);
   const instanceId = readEnv("KUMIKO_INSTANCE_ID", envSource);
   const port = options.port ?? Number.parseInt(envSource["PORT"] ?? "3000", 10);

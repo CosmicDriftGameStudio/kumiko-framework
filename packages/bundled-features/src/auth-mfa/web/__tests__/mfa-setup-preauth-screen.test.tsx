@@ -311,4 +311,69 @@ describe("MfaSetupPreauthScreen", () => {
       expect(screen.getByRole("button", { name: "Einrichtung starten" })).toBeTruthy();
     });
   });
+
+  // kumiko-framework#1470: confirmMfaSetupPreauth already extracts
+  // retryAfterSeconds from error.details (see mfa-client.test.ts), but the
+  // screen used to drop it and show a generic "too many attempts" banner
+  // with no wait-time. Pins that the seconds actually reach the UI.
+  test("confirm schlägt mit too_many_attempts fehl → Banner zeigt retryAfterSeconds (#1470)", async () => {
+    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("preauth-enable-start")) return jsonResponse(startBody);
+      if (url.includes("preauth-confirm")) {
+        return jsonResponse({
+          isSuccess: false,
+          error: { code: "too_many_attempts", details: { retryAfterSeconds: 42 } },
+        });
+      }
+      return jsonResponse({ isSuccess: false, error: "unexpected_url" }, 500);
+    }) as unknown as typeof fetch;
+
+    render(
+      <Wrapper>
+        <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    await waitFor(() => {
+      expect(screen.getByText("ABCD1234")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
+    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Einrichtung abschließen" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Zu viele Fehlversuche. Bitte in 42 Sekunden erneut versuchen oder neu einloggen.",
+        ),
+      ).toBeTruthy();
+    });
+  });
+
+  // kumiko-framework#1470: server validates z.string().length(6) — a 7th
+  // pasted digit must not make the button look submittable, it would only
+  // 400 as invalid_body.
+  test("7-stelliger Code hält den Bestätigen-Button disabled", async () => {
+    render(
+      <Wrapper>
+        <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    await waitFor(() => {
+      expect(screen.getByText("ABCD1234")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
+    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+      target: { value: "1234567" },
+    });
+
+    const confirm = screen.getByRole("button", {
+      name: "Einrichtung abschließen",
+    }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+  });
 });

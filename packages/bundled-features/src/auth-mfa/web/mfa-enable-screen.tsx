@@ -161,7 +161,7 @@ export function MfaEnableScreen({
                 variant="primary"
                 onClick={() => void confirmSetup()}
                 loading={busy}
-                disabled={busy || !acknowledged || code.length < 6}
+                disabled={busy || !acknowledged || code.length !== 6}
               >
                 {t("auth.mfa.enable.confirm")}
               </Button>
