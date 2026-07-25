@@ -24,7 +24,7 @@ export async function mapWithConcurrency<T, R>(
   async function worker(): Promise<void> {
     for (;;) {
       const index = nextIndex++;
-      if (index >= items.length) return;
+      if (index >= items.length) return; // skip: cursor exhausted, normal worker-loop exit
       results[index] = await fn(items[index] as T, index);
     }
   }
