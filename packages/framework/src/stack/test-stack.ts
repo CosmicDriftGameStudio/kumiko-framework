@@ -25,8 +25,7 @@ export type TestStack = {
   app: Hono;
   jwt: JwtHelper;
   registry: Registry;
-  // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection
-  db: any;
+  db: import("../db").DbConnection;
   redis: TestRedis;
   search: SearchAdapter;
   events: EventCollector;
@@ -66,8 +65,7 @@ export type TestStackOptions = {
     | Record<string, unknown>
     | ((deps: {
         registry: Registry;
-        // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection
-        db: any;
+        db: import("../db").DbConnection;
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => Record<string, unknown>);
@@ -119,8 +117,7 @@ export type TestStackOptions = {
     | import("../api/server").ServerOptions["anonymousAccess"]
     | ((deps: {
         registry: Registry;
-        // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection
-        db: any;
+        db: import("../db").DbConnection;
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => import("../api/server").ServerOptions["anonymousAccess"]);
@@ -130,8 +127,7 @@ export type TestStackOptions = {
     base: import("../api/server").ServerOptions["anonymousAccess"] | undefined,
     deps: {
       registry: Registry;
-      // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection
-      db: any;
+      db: import("../db").DbConnection;
     },
   ) => Promise<import("../api/server").ServerOptions["anonymousAccess"] | undefined>;
   /** Opt-in JobRunner wired into ctx.jobRunner and merged into
@@ -268,11 +264,12 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // (kumiko-framework#1232: a reduced `{ db, registry }` literal let jobs
   // pass in tests while reaching for fields only prod's context has).
   //
-  // effectiveFeatures is included per the issue's explicit ask, even though
-  // prod's job context never gets it today (only dispatcherOptions.
-  // effectiveFeatures, consumed by the command-dispatcher — see
-  // buildJobRunnerWithHook in entrypoint/index.ts). Tracked as a real prod
-  // gap in a follow-up issue rather than silently matched here.
+  // effectiveFeatures deliberately stays OUT of appContext — prod never puts
+  // it there either (only dispatcherOptions.effectiveFeatures, consumed by
+  // the command-dispatcher — see buildJobRunnerWithHook in entrypoint/
+  // index.ts). Putting it here would reintroduce the exact test-vs-prod
+  // drift #1232 fixed: a job/handler reading `ctx.effectiveFeatures` would
+  // pass in tests and break in prod (kumiko-framework#1255).
   const appContext = {
     db: testDb.db,
     redis: testRedis.redis,
@@ -281,7 +278,6 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     registry,
     ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
     ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
-    ...(options.effectiveFeatures ? { effectiveFeatures: options.effectiveFeatures } : {}),
     ...(typeof options.extraContext === "function"
       ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
       : options.extraContext),

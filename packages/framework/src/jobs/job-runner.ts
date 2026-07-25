@@ -10,6 +10,7 @@ import {
   type Registry,
   type SessionUser,
   SYSTEM_TENANT_ID,
+  type TenantId,
 } from "../engine/types";
 import { createFileContext } from "../files/file-handle";
 import type { Logger } from "../logging/types";
@@ -39,9 +40,10 @@ export type JobLogEntry = {
   timestamp: Temporal.Instant;
 };
 
-function createJobLogger(logs: JobLogEntry[]): Logger {
+function createJobLogger(logs: JobLogEntry[], baseContext: Record<string, unknown> = {}): Logger {
   function push(level: "info" | "warn" | "error", msg: string, data?: Record<string, unknown>) {
-    const message = data ? `${msg} ${JSON.stringify(data)}` : msg;
+    const merged = { ...baseContext, ...data };
+    const message = Object.keys(merged).length > 0 ? `${msg} ${JSON.stringify(merged)}` : msg;
     logs.push({ level, message, timestamp: Temporal.Now.instant() });
   }
   const logger: Logger = {
@@ -54,9 +56,13 @@ function createJobLogger(logs: JobLogEntry[]): Logger {
     error(msg, data) {
       push("error", msg, data);
     },
+    // No-op by design, not missing coverage: JobLogEntry.level (and the
+    // persisted run-completed/-failed event schema in bundled-features/
+    // jobs/events.ts) only has info|warn|error — a job's debug() calls have
+    // nowhere durable to land.
     debug() {},
-    child() {
-      return logger;
+    child(context) {
+      return createJobLogger(logs, { ...baseContext, ...context });
     },
   };
   return logger;
@@ -102,7 +108,7 @@ export type JobRunnerOptions = {
   // Tests set a unique prefix (e.g. `"test-${Date.now()}"`) for isolation —
   // two parallel test-runners never see each other's jobs.
   queueNamePrefix?: string | undefined;
-  getActiveTenantIds?: () => Promise<number[]>;
+  getActiveTenantIds?: () => Promise<TenantId[]>;
   onJobStart?: (jobName: string, jobId: string, meta: JobMeta) => void;
   onJobComplete?: (jobName: string, jobId: string, duration: number, logs: JobLogEntry[]) => void;
   onJobFailed?: (jobName: string, jobId: string, error: string, logs: JobLogEntry[]) => void;
