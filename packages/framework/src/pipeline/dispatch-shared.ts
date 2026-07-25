@@ -30,7 +30,10 @@ import {
   isStreamArchived,
   restoreStream as restoreStreamHelper,
 } from "../event-store/archive";
-import { VersionConflictError as EventStoreVersionConflictError } from "../event-store/errors";
+import {
+  IdempotentAppendConflictError as EventStoreIdempotentAppendConflictError,
+  VersionConflictError as EventStoreVersionConflictError,
+} from "../event-store/errors";
 import {
   getStreamVersion,
   loadAggregate,
@@ -261,6 +264,9 @@ export function buildHandlerContext(
         return { ok: true as const, event };
       } catch (e) {
         if (e instanceof EventStoreVersionConflictError) {
+          return { ok: false as const, conflict: e };
+        }
+        if (e instanceof EventStoreIdempotentAppendConflictError) {
           return { ok: false as const, conflict: e };
         }
         throw e;

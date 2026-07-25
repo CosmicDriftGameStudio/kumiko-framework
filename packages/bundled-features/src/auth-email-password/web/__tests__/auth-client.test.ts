@@ -33,6 +33,8 @@ function withoutCsrfDocument(): void {
   delete (globalThis as { document?: { cookie: string } }).document;
 }
 
+const originalFetch = globalThis.fetch;
+
 beforeEach(() => {
   globalThis.fetch = mock(
     async () => new Response(null, { status: 200 }),
@@ -41,6 +43,7 @@ beforeEach(() => {
 
 afterEach(() => {
   withoutCsrfDocument();
+  globalThis.fetch = originalFetch;
 });
 
 describe("csrfHeader", () => {

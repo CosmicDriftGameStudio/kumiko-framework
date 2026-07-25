@@ -39,6 +39,12 @@ describe("waitFor", () => {
     expect(calls).toBe(2);
   });
 
+  test("throws a descriptive error for an empty delay schedule", async () => {
+    await expect(waitFor(() => {}, { delays: [] })).rejects.toThrow(
+      "waitFor: empty delay schedule",
+    );
+  });
+
   test("supports an async fn", async () => {
     let calls = 0;
     await waitFor(

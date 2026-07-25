@@ -186,4 +186,9 @@ describe("defaultCellRender", () => {
   test("money → unerwarteter Value-Shape fällt auf String zurück", () => {
     expect(defaultCellRender(45000, "money")).toBe("45000");
   });
+
+  test("money → invalid currency does not throw, falls back to [object Object] like pre-regression (#1494)", () => {
+    expect(() => defaultCellRender({ amount: 1, currency: "" }, "money")).not.toThrow();
+    expect(defaultCellRender({ amount: 1, currency: "" }, "money")).toBe("[object Object]");
+  });
 });

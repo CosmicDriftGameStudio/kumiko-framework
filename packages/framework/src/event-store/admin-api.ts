@@ -8,7 +8,7 @@
 // selbst, das Guard-Script selbst.
 
 import type { DbRunner } from "../db";
-import { isUniqueViolation } from "../db/pg-error";
+import { constraintOf, isUniqueViolation } from "../db/pg-error";
 import {
   eventPredecessorExists,
   findExistingEventVersion,
@@ -17,7 +17,7 @@ import {
   insertRawSubsequentEvent,
 } from "../db/queries/event-store-admin";
 import type { TenantId } from "../engine/types";
-import { VersionConflictError } from "./errors";
+import { IdempotentAppendConflictError, VersionConflictError } from "./errors";
 import type { EventMetadata } from "./event-store";
 
 export type RawEventToAppend = {
@@ -39,6 +39,13 @@ export type RawEventToAppend = {
   readonly createdBy: string;
 };
 
+function mapEventUniqueViolation(e: unknown, event: RawEventToAppend): Error {
+  if (constraintOf(e) === "events_idempotency_uq" && event.metadata.idempotencyKey) {
+    return new IdempotentAppendConflictError(event.tenantId, event.metadata.idempotencyKey);
+  }
+  return new VersionConflictError(event.aggregateId, event.expectedVersion);
+}
+
 // Mirrors append()'s two-path structure: typed builder equivalent for v=0,
 // INSERT … SELECT … WHERE EXISTS gate for v>0. Caller-supplied createdAt +
 // createdBy skip the usual userResolver/now() paths.
@@ -54,7 +61,7 @@ export async function appendRaw(runner: DbRunner, event: RawEventToAppend): Prom
     }
   } catch (e) {
     if (isUniqueViolation(e)) {
-      throw new VersionConflictError(event.aggregateId, event.expectedVersion);
+      throw mapEventUniqueViolation(e, event);
     }
     throw e;
   }
@@ -143,7 +150,7 @@ export async function appendRawBatch(
     if (isUniqueViolation(e)) {
       // Pre-flight ran but lost a race against a concurrent writer. Rare for
       // migration (single-runner) but possible; we can't name the exact row.
-      throw new VersionConflictError(firstEvent.aggregateId, firstEvent.expectedVersion);
+      throw mapEventUniqueViolation(e, firstEvent);
     }
     throw e;
   }

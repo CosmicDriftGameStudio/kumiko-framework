@@ -153,10 +153,10 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
     const escapingKey = "../../etc/passwd";
 
     await expect(provider.write(escapingKey, new Uint8Array([1]))).rejects.toThrow(
-      /escapes basePath/,
+      /path-traversal/,
     );
-    await expect(provider.read(escapingKey)).rejects.toThrow(/escapes basePath/);
-    await expect(provider.delete(escapingKey)).rejects.toThrow(/escapes basePath/);
+    await expect(provider.read(escapingKey)).rejects.toThrow(/path-traversal/);
+    await expect(provider.delete(escapingKey)).rejects.toThrow(/path-traversal/);
     // exists() treats any stat failure (missing file, escaping key) as "not there".
     expect(await provider.exists(escapingKey)).toBe(false);
   });

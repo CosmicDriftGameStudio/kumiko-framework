@@ -84,6 +84,12 @@ export function validateFile(
   return null;
 }
 
+export function assertSafeStorageKey(key: string): void {
+  if (key.split("/").some((segment) => segment === "." || segment === "..")) {
+    throw new Error(`storage key contains a path-traversal segment: "${key}"`);
+  }
+}
+
 export function buildStorageKey(
   tenantId: TenantId,
   entityType: string,
@@ -92,6 +98,7 @@ export function buildStorageKey(
   fileName: string,
   uniqueId: string,
 ): string {
-  const ext = fileName.split(".").pop() ?? "bin";
+  const rawExt = fileName.split(".").pop() ?? "";
+  const ext = /^[A-Za-z0-9]+$/.test(rawExt) ? rawExt.toLowerCase() : "bin";
   return `${tenantId}/${entityType}/${entityId}/${fieldName}/${uniqueId}.${ext}`;
 }

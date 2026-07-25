@@ -14,6 +14,9 @@ export async function waitFor(
   options?: { delays?: number[] },
 ): Promise<void> {
   const delays = options?.delays ?? [250, 1000, 3000];
+  if (delays.length === 0) {
+    throw new Error("waitFor: empty delay schedule");
+  }
   let lastError: unknown;
 
   for (let i = 0; i < delays.length; i++) {

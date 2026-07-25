@@ -2,7 +2,7 @@ import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
-import type { FileStorageProvider } from "./types";
+import { assertSafeStorageKey, type FileStorageProvider } from "./types";
 
 // Local-filesystem backend — intended for dev + tests. Production deploys
 // pick an object-store provider (S3/R2/…). mimeType is ignored here; the
@@ -16,6 +16,11 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
   // segment that slipped past an upstream check), regardless of the key's
   // source.
   function resolveContainedPath(key: string): string {
+    assertSafeStorageKey(key);
+    // assertSafeStorageKey rejects every literal "."/".." segment, which
+    // covers all string-based traversal a join+resolve can produce; this
+    // startsWith check is a second, independent line of defense in case a
+    // future caller feeds resolveContainedPath something pre-resolved.
     const filePath = resolve(join(basePath, key));
     if (filePath !== resolvedBase && !filePath.startsWith(resolvedBase + sep)) {
       throw new Error(`storage key escapes basePath: "${key}"`);

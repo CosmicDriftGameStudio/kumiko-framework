@@ -98,10 +98,10 @@ describe("runChunkedMigration", () => {
       deadlineAt: Number.POSITIVE_INFINITY,
     });
 
-    // Batch 1 processes "a" and pushes failed to 1; the breaker is only
-    // checked at the TOP of the loop, so batch 2 is fetched (batchesProcessed
-    // becomes 2) before the breaker trips and its row is never touched.
-    expect(result.batchesProcessed).toBe(2);
+    // Batch 1 processes "a" and pushes failed to 1; the breaker is checked
+    // before batchesProcessed is incremented for the next fetched batch, so
+    // "b" is fetched but never touched and doesn't count as processed.
+    expect(result.batchesProcessed).toBe(1);
     expect(result.stoppedReason).toBe("too_many_failures");
   });
 

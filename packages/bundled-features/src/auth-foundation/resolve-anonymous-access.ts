@@ -22,7 +22,12 @@ export async function resolveAnonymousAccessFromRegistry(
     resolveTenantExistence(deps),
   ]);
 
-  if (!base && !tenantResolver && !tenantExists) return undefined;
+  // Anonymous access is app opt-in only: a mounted routing provider
+  // (EXT_TENANT_RESOLVER/EXT_TENANT_EXISTENCE) alone must never make
+  // anonymousAccess become defined for an app that never set it — that
+  // would upgrade every roles:["anonymous"] handler to reachable without
+  // a JWT the moment such a routing feature is mounted (#1452).
+  if (!base) return undefined;
 
   // Fail-closed (#1374 security): inline tenantResolver without trust is the
   // old ambiguous config — providers always carry trust; test stacks must too.

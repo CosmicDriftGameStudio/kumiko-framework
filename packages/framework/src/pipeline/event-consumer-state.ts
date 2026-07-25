@@ -11,7 +11,7 @@ import {
   text,
 } from "../db/dialect";
 import { alterTableAddColumn } from "../db/queries/test-stack";
-import { columnNamesOf, tableExists } from "../db/schema-inspection";
+import { tableExists } from "../db/schema-inspection";
 import { unsafePushTables } from "../stack";
 
 // Reserved sentinel used in the instance_id column for consumers whose
@@ -112,17 +112,20 @@ export async function createEventConsumerStateTable(db: DbConnection): Promise<v
   // Still check for columns added after the table's first deploy (e.g.
   // rearm_count) so an older DB catches up without a dedicated migration.
   if (await tableExists(db, "public.kumiko_event_consumers")) {
-    const cols = await columnNamesOf(db, "kumiko_event_consumers");
-    if (!cols.has("rearm_count")) {
-      await alterTableAddColumn(
-        db,
-        "kumiko_event_consumers",
-        "rearm_count",
-        "integer",
-        " DEFAULT 0",
-        " NOT NULL",
-      );
-    }
+    // ADD COLUMN IF NOT EXISTS is idempotent and race-safe on its own —
+    // no need to pre-check columnNamesOf first. Two instances booting
+    // concurrently against the same DB (this table is explicitly
+    // multi-instance) both ALTER, neither crashes on "column already
+    // exists" (#1362).
+    await alterTableAddColumn(
+      db,
+      "kumiko_event_consumers",
+      "rearm_count",
+      "integer",
+      " DEFAULT 0",
+      " NOT NULL",
+      /* ifNotExists */ true,
+    );
     // skip: table (+ any missing column) is already up to date
     return;
   }

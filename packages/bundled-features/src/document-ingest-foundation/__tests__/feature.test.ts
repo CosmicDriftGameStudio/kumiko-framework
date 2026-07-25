@@ -64,4 +64,20 @@ describe("documentIngestFoundationFeature.exports — typed config handles", () 
     expect(key.name).toBe("document-ingest-foundation:config:max-pages-per-file");
     expect(documentIngestFoundationFeature.configKeys["maxPagesPerFile"]?.default).toBe(50);
   });
+
+  test("ocrLanguage rejects a value that isn't a Tesseract -l argument (#1501)", () => {
+    const pattern = documentIngestFoundationFeature.configKeys["ocrLanguage"]?.pattern;
+    expect(pattern).toBeDefined();
+    const re = new RegExp(pattern!.regex, pattern!.flags);
+    expect(re.test("deu+eng")).toBe(true);
+    expect(re.test("eng")).toBe(true);
+    expect(re.test("")).toBe(false);
+    expect(re.test("EU")).toBe(false);
+    expect(re.test("rm -rf /")).toBe(false);
+  });
+
+  test("maxPagesPerFile is bounded so a tenant can't disable or unbound the cap (#1501)", () => {
+    const bounds = documentIngestFoundationFeature.configKeys["maxPagesPerFile"]?.bounds;
+    expect(bounds).toEqual({ min: 1, max: 500 });
+  });
 });

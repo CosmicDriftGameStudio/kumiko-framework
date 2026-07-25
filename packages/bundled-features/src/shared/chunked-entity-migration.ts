@@ -59,12 +59,12 @@ export async function runChunkedMigration<Row>(
     const batch = await opts.nextBatch();
     if (batch.length === 0) break;
 
-    batchesProcessed++;
-
     if (failed >= opts.maxFailures) {
       stoppedReason = "too_many_failures";
       break;
     }
+
+    batchesProcessed++;
 
     for (const row of batch) {
       if (failed >= opts.maxFailures) {

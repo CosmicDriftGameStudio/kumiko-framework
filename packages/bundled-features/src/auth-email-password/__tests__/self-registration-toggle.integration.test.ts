@@ -239,31 +239,26 @@ describe("auth-self-registration toggle — companion feature NOT composed", () 
     await bareStack.cleanup();
   });
 
-  // KNOWN GAP (found while writing this regression pin, not yet decided):
-  // ctx.hasFeature() checks the effective-feature SET, which only ever
-  // contains registered feature names (computeEffectiveFeatures iterates
-  // registry.features). A name nothing ever registered is never a member,
-  // so hasFeature("auth-self-registration") is false here — signup-request
-  // silently no-ops (200, anti-enumeration success shape, but no mail) the
-  // moment an app wires a real effectiveFeatures resolver without also
-  // composing createAuthSelfRegistrationToggleFeature. This pins the
-  // CURRENT (broken) behavior rather than asserting the desired one —
-  // flagged for a follow-up decision, not silently fixed here.
-  test("[KNOWN GAP] signup-request silently drops mail when the companion toggle feature was never composed", async () => {
+  // Fixed (#1468): ctx.hasFeature() is fail-closed for a name nothing ever
+  // registered — signup-request and the status query now only gate on the
+  // toggle when registry.getFeature(AUTH_SELF_REGISTRATION_FEATURE) proves
+  // the companion feature is actually composed, so an app that mounts
+  // auth-email-password without it keeps self-signup working.
+  test("signup-request still sends mail when the companion toggle feature was never composed", async () => {
     const res = await bareStack.http.raw("POST", "/api/auth/signup-request", {
       email: "not-toggle-aware@example.com",
     });
     expect(res.status).toBe(200);
-    expect(bareEmailTransport.sent).toHaveLength(0);
+    expect(bareEmailTransport.sent).toHaveLength(1);
   });
 
-  test("[KNOWN GAP] signup-registration-status reports enabled:false with no toggle feature mounted", async () => {
+  test("signup-registration-status reports enabled:true with no toggle feature mounted", async () => {
     const res = await bareStack.http.raw("POST", "/api/query", {
       type: "auth-email-password:query:signup-registration-status",
       payload: {},
     });
     expect((await res.json()) as { data?: { enabled: boolean } }).toMatchObject({
-      data: { enabled: false },
+      data: { enabled: true },
     });
   });
 });

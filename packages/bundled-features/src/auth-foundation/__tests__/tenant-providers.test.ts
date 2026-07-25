@@ -134,3 +134,27 @@ describe("resolveAnonymousAccessFromRegistry — fail-closed trust", () => {
     ).rejects.toThrow(/resolverTrust/);
   });
 });
+
+describe("resolveAnonymousAccessFromRegistry — opt-in only (#1452)", () => {
+  test("a mounted tenantResolver provider alone does not make anonymousAccess defined", async () => {
+    const registry = createRegistry([authFoundationFeature, resolverProvider("subdomain")]);
+    const result = await resolveAnonymousAccessFromRegistry(undefined, { db: fakeDb, registry });
+    expect(result).toBeUndefined();
+  });
+
+  test("a mounted tenantExists provider alone does not make anonymousAccess defined", async () => {
+    const registry = createRegistry([authFoundationFeature, existenceProvider("db")]);
+    const result = await resolveAnonymousAccessFromRegistry(undefined, { db: fakeDb, registry });
+    expect(result).toBeUndefined();
+  });
+
+  test("an app that explicitly opts in still gets providers merged", async () => {
+    const registry = createRegistry([authFoundationFeature, resolverProvider("subdomain")]);
+    const result = await resolveAnonymousAccessFromRegistry(
+      { defaultTenantId: undefined },
+      { db: fakeDb, registry },
+    );
+    expect(result?.tenantResolver).toBeDefined();
+    expect(result?.resolverTrust).toBe("authoritative");
+  });
+});

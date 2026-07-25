@@ -98,6 +98,38 @@ describe("runConsumerCli status", () => {
     const joined = lines.join("\n");
     expect(joined).toContain('instance_id="inst-1"');
   });
+
+  test("--instance-id=<id> form is recognised (#1412)", async () => {
+    prevDbUrl = process.env["DATABASE_URL"];
+    process.env["DATABASE_URL"] = testUrl;
+    await insertConsumerIfAbsent(testDb.db, "test:consumer:eq", "inst-2");
+    const { out, lines } = captureOut();
+    const code = await runConsumerCli(["status", "test:consumer:eq", "--instance-id=inst-2"], out);
+    expect(code).toBe(0);
+    expect(lines.join("\n")).toContain('instance_id="inst-2"');
+  });
+
+  test("--instance-id before the name still parses the name correctly (#1412)", async () => {
+    prevDbUrl = process.env["DATABASE_URL"];
+    process.env["DATABASE_URL"] = testUrl;
+    await insertConsumerIfAbsent(testDb.db, "test:consumer:order", "inst-3");
+    const { out, lines } = captureOut();
+    const code = await runConsumerCli(
+      ["status", "--instance-id", "inst-3", "test:consumer:order"],
+      out,
+    );
+    expect(code).toBe(0);
+    expect(lines.join("\n")).toContain('instance_id="inst-3"');
+  });
+
+  test("--instance-id with a missing value errors instead of silently falling back to shared (#1412)", async () => {
+    prevDbUrl = process.env["DATABASE_URL"];
+    process.env["DATABASE_URL"] = testUrl;
+    const { out, lines } = captureOut();
+    const code = await runConsumerCli(["status", "test:consumer:foo", "--instance-id"], out);
+    expect(code).toBe(1);
+    expect(lines.join("\n")).toContain("--instance-id braucht einen Wert");
+  });
 });
 
 describe("runConsumerCli — unknown/empty subcommand exit codes", () => {

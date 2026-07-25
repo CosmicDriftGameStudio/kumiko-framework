@@ -228,7 +228,12 @@
     }
   },
   "dependencies": {
-    "hono": "^4.12.18",
+    "hono": "^4.12.18"
+  },
+  "devDependencies": {
+    "postgres": "^3.4.9"
+  },
+  "peerDependencies": {
     "postgres": "^3.4.9"
   },
   "publishConfig": {

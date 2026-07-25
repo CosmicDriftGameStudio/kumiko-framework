@@ -8,7 +8,19 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { currencyDecimals, MoneyInput, parseLocaleNumber } from "../money-input";
+import { currencyDecimals, formatMoney, MoneyInput, parseLocaleNumber } from "../money-input";
+
+describe("formatMoney", () => {
+  test("formats a normal amount with the currency symbol", () => {
+    expect(formatMoney(199_99, "USD", "en-US")).toBe("$199.99");
+  });
+
+  test("falls back to the raw amount instead of throwing on an invalid currency (#1494)", () => {
+    expect(formatMoney(100, "", "en-US")).toBe("100");
+    expect(formatMoney(100, "EU", "en-US")).toBe("100");
+    expect(formatMoney(100, "€", "en-US")).toBe("100");
+  });
+});
 
 describe("currencyDecimals", () => {
   test("0-Decimal-Währungen (JPY/KRW/VND/ISK)", () => {
