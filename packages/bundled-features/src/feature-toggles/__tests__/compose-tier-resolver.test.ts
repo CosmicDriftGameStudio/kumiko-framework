@@ -40,8 +40,16 @@ const testRegistry = createRegistry([
   }),
 ]);
 
+// Mirrors tier-engine's real resolver contract (tier-engine/feature.ts's
+// mergeAlwaysOn calls): SYSTEM_TENANT_ID always includes at least the
+// always-on features merged in, even when zero tiers grant anything —
+// tests exercising "no tier grants this feature" must still see a non-empty
+// SYSTEM_TENANT_ID union, exactly like a real app always has.
 function tierResolverGranting(...features: readonly string[]): EffectiveFeaturesResolver {
-  return ((_tenantId: TenantId) => new Set(features)) as EffectiveFeaturesResolver;
+  return ((tenantId: TenantId) =>
+    tenantId === SYSTEM_TENANT_ID
+      ? new Set([...features, "always-on-stand-in"])
+      : new Set(features)) as EffectiveFeaturesResolver;
 }
 
 describe("composeTierResolverWithGlobalToggles", () => {
@@ -141,6 +149,40 @@ describe("composeTierResolverWithGlobalToggles", () => {
     expect([...composed("t1" as TenantId)]).toEqual(["auth-self-registration"]);
   });
 
+  test("kumiko-framework#1479/2: an empty SYSTEM_TENANT_ID union throws instead of silently disabling all tier-gating", () => {
+    // A tierResolver that doesn't implement the SYSTEM_TENANT_ID convention
+    // at all (e.g. always returns per-tenant grants, never the union) —
+    // the old code would treat this as "zero tier-managed features", so
+    // EVERY toggleable feature falls through to the tier-unaware cascade
+    // and tier-gating is silently defeated.
+    const brokenTierResolver = ((_tenantId: TenantId) =>
+      new Set<string>()) as EffectiveFeaturesResolver;
+    const runtime = new GlobalFeatureToggleRuntime(fakeDb, testRegistry);
+    const composed = composeTierResolverWithGlobalToggles(
+      brokenTierResolver,
+      runtime,
+      testRegistry,
+    );
+    expect(() => composed("t1" as TenantId)).toThrow(/SYSTEM_TENANT_ID/);
+  });
+
+  test("kumiko-framework#1479/2: tierManaged is computed lazily — a resolver not ready at compose-time is fine as long as it's ready by first call", () => {
+    let ready = false;
+    const lateBoundResolver = ((tenantId: TenantId) => {
+      if (!ready) throw new Error("tierResolver not wired yet");
+      return tenantId === SYSTEM_TENANT_ID
+        ? new Set(["personal-access-tokens"])
+        : new Set<string>();
+    }) as EffectiveFeaturesResolver;
+    const runtime = new GlobalFeatureToggleRuntime(fakeDb, testRegistry);
+    // Composing must NOT eagerly call tierResolver(SYSTEM_TENANT_ID) — the
+    // late-bound holder pattern (run-dev-app.ts) builds the real resolver
+    // only after composeTierResolverWithGlobalToggles has already run.
+    const composed = composeTierResolverWithGlobalToggles(lateBoundResolver, runtime, testRegistry);
+    ready = true;
+    expect(() => composed("t1" as TenantId)).not.toThrow();
+  });
+
   test("preserves the tier resolver's trialGate", async () => {
     const runtime = new GlobalFeatureToggleRuntime(fakeDb, testRegistry);
     const tierResolver = tierResolverGranting();
@@ -197,5 +239,43 @@ describe("composeTierResolverWithGlobalToggles — non-toggleable + requires() i
     const runtime = new GlobalFeatureToggleRuntime(fakeDb, registry);
     const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, registry);
     expect([...composed("t1" as TenantId)]).not.toContain("pat-companion");
+  });
+
+  test("kumiko-framework#1471/1: a tier-granted feature whose requires() dependency is globally disabled is excluded too", () => {
+    // "pat-companion" IS in this tenant's tier grant this time (unlike the
+    // test above) — the tenant's tier says yes, but its requires()
+    // dependency "personal-access-tokens" is killed globally via override.
+    // The old code only checked `readOverride(name) !== false` on
+    // "pat-companion" itself (which has no override, so it stayed) without
+    // ever re-running the requires() cascade over the tier-granted set —
+    // exactly the class of bug #1471/1 describes (channel-email staying up
+    // after its `delivery` dependency is killed).
+    const tierResolver = ((tenantId: TenantId) =>
+      tenantId === SYSTEM_TENANT_ID
+        ? new Set(["personal-access-tokens", "pat-companion"])
+        : new Set(["personal-access-tokens", "pat-companion"])) as EffectiveFeaturesResolver;
+    const runtime = new GlobalFeatureToggleRuntime(fakeDb, registry);
+    runtime.apply("personal-access-tokens", false);
+    const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, registry);
+    const result = [...composed("t1" as TenantId)];
+    expect(result).not.toContain("personal-access-tokens");
+    expect(result).not.toContain("pat-companion");
+  });
+
+  test("kumiko-framework#1471/2: a global override cannot disable a non-toggleable (always-on) feature", () => {
+    // "tenant" has no r.toggleable() call at all — computeEffectiveFeatures'
+    // Rule 1 says non-toggleable features ignore overrides entirely. The old
+    // code applied `readOverride(name) !== false` to every name in tierSet
+    // with no toggleability check, so a stray override row (seed script,
+    // ops SQL, or a feature that used to be toggleable and had `r.toggleable()`
+    // removed) could disable an always-on feature outright.
+    const tierResolver = ((tenantId: TenantId) =>
+      tenantId === SYSTEM_TENANT_ID
+        ? new Set(["tenant"])
+        : new Set(["tenant"])) as EffectiveFeaturesResolver;
+    const runtime = new GlobalFeatureToggleRuntime(fakeDb, registry);
+    runtime.apply("tenant", false);
+    const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, registry);
+    expect([...composed("t1" as TenantId)]).toContain("tenant");
   });
 });
