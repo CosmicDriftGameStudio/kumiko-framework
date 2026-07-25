@@ -3,12 +3,13 @@ import { Queue } from "bullmq";
 import { z } from "zod";
 import { requestContext } from "../../api/request-context";
 import { createRegistry, defineFeature } from "../../engine";
-import type { AppContext, Registry } from "../../engine/types";
+import type { AppContext, Registry, TenantId } from "../../engine/types";
 import { createInMemoryFileProvider } from "../../files/in-memory-provider";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
 import { sleep, waitFor } from "../../testing";
 import {
   createJobRunner,
+  type JobLogEntry,
   type JobMeta,
   type JobRunner,
   type JobRunnerOptions,
@@ -600,6 +601,36 @@ describe("job logger", () => {
       });
     });
   });
+
+  // Inspects the actual createJobLogger output instead of only asserting the
+  // handler ran — a child() that drops its context or a warn() mapped to
+  // debug would previously stay green.
+  test("info/warn/error land with the right level; debug is dropped; child merges its context", async () => {
+    clearLog();
+    let capturedLogs: JobLogEntry[] = [];
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:log-probe", { n: 1 });
+        await waitFor(() => {
+          expect(capturedLogs.length).toBeGreaterThan(0);
+        });
+      },
+      {
+        onJobComplete: (jobName, _id, _duration, logs) => {
+          if (jobName === "test:job:log-probe") capturedLogs = logs;
+        },
+      },
+    );
+
+    // debug() is a no-op by design (JobLogEntry.level has no "debug" slot) —
+    // info/warn/error from the handler body, plus one from child().info(...).
+    expect(capturedLogs).toHaveLength(4);
+    expect(capturedLogs.map((l) => l.level)).toEqual(["info", "warn", "error", "info"]);
+    expect(capturedLogs[0]?.message).toContain("log-probe-info");
+    expect(capturedLogs[3]?.message).toContain("log-probe-child");
+    expect(capturedLogs[3]?.message).toContain("probe");
+    expect(capturedLogs[3]?.message).toContain("true");
+  });
 });
 
 describe("correlation propagation", () => {
@@ -718,7 +749,8 @@ describe("error handling", () => {
 
   test("perTenant with getActiveTenantIds fans out one run per tenant", async () => {
     clearLog();
-    const tenants = [101, 102];
+    // @cast-boundary test fixture: TenantId is a branded string.
+    const tenants = ["per-tenant-fanout-a", "per-tenant-fanout-b"] as TenantId[];
     await withRunner(
       async (runner) => {
         await runner.dispatch("test:job:per-tenant-fanout", { n: 7 });

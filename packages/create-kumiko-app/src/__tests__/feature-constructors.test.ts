@@ -8,18 +8,24 @@
 import { describe, expect, test } from "bun:test";
 import { FEATURE_CONSTRUCTORS } from "../feature-constructors";
 
-function expectedCallExpression(
-  exportName: string,
-  callArgs: readonly unknown[] | undefined,
-): string {
-  if (callArgs === undefined) {
-    // Ambiguous by callArgs alone: could be a zero-arg factory (`fn()`) or a
-    // bare object export (`fn`). Disambiguate the same way the runtime does
-    // (scaffold-app.ts's instantiateScaffoldFeatures): trust the "()" the
-    // literal itself carries, then only check the exportName prefix matches.
-    return exportName;
+// Renders a value as hand-written TS source (unquoted object keys, quoted
+// string values) instead of JSON — JSON.stringify(1) and JSON.stringify("1")
+// both survive a whitespace+quote-strip compare as "1", which would hide a
+// string/number divergence between callExpression and callArgs. Rendering
+// like this and normalizing whitespace only keeps that divergence visible.
+function renderTsLiteral(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(renderTsLiteral).join(", ")}]`;
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).map(
+      ([key, val]) => `${key}: ${renderTsLiteral(val)}`,
+    );
+    return `{ ${entries.join(", ")} }`;
   }
-  const args = callArgs.map((a) => JSON.stringify(a)).join(", ");
+  return JSON.stringify(value);
+}
+
+function expectedCallExpression(exportName: string, callArgs: readonly unknown[]): string {
+  const args = callArgs.map(renderTsLiteral).join(", ");
   return `${exportName}(${args})`;
 }
 
@@ -27,10 +33,10 @@ describe("FEATURE_CONSTRUCTORS callExpression/callArgs consistency", () => {
   for (const [name, entry] of Object.entries(FEATURE_CONSTRUCTORS)) {
     test(`${name}: callExpression matches exportName + callArgs`, () => {
       if (entry.callArgs !== undefined) {
-        // callExpression is hand-formatted TS source (`{ scopes: {} }`), not
-        // JSON (`{"scopes":{}}`) — compare with whitespace stripped so both
-        // are checked against the same underlying arg values.
-        const normalize = (s: string) => s.replace(/[\s"]+/g, "");
+        // callExpression is hand-formatted TS source; compare with
+        // whitespace stripped only — NOT quotes, so a string arg ("1") vs.
+        // a number arg (1) still diverges after normalize.
+        const normalize = (s: string) => s.replace(/\s+/g, "");
         expect(normalize(entry.callExpression)).toBe(
           normalize(expectedCallExpression(entry.exportName, entry.callArgs)),
         );

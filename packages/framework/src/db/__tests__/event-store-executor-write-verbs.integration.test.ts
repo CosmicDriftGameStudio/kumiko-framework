@@ -121,7 +121,8 @@ describe("event-store-executor write-verbs — entity-level ownership_denied", (
   test("restore: role without a write-rule → ownership_denied", async () => {
     const created = await crud.create({ email: "torestore@test.de" }, admin, tdb);
     if (!created.isSuccess) throw new Error("setup failed");
-    await crud.delete({ id: created.data.id }, admin, tdb);
+    const deleted = await crud.delete({ id: created.data.id }, admin, tdb);
+    if (!deleted.isSuccess) throw new Error("setup failed: delete");
 
     const result = await crud.restore({ id: created.data.id }, nonAdmin, tdb);
     expect(result.isSuccess).toBe(false);
@@ -359,6 +360,18 @@ describe("event-store-executor write-verbs — concurrent version race + cache",
     expect(results.filter((r) => !r.isSuccess && r.error.code === "version_conflict")).toHaveLength(
       1,
     );
+
+    // Guard against the known Bun.SQL pooled-connection-poisoning class: the
+    // losing update above provoked a real 23505 unique-violation on the
+    // shared pool. The two tests below this one reuse `tdb`/`testDb.db`, so
+    // a poisoned connection would surface as their unrelated queries
+    // failing — a trivial round-trip here catches that immediately instead
+    // of leaving it to whichever later test happens to hit the bad
+    // connection.
+    const healthCheck = (await asRawClient(testDb.db).unsafe(`SELECT 1 AS ok`)) as Array<{
+      ok: number;
+    }>;
+    expect(healthCheck[0]?.ok).toBe(1);
   });
 
   test("forget with entityCache clears the cache entry", async () => {

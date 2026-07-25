@@ -24,21 +24,15 @@ import {
 } from "../global-feature-state-table";
 
 describe("globalFeatureStateTableMeta stays in sync with the pgTable definition", () => {
-  test("column names, pgTypes and notNull match the pgTable's derived meta", () => {
+  // Full-column equality, not a per-field pick — `primaryKey`/`defaultSql`
+  // are exactly what the migration-generator's DDL comes from, and a
+  // field-by-field compare that only checked pgType/notNull silently missed
+  // drift there (e.g. dropping `.default(sql\`now()\`)` or a PK change on
+  // the pgTable would previously go undetected).
+  test("columns match the pgTable's derived meta exactly", () => {
     const derived = asEntityTableMeta(globalFeatureStateTable);
     expect(derived).toBeDefined();
-
-    const derivedColumns = new Map((derived?.columns ?? []).map((c) => [c.name, c]));
-    const handColumns = new Map(globalFeatureStateTableMeta.columns.map((c) => [c.name, c]));
-
-    expect([...handColumns.keys()].sort()).toEqual([...derivedColumns.keys()].sort());
-
-    for (const [name, handCol] of handColumns) {
-      const derivedCol = derivedColumns.get(name);
-      expect(derivedCol, `column "${name}" missing from the pgTable-derived meta`).toBeDefined();
-      expect(derivedCol?.pgType, `column "${name}" pgType drift`).toBe(handCol.pgType);
-      expect(derivedCol?.notNull, `column "${name}" notNull drift`).toBe(handCol.notNull);
-    }
+    expect(derived?.columns).toEqual(globalFeatureStateTableMeta.columns);
   });
 
   test("tableName matches", () => {

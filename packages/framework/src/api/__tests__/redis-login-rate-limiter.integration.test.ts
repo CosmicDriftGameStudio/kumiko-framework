@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { createTestRedis, type TestRedis } from "../../stack";
 import { createRedisLoginRateLimiter } from "../auth-routes";
 
@@ -68,18 +68,31 @@ describe("createRedisLoginRateLimiter", () => {
   // a window for a crash/network blip right after the key is created
   // (count===1) to skip the PEXPIRE call entirely, leaving the key
   // permanently without a TTL. The single-eval fix closes that window by
-  // construction (one round-trip, can't be interrupted mid-way), but this
-  // assertion alone can't distinguish old from new: the old two-call code
-  // also leaves a TTL set on the non-crashing path. There's no cheap way to
-  // simulate the crash-between-round-trips window itself, so this only
-  // pins "TTL exists after check()", not the race fix directly.
-  test("first check sets a TTL — sanity check for the atomic eval path", async () => {
+  // construction (one round-trip, can't be interrupted mid-way). "TTL
+  // exists after check()" alone doesn't distinguish old from new — the old
+  // two-call code also leaves a TTL set on the non-crashing path — so this
+  // pins the actual mechanism instead: exactly one `eval` round-trip, and
+  // `incr`/`pexpire` are never called directly (the only path is atomic).
+  test("check() goes through a single atomic eval — never incr/pexpire directly", async () => {
     const limiter = createRedisLoginRateLimiter(testRedis.redis, 3, 60_000);
     const key = "1.2.3.4|ttl-race@test.local";
 
-    expect(await limiter.check(key)).toBe(true);
+    const evalSpy = spyOn(testRedis.redis, "eval");
+    const incrSpy = spyOn(testRedis.redis, "incr");
+    const pexpireSpy = spyOn(testRedis.redis, "pexpire");
+    try {
+      expect(await limiter.check(key)).toBe(true);
 
-    const ttlMs = await testRedis.redis.pttl(`kumiko:auth:ratelimit:login:${key}`);
-    expect(ttlMs).toBeGreaterThan(0);
+      expect(evalSpy).toHaveBeenCalledTimes(1);
+      expect(incrSpy).not.toHaveBeenCalled();
+      expect(pexpireSpy).not.toHaveBeenCalled();
+
+      const ttlMs = await testRedis.redis.pttl(`kumiko:auth:ratelimit:login:${key}`);
+      expect(ttlMs).toBeGreaterThan(0);
+    } finally {
+      evalSpy.mockRestore();
+      incrSpy.mockRestore();
+      pexpireSpy.mockRestore();
+    }
   });
 });

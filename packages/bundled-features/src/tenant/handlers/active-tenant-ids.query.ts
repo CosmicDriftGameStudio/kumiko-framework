@@ -8,7 +8,8 @@ export const activeTenantIdsQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
   handler: async (_query, ctx) => {
-    const rows = await selectMany<{ id: number }>(ctx.db, tenantTable, { isEnabled: true });
+    // tenants.id is a uuid string (TenantId), not a numeric surrogate.
+    const rows = await selectMany<{ id: string }>(ctx.db, tenantTable, { isEnabled: true });
     return rows.map((r) => r.id);
   },
 });

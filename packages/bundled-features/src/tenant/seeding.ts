@@ -102,17 +102,48 @@ export type SeedTenantHooks = {
 // lifecycle-hooks instance per call, no systemHooks — only feature-
 // registered entity/handler hooks fire (search-index/SSE system hooks are
 // wired at server-boot and out of reach here).
+//
+// `_tenantId` re-scope (#1478/3): re-scoped to `targetTenantId` (the
+// entity's own tenant, not the caller's) so `currentEffectiveFeatures` and
+// any tenant-filtered hook gate against the right tenant. `hooks.context.db`,
+// if present, is still scoped to the *caller's* tenant — a hook that writes
+// via `ctx.db` must re-scope it itself (see tier-engine's `createTenantDb`
+// re-wrap).
+//
+// Known gap (kumiko-framework#1478/#1526, NOT fixed here): `dbConn` is
+// frequently the live dispatcher-owned transaction (self-signup's
+// `ctx.db.raw`), not a connection this helper controls, so firing
+// `afterCommit` synchronously below runs before the outer transaction
+// actually commits (and could still run after a rollback). The correct fix
+// queues these onto the same afterCommitHooks sink dispatch-write.ts's
+// executeWriteInner flushes post-commit — but that sink is closure-captured
+// in dispatch-shared.ts's buildHandlerContext (only reachable indirectly via
+// ctx.write/ctx.writeAs, see the bridgeSink local there), not exposed on a
+// built AppContext/HandlerContext, so SeedTenantHooks.context can't reach
+// it. Dropping the afterCommit call instead (tried in an earlier revision
+// of this file) is WORSE: r.hook("postSave", ...) defaults to
+// HookPhases.afterCommit (feature-ui-extensions.ts:180), so that silently
+// stops every default-phase postSave hook from firing at all — caught by
+// signup-flow.integration.test.ts's userPostSaveFired/
+// tenantMembershipPostSaveFired regression tests going from green to red.
+// Needs a framework-level afterCommit sink exposed on AppContext before
+// this can be closed correctly.
 export async function fireEntityPostSave(
   hooks: SeedTenantHooks | undefined,
   pseudoType: string,
   entityData: SaveContext,
+  // Undefined for tenant-agnostic entities (user has no tenant_id column at
+  // seed time) — keeps hooks.context._tenantId as the caller passed it.
+  targetTenantId?: TenantId,
 ): Promise<void> {
   // skip: caller opted out of hooks (existing fixture/test call-sites that
   // don't pass them keep today's hook-less behavior, see seedTenant's doc).
   if (!hooks) return;
   const lifecycle = createLifecycleHooks(hooks.registry);
-  await lifecycle.runPostSave(pseudoType, entityData, hooks.context, HookPhases.inTransaction);
-  await lifecycle.runPostSave(pseudoType, entityData, hooks.context, HookPhases.afterCommit);
+  const scopedContext =
+    targetTenantId === undefined ? hooks.context : { ...hooks.context, _tenantId: targetTenantId };
+  await lifecycle.runPostSave(pseudoType, entityData, scopedContext, HookPhases.inTransaction);
+  await lifecycle.runPostSave(pseudoType, entityData, scopedContext, HookPhases.afterCommit);
 }
 
 /**
@@ -158,7 +189,7 @@ export async function seedTenant(
   // "tenant:seed" matches no handler-scoped hook, only entity-scoped ones
   // (keyed by result.entityName === "tenant") — that's exactly what
   // tier-engine's `r.hook("postSave", { allOf: "tenant" }, ...)` needs.
-  await fireEntityPostSave(hooks, "tenant:seed", result.data);
+  await fireEntityPostSave(hooks, "tenant:seed", result.data, options.id);
 
   return { id: options.id };
 }
@@ -218,7 +249,7 @@ export async function seedTenantMembership(
       `seedTenantMembership failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
-  await fireEntityPostSave(hooks, "tenant-membership:seed", result.data);
+  await fireEntityPostSave(hooks, "tenant-membership:seed", result.data, options.tenantId);
   return { id: extractMembershipId(result.data) };
 }
 
