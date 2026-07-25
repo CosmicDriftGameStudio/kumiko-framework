@@ -320,6 +320,8 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
               emitEventConsumerRearmExhausted(meter, { consumer: consumer.name, instanceId });
             }
           }
+          // skip: skip reason already recorded on the span above (and, for
+          // "dead", already emitted as a metric) — nothing left to deliver.
           return;
         }
         // Acquired normally (including via a successful auto-rearm) — clear
