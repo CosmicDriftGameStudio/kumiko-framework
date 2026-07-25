@@ -13,9 +13,15 @@ export async function alterTableAddColumn(
   columnType: string,
   defaultClause: string,
   notNull: string,
+  // table-helpers.ts's unmanaged-table sync relies on the plain form
+  // throwing when a column already exists with a different shape than
+  // EntityTableMeta expects — that's how it surfaces drift. Callers that
+  // just need an idempotent, race-safe backfill (e.g. event-consumer-state's
+  // multi-instance boot path, #1362) opt in explicitly.
+  ifNotExists = false,
 ): Promise<void> {
   await asRawClient(db).unsafe(
-    `ALTER TABLE ${quoteTableIdent(tableName)} ADD COLUMN IF NOT EXISTS ${quoteTableIdent(columnName)} ${columnType}${defaultClause}${notNull}`,
+    `ALTER TABLE ${quoteTableIdent(tableName)} ADD COLUMN ${ifNotExists ? "IF NOT EXISTS " : ""}${quoteTableIdent(columnName)} ${columnType}${defaultClause}${notNull}`,
   );
 }
 

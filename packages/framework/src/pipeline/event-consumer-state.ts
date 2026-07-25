@@ -124,6 +124,7 @@ export async function createEventConsumerStateTable(db: DbConnection): Promise<v
       "integer",
       " DEFAULT 0",
       " NOT NULL",
+      /* ifNotExists */ true,
     );
     return;
   }
