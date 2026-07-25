@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requestContext } from "../../api/request-context";
 import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, Registry } from "../../engine/types";
+import { createInMemoryFileProvider } from "../../files/in-memory-provider";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
 import { sleep, waitFor } from "../../testing";
 import {
@@ -168,6 +169,17 @@ const testFeature = defineFeature("test", (r) => {
     log.child({ probe: true }).info("log-probe-child");
     jobLog.push({ name: "test:job:log-probe", payload, timestamp: Date.now() });
   });
+  // job-runner must build ctx.files the same way dispatch-shared.ts does for
+  // write-handlers/MSPs — regression guard for #1520 (ctx.files was never
+  // materialized for jobs, so ctx.files.ref(...).read() threw for every job).
+  r.job("filesProbe", { trigger: { manual: true } }, async (payload, ctx) => {
+    const content = await ctx.files!.ref(payload["key"] as string).read();
+    jobLog.push({
+      name: "test:job:files-probe",
+      payload: { text: new TextDecoder().decode(content) },
+      timestamp: Date.now(),
+    });
+  });
 });
 
 beforeAll(async () => {
@@ -276,6 +288,26 @@ describe("scenario 3: manual trigger", () => {
     await withRunner(async (runner) => {
       await expect(runner.dispatch("nonexistent:job:missing")).rejects.toThrow("Unknown job");
     });
+  });
+});
+
+describe("scenario 3b: ctx.files resolves through the file provider", () => {
+  test("job handler can read back a file via ctx.files.ref(key)", async () => {
+    clearLog();
+    const provider = createInMemoryFileProvider();
+    await provider.write("probe/hello.txt", new TextEncoder().encode("hello from files probe"));
+
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:files-probe", { key: "probe/hello.txt" });
+        await waitFor(() => {
+          const entries = jobLog.filter((e) => e.name === "test:job:files-probe");
+          expect(entries.length).toBe(1);
+          expect(entries[0]?.payload["text"]).toBe("hello from files probe");
+        });
+      },
+      { context: { _fileProviderResolver: () => Promise.resolve(provider) } },
+    );
   });
 });
 
