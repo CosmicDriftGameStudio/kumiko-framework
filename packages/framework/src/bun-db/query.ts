@@ -204,12 +204,8 @@ const WHERE_OPERATOR_KEYS = ["gt", "gte", "lt", "lte", "ne", "in", "like"] as co
 // WhereOperator in @cosmicdrift/kumiko-types gains a key this array doesn't
 // know about — the two live in different packages and can't share a value
 // import without adding a runtime dependency edge.
-type _WhereOperatorKeysExhaustive = Exclude<
-  keyof WhereOperator,
-  (typeof WHERE_OPERATOR_KEYS)[number]
-> extends never
-  ? true
-  : never;
+type _WhereOperatorKeysExhaustive =
+  Exclude<keyof WhereOperator, (typeof WHERE_OPERATOR_KEYS)[number]> extends never ? true : never;
 const _whereOperatorKeysExhaustive: _WhereOperatorKeysExhaustive = true;
 void _whereOperatorKeysExhaustive;
 

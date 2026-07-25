@@ -8,7 +8,10 @@
 import { describe, expect, test } from "bun:test";
 import { FEATURE_CONSTRUCTORS } from "../feature-constructors";
 
-function expectedCallExpression(exportName: string, callArgs: readonly unknown[] | undefined): string {
+function expectedCallExpression(
+  exportName: string,
+  callArgs: readonly unknown[] | undefined,
+): string {
   if (callArgs === undefined) {
     // Ambiguous by callArgs alone: could be a zero-arg factory (`fn()`) or a
     // bare object export (`fn`). Disambiguate the same way the runtime does
@@ -36,9 +39,10 @@ describe("FEATURE_CONSTRUCTORS callExpression/callArgs consistency", () => {
       // No callArgs: either `exportName()` (zero-arg factory) or bare
       // `exportName` (object export) — both are legal, but the export name
       // itself must be the prefix either way.
-      expect(entry.callExpression === entry.exportName || entry.callExpression === `${entry.exportName}()`).toBe(
-        true,
-      );
+      expect(
+        entry.callExpression === entry.exportName ||
+          entry.callExpression === `${entry.exportName}()`,
+      ).toBe(true);
     });
   }
 });
