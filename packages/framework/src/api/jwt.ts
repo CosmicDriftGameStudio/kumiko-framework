@@ -225,5 +225,21 @@ export function loadJwtSecretOrKeyring(
         `Check JWT_SECRET_V${currentRaw} is set.`,
     );
   }
+  // Carry the pre-rotation plain JWT_SECRET into the ring as a verify-only
+  // legacy key: sessions signed before JWT_SECRET_V<n> was first set have no
+  // `kid`, so verifyWithKeyring's no-kid fallback tries every key in `keys` —
+  // if the plain secret isn't one of them, every in-flight session breaks the
+  // moment rotation is adopted, exactly the mass-invalidation this keyring
+  // exists to avoid. Never becomes signKid — only JWT_SECRET_V<n> can sign.
+  // Carry the pre-rotation plain JWT_SECRET into the ring as a verify-only
+  // legacy key: sessions signed before JWT_SECRET_V<n> was first set have no
+  // `kid`, so verifyWithKeyring's no-kid fallback tries every key in `keys` —
+  // if the plain secret isn't one of them, every in-flight session breaks the
+  // moment rotation is adopted, exactly the mass-invalidation this keyring
+  // exists to avoid. Never becomes signKid — only JWT_SECRET_V<n> can sign.
+  const legacySecret = env["JWT_SECRET"];
+  if (legacySecret && !keys["legacy"]) {
+    keys["legacy"] = legacySecret;
+  }
   return { keys, signKid };
 }

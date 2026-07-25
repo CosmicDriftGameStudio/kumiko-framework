@@ -185,10 +185,36 @@ describe("loadJwtSecretOrKeyring", () => {
     ).toThrow(/not present in the keyring/);
   });
 
-  it("plain JWT_SECRET is ignored once a keyring is present", () => {
+  it("kumiko-framework#1308: plain JWT_SECRET carries over as a verify-only legacy key once a keyring is adopted", () => {
+    // Adopting rotation for the first time doesn't unset JWT_SECRET (it still
+    // signs the separate password-reset/email-verification HMAC family) —
+    // and sessions signed before adoption have no `kid`, so they must keep
+    // verifying against this exact value, not get orphaned the moment
+    // JWT_SECRET_V1 shows up.
+    const PLAIN_SECRET = "pre-rotation-plain-secret-32-chars-long!!";
     expect(
       loadJwtSecretOrKeyring({
-        JWT_SECRET: "should-be-ignored-once-keyring-present-aa",
+        JWT_SECRET: PLAIN_SECRET,
+        JWT_SECRET_V1: SECRET,
+        JWT_SECRET_CURRENT_VERSION: "1",
+      }),
+    ).toEqual({ keys: { v1: SECRET, legacy: PLAIN_SECRET }, signKid: "v1" });
+  });
+
+  it("kumiko-framework#1308: legacy JWT_SECRET never becomes the sign key, only ever verify-only", () => {
+    const PLAIN_SECRET = "pre-rotation-plain-secret-32-chars-long!!";
+    const keyring = loadJwtSecretOrKeyring({
+      JWT_SECRET: PLAIN_SECRET,
+      JWT_SECRET_V1: SECRET,
+      JWT_SECRET_CURRENT_VERSION: "1",
+    });
+    expect(typeof keyring).not.toBe("string");
+    expect((keyring as { signKid: string }).signKid).toBe("v1");
+  });
+
+  it("kumiko-framework#1308: no plain JWT_SECRET set alongside a keyring → no legacy key added", () => {
+    expect(
+      loadJwtSecretOrKeyring({
         JWT_SECRET_V1: SECRET,
         JWT_SECRET_CURRENT_VERSION: "1",
       }),

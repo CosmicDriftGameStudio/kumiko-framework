@@ -55,17 +55,25 @@ export type SeedUserWithPasswordOptions = {
 export async function seedUserWithPassword(
   db: DbConnection,
   options: SeedUserWithPasswordOptions,
+  // Optional, append-only — same rationale as provisionSignupAccount's
+  // hooks param (#1478): the self-signup path passes it through so `user`'s
+  // postSave hooks fire on self-signup same as on the regular create path.
+  hooks?: SeedTenantHooks,
 ): Promise<{ id: string }> {
   const passwordHash = await hashPassword(options.password);
-  return seedUser(db, {
-    email: options.email,
-    displayName: options.displayName,
-    passwordHash,
-    ...(options.locale !== undefined && { locale: options.locale }),
-    ...(options.roles !== undefined && { roles: options.roles }),
-    ...(options.emailVerified !== undefined && { emailVerified: options.emailVerified }),
-    ...(options.by !== undefined && { by: options.by }),
-  });
+  return seedUser(
+    db,
+    {
+      email: options.email,
+      displayName: options.displayName,
+      passwordHash,
+      ...(options.locale !== undefined && { locale: options.locale }),
+      ...(options.roles !== undefined && { roles: options.roles }),
+      ...(options.emailVerified !== undefined && { emailVerified: options.emailVerified }),
+      ...(options.by !== undefined && { by: options.by }),
+    },
+    hooks,
+  );
 }
 
 /** Provisioning-Helper für Self-Signup-Confirm. Legt einen frischen
@@ -117,9 +125,11 @@ export async function provisionSignupAccount(
   options: ProvisionSignupAccountOptions,
   // Optional, append-only — existing callers (tests, seed scripts) that
   // don't pass hooks keep today's behavior. The real signup-confirm
-  // handler DOES pass it (#1463) so seedTenant's postSave hooks
-  // (tier-engine's auto-default-tier, app auto-default-compliance) fire
-  // on self-signup, same as they do on the regular tenant-create path.
+  // handler DOES pass it (#1463) so seedTenant/seedUserWithPassword/
+  // seedTenantMembership's postSave hooks (tier-engine's auto-default-tier,
+  // app auto-default-compliance, a Welcome-notification hook, ...) fire on
+  // self-signup for all three entities, same as they do on the regular
+  // create paths (#1478 — this was only wired for tenant before).
   hooks?: SeedTenantHooks,
 ): Promise<{ readonly userId: string; readonly tenantId: TenantId }> {
   // Create-only-Guard VOR seedTenant: bei bereits registrierter Email hart
@@ -139,17 +149,25 @@ export async function provisionSignupAccount(
     },
     hooks,
   );
-  const { id: userId } = await seedUserWithPassword(db, {
-    email: options.email,
-    password: options.password,
-    displayName: options.displayName,
-    emailVerified: true,
-  });
-  await seedTenantMembership(db, {
-    userId,
-    tenantId: options.tenantId,
-    roles: options.memberRoles ?? INITIAL_SIGNUP_ROLES,
-  });
+  const { id: userId } = await seedUserWithPassword(
+    db,
+    {
+      email: options.email,
+      password: options.password,
+      displayName: options.displayName,
+      emailVerified: true,
+    },
+    hooks,
+  );
+  await seedTenantMembership(
+    db,
+    {
+      userId,
+      tenantId: options.tenantId,
+      roles: options.memberRoles ?? INITIAL_SIGNUP_ROLES,
+    },
+    hooks,
+  );
   return { userId, tenantId: options.tenantId };
 }
 

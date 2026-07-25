@@ -186,6 +186,27 @@ describe("scaffoldApp", () => {
     expect(readme).toContain("- `delivery`");
   });
 
+  test("callExpression/export-callability mismatch throws instead of silently mis-instantiating", async () => {
+    const dest = join(tmp, "my-shop");
+    await expect(
+      scaffoldApp({
+        name: "my-shop",
+        destination: dest,
+        features: [
+          {
+            name: "delivery",
+            importPath: "@cosmicdrift/kumiko-bundled-features/delivery",
+            exportName: "createDeliveryFeature",
+            // createDeliveryFeature is a factory function, but this claims it's
+            // a plain object export (no trailing "()") — must not silently push
+            // the function itself as a FeatureDefinition.
+            callExpression: "createDeliveryFeature",
+          },
+        ],
+      }),
+    ).rejects.toThrow(/is.*callable but callExpression/);
+  });
+
   test("bin/main.ts contains runProdApp + auth.admin stub + staticDir", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });

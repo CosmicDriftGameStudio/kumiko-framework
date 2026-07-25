@@ -235,20 +235,30 @@ export const ingestMessageHandler: WriteHandlerDef = {
     //    on the same thread (Watch-Push vs. Poll-Reconciliation overlap,
     //    or two different messages of the same thread arriving at once)
     //    can both read the same stream version before either commits.
-    //    tryAppendEvent's fresh version-read at append time then makes
-    //    the loser's append fail with a VersionConflictError instead of
-    //    silently succeeding — so we retry: reload the thread stream,
-    //    recompute the live row-count and lastMessageAt, and append
-    //    again. Unlike step 4, a lost race here must NOT be treated as a
-    //    no-op duplicate — skipping would leave this message's
-    //    contribution to messageCount/lastMessageAt out of the thread
-    //    forever. Exhausting all attempts throws, rolling back the whole
-    //    TX (including the step-4 message append) for a clean re-ingest
-    //    on the next poll — never return success with a stale snapshot.
+    //    tryAppendEvent's fresh version-read at append time makes the
+    //    loser's append fail with a VersionConflictError ONLY when the
+    //    other TX's commit lands between this reload and the append's own
+    //    version check — so we retry: reload the thread stream, recompute
+    //    the live row-count and lastMessageAt, and append again. If the
+    //    other TX instead commits in the gap between the countWhere below
+    //    and the append's version-read, the version check sees the
+    //    already-bumped stream and appends without conflict — but with the
+    //    stale row-count this countWhere captured before the concurrent
+    //    insert. That write still lands (messageCount can undercount by
+    //    one round), it is not eliminated by this retry loop; the next
+    //    ingest on the thread re-counts and self-corrects. Unlike step 4,
+    //    a lost version-conflict race here must NOT be treated as a no-op
+    //    duplicate — skipping would leave this message's contribution to
+    //    messageCount/lastMessageAt out of the thread forever. Exhausting
+    //    all attempts throws, rolling back the whole TX (including the
+    //    step-4 message append) for a clean re-ingest on the next poll —
+    //    never return success with a stale snapshot.
     //
     //    A true race-free read+append (e.g. SELECT ... FOR UPDATE or an
-    //    advisory lock on threadAggId) is deliberately not part of this
-    //    fix — two writers (watch + poll) make bounded retry sufficient.
+    //    advisory lock on threadAggId) would close the countWhere→append
+    //    gap above and is deliberately not part of this fix — two writers
+    //    (watch + poll) make self-correcting drift an acceptable trade for
+    //    now.
     // ---------------------------------------------------------------
     const threadPlainPii = { tenantId, subject: payload.subject };
     const encryptedThreadFields = piiKms

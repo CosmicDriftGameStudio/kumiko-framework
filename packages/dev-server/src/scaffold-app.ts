@@ -852,6 +852,14 @@ async function instantiateScaffoldFeatures(
         `scaffoldApp: ${entry.importPath} missing export ${entry.exportName} for ${entry.callExpression}`,
       );
     }
+    const looksCallable = entry.callExpression.endsWith(")");
+    if (looksCallable !== (typeof exp === "function")) {
+      throw new Error(
+        `scaffoldApp: ${entry.importPath} export ${entry.exportName} is ${
+          typeof exp === "function" ? "" : "not "
+        }callable but callExpression "${entry.callExpression}" says otherwise`,
+      );
+    }
     if (typeof exp === "function") {
       instances.push((exp as (...args: unknown[]) => FeatureDefinition)(...(entry.callArgs ?? [])));
     } else {
