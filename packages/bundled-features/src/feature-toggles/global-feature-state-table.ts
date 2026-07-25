@@ -1,6 +1,6 @@
+import { asEntityTableMeta } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   boolean,
-  defineUnmanagedTable,
   type EntityTableMeta,
   instant,
   integer,
@@ -31,14 +31,17 @@ export const globalFeatureStateTable = pgTable("store_global_feature_state", {
 
 // r.storeTable meta — without this, collectTableMetas(FEATURES) never
 // sees the table, so `kumiko schema generate` reports no changes and no
-// app ever gets a migration for it (framework gap, not app-local).
-export const globalFeatureStateTableMeta: EntityTableMeta = defineUnmanagedTable({
-  tableName: "store_global_feature_state",
-  columns: [
-    { name: "feature_name", pgType: "text", notNull: true, primaryKey: true },
-    { name: "enabled", pgType: "boolean", notNull: true },
-    { name: "version", pgType: "integer", notNull: true, defaultSql: "1" },
-    { name: "updated_at", pgType: "timestamptz", notNull: true, defaultSql: "now()" },
-    { name: "updated_by", pgType: "text", notNull: false },
-  ],
-});
+// app ever gets a migration for it (framework gap, not app-local). Derived
+// from the pgTable above instead of hand-written a second time — the two
+// used to drift independently (framework#1529): a column added only to
+// the pgTable made queries type-check while the migration generator stayed
+// blind to it, failing in prod with "column ... does not exist" while every
+// mocked-stack test stayed green.
+const derivedMeta = asEntityTableMeta(globalFeatureStateTable);
+if (!derivedMeta) {
+  throw new Error(
+    "global-feature-state-table: asEntityTableMeta(globalFeatureStateTable) returned undefined " +
+      "— the pgTable definition no longer round-trips through the unmanaged-table meta builder.",
+  );
+}
+export const globalFeatureStateTableMeta: EntityTableMeta = derivedMeta;
