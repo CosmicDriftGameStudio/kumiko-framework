@@ -21,6 +21,7 @@ import { reindexEntityJob, reindexEntityPayloadSchema } from "./handlers/reindex
 import { retryWrite } from "./handlers/retry.write";
 import { triggerWrite } from "./handlers/trigger.write";
 import { JOBS_I18N } from "./i18n";
+import { parseJobInstant } from "./job-instant";
 import {
   JOB_RUN_COMPLETED_EVENT,
   JOB_RUN_FAILED_EVENT,
@@ -78,7 +79,7 @@ export function createJobsFeature(): FeatureDefinition {
               status: p.status,
               payload: p.payload,
               attempt: p.attempt,
-              startedAt: Temporal.Instant.from(p.startedAt),
+              startedAt: parseJobInstant(p.startedAt),
               triggeredById: p.triggeredById,
             });
           },
@@ -92,7 +93,7 @@ export function createJobsFeature(): FeatureDefinition {
               {
                 status: "completed",
                 duration: p.duration,
-                finishedAt: Temporal.Instant.from(p.finishedAt),
+                finishedAt: parseJobInstant(p.finishedAt),
                 version: event.version,
                 modifiedAt: event.createdAt,
                 modifiedById: event.metadata?.userId ?? "system",
@@ -111,7 +112,7 @@ export function createJobsFeature(): FeatureDefinition {
                 status: "failed",
                 error: p.error,
                 duration: p.duration,
-                finishedAt: Temporal.Instant.from(p.finishedAt),
+                finishedAt: parseJobInstant(p.finishedAt),
                 version: event.version,
                 modifiedAt: event.createdAt,
                 modifiedById: event.metadata?.userId ?? "system",
@@ -145,7 +146,7 @@ export function createJobsFeature(): FeatureDefinition {
                 runId: event.aggregateId,
                 level: log.level,
                 message: log.message,
-                timestamp: Temporal.Instant.from(log.timestamp),
+                timestamp: parseJobInstant(log.timestamp),
               })),
             );
           },
@@ -161,7 +162,7 @@ export function createJobsFeature(): FeatureDefinition {
               runId: event.aggregateId,
               level: log.level,
               message: log.message,
-              timestamp: Temporal.Instant.from(log.timestamp),
+              timestamp: parseJobInstant(log.timestamp),
             })),
           );
         }),

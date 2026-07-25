@@ -2,7 +2,10 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+// Value-only import, aliased to avoid shadowing the ambient global
+// `Temporal` TYPE that TenantLifecycleRow.gracePeriodEnd resolves against
+// (same #1438 dual-package-hazard pattern as event-store.ts).
+import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import { z } from "zod";
 import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant";
 import { DESTRUCTION_CANCELLED_EVENT_QN } from "../constants";
@@ -14,6 +17,25 @@ type TenantLifecycleRow = {
   status: TenantLifecycleStatus;
   gracePeriodEnd: Temporal.Instant | null;
 };
+
+// kumiko-framework#1525: exported so the ambient-global-independence
+// regression test can call it directly — the handler itself has no seam
+// short of a full dispatcher round-trip (which would also delete the
+// ambient global out from under buildHandlerContext's unrelated ctx.tz
+// setup, unrelated to this fix).
+export function isWithinGracePeriod(gracePeriodEnd: Temporal.Instant | null): boolean {
+  // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
+  // at runtime — gracePeriodEnd is DB-row-typed against the ambient
+  // global, two distinct nominal types across the two .d.ts sources (see
+  // event-store.ts).
+  return (
+    gracePeriodEnd != null &&
+    TemporalPolyfill.Instant.compare(
+      gracePeriodEnd as unknown as InstanceType<typeof TemporalPolyfill.Instant>,
+      TemporalPolyfill.Now.instant(),
+    ) > 0
+  );
+}
 
 export const cancelDestructionWrite = defineWriteHandler({
   name: "cancel-destruction",
@@ -33,11 +55,7 @@ export const cancelDestructionWrite = defineWriteHandler({
       );
     }
 
-    const gracePeriodEnd = row.gracePeriodEnd;
-    const inGrace =
-      gracePeriodEnd != null &&
-      Temporal.Instant.compare(gracePeriodEnd, getTemporal().Now.instant()) > 0;
-    if (!inGrace) {
+    if (!isWithinGracePeriod(row.gracePeriodEnd)) {
       return writeFailure(
         new UnprocessableError("grace_period_expired", {
           details: { reason: "grace_period_expired" },
