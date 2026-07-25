@@ -125,6 +125,18 @@ export function MfaSetupPreauthScreen({
       const res = await confirmMfaSetupPreauth(setup.setupToken, code);
       if (res.kind !== "success") {
         setError(res.error.reason);
+        // An expired or already-burned setupToken can never succeed again —
+        // drop back to the intro so the "start setup" button reappears,
+        // otherwise the user is stuck on this screen with no way forward
+        // short of a full reload (which loses the preauthSetupToken).
+        if (
+          res.error.reason === "invalid_setup_token" ||
+          res.error.reason === "invalid_challenge_token"
+        ) {
+          setSetup(null);
+          setAcknowledged(false);
+          setCode("");
+        }
         return;
       }
       onSuccess?.();

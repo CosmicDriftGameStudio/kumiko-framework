@@ -1,21 +1,21 @@
-// ctx.tz — die Feature-Code-API für TZ-Operationen.
+// ctx.tz — the feature-code API for TZ operations.
 //
-// Eine konsistente Form für jeden Date/Time-Bedarf im Handler-Code:
-//   - "Jetzt als UTC-Instant"        → ctx.tz.now()
-//   - "Heute in Tenant-TZ"           → ctx.tz.today(ctx.tz.tenant)
-//   - "Wall-Clock parsen"            → ctx.tz.parse("2026-04-03T10:00", "Europe/Lisbon")
-//   - "ZonedDateTime → JSON-Pair"    → ctx.tz.toLocatedJson(zdt)
-//   - "JSON-Pair → ZonedDateTime"    → ctx.tz.fromLocatedJson({ at, tz })
+// A consistent shape for every date/time need in handler code:
+//   - "now as a UTC instant"          → ctx.tz.now()
+//   - "today in the tenant's TZ"      → ctx.tz.today(ctx.tz.tenant)
+//   - "parse a wall-clock string"     → ctx.tz.parse("2026-04-03T10:00", "Europe/Lisbon")
+//   - "ZonedDateTime → JSON pair"     → ctx.tz.toLocatedJson(zdt)
+//   - "JSON pair → ZonedDateTime"     → ctx.tz.fromLocatedJson({ at, tz })
 //
-// Feature-Code soll NICHT mehr `new Date()` aufrufen — die Lint-Regel dafür
-// kommt in einer späteren Iteration, wenn alle existing usages migriert sind.
+// Feature code should no longer call `new Date()` — the lint rule for that
+// lands in a later iteration, once all existing usages are migrated.
 //
-// `tenant` + `user` sind die TZ-Defaults für den aktuellen Request. Aktueller
-// Stand: beide default auf "UTC" — sobald tenant.timezone +
-// user.timezone Felder existieren, lese ich sie aus dem Request-Context.
+// `tenant` + `user` are the TZ defaults for the current request. Currently
+// both default to "UTC" — once tenant.timezone + user.timezone fields
+// exist, they get read from the request context here.
 //
-// Die reinen Type-Contracts (TzContext, TzContextOptions, LocatedTimestampJson)
-// leben in @cosmicdrift/kumiko-types/tz-context — hier nur die Factories.
+// The pure type contracts (TzContext, TzContextOptions, LocatedTimestampJson)
+// live in @cosmicdrift/kumiko-types/tz-context — only the factories are here.
 
 import type { TzContext, TzContextOptions } from "@cosmicdrift/kumiko-types/tz-context";
 import { ensureTemporalPolyfill, getTemporal } from "./polyfill";
@@ -27,9 +27,9 @@ export type {
 } from "@cosmicdrift/kumiko-types/tz-context";
 
 /**
- * Factory: erzeugt einen TzContext für den aktuellen Request.
- * Erwartet dass ensureTemporalPolyfill() bereits gelaufen ist (passiert beim
- * Framework-Boot). Wenn nicht, wirft getTemporal() — kein silent failure.
+ * Factory: creates a TzContext for the current request.
+ * Expects ensureTemporalPolyfill() to have already run (happens at
+ * framework boot). If not, getTemporal() throws — no silent failure.
  */
 export function createTzContext(options: TzContextOptions = {}): TzContext {
   const T = getTemporal();
@@ -52,9 +52,9 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
     parse: (wallClock: string, tz: string) => T.PlainDateTime.from(wallClock).toZonedDateTime(tz),
     toInstant: (zdt) => zdt.toInstant(),
     toLocatedJson: (zdt) => ({
-      // Wall-Clock OHNE Offset (kein "Z", kein "+01:00") plus IANA-Name.
-      // .toPlainDateTime().toString() liefert "YYYY-MM-DDTHH:MM:SS[.fff]"
-      // ohne Offset — exakt unser Vertrag.
+      // Wall-clock WITHOUT offset (no "Z", no "+01:00") plus the IANA name.
+      // .toPlainDateTime().toString() returns "YYYY-MM-DDTHH:MM:SS[.fff]"
+      // without an offset — exactly our contract.
       at: zdt.toPlainDateTime().toString(),
       tz: zdt.timeZoneId,
     }),
@@ -84,8 +84,8 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
 }
 
 /**
- * Convenience: stellt sicher dass der Polyfill geladen ist UND erzeugt
- * den TzContext in einem await. Bevorzugt verwenden in Boot-Code.
+ * Convenience: ensures the polyfill is loaded AND creates the TzContext in
+ * one await. Prefer this in boot code.
  */
 export async function createTzContextAsync(options?: TzContextOptions): Promise<TzContext> {
   await ensureTemporalPolyfill();

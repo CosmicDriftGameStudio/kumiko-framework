@@ -712,11 +712,19 @@ describe("handleEvent maxPerTenant", () => {
         const started = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");
         expect(started.length).toBe(2);
       });
-      // Third must be skipped by the maxPerTenant guard.
+      // Third must be skipped by the maxPerTenant guard. handleEvent's cap
+      // check runs synchronously before this call resolves, but a wrongly
+      // enqueued job still needs the worker to pick it up and push its
+      // jobLog entry — polling several times (failing at the first sign of
+      // a 3rd start) is more CI-load-tolerant than a single fixed sleep(200)
+      // racing against the handler's own 500ms sleep, which could land
+      // outside the window on a starved runner and silently pass.
       await runner.handleEvent("test:write:capped-event", { n: 3 }, user);
-      await sleep(200);
-      const started = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");
-      expect(started.length).toBe(2);
+      for (const delayMs of [50, 100, 200, 400]) {
+        await sleep(delayMs);
+        const startedNow = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");
+        expect(startedNow.length).toBe(2);
+      }
     });
   });
 });

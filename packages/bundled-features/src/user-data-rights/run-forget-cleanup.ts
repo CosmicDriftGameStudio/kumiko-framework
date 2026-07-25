@@ -142,6 +142,13 @@ export interface ForgetCleanupIncomplete {
   readonly tenantId: TenantId;
   readonly entityName: string;
   readonly reason: string;
+  /** True when a LATER hook in the same user's sub-tx threw, rolling back
+   *  the DB rows (including the status flip) — but this hook's own
+   *  non-transactional side effect (e.g. an already-issued S3 delete,
+   *  a provider API call) already ran and does NOT get undone by that
+   *  rollback. The user is still DeletionRequested and will retry, but
+   *  this partial external effect needs its own operator follow-up. */
+  readonly rolledBack: boolean;
 }
 
 export interface RunForgetCleanupResult {
@@ -371,6 +378,10 @@ async function processUser(args: {
               tenantId,
               entityName: entry.entityName,
               reason: hookResult.reason,
+              // Overwritten by the final `incomplete.map(...)` below once
+              // txSucceeded is known — placeholder here since a push can
+              // happen before a LATER hook in the same sub-tx decides that.
+              rolledBack: false,
             });
             // biome-ignore lint/suspicious/noConsole: operator-visibility for partial hook completion
             console.warn(
@@ -431,10 +442,14 @@ async function processUser(args: {
     success: txSucceeded,
     hookCallsAttempted,
     errors,
-    // Only surfaced on a committed sub-tx — a later throw in the same
-    // user's loop rolls this back too, so a rolled-back "incomplete"
-    // report would misreport a non-deleted user as partially cleaned up.
-    incomplete: txSucceeded ? incomplete : [],
+    // Reported either way — a rolled-back sub-tx doesn't undo an
+    // "incomplete" hook's own non-transactional side effect (S3 delete,
+    // provider call), so dropping the report entirely would hide exactly
+    // the case its own reason string describes ("would report a
+    // not-yet-deleted user as partially cleaned up" — true of the DB rows,
+    // not of that external effect). `rolledBack` lets the operator tell
+    // the two situations apart instead of losing the signal outright.
+    incomplete: incomplete.map((i) => ({ ...i, rolledBack: !txSucceeded })),
     userEmailBeforeDelete,
     userLocaleBeforeDelete,
     tenantIdsBeforeDelete,

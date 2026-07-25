@@ -798,6 +798,7 @@ describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architek
       expect(aliceIncomplete?.reason).toBe("synthetic partial cleanup for alice");
       expect(aliceIncomplete?.tenantId).toBe(TENANT_A);
       expect(aliceIncomplete?.entityName).toBe("user");
+      expect(aliceIncomplete?.rolledBack).toBe(false);
 
       // Status flip proceeded despite the incomplete report.
       const aliceRow = await fetchUser(ALICE_ID);
@@ -814,7 +815,7 @@ describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architek
     }
   });
 
-  test("hook incomplete on one tenant, then throws on a later tenant → the incomplete report is discarded by the rollback", async () => {
+  test("hook incomplete on one tenant, then throws on a later tenant → the incomplete report survives, flagged rolledBack (#1489)", async () => {
     await seedUser(ALICE_ID, {
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
@@ -857,9 +858,14 @@ describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architek
         now: NOW(),
       });
 
-      // The whole per-user sub-tx rolled back — no incomplete entry from
-      // tenant A survives, and the failure surfaces as a hard error instead.
-      expect(result.incomplete.some((i) => i.userId === ALICE_ID)).toBe(false);
+      // The whole per-user sub-tx rolled back — the DB rows (including the
+      // status flip) are undone, and the failure surfaces as a hard error
+      // too. But tenant A's "incomplete" report describes an external,
+      // non-transactional side effect (already ran, not rolled back by a
+      // DB rollback) — it must still reach the operator, just marked
+      // rolledBack so they know the user itself is still DeletionRequested.
+      const aliceIncomplete = result.incomplete.find((i) => i.userId === ALICE_ID);
+      expect(aliceIncomplete?.rolledBack).toBe(true);
       expect(result.errors.some((e) => e.userId === ALICE_ID)).toBe(true);
       expect(result.processedUserIds).not.toContain(ALICE_ID);
 

@@ -274,15 +274,21 @@ export type AuthRoutesConfig = {
   // /auth/mfa/preauth-enable-start dispatches { preauthSetupToken,
   // accountLabel } to this handler with a guest identity — no session is
   // minted, the response is just { setupToken, otpauthUri, recoveryCodes }
-  // (same shape as auth-mfa's own enable-start.write.ts). No dedicated
-  // rate-limiter here (unlike mfaVerifyRateLimit): the route already
-  // inherits the generic L2 authEndpointRateLimit on /api/auth/*, and this
-  // handler checks no TOTP code, so there's no per-account guessing
-  // surface to cap — that cap belongs on the later confirm handler.
+  // (same shape as auth-mfa's own enable-start.write.ts).
   mfaPreauthEnableStartHandler?: string;
   // Maps mfaPreauthEnableStartHandler error codes to HTTP status codes,
   // same pattern as mfaVerifyErrorStatusMap.
   mfaPreauthEnableStartErrorStatusMap?: Readonly<Record<string, number>>;
+  // Rate-limit for POST /auth/mfa/preauth-enable-start, keyed by client IP.
+  // Defaults to in-memory 10/5min. Pass `null` to disable. This route does
+  // NOT inherit the generic L2 authEndpointRateLimit on /api/auth/* by
+  // default (that's opt-in per-app via runProdApp's rateLimit.auth), and a
+  // preauthSetupToken is valid for the full setup-token TTL and not
+  // single-use until preauth-confirm burns it — an unrate-limited replay
+  // means every hit re-derives a fresh TOTP secret + 8 argon2id recovery-
+  // code hashes (recovery-codes.ts, Promise.all), a memory-hard CPU
+  // amplifier reachable from a single stolen/leaked token.
+  mfaPreauthEnableStartRateLimit?: LoginRateLimiter | null;
   // Optional: qualified write handler completing the enrollment started by
   // mfaPreauthEnableStartHandler — takes the secret-carrying setupToken
   // from that step plus a TOTP code. When set, POST /auth/mfa/preauth-
@@ -545,10 +551,22 @@ export function createRedisLoginRateLimiter(
   return {
     async check(key) {
       const redisKey = `${prefix}${key}`;
-      const count = await redis.incr(redisKey);
-      if (count === 1) {
-        await redis.pexpire(redisKey, windowMs);
-      }
+      // INCR then PEXPIRE was two round-trips: a crash/network blip between
+      // them (only possible right after count===1, when the key is fresh)
+      // left the key permanently without a TTL — the window never resets,
+      // the counter only grows, and the bucket is locked out until an
+      // operator manually resets/deletes the key. One atomic eval closes
+      // the gap: the TTL is set in the same script invocation that creates
+      // the key, so no observer (including a crash) can see count===1
+      // without the expiry already applied.
+      const count = (await redis.eval(
+        `local c = redis.call('INCR', KEYS[1])
+         if c == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+         return c`,
+        1,
+        redisKey,
+        windowMs,
+      )) as number;
       return count <= maxAttempts;
     },
     async reset(key) {
@@ -771,12 +789,17 @@ export function createAuthRoutes(
   // No JWT is minted here (unlike /auth/login and /auth/mfa/verify) — the
   // handler's response carries a secret-bearing setupToken that a later
   // pre-auth confirm step (the same shape auth-mfa's own enable-confirm
-  // consumes) verifies. No dedicated rate-limiter: see
-  // AuthRoutesConfig.mfaPreauthEnableStartHandler's doc comment for why
-  // the generic L2 /api/auth/* limiter is enough here.
+  // consumes) verifies. Rate-limited like mfaVerifyRateLimit/
+  // mfaPreauthConfirmRateLimit — a preauthSetupToken is valid and
+  // not-single-use for its whole TTL, so without this cap a replay is a
+  // memory-hard CPU amplifier (see AuthRoutesConfig doc comment).
   if (config.mfaPreauthEnableStartHandler) {
     const mfaPreauthEnableStartQn = config.mfaPreauthEnableStartHandler;
     const statusMap = config.mfaPreauthEnableStartErrorStatusMap ?? {};
+    const rateLimiter =
+      config.mfaPreauthEnableStartRateLimit === null
+        ? null
+        : (config.mfaPreauthEnableStartRateLimit ?? createInMemoryLoginRateLimiter());
 
     api.post(Routes.authMfaPreauthEnableStart, async (c) => {
       const raw = await c.req.json().catch(() => null);
@@ -785,6 +808,18 @@ export function createAuthRoutes(
         return c.json({ isSuccess: false, error: "invalid_body" }, 400);
       }
       const body = parsed.data;
+
+      const clientIp =
+        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+        c.req.header("x-real-ip") ??
+        "unknown";
+
+      if (rateLimiter) {
+        const allowed = await rateLimiter.check(clientIp);
+        if (!allowed) {
+          return c.json({ isSuccess: false, error: "rate_limited" }, 429);
+        }
+      }
 
       const result = await dispatcher.write(mfaPreauthEnableStartQn, body, GUEST_USER);
 

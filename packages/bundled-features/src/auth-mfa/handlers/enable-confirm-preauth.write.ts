@@ -105,33 +105,15 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       const existing = await findUserMfaRow(scopedDb, scopedUser);
       if (existing) return mfaAlreadyEnabled();
 
-      const result = await executor.create(
-        {
-          userId,
-          totpSecret: verify.payload.totpSecretBase32,
-          recoveryCodes: encodeRecoveryCodes(verify.payload.recoveryCodeHashes),
-          enabledAt: Temporal.Now.instant(),
-          lastUsedAt: null,
-        },
-        scopedUser,
-        scopedDb,
-      );
-      if (!result.isSuccess) return result;
-
-      if (ctx.redis) {
-        await clearMfaVerifyAttempts(ctx.redis, userId);
-      }
-
-      // No currentSid to exclude — this is the first session for this
-      // login, not a follow-up on an already-running one.
-      if (opts.revokeAllOtherSessions) {
-        await opts.revokeAllOtherSessions(userId, undefined);
-      }
-
-      // Re-derive the full session the way verify.write.ts does — the
-      // setupToken only proves "password + new TOTP secret", not roles;
-      // roles come from a fresh membership lookup, same as every other
-      // login-completing handler.
+      // Status + membership must be verified BEFORE the entity-write below —
+      // an admin can restrict/delete the account or revoke its tenant
+      // membership in the window between preauth-enable-start and
+      // preauth-confirm (up to MFA_SETUP_TOKEN_TTL_MINUTES). Checking after
+      // the write left three irreversible side effects behind an
+      // already-signed, non-forgeable setupToken that then just returns
+      // invalidSetupToken(): the MFA row persisted, the setup token burned,
+      // and (formerly) all other sessions revoked — with mfaAlreadyEnabled()
+      // blocking any re-enrollment until an operator manually disables MFA.
       const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
       const userRow = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
         id: userId,
@@ -153,6 +135,28 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       })) as ReadonlyArray<{ tenantId: string; roles: readonly string[] }>; // @cast-boundary engine-payload
       const membership = memberships.find((m) => m.tenantId === tenantId);
       if (!membership) return invalidSetupToken();
+
+      const result = await executor.create(
+        {
+          userId,
+          totpSecret: verify.payload.totpSecretBase32,
+          recoveryCodes: encodeRecoveryCodes(verify.payload.recoveryCodeHashes),
+          enabledAt: Temporal.Now.instant(),
+          lastUsedAt: null,
+        },
+        scopedUser,
+        scopedDb,
+      );
+      if (!result.isSuccess) return result;
+
+      if (ctx.redis) {
+        await clearMfaVerifyAttempts(ctx.redis, userId);
+      }
+
+      // Re-derive the full session the way verify.write.ts does — the
+      // setupToken only proves "password + new TOTP secret", not roles;
+      // roles come from the membership lookup above, same as every other
+      // login-completing handler.
       // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
       // roles from the membership portion (globalRoles keeps SystemAdmin) —
       // read-time backstop against a rebuild-resurrected role, same as
@@ -163,6 +167,16 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       const claims = await ctx.resolveAuthClaims(baseSession);
       const session: SessionUser =
         Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
+
+      // Last step before returning success: every gate above (status,
+      // membership, entity-write) has passed, so this is the point of no
+      // return anyway — revoking here instead of right after the write
+      // means a rejected confirm never touches the user's other sessions.
+      // No currentSid to exclude — this is the first session for this
+      // login, not a follow-up on an already-running one.
+      if (opts.revokeAllOtherSessions) {
+        await opts.revokeAllOtherSessions(userId, undefined);
+      }
 
       return { isSuccess: true, data: { kind: "mfa-preauth-confirm-success", session } };
     },
