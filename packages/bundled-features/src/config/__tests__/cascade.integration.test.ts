@@ -528,8 +528,14 @@ describe("config:query:cascade handler", () => {
   });
 });
 
-// getAll is a bulk reader — never reached via the cascade query handlers
-// above, so it stays uncovered unless called directly on the resolver.
+// getAll is a bulk reader with no HTTP surface at all (no handler calls it —
+// it's consumed internally by other bundled-features that need every config
+// key for a scope at once, not by the cascade query handlers above). Calling
+// it directly on the resolver is the only way to exercise it; this
+// deliberately stays in the .integration.test.ts file rather than a
+// standalone .test.ts because it shares the cascadeFeature/seed fixture
+// above (duplicating that ~100-line setup just to rename the file would
+// cost more than it buys — see kumiko-framework#1437).
 describe("getAll", () => {
   test("getAll picks the most specific row (user > tenant > system)", async () => {
     await stack.http.writeOk(

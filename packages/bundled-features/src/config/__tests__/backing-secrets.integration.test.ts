@@ -207,6 +207,10 @@ describe("config backing=secrets — fail-loud when secrets unwired", () => {
   test("cascade read on backing=secrets without secretsReader throws", async () => {
     // Write succeeds on the wired stack; then resolve via a bare resolver
     // (no secretsReader) so readBackingSecret fails loud on the cascade path.
+    // Direct resolver call is deliberate here, not a bypass: stack.http always
+    // uses a properly-wired resolver (secretsReader present) — there's no
+    // HTTP path that reaches an unwired resolver, so this is the only way to
+    // exercise the missing-secretsReader failure mode (kumiko-framework#1437).
     await stack.http.writeOk(
       ConfigHandlers.set,
       { key: API_KEY, value: "sk-live-planted", scope: "system" },
