@@ -129,14 +129,25 @@ export function ResultTable<Row>({
               className={cn(i === 0 && "border-t", row.emphasize === true && "font-semibold")}
             >
               <td
-                colSpan={Math.max(columns.length - 1, 1)}
+                colSpan={columns.length > 1 ? Math.max(columns.length - 1, 1) : undefined}
                 className={cn(
                   "py-1.5 text-muted-foreground",
                   card === true && "px-3",
                   row.emphasize === true && "text-foreground",
+                  columns.length === 1 && "flex items-center justify-between gap-4",
                 )}
               >
                 {row.label}
+                {columns.length === 1 && (
+                  <span
+                    className={cn(
+                      "text-right tabular-nums",
+                      row.emphasize === true && "text-foreground",
+                    )}
+                  >
+                    {row.value}
+                  </span>
+                )}
               </td>
               {columns.length > 1 && (
                 <td className={cn("py-1.5 text-right tabular-nums", card === true && "px-3")}>

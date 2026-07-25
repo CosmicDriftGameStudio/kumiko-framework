@@ -55,6 +55,28 @@ describe("ResultTable", () => {
     expect(totalRow?.className).toContain("font-semibold");
     expect(screen.getByText("Subtotal")).toBeTruthy();
   });
+
+  test("single-column table: footer value still renders (not dropped)", () => {
+    const singleColumn = [{ header: "Jahr", cell: (row: { year: number }) => row.year }];
+    const { container } = render(
+      <ResultTable
+        columns={singleColumn}
+        rows={ROWS}
+        rowKey={(r) => String(r.year)}
+        testId="rt"
+        footer={[{ label: "Total", value: "300", emphasize: true }]}
+      />,
+    );
+    const footerRows = container.querySelectorAll("tbody tr");
+    expect(footerRows).toHaveLength(3);
+    const totalRow = footerRows[2];
+    // Single <td> carries both label and value — colSpan is dropped, not
+    // set to 0, since there's only one column to span.
+    expect(totalRow?.querySelectorAll("td")).toHaveLength(1);
+    expect(totalRow?.querySelector("td")?.hasAttribute("colspan")).toBe(false);
+    expect(screen.getByText("Total")).toBeTruthy();
+    expect(screen.getByText("300")).toBeTruthy();
+  });
 });
 
 describe("ComparisonTable", () => {

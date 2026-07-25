@@ -6,39 +6,14 @@
 // required-var test would throw "required env var DATABASE_URL is missing" and
 // the PORT test would bind the default instead of the injected port.
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createBooleanField,
-  createEntity,
-  createTextField,
-  defineFeature,
-} from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import { describe, expect, test } from "bun:test";
 import { runProdApp } from "../run-prod-app";
+import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture";
 
-const probeEntity = createEntity({
-  fields: {
-    name: createTextField({ required: true }),
-    active: createBooleanField({ default: true }),
-  },
+const probeFeature = makeProbeFeature({
+  name: "env-source-probe",
   table: "env_source_probe",
 });
-
-const probeFeature = defineFeature("env-source-probe", (r) => {
-  r.entity("widget", probeEntity);
-  r.queryHandler({
-    name: "ping",
-    schema: z.object({}),
-    access: { roles: ["anonymous"] },
-    handler: async () => ({ pong: true }),
-  });
-});
-
-// Cleared from process.env so the test fully controls config via envSource.
-// DATABASE_URL/REDIS_URL/JWT_SECRET are required (their read throws pre-fix);
-// PORT is non-throwing, cleared only so ambient PORT can't mask the second
-// test's "PORT comes from envSource" assertion.
-const CLEARED_VARS = ["DATABASE_URL", "REDIS_URL", "JWT_SECRET", "PORT"] as const;
 
 const DUMMY_ENV = {
   KUMIKO_DRY_RUN_ENV: "boot",
@@ -48,21 +23,7 @@ const DUMMY_ENV = {
 } as const;
 
 describe("runProdApp boot-mode env-source", () => {
-  const saved: Record<string, string | undefined> = {};
-
-  beforeEach(() => {
-    for (const k of CLEARED_VARS) {
-      saved[k] = process.env[k];
-      delete process.env[k];
-    }
-  });
-
-  afterEach(() => {
-    for (const k of CLEARED_VARS) {
-      if (saved[k] === undefined) delete process.env[k];
-      else process.env[k] = saved[k];
-    }
-  });
+  withClearedBootEnv();
 
   test("boots from injected envSource even when process.env lacks the required vars", async () => {
     const logs: string[] = [];

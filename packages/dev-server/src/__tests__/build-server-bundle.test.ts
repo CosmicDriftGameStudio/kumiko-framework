@@ -95,4 +95,32 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("prefers node_modules/@cosmicdrift/* over packages/* when both declare a version", async () => {
+    // Framework-monorepo checkout: both the installed node_modules package
+    // (symlinked in real life, diverging here) and packages/framework exist.
+    // node_modules must win — it reflects what actually gets shipped/installed
+    // for the consumer, packages/framework is only a repo-root fallback.
+    const dir = makeFixture();
+    try {
+      const frameworkPkgDir = join(dir, "node_modules/@cosmicdrift/kumiko-framework");
+      mkdirSync(frameworkPkgDir, { recursive: true });
+      writeFileSync(
+        join(frameworkPkgDir, "package.json"),
+        `${JSON.stringify({ name: "@cosmicdrift/kumiko-framework", dependencies: { meilisearch: "^0.58.0" } })}\n`,
+      );
+
+      mkdirSync(join(dir, "packages/framework"), { recursive: true });
+      writeFileSync(
+        join(dir, "packages/framework/package.json"),
+        `${JSON.stringify({ name: "@cosmicdrift/kumiko-framework", dependencies: { meilisearch: "^0.30.0" } })}\n`,
+      );
+
+      const result = await buildServerBundle({ cwd: dir, outDir: join(dir, "dist-server") });
+
+      expect(result.runtimeDeps["meilisearch"]).toBe("^0.58.0");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

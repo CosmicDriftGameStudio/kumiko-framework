@@ -1,53 +1,21 @@
 // Dry-run + bootErrorReporter paths — no DB/Redis. envSource avoids process.exit(0).
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createBooleanField,
-  createEntity,
-  createTextField,
-  defineFeature,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { describe, expect, test } from "bun:test";
 import { composeEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import { z } from "zod";
 import { runProdApp } from "../run-prod-app";
+import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture";
 
-const probeEntity = createEntity({
-  fields: {
-    name: createTextField({ required: true }),
-    active: createBooleanField({ default: true }),
-  },
+const probeFeature = makeProbeFeature({
+  name: "dry-run-probe",
   table: "dry_run_probe",
+  extraSetup: (r) => {
+    r.envSchema(z.object({ DRY_RUN_PROBE: z.string().optional().describe("probe var") }));
+  },
 });
-
-const probeFeature = defineFeature("dry-run-probe", (r) => {
-  r.entity("widget", probeEntity);
-  r.envSchema(z.object({ DRY_RUN_PROBE: z.string().optional().describe("probe var") }));
-  r.queryHandler({
-    name: "ping",
-    schema: z.object({}),
-    access: { roles: ["anonymous"] },
-    handler: async () => ({ pong: true }),
-  });
-});
-
-const CLEARED = ["DATABASE_URL", "REDIS_URL", "JWT_SECRET", "PORT"] as const;
 
 describe("runProdApp dry-run / bootErrorReporter", () => {
-  const saved: Record<string, string | undefined> = {};
-
-  beforeEach(() => {
-    for (const k of CLEARED) {
-      saved[k] = process.env[k];
-      delete process.env[k];
-    }
-  });
-
-  afterEach(() => {
-    for (const k of CLEARED) {
-      if (saved[k] === undefined) delete process.env[k];
-      else process.env[k] = saved[k];
-    }
-  });
+  withClearedBootEnv();
 
   test("KUMIKO_DRY_RUN_ENV=human + envSource → render + dry-run handle (no exit)", async () => {
     const logs: string[] = [];

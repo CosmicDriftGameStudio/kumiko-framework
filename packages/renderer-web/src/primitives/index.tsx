@@ -1285,6 +1285,12 @@ export function defaultCellRender(
   if (type === "timestamp" || type === "date") return applyFormatSpec({ format: type }, value);
   if (type === "money") {
     if (!isMoneyValue(value)) return String(value);
+    // No `locale` param here: DataTableCell has no app-locale context to
+    // thread through (unlike the form path — see MoneyInput/RenderField in
+    // packages/renderer, which pins the LocaleProvider locale). formatMoney
+    // falls back to guessLocale() (navigator.language), so the same amount
+    // can render differently in a table vs. a form on the same screen.
+    // Mid-term: pass the app locale down here too, analogous to render-field.
     return formatMoney(value.amount, value.currency);
   }
   if (type === "select") {
