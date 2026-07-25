@@ -1,12 +1,15 @@
 import {
   createEntity,
   createJsonbField,
+  createLongTextField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 // Phase-1 (MVP) page shape — LiteParse fills this in (kumiko-enterprise#273).
-// Kept minimal on purpose: downstream themes (provider, recipe) extend it,
-// this skeleton only needs a stable name for the jsonb `pages` column.
+// Kept minimal on purpose: downstream themes (provider, recipe) extend it.
+// Stored as JSON.stringify(IngestPage[]) in the encrypted `pages` column —
+// jsonb has no encryption support in the engine, and this column holds the
+// full extracted text of ingested documents (invoices, IDs, contracts).
 export type IngestPage = {
   readonly pageNumber: number;
   readonly text: string;
@@ -30,7 +33,9 @@ export const documentExtractEntity = createEntity({
   fields: {
     fileRefId: createTextField({ required: true }),
     storageKey: createTextField({ required: true }),
-    pages: createJsonbField(),
+    // Encrypted — holds the full extracted document text (PII). meta is
+    // provider telemetry only and stays plaintext jsonb.
+    pages: createLongTextField({ encrypted: true }),
     meta: createJsonbField(),
   },
 });

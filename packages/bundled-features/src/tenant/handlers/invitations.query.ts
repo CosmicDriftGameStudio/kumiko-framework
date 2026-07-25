@@ -1,8 +1,15 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { decryptStoredPii } from "../../shared";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table";
+
+// Bounded, not Promise.all/sequential: each decrypt hits the KMS adapter's
+// own small dedicated pool (PgKmsAdapter default max: 4). Promise.all fires
+// one call per row unbounded and exhausts the pool once invitation counts
+// exceed a handful, surfacing as "the connection was closed"; a strict
+// sequential loop caps concurrency at 1 and leaves 3 pool slots idle.
+const KMS_POOL_CONCURRENCY = 4;
 
 // Pending-Invitations-Liste für den aktuellen Tenant. Admin-only.
 // Filter: status="pending" — accepted/cancelled/expired sind für die
@@ -22,24 +29,15 @@ export const invitationsQuery = defineQueryHandler({
       tenantId: query.user.tenantId,
       status: INVITATION_STATUS.pending,
     });
-    // Sequential, not Promise.all: each decrypt hits the KMS adapter's own
-    // small dedicated pool (PgKmsAdapter default max: 4) — firing 2 calls
-    // per row concurrently for every row exhausts it once invitation counts
-    // exceed a handful, surfacing as "the connection was closed".
-    const out: Record<string, unknown>[] = [];
-    for (const row of rows ?? []) {
+    return mapWithConcurrency(rows ?? [], KMS_POOL_CONCURRENCY, async (row) => {
       const email = row["email"];
-      const invitedBy = row["invitedBy"];
       const decryptedEmail =
         typeof email === "string"
           ? await decryptStoredPii(email, "email", "tenant:invitations")
           : email;
-      const decryptedInvitedBy =
-        typeof invitedBy === "string"
-          ? await decryptStoredPii(invitedBy, "invitedBy", "tenant:invitations")
-          : invitedBy;
-      out.push({ ...row, email: decryptedEmail, invitedBy: decryptedInvitedBy });
-    }
-    return out;
+      // invitedBy is a plain userId (invitation-table.ts: no `pii: true`) —
+      // never encrypted at write time, so it needs no decrypt (#1252).
+      return { ...row, email: decryptedEmail };
+    });
   },
 });

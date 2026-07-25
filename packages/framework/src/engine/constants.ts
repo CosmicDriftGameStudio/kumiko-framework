@@ -1,3 +1,5 @@
+import type { ConcurrencyMode } from "@cosmicdrift/kumiko-types/concurrency-mode";
+import type { ConfigScope } from "@cosmicdrift/kumiko-types/config-scope";
 import type { TenantId } from "./types/identifiers";
 
 // All framework constants as `as const` objects with inferred union types.
@@ -47,14 +49,23 @@ export const LifecycleHookTypes = {
 export type LifecycleHookType = (typeof LifecycleHookTypes)[keyof typeof LifecycleHookTypes];
 
 // --- Config Scopes ---
+// Value object satisfies the canonical ConfigScope union from kumiko-types —
+// a scope added here without a matching kumiko-types member is now a
+// compile error instead of silent drift (#1423/#1439).
 
 export const ConfigScopes = {
   system: "system",
   tenant: "tenant",
   user: "user",
-} as const;
+} as const satisfies Record<string, ConfigScope>;
 
-export type ConfigScope = (typeof ConfigScopes)[keyof typeof ConfigScopes];
+export type { ConfigScope };
+
+// Reverse direction: a member added only to kumiko-types' ConfigScope
+// (not to ConfigScopes above) would otherwise pass the `satisfies` check
+// above unnoticed — this line forces exhaustiveness the other way too.
+const _configScopeExhaustive: Record<ConfigScope, unknown> = ConfigScopes;
+void _configScopeExhaustive;
 
 // --- On Delete Strategies ---
 
@@ -68,6 +79,8 @@ export const OnDeleteStrategies = {
 export type OnDeleteStrategy = (typeof OnDeleteStrategies)[keyof typeof OnDeleteStrategies];
 
 // --- Concurrency Modes ---
+// Value object satisfies the canonical ConcurrencyMode union from
+// kumiko-types — same drift-guard as ConfigScopes above.
 
 export const ConcurrencyModes = {
   parallel: "parallel",
@@ -75,9 +88,13 @@ export const ConcurrencyModes = {
   replace: "replace",
   sequential: "sequential",
   debounce: "debounce",
-} as const;
+} as const satisfies Record<string, ConcurrencyMode>;
 
-export type ConcurrencyMode = (typeof ConcurrencyModes)[keyof typeof ConcurrencyModes];
+export type { ConcurrencyMode };
+
+// Reverse-direction exhaustiveness guard — see the ConfigScope one above.
+const _concurrencyModeExhaustive: Record<ConcurrencyMode, unknown> = ConcurrencyModes;
+void _concurrencyModeExhaustive;
 
 // --- SSE Channels ---
 

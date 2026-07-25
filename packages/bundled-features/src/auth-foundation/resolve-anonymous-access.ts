@@ -6,8 +6,6 @@
 import type {
   AnonymousAccessConfig,
   AnonymousAccessResolved,
-  TenantExists,
-  TenantResolver,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveTenantExistence, resolveTenantResolver } from "./feature";
@@ -50,10 +48,15 @@ export async function resolveAnonymousAccessFromRegistry(
     ...(base ?? {}),
     ...(tenantResolver
       ? {
-          tenantResolver: tenantResolver.resolve as TenantResolver,
+          // No cast: TenantResolverFn's `(c: unknown) => string | null`
+          // and the framework's TenantResolver `(c: Context) => TenantId
+          // | null` are structurally identical (TenantId is a plain
+          // string alias, no brand) — `unknown` is a supertype of
+          // Context, so this is already sound by parameter contravariance.
+          tenantResolver: tenantResolver.resolve,
           resolverTrust: tenantResolver.trust,
         }
       : {}),
-    ...(tenantExists ? { tenantExists: tenantExists as TenantExists } : {}),
+    ...(tenantExists ? { tenantExists } : {}),
   };
 }

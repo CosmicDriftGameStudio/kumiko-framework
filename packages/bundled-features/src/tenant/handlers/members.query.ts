@@ -2,11 +2,18 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
-import { decryptStoredPii } from "../../shared";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { userTable } from "../../user";
 import { tenantMembershipsTable } from "../membership-table";
 
 type UserRow = { readonly id: unknown; readonly email?: unknown; readonly displayName?: unknown };
+
+// Bounded, not Promise.all/sequential: each decrypt hits the KMS adapter's
+// own small dedicated pool (PgKmsAdapter default max: 4). Promise.all fires
+// one call per user unbounded and exhausts the pool once membership counts
+// exceed a handful, surfacing as "the connection was closed"; a strict
+// sequential loop caps concurrency at 1 and leaves 3 pool slots idle.
+const KMS_POOL_CONCURRENCY = 4;
 
 export const membersQuery = defineQueryHandler({
   name: "members",
@@ -22,15 +29,7 @@ export const membersQuery = defineQueryHandler({
       userIds.length > 0 ? await selectMany<UserRow>(ctx.db, userTable, { id: userIds }) : [];
     const userById = new Map(users.map((u) => [String(u.id), u]));
 
-    // Sequential, not Promise.all: each decrypt hits the KMS adapter's own
-    // small dedicated pool (PgKmsAdapter default max: 4) — firing 2 calls
-    // per row concurrently for every row exhausts it once membership counts
-    // exceed a handful, surfacing as "the connection was closed".
-    const decryptedByUserId = new Map<
-      string,
-      { email: string | null; displayName: string | null }
-    >();
-    for (const user of users) {
+    const decrypted = await mapWithConcurrency(users, KMS_POOL_CONCURRENCY, async (user) => {
       const email =
         typeof user.email === "string"
           ? await decryptStoredPii(user.email, "email", "tenant:members")
@@ -39,8 +38,9 @@ export const membersQuery = defineQueryHandler({
         typeof user.displayName === "string"
           ? await decryptStoredPii(user.displayName, "displayName", "tenant:members")
           : null;
-      decryptedByUserId.set(String(user.id), { email, displayName });
-    }
+      return { userId: String(user.id), email, displayName };
+    });
+    const decryptedByUserId = new Map(decrypted.map((d) => [d.userId, d]));
 
     return rows.map((row) => {
       const user = userById.get(String(row["userId"]));

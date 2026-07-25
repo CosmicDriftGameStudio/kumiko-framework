@@ -34,8 +34,24 @@ export type LoginResponse = {
   };
 };
 
+// Reason codes the login-handler is known to emit today (login-screen.tsx's
+// reasonToKey maps every one of these to an i18n key). The server can also
+// send a reason this client doesn't know about yet (rolling deploys, a new
+// enforcement policy) — `string & {}` keeps that open while still giving
+// autocomplete/typo-checking on the known set, instead of collapsing both
+// to plain `string` (coding-standards: no magic strings without a union).
+export type KnownLoginFailureReason =
+  | "invalid_credentials"
+  | "no_membership"
+  | "account_locked"
+  | "email_not_verified"
+  | "rate_limited"
+  | "invalid_body"
+  | "mfa_not_supported"
+  | "mfa_setup_required";
+
 export type LoginFailure = {
-  readonly reason: string;
+  readonly reason: KnownLoginFailureReason | (string & {});
   readonly message?: string;
   readonly retryAfterSeconds?: number;
 };
@@ -167,10 +183,10 @@ async function parseTokenFailure(res: Response): Promise<AuthTokenFailure> {
   return { reason };
 }
 
-// POST /api/auth/request-password-reset. 200 silent-success: auch wenn
-// die Email nicht existiert, sieht der caller `{ ok: true }` — kein
-// account-enumeration. Server triggert Mail nur intern wenn user
-// gefunden. 429 → typed rate-limit-Failure. 5xx → unknown-error.
+// POST /api/auth/request-password-reset. 200 silent-success: even if the
+// email doesn't exist, the caller sees `{ ok: true }` — no account
+// enumeration. Server only triggers the mail internally when a user is
+// found. 429 → typed rate-limit failure. 5xx → unknown-error.
 export async function requestPasswordReset(
   email: string,
 ): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
@@ -204,7 +220,7 @@ export async function resetPassword(
 }
 
 // POST /api/auth/request-email-verification. Same silent-success
-// semantik wie request-password-reset. 429 → rate-limit-Failure.
+// semantics as request-password-reset. 429 → rate-limit failure.
 export async function requestEmailVerification(
   email: string,
 ): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
@@ -234,8 +250,8 @@ export async function verifyEmail(
   return { ok: false, error: await parseTokenFailure(res) };
 }
 
-// POST /api/auth/request-account-unlock. Same silent-success semantik wie
-// request-password-reset. 429 → rate-limit-Failure.
+// POST /api/auth/request-account-unlock. Same silent-success semantics as
+// request-password-reset. 429 → rate-limit failure.
 export async function requestAccountUnlock(
   email: string,
 ): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {

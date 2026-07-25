@@ -202,5 +202,5 @@ describeInboundMailProviderContract(
     account,
     seed: (subject) => sendTestMail(subject, "contract seed"),
   }),
-  { skip: !available },
+  { skip: !available, hasWatch: Boolean(imapInboundMailPlugin.watch), timeout: 20_000 },
 );

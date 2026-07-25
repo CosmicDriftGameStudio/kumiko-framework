@@ -11,6 +11,7 @@
 // rejected by boot-validation — domain mutation MUST go through
 // r.step.aggregate.*.
 
+import { KUMIKO_COLUMNS_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { extractTableName } from "../../db";
 import { executeRawQuery } from "../../db/queries/raw-sql";
 import { defineStep } from "../define-step";
@@ -22,10 +23,6 @@ type UnsafeProjectionUpsertArgs = {
   readonly on: readonly string[];
   readonly row: StepResolver<Record<string, unknown>>;
 };
-
-// @cast-boundary drizzle-bridge — reads column snake_case names from
-// drizzle Symbol-based metadata without importing drizzle-orm.
-const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
 
 function resolveColumnName(table: unknown, field: string): string {
   if (typeof table !== "object" || table === null) return field;

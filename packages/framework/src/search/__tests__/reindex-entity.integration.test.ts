@@ -111,7 +111,8 @@ describe("reindexEntity", () => {
       admin.tenantId,
       { dryRun: true },
     );
-    expect(result.indexedRows).toBeGreaterThan(0);
+    expect(result.indexedRows).toBe(0);
+    expect(result.wouldIndexRows).toBeGreaterThan(0);
 
     const postResults = await stack.search.search(admin.tenantId, "dryrun", {
       filterType: "widget",

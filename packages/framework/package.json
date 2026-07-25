@@ -197,12 +197,7 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@cosmicdrift/kumiko-types": "workspace:*"
-  },
-  "peerDependenciesMeta": {
-    "@cosmicdrift/kumiko-types": {
-      "optional": false
-    }
+    "@cosmicdrift/kumiko-types": "workspace:^"
   },
   "devDependencies": {
     "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",

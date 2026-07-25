@@ -6,14 +6,24 @@
 # Compares each pin against the DEPENDENCY's version, not the depending package's:
 # cli runs an independent version line (0.2.x) yet correctly pins dev-server@0.67.x.
 # Deps outside the workspace ($expected[.key] == null) are external pins → skipped.
-((.dependencies // {}) + (.peerDependencies // {}) + (.optionalDependencies // {}))
-| to_entries
+#
+# peerDependencies pin `workspace:^` (range, not exact) — `bun pm pack` substitutes
+# that to `^<version>` (#1529). Strip a leading `^`/`~` before comparing so a
+# range-pinned peer at the release version isn't flagged as drift; dependencies/
+# optionalDependencies stay exact-compared (those pin `workspace:*` → exact).
+def stripCaret: sub("^[\\^~]"; "");
+
+(
+  ((.dependencies // {}) | to_entries | map(. + { exact: true }))
+  + ((.peerDependencies // {}) | to_entries | map(. + { exact: false }))
+  + ((.optionalDependencies // {}) | to_entries | map(. + { exact: true }))
+)
 | map(
-    select(
-      (.key | startswith("@cosmicdrift/"))
-      and $expected[.key] != null
-      and .value != $expected[.key]
-    )
-    | "\(.key)@\(.value) (expected \($expected[.key]))"
+    select(.key | startswith("@cosmicdrift/"))
+    | select($expected[.key] != null)
+    | . as $e
+    | (if $e.exact then $e.value else ($e.value | stripCaret) end) as $cmp
+    | select($cmp != $expected[$e.key])
+    | "\($e.key)@\($e.value) (expected \($expected[$e.key]))"
   )
 | join(", ")

@@ -17,6 +17,10 @@
 // Construction: use the `from(ref, column?)` helper. It returns a FromRule
 // ready to drop into an access map.
 
+import {
+  KUMIKO_COLUMNS_SYMBOL,
+  KUMIKO_NAME_SYMBOL,
+} from "@cosmicdrift/kumiko-types/schema-table-types";
 import { toSnakeCase } from "../db/table-builder";
 import type { SessionUser } from "./types";
 
@@ -220,9 +224,6 @@ export function userCanCreateFieldRow(
 
 const PASS_CLAUSE: OwnershipClause = { kind: "pass" };
 const EMPTY_CLAUSE: OwnershipClause = { kind: "empty" };
-
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
-const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
 
 function tableNameOf(table: unknown): string {
   if (table !== null && typeof table === "object") {
