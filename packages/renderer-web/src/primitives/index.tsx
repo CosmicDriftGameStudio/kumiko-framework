@@ -79,7 +79,7 @@ import {
 import { FileUploadInput } from "./file-upload";
 import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
-import { currencyDecimals, MoneyInput } from "./money-input";
+import { formatMoney, MoneyInput } from "./money-input";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
 
@@ -1261,7 +1261,8 @@ function isMoneyValue(value: unknown): value is { amount: number; currency: stri
     typeof value === "object" &&
     value !== null &&
     typeof (value as Record<string, unknown>)["amount"] === "number" &&
-    typeof (value as Record<string, unknown>)["currency"] === "string"
+    typeof (value as Record<string, unknown>)["currency"] === "string" &&
+    /^[A-Za-z]{3}$/.test((value as Record<string, unknown>)["currency"] as string)
   );
 }
 
@@ -1284,13 +1285,7 @@ export function defaultCellRender(
   if (type === "timestamp" || type === "date") return applyFormatSpec({ format: type }, value);
   if (type === "money") {
     if (!isMoneyValue(value)) return String(value);
-    const decimals = currencyDecimals(value.currency);
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: value.currency,
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(value.amount / 10 ** decimals);
+    return formatMoney(value.amount, value.currency);
   }
   if (type === "select") {
     const raw = String(value);

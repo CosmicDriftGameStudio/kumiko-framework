@@ -64,16 +64,7 @@ export function MoneyInput({
   const [draft, setDraft] = useState<string>("");
 
   const major = value === "" ? null : value / factor;
-
-  const formatted =
-    major === null
-      ? ""
-      : new Intl.NumberFormat(resolvedLocale, {
-          style: "currency",
-          currency,
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals,
-        }).format(major);
+  const formatted = value === "" ? "" : formatMoney(value, currency, resolvedLocale);
 
   // Edit-Mode: Decimal-String ohne Tausender-Trenner. Konsistente Helper-
   // Funktion damit Focus-Init und Render-Fallback nicht auseinanderdriften.
@@ -168,6 +159,25 @@ export function currencyDecimals(code: string): number {
 function guessLocale(): string {
   if (typeof navigator !== "undefined" && navigator.language) return navigator.language;
   return "en-US";
+}
+
+// Shared with defaultCellRender (index.tsx) so both formatting paths stay
+// identical instead of drifting. currency is validated against the
+// 3-letter-alpha shape Intl.NumberFormat requires — a non-conforming
+// value (e.g. from a JSONB custom field that never ran through
+// rehydrateMoney) throws a RangeError inside Intl.NumberFormat, and with
+// no ErrorBoundary in this render tree that would take down the whole
+// page instead of just this cell.
+export function formatMoney(amountMinor: number, currency: string, locale?: string): string {
+  if (!/^[A-Za-z]{3}$/.test(currency)) return String(amountMinor);
+  const decimals = currencyDecimals(currency);
+  const resolvedLocale = locale ?? guessLocale();
+  return new Intl.NumberFormat(resolvedLocale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(amountMinor / 10 ** decimals);
 }
 
 // Locale-Decimal-Parse: erkennt automatisch ob Komma oder Punkt der
