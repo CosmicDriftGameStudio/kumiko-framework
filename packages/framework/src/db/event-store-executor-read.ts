@@ -1,3 +1,4 @@
+import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto";
 import { executeRawQuery } from "../db/queries/raw-sql";
 import { coerceRow, extractTableInfo } from "../db/query";
@@ -66,9 +67,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // Build the WHERE clause as raw SQL — ownership produces a
       // parameterised fragment that we splice in alongside simple WhereObject
       // conditions (cursor, search-filter-IDs, screen-filter, tenant-scope).
-      const tableName = String(
-        (table as unknown as Record<symbol, unknown>)[Symbol.for("kumiko:schema:Name")],
-      );
+      const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
       const whereSql: string[] = [];
       const params: unknown[] = [];
       const colSql = (field: string): string =>

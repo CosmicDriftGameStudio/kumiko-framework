@@ -77,6 +77,18 @@ describe("pin-drift.jq guard", () => {
     );
   });
 
+  test("peerDependency at the release version with a caret range (workspace:^ substitution, #1529) passes clean", () => {
+    expect(
+      runGuard({ peerDependencies: { "@cosmicdrift/kumiko-dev-server": "^0.67.0" } }),
+    ).toBe("");
+  });
+
+  test("stale peerDependency is still reported even with a caret range", () => {
+    expect(
+      runGuard({ peerDependencies: { "@cosmicdrift/kumiko-dev-server": "^0.66.0" } }),
+    ).toBe("@cosmicdrift/kumiko-dev-server@^0.66.0 (expected 0.67.0)");
+  });
+
   test("optionalDependency drift is reported (same treatment as dependencies/peerDependencies)", () => {
     expect(runGuard({ optionalDependencies: { "@cosmicdrift/kumiko-framework": "0.60.0" } })).toBe(
       "@cosmicdrift/kumiko-framework@0.60.0 (expected 0.67.0)",

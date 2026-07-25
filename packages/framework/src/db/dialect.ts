@@ -19,6 +19,7 @@
 import {
   type ColumnHandle,
   KUMIKO_COLUMNS_SYMBOL,
+  KUMIKO_META_SYMBOL,
   KUMIKO_NAME_SYMBOL,
   type SchemaTable,
 } from "@cosmicdrift/kumiko-types/schema-table-types";
@@ -40,12 +41,6 @@ export type { ColumnHandle, SchemaTable } from "@cosmicdrift/kumiko-types/schema
 export type TableColumns<_T = any> = SchemaTable;
 // biome-ignore lint/suspicious/noExplicitAny: legacy type — chain API is gone
 export type SelectQuery = any;
-
-// Shadow-proof handle on the EntityTableMeta. The column handles below are
-// spread as enumerable props, so an entity field named `source`/`columns`/
-// `tableName`/… would overwrite the matching meta key. extractTableInfo reads
-// the canonical meta from this symbol instead of the (shadowable) props.
-const KUMIKO_META_SYMBOL = Symbol.for("kumiko:schema:Meta");
 
 function isNumericPgType(t: PgType): t is `numeric(${number},${number})` {
   return t.startsWith("numeric(");

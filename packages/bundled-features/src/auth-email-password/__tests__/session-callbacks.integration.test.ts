@@ -120,6 +120,22 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+
+  // Prime request-helper's per-user sid cache for systemAdmin (the seed
+  // actor every test's seedUser() call authenticates as) here, once,
+  // before any test's observation window opens — otherwise whichever
+  // test happens to call seedUser() first would observe an extra
+  // store.created entry for seed plumbing, not the auth-route behavior
+  // under test (#1452: authHeader() now mints one sid per user.id, not
+  // one per call, so this only ever fires here).
+  await seedUser({
+    email: "warmup-seed-actor@example.com",
+    password: "warmup-password-not-asserted-on",
+    tenants: [],
+  });
+  store.live.clear();
+  store.created.length = 0;
+  store.revoked.length = 0;
 });
 
 afterAll(async () => {
@@ -158,11 +174,6 @@ async function seedUser(opts: {
       roles: t.roles,
     });
   }
-  // request-helper mints a sid for systemAdmin when sessionCreator is wired
-  // (#1372) — that is seed plumbing, not the auth-route behavior under test.
-  store.live.clear();
-  store.created.length = 0;
-  store.revoked.length = 0;
   return { userId: created.id };
 }
 

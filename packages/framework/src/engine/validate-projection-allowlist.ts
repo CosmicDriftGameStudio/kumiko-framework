@@ -23,6 +23,10 @@
 // caught by this validator. A future lint-rule will enforce the contract
 // statically; today it lives in this comment + the StepBuilder doc.
 
+import {
+  KUMIKO_META_SYMBOL,
+  KUMIKO_NAME_SYMBOL,
+} from "@cosmicdrift/kumiko-types/schema-table-types";
 import { getStep } from "./define-step";
 import { buildPipelineSteps } from "./pipeline";
 import type { FeatureDefinition, SessionUser, TenantId, WriteEvent } from "./types";
@@ -55,13 +59,9 @@ function* walkAllSteps(steps: readonly StepInstance[]): Generator<StepInstance, 
   }
 }
 
-// @cast-boundary drizzle-bridge — reads table name from a Symbol without
-// importing drizzle-orm (bun-db pattern, see bun-db/query.ts).
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
 // table()/buildEntityTable spread column handles as enumerable props, so an
 // entity field named `tableName`/`source` would shadow the matching meta key —
-// the canonical meta under this symbol is the only collision-safe source.
-const KUMIKO_META_SYMBOL = Symbol.for("kumiko:schema:Meta");
+// the canonical meta under KUMIKO_META_SYMBOL is the only collision-safe source.
 
 function resolveTableNameFromStep(table: unknown): string {
   if (typeof table === "object" && table !== null) {

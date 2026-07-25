@@ -27,6 +27,8 @@ describe("emailPasswordClient — mfaSetupScreen wiring", () => {
     emailPasswordClient({ mfaSetupScreen: CustomMfaSetup });
 
     expect(makeSessionAuthGateCalls).toHaveLength(1);
-    expect(makeSessionAuthGateCalls[0]?.[3]).toBe(CustomMfaSetup);
+    expect((makeSessionAuthGateCalls[0]?.[0] as { mfaSetupScreen?: unknown })?.mfaSetupScreen).toBe(
+      CustomMfaSetup,
+    );
   });
 });

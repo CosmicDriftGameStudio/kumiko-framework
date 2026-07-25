@@ -20,21 +20,34 @@ export type InboundMailProviderContractFixture = {
 export function describeInboundMailProviderContract(
   name: string,
   factory: () => InboundMailProviderContractFixture | Promise<InboundMailProviderContractFixture>,
-  opts?: { readonly skip?: boolean },
+  opts?: {
+    readonly skip?: boolean;
+    // Whether the provider implements `watch` — read from the plugin's
+    // module-level export (e.g. `Boolean(imapInboundMailPlugin.watch)`),
+    // not by calling `factory()`. Calling the factory eagerly to probe
+    // this (#1337) ran the imap caller's fixture construction even when
+    // `skip` was true (the exact case the skip exists to avoid), and left
+    // an eager Promise unawaited/uncaught on an async factory. Defaults to
+    // true (run the watch test) when omitted.
+    readonly hasWatch?: boolean;
+    // bunfig's global test timeout (15s) is too tight for a live-IMAP
+    // round-trip under CI load — imap-live.integration.test.ts's own
+    // tests already use 20s for the same greenmail server.
+    readonly timeout?: number;
+  },
 ): void {
-  // Eager sync probe so a provider without `watch` produces a visible
-  // test.skip instead of a silent 0-assertion pass (#1337). Both current
-  // factories (imap, inmemory) are sync object literals; an async factory
-  // falls back to the old runtime `if (!plugin.watch) return` check below.
-  const probe = factory();
-  const watchProbe = probe instanceof Promise ? undefined : Boolean(probe.plugin.watch);
+  const timeout = opts?.timeout;
 
   describe(`${name} — InboundMailProviderPlugin contract`, () => {
     const t = opts?.skip ? test.skip : test;
-    t("verify resolves for a valid account", async () => {
-      const { plugin, ctx, account } = await factory();
-      await expect(plugin.verify(ctx, account)).resolves.toBeUndefined();
-    });
+    t(
+      "verify resolves for a valid account",
+      async () => {
+        const { plugin, ctx, account } = await factory();
+        await expect(plugin.verify(ctx, account)).resolves.toBeUndefined();
+      },
+      timeout,
+    );
 
     t(
       "fetch: backfill picks up a seeded message, incremental cursor finds nothing new",
@@ -55,39 +68,44 @@ export function describeInboundMailProviderContract(
         });
         expect(second.messages.some((m) => m.subject === subject)).toBe(false);
       },
+      timeout,
     );
 
-    const watchTest = watchProbe === false ? test.skip : t;
-    watchTest("watch: pushes a seeded message via onMessages", async () => {
-      const { plugin, ctx, account, seed } = await factory();
-      if (!plugin.watch) return; // fallback for an async factory (watchProbe undefined)
-      const subject = `contract-watch-${crypto.randomUUID()}`;
+    const watchTest = opts?.hasWatch === false ? test.skip : t;
+    watchTest(
+      "watch: pushes a seeded message via onMessages",
+      async () => {
+        const { plugin, ctx, account, seed } = await factory();
+        if (!plugin.watch) return; // safety net if opts.hasWatch drifted from the plugin
+        const subject = `contract-watch-${crypto.randomUUID()}`;
 
-      const pushed = new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error("watch push not received within 5s")),
-          5_000,
-        );
-        void plugin
-          .watch?.(ctx, account, {
-            onMessages: async (msgs) => {
-              if (msgs.some((m) => m.subject === subject)) {
+        const pushed = new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(
+            () => reject(new Error("watch push not received within 5s")),
+            5_000,
+          );
+          void plugin
+            .watch?.(ctx, account, {
+              onMessages: async (msgs) => {
+                if (msgs.some((m) => m.subject === subject)) {
+                  clearTimeout(timer);
+                  resolve();
+                }
+              },
+              onError: (err) => {
                 clearTimeout(timer);
-                resolve();
-              }
-            },
-            onError: (err) => {
-              clearTimeout(timer);
-              reject(err instanceof Error ? err : new Error(String(err)));
-            },
-          })
-          .then((stop) => {
-            void seed(subject).catch(reject);
-            void pushed.finally(() => void stop().catch(() => {}));
-          }, reject);
-      });
+                reject(err instanceof Error ? err : new Error(String(err)));
+              },
+            })
+            .then((stop) => {
+              void seed(subject).catch(reject);
+              void pushed.finally(() => void stop().catch(() => {}));
+            }, reject);
+        });
 
-      await pushed;
-    });
+        await pushed;
+      },
+      timeout,
+    );
   });
 }
