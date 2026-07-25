@@ -493,7 +493,10 @@
           "encrypted": false,
           "computed": false,
           "options": null,
-          "bounds": null,
+          "bounds": {
+            "min": 1,
+            "max": 500
+          },
           "pattern": null,
           "writeRoles": [
             "TenantAdmin",
@@ -515,7 +518,9 @@
           "computed": false,
           "options": null,
           "bounds": null,
-          "pattern": null,
+          "pattern": {
+            "regex": "^[a-z]{3}(\\+[a-z]{3})*$"
+          },
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
