@@ -5,6 +5,7 @@ import {
   defineWriteHandler,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { burnToken } from "../../shared";
@@ -53,17 +54,31 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       if (!verified.ok) return invalidChallengeToken();
       const { userId, tenantId } = verified.payload;
 
+      // Fail closed, matching enable-confirm-preauth.write.ts (#1467):
+      // this route sits behind a challenge token from a successful login,
+      // but its own secret is still just a short TOTP/recovery code —
+      // silently skipping the brute-force cap and single-use burn when
+      // ctx.redis is absent would let a stolen challenge token be guessed
+      // against unboundedly, and let a recovery code be replayed via a
+      // reissued challenge (mfa-verify-attempts.ts's counter is deliberately
+      // NOT reset by reissuance, precisely to survive this).
+      if (!ctx.redis) {
+        return writeFailure(
+          new InternalError({
+            message: "verify (mfa) requires ctx.redis for the brute-force cap and single-use burn",
+          }),
+        );
+      }
+
       // Per-account brute-force cap — survives challenge-token reissuance
       // on purpose (see mfa-verify-attempts.ts header). Checked BEFORE the
       // TOTP/recovery verify so a locked account can't be guessed against.
-      if (ctx.redis) {
-        const state = await getMfaVerifyLockoutState(ctx.redis, userId);
-        if (state?.lockedUntil !== null && state?.lockedUntil !== undefined) {
-          const now = Date.now();
-          if (state.lockedUntil > now) {
-            const retryAfterSeconds = Math.max(1, Math.ceil((state.lockedUntil - now) / 1000));
-            return tooManyAttempts(retryAfterSeconds);
-          }
+      const state = await getMfaVerifyLockoutState(ctx.redis, userId);
+      if (state?.lockedUntil !== null && state?.lockedUntil !== undefined) {
+        const now = Date.now();
+        if (state.lockedUntil > now) {
+          const retryAfterSeconds = Math.max(1, Math.ceil((state.lockedUntil - now) / 1000));
+          return tooManyAttempts(retryAfterSeconds);
         }
       }
 
@@ -78,12 +93,10 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // bad code, no detail leak about account state.
       if (!row) return invalidChallengeToken();
 
-      const replay = ctx.redis ? { redis: ctx.redis, userId } : undefined;
+      const replay = { redis: ctx.redis, userId };
       const verify = await verifyMfaFactor(row, event.payload.code, replay);
       if (!verify.ok) {
-        if (ctx.redis) {
-          await recordFailedMfaVerifyAttempt(ctx.redis, userId, maxAttempts, lockoutMinutes);
-        }
+        await recordFailedMfaVerifyAttempt(ctx.redis, userId, maxAttempts, lockoutMinutes);
         return invalidTotpCode();
       }
 
@@ -95,15 +108,8 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // is reached, so this burn only needs to guard a DIFFERENT code
       // (recovery, or a still-valid-but-not-yet-burned TOTP step) reused
       // against the same challenge token.
-      if (ctx.redis) {
-        const burnResult = await burnToken(
-          ctx.redis,
-          "mfa-challenge",
-          userId,
-          verified.expiresAtMs,
-        );
-        if (burnResult === "already-used") return invalidChallengeToken();
-      }
+      const burnResult = await burnToken(ctx.redis, "mfa-challenge", userId, verified.expiresAtMs);
+      if (burnResult === "already-used") return invalidChallengeToken();
 
       // Recovery-code use consumes the code — persist the reduced hash-list
       // immediately so it can't be replayed. Without this a recovery code
@@ -121,9 +127,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
         if (!updateResult.isSuccess) return updateResult;
       }
 
-      if (ctx.redis) {
-        await clearMfaVerifyAttempts(ctx.redis, userId);
-      }
+      await clearMfaVerifyAttempts(ctx.redis, userId);
 
       // Re-derive the full session the way login.write.ts would have, for
       // the SAME tenant the challenge token already committed to (no

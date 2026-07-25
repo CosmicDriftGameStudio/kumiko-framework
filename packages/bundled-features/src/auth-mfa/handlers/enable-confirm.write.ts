@@ -1,5 +1,6 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { burnToken } from "../../shared";
@@ -41,6 +42,21 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       // already rules that out).
       if (verify.payload.userId !== event.user.id) return invalidSetupToken();
 
+      // Fail closed, matching verify.write.ts/enable-confirm-preauth.write.ts
+      // (#1467): session-authed (lower risk — the caller already has a
+      // valid JWT), but silently skipping the single-use burn here would
+      // still let a double-confirm race complete twice instead of the
+      // second seeing invalidSetupToken(). Checked before the TOTP verify
+      // for the same reason the other two handlers check it early: fail
+      // closed before doing any of the guarded work, not partway through.
+      if (!ctx.redis) {
+        return writeFailure(
+          new InternalError({
+            message: "enable-confirm requires ctx.redis for the single-use setup-token burn",
+          }),
+        );
+      }
+
       const secret = base32Decode(verify.payload.totpSecretBase32);
       if (verifyTotp(secret, event.payload.code) === false) return invalidTotpCode();
 
@@ -54,15 +70,8 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       // link to go stale), so the realistic failure path (double-confirm
       // race sans Redis) is meant to leave the burn standing. Add
       // unburnToken here if create-failure retries turn out to matter.
-      if (ctx.redis) {
-        const burnResult = await burnToken(
-          ctx.redis,
-          "mfa-setup",
-          event.user.id,
-          verify.expiresAtMs,
-        );
-        if (burnResult === "already-used") return invalidSetupToken();
-      }
+      const burnResult = await burnToken(ctx.redis, "mfa-setup", event.user.id, verify.expiresAtMs);
+      if (burnResult === "already-used") return invalidSetupToken();
 
       const existing = await findUserMfaRow(ctx.db, event.user);
       if (existing) return mfaAlreadyEnabled();
