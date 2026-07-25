@@ -16,6 +16,10 @@ const PAYLOAD = '<script>window.__xss = true;</script><img src=x onerror="window
 const UNSAFE_HREFS = [
   "javascript:window.__xss = true",
   "data:text/html,<script>window.__xss=true</script>",
+  // Browsers strip embedded control/whitespace chars before scheme
+  // detection — a tab/newline mid-scheme must not bypass the check.
+  "java\tscript:window.__xss = true",
+  "java\nscript:window.__xss = true",
 ];
 
 describe("XSS-safety (tenant-authored content)", () => {

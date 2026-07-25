@@ -11,7 +11,11 @@ import { InternalError, UnprocessableError } from "../../errors";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher";
 import { PUBLIC_API_PATHS } from "../api-constants";
 import { authMiddleware } from "../auth-middleware";
-import { type AuthRoutesConfig, createAuthRoutes } from "../auth-routes";
+import {
+  type AuthRoutesConfig,
+  createAuthRoutes,
+  createInMemoryLoginRateLimiter,
+} from "../auth-routes";
 import { createJwtHelper } from "../jwt";
 
 const JWT_SECRET = "test-jwt-secret-at-least-32-bytes-long!!";
@@ -182,5 +186,32 @@ describe("POST /auth/mfa/preauth-enable-start", () => {
       preauthStartRequest({ preauthSetupToken: "t", accountLabel: "a@b.c" }),
     );
     expect(res.status).toBe(500);
+  });
+
+  // #1466: this route inherited zero rate-limiting — a preauthSetupToken is
+  // valid (and not single-use) for its whole TTL, so an unrated-limited
+  // replay is a memory-hard CPU amplifier (8 argon2id recovery-code hashes
+  // per hit). Mirrors mfaPreauthConfirmRateLimit's own regression test.
+  test("mfaPreauthEnableStartRateLimit caps replays — 429 after its own limit", async () => {
+    const { app } = await buildApp({
+      mfaPreauthEnableStartRateLimit: createInMemoryLoginRateLimiter(2, 60_000),
+    });
+    const attempt = () =>
+      app.request(preauthStartRequest({ preauthSetupToken: "t", accountLabel: "a@b.c" }));
+    expect((await attempt()).status).toBe(200);
+    expect((await attempt()).status).toBe(200);
+    const third = await attempt();
+    expect(third.status).toBe(429);
+    const body = (await third.json()) as { isSuccess: boolean; error: string };
+    expect(body.error).toBe("rate_limited");
+  });
+
+  test("mfaPreauthEnableStartRateLimit: null disables rate-limiting", async () => {
+    const { app } = await buildApp({ mfaPreauthEnableStartRateLimit: null });
+    const attempt = () =>
+      app.request(preauthStartRequest({ preauthSetupToken: "t", accountLabel: "a@b.c" }));
+    for (let i = 0; i < 15; i++) {
+      expect((await attempt()).status).toBe(200);
+    }
   });
 });

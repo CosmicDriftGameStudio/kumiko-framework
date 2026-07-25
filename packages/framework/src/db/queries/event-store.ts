@@ -1,3 +1,4 @@
+import { isTableAlreadyExists } from "../pg-error";
 import type { AnyDb } from "../query";
 import { asRawClient } from "../query";
 
@@ -12,12 +13,42 @@ export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void>
 // (same metadata jsonb). CREATE ... IF NOT EXISTS makes this safe to call
 // on every boot, same "ensure" pattern as ensureSnapshotVersionColumn: heals
 // installs that predate the index without a table rebuild.
+//
+// CONCURRENTLY (not a plain CREATE): a non-concurrent build takes a SHARE
+// lock for the full table scan on kumiko_events — the hottest table in the
+// framework — blocking every append() for however long that scan takes on
+// an existing installation's event history. CONCURRENTLY avoids that at the
+// cost of needing to tolerate two failure modes a plain build doesn't have:
 export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
-  await asRawClient(db).unsafe(
-    `CREATE UNIQUE INDEX IF NOT EXISTS "events_idempotency_uq" ON "kumiko_events" ` +
-      `("tenant_id", (("metadata"->>'idempotencyKey'))) ` +
-      `WHERE "metadata"->>'idempotencyKey' IS NOT NULL`,
+  const client = asRawClient(db);
+
+  // 1) A prior CONCURRENTLY build that got killed mid-flight (crash, deploy
+  //    restart) leaves an INVALID index — the catalog entry exists, so
+  //    IF NOT EXISTS below would silently skip forever, but the build never
+  //    finished and the constraint enforces nothing. Detect + rebuild it.
+  const existing = await client.unsafe(
+    `SELECT i.indisvalid FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid ` +
+      `WHERE c.relname = 'events_idempotency_uq'`,
   );
+  const isInvalid = (existing[0] as { indisvalid?: boolean } | undefined)?.indisvalid === false;
+  if (isInvalid) {
+    await client.unsafe(`DROP INDEX CONCURRENTLY IF EXISTS "events_idempotency_uq"`);
+  }
+
+  try {
+    await client.unsafe(
+      `CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "events_idempotency_uq" ON "kumiko_events" ` +
+        `("tenant_id", (("metadata"->>'idempotencyKey'))) ` +
+        `WHERE "metadata"->>'idempotencyKey' IS NOT NULL`,
+    );
+  } catch (e) {
+    // 2) Two pods booting concurrently against the same DB (rolling
+    //    deploy): both see the index missing/invalid and both start a
+    //    CONCURRENTLY build — the loser can fail instead of the plain
+    //    duplicate-relation no-op IF NOT EXISTS normally gives, the same
+    //    race createEventsTable already tolerates for CREATE TABLE.
+    if (!isTableAlreadyExists(e)) throw e;
+  }
 }
 
 export type SubsequentEventInsertParams = {

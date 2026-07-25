@@ -71,10 +71,22 @@ function parseColumnNames(body: string): Set<string> {
 
 function applyStatement(schema: Map<string, { columns: Set<string> }>, statement: string): void {
   const create = statement.match(
-    /^CREATE TABLE\s+(?:IF NOT EXISTS\s+)?"([^"]+)"\s*\(([\s\S]*)\);?\s*$/i,
+    /^CREATE TABLE\s+(IF NOT EXISTS\s+)?"([^"]+)"\s*\(([\s\S]*)\);?\s*$/i,
   );
-  if (create?.[1] !== undefined && create[2] !== undefined) {
-    schema.set(create[1], { columns: parseColumnNames(create[2]) });
+  if (create?.[2] !== undefined && create[3] !== undefined) {
+    const hasIfNotExists = create[1] !== undefined;
+    // A real Postgres CREATE TABLE IF NOT EXISTS is a no-op when the table
+    // already exists — treating it as an overwrite here loses any columns
+    // an earlier ALTER TABLE added in between (0001 CREATE, 0002 ALTER ADD
+    // COLUMN, 0003 an accidental copy-paste of 0001) and reports a false
+    // column-drift for exactly the copy-paste bug this replay exists to
+    // catch. A bare CREATE TABLE (no IF NOT EXISTS) still overwrites — the
+    // explicit recreate path (migrate-generator.ts) always DROPs first, so
+    // reaching a second CREATE for the same name there is itself already
+    // the bug the replay should surface via the resulting drift.
+    if (!(hasIfNotExists && schema.has(create[2]))) {
+      schema.set(create[2], { columns: parseColumnNames(create[3]) });
+    }
     // skip: CREATE TABLE fully handled above, no other clause can also match
     return;
   }

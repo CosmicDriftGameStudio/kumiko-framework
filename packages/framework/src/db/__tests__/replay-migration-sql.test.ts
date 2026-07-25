@@ -142,6 +142,28 @@ CREATE INDEX IF NOT EXISTS "read_accounts_tenant_id_idx" ON "read_accounts" ("te
   // so replay must count the marker as applied or "unexpected-table"/
   // "unexpected columns" fires forever against a table the snapshot
   // correctly omits.
+  // #1473/2: CREATE TABLE IF NOT EXISTS is a no-op in real Postgres when
+  // the table already exists — treating it as an overwrite here silently
+  // discards whatever an in-between ALTER TABLE added, exactly the
+  // copy-paste-migration class this replay exists to catch.
+  test("CREATE TABLE IF NOT EXISTS for an already-created table is a no-op, not an overwrite", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(dir, "0001_init.sql", `CREATE TABLE IF NOT EXISTS "read_a" ("id" uuid PRIMARY KEY);`);
+      write(dir, "0002_add-col.sql", `ALTER TABLE "read_a" ADD COLUMN "title" text;`);
+      // Accidental copy-paste of 0001 — same CREATE TABLE IF NOT EXISTS text.
+      write(
+        dir,
+        "0003_copy-paste.sql",
+        `CREATE TABLE IF NOT EXISTS "read_a" ("id" uuid PRIMARY KEY);`,
+      );
+      const replayed = replayMigrationsDir(dir);
+      expect([...(replayed.get("read_a")?.columns ?? [])].sort()).toEqual(["id", "title"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("commented-out destructive DROP TABLE is replayed as applied", () => {
     const dir = tmpMigrationsDir();
     try {

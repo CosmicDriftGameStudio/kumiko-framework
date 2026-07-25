@@ -242,7 +242,11 @@ describe("MfaSetupPreauthScreen", () => {
     expect(confirm.disabled).toBe(false);
   });
 
-  test("confirm schlägt mit invalid_setup_token fehl → übersetztes Banner (Neustart-Pfad)", async () => {
+  // #1470: the banner told the user to "start over", but setup stayed
+  // non-null — the intro block (with the only "start setup" button) never
+  // came back, leaving the user stuck without a reload (which loses the
+  // preauthSetupToken entirely).
+  test("confirm schlägt mit invalid_setup_token fehl → Neustart-Pfad: Start-Button kommt zurück (#1470)", async () => {
     globalThis.fetch = mock(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes("preauth-enable-start")) return jsonResponse(startBody);
@@ -271,6 +275,40 @@ describe("MfaSetupPreauthScreen", () => {
       expect(
         screen.getByText("Die Einrichtung ist abgelaufen. Bitte erneut starten."),
       ).toBeTruthy();
+    });
+    // The actual fix: intro re-appears with a working start button, the QR/
+    // recovery-codes section from the dead setup is gone.
+    expect(screen.getByRole("button", { name: "Einrichtung starten" })).toBeTruthy();
+    expect(screen.queryByText("ABCD1234")).toBeNull();
+  });
+
+  test("confirm schlägt mit invalid_challenge_token fehl → auch Neustart-Pfad (#1470)", async () => {
+    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("preauth-enable-start")) return jsonResponse(startBody);
+      if (url.includes("preauth-confirm")) {
+        return jsonResponse({ isSuccess: false, error: "invalid_challenge_token" });
+      }
+      return jsonResponse({ isSuccess: false, error: "unexpected_url" }, 500);
+    }) as unknown as typeof fetch;
+
+    render(
+      <Wrapper>
+        <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    await waitFor(() => {
+      expect(screen.getByText("ABCD1234")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
+    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Einrichtung abschließen" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Einrichtung starten" })).toBeTruthy();
     });
   });
 });
