@@ -18,6 +18,14 @@ import { createPersonalAccessTokensFeature } from "../../personal-access-tokens"
 import { createSessionsFeature } from "../../sessions/feature";
 import { createTenantFeature } from "../../tenant/feature";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/feature";
+
+function projectionProbeTable(name: string): SchemaTable {
+  return table(name, {
+    id: uuid("id").primaryKey(),
+    count: integer("count").notNull().default(0),
+  }) as unknown as SchemaTable; // @cast-boundary test-fixture — minimal probe shape, real schema-table irrelevant here
+}
+
 import { createUserFeature } from "../../user/feature";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature";
 import { createUserDataRightsFeature } from "../feature";
@@ -80,10 +88,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
   });
 
   test("V3: pii field on a projection-only entity (no r.entity) is still caught", () => {
-    const projectionTable = table("crm_contact_summary", {
-      id: uuid("id").primaryKey(),
-      count: integer("count").notNull().default(0),
-    }) as unknown as SchemaTable;
+    const projectionTable = projectionProbeTable("crm_contact_summary");
     const bad = defineFeature("crm", (r) => {
       const contactCreated = r.defineEvent("contact-created", z.unknown());
       r.projection({
@@ -98,10 +103,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
   });
 
   test("V3: projection-only pii entity WITH EXT_USER_DATA hook registered for its entity name → no throw", () => {
-    const projectionTable = table("crm_contact_summary_hooked", {
-      id: uuid("id").primaryKey(),
-      count: integer("count").notNull().default(0),
-    }) as unknown as SchemaTable;
+    const projectionTable = projectionProbeTable("crm_contact_summary_hooked");
     const hooked = defineFeature("crm-hooked", (r) => {
       r.requires("user-data-rights");
       const contactCreated = r.defineEvent("contact-hooked-created", z.unknown());

@@ -3,12 +3,16 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { ResetPasswordScreen } from "../reset-password-screen";
 import { renderWithProviders } from "./test-utils";
 
+const originalFetch = globalThis.fetch;
+
 beforeEach(() => {
   globalThis.fetch = mock(
     async () => new Response(null, { status: 200 }),
   ) as unknown as typeof fetch;
 });
-afterEach(() => {});
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 describe("ResetPasswordScreen", () => {
   test("ohne Token in URL UND ohne token-Prop → missing-token-Page", () => {
