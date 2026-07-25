@@ -247,6 +247,7 @@ describe("scenario 5c: change-password common-password rejection (#1340)", () =>
       signedIn,
     );
     expect(error.httpStatus).toBe(400);
+    expectErrorIncludes(error, "errors.validation.custom");
 
     // Old password still works — the rejected change never landed.
     const loginRes = await stack.http.raw("POST", "/api/auth/login", {

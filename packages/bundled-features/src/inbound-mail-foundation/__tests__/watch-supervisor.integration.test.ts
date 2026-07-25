@@ -295,6 +295,7 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
       });
 
       emitWatchError(accountId, new Error("socket dropped"));
+      expect(isWatching(accountId)).toBe(false);
 
       await waitFor(() => {
         expect(isWatching(accountId)).toBe(true);
@@ -302,7 +303,7 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
 
       const accounts = await selectMany(db, mailAccountsProjectionTable, { id: accountId });
       expect(accounts[0]?.["status"]).toBe(InboundMailAccountStatuses.active);
-      expect(String(accounts[0]?.["watchState"])).toMatch(/^watching|backoff:/);
+      expect(String(accounts[0]?.["watchState"])).toMatch(/^(watching|backoff:)/);
     } finally {
       await supervisor.stop();
     }
