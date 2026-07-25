@@ -1,1 +1,1 @@
-export * from "@cosmicdrift/kumiko-types/event-type-map";
+export type * from "@cosmicdrift/kumiko-types/event-type-map";

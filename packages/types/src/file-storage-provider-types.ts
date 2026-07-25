@@ -20,6 +20,12 @@ export type WriteStreamOptions = {
 // shuttle bytes. `mimeType` on write() is a hint for providers that need a
 // Content-Type header (S3/R2/…); local filesystems can ignore it.
 //
+// writeStream/readStream are required, not optional: user-data-export jobs
+// need streams for large files, and providers can satisfy the contract with
+// a single-chunk yield if they don't have a native stream API — an optional
+// type here would let a provider skip them and fail silently in production
+// the first time an export job hits it.
+//
 // getSignedUrl is optional — providers without native presigned-URL support
 // (filesystem) leave it undefined; the route then returns 501 and the
 // client falls back to streaming via GET /files/:id. Callers must

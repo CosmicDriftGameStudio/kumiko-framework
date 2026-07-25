@@ -7,8 +7,8 @@ import { KumikoError } from "./kumiko-error";
 import { FrameworkReasons } from "./reasons";
 import { buildInvalidTransitionDetails } from "./transition-details";
 
-// Legacy types — re-exported for callers still importing this module directly.
-export * from "@cosmicdrift/kumiko-types/write-error-info-types";
+// @deprecated Import from @cosmicdrift/kumiko-types/write-error-info-types directly.
+export type * from "@cosmicdrift/kumiko-types/write-error-info-types";
 
 // Convenience for call sites that return a failed WriteResult. Keeps the
 // pattern `return writeFailure(new NotFoundError(...))` compact so handlers
