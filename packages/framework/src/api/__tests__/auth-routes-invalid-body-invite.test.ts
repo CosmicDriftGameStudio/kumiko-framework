@@ -92,6 +92,22 @@ describe("POST /auth/login — invalid_body", () => {
 describe("POST /auth/invite-accept", () => {
   test("requires JWT — not a public route", async () => {
     expect(PUBLIC_API_PATHS.has("/api/auth/invite-accept")).toBe(false);
+
+    let dispatched = false;
+    const dispatcher = createStubDispatcher({
+      async write(): Promise<WriteResult> {
+        dispatched = true;
+        return { isSuccess: true, data: { kind: "noop" } };
+      },
+    });
+    const { app } = await buildApp({ invite: inviteConfig }, dispatcher);
+    const res = await app.request("/api/auth/invite-accept", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inviteToken: "t" }),
+    });
+    expect(res.status).toBe(401);
+    expect(dispatched).toBe(false);
   });
 
   test("400 invalid_body before dispatch", async () => {

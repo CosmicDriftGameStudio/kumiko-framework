@@ -2,7 +2,7 @@
 // shouldShowUpdate/isKumikoBuild stay in update-checker.test.ts (unit).
 
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { render } from "../../__tests__/test-utils";
 import { UpdateChecker } from "../update-checker";
 
@@ -99,7 +99,7 @@ describe("UpdateChecker", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  test("no __KUMIKO_BUILD__ → no fetch, no banner", () => {
+  test("no __KUMIKO_BUILD__ → no fetch, no banner", async () => {
     const fetchSpy = mock(async () => ({
       ok: true,
       json: async () => ({ id: "other", builtAt: "" }),
@@ -107,6 +107,7 @@ describe("UpdateChecker", () => {
     globalThis.fetch = fetchSpy as typeof globalThis.fetch;
 
     render(<UpdateChecker />);
+    await act(async () => {});
 
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(screen.queryByRole("status")).toBeNull();

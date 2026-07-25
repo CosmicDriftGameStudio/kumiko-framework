@@ -280,7 +280,12 @@ describe("runProdApp", () => {
       if (original === undefined) delete process.env["KUMIKO_DRY_RUN_ENV"];
       else process.env["KUMIKO_DRY_RUN_ENV"] = original;
     }
-    expect(warnings.some((line) => line.includes("unrecognized"))).toBe(true);
+    expect(
+      warnings.some(
+        (line) =>
+          line.includes('KUMIKO_DRY_RUN_ENV="not-a-real-mode"') && line.includes("unrecognized"),
+      ),
+    ).toBe(true);
   });
 
   test("second boot against the same DB is idempotent — no crash, no duplicate tables", async () => {

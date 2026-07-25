@@ -80,11 +80,12 @@ function preauthConfirmRequest(body: unknown): Request {
 
 describe("POST /auth/mfa/preauth-confirm", () => {
   test("is public — reachable without a JWT", async () => {
+    expect(PUBLIC_API_PATHS.has("/api/auth/mfa/preauth-confirm")).toBe(true);
     const { app } = await buildApp();
     const res = await app.request(preauthConfirmRequest({ setupToken: "t", code: "123456" }));
     // No Authorization header sent at all — if the route required a JWT,
     // authMiddleware would reject with 401 before the handler ever runs.
-    expect(res.status).not.toBe(401);
+    expect(res.status).toBe(200);
   });
 
   test("not mounted when mfaPreauthConfirmHandler is unset", async () => {

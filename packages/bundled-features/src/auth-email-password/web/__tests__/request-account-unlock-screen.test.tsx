@@ -33,6 +33,7 @@ describe("RequestAccountUnlockScreen", () => {
         "/api/auth/request-account-unlock",
         expect.objectContaining({
           method: "POST",
+          headers: expect.objectContaining({ "Content-Type": "application/json" }),
           body: JSON.stringify({ email: "user@example.com" }),
         }),
       );

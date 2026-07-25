@@ -69,7 +69,7 @@ describe("runProdApp dry-run / bootErrorReporter", () => {
       console.log = originalLog;
     }
 
-    expect(logs.some((l) => l.includes("DRY_RUN_PROBE") || l.includes("Optional"))).toBe(true);
+    expect(logs.some((l) => l.includes("DRY_RUN_PROBE"))).toBe(true);
     const res = await handle!.fetch(new Request("http://test/"));
     expect(res.status).toBe(503);
     expect(await res.text()).toBe("dry-run");
@@ -95,9 +95,14 @@ describe("runProdApp dry-run / bootErrorReporter", () => {
     } finally {
       console.log = originalLog;
     }
-    const joined = logs.join("\n");
-    expect(joined).toContain("required");
-    expect(joined).toContain("optional");
+    const jsonLine = logs.find((l) => l.trimStart().startsWith("{"));
+    if (!jsonLine) throw new Error(`No JSON line in logs: ${JSON.stringify(logs)}`);
+    const parsed = JSON.parse(jsonLine) as {
+      optional: Array<{ name: string; feature: string }>;
+    };
+    expect(parsed.optional).toContainEqual(
+      expect.objectContaining({ name: "DRY_RUN_PROBE", feature: "dry-run-probe" }),
+    );
   });
 
   test("unrecognized KUMIKO_DRY_RUN_ENV warns then hits envSchema parse", async () => {
@@ -126,7 +131,11 @@ describe("runProdApp dry-run / bootErrorReporter", () => {
     } finally {
       console.warn = originalWarn;
     }
-    expect(warnings.some((w) => w.includes("unrecognized"))).toBe(true);
+    expect(
+      warnings.some(
+        (w) => w.includes('KUMIKO_DRY_RUN_ENV="not-a-real-mode"') && w.includes("unrecognized"),
+      ),
+    ).toBe(true);
   });
 
   test("bootErrorReporter receives KumikoBootError instead of process.exit", async () => {

@@ -28,6 +28,7 @@ describe("ConfirmAccountUnlockScreen", () => {
         "/api/auth/confirm-account-unlock",
         expect.objectContaining({
           method: "POST",
+          headers: expect.objectContaining({ "Content-Type": "application/json" }),
           body: JSON.stringify({ token: "unlock-tok" }),
         }),
       );
@@ -53,5 +54,6 @@ describe("ConfirmAccountUnlockScreen", () => {
   test("custom title on missing-token uses errorTitle slot only when set", () => {
     renderWithProviders(<ConfirmAccountUnlockScreen title="Unlock kaputt" />);
     expect(screen.getByText("Unlock kaputt")).toBeTruthy();
+    expect(screen.queryByText("Entsperren fehlgeschlagen")).toBeNull();
   });
 });

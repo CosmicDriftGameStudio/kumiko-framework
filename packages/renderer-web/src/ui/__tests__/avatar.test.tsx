@@ -20,16 +20,18 @@ describe("ui/Avatar", () => {
     expect(document.querySelector('[data-slot="avatar"]')).not.toBeNull();
   });
 
-  test("AvatarImage with failed load shows AvatarFallback", () => {
+  test("fallback renders while image is unloaded", () => {
     render(
       <Avatar>
         <AvatarImage src="/photo.png" alt="User" />
         <AvatarFallback>FB</AvatarFallback>
       </Avatar>,
     );
-    // happy-dom does not load images — Radix keeps the fallback visible
+    // happy-dom never loads images, so AvatarImage never reaches "loaded" —
+    // this only exercises the unloaded state, not an actual load failure.
     expect(screen.getByText("FB")).toBeTruthy();
     expect(document.querySelector('[data-slot="avatar-fallback"]')).not.toBeNull();
+    expect(document.querySelector('[data-slot="avatar-image"]')).toBeNull();
   });
 
   test("AvatarBadge renders inside avatar", () => {
