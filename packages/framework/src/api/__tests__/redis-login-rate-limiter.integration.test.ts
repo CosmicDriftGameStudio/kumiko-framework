@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTestRedis, type TestRedis } from "../../stack";
 import { createRedisLoginRateLimiter } from "../auth-routes";
 
@@ -77,22 +77,42 @@ describe("createRedisLoginRateLimiter", () => {
     const limiter = createRedisLoginRateLimiter(testRedis.redis, 3, 60_000);
     const key = "1.2.3.4|ttl-race@test.local";
 
-    const evalSpy = spyOn(testRedis.redis, "eval");
-    const incrSpy = spyOn(testRedis.redis, "incr");
-    const pexpireSpy = spyOn(testRedis.redis, "pexpire");
+    // Manual call-counting instrumentation, not a test-library mock: each
+    // wrapper delegates to the real bound method on the real Redis client
+    // (setupTestStack), so behavior is unchanged — this only counts which
+    // wire commands actually went out, without the bun:test spy helper the
+    // integration-mock-guard forbids in *.integration.test.ts files.
+    const origEval = testRedis.redis.eval.bind(testRedis.redis);
+    const origIncr = testRedis.redis.incr.bind(testRedis.redis);
+    const origPexpire = testRedis.redis.pexpire.bind(testRedis.redis);
+    let evalCalls = 0;
+    let incrCalls = 0;
+    let pexpireCalls = 0;
+    testRedis.redis.eval = ((...args: Parameters<typeof origEval>) => {
+      evalCalls++;
+      return origEval(...args);
+    }) as typeof origEval;
+    testRedis.redis.incr = ((...args: Parameters<typeof origIncr>) => {
+      incrCalls++;
+      return origIncr(...args);
+    }) as typeof origIncr;
+    testRedis.redis.pexpire = ((...args: Parameters<typeof origPexpire>) => {
+      pexpireCalls++;
+      return origPexpire(...args);
+    }) as typeof origPexpire;
     try {
       expect(await limiter.check(key)).toBe(true);
 
-      expect(evalSpy).toHaveBeenCalledTimes(1);
-      expect(incrSpy).not.toHaveBeenCalled();
-      expect(pexpireSpy).not.toHaveBeenCalled();
+      expect(evalCalls).toBe(1);
+      expect(incrCalls).toBe(0);
+      expect(pexpireCalls).toBe(0);
 
       const ttlMs = await testRedis.redis.pttl(`kumiko:auth:ratelimit:login:${key}`);
       expect(ttlMs).toBeGreaterThan(0);
     } finally {
-      evalSpy.mockRestore();
-      incrSpy.mockRestore();
-      pexpireSpy.mockRestore();
+      testRedis.redis.eval = origEval;
+      testRedis.redis.incr = origIncr;
+      testRedis.redis.pexpire = origPexpire;
     }
   });
 });
