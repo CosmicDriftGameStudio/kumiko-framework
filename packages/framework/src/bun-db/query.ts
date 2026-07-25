@@ -199,14 +199,27 @@ export type {
   WhereValue,
 } from "@cosmicdrift/kumiko-types/where-clause-types";
 
+const WHERE_OPERATOR_KEYS = ["gt", "gte", "lt", "lte", "ne", "in", "like"] as const;
+// Forces a tsc error here (not just a silent runtime miss) the moment
+// WhereOperator in @cosmicdrift/kumiko-types gains a key this array doesn't
+// know about — the two live in different packages and can't share a value
+// import without adding a runtime dependency edge.
+type _WhereOperatorKeysExhaustive = Exclude<
+  keyof WhereOperator,
+  (typeof WHERE_OPERATOR_KEYS)[number]
+> extends never
+  ? true
+  : never;
+const _whereOperatorKeysExhaustive: _WhereOperatorKeysExhaustive = true;
+void _whereOperatorKeysExhaustive;
+
 function isWhereOperator(v: unknown): v is WhereOperator {
   if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
   // Don't false-positive on Date / Temporal / other domain-objects.
   // WhereOperator is plain object literal with at most these keys.
   const keys = Object.keys(v);
   if (keys.length === 0) return false;
-  const opKeys = ["gt", "gte", "lt", "lte", "ne", "in", "like"];
-  return keys.every((k) => opKeys.includes(k));
+  return keys.every((k) => (WHERE_OPERATOR_KEYS as readonly string[]).includes(k));
 }
 // Akzeptiert EITHER. Beide haben einen tableName und field→column-mapping.
 // biome-ignore lint/suspicious/noExplicitAny: legacy drizzle pgTable surface

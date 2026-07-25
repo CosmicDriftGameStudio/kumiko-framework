@@ -10,6 +10,10 @@
 // Anzeige passiert client-seitig aus utc.
 
 import type { EntityDefinition } from "../engine/types";
+// Static import, not the ambient global: Bun doesn't expose Temporal on
+// globalThis, so this crashed with "Temporal is not defined" outside boot
+// paths that install it (#1480).
+import { Temporal } from "temporal-polyfill";
 
 // Sprint F: <name>Utc-Spalte ist jetzt instant() (siehe dialect.ts) —
 // Drizzle gibt direkt Temporal.Instant zurück. Vor Sprint F kam ein PG-

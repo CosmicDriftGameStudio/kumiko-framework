@@ -103,6 +103,25 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
   });
 });
 
+describe("rehydrateLocatedTimestamp — kumiko-framework#1490: no ambient Temporal global", () => {
+  test("rehydrates without relying on globalThis.Temporal", () => {
+    const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
+    delete (globalThis as { Temporal?: unknown }).Temporal;
+    try {
+      const out = rehydrateLocatedTimestamp(
+        { pickupUtc: "2026-04-15T09:00:00Z", pickupTz: "Europe/Lisbon" },
+        orderEntity,
+      );
+      expect(out).toEqual({
+        pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon", utc: "2026-04-15T09:00:00Z" },
+      });
+    } finally {
+      if (savedGlobal === undefined) delete (globalThis as { Temporal?: unknown }).Temporal;
+      else (globalThis as { Temporal?: unknown }).Temporal = savedGlobal;
+    }
+  });
+});
+
 describe("rehydrateLocatedTimestamp — Read Convert", () => {
   test("{ <name>Utc, <name>Tz } DB-Form → { at, tz, utc } API-Form (Pickup-Ort-lokal)", () => {
     const out = rehydrateLocatedTimestamp(

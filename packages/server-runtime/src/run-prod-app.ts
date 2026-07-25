@@ -27,6 +27,10 @@
 //   JWT_SECRET_V1=<random-32+>  (repeat _V2, _V3, ... per rotation)
 //   JWT_SECRET_CURRENT_VERSION=1  (which V<n> signs new tokens; the others
 //     still verify in-flight tokens until they expire)
+//   Adopting rotation for the first time (no JWT_SECRET_V<n> set yet): the
+//   plain JWT_SECRET above stays set and is carried into the keyring as a
+//   verify-only legacy key (loadJwtSecretOrKeyring), so sessions signed
+//   before the cutover keep verifying — no mass-logout at adoption.
 //   PORT=3000
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 

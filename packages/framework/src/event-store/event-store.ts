@@ -1,4 +1,11 @@
 import type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
+// Value-only import, aliased to avoid shadowing the ambient global
+// `Temporal` TYPE this file's other Temporal.Instant annotations resolve
+// against (StoredEvent.createdAt et al. — importing the bare name here
+// conflicts with that ambient type, see #1438). Bun doesn't expose Temporal
+// as a runtime value on globalThis, so the un-aliased call below crashed
+// with "Temporal is not defined" outside boot paths that install it (#1480).
+import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import { encryptEventPayloadPii } from "../crypto/event-pii";
 import type { DbRunner } from "../db";
 import { constraintOf, isUniqueViolation } from "../db/pg-error";
@@ -151,12 +158,20 @@ async function insertSubsequentEvent(
     expectedVersion: event.expectedVersion,
   });
   if (!row) throw new VersionConflictError(event.aggregateId, event.expectedVersion);
+  const createdAt =
+    row.created_at instanceof Date
+      ? TemporalPolyfill.Instant.fromEpochMilliseconds(row.created_at.getTime())
+      : TemporalPolyfill.Instant.from(row.created_at);
   return {
     id: typeof row.id === "bigint" ? row.id : BigInt(row.id),
-    createdAt:
-      row.created_at instanceof Date
-        ? Temporal.Instant.fromEpochMilliseconds(row.created_at.getTime())
-        : Temporal.Instant.from(row.created_at),
+    // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
+    // at runtime, two separate .d.ts sources (temporal-polyfill's bundled
+    // types vs the ambient temporal-spec global) disagree on a couple of
+    // method-overload signatures (until/equals argument types), so TS treats
+    // them as nominally distinct. Safe: this value is only ever consumed as
+    // a Temporal.Instant (comparisons, .toString(), arithmetic), never
+    // narrowed on the specific overload shape that differs.
+    createdAt: createdAt as unknown as Temporal.Instant,
   };
 }
 

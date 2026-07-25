@@ -27,6 +27,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
@@ -56,6 +57,20 @@ import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
+
+// Regression-proof for #1478: provisionSignupAccount only threaded `hooks`
+// into seedTenant, leaving seedUserWithPassword's `user`-entity and
+// seedTenantMembership's `tenantMembership`-entity postSave hooks unfired
+// on self-signup — same bug class as #1463, just for the other two
+// entities in the same call. This vendor feature's hook is the user-side
+// analog of tier-engine's tenant hook above.
+const userPostSaveFired = { count: 0 };
+const userHookVendorFeature = defineFeature("user-hook-vendor-test", (r) => {
+  r.requires("user");
+  r.hook("postSave", { allOf: "user" }, async (ctx) => {
+    if (ctx.isNew) userPostSaveFired.count++;
+  });
+});
 
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
 
@@ -92,6 +107,7 @@ beforeAll(async () => {
         defaultTier: "free",
         tierMap: { free: { features: [], caps: {} } },
       }),
+      userHookVendorFeature,
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
@@ -130,6 +146,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tierAssignmentTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
   emailTransport.sent.length = 0;
+  userPostSaveFired.count = 0;
   // Redis-cleanup damit Resend-Tests keine state-leaks haben.
   const allKeys = await stack.redis.redis.keys("signup:*");
   if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
@@ -244,6 +261,11 @@ describe("POST /api/auth/signup-confirm", () => {
     });
     expect(tierRows).toHaveLength(1);
     expect(tierRows[0]?.["tier"]).toBe("free");
+
+    // #1478 regression: seedUserWithPassword (called from
+    // provisionSignupAccount) fires the `user` entity's postSave hooks too —
+    // before this fix, only seedTenant's hooks param was wired through.
+    expect(userPostSaveFired.count).toBe(1);
 
     // Authority-Beweis: Login mit dem gesetzten Password funktioniert.
     const loginRes = await postLogin(email, password);

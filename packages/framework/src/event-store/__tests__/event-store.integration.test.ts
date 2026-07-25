@@ -60,6 +60,38 @@ describe("event-store: append + load", () => {
     expect(events[0]?.metadata.userId).toBe(userA);
   });
 
+  test("kumiko-framework#1490: subsequent append doesn't rely on globalThis.Temporal", async () => {
+    const aggregateId = uuid();
+    const first = await append(testDb.db, {
+      aggregateId,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { title: "Buy milk" },
+      metadata: { userId: userA },
+    });
+
+    const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
+    delete (globalThis as { Temporal?: unknown }).Temporal;
+    try {
+      const second = await append(testDb.db, {
+        aggregateId,
+        aggregateType: "task",
+        tenantId: tenantA,
+        expectedVersion: first.version,
+        type: "task.updated",
+        payload: { title: "Buy oat milk" },
+        metadata: { userId: userA },
+      });
+      expect(second.version).toBe(2);
+      expect(second.createdAt).toBeDefined();
+    } finally {
+      if (savedGlobal === undefined) delete (globalThis as { Temporal?: unknown }).Temporal;
+      else (globalThis as { Temporal?: unknown }).Temporal = savedGlobal;
+    }
+  });
+
   test("subsequent appends increment version and are ordered", async () => {
     const aggregateId = uuid();
     const base = {

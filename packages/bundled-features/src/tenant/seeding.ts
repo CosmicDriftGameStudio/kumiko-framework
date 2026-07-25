@@ -38,6 +38,7 @@ import {
   type AppContext,
   HookPhases,
   type Registry,
+  type SaveContext,
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -94,6 +95,24 @@ export type SeedTenantHooks = {
   readonly context: AppContext;
 };
 
+// Shared by seedTenant/seedTenantMembership/auth-email-password's
+// seedUserWithPassword: fires the same entity-scoped postSave hooks the
+// real dispatcher would (registry.getEntityPostSaveHooks by entityName),
+// just without the full HTTP/JWT roundtrip a fixture doesn't need. Fresh
+// lifecycle-hooks instance per call, no systemHooks — only feature-
+// registered entity/handler hooks fire (search-index/SSE system hooks are
+// wired at server-boot and out of reach here).
+export async function fireEntityPostSave(
+  hooks: SeedTenantHooks | undefined,
+  pseudoType: string,
+  entityData: SaveContext,
+): Promise<void> {
+  if (!hooks) return;
+  const lifecycle = createLifecycleHooks(hooks.registry);
+  await lifecycle.runPostSave(pseudoType, entityData, hooks.context, HookPhases.inTransaction);
+  await lifecycle.runPostSave(pseudoType, entityData, hooks.context, HookPhases.afterCommit);
+}
+
 /**
  * Seed a tenant through the event-store executor. Idempotent add-only:
  * a second call for the same `id` is a no-op (no update path). Same
@@ -134,22 +153,10 @@ export async function seedTenant(
     );
   }
 
-  if (hooks) {
-    // Fresh instance per call, no systemHooks — only feature-registered
-    // entity/handler hooks fire (search-index/SSE system hooks are wired
-    // at server-boot and out of reach here, same as before this fix).
-    // "tenant:seed" matches no handler-scoped hook, only entity-scoped ones
-    // (keyed by result.entityName === "tenant") — that's exactly what
-    // tier-engine's `r.hook("postSave", { allOf: "tenant" }, ...)` needs.
-    const lifecycle = createLifecycleHooks(hooks.registry);
-    await lifecycle.runPostSave(
-      "tenant:seed",
-      result.data,
-      hooks.context,
-      HookPhases.inTransaction,
-    );
-    await lifecycle.runPostSave("tenant:seed", result.data, hooks.context, HookPhases.afterCommit);
-  }
+  // "tenant:seed" matches no handler-scoped hook, only entity-scoped ones
+  // (keyed by result.entityName === "tenant") — that's exactly what
+  // tier-engine's `r.hook("postSave", { allOf: "tenant" }, ...)` needs.
+  await fireEntityPostSave(hooks, "tenant:seed", result.data);
 
   return { id: options.id };
 }
@@ -166,6 +173,12 @@ export async function seedTenant(
 export async function seedTenantMembership(
   db: DbRunner,
   options: SeedTenantMembershipOptions,
+  // Optional, append-only — same rationale as seedTenant's hooks param
+  // (#1478): fires tenantMembership's postSave hooks (e.g. a Welcome-
+  // notification or default-notification-preferences hook keyed off
+  // `allOf: "tenantMembership"`) for fixtures/self-signup that opt in.
+  // Omit to keep today's hook-less behavior.
+  hooks?: SeedTenantHooks,
 ): Promise<{ id: string }> {
   // Chokepoint: invite-accept (×3) + seedAdmin/provisionSignup all flow
   // through here — reject reserved/global roles before they ever persist.
@@ -203,6 +216,7 @@ export async function seedTenantMembership(
       `seedTenantMembership failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
+  await fireEntityPostSave(hooks, "tenant-membership:seed", result.data);
   return { id: extractMembershipId(result.data) };
 }
 

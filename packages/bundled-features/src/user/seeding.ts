@@ -18,6 +18,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+// kumiko-lint-ignore cross-feature-import shares the postSave-hooks fixture
+// contract with tenant/seeding — one hooks shape, one firing helper (#1478)
+import { fireEntityPostSave, type SeedTenantHooks } from "../tenant/seeding";
 import { userEntity, userTable } from "./schema/user";
 
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
@@ -52,6 +55,11 @@ export type SeedUserOptions = {
 export async function seedUser(
   db: DbConnection,
   options: SeedUserOptions,
+  // Optional, append-only — same rationale as tenant/seeding's seedTenant
+  // hooks param (#1478): fires user's postSave hooks (e.g. a Welcome-
+  // notification hook keyed off `allOf: "user"`) for fixtures/self-signup
+  // that opt in. Omit to keep today's hook-less behavior.
+  hooks?: SeedTenantHooks,
 ): Promise<{ id: string }> {
   const by = options.by ?? TestUsers.systemAdmin;
   // executor.create erwartet eine TenantDb (mit .insert()-API). User
@@ -81,6 +89,7 @@ export async function seedUser(
       `seedUser failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
+  await fireEntityPostSave(hooks, "user:seed", result.data);
   return { id: extractId(result.data, "seedUser") };
 }
 
