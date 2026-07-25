@@ -15,9 +15,45 @@ export type ConsumerCliOut = {
   readonly err: (line: string) => void;
 };
 
-function parseInstanceIdFlag(argv: readonly string[]): string | undefined {
-  const i = argv.indexOf("--instance-id");
-  return i === -1 ? undefined : argv[i + 1];
+type ParsedConsumerCliArgs = {
+  readonly sub: string | undefined;
+  readonly name: string | undefined;
+  readonly instanceId: string | undefined;
+  readonly error: string | undefined;
+};
+
+// Single pass: pulls --instance-id (both "--instance-id <id>" and
+// "--instance-id=<id>") out of argv regardless of position, leaving the
+// remaining positionals for sub/name — instead of two independent
+// positional/flag reads that silently misparse "--instance-id" with no
+// value, the "=" form, or a flag placed before the positionals (#1412).
+function parseConsumerCliArgs(argv: readonly string[]): ParsedConsumerCliArgs {
+  const positionals: string[] = [];
+  let instanceId: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === undefined) continue;
+    if (arg === "--instance-id") {
+      const value = argv[i + 1];
+      if (value === undefined || value.startsWith("--")) {
+        return {
+          sub: undefined,
+          name: undefined,
+          instanceId: undefined,
+          error: "--instance-id braucht einen Wert.",
+        };
+      }
+      instanceId = value;
+      i++;
+      continue;
+    }
+    if (arg.startsWith("--instance-id=")) {
+      instanceId = arg.slice("--instance-id=".length);
+      continue;
+    }
+    positionals.push(arg);
+  }
+  return { sub: positionals[0], name: positionals[1], instanceId, error: undefined };
 }
 
 export async function runConsumerCli(
@@ -29,7 +65,12 @@ export async function runConsumerCli(
   // is a Temporal.Instant, so without this every subcommand throws "Temporal
   // is not defined" (same failure mode as schema-cli, see its polyfill test).
   await ensureTemporalPolyfill();
-  const sub = argv[0];
+  const parsed = parseConsumerCliArgs(argv);
+  if (parsed.error) {
+    out.err(`  ${parsed.error}`);
+    return 1;
+  }
+  const { sub, name, instanceId } = parsed;
 
   if (sub !== "status" && sub !== "restart") {
     out.log("");
@@ -40,12 +81,10 @@ export async function runConsumerCli(
     return sub === undefined ? 0 : 1;
   }
 
-  const name = argv[1];
   if (!name) {
     out.err(`  Usage: consumer ${sub} <name> [--instance-id <id>]`);
     return 1;
   }
-  const instanceId = parseInstanceIdFlag(argv);
 
   const dbUrl = process.env["DATABASE_URL"];
   if (!dbUrl) {
