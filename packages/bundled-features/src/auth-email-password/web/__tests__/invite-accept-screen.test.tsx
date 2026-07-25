@@ -27,6 +27,8 @@ function renderWithoutSessionProvider(token: string) {
   );
 }
 
+const originalFetch = globalThis.fetch;
+
 beforeEach(() => {
   globalThis.fetch = mock(
     async () => new Response(JSON.stringify({ tenantId: "tenant-new" }), { status: 200 }),
@@ -43,6 +45,7 @@ afterEach(() => {
     writable: true,
     value: originalLocation,
   });
+  globalThis.fetch = originalFetch;
 });
 
 describe("InviteAcceptScreen — no <SessionProvider> ancestor (632/1)", () => {
