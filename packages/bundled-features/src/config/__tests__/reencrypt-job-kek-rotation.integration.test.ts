@@ -57,9 +57,12 @@ const keyDef = createSystemConfig("text", {
   write: access.systemAdmin,
 });
 
+const GARBAGE_KEY = "kek-rot:config:garbage-value";
+const GARBAGE_VALUE = "not-json-and-not-an-envelope";
+
 const rotFeature = defineFeature("kek-rot", (r) => {
   r.requires("config");
-  r.config({ keys: { "secret-pass": keyDef } });
+  r.config({ keys: { "secret-pass": keyDef, "garbage-value": keyDef } });
 });
 
 const executor = createEventStoreExecutor(configValuesTable, configValueEntity, {
@@ -80,10 +83,21 @@ async function seedV1Row(): Promise<void> {
   if (!result.isSuccess) throw new Error(`seed failed: ${result.error.code}`);
 }
 
+async function seedGarbageRow(): Promise<void> {
+  const systemUser = createSystemUser(SYSTEM_TENANT_ID);
+  const tdb = createTenantDb(stack.db, SYSTEM_TENANT_ID, "system");
+  const result = await executor.create(
+    { key: GARBAGE_KEY, value: GARBAGE_VALUE, tenantId: SYSTEM_TENANT_ID, userId: null },
+    systemUser,
+    tdb,
+  );
+  if (!result.isSuccess) throw new Error(`seed failed: ${result.error.code}`);
+}
+
 type RawConfigRow = { value: string };
 
-async function readRawValue(): Promise<RawConfigRow> {
-  const rows = await selectMany<RawConfigRow>(stack.db, configValuesTable, { key: KEY });
+async function readRawValue(key: string = KEY): Promise<RawConfigRow> {
+  const rows = await selectMany<RawConfigRow>(stack.db, configValuesTable, { key });
   const row = rows[0];
   if (!row) throw new Error("no config row");
   return row;
@@ -97,13 +111,35 @@ const noopLog = {
   child: () => noopLog,
 };
 
-function jobCtx(): Parameters<typeof reencryptJob>[1] {
+type CapturedLog = { info: string[]; warn: string[] };
+
+type TestJobLog = {
+  info: (msg: string) => void;
+  warn: (msg: string) => void;
+  error: () => void;
+  debug: () => void;
+  child: () => TestJobLog;
+};
+
+function capturingLog(captured: CapturedLog): TestJobLog {
+  const log: TestJobLog = {
+    info: (msg) => captured.info.push(msg),
+    warn: (msg) => captured.warn.push(msg),
+    error: () => {},
+    debug: () => {},
+    child: () => log,
+  };
+  return log;
+}
+
+function jobCtx(captured?: CapturedLog): Parameters<typeof reencryptJob>[1] {
+  const log = captured ? capturingLog(captured) : noopLog;
   return {
     db: stack.db,
     registry: stack.registry,
     masterKeyProvider: mutableProvider,
     configEncryption: cipher,
-    log: noopLog,
+    log,
   } as unknown as Parameters<typeof reencryptJob>[1]; // @cast-boundary test-seam — job only reads db/registry/masterKeyProvider/configEncryption/log
 }
 
@@ -115,10 +151,47 @@ beforeAll(async () => {
   });
   await unsafePushTables(stack.db, { configValuesTable });
   await seedV1Row();
+  await seedGarbageRow();
 });
 
 afterAll(async () => {
   await stack.cleanup();
+});
+
+describe("config KEK-rotation job — unrecognized values are not silently skipped (kumiko-framework#1513)", () => {
+  test("a non-envelope row is counted failed, never alreadyCurrent, and is left untouched", async () => {
+    const beforeRow = await readRawValue(GARBAGE_KEY);
+    expect(beforeRow.value).toBe(GARBAGE_VALUE);
+
+    // Runs before the #1187 rotation test below flips the master-key
+    // version, so counts are deterministic: the V1 row is current, the
+    // garbage row is unrecognized, nothing needs rotating yet.
+    const captured: CapturedLog = { info: [], warn: [] };
+    await reencryptJob({}, jobCtx(captured));
+
+    const completeLine = captured.info.find((line) =>
+      line.includes("[config:reencrypt] complete:"),
+    );
+    if (!completeLine) throw new Error("job did not log a completion summary");
+    const result = JSON.parse(completeLine.slice(completeLine.indexOf("{"))) as {
+      migrated: number;
+      failed: number;
+      alreadyCurrent: number;
+    };
+    expect(result.alreadyCurrent).toBe(1);
+    expect(result.migrated).toBe(0);
+    expect(result.failed).toBe(1);
+
+    const rejectedWarning = captured.warn.find((line) =>
+      line.includes("not a current-cipher envelope"),
+    );
+    expect(rejectedWarning).toBeDefined();
+
+    // Never written: an unreadable row must not be rewritten as if it
+    // decrypted cleanly, and must not be reported as already current.
+    const afterRow = await readRawValue(GARBAGE_KEY);
+    expect(afterRow.value).toBe(GARBAGE_VALUE);
+  });
 });
 
 describe("config KEK-rotation job — version-N to version-N+1 (kumiko-framework#1187)", () => {
