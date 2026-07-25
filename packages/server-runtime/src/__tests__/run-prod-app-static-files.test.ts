@@ -63,6 +63,14 @@ describe("readStaticFile / serveDiskFile", () => {
     expect(await readStaticFile(dirPath)).toBeUndefined();
   });
 
+  test("readStaticFile through a file used as a directory segment → undefined (ENOTDIR), not a throw (#1504)", async () => {
+    const path = join(tmp, "index.html");
+    await writeFile(path, "<html/>");
+    // GET /index.html/x — "index.html" is a file, so treating it as a
+    // directory segment must fall through to the SPA fallback, not 500.
+    expect(await readStaticFile(join(path, "x"))).toBeUndefined();
+  });
+
   test("serveDiskFile sets content-type from mime", async () => {
     const path = join(tmp, "a.svg");
     await writeFile(path, "<svg/>");

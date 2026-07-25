@@ -45,10 +45,12 @@ export async function readStaticFile(
   } catch (err) {
     const code = (err as { code?: string }).code;
     // ENOENT: no such path. EISDIR: readFile() on a directory (e.g. GET
-    // /assets where "assets" is a subfolder copied verbatim from public/)
-    // — both mean "not a servable file", so fall through to the SPA
+    // /assets where "assets" is a subfolder copied verbatim from public/).
+    // ENOTDIR: a path segment that isn't a directory is used as one (e.g.
+    // GET /index.html/x — "index.html" is a file, not a directory) — all
+    // three mean "not a servable file", so fall through to the SPA
     // fallback instead of a 500.
-    if (code === "ENOENT" || code === "EISDIR") return undefined;
+    if (code === "ENOENT" || code === "EISDIR" || code === "ENOTDIR") return undefined;
     throw err;
   }
 }
