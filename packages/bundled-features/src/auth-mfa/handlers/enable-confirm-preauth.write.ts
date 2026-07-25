@@ -5,6 +5,7 @@ import {
   defineWriteHandler,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
@@ -69,34 +70,45 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       const { userId, tenantId } = verify.payload;
       if (tenantId === undefined) return invalidSetupToken();
 
+      // Fail closed: unlike verify.write.ts/enable-confirm.write.ts, this
+      // endpoint has NO gate before it (access: { roles: ["all"] }, no JWT,
+      // no prior challenge-token from a successful login) — its only secret
+      // is a 6-digit TOTP code. Silently skipping the brute-force cap and
+      // single-use burn when ctx.redis is absent would let the setup token
+      // be guessed against unboundedly until its TTL expires. The route's
+      // IP rate limiter is not a substitute: it's IP-scoped and resets on
+      // every success.
+      if (!ctx.redis) {
+        return writeFailure(
+          new InternalError({
+            message:
+              "enable-confirm-preauth requires ctx.redis for the brute-force cap and single-use burn",
+          }),
+        );
+      }
+
       // Same guessing surface as /auth/mfa/verify (a short TOTP code) and
       // the same per-userId cap — deliberately shared counter, see
       // mfa-verify-attempts.ts.
-      if (ctx.redis) {
-        const state = await getMfaVerifyLockoutState(ctx.redis, userId);
-        if (state?.lockedUntil !== null && state?.lockedUntil !== undefined) {
-          const now = Date.now();
-          if (state.lockedUntil > now) {
-            const retryAfterSeconds = Math.max(1, Math.ceil((state.lockedUntil - now) / 1000));
-            return tooManyAttempts(retryAfterSeconds);
-          }
+      const state = await getMfaVerifyLockoutState(ctx.redis, userId);
+      if (state?.lockedUntil !== null && state?.lockedUntil !== undefined) {
+        const now = Date.now();
+        if (state.lockedUntil > now) {
+          const retryAfterSeconds = Math.max(1, Math.ceil((state.lockedUntil - now) / 1000));
+          return tooManyAttempts(retryAfterSeconds);
         }
       }
 
       const secret = base32Decode(verify.payload.totpSecretBase32);
       if (verifyTotp(secret, event.payload.code) === false) {
-        if (ctx.redis) {
-          await recordFailedMfaVerifyAttempt(ctx.redis, userId, maxAttempts, lockoutMinutes);
-        }
+        await recordFailedMfaVerifyAttempt(ctx.redis, userId, maxAttempts, lockoutMinutes);
         return invalidTotpCode();
       }
 
       // Burn the setup token on the first successful confirm — same
       // single-use guarantee as enable-confirm.write.ts.
-      if (ctx.redis) {
-        const burnResult = await burnToken(ctx.redis, "mfa-setup", userId, verify.expiresAtMs);
-        if (burnResult === "already-used") return invalidSetupToken();
-      }
+      const burnResult = await burnToken(ctx.redis, "mfa-setup", userId, verify.expiresAtMs);
+      if (burnResult === "already-used") return invalidSetupToken();
 
       // "system" mode: no session exists yet, tenantId comes from the
       // verified token, mirroring enable-start-preauth.write.ts.
