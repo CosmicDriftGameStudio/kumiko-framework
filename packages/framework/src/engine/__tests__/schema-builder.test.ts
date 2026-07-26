@@ -114,6 +114,24 @@ describe("buildInsertSchema", () => {
       invalid: { age: "old" },
     },
     {
+      name: "number field rejects below min",
+      fields: { age: createNumberField({ min: 0 }) },
+      valid: { age: 0 },
+      invalid: { age: -1 },
+    },
+    {
+      name: "number field rejects above max",
+      fields: { age: createNumberField({ max: 100 }) },
+      valid: { age: 100 },
+      invalid: { age: 101 },
+    },
+    {
+      name: "number field min+max bounds",
+      fields: { age: createNumberField({ min: 1, max: 10 }) },
+      valid: { age: 5 },
+      invalid: { age: 11 },
+    },
+    {
       name: "date field",
       fields: { born: createDateField() },
       valid: { born: "2026-01-01" },
