@@ -27,6 +27,7 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
+import { withoutAmbientTemporal } from "../../testing/without-ambient-temporal";
 import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
@@ -164,14 +165,11 @@ describe("issue #1350 — bounded dead-consumer re-arm", () => {
     await driveUntilDead();
     await backdateUpdatedAt(10);
 
-    const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
-    delete (globalThis as { Temporal?: unknown }).Temporal;
-    try {
+    // ensureTemporalPolyfill re-installs if the ambient global was torn down,
+    // so runOnce stays safe if a nested path calls it during this window.
+    await withoutAmbientTemporal(async () => {
       await stack.eventDispatcher?.runOnce();
-    } finally {
-      if (savedGlobal === undefined) delete (globalThis as { Temporal?: unknown }).Temporal;
-      else (globalThis as { Temporal?: unknown }).Temporal = savedGlobal;
-    }
+    });
 
     const revived = await getConsumerState(stack.db, qn);
     expect(revived?.status).toBe("idle");

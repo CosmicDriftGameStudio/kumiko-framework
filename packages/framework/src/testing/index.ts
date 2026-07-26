@@ -46,3 +46,4 @@ export {
 } from "./shared-entities";
 export { sleep } from "./utils";
 export { waitFor } from "./wait-for";
+export { withoutAmbientTemporal } from "./without-ambient-temporal";

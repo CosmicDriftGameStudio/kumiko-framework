@@ -1,66 +1,49 @@
-// Temporal-Polyfill-Initialisierung.
+// Temporal polyfill bootstrap.
 //
-// Hintergrund: Temporal ist seit Anfang 2026 in Chromium 144+ und Firefox 139+
-// nativ verfügbar, aber nicht in Safari, iOS, oder Hermes (React Native).
-// Bun/Node haben es teilweise (V8-abhängig, instabil).
+// Temporal is native in Chromium 144+ / Firefox 139+, but missing in Safari,
+// iOS, and Hermes. Bun/Node coverage is incomplete. Boot installs
+// `temporal-polyfill` once so server/web/mobile share one API.
 //
-// Damit kumiko-Apps universal laufen — Server (Bun), Web (alle Browser),
-// Mobile (Hermes) — installiert das Framework beim Boot einmal den
-// `temporal-polyfill` (FullCalendar, ~25 KB). Auf Runtimes mit nativem
-// Temporal ist der Aufruf ein No-Op.
-//
-// Idempotent: mehrfacher Aufruf ist sicher (Polyfill prüft selbst ob
-// `globalThis.Temporal` schon existiert). Wir cachen das Ergebnis trotzdem
-// in einem Modul-Singleton, damit Boot-Performance nicht jedes Mal das
-// Polyfill-Modul-Loading triggert.
+// Idempotent: if `globalThis.Temporal` already exists the call is a no-op.
+// The cache is the live global check — not a sticky module flag — so tests
+// that delete the ambient global (fw#1550) still re-install on the next call.
 
-let polyfillInstalled = false;
 let polyfillPromise: Promise<void> | null = null;
 
 /**
- * Stellt sicher dass `globalThis.Temporal` verfügbar ist. Idempotent.
- *
- * - Wenn Native Temporal existiert (moderne Browser, neueres Bun): No-Op.
- * - Sonst: lädt `temporal-polyfill/global` (installiert globalThis.Temporal).
- *
- * Wird einmal beim Framework-Boot aufgerufen. Feature-Code muss das nicht
- * selbst tun — `Temporal` ist nach dem Boot überall verfügbar.
+ * Ensure `globalThis.Temporal` is available. Idempotent.
  */
 export async function ensureTemporalPolyfill(): Promise<void> {
-  // skip: Idempotenz — Polyfill bereits installiert in einem früheren Aufruf.
-  if (polyfillInstalled) return;
+  if ("Temporal" in globalThis) {
+    // skip: Temporal already on globalThis (native or prior polyfill)
+    return;
+  }
   if (polyfillPromise) {
     await polyfillPromise;
-    // skip: Concurrent-Boot — anderer Aufruf hat die Installation übernommen.
-    return;
+    if ("Temporal" in globalThis) {
+      // skip: Concurrent boot — peer call finished install
+      return;
+    }
+    // Peer resolved but global still missing (torn down mid-flight).
+    polyfillPromise = null;
   }
 
   polyfillPromise = (async () => {
-    // Runtime-Check entgegen Type-System-Annahme: temporal-spec deklariert
-    // Temporal ambient, aber ohne Polyfill fehlt es zur Laufzeit. `in`-Check
-    // ist die sauberste Prüfung, ohne Cast + ohne TS-Truthy-Warnings.
     if ("Temporal" in globalThis) {
-      polyfillInstalled = true;
-      // skip: Native Temporal vorhanden — Polyfill nicht nötig.
+      // skip: raced native/peer install
       return;
     }
-    // Polyfill globally installieren — der Side-Effect-Import setzt
-    // globalThis.Temporal.
     await import("temporal-polyfill/global");
-    polyfillInstalled = true;
   })();
 
   await polyfillPromise;
 }
 
 /**
- * Type-safe Zugriff auf globalThis.Temporal. Wirft wenn der Polyfill noch
- * nicht installiert ist (Boot-Reihenfolge-Bug). Feature-Code sollte
- * `ensureTemporalPolyfill()` einmal awaiten und danach `Temporal` global
- * nutzen, oder über diesen Helper die Sicherheit haben.
+ * Type-safe access to globalThis.Temporal. Throws if the polyfill has not
+ * been installed yet (boot-order bug).
  */
 export function getTemporal(): typeof Temporal {
-  // Runtime-Check entgegen Type-System-Annahme — siehe ensureTemporalPolyfill.
   if (!("Temporal" in globalThis)) {
     throw new Error(
       "Temporal not available. Call ensureTemporalPolyfill() during framework boot before any time-related code runs.",

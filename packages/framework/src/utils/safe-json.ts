@@ -29,6 +29,15 @@ export function parseJsonOrThrow<T>(raw: string, context: string): T {
   }
 }
 
+/** True for native or polyfill Temporal.Instant (distinct constructors). */
+function isTemporalInstant(v: unknown): v is { toString(): string } {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    Object.prototype.toString.call(v) === "[object Temporal.Instant]"
+  );
+}
+
 /** JSON.stringify that survives BigInt / Temporal values from DB rows. */
 export function stringifyJson(value: unknown): string {
   return JSON.stringify(value, (_key, v) => {
@@ -43,7 +52,10 @@ export function stringifyJson(value: unknown): string {
       }
       return v.toString();
     }
-    if (v instanceof Temporal.Instant) return v.toString();
+    // Duck-tag, not instanceof: ensureTemporalPolyfill keeps native
+    // globalThis.Temporal when present, so DB Instants may be native while
+    // other code paths use temporal-polyfill's Instant (fw#1550 / Bugbot).
+    if (isTemporalInstant(v)) return v.toString();
     return v;
   });
 }
