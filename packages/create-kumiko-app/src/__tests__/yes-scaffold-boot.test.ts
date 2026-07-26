@@ -52,11 +52,9 @@ describe("--yes resolved set boots (issue-1174 regression)", () => {
   });
 
   test("the resolved --yes feature set boots without the GDPR PII-hook-coverage error", async () => {
-    // sessions (auto-included, session-list/detail screens are recommended)
-    // requires auth-foundation, which the dep-resolver already pulls in
-    // transitively — personal-access-tokens (recommended, satisfies the
-    // tokenVerifier boot invariant) is resolved into the set too.
-    expect(resolved.featureNames).toContain("personal-access-tokens");
+    // sessions (auto-included) pulls auth-foundation; #1570 allows zero
+    // tokenVerifier when sessionStore is mounted — PAT stays opt-in (#1514).
+    expect(resolved.featureNames).not.toContain("personal-access-tokens");
     const instances = await instantiateResolved(resolved.featureNames);
     const composed = composeFeatures(instances, { includeBundled: true });
     expect(() => validateBoot(composed)).not.toThrow();

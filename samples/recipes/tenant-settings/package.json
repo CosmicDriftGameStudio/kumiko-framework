@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-tenant-settings",
+  "description": "Tenant-Settings: per-tenant Currency + Locale defaults, auto-filled into a money field / locale field on create instead of a hard-coded literal.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}

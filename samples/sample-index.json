@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 37,
+  "featureCount": 38,
   "features": {
     "admin-shell": {
       "samples": [
@@ -335,6 +335,13 @@
       ],
       "hasVisualOutput": true,
       "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+    },
+    "tenant-settings": {
+      "samples": [
+        "recipes-tenant-settings"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "**What this shows:** how a per-tenant Currency + Locale default fills a money/locale field on create — without hard-coding `\"EUR\"`/`\"de\"` as a field literal, the mistake that cost a sibling project (phronexsis) a retrofit once a second tenant needed a different default."
     },
     "text-content": {
       "samples": [
