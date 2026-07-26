@@ -114,7 +114,12 @@ export type ServerOptions = {
     // search enabled when the respective dependency (sseBroker /
     // context.searchAdapter) is available; jobTrigger enabled when a
     // jobRunner is wired via dispatcherOptions.
-    systemConsumers?: { sse?: boolean; search?: boolean; jobTrigger?: boolean; accessInvalidation?: boolean };
+    systemConsumers?: {
+      sse?: boolean;
+      search?: boolean;
+      jobTrigger?: boolean;
+      accessInvalidation?: boolean;
+    };
     // Raw postgres.js client for LISTEN/NOTIFY wake-up (Sprint E.4). When
     // present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL — delivery
     // latency drops from pollIntervalMs to TCP-round-trip. The poll timer
