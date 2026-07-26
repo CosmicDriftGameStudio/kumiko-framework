@@ -518,7 +518,7 @@ describe("POST /api/stream pre-pull race", () => {
     };
   }
 
-  function mountStreamApp(dispatcher: Dispatcher, sseHeartbeatMs: number): Hono {
+  function mountStreamApp(dispatcher: Dispatcher, sseHeartbeatMs: number) {
     const app = new Hono<{ Variables: { pipelineUser: typeof user } }>();
     app.use("/api/*", async (c, next) => {
       c.set("pipelineUser", user);
