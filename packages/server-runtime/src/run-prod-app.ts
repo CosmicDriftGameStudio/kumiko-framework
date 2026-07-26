@@ -344,6 +344,13 @@ export type RunProdAppAuthOptions = {
    *  — accept the wide-cookie CSRF risk explicitly instead of setting
    *  `allowedOrigins`. */
   readonly unsafeSkipOriginCheck?: boolean;
+  /** Number of trusted reverse-proxy hops between the client and this
+   *  process for client-IP derivation (see AuthRoutesConfig.trustedProxyHops,
+   *  kumiko-framework#1539) — closes the X-Forwarded-For spoofing hole on
+   *  the auth rate-limiters. Falls back to the `KUMIKO_TRUSTED_PROXY_HOPS`
+   *  env var when unset; both unset means the pre-#1539 spoofable default
+   *  (0 hops). Set this to your real ingress hop count (typically 1). */
+  readonly trustedProxyHops?: number;
 };
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
@@ -700,6 +707,26 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   }
   const jwtIssuer = readEnv("JWT_ISSUER", envSource);
   const instanceId = readEnv("KUMIKO_INSTANCE_ID", envSource);
+  // kumiko-framework#1539 — options.auth.trustedProxyHops wins; falls back
+  // to the env var so ops can close the XFF-spoofing hole per-deployment
+  // without a code change (mirrors instanceId's env-first pattern above).
+  // Fail loud on a garbage env value rather than silently coercing to NaN:
+  // clientIpOf treats NaN like "always short chain" and returns "unknown"
+  // for every request, which collapses mfa-verify/preauth-confirm's
+  // pure-IP-keyed rate limiter into one shared bucket for the whole
+  // deployment — a self-inflicted DoS, worse than staying on the default.
+  const trustedProxyHopsFromEnv = readEnv("KUMIKO_TRUSTED_PROXY_HOPS", envSource);
+  const trustedProxyHops = ((): number | undefined => {
+    if (options.auth?.trustedProxyHops !== undefined) return options.auth.trustedProxyHops;
+    if (trustedProxyHopsFromEnv === undefined) return undefined;
+    const parsed = Number.parseInt(trustedProxyHopsFromEnv, 10);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      throw new Error(
+        `runProdApp: KUMIKO_TRUSTED_PROXY_HOPS must be a non-negative integer, got "${trustedProxyHopsFromEnv}".`,
+      );
+    }
+    return parsed;
+  })();
   const port = options.port ?? Number.parseInt(envSource["PORT"] ?? "3000", 10);
 
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
@@ -972,6 +999,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         ...(effectiveAuth.unsafeSkipOriginCheck !== undefined && {
           unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
         }),
+        ...(trustedProxyHops !== undefined && { trustedProxyHops }),
         ...sessionAuthFragment,
         ...patAuthFragment,
         ...tenantLifecycleAuthFragment,

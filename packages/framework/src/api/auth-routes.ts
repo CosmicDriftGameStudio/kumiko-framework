@@ -411,6 +411,20 @@ export type AuthRoutesConfig = {
   // subdomain can then forge authenticated state-changing requests. Prefer
   // setting `allowedOrigins`.
   unsafeSkipOriginCheck?: boolean;
+  // Number of trusted reverse-proxy hops between the client and this
+  // process that APPEND (not overwrite) their peer address to
+  // `x-forwarded-for` (e.g. nginx `$proxy_add_x_forwarded_for`). Used to
+  // derive the client IP for every auth rate-limiter (login, mfa-verify,
+  // preauth-enable-start, preauth-confirm) and for requestMeta's session
+  // IP — kumiko-framework#1539. Default 0 = legacy behavior, trust the
+  // first XFF entry (or x-real-ip) unconditionally; spoofable by design,
+  // kept as the default so unconfigured deployments don't regress into a
+  // shared "unknown" bucket (mfa-verify/preauth-confirm key on bare IP, no
+  // email composite — collapsing everyone into one bucket is a DoS worse
+  // than the spoofing hole). Set this to your real proxy hop count (1 for
+  // a single ingress/reverse-proxy, 2 for edge-LB + ingress, etc.) to close
+  // the hole; see clientIpOf's doc comment for the extraction algorithm.
+  trustedProxyHops?: number;
 };
 
 export type PasswordResetConfig = {
@@ -466,21 +480,53 @@ export type SignupConfig = {
 };
 
 // Derives the caller IP from proxy headers, single source for the
-// rate-limiter keys below and requestMeta. kumiko-framework#1523/#1522:
-// this trusts `x-forwarded-for`/`x-real-ip` at face value — there is no
-// trusted-proxy/hop-count config anywhere in the framework yet, so behind
-// an ingress that appends rather than overwrites (e.g. plain nginx
-// `$proxy_add_x_forwarded_for`), an attacker can freely set the header and
-// rotate it per request to reset the bucket. Fixing this for real needs a
-// trusted-hop-count (or `getConnInfo`-based) config surface threaded from
-// the app — tracked separately, NOT done here. Until then this is a
-// best-effort key, not a hard boundary; callers that need a hard boundary
+// rate-limiter keys below and requestMeta. kumiko-framework#1523/#1522/#1539:
+// `x-forwarded-for` is attacker-controlled unless we know how many trusted
+// proxy hops sit between the client and this process — `trustedProxyHops`
+// (AuthRoutesConfig) is that count.
+//
+//   hops === 0 (default): legacy behavior — trust the first XFF entry (or
+//   x-real-ip) at face value. Kept as the default so unconfigured
+//   deployments don't regress: collapsing everyone into a single "unknown"
+//   bucket would turn mfa-verify/preauth-confirm's pure-IP-keyed limiter
+//   into a one-request-locks-out-everyone DoS, which is worse than the
+//   spoofing hole this issue is about. Apps behind a proxy MUST set this to
+//   close the hole — see AuthRoutesConfig.trustedProxyHops.
+//
+//   hops >= 1: each trusted proxy appends (not overwrites) its peer address
+//   to XFF (e.g. nginx `$proxy_add_x_forwarded_for`), so the last `hops`
+//   entries are proxy-supplied and everything before them — including the
+//   real client — sits at `entries[length - hops]`. Anything the client
+//   itself prepended lands further left and is ignored. If the header has
+//   fewer entries than `hops`, the proxy chain is shorter than configured
+//   (misconfiguration or a bypassed hop) — fall back to "unknown" rather
+//   than trusting a shorter, potentially attacker-controlled chain.
+//   x-real-ip is NOT consulted in this branch: unlike XFF it has no
+//   standardized hop-count semantics, so there's no safe way to validate it
+//   against a configured hop count.
+//
+// Callers that need a hard boundary regardless of this config
 // (preauth-enable-start) additionally key on something the caller can't
 // freely choose (see preauthTokenKeyOf below).
-function clientIpOf(c: { req: { header(name: string): string | undefined } }): string {
-  return (
-    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? c.req.header("x-real-ip") ?? "unknown"
-  );
+function clientIpOf(
+  c: { req: { header(name: string): string | undefined } },
+  trustedProxyHops = 0,
+): string {
+  if (trustedProxyHops <= 0) {
+    return (
+      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+      c.req.header("x-real-ip") ??
+      "unknown"
+    );
+  }
+  const entries = (c.req.header("x-forwarded-for") ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  if (entries.length < trustedProxyHops) {
+    return "unknown";
+  }
+  return entries[entries.length - trustedProxyHops] ?? "unknown";
 }
 
 // Second rate-limit axis for preauth-enable-start: unlike the IP, a
@@ -495,8 +541,11 @@ function preauthTokenKeyOf(token: string): string {
 // Hono's `c.req.header(...)` returns undefined for missing headers; we coerce
 // them to "unknown" rather than throwing because auth-routes are a public
 // surface and we don't want header-sniffing bugs to break login.
-function requestMeta(c: { req: { header(name: string): string | undefined } }): SessionMetadata {
-  const ip = clientIpOf(c);
+function requestMeta(
+  c: { req: { header(name: string): string | undefined } },
+  trustedProxyHops = 0,
+): SessionMetadata {
+  const ip = clientIpOf(c, trustedProxyHops);
   const userAgent = c.req.header("user-agent") ?? "unknown";
   return { ip, userAgent };
 }
@@ -626,6 +675,21 @@ export function createAuthRoutes(
   // working. High-security apps can opt into "strict" — see AuthRoutesConfig.
   const cookieSameSite = config.cookieSameSite ?? "lax";
   const cookieDomain = config.cookieDomain;
+  // Single hop-count-aware IP getter for every rate-limit call site below —
+  // see AuthRoutesConfig.trustedProxyHops / clientIpOf's doc comment. Fail
+  // loud on a non-finite/negative value rather than letting it silently
+  // reach clientIpOf, where NaN/negative behaves like "chain too short"
+  // and collapses every request into the shared "unknown" bucket.
+  if (
+    config.trustedProxyHops !== undefined &&
+    (!Number.isInteger(config.trustedProxyHops) || config.trustedProxyHops < 0)
+  ) {
+    throw new Error(
+      `createAuthRoutes: trustedProxyHops must be a non-negative integer, got ${config.trustedProxyHops}.`,
+    );
+  }
+  const trustedProxyHops = config.trustedProxyHops ?? 0;
+  const getClientIp = (c: Context): string => clientIpOf(c, trustedProxyHops);
 
   // Shared tail of every route that ends a request logged-in: create the
   // session record (if wired), sign the JWT, set the auth+csrf cookies. Was
@@ -635,7 +699,7 @@ export function createAuthRoutes(
   async function mintSessionAndRespond(c: Context, session: SessionUser): Promise<string> {
     let sessionForJwt = session;
     if (config.sessionCreator) {
-      const sid = await config.sessionCreator(session, requestMeta(c));
+      const sid = await config.sessionCreator(session, requestMeta(c, trustedProxyHops));
       sessionForJwt = { ...session, sid };
     }
     const token = await jwt.sign(sessionForJwt);
@@ -670,7 +734,7 @@ export function createAuthRoutes(
       }
       const body = parsed.data;
 
-      const clientIp = clientIpOf(c);
+      const clientIp = getClientIp(c);
       const rateLimitKey = `${clientIp}|${body.email.toLowerCase()}`;
 
       if (rateLimiter) {
@@ -771,7 +835,7 @@ export function createAuthRoutes(
       }
       const body = parsed.data;
 
-      const clientIp = clientIpOf(c);
+      const clientIp = getClientIp(c);
 
       if (rateLimiter) {
         const allowed = await rateLimiter.check(clientIp);
@@ -840,7 +904,7 @@ export function createAuthRoutes(
       }
       const body = parsed.data;
 
-      const clientIp = clientIpOf(c);
+      const clientIp = getClientIp(c);
 
       if (rateLimiter) {
         const allowed = await rateLimiter.check(clientIp);
@@ -910,7 +974,7 @@ export function createAuthRoutes(
       }
       const body = parsed.data;
 
-      const clientIp = clientIpOf(c);
+      const clientIp = getClientIp(c);
 
       if (rateLimiter) {
         const allowed = await rateLimiter.check(clientIp);
