@@ -67,6 +67,7 @@ export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
       // off the same way a genuine duplicate-build race does, but leaves no
       // valid index at all. Re-check before declaring victory instead of
       // trusting the error class alone.
+      // skip: sibling pod already built a valid index — this race loser is done.
       if ((await indexValidity(client)) === true) return;
       console.warn(
         `ensureIdempotencyKeyIndex: backed off on a "benign" race (${String(e)}) but ` +
