@@ -19,8 +19,9 @@ export type SseBroker = {
   getClientCount(channel: string): number;
   getTotalClientCount(): number;
   // Separate from addClient so it doesn't count towards getClientCount.
-  subscribeAccessInvalidation(userId: string, onInvalidate: () => void): () => void;
-  publishAccessInvalidation(userId: string): void;
+  // Optional: additive for external/test SseBroker impls (call sites use?.).
+  subscribeAccessInvalidation?(userId: string, onInvalidate: () => void): () => void;
+  publishAccessInvalidation?(userId: string): void;
 };
 
 export function createSseBroker(): SseBroker {

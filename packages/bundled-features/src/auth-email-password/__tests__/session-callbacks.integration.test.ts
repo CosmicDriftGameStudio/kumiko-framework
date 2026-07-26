@@ -133,6 +133,9 @@ beforeAll(async () => {
     password: "warmup-password-not-asserted-on",
     tenants: [],
   });
+  // Pins the authHeader sid-cache key: one create for the seed actor, then
+  // we reset. If the cache key drifts, this fails instead of leaking into tests.
+  expect(store.created).toHaveLength(1);
   store.live.clear();
   store.created.length = 0;
   store.revoked.length = 0;

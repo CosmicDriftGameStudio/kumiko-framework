@@ -15,6 +15,7 @@ import {
   createTestUser,
   resetEventStore,
   setupTestStack,
+  stampEventCreatedAt,
   type TestStack,
   TestUsers,
   testTenantId,
@@ -212,11 +213,8 @@ describe("audit: list query", () => {
     ];
     for (const [name, createdAt] of stamps) {
       const id = byName.get(name);
-      expect(id).toBeDefined();
-      await asRawClient(stack.db).unsafe(
-        `UPDATE kumiko_events SET created_at = $1::timestamptz WHERE id = $2::bigint`,
-        [createdAt, id],
-      );
+      if (!id) throw new Error(`missing event for ${name}`);
+      await stampEventCreatedAt(stack.db, id, createdAt);
     }
 
     const tFrom = "2020-06-01T12:00:10Z";

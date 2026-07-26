@@ -146,7 +146,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       category: "compliance",
       recommended: false,
     });
-    r.requires("user", "data-retention", "compliance-profiles", "sessions");
+    r.requires("user", "data-retention", "compliance-profiles", "sessions", "tenant");
     r.usesApi("compliance.forTenant");
     r.usesApi("retention.policyFor");
     // S2.U6 — restrict-account ruft sessions.revokeAllForUser cross-feature.

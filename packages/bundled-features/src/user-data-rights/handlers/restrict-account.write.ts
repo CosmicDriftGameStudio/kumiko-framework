@@ -6,9 +6,9 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { tenantMembershipsTable } from "../../tenant";
 import { USER_STATUS, userTable } from "../../user";
-import { isAdminActor, isSystemAdminActor } from "../lib/is-admin-actor";
+import { denyIfTargetOutsideAdminTenant } from "../lib/deny-if-target-outside-admin-tenant";
+import { isAdminActor } from "../lib/is-admin-actor";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
 // POST /api/user/restrict (S2.U6) — DSGVO Art. 18 Account-Freeze.
@@ -56,24 +56,8 @@ export const restrictAccountWrite = defineWriteHandler({
           }),
         );
       }
-      // Same cross-tenant guard as lift-restriction.write.ts: only
-      // SystemAdmin (platform-wide) may target a user without an active
-      // membership in the caller's own tenant. Without this, a TenantAdmin
-      // from tenant A could restrict — and force-revoke the sessions of —
-      // a user who has never been a member of tenant A.
-      if (!isSystemAdminActor(event.user)) {
-        const membership = await fetchOne(ctx.db.raw, tenantMembershipsTable, {
-          userId: targetUserId,
-          tenantId: event.user.tenantId,
-        });
-        if (!membership) {
-          return writeFailure(
-            new AccessDeniedError({
-              details: { reason: "target_user_not_in_admin_tenant" },
-            }),
-          );
-        }
-      }
+      const outside = await denyIfTargetOutsideAdminTenant(ctx.db.raw, event.user, targetUserId);
+      if (outside) return outside;
     }
 
     // ctx.db.raw weil User-Entity tenant-agnostisch ist (analog

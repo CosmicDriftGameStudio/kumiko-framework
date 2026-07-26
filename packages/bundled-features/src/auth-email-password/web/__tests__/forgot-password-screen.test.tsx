@@ -1,18 +1,10 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { ForgotPasswordScreen } from "../forgot-password-screen";
+import { installFetchMock } from "./fetch-mock";
 import { renderWithProviders } from "./test-utils";
 
-const originalFetch = globalThis.fetch;
-
-beforeEach(() => {
-  globalThis.fetch = mock(
-    async () => new Response(null, { status: 200 }),
-  ) as unknown as typeof fetch;
-});
-afterEach(() => {
-  globalThis.fetch = originalFetch;
-});
+installFetchMock();
 
 describe("ForgotPasswordScreen", () => {
   test("rendert title + email-input + submit-button (de)", () => {
