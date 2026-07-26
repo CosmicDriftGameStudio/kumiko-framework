@@ -172,13 +172,7 @@ describe("access-invalidation mid-stream SSE teardown (#1561)", () => {
 
     releaseNextChunk?.();
 
-    let thrown: unknown;
-    try {
-      await iter.next();
-    } catch (e) {
-      thrown = e;
-    }
-    expect(thrown).toMatchObject({ code: "access_denied" });
+    await expect(iter.next()).rejects.toMatchObject({ code: "access_denied" });
   });
 
   test("tenant role strip mid-stream terminates the open HTTP SSE stream", async () => {
@@ -206,12 +200,6 @@ describe("access-invalidation mid-stream SSE teardown (#1561)", () => {
 
     releaseNextChunk?.();
 
-    let thrown: unknown;
-    try {
-      await iter.next();
-    } catch (e) {
-      thrown = e;
-    }
-    expect(thrown).toMatchObject({ code: "access_denied" });
+    await expect(iter.next()).rejects.toMatchObject({ code: "access_denied" });
   });
 });

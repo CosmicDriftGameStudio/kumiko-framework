@@ -47,7 +47,7 @@ import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-
 import { createSessionCallbacks, type SessionCallbacks } from "../../sessions/session-callbacks";
 import {
   SESSION_REVOKED_EVENT_QN,
-  type SessionRevokedPayload,
+  sessionRevokedSchema,
 } from "../../sessions/session-revoked-event";
 import { sessionCallbacksFromLateBound, withMintedSession } from "../../sessions/testing";
 import { hashPassword } from "../../shared";
@@ -415,6 +415,26 @@ describe("S2.U6 :: Login-Block fuer Restricted/DeletionRequested/Deleted", () =>
 });
 
 describe("S2.U6 :: Cross-Feature sessions.revokeAllForUser direct", () => {
+  test("Privileged revoke-all-for-user with no live sessions emits no event", async () => {
+    const { userId } = await seedAliceWithMembership();
+    const systemUser = await mintActor({
+      id: "00000000-0000-4000-8000-000000000000",
+      tenantId: TENANT,
+      roles: ["SystemAdmin"],
+    });
+
+    const result = await stack.http.writeOk<{ count: number; userId: string }>(
+      SessionHandlers.revokeAllForUser,
+      { userId },
+      systemUser,
+    );
+    expect(result.count).toBe(0);
+    expect(result.userId).toBe(userId);
+
+    const events = await selectMany(stack.db, eventsTable, { type: SESSION_REVOKED_EVENT_QN });
+    expect(events).toHaveLength(0);
+  });
+
   test("Privileged-Caller revoked alle live sessions eines Users", async () => {
     const { userId } = await seedAliceWithMembership();
     // 2 Sessions erzeugen via Login + zweiter Login.
@@ -454,7 +474,7 @@ describe("S2.U6 :: Cross-Feature sessions.revokeAllForUser direct", () => {
     // target user's session tenant). One event, both sids listed.
     const events = await selectMany(stack.db, eventsTable, { type: SESSION_REVOKED_EVENT_QN });
     expect(events).toHaveLength(1);
-    const payload = events[0]?.["payload"] as SessionRevokedPayload;
+    const payload = sessionRevokedSchema.parse(events[0]?.["payload"]);
     expect(payload.userId).toBe(userId);
     expect(new Set(payload.sessionIds)).toEqual(new Set(liveBefore.map((s) => s.id)));
   });

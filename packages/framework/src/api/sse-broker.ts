@@ -18,11 +18,7 @@ export type SseBroker = {
   pushToChannel(channel: string, event: SseEvent): void;
   getClientCount(channel: string): number;
   getTotalClientCount(): number;
-  // Internal (non-SSE-client) subscription, e.g. dispatch-stream watching
-  // for mid-stream access revocation. Kept separate from addClient/
-  // pushToChannel: those count towards getClientCount/getTotalClientCount
-  // (real SSE connections) and their send/close shape doesn't fit a plain
-  // callback listener. Returns an unsubscribe function.
+  // Separate from addClient so it doesn't count towards getClientCount.
   subscribeAccessInvalidation(userId: string, onInvalidate: () => void): () => void;
   publishAccessInvalidation(userId: string): void;
 };

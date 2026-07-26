@@ -42,7 +42,7 @@ import { SessionHandlers, SessionQueries } from "../constants";
 import { createSessionsFeature } from "../feature";
 import { userSessionEntity, userSessionTable } from "../schema/user-session";
 import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
-import { SESSION_REVOKED_EVENT_QN, type SessionRevokedPayload } from "../session-revoked-event";
+import { SESSION_REVOKED_EVENT_QN, sessionRevokedSchema } from "../session-revoked-event";
 import { sessionCallbacksFromLateBound } from "../testing";
 import { makeSessionHelpers } from "./test-helpers";
 
@@ -216,7 +216,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
 
     const events = await selectMany(stack.db, eventsTable, { type: SESSION_REVOKED_EVENT_QN });
     expect(events).toHaveLength(1);
-    const payload = events[0]?.["payload"] as SessionRevokedPayload;
+    const payload = sessionRevokedSchema.parse(events[0]?.["payload"]);
     expect(payload.userId).toBe(userId);
     expect(payload.sessionIds).toEqual([sid]);
   });
@@ -243,6 +243,22 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(events).toHaveLength(1); // only the first, successful revoke
   });
 
+  test("revoke-all-others with no other live sessions emits no event", async () => {
+    await h.seedUser("noop-others@example.com", "pw-long-enough");
+    const only = await h.login("noop-others@example.com", "pw-long-enough");
+
+    const res = await h.authedPost("/api/write", only.token, {
+      type: SessionHandlers.revokeAllOthers,
+      payload: {},
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { count: number } };
+    expect(body.data.count).toBe(0);
+
+    const events = await selectMany(stack.db, eventsTable, { type: SESSION_REVOKED_EVENT_QN });
+    expect(events).toHaveLength(0);
+  });
+
   test("revoke-all-others appends one event listing every revoked sid", async () => {
     const { userId } = await h.seedUser("event3@example.com", "pw-long-enough");
     const a = await h.login("event3@example.com", "pw-long-enough");
@@ -257,7 +273,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
 
     const events = await selectMany(stack.db, eventsTable, { type: SESSION_REVOKED_EVENT_QN });
     expect(events).toHaveLength(1);
-    const payload = events[0]?.["payload"] as SessionRevokedPayload;
+    const payload = sessionRevokedSchema.parse(events[0]?.["payload"]);
     expect(payload.userId).toBe(userId);
     expect(new Set(payload.sessionIds)).toEqual(new Set([a.sid, c.sid]));
   });
