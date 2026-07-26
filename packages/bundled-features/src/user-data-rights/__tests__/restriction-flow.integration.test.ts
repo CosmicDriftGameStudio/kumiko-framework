@@ -45,6 +45,10 @@ import { createSessionsFeature } from "../../sessions";
 import { SessionHandlers } from "../../sessions/constants";
 import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
 import { createSessionCallbacks, type SessionCallbacks } from "../../sessions/session-callbacks";
+import {
+  SESSION_REVOKED_EVENT_QN,
+  type SessionRevokedPayload,
+} from "../../sessions/session-revoked-event";
 import { sessionCallbacksFromLateBound, withMintedSession } from "../../sessions/testing";
 import { hashPassword } from "../../shared";
 import { createTenantFeature, tenantMembershipsTable } from "../../tenant";
@@ -413,5 +417,15 @@ describe("S2.U6 :: Cross-Feature sessions.revokeAllForUser direct", () => {
       revokedAt: unknown;
     }>;
     expect(revoked.every((s) => s.revokedAt !== null)).toBe(true);
+
+    // #1559 — cross-tenant privileged revoke uses the low-level append(),
+    // not ctx.unsafeAppendEvent (see revoke-all-for-user.write.ts for why:
+    // the SystemAdmin caller's own tenantId has no relationship to the
+    // target user's session tenant). One event, both sids listed.
+    const events = await selectMany(stack.db, eventsTable, { type: SESSION_REVOKED_EVENT_QN });
+    expect(events).toHaveLength(1);
+    const payload = events[0]?.["payload"] as SessionRevokedPayload;
+    expect(payload.userId).toBe(userId);
+    expect(new Set(payload.sessionIds)).toEqual(new Set(liveBefore.map((s) => s.id)));
   });
 });

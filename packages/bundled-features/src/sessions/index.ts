@@ -15,3 +15,10 @@ export type {
   SessionMassRevoker,
 } from "./session-callbacks";
 export { createSessionCallbacks } from "./session-callbacks";
+export type { SessionRevokedPayload } from "./session-revoked-event";
+export {
+  SESSION_REVOKED_AGGREGATE_TYPE,
+  SESSION_REVOKED_EVENT_QN,
+  SESSION_REVOKED_EVENT_SHORT,
+  sessionRevokedSchema,
+} from "./session-revoked-event";
