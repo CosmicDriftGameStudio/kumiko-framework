@@ -20,6 +20,7 @@ export async function mapWithConcurrency<T, R>(
   let failed = false;
   async function worker(): Promise<void> {
     for (;;) {
+      // skip: another worker already failed — stop claiming new items.
       if (failed) return;
       const index = nextIndex++;
       // skip: cursor exhausted, normal worker-loop exit

@@ -23,6 +23,7 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   append,
   createEventsTable,
@@ -38,7 +39,6 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,

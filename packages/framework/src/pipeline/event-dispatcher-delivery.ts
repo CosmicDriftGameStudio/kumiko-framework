@@ -123,10 +123,7 @@ export async function acquireConsumerState(
     // global, two distinct nominal types across the two .d.ts sources (see
     // event-store.ts).
     const cooldownElapsed =
-      TemporalPolyfill.Instant.compare(
-        state.updatedAt,
-        cooldownDeadline,
-      ) <= 0;
+      TemporalPolyfill.Instant.compare(state.updatedAt, cooldownDeadline) <= 0;
     if (cooldownElapsed && state.rearmCount < maxRearmCount) {
       const rearmed = await rearmDeadConsumer(tx, name, instanceId);
       const rearmedState =

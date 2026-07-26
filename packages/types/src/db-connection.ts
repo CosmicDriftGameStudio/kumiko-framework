@@ -5,7 +5,7 @@ import type postgres from "postgres";
 // collapse to `any` and erase the postgres side entirely.
 export type RawDbClient = {
   // postgres-js: unsafe(string, values?); Bun.SQL: unsafe(string) / tagged
-  unsafe: (...args: never[]) => unknown;
+  unsafe: (query: string, values?: readonly unknown[]) => unknown;
   begin: <T>(fn: (tx: RawDbClient) => Promise<T>) => Promise<T>;
   end?: (options?: { timeout?: number }) => Promise<void>;
 };

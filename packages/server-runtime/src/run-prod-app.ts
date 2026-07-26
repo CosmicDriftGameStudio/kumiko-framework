@@ -625,7 +625,6 @@ export type ProdAppHandle = {
   readonly stop: () => Promise<void>;
 };
 
-
 let warnedLegacyJwtSecret = false;
 function warnLegacyJwtSecretOnce(): void {
   if (warnedLegacyJwtSecret) return;

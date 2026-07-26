@@ -73,7 +73,6 @@ describe("mapWithConcurrency", () => {
     expect(unhandled).toEqual([]);
   });
 
-
   test("does not claim new items after the first rejection", async () => {
     const started: number[] = [];
     const items = Array.from({ length: 20 }, (_, i) => i);

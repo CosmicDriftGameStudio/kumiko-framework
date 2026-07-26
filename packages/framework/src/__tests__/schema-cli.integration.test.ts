@@ -177,7 +177,7 @@ describe("runSchemaCli — validate (static CI gate, no DB)", () => {
     const code = await runSchemaCli(["validate"], appCwd, cap.out);
     expect(code).toBe(0);
     expect(cap.log.join("\n")).toContain("migrations match");
-    expect(cap.log.join("\n")).toContain("committed SQL matches .snapshot.json");
+    expect(cap.log.join("\n")).toContain("table/column names match .snapshot.json");
   });
 
   // Reproduces the kumiko-studio 0016 incident: a migration file gets

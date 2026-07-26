@@ -1,5 +1,9 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineQueryHandler, SYSTEM_ROLE, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineQueryHandler,
+  SYSTEM_ROLE,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { tenantTable } from "../schema/tenant";
 

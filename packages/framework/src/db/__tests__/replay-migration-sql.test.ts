@@ -315,7 +315,6 @@ ALTER TABLE "widgets" RENAME TO "gadgets";`,
     }
   });
 
-
   test("schema-qualified CREATE TABLE (public.widgets) fails loud — IDENT rejects '.'", () => {
     const dir = tmpMigrationsDir();
     try {

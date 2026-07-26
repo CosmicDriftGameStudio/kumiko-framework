@@ -1,5 +1,5 @@
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 export type ConfigRow = {
@@ -11,7 +11,7 @@ export type ConfigRow = {
 };
 
 export async function selectConfigRowsForScope(
-  db: DbRunner,
+  db: DbRunner | TenantDb,
   systemTenantId: TenantId,
   tenantId: TenantId,
   userId: string,
@@ -27,7 +27,7 @@ export async function selectConfigRowsForScope(
 }
 
 export async function selectConfigRowsForKeys(
-  db: DbRunner,
+  db: DbRunner | TenantDb,
   keys: readonly string[],
   systemTenantId: TenantId,
   tenantId: TenantId,

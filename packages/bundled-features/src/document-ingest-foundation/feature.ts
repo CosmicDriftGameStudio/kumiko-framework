@@ -39,7 +39,6 @@ const ALLOWED_MIME_TYPES = new Set(["application/pdf", "image/png", "image/jpeg"
 // default (10mb); tests raise maxUploadSize instead of shrinking this.
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
-
 // Narrow fileRef.created's generic entity payload at the MSP boundary.
 // Missing/invalid fields → skip (return), never cast — a bad size would
 // otherwise pass `undefined > MAX_FILE_BYTES` and a later appendDomainEvent
