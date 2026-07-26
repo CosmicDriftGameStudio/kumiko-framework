@@ -8,7 +8,7 @@ import { readPositiveIntEnv } from "../utils/env-parse";
 // event-store/pipeline call sites. The structural pool handle from ./api is
 // `DbPoolHandle` (createConnection's return type) to avoid colliding with this.
 export type * from "@cosmicdrift/kumiko-types/db-connection";
-export type { DbPoolHandle, DbConnectionOptions } from "./api";
+export type { DbConnectionOptions, DbPoolHandle } from "./api";
 export { createConnection } from "./api";
 
 // Legacy: postgres-js only. Neue Aufrufer: createConnection() aus api.ts.

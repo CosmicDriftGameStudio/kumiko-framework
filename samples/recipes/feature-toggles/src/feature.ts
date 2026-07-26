@@ -75,7 +75,7 @@ export function createProductAuditFeature(): FeatureDefinition {
 
     r.hook("postSave", { allOf: "product" }, async (result, ctx) => {
       if (result.kind !== "save" || !result.isNew) return;
-      if (!ctx.db) return;
+      if (!ctx.db || !("raw" in ctx.db)) return;
       const name = (result.changes as Record<string, unknown>)["name"] as string | undefined;
       if (!name) return;
       // Cross-feature audit sink is itself an r.entity projection — write it via

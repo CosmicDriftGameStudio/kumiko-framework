@@ -627,6 +627,7 @@ export type ProdAppHandle = {
 
 let warnedLegacyJwtSecret = false;
 function warnLegacyJwtSecretOnce(): void {
+  // skip: already warned once this process — avoid log spam on every boot path.
   if (warnedLegacyJwtSecret) return;
   warnedLegacyJwtSecret = true;
   // biome-ignore lint/suspicious/noConsole: boot-time ops hint, no logger configured this early
