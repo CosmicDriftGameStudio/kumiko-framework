@@ -116,7 +116,7 @@ export type SeedTenantHooks = {
 // Connection) they still fire immediately — there is no outer TX to wait for.
 function resolveRawDb(db: AppContext["db"]): DbRunner | undefined {
   if (!db) return undefined;
-  if (typeof db === "object" && db !== null && "raw" in db) {
+  if (typeof db === "object" && "raw" in db) {
     return (db as { raw: DbRunner }).raw;
   }
   return db as DbRunner;
