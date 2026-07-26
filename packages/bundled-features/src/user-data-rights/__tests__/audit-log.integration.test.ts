@@ -130,8 +130,13 @@ describe("my-audit-log", () => {
     expect(bobLog.rows.length).toBe(1);
     // Payload-pinning beweist die Cross-User-Filterung: alice sieht nur
     // ihre Payload, bob nur seine.
-    expect((aliceLog.rows[0]?.payload as { foo: string }).foo).toBe("alice");
-    expect((bobLog.rows[0]?.payload as { foo: string }).foo).toBe("bob");
+    const aliceRow = aliceLog.rows[0];
+    const bobRow = bobLog.rows[0];
+    expect(aliceRow).toBeDefined();
+    expect(bobRow).toBeDefined();
+    if (!aliceRow || !bobRow) throw new Error("expected audit rows");
+    expect((aliceRow.payload as { foo: string }).foo).toBe("alice");
+    expect((bobRow.payload as { foo: string }).foo).toBe("bob");
   });
 
   test("Account-weite Sicht: User sieht events aus anderen Tenants (DSGVO Art. 15)", async () => {

@@ -1,9 +1,7 @@
 // Atom 5b — sendDeletionRequestedEmail Callback (DSGVO Art. 17
 // "Geheimes Versprechen"-Email).
 //
-// Pinst dass createTenantFeature(),
-createUserDataRightsFeature({ sendDeletionRequestedEmail });
-
+// Pinst dass createUserDataRightsFeature({ sendDeletionRequestedEmail })
 // die App-Author-Callback bei erfolgreichem deletion-requested-Flip
 // feuert UND best-effort ist (send-failure killt den Status-Flip nicht).
 // Der Code-Comment in handlers/request-deletion.write.ts behauptet beide
