@@ -12,12 +12,19 @@ export type { SessionMassRevoker } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { encryptForDirectWrite } from "../shared";
 import { USER_STATUS, type UserStatus, userTable } from "../user";
 import { DEFAULT_SESSION_EXPIRY_MS } from "./constants";
 import { userSessionEntity, userSessionTable } from "./schema/user-session";
+import {
+  SESSION_REVOKED_AGGREGATE_TYPE,
+  SESSION_REVOKED_EVENT_QN,
+  sessionRevokedSchema,
+} from "./session-revoked-event";
 
 // Locked accounts whose live sessions must be refused. deletionRequested is
 // intentionally absent — it's a reversible grace period and the user needs
@@ -143,6 +150,31 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
         { revokedAt: Temporal.Now.instant() },
         { userId, revokedAt: null },
       );
+
+      // Lightweight append alongside the direct-write above, same pattern
+      // as revoke.write.ts (#1559) — this callback is the password-change
+      // auto-revoke path (sessions/feature.ts postSave hook) and has no
+      // dispatcher ctx to call unsafeAppendEvent from, so it uses the raw
+      // append() like revoke-all-for-user.write.ts does. Without this, the
+      // access-invalidation consumer (#1560) never hears about a password
+      // change and an already-open SSE stream survives it — the exact
+      // "stale JWT mid-stream" gap this feature exists to close.
+      if (result.length > 0) {
+        const payload = sessionRevokedSchema.parse({
+          userId,
+          sessionIds: result.map((row: { id: string }) => row.id),
+        });
+        await append(db, {
+          aggregateId: generateId(),
+          aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
+          tenantId: SYSTEM_TENANT_ID,
+          expectedVersion: 0,
+          type: SESSION_REVOKED_EVENT_QN,
+          payload,
+          metadata: { userId },
+        });
+      }
+
       return result.length;
     },
 
@@ -155,6 +187,28 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
           ? { userId, revokedAt: null, id: { ne: currentSid } }
           : { userId, revokedAt: null },
       );
+
+      // Same reasoning as sessionMassRevoker above — this raw callback
+      // (used by auth-mfa and other internal callers, distinct from the
+      // user-facing revoke-all-others.write.ts handler which already
+      // appends this event) needs its own append so callers reached
+      // through here also cut open SSE streams.
+      if (result.length > 0) {
+        const payload = sessionRevokedSchema.parse({
+          userId,
+          sessionIds: result.map((row: { id: string }) => row.id),
+        });
+        await append(db, {
+          aggregateId: generateId(),
+          aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
+          tenantId: SYSTEM_TENANT_ID,
+          expectedVersion: 0,
+          type: SESSION_REVOKED_EVENT_QN,
+          payload,
+          metadata: { userId },
+        });
+      }
+
       return result.length;
     },
   };
