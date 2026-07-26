@@ -240,6 +240,12 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     factory: "createSeoFeature",
     defaultArgs: "{ sitemapEntries: () => [], includeLegalPages: true }",
   },
+  // Mounted in run-config (#1581); coverage lint requires registry parity.
+  "tenant-settings": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/tenant-settings",
+    factory: "createTenantSettingsFeature",
+  },
   "template-resolver": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/template-resolver",
