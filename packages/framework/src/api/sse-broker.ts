@@ -28,7 +28,7 @@ export function createSseBroker(): SseBroker {
   // Redis. Multi-replica deployments will not revoke SSE streams on other pods
   // (security control is single-node). Upgrade: Redis pub/sub on userAccessChannel.
   const channels = new Map<string, Map<string, SseClient>>();
-  const accessInvalidationListeners = new Map<string, Map<string, () => void>>();
+  const accessInvalidationListeners = new Map<string, Set<() => void>>();
 
   function getOrCreateChannel(channel: string): Map<string, SseClient> {
     let clients = channels.get(channel);
@@ -78,18 +78,17 @@ export function createSseBroker(): SseBroker {
 
     subscribeAccessInvalidation(userId, onInvalidate) {
       const channel = userAccessChannel(userId);
-      const listenerId = generateId();
       let listeners = accessInvalidationListeners.get(channel);
       if (!listeners) {
-        listeners = new Map();
+        listeners = new Set();
         accessInvalidationListeners.set(channel, listeners);
       }
-      listeners.set(listenerId, onInvalidate);
+      listeners.add(onInvalidate);
       return () => {
         const current = accessInvalidationListeners.get(channel);
         // skip: already unsubscribed (e.g. stream ended after a publish already fired)
         if (!current) return;
-        current.delete(listenerId);
+        current.delete(onInvalidate);
         if (current.size === 0) accessInvalidationListeners.delete(channel);
       };
     },
@@ -101,7 +100,7 @@ export function createSseBroker(): SseBroker {
       if (!listeners) return;
       // Snapshot before iterating — a fired listener unsubscribes itself,
       // which would mutate `listeners` mid-iteration otherwise.
-      for (const onInvalidate of [...listeners.values()]) {
+      for (const onInvalidate of [...listeners]) {
         onInvalidate();
       }
     },

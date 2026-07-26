@@ -38,6 +38,10 @@ describe("splitSqlStatements", () => {
     expect(splitSqlStatements("SELECT a/*x*/AS b;")).toEqual(["SELECT a AS b;"]);
   });
 
+  test("nested block comments close only at matching depth (Postgres)", () => {
+    expect(splitSqlStatements("/* a /* b */ c */ SELECT 1;")).toEqual(["SELECT 1;"]);
+  });
+
   test("a block-comment opener inside a line comment does not swallow the next statement", () => {
     const sql = `
       -- note: see /* details below

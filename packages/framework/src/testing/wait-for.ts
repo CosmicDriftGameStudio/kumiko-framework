@@ -1,8 +1,9 @@
 /**
  * Polls a condition with escalating timeouts.
  *
- * Default schedule: 250ms → 1s → 3s (3 attempts).
- * Returns immediately on success. Throws the last assertion error if all attempts fail.
+ * Default schedule: 250ms → 1s → 3s (3 attempts). Tries first, sleeps between
+ * failures — already-true conditions return without waiting.
+ * Throws the last assertion error if all attempts fail.
  *
  * Usage:
  *   await waitFor(() => {
@@ -20,13 +21,14 @@ export async function waitFor(
   let lastError: unknown;
 
   for (let i = 0; i < delays.length; i++) {
-    await new Promise((r) => setTimeout(r, delays[i]));
     try {
       await fn();
-      // skip: retry attempt succeeded, no further polling needed
       return;
     } catch (err) {
       lastError = err;
+    }
+    if (i < delays.length - 1) {
+      await new Promise((r) => setTimeout(r, delays[i]));
     }
   }
 

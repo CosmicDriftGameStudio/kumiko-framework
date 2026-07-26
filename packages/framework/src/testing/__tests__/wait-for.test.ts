@@ -2,15 +2,18 @@ import { describe, expect, test } from "bun:test";
 import { waitFor } from "../wait-for";
 
 describe("waitFor", () => {
-  test("returns immediately once fn succeeds on the first attempt", async () => {
+  test("calls fn exactly once when it passes on the first attempt (no prior sleep)", async () => {
     let calls = 0;
+    const started = Date.now();
     await waitFor(
       () => {
         calls++;
       },
-      { delays: [1, 1, 1] },
+      { delays: [200, 200, 200] },
     );
     expect(calls).toBe(1);
+    // try-first: must not burn the first delay when the condition already holds
+    expect(Date.now() - started).toBeLessThan(100);
   });
 
   test("retries on failure and succeeds once fn passes", async () => {

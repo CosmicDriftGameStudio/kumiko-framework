@@ -309,13 +309,13 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // afterward (a redirect doesn't undo an already-logged request) — the
     // only leak-proof fix is to never accept the token that way.
     //
-    // Path liegt AUSSERHALB /api/* weil r.httpRoute den /api-namespace nicht
-    // claimen darf (reserved fuer write/query/batch/auth/sse-dispatcher).
+    // Path sits outside /api/* — r.httpRoute must not claim the /api namespace
+    // (reserved for write/query/batch/auth/sse-dispatcher).
     //
-    // Der Session-Pfad (eingeloggter Download) braucht KEINEN httpRoute-
-    // Wrapper: der Client ruft download-by-job direkt via Dispatcher (traegt
-    // X-CSRF-Token mit) und navigiert auf die zurueckgegebene signed-URL —
-    // siehe postWithDownload im privacy-center-screen.
+    // The session path (logged-in download) needs no httpRoute wrapper: the
+    // client calls download-by-job via the Dispatcher (with X-CSRF-Token) and
+    // navigates to the returned signed URL — see postWithDownload in
+    // privacy-center-screen.
     r.httpRoute({
       method: "GET",
       path: "/user-export/by-token",

@@ -92,10 +92,10 @@ type RawUserMfaRow = {
   version: number;
 };
 
-async function readRawRow(userId?: string): Promise<RawUserMfaRow> {
-  const rows = await selectMany<RawUserMfaRow>(stack.db, userMfaTable, userId ? { userId } : {});
+async function readRawRow(userId: string): Promise<RawUserMfaRow> {
+  const rows = await selectMany<RawUserMfaRow>(stack.db, userMfaTable, { userId });
   const row = rows[0];
-  if (!row) throw new Error("no user-mfa row");
+  if (!row) throw new Error(`no user-mfa row for ${userId}`);
   return row;
 }
 
@@ -132,7 +132,7 @@ describe("auth-mfa KEK-rotation job — kumiko-framework#266 Step 8", () => {
       user,
     );
 
-    const beforeRow = await readRawRow();
+    const beforeRow = await readRawRow(user.id);
     expect(JSON.parse(beforeRow.totpSecret).kekVersion).toBe(1);
 
     // Simulate "ops added a new master key version and flipped CURRENT=2" —
@@ -149,7 +149,7 @@ describe("auth-mfa KEK-rotation job — kumiko-framework#266 Step 8", () => {
 
     await mfaReencryptJob({}, jobCtx());
 
-    const afterJobRow = await readRawRow();
+    const afterJobRow = await readRawRow(user.id);
     expect(JSON.parse(afterJobRow.totpSecret).kekVersion).toBe(2);
 
     // The regression guard: rebuild the projection from scratch (replays
@@ -161,7 +161,7 @@ describe("auth-mfa KEK-rotation job — kumiko-framework#266 Step 8", () => {
       registry: stack.registry,
     });
 
-    const afterRebuildRow = await readRawRow();
+    const afterRebuildRow = await readRawRow(user.id);
     expect(JSON.parse(afterRebuildRow.totpSecret).kekVersion).toBe(2);
 
     // Decrypt-level proof, not just the version tag: a valid TOTP code

@@ -733,6 +733,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const trustedProxyHops = ((): number | undefined => {
     if (options.auth?.trustedProxyHops !== undefined) return options.auth.trustedProxyHops;
     if (trustedProxyHopsFromEnv === undefined) return undefined;
+    // Digits-only — parseInt("0x10")/("1e3")/("2x") would silently coerce
+    // and land on the spoofable hops=0 path for values like "0x10".
+    if (!/^\d+$/.test(trustedProxyHopsFromEnv)) {
+      throw new Error(
+        `runProdApp: KUMIKO_TRUSTED_PROXY_HOPS must be a non-negative integer, got "${trustedProxyHopsFromEnv}".`,
+      );
+    }
     const parsed = Number.parseInt(trustedProxyHopsFromEnv, 10);
     if (!Number.isInteger(parsed) || parsed < 0) {
       throw new Error(
