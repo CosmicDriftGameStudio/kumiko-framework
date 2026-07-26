@@ -39,7 +39,10 @@ let stack: TestStack;
 
 beforeAll(async () => {
   configureEntityFieldEncryption(createTestEnvelopeCipher());
-  const features = composeFeatures([...APP_FEATURES], { includeBundled: true, authOptions: AUTH_COMPOSE_OPTIONS });
+  const features = composeFeatures([...APP_FEATURES], {
+    includeBundled: true,
+    authOptions: AUTH_COMPOSE_OPTIONS,
+  });
   stack = await setupTestStack({
     features,
     extraContext: () => ({ configResolver: createConfigResolver() }),

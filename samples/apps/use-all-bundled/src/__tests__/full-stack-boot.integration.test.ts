@@ -19,7 +19,12 @@ afterAll(async () => {
 describe("use-all-bundled full-stack boot", () => {
   test("every bundled feature boots against real Postgres + Redis, tables applied", async () => {
     handle = await createKumikoServer({
-      features: [...composeFeatures([...APP_FEATURES], { includeBundled: true, authOptions: AUTH_COMPOSE_OPTIONS })],
+      features: [
+        ...composeFeatures([...APP_FEATURES], {
+          includeBundled: true,
+          authOptions: AUTH_COMPOSE_OPTIONS,
+        }),
+      ],
       port: 0,
       installSignalHandlers: false,
     });
