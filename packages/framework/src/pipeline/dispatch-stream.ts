@@ -65,10 +65,11 @@ async function* executeStreamInner(
     resolveInvalidated?.();
   });
 
+  let iterator: AsyncIterator<unknown> | undefined;
   try {
     const handlerContext = buildHandlerContext(ctx, type, user);
     const chunks = handler.handler({ type, payload: parsed.data, user }, handlerContext);
-    const iterator = chunks[Symbol.asyncIterator]();
+    iterator = chunks[Symbol.asyncIterator]();
 
     while (true) {
       const nextPull = iterator.next();
@@ -77,7 +78,6 @@ async function* executeStreamInner(
         invalidated.then(() => ({ kind: "invalidated" as const })),
       ]);
       if (outcome.kind === "invalidated") {
-        void iterator.return?.().catch(() => {});
         throw new AccessDeniedError({
           message: `access revoked mid-stream for ${type}`,
           details: { handler: type },
@@ -90,5 +90,12 @@ async function* executeStreamInner(
     }
   } finally {
     unsubscribeAccessInvalidation?.();
+    // Consumer break / access revoke / throw — always close the handler
+    // generator so its finally (cleanup) runs (for-await would do this).
+    // Do NOT swallow return() errors — close-time cleanup failures must
+    // surface to runStreamInstrumented (#1543).
+    if (iterator !== undefined) {
+      await iterator.return(undefined);
+    }
   }
 }

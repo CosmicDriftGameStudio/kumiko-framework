@@ -534,7 +534,7 @@ function clientIpOf(
       warnedUnknownClientIp = true;
       console.warn(
         "[kumiko] trustedProxyHops>=1 but XFF chain too short and no x-real-ip — " +
-          "all such clients share the \"unknown\" rate-limit bucket. Check proxy headers.",
+          'all such clients share the "unknown" rate-limit bucket. Check proxy headers.',
       );
     }
     return "unknown";
