@@ -1,5 +1,5 @@
 {
-  "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
+  "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
   "featureCount": 58,
   "features": [
     {
