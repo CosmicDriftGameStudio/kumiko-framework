@@ -34,6 +34,22 @@ function queueNameFor(prefix: string, lane: JobRunIn): string {
   return `${prefix}-${lane}`;
 }
 
+/**
+ * BullMQ job ids are `repeat:<schedulerId>:<millis>`. Colons inside the
+ * scheduler id push the segment count to ≥5, which BullMQ's legacy heuristic
+ * treated as old repeatables — spawning a new scheduler entry every tick and
+ * leaking permanent `repeat:*` hashes (taskforcesh/bullmq#3828, fw#1603 /
+ * publicstatus Redis OOM). Strip `.` and `:` from the job QN.
+ */
+export function schedulerIdForJobName(jobName: string): string {
+  return `scheduler-${jobName.replace(/[.:]/g, "-")}`;
+}
+
+/** Pre-sanitize id (`.` only) — remove on boot so colon-form ghosts die. */
+function legacySchedulerIdForJobName(jobName: string): string {
+  return `scheduler-${jobName.replace(/\./g, "-")}`;
+}
+
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
   message: string;
@@ -473,12 +489,26 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       for (const [name, jobDef] of allJobs) {
         if (laneForJob(jobDef) !== consumerLane) continue;
         if ("cron" in jobDef.trigger) {
+          const schedulerId = schedulerIdForJobName(name);
+          const legacyId = legacySchedulerIdForJobName(name);
+          // Drop pre-sanitize scheduler ids so colon-form ghosts stop firing.
+          if (legacyId !== schedulerId) {
+            try {
+              await consumerQueue.removeJobScheduler(legacyId);
+            } catch {
+              // skip: legacy scheduler absent (fresh install / already purged)
+            }
+          }
           await consumerQueue.upsertJobScheduler(
-            `scheduler-${name.replace(/\./g, "-")}`,
+            schedulerId,
             { pattern: jobDef.trigger.cron },
             {
               name: jobDef.perTenant ? `_perTenant:${name}` : name,
               data: {},
+              opts: {
+                removeOnComplete: { count: 100 },
+                removeOnFail: { count: 50 },
+              },
             },
           );
         }
