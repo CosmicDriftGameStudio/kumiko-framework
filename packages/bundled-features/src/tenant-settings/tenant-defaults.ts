@@ -61,7 +61,12 @@ export function defineCreateWithTenantDefaults(
         if (typeof locale === "string") payload[options.localeField] = locale;
       }
 
-      return executor.create(payload, event.user, ctx.db);
+      // Re-validate against the unrelaxed entity schema so config-filled
+      // values still honor select/enum field constraints (fw#1581) — and so
+      // a missing currency after failed/missing tenant-settings mount fails
+      // loud instead of inserting half-filled money rows.
+      const filled = baseSchema.parse(payload);
+      return executor.create(filled, event.user, ctx.db);
     },
   };
 }

@@ -499,15 +499,15 @@ export type SignupConfig = {
 //   real client — sits at `entries[length - hops]`. Anything the client
 //   itself prepended lands further left and is ignored. If the header has
 //   fewer entries than `hops`, the proxy chain is shorter than configured
-//   (misconfiguration or a bypassed hop) — fall back to "unknown" rather
-//   than trusting a shorter, potentially attacker-controlled chain.
-//   x-real-ip is NOT consulted in this branch: unlike XFF it has no
-//   standardized hop-count semantics, so there's no safe way to validate it
-//   against a configured hop count.
+//   (misconfiguration or a bypassed hop) — fall back to x-real-ip when present,
+//   else "unknown". x-real-ip has no hop-count semantics (so it isn't used for
+//   hop math), but a shared "unknown" bucket is worse than trusting the
+//   proxy-set header when XFF is absent (common nginx X-Real-IP-only setups).
 //
 // Callers that need a hard boundary regardless of this config
 // (preauth-enable-start) additionally key on something the caller can't
 // freely choose (see preauthTokenKeyOf below).
+let warnedUnknownClientIp = false;
 function clientIpOf(
   c: { req: { header(name: string): string | undefined } },
   trustedProxyHops = 0,
@@ -524,6 +524,19 @@ function clientIpOf(
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
   if (entries.length < trustedProxyHops) {
+    // nginx often sets only X-Real-IP (no XFF). Prefer that over a shared
+    // "unknown" rate-limit bucket (fw#1555) — hop-count math still doesn't
+    // apply to X-Real-IP, but a shared bucket is worse than trusting the
+    // proxy-set header when the XFF chain is shorter than configured.
+    const realIp = c.req.header("x-real-ip")?.trim();
+    if (realIp) return realIp;
+    if (!warnedUnknownClientIp) {
+      warnedUnknownClientIp = true;
+      console.warn(
+        "[kumiko] trustedProxyHops>=1 but XFF chain too short and no x-real-ip — " +
+          "all such clients share the \"unknown\" rate-limit bucket. Check proxy headers.",
+      );
+    }
     return "unknown";
   }
   return entries[entries.length - trustedProxyHops] ?? "unknown";

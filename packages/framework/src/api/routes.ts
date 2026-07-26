@@ -30,9 +30,9 @@ export const StreamFrame = {
 } as const;
 
 export type ApiRoutesOptions = {
-  // Override the SSE heartbeat interval (ms). Production uses
-  // SSE_HEARTBEAT_INTERVAL_MS; tests pass a short value so the pre-pull
-  // race + ping path can be exercised without a 15s wait.
+  // Override the SSE heartbeat interval (ms). Default SSE_HEARTBEAT_INTERVAL_MS.
+  // Deployment-tunable for proxies with different idle timeouts — also used
+  // by tests with a short value to exercise the pre-pull race + ping path.
   readonly sseHeartbeatMs?: number;
 };
 

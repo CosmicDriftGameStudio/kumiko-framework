@@ -53,36 +53,40 @@ async function* executeStreamInner(
     throw validationErrorFromZod(parsed.error);
   }
 
-  // Mid-stream access revocation: subscribed for the stream's lifetime, not
-  // just checked once like hasAccess above. A role/session/tenant change
-  // fires this via ctx.sseBroker.publishAccessInvalidation(userId) (session-
-  // revoke / tenant-membership consumers — issue #1559/#1560); the flag is
-  // read at the same per-chunk cadence as ensureFeatureEnabled below, so a
-  // stream cuts before its next chunk rather than running indefinitely.
-  let accessInvalidated = false;
+  // Mid-stream access revocation must also cut *idle* SSE streams (heartbeat
+  // only — no chunk). A boolean flag read only after the next chunk would
+  // leave revoked sessions open indefinitely (fw#1563). Race each pull
+  // against an invalidated Deferred instead.
+  let resolveInvalidated: (() => void) | undefined;
+  const invalidated = new Promise<void>((resolve) => {
+    resolveInvalidated = resolve;
+  });
   const unsubscribeAccessInvalidation = ctx.sseBroker?.subscribeAccessInvalidation(user.id, () => {
-    accessInvalidated = true;
+    resolveInvalidated?.();
   });
 
   try {
     const handlerContext = buildHandlerContext(ctx, type, user);
     const chunks = handler.handler({ type, payload: parsed.data, user }, handlerContext);
+    const iterator = chunks[Symbol.asyncIterator]();
 
-    // Consumer-driven pull (for await) is the backpressure mechanism — the
-    // handler generator only advances once the caller reads the previous
-    // chunk, no explicit buffering/throttling needed on either side.
-    for await (const chunk of chunks) {
-      // Re-checked per chunk, not just at stream-start: a feature disabled
-      // mid-stream must cut an already-open stream, not just block new ones.
-      await ensureFeatureEnabled(ctx, type, user.tenantId);
-      if (accessInvalidated) {
+    while (true) {
+      const nextPull = iterator.next();
+      const outcome = await Promise.race([
+        nextPull.then((result) => ({ kind: "chunk" as const, result })),
+        invalidated.then(() => ({ kind: "invalidated" as const })),
+      ]);
+      if (outcome.kind === "invalidated") {
+        void iterator.return?.().catch(() => {});
         throw new AccessDeniedError({
           message: `access revoked mid-stream for ${type}`,
           details: { handler: type },
         });
       }
-      assertNoSecretLeak(chunk);
-      yield chunk;
+      if (outcome.result.done) break;
+      await ensureFeatureEnabled(ctx, type, user.tenantId);
+      assertNoSecretLeak(outcome.result.value);
+      yield outcome.result.value;
     }
   } finally {
     unsubscribeAccessInvalidation?.();
