@@ -49,6 +49,7 @@ export function validateTokenVerifierMultiplicity(features: readonly FeatureDefi
     // cookie JWT auth uses sessionStore alone (#1570 / phronexsis#296).
     for (const feature of features) {
       for (const usage of feature.extensionUsages) {
+        // skip: sessionStore present — tokenVerifier optional for cookie-session apps.
         if (usage.extensionName === EXT_SESSION_STORE) return;
       }
     }
