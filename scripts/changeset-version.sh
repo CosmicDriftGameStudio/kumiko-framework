@@ -5,6 +5,8 @@
 set -euo pipefail
 
 bunx changeset version
+# Block accidental major≥1 bumps (stay on 0.x until explicitly approved).
+bun scripts/guard-no-major-gt-zero.ts
 bun install
 # bun install does NOT refresh the workspace "version" fields in bun.lock after
 # the bump (only `rm bun.lock && bun install` does, which drifts every floating
