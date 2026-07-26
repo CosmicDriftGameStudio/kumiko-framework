@@ -83,8 +83,8 @@ export const setWrite = defineWriteHandler({
     // umgestellt werden, sonst läuft der event-store-Lookup
     // (getStreamVersion) gegen user.tenantId statt tenantId — und findet
     // den stream nicht → version_conflict obwohl die projection-row da ist.
-    // Symmetrisch zu seedTextBlock, das TestUsers.systemAdmin (tenantId =
-    // SYSTEM_TENANT) als by verwendet.
+    // Symmetric with seedTextBlock, which defaults by to
+    // createSystemUser(tenantId) so stream lookup and projection tenant match.
     const executorUser =
       override !== undefined ? { ...event.user, tenantId: override as TenantId } : event.user; // @cast-boundary engine-bridge
 
