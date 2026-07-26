@@ -14,7 +14,7 @@
 // decryptForRead), so it must peel that PII layer itself before the envelope
 // cipher ever sees the value, mirroring decryptForRead's PII-then-envelope
 // order — an envelope decrypt on a still-PII-wrapped string throws
-// "legacy single-key format" instead of rotating anything.
+// "[envelope-cipher] stored value is not valid JSON" instead of rotating anything.
 //
 // Idempotent: re-running skips rows already on the current kekVersion.
 // Every write is a normal executor.update — after a full run even a
@@ -66,17 +66,20 @@ export type MfaReencryptJobResult = {
   readonly stoppedReason: ChunkedMigrationStopReason;
 };
 
-function needsReencrypt(value: string, targetVersion: number): boolean {
-  // legacy single-key format (base64 — can never start with "{")
-  if (!value.startsWith("{")) return true;
+type EnvelopeClassification = "rotate" | "current" | "unrecognized";
+
+// After PII peel (when configured), values must be current-cipher envelopes.
+// Non-JSON / non-envelope is not a supported legacy decrypt path — fail the
+// row instead of treating it as "needs rotate" (#1541, mirrors config #1513).
+function classifyEnvelope(value: string, targetVersion: number): EnvelopeClassification {
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(value);
-    if (!isStoredEnvelope(parsed)) return true;
-    return parsed.kekVersion !== targetVersion;
+    parsed = JSON.parse(value);
   } catch {
-    // malformed JSON — let the decrypt attempt surface the real error
-    return true;
+    return "unrecognized";
   }
+  if (!isStoredEnvelope(parsed)) return "unrecognized";
+  return parsed.kekVersion === targetVersion ? "current" : "rotate";
 }
 
 export const mfaReencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
@@ -152,7 +155,7 @@ export const mfaReencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<vo
   async function migrateRow(row: UserMfaRow): Promise<"migrated" | "skipped" | "failed"> {
     const tenantId = row.tenantId as TenantId; // @cast-boundary db-row
 
-    // Peel the PII layer first (if active) so needsReencrypt/cipher.decrypt
+    // Peel the PII layer first (if active) so classifyEnvelope/cipher.decrypt
     // below only ever see envelope strings, same order as decryptForRead.
     let envelopeValues: { totpSecret: string; recoveryCodes: string } = row;
     if (piiKms) {
@@ -163,20 +166,26 @@ export const mfaReencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<vo
       envelopeValues = unwrapped as { totpSecret: string; recoveryCodes: string }; // @cast-boundary engine-payload
     }
 
-    const totpNeedsRotation = needsReencrypt(envelopeValues.totpSecret, targetVersion);
-    const recoveryNeedsRotation = needsReencrypt(envelopeValues.recoveryCodes, targetVersion);
-    if (!totpNeedsRotation && !recoveryNeedsRotation) {
+    const totpClass = classifyEnvelope(envelopeValues.totpSecret, targetVersion);
+    const recoveryClass = classifyEnvelope(envelopeValues.recoveryCodes, targetVersion);
+    if (totpClass === "unrecognized" || recoveryClass === "unrecognized") {
+      ctx.log?.warn?.(
+        `[auth-mfa:reencrypt] row ${row.id} has a field that is not a current-cipher envelope, not re-encryptable`,
+      );
+      return "failed";
+    }
+    if (totpClass === "current" && recoveryClass === "current") {
       alreadyCurrent++;
       return "skipped";
     }
 
-    // decrypt failure (missing legacy key, unknown kekVersion, tamper)
-    // throws → counted as failed via onRowError; the row stays untouched.
+    // decrypt failure (unknown kekVersion, tamper) throws → counted as
+    // failed via onRowError; the row stays untouched.
     const changes: Record<string, string> = {};
-    if (totpNeedsRotation) {
+    if (totpClass === "rotate") {
       changes["totpSecret"] = await cipher.decrypt(envelopeValues.totpSecret, { tenantId });
     }
-    if (recoveryNeedsRotation) {
+    if (recoveryClass === "rotate") {
       changes["recoveryCodes"] = await cipher.decrypt(envelopeValues.recoveryCodes, { tenantId });
     }
 
