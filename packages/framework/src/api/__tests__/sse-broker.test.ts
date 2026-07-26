@@ -55,4 +55,61 @@ describe("SSE broker", () => {
     expect(() => broker.removeClient("unknown", "fake-id")).not.toThrow();
     expect(broker.getClientCount("unknown")).toBe(0);
   });
+
+  test("subscribeAccessInvalidation fires only listeners on the same user's channel", () => {
+    const broker = createSseBroker();
+    const onInvalidateA = mock();
+    const onInvalidateB = mock();
+
+    broker.subscribeAccessInvalidation("user-a", onInvalidateA);
+    broker.subscribeAccessInvalidation("user-b", onInvalidateB);
+
+    broker.publishAccessInvalidation("user-a");
+
+    expect(onInvalidateA).toHaveBeenCalledTimes(1);
+    expect(onInvalidateB).not.toHaveBeenCalled();
+  });
+
+  test("subscribeAccessInvalidation supports multiple listeners on the same user", () => {
+    const broker = createSseBroker();
+    const first = mock();
+    const second = mock();
+
+    broker.subscribeAccessInvalidation("user-a", first);
+    broker.subscribeAccessInvalidation("user-a", second);
+    broker.publishAccessInvalidation("user-a");
+
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  test("unsubscribe (returned closure) stops further delivery", () => {
+    const broker = createSseBroker();
+    const onInvalidate = mock();
+
+    const unsubscribe = broker.subscribeAccessInvalidation("user-a", onInvalidate);
+    unsubscribe();
+    broker.publishAccessInvalidation("user-a");
+
+    expect(onInvalidate).not.toHaveBeenCalled();
+  });
+
+  test("a fired listener can unsubscribe itself without skipping other listeners", () => {
+    const broker = createSseBroker();
+    let unsubscribeSelf: () => void = () => {};
+    const self = mock(() => unsubscribeSelf());
+    const other = mock();
+
+    unsubscribeSelf = broker.subscribeAccessInvalidation("user-a", self);
+    broker.subscribeAccessInvalidation("user-a", other);
+    broker.publishAccessInvalidation("user-a");
+
+    expect(self).toHaveBeenCalledTimes(1);
+    expect(other).toHaveBeenCalledTimes(1);
+  });
+
+  test("publishAccessInvalidation to a user with no listeners does nothing", () => {
+    const broker = createSseBroker();
+    expect(() => broker.publishAccessInvalidation("nobody-listening")).not.toThrow();
+  });
 });

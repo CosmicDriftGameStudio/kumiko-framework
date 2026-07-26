@@ -1,4 +1,5 @@
 import { requestContext } from "../api/request-context";
+import type { SseBroker } from "../api/sse-broker";
 import type { DbConnection, DbRunner, DbTx } from "../db/connection";
 import { runInSavepoint, selectMany } from "../db/query";
 import type { buildEntityTable } from "../db/table-builder";
@@ -96,6 +97,7 @@ export type DispatchContext = {
   lifecycle: LifecycleHooks | undefined;
   jobRunner: JobRunnerRef | undefined;
   effectiveFeatures: EffectiveFeaturesResolver | undefined;
+  sseBroker: SseBroker | undefined;
   tableCache: Map<string, ReturnType<typeof buildEntityTable>>;
   transitionCache: Map<string, ReturnType<typeof defineTransitions>>;
   tracer: ReturnType<typeof getFallbackTracer>;
