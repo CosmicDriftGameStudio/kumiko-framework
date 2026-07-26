@@ -297,9 +297,13 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // external script reads the fragment client-side and exchanges the
     // token via POST for the signed URL.
     //
-    // The old token-in-query format stays supported as a fallback (not a
-    // transitional shim — permanent): emails sent before this deploy still
-    // use the old format and must keep working until their TTL expires.
+    // The old token-in-query format stays supported as a fallback: emails
+    // sent before this deploy still use it and must keep working until
+    // their TTL expires. It leaks the token into proxy/access logs (the
+    // exact vector #1271 closes for the new fragment path) — temporary
+    // until every pre-deploy token's TTL has lapsed, tracked for removal
+    // in kumiko-framework#1562, not a permanent surface. Logs a hit below
+    // so ops can see it's still receiving traffic before removing it.
     //
     // Path liegt AUSSERHALB /api/* weil r.httpRoute den /api-namespace nicht
     // claimen darf (reserved fuer write/query/batch/auth/sse-dispatcher).
@@ -320,16 +324,9 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             "content-type": "text/html; charset=utf-8",
           });
         }
-        const queryRes = await app.fetch(
-          new Request(`${url.origin}/api/query`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              type: "user-data-rights:query:download-by-token",
-              payload: { token, auditMeta: extractAuditMeta(c.req.raw.headers) },
-            }),
-          }),
-        );
+        // biome-ignore lint/suspicious/noConsole: operator-visibility for a deprecated, still-live traffic path
+        console.warn("[user-data-rights] deprecated token-in-query hit on /user-export/by-token");
+        const queryRes = await forwardTokenDownload(app, url, c.req.raw.headers, token);
         return mapQueryResponseToRedirect(c, queryRes);
       },
     });
@@ -374,29 +371,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         if (typeof token !== "string" || token.length === 0) {
           return c.json({ error: "missing_token" }, 400);
         }
-        const auditMeta = extractAuditMeta(c.req.raw.headers);
-        return app.fetch(
-          new Request(`${url.origin}/api/query`, {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              // download-by-token.query.ts's `rateLimit: { per: "ip", limit: 30 }`
-              // keys off request-id-middleware's own x-forwarded-for read on
-              // THIS internal request — without forwarding it, every fragment-
-              // POST download shares the request's own (empty/localhost) IP,
-              // turning the per-user 30/min backstop into one global bucket
-              // (#1307). Forwarding the same value extractAuditMeta already
-              // computed from the original request's headers doesn't widen the
-              // trust boundary: it's the identical XFF-trusts-first-hop model
-              // request-id-middleware.ts already applies framework-wide.
-              ...(auditMeta.ip ? { "x-forwarded-for": auditMeta.ip } : {}),
-            },
-            body: JSON.stringify({
-              type: "user-data-rights:query:download-by-token",
-              payload: { token, auditMeta },
-            }),
-          }),
-        );
+        return forwardTokenDownload(app, url, c.req.raw.headers, token);
       },
     });
 
@@ -601,6 +576,36 @@ function extractAuditMeta(headers: Headers): { ip: string | null; userAgent: str
     if (real && real.length > 0) ip = real;
   }
   return { ip, userAgent: headers.get("user-agent") };
+}
+
+// Shared by both /user-export/by-token routes (GET query-param fallback +
+// POST fragment-exchange, see the r.httpRoute blocks above). Forwards the
+// caller's x-forwarded-for so download-by-token.query.ts's
+// per-ip rate limit -- which keys off request-id-middleware's own XFF read
+// on THIS internal request -- sees the original client's IP instead of
+// every internal call collapsing onto one bucket (#1307). Not a new trust
+// boundary: it is the identical XFF-trusts-first-hop model
+// request-id-middleware.ts already applies framework-wide.
+function forwardTokenDownload(
+  app: { fetch: (req: Request) => Response | Promise<Response> },
+  url: URL,
+  headers: Headers,
+  token: string,
+): Response | Promise<Response> {
+  const auditMeta = extractAuditMeta(headers);
+  return app.fetch(
+    new Request(`${url.origin}/api/query`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(auditMeta.ip ? { "x-forwarded-for": auditMeta.ip } : {}),
+      },
+      body: JSON.stringify({
+        type: "user-data-rights:query:download-by-token",
+        payload: { token, auditMeta },
+      }),
+    }),
+  );
 }
 
 // Interstitial page for the magic-link fragment exchange (see the

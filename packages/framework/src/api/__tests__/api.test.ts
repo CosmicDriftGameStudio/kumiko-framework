@@ -9,6 +9,7 @@ import {
   type TenantId,
 } from "../../engine";
 import { createTestUser, TestUsers } from "../../stack";
+import { waitFor } from "../../testing";
 import { pumpStream, StreamFrame } from "../routes";
 import { buildServer } from "../server";
 
@@ -311,7 +312,46 @@ describe("pumpStream", () => {
     };
 
     await expect(pumpStream(writer, gen(), 5)).rejects.toThrow("client disconnected");
-    expect(cleanedUp).toBe(true);
+    // Fire-and-forget cleanup (kumiko-framework#1547): pumpStream's finally
+    // no longer awaits generator.return() — it can't, since a still-pending
+    // .next() would make that await hang — so cleanedUp flips asynchronously
+    // after pumpStream's own rejection, not synchronously before it.
+    await waitFor(() => {
+      expect(cleanedUp).toBe(true);
+    });
+  });
+
+  test("does not hang when writeSSE throws while a .next() pull is still in flight", async () => {
+    // kumiko-framework#1547: generator.return() queues behind an in-flight
+    // .next() (V8 semantics) — an `await generator.return(undefined)` in the
+    // finally block would hang for as long as the handler's .next() never
+    // settles, which a dead Redis/DB subscription can do indefinitely.
+    // `never` intentionally never resolves — the fire-and-forget fix must
+    // not need it to.
+    const never = new Promise<never>(() => {});
+    async function* gen() {
+      await never;
+      yield { i: 0 };
+    }
+    const writer = {
+      frames: [] as Array<{ event: string; data: string }>,
+      async writeSSE(message: { event: string; data: string }) {
+        if (message.event === StreamFrame.ping) throw new Error("client disconnected");
+        this.frames.push(message);
+      },
+    };
+
+    const TIMEOUT = Symbol("timeout");
+    const outcome = await Promise.race([
+      pumpStream(writer, gen(), 5).then(
+        () => "resolved",
+        (e) => e,
+      ),
+      Bun.sleep(500).then(() => TIMEOUT),
+    ]);
+    expect(outcome).not.toBe(TIMEOUT);
+    expect(outcome).toBeInstanceOf(Error);
+    expect((outcome as Error).message).toBe("client disconnected");
   });
 
   test("serializes an undefined yielded value as an explicit null chunk instead of an invalid frame", async () => {

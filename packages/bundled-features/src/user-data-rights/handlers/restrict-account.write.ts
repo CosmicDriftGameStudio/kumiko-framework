@@ -1,11 +1,12 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { access, createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+import { tenantMembershipsTable } from "../../tenant";
 import { USER_STATUS, userTable } from "../../user";
 import { isAdminActor } from "../lib/is-admin-actor";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";
@@ -38,13 +39,30 @@ export const restrictAccountWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId ?? event.user.id;
     if (targetUserId !== event.user.id) {
-      const isAdmin = isAdminActor(event.user);
-      if (!isAdmin) {
+      if (!isAdminActor(event.user)) {
         return writeFailure(
           new AccessDeniedError({
             details: { reason: "admin_required_for_other_user" },
           }),
         );
+      }
+      // Same cross-tenant guard as lift-restriction.write.ts: only
+      // SystemAdmin (platform-wide) may target a user without an active
+      // membership in the caller's own tenant. Without this, a TenantAdmin
+      // from tenant A could restrict — and force-revoke the sessions of —
+      // a user who has never been a member of tenant A.
+      if (!event.user.roles.some((role) => access.systemAdmin.includes(role))) {
+        const membership = await fetchOne(ctx.db.raw, tenantMembershipsTable, {
+          userId: targetUserId,
+          tenantId: event.user.tenantId,
+        });
+        if (!membership) {
+          return writeFailure(
+            new AccessDeniedError({
+              details: { reason: "target_user_not_in_admin_tenant" },
+            }),
+          );
+        }
       }
     }
 

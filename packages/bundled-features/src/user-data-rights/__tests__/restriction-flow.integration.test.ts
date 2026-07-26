@@ -211,6 +211,36 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
+  // kumiko-framework#1545: mirrors the lift-restriction cross-tenant guard
+  // below — an isAdminActor check alone lets an Admin/TenantAdmin from a
+  // DIFFERENT tenant restrict (and force-revoke the sessions of) a user
+  // who was never a member of the admin's tenant.
+  test("Admin aus fremdem Tenant: 403 target_user_not_in_admin_tenant, Status bleibt Active", async () => {
+    const { userId } = await seedAliceWithMembership();
+    const otherTenantAdmin = await mintActor(TestUsers.otherTenant);
+
+    const err = await stack.http.writeErr(RESTRICT, { userId }, otherTenantAdmin);
+    expect(err.httpStatus).toBe(403);
+    expect(reasonOf(err)).toBe("target_user_not_in_admin_tenant");
+
+    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
+      status: string;
+    }>;
+    expect(userRow[0]?.status).toBe(USER_STATUS.Active);
+  });
+
+  test("SystemAdmin darf tenant-übergreifend restricten (platform-weiter Operator)", async () => {
+    const { userId } = await seedAliceWithMembership();
+    const systemAdmin = await mintActor({
+      id: crypto.randomUUID(),
+      tenantId: testTenantId(2),
+      roles: ["SystemAdmin"],
+    });
+
+    const result = await stack.http.writeOk<{ status: string }>(RESTRICT, { userId }, systemAdmin);
+    expect(result.status).toBe(USER_STATUS.Restricted);
+  });
+
   test("Restricted → Restricted (Idempotenz-Guard): 422 already_restricted", async () => {
     const { userId } = await seedAliceWithMembership(USER_STATUS.Restricted);
     // Alice's own session is blocked while Restricted — an admin targets
