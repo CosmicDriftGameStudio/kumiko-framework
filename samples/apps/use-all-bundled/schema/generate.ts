@@ -17,7 +17,7 @@
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { APP_FEATURES } from "../src/run-config";
+import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../src/run-config";
 
 type FeatureImport = (
   | {
@@ -85,6 +85,13 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/auth-email-password",
     factory: "createAuthEmailPasswordFeature",
+  },
+  // Companion toggle auto-mounted by composeFeatures when authOptions.signup
+  // is set (#1521). No r.entity — listed for schema-check parity.
+  "auth-self-registration": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/auth-email-password",
+    factory: "createAuthSelfRegistrationToggleFeature",
   },
   "auth-mfa": {
     kind: "factory",
@@ -357,6 +364,7 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
 
 const features = composeFeatures([...APP_FEATURES], {
   includeBundled: true,
+  authOptions: AUTH_COMPOSE_OPTIONS,
 });
 
 const importLines: string[] = [

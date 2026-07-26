@@ -13,7 +13,7 @@
 import { createTextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { APP_FEATURES } from "../run-config";
+import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 import { notesFeature } from "./notes-feature";
 import { appScreensFeature } from "./screens-feature";
@@ -57,5 +57,7 @@ await runDevApp({
         },
       ],
     },
+    // Coverage for auth-self-registration toggle (#1521 Option A).
+    signup: AUTH_COMPOSE_OPTIONS.signup,
   },
 });

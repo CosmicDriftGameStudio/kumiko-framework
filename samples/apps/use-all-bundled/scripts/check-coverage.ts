@@ -42,6 +42,13 @@ const EXPECTED_HELD_BACK = new Set([
   "auth-foundation", // scaffold-only (#1368): bootCheck wirft ohne gemountete auth-provider-*, die es noch nicht gibt
 ]);
 
+// Registry-only: mounted features that are NOT top-level package exports
+// (companion features living under another export path). schema-check still
+// needs them in FEATURE_IMPORT_REGISTRY; coverage must not flag them stale.
+const EXPECTED_REGISTRY_ONLY = new Set([
+  "auth-self-registration", // from ./auth-email-password, auto-mounted with signup (#1521)
+]);
+
 // Sub-paths in bundled-features's package.json exports (./tenant/seeding,
 // ./auth-email-password/web, …) sind keine Features, nur utilities.
 // Wir interessieren uns nur für top-level-paths. Nicht-Feature-Exports
@@ -122,7 +129,7 @@ for (const name of exports) {
 }
 
 for (const name of registry) {
-  if (!exports.has(name)) stale.push(name);
+  if (!exports.has(name) && !EXPECTED_REGISTRY_ONLY.has(name)) stale.push(name);
 }
 
 for (const name of EXPECTED_HELD_BACK) {

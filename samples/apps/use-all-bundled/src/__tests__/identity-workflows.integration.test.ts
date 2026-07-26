@@ -31,7 +31,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher, deleteRows } from "@cosmicdrift/kumiko-framework/testing";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { APP_FEATURES } from "../run-config";
+import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 
 const TENANT: TenantId = "00000000-0000-4000-8000-000000000020" as TenantId;
 
@@ -39,7 +39,7 @@ let stack: TestStack;
 
 beforeAll(async () => {
   configureEntityFieldEncryption(createTestEnvelopeCipher());
-  const features = composeFeatures([...APP_FEATURES], { includeBundled: true });
+  const features = composeFeatures([...APP_FEATURES], { includeBundled: true, authOptions: AUTH_COMPOSE_OPTIONS });
   stack = await setupTestStack({
     features,
     extraContext: () => ({ configResolver: createConfigResolver() }),
