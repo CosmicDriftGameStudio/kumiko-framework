@@ -31,6 +31,14 @@ test("Widget-Katalog rendert und ModeSwitch schaltet", async ({ page }) => {
   await drawer.getByRole("button", { name: "Schließen" }).click();
   await expect(drawer).toBeHidden();
 
+  // InfinityList: erste Seite lädt, Unread-Filter refetcht auf einen Teil.
+  const inbox = page.getByTestId("inbox-demo");
+  await expect(inbox.getByText("William Smith · Meeting Tomorrow")).toBeVisible();
+  await expect(inbox.getByText("Archivieren").first()).toBeVisible();
+  await page.getByRole("button", { name: "Ungelesen" }).click();
+  await expect(inbox.getByText("William Smith · Meeting Tomorrow")).toBeVisible();
+  await expect(inbox.getByText("Alice Smith · Re: Project Update")).toBeHidden();
+
   if (process.env["SCREENSHOT"] === "1") {
     await page.screenshot({ path: "/tmp/widgets-catalog.png", fullPage: true });
   }

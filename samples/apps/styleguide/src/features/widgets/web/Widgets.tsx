@@ -12,6 +12,7 @@ import {
   DetailList,
   Drawer,
   EmptyState,
+  InfinityList,
   MiniStat,
   ModeSwitch,
   MoneyField,
@@ -144,11 +145,73 @@ export function Widgets(): ReactNode {
         <p className="text-sm">Hi team, just a reminder about our meeting tomorrow at 10 AM.</p>
       </Drawer>
 
+      <InboxDemo />
       <FinancingCalculatorDemo />
       <FormFieldsDemo />
       <ComparisonDemo />
       <AiTextDemo />
     </div>
+  );
+}
+
+type InboxMessage = {
+  readonly id: string;
+  readonly sender: string;
+  readonly subject: string;
+  readonly snippet: string;
+  readonly unread: boolean;
+};
+type InboxPage = { readonly rows: readonly InboxMessage[]; readonly nextCursor: string | null };
+
+// Inbox-artige Scroll-Liste: Filter (Unread-Toggle) + Row-Action (Archivieren,
+// no-op wie die anderen Demo-Buttons hier) + `resizable` — Ziehen an der
+// rechten Kante wie das Nachrichten-Panel in echten Mail-Clients.
+function InboxDemo(): ReactNode {
+  const { Button } = usePrimitives();
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  return (
+    <SectionCard
+      title="Inbox (InfinityList)"
+      action={
+        <div className="flex items-center gap-2">
+          <ModeSwitch
+            value={unreadOnly ? "unread" : "all"}
+            onChange={(v) => setUnreadOnly(v === "unread")}
+            options={[
+              { value: "all", label: "Alle" },
+              { value: "unread", label: "Ungelesen" },
+            ]}
+          />
+          <Button variant="secondary" onClick={() => {}}>
+            Alle als gelesen markieren
+          </Button>
+        </div>
+      }
+    >
+      <InfinityList<InboxPage, InboxMessage>
+        query="widgets:query:metrics:inbox-messages"
+        payload={{ unreadOnly, limit: 6 }}
+        pageSize={6}
+        rows={(data) => data.rows}
+        nextCursor={(data) => data.nextCursor}
+        rowId={(row) => row.id}
+        resizable
+        testId="inbox-demo"
+        renderRow={(row) => (
+          <div className="flex items-start justify-between gap-4 border-b py-2 last:border-b-0">
+            <div className="min-w-0">
+              <div className={row.unread ? "font-semibold" : ""}>
+                {row.sender} · {row.subject}
+              </div>
+              <div className="truncate text-sm text-muted-foreground">{row.snippet}</div>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => {}}>
+              Archivieren
+            </Button>
+          </div>
+        )}
+      />
+    </SectionCard>
   );
 }
 

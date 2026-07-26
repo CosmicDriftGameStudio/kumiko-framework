@@ -1,6 +1,7 @@
 import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { useDispatcher, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { cn } from "../lib/cn";
 import { EmptyState, ErrorState, LoadingState } from "./states";
 
 export type InfinityListProps<TData = unknown, TRow = Readonly<Record<string, unknown>>> = {
@@ -15,6 +16,8 @@ export type InfinityListProps<TData = unknown, TRow = Readonly<Record<string, un
   readonly rowId: (row: TRow, index: number) => string;
   readonly renderRow: (row: TRow) => ReactNode;
   readonly emptyState?: ReactNode;
+  /** Zieh-Griff an der rechten Kante, wie das Nachrichten-Panel in Mail-Clients. Native `resize`, keine Drag-Logik. */
+  readonly resizable?: boolean;
   readonly className?: string;
   readonly testId?: string;
 };
@@ -38,6 +41,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   rowId,
   renderRow,
   emptyState,
+  resizable,
   className,
   testId,
 }: InfinityListProps<TData, TRow>): ReactNode {
@@ -102,7 +106,16 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     return <>{emptyState ?? <EmptyState title={t("kumiko.list.no-entries")} testId={testId} />}</>;
 
   return (
-    <div data-testid={testId} className={className ?? "flex flex-col overflow-y-auto"}>
+    <div
+      data-testid={testId}
+      className={
+        className ??
+        cn(
+          "flex flex-col overflow-y-auto",
+          resizable && "resize-x overflow-x-hidden min-w-56 max-w-full",
+        )
+      }
+    >
       {state.rows.map((row, index) => (
         <div key={rowId(row, index)}>{renderRow(row)}</div>
       ))}
