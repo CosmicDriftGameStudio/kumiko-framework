@@ -39,21 +39,23 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
   const tenant = options.tenant ?? "UTC";
   const user = options.user ?? tenant;
   const geoTz = options.geoTz;
+  // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal values at
+  // runtime; TzContext is typed against ambient Temporal from temporal-spec.
+  const T = TemporalPolyfill as unknown as typeof Temporal;
 
   return {
     tenant,
     user,
-    now: () => TemporalPolyfill.Now.instant(), // @wrapper-known semantic-alias
-    nowIn: (tz: string) => TemporalPolyfill.Now.zonedDateTimeISO(tz), // @wrapper-known semantic-alias
-    today: (tz: string) => TemporalPolyfill.Now.plainDateISO(tz), // @wrapper-known semantic-alias
+    now: () => T.Now.instant(), // @wrapper-known semantic-alias
+    nowIn: (tz: string) => T.Now.zonedDateTimeISO(tz), // @wrapper-known semantic-alias
+    today: (tz: string) => T.Now.plainDateISO(tz), // @wrapper-known semantic-alias
     todayRange: (tz: string) => {
-      const today = TemporalPolyfill.Now.plainDateISO(tz);
+      const today = T.Now.plainDateISO(tz);
       const startZdt = today.toZonedDateTime({ timeZone: tz });
       const endZdt = today.add({ days: 1 }).toZonedDateTime({ timeZone: tz });
       return { start: startZdt.toInstant(), end: endZdt.toInstant() };
     },
-    parse: (wallClock: string, tz: string) =>
-      TemporalPolyfill.PlainDateTime.from(wallClock).toZonedDateTime(tz),
+    parse: (wallClock: string, tz: string) => T.PlainDateTime.from(wallClock).toZonedDateTime(tz),
     toInstant: (zdt) => zdt.toInstant(),
     toLocatedJson: (zdt) => ({
       // Wall-clock WITHOUT offset (no "Z", no "+01:00") plus the IANA name.
@@ -62,7 +64,7 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
       at: zdt.toPlainDateTime().toString(),
       tz: zdt.timeZoneId,
     }),
-    fromLocatedJson: (obj) => TemporalPolyfill.PlainDateTime.from(obj.at).toZonedDateTime(obj.tz),
+    fromLocatedJson: (obj) => T.PlainDateTime.from(obj.at).toZonedDateTime(obj.tz),
     fromCoordinates: async (coords) => {
       if (geoTz === undefined) {
         throw new Error(
@@ -84,9 +86,7 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
       }
       return geoTz.fromAddress(address);
     },
-    // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal values at
-    // runtime; TzContext is typed against ambient Temporal from temporal-spec.
-  } as TzContext;
+  };
 }
 
 /**

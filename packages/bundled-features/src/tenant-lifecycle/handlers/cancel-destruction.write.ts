@@ -8,8 +8,6 @@ import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../ten
 import { DESTRUCTION_CANCELLED_EVENT_QN } from "../constants";
 import { invalidateTenantLifecycleGate } from "../lifecycle-gate";
 
-export { isWithinGracePeriod };
-
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
 
 type TenantLifecycleRow = {
