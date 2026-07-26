@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-types",
-  "version": "0.165.0",
+  "version": "0.165.1",
   "description": "Framework-Type-Definitions für Kumiko — FeatureDefinition, BootCheck-Types und die reinen Engine-Types. Erlaubt Downstream-Konsumenten, gegen die Type-Contracts zu bauen, ohne das ganze Framework-Package zu importieren. Enthaelt auch die identitaets-sensitiven Error-Klassen (event-store-errors.ts, kms-adapter-types.ts) als Runtime-Code — kumiko-framework/kumiko-bundled-features deklarieren dieses Package deshalb als peerDependency (Single-Copy-Zwang), nicht als plain dependency.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
