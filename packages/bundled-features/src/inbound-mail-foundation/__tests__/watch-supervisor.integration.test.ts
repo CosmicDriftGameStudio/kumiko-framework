@@ -228,8 +228,10 @@ describe("watch-supervisor — error semantics", () => {
     const supervisor = createSupervisor();
     try {
       await supervisor.start();
-      await waitFor(() => {
+      await waitFor(async () => {
         expect(isWatching(accountId)).toBe(true);
+        const accounts = await selectMany(db, mailAccountsProjectionTable, { id: accountId });
+        expect(accounts[0]?.["watchState"]).toBe("watching");
       });
 
       emitWatchError(accountId, new InboundAuthError("token revoked"));
