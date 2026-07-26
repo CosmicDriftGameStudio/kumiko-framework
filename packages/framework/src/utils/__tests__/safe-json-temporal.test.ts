@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal as PolyfillTemporal } from "temporal-polyfill";
-import { ensureTemporalPolyfill } from "../time/polyfill";
-import { stringifyJson } from "./safe-json";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
+import { stringifyJson } from "../safe-json";
 
 describe("stringifyJson — Temporal.Instant (native + polyfill)", () => {
   test("serializes polyfill Instant", () => {
