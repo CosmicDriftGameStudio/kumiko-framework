@@ -205,6 +205,15 @@ jobs:
         # registry 18 features hinter APP_FEATURES → migrations fehlten.
         run: bun packages/dev-server/bin/kumiko-schema-check.ts --run-config samples/apps/use-all-bundled/src/run-config.ts --generate samples/apps/use-all-bundled/schema/generate.ts
 
+      - name: Schema validate (migration content)
+        # kumiko-schema validate: entity↔snapshot + validateBoot + SQL-replay
+        # ↔snapshot. Catches migration drift that schema.generated / schema-check
+        # miss (#1521). Same stub KEK as Boot smoke (encrypted entity fields).
+        working-directory: samples/apps/use-all-bundled
+        env:
+          KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
+        run: bun ../../../packages/dev-server/bin/kumiko-schema.ts validate
+
       - name: Boot smoke (no DB)
         # Stub-secrets: validators check Format (base64 32-byte, min-length),
         # nicht echte Crypto-Strength. boot-mode exitiert vor jedem

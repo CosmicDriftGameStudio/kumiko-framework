@@ -68,6 +68,7 @@ async function readMountedFeatures(runConfigPath: string): Promise<Set<string>> 
   const mod = (await import(runConfigPath)) as {
     APP_FEATURES?: ReadonlyArray<{ name: string }>;
     HAS_AUTH?: boolean;
+    HAS_SIGNUP?: boolean;
   };
   if (!mod.APP_FEATURES) {
     throw new Error(
@@ -84,6 +85,12 @@ async function readMountedFeatures(runConfigPath: string): Promise<Set<string>> 
   // "auth-email-password is mounted but no registry-entry".
   if (mod.HAS_AUTH ?? true) {
     for (const name of implicitAuthModeFeatureNames()) set.add(name);
+  }
+  // auth-self-registration is only prepended when authOptions.signup is set
+  // (composeFeatures) — opt-in via HAS_SIGNUP so apps without signup don't
+  // get a stale-registry false positive (#1521).
+  if (mod.HAS_SIGNUP === true) {
+    set.add("auth-self-registration");
   }
   return set;
 }
