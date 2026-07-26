@@ -29,7 +29,15 @@ export const StreamFrame = {
   error: "error",
 } as const;
 
-export function createApiRoutes(dispatcher: Dispatcher) {
+export type ApiRoutesOptions = {
+  // Override the SSE heartbeat interval (ms). Production uses
+  // SSE_HEARTBEAT_INTERVAL_MS; tests pass a short value so the pre-pull
+  // race + ping path can be exercised without a 15s wait.
+  readonly sseHeartbeatMs?: number;
+};
+
+export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOptions = {}) {
+  const heartbeatMs = options.sseHeartbeatMs ?? SSE_HEARTBEAT_INTERVAL_MS;
   const api = new Hono();
 
   api.post(Routes.write, async (c) => {
@@ -169,7 +177,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     const settledInTime = await Promise.race([
       firstPull.then(() => true).catch(() => true),
       new Promise<false>((resolve) => {
-        prePullTimer = setTimeout(() => resolve(false), SSE_HEARTBEAT_INTERVAL_MS);
+        prePullTimer = setTimeout(() => resolve(false), heartbeatMs);
       }),
     ]);
     clearTimeout(prePullTimer);
@@ -198,7 +206,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       });
 
       try {
-        await pumpStream(stream, generator, SSE_HEARTBEAT_INTERVAL_MS, firstPull);
+        await pumpStream(stream, generator, heartbeatMs, firstPull);
       } catch (e) {
         const err = toKumiko(e);
         logServerFault(err, requestId, body.type);

@@ -401,6 +401,80 @@ describe("dispatcher.stream", () => {
     const dispatcherSpan = provider.spansByName("kumiko.dispatcher.handler")[0]!;
     expect(dispatcherSpan.status).toBe("error");
   });
+
+  test("draining a stream to completion emits outcome:completed", async () => {
+    // completedNormally=true only when the inner generator finishes on its
+    // own — pins the success-path label so a refactor that drops the flag
+    // cannot silently reclassify clean streams as aborted (#1551).
+    const provider = createRecordingProvider();
+    const feature = defineFeature("complete", (r) => {
+      r.streamHandler(
+        "tail",
+        z.object({}),
+        async function* () {
+          yield { i: 0 };
+          yield { i: 1 };
+        },
+        { access: { openToAll: true } },
+      );
+    });
+    const dispatcher = createDispatcher(createRegistry([feature]), {
+      tracer: provider.tracer,
+      meter: provider.meter,
+    });
+
+    await collect(dispatcher.stream("complete:stream:tail", {}, createTestUser()));
+
+    const duration = provider.metricEvents.find(
+      (e) =>
+        e.type === "histogram.observe" && e.name === "kumiko_dispatcher_handler_duration_seconds",
+    );
+    expect(duration).toBeDefined();
+    expect(duration?.labels).toMatchObject({
+      handler: "complete:stream:tail",
+      success: "true",
+      outcome: "completed",
+    });
+  });
+
+  test("generator.return() mid-stream emits outcome:aborted, not completed", async () => {
+    // Consumer walk-away (SSE tab-close) must not count as a clean
+    // completion — completedNormally stays false when return() interrupts
+    // the loop (#1551).
+    const provider = createRecordingProvider();
+    const feature = defineFeature("abort", (r) => {
+      r.streamHandler(
+        "tail",
+        z.object({}),
+        async function* () {
+          yield { i: 0 };
+          yield { i: 1 };
+          yield { i: 2 };
+        },
+        { access: { openToAll: true } },
+      );
+    });
+    const dispatcher = createDispatcher(createRegistry([feature]), {
+      tracer: provider.tracer,
+      meter: provider.meter,
+    });
+
+    const gen = dispatcher.stream("abort:stream:tail", {}, createTestUser());
+    const first = await gen.next();
+    expect(first.value).toEqual({ i: 0 });
+    await gen.return(undefined);
+
+    const duration = provider.metricEvents.find(
+      (e) =>
+        e.type === "histogram.observe" && e.name === "kumiko_dispatcher_handler_duration_seconds",
+    );
+    expect(duration).toBeDefined();
+    expect(duration?.labels).toMatchObject({
+      handler: "abort:stream:tail",
+      success: "true",
+      outcome: "aborted",
+    });
+  });
 });
 
 // --- postQuery hooks on standalone (entity-less) queries ---

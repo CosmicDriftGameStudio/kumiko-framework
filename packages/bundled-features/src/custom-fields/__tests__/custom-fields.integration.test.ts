@@ -524,6 +524,11 @@ describe("custom-fields integration — registry facade: getMultiStreamProjectio
 
     expect(stack.registry.getAllMultiStreamProjections().has(qualifiedName)).toBe(true);
     expect(stack.registry.getMultiStreamProjectionFeature(qualifiedName)).toBe("property-test");
+    // Missing MSP → undefined (not a fallback string). server.ts only spreads
+    // featureName onto the EventConsumer when this returns a defined value.
+    expect(
+      stack.registry.getMultiStreamProjectionFeature("does-not-exist:projection:nope"),
+    ).toBeUndefined();
   });
 });
 
