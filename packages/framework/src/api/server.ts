@@ -159,6 +159,9 @@ export type ServerOptions = {
   // `undefined` → 1 MB default. `0` disables the limit entirely (tests
   // or bespoke deployments with a reverse-proxy that caps upstream).
   maxRequestBytes?: number;
+  // SSE heartbeat interval for POST /api/stream (ms). Omit → framework default.
+  // Tune down behind proxies with aggressive idle timeouts.
+  sseHeartbeatMs?: number;
   // Process lifecycle. When present:
   //   - GET /health/ready reflects lifecycle.state() (200 ready / 503 else)
   //   - eventDispatcher.stop() is auto-registered as a shutdown hook, so
@@ -680,7 +683,12 @@ export function buildServer(options: ServerOptions): KumikoServer {
   if (options.auth) {
     app.route("/api", createAuthRoutes(dispatcher, jwt, options.auth));
   }
-  app.route("/api", createApiRoutes(dispatcher));
+  app.route(
+    "/api",
+    createApiRoutes(dispatcher, {
+      ...(options.sseHeartbeatMs !== undefined ? { sseHeartbeatMs: options.sseHeartbeatMs } : {}),
+    }),
+  );
   app.route("/api", createSseRoute(sseBroker));
 
   // Mount upload/download routes whenever a file provider is resolvable (a

@@ -59,12 +59,13 @@ async function buildApp(overrides: Partial<AuthRoutesConfig> = {}): Promise<Hono
   return app;
 }
 
-function verifyRequest(xForwardedFor?: string): Request {
+function verifyRequest(xForwardedFor?: string, xRealIp?: string): Request {
   return new Request("http://localhost/api/auth/mfa/verify", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(xForwardedFor !== undefined ? { "x-forwarded-for": xForwardedFor } : {}),
+      ...(xRealIp !== undefined ? { "x-real-ip": xRealIp } : {}),
     },
     body: JSON.stringify({ challengeToken: "t", code: "000000" }),
   });
@@ -131,5 +132,15 @@ describe("AuthRoutesConfig.trustedProxyHops", () => {
     const app = await buildApp({ trustedProxyHops: 1 });
     const res = await app.request(verifyRequest(undefined));
     expect(res.status).toBe(422);
+  });
+
+  test("hops=1 with short/missing XFF uses x-real-ip so clients stay independent", async () => {
+    const app = await buildApp({ trustedProxyHops: 1 });
+    const attempt = (realIp: string) => app.request(verifyRequest(undefined, realIp));
+    expect((await attempt("203.0.113.10")).status).toBe(422);
+    expect((await attempt("203.0.113.10")).status).toBe(422);
+    expect((await attempt("203.0.113.10")).status).toBe(429);
+    // Different X-Real-IP must not share the previous client's bucket.
+    expect((await attempt("203.0.113.11")).status).toBe(422);
   });
 });
