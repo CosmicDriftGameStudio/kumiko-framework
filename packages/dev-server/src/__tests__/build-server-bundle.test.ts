@@ -193,4 +193,36 @@ describe("buildServerBundle + package.json extras (#1484)", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("app package.json does not override framework runtime pins", async () => {
+    const dir = makeFixture();
+    try {
+      const frameworkPkgDir = join(dir, "node_modules/@cosmicdrift/kumiko-framework");
+      mkdirSync(frameworkPkgDir, { recursive: true });
+      writeFileSync(
+        join(frameworkPkgDir, "package.json"),
+        `${JSON.stringify({
+          name: "@cosmicdrift/kumiko-framework",
+          dependencies: { meilisearch: "^0.58.0" },
+        })}\n`,
+      );
+      writeFileSync(
+        join(dir, "package.json"),
+        `${JSON.stringify({
+          name: "fixture-app",
+          dependencies: { meilisearch: "^0.1.0", "@napi-rs/canvas": "0.1.65" },
+          kumiko: { extraRuntimeExternals: ["@napi-rs/canvas"] },
+        })}\n`,
+      );
+      const result = await buildServerBundle({
+        cwd: dir,
+        outDir: join(dir, "dist-server"),
+        extraRuntimeExternals: readExtraRuntimeExternals(dir),
+      });
+      expect(result.runtimeDeps["meilisearch"]).toBe("^0.58.0");
+      expect(result.runtimeDeps["@napi-rs/canvas"]).toBe("0.1.65");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

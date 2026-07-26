@@ -262,11 +262,10 @@ async function resolveRuntimeDepsVersions(
           join(repoRoot, "packages/bundled-features/package.json"),
         ]
       : []),
-    // node_modules applied after repo-root so installed versions win (#1217).
+    // node_modules applied last among framework sources so installed versions
+    // win over the repo-root fallback (#1217).
     join(cwd, "node_modules/@cosmicdrift/kumiko-framework/package.json"),
     join(cwd, "node_modules/@cosmicdrift/kumiko-bundled-features/package.json"),
-    // App package.json last — pins app-specific extraRuntimeExternals (#1484).
-    join(cwd, "package.json"),
   ];
   const allDeps: Record<string, string> = {};
   for (const path of pinSources) {
@@ -277,6 +276,22 @@ async function resolveRuntimeDepsVersions(
       optionalDependencies?: Record<string, string>;
     }>(raw, path);
     Object.assign(allDeps, parsed.dependencies ?? {}, parsed.optionalDependencies ?? {});
+  }
+  // App package.json fills gaps only — pins extraRuntimeExternals without
+  // overriding framework-native pins the app may also list (#1484 / review).
+  const appPkg = join(cwd, "package.json");
+  if (existsSync(appPkg)) {
+    const raw = await readFile(appPkg, "utf-8");
+    const parsed = parseJsonOrThrow<{
+      dependencies?: Record<string, string>;
+      optionalDependencies?: Record<string, string>;
+    }>(raw, appPkg);
+    for (const [name, ver] of Object.entries({
+      ...(parsed.dependencies ?? {}),
+      ...(parsed.optionalDependencies ?? {}),
+    })) {
+      if (allDeps[name] === undefined) allDeps[name] = ver;
+    }
   }
   for (const pkg of packages) {
     out[pkg] = allDeps[pkg] ?? "*";
