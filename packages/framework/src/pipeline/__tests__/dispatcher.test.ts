@@ -427,8 +427,7 @@ describe("dispatcher.stream", () => {
 
     const duration = provider.metricEvents.find(
       (e) =>
-        e.type === "histogram.observe" &&
-        e.name === "kumiko_dispatcher_handler_duration_seconds",
+        e.type === "histogram.observe" && e.name === "kumiko_dispatcher_handler_duration_seconds",
     );
     expect(duration).toBeDefined();
     expect(duration?.labels).toMatchObject({
@@ -467,8 +466,7 @@ describe("dispatcher.stream", () => {
 
     const duration = provider.metricEvents.find(
       (e) =>
-        e.type === "histogram.observe" &&
-        e.name === "kumiko_dispatcher_handler_duration_seconds",
+        e.type === "histogram.observe" && e.name === "kumiko_dispatcher_handler_duration_seconds",
     );
     expect(duration).toBeDefined();
     expect(duration?.labels).toMatchObject({

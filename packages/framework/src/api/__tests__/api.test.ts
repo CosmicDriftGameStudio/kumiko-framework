@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { Hono } from "hono";
 import { parseSseFrames } from "@cosmicdrift/kumiko-dispatcher-live";
+import { Hono } from "hono";
 import { z } from "zod";
 import {
   createEntity,
@@ -519,7 +519,7 @@ describe("POST /api/stream pre-pull race", () => {
   }
 
   function mountStreamApp(dispatcher: Dispatcher, sseHeartbeatMs: number): Hono {
-    const app = new Hono();
+    const app = new Hono<{ Variables: { pipelineUser: typeof user } }>();
     app.use("/api/*", async (c, next) => {
       c.set("pipelineUser", user);
       await next();
