@@ -521,6 +521,19 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
     const body = (await res.json()) as { error?: string };
     expect(body.error).toBe("missing_token");
   });
+
+  test("POST-Exchange: invalid token → 404 + download.notFound i18nKey", async () => {
+    const res = await stack.app.fetch(
+      new Request("http://test/user-export/by-token", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: "fake-xxxxx" }),
+      }),
+    );
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { i18nKey: string } };
+    expect(body.error.i18nKey).toBe("userDataRights.errors.download.notFound");
+  });
 });
 
 describe("download-by-job :: cross-user + cross-tenant", () => {

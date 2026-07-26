@@ -69,7 +69,17 @@ describe("splitSqlStatements", () => {
 
   test("throws fail-loud on an unterminated block comment instead of silently dropping statements", () => {
     const sql = `/* oops\nCREATE TABLE "a" ("id" uuid);`;
-    expect(() => splitSqlStatements(sql)).toThrow();
+    expect(() => splitSqlStatements(sql)).toThrow(/unterminated blockComment/);
+  });
+
+  test("throws fail-loud on an unterminated single-quoted string", () => {
+    const sql = `INSERT INTO "a" ("v") VALUES ('oops;`;
+    expect(() => splitSqlStatements(sql)).toThrow(/unterminated singleQuote/);
+  });
+
+  test("throws fail-loud on an unterminated double-quoted identifier", () => {
+    const sql = `CREATE TABLE "weird;`;
+    expect(() => splitSqlStatements(sql)).toThrow(/unterminated doubleQuote/);
   });
 
   test("a trailing line comment without a newline terminates cleanly", () => {

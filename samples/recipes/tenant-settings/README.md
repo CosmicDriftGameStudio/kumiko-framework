@@ -89,9 +89,9 @@ changes them from **Settings → Tenant → Default Currency / Default Locale**.
 bun test src/__tests__/feature.integration.test.ts
 ```
 
-Proves all four steps above, plus that the feature boots without a
-`tenant-settings` mount (falls back to the field literal — `defineCreateWithTenantDefaults`'s
-`ctx.config?.(...)` call is optional-chained).
+Covers the happy path above (tenant defaults fill gaps; explicit caller
+values still win). Creating without a `tenant-settings` mount is not a
+supported fallback — mount the feature (or the recipe's stack) first.
 
 ## What's not in this recipe
 
