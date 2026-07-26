@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createDecimalField, createEntity } from "../../engine/factories";
 import { fieldToZod } from "../../engine/schema-builder";
-import { buildEntityTableMeta } from "../entity-table-meta";
+import { deriveEntityTableMeta } from "../entity-table-meta";
 import { coerceRow, extractTableInfo } from "../query";
 import { renderTableDdl } from "../render-ddl";
 import { buildEntityTable } from "../table-builder";
@@ -25,7 +25,7 @@ const entity = createEntity({
 describe("decimal field — column + DDL", () => {
   test("maps to numeric(precision,scale) with required→NOT NULL", () => {
     const cols = new Map(
-      buildEntityTableMeta("decimalProbe", entity).columns.map((c) => [c.name, c]),
+      deriveEntityTableMeta("decimalProbe", entity).columns.map((c) => [c.name, c]),
     );
     expect(cols.get("sum")?.pgType).toBe("numeric(14,2)");
     expect(cols.get("interest")?.pgType).toBe("numeric(6,4)");
@@ -35,7 +35,7 @@ describe("decimal field — column + DDL", () => {
   });
 
   test("renders real numeric(p,s) DDL", () => {
-    const ddl = renderTableDdl(buildEntityTableMeta("decimalProbe", entity)).join("\n");
+    const ddl = renderTableDdl(deriveEntityTableMeta("decimalProbe", entity)).join("\n");
     expect(ddl).toContain('"interest" numeric(6,4) NOT NULL');
     expect(ddl).toContain('"rate" numeric(12,2)');
   });

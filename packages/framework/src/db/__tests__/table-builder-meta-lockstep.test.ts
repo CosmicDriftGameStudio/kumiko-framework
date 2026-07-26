@@ -2,12 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { createEntity } from "../../engine/factories";
 import { sql } from "../dialect";
 import type { ColumnMeta, IndexMeta } from "../entity-table-meta";
-import { buildEntityTableMeta } from "../entity-table-meta";
+import { deriveEntityTableMeta } from "../entity-table-meta";
 import { asEntityTableMeta } from "../query";
 import { buildEntityTable } from "../table-builder";
 
 // Lock-step-Guard: buildEntityTable (Runtime-/Test-Stack-Pfad, Meta am
-// KUMIKO_META_SYMBOL) und buildEntityTableMeta (Migrations-Pfad) müssen
+// KUMIKO_META_SYMBOL) und deriveEntityTableMeta (Migrations-Pfad) müssen
 // für dieselbe EntityDefinition identische Spalten + Indexes produzieren.
 // Drift hier = Migration und Prod-Tabelle (bzw. collectTableMetas-Output)
 // gehen auseinander — gefunden als #255-Follow-up: select/number/bigInt
@@ -33,9 +33,9 @@ function byName<T extends { name: string }>(items: readonly T[]): readonly T[] {
   return [...items].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-describe("buildEntityTable ↔ buildEntityTableMeta lock-step", () => {
+describe("buildEntityTable ↔ deriveEntityTableMeta lock-step", () => {
   const fromBuilder = asEntityTableMeta(buildEntityTable("lockstepProbe", entityWithDefaults));
-  const fromMeta = buildEntityTableMeta("lockstepProbe", entityWithDefaults);
+  const fromMeta = deriveEntityTableMeta("lockstepProbe", entityWithDefaults);
 
   test("builder table carries an EntityTableMeta", () => {
     expect(fromBuilder).toBeDefined();
@@ -92,7 +92,7 @@ describe("lock-step — softDelete + explizite Indexes", () => {
   const fromBuilder = asEntityTableMeta(
     buildEntityTable("lockstepProbeSd", entityWithSoftDeleteAndIndexes),
   );
-  const fromMeta = buildEntityTableMeta("lockstepProbeSd", entityWithSoftDeleteAndIndexes);
+  const fromMeta = deriveEntityTableMeta("lockstepProbeSd", entityWithSoftDeleteAndIndexes);
 
   test("identical columns inkl. softDelete-Spalten", () => {
     expect(byName<ColumnMeta>(fromBuilder?.columns ?? [])).toEqual(
@@ -125,7 +125,7 @@ describe("lock-step — lookupable / blind-index (#818)", () => {
   const fromBuilder = asEntityTableMeta(
     buildEntityTable("lockstepProbeBidx", entityWithLookupable),
   );
-  const fromMeta = buildEntityTableMeta("lockstepProbeBidx", entityWithLookupable);
+  const fromMeta = deriveEntityTableMeta("lockstepProbeBidx", entityWithLookupable);
 
   test("identical columns inkl. nullable bidx-Spalte", () => {
     expect(byName<ColumnMeta>(fromBuilder?.columns ?? [])).toEqual(

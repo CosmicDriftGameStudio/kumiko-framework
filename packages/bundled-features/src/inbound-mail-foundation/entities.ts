@@ -1,5 +1,5 @@
 import { collectPiiSubjectFields } from "@cosmicdrift/kumiko-framework/crypto";
-import { buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createEntity,
@@ -164,9 +164,9 @@ export const seenMessageEntity = createEntity({
 // Plain EntityTableMeta (kein branded EntityTable) — unmanaged Direct-
 // Write-Stores, Handler schreiben via ctx.db (siehe user-session.ts-
 // Rationale).
-export const syncCursorTable = buildEntityTableMeta("mail-sync-cursor", syncCursorEntity, {
+export const syncCursorTable = deriveEntityTableMeta("mail-sync-cursor", syncCursorEntity, {
   source: "unmanaged",
 });
-export const seenMessageTable = buildEntityTableMeta("mail-seen-message", seenMessageEntity, {
+export const seenMessageTable = deriveEntityTableMeta("mail-seen-message", seenMessageEntity, {
   source: "unmanaged",
 });

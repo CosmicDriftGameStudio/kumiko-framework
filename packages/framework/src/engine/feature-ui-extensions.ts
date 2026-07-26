@@ -454,7 +454,7 @@ export function buildUiExtensionsMethods<TName extends string>(
         throw new Error(
           `[Feature ${name}] r.storeTable("${tableName}") was given an EntityTableMeta with ` +
             `source: "${meta.source}". r.storeTable() requires source: "unmanaged" (via ` +
-            `defineUnmanagedTable(), or buildEntityTableMeta(..., { source: "unmanaged" })) — ` +
+            `defineUnmanagedTable(), or deriveEntityTableMeta(..., { source: "unmanaged" })) — ` +
             `otherwise the migration generator will treat schema drift on this table as safe ` +
             `to DROP+rebuild, wiping any direct-write data.`,
         );

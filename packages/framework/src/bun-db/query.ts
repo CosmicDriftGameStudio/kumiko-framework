@@ -67,7 +67,7 @@ function isEntityTableMeta(v: unknown): v is EntityTableMeta {
 // Resolve any framework table input to its canonical EntityTableMeta:
 //  - table()/buildEntityTable outputs carry it under KUMIKO_META_SYMBOL, immune
 //    to a column-handle shadowing a meta key.
-//  - buildEntityTableMeta / defineUnmanagedTable return a plain meta with no
+//  - deriveEntityTableMeta / defineUnmanagedTable return a plain meta with no
 //    handle-spread, so its structural shape is itself unshadowable.
 export function asEntityTableMeta(table: unknown): EntityTableMeta | undefined {
   if (table === null || typeof table !== "object") return undefined;
@@ -252,7 +252,7 @@ export function extractTableInfo(table: TableLike): TableInfo {
   if (!meta) {
     throw new Error(
       "bun-db.extractTableInfo: table is not a kumiko EntityTableMeta — " +
-        "build it via buildEntityTable / buildEntityTableMeta / table().",
+        "build it via buildEntityTable / deriveEntityTableMeta / table().",
     );
   }
   const colByField = new Map<string, string>();

@@ -59,7 +59,11 @@ export type {
   PgType,
   UnmanagedTableInput,
 } from "./entity-table-meta";
-export { buildEntityTableMeta, defineUnmanagedTable } from "./entity-table-meta";
+export {
+  deriveEntityTableMeta,
+  buildEntityTableMeta,
+  defineUnmanagedTable,
+} from "./entity-table-meta";
 export type {
   EntityLifecycleVerb,
   EventStoreExecutor,

@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-07-18
-evidence: "kumiko-framework#498 closed; infra#136; framework#523 #525; framework#1127 (rawTable/unmanagedTable merge)"
+verified: 2026-07-26
+evidence: "kumiko-framework#498 closed; infra#136; framework#523 #525; framework#1127 (rawTable/unmanagedTable merge); framework#1208/#1220"
 ---
 
 # Entity write patterns: `r.entity` vs executor vs `r.storeTable`
@@ -38,16 +38,25 @@ events, use **`r.storeTable`** with a stable `reason` string (e.g.
 **Use `r.entity` + executor** when the table *is* the projection of an event log
 and every mutation should be reconstructible.
 
-## Naming convention (#1220)
+## Naming convention (#1220 / #1208)
 
 `read_` is reserved for `r.entity()`/`r.projection()` tables (managed,
-event-sourced, rebuildable) — a `read_`-prefixed `r.storeTable()` fails at
-registration. Unmanaged direct-write stores should carry an unambiguous name
-instead; the convention here is a `store_` prefix (e.g. `store_user_sessions`).
+event-sourced, rebuildable). Unmanaged builders reject it too:
+`defineUnmanagedTable` and `deriveEntityTableMeta(..., { source: "unmanaged" })`
+throw if the table name starts with `read_`, and `r.storeTable()` rejects the
+same prefix at registration.
 
-The guard only bans `read_`, it does not mandate `store_` — a plain
-unprefixed name (e.g. `in_app_messages`) is still legal for `r.storeTable()`.
-`store_` is the recommended default, not an enforced rule.
+Unmanaged direct-write stores should use an unambiguous name — convention:
+`store_` (e.g. `store_user_sessions`). The guard only bans `read_`; it does not
+mandate `store_` — a plain unprefixed name (e.g. `in_app_messages`) is still
+legal. `store_` is the recommended default.
+
+Use `deriveEntityTableMeta` to turn an EntityDefinition into DDL meta (defaults
+to `source: "managed"`). The old name `buildEntityTableMeta` remains as a
+deprecated alias — it looked like the unmanaged escape hatch next to
+`buildEntityTable`, which caused production wipes when direct-write stores were
+misclassified as rebuildable (#1208). Hand-built columns without entity base
+columns still go through `defineUnmanagedTable`.
 
 ## Examples
 
@@ -63,7 +72,7 @@ const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user
 
 ```ts
 // Hot path: sessionCreator + revoke handlers write without lifecycle events.
-r.storeTable(buildEntityTableMeta("user-session", userSessionEntity, { source: "unmanaged" }), {
+r.storeTable(deriveEntityTableMeta("user-session", userSessionEntity, { source: "unmanaged" }), {
   reason: "read_side.user_sessions_direct_write",
 });
 ```
@@ -74,7 +83,7 @@ See `packages/bundled-features/src/sessions/feature.ts` and
 ### GDPR forget hook on a direct-write table (`user-data-rights` recipe)
 
 ```ts
-r.storeTable(buildEntityTableMeta("note", noteEntity, { source: "unmanaged" }), {
+r.storeTable(deriveEntityTableMeta("note", noteEntity, { source: "unmanaged" }), {
   reason: "read_side.notes_direct_write",
 });
 // forget hook may updateMany/deleteMany without events — rebuild must not replay

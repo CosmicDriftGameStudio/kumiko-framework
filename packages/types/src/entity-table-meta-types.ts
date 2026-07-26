@@ -1,5 +1,5 @@
 // Plain-data types for EntityTableMeta — split from the runtime
-// (buildEntityTableMeta, resolveTableName, defineUnmanagedTable) in
+// (deriveEntityTableMeta, resolveTableName, defineUnmanagedTable) in
 // entity-table-meta.ts. Prep step for the types-only package extraction
 // (#1283) — this file must have ONLY `import type`, no value imports
 // (crypto/DB deps).
@@ -73,7 +73,7 @@ export type EntityTableMeta = {
   // discriminator to render warnings ("X tables are unmanaged").
   readonly source: "managed" | "unmanaged";
   // PII-subject-annotated field names (pii/userOwned/tenantOwned). Set by
-  // buildEntityTableMeta so the registry can reject r.storeTable stores
+  // deriveEntityTableMeta so the registry can reject r.storeTable stores
   // whose direct writes would skip the executor's encryption (#820).
   readonly piiSubjectFields?: readonly string[];
 };

@@ -30,7 +30,7 @@ function tableNameOf(table: Table): string {
 }
 
 // Checks the canonical EntityTableMeta (branded EntityTable's KUMIKO_META_SYMBOL
-// or a plain buildEntityTableMeta/defineUnmanagedTable result), not a direct
+// or a plain deriveEntityTableMeta/defineUnmanagedTable result), not a direct
 // `table.tenantId` property read — the latter only exists on branded EntityTables
 // and silently returned false (no tenant filter!) for plain EntityTableMeta
 // tables like unmanaged direct-write stores, e.g. userSessionTable.

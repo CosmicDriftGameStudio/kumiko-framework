@@ -71,7 +71,7 @@ function resolveTableNameFromStep(table: unknown): string {
       const metaName = (meta as Record<string, unknown>)["tableName"];
       if (typeof metaName === "string") return metaName;
     }
-    // Plain meta (buildEntityTableMeta / defineUnmanagedTable — no handle-spread).
+    // Plain meta (deriveEntityTableMeta / defineUnmanagedTable — no handle-spread).
     if (
       "source" in table &&
       "tableName" in table &&
