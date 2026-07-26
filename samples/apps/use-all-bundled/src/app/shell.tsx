@@ -1,9 +1,8 @@
-import { DefaultTopbarActions } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import {
-  type AppSchema,
-  DefaultAppShell,
-  LanguageSwitcher,
-} from "@cosmicdrift/kumiko-renderer-web";
+  DefaultTopbarActions,
+  useShellUser,
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
+import { type AppSchema, LanguageSwitcher, WorkspaceShell } from "@cosmicdrift/kumiko-renderer-web";
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
@@ -32,11 +31,12 @@ export function AppShell({
   readonly children: ReactNode;
   readonly schema: AppSchema;
 }): ReactNode {
+  const user = useShellUser();
   return (
-    <DefaultAppShell
+    <WorkspaceShell
       brand={<Brand />}
       schema={schema}
-      sidebarActions={
+      topbarActions={
         <DefaultTopbarActions
           tenantName={tenantName}
           extras={<LanguageSwitcher locales={availableLocales} />}
@@ -44,8 +44,9 @@ export function AppShell({
           darkIcon={<MoonStar className="h-4 w-4" />}
         />
       }
+      {...(user !== undefined && { user })}
     >
       {children}
-    </DefaultAppShell>
+    </WorkspaceShell>
   );
 }

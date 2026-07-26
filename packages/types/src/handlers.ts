@@ -272,6 +272,12 @@ type SharedContextFields = {
   // the same process. Returns the Set of feature names effectively
   // enabled for that tenant. Absent = all features on (back-compat).
   readonly effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
+  // Queue a side-effect to run after the outermost write transaction commits
+  // (same sink as ctx.write / dispatch-write lifecycle afterCommit). Seed
+  // helpers and other mid-tx callers use this instead of firing afterCommit
+  // hooks synchronously (kumiko-framework#1566). Absent outside a write
+  // pipeline — callers fall back to immediate fire (fixture / no-tx paths).
+  readonly scheduleAfterCommit?: (hook: () => Promise<void>) => void;
 };
 
 // All optional — used at pipeline/system boundaries.

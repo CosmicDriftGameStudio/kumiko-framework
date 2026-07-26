@@ -190,47 +190,61 @@ describe("audit: list query", () => {
   });
 
   test("filter by from/to date range (inclusive bounds, outside-range rows excluded)", async () => {
-    // Events are written with server-now at ms precision. Delays between
-    // writes + anchor timestamps give us clean sort-order. The anchors are
-    // captured OUTSIDE the write bursts so precision-truncation on the
-    // db side (ms) can't blur anchor vs event.
+    // Stamp created_at after writes — wall-clock setTimeout anchors race with
+    // ms-precision DB timestamps under load (#1548). Fixed Instant grid keeps
+    // from/to assertions deterministic.
     await createWidget(admin, "before-window");
-    await new Promise((r) => setTimeout(r, 50));
-    const t1 = Temporal.Now.instant();
-    await new Promise((r) => setTimeout(r, 10));
     await createWidget(admin, "in-window-1");
     await createWidget(admin, "in-window-2");
-    await new Promise((r) => setTimeout(r, 50));
-    const t2 = Temporal.Now.instant();
-    await new Promise((r) => setTimeout(r, 10));
     await createWidget(admin, "after-window");
 
-    // Slice strictly to the [t1, t2] window — should return exactly 2 rows.
+    const listed = await stack.http.queryOk<AuditResponse>(AuditQueries.list, {}, admin);
+    const byName = new Map(
+      listed.rows
+        .filter((r) => r.type === "widget.created")
+        .map((r) => [(r.payload as { name?: string }).name ?? "", r.id]),
+    );
+    const stamps: ReadonlyArray<readonly [string, string]> = [
+      ["before-window", "2020-06-01T12:00:00Z"],
+      ["in-window-1", "2020-06-01T12:00:10Z"],
+      ["in-window-2", "2020-06-01T12:00:20Z"],
+      ["after-window", "2020-06-01T12:00:30Z"],
+    ];
+    for (const [name, createdAt] of stamps) {
+      const id = byName.get(name);
+      expect(id).toBeDefined();
+      await asRawClient(stack.db).unsafe(
+        `UPDATE kumiko_events SET created_at = $1::timestamptz WHERE id = $2::bigint`,
+        [createdAt, id],
+      );
+    }
+
+    const tFrom = "2020-06-01T12:00:10Z";
+    const tTo = "2020-06-01T12:00:20Z";
+
     const inWindow = await stack.http.queryOk<AuditResponse>(
       AuditQueries.list,
-      { from: t1.toString(), to: t2.toString() },
+      { from: tFrom, to: tTo },
       admin,
     );
     expect(inWindow.rows).toHaveLength(2);
     const names = inWindow.rows.map((r) => (r.payload as { name?: string }).name).sort();
     expect(names).toEqual(["in-window-1", "in-window-2"]);
 
-    // From-only: everything at or after t1 → 3 rows (2 in-window + 1 after).
-    const sinceT1 = await stack.http.queryOk<AuditResponse>(
+    const sinceFrom = await stack.http.queryOk<AuditResponse>(
       AuditQueries.list,
-      { from: t1.toString() },
+      { from: tFrom },
       admin,
     );
-    expect(sinceT1.rows).toHaveLength(3);
+    expect(sinceFrom.rows).toHaveLength(3);
 
-    // To-only: everything at or before t1 → just the before-window row.
-    const untilT1 = await stack.http.queryOk<AuditResponse>(
+    const untilBefore = await stack.http.queryOk<AuditResponse>(
       AuditQueries.list,
-      { to: t1.toString() },
+      { to: "2020-06-01T12:00:00Z" },
       admin,
     );
-    expect(untilT1.rows).toHaveLength(1);
-    expect((untilT1.rows[0]?.payload as { name?: string }).name).toBe("before-window");
+    expect(untilBefore.rows).toHaveLength(1);
+    expect((untilBefore.rows[0]?.payload as { name?: string }).name).toBe("before-window");
   });
 
   test("rejects inverted from/to range with validation_error", async () => {

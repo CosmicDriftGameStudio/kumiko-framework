@@ -220,6 +220,8 @@ export type NumberFieldDef = {
   readonly default?: number;
   readonly access?: FieldAccess;
   readonly min?: number;
+  /** Upper bound at the write boundary (Zod `.max`). */
+  readonly max?: number;
   /** `true` → `integer` column + `.int()` Zod validation. Omitted/`false` →
    *  `double precision` column, fractional values allowed. */
   readonly integer?: boolean;

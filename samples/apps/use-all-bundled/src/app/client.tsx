@@ -9,13 +9,22 @@
 // haben kein /web-Plugin, das ihre Spalten-Labels mitbrächte. Sie nutzen die
 // `<feature>:entity:<e>:field:*`-Convention und überlassen die Labels bewusst
 // der App (siehe user/screens.ts). use-all-bundled IST diese App.
+//
+// adminShellClient + tenant/audit/jobs/config: WorkspaceShell needs the
+// admin-shell overview components and Settings-Hub i18n; mirror admin-console
+// client registration for features that run-config already mounts server-side.
 
+import { adminShellClient } from "@cosmicdrift/kumiko-bundled-features/admin-shell/web";
+import { auditClient } from "@cosmicdrift/kumiko-bundled-features/audit/web";
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { authMfaClient, MfaVerifyScreen } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/web";
+import { configClient } from "@cosmicdrift/kumiko-bundled-features/config/web";
 import { customFieldsClient } from "@cosmicdrift/kumiko-bundled-features/custom-fields/web";
 import { foldersClient } from "@cosmicdrift/kumiko-bundled-features/folders/web";
+import { jobsClient } from "@cosmicdrift/kumiko-bundled-features/jobs/web";
 import { personalAccessTokensClient } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens/web";
 import { tagsClient } from "@cosmicdrift/kumiko-bundled-features/tags/web";
+import { tenantClient } from "@cosmicdrift/kumiko-bundled-features/tenant/web";
 import { tierEngineClient } from "@cosmicdrift/kumiko-bundled-features/tier-engine/web";
 import { userDataRightsClient } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/web";
 import {
@@ -87,6 +96,11 @@ createKumikoApp({
   clientFeatures: [
     emailPasswordClient({ mfaVerifyScreen: MfaVerifyScreen }),
     authMfaClient(),
+    adminShellClient(),
+    tenantClient(),
+    auditClient(),
+    jobsClient(),
+    configClient(),
     tierEngineClient(),
     userProfileClient(),
     userDataRightsClient(),

@@ -9,3 +9,4 @@ export {
   documentIngestRequestedPayloadSchema,
 } from "./events";
 export { documentIngestFoundationFeature } from "./feature";
+export { readIngestPages, writeIngestPages } from "./pages";

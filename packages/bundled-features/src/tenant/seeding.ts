@@ -103,31 +103,70 @@ export type SeedTenantHooks = {
 // registered entity/handler hooks fire (search-index/SSE system hooks are
 // wired at server-boot and out of reach here).
 //
-// `_tenantId` re-scope (#1478/3): re-scoped to `targetTenantId` (the
-// entity's own tenant, not the caller's) so `currentEffectiveFeatures` and
-// any tenant-filtered hook gate against the right tenant. `hooks.context.db`,
-// if present, is still scoped to the *caller's* tenant — a hook that writes
-// via `ctx.db` must re-scope it itself (see tier-engine's `createTenantDb`
-// re-wrap).
+// Tenant re-scope (#1566): when `targetTenantId` is set we rebuild the
+// tenant-bound pieces of the context (`_tenantId`, `db`, `notify`,
+// `hasFeature`, `user.tenantId`) — a shallow `{ ...ctx, _tenantId }` left
+// closures over the caller's tenant (self-signup is anonymous/system).
+// `query`/`write` bridges still share the caller's identity; hooks that
+// need a full identity switch use `writeAs`/`queryAs`.
 //
-// Known gap (kumiko-framework#1478/#1526, NOT fixed here): `dbConn` is
-// frequently the live dispatcher-owned transaction (self-signup's
-// `ctx.db.raw`), not a connection this helper controls, so firing
-// `afterCommit` synchronously below runs before the outer transaction
-// actually commits (and could still run after a rollback). The correct fix
-// queues these onto the same afterCommitHooks sink dispatch-write.ts's
-// executeWriteInner flushes post-commit — but that sink is closure-captured
-// in dispatch-shared.ts's buildHandlerContext (only reachable indirectly via
-// ctx.write/ctx.writeAs, see the bridgeSink local there), not exposed on a
-// built AppContext/HandlerContext, so SeedTenantHooks.context can't reach
-// it. Dropping the afterCommit call instead (tried in an earlier revision
-// of this file) is WORSE: r.hook("postSave", ...) defaults to
-// HookPhases.afterCommit (feature-ui-extensions.ts:180), so that silently
-// stops every default-phase postSave hook from firing at all — caught by
-// signup-flow.integration.test.ts's userPostSaveFired/
-// tenantMembershipPostSaveFired regression tests going from green to red.
-// Needs a framework-level afterCommit sink exposed on AppContext before
-// this can be closed correctly.
+// afterCommit (#1566): when `hooks.context.scheduleAfterCommit` is present
+// (HandlerContext from a live write), afterCommit hooks are queued onto the
+// dispatcher's sink and flush post-commit. Without a sink (fixture / plain
+// Connection) they still fire immediately — there is no outer TX to wait for.
+function resolveRawDb(db: AppContext["db"]): DbRunner | undefined {
+  if (!db) return undefined;
+  if (typeof db === "object" && "raw" in db) {
+    return (db as { raw: DbRunner }).raw;
+  }
+  return db as DbRunner;
+}
+
+function scopeSeedHookContext(context: AppContext, targetTenantId: TenantId): AppContext {
+  const raw = resolveRawDb(context.db);
+  const db = raw
+    ? createTenantDb(raw, targetTenantId, "system", context.tracer, context.meter, context.signal)
+    : context.db;
+
+  // HandlerContext carries `user`; AppContext only `systemUser`. Prefer the
+  // live handler user when present so notify/hasFeature keep a real SessionUser.
+  const handlerUser = (context as { user?: SessionUser }).user;
+  const baseUser: SessionUser | undefined = handlerUser ?? context.systemUser;
+  const scopedUser: SessionUser | undefined = baseUser
+    ? { ...baseUser, tenantId: targetTenantId }
+    : undefined;
+
+  const notify =
+    context._notifyFactory && scopedUser
+      ? context._notifyFactory(scopedUser, targetTenantId)
+      : context.notify;
+
+  const features = context.effectiveFeatures as
+    | (((tenantId: TenantId) => ReadonlySet<string>) & {
+        trialGate?: (tenantId: TenantId, featureName: string) => Promise<boolean>;
+      })
+    | undefined;
+  const hasFeature = features
+    ? async (featureName: string): Promise<boolean> => {
+        if (features(targetTenantId).has(featureName)) return true;
+        if (!features.trialGate) return false;
+        return features.trialGate(targetTenantId, featureName);
+      }
+    : "hasFeature" in context
+      ? // Keep caller's hasFeature when no effectiveFeatures (always-on apps).
+        (context as { hasFeature?: (n: string) => Promise<boolean> }).hasFeature
+      : undefined;
+
+  return {
+    ...context,
+    _tenantId: targetTenantId,
+    ...(db !== undefined ? { db } : {}),
+    ...(notify !== undefined ? { notify } : {}),
+    ...(scopedUser && "user" in context ? { user: scopedUser } : {}),
+    ...(hasFeature ? { hasFeature } : {}),
+  };
+}
+
 export async function fireEntityPostSave(
   hooks: SeedTenantHooks | undefined,
   pseudoType: string,
@@ -141,9 +180,17 @@ export async function fireEntityPostSave(
   if (!hooks) return;
   const lifecycle = createLifecycleHooks(hooks.registry);
   const scopedContext =
-    targetTenantId === undefined ? hooks.context : { ...hooks.context, _tenantId: targetTenantId };
+    targetTenantId === undefined
+      ? hooks.context
+      : scopeSeedHookContext(hooks.context, targetTenantId);
   await lifecycle.runPostSave(pseudoType, entityData, scopedContext, HookPhases.inTransaction);
-  await lifecycle.runPostSave(pseudoType, entityData, scopedContext, HookPhases.afterCommit);
+  const runAfterCommit = () =>
+    lifecycle.runPostSave(pseudoType, entityData, scopedContext, HookPhases.afterCommit);
+  if (scopedContext.scheduleAfterCommit) {
+    scopedContext.scheduleAfterCommit(runAfterCommit);
+  } else {
+    await runAfterCommit();
+  }
 }
 
 /**
