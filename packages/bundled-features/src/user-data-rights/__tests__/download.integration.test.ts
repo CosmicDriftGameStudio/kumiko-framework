@@ -540,8 +540,8 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
   });
 
   test("provider ohne getSignedUrl → 422 unprocessable signedUrlNotSupported (job-Pfad)", async () => {
-    // Symmetrisch zum token-Pfad: derselbe Operator-Konfig-Bug muss auch
-    // beim UI-Klick-Pfad als 422 raus, nicht 404.
+    // Same as the token path: the operator misconfig must also surface as
+    // 422 on the UI click path, not 404.
     const { jobId } = await seedDoneJobWithToken();
     await stack.http.writeOk(
       ConfigHandlers.set,
