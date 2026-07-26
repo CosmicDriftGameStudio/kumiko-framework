@@ -25,6 +25,7 @@ import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createFilesFeature } from "../../files";
 import { createSessionsFeature } from "../../sessions";
+import { createTenantFeature } from "../../tenant";
 import {
   createUserFeature,
   USER_ANONYMIZED_DISPLAY_NAME,
@@ -46,6 +47,7 @@ const features = [
   createComplianceProfilesFeature(),
   authFoundationFeature,
   createSessionsFeature(),
+  createTenantFeature(),
   createUserDataRightsFeature(),
   createUserDataRightsDefaultsFeature(),
 ];

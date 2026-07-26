@@ -11,7 +11,6 @@ import {
   executeDdlStatement,
 } from "../db/queries/ddl";
 import { truncateTablesRestartIdentity } from "../db/queries/test-stack";
-import { asRawClient } from "../db/query";
 import { renderTableDdl } from "../db/render-ddl";
 import { tableExists } from "../db/schema-inspection";
 import { buildEntityTable, toTableName } from "../db/table-builder";
@@ -135,19 +134,6 @@ export async function unsafePushTables(
 // @wrapper-known semantic-alias
 function renderColumnType(col: ColumnMeta): string {
   return pgTypeToSqlType(col.pgType);
-}
-
-/** Test helper: set created_at on one event row. Table name must stay in sync with eventsTable. */
-export async function stampEventCreatedAt(
-  db: DbConnection,
-  eventId: string | bigint,
-  createdAtIso: string,
-): Promise<void> {
-  // Hardcoded to avoid stack↔event-store import cycle (events-schema imports ../stack).
-  await asRawClient(db).unsafe(
-    `UPDATE kumiko_events SET created_at = $1::timestamptz WHERE id = $2::bigint`,
-    [createdAtIso, eventId],
-  );
 }
 
 /**

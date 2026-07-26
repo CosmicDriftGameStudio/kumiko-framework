@@ -7,9 +7,9 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, type RenderResult, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
+import { installFetchMock } from "../../../auth-email-password/web/__tests__/fetch-mock";
 import { makeSessionApi } from "../../../auth-email-password/web/__tests__/test-utils";
 import { SessionContext } from "../../../auth-email-password/web/session";
-import { installFetchMock } from "../../auth-email-password/web/__tests__/fetch-mock";
 import { defaultTranslations } from "../i18n";
 import { MfaVerifyScreen } from "../mfa-verify-screen";
 

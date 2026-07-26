@@ -369,7 +369,7 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
         // poison would otherwise permanently stop access-invalidation for
         // every user behind one bad row).
         if (typeof userId !== "string" || userId.length === 0) return;
-        sseBroker.publishAccessInvalidation(userId);
+        sseBroker.publishAccessInvalidation?.(userId);
       }
 
       if (
@@ -380,7 +380,7 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
         // skip: previous snapshot missing/malformed userId — same fail-open
         // reasoning as above.
         if (userId === undefined) return;
-        sseBroker.publishAccessInvalidation(userId);
+        sseBroker.publishAccessInvalidation?.(userId);
       }
     },
   };

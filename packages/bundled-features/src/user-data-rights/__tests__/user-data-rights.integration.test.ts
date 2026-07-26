@@ -12,6 +12,7 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/st
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createSessionsFeature } from "../../sessions";
+import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 
@@ -21,6 +22,7 @@ const userFeature = createUserFeature();
 const dataRetention = createDataRetentionFeature();
 const complianceProfiles = createComplianceProfilesFeature();
 const sessionsFeature = createSessionsFeature();
+const tenantFeature = createTenantFeature();
 const userDataRights = createUserDataRightsFeature();
 
 beforeAll(async () => {
@@ -31,6 +33,7 @@ beforeAll(async () => {
       sessionsFeature,
       dataRetention,
       complianceProfiles,
+      tenantFeature,
       userDataRights,
     ],
   });
@@ -41,7 +44,7 @@ afterAll(async () => {
 });
 
 describe("user-data-rights :: feature-definition smoke", () => {
-  test("Feature laedt clean (requires user + data-retention + compliance-profiles)", () => {
+  test("Feature laedt clean (requires user + data-retention + compliance-profiles + tenant)", () => {
     expect(stack).toBeDefined();
     expect(userDataRights.name).toBe("user-data-rights");
   });
@@ -50,11 +53,12 @@ describe("user-data-rights :: feature-definition smoke", () => {
     expect(userDataRights.registrarExtensions["userData"]).toBeDefined();
   });
 
-  test("requires user + data-retention + compliance-profiles", () => {
+  test("requires user + data-retention + compliance-profiles + tenant", () => {
     const requires = userDataRights.requires;
     expect(requires).toContain("user");
     expect(requires).toContain("data-retention");
     expect(requires).toContain("compliance-profiles");
+    expect(requires).toContain("tenant");
   });
 
   test("usesApi compliance.forTenant fuer Grace-Period-Resolution", () => {

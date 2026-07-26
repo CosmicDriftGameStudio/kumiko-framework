@@ -46,6 +46,7 @@ import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override";
 import { createSessionsFeature } from "../../sessions";
+import { createTenantFeature } from "../../tenant";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsFeature } from "../../user-data-rights";
 import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup";
@@ -143,6 +144,7 @@ beforeAll(async () => {
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
       customFieldsFeature,
+      createTenantFeature(),
       createUserDataRightsFeature(),
       propertyFeature,
     ],
