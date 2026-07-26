@@ -439,11 +439,12 @@ export function defineUnmanagedTable(input: UnmanagedTableInput): EntityTableMet
 }
 
 function assertUnmanagedTableName(tableName: string, via: string): void {
-  if (!tableName.startsWith("read_")) return;
-  throw new Error(
-    `${via}("${tableName}"): the "read_" prefix is reserved for managed ` +
-      `r.entity()/r.projection() tables. Unmanaged direct-write stores need a ` +
-      `distinct name (convention: "store_${tableName.slice("read_".length)}"). ` +
-      `See #1208/#1220.`,
-  );
+  if (tableName.startsWith("read_")) {
+    throw new Error(
+      `${via}("${tableName}"): the "read_" prefix is reserved for managed ` +
+        `r.entity()/r.projection() tables. Unmanaged direct-write stores need a ` +
+        `distinct name (convention: "store_${tableName.slice("read_".length)}"). ` +
+        `See #1208/#1220.`,
+    );
+  }
 }

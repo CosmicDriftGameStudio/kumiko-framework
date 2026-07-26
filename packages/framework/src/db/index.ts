@@ -60,9 +60,9 @@ export type {
   UnmanagedTableInput,
 } from "./entity-table-meta";
 export {
-  deriveEntityTableMeta,
   buildEntityTableMeta,
   defineUnmanagedTable,
+  deriveEntityTableMeta,
 } from "./entity-table-meta";
 export type {
   EntityLifecycleVerb,

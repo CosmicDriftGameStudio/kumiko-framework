@@ -26,8 +26,8 @@
 //   4. user wird anonymisiert (display_name="(deleted)", email=null)
 
 import {
-  deriveEntityTableMeta,
   deleteMany,
+  deriveEntityTableMeta,
   insertOne,
   selectMany,
   updateMany,

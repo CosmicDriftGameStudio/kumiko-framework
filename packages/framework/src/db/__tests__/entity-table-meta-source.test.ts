@@ -69,9 +69,9 @@ describe("unmanaged builders reject read_ prefix (#1208)", () => {
     const noTable = createEntity({
       fields: { userId: createTextField({ required: true }) },
     });
-    expect(() =>
-      deriveEntityTableMeta("source-probe", noTable, { source: "unmanaged" }),
-    ).toThrow(/the "read_" prefix is reserved/);
+    expect(() => deriveEntityTableMeta("source-probe", noTable, { source: "unmanaged" })).toThrow(
+      /the "read_" prefix is reserved/,
+    );
   });
 
   test("defineUnmanagedTable with read_ tableName throws", () => {

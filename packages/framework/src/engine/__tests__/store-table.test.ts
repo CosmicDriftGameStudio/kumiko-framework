@@ -7,8 +7,8 @@
 
 import { describe, expect, test } from "bun:test";
 import {
-  deriveEntityTableMeta,
   defineUnmanagedTable,
+  deriveEntityTableMeta,
   resolveTableName,
 } from "../../db/entity-table-meta";
 import { defineFeature } from "../define-feature";
