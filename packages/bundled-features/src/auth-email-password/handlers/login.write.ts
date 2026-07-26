@@ -93,9 +93,7 @@ export async function gateResolveAuthUser(
   email: string,
   password: string,
 ): Promise<GateOutcome<AuthUserRow>> {
-  const found = parseAuthUserRow(
-    await ctx.queryAs(systemUser, UserQueries.findForAuth, { email }),
-  );
+  const found = parseAuthUserRow(await ctx.queryAs(systemUser, UserQueries.findForAuth, { email }));
   if (!found?.passwordHash || found.isDeleted) {
     await verifyDummyPassword(password);
     return reject(invalidCredentials());
@@ -194,6 +192,9 @@ export async function gateResolveMembership(
   }
 
   const globalRoles = parseRoles(found.roles ?? null);
+  // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
+  // roles only (globalRoles keeps SystemAdmin) — read-time backstop against a
+  // rebuild-resurrected role.
   const mergedRoles = buildSessionRoles(globalRoles, chosen.roles);
   return ok({ chosen, mergedRoles });
 }
