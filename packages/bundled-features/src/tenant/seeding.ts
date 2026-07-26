@@ -128,8 +128,13 @@ function scopeSeedHookContext(context: AppContext, targetTenantId: TenantId): Ap
     ? createTenantDb(raw, targetTenantId, "system", context.tracer, context.meter, context.signal)
     : context.db;
 
-  const baseUser = "user" in context && context.user ? context.user : context.systemUser;
-  const scopedUser = baseUser ? { ...baseUser, tenantId: targetTenantId } : undefined;
+  // HandlerContext carries `user`; AppContext only `systemUser`. Prefer the
+  // live handler user when present so notify/hasFeature keep a real SessionUser.
+  const handlerUser = (context as { user?: SessionUser }).user;
+  const baseUser: SessionUser | undefined = handlerUser ?? context.systemUser;
+  const scopedUser: SessionUser | undefined = baseUser
+    ? { ...baseUser, tenantId: targetTenantId }
+    : undefined;
 
   const notify =
     context._notifyFactory && scopedUser
