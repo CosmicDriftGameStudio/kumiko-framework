@@ -3,7 +3,7 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { isWithinGracePeriod } from "../../shared/grace-period";
+import { isWithinGracePeriod } from "../../shared";
 import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant";
 import { DESTRUCTION_CANCELLED_EVENT_QN } from "../constants";
 import { invalidateTenantLifecycleGate } from "../lifecycle-gate";

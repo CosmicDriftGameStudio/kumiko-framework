@@ -2,7 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { isWithinGracePeriod } from "../../shared/grace-period";
+import { isWithinGracePeriod } from "../../shared";
 import { USER_STATUS, userTable } from "../../user";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
