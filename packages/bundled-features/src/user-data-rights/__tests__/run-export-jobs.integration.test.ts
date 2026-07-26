@@ -40,7 +40,7 @@ import {
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createSessionsFeature, userSessionEntity } from "../../sessions";
-import { createTenantFeature, tenantMembershipsTable } from "../../tenant";
+import { tenantMembershipsTable } from "../../tenant";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 import { runExportJobs } from "../run-export-jobs";

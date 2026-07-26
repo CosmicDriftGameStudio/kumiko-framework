@@ -12,7 +12,6 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/st
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createSessionsFeature } from "../../sessions";
-import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 
@@ -22,7 +21,6 @@ const userFeature = createUserFeature();
 const dataRetention = createDataRetentionFeature();
 const complianceProfiles = createComplianceProfilesFeature();
 const sessionsFeature = createSessionsFeature();
-const tenantFeature = createTenantFeature();
 const userDataRights = createUserDataRightsFeature();
 
 beforeAll(async () => {
@@ -33,7 +31,6 @@ beforeAll(async () => {
       sessionsFeature,
       dataRetention,
       complianceProfiles,
-      tenantFeature,
       userDataRights,
     ],
   });
