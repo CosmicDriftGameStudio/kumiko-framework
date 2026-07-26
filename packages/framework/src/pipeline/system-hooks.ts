@@ -370,7 +370,6 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
         // every user behind one bad row).
         if (typeof userId !== "string" || userId.length === 0) return;
         sseBroker.publishAccessInvalidation(userId);
-        return;
       }
 
       if (
