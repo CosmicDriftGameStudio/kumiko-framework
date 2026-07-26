@@ -14,7 +14,7 @@ export type DsgvoSelfServiceOptions = {
 
 // DSGVO- + Account-Self-Service-Kette, die jede Kumiko-SaaS-App mountet
 // (Privacy-Center, Account-Löschung Art. 17, Export Art. 20, Sessions).
-// Die Reihenfolge IST load-bearing (Require-Order): user-data-rights braucht
+// Order is load-bearing (Require-Order): user-data-rights braucht
 // data-retention + compliance-profiles + sessions + tenant, user-profile braucht
 // user-data-rights. Genau diese Order stand bisher in jeder App handkopiert
 // mit Erklär-Kommentar. text-content + legal-pages bleiben bewusst draußen —

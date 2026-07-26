@@ -67,8 +67,9 @@ describe("composeStacks", () => {
     ]);
   });
 
-  test("composeUserDataRightsStack → udr + defaults", () => {
+  test("composeUserDataRightsStack → tenant + udr + defaults", () => {
     expect(stackFeatureNames(composeUserDataRightsStack())).toEqual([
+      "tenant",
       "user-data-rights",
       "user-data-rights-defaults",
     ]);
