@@ -1,7 +1,9 @@
 // Atom 5b — sendDeletionRequestedEmail Callback (DSGVO Art. 17
 // "Geheimes Versprechen"-Email).
 //
-// Pinst dass createUserDataRightsFeature({ sendDeletionRequestedEmail })
+// Pinst dass createTenantFeature(),
+createUserDataRightsFeature({ sendDeletionRequestedEmail });
+
 // die App-Author-Callback bei erfolgreichem deletion-requested-Flip
 // feuert UND best-effort ist (send-failure killt den Status-Flip nicht).
 // Der Code-Comment in handlers/request-deletion.write.ts behauptet beide
@@ -26,6 +28,7 @@ import {
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createSessionsFeature, userSessionEntity } from "../../sessions";
+import { createTenantFeature } from "../../tenant";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { createUserDataRightsFeature } from "../feature";
@@ -68,6 +71,7 @@ beforeAll(async () => {
       authFoundationFeature,
       createSessionsFeature(),
 
+      createTenantFeature(),
       createUserDataRightsFeature({ sendDeletionRequestedEmail }),
     ],
   });

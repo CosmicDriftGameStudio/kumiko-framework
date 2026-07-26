@@ -29,6 +29,7 @@ import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createRendererSimpleFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createTextContentFeature } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import {
@@ -153,7 +154,10 @@ export function composeUserDataRightsStack(
   options: UserDataRightsStackOptions = {},
 ): FeatureDefinition[] {
   const includeDefaults = options.includeDefaults ?? true;
-  const out: FeatureDefinition[] = [createUserDataRightsFeature(options.userDataRights ?? {})];
+  const out: FeatureDefinition[] = [
+    createTenantFeature(),
+    createUserDataRightsFeature(options.userDataRights ?? {}),
+  ];
   if (includeDefaults) out.push(createUserDataRightsDefaultsFeature());
   return out;
 }

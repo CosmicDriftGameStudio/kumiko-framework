@@ -63,6 +63,7 @@ beforeAll(async () => {
       authFoundationFeature,
       createSessionsFeature(),
 
+      createTenantFeature(),
       createUserDataRightsFeature(),
     ],
   });
@@ -970,6 +971,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
         authFoundationFeature,
         createSessionsFeature(),
 
+        createTenantFeature(),
         createUserDataRightsFeature(),
         testFileExporter,
       ],

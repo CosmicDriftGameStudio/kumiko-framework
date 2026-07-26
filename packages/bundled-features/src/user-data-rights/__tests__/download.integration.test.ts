@@ -119,6 +119,7 @@ beforeAll(async () => {
       authFoundationFeature,
       createSessionsFeature(),
 
+      createTenantFeature(),
       createUserDataRightsFeature(),
     ],
     extraContext: ({ registry }) => ({

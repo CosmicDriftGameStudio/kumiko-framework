@@ -38,6 +38,7 @@ import { createConfigResolver } from "../../config/resolver";
 import { configValueEntity } from "../../config/table";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { createSessionsFeature } from "../../sessions";
+import { createTenantFeature } from "../../tenant";
 import { createUserFeature, userEntity } from "../../user";
 import { TENANT_MODEL_CONFIG_KEY } from "../constants";
 import { createUserDataRightsFeature } from "../feature";
@@ -88,6 +89,7 @@ beforeAll(async () => {
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
       createConfigFeature(),
+      createTenantFeature(),
       createUserDataRightsFeature(),
       contributorFeature,
     ],

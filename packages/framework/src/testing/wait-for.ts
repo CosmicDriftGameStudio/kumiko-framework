@@ -23,6 +23,7 @@ export async function waitFor(
   for (let i = 0; i < delays.length; i++) {
     try {
       await fn();
+      // skip: condition already true — no further polling
       return;
     } catch (err) {
       lastError = err;

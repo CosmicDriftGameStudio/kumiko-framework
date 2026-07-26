@@ -122,6 +122,7 @@ beforeAll(async () => {
       authFoundationFeature,
       createSessionsFeature(),
 
+      createTenantFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
       testNotesFeature,

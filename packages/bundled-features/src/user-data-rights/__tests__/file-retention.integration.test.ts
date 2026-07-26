@@ -38,6 +38,7 @@ import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../..
 import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override";
 import { createFilesFeature } from "../../files";
 import { createSessionsFeature, userSessionEntity } from "../../sessions";
+import { createTenantFeature } from "../../tenant";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
@@ -71,6 +72,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       authFoundationFeature,
       createSessionsFeature(),
+      createTenantFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
     ],

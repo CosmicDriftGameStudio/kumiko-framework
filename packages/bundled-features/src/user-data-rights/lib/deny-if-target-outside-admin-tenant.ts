@@ -5,7 +5,7 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
+import { tenantMembershipsTable } from "../../tenant";
 import { isSystemAdminActor } from "./is-admin-actor";
 
 export const TARGET_USER_NOT_IN_ADMIN_TENANT = "target_user_not_in_admin_tenant" as const;

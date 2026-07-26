@@ -33,6 +33,7 @@ import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { createFilesFeature } from "../../files";
 import { createSessionsFeature, userSessionEntity } from "../../sessions";
+import { createTenantFeature } from "../../tenant";
 import {
   createUserFeature,
   USER_ANONYMIZED_DISPLAY_NAME,
@@ -71,6 +72,7 @@ beforeAll(async () => {
       authFoundationFeature,
       createSessionsFeature(),
 
+      createTenantFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
     ],

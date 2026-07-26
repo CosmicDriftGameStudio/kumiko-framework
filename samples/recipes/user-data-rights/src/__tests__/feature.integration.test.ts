@@ -39,6 +39,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { createTenantFeature } from "../../tenant";
 import { noteEntity, notesFeature, notesTable } from "../feature";
 
 let stack: TestStack;
@@ -59,6 +60,7 @@ beforeAll(async () => {
       createSessionsFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      createTenantFeature(),
       createUserDataRightsFeature(),
       notesFeature,
     ],

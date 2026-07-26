@@ -33,6 +33,7 @@ import { fileProviderInMemoryFeature } from "../../file-provider-inmemory";
 import { mailFoundationFeature } from "../../mail-foundation";
 import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../../mail-transport-inmemory";
 import { createSessionsFeature } from "../../sessions";
+import { createTenantFeature } from "../../tenant";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 import { exportDownloadTokenEntity } from "../schema/download-token";
@@ -70,6 +71,7 @@ beforeAll(async () => {
       createSessionsFeature(),
       // appExportDownloadUrl set → the default export-ready mail is enabled, so
       // this also proves the export cron's mail bridge end-to-end (C6).
+      createTenantFeature(),
       createUserDataRightsFeature({ appExportDownloadUrl: EXPORT_DOWNLOAD_URL }),
     ],
   });
