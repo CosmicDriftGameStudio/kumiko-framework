@@ -22,4 +22,5 @@ export {
   buildServerBundle,
   discoverServerEntry,
   formatServerBuildResult,
+  readExtraRuntimeExternals,
 } from "./build-server-bundle";

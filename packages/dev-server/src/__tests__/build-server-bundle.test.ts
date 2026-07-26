@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildServerBundle } from "../build-server-bundle";
+import { buildServerBundle, readExtraRuntimeExternals } from "../build-server-bundle";
 
 // Baut ein Mini-App-Fixture (bin/main.ts + bin/kumiko.ts teilen ein Modul) und
 // prüft das Variante-B-Verhalten: ein Bun.build-Call → server.js + kumiko.js als
@@ -119,6 +119,108 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
       const result = await buildServerBundle({ cwd: dir, outDir: join(dir, "dist-server") });
 
       expect(result.runtimeDeps["meilisearch"]).toBe("^0.58.0");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("readExtraRuntimeExternals (package.json kumiko field, #1484)", () => {
+  test("reads string list from kumiko.extraRuntimeExternals", () => {
+    const dir = mkdtempSync(join(tmpdir(), "extra-ext-"));
+    try {
+      writeFileSync(
+        join(dir, "package.json"),
+        `${JSON.stringify({
+          name: "app",
+          kumiko: { extraRuntimeExternals: ["@napi-rs/canvas", "pdf-parse"] },
+        })}\n`,
+      );
+      expect(readExtraRuntimeExternals(dir)).toEqual(["@napi-rs/canvas", "pdf-parse"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("missing / invalid shapes yield empty list", () => {
+    const dir = mkdtempSync(join(tmpdir(), "extra-ext-bad-"));
+    try {
+      writeFileSync(join(dir, "package.json"), `${JSON.stringify({ name: "app" })}\n`);
+      expect(readExtraRuntimeExternals(dir)).toEqual([]);
+      writeFileSync(
+        join(dir, "package.json"),
+        `${JSON.stringify({ name: "app", kumiko: { extraRuntimeExternals: "nope" } })}\n`,
+      );
+      expect(readExtraRuntimeExternals(dir)).toEqual([]);
+      writeFileSync(
+        join(dir, "package.json"),
+        `${JSON.stringify({
+          name: "app",
+          kumiko: { extraRuntimeExternals: ["ok", 1, "", "  "] },
+        })}\n`,
+      );
+      expect(readExtraRuntimeExternals(dir)).toEqual(["ok"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("buildServerBundle + package.json extras (#1484)", () => {
+  test("extraRuntimeExternals from options land in runtimeDeps with app pin", async () => {
+    const dir = makeFixture();
+    try {
+      writeFileSync(
+        join(dir, "package.json"),
+        `${JSON.stringify({
+          name: "fixture-app",
+          dependencies: { "@napi-rs/canvas": "0.1.65" },
+          kumiko: { extraRuntimeExternals: ["@napi-rs/canvas"] },
+        })}\n`,
+      );
+      const extras = readExtraRuntimeExternals(dir);
+      const result = await buildServerBundle({
+        cwd: dir,
+        outDir: join(dir, "dist-server"),
+        extraRuntimeExternals: extras,
+      });
+      expect(result.runtimeDeps["@napi-rs/canvas"]).toBe("0.1.65");
+      const distPkg = JSON.parse(readFileSync(join(dir, "dist-server/package.json"), "utf-8")) as {
+        dependencies: Record<string, string>;
+      };
+      expect(distPkg.dependencies["@napi-rs/canvas"]).toBe("0.1.65");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("app package.json does not override framework runtime pins", async () => {
+    const dir = makeFixture();
+    try {
+      const frameworkPkgDir = join(dir, "node_modules/@cosmicdrift/kumiko-framework");
+      mkdirSync(frameworkPkgDir, { recursive: true });
+      writeFileSync(
+        join(frameworkPkgDir, "package.json"),
+        `${JSON.stringify({
+          name: "@cosmicdrift/kumiko-framework",
+          dependencies: { meilisearch: "^0.58.0" },
+        })}\n`,
+      );
+      writeFileSync(
+        join(dir, "package.json"),
+        `${JSON.stringify({
+          name: "fixture-app",
+          dependencies: { meilisearch: "^0.1.0", "@napi-rs/canvas": "0.1.65" },
+          kumiko: { extraRuntimeExternals: ["@napi-rs/canvas"] },
+        })}\n`,
+      );
+      const result = await buildServerBundle({
+        cwd: dir,
+        outDir: join(dir, "dist-server"),
+        extraRuntimeExternals: readExtraRuntimeExternals(dir),
+      });
+      expect(result.runtimeDeps["meilisearch"]).toBe("^0.58.0");
+      expect(result.runtimeDeps["@napi-rs/canvas"]).toBe("0.1.65");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
