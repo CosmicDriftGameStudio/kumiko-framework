@@ -282,6 +282,22 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
   // getJob undefined und die Loeschung laeuft nach Grace-Ablauf NIE. Wir
   // treiben den ECHTEN registrierten Job durch den echten JobContext (db +
   // registry, kein config) — nicht den inneren runForgetCleanup-Helper.
+  function capturingJobLog() {
+    const warns: string[] = [];
+    const log: JobContext["log"] = {
+      info() {},
+      warn(message: string) {
+        warns.push(message);
+      },
+      error() {},
+      debug() {},
+      child(): JobContext["log"] {
+        return this;
+      },
+    };
+    return { log, warns };
+  }
+
   test("registered job exists + erases through the real JobContext", async () => {
     const job = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
     expect(job).toBeTruthy();
@@ -295,16 +311,60 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
     });
     await seedMembership(CRON_USER, TENANT_A);
 
-    const jobCtx = { db: stack.db, registry: stack.registry };
-    // jobCtx is a deliberately minimal prod-context replica (missing
-    // systemUser/log/triggeredBy) — double-cast at this test boundary since
-    // the handler under test never touches those fields.
+    const { log } = capturingJobLog();
+    const jobCtx = { db: stack.db, registry: stack.registry, log };
     await job?.handler({}, jobCtx as unknown as JobContext);
 
     const row = await fetchUser(CRON_USER);
     expect(row?.status).toBe(USER_STATUS.Deleted);
     expect(row?.email).not.toContain("cron-delete@example.com");
     expect(row?.email).toContain("anonymized.invalid");
+  });
+
+  test("incomplete hooks are written to ctx.log (job-run audit trail, #1572)", async () => {
+    const job = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
+    expect(job).toBeTruthy();
+
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    const usages = stack.registry.getExtensionUsages("userData");
+    const userUsage = usages.find((u) => u.entityName === "user");
+    if (!userUsage?.options) throw new Error("user usage not found");
+    type DeleteHook = (
+      ctx: { userId: string; tenantId: string; db: unknown },
+      strategy: string,
+    ) => Promise<undefined | { status: "ok" } | { status: "incomplete"; reason: string }>;
+    const originalUserDelete = (userUsage.options as { delete: DeleteHook }).delete;
+    (userUsage.options as { delete: DeleteHook }).delete = async (ctx, strategy) => {
+      if (ctx.userId === ALICE_ID) {
+        return { status: "incomplete", reason: "synthetic partial cleanup for alice" };
+      }
+      return originalUserDelete(ctx, strategy);
+    };
+
+    const { log, warns } = capturingJobLog();
+    try {
+      await job?.handler({}, {
+        db: stack.db,
+        registry: stack.registry,
+        log,
+      } as unknown as JobContext);
+    } finally {
+      (userUsage.options as { delete: DeleteHook }).delete = originalUserDelete;
+    }
+
+    const hit = warns.find((w) => w.includes("incomplete hook") && w.includes(ALICE_ID));
+    expect(hit).toBeDefined();
+    expect(hit).toContain("entityName=user");
+    expect(hit).toContain("rolledBack=false");
+    expect(hit).toContain("reason=synthetic partial cleanup for alice");
+
+    const aliceRow = await fetchUser(ALICE_ID);
+    expect(aliceRow?.status).toBe(USER_STATUS.Deleted);
   });
 });
 

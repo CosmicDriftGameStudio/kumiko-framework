@@ -45,7 +45,11 @@ import {
   type SendExportFailedEmailFn,
   type SendExportReadyEmailFn,
 } from "./run-export-jobs";
-import { runForgetCleanup, type SendDeletionExecutedEmailFn } from "./run-forget-cleanup";
+import {
+  runForgetCleanup,
+  type SendDeletionExecutedEmailFn,
+  sanitizeReasonForLog,
+} from "./run-forget-cleanup";
 import { downloadAttemptEntity } from "./schema/download-attempt";
 import { exportDownloadTokenEntity } from "./schema/download-token";
 import { exportJobEntity } from "./schema/export-job";
@@ -533,19 +537,16 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           ...(sendDeletionExecutedEmail && { sendDeletionExecutedEmail }),
         });
 
-        // rolledBack:true means the hook's own non-transactional side effect
-        // (e.g. an S3 delete) already ran even though the sub-tx that would
-        // have flipped the user to Deleted rolled back — the cron result was
-        // previously discarded entirely, so this was the only signal an
-        // operator could ever see for that case (see run-forget-cleanup.ts's
-        // ForgetCleanupIncomplete.rolledBack doc).
-        const rolledBackIncomplete = forgetResult.incomplete.filter((i) => i.rolledBack);
-        if (rolledBackIncomplete.length > 0) {
-          // biome-ignore lint/suspicious/noConsole: operator-visibility for a rolled-back partial side effect
-          console.warn(
-            `[user-data-rights:run-forget-cleanup] ${rolledBackIncomplete.length} incomplete hook(s) rolled back after a non-transactional side effect already ran: ${rolledBackIncomplete
-              .map((i) => `userId=${i.userId} tenantId=${i.tenantId} entityName=${i.entityName}`)
-              .join(", ")}`,
+        // Persist each incomplete report on the job-run log (#1572). The write
+        // handler returns incomplete[] in its response; the cron path used to
+        // discard the array (only a console.warn for rolledBack cases).
+        // ctx.log feeds createJobRunLogger → store_job_run_logs.
+        for (const entry of forgetResult.incomplete) {
+          ctx.log?.warn?.(
+            `[user-data-rights:run-forget-cleanup] incomplete hook ` +
+              `userId=${entry.userId} tenantId=${entry.tenantId} ` +
+              `entityName=${entry.entityName} rolledBack=${entry.rolledBack} ` +
+              `reason=${sanitizeReasonForLog(entry.reason)}`,
           );
         }
       },

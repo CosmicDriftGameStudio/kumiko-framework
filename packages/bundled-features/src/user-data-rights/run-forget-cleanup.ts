@@ -180,7 +180,7 @@ const HOOK_ORDER_DEFAULT = EXT_USER_DATA_ORDER.DEFAULT;
 // console.warn so a crafted reason can't forge extra log lines, and cap the
 // length against a log-flood. The unsanitized reason still lands in the
 // returned `incomplete` entry untouched.
-function sanitizeReasonForLog(reason: string): string {
+export function sanitizeReasonForLog(reason: string): string {
   return reason.replace(/[\r\n]+/g, " ").slice(0, 500);
 }
 
