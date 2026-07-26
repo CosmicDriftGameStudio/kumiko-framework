@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 58,
+  "featureCount": 59,
   "features": [
     {
       "name": "admin-shell",
@@ -2157,6 +2157,81 @@
         "category": "compliance",
         "recommended": false
       }
+    },
+    {
+      "name": "tenant-settings",
+      "description": "Per-tenant Currency + Locale defaults, exposed as two config keys (tenant-settings:config:currency, tenant-settings:config:locale) that surface in the self-populating Settings-Hub via `mask`. Pair with defineCreateWithTenantDefaults to auto-fill a money field's currency or a locale field on create instead of hard-coding a literal per entity.",
+      "toggleableDefault": null,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "currency",
+          "qualifiedName": "tenant-settings:config:currency",
+          "type": "select",
+          "scope": "tenant",
+          "default": "EUR",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "EUR",
+            "USD",
+            "GBP",
+            "CHF",
+            "JPY",
+            "SEK",
+            "NOK",
+            "DKK",
+            "PLN",
+            "CZK",
+            "CAD",
+            "AUD",
+            "NZD",
+            "CNY",
+            "INR"
+          ],
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "locale",
+          "qualifiedName": "tenant-settings:config:locale",
+          "type": "text",
+          "scope": "tenant",
+          "default": "en",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[a-z]{2}(-[A-Z]{2})?$"
+          },
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "text-content",
