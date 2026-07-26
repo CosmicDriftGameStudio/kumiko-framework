@@ -1,6 +1,6 @@
 {
-  "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 57,
+  "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
+  "featureCount": 58,
   "features": [
     {
       "name": "admin-shell",
@@ -52,7 +52,8 @@
       "toggleableDefault": null,
       "requires": [
         "user",
-        "tenant"
+        "tenant",
+        "delivery"
       ],
       "optionalRequires": [],
       "configReads": [],
@@ -64,7 +65,9 @@
       "writeHandlers": [
         "auth-email-password:write:change-password",
         "auth-email-password:write:login",
-        "auth-email-password:write:logout"
+        "auth-email-password:write:logout",
+        "auth-email-password:write:signup-confirm",
+        "auth-email-password:write:signup-request"
       ],
       "uiHints": {
         "displayLabel": "Auth · Email + Password",
@@ -198,6 +201,20 @@
           "entityName": "user-mfa"
         }
       ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "auth-self-registration",
+      "description": "Runtime on/off switch for the auth-email-password self-signup flow. Handler-less: composing it registers \"auth-self-registration\" as a toggleable feature (default ON). auth-email-password's signup-request handler and its `signupRegistrationStatus` query both read `ctx.hasFeature(\"auth-self-registration\")` — the query stays reachable when the toggle is off (deliberately not gated itself) so the public signup page can hide its own link/form. Only meaningful when `signup` is configured on `createAuthEmailPasswordFeature` — compose alongside it, then flip via the feature-toggles admin screen.",
+      "toggleableDefault": true,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": []

@@ -8,7 +8,7 @@ import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
-import { APP_FEATURES } from "../src/run-config";
+import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../src/run-config";
 
 const SMOKE_TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
@@ -43,5 +43,7 @@ await runProdApp({
         },
       ],
     },
+    // Coverage for auth-self-registration toggle (#1521 Option A).
+    signup: AUTH_COMPOSE_OPTIONS.signup,
   },
 });

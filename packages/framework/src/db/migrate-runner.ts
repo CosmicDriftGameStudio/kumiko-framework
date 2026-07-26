@@ -74,14 +74,103 @@ CREATE TABLE IF NOT EXISTS "_kumiko_migrations" (
 )
 `.trim();
 
-// Splittet SQL-File-Text in einzelne Statements. Pragma: simpler `;`-Split,
-// reicht weil unsere generierten SQL-Files keine eingebetteten `;` in String-
-// Literalen haben. App-Author der hand-editiert + tricky SQL einfügt sollte
-// das wissen — sonst pg-Parser einziehen.
+// Splits SQL-file text into individual statements on top-level `;`. A plain
+// `text.split(";")` breaks the moment a `--` line comment or `/* */` block
+// comment contains a semicolon (#1542) — it splits mid-comment before the
+// comment is ever stripped. This scans char-by-char tracking whether we're
+// inside a line comment, block comment, single-quoted string, or
+// double-quoted identifier, so `;` only ends a statement in plain SQL text;
+// comments are dropped, quoted/identifier content (incl. `''`/`""` escapes)
+// is kept verbatim. Does not handle dollar-quoted (`$$...$$`) bodies — none
+// of this repo's checked-in migrations use them; add that state if one ever
+// does.
+type SqlScanState = "normal" | "lineComment" | "blockComment" | "singleQuote" | "doubleQuote";
+
 export function splitSqlStatements(sqlText: string): readonly string[] {
-  return sqlText
-    .split(";")
-    .map((s) => s.replace(/--[^\n]*/g, "").trim())
+  const statements: string[] = [];
+  let current = "";
+  let state: SqlScanState = "normal";
+
+  for (let i = 0; i < sqlText.length; i++) {
+    const ch = sqlText.charAt(i);
+    const next = sqlText.charAt(i + 1);
+
+    if (state === "lineComment") {
+      if (ch === "\n") {
+        state = "normal";
+        current += ch;
+      }
+      continue;
+    }
+    if (state === "blockComment") {
+      if (ch === "*" && next === "/") {
+        state = "normal";
+        i++;
+      }
+      continue;
+    }
+    if (state === "singleQuote") {
+      current += ch;
+      if (ch === "'") {
+        if (next === "'") {
+          current += next;
+          i++;
+        } else {
+          state = "normal";
+        }
+      }
+      continue;
+    }
+    if (state === "doubleQuote") {
+      current += ch;
+      if (ch === '"') {
+        if (next === '"') {
+          current += next;
+          i++;
+        } else {
+          state = "normal";
+        }
+      }
+      continue;
+    }
+
+    // state === "normal"
+    if (ch === "-" && next === "-") {
+      state = "lineComment";
+      i++;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      state = "blockComment";
+      i++;
+      continue;
+    }
+    if (ch === "'") {
+      state = "singleQuote";
+      current += ch;
+      continue;
+    }
+    if (ch === '"') {
+      state = "doubleQuote";
+      current += ch;
+      continue;
+    }
+    if (ch === ";") {
+      statements.push(current);
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  if (state === "blockComment" || state === "singleQuote" || state === "doubleQuote") {
+    throw new Error(
+      `splitSqlStatements: unterminated ${state} — migration SQL is malformed, refusing to split`,
+    );
+  }
+  statements.push(current);
+
+  return statements
+    .map((s) => s.trim())
     .filter((s) => s.length > 0)
     .map((s) => `${s};`);
 }

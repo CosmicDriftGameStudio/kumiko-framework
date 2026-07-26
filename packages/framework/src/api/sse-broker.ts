@@ -1,3 +1,4 @@
+import { userAccessChannel } from "../engine/constants";
 import { generateId } from "../utils";
 
 export type SseClient = {
@@ -17,10 +18,18 @@ export type SseBroker = {
   pushToChannel(channel: string, event: SseEvent): void;
   getClientCount(channel: string): number;
   getTotalClientCount(): number;
+  // Internal (non-SSE-client) subscription, e.g. dispatch-stream watching
+  // for mid-stream access revocation. Kept separate from addClient/
+  // pushToChannel: those count towards getClientCount/getTotalClientCount
+  // (real SSE connections) and their send/close shape doesn't fit a plain
+  // callback listener. Returns an unsubscribe function.
+  subscribeAccessInvalidation(userId: string, onInvalidate: () => void): () => void;
+  publishAccessInvalidation(userId: string): void;
 };
 
 export function createSseBroker(): SseBroker {
   const channels = new Map<string, Map<string, SseClient>>();
+  const accessInvalidationListeners = new Map<string, Map<string, () => void>>();
 
   function getOrCreateChannel(channel: string): Map<string, SseClient> {
     let clients = channels.get(channel);
@@ -66,6 +75,36 @@ export function createSseBroker(): SseBroker {
         total += clients.size;
       }
       return total;
+    },
+
+    subscribeAccessInvalidation(userId, onInvalidate) {
+      const channel = userAccessChannel(userId);
+      const listenerId = generateId();
+      let listeners = accessInvalidationListeners.get(channel);
+      if (!listeners) {
+        listeners = new Map();
+        accessInvalidationListeners.set(channel, listeners);
+      }
+      listeners.set(listenerId, onInvalidate);
+      return () => {
+        const current = accessInvalidationListeners.get(channel);
+        // skip: already unsubscribed (e.g. stream ended after a publish already fired)
+        if (!current) return;
+        current.delete(listenerId);
+        if (current.size === 0) accessInvalidationListeners.delete(channel);
+      };
+    },
+
+    publishAccessInvalidation(userId) {
+      const channel = userAccessChannel(userId);
+      const listeners = accessInvalidationListeners.get(channel);
+      // skip: no live stream is watching this user right now
+      if (!listeners) return;
+      // Snapshot before iterating — a fired listener unsubscribes itself,
+      // which would mutate `listeners` mid-iteration otherwise.
+      for (const onInvalidate of [...listeners.values()]) {
+        onInvalidate();
+      }
     },
   };
 }

@@ -45,6 +45,10 @@ import { createSessionsFeature } from "../../sessions";
 import { SessionHandlers } from "../../sessions/constants";
 import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
 import { createSessionCallbacks, type SessionCallbacks } from "../../sessions/session-callbacks";
+import {
+  SESSION_REVOKED_EVENT_QN,
+  type SessionRevokedPayload,
+} from "../../sessions/session-revoked-event";
 import { sessionCallbacksFromLateBound, withMintedSession } from "../../sessions/testing";
 import { hashPassword } from "../../shared";
 import { createTenantFeature, tenantMembershipsTable } from "../../tenant";
@@ -227,6 +231,51 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     const err = await stack.http.writeErr(RESTRICT, {}, aliceUser);
     expect(reasonOf(err)).toBe("user_not_in_active_state");
   });
+
+  // kumiko-framework#1540: access.admin includes TenantAdmin/Admin, which
+  // are tenant-scoped roles, but the User-entity lookup uses ctx.db.raw
+  // (no auto-tenant-filter — User status is intentionally global). Without
+  // a membership check, an Admin from a DIFFERENT tenant than the target
+  // user could still pass the isAdminActor gate and flip the target's
+  // status. Mirrors the sibling lift-restriction fix (kumiko-framework#1342).
+  test("Admin aus fremdem Tenant: 403 target_user_not_in_admin_tenant, Status bleibt Active", async () => {
+    const { userId: targetId } = await seedAliceWithMembership();
+    const otherTenantAdmin = await mintActor(TestUsers.otherTenant);
+
+    const err = await stack.http.writeErr(RESTRICT, { userId: targetId }, otherTenantAdmin);
+    expect(err.httpStatus).toBe(403);
+    expect(reasonOf(err)).toBe("target_user_not_in_admin_tenant");
+
+    const userRow = (await selectMany(stack.db, userTable, { id: targetId })) as Array<{
+      status: string;
+    }>;
+    expect(userRow[0]?.status).toBe(USER_STATUS.Active);
+  });
+
+  test("SystemAdmin darf tenant-übergreifend restricten (platform-weiter Operator) + revoked Sessions", async () => {
+    const { userId: targetId } = await seedAliceWithMembership();
+    const loginRes = await login(ALICE_EMAIL, ALICE_PW);
+    expect(loginRes.status).toBe(200);
+
+    const systemAdmin = await mintActor({
+      id: crypto.randomUUID(),
+      tenantId: testTenantId(2),
+      roles: ["SystemAdmin"],
+    });
+
+    const result = await stack.http.writeOk<{ userId: string; status: string }>(
+      RESTRICT,
+      { userId: targetId },
+      systemAdmin,
+    );
+    expect(result.status).toBe(USER_STATUS.Restricted);
+
+    const sessionsAfter = (await selectMany(stack.db, userSessionTable, {
+      userId: targetId,
+    })) as Array<{ revokedAt: unknown }>;
+    expect(sessionsAfter.length).toBeGreaterThanOrEqual(1);
+    expect(sessionsAfter.every((s) => s.revokedAt !== null)).toBe(true);
+  });
 });
 
 describe("S2.U6 :: lift-restriction state-transitions", () => {
@@ -368,5 +417,15 @@ describe("S2.U6 :: Cross-Feature sessions.revokeAllForUser direct", () => {
       revokedAt: unknown;
     }>;
     expect(revoked.every((s) => s.revokedAt !== null)).toBe(true);
+
+    // #1559 — cross-tenant privileged revoke uses the low-level append(),
+    // not ctx.unsafeAppendEvent (see revoke-all-for-user.write.ts for why:
+    // the SystemAdmin caller's own tenantId has no relationship to the
+    // target user's session tenant). One event, both sids listed.
+    const events = await selectMany(stack.db, eventsTable, { type: SESSION_REVOKED_EVENT_QN });
+    expect(events).toHaveLength(1);
+    const payload = events[0]?.["payload"] as SessionRevokedPayload;
+    expect(payload.userId).toBe(userId);
+    expect(new Set(payload.sessionIds)).toEqual(new Set(liveBefore.map((s) => s.id)));
   });
 });

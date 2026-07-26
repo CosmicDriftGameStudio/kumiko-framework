@@ -21,10 +21,11 @@ import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engi
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { ENTITY_METAS } from "../../kumiko/schema";
-import { APP_FEATURES } from "../run-config";
+import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 
 const composedFeatures = composeFeatures([...APP_FEATURES], {
   includeBundled: true,
+  authOptions: AUTH_COMPOSE_OPTIONS,
 });
 
 // use-all-bundled mounts encrypted entity fields (auth-mfa's totpSecret,

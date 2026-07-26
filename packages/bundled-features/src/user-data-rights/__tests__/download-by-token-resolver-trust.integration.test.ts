@@ -155,11 +155,15 @@ describe("download-by-token under resolverTrust: authoritative, no defaultTenant
     }
 
     const res = await stack.app.fetch(
-      new Request(`http://test/user-export/by-token?token=${plainToken}`, { method: "GET" }),
+      new Request("http://test/user-export/by-token", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: plainToken }),
+      }),
     );
-    expect(res.status).toBe(302);
-    const location = res.headers.get("location");
-    expect(location).toMatch(/^memory:\/\//);
-    expect(location).toContain(`${jobTenant}/exports/${jobId}.zip`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: { url?: string } };
+    expect(body.data?.url).toMatch(/^memory:\/\//);
+    expect(body.data?.url).toContain(`${jobTenant}/exports/${jobId}.zip`);
   });
 });

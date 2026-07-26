@@ -149,6 +149,11 @@ export type RunDevAppAuthOptions = {
   readonly allowedOrigins?: readonly string[];
   /** Opt out of the Origin guard. Symmetric to RunProdAppAuthOptions. */
   readonly unsafeSkipOriginCheck?: boolean;
+  /** Number of trusted reverse-proxy hops for client-IP derivation (see
+   *  AuthRoutesConfig.trustedProxyHops, kumiko-framework#1539). Symmetric to
+   *  RunProdAppAuthOptions — dev usually runs unproxied, so this is normally
+   *  left unset (default 0). */
+  readonly trustedProxyHops?: number;
 };
 
 /** Hook for app-specific seeding (demo data, fixtures). Runs after the
@@ -483,6 +488,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         }),
         ...(effectiveAuth.unsafeSkipOriginCheck !== undefined && {
           unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
+        }),
+        ...(effectiveAuth.trustedProxyHops !== undefined && {
+          trustedProxyHops: effectiveAuth.trustedProxyHops,
         }),
         ...sessionAuthFragment,
         ...patAuthFragment,

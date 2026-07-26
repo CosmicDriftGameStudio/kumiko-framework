@@ -297,9 +297,13 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // external script reads the fragment client-side and exchanges the
     // token via POST for the signed URL.
     //
-    // The old token-in-query format stays supported as a fallback (not a
-    // transitional shim — permanent): emails sent before this deploy still
-    // use the old format and must keep working until their TTL expires.
+    // No `?token=` query fallback: framework is zero-legacy (#1512) — no
+    // live customer data / no pre-#1271 emails in flight that would need
+    // bridging, so there's nothing a fallback would need to cover. A query
+    // param reaches the server as part of the request URL and gets written
+    // to proxy/access logs regardless of what the handler does with it
+    // afterward (a redirect doesn't undo an already-logged request) — the
+    // only leak-proof fix is to never accept the token that way.
     //
     // Path liegt AUSSERHALB /api/* weil r.httpRoute den /api-namespace nicht
     // claimen darf (reserved fuer write/query/batch/auth/sse-dispatcher).
@@ -312,25 +316,10 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       method: "GET",
       path: "/user-export/by-token",
       anonymous: true,
-      handler: async (c, { app }) => {
-        const url = new URL(c.req.url);
-        const token = url.searchParams.get("token");
-        if (!token) {
-          return c.body(TOKEN_EXCHANGE_PAGE_HTML, 200, {
-            "content-type": "text/html; charset=utf-8",
-          });
-        }
-        const queryRes = await app.fetch(
-          new Request(`${url.origin}/api/query`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              type: "user-data-rights:query:download-by-token",
-              payload: { token, auditMeta: extractAuditMeta(c.req.raw.headers) },
-            }),
-          }),
-        );
-        return mapQueryResponseToRedirect(c, queryRes);
+      handler: async (c) => {
+        return c.body(TOKEN_EXCHANGE_PAGE_HTML, 200, {
+          "content-type": "text/html; charset=utf-8",
+        });
       },
     });
 
@@ -562,25 +551,6 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       },
     );
   });
-}
-
-// Map /api/query-Response auf 302-Redirect oder Error-Passthrough.
-async function mapQueryResponseToRedirect(
-  c: import("hono").Context,
-  queryRes: Response,
-): Promise<Response> {
-  if (!queryRes.ok) {
-    const errorBody = await queryRes.text();
-    const statusCode = queryRes.status as 400 | 401 | 404 | 410 | 500; // @cast-boundary engine-payload
-    return c.body(errorBody, statusCode, {
-      "content-type": queryRes.headers.get("content-type") ?? "application/json",
-    });
-  }
-  const body = (await queryRes.json()) as { data?: { url?: string } }; // @cast-boundary engine-payload
-  if (!body.data?.url) {
-    return c.json({ error: "download_resolution_failed" }, 500);
-  }
-  return c.redirect(body.data.url, 302);
 }
 
 // Extract Audit-Meta (IP + UA) aus den HTTP-Headers + steck es in die
