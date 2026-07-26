@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.165.2
+
+### Patch Changes
+
+- ed36555: Rename `buildEntityTableMeta` → `deriveEntityTableMeta` so the helper is not mistaken for the unmanaged escape hatch (`defineUnmanagedTable`). Deprecated alias kept. Unmanaged builders now reject the reserved `read_` table-name prefix (#1208/#1220).
+- Updated dependencies [ed36555]
+  - @cosmicdrift/kumiko-framework@0.165.2
+  - @cosmicdrift/kumiko-types@0.165.2
+  - @cosmicdrift/kumiko-headless@0.165.2
+  - @cosmicdrift/kumiko-renderer@0.165.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.165.2
+  - @cosmicdrift/kumiko-renderer-web@0.165.2
+
 ## 0.165.1
 
 ### Patch Changes
