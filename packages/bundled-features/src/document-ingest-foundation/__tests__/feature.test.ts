@@ -39,6 +39,12 @@ describe("documentIngestFoundationFeature — shape", () => {
     expect(documentExtractEntity.fields.meta).toMatchObject({ type: "jsonb" });
   });
 
+  test("exports writeIngestPages / readIngestPages for the encrypted pages wire format (#1549)", async () => {
+    const { readIngestPages, writeIngestPages } = await import("../pages");
+    const pages = [{ pageNumber: 1, text: "x" }];
+    expect(readIngestPages(writeIngestPages(pages))).toEqual(pages);
+  });
+
   test("registers NO write/query handlers — only entity, config, event, and MSP", () => {
     expect(Object.keys(documentIngestFoundationFeature.writeHandlers)).toHaveLength(0);
     expect(Object.keys(documentIngestFoundationFeature.queryHandlers)).toHaveLength(0);

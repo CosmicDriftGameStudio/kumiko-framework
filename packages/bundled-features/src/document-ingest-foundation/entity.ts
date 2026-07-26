@@ -10,6 +10,8 @@ import {
 // Stored as JSON.stringify(IngestPage[]) in the encrypted `pages` column —
 // jsonb has no encryption support in the engine, and this column holds the
 // full extracted text of ingested documents (invoices, IDs, contracts).
+// Writers/readers MUST use writeIngestPages / readIngestPages — do not pass
+// a raw IngestPage[] into executor.create (encrypted longText requires string).
 export type IngestPage = {
   readonly pageNumber: number;
   readonly text: string;
