@@ -17,6 +17,7 @@ import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
+  ACCESS_INVALIDATION_CONSUMER_NAME,
   ConsumerLagError,
   disableConsumer,
   eventConsumerStateTable,
@@ -109,6 +110,15 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     // row was auto-registered by setupTestStack (strict Sprint-E mode);
     // flip its status to disabled instead of inserting a duplicate.
     await disableConsumer(stack.db, observerQn);
+    // Per-instance delivery means its row's instanceId is a random
+    // boot-time UUID we don't know here — match by name only, same as the
+    // consumer-lag-guard test below does for its own forced-cursor update.
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled" },
+      { name: ACCESS_INVALIDATION_CONSUMER_NAME },
+    );
 
     // Prune only the obsolete type — widget events survive.
     const result = await pruneEvents(stack.db, {
@@ -137,6 +147,12 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     // consumer is at cursor=0 and would otherwise block a prune that
     // touches higher event ids.
     await disableConsumer(stack.db, observerQn);
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled" },
+      { name: ACCESS_INVALIDATION_CONSUMER_NAME },
+    );
     const result = await pruneEvents(stack.db, {
       olderThanDays: 7,
       aggregateTypes: ["obsolete"],
@@ -154,6 +170,15 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     await seedOldAggregateEvent(tenDaysAgo, "obsolete.drain", "obsolete");
 
     await disableConsumer(stack.db, observerQn);
+    // The access-invalidation consumer (kumiko-framework#1560) is wired
+    // unconditionally into every setupTestStack() server too — disable it
+    // here for the same lag-guard reason as observerQn above.
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled" },
+      { name: ACCESS_INVALIDATION_CONSUMER_NAME },
+    );
     const result = await pruneEvents(stack.db, {
       olderThanDays: 7,
       aggregateTypes: ["obsolete"],
