@@ -20,6 +20,9 @@
 import type { TzContext, TzContextOptions } from "@cosmicdrift/kumiko-types/tz-context";
 import { ensureTemporalPolyfill, getTemporal } from "./polyfill";
 
+// Back-compat shim: re-exported so existing `from "@cosmicdrift/kumiko-framework/time/tz-context"`
+// imports keep working. Prefer importing from @cosmicdrift/kumiko-types/tz-context directly in
+// new code — drop this re-export once no framework-path imports remain.
 export type {
   LocatedTimestampJson,
   TzContext,

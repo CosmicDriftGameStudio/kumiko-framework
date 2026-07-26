@@ -2,7 +2,7 @@
 // Greenmail suites skip in CI when the container is down — this file mocks
 // imapflow so the plugin body stays on the coverage badge without Docker.
 
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import { createSecret } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -110,9 +110,19 @@ class FakeImapFlow extends EventEmitter {
   }
 }
 
+// Restore hygiene: Bun runs a test-run's files in one process, so a
+// top-level mock.module leaks into every file that runs after this one. The
+// real module is captured before mocking so afterAll can put it back — a
+// later file that needs the real imapflow (or a filtered/reordered run via
+// `-t`) would otherwise silently see FakeImapFlow instead.
+const realImapflow = await import("imapflow");
 mock.module("imapflow", () => ({ ImapFlow: FakeImapFlow }));
 
 const { imapInboundMailPlugin } = await import("../feature");
+
+afterAll(() => {
+  mock.module("imapflow", () => realImapflow);
+});
 
 function mime(subject: string, text: string): Buffer {
   return Buffer.from(
@@ -120,7 +130,7 @@ function mime(subject: string, text: string): Buffer {
       "From: Sender <sender@example.com>",
       "To: inbox@example.com",
       `Subject: ${subject}`,
-      "Message-ID: <msg-1@example.com>",
+      `Message-ID: <${subject}-@example.com>`,
       "Date: Mon, 01 Jan 2024 12:00:00 +0000",
       "MIME-Version: 1.0",
       "Content-Type: text/plain; charset=utf-8",
@@ -141,6 +151,13 @@ const account: MailAccountRecord = {
   status: "active",
   watchState: "idle",
 };
+
+async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+  const t0 = Date.now();
+  while (!predicate() && Date.now() - t0 < timeoutMs) {
+    await Bun.sleep(5);
+  }
+}
 
 function ctxWithDoc(doc: string | null): InboundMailContext {
   return {
@@ -227,6 +244,11 @@ describe("imapInboundMailPlugin — mocked imapflow", () => {
     expect(result.messages[0]?.subject).toBe("one");
     expect(result.nextCursor).toEqual({ uidValidity: "17", lastUid: 2 });
     expect(result.hasMore).toBe(false);
+    // Fixtures must carry distinct Message-ID headers — colliding fixtures
+    // would mask a mapping bug where toRawInboundMessage produces a
+    // wrong/constant messageIdHeader per batch (used for the References/
+    // threading chain and the self-heal dedup fallback).
+    expect(new Set(result.messages.map((m) => m.messageIdHeader)).size).toBe(2);
   });
 
   test("fetch: incremental cursor filters uid <= lastUid + hasMore via maxMessages", async () => {
@@ -308,7 +330,9 @@ describe("imapInboundMailPlugin — mocked imapflow", () => {
     ];
     lastIdleClient?.emit("exists");
 
-    await Bun.sleep(50);
+    // drainNew() does MIME-parsing before onMessages fires — a fixed sleep
+    // flakes on a loaded CI runner; poll instead.
+    await waitFor(() => received.some((batch) => batch.some((m) => m.subject === "pushed")));
     expect(received.some((batch) => batch.some((m) => m.subject === "pushed"))).toBe(true);
 
     await stop();
@@ -323,9 +347,11 @@ describe("imapInboundMailPlugin — mocked imapflow", () => {
       },
     });
     lastIdleClient?.emit("error", new Error("socket hang up"));
-    await Bun.sleep(20);
+    await waitFor(() => errors >= 1);
     lastIdleClient?.emit("error", new Error("second"));
-    await Bun.sleep(20);
+    // Confirms onError stays unsubscribed after the first error — polls the
+    // same bounded window rather than betting on a fixed sleep outlasting it.
+    await waitFor(() => errors >= 2, 100);
     expect(errors).toBe(1);
     await stop().catch(() => {});
   });

@@ -235,6 +235,30 @@ describe("loadJwtSecretOrKeyring", () => {
       }),
     ).toThrow(/JWT_SECRET_V1 must be ≥32 chars/);
   });
+
+  it("kumiko-framework#1526: short legacy JWT_SECRET is rejected, not silently carried into the keyring", () => {
+    // Auth-bypass: a short JWT_SECRET carried into keys["legacy"] without a
+    // length check would be offline-bruteforceable — an attacker forges
+    // {alg:"HS256", kid:"legacy"} with arbitrary sub/tenantId/roles and
+    // verifyWithKeyring looks the key up by kid straight from the header.
+    expect(() =>
+      loadJwtSecretOrKeyring({
+        JWT_SECRET: "short",
+        JWT_SECRET_V1: SECRET,
+        JWT_SECRET_CURRENT_VERSION: "1",
+      }),
+    ).toThrow(/JWT_SECRET must be ≥32 chars/);
+  });
+
+  it("kumiko-framework#1308: empty JWT_SECRET_V<n> throws instead of silently falling back to single-secret mode", () => {
+    expect(() =>
+      loadJwtSecretOrKeyring({
+        JWT_SECRET: SECRET,
+        JWT_SECRET_V1: "",
+        JWT_SECRET_CURRENT_VERSION: "1",
+      }),
+    ).toThrow(/JWT_SECRET_V1 is set but empty/);
+  });
 });
 
 describe("createJwtHelper — ttlSeconds", () => {

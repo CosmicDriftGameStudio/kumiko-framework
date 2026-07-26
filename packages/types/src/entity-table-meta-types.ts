@@ -81,7 +81,7 @@ export type EntityTableMeta = {
 export type BuildEntityTableMetaOptions = {
   readonly featureName?: string;
   readonly relations?: EntityRelations;
-  readonly source?: "managed" | "unmanaged";
+  readonly source?: EntityTableMeta["source"];
 };
 
 export type UnmanagedTableInput = {

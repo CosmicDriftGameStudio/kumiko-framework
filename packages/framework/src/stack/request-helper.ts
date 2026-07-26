@@ -111,10 +111,21 @@ export function createRequestHelper(
   jwt: JwtHelper,
   options: RequestHelperOptions = {},
 ): RequestHelper {
+  // sid per user.id, not one mint per authHeader() call: sessionCreator
+  // opens a live session row, so an unmemoized call mints a fresh one on
+  // every request a test makes for the same user — tests asserting on
+  // session counts / massRevoker / revokeAllOthers behavior then see
+  // extra live sids that have nothing to do with what they're testing.
+  const sidByUserId = new Map<string, string>();
+
   async function authHeader(user: SessionUser): Promise<Record<string, string>> {
     let forJwt = user;
     if (options.sessionCreator && !user.sid) {
-      const sid = await options.sessionCreator(user, { ip: "test", userAgent: "request-helper" });
+      const cachedSid = sidByUserId.get(user.id);
+      const sid =
+        cachedSid ??
+        (await options.sessionCreator(user, { ip: "test", userAgent: "request-helper" }));
+      if (cachedSid === undefined) sidByUserId.set(user.id, sid);
       forJwt = { ...user, sid };
     }
     const token = await jwt.sign(forJwt);

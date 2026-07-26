@@ -202,74 +202,78 @@ describe("runPostSave", () => {
   test("postSave errors don't throw — logged and continued", async () => {
     const calls: string[] = [];
     const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
-
-    const registry = makeRegistry({
-      postSave: [
-        async () => {
-          throw new Error("feature-fail");
-        },
-      ],
-    });
-
-    const systemHooks: SystemHooks = {
-      postSave: [
-        {
-          name: "search",
-          priority: 1000,
-          fn: async () => {
-            calls.push("search-ran");
+    try {
+      const registry = makeRegistry({
+        postSave: [
+          async () => {
+            throw new Error("feature-fail");
           },
-        },
-      ],
-    };
+        ],
+      });
 
-    const pipeline = createLifecycleHooks(registry, systemHooks);
-    // Should not throw
-    await pipeline.runPostSave("test:write:user", savectx, {});
+      const systemHooks: SystemHooks = {
+        postSave: [
+          {
+            name: "search",
+            priority: 1000,
+            fn: async () => {
+              calls.push("search-ran");
+            },
+          },
+        ],
+      };
 
-    // System hook still ran despite feature hook failure
-    expect(calls).toContain("search-ran");
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
+      const pipeline = createLifecycleHooks(registry, systemHooks);
+      // Should not throw
+      await pipeline.runPostSave("test:write:user", savectx, {});
+
+      // System hook still ran despite feature hook failure
+      expect(calls).toContain("search-ran");
+      expect(consoleSpy).toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   test("system hook failure doesn't block other system hooks", async () => {
     const calls: string[] = [];
     const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const registry = makeRegistry();
 
-    const registry = makeRegistry();
-
-    const systemHooks: SystemHooks = {
-      postSave: [
-        {
-          name: "search",
-          priority: 1000,
-          fn: async () => {
-            throw new Error("meili-down");
+      const systemHooks: SystemHooks = {
+        postSave: [
+          {
+            name: "search",
+            priority: 1000,
+            fn: async () => {
+              throw new Error("meili-down");
+            },
           },
-        },
-        {
-          name: "sse",
-          priority: 1001,
-          fn: async () => {
-            calls.push("sse-ran");
+          {
+            name: "sse",
+            priority: 1001,
+            fn: async () => {
+              calls.push("sse-ran");
+            },
           },
-        },
-        {
-          name: "audit",
-          priority: 1002,
-          fn: async () => {
-            calls.push("audit-ran");
+          {
+            name: "audit",
+            priority: 1002,
+            fn: async () => {
+              calls.push("audit-ran");
+            },
           },
-        },
-      ],
-    };
+        ],
+      };
 
-    const pipeline = createLifecycleHooks(registry, systemHooks);
-    await pipeline.runPostSave("test:write:user", savectx, {});
+      const pipeline = createLifecycleHooks(registry, systemHooks);
+      await pipeline.runPostSave("test:write:user", savectx, {});
 
-    expect(calls).toEqual(["sse-ran", "audit-ran"]);
-    consoleSpy.mockRestore();
+      expect(calls).toEqual(["sse-ran", "audit-ran"]);
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 });
 
@@ -336,29 +340,32 @@ describe("runPostSave phase routing", () => {
 
   test("afterCommit phase: hook errors are logged, never thrown", async () => {
     const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
-    const afterRan: string[] = [];
-    const feature = defineFeature("phases", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+    try {
+      const afterRan: string[] = [];
+      const feature = defineFeature("phases", (r) => {
+        r.entity("user", createEntity({ table: "Users", fields: {} }));
+        r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
+          access: { openToAll: true },
+        });
+        r.hook("postSave", "user", async () => {
+          throw new Error("afterCommit-boom");
+        });
+        r.hook("postSave", "user", async () => {
+          afterRan.push("second");
+        });
       });
-      r.hook("postSave", "user", async () => {
-        throw new Error("afterCommit-boom");
-      });
-      r.hook("postSave", "user", async () => {
-        afterRan.push("second");
-      });
-    });
-    const registry = createRegistry([feature]);
-    const pipeline = createLifecycleHooks(registry);
+      const registry = createRegistry([feature]);
+      const pipeline = createLifecycleHooks(registry);
 
-    // Must not throw — errors are swallowed + logged
-    await pipeline.runPostSave("phases:write:user", savectx, {}, "afterCommit");
+      // Must not throw — errors are swallowed + logged
+      await pipeline.runPostSave("phases:write:user", savectx, {}, "afterCommit");
 
-    // Subsequent hooks still fire (failure in one hook doesn't block the rest)
-    expect(afterRan).toEqual(["second"]);
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
+      // Subsequent hooks still fire (failure in one hook doesn't block the rest)
+      expect(afterRan).toEqual(["second"]);
+      expect(consoleSpy).toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   test("system hooks respect their phase setting", async () => {
@@ -724,28 +731,31 @@ describe("runPostSaveBatch / runPostDeleteBatch", () => {
     ],
   ])("one %s hook throwing doesn't stop the others (Promise.allSettled) — logged, never thrown", async (_name, buildHooks, run) => {
     const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
-    const calls: string[] = [];
-    const systemHooks = buildHooks([
-      {
-        name: "failing",
-        priority: 1000,
-        fn: async () => {
-          throw new Error("batch-hook-boom");
+    try {
+      const calls: string[] = [];
+      const systemHooks = buildHooks([
+        {
+          name: "failing",
+          priority: 1000,
+          fn: async () => {
+            throw new Error("batch-hook-boom");
+          },
         },
-      },
-      {
-        name: "ok",
-        priority: 1001,
-        fn: async () => {
-          calls.push("ok-ran");
+        {
+          name: "ok",
+          priority: 1001,
+          fn: async () => {
+            calls.push("ok-ran");
+          },
         },
-      },
-    ]);
-    const pipeline = createLifecycleHooks(makeRegistry(), systemHooks);
-    // Must not throw.
-    await run(pipeline);
-    expect(calls).toEqual(["ok-ran"]);
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
+      ]);
+      const pipeline = createLifecycleHooks(makeRegistry(), systemHooks);
+      // Must not throw.
+      await run(pipeline);
+      expect(calls).toEqual(["ok-ran"]);
+      expect(consoleSpy).toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 });

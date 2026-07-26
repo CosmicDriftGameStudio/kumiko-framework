@@ -94,7 +94,12 @@ beforeAll(async () => {
   // only binds this once the sessions feature is mounted — not the case in
   // this test stack) so #1467's regression can observe whether
   // revokeAllOtherSessions actually fires, instead of silently no-op'ing.
-  bindMfaRevokeAllOtherSessionsFromFeature(authMfaFeature)?.((userId) => {
+  const bind = bindMfaRevokeAllOtherSessionsFromFeature(authMfaFeature);
+  // If the binder ever returns undefined, the spy below never wires up and
+  // the #1467 regression check further down would pass vacuously (nothing
+  // to revoke because nothing observed) instead of catching a real re-break.
+  expect(bind).toBeDefined();
+  bind?.((userId) => {
     revokedForUserIds.push(userId);
     return Promise.resolve(0);
   });

@@ -38,6 +38,7 @@ export type {
   WriteOpts,
   WriteResult,
 } from "./dispatcher";
+export { StreamFrame, type StreamFrameEvent } from "./dispatcher";
 export type {
   FieldConditionPredicate,
   FieldConditions,
@@ -59,8 +60,10 @@ export {
   escapeXml,
   type HtmlValue,
   html,
+  isSafeHref,
   RawHtml,
   raw,
+  stripControlChars,
   toInstant,
 } from "./format";
 export type {

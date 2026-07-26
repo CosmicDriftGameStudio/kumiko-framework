@@ -1,7 +1,8 @@
 import { type Job, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context";
-import type { DbRow } from "../db/connection";
+import type { DbConnection, DbRow } from "../db/connection";
+import { createTenantDb } from "../db/tenant-db";
 import { createSystemUser } from "../engine/system-user";
 import {
   type AppContext,
@@ -9,6 +10,7 @@ import {
   type Registry,
   type SessionUser,
   SYSTEM_TENANT_ID,
+  type TenantId,
 } from "../engine/types";
 import { createFileContext } from "../files/file-handle";
 import type { Logger } from "../logging/types";
@@ -38,9 +40,10 @@ export type JobLogEntry = {
   timestamp: Temporal.Instant;
 };
 
-function createJobLogger(logs: JobLogEntry[]): Logger {
+function createJobLogger(logs: JobLogEntry[], baseContext: Record<string, unknown> = {}): Logger {
   function push(level: "info" | "warn" | "error", msg: string, data?: Record<string, unknown>) {
-    const message = data ? `${msg} ${JSON.stringify(data)}` : msg;
+    const merged = { ...baseContext, ...data };
+    const message = Object.keys(merged).length > 0 ? `${msg} ${JSON.stringify(merged)}` : msg;
     logs.push({ level, message, timestamp: Temporal.Now.instant() });
   }
   const logger: Logger = {
@@ -53,9 +56,13 @@ function createJobLogger(logs: JobLogEntry[]): Logger {
     error(msg, data) {
       push("error", msg, data);
     },
+    // No-op by design, not missing coverage: JobLogEntry.level (and the
+    // persisted run-completed/-failed event schema in bundled-features/
+    // jobs/events.ts) only has info|warn|error — a job's debug() calls have
+    // nowhere durable to land.
     debug() {},
-    child() {
-      return logger;
+    child(context) {
+      return createJobLogger(logs, { ...baseContext, ...context });
     },
   };
   return logger;
@@ -101,7 +108,7 @@ export type JobRunnerOptions = {
   // Tests set a unique prefix (e.g. `"test-${Date.now()}"`) for isolation —
   // two parallel test-runners never see each other's jobs.
   queueNamePrefix?: string | undefined;
-  getActiveTenantIds?: () => Promise<number[]>;
+  getActiveTenantIds?: () => Promise<TenantId[]>;
   onJobStart?: (jobName: string, jobId: string, meta: JobMeta) => void;
   onJobComplete?: (jobName: string, jobId: string, duration: number, logs: JobLogEntry[]) => void;
   onJobFailed?: (jobName: string, jobId: string, error: string, logs: JobLogEntry[]) => void;
@@ -332,19 +339,35 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       SYSTEM_TENANT_ID;
     const triggeredById = (rawData["_triggeredById"] as string | undefined) ?? null; // @cast-boundary dynamic-key
 
-    // _triggerName aus rawData übernehmen falls gesetzt — handleEvent
-    // packt das beim Multi-Trigger-Dispatch rein (siehe unten). Über
-    // jobContext.triggerName freigegeben damit der Handler nicht selbst
-    // im rohen Payload kramen muss.
+    // Carry `_triggerName` from rawData when set — handleEvent injects it on
+    // multi-trigger dispatch; exposed as jobContext.triggerName so handlers
+    // don't dig through the raw payload themselves.
     const triggerName = rawData["_triggerName"] as string | undefined; // @cast-boundary dynamic-key
     // Mirror dispatch-shared.ts buildHandlerContext: ctx.files must resolve
     // through the same _fileProviderResolver for jobs as for write-handlers,
     // otherwise event-triggered jobs silently get an unresolved ctx.files.
     const fileResolver = context._fileProviderResolver;
     const files = fileResolver ? createFileContext(() => fileResolver(tenantId)) : context.files;
+    const jobSystemUser = createSystemUser(tenantId);
+    // Same buildHandlerContext parity as ctx.files above: ctx.notify/ctx.config
+    // must resolve for jobs the same way they do for write-handlers, or an
+    // app-author job calling ctx.notify(...)/ctx.config(...) hits a TypeError
+    // at runtime the write-handler path never would (framework#1532).
+    const notify = context._notifyFactory?.(jobSystemUser, tenantId);
+    const configDb = context.db as DbConnection | undefined; // @cast-boundary db-operator
+    const config =
+      context._configAccessorFactory && configDb
+        ? context._configAccessorFactory({
+            user: { id: jobSystemUser.id, tenantId },
+            db: createTenantDb(configDb, tenantId, "system"),
+            secrets: context.secrets,
+          })
+        : undefined;
     const jobContext: AppContext = {
       ...context,
       files,
+      ...(notify !== undefined && { notify }),
+      ...(config !== undefined && { config }),
       // The runner owns the registry it resolved this job from — expose it so
       // workers can reach projections/jobs without the app author duplicating
       // it into `context` (the JobContext contract guarantees `registry`).
@@ -352,7 +375,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // Expose the runner so handlers can chain a follow-up job. Symmetric with
       // how the command-dispatcher hands write-handlers their jobRunner.
       ...(selfRunner !== undefined && { jobRunner: selfRunner }),
-      systemUser: createSystemUser(tenantId),
+      systemUser: jobSystemUser,
       triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
       log: createJobLogger(logs),
       ...(triggerName !== undefined && { triggerName }),

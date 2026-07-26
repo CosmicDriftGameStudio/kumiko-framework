@@ -1,1 +1,1 @@
-export * from "@cosmicdrift/kumiko-types/http-route";
+export type * from "@cosmicdrift/kumiko-types/http-route";

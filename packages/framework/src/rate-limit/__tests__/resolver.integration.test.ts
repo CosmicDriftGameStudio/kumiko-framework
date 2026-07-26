@@ -169,6 +169,24 @@ describe("createRateLimitResolver — peek", () => {
   });
 });
 
+describe("createRateLimitResolver — kumiko-framework#1525: no ambient Temporal global", () => {
+  test("check() and peek() compute resetAt without relying on globalThis.Temporal", async () => {
+    const config = { limit: 5, windowSeconds: 60 };
+    const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
+    delete (globalThis as { Temporal?: unknown }).Temporal;
+    try {
+      const checked = await resolver.check("no-ambient:user", config);
+      expect(checked.resetAt).toBeDefined();
+
+      const peeked = await resolver.peek("no-ambient:user", config);
+      expect(peeked.resetAt).toBeDefined();
+    } finally {
+      if (savedGlobal === undefined) delete (globalThis as { Temporal?: unknown }).Temporal;
+      else (globalThis as { Temporal?: unknown }).Temporal = savedGlobal;
+    }
+  });
+});
+
 describe("createRateLimitResolver — enforce", () => {
   test("enforce throws RateLimitError with the bucket details when blocked", async () => {
     const config = { limit: 1, windowSeconds: 60 };

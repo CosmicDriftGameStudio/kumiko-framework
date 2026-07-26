@@ -3,12 +3,16 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { RequestAccountUnlockScreen } from "../request-account-unlock-screen";
 import { renderWithProviders } from "./test-utils";
 
+const originalFetch = globalThis.fetch;
+
 beforeEach(() => {
   globalThis.fetch = mock(
     async () => new Response(null, { status: 200 }),
   ) as unknown as typeof fetch;
 });
-afterEach(() => {});
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 describe("RequestAccountUnlockScreen", () => {
   test("renders title + email input + submit (de)", () => {
@@ -34,6 +38,7 @@ describe("RequestAccountUnlockScreen", () => {
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({ "Content-Type": "application/json" }),
+          credentials: "same-origin",
           body: JSON.stringify({ email: "user@example.com" }),
         }),
       );
@@ -55,7 +60,7 @@ describe("RequestAccountUnlockScreen", () => {
     );
   });
 
-  test("429 with retryAfterSeconds → accountLockedRetry banner", async () => {
+  test("429 with retryAfterSeconds → requestUnlock.rateLimited banner (#1333)", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(JSON.stringify({ error: { details: { retryAfterSeconds: 180 } } }), {

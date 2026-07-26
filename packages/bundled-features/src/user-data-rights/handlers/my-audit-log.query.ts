@@ -1,6 +1,7 @@
 import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 
 // DSGVO Art. 15 Selbstauskunft — User reads HIS OWN audit-log.

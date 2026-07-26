@@ -1,1 +1,1 @@
-export * from "@cosmicdrift/kumiko-types/observability/provider";
+export type * from "@cosmicdrift/kumiko-types/observability/provider";

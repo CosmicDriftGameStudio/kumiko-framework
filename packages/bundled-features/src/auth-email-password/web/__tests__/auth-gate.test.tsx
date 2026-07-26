@@ -10,7 +10,7 @@ describe("makeAuthGate", () => {
   }
 
   test("loading → renders placeholder, not children, not login", () => {
-    const Gate = makeAuthGate(CustomLogin);
+    const Gate = makeAuthGate({ loginScreen: CustomLogin });
     const session = makeSessionApi({ status: "loading", user: null });
     const { container } = renderWithProviders(
       <Gate>
@@ -25,7 +25,7 @@ describe("makeAuthGate", () => {
   });
 
   test("unauthenticated → renders LoginComponent, not children", () => {
-    const Gate = makeAuthGate(CustomLogin);
+    const Gate = makeAuthGate({ loginScreen: CustomLogin });
     const session = makeSessionApi({ status: "unauthenticated", user: null });
     renderWithProviders(
       <Gate>
@@ -38,7 +38,7 @@ describe("makeAuthGate", () => {
   });
 
   test("authenticated → renders children, not login", () => {
-    const Gate = makeAuthGate(CustomLogin);
+    const Gate = makeAuthGate({ loginScreen: CustomLogin });
     renderWithProviders(
       <Gate>
         <div data-testid="protected">secret</div>
@@ -134,8 +134,30 @@ describe("createLoginRoute", () => {
     expect(screen.getByTestId("mfa-verify").textContent).toBe("token-123");
   });
 
+  test("no mfaVerifyScreen → onMfaChallenge passes through to loginScreenProps.onMfaChallenge (#266 footgun)", () => {
+    // The silent-no-MFA-fallback path: an app that wires its own
+    // onMfaChallenge via loginScreenProps but forgets mfaVerifyScreen still
+    // gets that callback invoked (createLoginRoute can't detect the
+    // omission) instead of the internal setChallengeToken/MfaVerifyComponent
+    // machinery kicking in. Covered here so a future refactor of that
+    // ternary can't silently swap the fallback direction.
+    const onMfaChallenge = mock<(challengeToken: string) => void>();
+    const LoginRoute = createLoginRoute({
+      loginScreen: LoginWithMfaTrigger,
+      loginScreenProps: { onMfaChallenge },
+    });
+    const session = makeSessionApi({ status: "unauthenticated" });
+    renderWithProviders(<LoginRoute />, { session });
+    fireEvent.click(screen.getByTestId("trigger-mfa"));
+    expect(onMfaChallenge).toHaveBeenCalledWith("token-123");
+    expect(screen.queryByTestId("mfa-verify")).toBeNull();
+  });
+
   test("makeAuthGate delegates mfaVerifyScreen wiring to createLoginRoute", () => {
-    const Gate = makeAuthGate(LoginWithMfaTrigger, undefined, CustomMfaVerify);
+    const Gate = makeAuthGate({
+      loginScreen: LoginWithMfaTrigger,
+      mfaVerifyScreen: CustomMfaVerify,
+    });
     const session = makeSessionApi({ status: "unauthenticated" });
     renderWithProviders(
       <Gate>
@@ -175,7 +197,10 @@ describe("createLoginRoute", () => {
   });
 
   test("makeAuthGate delegates mfaSetupScreen wiring to createLoginRoute", () => {
-    const Gate = makeAuthGate(LoginWithMfaSetupTrigger, undefined, undefined, CustomMfaSetup);
+    const Gate = makeAuthGate({
+      loginScreen: LoginWithMfaSetupTrigger,
+      mfaSetupScreen: CustomMfaSetup,
+    });
     const session = makeSessionApi({ status: "unauthenticated" });
     renderWithProviders(
       <Gate>

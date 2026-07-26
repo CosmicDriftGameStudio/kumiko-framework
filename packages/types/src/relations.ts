@@ -1,5 +1,7 @@
-// Keep in sync with OnDeleteStrategies in packages/framework/src/engine/constants.ts.
-type OnDeleteStrategy = "cascade" | "restrict" | "setNull" | "nothing";
+// Canonical definition — packages/framework/src/engine/constants.ts imports
+// this type and binds its OnDeleteStrategies runtime object to it via
+// `satisfies`, so a drift between the two fails to compile.
+export type OnDeleteStrategy = "cascade" | "restrict" | "setNull" | "nothing";
 
 // --- Relations ---
 

@@ -77,6 +77,8 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
           hookCallsAttempted: result.hookCallsAttempted,
           errorCount: result.errors.length,
           errors: result.errors,
+          incompleteCount: result.incomplete.length,
+          incomplete: result.incomplete,
         },
       };
     },

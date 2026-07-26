@@ -147,12 +147,7 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "@cosmicdrift/kumiko-types": "workspace:*"
-  },
-  "peerDependenciesMeta": {
-    "@cosmicdrift/kumiko-types": {
-      "optional": false
-    }
+    "@cosmicdrift/kumiko-types": "workspace:^"
   },
   "devDependencies": {
     "@testing-library/user-event": "^14.6.1",

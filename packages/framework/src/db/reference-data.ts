@@ -1,3 +1,4 @@
+import { KUMIKO_COLUMNS_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { fetchOne, insertOne, updateMany } from "../db/query";
 import type { ReferenceDataDef } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types";
@@ -7,10 +8,8 @@ import type { TableColumns } from "./dialect";
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;
 
-const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
-
 function hasColumn(table: Table, field: string): boolean {
-  const cols = (table as Record<symbol, unknown>)[KUMIKO_COLUMNS_SYMBOL];
+  const cols = table[KUMIKO_COLUMNS_SYMBOL];
   if (typeof cols !== "object" || cols === null) return false;
   return field in (cols as Record<string, unknown>);
 }

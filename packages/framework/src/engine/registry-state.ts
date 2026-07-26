@@ -202,7 +202,10 @@ export type RegistryState = {
   multiStreamProjectionMap: Map<string, MultiStreamProjectionDefinition>;
   multiStreamProjectionFeatureMap: Map<string, string>;
   storeTableMap: Map<string, StoreTableDef>;
-  physicalTableOwners: Map<string, { kind: "entity" | "raw"; owner: string; featureName: string }>;
+  physicalTableOwners: Map<
+    string,
+    { kind: "entity" | "store"; owner: string; featureName: string }
+  >;
   authClaimsHooks: AuthClaimsHookDef[];
   claimKeyMap: Map<string, ClaimKeyDefinition>;
   screenMap: Map<string, ScreenDefinition>;

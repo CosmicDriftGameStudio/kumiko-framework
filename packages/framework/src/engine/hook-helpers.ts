@@ -8,7 +8,9 @@
 //   are logged but don't affect the write. Use for: external systems
 //   (SSE broadcast, search index, email, webhooks).
 
+import type { HookPhase } from "@cosmicdrift/kumiko-types/hook-phase";
+
 export const HookPhases = {
   inTransaction: "inTransaction",
   afterCommit: "afterCommit",
-} as const;
+} as const satisfies Record<HookPhase, HookPhase>;

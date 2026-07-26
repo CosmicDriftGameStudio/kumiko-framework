@@ -518,6 +518,15 @@ describe("custom-fields integration — no PII: `sensitive` rejected, every valu
   });
 });
 
+describe("custom-fields integration — registry facade: getMultiStreamProjectionFeature", () => {
+  test("resolves the owning feature name for a registered multi-stream projection", () => {
+    const qualifiedName = "property-test:projection:custom-fields-property-projection";
+
+    expect(stack.registry.getAllMultiStreamProjections().has(qualifiedName)).toBe(true);
+    expect(stack.registry.getMultiStreamProjectionFeature(qualifiedName)).toBe("property-test");
+  });
+});
+
 describe("custom-fields integration — value validation (Builder-Reuse)", () => {
   async function setErr(entityId: string, fieldKey: string, value: unknown) {
     return stack.http.writeErr(

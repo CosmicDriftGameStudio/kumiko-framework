@@ -371,6 +371,15 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
       password: "password1",
     });
     expect(res.status).toBe(400);
+    // A 400 for a completely different reason (bad token format, email
+    // shape) would also pass a bare status assertion — pin the field-level
+    // reason so the test actually proves the breach-list rejection fired.
+    const body = (await res.json()) as {
+      error?: { details?: { fields?: ReadonlyArray<{ path?: string; code?: string }> } };
+    };
+    expect(body.error?.details?.fields).toContainEqual(
+      expect.objectContaining({ path: "password", code: "custom" }),
+    );
   });
 });
 
@@ -414,6 +423,12 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
       password: "password1",
     });
     expect(res.status).toBe(400);
+    const body = (await res.json()) as {
+      error?: { details?: { fields?: ReadonlyArray<{ path?: string; code?: string }> } };
+    };
+    expect(body.error?.details?.fields).toContainEqual(
+      expect.objectContaining({ path: "password", code: "custom" }),
+    );
   });
 
   test("Existing email → invalid_invite_token (User soll Branch 2 nutzen)", async () => {

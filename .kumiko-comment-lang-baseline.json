@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "generated": "2026-07-18",
-  "total": 7124,
+  "generated": "2026-07-25",
+  "total": 7127,
   "perFile": {
     "packages/bundled-features/src/__tests__/env-schemas.test.ts": 3,
     "packages/bundled-features/src/__tests__/es-ops-e2e.integration.test.ts": 8,
@@ -342,7 +342,7 @@
     "packages/bundled-features/src/user-data-rights/audit-download.ts": 10,
     "packages/bundled-features/src/user-data-rights/constants.ts": 2,
     "packages/bundled-features/src/user-data-rights/email-templates.ts": 6,
-    "packages/bundled-features/src/user-data-rights/feature.ts": 25,
+    "packages/bundled-features/src/user-data-rights/feature.ts": 28,
     "packages/bundled-features/src/user-data-rights/handlers/cancel-deletion.write.ts": 7,
     "packages/bundled-features/src/user-data-rights/handlers/confirm-deletion-by-token.write.ts": 20,
     "packages/bundled-features/src/user-data-rights/handlers/deletion-grace-period.ts": 4,

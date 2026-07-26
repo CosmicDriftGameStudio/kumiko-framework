@@ -1,3 +1,7 @@
+import {
+  KUMIKO_META_SYMBOL,
+  KUMIKO_NAME_SYMBOL,
+} from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { DbConnection } from "../db/connection";
 import { pgTypeToSqlType } from "../db/dialect";
 import type { ColumnMeta, EntityTableMeta } from "../db/entity-table-meta";
@@ -5,15 +9,13 @@ import {
   alterTableAddColumn,
   createIndexIfNotExists,
   executeDdlStatement,
-  truncateTablesRestartIdentity,
-} from "../db/queries/test-stack";
+} from "../db/queries/ddl";
+import { truncateTablesRestartIdentity } from "../db/queries/test-stack";
 import { renderTableDdl } from "../db/render-ddl";
 import { tableExists } from "../db/schema-inspection";
 import { buildEntityTable, toTableName } from "../db/table-builder";
 import type { EventDispatcher } from "../pipeline";
 
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
-const KUMIKO_META_SYMBOL = Symbol.for("kumiko:schema:Meta");
 function tableNameOf(table: unknown): string {
   if (typeof table !== "object" || table === null) {
     throw new Error("table-helpers: table is not a SchemaTable object");

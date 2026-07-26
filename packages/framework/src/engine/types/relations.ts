@@ -1,1 +1,1 @@
-export * from "@cosmicdrift/kumiko-types/relations";
+export type * from "@cosmicdrift/kumiko-types/relations";

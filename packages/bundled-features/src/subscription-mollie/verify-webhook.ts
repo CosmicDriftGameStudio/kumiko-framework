@@ -25,6 +25,7 @@ import type {
   Payment as MolliePayment,
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
+import { Temporal } from "temporal-polyfill";
 import { MOLLIE_PROVIDER_NAME } from "./constants";
 import type { MolliePriceConfig } from "./plugin-methods";
 

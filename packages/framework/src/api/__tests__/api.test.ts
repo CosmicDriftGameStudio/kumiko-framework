@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { parseSseFrames } from "@cosmicdrift/kumiko-dispatcher-live";
 import { z } from "zod";
 import {
   createEntity,
@@ -8,7 +9,7 @@ import {
   type TenantId,
 } from "../../engine";
 import { createTestUser, TestUsers } from "../../stack";
-import { pumpStream } from "../routes";
+import { pumpStream, StreamFrame } from "../routes";
 import { buildServer } from "../server";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
@@ -47,6 +48,16 @@ const testFeature = defineFeature("test", (r) => {
     async function* () {
       yield { i: 0 };
       yield { i: 1 };
+      throw new Error("boom");
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  r.streamHandler(
+    "item:tail-fail-first",
+    z.object({}),
+    // biome-ignore lint/correctness/useYield: deliberately throws before any yield — tests the pre-pull failure path
+    async function* () {
       throw new Error("boom");
     },
     { access: { roles: ["Admin"] } },
@@ -279,6 +290,40 @@ describe("pumpStream", () => {
     // The chunk before the throw still made it out.
     expect(writer.frames.map((f) => f.event)).toEqual(["chunk"]);
   });
+
+  test("closes the generator when writeSSE throws mid-loop (e.g. client disconnected on a ping)", async () => {
+    let cleanedUp = false;
+    async function* gen() {
+      try {
+        await Bun.sleep(50);
+        yield { i: 0 };
+      } finally {
+        cleanedUp = true;
+      }
+    }
+    const frames: Array<{ event: string; data: string }> = [];
+    const writer = {
+      frames,
+      async writeSSE(message: { event: string; data: string }) {
+        if (message.event === StreamFrame.ping) throw new Error("client disconnected");
+        frames.push(message);
+      },
+    };
+
+    await expect(pumpStream(writer, gen(), 5)).rejects.toThrow("client disconnected");
+    expect(cleanedUp).toBe(true);
+  });
+
+  test("serializes an undefined yielded value as an explicit null chunk instead of an invalid frame", async () => {
+    const writer = fakeSseWriter();
+    async function* gen() {
+      yield undefined;
+    }
+
+    await pumpStream(writer, gen(), 1000);
+
+    expect(writer.frames[0]).toEqual({ event: StreamFrame.chunk, data: "null" });
+  });
 });
 
 // --- SSE ---
@@ -298,17 +343,6 @@ describe("GET /api/sse", () => {
 });
 
 // --- Stream (dispatcher-driven SSE) ---
-
-function parseSseFrames(text: string): Array<{ event: string; data: string }> {
-  return text
-    .split("\n\n")
-    .filter((frame) => frame.trim().length > 0)
-    .map((frame) => {
-      const event = /^event: (.*)$/m.exec(frame)?.[1] ?? "";
-      const data = /^data: (.*)$/m.exec(frame)?.[1] ?? "";
-      return { event, data };
-    });
-}
 
 describe("POST /api/stream", () => {
   test("dispatches stream handler and yields chunk frames then done", async () => {
@@ -393,6 +427,26 @@ describe("POST /api/stream", () => {
     ]);
     expect(frames[2]?.event).toBe("error");
     expect(JSON.parse(frames[2]?.data ?? "{}")).toMatchObject({ code: "internal_error" });
+  });
+
+  test("handler failure before the first yield surfaces as a real HTTP 500, not an SSE error frame", async () => {
+    // Contract-pin for routes.ts's "error frames only reachable once the
+    // stream is already open" comment: a generator that throws before its
+    // first yield is caught by the same pre-pull gate as feature/access/
+    // rate-limit/validation failures — the client sees 500 + JSON, not a
+    // 200 with an SSE error frame.
+    const headers = await authHeader(adminUser);
+    const res = await req(
+      "POST",
+      "/api/stream",
+      { type: "test:stream:item:tail-fail-first", payload: {} },
+      headers,
+    );
+
+    expect(res.status).toBe(500);
+    expect(res.headers.get("content-type")).not.toContain("text/event-stream");
+    const body = await res.json();
+    expect(body.error).toMatchObject({ code: "internal_error" });
   });
 });
 

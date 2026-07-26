@@ -90,14 +90,21 @@ function sha256Hex(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
-// Liest <dir>/*.sql, sortiert lex (z.B. 0001_init.sql, 0002_add_locale.sql),
-// returnt Migration[] mit id + checksum + statements.
-export function loadMigrationsFromDir(dir: string): readonly Migration[] {
+// Reads <dir>/*.sql, sorted lexically (e.g. 0001_init.sql, 0002_add_locale.sql),
+// returns Migration[] with id + checksum + statements. `preprocess` is an
+// optional hook applied to each file's raw content before splitting/hashing
+// — used by replayMigrationsDir to expand its DESTRUCTIVE-marker comments
+// without a second, drifting copy of this file-discovery logic (#1522/9).
+export function loadMigrationsFromDir(
+  dir: string,
+  preprocess?: (sql: string) => string,
+): readonly Migration[] {
   const files = readdirSync(dir)
     .filter((f) => f.endsWith(".sql"))
     .sort();
   return files.map((file) => {
-    const content = readFileSync(join(dir, file), "utf8");
+    const raw = readFileSync(join(dir, file), "utf8");
+    const content = preprocess ? preprocess(raw) : raw;
     return {
       id: file.replace(/\.sql$/, ""),
       checksum: sha256Hex(content),

@@ -1,4 +1,9 @@
-import { isTableAlreadyExists } from "../pg-error";
+import {
+  constraintOf,
+  isLockNotAvailable,
+  isTableAlreadyExists,
+  isUniqueViolation,
+} from "../pg-error";
 import type { AnyDb } from "../query";
 import { asRawClient } from "../query";
 
@@ -18,37 +23,74 @@ export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void>
 // lock for the full table scan on kumiko_events — the hottest table in the
 // framework — blocking every append() for however long that scan takes on
 // an existing installation's event history. CONCURRENTLY avoids that at the
-// cost of needing to tolerate two failure modes a plain build doesn't have:
+// cost of needing to tolerate two failure modes a plain build doesn't have.
+// Neither CREATE nor DROP ... CONCURRENTLY may run inside a transaction —
+// no caller of this function (dev-server, schema-cli.ts, stack/db.ts) may
+// wrap it in one, or Postgres raises 25001.
 export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
   const client = asRawClient(db);
 
-  // 1) A prior CONCURRENTLY build that got killed mid-flight (crash, deploy
-  //    restart) leaves an INVALID index — the catalog entry exists, so
-  //    IF NOT EXISTS below would silently skip forever, but the build never
-  //    finished and the constraint enforces nothing. Detect + rebuild it.
-  const existing = await client.unsafe(
-    `SELECT i.indisvalid FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid ` +
-      `WHERE c.relname = 'events_idempotency_uq'`,
-  );
-  const isInvalid = (existing[0] as { indisvalid?: boolean } | undefined)?.indisvalid === false;
-  if (isInvalid) {
-    await client.unsafe(`DROP INDEX CONCURRENTLY IF EXISTS "events_idempotency_uq"`);
-  }
-
   try {
+    // 1) A prior CONCURRENTLY build that got killed mid-flight (crash, deploy
+    //    restart) leaves an INVALID index: the catalog entry exists, so
+    //    IF NOT EXISTS below would silently skip forever, but the index is
+    //    incomplete and not plannable for queries — it does NOT mean the
+    //    constraint enforces nothing; Postgres keeps maintaining an INVALID
+    //    index on every insert, it just refuses to use it for planning.
+    //    Detect + rebuild it. Scoped to kumiko_events specifically (indrelid),
+    //    not just the relname, so a same-named index in another schema can't
+    //    false-positive this DROP.
+    const existing = await client.unsafe(
+      `SELECT i.indisvalid FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid ` +
+        `WHERE c.relname = 'events_idempotency_uq' AND i.indrelid = '"kumiko_events"'::regclass`,
+    );
+    const isInvalid = (existing[0] as { indisvalid?: boolean } | undefined)?.indisvalid === false;
+    if (isInvalid) {
+      await client.unsafe(`DROP INDEX CONCURRENTLY IF EXISTS "events_idempotency_uq"`);
+    }
+
     await client.unsafe(
       `CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "events_idempotency_uq" ON "kumiko_events" ` +
         `("tenant_id", (("metadata"->>'idempotencyKey'))) ` +
         `WHERE "metadata"->>'idempotencyKey' IS NOT NULL`,
     );
   } catch (e) {
-    // 2) Two pods booting concurrently against the same DB (rolling
-    //    deploy): both see the index missing/invalid and both start a
-    //    CONCURRENTLY build — the loser can fail instead of the plain
-    //    duplicate-relation no-op IF NOT EXISTS normally gives, the same
-    //    race createEventsTable already tolerates for CREATE TABLE.
-    if (!isTableAlreadyExists(e)) throw e;
+    // skip: benign — the losing pod's index already exists valid, courtesy of the winner
+    if (isBenignConcurrentIndexBuildRace(e)) return;
+    throw duplicateIdempotencyKeyErrorOr(e);
   }
+}
+
+// Two pods booting concurrently against the same DB (rolling deploy): both
+// see the index missing/invalid and both start a DROP/CREATE CONCURRENTLY
+// build. The loser typically does NOT get the plain duplicate-relation
+// no-op IF NOT EXISTS normally gives — it can instead see a unique-violation
+// on Postgres' own pg_class catalog insert (23505, constraint
+// pg_class_relname_nsp_index) or a lock-not-available (55P03) from the
+// racing DDL. Both are benign: the other pod's build wins and this one just
+// backs off. A 23505 against "events_idempotency_uq" itself is NOT this
+// race — see duplicateIdempotencyKeyErrorOr.
+function isBenignConcurrentIndexBuildRace(e: unknown): boolean {
+  if (isTableAlreadyExists(e) || isLockNotAvailable(e)) return true;
+  return isUniqueViolation(e) && constraintOf(e) === "pg_class_relname_nsp_index";
+}
+
+// A 23505 against "events_idempotency_uq" means real duplicate
+// metadata->>'idempotencyKey' values for the same tenant already exist —
+// CONCURRENTLY still enforces uniqueness on live inserts against the
+// not-yet-valid index. That needs an operator to find + resolve the
+// duplicates, not a crash-loop on every subsequent boot, so re-throw a
+// distinguishable error instead of the raw driver error.
+function duplicateIdempotencyKeyErrorOr(e: unknown): unknown {
+  if (isUniqueViolation(e) && constraintOf(e) === "events_idempotency_uq") {
+    return new Error(
+      "ensureIdempotencyKeyIndex: duplicate metadata->>'idempotencyKey' values exist for at least " +
+        "one tenant in kumiko_events — CREATE UNIQUE INDEX CONCURRENTLY cannot complete. Find and " +
+        "resolve the duplicate idempotencyKey rows, then restart to retry.",
+      { cause: e },
+    );
+  }
+  return e;
 }
 
 export type SubsequentEventInsertParams = {

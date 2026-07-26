@@ -1,4 +1,4 @@
-import { escapeHtml } from "@cosmicdrift/kumiko-headless";
+import { escapeHtml, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import { Marked } from "marked";
 
 // Geteilter, gehärteter Markdown→HTML-Kern für server-gerenderte Public-
@@ -23,14 +23,6 @@ safeRenderer.use({
     },
   },
 });
-
-// http(s)/mailto oder schema-los (relativ/anchor) erlaubt; javascript:, data:,
-// vbscript: u.a. abgelehnt. Ein relativer href hat kein `scheme:`-Präfix.
-function isSafeHref(href: string): boolean {
-  const trimmed = href.trim().toLowerCase();
-  if (!/^[a-z][a-z0-9+.-]*:/.test(trimmed)) return true;
-  return /^(?:https?|mailto):/.test(trimmed);
-}
 
 export function renderSafeMarkdown(markdown: string): string {
   // @cast-boundary marked.parse return-type ist `string | Promise<string>`;

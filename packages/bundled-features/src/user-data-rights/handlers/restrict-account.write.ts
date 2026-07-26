@@ -1,5 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { access, createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
   UnprocessableError,
@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
+import { isAdminActor } from "../lib/is-admin-actor";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
 // POST /api/user/restrict (S2.U6) — DSGVO Art. 18 Account-Freeze.
@@ -37,7 +38,7 @@ export const restrictAccountWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId ?? event.user.id;
     if (targetUserId !== event.user.id) {
-      const isAdmin = event.user.roles.some((role) => access.admin.includes(role));
+      const isAdmin = isAdminActor(event.user);
       if (!isAdmin) {
         return writeFailure(
           new AccessDeniedError({

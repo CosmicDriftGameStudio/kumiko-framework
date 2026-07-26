@@ -17,6 +17,7 @@ export type {
   LoginRateLimiter,
   SessionChecker,
   SessionCreator,
+  SessionMassRevoker,
   SessionMetadata,
   SessionRevoker,
 } from "./auth-routes";

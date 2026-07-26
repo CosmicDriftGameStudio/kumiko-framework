@@ -299,11 +299,57 @@ ALTER TABLE "widgets" RENAME TO "gadgets";`,
     }
   });
 
-  test("kumiko-framework#1473: an unparsed CREATE TABLE with an unquoted identifier fails loud", () => {
+  test("kumiko-framework#1535: an unquoted CREATE TABLE identifier parses instead of failing loud", () => {
+    // Was "fails loud" pre-#1535 — but real committed migrations do this
+    // (publicstatus's 0014_marketing-waitlist.sql), and the old behavior
+    // turned an already-graceful missing-table report into a hard abort.
+    // Unquoted identifiers must parse like quoted ones.
     const dir = tmpMigrationsDir();
     try {
       write(dir, "0001_init.sql", `CREATE TABLE widgets ("id" uuid PRIMARY KEY);`);
-      expect(() => replayMigrationsDir(dir)).toThrow(/unparsed table-DDL statement/);
+      const replayed = replayMigrationsDir(dir);
+      expect([...replayed.keys()]).toEqual(["widgets"]);
+      expect([...(replayed.get("widgets")?.columns ?? [])]).toEqual(["id"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("kumiko-framework#1535: a bare table-level PRIMARY KEY/UNIQUE clause isn't parsed as a column", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(
+        dir,
+        "0001_init.sql",
+        `CREATE TABLE widgets (id uuid, sku text, name text, UNIQUE (sku), PRIMARY KEY (id));`,
+      );
+      const replayed = replayMigrationsDir(dir);
+      expect([...(replayed.get("widgets")?.columns ?? [])].sort()).toEqual(["id", "name", "sku"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("kumiko-framework#1535: shape-neutral ALTER COLUMN/CONSTRAINT clauses don't fail loud", () => {
+    // Regression for the false-positive class: these are all real,
+    // committed, shape-neutral DDL shapes (kumiko-studio's
+    // 0002_file_refs_soft_delete.sql, publicstatus's
+    // 0020_add-monitor-checks.sql) that the #1535 fix must recognize
+    // instead of throwing "unparsed table-DDL statement".
+    const dir = tmpMigrationsDir();
+    try {
+      write(
+        dir,
+        "0001_init.sql",
+        `CREATE TABLE IF NOT EXISTS "widgets" ("id" uuid PRIMARY KEY, "title" text);
+ALTER TABLE "widgets" ALTER COLUMN "title" SET NOT NULL;
+ALTER TABLE "widgets" ALTER COLUMN "title" SET DEFAULT 'untitled';
+ALTER TABLE "widgets" ADD CONSTRAINT "widgets_title_check" CHECK (length("title") > 0);
+ALTER TABLE "widgets" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "widgets" OWNER TO app_user;`,
+      );
+      const replayed = replayMigrationsDir(dir);
+      expect([...(replayed.get("widgets")?.columns ?? [])].sort()).toEqual(["id", "title"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

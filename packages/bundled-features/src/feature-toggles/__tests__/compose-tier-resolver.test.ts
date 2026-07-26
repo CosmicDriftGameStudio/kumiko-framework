@@ -46,10 +46,10 @@ const testRegistry = createRegistry([
 // tests exercising "no tier grants this feature" must still see a non-empty
 // SYSTEM_TENANT_ID union, exactly like a real app always has.
 function tierResolverGranting(...features: readonly string[]): EffectiveFeaturesResolver {
-  return ((tenantId: TenantId) =>
+  return (tenantId: TenantId) =>
     tenantId === SYSTEM_TENANT_ID
       ? new Set([...features, "always-on-stand-in"])
-      : new Set(features)) as EffectiveFeaturesResolver;
+      : new Set(features);
 }
 
 describe("composeTierResolverWithGlobalToggles", () => {
@@ -85,10 +85,10 @@ describe("composeTierResolverWithGlobalToggles", () => {
     // nothing (e.g. Free). An operator flipping the global row to true
     // must not leak it in — that decision belongs to the tier, not the
     // toggle.
-    const tierResolver = ((tenantId: TenantId) =>
+    const tierResolver: EffectiveFeaturesResolver = (tenantId: TenantId) =>
       tenantId === SYSTEM_TENANT_ID
         ? new Set(["personal-access-tokens"]) // union of all tiers' features
-        : new Set<string>()) as EffectiveFeaturesResolver; // this tenant's (Free) tier grants nothing
+        : new Set<string>(); // this tenant's (Free) tier grants nothing
     const runtime = new GlobalFeatureToggleRuntime(fakeDb, testRegistry);
     runtime.apply("personal-access-tokens", true);
     const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, testRegistry);
@@ -155,8 +155,8 @@ describe("composeTierResolverWithGlobalToggles", () => {
     // the old code would treat this as "zero tier-managed features", so
     // EVERY toggleable feature falls through to the tier-unaware cascade
     // and tier-gating is silently defeated.
-    const brokenTierResolver = ((_tenantId: TenantId) =>
-      new Set<string>()) as EffectiveFeaturesResolver;
+    const brokenTierResolver: EffectiveFeaturesResolver = (_tenantId: TenantId) =>
+      new Set<string>();
     const runtime = new GlobalFeatureToggleRuntime(fakeDb, testRegistry);
     const composed = composeTierResolverWithGlobalToggles(
       brokenTierResolver,
@@ -168,12 +168,12 @@ describe("composeTierResolverWithGlobalToggles", () => {
 
   test("kumiko-framework#1479/2: tierManaged is computed lazily — a resolver not ready at compose-time is fine as long as it's ready by first call", () => {
     let ready = false;
-    const lateBoundResolver = ((tenantId: TenantId) => {
+    const lateBoundResolver: EffectiveFeaturesResolver = (tenantId: TenantId) => {
       if (!ready) throw new Error("tierResolver not wired yet");
       return tenantId === SYSTEM_TENANT_ID
         ? new Set(["personal-access-tokens"])
         : new Set<string>();
-    }) as EffectiveFeaturesResolver;
+    };
     const runtime = new GlobalFeatureToggleRuntime(fakeDb, testRegistry);
     // Composing must NOT eagerly call tierResolver(SYSTEM_TENANT_ID) — the
     // late-bound holder pattern (run-dev-app.ts) builds the real resolver
@@ -185,9 +185,10 @@ describe("composeTierResolverWithGlobalToggles", () => {
 
   test("preserves the tier resolver's trialGate", async () => {
     const runtime = new GlobalFeatureToggleRuntime(fakeDb, testRegistry);
-    const tierResolver = tierResolverGranting();
     const trialGate = async (_tenantId: TenantId, _featureName: string) => true;
-    Object.assign(tierResolver, { trialGate });
+    const tierResolver: EffectiveFeaturesResolver = Object.assign(tierResolverGranting(), {
+      trialGate,
+    });
 
     const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, testRegistry);
     expect(composed.trialGate).toBe(trialGate);
@@ -219,10 +220,10 @@ describe("composeTierResolverWithGlobalToggles — non-toggleable + requires() i
     // otherwise composeTierResolverWithGlobalToggles' `!tierManaged.has()`
     // filter would incorrectly drop it (tier-managed but absent from this
     // tenant's own tier subset).
-    const tierResolver = ((tenantId: TenantId) =>
+    const tierResolver: EffectiveFeaturesResolver = (tenantId: TenantId) =>
       tenantId === SYSTEM_TENANT_ID
         ? new Set(["tenant", "personal-access-tokens"])
-        : new Set(["tenant"])) as EffectiveFeaturesResolver;
+        : new Set(["tenant"]);
     const runtime = new GlobalFeatureToggleRuntime(fakeDb, registry);
     const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, registry);
     expect([...composed("t1" as TenantId)]).toContain("tenant");
@@ -232,10 +233,8 @@ describe("composeTierResolverWithGlobalToggles — non-toggleable + requires() i
     // "pat-companion" is tier-unaware (no tier ever lists it) but requires
     // "personal-access-tokens", which IS tier-managed and this tenant's own
     // tier grants nothing — the dependency must not silently resolve true.
-    const tierResolver = ((tenantId: TenantId) =>
-      tenantId === SYSTEM_TENANT_ID
-        ? new Set(["personal-access-tokens"])
-        : new Set<string>()) as EffectiveFeaturesResolver;
+    const tierResolver: EffectiveFeaturesResolver = (tenantId: TenantId) =>
+      tenantId === SYSTEM_TENANT_ID ? new Set(["personal-access-tokens"]) : new Set<string>();
     const runtime = new GlobalFeatureToggleRuntime(fakeDb, registry);
     const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, registry);
     expect([...composed("t1" as TenantId)]).not.toContain("pat-companion");
@@ -250,10 +249,10 @@ describe("composeTierResolverWithGlobalToggles — non-toggleable + requires() i
     // ever re-running the requires() cascade over the tier-granted set —
     // exactly the class of bug #1471/1 describes (channel-email staying up
     // after its `delivery` dependency is killed).
-    const tierResolver = ((tenantId: TenantId) =>
+    const tierResolver: EffectiveFeaturesResolver = (tenantId: TenantId) =>
       tenantId === SYSTEM_TENANT_ID
         ? new Set(["personal-access-tokens", "pat-companion"])
-        : new Set(["personal-access-tokens", "pat-companion"])) as EffectiveFeaturesResolver;
+        : new Set(["personal-access-tokens", "pat-companion"]);
     const runtime = new GlobalFeatureToggleRuntime(fakeDb, registry);
     runtime.apply("personal-access-tokens", false);
     const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, registry);
@@ -269,13 +268,37 @@ describe("composeTierResolverWithGlobalToggles — non-toggleable + requires() i
     // with no toggleability check, so a stray override row (seed script,
     // ops SQL, or a feature that used to be toggleable and had `r.toggleable()`
     // removed) could disable an always-on feature outright.
-    const tierResolver = ((tenantId: TenantId) =>
-      tenantId === SYSTEM_TENANT_ID
-        ? new Set(["tenant"])
-        : new Set(["tenant"])) as EffectiveFeaturesResolver;
+    const tierResolver: EffectiveFeaturesResolver = (tenantId: TenantId) =>
+      tenantId === SYSTEM_TENANT_ID ? new Set(["tenant"]) : new Set(["tenant"]);
     const runtime = new GlobalFeatureToggleRuntime(fakeDb, registry);
     runtime.apply("tenant", false);
     const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, registry);
     expect([...composed("t1" as TenantId)]).toContain("tenant");
+  });
+
+  test("framework#1528: a resolver satisfying the emptiness guard but not merging always-on per-tenant still surfaces the always-on feature", () => {
+    // Custom composeApp resolver: implements the SYSTEM_TENANT_ID convention
+    // (union includes "tenant") but, unlike tier-engine's own mergeAlwaysOn,
+    // returns only the tier-only set for real tenants. Before the Rule-1
+    // structural fix, "tenant" landed in the raw (unfiltered) tierManaged set
+    // and got skipped by the globalCascade loop too, since it's absent from
+    // this tenant's own tierSet — a silent 403 on every always-on handler.
+    const tierResolver: EffectiveFeaturesResolver = (tenantId: TenantId) =>
+      tenantId === SYSTEM_TENANT_ID
+        ? new Set(["tenant", "personal-access-tokens"])
+        : new Set<string>();
+    const runtime = new GlobalFeatureToggleRuntime(fakeDb, registry);
+    const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, registry);
+    expect([...composed("t1" as TenantId)]).toContain("tenant");
+  });
+
+  test("a tier-granted name with no registry entry is dropped by the requires() cascade fixpoint", () => {
+    const tierResolver: EffectiveFeaturesResolver = (tenantId: TenantId) =>
+      tenantId === SYSTEM_TENANT_ID
+        ? new Set(["tenant", "ghost-feature"])
+        : new Set(["tenant", "ghost-feature"]);
+    const runtime = new GlobalFeatureToggleRuntime(fakeDb, registry);
+    const composed = composeTierResolverWithGlobalToggles(tierResolver, runtime, registry);
+    expect([...composed("t1" as TenantId)]).not.toContain("ghost-feature");
   });
 });

@@ -14,10 +14,13 @@
 import type {
   SessionChecker,
   SessionCreator,
+  SessionMassRevoker,
   SessionRevoker,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+
+export type { SessionMassRevoker };
 
 export const EXT_TOKEN_VERIFIER = "tokenVerifier";
 
@@ -82,9 +85,6 @@ export function tokenShapeKey(shape: TokenShape): string {
 // exactly one implementation must be registered (boot-fails on 0 or ≥2).
 
 export const EXT_SESSION_STORE = "sessionStore";
-
-/** Mass-revoke every live session for a user. Used by password-change and "sign out everywhere". */
-export type SessionMassRevoker = (userId: string) => Promise<number>;
 
 /** Keep current sid (if any); revoke every other live session. Used by auth-mfa. */
 export type SessionRevokeAllOthers = (

@@ -407,7 +407,26 @@ describe("POST /api/batch", () => {
 
   test("idempotency: corrupted cache entry is treated as miss and re-runs", async () => {
     const requestId = "batch-rid-corrupt";
-    await stack.redis.redis.set(`${RedisKeys.idempotency}${requestId}`, "{not-json", "EX", 60);
+    const cacheKey = `${RedisKeys.idempotency}${requestId}`;
+
+    // Prove key-coupling first: seed a well-formed cached entry under the
+    // exact manually-built key and confirm the batch short-circuits on it
+    // (no handler run, no DB write) — if the manual key ever drifts from
+    // what the guard actually reads, this half fails loud instead of the
+    // corrupt-JSON half below silently becoming a no-op cache-miss test.
+    const seeded = { isSuccess: true, results: [{ seeded: true }] };
+    await stack.redis.redis.set(cacheKey, JSON.stringify(seeded), "EX", 60);
+    const cachedRes = await stack.http.batch(
+      [{ type: "batch:write:item:create", payload: { name: "should-not-run" } }],
+      admin,
+      requestId,
+    );
+    expect(await cachedRes.json()).toEqual(seeded);
+    expect(await selectMany(stack.db, itemTable)).toHaveLength(0);
+    expect(inTxHookLog).toHaveLength(0);
+
+    // Now corrupt the same key and confirm it's treated as a miss.
+    await stack.redis.redis.set(cacheKey, "{not-json", "EX", 60);
 
     const res = await stack.http.batch(
       [{ type: "batch:write:item:create", payload: { name: "after-corrupt" } }],

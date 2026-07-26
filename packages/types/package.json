@@ -227,13 +227,12 @@
       "default": "./src/snapshot-types.ts"
     }
   },
-  "dependencies": {
-    "hono": "^4.12.18"
-  },
   "devDependencies": {
+    "hono": "^4.12.18",
     "postgres": "^3.4.9"
   },
   "peerDependencies": {
+    "hono": "^4.12.18",
     "postgres": "^3.4.9"
   },
   "publishConfig": {

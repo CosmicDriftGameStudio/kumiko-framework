@@ -255,6 +255,26 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
   });
 });
 
+describe("verifyAndParseStripeWebhook — kumiko-framework#1525: no ambient Temporal global", () => {
+  test("computes currentPeriodEnd without relying on globalThis.Temporal", async () => {
+    const verify = verifyAndParseStripeWebhook(webhookRuntime(), {
+      priceToTier: { price_pro_monthly: "pro" },
+    });
+    const payload = JSON.stringify(buildSubscriptionEvent({ currentPeriodEndUnix: 1_780_000_000 }));
+    const sig = await signEvent(payload);
+
+    const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
+    delete (globalThis as { Temporal?: unknown }).Temporal;
+    try {
+      const event = await verify(payload, { "stripe-signature": sig });
+      expect(event?.currentPeriodEnd).toBe("2026-05-28T20:26:40Z");
+    } finally {
+      if (savedGlobal === undefined) delete (globalThis as { Temporal?: unknown }).Temporal;
+      else (globalThis as { Temporal?: unknown }).Temporal = savedGlobal;
+    }
+  });
+});
+
 // =============================================================================
 // Mapping-helpers (pure functions, kein Stripe-mock nötig)
 // =============================================================================

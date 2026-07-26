@@ -113,6 +113,14 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       // for a timing-oracle on the bcrypt verify). If Redis isn't wired,
       // lockout is silently skipped — login still works, brute-force
       // protection just degrades to the IP-rate-limiter at the edge.
+      //
+      // Deliberately fail-open here, unlike auth-mfa's enable-confirm-preauth
+      // (which fails closed without Redis): the secret guarded by THIS gate
+      // is a full password, not a 6-digit code — locking out every login
+      // app-wide because Redis is briefly unavailable is a self-inflicted
+      // outage across every tenant, for a backstop that the IP-rate-limiter
+      // still partially covers. auth-mfa's blast radius is one user's MFA
+      // enrollment, not global login availability — different tradeoff.
       if (ctx.redis) {
         const state = await getLockoutState(ctx.redis, found.id);
         if (state?.lockedUntil !== null && state?.lockedUntil !== undefined) {

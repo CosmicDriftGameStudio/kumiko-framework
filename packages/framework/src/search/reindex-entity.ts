@@ -21,6 +21,9 @@ export type ReindexEntityFailure = {
 export type ReindexEntityResult = {
   readonly scannedRows: number;
   readonly indexedRows: number;
+  // Only nonzero in a dry run — docs that would have been indexed. In a
+  // real run indexedRows already counts these; wouldIndexRows stays 0.
+  readonly wouldIndexRows: number;
   readonly failures: readonly ReindexEntityFailure[];
 };
 
@@ -82,7 +85,12 @@ export async function reindexEntity(
   const deletedFilter =
     entity.softDelete === true ? `AND ${quoteIdent("is_deleted")} IS NOT TRUE` : "";
 
-  const result = { scannedRows: 0, indexedRows: 0, failures: [] as ReindexEntityFailure[] };
+  const result = {
+    scannedRows: 0,
+    indexedRows: 0,
+    wouldIndexRows: 0,
+    failures: [] as ReindexEntityFailure[],
+  };
 
   let offset = 0;
   for (;;) {
@@ -107,6 +115,14 @@ export async function reindexEntity(
       const entityId = String(row["id"]);
       try {
         const state = rowToState(row, fieldNames);
+        const unmappedField = searchableFields.find((fieldName) => !(fieldName in state));
+        if (unmappedField !== undefined) {
+          result.failures.push({
+            entityId,
+            reason: `field ${unmappedField} not mappable from read-table column`,
+          });
+          continue;
+        }
         const doc = await buildSearchDocument(entityName, entityId, state, registry);
         if (doc) docs.push({ entityId, doc });
       } catch (e) {
@@ -137,7 +153,7 @@ export async function reindexEntity(
         }
       }
     } else if (options.dryRun) {
-      result.indexedRows += docs.length;
+      result.wouldIndexRows += docs.length;
     }
 
     offset += rows.length;
