@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { Hono } from "hono";
 import { parseSseFrames } from "@cosmicdrift/kumiko-dispatcher-live";
 import { z } from "zod";
 import {
@@ -8,9 +9,10 @@ import {
   defineFeature,
   type TenantId,
 } from "../../engine";
+import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher";
 import { createTestUser, TestUsers } from "../../stack";
 import { waitFor } from "../../testing";
-import { pumpStream, StreamFrame } from "../routes";
+import { createApiRoutes, pumpStream, StreamFrame } from "../routes";
 import { buildServer } from "../server";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
@@ -487,6 +489,102 @@ describe("POST /api/stream", () => {
     expect(res.headers.get("content-type")).not.toContain("text/event-stream");
     const body = await res.json();
     expect(body.error).toMatchObject({ code: "internal_error" });
+  });
+});
+
+// --- POST /api/stream pre-pull race (framework#1547) ---
+// Mount createApiRoutes with a short sseHeartbeatMs so the pre-pull heartbeat
+// race is testable without waiting for the production 15s interval.
+
+describe("POST /api/stream pre-pull race", () => {
+  const user = createTestUser({ roles: ["Admin"] });
+
+  function stubDispatcher(streamImpl: Dispatcher["stream"]): Dispatcher {
+    return {
+      async write(): Promise<WriteResult> {
+        return { isSuccess: true, data: {} };
+      },
+      async query(): Promise<unknown> {
+        return [];
+      },
+      stream: streamImpl,
+      async command(): Promise<void> {},
+      async batch(): Promise<BatchResult> {
+        return { isSuccess: true, results: [] };
+      },
+      async resolveAuthClaims(): Promise<Record<string, unknown>> {
+        return {};
+      },
+    };
+  }
+
+  function mountStreamApp(dispatcher: Dispatcher, sseHeartbeatMs: number): Hono {
+    const app = new Hono();
+    app.use("/api/*", async (c, next) => {
+      c.set("pipelineUser", user);
+      await next();
+    });
+    app.route("/api", createApiRoutes(dispatcher, { sseHeartbeatMs }));
+    return app;
+  }
+
+  test("slow first next() opens 200 SSE with ping frames instead of hanging as HTTP error", async () => {
+    // First .next() takes longer than heartbeatMs → settledInTime=false →
+    // streamSSE opens immediately and pumpStream emits ping until the chunk
+    // arrives (framework#1547 route-level contract).
+    const dispatcher = stubDispatcher(async function* () {
+      await Bun.sleep(60);
+      yield { i: 0 };
+    });
+    const app = mountStreamApp(dispatcher, 20);
+    const res = await app.request(
+      new Request("http://localhost/api/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "any:stream:tail", payload: {} }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    const frames = parseSseFrames(await res.text());
+    const events = frames.map((f) => f.event);
+    expect(events).toContain("ping");
+    expect(events).toContain("chunk");
+    expect(events.at(-1)).toBe("done");
+  });
+
+  test("client abort during pre-pull returns 499 and runs generator cleanup", async () => {
+    // Finite sleep (not a never-resolving await): V8 queues .return() behind an
+    // in-flight .next(), so cleanup only runs once the pending pull settles.
+    // Abort before heartbeatMs so the route hits the 499 branch; sleep then
+    // completes and the queued return drains the generator's finally.
+    let cleanedUp = false;
+    const dispatcher = stubDispatcher(async function* () {
+      try {
+        await Bun.sleep(80);
+        yield { i: 0 };
+      } finally {
+        cleanedUp = true;
+      }
+    });
+    const app = mountStreamApp(dispatcher, 40);
+    const ac = new AbortController();
+    const pending = app.request(
+      new Request("http://localhost/api/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "any:stream:tail", payload: {} }),
+        signal: ac.signal,
+      }),
+    );
+    // Abort while firstPull is still racing the heartbeat timer.
+    await Bun.sleep(5);
+    ac.abort();
+    const res = await pending;
+    expect(res.status).toBe(499);
+    await waitFor(() => {
+      expect(cleanedUp).toBe(true);
+    });
   });
 });
 

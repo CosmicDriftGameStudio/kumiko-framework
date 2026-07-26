@@ -206,6 +206,38 @@ describe("POST /auth/mfa/preauth-enable-start", () => {
     expect(body.error).toBe("rate_limited");
   });
 
+  // #1522 / #1545: the IP axis alone is bypassable by rotating
+  // x-forwarded-for. The second check keys on a sha256 of the
+  // preauthSetupToken — prove rotating IPs still hit 429 on the same
+  // token, and that a different token does not share that bucket.
+  test("preauthSetupToken rate-limit axis survives x-forwarded-for rotation", async () => {
+    const { app } = await buildApp({
+      mfaPreauthEnableStartRateLimit: createInMemoryLoginRateLimiter(2, 60_000),
+    });
+    const attempt = (token: string, forwardedFor: string) =>
+      app.request(
+        new Request("http://localhost/api/auth/mfa/preauth-enable-start", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-forwarded-for": forwardedFor,
+          },
+          body: JSON.stringify({ preauthSetupToken: token, accountLabel: "a@b.c" }),
+        }),
+      );
+
+    expect((await attempt("shared-token", "10.0.0.1")).status).toBe(200);
+    expect((await attempt("shared-token", "10.0.0.2")).status).toBe(200);
+    const blocked = await attempt("shared-token", "10.0.0.3");
+    expect(blocked.status).toBe(429);
+    const body = (await blocked.json()) as { isSuccess: boolean; error: string };
+    expect(body.error).toBe("rate_limited");
+
+    // Distinct token → independent bucket; rotating IP must not inherit the
+    // prior token's exhaustion.
+    expect((await attempt("other-token", "10.0.0.4")).status).toBe(200);
+  });
+
   test("mfaPreauthEnableStartRateLimit: null disables rate-limiting", async () => {
     const { app } = await buildApp({ mfaPreauthEnableStartRateLimit: null });
     const attempt = () =>
