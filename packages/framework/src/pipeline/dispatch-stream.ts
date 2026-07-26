@@ -53,10 +53,8 @@ async function* executeStreamInner(
     throw validationErrorFromZod(parsed.error);
   }
 
-  // Mid-stream access revocation must also cut *idle* SSE streams (heartbeat
-  // only — no chunk). A boolean flag read only after the next chunk would
-  // leave revoked sessions open indefinitely (fw#1563). Race each pull
-  // against an invalidated Deferred instead.
+  // Idle (heartbeat-only) streams must also cut on access revoke — race each
+  // pull against an invalidated Deferred instead of a post-chunk boolean.
   let resolveInvalidated: (() => void) | undefined;
   const invalidated = new Promise<void>((resolve) => {
     resolveInvalidated = resolve;

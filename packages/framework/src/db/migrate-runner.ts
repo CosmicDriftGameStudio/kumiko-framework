@@ -74,16 +74,7 @@ CREATE TABLE IF NOT EXISTS "_kumiko_migrations" (
 )
 `.trim();
 
-// Splits SQL-file text into individual statements on top-level `;`. A plain
-// `text.split(";")` breaks the moment a `--` line comment or `/* */` block
-// comment contains a semicolon (#1542) — it splits mid-comment before the
-// comment is ever stripped. This scans char-by-char tracking whether we're
-// inside a line comment, block comment, single-quoted string, or
-// double-quoted identifier, so `;` only ends a statement in plain SQL text;
-// comments are dropped, quoted/identifier content (incl. `''`/`""` escapes)
-// is kept verbatim. Does not handle dollar-quoted (`$$...$$`) bodies — none
-// of this repo's checked-in migrations use them; add that state if one ever
-// does.
+// Plain `;`-split breaks on `;` inside comments/string literals (#1542).
 type SqlScanState = "normal" | "lineComment" | "blockComment" | "singleQuote" | "doubleQuote";
 
 export function splitSqlStatements(sqlText: string): readonly string[] {
@@ -106,6 +97,8 @@ export function splitSqlStatements(sqlText: string): readonly string[] {
       if (ch === "*" && next === "/") {
         state = "normal";
         i++;
+        // Keep a space so `a/*x*/AS` does not become `aAS`.
+        current += " ";
       }
       continue;
     }
@@ -163,6 +156,8 @@ export function splitSqlStatements(sqlText: string): readonly string[] {
     current += ch;
   }
   if (state === "blockComment" || state === "singleQuote" || state === "doubleQuote") {
+    // Does not track dollar-quoted (`$$...$$`) bodies — none of this repo's
+    // migrations use them; add that state if one ever does.
     throw new Error(
       `splitSqlStatements: unterminated ${state} — migration SQL is malformed, refusing to split`,
     );

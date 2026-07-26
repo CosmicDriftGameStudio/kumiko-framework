@@ -34,6 +34,10 @@ describe("splitSqlStatements", () => {
     expect(splitSqlStatements(sql)).toEqual(['CREATE TABLE "a" ("id" uuid);']);
   });
 
+  test("block comment leaves a space so adjacent tokens do not fuse", () => {
+    expect(splitSqlStatements("SELECT a/*x*/AS b;")).toEqual(["SELECT a AS b;"]);
+  });
+
   test("a block-comment opener inside a line comment does not swallow the next statement", () => {
     const sql = `
       -- note: see /* details below

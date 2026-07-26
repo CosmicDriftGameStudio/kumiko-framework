@@ -34,8 +34,8 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 // user-data-rights.md "Cross-Tenant-Semantik"). Without a membership
 // check, a TenantAdmin from tenant A could restrict/unrestrict a user who
 // has never been a member of tenant A. Only SystemAdmin (platform-wide)
-// skips the check; TenantAdmin/Admin must have an active membership in
-// the target's own tenantId.
+// skips the check; the target must have a membership row in the acting
+// admin's `event.user.tenantId` (row existence only — no active-status field).
 //
 // State-Transitions:
 //   Active → Restricted        ✓ (dieser Handler)

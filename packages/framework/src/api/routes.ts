@@ -19,9 +19,9 @@ import { patAllows } from "./pat-scope";
 import { requestContext } from "./request-context";
 import { SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route";
 
-// SSE frame event names for POST /api/stream (framework-owned; dispatcher-live
-// has no dependency on this package and keeps its own copy in sse-stream.ts —
-// a drift between the two fails the real-HTTP frame assertions in api.test.ts).
+// SSE frame event names for POST /api/stream. Parallel definition lives in
+// @cosmicdrift/kumiko-headless (dispatcher-live imports that one) — framework
+// cannot depend on headless for four string literals.
 export const StreamFrame = {
   chunk: "chunk",
   ping: "ping",
