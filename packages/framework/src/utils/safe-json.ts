@@ -10,6 +10,8 @@
  *   with a clear context message so the stack trace points to the boundary.
  */
 
+import { Temporal } from "temporal-polyfill";
+
 export function parseJsonSafe<T>(raw: string, fallback: T): T {
   try {
     // @cast-boundary engine-bridge — generic parser-helper centralizes the cast
@@ -43,7 +45,7 @@ export function stringifyJson(value: unknown): string {
       }
       return v.toString();
     }
-    if (v instanceof Temporal.Instant) return v.toString();
+    if (v instanceof Temporal.Instant) return v.toString(); // polyfill Instant, not ambient
     return v;
   });
 }

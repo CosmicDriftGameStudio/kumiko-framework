@@ -20,9 +20,9 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-framework/testing";
 import { AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
-import { listQuery } from "../handlers/list.query";
 
 const widgetEntity = createEntity({
   table: "audit_widgets",
@@ -328,32 +328,17 @@ describe("audit: list query", () => {
   });
 
   test("kumiko-framework#1525: from/to filter works without relying on globalThis.Temporal", async () => {
-    // Seed with Temporal intact — only the handler call itself runs
-    // ambient-free. Going through the full HTTP dispatch instead would
-    // also delete the ambient global out from under buildHandlerContext's
-    // unrelated ctx.tz setup, which isn't what this regression pins down.
     await createWidget(admin, "in-range");
-
-    const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
-    delete (globalThis as { Temporal?: unknown }).Temporal;
-    try {
-      const res = await listQuery.handler(
-        {
-          type: AuditQueries.list,
-          payload: {
-            limit: 50,
-            from: "2020-01-01T00:00:00Z",
-            to: "2030-01-01T00:00:00Z",
-          },
-          user: admin,
-        } as Parameters<typeof listQuery.handler>[0],
-        { db: stack.db } as unknown as Parameters<typeof listQuery.handler>[1],
-      );
-      expect(res.rows.length).toBeGreaterThanOrEqual(1);
-    } finally {
-      if (savedGlobal === undefined) delete (globalThis as { Temporal?: unknown }).Temporal;
-      else (globalThis as { Temporal?: unknown }).Temporal = savedGlobal;
-    }
+    // createTzContext uses a static temporal-polyfill import, so full HTTP
+    // dispatch (buildHandlerContext → ctx.tz) is safe ambient-free.
+    const res = await withoutAmbientTemporal(() =>
+      stack.http.queryOk<AuditResponse>(
+        AuditQueries.list,
+        { limit: 50, from: "2020-01-01T00:00:00Z", to: "2030-01-01T00:00:00Z" },
+        admin,
+      ),
+    );
+    expect(res.rows.length).toBeGreaterThanOrEqual(1);
   });
 
   test("access denied for non-admin roles", async () => {
