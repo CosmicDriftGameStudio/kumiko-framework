@@ -7,6 +7,9 @@
 // Idempotent: if `globalThis.Temporal` already exists the call is a no-op.
 // The cache is the live global check — not a sticky module flag — so tests
 // that delete the ambient global (fw#1550) still re-install on the next call.
+// Re-install uses the value export + Object.assign (not `temporal-polyfill/global`
+// side-effect import): ESM caches the side-effect module and would not re-run
+// after a teardown.
 
 let polyfillPromise: Promise<void> | null = null;
 
@@ -33,7 +36,10 @@ export async function ensureTemporalPolyfill(): Promise<void> {
       // skip: raced native/peer install
       return;
     }
-    await import("temporal-polyfill/global");
+    // Value export — assign ourselves so teardown + re-call still works
+    // (side-effect `temporal-polyfill/global` is ESM-cached and silent on re-import).
+    const { Temporal } = await import("temporal-polyfill");
+    Object.assign(globalThis, { Temporal });
   })();
 
   await polyfillPromise;

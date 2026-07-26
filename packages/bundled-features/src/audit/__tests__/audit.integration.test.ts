@@ -329,8 +329,10 @@ describe("audit: list query", () => {
 
   test("kumiko-framework#1525: from/to filter works without relying on globalThis.Temporal", async () => {
     await createWidget(admin, "in-range");
-    // createTzContext uses a static temporal-polyfill import, so full HTTP
-    // dispatch (buildHandlerContext → ctx.tz) is safe ambient-free.
+    // createTzContext uses a static temporal-polyfill import; ensureTemporalPolyfill
+    // re-assigns Temporal after teardown (value export). Full HTTP dispatch is
+    // ambient-free for ctx.tz; bare-Temporal paths elsewhere still need the
+    // re-install to succeed if they run in this window.
     const res = await withoutAmbientTemporal(() =>
       stack.http.queryOk<AuditResponse>(
         AuditQueries.list,
