@@ -7,10 +7,10 @@ export type InfinityListProps<TData = unknown, TRow = Readonly<Record<string, un
   /** Dispatcher-Query-Type (`<feature>:query:<entity>:<verb>`). */
   readonly query: string;
   readonly payload?: Readonly<Record<string, unknown>>;
-  /** Rows pro Seite, geht als `limit` ins Query-Payload. Default 50. */
+  /** Rows per page — sent as `limit` in the query payload. Default 50. */
   readonly pageSize?: number;
   readonly rows: (data: TData) => readonly TRow[];
-  /** Cursor für die nächste Seite aus dem Result ziehen; `null` = letzte Seite. */
+  /** Pull the next-page cursor from the result; `null` means last page. */
   readonly nextCursor: (data: TData) => string | null;
   readonly rowId: (row: TRow, index: number) => string;
   readonly renderRow: (row: TRow) => ReactNode;
@@ -24,12 +24,11 @@ type State<TRow> =
   | { readonly kind: "error"; readonly error: DispatcherError }
   | { readonly kind: "ready"; readonly rows: readonly TRow[]; readonly cursor: string | null };
 
-/** Cursor-paginierte Scroll-Liste (Mail-Inbox, Activity-Feeds) — lädt die
- *  nächste Seite automatisch nach, sobald der Sentinel am Ende sichtbar wird
- *  (IntersectionObserver), statt einer Pager-Leiste wie bei QueryTable/
- *  entityList. Query-Handler bekommt `{ ...payload, limit, cursor? }` und
- *  liefert Rows + nächsten Cursor (gleiche Cursor-Convention wie der
- *  audit-log-screen). */
+/** Cursor-paginated scroll list (mail inbox, activity feeds) — loads the
+ *  next page when the end sentinel becomes visible (IntersectionObserver),
+ *  instead of a pager bar like QueryTable/entityList. The query handler
+ *  receives `{ ...payload, limit, cursor? }` and returns rows plus the next
+ *  cursor (same cursor convention as the audit-log screen). */
 export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unknown>>>({
   query,
   payload,
@@ -48,11 +47,10 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const payloadKey = JSON.stringify(payload ?? {});
 
-  // rows/nextCursor sind bei jedem Caller-Render neue Closures (Inline-
-  // Arrow-Props). Als useCallback-Deps würde `load` bei jedem Render neu
-  // entstehen → der Mount-Effect unten refetcht in einer Schleife. Refs
-  // umgehen das: `load` bleibt stabil, liest aber immer die aktuelle
-  // Selector-Funktion.
+  // rows/nextCursor are fresh closures on every caller render (inline
+  // arrow props). As useCallback deps that would recreate `load` every
+  // render → the mount effect below would refetch in a loop. Refs keep
+  // `load` stable while always reading the current selector.
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const nextCursorRef = useRef(nextCursor);
@@ -87,7 +85,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
-    // skip: keine weitere Seite oder noch nicht bereit — kein Observer nötig
+    // skip: no further page or not ready yet — observer not needed
     if (sentinel === null || state.kind !== "ready" || state.cursor === null) return;
     const cursor = state.cursor;
     const observer = new IntersectionObserver((entries) => {

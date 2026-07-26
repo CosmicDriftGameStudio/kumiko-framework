@@ -19,9 +19,9 @@ export type DrawerProps = {
   readonly testId?: string;
 };
 
-/** Slide-in-Panel neben einer Liste (z.B. Mail-Reader neben der Inbox) —
- *  dünner Wrapper über dem Sheet-Primitive mit Header/Body/Footer-Slots
- *  statt Radix-Boilerplate pro Screen. */
+/** Slide-in panel beside a list (e.g. mail reader next to the inbox) —
+ *  thin wrapper over the Sheet primitive with header/body/footer slots
+ *  so screens skip per-route Radix boilerplate. */
 export function Drawer({
   open,
   onOpenChange,

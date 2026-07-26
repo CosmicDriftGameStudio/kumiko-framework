@@ -11,9 +11,9 @@ import {
 } from "../../__tests__/test-utils";
 import { InfinityList } from "../infinity-list";
 
-// jsdom hat keinen IntersectionObserver — Stub speichert den Callback pro
-// Observer, damit Tests das "Sentinel wird sichtbar"-Event manuell auslösen
-// können, statt echtes Scrollen zu simulieren.
+// jsdom has no IntersectionObserver — stub stores the callback per observer
+// so tests can fire the "sentinel became visible" event manually instead of
+// simulating real scrolling.
 const observers: ((entries: readonly { isIntersecting: boolean }[]) => void)[] = [];
 globalThis.IntersectionObserver = class {
   constructor(cb: (entries: readonly { isIntersecting: boolean }[]) => void) {
