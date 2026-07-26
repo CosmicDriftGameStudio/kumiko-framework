@@ -93,11 +93,7 @@ type RawUserMfaRow = {
 };
 
 async function readRawRow(userId?: string): Promise<RawUserMfaRow> {
-  const rows = await selectMany<RawUserMfaRow>(
-    stack.db,
-    userMfaTable,
-    userId ? { userId } : {},
-  );
+  const rows = await selectMany<RawUserMfaRow>(stack.db, userMfaTable, userId ? { userId } : {});
   const row = rows[0];
   if (!row) throw new Error("no user-mfa row");
   return row;
@@ -300,15 +296,12 @@ describe("auth-mfa KEK-rotation job — unrecognized values are not silently ski
       child: () => capturingLog,
     };
 
-    await mfaReencryptJob(
-      {},
-      {
-        db: stack.db,
-        registry: stack.registry,
-        masterKeyProvider: mutableProvider,
-        log: capturingLog,
-      } as AppContext,
-    );
+    await mfaReencryptJob({}, {
+      db: stack.db,
+      registry: stack.registry,
+      masterKeyProvider: mutableProvider,
+      log: capturingLog,
+    } as AppContext);
 
     const completeLine = captured.info.find((line) =>
       line.includes("[auth-mfa:reencrypt] complete:"),
