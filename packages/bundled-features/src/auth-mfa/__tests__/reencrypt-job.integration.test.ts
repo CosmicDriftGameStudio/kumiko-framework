@@ -84,10 +84,20 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-type RawUserMfaRow = { id: string; totpSecret: string; version: number };
+type RawUserMfaRow = {
+  id: string;
+  userId: string;
+  totpSecret: string;
+  recoveryCodes: string;
+  version: number;
+};
 
-async function readRawRow(): Promise<RawUserMfaRow> {
-  const rows = await selectMany<RawUserMfaRow>(stack.db, userMfaTable, {});
+async function readRawRow(userId?: string): Promise<RawUserMfaRow> {
+  const rows = await selectMany<RawUserMfaRow>(
+    stack.db,
+    userMfaTable,
+    userId ? { userId } : {},
+  );
   const row = rows[0];
   if (!row) throw new Error("no user-mfa row");
   return row;
@@ -195,7 +205,7 @@ describe("auth-mfa KEK-rotation job — unrecognized values are not silently ski
       user,
     );
 
-    const beforeRow = await readRawRow();
+    const beforeRow = await readRawRow(user.id);
     const garbage = "not-a-stored-envelope";
     await asRawClient(stack.db).unsafe(`UPDATE read_user_mfa SET totp_secret = $1 WHERE id = $2`, [
       garbage,
@@ -241,7 +251,79 @@ describe("auth-mfa KEK-rotation job — unrecognized values are not silently ski
     );
     expect(rejectedWarning).toBeDefined();
 
-    const afterRow = await readRawRow();
+    const afterRow = await readRawRow(user.id);
     expect(afterRow.totpSecret).toBe(garbage);
+  });
+
+  test("a non-envelope recoveryCodes is counted failed, never alreadyCurrent, and is left untouched", async () => {
+    mutableProvider.replace(
+      createEnvMasterKeyProvider({
+        env: {
+          KUMIKO_SECRETS_MASTER_KEY_V1: v1Key,
+          KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+        },
+      }),
+    );
+
+    const user = createTestUser({ id: 3, roles: ["User"] });
+    const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+      AuthMfaHandlers.enableStart,
+      { accountLabel: "user-3@example.com" },
+      user,
+    );
+    const secretParam = new URLSearchParams(start.otpauthUri.split("?")[1]).get("secret") ?? "";
+    const secret = base32Decode(secretParam);
+    await stack.http.writeOk(
+      AuthMfaHandlers.enableConfirm,
+      { setupToken: start.setupToken, code: currentTotpCode(secret) },
+      user,
+    );
+
+    const beforeRow = await readRawRow(user.id);
+    const garbage = "not-a-stored-envelope";
+    await asRawClient(stack.db).unsafe(
+      `UPDATE read_user_mfa SET recovery_codes = $1 WHERE id = $2`,
+      [garbage, beforeRow.id],
+    );
+
+    type CapturedLog = { info: string[]; warn: string[] };
+    const captured: CapturedLog = { info: [], warn: [] };
+    const capturingLog = {
+      info: (msg: string) => {
+        captured.info.push(msg);
+      },
+      warn: (msg: string) => {
+        captured.warn.push(msg);
+      },
+      error: () => {},
+      debug: () => {},
+      child: () => capturingLog,
+    };
+
+    await mfaReencryptJob(
+      {},
+      {
+        db: stack.db,
+        registry: stack.registry,
+        masterKeyProvider: mutableProvider,
+        log: capturingLog,
+      } as AppContext,
+    );
+
+    const completeLine = captured.info.find((line) =>
+      line.includes("[auth-mfa:reencrypt] complete:"),
+    );
+    if (!completeLine) throw new Error("job did not log a completion summary");
+    const result = JSON.parse(completeLine.slice(completeLine.indexOf("{"))) as {
+      migrated: number;
+      failed: number;
+      alreadyCurrent: number;
+    };
+    expect(result.migrated).toBe(0);
+    expect(result.failed).toBeGreaterThanOrEqual(1);
+    expect(result.alreadyCurrent).toBe(0);
+
+    const afterRow = await readRawRow(user.id);
+    expect(afterRow.recoveryCodes).toBe(garbage);
   });
 });

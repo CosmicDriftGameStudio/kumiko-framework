@@ -128,10 +128,14 @@ describe("AuthRoutesConfig.trustedProxyHops", () => {
     expect(third.status).toBe(429);
   });
 
-  test("hops=1 with no XFF header at all falls back to unknown, not a throw", async () => {
+  test("hops=1 with no XFF and no X-Real-IP collapses distinct clients into unknown", async () => {
     const app = await buildApp({ trustedProxyHops: 1 });
-    const res = await app.request(verifyRequest(undefined));
-    expect(res.status).toBe(422);
+    // Three requests without either header must share the "unknown" bucket —
+    // a single 422 only proves "no throw", not the collapse (fw#1555#2).
+    const attempt = () => app.request(verifyRequest(undefined));
+    expect((await attempt()).status).toBe(422);
+    expect((await attempt()).status).toBe(422);
+    expect((await attempt()).status).toBe(429);
   });
 
   test("hops=1 with short/missing XFF uses x-real-ip so clients stay independent", async () => {

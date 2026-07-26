@@ -5,9 +5,9 @@
 // parses the stored JSON.
 //
 // A row whose value isn't a current-cipher envelope (malformed JSON, or
-// any pre-envelope format) isn't a supported input here — cipher.decrypt
-// rejects it, so it's counted `failed` rather than silently treated as
-// already current. There is no legacy single-key decrypt path anymore.
+// any pre-envelope format) is counted `failed` before any decrypt attempt
+// and left untouched — migrateRow short-circuits on `unrecognized` instead
+// of relying on cipher.decrypt to reject it. No legacy single-key path.
 //
 // Idempotent: a re-run skips rows already on the current version. Every
 // write goes through the event-store executor (config values are
