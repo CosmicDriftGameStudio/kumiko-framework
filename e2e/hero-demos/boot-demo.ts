@@ -35,26 +35,41 @@ if (!testDb) {
 }
 
 
-const WORKSPACE_PINS: Readonly<Record<string, string>> = {
+const PACKAGE_DIRS: Readonly<Record<string, string>> = {
   "@cosmicdrift/kumiko-bundled-features": "packages/bundled-features",
+  "@cosmicdrift/kumiko-cli": "packages/cli",
   "@cosmicdrift/kumiko-dev-server": "packages/dev-server",
+  "@cosmicdrift/kumiko-dispatcher-live": "packages/dispatcher-live",
   "@cosmicdrift/kumiko-framework": "packages/framework",
+  "@cosmicdrift/kumiko-headless": "packages/headless",
+  "@cosmicdrift/kumiko-renderer": "packages/renderer",
   "@cosmicdrift/kumiko-renderer-web": "packages/renderer-web",
   "@cosmicdrift/kumiko-server-runtime": "packages/server-runtime",
+  "@cosmicdrift/kumiko-types": "packages/types",
+  "create-kumiko-app": "packages/create-kumiko-app",
 };
 
+function filePin(repoRoot: string, rel: string): string {
+  return `file:${resolve(repoRoot, rel)}`;
+}
+
+/** Rewrite scaffolded @cosmicdrift/* deps + overrides so nested workspace:*
+ *  refs resolve via file: pins (hero-app sits outside the monorepo workspaces). */
 function relinkCosmicDriftToWorkspace(appDir: string, repoRoot: string): void {
   const pkgPath = resolve(appDir, "package.json");
   const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
     dependencies?: Record<string, string>;
+    overrides?: Record<string, string>;
   };
-  const deps = pkg.dependencies;
-  if (!deps) return;
-  for (const [name, rel] of Object.entries(WORKSPACE_PINS)) {
-    if (deps[name] !== undefined) {
-      deps[name] = `file:${resolve(repoRoot, rel)}`;
-    }
+  const deps = pkg.dependencies ?? {};
+  const overrides: Record<string, string> = { ...(pkg.overrides ?? {}) };
+  for (const [name, rel] of Object.entries(PACKAGE_DIRS)) {
+    const pin = filePin(repoRoot, rel);
+    if (deps[name] !== undefined) deps[name] = pin;
+    overrides[name] = pin;
   }
+  pkg.dependencies = deps;
+  pkg.overrides = overrides;
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 }
 
