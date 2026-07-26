@@ -109,8 +109,14 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
     if (body.mfaRequired === true && typeof body.challengeToken === "string") {
       return { kind: "mfa-challenge", challengeToken: body.challengeToken };
     }
-    if (body.mfaSetupRequired === true && typeof body.preauthSetupToken === "string") {
-      return { kind: "mfa-setup-required", preauthSetupToken: body.preauthSetupToken };
+    if (body.mfaSetupRequired === true) {
+      // Older servers / mounts may set the flag without minting a preauth token —
+      // surface an explicit failure (login-screen maps mfa_setup_required) instead
+      // of falling through to generic login_failed.
+      if (typeof body.preauthSetupToken === "string") {
+        return { kind: "mfa-setup-required", preauthSetupToken: body.preauthSetupToken };
+      }
+      return { kind: "failure", error: { reason: "mfa_setup_required" } };
     }
     if (body.token !== undefined && body.user !== undefined) {
       return { kind: "success", data: { token: body.token, user: body.user } };

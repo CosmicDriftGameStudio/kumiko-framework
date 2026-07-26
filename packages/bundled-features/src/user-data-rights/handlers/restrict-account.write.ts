@@ -44,7 +44,7 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 //   Deleted → ...              ✗ 422 user_not_in_active_state
 export const restrictAccountWrite = defineWriteHandler({
   name: "restrict-account",
-  schema: z.object({ userId: z.string().optional() }),
+  schema: z.object({ userId: z.string().uuid().optional() }),
   access: { openToAll: true },
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId ?? event.user.id;

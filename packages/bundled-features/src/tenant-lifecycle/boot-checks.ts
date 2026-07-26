@@ -12,6 +12,16 @@ import { entitiesOf } from "../shared";
 // (r.extendsRegistrar), so its own mount is the trigger, matching the
 // original guard's "tenant-lifecycle mounted" gate exactly (unlike gating on
 // a sibling feature, which would silently narrow coverage).
+
+function hasTenantOwned(field: unknown): field is PiiAnnotations {
+  return (
+    typeof field === "object" &&
+    field !== null &&
+    "tenantOwned" in field &&
+    (field as { tenantOwned?: unknown }).tenantOwned === true
+  );
+}
+
 export function validateTenantDataHookCoverage(features: readonly FeatureDefinition[]): void {
   const hookedEntities = new Set<string>();
   for (const f of features) {
@@ -24,10 +34,7 @@ export function validateTenantDataHookCoverage(features: readonly FeatureDefinit
     for (const [entityName, entity] of entitiesOf(feature)) {
       if (hookedEntities.has(entityName)) continue;
       const tenantSubjectFields = Object.entries(entity.fields)
-        .filter(([, field]) => {
-          const annot = field as PiiAnnotations; // @cast-boundary schema-walk
-          return Boolean(annot.tenantOwned);
-        })
+        .filter(([, field]) => hasTenantOwned(field))
         .map(([name]) => name);
       if (tenantSubjectFields.length === 0) continue;
       throw new Error(

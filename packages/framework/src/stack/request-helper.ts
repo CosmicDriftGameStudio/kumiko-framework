@@ -116,16 +116,19 @@ export function createRequestHelper(
   // every request a test makes for the same user — tests asserting on
   // session counts / massRevoker / revokeAllOthers behavior then see
   // extra live sids that have nothing to do with what they're testing.
-  const sidByUserId = new Map<string, string>();
+  // Cache the Promise (not the settled sid) so two concurrent authHeader
+  // calls for the same user share one mint instead of racing on a miss.
+  const sidByUserId = new Map<string, Promise<string>>();
 
   async function authHeader(user: SessionUser): Promise<Record<string, string>> {
     let forJwt = user;
     if (options.sessionCreator && !user.sid) {
-      const cachedSid = sidByUserId.get(user.id);
-      const sid =
-        cachedSid ??
-        (await options.sessionCreator(user, { ip: "test", userAgent: "request-helper" }));
-      if (cachedSid === undefined) sidByUserId.set(user.id, sid);
+      let sidPromise = sidByUserId.get(user.id);
+      if (sidPromise === undefined) {
+        sidPromise = options.sessionCreator(user, { ip: "test", userAgent: "request-helper" });
+        sidByUserId.set(user.id, sidPromise);
+      }
+      const sid = await sidPromise;
       forJwt = { ...user, sid };
     }
     const token = await jwt.sign(forJwt);

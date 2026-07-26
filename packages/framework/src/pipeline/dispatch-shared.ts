@@ -620,9 +620,13 @@ export async function runHandlerInstrumented<T>(
 
 // Generator-native counterpart to runHandlerInstrumented — a stream's
 // lifetime spans every `for await` pull the caller makes, so the span
-// can't be scoped via withSpan's single-callback shape. startSpan/end
-// bracket the whole yield* instead; metrics land in the same finally
-// path so success/failure/throw all hit one emit, like the Promise path.
+// can't be scoped via withSpan's single-callback shape. Drive the inner
+// generator manually (not yield*): each pull must run inside
+// observabilityContext.run({ activeSpan: span }) so handler-side
+// startSpan() calls parent onto the dispatcher span. finally forwards
+// .return() to the inner generator (yield* did that for free). Metrics
+// land in the same finally path so success/failure/throw/abort all hit
+// one emit, like the Promise path.
 export async function* runStreamInstrumented<T>(
   ctx: DispatchContext,
   type: string,
@@ -648,16 +652,15 @@ export async function* runStreamInstrumented<T>(
     let next = await observabilityContext.run({ activeSpan: span }, () => it.next());
     while (!next.done) {
       try {
-        yield next.value;
+        const sent = yield next.value;
+        next = await observabilityContext.run({ activeSpan: span }, () => it.next(sent));
       } catch (sendError) {
         next = await observabilityContext.run({ activeSpan: span }, () => it.throw(sendError));
         if (next.done) {
           completedNormally = true;
           return next.value;
         }
-        continue;
       }
-      next = await observabilityContext.run({ activeSpan: span }, () => it.next());
     }
     completedNormally = true;
     return next.value;
@@ -678,15 +681,16 @@ export async function* runStreamInstrumented<T>(
     if (!success && errorClass) {
       emitDispatcherError(dispatcherMeter, { handler: type, errorClass });
     }
-    // A bare consumer-abort (generator.return(), no throw) leaves `success`
-    // at its true default — fold in completedNormally so an abandoned
-    // stream is labeled success:false (no errorClass, so the error counter
-    // above stays clean) instead of counting as a completed run. Still
-    // emitted — the duration sample itself remains useful even for an
-    // aborted stream, unlike a fully skipped metric would.
+    // Consumer-abort (generator.return(), the normal SSE Tab-close path)
+    // is not a handler failure — label it outcome:"aborted" so live-stream
+    // success rates stay meaningful. True handler throws keep success:false.
     emitDispatcherHandler(
       dispatcherMeter,
-      { handler: type, success: success && completedNormally },
+      {
+        handler: type,
+        success,
+        outcome: completedNormally ? "completed" : "aborted",
+      },
       (performance.now() - start) / 1000,
     );
   }

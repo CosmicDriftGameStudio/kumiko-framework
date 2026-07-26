@@ -3,7 +3,7 @@ export { nullBlindIndexesForSubject } from "./blind-index-cleanup";
 export { collectTableMetas } from "./collect-table-metas";
 export { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
 export { seedConfigValues } from "./config-seed";
-export type { DbConnection, DbConnectionOptions, DbRow, DbRunner, DbTx } from "./connection";
+export type { DbConnection, DbPoolHandle, DbConnectionOptions, DbRow, DbRunner, DbTx } from "./connection";
 export { createDbConnection, dbConnectionOptionsFromEnv } from "./connection";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
 export { decodeCursor, encodeCursor } from "./cursor";

@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { createLoginRoute, makeAuthGate } from "../auth-gate";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
@@ -182,7 +182,7 @@ describe("createLoginRoute", () => {
     );
   });
 
-  test("MfaSetupComponent onSuccess → gate clears the request and refreshes the session", () => {
+  test("MfaSetupComponent onSuccess → gate clears the request and refreshes the session", async () => {
     const LoginRoute = createLoginRoute({
       loginScreen: LoginWithMfaSetupTrigger,
       mfaSetupScreen: CustomMfaSetup,
@@ -193,7 +193,29 @@ describe("createLoginRoute", () => {
     expect(screen.getByTestId("mfa-setup")).toBeTruthy();
     fireEvent.click(screen.getByTestId("complete-mfa-setup"));
     expect(session.refresh).toHaveBeenCalledTimes(1);
-    expect(screen.queryByTestId("mfa-setup")).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByTestId("mfa-setup")).toBeNull();
+    });
+  });
+
+  test("MfaSetupComponent onSuccess → keeps setup screen when refresh rejects", async () => {
+    const LoginRoute = createLoginRoute({
+      loginScreen: LoginWithMfaSetupTrigger,
+      mfaSetupScreen: CustomMfaSetup,
+    });
+    const session = makeSessionApi({
+      status: "unauthenticated",
+      refresh: mock(async () => {
+        throw new Error("refresh failed");
+      }),
+    });
+    renderWithProviders(<LoginRoute />, { session });
+    fireEvent.click(screen.getByTestId("trigger-mfa-setup"));
+    fireEvent.click(screen.getByTestId("complete-mfa-setup"));
+    expect(session.refresh).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(screen.getByTestId("mfa-setup")).toBeTruthy();
   });
 
   test("makeAuthGate delegates mfaSetupScreen wiring to createLoginRoute", () => {

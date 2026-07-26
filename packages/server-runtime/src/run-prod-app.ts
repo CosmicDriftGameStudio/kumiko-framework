@@ -625,6 +625,22 @@ export type ProdAppHandle = {
   readonly stop: () => Promise<void>;
 };
 
+
+let warnedLegacyJwtSecret = false;
+function warnLegacyJwtSecretOnce(): void {
+  if (warnedLegacyJwtSecret) return;
+  warnedLegacyJwtSecret = true;
+  // biome-ignore lint/suspicious/noConsole: boot-time ops hint, no logger configured this early
+  console.warn(
+    "[runProdApp] JWT keyring carries a legacy (pre-rotation) verify-only key — " +
+      "it never expires on its own. JWT_SECRET remains a required env (hmacSecret " +
+      "fallback + boot requireEnv). To stop verifying with the pre-rotation secret: " +
+      "set auth.mail.hmacSecret explicitly, then rotate JWT_SECRET to a fresh value " +
+      "that is no longer present in any in-flight token (see resolveAuthMail / " +
+      "loadJwtSecretOrKeyring).",
+  );
+}
+
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
   // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
   //    - operators can introspect env-requirements without a real boot
@@ -696,14 +712,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const jwtSecret = requireEnv("JWT_SECRET", envSource);
   const jwtSecretOrKeyring = loadJwtSecretOrKeyring(envSource);
   if (typeof jwtSecretOrKeyring === "object" && Object.hasOwn(jwtSecretOrKeyring.keys, "legacy")) {
-    // biome-ignore lint/suspicious/noConsole: boot-time ops hint, no logger configured this early
-    console.warn(
-      "[runProdApp] JWT keyring carries a legacy (pre-rotation) verify-only key — " +
-        "it never expires on its own. Once max token TTL has elapsed since the " +
-        "rotation cutover, unset JWT_SECRET to retire it (but confirm no auth.mail " +
-        "convenience default still relies on JWT_SECRET as the password-reset / " +
-        "email-verification hmacSecret first — see resolveAuthMail).",
-    );
+    // Once per process — JWT_SECRET stays a required env (requireEnv above +
+    // resolveAuthMail hmacSecret fallback). Retiring the *legacy verify key*
+    // means setting auth.mail.hmacSecret explicitly and rotating JWT_SECRET
+    // to a fresh value that is no longer in any in-flight token; unsetting
+    // JWT_SECRET entirely hard-crashes boot.
+    warnLegacyJwtSecretOnce();
   }
   const jwtIssuer = readEnv("JWT_ISSUER", envSource);
   const instanceId = readEnv("KUMIKO_INSTANCE_ID", envSource);

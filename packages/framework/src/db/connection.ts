@@ -4,9 +4,12 @@ import type { DbConnection, PgClient } from "@cosmicdrift/kumiko-types/db-connec
 import postgres from "postgres";
 import { readPositiveIntEnv } from "../utils/env-parse";
 
-// Legacy Types — für Aufrufer die direkt diese Module importieren
+// Raw client types (postgres-js | Bun.SQL) — the name used across query/
+// event-store/pipeline call sites. The structural pool handle from ./api is
+// `DbPoolHandle` (createConnection's return type) to avoid colliding with this.
 export type * from "@cosmicdrift/kumiko-types/db-connection";
-export { createConnection, type DbConnectionOptions } from "./api";
+export type { DbPoolHandle, DbConnectionOptions } from "./api";
+export { createConnection } from "./api";
 
 // Legacy: postgres-js only. Neue Aufrufer: createConnection() aus api.ts.
 // guard:dup-ok — andere Layer als createPgConnection (gibt DbConnection zurück, nicht postgres-Instanz)

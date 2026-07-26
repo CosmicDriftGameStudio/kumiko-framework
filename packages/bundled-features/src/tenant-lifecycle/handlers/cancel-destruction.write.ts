@@ -15,7 +15,7 @@ const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "
 
 type TenantLifecycleRow = {
   status: TenantLifecycleStatus;
-  gracePeriodEnd: Temporal.Instant | null;
+  gracePeriodEnd: InstanceType<typeof TemporalPolyfill.Instant> | null;
 };
 
 // kumiko-framework#1525: exported so the ambient-global-independence
@@ -23,7 +23,7 @@ type TenantLifecycleRow = {
 // short of a full dispatcher round-trip (which would also delete the
 // ambient global out from under buildHandlerContext's unrelated ctx.tz
 // setup, unrelated to this fix).
-export function isWithinGracePeriod(gracePeriodEnd: Temporal.Instant | null): boolean {
+export function isWithinGracePeriod(gracePeriodEnd: InstanceType<typeof TemporalPolyfill.Instant> | null): boolean {
   // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
   // at runtime — gracePeriodEnd is DB-row-typed against the ambient
   // global, two distinct nominal types across the two .d.ts sources (see
@@ -31,7 +31,7 @@ export function isWithinGracePeriod(gracePeriodEnd: Temporal.Instant | null): bo
   return (
     gracePeriodEnd != null &&
     TemporalPolyfill.Instant.compare(
-      gracePeriodEnd as unknown as InstanceType<typeof TemporalPolyfill.Instant>,
+      gracePeriodEnd,
       TemporalPolyfill.Now.instant(),
     ) > 0
   );

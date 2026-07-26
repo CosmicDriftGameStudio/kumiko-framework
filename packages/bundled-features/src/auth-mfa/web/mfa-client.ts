@@ -93,7 +93,13 @@ export async function startMfaSetupPreauth(
     setupToken?: string;
     otpauthUri?: string;
     recoveryCodes?: readonly string[];
-    error?: { code?: string; message?: string; details?: { reason?: string } } | string;
+    error?:
+      | {
+          code?: string;
+          message?: string;
+          details?: { reason?: string; retryAfterSeconds?: number };
+        }
+      | string;
   };
   if (
     body.isSuccess === true &&
@@ -115,9 +121,14 @@ export async function startMfaSetupPreauth(
     return { kind: "failure", error: { reason: err } };
   }
   const reason = err?.details?.reason ?? err?.code ?? "setup_failed";
+  const retry = err?.details?.retryAfterSeconds;
   return {
     kind: "failure",
-    error: { reason, ...(err?.message !== undefined && { message: err.message }) },
+    error: {
+      reason,
+      ...(err?.message !== undefined && { message: err.message }),
+      ...(retry !== undefined && { retryAfterSeconds: retry }),
+    },
   };
 }
 

@@ -1275,7 +1275,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
     await seedRow(stack.db, userTable, {
       id: String(aliceUser.id),
       tenantId: tenantA,
-      email: "" as string, // empty string — lookupUserEmail returnt null
+      email: "", // empty string — lookupUserEmail returns null
       passwordHash: "h",
       displayName: "Alice",
       locale: "de",

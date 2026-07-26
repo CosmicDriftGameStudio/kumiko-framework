@@ -45,7 +45,7 @@ export type ConsumerStateRowShape = {
   readonly attempts: number;
   readonly rearmCount: number;
   readonly lastError: string | null;
-  readonly updatedAt: Temporal.Instant;
+  readonly updatedAt: InstanceType<typeof TemporalPolyfill.Instant>;
 };
 export type ConsumerStateRow = ConsumerStateRowShape;
 
@@ -124,7 +124,7 @@ export async function acquireConsumerState(
     // event-store.ts).
     const cooldownElapsed =
       TemporalPolyfill.Instant.compare(
-        state.updatedAt as unknown as InstanceType<typeof TemporalPolyfill.Instant>,
+        state.updatedAt,
         cooldownDeadline,
       ) <= 0;
     if (cooldownElapsed && state.rearmCount < maxRearmCount) {

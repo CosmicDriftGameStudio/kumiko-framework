@@ -36,7 +36,7 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 //   Deleted → ...              ✗ 422 not_restricted
 export const liftRestrictionWrite = defineWriteHandler({
   name: "lift-restriction",
-  schema: z.object({ userId: z.string() }),
+  schema: z.object({ userId: z.string().uuid() }),
   access: { roles: access.admin },
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId;

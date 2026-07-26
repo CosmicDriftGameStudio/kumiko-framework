@@ -59,7 +59,7 @@ function splitTopLevel(body: string): readonly string[] {
 // Identifiers in hand-written migrations aren't always quoted (the generator
 // always quotes, but the header explicitly invites hand-editing) — optional
 // quotes so `CREATE TABLE foo (...)` parses the same as `CREATE TABLE "foo" (...)`.
-const IDENT = `"?([^"\\s(;,]+)"?`;
+const IDENT = `"?([^"\\s(;,.]+)"?`;
 
 function parseColumnNames(body: string): Set<string> {
   const columns = new Set<string>();

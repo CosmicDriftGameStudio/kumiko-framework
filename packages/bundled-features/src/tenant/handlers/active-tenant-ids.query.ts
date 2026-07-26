@@ -1,5 +1,5 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler, SYSTEM_ROLE, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { tenantTable } from "../schema/tenant";
 
@@ -9,7 +9,8 @@ export const activeTenantIdsQuery = defineQueryHandler({
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
   handler: async (_query, ctx) => {
     // tenants.id is a uuid string (TenantId), not a numeric surrogate.
-    const rows = await selectMany<{ id: string }>(ctx.db, tenantTable, { isEnabled: true });
+    // Brand at the DB parse boundary — getActiveTenantIds consumers expect TenantId[].
+    const rows = await selectMany<{ id: TenantId }>(ctx.db, tenantTable, { isEnabled: true });
     return rows.map((r) => r.id);
   },
 });

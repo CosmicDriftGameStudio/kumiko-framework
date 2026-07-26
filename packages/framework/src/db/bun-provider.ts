@@ -8,9 +8,9 @@
 // Bun.SQL hat kein LISTEN — postgres-js-Peer für event-dispatcher.
 
 import postgres from "postgres";
-import type { DbConnection, DbConnectionOptions } from "./api";
+import type { DbPoolHandle, DbConnectionOptions } from "./api";
 
-export function createBunConnection(url: string, options: DbConnectionOptions = {}): DbConnection {
+export function createBunConnection(url: string, options: DbConnectionOptions = {}): DbPoolHandle {
   const bunOpts: { max?: number; idleTimeout?: number; connectionTimeout?: number } = {};
   if (options.maxConnections !== undefined) bunOpts.max = options.maxConnections;
   if (options.idleTimeoutSeconds !== undefined) bunOpts.idleTimeout = options.idleTimeoutSeconds;

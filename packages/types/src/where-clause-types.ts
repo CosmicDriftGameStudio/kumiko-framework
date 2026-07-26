@@ -1,5 +1,8 @@
 // WhereValue: primitive for eq, array for IN, null for IS NULL, or an
-// operator-object for range/comparisons.
+// operator-object for range/comparisons. Deliberately NOT `unknown |
+// WhereOperator` — that union collapses to `unknown` and erases the
+// operator form at every call site (a typo like `{ gtee: x }` would
+// type-check, then bind as eq at runtime).
 export type WhereOperator = {
   readonly gt?: unknown;
   readonly gte?: unknown;
@@ -9,7 +12,8 @@ export type WhereOperator = {
   readonly in?: readonly unknown[];
   readonly like?: string;
 };
-export type WhereValue = unknown | WhereOperator;
+export type WherePrimitive = string | number | boolean | bigint | Date | null;
+export type WhereValue = WherePrimitive | readonly WherePrimitive[] | WhereOperator;
 export type WhereObject = Record<string, WhereValue>;
 
 export type OrderByClause = {

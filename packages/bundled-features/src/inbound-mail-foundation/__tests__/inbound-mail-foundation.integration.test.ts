@@ -38,6 +38,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
@@ -426,8 +427,8 @@ describe("scenario 2d: ingest-message — thread-rollup retry exhaustion (#1229)
         });
         return { ok: true as const, event };
       },
-      // biome-ignore lint/suspicious/noExplicitAny: hand-built ctx narrower than HandlerContext, cast at the test/framework boundary
-    } as any;
+      // @cast-boundary test/framework — hand-built ctx narrower than HandlerContext
+    } as unknown as HandlerContext;
 
     await expect(
       ingestMessageHandler.handler(
