@@ -285,6 +285,11 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // Altbestand ist via .kumiko-comment-lang-baseline.json eingefroren.
   steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guard-comment-lang" });
   const frameworkRepoRoot = resolvePath(import.meta.dir, "..");
+  // Stay on 0.x — block major changesets and package.json major ≥ 1 (accidental 1.0/2.0).
+  steps.push({
+    name: "No-Major-Gt-Zero Guard",
+    cmd: `bun ${join(frameworkRepoRoot, "scripts/guard-no-major-gt-zero.ts")}`,
+  });
   const rawSqlGuard = join(REPO_ROOT, "infra/guards/guard-raw-sql.ts");
   const sqlInventoryScript = join(frameworkRepoRoot, "scripts/sql-inventory.ts");
   steps.push({

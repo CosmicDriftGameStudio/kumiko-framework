@@ -38,6 +38,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Stay on 0.x — refuse to publish accidental major≥1 package.json versions.
+bun scripts/guard-no-major-gt-zero.ts
+
 published=0
 skipped=0
 failed=()
