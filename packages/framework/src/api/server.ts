@@ -114,7 +114,7 @@ export type ServerOptions = {
     // search enabled when the respective dependency (sseBroker /
     // context.searchAdapter) is available; jobTrigger enabled when a
     // jobRunner is wired via dispatcherOptions.
-    systemConsumers?: { sse?: boolean; search?: boolean; jobTrigger?: boolean };
+    systemConsumers?: { sse?: boolean; search?: boolean; jobTrigger?: boolean; accessInvalidation?: boolean };
     // Raw postgres.js client for LISTEN/NOTIFY wake-up (Sprint E.4). When
     // present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL — delivery
     // latency drops from pollIntervalMs to TCP-round-trip. The poll timer
@@ -416,9 +416,15 @@ export function buildServer(options: ServerOptions): KumikoServer {
   if (jobTriggerConsumerEnabled && jobRunnerForTriggers) {
     systemConsumers.push(createJobTriggerEventConsumer(jobRunnerForTriggers, options.registry));
   }
-  // No opt-out — #1524 chose global-by-default specifically so this
-  // security-relevant control can't be silently disabled.
-  systemConsumers.push(createAccessInvalidationEventConsumer(sseBroker));
+  // Default ON (#1524 global-by-default). Tests that opt out of SSE via
+  // systemConsumers.accessInvalidation=false (test-stack mirrors sse off)
+  // skip the row so retention prune suites are not blocked by a lagging
+  // cursor=0 consumer they never drain.
+  const accessInvalidationEnabled =
+    options.eventDispatcher?.systemConsumers?.accessInvalidation ?? true;
+  if (accessInvalidationEnabled) {
+    systemConsumers.push(createAccessInvalidationEventConsumer(sseBroker));
+  }
 
   // MultiStreamProjections: one EventConsumer per MSP. Handler routes by
   // event.type into the MSP's apply map. MSPs aggregate cross-aggregate but

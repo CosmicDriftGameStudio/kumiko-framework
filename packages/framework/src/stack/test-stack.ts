@@ -378,6 +378,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
         systemConsumers: {
           sse: enabledHooks.includes("sse"),
           search: enabledHooks.includes("search"),
+          accessInvalidation: enabledHooks.includes("sse"),
         },
       },
       // Default tests to no login rate-limiter so existing suites that loop
