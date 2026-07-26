@@ -1,0 +1,74 @@
+# ONE-SHOT: unpublish accidental @2.0.0 majors (agent released without approval).
+# Delete this workflow after a successful run.
+name: Emergency unpublish 2.0.0
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  unpublish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Unpublish 2.0.0 + retag latest to 1.0.0
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${NPM_TOKEN}"
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+          echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
+          echo "always-auth=true" >> ~/.npmrc
+          npm whoami
+
+          pkgs=(
+            @cosmicdrift/kumiko-framework
+            @cosmicdrift/kumiko-bundled-features
+            @cosmicdrift/kumiko-types
+            @cosmicdrift/kumiko-dev-server
+            @cosmicdrift/kumiko-server-runtime
+            @cosmicdrift/kumiko-dispatcher-live
+            @cosmicdrift/kumiko-headless
+            @cosmicdrift/kumiko-renderer
+            @cosmicdrift/kumiko-renderer-web
+          )
+
+          for pkg in "${pkgs[@]}"; do
+            echo "::group::unpublish ${pkg}@2.0.0"
+            npm unpublish "${pkg}@2.0.0" --force || echo "::warning::unpublish failed for ${pkg}@2.0.0 (may already be gone)"
+            echo "::endgroup::"
+          done
+
+          for pkg in "${pkgs[@]}"; do
+            echo "::group::dist-tag latest → ${pkg}@1.0.0"
+            npm dist-tag add "${pkg}@1.0.0" latest
+            npm dist-tag ls "${pkg}"
+            echo "::endgroup::"
+          done
+
+      - name: Delete GitHub releases + tags for 2.0.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tags=(
+            @cosmicdrift/kumiko-framework@2.0.0
+            @cosmicdrift/kumiko-bundled-features@2.0.0
+            @cosmicdrift/kumiko-types@2.0.0
+            @cosmicdrift/kumiko-dev-server@2.0.0
+            @cosmicdrift/kumiko-server-runtime@2.0.0
+            @cosmicdrift/kumiko-dispatcher-live@2.0.0
+            @cosmicdrift/kumiko-headless@2.0.0
+            @cosmicdrift/kumiko-renderer@2.0.0
+            @cosmicdrift/kumiko-renderer-web@2.0.0
+          )
+          for tag in "${tags[@]}"; do
+            gh release delete "$tag" --repo CosmicDriftGameStudio/kumiko-framework --yes --cleanup-tag 2>/dev/null \
+              || gh api -X DELETE "repos/CosmicDriftGameStudio/kumiko-framework/git/refs/tags/$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$tag''', safe=''))")" 2>/dev/null \
+              || echo "::warning::could not delete tag/release $tag"
+          done
