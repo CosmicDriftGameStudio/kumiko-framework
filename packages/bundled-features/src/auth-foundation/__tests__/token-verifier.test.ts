@@ -8,7 +8,13 @@ import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { validateTokenVerifierMultiplicity } from "../boot-checks";
 import { authFoundationFeature, resolveTokenVerifier } from "../feature";
-import { type AuthProviderPlugin, EXT_TOKEN_VERIFIER } from "../types";
+import {
+  type AuthProviderPlugin,
+  EXT_SESSION_STORE,
+  EXT_TOKEN_VERIFIER,
+  type SessionStore,
+  type SessionStoreProvider,
+} from "../types";
 
 // Mock providers never read `deps.db` — a real provider (personal-access-
 // tokens/resolver.ts) does a point-read + live-role-resolution against it.
@@ -35,6 +41,23 @@ function jwtProvider(entityName = "jwt-mock"): ReturnType<typeof defineFeature> 
   };
   return defineFeature(`mock-${entityName}`, (r) => {
     r.useExtension(EXT_TOKEN_VERIFIER, entityName, plugin);
+  });
+}
+
+function mockStore(): SessionStore {
+  return {
+    creator: async () => "sid-1",
+    revoker: async () => undefined,
+    checker: async () => "live",
+    massRevoker: async () => 0,
+    revokeAllOthers: async () => 0,
+  };
+}
+
+function storeProvider(entityName = "mock-store"): ReturnType<typeof defineFeature> {
+  const plugin: SessionStoreProvider = { build: () => mockStore() };
+  return defineFeature(`mock-${entityName}`, (r) => {
+    r.useExtension(EXT_SESSION_STORE, entityName, plugin);
   });
 }
 
@@ -65,11 +88,21 @@ describe("resolveTokenVerifier — middleware finds the matching provider", () =
 });
 
 describe("validateTokenVerifierMultiplicity", () => {
-  test("0 providers registered → throws (fail-fast, no provider to route to)", () => {
+  test("0 tokenVerifier + 0 sessionStore → throws (neither auth path mounted)", () => {
     const registry = createRegistry([authFoundationFeature]);
     expect(() => validateTokenVerifierMultiplicity([...registry.features.values()])).toThrow(
-      /no tokenVerifier providers registered/,
+      /no tokenVerifier providers and no sessionStore registered/,
     );
+  });
+
+  test("0 tokenVerifier + sessionStore → no throw (session-only / #1570)", () => {
+    const registry = createRegistry([authFoundationFeature, storeProvider()]);
+    expect(() => validateTokenVerifierMultiplicity([...registry.features.values()])).not.toThrow();
+  });
+
+  test("tokenVerifier alone (PAT-only) → no throw", () => {
+    const registry = createRegistry([authFoundationFeature, prefixProvider("pat-mock", "kpat_")]);
+    expect(() => validateTokenVerifierMultiplicity([...registry.features.values()])).not.toThrow();
   });
 
   test("1 provider per shape → no throw", () => {
