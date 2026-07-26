@@ -9,13 +9,13 @@ import {
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createTenantSettingsFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
-import { type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   pushEntityProjectionTables,
   setupTestStack,
-  testTenantId,
   type TestStack,
+  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";

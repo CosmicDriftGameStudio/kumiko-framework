@@ -3,6 +3,7 @@
 // setting when the caller omits them — instead of hard-coding "EUR"/"en" on
 // the field, the mistake this recipe exists to prevent (solon#P19).
 
+import { defineCreateWithTenantDefaults } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
 import {
   createEntity,
   createMoneyField,
@@ -10,7 +11,6 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { defineCreateWithTenantDefaults } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
 
 export const invoiceEntity = createEntity({
   table: "read_invoices",

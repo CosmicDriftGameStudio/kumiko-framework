@@ -1,13 +1,13 @@
-// Verifiziert das eigentliche Versprechen: setzt ein Tenant
-// tenant-settings:config:currency auf CHF, übernimmt eine neue Entity ohne
-// explizite currency automatisch CHF statt eines hart-kodierten EUR-Literals.
+// Verifies the core promise: set a tenant's tenant-settings:config:currency
+// to CHF, and a new entity without an explicit currency inherits CHF instead
+// of a hard-coded EUR literal.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import {
+  configValuesTable,
   createConfigAccessorFactory,
   createConfigFeature,
   createConfigResolver,
-  configValuesTable,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createEntity,
@@ -21,8 +21,8 @@ import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   pushEntityProjectionTables,
   setupTestStack,
-  testTenantId,
   type TestStack,
+  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -104,7 +104,9 @@ test("Tenant setzt CHF/de — neue Entity ohne explizite Werte übernimmt die Te
 });
 
 test("expliziter Wert im Payload gewinnt gegen die Tenant-Config", async () => {
-  const invoice = await stack.http.writeOk<{ data: { amount: { amount: number; currency: string } } }>(
+  const invoice = await stack.http.writeOk<{
+    data: { amount: { amount: number; currency: string } };
+  }>(
     "invoice:write:invoice:create",
     { title: "Rechnung 3", amount: { amount: 3000, currency: "USD" } },
     admin,

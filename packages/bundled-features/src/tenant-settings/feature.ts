@@ -33,8 +33,14 @@ export function createTenantSettingsFeature(
         "tenant-settings.locale": { de: "Standard-Sprache", en: "Default Locale" },
         // Settings-Hub-derived configEdit screen title (buildConfigFeatureSchema) —
         // required by the i18n boot-validator whenever a feature masks config keys.
-        "screen:tenant-settings-system.title": { de: "Tenant-Einstellungen", en: "Tenant Settings" },
-        "screen:tenant-settings-tenant.title": { de: "Tenant-Einstellungen", en: "Tenant Settings" },
+        "screen:tenant-settings-system.title": {
+          de: "Tenant-Einstellungen",
+          en: "Tenant Settings",
+        },
+        "screen:tenant-settings-tenant.title": {
+          de: "Tenant-Einstellungen",
+          en: "Tenant Settings",
+        },
       },
     });
   });

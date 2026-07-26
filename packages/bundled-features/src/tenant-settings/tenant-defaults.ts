@@ -1,13 +1,12 @@
-// Wrapper um defineEntityCreateHandler: füllt Currency/Locale-Felder aus
-// der Tenant-Config (tenant-settings), wenn der Caller sie weglässt —
-// statt sie als Feld-Literal ("EUR"/"de") in jeder Entity zu wiederholen.
+// Wrapper around defineEntityCreateHandler: fills currency/locale fields from
+// tenant-settings config when the caller omits them — instead of repeating
+// field literals ("EUR"/"de") on every entity.
 //
-// buildInsertSchema macht `currency` innerhalb eines money-Felds IMMER
-// required (auch wenn das Feld selbst optional ist) — der Caller kann die
-// Currency also nicht einfach weglassen, ohne dass die Standard-Schema-
-// Validierung vor dem Handler-Code abbricht. Deshalb: eigene Schema-
-// Extension, die genau diese Sub-Keys optional macht, statt den generischen
-// defineEntityCreateHandler zu nutzen.
+// buildInsertSchema always requires `currency` inside a money field (even when
+// the field itself is optional), so the caller cannot simply omit currency
+// without failing schema validation before the handler runs. This helper uses
+// a schema extension that makes those sub-keys optional, instead of the
+// generic defineEntityCreateHandler.
 
 import {
   type AccessRule,
@@ -26,9 +25,9 @@ export function defineCreateWithTenantDefaults(
   entity: EntityDefinition,
   options: {
     readonly access?: AccessRule;
-    /** Money-Feldnamen, deren `currency` bei Fehlen aus tenant-settings kommt. */
+    /** Money field names whose `currency` is filled from tenant-settings when missing. */
     readonly currencyFields?: readonly string[];
-    /** Feldname (select/text), das bei Fehlen die Tenant-Locale bekommt. */
+    /** Field name (select/text) that receives the tenant locale when missing. */
     readonly localeField?: string;
   },
 ): WriteHandlerDef {
