@@ -1,22 +1,20 @@
-// EntityTableMeta — plain-data Schema-Meta für eine Read-Model-Tabelle.
-// Single source of truth statt verheirateter drizzle-pgTable-Builder.
+// EntityTableMeta — plain-data schema meta for a read-model table.
+// Single source of truth instead of a married drizzle pgTable builder.
 //
-// Phase 3a (Drizzle-Replacement Plan): Type + Generator existieren parallel
-// zu buildEntityTable. Konsumenten bleiben auf EntityTable (via Adapter
-// `entityTableMetaToEntityTable`), bis Phase 4 die Query-API auf Bun.sql
-// umstellt.
+// Phase 3a (Drizzle-Replacement Plan): type + generator exist in parallel
+// with buildEntityTable. Consumers stay on EntityTable (via adapter
+// `entityTableMetaToEntityTable`) until Phase 4 moves the query API to Bun.sql.
 //
-// Designed für zwei Quellen:
-//   1. **Managed** — EntityDefinition via buildEntityTableMeta(name, entity).
-//      Standard-Pfad mit base-columns (id, tenant_id, version, inserted_at,
-//      modified_at, inserted_by_id, modified_by_id, ggf. softDelete-Cols),
-//      automatischer tenant_id-Index, audit-fähig.
-//   2. **Unmanaged** — defineUnmanagedTable(input). Escape-Hatch für Tabellen
-//      die NICHT durch das Entity-System gemanagt werden — keine erzwungenen
-//      base-columns, kein Standard-Audit-Trail. App-Author trägt Verantwortung
-//      für Tenant-Scoping, Version-Tracking, audit-by-Spalten. Verwendung
-//      auf Sondercases beschränken (child-projection-tables ohne tenant,
-//      append-only-logs mit serial PK, aggregate-ID ohne DEFAULT, …).
+// Two sources:
+//   1. **Managed** — EntityDefinition via deriveEntityTableMeta(name, entity).
+//      Standard path with base columns (id, tenant_id, version, inserted_at,
+//      modified_at, inserted_by_id, modified_by_id, optional softDelete cols),
+//      automatic tenant_id index, audit-capable. Defaults to source: "managed".
+//   2. **Unmanaged** — defineUnmanagedTable(input), or
+//      deriveEntityTableMeta(..., { source: "unmanaged" }) when you still want
+//      entity-shaped base columns. Escape hatch: no forced audit trail for the
+//      hand-built path; app author owns tenant scoping / versioning. Prefer a
+//      `store_` table name — `read_` is reserved for managed projections (#1208/#1220).
 
 import { collectPiiSubjectFields } from "../crypto";
 import type { EntityDefinition, EntityIndexDef, FieldDefinition } from "../engine/types";
@@ -232,12 +230,25 @@ export function resolveTableName(
   return `${featureName}_${baseName}`;
 }
 
-export function buildEntityTableMeta(
+/**
+ * Derive EntityTableMeta from an EntityDefinition (base columns + field DDL).
+ * Defaults to `source: "managed"` (rebuildable projection). For direct-write
+ * stores pass `{ source: "unmanaged" }` and use a non-`read_` table name
+ * (convention: `store_*`) — or build columns by hand with `defineUnmanagedTable`.
+ *
+ * Named `derive*` (not `build*Meta`) so it is not mistaken for the unmanaged
+ * escape hatch (#1208).
+ */
+export function deriveEntityTableMeta(
   entityName: string,
   entity: EntityDefinition,
   options?: BuildEntityTableMetaOptions,
 ): EntityTableMeta {
   const tableName = resolveTableName(entityName, entity, options?.featureName);
+  const source = options?.source ?? "managed";
+  if (source === "unmanaged") {
+    assertUnmanagedTableName(tableName, "deriveEntityTableMeta");
+  }
   const idType = entity.idType ?? "uuid";
 
   // Base-columns first, then user-fields. User-fields with the same
@@ -349,24 +360,14 @@ export function buildEntityTableMeta(
     tableName,
     columns,
     indexes,
-    source: options?.source ?? "managed",
+    source,
     ...(piiSubjectFields.length > 0 && { piiSubjectFields }),
   };
 }
 
-// Escape-Hatch für Tabellen die NICHT durch das Entity-System gemanagt
-// werden. Kein Audit-Trail (keine version, inserted_at, modified_by etc.),
-// kein automatischer tenant_id-Index, kein softDelete-Support.
-//
-// **Vorsicht-vor-Use:** wenn du das hier benutzt, gibst du das Standard-
-// Audit-Pattern auf. Begründe im Code WARUM (child-projection ohne tenant-
-// scope, aggregate-id-PK ohne DEFAULT, append-only-log mit serial PK,
-// performance-critical hot-path ohne version-check, …). Reviewer sollten
-// jede neue defineUnmanagedTable-Stelle prüfen.
-//
-// Heutige use-cases im framework:
-//   - `store_delivery_attempts` — id kommt aus dem Aggregate-Stream
-//   - `store_job_run_logs` — child-table, serial PK, kein tenant-scope
+/** @deprecated Use {@link deriveEntityTableMeta} — the old name read as an unmanaged escape hatch (#1208). */
+export const buildEntityTableMeta = deriveEntityTableMeta;
+
 function sqlExpressionText(where: unknown): string | undefined {
   if (
     typeof where === "object" &&
@@ -420,7 +421,12 @@ function columnsByNameMeta(meta: EntityTableMeta): Map<string, ColumnMeta> {
   return m;
 }
 
+/**
+ * Hand-built EntityTableMeta for direct-write stores (no entity base columns).
+ * Prefer a `store_*` table name; `read_` is reserved for managed projections (#1220).
+ */
 export function defineUnmanagedTable(input: UnmanagedTableInput): EntityTableMeta {
+  assertUnmanagedTableName(input.tableName, "defineUnmanagedTable");
   return {
     tableName: input.tableName,
     columns: input.columns,
@@ -430,4 +436,15 @@ export function defineUnmanagedTable(input: UnmanagedTableInput): EntityTableMet
     }),
     source: "unmanaged",
   };
+}
+
+function assertUnmanagedTableName(tableName: string, via: string): void {
+  if (tableName.startsWith("read_")) {
+    throw new Error(
+      `${via}("${tableName}"): the "read_" prefix is reserved for managed ` +
+        `r.entity()/r.projection() tables. Unmanaged direct-write stores need a ` +
+        `distinct name (convention: "store_${tableName.slice("read_".length)}"). ` +
+        `See #1208/#1220.`,
+    );
+  }
 }

@@ -1,5 +1,5 @@
 import { applyEntityEvent } from "../db/apply-entity-event";
-import { assertBackingTableSuperset, buildEntityTableMeta } from "../db/entity-table-meta";
+import { assertBackingTableSuperset, deriveEntityTableMeta } from "../db/entity-table-meta";
 import { asEntityTableMeta } from "../db/query";
 import { buildEntityTable } from "../db/table-builder";
 import { type QnType, qualifyEntityName } from "./qualified-name";
@@ -143,7 +143,7 @@ function resolveBackingTable(
         "EntityTableMeta — build it via table() / buildEntityTable.",
     );
   }
-  assertBackingTableSuperset(entityName, buildEntityTableMeta(entityName, entity), tableMeta);
+  assertBackingTableSuperset(entityName, deriveEntityTableMeta(entityName, entity), tableMeta);
   return backingTable as ProjectionDefinition["table"];
 }
 

@@ -3,7 +3,7 @@ import {
   type SessionStore,
   type SessionStoreProvider,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   defineFeature,
@@ -111,11 +111,14 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // (#498/#494). r.storeTable keeps the migration DDL but opts the
     // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
     // which are direct-write stores too.
-    r.storeTable(buildEntityTableMeta("user-session", userSessionEntity, { source: "unmanaged" }), {
-      reason: "read_side.user_sessions_direct_write",
-      // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).
-      piiEncryptedOnWrite: true,
-    });
+    r.storeTable(
+      deriveEntityTableMeta("user-session", userSessionEntity, { source: "unmanaged" }),
+      {
+        reason: "read_side.user_sessions_direct_write",
+        // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).
+        piiEncryptedOnWrite: true,
+      },
+    );
 
     // Self-registers as auth-foundation's sessionStore provider (#1371) —
     // wraps the same createSessionCallbacks() used by the manual

@@ -100,7 +100,7 @@ export function extractStoreTable(
   sourceFile: SourceFile,
 ): ExtractOutput<never> {
   // The meta argument is always a factory call (defineUnmanagedTable /
-  // buildEntityTableMeta) or a captured identifier — never an inline literal,
+  // deriveEntityTableMeta) or a captured identifier — never an inline literal,
   // so there is nothing to extract statically. A clean ParseError (not
   // UnknownPattern) marks it design-time-unreadable, like entity-by-identifier.
   return fail(

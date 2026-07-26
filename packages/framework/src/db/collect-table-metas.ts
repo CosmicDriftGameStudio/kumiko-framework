@@ -9,7 +9,7 @@ import type { FeatureDefinition } from "../engine/types";
 import { compareByCodepoint } from "../utils";
 import {
   assertBackingTableSuperset,
-  buildEntityTableMeta,
+  deriveEntityTableMeta,
   type EntityTableMeta,
 } from "./entity-table-meta";
 import { enumerateFeatureTableSources } from "./feature-table-sources";
@@ -36,10 +36,10 @@ export function collectTableMetas(
   const byName = new Map<string, { meta: EntityTableMeta; origin: string }>();
 
   // Pass 1: kanonische Schema-Quellen, identisch zum bisherigen Template-
-  // Verhalten (gleiche Reihenfolge, gleiche buildEntityTableMeta-Optionen).
+  // Verhalten (gleiche Reihenfolge, gleiche deriveEntityTableMeta-Optionen).
   for (const feature of features) {
     for (const [name, ent] of Object.entries(feature.entities ?? {})) {
-      const fieldMeta = buildEntityTableMeta(name, ent, { relations: feature.relations[name] });
+      const fieldMeta = deriveEntityTableMeta(name, ent, { relations: feature.relations[name] });
       // Backing table wins: it's the physical DDL truth for ride-along columns/
       // indexes the field-DSL can't express (secrets' envelope). Validated as a
       // superset of the field-derived meta so a field/table disagreement throws.

@@ -3,7 +3,7 @@ import { createEntity, createTextField } from "../../engine";
 import { testTenantId } from "../../stack";
 import type { DbRunner } from "../connection";
 import type { TableColumns } from "../dialect";
-import { buildEntityTableMeta } from "../entity-table-meta";
+import { deriveEntityTableMeta } from "../entity-table-meta";
 import { buildEntityTable } from "../table-builder";
 import { createTenantDb } from "../tenant-db";
 
@@ -123,16 +123,16 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
 });
 
 // Root-cause regression for the cross-tenant leak fixed in hasTenantColumn:
-// unmanaged direct-write stores (buildEntityTableMeta, e.g. userSessionTable,
+// unmanaged direct-write stores (deriveEntityTableMeta, e.g. userSessionTable,
 // apiTokenTable) store tenantId as a snake_case column-meta entry, not a
 // direct `table.tenantId` property — a naive property check silently treated
 // them as tenant-less and skipped the WHERE-scope entirely.
-describe("tenant-db WHERE merge — unmanaged EntityTableMeta tables (buildEntityTableMeta)", () => {
+describe("tenant-db WHERE merge — unmanaged EntityTableMeta tables (deriveEntityTableMeta)", () => {
   const unmanagedEntity = createEntity({
     table: "merge_meta_items",
     fields: { tenantId: createTextField({ required: true }), name: createTextField() },
   });
-  const unmanagedTable = buildEntityTableMeta("merge-meta-item", unmanagedEntity);
+  const unmanagedTable = deriveEntityTableMeta("merge-meta-item", unmanagedEntity);
 
   test("selectMany still applies the tenant scope (pre-fix: no WHERE at all)", async () => {
     const captured: Captured[] = [];

@@ -79,7 +79,7 @@ export const taskFeature = defineFeature("tasks", (r) => {
 | Entry | What's in it |
 |---|---|
 | `@cosmicdrift/kumiko-framework/engine` | `defineFeature`, `createEntity`, field helpers, access rules, registry |
-| `@cosmicdrift/kumiko-framework/db` | `buildEntityTableMeta`, `createEventStoreExecutor`, migrations, tenant-db |
+| `@cosmicdrift/kumiko-framework/db` | `deriveEntityTableMeta`, `createEventStoreExecutor`, migrations, tenant-db |
 | `@cosmicdrift/kumiko-framework/event-store` | `events` table, `append`, `loadAggregate`, `loadAggregateAsOf` |
 | `@cosmicdrift/kumiko-framework/pipeline` | Dispatcher, event-dispatcher (AsyncDaemon), projection-rebuild, SSE + search consumers |
 | `@cosmicdrift/kumiko-framework/api` | `buildServer`, auth middleware, SSE route, error contract |

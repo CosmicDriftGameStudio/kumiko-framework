@@ -3,7 +3,7 @@ import {
   EXT_TOKEN_VERIFIER,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
-import { buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, PAT_SCREEN_ID, type PatRateLimit } from "./constants";
 import { buildAvailableScopesQuery } from "./handlers/available-scopes.query";
@@ -67,7 +67,7 @@ export function createPersonalAccessTokensFeature(
     // Direct-write store like store_user_sessions: create/revoke write it, the
     // resolver point-reads it. r.entity would make it a rebuildable projection
     // whose replay (no token events) would wipe every live token (#498/#494).
-    r.storeTable(buildEntityTableMeta("api-token", apiTokenEntity, { source: "unmanaged" }), {
+    r.storeTable(deriveEntityTableMeta("api-token", apiTokenEntity, { source: "unmanaged" }), {
       reason: "read_side.api_tokens_direct_write",
       // create.write encrypts `name` via encryptForDirectWrite (#820).
       piiEncryptedOnWrite: true,

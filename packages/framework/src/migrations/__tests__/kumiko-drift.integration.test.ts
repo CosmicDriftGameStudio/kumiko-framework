@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { buildEntityTableMeta } from "../../db/entity-table-meta";
+import { deriveEntityTableMeta } from "../../db/entity-table-meta";
 import { generateMigration, writeSnapshotJson } from "../../db/migrate-generator";
 import {
   baselineMigrations,
@@ -200,7 +200,7 @@ describe("kumiko-drift end-to-end (generate → apply → gate)", () => {
       table: "kdrift_gen",
       fields: { name: createTextField({ required: true }) },
     });
-    const meta = buildEntityTableMeta("kdriftGen", entity);
+    const meta = deriveEntityTableMeta("kdriftGen", entity);
     const result = generateMigration({
       metas: [meta],
       prevSnapshot: null,

@@ -526,7 +526,7 @@ export function buildEntityTable<E extends EntityDefinition>(
         }
       }
       // lookupable-Felder: Index auf der bidx-Spalte (lock-step mit
-      // buildEntityTableMeta).
+      // deriveEntityTableMeta).
       const bidxFieldByField = new Map<string, string>();
       for (const [name, field] of Object.entries(entity.fields)) {
         if (field.type !== "text" || field.lookupable !== true) continue;
@@ -558,7 +558,7 @@ export function buildEntityTable<E extends EntityDefinition>(
         }
         indexes[indexName] = chain;
         // Partielles bidx-Pendant für unique-Indices über lookupable-Spalten
-        // (lock-step mit buildEntityTableMeta).
+        // (lock-step mit deriveEntityTableMeta).
         if (def.unique === true && def.where === undefined) {
           const bidxFieldNames = def.columns.map((c) => bidxFieldByField.get(c) ?? c);
           if (bidxFieldNames.some((c, i) => c !== def.columns[i])) {

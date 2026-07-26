@@ -7,8 +7,8 @@
 
 import { describe, expect, test } from "bun:test";
 import {
-  buildEntityTableMeta,
   defineUnmanagedTable,
+  deriveEntityTableMeta,
   resolveTableName,
 } from "../../db/entity-table-meta";
 import { defineFeature } from "../define-feature";
@@ -67,7 +67,7 @@ describe("r.storeTable — declaration", () => {
       table: "rt_probe_managed",
       fields: { name: createTextField() },
     });
-    const managedMeta = buildEntityTableMeta("rt-probe-managed", managedEntity);
+    const managedMeta = deriveEntityTableMeta("rt-probe-managed", managedEntity);
     expect(() =>
       defineFeature("probe", (r) => {
         r.storeTable(managedMeta, { reason: "test" });
@@ -75,14 +75,11 @@ describe("r.storeTable — declaration", () => {
     ).toThrow(/requires source: "unmanaged"/);
   });
 
-  test("rejects a table name with the reserved read_ prefix (#1220)", () => {
-    const readPrefixed = defineUnmanagedTable({
-      tableName: "read_rt_probe",
-      columns: [{ name: "id", pgType: "text", notNull: true, primaryKey: true }],
-    });
+  test("rejects a table name with the reserved read_ prefix (#1220/#1208)", () => {
     expect(() =>
-      defineFeature("probe", (r) => {
-        r.storeTable(readPrefixed, { reason: "test" });
+      defineUnmanagedTable({
+        tableName: "read_rt_probe",
+        columns: [{ name: "id", pgType: "text", notNull: true, primaryKey: true }],
       }),
     ).toThrow(/the "read_" prefix is reserved/);
   });
@@ -195,9 +192,9 @@ describe("createRegistry — store tables with PII-annotated fields (#820)", () 
       ip: createTextField({ userOwned: { ownerField: "userId" } }),
     },
   });
-  const piiMeta = buildEntityTableMeta("rt-pii-probe", piiEntity, { source: "unmanaged" });
+  const piiMeta = deriveEntityTableMeta("rt-pii-probe", piiEntity, { source: "unmanaged" });
 
-  test("buildEntityTableMeta records the subject-annotated field names", () => {
+  test("deriveEntityTableMeta records the subject-annotated field names", () => {
     expect(piiMeta.piiSubjectFields).toEqual(["ip"]);
   });
 

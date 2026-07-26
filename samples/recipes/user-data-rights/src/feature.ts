@@ -17,7 +17,7 @@
 //   - Compliance-Profile-Wiring + Cron-Scheduling
 
 import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -40,7 +40,7 @@ export const noteEntity = createEntity({
 // Plain EntityTableMeta, NOT a branded EntityTable: store_notes is a deliberate
 // unmanaged direct-write store (r.storeTable below), so the forget hook may
 // updateMany/deleteMany it directly — the meta carries no executor-only brand.
-export const notesTable = buildEntityTableMeta("note", noteEntity, { source: "unmanaged" });
+export const notesTable = deriveEntityTableMeta("note", noteEntity, { source: "unmanaged" });
 
 export const notesFeature = defineFeature("notes", (r) => {
   r.requires("user-data-rights");

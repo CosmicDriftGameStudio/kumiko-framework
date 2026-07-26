@@ -3,7 +3,7 @@
 // rebuild-Marker → mappt Tabellen auf Projektionen → rebuildProjection).
 //
 // Drizzle-frei: der Tabellen-Name kommt aus dem kumiko-Symbol das
-// buildEntityTable/buildEntityTableMeta an die Table-Definition hängt.
+// buildEntityTable/deriveEntityTableMeta an die Table-Definition hängt.
 
 import { extractTableName } from "../db";
 import type { Registry } from "../engine/types/feature";

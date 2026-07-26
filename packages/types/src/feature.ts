@@ -791,7 +791,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   //
   // EntityTableMeta carries the same column-shape that r.entity() builds,
   // minus the audit-trail + base-columns scaffolding. The `meta` argument
-  // is the result of `defineUnmanagedTable(...)` / `buildEntityTableMeta(...)`
+  // is the result of `defineUnmanagedTable(...)` / `deriveEntityTableMeta(...)`
   // from `@cosmicdrift/kumiko-framework/db`.
   //
   // The required `reason` string is the marker that justifies the bypass —
