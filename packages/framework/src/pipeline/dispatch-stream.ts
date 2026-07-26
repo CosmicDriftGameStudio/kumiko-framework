@@ -53,17 +53,38 @@ async function* executeStreamInner(
     throw validationErrorFromZod(parsed.error);
   }
 
-  const handlerContext = buildHandlerContext(ctx, type, user);
-  const chunks = handler.handler({ type, payload: parsed.data, user }, handlerContext);
+  // Mid-stream access revocation: subscribed for the stream's lifetime, not
+  // just checked once like hasAccess above. A role/session/tenant change
+  // fires this via ctx.sseBroker.publishAccessInvalidation(userId) (session-
+  // revoke / tenant-membership consumers — issue #1559/#1560); the flag is
+  // read at the same per-chunk cadence as ensureFeatureEnabled below, so a
+  // stream cuts before its next chunk rather than running indefinitely.
+  let accessInvalidated = false;
+  const unsubscribeAccessInvalidation = ctx.sseBroker?.subscribeAccessInvalidation(user.id, () => {
+    accessInvalidated = true;
+  });
 
-  // Consumer-driven pull (for await) is the backpressure mechanism — the
-  // handler generator only advances once the caller reads the previous
-  // chunk, no explicit buffering/throttling needed on either side.
-  for await (const chunk of chunks) {
-    // Re-checked per chunk, not just at stream-start: a feature disabled
-    // mid-stream must cut an already-open stream, not just block new ones.
-    await ensureFeatureEnabled(ctx, type, user.tenantId);
-    assertNoSecretLeak(chunk);
-    yield chunk;
+  try {
+    const handlerContext = buildHandlerContext(ctx, type, user);
+    const chunks = handler.handler({ type, payload: parsed.data, user }, handlerContext);
+
+    // Consumer-driven pull (for await) is the backpressure mechanism — the
+    // handler generator only advances once the caller reads the previous
+    // chunk, no explicit buffering/throttling needed on either side.
+    for await (const chunk of chunks) {
+      // Re-checked per chunk, not just at stream-start: a feature disabled
+      // mid-stream must cut an already-open stream, not just block new ones.
+      await ensureFeatureEnabled(ctx, type, user.tenantId);
+      if (accessInvalidated) {
+        throw new AccessDeniedError({
+          message: `access revoked mid-stream for ${type}`,
+          details: { handler: type },
+        });
+      }
+      assertNoSecretLeak(chunk);
+      yield chunk;
+    }
+  } finally {
+    unsubscribeAccessInvalidation?.();
   }
 }

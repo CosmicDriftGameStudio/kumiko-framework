@@ -27,6 +27,10 @@ function createTrackingBroker(): { broker: SseBroker; subscribedChannel: Promise
     getTotalClientCount() {
       return 0;
     },
+    subscribeAccessInvalidation() {
+      return () => {};
+    },
+    publishAccessInvalidation() {},
   };
 
   return { broker, subscribedChannel };
