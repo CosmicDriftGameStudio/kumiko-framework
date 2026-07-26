@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type DbConnection, fetchOne } from "@cosmicdrift/kumiko-framework/db";
-import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { type DbConnection, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -34,14 +34,19 @@ function read(slug: string, lang: string) {
 }
 
 describe("seedLegalContentFromJson", () => {
-  test("seeds all blocks into SYSTEM_TENANT_ID by default", async () => {
+  test("seeds all blocks into SYSTEM_TENANT_ID as SYSTEM_USER", async () => {
     const blocks: LegalContentBlock[] = [
       { slug: "imprint", lang: "de", title: "Impressum", body: "Marc Frost" },
       { slug: "imprint", lang: "en", title: "Imprint", body: "Marc Frost" },
     ];
     await seedLegalContentFromJson(db, blocks);
 
-    expect(await read("imprint", "de")).toMatchObject({ title: "Impressum", body: "Marc Frost" });
+    const de = (await read("imprint", "de")) as TextBlockRow & {
+      insertedById: string;
+      modifiedById: string | null;
+    };
+    expect(de).toMatchObject({ title: "Impressum", body: "Marc Frost" });
+    expect(de.insertedById).toBe(SYSTEM_USER_ID);
     expect(await read("imprint", "en")).toMatchObject({ title: "Imprint", body: "Marc Frost" });
   });
 
@@ -56,6 +61,28 @@ describe("seedLegalContentFromJson", () => {
       { slug: "privacy", lang: "de", title: "Datenschutz", body: "v2 + Sub-Processor-Tabelle" },
     ];
     await seedLegalContentFromJson(db, v2);
-    expect(await read("privacy", "de")).toMatchObject({ body: "v2 + Sub-Processor-Tabelle" });
+    const row = (await read("privacy", "de")) as TextBlockRow & { modifiedById: string };
+    expect(row).toMatchObject({ body: "v2 + Sub-Processor-Tabelle" });
+    expect(row.modifiedById).toBe(SYSTEM_USER_ID);
+  });
+
+  test("identical re-seed is a no-op (no update event, version/modifiedAt stable)", async () => {
+    const blocks: LegalContentBlock[] = [
+      { slug: "terms", lang: "de", title: "AGB", body: "stable" },
+    ];
+    await seedLegalContentFromJson(db, blocks);
+    const before = (await read("terms", "de")) as TextBlockRow & {
+      modifiedAt: unknown;
+    };
+    expect(before).not.toBeNull();
+
+    await seedLegalContentFromJson(db, blocks);
+    const after = (await read("terms", "de")) as TextBlockRow & { modifiedAt: unknown };
+    expect(after.version).toBe(before.version);
+    expect(after.body).toBe("stable");
+    expect(after.modifiedAt).toEqual(before.modifiedAt);
+
+    const events = await selectMany(db, eventsTable, { aggregateId: String(before.id) });
+    expect(events.map((e) => e.type)).toEqual(["text-block.created"]);
   });
 });
