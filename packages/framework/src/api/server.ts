@@ -379,6 +379,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const dispatcher = createDispatcher(options.registry, contextWithObservability, {
     ...options.dispatcherOptions,
     lifecycle,
+    sseBroker,
   });
 
   // Async event-dispatcher — the replacement for the old transactional

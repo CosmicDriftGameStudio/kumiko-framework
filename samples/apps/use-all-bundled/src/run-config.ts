@@ -7,6 +7,8 @@
 // composeFeatures(includeBundled:true) — exactly the pattern runProdApp's
 // `auth: {…}` option auto-mounts. Listing them here would instantiate them
 // twice, and the schema generator would then produce duplicate-table-exports.
+// With AUTH_COMPOSE_OPTIONS.signup set, composeFeatures also prepends
+// auth-self-registration (runtime toggle for self-signup) — #1521.
 //
 // M0.1 also mounts the hold-back features with minimal-stub options
 // (subscription-stripe, channel-email, …). Those stubs are only for
@@ -247,3 +249,16 @@ export const APP_FEATURES = [
   // ocrLanguage/maxPagesPerFile config, no handlers yet (kumiko-framework#1497).
   documentIngestFoundationFeature,
 ] as const;
+
+// Smoke signup — enables createAuthSelfRegistrationToggleFeature via
+// composeFeatures when passed as authOptions (#1521 Option A). Same shape
+// as run{Dev,Prod}App's auth.signup; appUrl is a stub (no real mail in boot).
+export const AUTH_COMPOSE_OPTIONS = {
+  signup: {
+    appUrl: "http://localhost:4186/signup",
+    tokenTtlMinutes: 60,
+  },
+} as const;
+
+/** schema-check: auth-self-registration is mounted when signup is set. */
+export const HAS_SIGNUP = true;

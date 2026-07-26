@@ -102,3 +102,11 @@ void _concurrencyModeExhaustive;
 export function tenantChannel(tenantId: TenantId): string {
   return `tenant:${tenantId}`;
 }
+
+// Access-invalidation channel key for a single user's live streams. Both
+// the subscribe side (dispatch-stream.ts) and the publish side (session-
+// revoke / tenant-membership consumers, issue #1559/#1560) must derive the
+// key through this helper — never build the string inline on either side.
+export function userAccessChannel(userId: string): string {
+  return `user:${userId}:access`;
+}

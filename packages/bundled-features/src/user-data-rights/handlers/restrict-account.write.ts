@@ -6,8 +6,9 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+import { tenantMembershipsTable } from "../../tenant";
 import { USER_STATUS, userTable } from "../../user";
-import { isAdminActor } from "../lib/is-admin-actor";
+import { isAdminActor, isSystemAdminActor } from "../lib/is-admin-actor";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
 // POST /api/user/restrict (S2.U6) — DSGVO Art. 18 Account-Freeze.
@@ -25,6 +26,16 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 // Restricted, since their own session is then unconditionally rejected by
 // sessionChecker and they can no longer call this (or any) endpoint
 // themselves; only an operator path reaches it at that point.
+//
+// Tenant scope: `isAdminActor` accepts access.admin, which includes
+// TenantAdmin — tenant-scoped, even though the User-entity lookup below
+// uses `ctx.db.raw` (bypasses the auto-tenant-filter, same as
+// lift-restriction.write.ts — User status is intentionally global, see
+// user-data-rights.md "Cross-Tenant-Semantik"). Without a membership
+// check, a TenantAdmin from tenant A could restrict/unrestrict a user who
+// has never been a member of tenant A. Only SystemAdmin (platform-wide)
+// skips the check; TenantAdmin/Admin must have an active membership in
+// the target's own tenantId.
 //
 // State-Transitions:
 //   Active → Restricted        ✓ (dieser Handler)
@@ -45,6 +56,20 @@ export const restrictAccountWrite = defineWriteHandler({
             details: { reason: "admin_required_for_other_user" },
           }),
         );
+      }
+
+      if (!isSystemAdminActor(event.user)) {
+        const membership = await fetchOne(ctx.db.raw, tenantMembershipsTable, {
+          userId: targetUserId,
+          tenantId: event.user.tenantId,
+        });
+        if (!membership) {
+          return writeFailure(
+            new AccessDeniedError({
+              details: { reason: "target_user_not_in_admin_tenant" },
+            }),
+          );
+        }
       }
     }
 
