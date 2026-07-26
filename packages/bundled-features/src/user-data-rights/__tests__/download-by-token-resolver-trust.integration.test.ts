@@ -42,7 +42,6 @@ import { createDataRetentionFeature } from "../../data-retention";
 import { fileFoundationFeature } from "../../file-foundation";
 import { fileProviderInMemoryFeature } from "../../file-provider-inmemory";
 import { createSessionsFeature } from "../../sessions";
-import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 import { runExportJobs } from "../run-export-jobs";
@@ -80,7 +79,6 @@ beforeAll(async () => {
       fileProviderInMemoryFeature,
       authFoundationFeature,
       createSessionsFeature(),
-      createTenantFeature(),
       createUserDataRightsFeature(),
     ],
     extraContext: ({ registry }) => ({

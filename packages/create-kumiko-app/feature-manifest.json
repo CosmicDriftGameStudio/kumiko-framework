@@ -2310,8 +2310,7 @@
         "user",
         "data-retention",
         "compliance-profiles",
-        "sessions",
-        "tenant"
+        "sessions"
       ],
       "optionalRequires": [],
       "configReads": [],

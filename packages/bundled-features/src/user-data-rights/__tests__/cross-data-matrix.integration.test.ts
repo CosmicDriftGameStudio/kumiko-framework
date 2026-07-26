@@ -121,8 +121,6 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       authFoundationFeature,
       createSessionsFeature(),
-
-      createTenantFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
       testNotesFeature,

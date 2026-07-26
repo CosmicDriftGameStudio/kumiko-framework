@@ -24,7 +24,6 @@ import {
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createSessionsFeature } from "../../sessions";
-import { createTenantFeature } from "../../tenant";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { signDeletionToken } from "../deletion-token";
@@ -57,7 +56,6 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       authFoundationFeature,
       createSessionsFeature(),
-      createTenantFeature(),
       createUserDataRightsFeature({
         deletionTokenSecret: DELETION_SECRET,
         deletionVerifyUrl: VERIFY_URL,
@@ -337,7 +335,6 @@ describe("anonymous deletion flow — not configured (kein Secret)", () => {
         createComplianceProfilesFeature(),
         authFoundationFeature,
         createSessionsFeature(),
-        createTenantFeature(),
         createUserDataRightsFeature({
           sendDeletionVerificationEmail: async (args) => {
             bareVerifyCalls.push(args);

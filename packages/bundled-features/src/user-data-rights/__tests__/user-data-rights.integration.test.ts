@@ -44,7 +44,7 @@ afterAll(async () => {
 });
 
 describe("user-data-rights :: feature-definition smoke", () => {
-  test("Feature laedt clean (requires user + data-retention + compliance-profiles + tenant)", () => {
+  test("Feature laedt clean (requires user + data-retention + compliance-profiles)", () => {
     expect(stack).toBeDefined();
     expect(userDataRights.name).toBe("user-data-rights");
   });
@@ -53,12 +53,11 @@ describe("user-data-rights :: feature-definition smoke", () => {
     expect(userDataRights.registrarExtensions["userData"]).toBeDefined();
   });
 
-  test("requires user + data-retention + compliance-profiles + tenant", () => {
+  test("requires user + data-retention + compliance-profiles", () => {
     const requires = userDataRights.requires;
     expect(requires).toContain("user");
     expect(requires).toContain("data-retention");
     expect(requires).toContain("compliance-profiles");
-    expect(requires).toContain("tenant");
   });
 
   test("usesApi compliance.forTenant fuer Grace-Period-Resolution", () => {

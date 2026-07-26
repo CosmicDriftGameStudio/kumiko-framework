@@ -37,7 +37,6 @@ import { customFieldsField } from "../../custom-fields/wire-for-entity";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override";
 import { createSessionsFeature } from "../../sessions";
-import { createTenantFeature } from "../../tenant";
 import { createUserFeature, userEntity } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 import { runForgetCleanup } from "../run-forget-cleanup";
@@ -154,7 +153,6 @@ beforeAll(async () => {
       createSessionsFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      createTenantFeature(),
       createUserDataRightsFeature(),
       cfFirstFeature,
       hostFirstFeature,

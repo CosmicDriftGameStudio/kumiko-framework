@@ -28,7 +28,6 @@ import { createFilesFeature } from "../../files";
 import { mailFoundationFeature } from "../../mail-foundation";
 import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../../mail-transport-inmemory";
 import { createSessionsFeature, userSessionEntity } from "../../sessions";
-import { createTenantFeature } from "../../tenant";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
@@ -63,7 +62,6 @@ beforeAll(async () => {
       mailFoundationFeature,
       mailTransportInMemoryFeature,
       // KEINE send*Email-Opts — die mail-foundation-Defaults muessen greifen.
-      createTenantFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
     ],

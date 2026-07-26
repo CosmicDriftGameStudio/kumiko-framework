@@ -29,7 +29,6 @@ import {
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createSessionsFeature } from "../../sessions";
-import { createTenantFeature } from "../../tenant";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { seedUser } from "../../user/seeding";
@@ -62,7 +61,6 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       authFoundationFeature,
       createSessionsFeature(),
-      createTenantFeature(),
       createUserDataRightsFeature({
         deletionTokenSecret: DELETION_SECRET,
         deletionVerifyUrl: VERIFY_URL,

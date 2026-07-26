@@ -19,7 +19,6 @@ import {
   tenantRetentionOverrideEntity,
 } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
-import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   createUserFeature,
   USER_STATUS,
@@ -60,7 +59,6 @@ beforeAll(async () => {
       createSessionsFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      createTenantFeature(),
       createUserDataRightsFeature(),
       notesFeature,
     ],
