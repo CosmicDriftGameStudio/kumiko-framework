@@ -16,4 +16,65 @@ describe("splitSqlStatements", () => {
   test("filters empty segments", () => {
     expect(splitSqlStatements("-- only comments\n; ;")).toEqual([]);
   });
+
+  test("does not split mid-statement on a semicolon inside a line comment", () => {
+    const sql = `
+      -- sets default on the entity; the create/update handlers fill it
+      CREATE TABLE "a" ("id" uuid);
+    `;
+    expect(splitSqlStatements(sql)).toEqual(['CREATE TABLE "a" ("id" uuid);']);
+  });
+
+  test("does not split on a semicolon inside a block comment", () => {
+    const sql = `
+      /* multi
+         line; with semi */
+      CREATE TABLE "a" ("id" uuid);
+    `;
+    expect(splitSqlStatements(sql)).toEqual(['CREATE TABLE "a" ("id" uuid);']);
+  });
+
+  test("a block-comment opener inside a line comment does not swallow the next statement", () => {
+    const sql = `
+      -- note: see /* details below
+      CREATE TABLE "a" ("id" uuid);
+      /* real block comment */
+      CREATE TABLE "b" ("id" uuid);
+    `;
+    expect(splitSqlStatements(sql)).toEqual([
+      'CREATE TABLE "a" ("id" uuid);',
+      'CREATE TABLE "b" ("id" uuid);',
+    ]);
+  });
+
+  test("does not split on a semicolon inside a single-quoted string literal", () => {
+    const sql = `INSERT INTO "a" ("v") VALUES ('a;b');`;
+    expect(splitSqlStatements(sql)).toEqual([`INSERT INTO "a" ("v") VALUES ('a;b');`]);
+  });
+
+  test("does not treat a double-dash inside a string literal as a comment", () => {
+    const sql = `INSERT INTO "a" ("v") VALUES ('a--b');`;
+    expect(splitSqlStatements(sql)).toEqual([`INSERT INTO "a" ("v") VALUES ('a--b');`]);
+  });
+
+  test("handles an escaped quote inside a single-quoted string literal ('')", () => {
+    const sql = `INSERT INTO "a" ("v") VALUES ('a'';b');`;
+    expect(splitSqlStatements(sql)).toEqual([`INSERT INTO "a" ("v") VALUES ('a'';b');`]);
+  });
+
+  test("does not split on a semicolon inside a double-quoted identifier", () => {
+    const sql = `CREATE TABLE "weird;name" ("id" uuid);`;
+    expect(splitSqlStatements(sql)).toEqual([`CREATE TABLE "weird;name" ("id" uuid);`]);
+  });
+
+  test("throws fail-loud on an unterminated block comment instead of silently dropping statements", () => {
+    const sql = `/* oops\nCREATE TABLE "a" ("id" uuid);`;
+    expect(() => splitSqlStatements(sql)).toThrow();
+  });
+
+  test("a trailing line comment without a newline terminates cleanly", () => {
+    expect(splitSqlStatements('CREATE TABLE "a" ("id" uuid);\n-- done')).toEqual([
+      'CREATE TABLE "a" ("id" uuid);',
+    ]);
+  });
 });
