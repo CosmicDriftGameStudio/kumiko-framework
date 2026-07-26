@@ -1,10 +1,12 @@
 import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { SessionErrors } from "../constants";
 import { userSessionTable } from "../schema/user-session";
+import { SESSION_REVOKED_AGGREGATE_TYPE, SESSION_REVOKED_EVENT_QN } from "../session-revoked-event";
 
 // Revoke a single session by id (= JWT jti). Three distinguishable outcomes:
 //
@@ -36,6 +38,17 @@ export const revokeWrite = defineWriteHandler({
     );
 
     if (updated.length > 0) {
+      // Lightweight append alongside the direct-write above (#1559) — NOT a
+      // lifecycle event for store_user_sessions (that table stays an
+      // unmanaged direct-write store, see feature.ts). Own aggregate id per
+      // revoke, no predecessor to satisfy, no version_conflict against a
+      // concurrent revoke on a different sid.
+      await ctx.unsafeAppendEvent({
+        aggregateId: generateId(),
+        aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
+        type: SESSION_REVOKED_EVENT_QN,
+        payload: { userId: event.user.id, sessionIds: [event.payload.id] },
+      });
       return { isSuccess: true, data: { id: event.payload.id } };
     }
 

@@ -297,13 +297,13 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // external script reads the fragment client-side and exchanges the
     // token via POST for the signed URL.
     //
-    // The old token-in-query format stays supported as a fallback: emails
-    // sent before this deploy still use it and must keep working until
-    // their TTL expires. It leaks the token into proxy/access logs (the
-    // exact vector #1271 closes for the new fragment path) — temporary
-    // until every pre-deploy token's TTL has lapsed, tracked for removal
-    // in kumiko-framework#1562, not a permanent surface. Logs a hit below
-    // so ops can see it's still receiving traffic before removing it.
+    // No `?token=` query fallback: framework is zero-legacy (#1512) — no
+    // live customer data / no pre-#1271 emails in flight that would need
+    // bridging, so there's nothing a fallback would need to cover. A query
+    // param reaches the server as part of the request URL and gets written
+    // to proxy/access logs regardless of what the handler does with it
+    // afterward (a redirect doesn't undo an already-logged request) — the
+    // only leak-proof fix is to never accept the token that way.
     //
     // Path liegt AUSSERHALB /api/* weil r.httpRoute den /api-namespace nicht
     // claimen darf (reserved fuer write/query/batch/auth/sse-dispatcher).
@@ -316,18 +316,10 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       method: "GET",
       path: "/user-export/by-token",
       anonymous: true,
-      handler: async (c, { app }) => {
-        const url = new URL(c.req.url);
-        const token = url.searchParams.get("token");
-        if (!token) {
-          return c.body(TOKEN_EXCHANGE_PAGE_HTML, 200, {
-            "content-type": "text/html; charset=utf-8",
-          });
-        }
-        // biome-ignore lint/suspicious/noConsole: operator-visibility for a deprecated, still-live traffic path
-        console.warn("[user-data-rights] deprecated token-in-query hit on /user-export/by-token");
-        const queryRes = await forwardTokenDownload(app, url, c.req.raw.headers, token);
-        return mapQueryResponseToRedirect(c, queryRes);
+      handler: async (c) => {
+        return c.body(TOKEN_EXCHANGE_PAGE_HTML, 200, {
+          "content-type": "text/html; charset=utf-8",
+        });
       },
     });
 
@@ -371,7 +363,29 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         if (typeof token !== "string" || token.length === 0) {
           return c.json({ error: "missing_token" }, 400);
         }
-        return forwardTokenDownload(app, url, c.req.raw.headers, token);
+        const auditMeta = extractAuditMeta(c.req.raw.headers);
+        return app.fetch(
+          new Request(`${url.origin}/api/query`, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              // download-by-token.query.ts's `rateLimit: { per: "ip", limit: 30 }`
+              // keys off request-id-middleware's own x-forwarded-for read on
+              // THIS internal request — without forwarding it, every fragment-
+              // POST download shares the request's own (empty/localhost) IP,
+              // turning the per-user 30/min backstop into one global bucket
+              // (#1307). Forwarding the same value extractAuditMeta already
+              // computed from the original request's headers doesn't widen the
+              // trust boundary: it's the identical XFF-trusts-first-hop model
+              // request-id-middleware.ts already applies framework-wide.
+              ...(auditMeta.ip ? { "x-forwarded-for": auditMeta.ip } : {}),
+            },
+            body: JSON.stringify({
+              type: "user-data-rights:query:download-by-token",
+              payload: { token, auditMeta },
+            }),
+          }),
+        );
       },
     });
 
@@ -539,25 +553,6 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
   });
 }
 
-// Map /api/query-Response auf 302-Redirect oder Error-Passthrough.
-async function mapQueryResponseToRedirect(
-  c: import("hono").Context,
-  queryRes: Response,
-): Promise<Response> {
-  if (!queryRes.ok) {
-    const errorBody = await queryRes.text();
-    const statusCode = queryRes.status as 400 | 401 | 404 | 410 | 500; // @cast-boundary engine-payload
-    return c.body(errorBody, statusCode, {
-      "content-type": queryRes.headers.get("content-type") ?? "application/json",
-    });
-  }
-  const body = (await queryRes.json()) as { data?: { url?: string } }; // @cast-boundary engine-payload
-  if (!body.data?.url) {
-    return c.json({ error: "download_resolution_failed" }, 500);
-  }
-  return c.redirect(body.data.url, 302);
-}
-
 // Extract Audit-Meta (IP + UA) aus den HTTP-Headers + steck es in die
 // query-payload. Der httpRoute-Wrapper ist trusted-source — er hat den
 // raw-request gesehen, nicht der direkter /api/query-Caller. User der
@@ -576,36 +571,6 @@ function extractAuditMeta(headers: Headers): { ip: string | null; userAgent: str
     if (real && real.length > 0) ip = real;
   }
   return { ip, userAgent: headers.get("user-agent") };
-}
-
-// Shared by both /user-export/by-token routes (GET query-param fallback +
-// POST fragment-exchange, see the r.httpRoute blocks above). Forwards the
-// caller's x-forwarded-for so download-by-token.query.ts's
-// per-ip rate limit -- which keys off request-id-middleware's own XFF read
-// on THIS internal request -- sees the original client's IP instead of
-// every internal call collapsing onto one bucket (#1307). Not a new trust
-// boundary: it is the identical XFF-trusts-first-hop model
-// request-id-middleware.ts already applies framework-wide.
-function forwardTokenDownload(
-  app: { fetch: (req: Request) => Response | Promise<Response> },
-  url: URL,
-  headers: Headers,
-  token: string,
-): Response | Promise<Response> {
-  const auditMeta = extractAuditMeta(headers);
-  return app.fetch(
-    new Request(`${url.origin}/api/query`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(auditMeta.ip ? { "x-forwarded-for": auditMeta.ip } : {}),
-      },
-      body: JSON.stringify({
-        type: "user-data-rights:query:download-by-token",
-        payload: { token, auditMeta },
-      }),
-    }),
-  );
 }
 
 // Interstitial page for the magic-link fragment exchange (see the

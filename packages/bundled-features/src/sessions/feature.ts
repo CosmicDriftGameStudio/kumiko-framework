@@ -24,6 +24,7 @@ import {
   type SessionAllOthersRevoker,
   type SessionMassRevoker,
 } from "./session-callbacks";
+import { SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema } from "./session-revoked-event";
 
 export type SessionsFeatureOptions = {
   // A successful update on the `user` entity that changes the `passwordHash`
@@ -136,6 +137,17 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
         };
       },
     } satisfies SessionStoreProvider);
+
+    // Custom domain-event for cross-instance access-invalidation (#1559).
+    // r.defineEvent registers the schema so ctx.unsafeAppendEvent (revoke,
+    // revoke-all-others) enforces it at append time. revoke-all-for-user
+    // appends via the low-level append() instead (needs to anchor on
+    // SYSTEM_TENANT_ID — see that handler for why) — append() does NOT
+    // consult the registry, so that callsite parses against
+    // sessionRevokedSchema explicitly, same guarantee via a different path.
+    // No projection: the payload IS the read, consumed directly off the
+    // event-store NOTIFY (#1560).
+    r.defineEvent(SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema);
 
     const handlers = {
       revoke: r.writeHandler(revokeWrite),

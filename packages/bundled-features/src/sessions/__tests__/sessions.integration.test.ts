@@ -11,6 +11,7 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -41,6 +42,7 @@ import { SessionHandlers, SessionQueries } from "../constants";
 import { createSessionsFeature } from "../feature";
 import { userSessionEntity, userSessionTable } from "../schema/user-session";
 import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
+import { SESSION_REVOKED_EVENT_QN, type SessionRevokedPayload } from "../session-revoked-event";
 import { sessionCallbacksFromLateBound } from "../testing";
 import { makeSessionHelpers } from "./test-helpers";
 
@@ -84,6 +86,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -91,7 +94,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [userTable, tenantMembershipsTable, userSessionTable]);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    userSessionTable,
+    eventsTable,
+  ]);
 });
 
 describe("sessions feature — login → check → revoke → rejected", () => {
@@ -189,6 +197,69 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     const [rowAfterRetry] = await selectMany(stack.db, userSessionTable, { id: first.sid });
     const preservedRevokedAt = rowAfterRetry?.["revokedAt"] as Temporal.Instant | null;
     expect(preservedRevokedAt?.epochMilliseconds).toBe(originalRevokedAt?.epochMilliseconds);
+  });
+
+  // #1559 — store_user_sessions stays a direct-write store (no CRUD
+  // lifecycle events, see feature.ts), but a successful revoke must still
+  // append a lightweight session-revoked event so a cross-instance
+  // consumer (#1560) can react. Asserted directly against kumiko_events —
+  // the response body carries no trace of it.
+  test("revoke appends a session-revoked event carrying the userId + sid", async () => {
+    const { userId } = await h.seedUser("event1@example.com", "pw-long-enough");
+    const { token, sid } = await h.login("event1@example.com", "pw-long-enough");
+
+    const res = await h.authedPost("/api/write", token, {
+      type: SessionHandlers.revoke,
+      payload: { id: sid },
+    });
+    expect(res.status).toBe(200);
+
+    const events = await selectMany(stack.db, eventsTable, { type: SESSION_REVOKED_EVENT_QN });
+    expect(events).toHaveLength(1);
+    const payload = events[0]?.["payload"] as SessionRevokedPayload;
+    expect(payload.userId).toBe(userId);
+    expect(payload.sessionIds).toEqual([sid]);
+  });
+
+  // Negative case: an already-revoked sid must NOT emit a second event —
+  // a spurious invalidation is the failure mode #1559 guards against.
+  test("revoking an already-revoked sid emits no additional event", async () => {
+    await h.seedUser("event2@example.com", "pw-long-enough");
+    const first = await h.login("event2@example.com", "pw-long-enough");
+
+    await h.authedPost("/api/write", first.token, {
+      type: SessionHandlers.revoke,
+      payload: { id: first.sid },
+    });
+
+    const second = await h.login("event2@example.com", "pw-long-enough");
+    const retry = await h.authedPost("/api/write", second.token, {
+      type: SessionHandlers.revoke,
+      payload: { id: first.sid },
+    });
+    expect(retry.status).toBe(422);
+
+    const events = await selectMany(stack.db, eventsTable, { type: SESSION_REVOKED_EVENT_QN });
+    expect(events).toHaveLength(1); // only the first, successful revoke
+  });
+
+  test("revoke-all-others appends one event listing every revoked sid", async () => {
+    const { userId } = await h.seedUser("event3@example.com", "pw-long-enough");
+    const a = await h.login("event3@example.com", "pw-long-enough");
+    const b = await h.login("event3@example.com", "pw-long-enough");
+    const c = await h.login("event3@example.com", "pw-long-enough");
+
+    const res = await h.authedPost("/api/write", b.token, {
+      type: SessionHandlers.revokeAllOthers,
+      payload: {},
+    });
+    expect(res.status).toBe(200);
+
+    const events = await selectMany(stack.db, eventsTable, { type: SESSION_REVOKED_EVENT_QN });
+    expect(events).toHaveLength(1);
+    const payload = events[0]?.["payload"] as SessionRevokedPayload;
+    expect(payload.userId).toBe(userId);
+    expect(new Set(payload.sessionIds)).toEqual(new Set([a.sid, c.sid]));
   });
 
   test("session:mine only returns live sessions, marks the current one", async () => {
