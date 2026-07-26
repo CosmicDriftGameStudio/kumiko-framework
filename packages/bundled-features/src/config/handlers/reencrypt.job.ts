@@ -1,19 +1,20 @@
-// Re-encrypt job for `encrypted: true` config values. Two jobs in one,
-// because format detection makes them the same loop:
-//   - MIGRATION: legacy CONFIG_ENCRYPTION_KEY values (base64 blob, no key
-//     id) → envelope format under the current master key. After a clean
-//     run the legacy key can be dropped from the environment.
-//   - KEK-ROTATION: envelope values wrapped under an older kekVersion →
-//     re-encrypted under provider.currentVersion(). Config has no
-//     kek_version column (values live in a TEXT column), so unlike the
-//     secrets rotate job the version check parses the stored JSON.
+// KEK-rotation job for `encrypted: true` config values: envelope values
+// wrapped under an older kekVersion get re-encrypted under
+// provider.currentVersion(). Config has no kek_version column (values live
+// in a TEXT column), so unlike the secrets rotate job the version check
+// parses the stored JSON.
+//
+// A row whose value isn't a current-cipher envelope (malformed JSON, or
+// any pre-envelope format) isn't a supported input here — cipher.decrypt
+// rejects it, so it's counted `failed` rather than silently treated as
+// already current. There is no legacy single-key decrypt path anymore.
 //
 // Idempotent: a re-run skips rows already on the current version. Every
 // write goes through the event-store executor (config values are
 // entity-backed — raw UPDATEs would be wiped by a projection rebuild),
-// so each migration appends a normal `.updated` event whose payload
-// carries the NEW envelope: after a full run even a from-scratch rebuild
-// no longer needs the legacy key for the final state.
+// so each rotation appends a normal `.updated` event whose payload carries
+// the NEW envelope: after a full run even a from-scratch rebuild only
+// ever sees the current-KEK envelope.
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
@@ -48,17 +49,19 @@ export type ReencryptJobResult = {
   readonly stoppedReason: ChunkedMigrationStopReason;
 };
 
-function needsReencrypt(value: string, targetVersion: number): boolean {
-  // legacy single-key format (base64 — can never start with "{")
-  if (!value.startsWith("{")) return true;
+type RowClassification = "rotate" | "current" | "unrecognized";
+
+function classifyRow(value: string, targetVersion: number): RowClassification {
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(value);
-    if (!isStoredEnvelope(parsed)) return true;
-    return parsed.kekVersion !== targetVersion;
+    parsed = JSON.parse(value);
   } catch {
-    // malformed JSON — let the decrypt attempt surface the real error
-    return true;
+    // not JSON at all — no supported format decrypts this; let
+    // cipher.decrypt reject it and count the row as failed.
+    return "unrecognized";
   }
+  if (!isStoredEnvelope(parsed)) return "unrecognized";
+  return parsed.kekVersion === targetVersion ? "current" : "rotate";
 }
 
 export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
@@ -145,14 +148,23 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
 
   async function migrateRow(row: ConfigRow): Promise<"migrated" | "skipped" | "failed"> {
     if (row.value === null || row.value === undefined) return "skipped";
-    if (!needsReencrypt(row.value, targetVersion)) {
+    const classification = classifyRow(row.value, targetVersion);
+    if (classification === "current") {
       alreadyCurrent++;
       return "skipped";
     }
 
-    // decrypt failure (missing legacy key, unknown kekVersion, tamper)
-    // throws → counted as failed via onRowError; the row stays untouched —
-    // never write anything we couldn't read.
+    if (classification === "unrecognized") {
+      // Not a current-cipher envelope (malformed JSON, or any pre-envelope
+      // format) — never a supported re-encrypt input, so fail loudly
+      // instead of relying on cipher.decrypt to reject it. Log only the
+      // row id, never the value (ciphertext-adjacent).
+      ctx.log?.warn?.(
+        `[config:reencrypt] row ${row.id} is not a current-cipher envelope, not re-encryptable`,
+      );
+      return "failed";
+    }
+
     const tenantId = row.tenantId as TenantId; // @cast-boundary db-row
     const plaintext = await cipher.decrypt(row.value, { tenantId });
     const reencrypted = await cipher.encrypt(plaintext, { tenantId });
