@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 import { tenantMembershipsTable } from "../../tenant";
 import { USER_STATUS, userTable } from "../../user";
+import { isSystemAdminActor } from "../lib/is-admin-actor";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
 // POST /api/user/lift-restriction (S2.U6) — DSGVO Art. 18 Reverse.
@@ -40,7 +41,7 @@ export const liftRestrictionWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId;
 
-    if (!event.user.roles.some((role) => access.systemAdmin.includes(role))) {
+    if (!isSystemAdminActor(event.user)) {
       const membership = await fetchOne(ctx.db.raw, tenantMembershipsTable, {
         userId: targetUserId,
         tenantId: event.user.tenantId,

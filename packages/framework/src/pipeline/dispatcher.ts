@@ -1,3 +1,4 @@
+import type { SseBroker } from "../api/sse-broker";
 import type { buildEntityTable } from "../db/table-builder";
 import type { defineTransitions } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
@@ -43,6 +44,10 @@ export type DispatcherOptions = {
   // event-skips and a confusing operator-UI — the framework cannot
   // enforce this contract, but the recipe-test pins the convention.
   effectiveFeatures?: EffectiveFeaturesResolver;
+  // In-memory SSE broker — dispatch-stream.ts subscribes to a stream's
+  // user-scoped access-invalidation channel on it. Absent in setups without
+  // SSE wired up (dispatch-stream then just skips the subscription).
+  sseBroker?: SseBroker;
 };
 
 export type Dispatcher = {
@@ -82,7 +87,7 @@ export function createDispatcher(
   context: AppContext,
   options: DispatcherOptions = {},
 ): Dispatcher {
-  const { idempotency, lifecycle, jobRunner, effectiveFeatures } = options;
+  const { idempotency, lifecycle, jobRunner, effectiveFeatures, sseBroker } = options;
 
   // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
   const tableCache = new Map<string, ReturnType<typeof buildEntityTable>>();
@@ -101,6 +106,7 @@ export function createDispatcher(
     lifecycle,
     jobRunner,
     effectiveFeatures,
+    sseBroker,
     tableCache,
     transitionCache,
     tracer: dispatcherTracer,

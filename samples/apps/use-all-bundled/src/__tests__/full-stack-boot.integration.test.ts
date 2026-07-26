@@ -8,7 +8,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { createKumikoServer, type KumikoServerHandle } from "@cosmicdrift/kumiko-dev-server";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { APP_FEATURES } from "../run-config";
+import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 
 let handle: KumikoServerHandle | undefined;
 
@@ -19,7 +19,12 @@ afterAll(async () => {
 describe("use-all-bundled full-stack boot", () => {
   test("every bundled feature boots against real Postgres + Redis, tables applied", async () => {
     handle = await createKumikoServer({
-      features: [...composeFeatures([...APP_FEATURES], { includeBundled: true })],
+      features: [
+        ...composeFeatures([...APP_FEATURES], {
+          includeBundled: true,
+          authOptions: AUTH_COMPOSE_OPTIONS,
+        }),
+      ],
       port: 0,
       installSignalHandlers: false,
     });
