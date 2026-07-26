@@ -47,11 +47,10 @@ export const cancelDeletionWrite = defineWriteHandler({
     // ctx.db.raw (kein TenantDb-Wrapper) weil User-Entity tenant-agnostisch
     // ist — siehe request-deletion.write.ts fuer die Begruendung. Cancel
     // muss aus jedem Tenant-Mode den User finden + zuruecksetzen koennen.
-    const row = await fetchOne<{ status: string; gracePeriodEnd: Temporal.Instant | null }>(
-      ctx.db.raw,
-      userTable,
-      { id: event.user.id },
-    );
+    const row = await fetchOne<{
+      status: string;
+      gracePeriodEnd: Temporal.Instant | null;
+    }>(ctx.db.raw, userTable, { id: event.user.id });
 
     if (!row) {
       return writeFailure(

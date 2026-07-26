@@ -123,7 +123,7 @@ export const downloadByTokenQuery = defineQueryHandler({
       );
       if (jobForAudit) {
         await recordInvalidAttempt({
-          db: ctx.db.raw,
+          db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
           tenantId: jobForAudit.requestedFromTenantId,
           now,
           result: "expired",
@@ -152,7 +152,7 @@ export const downloadByTokenQuery = defineQueryHandler({
     }
     if (jobRow.status !== EXPORT_JOB_STATUS.Done) {
       await recordInvalidAttempt({
-        db: ctx.db.raw,
+        db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
         tenantId: jobRow.requestedFromTenantId,
         now,
         result: "failed",
@@ -169,7 +169,7 @@ export const downloadByTokenQuery = defineQueryHandler({
     }
     if (!jobRow.downloadStorageKey) {
       await recordInvalidAttempt({
-        db: ctx.db.raw,
+        db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
         tenantId: jobRow.requestedFromTenantId,
         now,
         result: "expired",
@@ -192,13 +192,13 @@ export const downloadByTokenQuery = defineQueryHandler({
       registry: ctx.registry,
       configResolver: ctx.configResolver,
       secrets: ctx.secrets,
-      db: ctx.db.raw,
+      db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
       userId: SYSTEM_USER_ID,
       handlerName: "user-data-rights:query:download-by-token",
     })(jobRow.requestedFromTenantId as TenantId); // @cast-boundary engine-payload: TenantId brand
     if (!provider.getSignedUrl) {
       await recordInvalidAttempt({
-        db: ctx.db.raw,
+        db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
         tenantId: jobRow.requestedFromTenantId,
         now,
         result: "signedUrlNotSupported",
@@ -229,7 +229,7 @@ export const downloadByTokenQuery = defineQueryHandler({
     // Wrapper (trusted-source). Direct-API-caller koennen luegen, aber
     // Audit ist nicht security-relevant.
     await recordDownloadUse({
-      db: ctx.db.raw,
+      db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
       tokenId: tokenRow.id,
       tokenVersion: tokenRow.version,
       tokenUseCount: tokenRow.useCount ?? 0,

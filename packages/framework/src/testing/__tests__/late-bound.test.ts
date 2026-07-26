@@ -22,4 +22,11 @@ describe("createLateBoundHolder", () => {
     holder.set("second");
     expect(holder.get()).toBe("second");
   });
+
+  test("set(undefined) still marks the holder ready", () => {
+    const holder = createLateBoundHolder<number | undefined>("opt");
+    holder.set(undefined);
+    expect(holder.isReady()).toBe(true);
+    expect(holder.get()).toBeUndefined();
+  });
 });

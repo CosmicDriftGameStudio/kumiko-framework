@@ -22,18 +22,20 @@ export type LateBoundHolder<T> = {
 
 export function createLateBoundHolder<T>(label = "value"): LateBoundHolder<T> {
   let value: T | undefined;
+  let isSet = false;
   return {
     set(v) {
       value = v;
+      isSet = true;
     },
     get() {
-      if (value === undefined) {
+      if (!isSet) {
         throw new Error(`late-bound ${label} accessed before set() was called`);
       }
-      return value;
+      return value as T;
     },
     isReady() {
-      return value !== undefined;
+      return isSet;
     },
   };
 }

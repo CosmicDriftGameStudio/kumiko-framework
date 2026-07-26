@@ -5,15 +5,11 @@
 // default `max: 4` — sequential decrypt-per-row leaves 3 pool slots idle
 // and turns each query into 2N serial round-trips instead of ~2N/4).
 // Order of `results` matches `items`, independent of completion order.
-// On rejection: the returned promise rejects with the first error, but
-// in-flight workers other than the one that threw keep running to
-// completion (unlike a sequential loop, which stops at the first error).
-// Fine for a read path like PII decrypt where results are discarded on
-// failure anyway. No unhandled-rejection risk from a second/third worker
-// rejecting after the first: every worker promise is an element of the
-// `Promise.all` array below, so each one always has a handler attached
-// regardless of when it settles (verified: two workers rejecting at
-// different times below, `mapWithConcurrency.test.ts`).
+// On rejection: the returned promise rejects with the first error, and
+// remaining workers stop claiming new items (`failed` flag). In-flight
+// calls already past the claim still run to completion (their promises
+// stay in the `Promise.all` array, so a later rejection can't surface as
+// an unhandled rejection — verified in `mapWithConcurrency.test.ts`).
 export async function mapWithConcurrency<T, R>(
   items: readonly T[],
   limit: number,
@@ -21,12 +17,20 @@ export async function mapWithConcurrency<T, R>(
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let nextIndex = 0;
+  let failed = false;
   async function worker(): Promise<void> {
     for (;;) {
+      // skip: another worker already failed — stop claiming new items.
+      if (failed) return;
       const index = nextIndex++;
       // skip: cursor exhausted, normal worker-loop exit
       if (index >= items.length) return;
-      results[index] = await fn(items[index] as T, index);
+      try {
+        results[index] = await fn(items[index] as T, index);
+      } catch (err) {
+        failed = true;
+        throw err;
+      }
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));

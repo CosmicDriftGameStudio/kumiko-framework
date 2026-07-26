@@ -28,7 +28,7 @@ export const findForAuthQuery = defineQueryHandler({
     ),
   access: { roles: access.system },
   handler: async (query, ctx) => {
-    const where =
+    const where: { email: string } | { id: string } =
       query.payload.email !== undefined
         ? { email: query.payload.email }
         : { id: query.payload.id as string }; // @cast-boundary engine-payload

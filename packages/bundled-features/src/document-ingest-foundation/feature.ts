@@ -13,6 +13,7 @@
 
 import { entityEventName } from "@cosmicdrift/kumiko-framework/db";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
 import { documentExtractEntity } from "./entity";
 import {
   DOCUMENT_INGEST_AGGREGATE_TYPE,
@@ -37,6 +38,17 @@ const ALLOWED_MIME_TYPES = new Set(["application/pdf", "image/png", "image/jpeg"
 // in the 10-20mb range, well above file-routes.ts' unconstrained-upload
 // default (10mb); tests raise maxUploadSize instead of shrinking this.
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
+// Narrow fileRef.created's generic entity payload at the MSP boundary.
+// Missing/invalid fields → skip (return), never cast — a bad size would
+// otherwise pass `undefined > MAX_FILE_BYTES` and a later appendDomainEvent
+// schema failure would dead the request-ingest consumer for all tenants.
+const fileRefCreatedPayloadSchema = z.object({
+  storageKey: z.string().min(1),
+  fileName: z.string().min(1),
+  mimeType: z.string().min(1),
+  size: z.number().int().min(0),
+});
 
 export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
@@ -82,14 +94,12 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
     name: "request-ingest",
     apply: {
       [FILE_REF_CREATED]: async (event, _tx, ctx) => {
-        // entity-event payloads are generic Record<string, unknown> — narrow
-        // at the MSP boundary (files-post-processing pattern).
-        const payload = event.payload as {
-          readonly storageKey: string;
-          readonly fileName: string;
-          readonly mimeType: string;
-          readonly size: number;
-        };
+        // entity-event payloads are generic Record<string, unknown> — parse
+        // at the MSP boundary (same pattern as storage-tracking's readNumber).
+        const parsed = fileRefCreatedPayloadSchema.safeParse(event.payload);
+        // skip: malformed / incomplete payload — don't poison the consumer
+        if (!parsed.success) return;
+        const payload = parsed.data;
 
         // skip: over the fixed cap — no ingest requested, upload itself already succeeded
         if (payload.size > MAX_FILE_BYTES) return;

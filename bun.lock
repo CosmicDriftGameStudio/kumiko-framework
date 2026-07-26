@@ -210,10 +210,12 @@
       "devDependencies": {
         "hono": "^4.12.18",
         "postgres": "^3.4.9",
+        "temporal-polyfill": "^0.3.2",
       },
       "peerDependencies": {
         "hono": "^4.12.18",
         "postgres": "^3.4.9",
+        "temporal-polyfill": "^0.3.2",
       },
     },
     "samples/apps/admin-console": {

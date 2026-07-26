@@ -23,6 +23,7 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   append,
   createEventsTable,
@@ -426,8 +427,8 @@ describe("scenario 2d: ingest-message — thread-rollup retry exhaustion (#1229)
         });
         return { ok: true as const, event };
       },
-      // biome-ignore lint/suspicious/noExplicitAny: hand-built ctx narrower than HandlerContext, cast at the test/framework boundary
-    } as any;
+      // @cast-boundary test/framework — hand-built ctx narrower than HandlerContext
+    } as unknown as HandlerContext;
 
     await expect(
       ingestMessageHandler.handler(

@@ -15,7 +15,7 @@ export type DbConnectionOptions = {
 
 // Connection-Handle: db für Queries, client für Legacy-Zugriff (LISTEN/NOTIFY-Peer
 // bei Bun.SQL), close für Pool-Shutdown.
-export type DbConnection = {
+export type DbPoolHandle = {
   /** Provider Connection — Calls gehen über asRawClient() oder direkt. */
   // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection — postgres-js | Bun.SQL
   readonly db: any;
@@ -34,7 +34,7 @@ let _provider: undefined | (() => Promise<typeof import("./postgres-provider")>)
 export async function createConnection(
   url: string,
   options: DbConnectionOptions = {},
-): Promise<DbConnection> {
+): Promise<DbPoolHandle> {
   const p = process.env["DB_PROVIDER"];
   if (p === "bun" || p === "bun-sql") {
     const { createBunConnection } = await import("./bun-provider");

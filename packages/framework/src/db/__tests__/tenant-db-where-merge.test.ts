@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField } from "../../engine";
 import { testTenantId } from "../../stack";
+import type { DbRunner } from "../connection";
 import type { TableColumns } from "../dialect";
 import { buildEntityTableMeta } from "../entity-table-meta";
 import { buildEntityTable } from "../table-builder";
@@ -24,13 +25,16 @@ const foreign = testTenantId(2);
 
 type Captured = { sql: string; values: readonly unknown[] };
 
-function recordingDb(captured: Captured[]) {
+function recordingDb(captured: Captured[]): DbRunner {
   return {
     unsafe: async (sql: string, values: readonly unknown[]) => {
       captured.push({ sql, values });
       return [] as unknown[];
     },
-  };
+    begin: async () => {
+      throw new Error("begin not used in these tests");
+    },
+  } as DbRunner;
 }
 
 describe("tenant-db WHERE merge — caller cannot override tenant scope", () => {

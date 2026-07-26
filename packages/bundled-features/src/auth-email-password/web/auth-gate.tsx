@@ -109,10 +109,17 @@ export function createLoginRoute(
           preauthSetupToken={setupRequest.preauthSetupToken}
           accountLabel={setupRequest.accountLabel}
           onSuccess={() => {
-            setSetupRequest(null);
             // MfaSetupPreauthScreen has no session to refresh itself with
             // (it runs pre-auth) — the gate owns the session, so it refreshes.
-            void refresh();
+            // Keep setupRequest until refresh settles: clearing first would
+            // dump the user back on the login form with no retry if refresh
+            // rejects (cookie+JWT already minted server-side).
+            void refresh().then(
+              () => setSetupRequest(null),
+              () => {
+                // leave setupRequest set so the user can cancel/retry
+              },
+            );
           }}
           onCancel={() => setSetupRequest(null)}
         />

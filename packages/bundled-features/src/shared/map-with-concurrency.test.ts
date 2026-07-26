@@ -73,6 +73,24 @@ describe("mapWithConcurrency", () => {
     expect(unhandled).toEqual([]);
   });
 
+  test("does not claim new items after the first rejection", async () => {
+    const started: number[] = [];
+    const items = Array.from({ length: 20 }, (_, i) => i);
+    await expect(
+      mapWithConcurrency(items, 2, async (item) => {
+        started.push(item);
+        if (item === 0) throw new Error("boom");
+        // Slow enough that without fail-fast, more workers would drain the list.
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        return item;
+      }),
+    ).rejects.toThrow("boom");
+    // At most `limit` in-flight when the first throw sets `failed`; without
+    // the flag the other worker would keep claiming the rest of the 20.
+    expect(started.length).toBeLessThan(items.length);
+    expect(started.length).toBeLessThanOrEqual(3);
+  });
+
   test("empty input resolves to an empty array without running the worker", async () => {
     const results = await mapWithConcurrency<number, number>([], 4, async (item) => item);
     expect(results).toEqual([]);

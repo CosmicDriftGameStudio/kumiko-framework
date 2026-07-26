@@ -97,7 +97,7 @@ const itemFeature = defineFeature("batch", (r) => {
     "postSave",
     { allOf: item },
     async (result, ctx) => {
-      if (!ctx.db) return;
+      if (!ctx.db || !("insertOne" in ctx.db)) return;
       await ctx.db.insertOne(auditTable, { action: "item_saved", itemId: result.id });
     },
     { phase: HookPhases.inTransaction },

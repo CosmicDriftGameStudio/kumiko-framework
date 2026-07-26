@@ -279,7 +279,7 @@ export async function runSchemaCli(
           const replayed = replayMigrationsDir(migrationsDir);
           const mismatches = diffReplayAgainstSnapshot(replayed, committedSnapshot);
           if (mismatches.length === 0) {
-            out.log("  ✓ migrations: committed SQL matches .snapshot.json");
+            out.log("  ✓ migrations: table/column names match .snapshot.json");
           } else {
             ok = false;
             out.err(

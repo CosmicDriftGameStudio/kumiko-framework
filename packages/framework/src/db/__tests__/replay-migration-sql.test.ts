@@ -315,6 +315,16 @@ ALTER TABLE "widgets" RENAME TO "gadgets";`,
     }
   });
 
+  test("schema-qualified CREATE TABLE (public.widgets) fails loud — IDENT rejects '.'", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(dir, "0001_init.sql", "CREATE TABLE public.widgets (id uuid PRIMARY KEY);\n");
+      expect(() => replayMigrationsDir(dir)).toThrow(/unparsed table-DDL statement/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("kumiko-framework#1535: a bare table-level PRIMARY KEY/UNIQUE clause isn't parsed as a column", () => {
     const dir = tmpMigrationsDir();
     try {

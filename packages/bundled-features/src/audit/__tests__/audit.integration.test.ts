@@ -333,7 +333,7 @@ describe("audit: list query", () => {
           },
           user: admin,
         } as Parameters<typeof listQuery.handler>[0],
-        { db: stack.db } as Parameters<typeof listQuery.handler>[1],
+        { db: stack.db } as unknown as Parameters<typeof listQuery.handler>[1],
       );
       expect(res.rows.length).toBeGreaterThanOrEqual(1);
     } finally {

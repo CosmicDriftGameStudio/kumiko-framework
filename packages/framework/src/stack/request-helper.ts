@@ -120,17 +120,20 @@ export function createRequestHelper(
   // more than one tenant, and sessionCreator writes the row scoped to
   // `user.tenantId` (session-callbacks.ts), so a user.id-only key would
   // hand a cross-tenant test its wrong tenant's sid.
-  const sidByUserKey = new Map<string, string>();
+  // Cache the Promise (not the settled sid) so two concurrent authHeader
+  // calls for the same key share one mint instead of racing on a miss.
+  const sidByUserKey = new Map<string, Promise<string>>();
 
   async function authHeader(user: SessionUser): Promise<Record<string, string>> {
     let forJwt = user;
     if (options.sessionCreator && !user.sid) {
       const key = `${user.id}:${user.tenantId}`;
-      const cachedSid = sidByUserKey.get(key);
-      const sid =
-        cachedSid ??
-        (await options.sessionCreator(user, { ip: "test", userAgent: "request-helper" }));
-      if (cachedSid === undefined) sidByUserKey.set(key, sid);
+      let sidPromise = sidByUserKey.get(key);
+      if (sidPromise === undefined) {
+        sidPromise = options.sessionCreator(user, { ip: "test", userAgent: "request-helper" });
+        sidByUserKey.set(key, sidPromise);
+      }
+      const sid = await sidPromise;
       forJwt = { ...user, sid };
     }
     const token = await jwt.sign(forJwt);

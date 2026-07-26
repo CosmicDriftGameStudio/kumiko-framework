@@ -2,6 +2,7 @@
 // Provider-agnostic via createConnection (DB_PROVIDER env).
 // postgres-js = default. DB_PROVIDER=bun = Bun.SQL (experimentell).
 
+import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
 import { createConnection } from "../db/api";
 import { createDatabase, databaseExists, dropDatabaseIfExists } from "../db/queries/test-stack";
 import { ensureTemporalPolyfill } from "../time/polyfill";
@@ -18,7 +19,7 @@ function requireEnv(name: string): string {
 }
 
 export type TestDb = {
-  db: unknown;
+  db: DbConnection;
   client: unknown;
   dbName: string;
   cleanup: () => Promise<void>;

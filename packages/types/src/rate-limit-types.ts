@@ -1,3 +1,5 @@
+import type { Temporal } from "temporal-polyfill";
+
 export type RateLimitDecision = {
   readonly allowed: boolean;
   readonly limit: number;

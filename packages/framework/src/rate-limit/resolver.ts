@@ -193,12 +193,7 @@ export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLim
     );
 
     const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
-    // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
-    // at runtime, distinct nominal types across the two .d.ts sources (see
-    // event-store.ts). Only ever consumed via toString()/comparisons.
-    const resetAt = TemporalPolyfill.Instant.fromEpochMilliseconds(
-      nowMs + retryAfterMs,
-    ) as unknown as Temporal.Instant;
+    const resetAt = TemporalPolyfill.Instant.fromEpochMilliseconds(nowMs + retryAfterMs);
 
     return {
       allowed: allowedFlag === 1,
@@ -238,10 +233,7 @@ export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLim
     );
 
     const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
-    // @cast-boundary temporal-polyfill-vs-ambient: see check() above.
-    const resetAt = TemporalPolyfill.Instant.fromEpochMilliseconds(
-      nowMs + retryAfterMs,
-    ) as unknown as Temporal.Instant;
+    const resetAt = TemporalPolyfill.Instant.fromEpochMilliseconds(nowMs + retryAfterMs);
 
     return {
       // peek doesn't deduct, so a "would-be" allowed flag is meaningful:

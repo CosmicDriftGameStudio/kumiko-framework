@@ -3,9 +3,9 @@
 // `asRawClient(db)` wrappt .unsafe und .begin transparent.
 
 import postgres from "postgres";
-import type { DbConnection, DbConnectionOptions } from "./api";
+import type { DbConnectionOptions, DbPoolHandle } from "./api";
 
-export function createPgConnection(url: string, options: DbConnectionOptions = {}): DbConnection {
+export function createPgConnection(url: string, options: DbConnectionOptions = {}): DbPoolHandle {
   const pgOptions: Parameters<typeof postgres>[1] = {};
   if (options.maxConnections !== undefined) pgOptions.max = options.maxConnections;
   if (options.idleTimeoutSeconds !== undefined) pgOptions.idle_timeout = options.idleTimeoutSeconds;

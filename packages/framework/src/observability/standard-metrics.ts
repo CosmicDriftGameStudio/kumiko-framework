@@ -23,7 +23,7 @@ export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
     name: "kumiko_dispatcher_handler_duration_seconds",
     type: "histogram",
     description: "Dispatcher handler latency in seconds.",
-    labels: ["handler", "success"],
+    labels: ["handler", "success", "outcome"],
     buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5],
   },
   {
@@ -155,12 +155,18 @@ export function emitHttpRequest(
 
 export function emitDispatcherHandler(
   meter: Meter,
-  labels: { readonly handler: string; readonly success: boolean },
+  labels: {
+    readonly handler: string;
+    readonly success: boolean;
+    /** completed = drained normally; aborted = consumer walked away (SSE). */
+    readonly outcome?: "completed" | "aborted";
+  },
   durationSeconds: number,
 ): void {
   meter.histogram("kumiko_dispatcher_handler_duration_seconds").observe(durationSeconds, {
     handler: labels.handler,
     success: String(labels.success),
+    outcome: labels.outcome ?? "completed",
   });
 }
 

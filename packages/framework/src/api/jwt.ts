@@ -242,7 +242,7 @@ export function loadJwtSecretOrKeyring(
   // max token TTL (`ttlSeconds`) has elapsed since cutover to actually
   // retire a rotated-out secret (see run-prod-app.ts boot warning).
   const legacySecret = env["JWT_SECRET"];
-  if (legacySecret && !keys["legacy"]) {
+  if (legacySecret) {
     assertMinLength("JWT_SECRET", legacySecret);
     keys["legacy"] = legacySecret;
   }

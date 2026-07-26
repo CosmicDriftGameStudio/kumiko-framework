@@ -110,6 +110,16 @@ describe("login", () => {
     expect(res).toEqual({ kind: "mfa-setup-required", preauthSetupToken: "setup-token-value" });
   });
 
+  test("mfaSetupRequired without preauthSetupToken → explicit mfa_setup_required failure", async () => {
+    globalThis.fetch = mock(async () =>
+      jsonResponse({ isSuccess: true, mfaSetupRequired: true }),
+    ) as unknown as typeof fetch;
+
+    const res = await login({ email: "a@b.c", password: "secret" });
+
+    expect(res).toEqual({ kind: "failure", error: { reason: "mfa_setup_required" } });
+  });
+
   test("string error → kind:failure with reason from string", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({ isSuccess: false, error: "invalid_credentials" }),

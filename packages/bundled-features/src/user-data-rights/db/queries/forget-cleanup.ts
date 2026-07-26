@@ -9,14 +9,14 @@ import { userTable } from "../../../user";
 export async function selectUsersDueForForgetCleanup(
   db: DbConnection,
   status: string,
-  gracePeriodEndCutoff: Temporal.Instant | string,
+  gracePeriodEndCutoff: InstanceType<typeof TemporalPolyfill.Instant> | string,
 ): Promise<readonly { id: string }[]> {
   // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
   // at runtime, distinct nominal types across the two .d.ts sources (see
   // event-store.ts). Only ever consumed via the `lte` comparison below.
   const cutoff =
     typeof gracePeriodEndCutoff === "string"
-      ? (TemporalPolyfill.Instant.from(gracePeriodEndCutoff) as unknown as Temporal.Instant)
+      ? TemporalPolyfill.Instant.from(gracePeriodEndCutoff)
       : gracePeriodEndCutoff;
   return selectMany<{ id: string }>(db, userTable, {
     status,
