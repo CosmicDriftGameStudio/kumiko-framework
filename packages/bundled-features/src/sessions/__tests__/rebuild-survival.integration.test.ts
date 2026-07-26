@@ -57,7 +57,9 @@ beforeEach(async () => {
 // written directly on the hot path, then revoked — no events anywhere.
 const SID = "00000000-0000-0000-0000-000000000001";
 
-async function insertRevokedSession(db: DbConnection): Promise<void> {
+async function insertRevokedSession(
+  db: DbConnection | ReturnType<typeof createTenantDb>,
+): Promise<void> {
   const now = Temporal.Now.instant();
   await seedRow(db, userSessionTable, {
     id: SID,

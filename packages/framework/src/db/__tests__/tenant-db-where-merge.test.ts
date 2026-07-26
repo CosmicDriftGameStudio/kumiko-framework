@@ -4,6 +4,7 @@ import { testTenantId } from "../../stack";
 import type { TableColumns } from "../dialect";
 import { buildEntityTableMeta } from "../entity-table-meta";
 import { buildEntityTable } from "../table-builder";
+import type { DbRunner } from "../connection";
 import { createTenantDb } from "../tenant-db";
 
 // Tenant-isolation: a caller-supplied `where.tenantId` must NEVER override the
@@ -24,13 +25,16 @@ const foreign = testTenantId(2);
 
 type Captured = { sql: string; values: readonly unknown[] };
 
-function recordingDb(captured: Captured[]) {
+function recordingDb(captured: Captured[]): DbRunner {
   return {
     unsafe: async (sql: string, values: readonly unknown[]) => {
       captured.push({ sql, values });
       return [] as unknown[];
     },
-  };
+    begin: async () => {
+      throw new Error("begin not used in these tests");
+    },
+  } as DbRunner;
 }
 
 describe("tenant-db WHERE merge — caller cannot override tenant scope", () => {

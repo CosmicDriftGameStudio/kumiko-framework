@@ -96,7 +96,7 @@ beforeAll(async () => {
           ...bridgeStub(),
         },
       );
-      return result;
+      return result as TenantId[];
     },
   });
 

@@ -4,9 +4,13 @@ import type postgres from "postgres";
 // asRawClient() / query helpers. Avoid `| any` — TS unions with `any`
 // collapse to `any` and erase the postgres side entirely.
 export type RawDbClient = {
-  // postgres-js: unsafe(string, values?); Bun.SQL: unsafe(string) / tagged
-  unsafe: (query: string, values?: readonly unknown[]) => unknown;
-  begin: <T>(fn: (tx: RawDbClient) => Promise<T>) => Promise<T>;
+  // Signatures are intentionally loose: postgres-js uses (string, values?),
+  // Bun.SQL uses tagged templates / unsafe(string). Call sites go through
+  // asRawClient() which normalizes at runtime.
+  // biome-ignore lint/suspicious/noExplicitAny: cross-provider unsafe arity
+  unsafe: (...args: any[]) => any;
+  // biome-ignore lint/suspicious/noExplicitAny: cross-provider begin arity
+  begin: (...args: any[]) => any;
   end?: (options?: { timeout?: number }) => Promise<void>;
 };
 

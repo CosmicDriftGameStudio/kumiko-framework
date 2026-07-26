@@ -80,7 +80,7 @@ export const downloadByJobQuery = defineQueryHandler({
 
     if (!jobRow || jobRow.userId !== userId) {
       await recordInvalidAttempt({
-        db: ctx.db.raw,
+        db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
         tenantId,
         now,
         result: "notFound",
@@ -98,7 +98,7 @@ export const downloadByJobQuery = defineQueryHandler({
 
     if (jobRow.status !== EXPORT_JOB_STATUS.Done) {
       await recordInvalidAttempt({
-        db: ctx.db.raw,
+        db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
         tenantId,
         now,
         result: "failed",
@@ -115,7 +115,7 @@ export const downloadByJobQuery = defineQueryHandler({
     }
     if (!jobRow.downloadStorageKey) {
       await recordInvalidAttempt({
-        db: ctx.db.raw,
+        db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
         tenantId,
         now,
         result: "expired",
@@ -138,13 +138,13 @@ export const downloadByJobQuery = defineQueryHandler({
       registry: ctx.registry,
       configResolver: ctx.configResolver,
       secrets: ctx.secrets,
-      db: ctx.db.raw,
+      db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
       userId: SYSTEM_USER_ID,
       handlerName: "user-data-rights:query:download-by-job",
     })(jobRow.requestedFromTenantId as TenantId); // @cast-boundary engine-payload: TenantId brand
     if (!provider.getSignedUrl) {
       await recordInvalidAttempt({
-        db: ctx.db.raw,
+        db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
         tenantId,
         now,
         result: "signedUrlNotSupported",
@@ -181,7 +181,7 @@ export const downloadByJobQuery = defineQueryHandler({
 
     if (tokenRow) {
       await recordDownloadUse({
-        db: ctx.db.raw,
+        db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
         tokenId: tokenRow.id,
         tokenVersion: tokenRow.version,
         tokenUseCount: tokenRow.useCount ?? 0,

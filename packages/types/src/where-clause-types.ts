@@ -12,9 +12,11 @@ export type WhereOperator = {
   readonly in?: readonly unknown[];
   readonly like?: string;
 };
-export type WherePrimitive = string | number | boolean | bigint | Date | null;
+export type WherePrimitive = string | number | boolean | bigint | Date | null | undefined;
 export type WhereValue = WherePrimitive | readonly WherePrimitive[] | WhereOperator;
-export type WhereObject = Record<string, WhereValue>;
+// Wider index so dynamic Record<string, unknown> builders still typecheck;
+// annotate literals as WhereValue / satisfies WhereValue to catch typos.
+export type WhereObject = Record<string, WhereValue | unknown>;
 
 export type OrderByClause = {
   readonly col: string;

@@ -14,16 +14,17 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 // short of a full dispatcher round-trip (which would also delete the
 // ambient global out from under buildHandlerContext's unrelated ctx.tz
 // setup, unrelated to this fix).
-export function isWithinGracePeriod(
-  gracePeriodEnd: InstanceType<typeof TemporalPolyfill.Instant> | null,
-): boolean {
+export function isWithinGracePeriod(gracePeriodEnd: Temporal.Instant | null): boolean {
   // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
   // at runtime — gracePeriodEnd is DB-row-typed against the ambient
   // global, two distinct nominal types across the two .d.ts sources (see
   // event-store.ts).
   return (
     gracePeriodEnd != null &&
-    TemporalPolyfill.Instant.compare(gracePeriodEnd, TemporalPolyfill.Now.instant()) > 0
+    TemporalPolyfill.Instant.compare(
+      gracePeriodEnd as unknown as InstanceType<typeof TemporalPolyfill.Instant>,
+      TemporalPolyfill.Now.instant(),
+    ) > 0
   );
 }
 
@@ -48,7 +49,7 @@ export const cancelDeletionWrite = defineWriteHandler({
     // muss aus jedem Tenant-Mode den User finden + zuruecksetzen koennen.
     const row = await fetchOne<{
       status: string;
-      gracePeriodEnd: InstanceType<typeof TemporalPolyfill.Instant> | null;
+      gracePeriodEnd: Temporal.Instant | null;
     }>(ctx.db.raw, userTable, { id: event.user.id });
 
     if (!row) {

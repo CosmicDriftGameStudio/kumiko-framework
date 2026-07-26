@@ -176,7 +176,7 @@ describe("my-audit-log — kumiko-framework#1525: no ambient Temporal global", (
           payload: { limit: 50, from: "2020-01-01T00:00:00Z", to: "2030-01-01T00:00:00Z" },
           user: alice,
         } as Parameters<typeof myAuditLogQuery.handler>[0],
-        { db: { raw: stack.db } } as Parameters<typeof myAuditLogQuery.handler>[1],
+        { db: { raw: stack.db } } as unknown as Parameters<typeof myAuditLogQuery.handler>[1],
       );
       expect(res.rows.length).toBeGreaterThanOrEqual(1);
     } finally {
@@ -213,7 +213,7 @@ describe("list-download-attempts — kumiko-framework#1525: no ambient Temporal 
           payload: { limit: 50, from: "2020-01-01T00:00:00Z", to: "2030-01-01T00:00:00Z" },
           user: admin,
         } as Parameters<typeof listDownloadAttemptsQuery.handler>[0],
-        { db: stack.db } as Parameters<typeof listDownloadAttemptsQuery.handler>[1],
+        { db: stack.db } as unknown as Parameters<typeof listDownloadAttemptsQuery.handler>[1],
       );
       expect(res.rows.length).toBeGreaterThanOrEqual(1);
     } finally {
