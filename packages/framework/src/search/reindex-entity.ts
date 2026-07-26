@@ -93,6 +93,15 @@ export async function reindexEntity(
   };
 
   let offset = 0;
+  // Whether a searchable field lacks a matching read-table column depends
+  // only on the table's column set (rowToState/Object.hasOwn), not on any
+  // particular row's data — every row from the same SELECT * has the same
+  // columns. Check once against the first row instead of every row, so a
+  // dropped/never-migrated column fails fast with one clear error instead
+  // of one identical failures[] entry per scanned row (1M rows → 1M
+  // entries, and the real schema problem is buried in "x failed").
+  let uncheckedSchema = true;
+
   for (;;) {
     // ponytail: LIMIT/OFFSET, not a keyset cursor — id can be uuid or
     // serial depending on the entity, and a uniform cursor comparison
@@ -109,20 +118,24 @@ export async function reindexEntity(
     );
     if (rows.length === 0) break;
 
+    if (uncheckedSchema) {
+      uncheckedSchema = false;
+      const sampleState = rowToState(rows[0] as Record<string, unknown>, fieldNames);
+      const unmappedField = searchableFields.find((fieldName) => !(fieldName in sampleState));
+      if (unmappedField !== undefined) {
+        throw new Error(
+          `reindexEntity: searchable field "${unmappedField}" is not mappable from read-table ` +
+            `column ${quoteIdent(tableName)} — likely a dropped/never-migrated column.`,
+        );
+      }
+    }
+
     const docs: Array<{ entityId: string; doc: SearchDocument }> = [];
     for (const row of rows) {
       result.scannedRows++;
       const entityId = String(row["id"]);
       try {
         const state = rowToState(row, fieldNames);
-        const unmappedField = searchableFields.find((fieldName) => !(fieldName in state));
-        if (unmappedField !== undefined) {
-          result.failures.push({
-            entityId,
-            reason: `field ${unmappedField} not mappable from read-table column`,
-          });
-          continue;
-        }
         const doc = await buildSearchDocument(entityName, entityId, state, registry);
         if (doc) docs.push({ entityId, doc });
       } catch (e) {

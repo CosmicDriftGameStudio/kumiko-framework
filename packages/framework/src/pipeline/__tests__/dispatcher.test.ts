@@ -360,6 +360,47 @@ describe("dispatcher.stream", () => {
       expect(child.parentSpanId).toBe(dispatcherSpan.spanId);
     }
   });
+
+  test("a close-time error on an otherwise-clean stream is reported, not swallowed", async () => {
+    // Regression for #1543: runStreamInstrumented's finally used to
+    // catch+discard any error from generator.return() unconditionally, even
+    // when nothing else had failed — an abandoned stream whose handler's
+    // own cleanup throws (closing a cursor/unsubscribing) was invisible to
+    // both the error-counter and the span status.
+    const provider = createRecordingProvider();
+    const closeFailFeature = defineFeature("closefail", (r) => {
+      r.streamHandler(
+        "tail",
+        z.object({}),
+        async function* () {
+          try {
+            yield { i: 0 };
+            yield { i: 1 };
+          } finally {
+            // biome-ignore lint/correctness/noUnsafeFinally: deliberately simulating a handler whose close-time cleanup fails
+            throw new Error("close-boom");
+          }
+        },
+        { access: { openToAll: true } },
+      );
+    });
+    const dispatcher = createDispatcher(createRegistry([closeFailFeature]), {
+      tracer: provider.tracer,
+      meter: provider.meter,
+    });
+
+    const gen = dispatcher.stream("closefail:stream:tail", {}, createTestUser());
+    for await (const _chunk of gen) {
+      break;
+    }
+
+    const errorCounters = provider.metricEvents.filter(
+      (e) => e.type === "counter.inc" && e.name === "kumiko_dispatcher_handler_errors_total",
+    );
+    expect(errorCounters).toHaveLength(1);
+    const dispatcherSpan = provider.spansByName("kumiko.dispatcher.handler")[0]!;
+    expect(dispatcherSpan.status).toBe("error");
+  });
 });
 
 // --- postQuery hooks on standalone (entity-less) queries ---

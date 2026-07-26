@@ -59,10 +59,10 @@ export type GdprStackOptions = {
   readonly order?: GdprStackOrder;
   readonly sessions?: boolean;
   readonly tenantLifecycle?: boolean;
-  /** tokenVerifier provider(s) for auth-foundation when `sessions` is on.
-   *  Without at least one, auth-foundation's boot check throws ("no
-   *  tokenVerifier providers registered"). Omit only if the app mounts a
-   *  provider itself elsewhere. */
+  /** Optional tokenVerifier provider(s) (e.g. PAT) when `sessions` is on.
+   *  Session-only stacks need none — sessions registers sessionStore, which
+   *  satisfies auth-foundation's boot check (#1570). Pass providers when the
+   *  app also wants Bearer/PAT auth. */
   readonly providers?: readonly FeatureDefinition[];
 };
 
@@ -84,11 +84,10 @@ export type OpsStackOptions = {
 /** sessions (+ optional auth-mfa). config/user/tenant/auth-email-password stay
  *  on composeFeatures(includeBundled). Pass `mfa` options to mount TOTP.
  *  When `sessions` is on (the default), auth-foundation is mounted alongside it —
- *  the framework's registry now hard-requires it (sessions.requires("auth-foundation")),
- *  which in turn needs at least one tokenVerifier provider mounted by the caller
- *  (e.g. createPersonalAccessTokensFeature({ scopes })) — PAT scopes are app-specific
- *  (which write-handlers an API token may call), so they stay caller-owned instead of
- *  a framework default. */
+ *  the framework's registry now hard-requires it (sessions.requires("auth-foundation")).
+ *  Session-only is enough for boot (#1570); optional Bearer/PAT still needs a
+ *  tokenVerifier provider from the caller (e.g. createPersonalAccessTokensFeature
+ *  ({ scopes })) — PAT scopes are app-specific, so they stay caller-owned. */
 export type IdentityStackOptions = {
   readonly sessions?: boolean;
   readonly mfa?: AuthMfaFeatureOptions;

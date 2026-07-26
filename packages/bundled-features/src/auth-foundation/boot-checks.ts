@@ -1,14 +1,16 @@
 // Multiplicity boot-check for auth-foundation's `tokenVerifier` extension
-// point (#1368). Two static-shape conflicts a boot-check CAN catch (a
+// point (#1368, #1570). Two static-shape conflicts a boot-check CAN catch (a
 // runtime shape-match predicate's overlap can't be proven at boot): a
 // malformed plugin registration, and two providers both claiming the same
-// shape (resolveTokenVerifier can't tell them apart). Zero registered
-// providers is ALSO caught here — fail-fast at boot ("you mounted the
-// foundation but forgot a provider") rather than a runtime 401 nobody
-// can attribute, unlike file-foundation/mail-foundation which defer that
-// check to request-time (their provider is picked from tenant config,
-// which doesn't exist at boot; auth-foundation's providers are static
-// per-deployment, so boot is the right time to catch it).
+// shape (resolveTokenVerifier can't tell them apart). Zero tokenVerifier
+// providers is OK when ≥1 sessionStore is mounted (session-only cookie
+// apps never use Bearer routing). Zero of both is caught here — fail-fast
+// at boot ("you mounted the foundation but forgot sessions or a provider")
+// rather than a runtime 401 nobody can attribute, unlike
+// file-foundation/mail-foundation which defer that check to request-time
+// (their provider is picked from tenant config, which doesn't exist at
+// boot; auth-foundation's providers are static per-deployment, so boot is
+// the right time to catch it).
 
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -43,9 +45,18 @@ export function validateTokenVerifierMultiplicity(features: readonly FeatureDefi
   }
 
   if (namesByShape.size === 0) {
+    // Session-only apps (email-password + sessions) never hit tokenVerifier —
+    // cookie JWT auth uses sessionStore alone (#1570 / phronexsis#296).
+    for (const feature of features) {
+      for (const usage of feature.extensionUsages) {
+        // skip: sessionStore present — tokenVerifier optional for cookie-session apps.
+        if (usage.extensionName === EXT_SESSION_STORE) return;
+      }
+    }
     throw new Error(
-      "[auth-foundation] no tokenVerifier providers registered — mount at least one " +
-        "auth-provider-* feature (e.g. auth-provider-jwt) alongside auth-foundation.",
+      "[auth-foundation] no tokenVerifier providers and no sessionStore registered — mount " +
+        "at least one auth-provider-* feature (e.g. auth-provider-jwt / personal-access-tokens) " +
+        "or a sessionStore (e.g. sessions) alongside auth-foundation.",
     );
   }
 

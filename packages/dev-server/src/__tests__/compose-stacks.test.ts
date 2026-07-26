@@ -144,16 +144,14 @@ describe("composeStacks boots for real", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
-  test("money-horse-shaped composeGdprStack({sessions:true}) without a tokenVerifier provider fails boot", () => {
-    // Regression pin for the open design question this stack shape raised:
-    // composeGdprStack({sessions:true}) mounts auth-foundation, which
-    // hard-requires at least one tokenVerifier provider. Without composing
-    // one in (money-horse/solon's real run-config passes none), boot must
-    // fail loudly instead of silently shipping an unauthenticatable app.
+  test("money-horse-shaped composeGdprStack({sessions:true}) without a tokenVerifier provider passes boot", () => {
+    // Session-only stacks (#1570): composeGdprStack({sessions:true}) mounts
+    // auth-foundation + sessions (sessionStore). Cookie auth does not need a
+    // tokenVerifier; money-horse/solon run-configs pass none and must boot.
     const features = composeFeatures([...composeGdprStack({ sessions: true })], {
       includeBundled: true,
     });
-    expect(() => validateBoot(features)).toThrow(/no tokenVerifier providers registered/i);
+    expect(() => validateBoot(features)).not.toThrow();
   });
 
   test("composeGdprStack({sessions:true, providers:[...]}) passes boot with a tokenVerifier mounted", () => {

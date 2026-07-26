@@ -6,6 +6,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
+  asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
   createTenantDb,
@@ -118,5 +119,26 @@ describe("reindexEntity", () => {
       filterType: "widget",
     });
     expect(postResults).toHaveLength(0);
+  });
+
+  // kumiko-framework#1549: a searchable field with no matching read-table
+  // column (dropped/never-migrated) used to push one identical failures[]
+  // entry per scanned row instead of failing fast — fails loud on the first
+  // row's column set instead, which is invariant across the whole scan.
+  test("throws immediately when a searchable field has no matching column, without scanning every row", async () => {
+    const executor = seedExecutor();
+    await executor.create({ name: "Row A" }, admin, tenantDb());
+    await executor.create({ name: "Row B" }, admin, tenantDb());
+
+    await asRawClient(stack.db).unsafe(`ALTER TABLE "read_reindex_widgets" DROP COLUMN "name"`);
+    try {
+      await expect(
+        reindexEntity(stack.db, stack.registry, stack.search, "widget", admin.tenantId),
+      ).rejects.toThrow(/searchable field "name" is not mappable/);
+    } finally {
+      await asRawClient(stack.db).unsafe(
+        `ALTER TABLE "read_reindex_widgets" ADD COLUMN "name" text`,
+      );
+    }
   });
 });

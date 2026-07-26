@@ -651,16 +651,8 @@ export async function* runStreamInstrumented<T>(
   try {
     let next = await observabilityContext.run({ activeSpan: span }, () => it.next());
     while (!next.done) {
-      try {
-        const sent = yield next.value;
-        next = await observabilityContext.run({ activeSpan: span }, () => it.next(sent));
-      } catch (sendError) {
-        next = await observabilityContext.run({ activeSpan: span }, () => it.throw(sendError));
-        if (next.done) {
-          completedNormally = true;
-          return next.value;
-        }
-      }
+      yield next.value;
+      next = await observabilityContext.run({ activeSpan: span }, () => it.next());
     }
     completedNormally = true;
     return next.value;
@@ -674,8 +666,16 @@ export async function* runStreamInstrumented<T>(
     // forward close so inner()'s finally still fires — yield* did this for free
     try {
       await observabilityContext.run({ activeSpan: span }, () => it.return?.(undefined));
-    } catch {
-      // best-effort cleanup call; the original error (if any) already wins
+    } catch (closeError) {
+      // Only fold this in when nothing has already failed — a close-time
+      // error while an earlier error is in flight would mask the real
+      // cause reported above.
+      if (success) {
+        success = false;
+        errorClass =
+          closeError instanceof Error && closeError.name ? closeError.name : "UnknownError";
+        span.setStatus("error", errorClass);
+      }
     }
     span.end();
     if (!success && errorClass) {

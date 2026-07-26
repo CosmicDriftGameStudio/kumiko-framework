@@ -10,6 +10,7 @@ import {
   ComparisonTable,
   DateField,
   DetailList,
+  Drawer,
   EmptyState,
   MiniStat,
   ModeSwitch,
@@ -46,6 +47,8 @@ const RESPONSE_TIMES = Array.from({ length: 48 }, (_, i) => ({
 
 export function Widgets(): ReactNode {
   const [mode, setMode] = useState<"annuity" | "fixed">("annuity");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { Button } = usePrimitives();
   return (
     <div className="flex flex-col gap-6 p-6" data-testid="widgets-page">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -123,6 +126,23 @@ export function Widgets(): ReactNode {
           description="Lege die erste an, um den Plan zu verkürzen."
         />
       </CollapsibleSection>
+
+      <SectionCard
+        title="Drawer"
+        action={<Button onClick={() => setDrawerOpen(true)}>Öffnen</Button>}
+      >
+        <DetailList rows={[{ label: "Status", value: drawerOpen ? "offen" : "geschlossen" }]} />
+      </SectionCard>
+      <Drawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title="Nachricht"
+        description="William Smith · 09:34"
+        footer={<Button onClick={() => setDrawerOpen(false)}>Schließen</Button>}
+        testId="drawer-demo"
+      >
+        <p className="text-sm">Hi team, just a reminder about our meeting tomorrow at 10 AM.</p>
+      </Drawer>
 
       <FinancingCalculatorDemo />
       <FormFieldsDemo />

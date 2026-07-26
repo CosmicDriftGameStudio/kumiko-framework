@@ -111,22 +111,27 @@ export function createRequestHelper(
   jwt: JwtHelper,
   options: RequestHelperOptions = {},
 ): RequestHelper {
-  // sid per user.id, not one mint per authHeader() call: sessionCreator
-  // opens a live session row, so an unmemoized call mints a fresh one on
-  // every request a test makes for the same user — tests asserting on
-  // session counts / massRevoker / revokeAllOthers behavior then see
-  // extra live sids that have nothing to do with what they're testing.
+  // sid per (user.id, tenantId), not one mint per authHeader() call:
+  // sessionCreator opens a live session row, so an unmemoized call mints a
+  // fresh one on every request a test makes for the same user — tests
+  // asserting on session counts / massRevoker / revokeAllOthers behavior
+  // then see extra live sids that have nothing to do with what they're
+  // testing. Keyed on tenantId too — the same user.id can hold sessions in
+  // more than one tenant, and sessionCreator writes the row scoped to
+  // `user.tenantId` (session-callbacks.ts), so a user.id-only key would
+  // hand a cross-tenant test its wrong tenant's sid.
   // Cache the Promise (not the settled sid) so two concurrent authHeader
-  // calls for the same user share one mint instead of racing on a miss.
-  const sidByUserId = new Map<string, Promise<string>>();
+  // calls for the same key share one mint instead of racing on a miss.
+  const sidByUserKey = new Map<string, Promise<string>>();
 
   async function authHeader(user: SessionUser): Promise<Record<string, string>> {
     let forJwt = user;
     if (options.sessionCreator && !user.sid) {
-      let sidPromise = sidByUserId.get(user.id);
+      const key = `${user.id}:${user.tenantId}`;
+      let sidPromise = sidByUserKey.get(key);
       if (sidPromise === undefined) {
         sidPromise = options.sessionCreator(user, { ip: "test", userAgent: "request-helper" });
-        sidByUserId.set(user.id, sidPromise);
+        sidByUserKey.set(key, sidPromise);
       }
       const sid = await sidPromise;
       forJwt = { ...user, sid };

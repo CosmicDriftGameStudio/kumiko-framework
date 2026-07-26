@@ -32,6 +32,23 @@ describe("renderSafeMarkdown — XSS-Härtung", () => {
     expect(html).toContain('href="#"');
   });
 
+  // kumiko-framework#1545: HTML character references decode client-side
+  // (the browser parses them before the URL parser ever sees the value),
+  // so "javascript&colon;", "java&Tab;script:" and "java&#9;script:" all
+  // normalize to an executable javascript: URL on click even though none
+  // contains a literal ":" for isSafeHref's pre-decode scheme check.
+  test("HTML-entity-obfuscated javascript: hrefs are neutralized", () => {
+    for (const href of [
+      "javascript&colon;alert(1)",
+      "java&Tab;script:alert(1)",
+      "java&#9;script:alert(1)",
+    ]) {
+      const html = renderSafeMarkdown(`[klick](<${href}>)`);
+      expect(html.toLowerCase()).not.toContain("javascript:");
+      expect(html).toContain('href="#"');
+    }
+  });
+
   test("data:-Image-src wird neutralisiert", () => {
     const html = renderSafeMarkdown("![x](data:text/html;base64,PHNjcmlwdD4=)");
     expect(html.toLowerCase()).not.toContain("data:");

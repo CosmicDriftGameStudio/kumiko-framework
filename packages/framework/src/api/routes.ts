@@ -184,7 +184,11 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     }
 
     if (signal.aborted) {
-      await generator.return(undefined);
+      // Fire-and-forget: settledInTime === false means firstPull is by
+      // definition still pending — V8 queues a .return() request behind an
+      // in-flight .next(), so awaiting here would block the response until
+      // that pending pull resolves (which may be never for an idle stream).
+      void generator.return(undefined).catch(() => {});
       return c.body(null, 499 as ContentfulStatusCode); // @cast-boundary non-standard client-closed-request status, Hono's union doesn't include it
     }
 
@@ -247,7 +251,12 @@ export async function pumpStream(
     }
     await stream.writeSSE({ event: StreamFrame.done, data: "" });
   } finally {
-    await generator.return(undefined).catch(() => {});
+    // Fire-and-forget: if writeSSE threw mid-loop, `pending` (the last
+    // generator.next()) may still be unresolved — V8 queues .return()
+    // behind an in-flight .next(), so awaiting here would hang until that
+    // pull settles (which may be never for a handler stuck on a dead
+    // Redis/DB subscription the disconnect just orphaned).
+    void generator.return(undefined).catch(() => {});
   }
 }
 

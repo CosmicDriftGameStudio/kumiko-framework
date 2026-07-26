@@ -27,6 +27,17 @@ export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void>
 // Neither CREATE nor DROP ... CONCURRENTLY may run inside a transaction —
 // no caller of this function (dev-server, schema-cli.ts, stack/db.ts) may
 // wrap it in one, or Postgres raises 25001.
+// undefined = index doesn't exist at all (nothing to drop, CREATE below
+// handles it); false = exists but INVALID (crashed mid-build, needs DROP +
+// rebuild); true = exists and valid.
+async function indexValidity(client: ReturnType<typeof asRawClient>): Promise<boolean | undefined> {
+  const rows = await client.unsafe(
+    `SELECT i.indisvalid FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid ` +
+      `WHERE c.relname = 'events_idempotency_uq' AND i.indrelid = '"kumiko_events"'::regclass`,
+  );
+  return (rows[0] as { indisvalid?: boolean } | undefined)?.indisvalid;
+}
+
 export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
   const client = asRawClient(db);
 
@@ -40,12 +51,7 @@ export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
     //    Detect + rebuild it. Scoped to kumiko_events specifically (indrelid),
     //    not just the relname, so a same-named index in another schema can't
     //    false-positive this DROP.
-    const existing = await client.unsafe(
-      `SELECT i.indisvalid FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid ` +
-        `WHERE c.relname = 'events_idempotency_uq' AND i.indrelid = '"kumiko_events"'::regclass`,
-    );
-    const isInvalid = (existing[0] as { indisvalid?: boolean } | undefined)?.indisvalid === false;
-    if (isInvalid) {
+    if ((await indexValidity(client)) === false) {
       await client.unsafe(`DROP INDEX CONCURRENTLY IF EXISTS "events_idempotency_uq"`);
     }
 
@@ -55,8 +61,21 @@ export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
         `WHERE "metadata"->>'idempotencyKey' IS NOT NULL`,
     );
   } catch (e) {
-    // skip: benign — the losing pod's index already exists valid, courtesy of the winner
-    if (isBenignConcurrentIndexBuildRace(e)) return;
+    if (isBenignConcurrentIndexBuildRace(e)) {
+      // "Benign" only means the losing side of a race, not that the index
+      // actually landed valid — a lock_timeout on the CREATE (55P03) backs
+      // off the same way a genuine duplicate-build race does, but leaves no
+      // valid index at all. Re-check before declaring victory instead of
+      // trusting the error class alone.
+      // skip: sibling pod already built a valid index — this race loser is done.
+      if ((await indexValidity(client)) === true) return;
+      console.warn(
+        `ensureIdempotencyKeyIndex: backed off on a "benign" race (${String(e)}) but ` +
+          `"events_idempotency_uq" is still missing/invalid afterward — likely a ` +
+          `lock_timeout during CREATE INDEX CONCURRENTLY, not an actual winner/loser race.`,
+      );
+      throw e;
+    }
     throw duplicateIdempotencyKeyErrorOr(e);
   }
 }
