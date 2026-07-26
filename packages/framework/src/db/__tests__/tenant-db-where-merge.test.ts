@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField } from "../../engine";
 import { testTenantId } from "../../stack";
+import type { DbRunner } from "../connection";
 import type { TableColumns } from "../dialect";
 import { buildEntityTableMeta } from "../entity-table-meta";
 import { buildEntityTable } from "../table-builder";
-import type { DbRunner } from "../connection";
 import { createTenantDb } from "../tenant-db";
 
 // Tenant-isolation: a caller-supplied `where.tenantId` must NEVER override the
