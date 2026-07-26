@@ -38,8 +38,9 @@ describe("waitFor", () => {
         },
         { delays: [1, 1] },
       ),
-    ).rejects.toThrow("fail-2");
-    expect(calls).toBe(2);
+    ).rejects.toThrow("fail-3");
+    // N delays → N+1 attempts (final try after the last backoff)
+    expect(calls).toBe(3);
   });
 
   test("throws a descriptive error for an empty delay schedule", async () => {
