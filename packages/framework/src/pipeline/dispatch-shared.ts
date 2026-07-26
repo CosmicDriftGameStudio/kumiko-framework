@@ -214,6 +214,9 @@ export function buildHandlerContext(
   // `queryAs` / `writeAs` let a handler explicitly switch identity
   // (e.g. system-privileged lookups that bypass field-access read filters).
   const bridgeSink = afterCommitHooks ?? [];
+  const scheduleAfterCommit = (hook: AfterCommitHook): void => {
+    bridgeSink.push(hook);
+  };
   const bridge = {
     query: (targetType: string, payload: unknown) =>
       executeQuery(ctx, targetType, payload, user, tx), // @wrapper-known semantic-alias
@@ -551,6 +554,7 @@ export function buildHandlerContext(
     _userId: user.id,
     _tenantId: user.tenantId,
     _handlerType: type,
+    scheduleAfterCommit,
     ...(includeDeleted && { includeDeleted: true }),
     ...bridge,
   } as HandlerContext; // @cast-boundary engine-bridge

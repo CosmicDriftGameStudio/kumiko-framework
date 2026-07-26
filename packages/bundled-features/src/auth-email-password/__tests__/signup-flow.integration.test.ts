@@ -76,13 +76,19 @@ const userHookVendorFeature = defineFeature("user-hook-vendor-test", (r) => {
 // `tenantMembership` entity's postSave hooks (e.g. a Welcome-notification
 // hook) on self-signup too — pins the `fireEntityPostSave` call added at
 // seeding.ts's seedTenantMembership, not just the `user`/`tenant` ones.
-const tenantMembershipPostSaveFired = { count: 0 };
+// #1566: also record ctx._tenantId so a shallow-only rescope regresses.
+const tenantMembershipPostSaveFired = { count: 0, seenTenantIds: [] as string[] };
 const tenantMembershipHookVendorFeature = defineFeature(
   "tenant-membership-hook-vendor-test",
   (r) => {
     r.requires("tenant");
-    r.hook("postSave", { allOf: "tenant-membership" }, async (ctx) => {
-      if (ctx.isNew) tenantMembershipPostSaveFired.count++;
+    r.hook("postSave", { allOf: "tenant-membership" }, async (result, context) => {
+      if (result.isNew) {
+        tenantMembershipPostSaveFired.count++;
+        if (context._tenantId !== undefined) {
+          tenantMembershipPostSaveFired.seenTenantIds.push(String(context._tenantId));
+        }
+      }
     });
   },
 );
@@ -164,6 +170,7 @@ beforeEach(async () => {
   emailTransport.sent.length = 0;
   userPostSaveFired.count = 0;
   tenantMembershipPostSaveFired.count = 0;
+  tenantMembershipPostSaveFired.seenTenantIds = [];
   // Redis-cleanup damit Resend-Tests keine state-leaks haben.
   const allKeys = await stack.redis.redis.keys("signup:*");
   if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
@@ -288,6 +295,9 @@ describe("POST /api/auth/signup-confirm", () => {
     // provisionSignupAccount) fires the `tenant-membership` entity's postSave
     // hooks too — before this fix, only seedTenant's hooks param was wired.
     expect(tenantMembershipPostSaveFired.count).toBe(1);
+    // #1566: rescope must put the new tenant on the hook context, not the
+    // anonymous/system caller's tenantId.
+    expect(tenantMembershipPostSaveFired.seenTenantIds).toEqual([body.user?.tenantId ?? ""]);
 
     // Authority-Beweis: Login mit dem gesetzten Password funktioniert.
     const loginRes = await postLogin(email, password);
