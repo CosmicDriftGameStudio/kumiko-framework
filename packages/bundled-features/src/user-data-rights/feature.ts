@@ -542,7 +542,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         // discard the array (only a console.warn for rolledBack cases).
         // ctx.log feeds createJobRunLogger → store_job_run_logs.
         for (const entry of forgetResult.incomplete) {
-          ctx.log.warn(
+          ctx.log?.warn?.(
             `[user-data-rights:run-forget-cleanup] incomplete hook ` +
               `userId=${entry.userId} tenantId=${entry.tenantId} ` +
               `entityName=${entry.entityName} rolledBack=${entry.rolledBack} ` +
