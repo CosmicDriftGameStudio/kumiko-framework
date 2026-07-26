@@ -28,16 +28,16 @@ async function applyTheme(page: Page, theme: (typeof THEMES)[number]): Promise<v
 }
 
 // Logged-in screens: authenticate (cookie-jar shared with the page context),
-// then navigate. Screen-URL = letztes Segment der Screen-id.
+// then navigate. WorkspaceShell routes as `/<workspace>/<screen>` — admin-shell
+// owns tenant-admin (default) + platform; Settings-Hub owns settings.
 const admin = (path: string) => async (page: Page) => {
   await loginAsAdmin(page);
   await page.goto(path);
 };
 
-// auth-mfa-enable is workspace-mode routed (use-all-bundled has workspaces)
-// and unlisted in any workspace's nav — reach it via an explicit workspace
-// prefix. Click "Start setup" so the screenshot shows the QR/recovery-code
-// step, not just the entry button.
+// auth-mfa-enable is unlisted in any workspace's nav — reach it via an
+// explicit workspace prefix. Click "Start setup" so the screenshot shows the
+// QR/recovery-code step, not just the entry button.
 const adminMfaEnroll = () => async (page: Page) => {
   await loginAsAdmin(page);
   await page.goto("/tenant-admin/auth-mfa-enable");
@@ -89,42 +89,48 @@ const adminMfaLoginChallenge = () => async (page: Page) => {
 const SCENARIOS: readonly Scenario[] = [
   // auth-email-password — Login-Surface, ausgeloggt.
   { name: "auth-login", url: "/", waitFor: "form" },
-  // tenant — SystemAdmin entity-list (dev + beta tenant seeded).
-  { name: "tenant", flow: admin("/tenant-list"), settleMs: 1000 },
-  // user — SystemAdmin entity-list (admin user seeded).
-  { name: "user", flow: admin("/user-list"), settleMs: 1000 },
-  // tier-engine — manueller Tier-Grant (SystemAdmin, custom screen).
-  { name: "tier-engine", flow: admin("/tier-admin"), settleMs: 1000 },
+  // tenant — SystemAdmin entity-list (platform workspace nav).
+  { name: "tenant", flow: admin("/platform/tenant-list"), settleMs: 1000 },
+  // user — SystemAdmin entity-list (not in admin-shell nav; tenant-admin prefix).
+  { name: "user", flow: admin("/tenant-admin/user-list"), settleMs: 1000 },
+  // tier-engine — manueller Tier-Grant (platform workspace nav).
+  { name: "tier-engine", flow: admin("/platform/tier-admin"), settleMs: 1000 },
   // user-profile — Self-Service-Kontoseite (custom screen).
-  { name: "user-profile", flow: admin("/profile"), settleMs: 1000 },
+  { name: "user-profile", flow: admin("/tenant-admin/profile"), settleMs: 1000 },
   // user-data-rights — Privacy-Center (GDPR self-service, openToAll).
-  { name: "user-data-rights", flow: admin("/privacy-center"), settleMs: 1000 },
+  { name: "user-data-rights", flow: admin("/tenant-admin/privacy-center"), settleMs: 1000 },
   // managed-pages — TenantAdmin entity-list (about + pricing seeded).
-  { name: "managed-pages", flow: admin("/page-list"), settleMs: 1000 },
+  { name: "managed-pages", flow: admin("/tenant-admin/page-list"), settleMs: 1000 },
   // tags — GitLab-style label management screen (catalog, colors, usage counts).
-  { name: "tags", flow: admin("/tag-list"), settleMs: 1000 },
+  { name: "tags", flow: admin("/tenant-admin/tag-list"), settleMs: 1000 },
   // tags — a host list (notes) with the drop-in TagFilter in its toolbar header.
-  { name: "tags-filter", flow: admin("/note-list"), settleMs: 1000 },
+  { name: "tags-filter", flow: admin("/tenant-admin/note-list"), settleMs: 1000 },
   // tags — a note's edit screen with the drop-in TagSection (assigned colored chips).
-  { name: "tags-section", flow: admin(`/note-edit/${DEMO_NOTE_ID}`), settleMs: 1000 },
+  { name: "tags-section", flow: admin(`/tenant-admin/note-edit/${DEMO_NOTE_ID}`), settleMs: 1000 },
   // legal-pages — öffentliche, server-gerenderte Route (kein Login).
   { name: "legal-pages", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
   // text-content — same public route; CMS blocks rendered by legal-pages wrapper.
   { name: "text-content", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
   // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
-  { name: "personal-access-tokens", flow: admin("/api-tokens"), settleMs: 1000 },
+  { name: "personal-access-tokens", flow: admin("/tenant-admin/api-tokens"), settleMs: 1000 },
+  // config Settings-Hub — mask-derived configEdit under synthetic `settings` workspace.
+  {
+    name: "config-settings-hub",
+    flow: admin("/settings/subscription-stripe-system"),
+    settleMs: 1000,
+  },
   // auth-mfa — logged-in self-service TOTP enrollment (QR + recovery codes).
   { name: "auth-mfa", flow: adminMfaEnroll(), settleMs: 1000 },
   // custom-fields + folders — drop-in extension sections on the note edit screen.
   {
     name: "custom-fields",
-    flow: admin(`/note-edit/${DEMO_NOTE_ID}`),
+    flow: admin(`/tenant-admin/note-edit/${DEMO_NOTE_ID}`),
     settleMs: 1000,
     fullPage: true,
   },
   {
     name: "folders",
-    flow: admin(`/note-edit/${DEMO_NOTE_ID}`),
+    flow: admin(`/tenant-admin/note-edit/${DEMO_NOTE_ID}`),
     settleMs: 1000,
     fullPage: true,
   },
