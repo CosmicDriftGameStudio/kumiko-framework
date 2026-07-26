@@ -6,7 +6,6 @@ import { isWithinGracePeriod } from "../../shared";
 import { USER_STATUS, userTable } from "../../user";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
-
 // POST /api/user/cancel-deletion (S2.U5).
 //
 // Innerhalb der Grace-Period kann User seinen Forget-Antrag zurueck-

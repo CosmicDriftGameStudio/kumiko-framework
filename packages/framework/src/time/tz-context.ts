@@ -55,8 +55,7 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
       const endZdt = today.add({ days: 1 }).toZonedDateTime({ timeZone: tz });
       return { start: startZdt.toInstant(), end: endZdt.toInstant() };
     },
-    parse: (wallClock: string, tz: string) =>
-      T.PlainDateTime.from(wallClock).toZonedDateTime(tz),
+    parse: (wallClock: string, tz: string) => T.PlainDateTime.from(wallClock).toZonedDateTime(tz),
     toInstant: (zdt) => zdt.toInstant(),
     toLocatedJson: (zdt) => ({
       // Wall-clock WITHOUT offset (no "Z", no "+01:00") plus the IANA name.

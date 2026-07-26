@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { ensureTemporalPolyfill, getTemporal } from "../polyfill";
 import { withoutAmbientTemporal } from "../../testing/without-ambient-temporal";
+import { ensureTemporalPolyfill, getTemporal } from "../polyfill";
 
 describe("ensureTemporalPolyfill — re-install after teardown", () => {
   test("re-assigns globalThis.Temporal after delete", async () => {
