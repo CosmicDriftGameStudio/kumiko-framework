@@ -45,6 +45,14 @@ test("Widget-Katalog rendert und ModeSwitch schaltet", async ({ page }) => {
   await expect(inbox.getByText("Bob Johnson · Weekend Plans").first()).toBeVisible();
   await expect(inbox.getByText("William Smith · Meeting Tomorrow")).toBeHidden();
 
+  // Klick auf eine Zeile zeigt die Nachricht im rechten Panel (Split-View).
+  await expect(page.getByText("Keine Nachricht ausgewählt")).toBeVisible();
+  await inbox
+    .getByRole("button", { name: /Bob Johnson/ })
+    .first()
+    .click();
+  await expect(page.getByText("Keine Nachricht ausgewählt")).toBeHidden();
+
   if (process.env["SCREENSHOT"] === "1") {
     await page.screenshot({ path: "/tmp/widgets-catalog.png", fullPage: true });
   }

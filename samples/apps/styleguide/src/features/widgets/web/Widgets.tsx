@@ -19,6 +19,9 @@ import {
   PercentField,
   ProgressBar,
   RangeField,
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
   ResultPanel,
   ResultTable,
   SectionCard,
@@ -163,13 +166,16 @@ type InboxMessage = {
 };
 type InboxPage = { readonly rows: readonly InboxMessage[]; readonly nextCursor: string | null };
 
-// Inbox-artige Scroll-Liste: Filter (Unread-Toggle) + Row-Action (Archivieren,
-// no-op wie die anderen Demo-Buttons hier) + `resizable` — Ziehen an der
-// rechten Kante wie das Nachrichten-Panel in echten Mail-Clients.
+// Inbox-artige Scroll-Liste: Filter (Unread-Toggle + Suche) + Row-Action
+// (Archivieren, no-op wie die anderen Demo-Buttons hier). Klick auf eine Zeile
+// zeigt die Nachricht im rechten Panel — Split via Resizable, wie das
+// Listen/Lese-Paar in echten Mail-Clients (ziehbarer Handle dazwischen statt
+// eines OS-Resize-Griffs).
 function InboxDemo(): ReactNode {
   const { Button } = usePrimitives();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<InboxMessage | null>(null);
   return (
     <SectionCard
       title="Inbox (InfinityList)"
@@ -197,29 +203,52 @@ function InboxDemo(): ReactNode {
         onChange={setSearch}
         placeholder="Absender oder Betreff…"
       />
-      <InfinityList<InboxPage, InboxMessage>
-        query="widgets:query:metrics:inbox-messages"
-        payload={{ unreadOnly, search, limit: 6 }}
-        pageSize={6}
-        rows={(data) => data.rows}
-        nextCursor={(data) => data.nextCursor}
-        rowId={(row) => row.id}
-        resizable
-        testId="inbox-demo"
-        renderRow={(row) => (
-          <div className="flex items-start justify-between gap-4 border-b py-2 last:border-b-0">
-            <div className="min-w-0">
-              <div className={row.unread ? "font-semibold" : ""}>
-                {row.sender} · {row.subject}
+      <ResizablePanelGroup orientation="horizontal" className="mt-3 h-96 rounded-lg border">
+        <ResizablePanel defaultSize="35" minSize="25" className="overflow-y-auto">
+          <InfinityList<InboxPage, InboxMessage>
+            query="widgets:query:metrics:inbox-messages"
+            payload={{ unreadOnly, search, limit: 6 }}
+            pageSize={6}
+            rows={(data) => data.rows}
+            nextCursor={(data) => data.nextCursor}
+            rowId={(row) => row.id}
+            testId="inbox-demo"
+            renderRow={(row) => (
+              <div
+                className={`flex items-start justify-between gap-4 border-b px-3 py-2 last:border-b-0 hover:bg-muted/50 ${
+                  selected?.id === row.id ? "bg-muted" : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setSelected(row)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <div className={row.unread ? "font-semibold" : ""}>
+                    {row.sender} · {row.subject}
+                  </div>
+                  <div className="truncate text-sm text-muted-foreground">{row.snippet}</div>
+                </button>
+                <Button variant="secondary" size="sm" onClick={() => {}}>
+                  Archivieren
+                </Button>
               </div>
-              <div className="truncate text-sm text-muted-foreground">{row.snippet}</div>
+            )}
+          />
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize="65" minSize="30" className="overflow-y-auto p-4">
+          {selected === null ? (
+            <EmptyState title="Keine Nachricht ausgewählt" description="Zeile links anklicken." />
+          ) : (
+            <div>
+              <div className="font-semibold">{selected.sender}</div>
+              <div className="text-sm text-muted-foreground">{selected.subject}</div>
+              <p className="mt-4 text-sm">{selected.snippet}</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={() => {}}>
-              Archivieren
-            </Button>
-          </div>
-        )}
-      />
+          )}
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </SectionCard>
   );
 }
