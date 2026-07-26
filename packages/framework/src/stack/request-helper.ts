@@ -111,21 +111,26 @@ export function createRequestHelper(
   jwt: JwtHelper,
   options: RequestHelperOptions = {},
 ): RequestHelper {
-  // sid per user.id, not one mint per authHeader() call: sessionCreator
-  // opens a live session row, so an unmemoized call mints a fresh one on
-  // every request a test makes for the same user — tests asserting on
-  // session counts / massRevoker / revokeAllOthers behavior then see
-  // extra live sids that have nothing to do with what they're testing.
-  const sidByUserId = new Map<string, string>();
+  // sid per (user.id, tenantId), not one mint per authHeader() call:
+  // sessionCreator opens a live session row, so an unmemoized call mints a
+  // fresh one on every request a test makes for the same user — tests
+  // asserting on session counts / massRevoker / revokeAllOthers behavior
+  // then see extra live sids that have nothing to do with what they're
+  // testing. Keyed on tenantId too — the same user.id can hold sessions in
+  // more than one tenant, and sessionCreator writes the row scoped to
+  // `user.tenantId` (session-callbacks.ts), so a user.id-only key would
+  // hand a cross-tenant test its wrong tenant's sid.
+  const sidByUserKey = new Map<string, string>();
 
   async function authHeader(user: SessionUser): Promise<Record<string, string>> {
     let forJwt = user;
     if (options.sessionCreator && !user.sid) {
-      const cachedSid = sidByUserId.get(user.id);
+      const key = `${user.id}:${user.tenantId}`;
+      const cachedSid = sidByUserKey.get(key);
       const sid =
         cachedSid ??
         (await options.sessionCreator(user, { ip: "test", userAgent: "request-helper" }));
-      if (cachedSid === undefined) sidByUserId.set(user.id, sid);
+      if (cachedSid === undefined) sidByUserKey.set(key, sid);
       forJwt = { ...user, sid };
     }
     const token = await jwt.sign(forJwt);
