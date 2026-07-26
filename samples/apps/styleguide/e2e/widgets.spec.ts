@@ -39,6 +39,12 @@ test("Widget-Katalog rendert und ModeSwitch schaltet", async ({ page }) => {
   await expect(inbox.getByText("William Smith · Meeting Tomorrow").first()).toBeVisible();
   await expect(inbox.getByText("Alice Smith · Re: Project Update")).toBeHidden();
 
+  // Suchfeld filtert serverseitig (Sender/Betreff-Substring).
+  await page.getByRole("button", { name: "Alle", exact: true }).click();
+  await page.getByLabel("Suchen").fill("Bob");
+  await expect(inbox.getByText("Bob Johnson · Weekend Plans").first()).toBeVisible();
+  await expect(inbox.getByText("William Smith · Meeting Tomorrow")).toBeHidden();
+
   if (process.env["SCREENSHOT"] === "1") {
     await page.screenshot({ path: "/tmp/widgets-catalog.png", fullPage: true });
   }

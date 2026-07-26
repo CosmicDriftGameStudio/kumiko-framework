@@ -175,10 +175,17 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       cursor: z.string().optional(),
       limit: z.number().optional(),
       unreadOnly: z.boolean().optional(),
+      search: z.string().optional(),
     }),
-    async ({ payload: { cursor, limit, unreadOnly } }) => {
-      const filtered =
-        unreadOnly === true ? INBOX_MESSAGES.filter((m) => m.unread) : INBOX_MESSAGES;
+    async ({ payload: { cursor, limit, unreadOnly, search } }) => {
+      const term = search?.trim().toLowerCase() ?? "";
+      const filtered = INBOX_MESSAGES.filter(
+        (m) =>
+          (unreadOnly !== true || m.unread) &&
+          (term === "" ||
+            m.sender.toLowerCase().includes(term) ||
+            m.subject.toLowerCase().includes(term)),
+      );
       const start = cursor !== undefined ? Number(cursor) : 0;
       const pageSize = limit ?? 6;
       const rows = filtered.slice(start, start + pageSize);

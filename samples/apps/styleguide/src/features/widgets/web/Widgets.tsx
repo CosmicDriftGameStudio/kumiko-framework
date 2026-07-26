@@ -169,6 +169,7 @@ type InboxPage = { readonly rows: readonly InboxMessage[]; readonly nextCursor: 
 function InboxDemo(): ReactNode {
   const { Button } = usePrimitives();
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [search, setSearch] = useState("");
   return (
     <SectionCard
       title="Inbox (InfinityList)"
@@ -188,9 +189,17 @@ function InboxDemo(): ReactNode {
         </div>
       }
     >
+      <TextField
+        label="Suchen"
+        id="inbox-search"
+        name="inbox-search"
+        value={search}
+        onChange={setSearch}
+        placeholder="Absender oder Betreff…"
+      />
       <InfinityList<InboxPage, InboxMessage>
         query="widgets:query:metrics:inbox-messages"
-        payload={{ unreadOnly, limit: 6 }}
+        payload={{ unreadOnly, search, limit: 6 }}
         pageSize={6}
         rows={(data) => data.rows}
         nextCursor={(data) => data.nextCursor}
