@@ -118,7 +118,6 @@ beforeAll(async () => {
       noSignedUrlProviderFeature,
       authFoundationFeature,
       createSessionsFeature(),
-
       createUserDataRightsFeature(),
     ],
     extraContext: ({ registry }) => ({

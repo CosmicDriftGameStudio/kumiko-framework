@@ -72,7 +72,7 @@ let invalidated: string[];
 let unsubscribe: (() => void) | undefined;
 
 function trackInvalidation(userId: string): void {
-  unsubscribe = stack.sseBroker.subscribeAccessInvalidation(userId, () => {
+  unsubscribe = stack.sseBroker.subscribeAccessInvalidation?.(userId, () => {
     invalidated.push(userId);
   });
 }

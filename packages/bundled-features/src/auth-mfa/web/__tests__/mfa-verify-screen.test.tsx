@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -7,6 +7,7 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, type RenderResult, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
+import { installFetchMock } from "../../../auth-email-password/web/__tests__/fetch-mock";
 import { makeSessionApi } from "../../../auth-email-password/web/__tests__/test-utils";
 import { SessionContext } from "../../../auth-email-password/web/session";
 import { defaultTranslations } from "../i18n";
@@ -25,16 +26,7 @@ function renderScreen(ui: ReactElement, session = makeSessionApi()): RenderResul
   );
 }
 
-const originalFetch = globalThis.fetch;
-
-beforeEach(() => {
-  globalThis.fetch = mock(
-    async () => new Response(null, { status: 200 }),
-  ) as unknown as typeof fetch;
-});
-afterEach(() => {
-  globalThis.fetch = originalFetch;
-});
+installFetchMock();
 
 describe("MfaVerifyScreen", () => {
   test("rendert Titel + Code-Feld + Submit-Button (de)", () => {

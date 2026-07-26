@@ -60,7 +60,6 @@ const features = [
   createComplianceProfilesFeature(),
   authFoundationFeature,
   createSessionsFeature(),
-
   createUserDataRightsFeature(),
 ];
 

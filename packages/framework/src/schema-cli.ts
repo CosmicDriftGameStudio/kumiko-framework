@@ -273,11 +273,10 @@ export async function runSchemaCli(
 
       // 3. Migration-content drift — replay the committed *.sql files and
       // diff the reconstructed schema against .snapshot.json.
-      const committedSnapshot = existsSync(snapshotPath) ? loadSnapshotJson(snapshotPath) : null;
-      if (existsSync(migrationsDir) && committedSnapshot !== null) {
+      if (existsSync(migrationsDir) && prevSnapshot !== null) {
         try {
           const replayed = replayMigrationsDir(migrationsDir);
-          const mismatches = diffReplayAgainstSnapshot(replayed, committedSnapshot);
+          const mismatches = diffReplayAgainstSnapshot(replayed, prevSnapshot);
           if (mismatches.length === 0) {
             out.log("  ✓ migrations: table/column names match .snapshot.json");
           } else {

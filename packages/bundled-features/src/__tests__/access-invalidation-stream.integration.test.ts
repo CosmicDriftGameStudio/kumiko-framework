@@ -53,25 +53,28 @@ const callbacks = createLateBoundHolder<SessionCallbacks>("session-callbacks");
 const encryptionKey = randomBytes(32).toString("base64");
 const TENANT = testTenantId(1);
 
-// Gate between chunk 0 and chunk 1 so the test can revoke + drain the event
-// consumer before the stream's next pull — otherwise an eager pump would
-// race past the invalidation window.
-let releaseNextChunk: (() => void) | undefined;
-let nextChunkGate: Promise<void>;
+// Per-stream gate (gateId in payload) so parallel/second streams don't share
+// one module-level Promise — Map keyed by the id the test picks.
+const chunkGates = new Map<string, { promise: Promise<void>; release: () => void }>();
 
-function resetGate(): void {
-  nextChunkGate = new Promise<void>((resolve) => {
-    releaseNextChunk = resolve;
+function createGate(gateId: string): () => void {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
   });
+  chunkGates.set(gateId, { promise, release });
+  return release;
 }
 
 const streamProbeFeature = defineFeature("stream-probe", (r) => {
   r.streamHandler(
     "probe:tail",
-    z.object({}).optional(),
-    async function* () {
+    z.object({ gateId: z.string().min(1) }),
+    async function* (event) {
       yield { phase: "open" as const };
-      await nextChunkGate;
+      const gate = chunkGates.get(event.payload.gateId);
+      if (!gate) throw new Error(`missing gate ${event.payload.gateId}`);
+      await gate.promise;
       // Reached only if mid-stream access check failed to cut the generator.
       yield { phase: "should-not-reach-client" as const };
     },
@@ -144,62 +147,73 @@ beforeEach(async () => {
     userSessionTable,
     eventsTable,
   ]);
-  resetGate();
+  chunkGates.clear();
 });
 
+async function openProbeStream(token: string): Promise<{
+  iter: AsyncIterator<{ phase: string }>;
+  release: () => void;
+}> {
+  const gateId = generateToken();
+  const release = createGate(gateId);
+  const { fetch, csrfToken } = buildLiveFetch(token);
+  const dispatcher = createLiveDispatcher({ fetch, readCsrf: () => csrfToken });
+  const iter = dispatcher
+    .stream<{ phase: string }>("stream-probe:stream:probe:tail", { gateId })
+    [Symbol.asyncIterator]();
+  const first = await iter.next();
+  expect(first.done).toBe(false);
+  expect(first.value).toEqual({ phase: "open" });
+  return { iter, release };
+}
+
 describe("access-invalidation mid-stream SSE teardown (#1561)", () => {
-  test("session revoke mid-stream terminates the open HTTP SSE stream", async () => {
-    await h.seedUser("stream-revoke@example.com", "pw-long-enough");
-    const { token, sid } = await h.login("stream-revoke@example.com", "pw-long-enough");
+  const cases = [
+    {
+      name: "session revoke mid-stream terminates the open HTTP SSE stream",
+      setup: async () => {
+        await h.seedUser("stream-revoke@example.com", "pw-long-enough");
+        const { token, sid } = await h.login("stream-revoke@example.com", "pw-long-enough");
+        return {
+          token,
+          revoke: async () => {
+            const revokeRes = await h.authedPost("/api/write", token, {
+              type: SessionHandlers.revoke,
+              payload: { id: sid },
+            });
+            expect(revokeRes.status).toBe(200);
+          },
+        };
+      },
+    },
+    {
+      name: "tenant role strip mid-stream terminates the open HTTP SSE stream",
+      setup: async () => {
+        const { userId } = await h.seedUser("stream-roles@example.com", "pw-long-enough");
+        const { token } = await h.login("stream-roles@example.com", "pw-long-enough");
+        return {
+          token,
+          revoke: async () => {
+            const admin = await withMintedSession(sessionCreator, TestUsers.systemAdmin);
+            await stack.http.writeOk(
+              TenantHandlers.updateMemberRoles,
+              { userId, tenantId: TENANT, roles: ["Admin"] },
+              admin,
+            );
+          },
+        };
+      },
+    },
+  ] as const;
 
-    const { fetch, csrfToken } = buildLiveFetch(token);
-    const dispatcher = createLiveDispatcher({ fetch, readCsrf: () => csrfToken });
-
-    const iter = dispatcher
-      .stream<{ phase: string }>("stream-probe:stream:probe:tail", {})
-      [Symbol.asyncIterator]();
-
-    const first = await iter.next();
-    expect(first.done).toBe(false);
-    expect(first.value).toEqual({ phase: "open" });
-
-    const revokeRes = await h.authedPost("/api/write", token, {
-      type: SessionHandlers.revoke,
-      payload: { id: sid },
+  for (const c of cases) {
+    test(c.name, async () => {
+      const { token, revoke } = await c.setup();
+      const { iter, release } = await openProbeStream(token);
+      await revoke();
+      await stack.eventDispatcher?.runOnce();
+      release();
+      await expect(iter.next()).rejects.toMatchObject({ code: "access_denied" });
     });
-    expect(revokeRes.status).toBe(200);
-    await stack.eventDispatcher?.runOnce();
-
-    releaseNextChunk?.();
-
-    await expect(iter.next()).rejects.toMatchObject({ code: "access_denied" });
-  });
-
-  test("tenant role strip mid-stream terminates the open HTTP SSE stream", async () => {
-    const { userId } = await h.seedUser("stream-roles@example.com", "pw-long-enough");
-    const { token } = await h.login("stream-roles@example.com", "pw-long-enough");
-
-    const { fetch, csrfToken } = buildLiveFetch(token);
-    const dispatcher = createLiveDispatcher({ fetch, readCsrf: () => csrfToken });
-
-    const iter = dispatcher
-      .stream<{ phase: string }>("stream-probe:stream:probe:tail", {})
-      [Symbol.asyncIterator]();
-
-    const first = await iter.next();
-    expect(first.done).toBe(false);
-    expect(first.value).toEqual({ phase: "open" });
-
-    const admin = await withMintedSession(sessionCreator, TestUsers.systemAdmin);
-    await stack.http.writeOk(
-      TenantHandlers.updateMemberRoles,
-      { userId, tenantId: TENANT, roles: ["Admin"] },
-      admin,
-    );
-    await stack.eventDispatcher?.runOnce();
-
-    releaseNextChunk?.();
-
-    await expect(iter.next()).rejects.toMatchObject({ code: "access_denied" });
-  });
+  }
 });

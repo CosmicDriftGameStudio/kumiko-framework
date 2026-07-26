@@ -212,7 +212,7 @@ describe("audit: list query", () => {
     ];
     for (const [name, createdAt] of stamps) {
       const id = byName.get(name);
-      expect(id).toBeDefined();
+      if (!id) throw new Error(`missing event for ${name}`);
       await asRawClient(stack.db).unsafe(
         `UPDATE kumiko_events SET created_at = $1::timestamptz WHERE id = $2::bigint`,
         [createdAt, id],
@@ -244,7 +244,10 @@ describe("audit: list query", () => {
       admin,
     );
     expect(untilBefore.rows).toHaveLength(1);
-    expect((untilBefore.rows[0]?.payload as { name?: string }).name).toBe("before-window");
+    const untilRow = untilBefore.rows[0];
+    expect(untilRow).toBeDefined();
+    if (!untilRow) throw new Error("expected untilBefore row");
+    expect((untilRow.payload as { name?: string }).name).toBe("before-window");
   });
 
   test("rejects inverted from/to range with validation_error", async () => {

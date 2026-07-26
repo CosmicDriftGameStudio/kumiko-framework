@@ -407,7 +407,9 @@ export function createInboundMailSupervisor(
       }
       state.stop = stop;
       state.backoffMs = backoffInitialMs;
-      void markAccount(account, { watchState: "watching" }, "watch_supervisor");
+      // Await — fire-and-forget raced with a later auth_error mark under
+      // try-first waitFor (isWatching true before projection settled).
+      await markAccount(account, { watchState: "watching" }, "watch_supervisor");
     } catch (err) {
       const keepRunning = await handleSyncError(account, err);
       if (keepRunning) scheduleRestart(err);

@@ -62,7 +62,6 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       authFoundationFeature,
       createSessionsFeature(),
-
       createUserDataRightsFeature(),
     ],
   });
@@ -969,7 +968,6 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
         createComplianceProfilesFeature(),
         authFoundationFeature,
         createSessionsFeature(),
-
         createUserDataRightsFeature(),
         testFileExporter,
       ],

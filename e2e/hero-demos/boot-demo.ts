@@ -85,16 +85,13 @@ if (!alreadyScaffolded) {
     console.error(`[boot-demo] runCreate exited with ${exit}`);
     process.exit(exit);
   }
-
-  // Pin @cosmicdrift/* to this monorepo checkout. Hero scaffolds via HEAD
-  // create-kumiko-app (e.g. #1514 drops PAT from --yes); published npm may
-  // lag (e.g. #1571 session-only boot). Mixing HEAD scaffold + stale npm
-  // false-fails the suite — workspace pins keep scaffold + runtime in lockstep.
-  relinkCosmicDriftToWorkspace(appDir, REPO_ROOT);
-
-  console.log("[boot-demo] bun install (workspace @cosmicdrift/* pins)…");
-  execFileSync("bun", ["install"], { cwd: appDir, stdio: "inherit" });
 }
+
+// Always relink — a cached .tmp/<demo> from before a pin change would keep
+// stale npm versions forever if this lived only in the scaffold branch.
+relinkCosmicDriftToWorkspace(appDir, REPO_ROOT);
+console.log("[boot-demo] bun install (workspace @cosmicdrift/* pins)…");
+execFileSync("bun", ["install"], { cwd: appDir, stdio: "inherit" });
 
 writeFileSync(
   resolve(appDir, ".env"),

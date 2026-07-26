@@ -59,9 +59,12 @@ async function* executeStreamInner(
   const invalidated = new Promise<void>((resolve) => {
     resolveInvalidated = resolve;
   });
-  const unsubscribeAccessInvalidation = ctx.sseBroker?.subscribeAccessInvalidation(user.id, () => {
-    resolveInvalidated?.();
-  });
+  const unsubscribeAccessInvalidation = ctx.sseBroker?.subscribeAccessInvalidation?.(
+    user.id,
+    () => {
+      resolveInvalidated?.();
+    },
+  );
 
   let iterator: AsyncIterator<unknown> | undefined;
   // When access is revoked mid-pull, `iterator.next()` is still in flight.

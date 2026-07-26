@@ -81,6 +81,7 @@ export function splitSqlStatements(sqlText: string): readonly string[] {
   const statements: string[] = [];
   let current = "";
   let state: SqlScanState = "normal";
+  let blockCommentDepth = 0;
 
   for (let i = 0; i < sqlText.length; i++) {
     const ch = sqlText.charAt(i);
@@ -94,11 +95,21 @@ export function splitSqlStatements(sqlText: string): readonly string[] {
       continue;
     }
     if (state === "blockComment") {
-      if (ch === "*" && next === "/") {
-        state = "normal";
+      // Postgres nests block comments — track depth so the first `*/` does
+      // not leave trailing comment text in the statement.
+      if (ch === "/" && next === "*") {
+        blockCommentDepth++;
         i++;
-        // Keep a space so `a/*x*/AS` does not become `aAS`.
-        current += " ";
+        continue;
+      }
+      if (ch === "*" && next === "/") {
+        i++;
+        blockCommentDepth--;
+        if (blockCommentDepth === 0) {
+          state = "normal";
+          // Keep a space so `a/*x*/AS` does not become `aAS`.
+          current += " ";
+        }
       }
       continue;
     }
@@ -135,6 +146,7 @@ export function splitSqlStatements(sqlText: string): readonly string[] {
     }
     if (ch === "/" && next === "*") {
       state = "blockComment";
+      blockCommentDepth = 1;
       i++;
       continue;
     }

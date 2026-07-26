@@ -70,7 +70,6 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       authFoundationFeature,
       createSessionsFeature(),
-
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
     ],

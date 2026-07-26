@@ -1,3 +1,4 @@
+import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
@@ -58,14 +59,21 @@ export const revokeAllForUserWrite = defineWriteHandler({
         userId: event.payload.userId,
         sessionIds: updated.map((row) => row.id),
       });
+      const reqCtx = requestContext.get();
       await append(ctx.db.raw, {
         aggregateId: generateId(),
         aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
         tenantId: SYSTEM_TENANT_ID,
         expectedVersion: 0,
         type: SESSION_REVOKED_EVENT_QN,
+        eventVersion: ctx.registry.getEvent(SESSION_REVOKED_EVENT_QN)?.version ?? 1,
         payload,
-        metadata: { userId: event.user.id },
+        metadata: {
+          userId: event.user.id,
+          ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
+          ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
+          ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
+        },
       });
     }
 

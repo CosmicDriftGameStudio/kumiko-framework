@@ -1,14 +1,9 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  AccessDeniedError,
-  UnprocessableError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { tenantMembershipsTable } from "../../tenant";
 import { USER_STATUS, userTable } from "../../user";
-import { isSystemAdminActor } from "../lib/is-admin-actor";
+import { denyIfTargetOutsideAdminTenant } from "../lib/deny-if-target-outside-admin-tenant";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
 // POST /api/user/lift-restriction (S2.U6) — DSGVO Art. 18 Reverse.
@@ -41,19 +36,8 @@ export const liftRestrictionWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId;
 
-    if (!isSystemAdminActor(event.user)) {
-      const membership = await fetchOne(ctx.db.raw, tenantMembershipsTable, {
-        userId: targetUserId,
-        tenantId: event.user.tenantId,
-      });
-      if (!membership) {
-        return writeFailure(
-          new AccessDeniedError({
-            details: { reason: "target_user_not_in_admin_tenant" },
-          }),
-        );
-      }
-    }
+    const outside = await denyIfTargetOutsideAdminTenant(ctx.db.raw, event.user, targetUserId);
+    if (outside) return outside;
 
     const userRow = await fetchOne<{ status: string }>(ctx.db.raw, userTable, {
       id: targetUserId,

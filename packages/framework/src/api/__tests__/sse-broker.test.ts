@@ -1,5 +1,14 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createSseBroker, type SseEvent } from "../sse-broker";
+import { createSseBroker, type SseBroker, type SseEvent } from "../sse-broker";
+
+function requireAccessInvalidation(broker: SseBroker) {
+  const subscribe = broker.subscribeAccessInvalidation;
+  const publish = broker.publishAccessInvalidation;
+  if (!subscribe || !publish) {
+    throw new Error("createSseBroker must implement access-invalidation hooks");
+  }
+  return { subscribe, publish };
+}
 
 describe("SSE broker", () => {
   test("adds client and tracks count", () => {
@@ -57,59 +66,59 @@ describe("SSE broker", () => {
   });
 
   test("subscribeAccessInvalidation fires only listeners on the same user's channel", () => {
-    const broker = createSseBroker();
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
     const onInvalidateA = mock();
     const onInvalidateB = mock();
 
-    broker.subscribeAccessInvalidation("user-a", onInvalidateA);
-    broker.subscribeAccessInvalidation("user-b", onInvalidateB);
+    subscribe("user-a", onInvalidateA);
+    subscribe("user-b", onInvalidateB);
 
-    broker.publishAccessInvalidation("user-a");
+    publish("user-a");
 
     expect(onInvalidateA).toHaveBeenCalledTimes(1);
     expect(onInvalidateB).not.toHaveBeenCalled();
   });
 
   test("subscribeAccessInvalidation supports multiple listeners on the same user", () => {
-    const broker = createSseBroker();
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
     const first = mock();
     const second = mock();
 
-    broker.subscribeAccessInvalidation("user-a", first);
-    broker.subscribeAccessInvalidation("user-a", second);
-    broker.publishAccessInvalidation("user-a");
+    subscribe("user-a", first);
+    subscribe("user-a", second);
+    publish("user-a");
 
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(1);
   });
 
   test("unsubscribe (returned closure) stops further delivery", () => {
-    const broker = createSseBroker();
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
     const onInvalidate = mock();
 
-    const unsubscribe = broker.subscribeAccessInvalidation("user-a", onInvalidate);
+    const unsubscribe = subscribe("user-a", onInvalidate);
     unsubscribe();
-    broker.publishAccessInvalidation("user-a");
+    publish("user-a");
 
     expect(onInvalidate).not.toHaveBeenCalled();
   });
 
   test("a fired listener can unsubscribe itself without skipping other listeners", () => {
-    const broker = createSseBroker();
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
     let unsubscribeSelf: () => void = () => {};
     const self = mock(() => unsubscribeSelf());
     const other = mock();
 
-    unsubscribeSelf = broker.subscribeAccessInvalidation("user-a", self);
-    broker.subscribeAccessInvalidation("user-a", other);
-    broker.publishAccessInvalidation("user-a");
+    unsubscribeSelf = subscribe("user-a", self);
+    subscribe("user-a", other);
+    publish("user-a");
 
     expect(self).toHaveBeenCalledTimes(1);
     expect(other).toHaveBeenCalledTimes(1);
   });
 
   test("publishAccessInvalidation to a user with no listeners does nothing", () => {
-    const broker = createSseBroker();
-    expect(() => broker.publishAccessInvalidation("nobody-listening")).not.toThrow();
+    const { publish } = requireAccessInvalidation(createSseBroker());
+    expect(() => publish("nobody-listening")).not.toThrow();
   });
 });
