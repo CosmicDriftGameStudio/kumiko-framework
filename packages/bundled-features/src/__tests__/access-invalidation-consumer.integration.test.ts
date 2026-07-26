@@ -89,7 +89,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
       authFoundationFeature,
-      createSessionsFeature(),
+      createSessionsFeature({ autoRevokeOnPasswordChange: bound.asMassRevoker() }),
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
@@ -238,5 +238,42 @@ describe("access-invalidation event consumer", () => {
     await stack.eventDispatcher?.runOnce();
 
     expect(invalidated).toEqual([]);
+  });
+
+  test("password change (sessionMassRevoker) pushes an invalidation for that user", async () => {
+    const { userId } = await h.seedUser("pwchange@example.com", "old-pw-long-enough");
+    const { token } = await h.login("pwchange@example.com", "old-pw-long-enough");
+    trackInvalidation(userId);
+
+    // The industry-standard "password change signs you out everywhere" flow
+    // — goes through the sessionMassRevoker callback (feature.ts's postSave
+    // hook on passwordHash changes), NOT one of the *.write.ts handlers.
+    // This is exactly the gap a security review of #1560 caught: that
+    // callback did a raw updateMany with no event, so an already-open SSE
+    // stream survived a password change.
+    const res = await h.authedPost("/api/write", token, {
+      type: AuthHandlers.changePassword,
+      payload: { oldPassword: "old-pw-long-enough", newPassword: "new-pw-long-enough" },
+    });
+    expect(res.status).toBe(200);
+
+    await stack.eventDispatcher?.runOnce();
+
+    expect(invalidated).toEqual([userId]);
+  });
+
+  test("sessionRevokeAllOthers callback (used by auth-mfa, distinct from the revoke-all-others.write.ts handler) pushes an invalidation", async () => {
+    const { userId } = await h.seedUser("mfarevoke@example.com", "pw-long-enough");
+    await h.login("mfarevoke@example.com", "pw-long-enough");
+    trackInvalidation(userId);
+
+    // currentSid undefined → revokes every live session, mirrors how
+    // auth-mfa calls this callback directly (no dispatcher ctx available).
+    const revoked = await callbacks.get().sessionRevokeAllOthers(userId, undefined);
+    expect(revoked).toBeGreaterThan(0);
+
+    await stack.eventDispatcher?.runOnce();
+
+    expect(invalidated).toEqual([userId]);
   });
 });
