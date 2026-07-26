@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
+import type { SseBroker } from "../../api/sse-broker";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { TenantId } from "../../engine/types/identifiers";
 import { createSecret } from "../../secrets/types";
@@ -290,6 +291,66 @@ describe("dispatcher.stream", () => {
     await expect(
       collect(dispatcher.stream("echo:stream:item:tail", { count: 1 }, guest)),
     ).rejects.toMatchObject({ code: "access_denied" });
+  });
+
+  test("access invalidation mid-stream rejects with AccessDeniedError and unsubscribes", async () => {
+    let onInvalidate: (() => void) | undefined;
+    let unsubscribeCalls = 0;
+    const broker: SseBroker = {
+      addClient() {
+        return "c";
+      },
+      removeClient() {},
+      pushToChannel() {},
+      getClientCount() {
+        return 0;
+      },
+      getTotalClientCount() {
+        return 0;
+      },
+      subscribeAccessInvalidation(_userId, cb) {
+        onInvalidate = cb;
+        return () => {
+          unsubscribeCalls++;
+        };
+      },
+      publishAccessInvalidation() {},
+    };
+
+    let releaseHang: (() => void) | undefined;
+    const hang = new Promise<void>((resolve) => {
+      releaseHang = resolve;
+    });
+
+    const revokeFeature = defineFeature("revoke", (r) => {
+      r.streamHandler(
+        "tail",
+        z.object({}),
+        async function* () {
+          yield { i: 0 };
+          await hang;
+          yield { i: 1 };
+          releaseHang?.();
+        },
+        { access: { roles: ["Admin"] } },
+      );
+    });
+
+    const user = createTestUser({ roles: ["Admin"] });
+    const dispatcher = createDispatcher(createRegistry([revokeFeature]), {}, { sseBroker: broker });
+    const gen = dispatcher.stream("revoke:stream:tail", {}, user);
+    const first = await gen.next();
+    expect(first.value).toEqual({ i: 0 });
+    expect(onInvalidate).toBeDefined();
+    // Start the idle second pull, then revoke — mirrors heartbeat-only SSE
+    // streams that must die without waiting for the next chunk (#1563).
+    const second = gen.next();
+    onInvalidate?.();
+    await expect(second).rejects.toMatchObject({
+      code: "access_denied",
+      message: expect.stringContaining("access revoked mid-stream"),
+    });
+    expect(unsubscribeCalls).toBe(1);
   });
 
   test("throws for unknown stream handler", async () => {

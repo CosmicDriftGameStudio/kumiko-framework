@@ -66,6 +66,11 @@ async function* executeStreamInner(
   });
 
   let iterator: AsyncIterator<unknown> | undefined;
+  // When access is revoked mid-pull, `iterator.next()` is still in flight.
+  // Awaiting `iterator.return()` in that state deadlocks async generators in
+  // Bun (overlapping next+return). Track abandonment so finally skips the
+  // await; close is fire-and-forget instead (#1563).
+  let abandonedForInvalidation = false;
   try {
     const handlerContext = buildHandlerContext(ctx, type, user);
     const chunks = handler.handler({ type, payload: parsed.data, user }, handlerContext);
@@ -78,6 +83,9 @@ async function* executeStreamInner(
         invalidated.then(() => ({ kind: "invalidated" as const })),
       ]);
       if (outcome.kind === "invalidated") {
+        abandonedForInvalidation = true;
+        void nextPull.catch(() => {});
+        void iterator.return?.(undefined)?.then(undefined, () => {});
         throw new AccessDeniedError({
           message: `access revoked mid-stream for ${type}`,
           details: { handler: type },
@@ -90,11 +98,12 @@ async function* executeStreamInner(
     }
   } finally {
     unsubscribeAccessInvalidation?.();
-    // Consumer break / access revoke / throw — always close the handler
-    // generator so its finally (cleanup) runs (for-await would do this).
-    // Do NOT swallow return() errors — close-time cleanup failures must
-    // surface to runStreamInstrumented (#1543).
-    if (iterator !== undefined) {
+    // Consumer break / throw — always close the handler generator so its
+    // finally (cleanup) runs (for-await would do this). Do NOT swallow
+    // return() errors — close-time cleanup failures must surface to
+    // runStreamInstrumented (#1543). Skip the await after access-revoke
+    // abandonment (overlapping next+return deadlocks — see above).
+    if (iterator !== undefined && !abandonedForInvalidation) {
       await iterator.return?.(undefined);
     }
   }
