@@ -11,7 +11,7 @@ import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { verifyDummyPassword, verifyPassword } from "../../shared";
 import { USER_STATUS, UserQueries } from "../../user";
-import { parseAuthUserRow } from "../auth-user-row";
+import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row";
 import {
   AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
   AUTH_LOCKOUT_DEFAULT_MAX_FAILED_ATTEMPTS,
@@ -72,6 +72,169 @@ type LoginResult =
   | { readonly kind: "mfa-challenge"; readonly challengeToken: string }
   | { readonly kind: "mfa-setup-required"; readonly preauthSetupToken: string };
 
+type Membership = { readonly tenantId: TenantId; readonly roles: readonly string[] };
+
+type GateReject = { readonly ok: false; readonly result: WriteResult<LoginResult> };
+type GateOk<T> = { readonly ok: true; readonly value: T };
+type GateOutcome<T> = GateReject | GateOk<T>;
+
+function reject(result: WriteResult<LoginResult>): GateReject {
+  return { ok: false, result };
+}
+
+function ok<T>(value: T): GateOk<T> {
+  return { ok: true, value };
+}
+
+/** Uniform response on any credential miss — burns argon2 cost (#774). */
+export async function gateResolveAuthUser(
+  ctx: HandlerContext,
+  systemUser: SessionUser,
+  email: string,
+  password: string,
+): Promise<GateOutcome<AuthUserRow>> {
+  const found = parseAuthUserRow(
+    await ctx.queryAs(systemUser, UserQueries.findForAuth, { email }),
+  );
+  if (!found?.passwordHash || found.isDeleted) {
+    await verifyDummyPassword(password);
+    return reject(invalidCredentials());
+  }
+  return ok(found);
+}
+
+/**
+ * Lockout BEFORE password verify — locked accounts can't be password-probed.
+ * Fail-open without Redis (IP rate-limit still covers partially).
+ */
+export async function gateEnforceLockout(
+  ctx: HandlerContext,
+  userId: string,
+): Promise<GateOutcome<undefined>> {
+  if (!ctx.redis) return ok(undefined);
+  const state = await getLockoutState(ctx.redis, userId);
+  if (state?.lockedUntil !== null && state?.lockedUntil !== undefined) {
+    const now = Date.now();
+    if (state.lockedUntil > now) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((state.lockedUntil - now) / 1000));
+      return reject(accountLocked(retryAfterSeconds));
+    }
+  }
+  return ok(undefined);
+}
+
+/** Verify password; record miss / clear lockout on hit. */
+export async function gateVerifyPassword(
+  ctx: HandlerContext,
+  found: AuthUserRow,
+  password: string,
+  maxFailedAttempts: number,
+  lockoutDurationMinutes: number,
+): Promise<GateOutcome<undefined>> {
+  const passwordHash = found.passwordHash;
+  if (!passwordHash) return reject(invalidCredentials());
+  const passwordOk = await verifyPassword(passwordHash, password);
+  if (!passwordOk) {
+    if (ctx.redis) {
+      await recordFailedAttempt(ctx.redis, found.id, maxFailedAttempts, lockoutDurationMinutes);
+    }
+    return reject(invalidCredentials());
+  }
+  // Clear before MFA — MFA has its own attempt-cap; don't password-lock
+  // users who occasionally mistype across otherwise-successful logins.
+  if (ctx.redis) {
+    await clearLockoutState(ctx.redis, found.id);
+  }
+  return ok(undefined);
+}
+
+/** Strict email verification — after password, before session. */
+export function gateEnforceEmailVerified(
+  found: AuthUserRow,
+  strictVerification: boolean,
+): GateOutcome<undefined> {
+  if (strictVerification && found.emailVerified !== true) {
+    return reject(emailNotVerified());
+  }
+  return ok(undefined);
+}
+
+/** DSGVO Art. 18 freeze + forget-path anti-enumeration. */
+export function gateEnforceAccountStatus(found: AuthUserRow): GateOutcome<undefined> {
+  if (found.status === USER_STATUS.Restricted) {
+    return reject(accountRestricted());
+  }
+  if (found.status === USER_STATUS.DeletionRequested || found.status === USER_STATUS.Deleted) {
+    return reject(invalidCredentials());
+  }
+  return ok(undefined);
+}
+
+/** Pick membership (last-active preferred); merge global + tenant roles. */
+export async function gateResolveMembership(
+  ctx: HandlerContext,
+  systemUser: SessionUser,
+  found: AuthUserRow,
+): Promise<GateOutcome<{ readonly chosen: Membership; readonly mergedRoles: readonly string[] }>> {
+  const memberships = (await ctx.queryAs(systemUser, "tenant:query:memberships", {
+    userId: found.id,
+  })) as Array<Membership>; // @cast-boundary db-runner
+
+  if (memberships.length === 0) {
+    return reject(noMembership());
+  }
+
+  const preferred =
+    found.lastActiveTenantId !== null && found.lastActiveTenantId !== undefined
+      ? memberships.find((m) => m.tenantId === found.lastActiveTenantId)
+      : undefined;
+  const chosen = preferred ?? memberships[0];
+  if (!chosen) {
+    return reject(noMembership());
+  }
+
+  const globalRoles = parseRoles(found.roles ?? null);
+  const mergedRoles = buildSessionRoles(globalRoles, chosen.roles);
+  return ok({ chosen, mergedRoles });
+}
+
+/** MFA challenge / setup-required / proceed. */
+export async function gateEnforceMfa(
+  ctx: HandlerContext,
+  opts: LoginHandlerOptions,
+  userId: string,
+  tenantId: TenantId,
+  mergedRoles: readonly string[],
+): Promise<GateOutcome<LoginResult | undefined>> {
+  if (!opts.mfaStatusChecker) return ok(undefined);
+  const mfaStatus = await opts.mfaStatusChecker(ctx, userId, tenantId, mergedRoles);
+  if ("challengeToken" in mfaStatus) {
+    return ok({ kind: "mfa-challenge", challengeToken: mfaStatus.challengeToken });
+  }
+  if ("setupRequired" in mfaStatus) {
+    return ok({ kind: "mfa-setup-required", preauthSetupToken: mfaStatus.preauthSetupToken });
+  }
+  return ok(undefined);
+}
+
+/** Auth-claims hooks → session. */
+export async function gateBuildSession(
+  ctx: HandlerContext,
+  userId: string,
+  tenantId: TenantId,
+  mergedRoles: readonly string[],
+): Promise<GateOutcome<{ readonly kind: "auth-session"; readonly session: SessionUser }>> {
+  const baseSession: SessionUser = {
+    id: userId,
+    tenantId,
+    roles: mergedRoles,
+  };
+  const claims = await ctx.resolveAuthClaims(baseSession);
+  const session: SessionUser =
+    Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
+  return ok({ kind: "auth-session", session });
+}
+
 // Login — unauthenticated entry point. The route is wired public (no JWT
 // middleware), synthesising a guest SessionUser for the handler's access
 // check. Everything inside the handler goes through ctx.queryAs(system, ...)
@@ -93,177 +256,46 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
     handler: async (event, ctx): Promise<WriteResult<LoginResult>> => {
       const systemUser = createSystemUser(SYSTEM_USER_ID);
 
-      const found = parseAuthUserRow(
-        await ctx.queryAs(systemUser, UserQueries.findForAuth, {
-          email: event.payload.email,
-        }),
+      const userGate = await gateResolveAuthUser(
+        ctx,
+        systemUser,
+        event.payload.email,
+        event.payload.password,
       );
+      if (!userGate.ok) return userGate.result;
+      const found = userGate.value;
 
-      // Uniform response on any credential mismatch (no user, wrong password,
-      // soft-deleted user) — prevents email enumeration.
-      if (!found?.passwordHash || found.isDeleted) {
-        // Burn the same argon2 verify cost as the hit path so response
-        // latency doesn't reveal whether the email is registered (#774).
-        await verifyDummyPassword(event.payload.password);
-        return invalidCredentials();
+      const lockoutGate = await gateEnforceLockout(ctx, found.id);
+      if (!lockoutGate.ok) return lockoutGate.result;
+
+      const passwordGate = await gateVerifyPassword(
+        ctx,
+        found,
+        event.payload.password,
+        maxFailedAttempts,
+        lockoutDurationMinutes,
+      );
+      if (!passwordGate.ok) return passwordGate.result;
+
+      const emailGate = gateEnforceEmailVerified(found, strictVerification);
+      if (!emailGate.ok) return emailGate.result;
+
+      const statusGate = gateEnforceAccountStatus(found);
+      if (!statusGate.ok) return statusGate.result;
+
+      const membershipGate = await gateResolveMembership(ctx, systemUser, found);
+      if (!membershipGate.ok) return membershipGate.result;
+      const { chosen, mergedRoles } = membershipGate.value;
+
+      const mfaGate = await gateEnforceMfa(ctx, opts, found.id, chosen.tenantId, mergedRoles);
+      if (!mfaGate.ok) return mfaGate.result;
+      if (mfaGate.value !== undefined) {
+        return { isSuccess: true, data: mfaGate.value };
       }
 
-      // Lockout gate — runs BEFORE password verification so a locked account
-      // can't be bruteforce-probed for passwords (and also can't be probed
-      // for a timing-oracle on the bcrypt verify). If Redis isn't wired,
-      // lockout is silently skipped — login still works, brute-force
-      // protection just degrades to the IP-rate-limiter at the edge.
-      //
-      // Deliberately fail-open here, unlike auth-mfa's enable-confirm-preauth
-      // (which fails closed without Redis): the secret guarded by THIS gate
-      // is a full password, not a 6-digit code — locking out every login
-      // app-wide because Redis is briefly unavailable is a self-inflicted
-      // outage across every tenant, for a backstop that the IP-rate-limiter
-      // still partially covers. auth-mfa's blast radius is one user's MFA
-      // enrollment, not global login availability — different tradeoff.
-      if (ctx.redis) {
-        const state = await getLockoutState(ctx.redis, found.id);
-        if (state?.lockedUntil !== null && state?.lockedUntil !== undefined) {
-          const now = Date.now();
-          if (state.lockedUntil > now) {
-            const retryAfterSeconds = Math.max(1, Math.ceil((state.lockedUntil - now) / 1000));
-            return accountLocked(retryAfterSeconds);
-          }
-          // lockedUntil in the past — shouldn't normally happen because the
-          // Redis TTL on the until-key expires the key at the same moment
-          // as the value. Clock skew / replication lag could surface this;
-          // fall through to password verification. The counter is NOT
-          // reset — next miss re-locks immediately (strict-semantic, see
-          // lockout-store.ts).
-        }
-      }
-
-      const passwordOk = await verifyPassword(found.passwordHash, event.payload.password);
-      if (!passwordOk) {
-        if (ctx.redis) {
-          await recordFailedAttempt(ctx.redis, found.id, maxFailedAttempts, lockoutDurationMinutes);
-        }
-        return invalidCredentials();
-      }
-
-      // Clear the lockout state as soon as the password is proven — the
-      // password itself is the thing this counter guards, and MFA (if
-      // gated below) has its own separate attempt-cap. Doing this before
-      // the MFA gate matters: without it, an MFA user who occasionally
-      // mistypes their password accumulates failures across otherwise-
-      // successful logins and eventually gets password-locked out even
-      // though every login they completed was legitimate.
-      if (ctx.redis) {
-        await clearLockoutState(ctx.redis, found.id);
-      }
-
-      // Strict verification gate — runs AFTER password check so an attacker
-      // probing "email_not_verified" needs valid credentials first. The
-      // remaining enumeration surface is "valid-cred + unverified" → accepted
-      // leak because the signup flow already told the user "check your email".
-      if (strictVerification && found.emailVerified !== true) {
-        return emailNotVerified();
-      }
-
-      // S2.U6 — DSGVO Art. 18 Account-Freeze. Restricted users koennen sich
-      // nicht einloggen; lift-restriction-Endpoint ist der einzige Ausgang
-      // (siehe lift-restriction.write.ts Header — typisch via Magic-Link
-      // oder Operator-Tool, da Login geblockt). Auth-side Block ist hard-
-      // requirement; ohne den koennte der User mit Login-Sessions trotz
-      // Restriction-Flag durchschreiben.
-      //
-      // DeletionRequested + Deleted kollabieren bewusst auf invalid_creds
-      // (anti-enumeration im Forget-Pfad) — Restricted ist user-initiiert,
-      // distinct error ist hier safe.
-      if (found.status === USER_STATUS.Restricted) {
-        return accountRestricted();
-      }
-      if (found.status === USER_STATUS.DeletionRequested || found.status === USER_STATUS.Deleted) {
-        return invalidCredentials();
-      }
-
-      // Resolve tenant + roles via the tenant feature's memberships query.
-      // Returns [] if the user has no memberships — MVP: no login without an
-      // invitation, so we refuse with a dedicated error.
-      const memberships = (await ctx.queryAs(systemUser, "tenant:query:memberships", {
-        userId: found.id,
-      })) as Array<{ tenantId: TenantId; roles: readonly string[] }>; // @cast-boundary db-runner
-
-      if (memberships.length === 0) {
-        return noMembership();
-      }
-
-      const preferred =
-        found.lastActiveTenantId !== null && found.lastActiveTenantId !== undefined
-          ? memberships.find((m) => m.tenantId === found.lastActiveTenantId)
-          : undefined;
-      const chosen = preferred ?? memberships[0];
-      if (!chosen) {
-        return noMembership();
-      }
-
-      // Globale Rollen aus user.roles + tenant-membership-roles mergen.
-      // Globale Rollen (SystemAdmin etc.) bleiben so über alle tenants
-      // gleich; tenant-spezifische Rollen (Admin, User) kommen aus der
-      // membership. Dedupe via Set damit eine Rolle die in beiden Quellen
-      // steht nicht doppelt im Session-Roles landet.
-      //
-      // Computed BEFORE the MFA gate (moved up from its original spot below
-      // baseSession) because the gate's "admins" enforcement policy needs
-      // the MERGED set — a SystemAdmin whose admin-ness lives only in
-      // globalRoles would be missed if only chosen.roles were passed.
-      const globalRoles = parseRoles(found.roles ?? null);
-      // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
-      // only (globalRoles keeps SystemAdmin) — read-time backstop against a
-      // rebuild-resurrected role.
-      const mergedRoles = buildSessionRoles(globalRoles, chosen.roles);
-
-      // Second-factor gate. Runs AFTER password verification (correct
-      // credentials proven) and AFTER tenant resolution (need chosen.tenantId
-      // to scope the MFA-enabled check). Three outcomes: enrolled → mint a
-      // challenge instead of a session (/auth/mfa/verify completes the
-      // login); policy demands MFA but the user never enrolled → block with
-      // mfa-setup-required (no session, no challenge — see auth-mfa's
-      // config.ts for why this deliberately hard-blocks); neither → proceed.
-      if (opts.mfaStatusChecker) {
-        const mfaStatus = await opts.mfaStatusChecker(ctx, found.id, chosen.tenantId, mergedRoles);
-        if ("challengeToken" in mfaStatus) {
-          return {
-            isSuccess: true,
-            data: { kind: "mfa-challenge", challengeToken: mfaStatus.challengeToken },
-          };
-        }
-        if ("setupRequired" in mfaStatus) {
-          return {
-            isSuccess: true,
-            data: { kind: "mfa-setup-required", preauthSetupToken: mfaStatus.preauthSetupToken },
-          };
-        }
-      }
-
-      const baseSession: SessionUser = {
-        id: found.id,
-        tenantId: chosen.tenantId,
-        roles: mergedRoles,
-      };
-
-      // Features can contribute identity facts (team IDs, feature flags, ...)
-      // via r.authClaims(). ctx.resolveAuthClaims is a thin pass-through to
-      // dispatcher.resolveAuthClaims — same impl also used by the switch-tenant
-      // route, so login + tenant-switch stay in sync.
-      //
-      // Best-effort: if no feature registered a hook, we get an empty record
-      // back and simply omit the `claims` field from the session (keeps the
-      // shape clean for the JWT layer, which already spreads claims
-      // conditionally based on presence).
-      const claims = await ctx.resolveAuthClaims(baseSession);
-      const session: SessionUser =
-        Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
-
-      return {
-        isSuccess: true,
-        data: { kind: "auth-session", session },
-      };
+      const sessionGate = await gateBuildSession(ctx, found.id, chosen.tenantId, mergedRoles);
+      if (!sessionGate.ok) return sessionGate.result;
+      return { isSuccess: true, data: sessionGate.value };
     },
   });
 }
