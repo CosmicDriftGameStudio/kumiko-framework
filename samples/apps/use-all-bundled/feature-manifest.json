@@ -1459,7 +1459,7 @@
       "uiHints": {
         "displayLabel": "Personal Access Tokens",
         "category": "identity",
-        "recommended": true
+        "recommended": false
       }
     },
     {

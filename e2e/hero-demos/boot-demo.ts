@@ -4,14 +4,14 @@
 //
 // Programmatically calls `create-kumiko-app`'s runCreate() against the
 // HEAD source (no npm roundtrip), writes a .env with the test stack
-// URLs, installs deps once (cached across reruns by leaving the dir),
+// URLs, relinks @cosmicdrift/* to the monorepo then installs (cached across reruns by leaving the dir),
 // then execs `bun dev`. PORT comes from the playwright config.
 //
 // Usage: bun e2e/hero-demos/boot-demo.ts <demo-name>
 //        (demo-name picks the scaffold dir under e2e/hero-demos/.tmp/)
 
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runCreate } from "../../packages/create-kumiko-app/src/index.ts";
@@ -34,6 +34,45 @@ if (!testDb) {
   process.exit(1);
 }
 
+
+const PACKAGE_DIRS: Readonly<Record<string, string>> = {
+  "@cosmicdrift/kumiko-bundled-features": "packages/bundled-features",
+  "@cosmicdrift/kumiko-cli": "packages/cli",
+  "@cosmicdrift/kumiko-dev-server": "packages/dev-server",
+  "@cosmicdrift/kumiko-dispatcher-live": "packages/dispatcher-live",
+  "@cosmicdrift/kumiko-framework": "packages/framework",
+  "@cosmicdrift/kumiko-headless": "packages/headless",
+  "@cosmicdrift/kumiko-renderer": "packages/renderer",
+  "@cosmicdrift/kumiko-renderer-web": "packages/renderer-web",
+  "@cosmicdrift/kumiko-server-runtime": "packages/server-runtime",
+  "@cosmicdrift/kumiko-types": "packages/types",
+  "create-kumiko-app": "packages/create-kumiko-app",
+};
+
+function filePin(repoRoot: string, rel: string): string {
+  return `file:${resolve(repoRoot, rel)}`;
+}
+
+/** Rewrite scaffolded @cosmicdrift/* deps + overrides so nested workspace:*
+ *  refs resolve via file: pins (hero-app sits outside the monorepo workspaces). */
+function relinkCosmicDriftToWorkspace(appDir: string, repoRoot: string): void {
+  const pkgPath = resolve(appDir, "package.json");
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
+    dependencies?: Record<string, string>;
+    overrides?: Record<string, string>;
+  };
+  const deps = pkg.dependencies ?? {};
+  const overrides: Record<string, string> = { ...(pkg.overrides ?? {}) };
+  for (const [name, rel] of Object.entries(PACKAGE_DIRS)) {
+    const pin = filePin(repoRoot, rel);
+    if (deps[name] !== undefined) deps[name] = pin;
+    overrides[name] = pin;
+  }
+  pkg.dependencies = deps;
+  pkg.overrides = overrides;
+  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+}
+
 mkdirSync(TMP_ROOT, { recursive: true });
 
 const appDir = resolve(TMP_ROOT, demoName);
@@ -47,7 +86,13 @@ if (!alreadyScaffolded) {
     process.exit(exit);
   }
 
-  console.log("[boot-demo] bun install (npm-published versions, mirrors user setup)…");
+  // Pin @cosmicdrift/* to this monorepo checkout. Hero scaffolds via HEAD
+  // create-kumiko-app (e.g. #1514 drops PAT from --yes); published npm may
+  // lag (e.g. #1571 session-only boot). Mixing HEAD scaffold + stale npm
+  // false-fails the suite — workspace pins keep scaffold + runtime in lockstep.
+  relinkCosmicDriftToWorkspace(appDir, REPO_ROOT);
+
+  console.log("[boot-demo] bun install (workspace @cosmicdrift/* pins)…");
   execFileSync("bun", ["install"], { cwd: appDir, stdio: "inherit" });
 }
 
