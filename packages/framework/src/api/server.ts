@@ -686,9 +686,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   app.route(
     "/api",
     createApiRoutes(dispatcher, {
-      ...(options.sseHeartbeatMs !== undefined
-        ? { sseHeartbeatMs: options.sseHeartbeatMs }
-        : {}),
+      ...(options.sseHeartbeatMs !== undefined ? { sseHeartbeatMs: options.sseHeartbeatMs } : {}),
     }),
   );
   app.route("/api", createSseRoute(sseBroker));

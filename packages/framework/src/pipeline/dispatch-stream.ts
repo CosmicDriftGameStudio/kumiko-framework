@@ -95,7 +95,7 @@ async function* executeStreamInner(
     // Do NOT swallow return() errors — close-time cleanup failures must
     // surface to runStreamInstrumented (#1543).
     if (iterator !== undefined) {
-      await iterator.return(undefined);
+      await iterator.return?.(undefined);
     }
   }
 }
