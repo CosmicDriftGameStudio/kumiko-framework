@@ -34,6 +34,7 @@ import { createEventDispatcher } from "../pipeline/event-dispatcher";
 import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
 import { createMultiStreamApplyContext } from "../pipeline/multi-stream-apply-context";
 import {
+  createAccessInvalidationEventConsumer,
   createJobTriggerEventConsumer,
   createSearchEventConsumer,
   createSseBroadcastEventConsumer,
@@ -415,6 +416,9 @@ export function buildServer(options: ServerOptions): KumikoServer {
   if (jobTriggerConsumerEnabled && jobRunnerForTriggers) {
     systemConsumers.push(createJobTriggerEventConsumer(jobRunnerForTriggers, options.registry));
   }
+  // No opt-out — #1524 chose global-by-default specifically so this
+  // security-relevant control can't be silently disabled.
+  systemConsumers.push(createAccessInvalidationEventConsumer(sseBroker));
 
   // MultiStreamProjections: one EventConsumer per MSP. Handler routes by
   // event.type into the MSP's apply map. MSPs aggregate cross-aggregate but

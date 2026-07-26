@@ -57,6 +57,8 @@ export {
 } from "./projection-state";
 export { runProjectionsForEvent } from "./projections-runner";
 export {
+  ACCESS_INVALIDATION_CONSUMER_NAME,
+  createAccessInvalidationEventConsumer,
   createSearchEventConsumer,
   createSseBroadcastEventConsumer,
   SEARCH_CONSUMER_NAME,

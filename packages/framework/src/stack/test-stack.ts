@@ -2,7 +2,7 @@ import type { Hono } from "hono";
 import type { AuthRoutesConfig } from "../api/auth-routes";
 import type { JwtHelper } from "../api/jwt";
 import { buildServer } from "../api/server";
-import { createSseBroker } from "../api/sse-broker";
+import { createSseBroker, type SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
 import { extractTableInfo } from "../db/query";
 import { createRegistry } from "../engine/registry";
@@ -31,6 +31,11 @@ export type TestStack = {
   events: EventCollector;
   http: RequestHelper;
   observability: ObservabilityProvider;
+  // In-memory broker backing the server's SSE routes + access-invalidation
+  // channel. Tests subscribe directly (e.g. sseBroker.subscribeAccessInvalidation)
+  // to assert a consumer pushed an invalidation without opening a real SSE
+  // connection.
+  sseBroker: SseBroker;
   // Command-dispatcher behind the HTTP routes — for direct system-writes
   // in tests and dev-server extraRoutes (provider-webhook wiring).
   dispatcher: Dispatcher;
@@ -433,6 +438,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       events,
       http,
       observability: server.observability,
+      sseBroker,
       dispatcher: server.dispatcher,
       ...(eventDispatcher ? { eventDispatcher } : {}),
       ...(server.lifecycle ? { lifecycle: server.lifecycle } : {}),

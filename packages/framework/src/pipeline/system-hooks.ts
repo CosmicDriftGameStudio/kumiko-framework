@@ -298,3 +298,91 @@ export function createJobTriggerEventConsumer(
     },
   };
 }
+
+// --- Access-Invalidation Consumer (async, via event-dispatcher) ---
+//
+// #1524 (Design), #1558 (channel + stream subscribe), #1559 (session-revoke
+// emits an event). This consumer is the last leg: it watches for the two
+// event types that can make an already-issued JWT stale mid-stream and
+// pushes an invalidation through sseBroker.publishAccessInvalidation, which
+// dispatch-stream.ts's subscribeAccessInvalidation listener turns into an
+// AccessDeniedError thrown into the open stream.
+//
+// Event types are literal strings, not imports — this package (framework)
+// cannot depend on bundled-features (sessions, tenant own these events),
+// mirrors the es-ops-seed precedent (literal QNs, no subpath import).
+//
+//   "sessions:event:session-revoked" — payload.userId direct (own aggregate,
+//     see bundled-features/sessions/session-revoked-event.ts). Fired for
+//     both self-service revoke and the privileged cross-tenant
+//     revoke-all-for-user (SYSTEM_TENANT_ID-anchored DSGVO Art.18 freeze).
+//     fetchPendingEvents has no tenant predicate, so the SYSTEM_TENANT_ID-
+//     anchored event reaches this consumer the same as any other — routing
+//     is purely on payload.userId, never on event.tenantId.
+//   "tenant-membership.updated" / "tenant-membership.deleted" — role change
+//     or member removal. userId isn't in payload.changes (update only
+//     carries the changed fields, e.g. { roles }) so it's read from
+//     payload.previous, the full pre-write entity snapshot written by
+//     createEventStoreExecutor. tenantMembershipEntity declares no
+//     encrypted/PII fields, so previous.userId is plaintext — no KMS
+//     decrypt step (see kumiko-framework#1560 PR discussion; the issue's
+//     original handoff assumed encryption that doesn't apply here).
+//
+// Over-invalidation (e.g. tenant-membership.updated fired by something
+// other than a role change) is fail-safe: the stream closes, the client
+// reconnects and re-authorizes. No opt-out/allowlist — #1524 chose
+// global-by-default specifically so this can't be silently disabled per
+// handler.
+//
+// Scope note: entityEventName also emits "tenant-membership.forgotten" (DSGVO
+// erasure) and ".restored" — .restored re-grants access so ignoring it is
+// correct, .forgotten is not currently produced by any user-data-rights
+// pipeline for memberships but would be revocation-relevant if it ever is.
+// Out of #1560's stated scope (session-revoke + role/membership change),
+// tracked rather than handled speculatively here.
+export const ACCESS_INVALIDATION_CONSUMER_NAME = "system:consumer:access-invalidation";
+
+const SESSION_REVOKED_EVENT_TYPE = "sessions:event:session-revoked";
+const TENANT_MEMBERSHIP_UPDATED_EVENT_TYPE = "tenant-membership.updated";
+const TENANT_MEMBERSHIP_DELETED_EVENT_TYPE = "tenant-membership.deleted";
+
+function readUserIdFromPreviousSnapshot(payload: Record<string, unknown>): string | undefined {
+  const previous = payload["previous"];
+  if (typeof previous !== "object" || previous === null) return undefined;
+  const userId = (previous as Record<string, unknown>)["userId"];
+  return typeof userId === "string" && userId.length > 0 ? userId : undefined;
+}
+
+export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): EventConsumer {
+  return {
+    name: ACCESS_INVALIDATION_CONSUMER_NAME,
+    // Per-instance, same reasoning as SSE broadcast: subscribeAccessInvalidation
+    // listeners live in this process's in-memory sseBroker only. A shared
+    // cursor would deliver the event to exactly one instance and leave
+    // every other instance's open streams for that user un-invalidated.
+    delivery: "per-instance",
+    handler: async (event) => {
+      if (event.type === SESSION_REVOKED_EVENT_TYPE) {
+        const userId = event.payload["userId"];
+        // skip: malformed session-revoked payload — fail open on this one
+        // event rather than dead-lettering the whole consumer (halt-on-
+        // poison would otherwise permanently stop access-invalidation for
+        // every user behind one bad row).
+        if (typeof userId !== "string" || userId.length === 0) return;
+        sseBroker.publishAccessInvalidation(userId);
+        return;
+      }
+
+      if (
+        event.type === TENANT_MEMBERSHIP_UPDATED_EVENT_TYPE ||
+        event.type === TENANT_MEMBERSHIP_DELETED_EVENT_TYPE
+      ) {
+        const userId = readUserIdFromPreviousSnapshot(event.payload);
+        // skip: previous snapshot missing/malformed userId — same fail-open
+        // reasoning as above.
+        if (userId === undefined) return;
+        sseBroker.publishAccessInvalidation(userId);
+      }
+    },
+  };
+}
