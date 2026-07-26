@@ -45,7 +45,7 @@ import { createDataRetentionFeature } from "../../data-retention";
 import { fileFoundationFeature } from "../../file-foundation";
 import { fileProviderInMemoryFeature } from "../../file-provider-inmemory";
 import { createSessionsFeature } from "../../sessions";
-import { tenantMembershipsTable } from "../../tenant";
+import { createTenantFeature, tenantMembershipsTable } from "../../tenant";
 import { createUserFeature } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 import { runExportJobs } from "../run-export-jobs";

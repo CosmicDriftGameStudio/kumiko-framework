@@ -38,7 +38,7 @@ import {
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { createFilesFeature } from "../../files";
 import { createSessionsFeature, userSessionEntity } from "../../sessions";
-import { tenantMembershipsTable } from "../../tenant";
+import { createTenantFeature, tenantMembershipsTable } from "../../tenant";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";

@@ -19,6 +19,7 @@ import {
   tenantRetentionOverrideEntity,
 } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   createUserFeature,
   USER_STATUS,
@@ -39,7 +40,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { createTenantFeature } from "../../tenant";
 import { noteEntity, notesFeature, notesTable } from "../feature";
 
 let stack: TestStack;
