@@ -20,6 +20,17 @@ test("Widget-Katalog rendert und ModeSwitch schaltet", async ({ page }) => {
   await expect(fixed).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("Feste Rate", { exact: true }).nth(1)).toBeVisible();
 
+  // Drawer: Trigger öffnet das Sheet, Titel + Footer-Close schließt wieder.
+  await page.getByRole("button", { name: "Öffnen" }).click();
+  const drawer = page.getByTestId("drawer-demo");
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText("Nachricht")).toBeVisible();
+  if (process.env["SCREENSHOT"] === "1") {
+    await page.screenshot({ path: "/tmp/widgets-drawer-open.png", fullPage: true });
+  }
+  await drawer.getByRole("button", { name: "Schließen" }).click();
+  await expect(drawer).toBeHidden();
+
   if (process.env["SCREENSHOT"] === "1") {
     await page.screenshot({ path: "/tmp/widgets-catalog.png", fullPage: true });
   }

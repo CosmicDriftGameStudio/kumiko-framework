@@ -18,6 +18,7 @@ export {
 } from "./charts";
 export { CollapsibleSection } from "./collapsible-section";
 export { DetailList } from "./detail-list";
+export { Drawer, type DrawerProps } from "./drawer";
 export { FeedList, type FeedRow } from "./feed-list";
 export {
   BooleanField,
@@ -39,6 +40,7 @@ export {
   TextField,
   type TextFieldProps,
 } from "./form-fields";
+export { InfinityList, type InfinityListProps } from "./infinity-list";
 export { ModeSwitch } from "./mode-switch";
 export { ProgressBar } from "./progress-bar";
 export { ProgressList, type ProgressListRow } from "./progress-list";
