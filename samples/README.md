@@ -91,9 +91,21 @@ a browser get only the server. Both are built in parallel when present.
 ~1 MB JS file. Native externals (argon2, bullmq, postgres, ioredis,
 temporal-polyfill) stay as prod-deps in a
 generated `dist-server/package.json`. Version-pin from the repo's
-`packages/framework/package.json`. For app-specific externals, see
-`buildServerBundle({ extraRuntimeExternals })` in
-`@cosmicdrift/kumiko-dev-server/build`.
+`packages/framework/package.json` (and the app's own deps for extras).
+
+App-specific native deps (e.g. `@napi-rs/canvas`): declare them in the app
+`package.json` and list them for `kumiko-build`:
+
+```json
+{
+  "kumiko": {
+    "extraRuntimeExternals": ["@napi-rs/canvas"]
+  }
+}
+```
+
+Or call `buildServerBundle({ extraRuntimeExternals })` from
+`@cosmicdrift/kumiko-dev-server/build` directly.
 
 **Container deploy:** the [publicstatus deploy folder](https://github.com/cosmicdriftgamestudio/publicstatus/tree/main/deploy)
 is the reference — multi-stage Dockerfile builds both bundles, runtime

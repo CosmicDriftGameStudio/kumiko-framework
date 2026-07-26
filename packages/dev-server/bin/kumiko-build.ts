@@ -24,6 +24,7 @@ import {
   discoverServerEntry,
   formatBuildResult,
   formatServerBuildResult,
+  readExtraRuntimeExternals,
 } from "../src/build";
 import { runCodegen } from "../src/codegen";
 
@@ -73,7 +74,11 @@ try {
   }
   if (hasServer) {
     const t0 = performance.now();
-    const result = await buildServerBundle({ cwd });
+    const extraRuntimeExternals = readExtraRuntimeExternals(cwd);
+    const result = await buildServerBundle({
+      cwd,
+      ...(extraRuntimeExternals.length > 0 && { extraRuntimeExternals }),
+    });
     const ms = Math.round(performance.now() - t0);
     // biome-ignore lint/suspicious/noConsole: CLI-Output, einziger Weg
     console.log(formatServerBuildResult(result, ms));

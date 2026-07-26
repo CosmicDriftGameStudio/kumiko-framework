@@ -224,6 +224,25 @@ function findRepoRoot(start: string): string | undefined {
   return undefined;
 }
 
+/** Read `package.json#kumiko.extraRuntimeExternals` for kumiko-build (#1484).
+ *  Invalid / missing shapes → empty list (CLI stays convention-driven). */
+export function readExtraRuntimeExternals(cwd: string): readonly string[] {
+  const pkgJson = join(cwd, "package.json");
+  if (!existsSync(pkgJson)) return [];
+  let raw: string;
+  try {
+    raw = readFileSync(pkgJson, "utf-8");
+  } catch {
+    return [];
+  }
+  const parsed = parseJsonSafe<{
+    kumiko?: { extraRuntimeExternals?: unknown };
+  }>(raw, {});
+  const list = parsed.kumiko?.extraRuntimeExternals;
+  if (!Array.isArray(list)) return [];
+  return list.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+}
+
 // Versionen für RUNTIME_EXTERNALS auflösen: erst aus den installierten
 // node_modules/@cosmicdrift/*-Packages (relativ zu cwd — funktioniert für
 // jede Consumer-App), dann als Zusatz aus packages/framework + bundled-
@@ -243,17 +262,21 @@ async function resolveRuntimeDepsVersions(
           join(repoRoot, "packages/bundled-features/package.json"),
         ]
       : []),
-    // node_modules applied last so its versions win over the repo-root
-    // fallback — see the function comment above (#1217 bug class).
+    // node_modules applied after repo-root so installed versions win (#1217).
     join(cwd, "node_modules/@cosmicdrift/kumiko-framework/package.json"),
     join(cwd, "node_modules/@cosmicdrift/kumiko-bundled-features/package.json"),
+    // App package.json last — pins app-specific extraRuntimeExternals (#1484).
+    join(cwd, "package.json"),
   ];
   const allDeps: Record<string, string> = {};
   for (const path of pinSources) {
     if (!existsSync(path)) continue;
     const raw = await readFile(path, "utf-8");
-    const parsed = parseJsonOrThrow<{ dependencies?: Record<string, string> }>(raw, path);
-    Object.assign(allDeps, parsed.dependencies ?? {});
+    const parsed = parseJsonOrThrow<{
+      dependencies?: Record<string, string>;
+      optionalDependencies?: Record<string, string>;
+    }>(raw, path);
+    Object.assign(allDeps, parsed.dependencies ?? {}, parsed.optionalDependencies ?? {});
   }
   for (const pkg of packages) {
     out[pkg] = allDeps[pkg] ?? "*";
