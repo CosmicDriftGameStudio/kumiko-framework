@@ -123,7 +123,21 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
     expect(job).toBeDefined();
 
     // EXAKT der prod-Job-Kontext: configResolver gesetzt, config undefined.
-    const jobCtx = { db: stack.db, registry: stack.registry, configResolver };
+    // log required since #1572 persists incomplete[] via ctx.log.warn.
+    const jobCtx = {
+      db: stack.db,
+      registry: stack.registry,
+      configResolver,
+      log: {
+        info() {},
+        warn() {},
+        error() {},
+        debug() {},
+        child() {
+          return this;
+        },
+      },
+    };
     await job?.handler({}, jobCtx as never);
 
     // Loeschung lief autonom durch.
