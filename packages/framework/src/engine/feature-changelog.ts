@@ -3,7 +3,7 @@
 // (`kumiko upgrade`) reads these to show apps what they need to migrate.
 // All fields should be in English for consistency across the codebase.
 
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export type ChangelogType = "breaking" | "improvement" | "fix";
@@ -52,8 +52,7 @@ function isChangelogEntry(value: unknown): value is ChangelogEntry {
   if (typeof value !== "object" || value === null) return false;
   const obj = value as Record<string, unknown>;
   if (typeof obj["version"] !== "string") return false;
-  if (!["breaking", "improvement", "fix"].includes(obj["type"] as string))
-    return false;
+  if (!["breaking", "improvement", "fix"].includes(obj["type"] as string)) return false;
   if (typeof obj["title"] !== "string") return false;
   return true;
 }

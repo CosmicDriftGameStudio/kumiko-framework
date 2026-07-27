@@ -164,6 +164,16 @@ export {
   VERSION_HEADER,
 } from "./feature-ast";
 export {
+  type ChangelogEntry,
+  type ChangelogType,
+  compareVersions,
+  type FeatureChangelog,
+  filterEntriesAfter,
+  readFeatureChangelog,
+  sortEntries,
+  validateChangelog,
+} from "./feature-changelog";
+export {
   type BuildManifestOptions,
   buildManifestFromRegistry,
   type FeatureManifest,
@@ -173,16 +183,6 @@ export {
   type ManifestSecret,
   serializeManifest,
 } from "./feature-manifest";
-export {
-  type ChangelogEntry,
-  type ChangelogType,
-  type FeatureChangelog,
-  compareVersions,
-  filterEntriesAfter,
-  readFeatureChangelog,
-  sortEntries,
-  validateChangelog,
-} from "./feature-changelog";
 export {
   checkWriteFieldOwnership,
   checkWriteFieldRoles,

@@ -8,9 +8,9 @@
 
 import { compareByCodepoint } from "../utils";
 import { isEncryptedAtRest } from "./config-helpers";
+import type { ChangelogEntry } from "./feature-changelog";
 import { qualifyEntityName } from "./qualified-name";
 import type { Registry, UiHints } from "./types/feature";
-import type { ChangelogEntry } from "./feature-changelog";
 
 export type ManifestConfigKey = {
   readonly key: string;
