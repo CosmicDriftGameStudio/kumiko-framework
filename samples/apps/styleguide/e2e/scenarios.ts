@@ -55,4 +55,13 @@ export const SCENARIOS: readonly Scenario[] = [
     settleMs: 400,
     fullPage: true,
   },
+  {
+    name: "widgets-forms",
+    description:
+      "Formular-Vorlagen: CRM/Industrie/Medizin/Protokoll — SectionCard+Grid responsiv über Viewports",
+    url: "/widgets-forms",
+    waitFor: "[data-testid='form-examples-page']",
+    settleMs: 400,
+    fullPage: true,
+  },
 ];

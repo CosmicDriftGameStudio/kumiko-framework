@@ -7,6 +7,10 @@ export const WIDGETS_I18N = {
     de: "Dashboard (deklarativ)",
     en: "Dashboard (declarative)",
   },
+  "screen:widgets-forms.title": {
+    de: "Formulare (Beispiele)",
+    en: "Forms (examples)",
+  },
   "widgets:dashboard:portfolio": { de: "Portfolio", en: "Portfolio" },
   "widgets:dashboard:net-worth": { de: "Netto-Vermögen", en: "Net worth" },
   "widgets:dashboard:net-worth-assets": { de: "Vermögen", en: "Assets" },
