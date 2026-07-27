@@ -109,7 +109,12 @@ async function query(user: SessionUser, type: string, payload: unknown) {
 describe("jobs:query:catalog", () => {
   test("lists only manual jobs including framework builtins", async () => {
     const result = await query(systemAdmin, JobQueries.catalog, {});
-    const rows = (result.data as { rows: Array<{ jobName: string; perTenant: boolean }> }).rows;
+    type CatalogRow = {
+      readonly jobName: string;
+      readonly perTenant: boolean;
+      readonly payloadSchema: Record<string, unknown> | null;
+    };
+    const rows = (result.data as { rows: readonly CatalogRow[] }).rows;
     const names = rows.map((r) => r.jobName);
     expect(names).toContain("catalog-app:job:manual-echo");
     expect(names).toContain("jobs:job:reindex-entity");
@@ -118,9 +123,7 @@ describe("jobs:query:catalog", () => {
 
     const echo = rows.find((r) => r.jobName === "catalog-app:job:manual-echo");
     expect(echo).toBeDefined();
-    expect(
-      (echo as { payloadSchema: Record<string, unknown> | null }).payloadSchema,
-    ).not.toBeNull();
+    expect(echo?.payloadSchema).not.toBeNull();
 
     const reindex = rows.find((r) => r.jobName === "jobs:job:reindex-entity");
     expect(reindex?.perTenant).toBe(true);
