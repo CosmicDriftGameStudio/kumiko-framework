@@ -11,6 +11,7 @@ import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID } from "./constants";
 // payloads against these schemas before low-level append() — that's what
 // keeps out-of-dispatcher writes as type-safe as ctx.appendEvent.
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
+import { catalogQuery } from "./handlers/catalog.query";
 import { detailQuery } from "./handlers/detail.query";
 import { listQuery } from "./handlers/list.query";
 import {
@@ -32,7 +33,7 @@ import { jobRunLogsTable, jobRunLogsTableMeta, jobRunsTable } from "./job-run-ta
 export function createJobsFeature(): FeatureDefinition {
   return defineFeature("jobs", (r) => {
     r.describe(
-      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution appends `run-started`, `run-completed`, and `run-failed` events to the `jobRun` aggregate stream, which two inline projections materialize into `read_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list` and `jobs:query:details` for the operator UI.",
+      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution appends `run-started`, `run-completed`, and `run-failed` events to the `jobRun` aggregate stream, which two inline projections materialize into `read_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI.",
     );
     r.uiHints({
       displayLabel: "Jobs · Audit & Operator UI",
@@ -194,6 +195,7 @@ export function createJobsFeature(): FeatureDefinition {
     const queries = {
       list: r.queryHandler(listQuery),
       detail: r.queryHandler(detailQuery),
+      catalog: r.queryHandler(catalogQuery),
     };
 
     const systemAdminAccess = { roles: ["SystemAdmin"] as const };

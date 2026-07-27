@@ -30,6 +30,7 @@ describe("jobs screens + handler access alignment", () => {
     const roles = [...SYSTEM_ADMIN_ROLES];
     expect(rolesOf(jobs.queryHandlers["list"]?.access)).toEqual(roles);
     expect(rolesOf(jobs.queryHandlers["details"]?.access)).toEqual(roles);
+    expect(rolesOf(jobs.queryHandlers["catalog"]?.access)).toEqual(roles);
     expect(rolesOf(jobs.writeHandlers["trigger"]?.access)).toEqual(roles);
     expect(rolesOf(jobs.writeHandlers["retry"]?.access)).toEqual(roles);
   });

@@ -12,6 +12,7 @@ export const JobHandlers = {
 export const JobQueries = {
   list: "jobs:query:list",
   details: "jobs:query:details",
+  catalog: "jobs:query:catalog",
 } as const;
 
 // Error codes
@@ -19,6 +20,7 @@ export const JobErrors = {
   unknownJob: "unknown_job",
   notFound: "not_found",
   onlyFailedCanRetry: "only_failed_jobs_can_be_retried",
+  notManual: "job_not_manual",
 } as const;
 
 /** SystemAdmin job-runs list. Nav: `jobs:screen:job-runs`. */

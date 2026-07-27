@@ -34,4 +34,37 @@ export const JOBS_I18N: Readonly<Record<string, LocalizedString>> = {
   "jobs.detail.logs.empty": { de: "Keine Log-Zeilen.", en: "No log lines." },
   "jobs.detail.retry": { de: "Erneut ausführen", en: "Retry" },
   "jobs.detail.retrying": { de: "Wird erneut gestartet…", en: "Retrying…" },
+  "jobs.trigger.title": { de: "Job starten", en: "Run a job" },
+  "jobs.trigger.explainer": {
+    de: "Nur manuell startbare Jobs. Nach dem Start erscheint der Lauf in der Historie unten.",
+    en: "Only manually triggerable jobs. After starting, the run appears in the history below.",
+  },
+  "jobs.trigger.job": { de: "Job", en: "Job" },
+  "jobs.trigger.payload": { de: "Payload (JSON)", en: "Payload (JSON)" },
+  "jobs.trigger.payload.hint": { de: "Schema-Hinweis", en: "Schema hint" },
+  "jobs.trigger.payload.invalidJson": {
+    de: "Payload ist kein gültiges JSON-Objekt.",
+    en: "Payload is not a valid JSON object.",
+  },
+  "jobs.trigger.submit": { de: "Starten", en: "Run" },
+  "jobs.trigger.submitting": { de: "Wird gestartet…", en: "Starting…" },
+  "jobs.trigger.success": { de: "Job gestartet.", en: "Job started." },
+  "jobs.trigger.empty": {
+    de: "Keine manuell startbaren Jobs registriert.",
+    en: "No manually triggerable jobs are registered.",
+  },
+  "jobs.trigger.perTenant": {
+    de: "Läuft einmal pro aktivem Tenant.",
+    en: "Runs once per active tenant.",
+  },
+  "jobs.errors.unknownJob": { de: "Unbekannter Job.", en: "Unknown job." },
+  "jobs.errors.notManual": {
+    de: "Dieser Job ist nicht manuell startbar.",
+    en: "This job cannot be triggered manually.",
+  },
+  "jobs.errors.notFound": { de: "Nicht gefunden.", en: "Not found." },
+  "jobs.errors.onlyFailedCanRetry": {
+    de: "Nur fehlgeschlagene Läufe können erneut gestartet werden.",
+    en: "Only failed runs can be retried.",
+  },
 };

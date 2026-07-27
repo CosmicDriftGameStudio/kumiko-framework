@@ -45,10 +45,11 @@ afterAll(async () => {
 });
 
 describe("access matrix: jobs operator surface is SystemAdmin-only", () => {
-  test("list, detail, trigger, retry handlers share SystemAdmin", () => {
+  test("list, detail, catalog, trigger, retry handlers share SystemAdmin", () => {
     const roles = [...SYSTEM_ADMIN_ROLES];
     expect(rolesOf(stack.registry.getQueryHandler(JobQueries.list)?.access)).toEqual(roles);
     expect(rolesOf(stack.registry.getQueryHandler(JobQueries.details)?.access)).toEqual(roles);
+    expect(rolesOf(stack.registry.getQueryHandler(JobQueries.catalog)?.access)).toEqual(roles);
     expect(rolesOf(stack.registry.getWriteHandler(JobHandlers.trigger)?.access)).toEqual(roles);
     expect(rolesOf(stack.registry.getWriteHandler(JobHandlers.retry)?.access)).toEqual(roles);
   });
@@ -65,7 +66,7 @@ describe("access matrix: jobs operator surface is SystemAdmin-only", () => {
 });
 
 describe("non-SystemAdmin denied jobs HTTP surface", () => {
-  test("TenantAdmin 403 on list, detail, trigger", async () => {
+  test("TenantAdmin 403 on list, detail, catalog, trigger", async () => {
     for (const fn of [
       () => stack.http.query(JobQueries.list, {}, tenantAdmin),
       () =>
@@ -74,6 +75,7 @@ describe("non-SystemAdmin denied jobs HTTP surface", () => {
           { runId: "00000000-0000-4000-8000-000000000099" },
           tenantAdmin,
         ),
+      () => stack.http.query(JobQueries.catalog, {}, tenantAdmin),
       () =>
         stack.http.write(JobHandlers.trigger, { jobName: "jobs-sec-app:job:ping" }, tenantAdmin),
     ] as const) {
