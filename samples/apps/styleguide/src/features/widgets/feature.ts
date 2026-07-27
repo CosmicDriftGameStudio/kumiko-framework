@@ -16,6 +16,11 @@ const RESPONSE_POINTS = Array.from({ length: 48 }, (_, i) => ({
 
 export const widgetsFeature = defineFeature("widgets", (r) => {
   r.screen({ id: "widgets", type: "custom", renderer: { react: { __component: "widgets" } } });
+  r.screen({
+    id: "widgets-forms",
+    type: "custom",
+    renderer: { react: { __component: "widgets-forms" } },
+  });
 
   r.screen({
     id: "widgets-dashboard",
@@ -183,11 +188,19 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
     order: 20,
   });
   r.nav({
+    id: "widgets-forms",
+    label: "Formulare (Beispiele)",
+    parent: "gallery:nav:styleguide",
+    screen: "widgets:screen:widgets-forms",
+    icon: "clipboard-list",
+    order: 21,
+  });
+  r.nav({
     id: "widgets-dashboard",
     label: "Dashboard (deklarativ)",
     parent: "gallery:nav:styleguide",
     screen: "widgets:screen:widgets-dashboard",
     icon: "gauge",
-    order: 21,
+    order: 22,
   });
 });
