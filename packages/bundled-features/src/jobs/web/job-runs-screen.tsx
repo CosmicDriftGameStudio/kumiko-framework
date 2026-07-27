@@ -138,11 +138,13 @@ export function JobRunsScreen(): ReactNode {
           </Banner>
         )}
 
-        {catalogRows.length === 0 && catalogQuery.loading !== true ? (
+        {catalogQuery.error === null &&
+        catalogRows.length === 0 &&
+        catalogQuery.loading !== true ? (
           <Text variant="small" testId="job-trigger-empty">
             {t("jobs.trigger.empty")}
           </Text>
-        ) : (
+        ) : catalogQuery.error !== null ? null : (
           <Form
             testId="job-trigger-form"
             onSubmit={(e) => {
@@ -215,7 +217,7 @@ export function JobRunsScreen(): ReactNode {
 
       {listLoading ? (
         <Text variant="small">{t("jobs.runs.loading")}</Text>
-      ) : (
+      ) : listQuery.error !== null ? null : (
         <DataTable
           testId="job-runs-table"
           columns={[
