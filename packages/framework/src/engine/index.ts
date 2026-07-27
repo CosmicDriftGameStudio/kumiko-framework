@@ -169,7 +169,7 @@ export {
   compareVersions,
   type FeatureChangelog,
   filterEntriesAfter,
-  readFeatureChangelog,
+  parseFeatureChangelog,
   sortEntries,
   validateChangelog,
 } from "./feature-changelog";

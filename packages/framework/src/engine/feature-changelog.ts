@@ -2,9 +2,9 @@
 // tracks breaking changes, improvements, and fixes per version. The CLI
 // (`kumiko upgrade`) reads these to show apps what they need to migrate.
 // All fields should be in English for consistency across the codebase.
-
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+//
+// File I/O stays in the CLI (`bin/commands/upgrade.ts`) — this module is
+// pure parse/validate so engine stays off the node:fs allowlist.
 
 export type ChangelogType = "breaking" | "improvement" | "fix";
 
@@ -13,7 +13,7 @@ export type ChangelogEntry = {
   readonly type: ChangelogType;
   readonly title: string;
   readonly detail?: string;
-  /** Pflicht bei type=breaking. Show this in `kumiko upgrade` output. */
+  /** Required when type=breaking. Shown in `kumiko upgrade` output. */
   readonly migration?: string;
 };
 
@@ -22,17 +22,9 @@ export type FeatureChangelog = {
   readonly entries: readonly ChangelogEntry[];
 };
 
-const CHANGES_FILE = "changes.json";
-
-export function readFeatureChangelog(
-  featureDir: string,
-  featureName: string,
-): FeatureChangelog | null {
-  const filePath = join(featureDir, CHANGES_FILE);
-  if (!existsSync(filePath)) return null;
-
+/** Parse a changes.json body. Callers own file I/O. */
+export function parseFeatureChangelog(raw: string, featureName: string): FeatureChangelog | null {
   try {
-    const raw = readFileSync(filePath, "utf-8");
     const entries = JSON.parse(raw) as unknown;
     if (!Array.isArray(entries)) return null;
 
