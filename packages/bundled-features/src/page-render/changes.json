@@ -1,0 +1,14 @@
+[
+  {
+    "version": "0.123.3",
+    "type": "fix",
+    "title": "page-render: neuer `./page-render/web`-Subpath für client-safe Exports (renderSafeMarkdow…",
+    "detail": "page-render: neuer `./page-render/web`-Subpath für client-safe Exports (renderSafeMarkdown, sanitizeTenantCss, wrapInLayout, branding-Helpers, securePageHeaders). Der bestehende `./page-render`-Barrel re-exportierte auch `cachedSecurePageResponse`, das transitiv `@cosmicdrift/kumiko-framework/api` (postgres/ioredis) zieht — jeder Import aus dem Barrel in Client-Code ließ den Browser-Bundle mit \"Bundle failed\" crashen, ohne brauchbare Fehlermeldung. - @cosmicdrift/kumiko-framework@0.123.3 - @cosmicdrift/kumiko-dispatcher-live@0.123.3 - @cosmicdrift/kumiko-headless@0.123.3 - @cosmicdrift/kumiko-renderer@0.123.3 - @cosmicdrift/kumiko-renderer-web@0.123.3"
+  },
+  {
+    "version": "0.123.0",
+    "type": "fix",
+    "title": "headless: new `html` tagged template + `raw()`/`RawHtml` — auto-escapes every interpolati…",
+    "detail": "headless: new `html` tagged template + `raw()`/`RawHtml` — auto-escapes every interpolation, `raw()` marks prerendered markup, nested `html` fragments compose without double-escaping. Structural companion to the new HTML-escape guard (infra#201). Hardening from the guard's first run: apex JSON-LD `<script>` block serializes `<` as `<` (no `</script>` breakout), dev-server `injectSchema` does the same for `window.__KUMIKO_SCHEMA__`; apex/page-render prerendered fragments renamed to the `*Html` convention. - @cosmicdrift/kumiko-headless@0.123.0 - @cosmicdrift/kumiko-dispatcher-live@0.123.0 - @cosmicdrift/kumiko-renderer@0.123.0 - @cosmicdrift/kumiko-renderer-web@0.123.0 - @cosmicdrift/kumiko-framework@0.123.0"
+  }
+]

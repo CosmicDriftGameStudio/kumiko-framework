@@ -1,0 +1,21 @@
+[
+  {
+    "version": "0.165.0",
+    "type": "breaking",
+    "title": "Export download: removed ?token= query param",
+    "detail": "GET /user-export/by-token no longer accepts the token as a query parameter. Only POST body (read from URL fragment) is supported now. Old email links with ?token= in the URL will stop working.",
+    "migration": "Replace any existing export links that use ?token= in the URL with POST-based links. The token is now only read from the URL fragment (#token), which browsers never send to the server."
+  },
+  {
+    "version": "0.122.0",
+    "type": "fix",
+    "title": "user-data-rights: export-download-token re-runs rotate the token in place on the same agg…",
+    "detail": "user-data-rights: export-download-token re-runs rotate the token in place on the same aggregate (update) instead of creating a second aggregate for the same jobId. A second `created` event without a `deleted` in between made every projection rebuild collide on the `one_per_job` unique index (fw#832). Operator recovery after a lost plain token is now just \"flip the job back to pending\" — never delete the token row read-side. - @cosmicdrift/kumiko-framework@0.122.0 - @cosmicdrift/kumiko-headless@0.122.0 - @cosmicdrift/kumiko-renderer@0.122.0 - @cosmicdrift/kumiko-dispatcher-live@0.122.0 - @cosmicdrift/kumiko-renderer-web@0.122.0"
+  },
+  {
+    "version": "0.119.0",
+    "type": "improvement",
+    "title": "Crypto-shredding phase D: forget wire.",
+    "detail": "Crypto-shredding phase D: forget wire. New `crypto-shredding` bundled feature with the `forget-subject` operator command (DPO/SystemAdmin) — erases a user/tenant subject key and appends a `subject-forgotten` audit event. `user-data-rights` forget-cleanup now erases the user's subject key inside the per-user sub-tx (crash-safe, before the status flip). Fixes `list()` returning ciphertext for camelCase encrypted/pii fields and caching plaintext rows."
+  }
+]

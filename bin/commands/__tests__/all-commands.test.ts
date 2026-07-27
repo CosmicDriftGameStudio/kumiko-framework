@@ -40,6 +40,7 @@ const EXPECTED_IDS = [
   "status",
   "stop",
   "test",
+  "upgrade",
 ] as const;
 
 const ALLOWED_CATEGORIES: ReadonlyArray<Category> = ["help", "lifecycle", "quality", "code", "ops"];

@@ -1,0 +1,26 @@
+[
+  {
+    "version": "0.162.0",
+    "type": "improvement",
+    "title": "auth-email-password: runtime toggle for self-registration.",
+    "detail": "auth-email-password: runtime toggle for self-registration. A new handler-less companion feature (`auth-self-registration`, toggleable, default on) lets an operator flip self-signup off at runtime via feature-toggles without redeploying. `signup-request` silently no-ops when off (matching its always-200 anti-enumeration contract), and a new anonymous-readable query (`auth-email-password:query:signup-registration-status`) lets the public signup page hide its own link/form."
+  },
+  {
+    "version": "0.154.1",
+    "type": "fix",
+    "title": "Export `LoginScreen`/`LoginScreenProps`/`AuthLegalLink` from `@cosmicdrift/kumiko-bundled…",
+    "detail": "Export `LoginScreen`/`LoginScreenProps`/`AuthLegalLink` from `@cosmicdrift/kumiko-bundled-features/auth-email-password/web`. Every other auth screen (ForgotPasswordScreen, SignupScreen, ResetPasswordScreen, …) was already exported from the barrel with its props type; `LoginScreen` was missed. `makeAuthGate`'s second parameter is typed `LoginScreenProps`, so consumers passing a typed `loginScreenProps` override (e.g. `@cosmicdriftgamestudio/kumiko-designer`) couldn't import the type at all. - @cosmicdrift/kumiko-framework@0.154.1 - @cosmicdrift/kumiko-dispatcher-live@0.154.1 - @cosmicdrift/kumiko-headless@0.154.1 - @cosmicdrift/kumiko-renderer@0.154.1 - @cosmicdrift/kumiko-renderer-web@0.154.1"
+  },
+  {
+    "version": "0.151.0",
+    "type": "improvement",
+    "title": "`auth-email-password/web` no longer exports `LoginScreen`/`LoginScreenProps` directly — u…",
+    "detail": "`auth-email-password/web` no longer exports `LoginScreen`/`LoginScreenProps` directly — use the new `createLoginRoute({ loginScreenProps, mfaVerifyScreen, unaffected (they already build on the same logic internally now). Why: a raw `<LoginScreen />` render has no MFA-challenge handling unless the caller remembers to hand-wire `onMfaChallenge` + swap in a verify screen itself — exactly how kumiko-framework#266's login-time MFA step went missing in a real app's standalone apex/marketing login route (it renders outside `emailPasswordClient`'s own gate, which already handled this correctly). `createLoginRoute` is the one place this logic lives now, for both the gated and standalone cases — there's no lower-level piece left to misuse. The `apex-surface-auth` recipe is updated to match."
+  },
+  {
+    "version": "0.131.0",
+    "type": "improvement",
+    "title": "App-Mounting 2.0 Säule A: Mid-Level-Widget-Kit in renderer-web (StatCard, MiniStat, Secti…",
+    "detail": "App-Mounting 2.0 Säule A: Mid-Level-Widget-Kit in renderer-web (StatCard, MiniStat, SectionCard, StatusBadge, ProgressBar, CollapsibleSection, DetailList, ModeSwitch, StatusBarChart, TimeseriesChart, EmptyState/LoadingState/ErrorState, QueryTable) + Status-Farb-Tokens (--color-status-\\*). Neue Hooks useMutation + useDisclosure. Neues Core-Primitive Link (default/button/muted), Button-Variant \"link\", Text-Variant \"muted\"; auth-email-password nutzt sie (authButtonClass/authMutedLinkClass entfernt)."
+  }
+]

@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.165.0",
+    "type": "fix",
+    "title": "Allow zero tokenVerifier when sessionStore present",
+    "detail": "Auth foundation now accepts zero tokenVerifier when a sessionStore is configured — prevents crash in session-store-only setups."
+  }
+]

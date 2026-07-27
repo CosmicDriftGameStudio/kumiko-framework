@@ -1,0 +1,27 @@
+[
+  {
+    "version": "0.165.0",
+    "type": "fix",
+    "title": "resolveRawDb: removed redundant null check",
+    "detail": "CodeQL flagged db !== null after if (!db) — truthiness already excludes null. Internal cleanup, no API break."
+  },
+  {
+    "version": "0.165.0",
+    "type": "fix",
+    "title": "Seed hook: explicit SessionUser typing",
+    "detail": "Fixed tenant seeding type annotation — prevents implicit any propagation in seed handlers."
+  },
+  {
+    "version": "0.165.0",
+    "type": "fix",
+    "title": "Seed afterCommit + real tenant rescope",
+    "detail": "ScheduleAfterCommit now available on HandlerContext — fireEntityPostSave queues after TX commit instead of mid-transaction. DB/notify/hasFeature/_tenantId are correctly rescoped when targeting an entity's tenant.",
+    "migration": "Only affects custom seed handlers using fireEntityPostSave — now afterCommit-compatible."
+  },
+  {
+    "version": "0.163.0",
+    "type": "improvement",
+    "title": "tenant: seedTenant fires entity postSave hooks (#1463).",
+    "detail": "tenant: seedTenant fires entity postSave hooks (#1463). `seedTenant` writes through the raw event-store executor, which never fired postSave hooks — self-signup (`provisionSignupAccount` → `signup-confirm`) silently skipped feature-registered entity hooks like tier-engine's auto-default-tier and app-level auto-default-compliance, leaving new tenants without a tier/compliance row. `seedTenant` and `provisionSignupAccount` take a new optional `hooks: { registry, context }` param; passing it fires the same entity-scoped postSave hooks the dispatcher would, without the full dispatch roundtrip. Existing call-sites are unaffected — the param is optional and append-only."
+  }
+]

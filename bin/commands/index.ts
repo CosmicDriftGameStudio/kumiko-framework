@@ -25,6 +25,7 @@ import "./schema";
 import "./status";
 import "./stop";
 import "./test";
+import "./upgrade";
 
 export {
   defineCommand,

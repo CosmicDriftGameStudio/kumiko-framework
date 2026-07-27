@@ -164,6 +164,16 @@ export {
   VERSION_HEADER,
 } from "./feature-ast";
 export {
+  type ChangelogEntry,
+  type ChangelogType,
+  compareVersions,
+  type FeatureChangelog,
+  filterEntriesAfter,
+  parseFeatureChangelog,
+  sortEntries,
+  validateChangelog,
+} from "./feature-changelog";
+export {
   type BuildManifestOptions,
   buildManifestFromRegistry,
   type FeatureManifest,

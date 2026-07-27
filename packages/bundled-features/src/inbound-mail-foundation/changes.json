@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.150.0",
+    "type": "fix",
+    "title": "`@cosmicdrift/kumiko-framework/engine` bekommt `ctx.tryAppendEvent` — ein savepoint-scope…",
+    "detail": "`@cosmicdrift/kumiko-framework/engine` bekommt `ctx.tryAppendEvent` — ein savepoint-scoped Gegenstück zu `ctx.unsafeAppendEvent`, das `VersionConflictError` als `{ ok: false, conflict }` zurückgibt statt zu werfen, ohne die restliche Handler-Transaktion zu poisonen (Bun.SQL/ postgres.js brechen den gesamten `begin()` bei einem ungefangenen Statement- Fehler ab, SQLSTATE 25P02, selbst wenn der JS-Error gefangen wird — `tryAppendEvent` läuft dafür in einem echten `SAVEPOINT`). `@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation`: der `ingest-message`-Handler nutzt `ctx.tryAppendEvent` für den Message-Append — zwei parallele Ingest-Aufrufe für dieselbe `providerMessageId` (Watch-Push vs. Poll-Reconciliation-Überschneidung) liefern jetzt beide `{ duplicate: scheitert (#1038, Finding aus PR-Review #952). - @cosmicdrift/kumiko-framework@0.150.0 - @cosmicdrift/kumiko-headless@0.150.0 - @cosmicdrift/kumiko-renderer@0.150.0 - @cosmicdrift/kumiko-dispatcher-live@0.150.0 - @cosmicdrift/kumiko-renderer-web@0.150.0"
+  }
+]

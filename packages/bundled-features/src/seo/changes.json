@@ -1,0 +1,20 @@
+[
+  {
+    "version": "0.147.3",
+    "type": "fix",
+    "title": "`managed-pages`' `GET {basePath}/:slug` render route and `seo`'s `sitemap.xml`/`llms.txt`…",
+    "detail": "`managed-pages`' `GET {basePath}/:slug` render route and `seo`'s `sitemap.xml`/`llms.txt` routes now use the `systemQuery` in-process dispatch (introduced for `legal-pages` in the `resolverTrust` fix) instead of an internal `app.fetch` self-request with a forged `X-Tenant` header. That self-fetch carried no `Host` header (Host is only implied by the request URL, never stored in `Headers`), so a host-based `anonymousAccess.tenantResolver` reading only the header resolved `null` for the inner request. Under `resolverTrust: \"authoritative\"` there is no client-tenant fallback for a `null` resolution, so the route failed with `tenant_required` (503 \"page unavailable\" / empty sitemap entries) even for a legitimate, correctly-routed visitor. `systemQuery` forces the already host-resolved tenant in-process — no header round-trip, nothing that can go missing. Consumers running `managed-pages` or `seo` with `resolverTrust: \"authoritative\"` should upgrade — the render/discovery routes were not reliably servable under that mode before this fix. - @cosmicdrift/kumiko-framework@0.147.3 - @cosmicdrift/kumiko-dispatcher-live@0.147.3 - @cosmicdrift/kumiko-headless@0.147.3 - @cosmicdrift/kumiko-renderer@0.147.3 - @cosmicdrift/kumiko-renderer-web@0.147.3"
+  },
+  {
+    "version": "0.146.2",
+    "type": "fix",
+    "title": "seo: fix legal-pages/managed-pages URLs downgrading to http:// in sitemap.xml/llms.txt be…",
+    "detail": "seo: fix legal-pages/managed-pages URLs downgrading to http:// in sitemap.xml/llms.txt behind a TLS-terminating reverse proxy (#979 follow-up) — `requestHost()` trusted the raw request URL's scheme, which reflects the proxy's internal (plain HTTP) hop, not what the client actually used. Now prefers `x-forwarded-proto` when present, falling back to the raw URL scheme only for plain local dev without a proxy in front. Found by checking the sitemap.xml of the two production apps (cashcolt.kumiko.rocks, publicstatus.eu) that mount `seo` — both showed `http://` legal-pages entries next to correctly `https://` app-supplied entries (those app callbacks hardcode `https://` themselves, masking the bug). - @cosmicdrift/kumiko-framework@0.146.2 - @cosmicdrift/kumiko-dispatcher-live@0.146.2 - @cosmicdrift/kumiko-headless@0.146.2 - @cosmicdrift/kumiko-renderer@0.146.2 - @cosmicdrift/kumiko-renderer-web@0.146.2"
+  },
+  {
+    "version": "0.146.0",
+    "type": "improvement",
+    "title": "seo: neues bundled-feature für SEO/AEO/GEO-Site-Discovery (#979) — `createSeoFeature` mou…",
+    "detail": "seo: neues bundled-feature für SEO/AEO/GEO-Site-Discovery (#979) — `createSeoFeature` mountet GET /sitemap.xml, /llms.txt und optional /robots.txt (merged aus app-eigenem Callback + legal-pages + managed-pages), plus die additive OG/JSON-LD-Erweiterung für `wrapInLayout` und die pure `organizationSchema`/`webPageSchema`/`faqPageSchema`-Builder für `ApexHead.schemaJson`. `managed-pages` bekommt dafür die neue anonyme `by-tenant-published`-Query. War Teil von #979, hatte aber kein Changeset — daher hier nachgereicht, damit die Version tatsächlich published wird."
+  }
+]
