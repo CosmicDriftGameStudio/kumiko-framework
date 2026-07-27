@@ -3,6 +3,10 @@
 // Provider wrapper is local — renderer-web → bundled-features forbids importing
 // renderer-web test-utils from here.
 
+// CI runs this file in its own `bun test` process via `bun run test:dom:isolated`
+// (excluded from shared bunfig.dom.toml) — same #457 happy-dom accumulation class
+// as privacy-center / deletion-screens.
+
 import { describe, expect, test } from "bun:test";
 import { createStore, type Dispatcher, type DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import {
