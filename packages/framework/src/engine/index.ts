@@ -174,6 +174,16 @@ export {
   serializeManifest,
 } from "./feature-manifest";
 export {
+  type ChangelogEntry,
+  type ChangelogType,
+  type FeatureChangelog,
+  compareVersions,
+  filterEntriesAfter,
+  readFeatureChangelog,
+  sortEntries,
+  validateChangelog,
+} from "./feature-changelog";
+export {
   checkWriteFieldOwnership,
   checkWriteFieldRoles,
   filterReadFields,

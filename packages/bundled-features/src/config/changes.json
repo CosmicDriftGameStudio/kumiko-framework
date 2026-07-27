@@ -1,0 +1,9 @@
+[
+  {
+    "version": "0.165.0",
+    "type": "breaking",
+    "title": "Reencrypt job: removed legacy-decrypt path",
+    "detail": "The old single-key format (CONFIG_ENCRYPTION_KEY) is no longer supported. The reencrypt job now classifies rows as rotate/current/unrecognized — unreadable rows are counted as failed instead of silently attempted.",
+    "migration": "If any config values still exist in the old single-key format, re-encrypt them with the current envelope format before upgrading. The job will now throw an error instead of attempting migration."
+  }
+]

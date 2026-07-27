@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.165.0",
+    "type": "improvement",
+    "title": "Revoke handlers emit session-revoked event",
+    "detail": "Session revocation now appends a session-revoked event to the aggregate stream — other features can react to it (e.g. cache invalidation)."
+  }
+]

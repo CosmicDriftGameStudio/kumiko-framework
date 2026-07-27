@@ -281,6 +281,11 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // regenerated with `--write-baseline` from framework repo after validation.
   // steps.push({ name: "as-Cast Audit", cmd: "bunx kumiko-check-as-casts" });
   steps.push({ name: "Table-DDL Guard", cmd: "bunx kumiko-guard-table-ddl" });
+  // Feature-CHANGELOG guard: breaking changes must have migration field
+  const featureChangelogGuard = join(REPO_ROOT, "infra/guards/guard-feature-changelog.ts");
+  if (existsSync(featureChangelogGuard)) {
+    steps.push({ name: "Feature-Changelog Guard", cmd: `bun ${featureChangelogGuard}` });
+  }
   // Baseline-Regression-Guard (infra#295): failt nur bei NEUEN DE-Kommentaren,
   // Altbestand ist via .kumiko-comment-lang-baseline.json eingefroren.
   steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guard-comment-lang" });

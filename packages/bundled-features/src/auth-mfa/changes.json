@@ -1,0 +1,38 @@
+[
+  {
+    "version": "0.165.0",
+    "type": "fix",
+    "title": "KEK reencrypt job: rejects unrecognized envelopes",
+    "detail": "Reencrypt job now explicitly fails on non-envelope rows instead of silently passing through."
+  },
+  {
+    "version": "0.165.0",
+    "type": "fix",
+    "title": "MFA: fail-closed when ctx.redis is missing",
+    "detail": "Verify/enable-confirm operations now fail when Redis is unreachable instead of silently accepting."
+  },
+  {
+    "version": "0.150.0",
+    "type": "fix",
+    "title": "Fix `auth-mfa`'s two-step verify + enroll flow re-checking stale state and skipping repla…",
+    "detail": "Fix `auth-mfa`'s two-step verify + enroll flow re-checking stale state and skipping replay protection that `login.write.ts` already enforces: - `verify.write.ts` minted a session from a challenge token alone, without re-checking account status or tenant membership. A user restricted/deleted, or removed from the tenant, in the ~10-minute window between password login and MFA verify still got a full session — membership loss even silently fell back to global-only roles instead of refusing. Both gates now mirror `login.write.ts`. - `enable-confirm.write.ts` never burned the setup token on success: the same token could re-enable MFA with an old secret after a `disable` (replay), and two parallel confirms both hit the executor instead of the second seeing `mfa_already_enabled`. The token is now single-use, the same as `login.write.ts`'s magic-link tokens. - `auth-mfa` was missing `r.requires(\"tenant\")` despite `verify.write.ts` dispatching `tenant:query:memberships` — a mount without `tenant` now fails at boot instead of 500ing on first login. - Recovery codes are now normalized (uppercased, punctuation-stripped) before hashing and verifying, so a code retyped lowercase or without the dash still matches — this changes the stored hash format, safe because `auth-mfa` has no deployed consumer with enrolled users yet. Also fixes `samples/apps/user-data-rights-demo`'s forget-cleanup test, which asserted on the manual `runForgetCleanup` helper instead of driving the actually-registered cron job through its real `JobContext` wrapper."
+  },
+  {
+    "version": "0.149.1",
+    "type": "fix",
+    "title": "Fix `auth-mfa` crashing on enable/regenerate for any app with per-subject crypto-shreddin…",
+    "detail": "Fix `auth-mfa` crashing on enable/regenerate for any app with per-subject crypto-shredding (`configurePiiSubjectKms`) active: `recoveryCodes` was a `jsonb` field marked `userOwned`, but the PII-encryption pipeline requires a string value for any subject-owned field — every real enable-confirm write threw `PII field \"recoveryCodes\" must be a string, got object`. `recoveryCodes` is now a `createTextField({ encrypted: true, userOwned })` (JSON-stringified at the write/read boundary), matching `totpSecret`. That exposed a second, deeper bug: a field carrying both `encrypted: true` and a subject marker is written as `PII(envelope(plaintext))`, but `decryptForRead` peeled the layers in write order instead of reverse order, so the envelope cipher choked on a still-PII-wrapped string. Fixed `event-store-executor-context.ts`'s `decryptForRead` to unwrap PII first, then envelope — and updated `auth-mfa`'s KEK-reencrypt job (which reads raw rows, bypassing `decryptForRead`) to do the same. Also: `MfaEnableScreen` now takes an optional `onEnabled` callback, fired after a successful enable-confirm — hosts that compose it inside their own MFA-status view (like kumiko-studio's account-security screen) need it to know when to refetch and swap away from the embedded enable flow. - @cosmicdrift/kumiko-framework@0.149.1 - @cosmicdrift/kumiko-headless@0.149.1 - @cosmicdrift/kumiko-renderer@0.149.1 - @cosmicdrift/kumiko-dispatcher-live@0.149.1 - @cosmicdrift/kumiko-renderer-web@0.149.1"
+  },
+  {
+    "version": "0.149.0",
+    "type": "improvement",
+    "title": "`auth-mfa/web` gains `MfaDisableDialog`, `MfaRegenerateRecoveryDialog`, and `MfaRecoveryC…",
+    "detail": "`auth-mfa/web` gains `MfaDisableDialog`, `MfaRegenerateRecoveryDialog`, and `MfaRecoveryCodesReveal` — the disable/regenerate-recovery UI deferred from the initial MFA-UI PR (kumiko-framework#266). Also fixes `MfaEnableScreen`'s error banner, which templated the raw snake_case server error code straight into the i18n key (`auth.mfa.errors.invalid_totp_code`) instead of the camelCase key actually registered (`auth.mfa.errors.invalidCode`) — extracted into a shared `mfaManageErrorKey` helper, now used by all three write-triggering components."
+  },
+  {
+    "version": "0.149.0",
+    "type": "improvement",
+    "title": "`auth-mfa` gains a `status` query (`AuthMfaQueries.status`, wire QN `auth-mfa:query:user-…",
+    "detail": "`auth-mfa` gains a `status` query (`AuthMfaQueries.status`, wire QN `auth-mfa:query:user-mfa:status`) returning `{ enabled: boolean }` for the calling user — the one thing a settings/security screen needs to decide whether to show the enrollment flow or the disable/regenerate actions. No client-side signal carried this before."
+  }
+]
