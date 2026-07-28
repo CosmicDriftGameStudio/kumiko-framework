@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.165.4
+
+### Patch Changes
+
+- 9bc5823: docs(upgrade): record searchable subject-PII / derived Meili (fw#1610) in feature changes.json so `kumiko upgrade` surfaces it.
+  - @cosmicdrift/kumiko-framework@0.165.4
+  - @cosmicdrift/kumiko-types@0.165.4
+  - @cosmicdrift/kumiko-dispatcher-live@0.165.4
+  - @cosmicdrift/kumiko-headless@0.165.4
+  - @cosmicdrift/kumiko-renderer@0.165.4
+  - @cosmicdrift/kumiko-renderer-web@0.165.4
+
 ## 0.165.3
 
 ### Patch Changes
