@@ -89,3 +89,18 @@ export function collectPiiSubjectFields(entity: EntityDefinition): readonly stri
     )
     .map(([name]) => name);
 }
+
+/** Subject-annotated fields that may be plaintext in the derived search index (#1610). */
+export function collectSearchableSubjectFields(entity: EntityDefinition): readonly string[] {
+  return Object.entries(entity.fields)
+    .filter(([, field]) => {
+      const subject =
+        ("userOwned" in field && field.userOwned !== undefined) ||
+        ("tenantOwned" in field && field.tenantOwned === true) ||
+        ("pii" in field && field.pii === true);
+      if (!subject) return false;
+      if ("sensitive" in field && field.sensitive === true) return false;
+      return "searchable" in field && field.searchable === true;
+    })
+    .map(([name]) => name);
+}

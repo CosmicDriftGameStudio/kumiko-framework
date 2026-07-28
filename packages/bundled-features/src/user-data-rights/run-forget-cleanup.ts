@@ -49,6 +49,10 @@ import {
   type UserDataDeleteStrategy,
   type UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  purgeSearchDocumentsForSubject,
+  type SearchAdapter,
+} from "@cosmicdrift/kumiko-framework/search";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resolveRetentionPolicyForTenant } from "../data-retention";
 import { decryptStoredPii } from "../shared";
@@ -235,6 +239,7 @@ export async function runForgetCleanup(
       buildStorageProvider,
       appTenantModel,
       kms,
+      searchAdapter: args.searchAdapter,
     });
     hookCallsAttempted += userResult.hookCallsAttempted;
     errors.push(...userResult.errors);
@@ -298,6 +303,7 @@ async function processUser(args: {
   buildStorageProvider?: (tenantId: TenantId) => Promise<UserDataStorageProvider | undefined>;
   appTenantModel: TenantUserModel;
   kms?: KmsAdapter;
+  searchAdapter?: SearchAdapter;
 }): Promise<ProcessUserResult> {
   const { db, registry, userId, hookEntries, buildStorageProvider, appTenantModel, kms } = args;
   const errors: ForgetCleanupError[] = [];
@@ -422,6 +428,14 @@ async function processUser(args: {
           registry.features,
           subjectIdToKey({ kind: "user", userId }),
         );
+        if (args.searchAdapter) {
+          await purgeSearchDocumentsForSubject(
+            tx,
+            registry.features,
+            args.searchAdapter,
+            subjectIdToKey({ kind: "user", userId }),
+          );
+        }
       }
 
       // Status-Flip in derselben Sub-Tx. Falls einer der Hooks oben

@@ -61,6 +61,7 @@ export {
 } from "./request-kms-cache";
 export {
   collectPiiSubjectFields,
+  collectSearchableSubjectFields,
   type ResolveSubjectOptions,
   resolveSubjectForField,
   SubjectResolutionError,

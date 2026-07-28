@@ -3,6 +3,7 @@
 // von SearchAdapter-Types. Apps die Meilisearch nicht nutzen, ziehen den
 // Client-Code nicht mit rein.
 export { createInMemorySearchAdapter } from "./in-memory-adapter";
+export { purgeSearchDocumentsForSubject } from "./purge-subject";
 export type {
   ReindexEntityFailure,
   ReindexEntityOptions,
