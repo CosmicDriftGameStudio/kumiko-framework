@@ -76,7 +76,7 @@ export function createSearchEventConsumer(
 
       let state = reconstructStateForSearch(event.payload, verb);
       state = await decryptSearchableSubjectFields(entityName, state, registry);
-      // Erased subject → drop the doc so a rebuild cannot resurrect plaintext.
+      // skip: erased subject — drop the doc so a rebuild cannot resurrect plaintext.
       if (hasErasedSearchableSubjectField(entityName, state, registry)) {
         await searchAdapter.remove(tenantId, entityName, event.aggregateId);
         return;
