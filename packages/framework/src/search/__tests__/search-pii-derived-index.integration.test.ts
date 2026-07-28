@@ -96,6 +96,7 @@ describe("searchable PII derived index (#1610)", () => {
       stack.registry.features,
       stack.search,
       subjectIdToKey(subject),
+      subject,
     );
 
     const after = await stack.search.search(admin.tenantId, plain, { filterType: "contact" });
@@ -126,6 +127,36 @@ describe("searchable PII derived index (#1610)", () => {
     );
     if (!updated.isSuccess) throw new Error("update failed");
     await stack.eventDispatcher?.runOnce();
+
+    const after = await stack.search.search(admin.tenantId, plain, { filterType: "contact" });
+    expect(after.some((h) => String(h.entityId) === id)).toBe(false);
+  });
+  test("purge finds rows after anonymize rewrote ciphertext (#1610 bugbot)", async () => {
+    const plain = "AnonymizedStillPurge1610";
+    const created = await executor().create({ label: plain, note: "n" }, admin, tenantDb());
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = String(created.data.id);
+    await stack.eventDispatcher?.runOnce();
+    expect(
+      (await stack.search.search(admin.tenantId, plain, { filterType: "contact" })).some(
+        (h) => String(h.entityId) === id,
+      ),
+    ).toBe(true);
+
+    // Simulate forget-cleanup anonymize: overwrite searchable PII with plaintext.
+    await asRawClient(stack.db).unsafe(
+      `UPDATE read_search_pii_contacts SET label = $1 WHERE id = $2`,
+      ["[[erased]]", id],
+    );
+
+    const subject = { kind: "user" as const, userId: id };
+    await purgeSearchDocumentsForSubject(
+      stack.db,
+      stack.registry.features,
+      stack.search,
+      subjectIdToKey(subject),
+      subject,
+    );
 
     const after = await stack.search.search(admin.tenantId, plain, { filterType: "contact" });
     expect(after.some((h) => String(h.entityId) === id)).toBe(false);

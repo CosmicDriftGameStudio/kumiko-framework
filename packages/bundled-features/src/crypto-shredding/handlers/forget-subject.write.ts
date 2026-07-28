@@ -84,6 +84,7 @@ export const forgetSubjectWrite = defineWriteHandler({
         ctx.registry.features,
         ctx.searchAdapter,
         subjectKey,
+        subject,
       );
     }
 

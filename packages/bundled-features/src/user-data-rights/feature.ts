@@ -524,6 +524,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           registry: forgetRegistry,
           now: T.Now.instant(),
           tenantModel,
+          ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
           // Same per-tenant provider resolution as the export cron — forget
           // deletes binaries from the store upload + export use.
           buildStorageProvider: makeTenantStorageProviderResolver({

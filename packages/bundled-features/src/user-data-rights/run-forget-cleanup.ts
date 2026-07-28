@@ -121,6 +121,13 @@ export interface RunForgetCleanupArgs {
   readonly kms?: KmsAdapter;
 
   /**
+   * Search adapter for purging derived Meili docs of searchable subject-PII
+   * (#1610). Same seam as forget-subject. Omitted → no search purge (apps
+   * without Meili).
+   */
+  readonly searchAdapter?: SearchAdapter;
+
+  /**
    * App-level tenant-occupancy model (resolved from the `tenantModel` config by
    * the cron/handler). The pipeline refines it PER TENANT with a sole-member
    * check before handing `tenantModel` to each delete-hook, so tenant-scoped
@@ -429,11 +436,13 @@ async function processUser(args: {
           subjectIdToKey({ kind: "user", userId }),
         );
         if (args.searchAdapter) {
+          const subject = { kind: "user" as const, userId };
           await purgeSearchDocumentsForSubject(
             tx,
             registry.features,
             args.searchAdapter,
-            subjectIdToKey({ kind: "user", userId }),
+            subjectIdToKey(subject),
+            subject,
           );
         }
       }
