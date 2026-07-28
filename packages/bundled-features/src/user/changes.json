@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "version": "0.165.3",
+    "type": "improvement",
+    "title": "user.displayName is searchable via derived Meili (fw#1610).",
+    "detail": "displayName is userOwned PII and now searchable through the decrypt-into-Meili path; forget purges the index entry with the subject key."
+  }
+]

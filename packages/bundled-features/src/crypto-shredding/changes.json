@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.165.3",
+    "type": "improvement",
+    "title": "Searchable subject-PII via derived Meili index (fw#1610).",
+    "detail": "Fields may be searchable + userOwned/tenantOwned: the search consumer decrypts into Meili (ciphertext stays at rest). Forget erases the subject key and purgeSearchDocumentsForSubject removes Meili docs (ciphertext LIKE + ownership for post-anonymize). sortable + subject remains forbidden; sensitive + searchable is rejected at boot."
+  },
+  {
     "version": "0.119.0",
     "type": "improvement",
     "title": "Crypto-shredding phase D: forget wire.",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.165.3",
+    "type": "improvement",
+    "title": "Forget cleanup purges derived Meili docs for searchable subject-PII (fw#1610).",
+    "detail": "run-forget-cleanup (and the forget cron path) call purgeSearchDocumentsForSubject after crypto-shred so searchable userOwned fields do not linger in Meili as plaintext after Art. 17."
+  },
+  {
     "version": "0.165.0",
     "type": "breaking",
     "title": "Export download: removed ?token= query param",
