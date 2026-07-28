@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.165.3
+
+### Patch Changes
+
+- e4a0b9b: Allow `searchable` on subject-annotated PII: decrypt into the derived Meili index and purge docs on Art.17 erase (fw#1610).
+- Updated dependencies [e4a0b9b]
+  - @cosmicdrift/kumiko-framework@0.165.3
+  - @cosmicdrift/kumiko-types@0.165.3
+  - @cosmicdrift/kumiko-headless@0.165.3
+  - @cosmicdrift/kumiko-renderer@0.165.3
+  - @cosmicdrift/kumiko-dispatcher-live@0.165.3
+  - @cosmicdrift/kumiko-renderer-web@0.165.3
+
 ## 0.165.2
 
 ### Patch Changes

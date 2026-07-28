@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-types
 
+## 0.165.3
+
+### Patch Changes
+
+- e4a0b9b: Allow `searchable` on subject-annotated PII: decrypt into the derived Meili index and purge docs on Art.17 erase (fw#1610).
+
 ## 0.165.2
 
 ### Patch Changes
