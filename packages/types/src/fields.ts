@@ -35,8 +35,19 @@ export type FieldAccess = {
 //
 //   * `lookupable: true` adds a generated `<snake>_bidx` HMAC column and the
 //     query compiler matches `(col = $1 OR col_bidx = $2)`, so fetchOne and
-//     filter-eq keep working. Substring and sorting do not — those need a
-//     separate, deletable index (Meilisearch), never a plaintext column.
+//     filter-eq keep working. Full-text search does not, yet: the boot
+//     validator rejects `searchable` here today because the search consumer
+//     indexes the raw event payload, which is already ciphertext. That is a
+//     pipeline limitation, not a policy. #1610 lifts it by decrypting into
+//     the derived per-tenant search index and purging it on forget. Sorting
+//     stays impossible either way (it reads the ciphertext column).
+//
+// Encrypting a field is NOT a reason to make it unfindable. A user table you
+// cannot search by name is a user table with no working search. The line that
+// actually forbids search is `sensitive: true` — nobody may read those values
+// back, and the event-store executor already strips them before the search
+// consumer ever sees a payload. Password hashes, API tokens, bank details:
+// never indexed. Email, username, display name: encrypted at rest, findable.
 //
 // Why `encrypted: true` erases nothing: it uses the app-wide master key,
 // which is never destroyed per subject. Encryption-at-rest, nothing more.
@@ -68,10 +79,11 @@ export type FieldAccess = {
 //     `pii: true, lookupable: true`. Ciphertext everywhere, exact lookup via
 //     the blind index, gone when the user's subject key dies.
 //
-//   user.displayName (same file) — real name in most apps, never looked up
-//     by exact value. `pii: true` alone. No lookupable, no searchable: the
-//     boot validator rejects substring search on an encrypted field because
-//     it would require a plaintext copy in the index (#818).
+//   user.displayName (same file) — real name in most apps, and a user picker
+//     needs to find it. `pii: true` alone today, because `searchable` is still
+//     rejected on subject-annotated fields (#1610 is the fix). This is the
+//     field that motivated that issue: encrypted and unfindable is the wrong
+//     end state for identity data, it just isn't `sensitive`.
 //
 //   ledger.description (ledger/entity.ts) — "Miete Januar" is accounting
 //     data that happens to read like PII, and full-text search over it is the
