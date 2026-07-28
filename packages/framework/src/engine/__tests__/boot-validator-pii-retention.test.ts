@@ -680,7 +680,7 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
     expect(() => validateBoot([feature])).toThrow(/only apply to text fields/);
   });
 
-  test("searchable combined with a subject annotation throws", () => {
+  test("searchable combined with a subject annotation passes (#1610)", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(
         "user",
@@ -691,7 +691,7 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         }),
       );
     });
-    expect(() => validateBoot([feature])).toThrow(/searchable.*cannot work/);
+    expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("sortable combined with a subject annotation throws", () => {
@@ -705,7 +705,25 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         }),
       );
     });
-    expect(() => validateBoot([feature])).toThrow(/sortable.*cannot work/);
+    expect(() => validateBoot([feature])).toThrow(/sortable/);
+  });
+
+  test("searchable combined with sensitive throws (#1610)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "user",
+        createEntity({
+          fields: {
+            passwordHash: createTextField({
+              pii: true,
+              sensitive: true,
+              searchable: true,
+            }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).toThrow(/sensitive.*searchable/);
   });
 });
 
@@ -758,7 +776,7 @@ describe("validateBoot — piiEncrypted (kumiko-platform#231/#456)", () => {
     expect(() => validateBoot([feature])).toThrow(/piiEncrypted.*without a subject annotation/);
   });
 
-  test("piiEncrypted combined with searchable throws", () => {
+  test("piiEncrypted combined with searchable passes (#1610)", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(
         "tenant",
@@ -774,7 +792,7 @@ describe("validateBoot — piiEncrypted (kumiko-platform#231/#456)", () => {
         }),
       );
     });
-    expect(() => validateBoot([feature])).toThrow(/piiEncrypted.*searchable.*cannot work/);
+    expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("piiEncrypted combined with sortable throws", () => {
@@ -793,7 +811,7 @@ describe("validateBoot — piiEncrypted (kumiko-platform#231/#456)", () => {
         }),
       );
     });
-    expect(() => validateBoot([feature])).toThrow(/piiEncrypted.*sortable.*cannot work/);
+    expect(() => validateBoot([feature])).toThrow(/sortable/);
   });
 
   test("piiEncrypted without access.read throws (kumiko-platform#460)", () => {

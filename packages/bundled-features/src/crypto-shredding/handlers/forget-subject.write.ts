@@ -8,6 +8,7 @@ import {
 import { nullBlindIndexesForSubject } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
 import { z } from "zod";
 import { CRYPTO_SHREDDING_AGGREGATE_TYPE, SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
 
@@ -74,6 +75,18 @@ export const forgetSubjectWrite = defineWriteHandler({
     // Rebuild equality-matchbar. Bewusst ctx.db.raw: der Ciphertext-Prefix
     // adressiert das Subject tenant-übergreifend.
     await nullBlindIndexesForSubject(ctx.db.raw, ctx.registry.features, subjectKey);
+
+    // Derived search index still holds plaintext (#1610) — purge next to the
+    // blind-index sweep. No adapter → no-op (apps without search).
+    if (ctx.searchAdapter) {
+      await purgeSearchDocumentsForSubject(
+        ctx.db.raw,
+        ctx.registry.features,
+        ctx.searchAdapter,
+        subjectKey,
+        subject,
+      );
+    }
 
     await ctx.unsafeAppendEvent({
       aggregateId: raw.kind === "user" ? raw.userId : raw.tenantId,

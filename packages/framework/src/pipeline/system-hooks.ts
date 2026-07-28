@@ -1,4 +1,11 @@
 import type { SseBroker } from "../api/sse-broker";
+import {
+  collectSearchableSubjectFields,
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+  isPiiCiphertext,
+  PII_ERASED_SENTINEL,
+} from "../crypto";
 import type { DbRow } from "../db/connection";
 import { tenantChannel } from "../engine/constants";
 import type { EntityId, JobRunnerRef, Registry, SessionUser } from "../engine/types";
@@ -53,10 +60,9 @@ export function createSearchEventConsumer(
       const verb = event.type.split(".").pop();
       const tenantId = event.tenantId;
 
-      // skip: delete takes an early-return after removing the index entry —
-      // the "reconstruct state" path below only makes sense for created/
-      // updated/restored, which carry field data in the payload.
-      if (verb === "deleted") {
+      // skip: delete/forgotten remove the index entry — reconstruct only
+      // makes sense for created/updated/restored (field data in payload).
+      if (verb === "deleted" || verb === "forgotten") {
         await searchAdapter.remove(tenantId, entityName, event.aggregateId);
         return;
       }
@@ -68,7 +74,13 @@ export function createSearchEventConsumer(
         return;
       }
 
-      const state = reconstructStateForSearch(event.payload, verb);
+      let state = reconstructStateForSearch(event.payload, verb);
+      state = await decryptSearchableSubjectFields(entityName, state, registry);
+      // skip: erased subject — drop the doc so a rebuild cannot resurrect plaintext.
+      if (hasErasedSearchableSubjectField(entityName, state, registry)) {
+        await searchAdapter.remove(tenantId, entityName, event.aggregateId);
+        return;
+      }
       const doc = await buildSearchDocument(entityName, event.aggregateId, state, registry);
       if (!doc) {
         // skip: entity isn't searchable (no searchable fields declared)
@@ -77,6 +89,41 @@ export function createSearchEventConsumer(
       await searchAdapter.index(tenantId, doc);
     },
   };
+}
+
+// #1610 — subject-annotated searchable fields are ciphertext in the event
+// payload; decrypt into the derived index only. No KMS → omit ciphertext
+// values rather than indexing blobs.
+async function decryptSearchableSubjectFields(
+  entityName: string,
+  state: Record<string, unknown>,
+  registry: Registry,
+): Promise<Record<string, unknown>> {
+  const entity = registry.getEntity(entityName);
+  if (!entity) return state;
+  const fields = collectSearchableSubjectFields(entity);
+  if (fields.length === 0) return state;
+  const kms = configuredPiiSubjectKms();
+  if (!kms) {
+    const out = { ...state };
+    for (const name of fields) {
+      if (isPiiCiphertext(out[name])) delete out[name];
+    }
+    return out;
+  }
+  return decryptPiiFieldValues(state, fields, kms, {
+    requestId: "system:consumer:search",
+  });
+}
+
+function hasErasedSearchableSubjectField(
+  entityName: string,
+  state: Record<string, unknown>,
+  registry: Registry,
+): boolean {
+  const entity = registry.getEntity(entityName);
+  if (!entity) return false;
+  return collectSearchableSubjectFields(entity).some((name) => state[name] === PII_ERASED_SENTINEL);
 }
 
 // Rebuild the entity-state a search index needs from the event-payload alone.

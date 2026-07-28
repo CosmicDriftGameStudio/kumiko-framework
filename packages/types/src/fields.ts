@@ -20,42 +20,86 @@ export type FieldAccess = {
 // permanent history. Use for password hashes, API tokens, bank details,
 // tax IDs. See docs/plans/architecture/projections.md.
 
-// --- PII / Subject-Key Annotations (DSGVO Art. 17 — Crypto-Shredding) ---
+// --- PII / Subject-Key Annotations (GDPR Art. 17) ---
 //
-// Felder die PII enthalten werden in Sprint 3 (crypto-shredding) mit einem
-// Subject-Schluessel encrypted gespeichert. Subject = die natuerliche Person
-// oder der Tenant der die Daten "besitzt". Loeschung erfolgt durch Vernichten
-// des Subject-Keys ("Crypto-Shredding") — der Datensatz bleibt physisch
-// (Audit-Trail bewahrt), ist aber nicht mehr entschluesselbar. Sprint 0
-// fuegt nur die Schema-Marker + Boot-Validation ein; Encrypt/Decrypt-Mechanik
-// kommt in Sprint 3.
+// Four independent mechanisms, NOT interchangeable. Picking the wrong one is
+// the recurring mistake this table exists to prevent: `encrypted: true` looks
+// like the strongest option and is the only one with NO erasure guarantee.
 //
-// Drei orthogonale Markierungen:
-//   - `pii: true`              — Subject = die Entity selbst.
-//                                Beispiel: user.email gehoert User Marc.
-//   - `userOwned: { ownerField }` — Subject = der User der im genannten
-//                                Field referenziert ist.
-//                                Beispiel: comment.body gehoert
-//                                comment.authorId.
-//   - `tenantOwned: true`      — Subject = der aktuelle Tenant
-//                                (ctx.tenantId zur Schreibzeit).
-//                                Beispiel: tenantBranding.brandColor.
+//   flag                           | at rest    | searchable | Art. 17 erasure
+//   -------------------------------|------------|------------|----------------
+//   (none)                         | plaintext  | yes        | no
+//   allowPlaintext + anonymize     | plaintext  | yes        | read side only
+//   pii / userOwned / tenantOwned  | ciphertext | yes *      | yes, key erase
+//   encrypted: true                | ciphertext | no         | NO
 //
-// `anonymize` ist die Pro-Feld-Funktion die der retention-Cleanup-Job
-// (Sprint 2) aufruft wenn die Entity-Strategy "anonymize" lautet oder die
-// `blockDelete`-Frist abgelaufen ist. Beispiel: `() => "[ANONYMIZED]"` oder
-// `() => null`.
+//   * Subject-annotated + `searchable: true` (#1610): search consumer
+//     decrypts into Meilisearch. Events/projection stay ciphertext.
+//     eraseKey paths purge docs via purgeSearchDocumentsForSubject.
+//     `lookupable: true` still covers equality (blind index). `sortable`
+//     stays forbidden — sorting reads the ciphertext column.
 //
-// `allowPlaintext` unterdrueckt PII-Heuristik-Boot-Warnings fuer Felder die
-// zwar PII-Naming haben (email, name, body) aber bewusst Klartext bleiben
-// sollen — z.B. ticket.title als Geschaeftsdaten. Wert ist eine Begruendung
-// wie "is-business-data".
+// Encrypting a field is NOT a reason to make it unfindable. A user table you
+// cannot search by name is a user table with no working search. The line that
+// actually forbids search is `sensitive: true` — nobody may read those values
+// back, and the event-store executor already strips them before the search
+// consumer ever sees a payload. Password hashes, API tokens, bank details:
+// never indexed. Email, username, display name: encrypted at rest, findable.
 //
-// `anonymize` darf sync oder async sein — der Cleanup-Job (Sprint 2)
-// awaited den Return. Async-Funktionen sind sinnvoll wenn die Anonymisierung
-// einen Lookup braucht (z.B. konsistente Pseudonyme aus separater Tabelle).
+// Why `encrypted: true` erases nothing: it uses the app-wide master key,
+// which is never destroyed per subject. Encryption-at-rest, nothing more.
+// Only a subject annotation binds the field to a per-subject key that
+// `crypto-shredding:write:forget-subject` (or the tenant-destroy hook's
+// eraseSubjectKeys) can destroy, which makes every event and every
+// projection copy of that subject unreadable at once.
 //
-// Siehe docs/plans/datenschutz/crypto-shredding.md und docs/plans/datenschutz/roadmap.md.
+// Why `anonymize` only covers the read side: it overwrites projection rows.
+// `kumiko_events` is append-only and keeps the original payload forever
+// (archiveStream stops REPLAY, it does not delete the row). A plaintext
+// field stays permanently readable in the event log for anyone with database
+// access — an access + retention question, not a crypto one. Choose it
+// deliberately, not by forgetting to annotate.
+//
+// Which subject owns the field:
+//   - `pii: true`                 — the entity itself. user.email.
+//   - `userOwned: { ownerField }` — the user referenced in that field.
+//                                   comment.body → comment.authorId.
+//   - `tenantOwned: true`         — the current tenant (ctx.tenantId at write
+//                                   time). tenantBranding.brandColor.
+// `piiEncrypted: true` is a declarative alias over these for values the user
+// may legitimately see back (their own IBAN), unlike `r.secret()`. Text
+// fields only. `sortable` + subject annotation still throws; `searchable` is allowed (#1610). `sensitive` + `searchable` throws.
+//
+// Worked examples, all live in this repo:
+//
+//   user.email (user/schema/user.ts) — login identifier, must stay findable.
+//     `pii: true, lookupable: true`. Ciphertext everywhere, exact lookup via
+//     the blind index, gone when the user's subject key dies.
+//
+//   user.displayName (same file) — real name; substring search via Meili.
+//     `pii: true, searchable: true` (#1610). Ciphertext in events/projection;
+//     plaintext only in the derived index; purged on forget.
+//
+//   ledger.description (ledger/entity.ts) — "Miete Januar" is accounting
+//     data that happens to read like PII, and full-text search over it is the
+//     point. `allowPlaintext: "is-business-data"`, cleaned up via retention,
+//     event log keeps the original. Accepted deliberately.
+//
+//   subscription.providerCustomerId (billing-foundation/entities.ts) — a
+//     Mollie/Stripe id, never searched. `tenantOwned: true`, explicitly NOT
+//     `encrypted: true`: tenant-destroy erases the tenant subject key, and
+//     only the subject path shreds along with it (#800). Budget maxLength for
+//     ciphertext (`kumiko-pii:v1:<subject>:<blob>`, roughly plaintext × 2.3).
+//
+// `sensitive: true` is orthogonal to all of this — see its own note above.
+//
+// `anonymize` is the per-field function the retention-cleanup job calls when
+// the entity strategy is "anonymize" or a `blockDelete` deadline expired.
+// Sync or async (async when the pseudonym needs a lookup); the job awaits it.
+// Example: `() => "[ANONYMIZED]"` or `() => null`.
+//
+// Background specs (both shipped, kumiko-platform/docs/archive/plans/):
+// datenschutz/crypto-shredding.md, datenschutz/blind-index.md.
 export type PiiAnnotations = {
   readonly pii?: boolean;
   readonly userOwned?: { readonly ownerField: string };

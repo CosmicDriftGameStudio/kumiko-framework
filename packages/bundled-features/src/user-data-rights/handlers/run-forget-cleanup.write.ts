@@ -57,6 +57,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
         registry: ctx.registry,
         now: T.Now.instant(),
         tenantModel,
+        ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
         buildStorageProvider: makeTenantStorageProviderResolver({
           registry: ctx.registry,
           configResolver: ctx.configResolver,

@@ -129,15 +129,25 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         );
       }
 
-      // Substring-Suche/Sortierung auf Ciphertext ist prinzipbedingt
-      // unmöglich — searchable würde Plaintext-Kopien in den Suchindex
-      // schieben, sortable sortiert Base64-Blobs. Equality → lookupable.
-      if (annotCount > 0 || piiEncryptedFlag.piiEncrypted === true) {
-        const flags = field as { readonly searchable?: boolean; readonly sortable?: boolean }; // @cast-boundary schema-walk
-        if (flags.searchable === true || flags.sortable === true) {
-          const offending = flags.searchable === true ? "searchable" : "sortable";
+      // Sortierung liest die Projection-Spalte — die bleibt Ciphertext, also
+      // sortable + Subject-Annotation bleibt Boot-Fail. searchable ist seit
+      // #1610 erlaubt: der Search-Consumer decryptet in den abgeleiteten
+      // Index und forget purgt die Docs (siehe createSearchEventConsumer).
+      // sensitive + searchable bleibt verboten (nobody-may-read-back).
+      {
+        const flags = field as {
+          readonly searchable?: boolean;
+          readonly sortable?: boolean;
+          readonly sensitive?: boolean;
+        }; // @cast-boundary schema-walk
+        if ((annotCount > 0 || piiEncryptedFlag.piiEncrypted === true) && flags.sortable === true) {
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines a subject-key annotation or { piiEncrypted: true } with { ${offending}: true } — ${offending} on encrypted fields cannot work (ciphertext at rest). For equality lookups use { lookupable: true }; for search/sort the field must stay plaintext (allowPlaintext).`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines a subject-key annotation or { piiEncrypted: true } with { sortable: true } — sorting reads the projection column, which is ciphertext at rest. For equality lookups use { lookupable: true }; drop sortable or keep the field plaintext (allowPlaintext).`,
+          );
+        }
+        if (flags.sensitive === true && flags.searchable === true) {
+          throw new Error(
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines { sensitive: true } with { searchable: true } — sensitive means nobody may read the value back (passwords, tokens, tax IDs). Subject-annotated identity fields may be searchable (#1610); sensitive fields may not.`,
           );
         }
       }
