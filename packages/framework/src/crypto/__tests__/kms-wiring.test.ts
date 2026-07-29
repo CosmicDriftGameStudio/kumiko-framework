@@ -92,6 +92,16 @@ describe("resolveKmsWiring", () => {
     expect(wiring).toEqual({ allowPlaintextPii: "local dev without subject-keys KMS (fw#818)" });
   });
 
+  // Regression: every member being optional made TypeScript's weak-type
+  // detection reject `process.env` ("no properties in common with
+  // KmsWiringEnv"), which pushed each app toward a cast or a six-key mapping.
+  // This compiles only while the index signature is there.
+  test("accepts process.env directly, with its unrelated keys", () => {
+    const processLike: NodeJS.ProcessEnv = { PATH: "/usr/bin", HOME: "/root" };
+
+    expect(resolveKmsWiring(processLike)).toHaveProperty("allowPlaintextPii");
+  });
+
   test("carries an app-supplied fallback reason into the boot log", () => {
     const wiring = resolveKmsWiring({}, { plaintextReason: "solon pre-UI gate" });
 

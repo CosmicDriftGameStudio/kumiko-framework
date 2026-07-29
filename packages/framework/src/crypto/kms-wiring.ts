@@ -10,6 +10,12 @@
 
 import { createPgKmsAdapter, type PgKmsAdapter, type PgKmsAdapterOptions } from "./pg-kms-adapter";
 
+// The index signature is what lets callers pass `process.env` directly. Without
+// it every member is optional, so TypeScript's weak-type detection rejects
+// ProcessEnv for having "no properties in common" — and each app would need
+// either a hand-written six-key mapping or a cast. An env map genuinely does
+// carry arbitrary keys, so the signature states a fact rather than loosening
+// the type for convenience.
 export type KmsWiringEnv = {
   readonly PLATFORM_KEK?: string | undefined;
   readonly SUBJECT_KEYS_DATABASE_URL?: string | undefined;
@@ -17,6 +23,7 @@ export type KmsWiringEnv = {
   readonly PLATFORM_KEK_VERSION?: string | undefined;
   readonly PLATFORM_KEK_PREVIOUS?: string | undefined;
   readonly PLATFORM_KEK_PREVIOUS_VERSION?: string | undefined;
+  readonly [key: string]: string | undefined;
 };
 
 /** Narrowed form for `buildPgKmsOptions` — presence of the two required
