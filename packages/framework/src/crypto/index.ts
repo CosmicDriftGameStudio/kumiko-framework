@@ -35,6 +35,17 @@ export {
   subjectKeyForUser,
 } from "./kms-adapter";
 export {
+  type ActiveKmsWiring,
+  buildPgKmsOptions,
+  type KmsWiring,
+  type KmsWiringEnv,
+  type KmsWiringOptions,
+  type PgKmsRotationEnv,
+  type PlaintextPiiWiring,
+  requireKmsWiring,
+  resolveKmsWiring,
+} from "./kms-wiring";
+export {
   createPgKmsAdapter,
   PgKmsAdapter,
   type PgKmsAdapterOptions,
