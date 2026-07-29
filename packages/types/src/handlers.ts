@@ -689,7 +689,7 @@ export type UnsafeAppendEventFn = (args: AppendEventArgs) => Promise<void>;
 // entire enclosing transaction.
 export type TryAppendEventResult =
   | { readonly ok: true; readonly event: import("./event-store-types").StoredEvent }
-  | { readonly ok: false; readonly conflict: import("./event-store-errors").VersionConflictError };
+  | { readonly ok: false; readonly conflict: import("./event-store-types").VersionConflict };
 
 export type TryAppendEventFn = (args: AppendEventArgs) => Promise<TryAppendEventResult>;
 

@@ -7,9 +7,10 @@ Framework type definitions for Kumiko — `FeatureDefinition`, boot-check types,
 and the pure engine types. Lets downstream consumers build against the type
 contracts without importing the whole framework package.
 
-Also contains the identity-sensitive error classes (`event-store-errors.ts`,
-`kms-adapter-types.ts`) as runtime code — `kumiko-framework`/
-`kumiko-bundled-features` declare this package as a `peerDependency`
-(single-copy constraint), not a plain dependency.
+Carries no identity-sensitive runtime values: no classes, and brand symbols use
+`Symbol.for`. Resolving two copies of this package is therefore harmless, so
+`kumiko-framework`/`kumiko-bundled-features` declare it as a plain dependency.
+The error classes callers branch on with `instanceof` live in `kumiko-framework`
+(`/event-store`, `/crypto`), which stays a single copy.
 
 See the [monorepo root README](../../README.md) for the broader pitch.
