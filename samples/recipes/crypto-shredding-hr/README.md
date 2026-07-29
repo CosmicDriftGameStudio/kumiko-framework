@@ -26,8 +26,21 @@ manager's comment dies with the employee's key, not the manager's.
   checks) keep working on ciphertext: the query compiler rewrites
   `email = $1` to `(email = $1 OR email_bidx = hmac($1))`. Needs
   `runProdApp({ blindIndexKey })` (a dedicated 32-byte key, NOT the KEK).
-  Substring search and sorting stay impossible by design — the boot
-  validator rejects `searchable`/`sortable` on encrypted fields.
+  Sorting stays impossible by design — the boot validator rejects
+  `sortable` on subject-annotated fields, because sorting reads the
+  projection column and that stays ciphertext.
+- **`searchable: true` on an encrypted field** (#1610) — substring search
+  works: the search consumer decrypts into a derived Meilisearch index, while
+  events and projection keep the ciphertext. `search/purge-subject.ts` drops
+  those documents when the subject key is erased, so the derived index does
+  not outlive the forget. `sensitive: true` + `searchable` still throws —
+  those values may never be read back at all.
+
+  Encrypting a field is not a reason to make it unfindable. If a list needs
+  ordering over an encrypted name, the way out is a search-driven list rather
+  than an alphabetically paginated one — not a plaintext sort column beside
+  the encrypted one, which would survive the key erase and quietly undo the
+  shredding.
 - **Forget = `kms.eraseKey(subject)`** — afterwards detail *and* list render
   `[[erased]]` for every protected field while the stored ciphertext bytes
   stay untouched.
