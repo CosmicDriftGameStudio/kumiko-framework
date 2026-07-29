@@ -105,6 +105,10 @@ function generateMarkdown(changelogs: Map<string, ChangelogEntry[]>): string {
   lines.push("title: Migration Guide");
   lines.push("description: Breaking changes and migration hints for Kumiko upgrades");
   lines.push("status: reference");
+  // guard-doc-status requires an ISO `verified` on every doc under docs/.
+  // For a derived doc that date is the generation date — regenerating IS the
+  // verification, there is nothing else to check by hand.
+  lines.push(`verified: ${new Date().toISOString().slice(0, 10)}`);
   lines.push("---");
   lines.push("");
   lines.push("# Migration Guide");
