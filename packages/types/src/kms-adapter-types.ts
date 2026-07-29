@@ -95,24 +95,3 @@ export type KmsAdapter = LocalKeyKmsAdapter | RemoteCryptoKmsAdapter;
 export function isLocalKeyKmsAdapter(adapter: KmsAdapter): adapter is LocalKeyKmsAdapter {
   return adapter.capabilities.mode === "local-key";
 }
-
-export class KeyErasedError extends Error {
-  constructor(public readonly subject: SubjectId) {
-    super(`Subject key erased: ${subjectIdToKey(subject)}`);
-    this.name = "KeyErasedError";
-  }
-}
-
-export class KeyNotFoundError extends Error {
-  constructor(public readonly subject: SubjectId) {
-    super(`Subject key not found: ${subjectIdToKey(subject)}`);
-    this.name = "KeyNotFoundError";
-  }
-}
-
-export class KeyAlreadyExistsError extends Error {
-  constructor(public readonly subject: SubjectId) {
-    super(`Subject key already exists: ${subjectIdToKey(subject)}`);
-    this.name = "KeyAlreadyExistsError";
-  }
-}

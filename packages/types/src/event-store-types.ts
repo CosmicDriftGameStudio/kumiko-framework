@@ -1,5 +1,13 @@
 import type { TenantId } from "./identifiers";
 
+// Structural shape of kumiko-framework's VersionConflictError. The class
+// itself cannot live here (#1629) — this package must stay free of
+// identity-sensitive runtime values so it can be a plain dependency.
+export interface VersionConflict extends Error {
+  readonly aggregateId: string;
+  readonly expectedVersion: number;
+}
+
 export type EventMetadata = {
   readonly userId: string;
   readonly requestId?: string;

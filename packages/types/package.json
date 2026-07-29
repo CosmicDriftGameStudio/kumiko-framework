@@ -1,7 +1,7 @@
 {
   "name": "@cosmicdrift/kumiko-types",
   "version": "0.166.0",
-  "description": "Framework-Type-Definitions für Kumiko — FeatureDefinition, BootCheck-Types und die reinen Engine-Types. Erlaubt Downstream-Konsumenten, gegen die Type-Contracts zu bauen, ohne das ganze Framework-Package zu importieren. Enthaelt auch die identitaets-sensitiven Error-Klassen (event-store-errors.ts, kms-adapter-types.ts) als Runtime-Code — kumiko-framework/kumiko-bundled-features deklarieren dieses Package deshalb als peerDependency (Single-Copy-Zwang), nicht als plain dependency.",
+  "description": "Framework-Type-Definitions für Kumiko — FeatureDefinition, BootCheck-Types und die reinen Engine-Types. Erlaubt Downstream-Konsumenten, gegen die Type-Contracts zu bauen, ohne das ganze Framework-Package zu importieren. Enthaelt keine identitaets-sensitiven Runtime-Werte mehr (Error-Klassen leben seit #1629 in kumiko-framework, Brand-Symbole nutzen Symbol.for) und ist deshalb eine plain dependency, keine peerDependency.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
@@ -205,10 +205,6 @@
     "./secrets-types": {
       "types": "./src/secrets-types.ts",
       "default": "./src/secrets-types.ts"
-    },
-    "./event-store-errors": {
-      "types": "./src/event-store-errors.ts",
-      "default": "./src/event-store-errors.ts"
     },
     "./kms-adapter-types": {
       "types": "./src/kms-adapter-types.ts",
