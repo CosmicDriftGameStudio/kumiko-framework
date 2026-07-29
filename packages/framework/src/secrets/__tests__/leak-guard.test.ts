@@ -89,4 +89,16 @@ describe("assertNoSecretLeak — walks the response tree for branded values", ()
     expect(() => assertNoSecretLeak(undefined)).not.toThrow();
     expect(() => assertNoSecretLeak(null)).not.toThrow();
   });
+
+  // Dual-package hazard: a second resolved copy of @cosmicdrift/kumiko-types
+  // brands with ITS OWN symbol. Constructing the brand from the global registry
+  // here stands in for that copy — with a plain Symbol() the guard walks past
+  // this value and serializes the plaintext (#1438-adjacent).
+  test("catches a Secret branded by another copy of the package", () => {
+    const foreign = {
+      [Symbol.for("kumiko.secret")]: true as const,
+      reveal: () => "plaintext-from-another-copy",
+    };
+    expect(() => assertNoSecretLeak({ payload: foreign })).toThrow(/leaked.*payload/);
+  });
 });

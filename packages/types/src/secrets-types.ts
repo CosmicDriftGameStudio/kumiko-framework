@@ -10,9 +10,14 @@ import type { TenantId } from "./identifiers";
 // intentional. Framework code that sees `Secret<string>` knows the caller
 // has already gone through the audited ctx.secrets.get path.
 //
-// The brand is a real (non-registered) Symbol so it exists at runtime for
-// isSecret() without clashing with user-land symbols of the same name.
-const SecretBrand: unique symbol = Symbol("kumiko.secret");
+// Registered symbol, matching KUMIKO_*_SYMBOL in schema-table-types.ts. A
+// plain Symbol() is per-copy: two resolved copies of this package brand with
+// two different symbols, so createSecret() from one and isSecret() from the
+// other disagree — and isSecret() is the ONLY thing assertNoSecretLeak has,
+// so a false there serializes the plaintext into the response. The namespaced
+// key makes accidental user-land collision implausible; a deliberate forge
+// would only over-trigger the guard, which fails safe.
+const SecretBrand: unique symbol = Symbol.for("kumiko.secret");
 
 export type Secret<T = string> = {
   readonly [SecretBrand]: true;
