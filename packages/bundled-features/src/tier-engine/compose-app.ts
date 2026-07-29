@@ -84,6 +84,20 @@ export type ComposedApp<TCaps extends Readonly<Record<string, unknown>>> = {
  * delivered something the platform doesn't understand. Failing loud at boot
  * is safer than silently mounting the wrong feature-set and hoping nobody
  * notices when "Pro" turns out to mean "Free".
+ *
+ * **No production callers, and that is not rot.** This is the BOOT-TIME half
+ * of tier composition — which features get mounted at all. The RUNTIME half,
+ * which features a given tenant may see out of everything mounted, is
+ * `createTierEngineFeature`'s `resolver(tenantId) => ReadonlySet<string>`
+ * (feature.ts). Both read the same tierMap at opposite ends. Apps use the
+ * resolver today; nobody composes per-tenant feature sets at boot yet, so an
+ * app that only needs caps merges them locally rather than constructing a
+ * featureRegistry it has no other use for (kumiko-studio's
+ * `resolvePlatformCaps`, studio#154/1 → PR #162 — a deliberate, typed copy of
+ * step 4, not a workaround). Whether the boot-time half ever gets a caller is
+ * a product question: kumiko-studio's BYO pivot (Sprint 8a Phase 3a)
+ * differentiates tiers by CAPS, not by feature set. Delete this only once no
+ * app plans to differentiate by feature set — the engine is app-agnostic.
  */
 export function composeApp<TCaps extends Readonly<Record<string, unknown>>>(
   input: ComposeAppInput<TCaps>,
