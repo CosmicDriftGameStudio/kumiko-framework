@@ -6,11 +6,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  buildEntityTable,
-  configureEntityFieldEncryption,
-  resetEntityFieldEncryptionCacheForTests,
-} from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createRegistry,
@@ -20,7 +16,10 @@ import {
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  createTestEnvelopeCipher,
+  resetEntityFieldEncryptionCacheForTests,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";

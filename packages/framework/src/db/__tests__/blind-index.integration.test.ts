@@ -5,14 +5,16 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/testing";
+import {
   computeBlindIndex,
   configureBlindIndexKey,
   configurePiiSubjectKms,
   decodeBlindIndexKey,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-  resetBlindIndexKeyForTests,
-  resetPiiSubjectKmsForTests,
   subjectIdToKey,
 } from "../../crypto";
 import { defineFeature } from "../../engine/define-feature";

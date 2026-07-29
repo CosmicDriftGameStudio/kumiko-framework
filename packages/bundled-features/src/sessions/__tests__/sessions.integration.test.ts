@@ -7,8 +7,6 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-  resetBlindIndexKeyForTests,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -24,6 +22,8 @@ import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
   deleteRows,
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
   resetTestTables,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";

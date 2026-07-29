@@ -48,7 +48,6 @@ export {
   configureEntityFieldEncryption,
   decryptEntityFieldValues,
   encryptEntityFieldValues,
-  resetEntityFieldEncryptionCacheForTests,
 } from "./entity-field-encryption";
 export type {
   BuildEntityTableMetaOptions,

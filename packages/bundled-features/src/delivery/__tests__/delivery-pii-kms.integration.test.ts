@@ -12,7 +12,6 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   defineFeature,
@@ -28,6 +27,7 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
 import { createChannelEmailFeature } from "../../channel-email/feature";
 import { createInMemoryTransport } from "../../channel-email/types";

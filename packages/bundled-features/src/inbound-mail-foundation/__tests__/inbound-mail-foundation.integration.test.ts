@@ -20,7 +20,6 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
@@ -39,7 +38,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
+import { bridgeStub, resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

@@ -10,11 +10,7 @@
 // non-string userOwned field. enable-confirm failed for EVERY real deployment
 // with crypto-shredding configured, while every test here stayed green.
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  configurePiiSubjectKms,
-  InMemoryKmsAdapter,
-  resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/crypto";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import {
   createTestUser,
@@ -23,7 +19,10 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  createTestEnvelopeCipher,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";

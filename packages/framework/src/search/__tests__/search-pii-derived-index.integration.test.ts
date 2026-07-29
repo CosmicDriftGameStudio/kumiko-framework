@@ -2,11 +2,11 @@
 // plaintext in derived search index, purged on subject erase.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-  resetPiiSubjectKmsForTests,
   subjectIdToKey,
 } from "../../crypto";
 import { asRawClient, buildEntityTable, createEventStoreExecutor, createTenantDb } from "../../db";

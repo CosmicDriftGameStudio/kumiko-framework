@@ -3,12 +3,9 @@
 // rot), Prod → redact + Error-Log, ohne KMS → kein Scan (pass-through).
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
-import {
-  configurePiiSubjectKms,
-  InMemoryKmsAdapter,
-  resetPiiSubjectKmsForTests,
-} from "../../crypto";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto";
 import { defineFeature } from "../../engine/define-feature";
 import { defineQueryHandler } from "../../engine/define-handler";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack";

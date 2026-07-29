@@ -11,7 +11,6 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -21,7 +20,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config";
 import { configValuesTable } from "../../config/table";
 import { createUserFeature } from "../../user/feature";

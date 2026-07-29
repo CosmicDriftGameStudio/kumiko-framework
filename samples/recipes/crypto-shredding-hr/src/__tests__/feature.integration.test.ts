@@ -11,8 +11,6 @@ import {
   InMemoryKmsAdapter,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
-  resetBlindIndexKeyForTests,
-  resetPiiSubjectKmsForTests,
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { buildEntityTable, nullBlindIndexesForSubject } from "@cosmicdrift/kumiko-framework/db";
@@ -24,7 +22,11 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { employeeEntity, hrCommentEntity, hrFeature } from "../feature";
 
 let stack: TestStack;
