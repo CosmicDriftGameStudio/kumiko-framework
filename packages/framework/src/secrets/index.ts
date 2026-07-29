@@ -1,4 +1,5 @@
 export { createDekCache, type DekCache, type DekCacheOptions, withDekCache } from "./dek-cache";
+export { derivePurposeSecret } from "./derive-purpose-secret";
 export {
   createEnvMasterKeyProvider,
   type EnvMasterKeyProviderOptions,
