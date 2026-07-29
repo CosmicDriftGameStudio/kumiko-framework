@@ -5,6 +5,7 @@
 // by feature.integration.test.ts.
 
 import { describe, expect, test } from "bun:test";
+import { EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { documentExtractEntity } from "../entity";
 import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "../events";
 import { documentIngestFoundationFeature } from "../feature";
@@ -18,13 +19,24 @@ describe("documentIngestFoundationFeature — shape", () => {
     expect(documentIngestFoundationFeature.requires).toContain("config");
   });
 
+  test("declares tenant-lifecycle as a hard requirement — it hosts EXT_TENANT_DATA (#1621)", () => {
+    expect(documentIngestFoundationFeature.requires).toContain("tenant-lifecycle");
+  });
+
   test("registers the documentExtract entity as an implicit projection", () => {
     expect(Object.keys(documentIngestFoundationFeature.entities ?? {})).toEqual([
       "documentExtract",
     ]);
   });
 
-  test("documentExtract entity pins table name, field set, and pages encryption (#1501)", () => {
+  test("registers an entity-exact EXT_TENANT_DATA destroy hook (#1621)", () => {
+    const usage = documentIngestFoundationFeature.extensionUsages.find(
+      (u) => u.extensionName === EXT_TENANT_DATA && u.entityName === "documentExtract",
+    );
+    expect(typeof usage?.options?.["destroy"]).toBe("function");
+  });
+
+  test("documentExtract entity pins table name, field set, and pages subject-encryption (#1621)", () => {
     expect(documentExtractEntity.table).toBe("read_document_extracts");
     expect(Object.keys(documentExtractEntity.fields)).toEqual([
       "fileRefId",
@@ -32,10 +44,12 @@ describe("documentIngestFoundationFeature — shape", () => {
       "pages",
       "meta",
     ]);
+    // tenantOwned, not `encrypted: true` — the master-key path shreds nothing.
     expect(documentExtractEntity.fields.pages).toMatchObject({
       type: "longText",
-      encrypted: true,
+      tenantOwned: true,
     });
+    expect(documentExtractEntity.fields.pages).not.toHaveProperty("encrypted");
     expect(documentExtractEntity.fields.meta).toMatchObject({ type: "jsonb" });
   });
 
