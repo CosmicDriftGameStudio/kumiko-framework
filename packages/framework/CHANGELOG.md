@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.167.0
+
+### Minor Changes
+
+- 57c1da2: `packaging`: the six identity-sensitive error classes moved out of `@cosmicdrift/kumiko-types` into `@cosmicdrift/kumiko-framework` — `VersionConflictError`, `IdempotentAppendConflictError` and `ArchivedStreamError` to `/event-store`, `KeyErasedError`, `KeyNotFoundError` and `KeyAlreadyExistsError` to `/crypto`. Those are the public paths callers already import from, so nothing moves for consumers; the `@cosmicdrift/kumiko-types/event-store-errors` subpath is gone.
+
+  With no classes and no local `Symbol()` left in it, `kumiko-types` no longer needs the single-copy guarantee a peerDependency buys, and framework/bundled-features declare it as a plain dependency. That closes the changesets cycle where a peer-dependent bump escalated every minor release to `1.0.0`.
+
+- 6ed2e5d: `breaking (tests only)`: the four `*ForTests` reset helpers are no longer exported from the `/crypto` and `/db` barrels — they now come from `/testing`, the subpath the rest of the test infrastructure already uses.
+
+  ```diff
+  -import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/crypto";
+  +import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+  ```
+
+  Affected: `resetPiiSubjectKmsForTests`, `resetBlindIndexKeyForTests`, `resetEventPiiCatalogForTests` (were in `/crypto`) and `resetEntityFieldEncryptionCacheForTests` (was in `/db`). The functions themselves did not move — only the export path — so a relative deep-import of the defining module is unaffected.
+
+  Why it matters beyond tidiness: `resetPiiSubjectKmsForTests()` clears the injected KMS, after which `encryptForStorage` sees no adapter and writes subject-annotated fields in plaintext, with no error and no log. Reachable from a production barrel, that is one stray import away from silent plaintext PII.
+
+### Patch Changes
+
+- ce30a2c: `deps`: hono range raised to `^4.12.27` — the floor that carries the fixes for three advisories on the production HTTP layer: cross-request data disclosure in `hono/jsx` (context not isolated per request), server-side XSS via a JSX escaping bypass in `cx()`, and a dropped repeated request header in the API-Gateway v1 adapter. The old `^4.12.18` allowed the patched versions but the lockfile sat on 4.12.25, so the range now states the security floor instead of relying on resolution luck.
+- Updated dependencies [57c1da2]
+- Updated dependencies [ce30a2c]
+- Updated dependencies [8647246]
+  - @cosmicdrift/kumiko-types@0.167.0
+
 ## 0.166.0
 
 ### Minor Changes
