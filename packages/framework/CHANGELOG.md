@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.166.0
+
+### Minor Changes
+
+- 8b20a77: `secrets`: `derivePurposeSecret(masterSecret, purpose)` — HKDF-based per-purpose secret derivation, previously copy-pasted in four apps as `deriveSubSecret`. Renamed on the way in: "sub" said nothing that "derive" did not, while the second parameter is a domain separator, not a label. `auth-mfa` gains `resolveMfaTokenSecrets`, which owns the two MFA purpose strings so a prod and a dev entrypoint cannot drift apart and invalidate each other's tokens (#1623).
+- 760b2eb: `crypto`: `resolveKmsWiring`/`requireKmsWiring`/`buildPgKmsOptions` — boot-time validation of the subject-keys KMS env trio, previously copy-pasted in four apps. The copies had drifted: only one parsed `PLATFORM_KEK_VERSION` strictly, so `"1e21"`/`"0x10"`/`"-1"` were accepted and silently produced an unreachable rotation slot. Ordering of previous vs. active version stays enforced by `PgKmsAdapter` (#1617).
+
+### Patch Changes
+
+- 6679e45: `crypto`: `KmsWiringEnv` accepts `process.env` directly. All members being optional made TypeScript's weak-type detection reject `ProcessEnv` for having no properties in common, which forced every consumer into a cast or a six-key mapping — the boilerplate #1617 set out to remove (#1618 follow-up).
+
 ## 0.165.4
 
 ### Patch Changes
