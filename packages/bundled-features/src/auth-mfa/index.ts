@@ -17,3 +17,8 @@ export {
 } from "./feature";
 export type { MfaStatusChecker, MfaStatusCheckResult } from "./mfa-status-checker";
 export { userMfaEntity, userMfaTable } from "./schema/user-mfa";
+export {
+  type MfaTokenSecretOverrides,
+  type ResolvedMfaTokenSecrets,
+  resolveMfaTokenSecrets,
+} from "./token-secrets";
