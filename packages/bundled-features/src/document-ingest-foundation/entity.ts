@@ -1,3 +1,4 @@
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createJsonbField,
@@ -11,7 +12,8 @@ import {
 // jsonb has no encryption support in the engine, and this column holds the
 // full extracted text of ingested documents (invoices, IDs, contracts).
 // Writers/readers MUST use writeIngestPages / readIngestPages — do not pass
-// a raw IngestPage[] into executor.create (encrypted longText requires string).
+// a raw IngestPage[] into executor.create (the encryption hook requires a
+// string).
 export type IngestPage = {
   readonly pageNumber: number;
   readonly text: string;
@@ -35,9 +37,16 @@ export const documentExtractEntity = createEntity({
   fields: {
     fileRefId: createTextField({ required: true }),
     storageKey: createTextField({ required: true }),
-    // Encrypted — holds the full extracted document text (PII). meta is
-    // provider telemetry only and stays plaintext jsonb.
-    pages: createLongTextField({ encrypted: true }),
+    // Holds the full extracted document text (PII). `tenantOwned`, NOT
+    // `encrypted: true` (#1621): the master-key path has no erasure subject,
+    // so nothing here would ever be shreddable. Tenant-subject ciphertext
+    // dies with eraseSubjectKeys on tenant-destroy (#800 pattern). Whose
+    // subject a third party named inside a document is stays open, same as
+    // inbound-mail-foundation (#957). meta is provider telemetry only and
+    // stays plaintext jsonb.
+    pages: createLongTextField({ tenantOwned: true }),
     meta: createJsonbField(),
   },
 });
+
+export const documentExtractsTable = buildEntityTable("documentExtract", documentExtractEntity);

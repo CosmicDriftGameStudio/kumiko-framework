@@ -11,7 +11,10 @@ import {
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
+import { createTenantFeature } from "../../tenant/feature";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { documentIngestFoundationFeature } from "../feature";
 
 let stack: TestStack;
@@ -36,7 +39,13 @@ const textBytes = new TextEncoder().encode("plain text, not a supported mime typ
 beforeAll(async () => {
   provider = createInMemoryFileProvider();
   stack = await setupTestStack({
-    features: [createConfigFeature(), documentIngestFoundationFeature],
+    features: [
+      createConfigFeature(),
+      createTenantFeature(),
+      createComplianceProfilesFeature(),
+      createTenantLifecycleFeature(),
+      documentIngestFoundationFeature,
+    ],
     files: { storageProvider: provider },
   });
 });

@@ -12,7 +12,12 @@
 // CosmicDriftGameStudio/kumiko-framework#1495 for the full phase breakdown.
 
 import { entityEventName } from "@cosmicdrift/kumiko-framework/db";
-import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createTenantConfig,
+  defineFeature,
+  EXT_TENANT_DATA,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { documentExtractEntity } from "./entity";
 import {
@@ -21,6 +26,7 @@ import {
   DOCUMENT_INGEST_REQUESTED_EVENT_SHORT,
   documentIngestRequestedPayloadSchema,
 } from "./events";
+import { documentExtractTenantDestroyHook } from "./tenant-destroy-hook";
 
 const FEATURE_NAME = "document-ingest-foundation";
 
@@ -59,9 +65,14 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
     category: "storage",
     recommended: false,
   });
-  r.requires("config");
+  // tenant-lifecycle hosts EXT_TENANT_DATA — documentExtract.pages is
+  // tenant-subject ciphertext and needs the destroy hook below (#1621).
+  r.requires("config", "tenant-lifecycle");
 
   r.entity("documentExtract", documentExtractEntity);
+  r.useExtension(EXT_TENANT_DATA, "documentExtract", {
+    destroy: documentExtractTenantDestroyHook,
+  });
 
   const ocrLanguageConfigKey = r.config(
     "ocrLanguage",
