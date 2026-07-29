@@ -7,8 +7,6 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-  resetBlindIndexKeyForTests,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -18,7 +16,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createTestEnvelopeCipher, deleteRows } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  createTestEnvelopeCipher,
+  deleteRows,
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";

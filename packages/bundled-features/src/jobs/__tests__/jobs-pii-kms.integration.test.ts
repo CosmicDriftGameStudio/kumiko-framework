@@ -13,7 +13,6 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -24,7 +23,7 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { createJobsFeature } from "../feature";
 import { createJobRunLogger, JOB_RUN_STARTED_EVENT } from "../job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";

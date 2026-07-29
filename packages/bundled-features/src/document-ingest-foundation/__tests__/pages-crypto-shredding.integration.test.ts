@@ -12,7 +12,6 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
@@ -22,6 +21,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config";
 import { documentExtractEntity, documentExtractsTable } from "../entity";
 import { readIngestPages, writeIngestPages } from "../pages";

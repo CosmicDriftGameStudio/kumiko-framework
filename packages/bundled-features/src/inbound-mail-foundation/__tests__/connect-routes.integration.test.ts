@@ -7,11 +7,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  configurePiiSubjectKms,
-  InMemoryKmsAdapter,
-  resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/crypto";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -31,6 +27,7 @@ import {
 import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
+  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { Hono } from "hono";
 import {

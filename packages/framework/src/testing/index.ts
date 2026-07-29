@@ -1,7 +1,16 @@
-// Test-Assertions, Domain-Test-Fixtures und Vitest-spezifische Helpers.
-// Production-Code (dev-server, bin/) darf NICHTS aus diesem Sub-Path importieren —
-// die Stack-Builder leben in `@cosmicdrift/kumiko-framework/stack`, dieses Modul darf
-// vitest-Imports top-level enthalten (siehe expect-error.ts).
+// Test assertions and domain test fixtures. Production code (dev-server, bin/)
+// must import nothing from this subpath — the stack builders live in
+// `@cosmicdrift/kumiko-framework/stack`.
+
+// The four cache/injection resets stay in their own modules (they close over
+// module-private state) and are only re-exported here — they are out of /crypto
+// and /db as of #1631. A production call to resetPiiSubjectKmsForTests() silently
+// switches the PII layer off, and subject-annotated fields are written in
+// plaintext from then on: no error, no log.
+export { resetBlindIndexKeyForTests } from "../crypto/blind-index";
+export { resetEventPiiCatalogForTests } from "../crypto/event-pii";
+export { resetPiiSubjectKmsForTests } from "../crypto/pii-field-encryption";
+export { resetEntityFieldEncryptionCacheForTests } from "../db/entity-field-encryption";
 
 export { rolesOf } from "./access-assertions";
 export { expectError, expectSuccess } from "./assertions";

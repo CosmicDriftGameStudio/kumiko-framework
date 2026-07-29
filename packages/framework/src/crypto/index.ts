@@ -6,14 +6,12 @@ export {
   configureBlindIndexKey,
   configuredBlindIndexKey,
   decodeBlindIndexKey,
-  resetBlindIndexKeyForTests,
 } from "./blind-index";
 export {
   configuredEventPiiCatalog,
   configureEventPiiCatalog,
   type EventPiiCatalog,
   encryptEventPayloadPii,
-  resetEventPiiCatalogForTests,
 } from "./event-pii";
 export { InMemoryKmsAdapter } from "./in-memory-kms-adapter";
 export {
@@ -64,7 +62,6 @@ export {
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
-  resetPiiSubjectKmsForTests,
 } from "./pii-field-encryption";
 export {
   createRequestKmsCache,

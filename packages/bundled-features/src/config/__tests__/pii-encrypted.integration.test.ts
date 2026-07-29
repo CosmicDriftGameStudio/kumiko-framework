@@ -12,7 +12,6 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   access,
@@ -27,6 +26,7 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { ConfigHandlers, ConfigQueries } from "../constants";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature";
 import { createConfigResolver } from "../resolver";

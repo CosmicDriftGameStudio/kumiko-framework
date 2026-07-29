@@ -9,15 +9,11 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  configurePiiSubjectKms,
-  InMemoryKmsAdapter,
-  resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/crypto";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { setupTestStack, type TestStack, testTenantId } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
 import { createCryptoShreddingFeature } from "../feature";
 

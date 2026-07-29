@@ -228,6 +228,10 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
 // bleibt Crypto-Shredding: DEK erased → bidx NULL, Wert unlesbar.
 
 import {
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/testing";
+import {
   computeBlindIndex,
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -235,8 +239,6 @@ import {
   decryptPiiFieldValues,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-  resetBlindIndexKeyForTests,
-  resetPiiSubjectKmsForTests,
 } from "../../crypto";
 import { asRawClient, selectMany } from "../../db/query";
 

@@ -11,8 +11,6 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-  resetBlindIndexKeyForTests,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -21,7 +19,11 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+} from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

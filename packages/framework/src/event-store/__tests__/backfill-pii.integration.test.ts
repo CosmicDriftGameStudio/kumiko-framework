@@ -7,6 +7,10 @@
 // blind-index column, so equality lookups keep working.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
 import {
   configureBlindIndexKey,
@@ -14,8 +18,6 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
-  resetBlindIndexKeyForTests,
-  resetPiiSubjectKmsForTests,
 } from "../../crypto";
 import { applyEntityEvent } from "../../db/apply-entity-event";
 import { backfillEventPiiEncryption } from "../../db/queries/backfill-pii";

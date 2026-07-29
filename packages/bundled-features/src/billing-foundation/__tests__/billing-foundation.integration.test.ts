@@ -20,7 +20,6 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -36,6 +35,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import {
   ComplianceProfileHandlers,
   createComplianceProfilesFeature,

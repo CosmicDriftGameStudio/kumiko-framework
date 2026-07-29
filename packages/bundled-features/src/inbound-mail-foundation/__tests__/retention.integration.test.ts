@@ -7,11 +7,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  configurePiiSubjectKms,
-  InMemoryKmsAdapter,
-  resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/crypto";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
@@ -22,6 +18,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,

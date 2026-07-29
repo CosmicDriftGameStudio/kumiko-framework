@@ -16,11 +16,7 @@ import { randomBytes } from "node:crypto";
 import { connect } from "node:net";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  configurePiiSubjectKms,
-  InMemoryKmsAdapter,
-  resetPiiSubjectKmsForTests,
-} from "@cosmicdrift/kumiko-framework/crypto";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -36,6 +32,7 @@ import {
 import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
+  resetPiiSubjectKmsForTests,
   waitFor,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { createTransport } from "nodemailer";

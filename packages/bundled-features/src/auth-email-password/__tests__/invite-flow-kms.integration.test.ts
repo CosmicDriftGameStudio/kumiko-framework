@@ -13,8 +13,6 @@ import {
   decryptPiiFieldValues,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-  resetBlindIndexKeyForTests,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -23,6 +21,10 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";

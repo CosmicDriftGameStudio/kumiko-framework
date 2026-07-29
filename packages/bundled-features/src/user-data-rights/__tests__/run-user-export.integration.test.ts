@@ -21,7 +21,6 @@ import {
   configurePiiSubjectKms,
   encryptPiiFieldValues,
   InMemoryKmsAdapter,
-  resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
@@ -30,7 +29,11 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+  seedRow,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
