@@ -1,54 +1,55 @@
 {
 	"$schema": "Exceptions file for guards/check-security.ts. Each exception needs reason, reviewer, and expiry (max ~30 days).",
+	"_reviewScope": "check-security auditiert resolveAuditRoots() = Parent-Root (falls vorhanden) UND cwd. Lokal ist das der cosmicdriftgamestudio-Workspace PLUS dieses Repo; in CI existiert kein Parent, also nur dieses Repo. esbuild, svgo, postcss und sharp gibt es im Standalone-Baum dieses Repos gar nicht — die kommen aus dem Parent-Workspace (Astro/Docs-Stack von kumiko-platform) und sind in CI inert. Beim Review BEIDE Baeume pruefen und nicht nur die gehoistete Root-Kopie: `find node_modules -path '*/<pkg>/package.json'` je Root, dann gegen `vulnerable_versions` aus `bun audit --json` halten. Genau diese Verwechslung hat die vier Begruendungen unten falsch werden lassen.",
 	"exceptions": [
 		{
 			"advisory": "GHSA-g7r4-m6w7-qqqr",
 			"package": "esbuild",
-			"reason": "Transitive dev dependency via Vite/Astro (kumiko-platform docs/marketing). Windows dev-server file-read advisory only — Kumiko CI/prod runs macOS/Linux; dev tooling not exposed publicly. Tracked for upstream bump to esbuild >=0.28.1.",
-			"reviewedBy": "Marc, 2026-07-13",
-			"expires": "2026-08-13"
+			"reason": "Transitive dev dependency via Vite/Astro (kumiko-platform docs/marketing) — im Standalone-Baum dieses Repos nicht vorhanden, feuert nur im Parent-Audit. Parent-Baum haelt 0.27.7 und 0.28.0, beide im Bereich >=0.27.3 <0.28.1; 0.28.1 ist released und liegt an anderer Stelle im Baum bereits vor. Windows-only dev-server file-read — CI/prod laufen macOS/Linux, Dev-Tooling ist nicht oeffentlich erreichbar. Fix waere ein Bump der Astro/Vite-Kette in kumiko-platform, nicht hier.",
+			"reviewedBy": "Marc, 2026-07-29",
+			"expires": "2026-08-28"
 		},
 		{
 			"advisory": "GHSA-52cp-r559-cp3m",
 			"package": "js-yaml",
-			"reason": "Transitive dev dependency via @changesets/parse (release tooling only). js-yaml@4.2.0 is already the latest release and still affected — no fix available upstream yet. DoS-via-merge-key-chains only triggers on attacker-controlled YAML input; changesets only parses repo-authored .changeset/*.md frontmatter, no untrusted input reaches it.",
-			"reviewedBy": "Marc, 2026-07-20",
-			"expires": "2026-08-19"
+			"reason": "Transitiv via @changesets/parse (Release-Tooling) und read-yaml-file. Baum haelt 4.2.0 und 3.14.2. KORREKTUR zu 2026-07-20: 'no fix available upstream yet' stimmt nicht mehr — der 4.x-Bereich endet bei <4.3.0, und 4.3.0 ist released (latest 5.2.2). Nicht sofort gebumpt, weil js-yaml rein transitiv ist (kein direkter Pin) und ein Override beide Ketten treffen muesste; der DoS greift nur auf attacker-controlled YAML, und changesets parst ausschliesslich repo-eigene .changeset/*.md-Frontmatter. Naechster Schritt ist ein Override auf ^4.3.0, keine weitere Verlaengerung.",
+			"reviewedBy": "Marc, 2026-07-29",
+			"expires": "2026-08-28"
 		},
 		{
 			"advisory": "GHSA-2P49-HGCM-8545",
 			"package": "svgo",
-			"reason": "Transitive via CSS/SVG tooling (dev-time). removeScripts incompleteness is build-tooling only — no untrusted SVG in prod runtime. Track upstream patch.",
-			"reviewedBy": "Marc, 2026-07-21",
-			"expires": "2026-08-20"
+			"reason": "Transitiv via CSS/SVG-Tooling (dev-time), im Standalone-Baum dieses Repos nicht vorhanden — feuert nur im Parent-Audit. KORREKTUR: 'Track upstream patch' ist ueberholt, 4.0.2 ist released; der Parent-Baum haelt weiterhin ausschliesslich 4.0.1 (verwundbar: >=4.0.0 <4.0.2). kumiko-enterprise hat bereits einen Override auf ^4.0.2, der im Parent-Workspace nicht greift — der gehoert in die Parent-Root-package.json. Build-Tooling, kein untrusted SVG im Prod-Runtime.",
+			"reviewedBy": "Marc, 2026-07-29",
+			"expires": "2026-08-28"
 		},
 		{
 			"advisory": "GHSA-mh99-v99m-4gvg",
 			"package": "brace-expansion",
-			"reason": "Already resolved to brace-expansion@5.0.8 via package.json resolutions (first patched release for this OOM DoS). bun audit still lists the advisory against the tree; build-tooling only (ts-morph/minimatch), no untrusted glob input at runtime.",
-			"reviewedBy": "Marc, 2026-07-26",
-			"expires": "2026-08-25"
+			"reason": "KORREKTUR zu 2026-07-26: 'Already resolved to brace-expansion@5.0.8 via package.json resolutions' gilt nur fuer den Standalone-Baum dieses Repos (dort tatsaechlich nur 5.0.8, nicht verwundbar). Der Parent-Baum haelt daneben 5.0.6, 5.0.7, 2.1.x und 1.1.16 — alle im Bereich <=5.0.7. Der Override greift nur auf oberster Ebene, verschachtelte Kopien bleiben. Build-Tooling (ts-morph/minimatch), kein untrusted Glob-Input zur Laufzeit; der OOM-DoS braucht angreiferkontrollierte Patterns.",
+			"reviewedBy": "Marc, 2026-07-29",
+			"expires": "2026-08-28"
 		},
 		{
 			"advisory": "GHSA-r28c-9q8g-f849",
 			"package": "postcss",
-			"reason": "Tree is on postcss@8.5.23 (>=8.5.18 patched). bun audit still emits GHSA-r28c against the lockfile; PostCSS is build/CSS tooling (mjml/cssnano), not a prod request path that auto-loads attacker sourceMappingURL.",
-			"reviewedBy": "Marc, 2026-07-26",
-			"expires": "2026-08-25"
+			"reason": "KORREKTUR zu 2026-07-26: 'Tree is on postcss@8.5.23' gilt nur fuer die gehoistete Root-Kopie. Der Parent-Baum haelt daneben 8.5.15 und 8.5.16 (verwundbar: <=8.5.17) via kumiko-enterprise, vite, mjml-core und expressive-code. Im Standalone-Baum dieses Repos ist postcss gar nicht vorhanden. PostCSS ist Build-/CSS-Tooling, kein Prod-Request-Pfad, der eine angreiferkontrollierte sourceMappingURL automatisch laedt.",
+			"reviewedBy": "Marc, 2026-07-29",
+			"expires": "2026-08-28"
 		},
 		{
 			"advisory": "GHSA-3jxr-9vmj-r5cp",
 			"package": "brace-expansion",
-			"reason": "Transitive via ts-morph/minimatch (dev/build tooling). Advisory range targets 2.x; tree is on 5.0.8. bun audit still reports it. No untrusted glob input at runtime.",
-			"reviewedBy": "Marc, 2026-07-26",
-			"expires": "2026-08-25"
+			"reason": "KORREKTUR zu 2026-07-26: 'Advisory range targets 2.x; tree is on 5.0.8' — der Parent-Baum haelt sehr wohl 2.1.0 und 2.1.1, beide im Bereich >=2.0.0 <2.1.2. Im Standalone-Baum dieses Repos nur 5.0.8, dort inert. Transitiv via ts-morph/minimatch (dev/build), kein untrusted Glob-Input zur Laufzeit.",
+			"reviewedBy": "Marc, 2026-07-29",
+			"expires": "2026-08-28"
 		},
 		{
 			"advisory": "GHSA-f88m-g3jw-g9cj",
 			"package": "sharp",
-			"reason": "Transitive dependency of Astro image pipeline (docs/marketing). Build-time only on repo-authored assets; no untrusted uploads in prod. Track upstream libvips patch.",
-			"reviewedBy": "Marc, 2026-07-26",
-			"expires": "2026-08-25"
+			"reason": "Transitive Dependency der Astro-Image-Pipeline (docs/marketing), im Standalone-Baum dieses Repos nicht vorhanden — feuert nur im Parent-Audit. Praezisierung: der Parent-Baum haelt 0.34.5 (verwundbar: <0.35.0) neben einer bereits gepatchten 0.35.2; upstream ist 0.35.3. Build-time auf repo-eigenen Assets, keine untrusted Uploads in Prod. Fix waere ein Bump der Astro-Kette in kumiko-platform.",
+			"reviewedBy": "Marc, 2026-07-29",
+			"expires": "2026-08-28"
 		}
 	]
 }
