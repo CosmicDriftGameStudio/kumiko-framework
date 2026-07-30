@@ -5,11 +5,13 @@
 // Preview-Switcher 1:1. Die 3 Themes (inkl. Brand-Token-Injektion) sind
 // styleguide-spezifisch und leben in ./themes; der generische Loop in der lib.
 
-import { resolve } from "node:path";
-import { runMatrix } from "../../../e2e/screenshots";
+import { docsSampleDir, runMatrix } from "../../../e2e/screenshots";
 import { SCENARIOS } from "./scenarios";
 import { applyTheme, THEMES } from "./themes";
 
-const BASE_DIR = process.env["SCREENSHOT_DIR"] ?? resolve(import.meta.dirname, "../screenshots");
-
-runMatrix(SCENARIOS, { baseDir: BASE_DIR, themes: THEMES, applyTheme });
+runMatrix(SCENARIOS, {
+  baseDir: docsSampleDir(import.meta.dirname, "apps/styleguide"),
+  themes: THEMES,
+  applyTheme,
+  locales: ["en"],
+});
