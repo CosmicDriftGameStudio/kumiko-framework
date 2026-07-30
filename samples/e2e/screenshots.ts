@@ -1,4 +1,5 @@
 import { mkdirSync, statSync } from "node:fs";
+import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { pinEnglishLocale } from "./pin-english-locale";
 
@@ -14,6 +15,32 @@ import { pinEnglishLocale } from "./pin-english-locale";
 // registrieren sie test() erst nach der Playwright-Collection (0 Tests).
 
 const MIN_BYTES = 5 * 1024;
+
+// The two themes every sample app renders out of the box: renderer-web's
+// light default and its `.dark` variant. Apps with extra themes (styleguide's
+// brand-token override) pass their own pair to runMatrix.
+export const DEFAULT_THEMES = ["default-light", "default-dark"] as const;
+export type DefaultThemeId = (typeof DEFAULT_THEMES)[number];
+
+export async function applyDefaultTheme(page: Page, theme: DefaultThemeId): Promise<void> {
+  await page.evaluate((t) => {
+    document.documentElement.classList.toggle("dark", t === "default-dark");
+  }, theme);
+}
+
+// Docs preview root for sample-app matrices: <docs>/public/screenshots/samples/
+// <bucket>/<app>/<scenario>/<locale>/<theme>/<viewport>.png. The docgen derives
+// the same path from the recipe's directory, so no name mapping is needed.
+export function docsSampleDir(specDirname: string, sampleDirPath: string): string {
+  return (
+    process.env["SCREENSHOT_DIR"] ??
+    resolve(
+      specDirname,
+      "../../../../../kumiko-platform/apps/docs/public/screenshots/samples",
+      sampleDirPath,
+    )
+  );
+}
 
 export interface Scenario {
   readonly name: string;

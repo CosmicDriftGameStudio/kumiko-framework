@@ -8,6 +8,12 @@
 // One ordered runner list: use-all-bundled (feature matrix) → recipes → sample
 // apps. Each entry spawns Playwright in its cwd with SCREENSHOT_DIR=<out>.
 //
+// Two output trees: screenshots/features/ backs the feature reference, while
+// screenshots/samples/<recipe-dir>/ backs the sample pages — docgen reads that
+// tree back and injects a ScreenshotPreview per scenario, so a new scenario
+// needs no docs change. marketing-demo is the exception: its PNGs are copied
+// from the marketing app's assets, not rendered here.
+//
 // Requires Postgres + Redis + a samples .env for app runners; apex-landing uses
 // setContent only. Set SKIP_APP_SCREENSHOTS=1 to skip live captures (syncs
 // committed hero-app.png into showcase public/ only).
@@ -26,6 +32,12 @@ const DEFAULT_OUT = resolve(
 
 const OUT_DIR = process.env["SCREENSHOT_DIR"] ?? DEFAULT_OUT;
 const APPS_OUT = `${OUT_DIR}/apps`;
+
+// Sample-app matrices live next to the feature matrix, keyed by the recipe's
+// directory path — the docgen derives the same path from the sample's source,
+// so a preview needs no name mapping.
+const SAMPLES_OUT = resolve(OUT_DIR, "..", "samples");
+const sampleOut = (dirPath: string) => join(SAMPLES_OUT, dirPath);
 
 type Runner = {
   readonly id: string;
@@ -73,19 +85,25 @@ const SCREENSHOT_RUNNERS: readonly Runner[] = [
     id: "ui-walkthrough",
     cwd: resolve(SAMPLES_ROOT, "apps/ui-walkthrough"),
     command: SCREENSHOTS_CMD,
-    out: `${APPS_OUT}/ui-walkthrough`,
+    out: sampleOut("apps/ui-walkthrough"),
   },
   {
     id: "workspaces",
     cwd: resolve(SAMPLES_ROOT, "apps/workspaces"),
     command: SCREENSHOTS_CMD,
-    out: `${APPS_OUT}/workspaces`,
+    out: sampleOut("apps/workspaces"),
   },
   {
     id: "showcase",
     cwd: resolve(SAMPLES_ROOT, "apps/showcase"),
     command: ["bun", "run", "screenshot"],
-    out: `${APPS_OUT}/showcase`,
+    out: sampleOut("apps/showcase"),
+  },
+  {
+    id: "styleguide",
+    cwd: resolve(SAMPLES_ROOT, "apps/styleguide"),
+    command: SCREENSHOTS_CMD,
+    out: sampleOut("apps/styleguide"),
   },
 ];
 
@@ -177,6 +195,7 @@ function listPngs(dir: string, prefix = ""): Array<{ rel: string; label: string 
 function writePreviewIndex(): void {
   const featurePngs = listPngs(OUT_DIR).filter((p) => !p.rel.includes("/apps/"));
   const appPngs = listPngs(APPS_OUT, "apps");
+  const samplePngs = listPngs(SAMPLES_OUT, "../samples");
 
   const section = (title: string, items: Array<{ rel: string; label: string }>) =>
     items.length === 0
@@ -199,6 +218,7 @@ function writePreviewIndex(): void {
   <p>Regenerate: <code>bun run gen:feature-screenshots</code> in kumiko-framework.</p>
   ${section("Bundled features (live UI)", featurePngs)}
   ${section("Sample apps (live UI)", appPngs)}
+  ${section("Sample pages (docs preview matrix)", samplePngs)}
 </body>
 </html>
 `;

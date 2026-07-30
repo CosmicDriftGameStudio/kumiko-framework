@@ -1,37 +1,43 @@
-import { mkdirSync, statSync } from "node:fs";
-import { resolve } from "node:path";
-import { expect, test } from "@playwright/test";
-import { pinEnglishLocale } from "../../../e2e/pin-english-locale";
+import type { Page } from "@playwright/test";
+import {
+  applyDefaultTheme,
+  DEFAULT_THEMES,
+  docsSampleDir,
+  runMatrix,
+  type Scenario,
+} from "../../../e2e/screenshots";
 import { loginAsAdmin } from "./_helpers/login";
 
-const OUT_DIR =
-  process.env["SCREENSHOT_DIR"] ??
-  resolve(
-    import.meta.dirname,
-    "../../../../../kumiko-platform/apps/docs/public/screenshots/features/apps/workspaces",
-  );
-
-mkdirSync(OUT_DIR, { recursive: true });
-
-test("workspace-admin", async ({ page }) => {
-  await pinEnglishLocale(page);
+const openAdmin = async (page: Page): Promise<void> => {
   await loginAsAdmin(page);
   await page.goto("/");
-  await expect(page.getByTestId("workspace-tab-admin")).toBeVisible();
-  await page.waitForTimeout(400);
-  const path = `${OUT_DIR}/workspace-admin.png`;
-  await page.screenshot({ path, fullPage: true });
-  expect(statSync(path).size).toBeGreaterThan(5 * 1024);
-});
+};
 
-test("workspace-dispatch", async ({ page }) => {
-  await pinEnglishLocale(page);
-  await loginAsAdmin(page);
-  await page.goto("/");
+const openDispatch = async (page: Page): Promise<void> => {
+  await openAdmin(page);
   await page.getByTestId("workspace-tab-dispatch").click();
-  await expect(page).toHaveURL(/\/dispatch/);
-  await page.waitForTimeout(400);
-  const path = `${OUT_DIR}/workspace-dispatch.png`;
-  await page.screenshot({ path, fullPage: true });
-  expect(statSync(path).size).toBeGreaterThan(5 * 1024);
+  await page.waitForURL(/\/dispatch/);
+};
+
+const SCENARIOS: readonly Scenario[] = [
+  {
+    name: "workspace-admin",
+    description: "Admin workspace — tab bar plus the workspace's own nav",
+    flow: openAdmin,
+    waitFor: '[data-testid="workspace-tab-admin"]',
+    settleMs: 400,
+  },
+  {
+    name: "workspace-dispatch",
+    description: "Dispatch workspace after switching tabs",
+    flow: openDispatch,
+    settleMs: 400,
+  },
+];
+
+runMatrix(SCENARIOS, {
+  baseDir: docsSampleDir(import.meta.dirname, "apps/workspaces"),
+  themes: DEFAULT_THEMES,
+  applyTheme: applyDefaultTheme,
+  locales: ["en"],
 });
