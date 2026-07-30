@@ -30,6 +30,10 @@ export type SessionUser = {
   readonly id: string;
   readonly tenantId: TenantId;
   readonly roles: readonly string[];
+  // IANA zone from user.timezone, set at login. Absent → ctx.tz falls back
+  // to tenant.timezone, then "UTC" (buildHandlerContext, fw#1636). Stale
+  // until re-login — same tradeoff as `roles`.
+  readonly timezone?: string;
   // App-specific identity facts baked into the JWT at login time.
   // Populated by `r.authClaims()` hooks (not yet implemented — see the
   // auth-claims design note in docs/plans). Reserved here so the type shape
@@ -479,12 +483,14 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   readonly metrics: MetricsHandle;
   readonly tracer: Tracer;
 
-  // Time + TZ helper. Feature-Code MUSS hier durch statt `new Date()` —
-  // ctx.tz.now() liefert Temporal.Instant, ctx.tz.parse(wallClock, tz)
-  // produziert ZonedDateTime, ctx.tz.toLocatedJson serialisiert für die
-  // API-Boundary. Lint-Regel gegen `new Date()` kommt sobald alle internen
-  // usages migriert sind. Tenant + User-TZ defaults aktuell "UTC", werden
-  // aus tenant.timezone / user.timezone gelesen sobald die Felder existieren.
+  // Time + TZ helper. Feature code MUST go through this instead of
+  // `new Date()` — ctx.tz.now() returns Temporal.Instant, ctx.tz.parse
+  // (wallClock, tz) produces a ZonedDateTime, ctx.tz.toLocatedJson
+  // serializes for the API boundary. The lint rule against `new Date()`
+  // lands once all internal usages are migrated. tenant reads
+  // tenant:config:timezone (falls back to "UTC" when no config feature is
+  // mounted or the value is unset); user reads SessionUser.timezone (falls
+  // back to tenant).
   readonly tz: TzContext;
 
   // Resolve every registered r.authClaims() hook against `user` and return

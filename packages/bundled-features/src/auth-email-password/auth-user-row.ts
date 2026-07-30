@@ -17,6 +17,8 @@ export type AuthUserRow = {
   readonly isDeleted?: boolean | null;
   readonly emailVerified?: boolean | null;
   readonly lastActiveTenantId?: TenantId | string | null;
+  // IANA zone — threaded into SessionUser.timezone at login (fw#1636).
+  readonly timezone?: string | null;
   // JSON-encoded string[] — globale Rollen die parallel zu tenant-membership-
   // roles gelten (z.B. SystemAdmin, BillingAdmin). Caller deserialisiert via
   // parseRoles() vor dem Merge in die Session.

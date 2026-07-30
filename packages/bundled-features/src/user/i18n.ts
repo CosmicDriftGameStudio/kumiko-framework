@@ -8,6 +8,7 @@ export const USER_I18N: Readonly<Record<string, LocalizedString>> = {
   "user:entity:user:field:status": { de: "Status", en: "Status" },
   "user:entity:user:field:emailVerified": { de: "E-Mail bestätigt", en: "Email verified" },
   "user:entity:user:field:locale": { de: "Sprache", en: "Locale" },
+  "user:entity:user:field:timezone": { de: "Zeitzone", en: "Timezone" },
   "user:entity:user:field:status:option:active": { de: "Aktiv", en: "Active" },
   "user:entity:user:field:status:option:restricted": { de: "Eingeschränkt", en: "Restricted" },
   "user:entity:user:field:status:option:deletionRequested": {

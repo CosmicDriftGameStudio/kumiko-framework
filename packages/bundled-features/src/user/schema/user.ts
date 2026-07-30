@@ -6,6 +6,7 @@ import {
   createSelectField,
   createTextField,
   createTimestampField,
+  createTzField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 /**
@@ -89,6 +90,9 @@ export const userEntity = createEntity({
     }),
     // No default here — tenant-settings owns the app-wide locale default; see #1637.
     locale: createTextField({ maxLength: 10 }),
+    // No default here — mirrors locale: ctx.tz falls back to tenant.timezone
+    // (then "UTC") when unset, see buildHandlerContext (fw#1636).
+    timezone: createTzField(),
 
     // Which tenant should this user land in on next login. Set by the login
     // handler (SYSTEM), read by the login flow + UI for deep-linking.

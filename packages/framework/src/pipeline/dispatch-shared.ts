@@ -146,14 +146,14 @@ async function appendDomainEvent(
   );
 }
 
-export function buildHandlerContext(
+export async function buildHandlerContext(
   ctx: DispatchContext,
   type: string,
   user: SessionUser,
   tx?: DbTx,
   afterCommitHooks?: AfterCommitHook[],
   includeDeleted?: boolean,
-): HandlerContext {
+): Promise<HandlerContext> {
   const { registry, appContext: context, effectiveFeatures, jobRunner } = ctx;
   const isSystem = registry.isHandlerSystemScoped(type);
   // The outer dispatcher receives a DbConnection from the server/stack;
@@ -515,13 +515,19 @@ export function buildHandlerContext(
   // HandlerContext. The spread-then-assign order matters: anything in
   // `context` can be overridden, but we want the authoritative registry
   // from the dispatcher's own closure to win.
-  // ctx.tz ist immer da. Tenant + User-Defaults kommen aus dem
-  // SessionUser sobald die Felder existieren — bis dahin "UTC". Ein
-  // app-injizierter GeoTzProvider (context.geoTzProvider) speist
-  // ctx.tz.fromCoordinates / fromAddress.
-  const tz = createTzContext(
-    context.geoTzProvider !== undefined ? { geoTz: context.geoTzProvider } : {},
-  );
+  // ctx.tz is always present. tenant reads tenant:config:timezone through
+  // the already-built `config` accessor (raw qualified-key — no import of
+  // the tenant feature, framework/pipeline stays bundled-features-free);
+  // falls back to "UTC" when config is missing or the key is unset. user
+  // comes from SessionUser.timezone (set at login), else falls back to
+  // tenant (createTzContext's own default). An app-injected GeoTzProvider
+  // (context.geoTzProvider) feeds ctx.tz.fromCoordinates / fromAddress.
+  const tenantTz = config !== undefined ? await config("tenant:config:timezone") : undefined;
+  const tz = createTzContext({
+    ...(context.geoTzProvider !== undefined ? { geoTz: context.geoTzProvider } : {}),
+    tenant: typeof tenantTz === "string" ? tenantTz : "UTC",
+    ...(user.timezone !== undefined && { user: user.timezone }),
+  });
 
   return {
     ...context,

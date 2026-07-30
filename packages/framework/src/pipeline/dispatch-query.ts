@@ -79,7 +79,7 @@ async function executeQueryInner(
     typeof parsed.data === "object" &&
     parsed.data !== null &&
     (parsed.data as Record<string, unknown>)["includeDeleted"] === true; // @cast-boundary validated-payload
-  const handlerContext = buildHandlerContext(ctx, type, user, tx, undefined, includeDeleted);
+  const handlerContext = await buildHandlerContext(ctx, type, user, tx, undefined, includeDeleted);
   let result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
   // postQuery-Hooks: fire BEFORE field-access-filter so hooks see raw data

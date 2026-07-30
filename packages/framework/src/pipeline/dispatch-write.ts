@@ -348,7 +348,7 @@ async function executeWriteInner(
     }
   }
 
-  const handlerContext = buildHandlerContext(ctx, type, user, tx, afterCommitHooks);
+  const handlerContext = await buildHandlerContext(ctx, type, user, tx, afterCommitHooks);
 
   // Auto transition guard: if entity has transitions and handler doesn't skip it
   if (entityName && !handler.unsafeSkipTransitionGuard) {
