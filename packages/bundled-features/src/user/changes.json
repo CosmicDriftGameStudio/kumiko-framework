@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.167.1",
+    "type": "breaking",
+    "title": "user.locale no longer defaults to \"de\" (fw#1637).",
+    "detail": "The entity-level default contradicted tenant-settings' own \"en\" default and silently overrode any app or tenant locale configuration for every new user. locale now stays unset until the client or a resolution chain provides one. Consumers that already fall back with `user.locale ?? \"en\"` are unaffected in shape but now see null instead of \"de\".",
+    "migration": "Run `kumiko-schema generate` and apply — the migration emits `ALTER TABLE read_users ALTER COLUMN locale DROP DEFAULT`. Note that DROP DEFAULT only affects future inserts: existing rows keep the \"de\" the old default wrote, which no user ever chose. Your app therefore splits into pre-bump users on \"de\" and post-bump users on null, and each group resolves to a different language. Decide deliberately: either keep the old values (and state that pre-bump users stay German), or run `UPDATE read_users SET locale = NULL WHERE locale = 'de'` once so every user follows the same chain — the latter only if no UI ever let users edit the field, otherwise it erases real choices. If your app relied on the implicit German default, set an explicit fallback instead (fw#1653)."
+  },
+  {
+    "version": "0.167.1",
+    "type": "improvement",
+    "title": "user.timezone field, wired into ctx.tz (fw#1636).",
+    "detail": "The user entity gains a `timezone` field (createTzField, no default). buildHandlerContext passes it to ctx.tz.user; the fallback chain stays tenant.timezone, then \"UTC\". Before this, ctx.tz.tenant and ctx.tz.user both hardcoded \"UTC\" while the plumbing already accepted per-request values.",
+    "migration": "Run `kumiko-schema generate` and apply — the migration adds `read_users.timezone`. No backfill: an unset timezone falls through to the tenant's, exactly as before the field existed."
+  },
+  {
     "version": "0.165.3",
     "type": "improvement",
     "title": "user.displayName is searchable via derived Meili (fw#1610).",
