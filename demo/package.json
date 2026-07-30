@@ -19,6 +19,7 @@
     "@cosmicdrift/kumiko-dev-server": "*",
     "@cosmicdrift/kumiko-framework": "*",
     "@cosmicdrift/kumiko-renderer-web": "*",
+    "@cosmicdrift/kumiko-server-runtime": "*",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "zod": "^4.4.3"
