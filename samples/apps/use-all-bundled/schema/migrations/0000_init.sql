@@ -391,7 +391,7 @@ CREATE TABLE "read_users" (
 	"email" text NOT NULL,
 	"password_hash" text,
 	"display_name" text NOT NULL,
-	"locale" text DEFAULT 'de',
+	"locale" text,
 	"last_active_tenant_id" text,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"roles" text DEFAULT '[]' NOT NULL,
