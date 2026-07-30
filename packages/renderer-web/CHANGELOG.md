@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.168.0
+
+### Patch Changes
+
+- 547dd7d: `date-parse.ts` (internal, not re-exported from the package's public entrypoints) now works with `Temporal.PlainDate` instead of native `Date`. Adds `temporal-polyfill` as a runtime dependency. `DateField`'s public props (`value`/`onChange`/`min`/`max`) are unchanged ISO strings — the conversion is fully contained inside `date-parse.ts` and `date-field.tsx` (kumiko-framework#1656).
+  - @cosmicdrift/kumiko-headless@0.168.0
+  - @cosmicdrift/kumiko-renderer@0.168.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.168.0
+
 ## 0.167.1
 
 ### Patch Changes

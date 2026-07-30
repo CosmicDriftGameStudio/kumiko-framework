@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.168.0
+
+### Minor Changes
+
+- 136bc02: `cap-counter` gains `createStockCapGuard`, `tier-engine` gains `createTierResolver`, and `billing-foundation` gains `createSubscriptionTierSync` — generic factories over an app-supplied `TCaps`/`TTier` for the stock-cap write-guard, tier-assignment resolution, and the subscription-webhook → tier-engine sync route. Extracted from the near-identical per-app copies of these three files in show-pony and publicstatus, flagged as cross-repo duplicate clusters in infra#446. The two apps migrate onto these factories in a follow-up PR once this version is published.
+
+### Patch Changes
+
+- Updated dependencies [4c7d3c9]
+- Updated dependencies [547dd7d]
+- Updated dependencies [d149bab]
+  - @cosmicdrift/kumiko-framework@0.168.0
+  - @cosmicdrift/kumiko-types@0.168.0
+  - @cosmicdrift/kumiko-renderer-web@0.168.0
+  - @cosmicdrift/kumiko-headless@0.168.0
+  - @cosmicdrift/kumiko-renderer@0.168.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.168.0
+
 ## 0.167.1
 
 ### Patch Changes

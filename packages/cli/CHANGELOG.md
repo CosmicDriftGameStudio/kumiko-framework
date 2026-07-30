@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.2.246
+
+### Patch Changes
+
+- Updated dependencies [fecbfe3]
+  - @cosmicdrift/kumiko-dev-server@0.168.0
+
 ## 0.2.245
 
 ### Patch Changes
