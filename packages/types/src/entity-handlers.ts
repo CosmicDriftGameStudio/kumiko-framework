@@ -18,6 +18,8 @@ export type RegisterEntityCrudOptions = {
   readonly write?: EntityHandlerOptions;
   readonly read?: EntityQueryHandlerOptions;
   readonly verbs?: Partial<Record<EntityCrudVerb, boolean>>;
+  /** Per-verb access override — falls back to `write.access`/`read.access` when unset for a verb. */
+  readonly verbAccess?: Partial<Record<EntityCrudVerb, AccessRule>>;
   /** Default true. Set false when the entity was already registered (e.g. before r.relation). */
   readonly registerEntity?: boolean;
 };
