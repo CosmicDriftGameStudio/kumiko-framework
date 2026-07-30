@@ -1,32 +1,29 @@
-// Gemeinsame Datums-Parse/Format-Utils für die Web-Date-Primitives
-// (DateInput, TimestampInput). PlainDate-Semantik: lokale Date-Objekte
-// ohne Timezone-Konvertierung — "2026-04-25" bleibt der 25., egal in
-// welcher Zone der Browser läuft. Die TZ-/Wall-Clock-Konvertierung für
-// timestamp-Felder lebt bewusst weiter in timestamp-input.tsx (Wire-
-// Boundary, eigener Test); hier ist reines Kalender-Datum.
+// Shared date parse/format utils for the web date primitives (DateInput,
+// TimestampInput). PlainDate semantics: pure calendar date, no timezone
+// conversion — "2026-04-25" stays the 25th regardless of the browser's
+// zone. TZ/wall-clock conversion for timestamp fields deliberately stays
+// in timestamp-input.tsx (wire boundary, own test); this file is pure
+// calendar date.
+
+import { Temporal } from "temporal-polyfill";
 
 export function guessLocale(): string {
   if (typeof navigator !== "undefined" && navigator.language) return navigator.language;
   return "en-US";
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-// new Date(y, m-1, d) akzeptiert Überläufe (31. Feb → 3. März) und
-// interpretiert 0–99 als 1900+y. Beides hier als ungültig abweisen, damit
-// getippte Datümer nicht still in ein anderes Datum kippen.
-function makeLocalDate(y: number, m: number, d: number): Date | undefined {
-  if (m < 1 || m > 12 || d < 1 || d > 31) return undefined;
-  const date = new Date(y, m - 1, d);
-  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) {
+// overflow:"reject" throws on overflow (Feb 31 → RangeError) instead of
+// silently rolling it forward — typed dates should not silently shift to
+// a different date.
+function makePlainDate(y: number, m: number, d: number): Temporal.PlainDate | undefined {
+  try {
+    return Temporal.PlainDate.from({ year: y, month: m, day: d }, { overflow: "reject" });
+  } catch {
     return undefined;
   }
-  return date;
 }
 
-export function parseIso(v: string): Date | undefined {
+export function parseIso(v: string): Temporal.PlainDate | undefined {
   if (v === "") return undefined;
   const parts = v.split("-");
   if (parts.length !== 3) return undefined;
@@ -37,32 +34,42 @@ export function parseIso(v: string): Date | undefined {
     d === undefined ||
     Number.isNaN(y) ||
     Number.isNaN(m) ||
-    Number.isNaN(d)
+    Number.isNaN(d) ||
+    // Reject 2-digit years — matches the pre-PlainDate behavior where
+    // `new Date`'s 1900+y quirk made a round-trip check fail on them.
+    y < 100
   ) {
     return undefined;
   }
-  return makeLocalDate(y, m, d);
+  return makePlainDate(y, m, d);
 }
 
-export function toIso(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export function toIso(d: Temporal.PlainDate): string {
+  return d.toString();
 }
 
-// Editierbare, wieder-parsebare Anzeige (numerisches Locale-Format, z.B.
-// de "25.04.2026", en-US "04/25/2026"). Bewusst NICHT month:"long" — der
-// User soll den angezeigten Text direkt überschreiben können.
-export function formatDateForInput(d: Date, locale: string): string {
-  return d.toLocaleDateString(locale, { year: "numeric", month: "2-digit", day: "2-digit" });
+// Editable, re-parseable display (numeric locale format, e.g. de
+// "25.04.2026", en-US "04/25/2026"). Deliberately NOT month:"long" — the
+// user should be able to overwrite the displayed text directly.
+export function formatDateForInput(d: Temporal.PlainDate, locale: string): string {
+  return d.toLocaleString(locale, { year: "numeric", month: "2-digit", day: "2-digit" });
 }
 
 type DateSlot = "y" | "m" | "d";
 
-// Feld-Reihenfolge des numerischen Locale-Formats. de → [d,m,y],
-// en-US → [m,d,y], ISO-ähnliche Locales → [y,m,d].
+// Field order of the numeric locale format. de → [d,m,y], en-US →
+// [m,d,y], ISO-like locales → [y,m,d]. formatToParts runs over an epoch-
+// millis number instead of a Date object (guard-compliant) — timeZone:
+// "UTC" keeps the reference from shifting to the 1st depending on the
+// browser's TZ.
 function localeDateOrder(locale: string): readonly DateSlot[] {
-  const ref = new Date(2026, 0, 2); // Tag 2, Monat 1 — alle Felder eindeutig
+  const refEpochMillis = Temporal.PlainDate.from({ year: 2026, month: 1, day: 2 }).toZonedDateTime(
+    "UTC",
+  ).epochMilliseconds;
   const order: DateSlot[] = [];
-  for (const part of new Intl.DateTimeFormat(locale).formatToParts(ref)) {
+  for (const part of new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).formatToParts(
+    refEpochMillis,
+  )) {
     if (part.type === "year") order.push("y");
     else if (part.type === "month") order.push("m");
     else if (part.type === "day") order.push("d");
@@ -70,11 +77,11 @@ function localeDateOrder(locale: string): readonly DateSlot[] {
   return order;
 }
 
-// Getippte Eingabe → Date. Akzeptiert ISO (yyyy-mm-dd) direkt sowie drei
-// numerische Tokens in Locale-Reihenfolge mit beliebigem Trenner
-// (".", "/", "-", " "). Zweistellige Jahre → 2000er. Teil-/Fehl-Eingaben
-// → undefined (Caller behält dann den Roh-Text, committet nichts).
-export function parseTypedDate(input: string, locale: string): Date | undefined {
+// Typed input → PlainDate. Accepts ISO (yyyy-mm-dd) directly, plus three
+// numeric tokens in locale order with any separator (".", "/", "-", " ").
+// Two-digit years → 2000s. Partial/invalid input → undefined (caller
+// keeps the raw text then, commits nothing).
+export function parseTypedDate(input: string, locale: string): Temporal.PlainDate | undefined {
   const trimmed = input.trim();
   if (trimmed === "") return undefined;
 
@@ -100,5 +107,5 @@ export function parseTypedDate(input: string, locale: string): Date | undefined 
   });
   if (y < 100) y += 2000;
 
-  return makeLocalDate(y, m, d);
+  return makePlainDate(y, m, d);
 }
