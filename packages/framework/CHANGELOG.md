@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.168.0
+
+### Minor Changes
+
+- 4c7d3c9: `r.crud`/`registerEntityCrud` gain `verbAccess?: Partial<Record<EntityCrudVerb, AccessRule>>` to gate individual verbs (e.g. `delete`/`restore`) more strictly than the shared `write`/`read` access rule. Resolution per verb: `verbAccess?.[verb] ?? (isWrite ? write?.access : read?.access)`. Existing calls without `verbAccess` are unchanged.
+
+### Patch Changes
+
+- d149bab: `RequestHelper.queryOk` now asserts the response is a success (mirroring `writeOk`) instead of returning `body.data` unconditionally — a server error previously surfaced as `undefined` at whatever the caller did with it next, instead of naming the error code. Adds a `queryErr` counterpart (mirroring `writeErr`) so tests can assert on expected query failures without dropping to `query` and hand-parsing.
+- Updated dependencies [4c7d3c9]
+  - @cosmicdrift/kumiko-types@0.168.0
+
 ## 0.167.1
 
 ### Patch Changes

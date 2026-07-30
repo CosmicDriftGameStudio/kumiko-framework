@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-types
 
+## 0.168.0
+
+### Minor Changes
+
+- 4c7d3c9: `r.crud`/`registerEntityCrud` gain `verbAccess?: Partial<Record<EntityCrudVerb, AccessRule>>` to gate individual verbs (e.g. `delete`/`restore`) more strictly than the shared `write`/`read` access rule. Resolution per verb: `verbAccess?.[verb] ?? (isWrite ? write?.access : read?.access)`. Existing calls without `verbAccess` are unchanged.
+
 ## 0.167.1
 
 ### Patch Changes

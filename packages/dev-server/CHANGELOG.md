@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.168.0
+
+### Patch Changes
+
+- fecbfe3: `extraRoutes` is now registered before `onAfterSetup` (seeds) instead of after. A seed that dispatches through `stack.http` builds Hono's matcher, and every route added afterwards threw `Can not add a route since the matcher is already built` — so an app could have seeds or its own routes, but not both.
+- Updated dependencies [4c7d3c9]
+- Updated dependencies [d149bab]
+- Updated dependencies [136bc02]
+  - @cosmicdrift/kumiko-framework@0.168.0
+  - @cosmicdrift/kumiko-bundled-features@0.168.0
+  - @cosmicdrift/kumiko-server-runtime@0.168.0
+
 ## 0.167.1
 
 ### Patch Changes
