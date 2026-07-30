@@ -1,17 +1,33 @@
-// DateField — die gemeinsame tippbare Datums-Eingabe: ein Text-Input
-// (locale-aware Parse, Teil-Eingaben tolerant) plus CalendarPopover mit
-// Jahres-/Dekaden-Dropdown. Underlying-Wert ist ISO `yyyy-mm-dd`.
+// DateField — the shared typable date input: a text input (locale-aware
+// parse, tolerant of partial input) plus a CalendarPopover with year/
+// decade dropdown. Underlying value is ISO `yyyy-mm-dd`.
 //
-// Eine Quelle für beide Date-Primitives: DateInput (kind:"date") ist ein
-// dünner Re-Export hiervon, TimestampInput (kind:"timestamp") nutzt es als
-// Datums-Teil neben dem Uhrzeit-Input. So teilen `date` und `timestamp`
-// dieselbe Tipp-/Navigations-UX statt zweier divergenter Primitives (#369).
+// One source for both date primitives: DateInput (kind:"date") is a thin
+// re-export of this, TimestampInput (kind:"timestamp") uses it as the
+// date part next to the time input. So `date` and `timestamp` share the
+// same typing/navigation UX instead of two diverging primitives (#369).
 
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
+import { Temporal } from "temporal-polyfill";
 import { cn } from "../lib/cn";
 import { CalendarPopover } from "./calendar-popover";
 import { formatDateForInput, guessLocale, parseIso, parseTypedDate, toIso } from "./date-parse";
+
+// CalendarPopover wraps react-day-picker, which only accepts native Date
+// objects — the PlainDate↔Date boundary conversion stays confined to
+// these two functions instead of spreading through the rest of the field.
+function toNativeDate(pd: Temporal.PlainDate): Date {
+  return new Date(pd.year, pd.month - 1, pd.day);
+}
+
+function fromNativeDate(d: Date): Temporal.PlainDate {
+  return Temporal.PlainDate.from({
+    year: d.getFullYear(),
+    month: d.getMonth() + 1,
+    day: d.getDate(),
+  });
+}
 
 export type DateFieldProps = {
   readonly id: string;
@@ -22,9 +38,9 @@ export type DateFieldProps = {
   readonly required?: boolean;
   readonly hasError?: boolean;
   readonly locale?: string;
-  /** Untere/obere Grenze als ISO `yyyy-mm-dd`. Begrenzt den Kalender
-   *  (Jahres-Dropdown-Range + ausgegraute Tage). Server-Validierung läuft
-   *  separat über die Zod-Schemas. */
+  /** Lower/upper bound as ISO `yyyy-mm-dd`. Limits the calendar
+   *  (year-dropdown range + greyed-out days). Server-side validation runs
+   *  separately via the Zod schemas. */
   readonly min?: string;
   readonly max?: string;
 };
@@ -52,9 +68,9 @@ export function DateField({
   const resolvedLocale = locale ?? guessLocale();
   const selected = parseIso(value);
 
-  // draft === null → zeige den kanonisch formatierten Wert. Sobald der User
-  // tippt, hält draft den Roh-Text, damit die Eingabe nicht bei jedem
-  // Tastendruck umformatiert wird. onBlur setzt zurück auf null.
+  // draft === null → show the canonically formatted value. Once the user
+  // types, draft holds the raw text so input isn't reformatted on every
+  // keystroke. onBlur resets it back to null.
   const [draft, setDraft] = useState<string | null>(null);
   const display =
     draft ?? (selected !== undefined ? formatDateForInput(selected, resolvedLocale) : "");
@@ -82,7 +98,10 @@ export function DateField({
         disabled={disabled}
         required={required}
         aria-invalid={hasError === true ? true : undefined}
-        placeholder={formatDateForInput(new Date(2026, 11, 31), resolvedLocale)}
+        placeholder={formatDateForInput(
+          Temporal.PlainDate.from({ year: 2026, month: 12, day: 31 }),
+          resolvedLocale,
+        )}
         onChange={(e) => {
           setDraft(e.target.value);
           commitTyped(e.target.value);
@@ -94,13 +113,13 @@ export function DateField({
         )}
       />
       <CalendarPopover
-        selected={selected}
+        selected={selected !== undefined ? toNativeDate(selected) : undefined}
         onSelect={(d) => {
-          onChange(d !== undefined ? toIso(d) : undefined);
+          onChange(d !== undefined ? toIso(fromNativeDate(d)) : undefined);
           setDraft(null);
         }}
-        {...(minDate !== undefined && { min: minDate })}
-        {...(maxDate !== undefined && { max: maxDate })}
+        {...(minDate !== undefined && { min: toNativeDate(minDate) })}
+        {...(maxDate !== undefined && { max: toNativeDate(maxDate) })}
         {...(disabled !== undefined && { disabled })}
         {...(hasError !== undefined && { hasError })}
         triggerLabel={t("kumiko.field.open-calendar")}
