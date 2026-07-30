@@ -8,6 +8,7 @@
 // hängt hier die Handler dran und ruft r.screen/r.nav.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { itemsTranslations } from "./i18n";
 import {
   itemActiveScreen,
   itemEditScreen,
@@ -19,7 +20,21 @@ import {
 
 const open = { access: { openToAll: true } } as const;
 
+// The boot validator checks server-registered keys, while the client bundle is
+// locale-first — flip it rather than maintaining the same strings twice.
+function keyFirst(byLocale: typeof itemsTranslations): Record<string, Record<string, string>> {
+  const out: Record<string, Record<string, string>> = {};
+  for (const [locale, entries] of Object.entries(byLocale)) {
+    for (const [key, value] of Object.entries(entries)) {
+      out[key] ??= {};
+      out[key][locale] = value;
+    }
+  }
+  return out;
+}
+
 export const itemsFeature = defineFeature("showcase", (r) => {
+  r.translations({ keys: keyFirst(itemsTranslations) });
   r.crud("item", itemEntity, { write: open, read: open });
 
   r.screen(itemEditScreen);

@@ -25,8 +25,11 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `bun ${ENV_ARG} run src/app/screenshot-server.ts`.replace(/\s+/g, " ").trim(),
+    // The full app, not a demos-only variant: the screenshots cover the item
+    // screens too, and those need the entity plus its seeds.
+    command: `bun ${ENV_ARG} run src/app/server.ts`.replace(/\s+/g, " ").trim(),
     url: BASE_URL,
+    // KUMIKO_DEV_DB_NAME="" → ephemeral DB per Playwright run.
     env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },
     reuseExistingServer: !process.env["CI"],
     timeout: 120_000,
