@@ -3,16 +3,28 @@
 // werden (TenantDb filtert), sonst leakt eagerload fremde Rows nach _refs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { seedRows } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  configurePiiSubjectKms,
+  encryptPiiFieldValues,
+  InMemoryKmsAdapter,
+  isPiiCiphertext,
+} from "../../crypto";
 import { createEntity, createTextField } from "../../engine";
 import type { EntityDefinition } from "../../engine/types";
 import { setupTestStack, type TestStack, testTenantId, unsafeCreateEntityTable } from "../../stack";
+import { createTestEnvelopeCipher, resetPiiSubjectKmsForTests, seedRows } from "../../testing";
 import {
   collectReferenceFields,
   type EagerloadedRow,
   enrichRowWithReferences,
   enrichWithReferences,
 } from "../eagerload";
+import {
+  collectEncryptedFieldNames,
+  configureEntityFieldEncryption,
+  encryptEntityFieldValues,
+  resetEntityFieldEncryptionCacheForTests,
+} from "../entity-field-encryption";
 import { buildEntityTable } from "../table-builder";
 import { createTenantDb } from "../tenant-db";
 
@@ -30,8 +42,31 @@ const postEntity = createEntity({
 });
 const authorTable = buildEntityTable("author", authorEntity);
 
-const resolve = (name: string): EntityDefinition | undefined =>
-  name === "author" ? authorEntity : undefined;
+// #1667: eager-loaded _refs bypassed PII/entity-field decryption entirely —
+// a raw selectMany read the referenced row straight from the table, so
+// piiCiphertextResponseGuard 500'd on the leaked ciphertext.
+const contactEntity = createEntity({
+  table: "el_contacts",
+  fields: {
+    name: createTextField({ required: true }),
+    email: createTextField({ required: true, tenantOwned: true }),
+    iban: createTextField({ required: true, encrypted: true }),
+  },
+});
+const leadEntity = createEntity({
+  table: "el_leads",
+  fields: {
+    title: createTextField({ required: true }),
+    contact: { type: "reference", entity: "contact" },
+  },
+});
+const contactTable = buildEntityTable("contact", contactEntity);
+
+const resolve = (name: string): EntityDefinition | undefined => {
+  if (name === "author") return authorEntity;
+  if (name === "contact") return contactEntity;
+  return undefined;
+};
 
 const tenantA = testTenantId(91);
 const tenantB = testTenantId(92);
@@ -47,12 +82,18 @@ const single = (r: EagerloadedRow | undefined, f: string) =>
 const many = (r: EagerloadedRow | undefined, f: string) =>
   r?._refs?.[f] as ReadonlyArray<Record<string, unknown>> | undefined;
 
+const CX = "44444444-4444-4444-8444-444444444444";
+const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
+const cipher = createTestEnvelopeCipher(TEST_KEY);
+const kms = new InMemoryKmsAdapter();
+
 let stack: TestStack;
 let dbA: ReturnType<typeof createTenantDb>;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [] });
   await unsafeCreateEntityTable(stack.db, authorEntity);
+  await unsafeCreateEntityTable(stack.db, contactEntity);
   dbA = createTenantDb(stack.db, tenantA, "tenant");
 
   await seedRows(stack.db, authorTable, [
@@ -60,9 +101,30 @@ beforeAll(async () => {
     { id: A2, tenantId: tenantA, name: "Linus" },
     { id: BX, tenantId: tenantB, name: "Foreign" },
   ]);
+
+  configureEntityFieldEncryption(cipher);
+  configurePiiSubjectKms(kms);
+  const plainContact = {
+    id: CX,
+    tenantId: tenantA,
+    name: "Grace",
+    email: "grace@acme.test",
+    iban: "DE12345",
+  };
+  const piiEncrypted = await encryptPiiFieldValues(plainContact, contactEntity, ["email"], kms, {
+    requestId: "test",
+  });
+  const encrypted = await encryptEntityFieldValues(
+    piiEncrypted,
+    collectEncryptedFieldNames(contactEntity),
+    cipher,
+  );
+  await seedRows(stack.db, contactTable, [encrypted]);
 });
 
 afterAll(async () => {
+  resetEntityFieldEncryptionCacheForTests();
+  resetPiiSubjectKmsForTests();
   await stack.cleanup();
 });
 
@@ -160,5 +222,19 @@ describe("enrichWithReferences", () => {
       dbA,
     )) as EagerloadedRow;
     expect(single(row, "author")?.["name"]).toBe("Ada");
+  });
+
+  test("#1667: referenzierte PII-/encrypted-Felder werden entschlüsselt, keine Ciphertext-Leaks", async () => {
+    const [row] = (await enrichWithReferences(
+      [{ id: "l1", contact: CX }],
+      leadEntity,
+      resolve,
+      dbA,
+    )) as EagerloadedRow[];
+    const contact = single(row, "contact");
+
+    expect(contact?.["email"]).toBe("grace@acme.test");
+    expect(contact?.["iban"]).toBe("DE12345");
+    expect(isPiiCiphertext(contact?.["email"])).toBe(false);
   });
 });

@@ -23,8 +23,15 @@
 // keine framework-engine-Internals und kann auch von custom
 // query-handlern manuell aufgerufen werden.
 
+import { requestContext } from "../api/request-context";
+import { collectPiiSubjectFields, configuredPiiSubjectKms, decryptPiiFieldValues } from "../crypto";
 import { selectMany } from "../db/query";
 import type { EntityDefinition, FieldDefinition, ReferenceFieldDef } from "../engine/types";
+import {
+  collectEncryptedFieldNames,
+  decryptEntityFieldValues,
+  resolveEntityFieldEncryption,
+} from "./entity-field-encryption";
 import { buildEntityTable } from "./table-builder";
 import type { TenantDb } from "./tenant-db";
 
@@ -81,6 +88,32 @@ export function collectReferenceFields(entity: EntityDefinition): readonly Refer
   return out;
 }
 
+// Referenced rows are read via a raw selectMany, not the referenced entity's
+// own executor context (enrichWithReferences only gets an
+// EagerLoadEntityResolver — routing through buildExecutorContext per ref
+// would need table/searchAdapter/entityCache wiring for no reason). Mirrors
+// event-store-executor-context's decryptForRead ordering: PII is the outer
+// layer, peel it before the envelope-encrypted fields, or the envelope
+// cipher chokes on a still-PII-wrapped string.
+async function decryptReferencedRow(
+  row: Record<string, unknown>,
+  refEntity: EntityDefinition,
+): Promise<Record<string, unknown>> {
+  let out = row;
+  const piiFields = collectPiiSubjectFields(refEntity);
+  const kms = configuredPiiSubjectKms();
+  if (piiFields.length > 0 && kms) {
+    out = await decryptPiiFieldValues(out, piiFields, kms, {
+      requestId: requestContext.get()?.requestId ?? "eagerload",
+    });
+  }
+  const encryptedFields = collectEncryptedFieldNames(refEntity);
+  if (encryptedFields.size > 0) {
+    out = await decryptEntityFieldValues(out, encryptedFields, resolveEntityFieldEncryption());
+  }
+  return out;
+}
+
 /** Eagerload für eine Liste von Rows. Mutiert nicht — gibt eine
  *  flache Kopie der Rows mit hinzugefügtem `_refs`-Property zurück. */
 export async function enrichWithReferences(
@@ -123,9 +156,10 @@ export async function enrichWithReferences(
       }
       const refTable = buildEntityTable(rf.refEntityName, refEntity);
       const idArray = [...ids];
-      const refRows = (await selectMany(db, refTable, { id: idArray })) as Array<
+      const rawRefRows = (await selectMany(db, refTable, { id: idArray })) as Array<
         Record<string, unknown>
       >;
+      const refRows = await Promise.all(rawRefRows.map((r) => decryptReferencedRow(r, refEntity)));
       const map = new Map<string, Record<string, unknown>>();
       for (const r of refRows) {
         const id = r["id"];
