@@ -4,8 +4,8 @@
 // migrate-step runs `bun /app/kumiko.js schema apply`; kumiko-build bundles
 // this file to dist-server/kumiko.js.
 
-import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { APP_FEATURES, HAS_AUTH } from "../src/run-config";
 
 const [, , cmd, ...rest] = Bun.argv;
