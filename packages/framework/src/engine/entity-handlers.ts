@@ -479,23 +479,31 @@ export function registerEntityCrud(
   }
   const writeOpts = options?.write;
   const readOpts = options?.read;
+  const resolveWriteOpts = (verb: EntityCrudVerb): EntityHandlerOptions => ({
+    ...writeOpts,
+    access: options?.verbAccess?.[verb] ?? writeOpts?.access,
+  });
+  const resolveReadOpts = (verb: EntityCrudVerb): EntityQueryHandlerOptions => ({
+    ...readOpts,
+    access: options?.verbAccess?.[verb] ?? readOpts?.access,
+  });
 
   if (verbs.create) {
-    r.writeHandler(defineEntityCreateHandler(entityName, entity, writeOpts));
+    r.writeHandler(defineEntityCreateHandler(entityName, entity, resolveWriteOpts("create")));
   }
   if (verbs.update) {
-    r.writeHandler(defineEntityUpdateHandler(entityName, entity, writeOpts));
+    r.writeHandler(defineEntityUpdateHandler(entityName, entity, resolveWriteOpts("update")));
   }
   if (verbs.delete) {
-    r.writeHandler(defineEntityDeleteHandler(entityName, entity, writeOpts));
+    r.writeHandler(defineEntityDeleteHandler(entityName, entity, resolveWriteOpts("delete")));
   }
   if (verbs.restore) {
-    r.writeHandler(defineEntityRestoreHandler(entityName, entity, writeOpts));
+    r.writeHandler(defineEntityRestoreHandler(entityName, entity, resolveWriteOpts("restore")));
   }
   if (verbs.list) {
-    r.queryHandler(defineEntityListHandler(entityName, entity, readOpts));
+    r.queryHandler(defineEntityListHandler(entityName, entity, resolveReadOpts("list")));
   }
   if (verbs.detail) {
-    r.queryHandler(defineEntityDetailHandler(entityName, entity, readOpts));
+    r.queryHandler(defineEntityDetailHandler(entityName, entity, resolveReadOpts("detail")));
   }
 }
