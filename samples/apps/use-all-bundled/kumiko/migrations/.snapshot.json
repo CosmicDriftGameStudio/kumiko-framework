@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-07-26T04:29:37.291Z",
+  "generatedAt": "2026-07-30T12:47:00.323Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -424,7 +424,8 @@
           "columns": ["tenant_id"]
         }
       ],
-      "source": "managed"
+      "source": "managed",
+      "piiSubjectFields": ["pages"]
     },
     {
       "tableName": "read_download_attempts",
@@ -2762,6 +2763,11 @@
         },
         {
           "name": "locale",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "timezone",
           "pgType": "text",
           "notNull": false
         },
