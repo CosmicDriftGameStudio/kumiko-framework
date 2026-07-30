@@ -289,6 +289,19 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // Baseline-Regression-Guard (infra#295): failt nur bei NEUEN DE-Kommentaren,
   // Altbestand ist via .kumiko-comment-lang-baseline.json eingefroren.
   steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guard-comment-lang" });
+  // Baseline-Regression-Guard (infra#440): failt nur bei NEUEN strukturellen
+  // Duplikaten (cross-module/cross-file), Altbestand via
+  // .kumiko-semantic-duplicates-baseline.json eingefroren. Cross-repo scan
+  // (siehe roots.ts) — läuft nur aus der Parent-Workspace heraus, kein bunx-
+  // Fallback (Standalone-Checkout hat keine Sibling-Repos zum Scannen).
+  const semanticDuplicatesGuard = join(REPO_ROOT, "infra/guards/guard-semantic-duplicates.ts");
+  if (existsSync(semanticDuplicatesGuard)) {
+    steps.push({ name: "Semantic-Duplicates Guard", cmd: `bun ${semanticDuplicatesGuard}` });
+  } else {
+    console.log(
+      "Semantic-Duplicates Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).",
+    );
+  }
   const frameworkRepoRoot = resolvePath(import.meta.dir, "..");
   // Stay on 0.x — block major changesets and package.json major ≥ 1 (accidental 1.0/2.0).
   steps.push({
