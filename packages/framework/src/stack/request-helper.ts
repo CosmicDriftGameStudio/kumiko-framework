@@ -14,7 +14,7 @@ type WireErrorBody = {
   };
 };
 
-function formatWriteFailure(type: string, body: unknown): string {
+function formatFailure(kind: "write" | "query", type: string, body: unknown): string {
   const parsed = body as {
     isSuccess?: boolean;
     error?: WireErrorBody | string;
@@ -35,12 +35,12 @@ function formatWriteFailure(type: string, body: unknown): string {
       ? String((details as { causeName?: unknown }).causeName ?? "")
       : "";
   if (code === "internal_error" && (causeMessage || causeName)) {
-    return `Expected write "${type}" to succeed but got error: ${code} (${causeName}: ${causeMessage})`;
+    return `Expected ${kind} "${type}" to succeed but got error: ${code} (${causeName}: ${causeMessage})`;
   }
   if (details !== undefined) {
-    return `Expected write "${type}" to succeed but got error: ${code} — ${JSON.stringify(details)}`;
+    return `Expected ${kind} "${type}" to succeed but got error: ${code} — ${JSON.stringify(details)}`;
   }
-  return `Expected write "${type}" to succeed but got error: ${code}`;
+  return `Expected ${kind} "${type}" to succeed but got error: ${code}`;
 }
 
 export type RequestHelper = {
@@ -80,6 +80,13 @@ export type RequestHelper = {
   ) => Promise<import("../errors").WriteErrorInfo>;
   /** query + json — returns data directly */
   queryOk: <T = unknown>(type: string, payload: unknown, user: SessionUser) => Promise<T>;
+  /** query + json + assert the response is an error — returns the structured
+   *  WriteErrorInfo with `httpStatus` filled in from the HTTP response. */
+  queryErr: (
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+  ) => Promise<import("../errors").WriteErrorInfo>;
 
   /** write + additional HTTP headers (e.g. X-Correlation-ID). Returns the
    *  raw Response so callers can assert on status + headers + body as needed. */
@@ -205,7 +212,7 @@ export function createRequestHelper(
       // follow the error-contract shape { error: { code, i18nKey, ... } } with
       // a 4xx/5xx status — no isSuccess flag. Detect either.
       if (body.isSuccess !== true) {
-        throw new Error(formatWriteFailure(type, body));
+        throw new Error(formatFailure("write", type, body));
       }
       return body.data as T; // @cast-boundary engine-bridge
     },
@@ -239,8 +246,43 @@ export function createRequestHelper(
 
     async queryOk<T = unknown>(type: string, payload: unknown, user: SessionUser): Promise<T> {
       const res = await queryRaw(type, payload, user);
-      const body = (await res.json()) as { data: unknown }; // @cast-boundary engine-bridge
+      const rawBody = await res.json();
+      const body = rawBody as {
+        // @cast-boundary engine-bridge
+        data?: unknown;
+        error?: WireErrorBody | string;
+      };
+      // res.ok mirrors writeOk's isSuccess assertion — belt-and-suspenders
+      // in case a future non-dispatcher rejection skips the error-contract shape.
+      if (!res.ok || body.error !== undefined) {
+        throw new Error(`${formatFailure("query", type, body)} [HTTP ${res.status}]`);
+      }
       return body.data as T; // @cast-boundary engine-bridge
+    },
+
+    async queryErr(
+      type: string,
+      payload: unknown,
+      user: SessionUser,
+    ): Promise<import("../errors").WriteErrorInfo> {
+      const res = await queryRaw(type, payload, user);
+      const rawErrorBody = await res.json();
+      const body = rawErrorBody as {
+        // @cast-boundary engine-bridge
+        error?: Omit<import("../errors").WriteErrorInfo, "httpStatus">;
+      };
+      if (res.ok) {
+        throw new Error(`Expected query "${type}" to fail but it succeeded`);
+      }
+      const wire = body.error;
+      if (!wire || typeof wire !== "object" || typeof wire.code !== "string") {
+        throw new Error(
+          `Expected error response for "${type}" but got unexpected shape: ${JSON.stringify(body)}`,
+        );
+      }
+      // Same rationale as writeErr: the wire body has no httpStatus (it would
+      // be redundant with the HTTP response status), so fill it in here.
+      return { ...wire, httpStatus: res.status };
     },
 
     async writeWithHeaders(type, payload, user, extraHeaders) {

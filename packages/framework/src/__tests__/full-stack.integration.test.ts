@@ -493,6 +493,22 @@ describe("full stack: auth + access + validation", () => {
     );
     expectErrorIncludes(error, "banned_domain");
   });
+
+  test("queryOk throws on a query error response instead of returning undefined", async () => {
+    await expect(
+      stack.http.queryOk("users:query:user:detail", { id: "not-a-uuid" }, adminUser),
+    ).rejects.toThrow(/validation_error/);
+  });
+
+  test("queryErr asserts + returns the structured error for a failing query", async () => {
+    const error = await stack.http.queryErr(
+      "users:query:user:detail",
+      { id: "not-a-uuid" },
+      adminUser,
+    );
+    expect(error.code).toBe("validation_error");
+    expect(error.httpStatus).toBe(400);
+  });
 });
 
 // =============================================================================
