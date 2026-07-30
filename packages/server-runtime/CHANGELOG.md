@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.167.1
+
+### Patch Changes
+
+- 49eb6df: `RunProdAppAuthOptions`/`RunDevAppAuthOptions` now accept `accountLockout` (`maxFailedAttempts`, `lockoutDurationMinutes`), wired through the shared `composeFeatures`/`buildComposeAuthOptions` plumbing that already carries `accountUnlock`. Before this, both wrappers exposed `accountUnlock` — the self-service escape hatch for the lockout's failure counter — with no way to ever set the lockout it's meant to escape, so an app using either wrapper's convenience options couldn't turn on brute-force protection at all (kumiko-framework#1627).
+- Updated dependencies [cf5302a]
+- Updated dependencies [e75d079]
+- Updated dependencies [cf5302a]
+  - @cosmicdrift/kumiko-bundled-features@0.167.1
+  - @cosmicdrift/kumiko-framework@0.167.1
+
 ## 0.167.0
 
 ### Patch Changes

@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.167.1
+
+### Patch Changes
+
+- cf5302a: `user` entity gains a `timezone` field (IANA zone, validated, no default — mirrors `locale`). Set via `user:create`/`user:update`; login now threads it into the session so `ctx.tz.user` resolves to the user's actual timezone instead of always falling back to the tenant default (kumiko-framework#1636). Only the password-login flow (`login.write.ts`) populates it today — MFA-preauth, invite-accept, invite-signup, and signup-confirm sessions still leave it unset (falls back to `ctx.tz.tenant`, same as before this change; not a regression).
+- e75d079: `user.locale` no longer defaults to `"de"` at the entity level — it stays unset until the client or a resolution chain (tenant-settings' `defaultLocale`, app fallback) provides one. The hardcoded default contradicted `tenant-settings`' own `"en"` default and silently overrode any app/tenant locale configuration for every new user (kumiko-framework#1637). Consumers that already fall back with `user.locale ?? "en"` (email templates, GDPR export mailers) are unaffected in shape but now see `null` instead of `"de"` for users who never set a locale — apps relying on the old implicit German default should set their own fallback explicitly.
+- Updated dependencies [cf5302a]
+  - @cosmicdrift/kumiko-framework@0.167.1
+  - @cosmicdrift/kumiko-types@0.167.1
+  - @cosmicdrift/kumiko-headless@0.167.1
+  - @cosmicdrift/kumiko-renderer@0.167.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.167.1
+  - @cosmicdrift/kumiko-renderer-web@0.167.1
+
 ## 0.167.0
 
 ### Minor Changes
