@@ -30,6 +30,10 @@ export type SessionUser = {
   readonly id: string;
   readonly tenantId: TenantId;
   readonly roles: readonly string[];
+  // IANA zone from user.timezone, set at login. Absent → ctx.tz falls back
+  // to tenant.timezone, then "UTC" (buildHandlerContext, fw#1636). Stale
+  // until re-login — same tradeoff as `roles`.
+  readonly timezone?: string;
   // App-specific identity facts baked into the JWT at login time.
   // Populated by `r.authClaims()` hooks (not yet implemented — see the
   // auth-claims design note in docs/plans). Reserved here so the type shape
@@ -483,8 +487,9 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // ctx.tz.now() liefert Temporal.Instant, ctx.tz.parse(wallClock, tz)
   // produziert ZonedDateTime, ctx.tz.toLocatedJson serialisiert für die
   // API-Boundary. Lint-Regel gegen `new Date()` kommt sobald alle internen
-  // usages migriert sind. Tenant + User-TZ defaults aktuell "UTC", werden
-  // aus tenant.timezone / user.timezone gelesen sobald die Felder existieren.
+  // usages migriert sind. tenant liest tenant:config:timezone (fällt auf
+  // "UTC" zurück wenn kein config-Feature gemountet oder Wert ungesetzt);
+  // user liest SessionUser.timezone (fällt auf tenant zurück).
   readonly tz: TzContext;
 
   // Resolve every registered r.authClaims() hook against `user` and return

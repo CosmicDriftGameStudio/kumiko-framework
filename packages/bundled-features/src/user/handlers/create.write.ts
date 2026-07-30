@@ -2,6 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { UserErrors } from "../constants";
 import { userEntity, userTable } from "../schema/user";
@@ -23,6 +24,7 @@ export const createWrite = defineWriteHandler({
     passwordHash: z.string().optional(),
     displayName: z.string().min(1).max(100),
     locale: z.string().min(2).max(10).optional(),
+    timezone: z.string().max(64).refine(isValidIanaTimeZone, "invalid IANA time zone").optional(),
     // Globale Rollen — JSON-encoded string[]. Optional weil der Default
     // im Entity-Schema "[]" ist; setzen wenn man einen SystemAdmin (oder
     // andere globale Rollen) anlegt. Field-Access (write: privileged) auf

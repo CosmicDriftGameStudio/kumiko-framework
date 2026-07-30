@@ -307,6 +307,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
       id: payload.sub,
       tenantId: payload.tenantId,
       roles: payload.roles,
+      ...(payload.timezone ? { timezone: payload.timezone } : {}),
       ...(payload.claims ? { claims: payload.claims } : {}),
       ...(payload.jti ? { sid: payload.jti } : {}),
     };

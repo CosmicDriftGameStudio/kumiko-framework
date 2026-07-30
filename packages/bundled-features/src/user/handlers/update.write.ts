@@ -1,6 +1,7 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler, hasAccess } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { UserErrors } from "../constants";
 import { userEntity, userTable } from "../schema/user";
@@ -22,6 +23,7 @@ export const updateWrite = defineWriteHandler({
     changes: z.object({
       displayName: z.string().min(1).max(100).optional(),
       locale: z.string().min(2).max(10).optional(),
+      timezone: z.string().max(64).refine(isValidIanaTimeZone, "invalid IANA time zone").optional(),
       email: z.email().optional(),
       passwordHash: z.string().optional(),
       lastActiveTenantId: z.string().optional(),

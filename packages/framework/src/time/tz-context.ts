@@ -10,9 +10,10 @@
 // Feature code should no longer call `new Date()` — the lint rule for that
 // lands in a later iteration, once all existing usages are migrated.
 //
-// `tenant` + `user` are the TZ defaults for the current request. Currently
-// both default to "UTC" — once tenant.timezone + user.timezone fields
-// exist, they get read from the request context here.
+// `tenant` + `user` are the TZ defaults for the current request — resolved
+// by buildHandlerContext (tenant:config:timezone, then SessionUser.timezone,
+// falling back to "UTC" at each step) and passed in via TzContextOptions.
+// This factory itself stays a pure default-filler.
 //
 // The pure type contracts (TzContext, TzContextOptions, LocatedTimestampJson)
 // live in @cosmicdrift/kumiko-types/tz-context — only the factories are here.

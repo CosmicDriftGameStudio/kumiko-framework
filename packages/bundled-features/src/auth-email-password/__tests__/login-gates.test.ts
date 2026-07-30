@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { USER_STATUS } from "../../user";
 import type { AuthUserRow } from "../auth-user-row";
-import { gateEnforceAccountStatus, gateEnforceEmailVerified } from "../handlers/login.write";
+import {
+  gateBuildSession,
+  gateEnforceAccountStatus,
+  gateEnforceEmailVerified,
+} from "../handlers/login.write";
+
+// resolveAuthClaims is the only ctx member gateBuildSession touches.
+const authClaimsCtx = {
+  resolveAuthClaims: async () => ({}),
+} as unknown as HandlerContext;
 
 function row(over: Partial<AuthUserRow> = {}): AuthUserRow {
   return { id: "00000000-0000-4000-8000-000000000001", passwordHash: "x", ...over };
@@ -35,5 +45,29 @@ describe("login.write gates (fw#1284)", () => {
 
   test("gateEnforceAccountStatus passes active", () => {
     expect(gateEnforceAccountStatus(row({ status: USER_STATUS.Active })).ok).toBe(true);
+  });
+
+  test("gateBuildSession carries the user's timezone into the session", async () => {
+    const g = await gateBuildSession(
+      authClaimsCtx,
+      "00000000-0000-4000-8000-000000000001",
+      "00000000-0000-4000-8000-000000000002",
+      ["User"],
+      "Asia/Tokyo",
+    );
+    expect(g.ok).toBe(true);
+    if (g.ok) expect(g.value.session.timezone).toBe("Asia/Tokyo");
+  });
+
+  test("gateBuildSession omits timezone when the user never set one (fw#1636)", async () => {
+    const g = await gateBuildSession(
+      authClaimsCtx,
+      "00000000-0000-4000-8000-000000000001",
+      "00000000-0000-4000-8000-000000000002",
+      ["User"],
+      null,
+    );
+    expect(g.ok).toBe(true);
+    if (g.ok) expect(g.value.session.timezone).toBeUndefined();
   });
 });

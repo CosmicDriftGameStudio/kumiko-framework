@@ -82,6 +82,18 @@ describe("createJwtHelper.verify — payload validation (KF-2)", () => {
       .sign(new TextEncoder().encode(SECRET));
     await expect(jwt.verify(token)).rejects.toThrow(/sub/);
   });
+
+  // fw#1636 — SessionUser.timezone must survive the sign/verify roundtrip
+  // (jwt.sign silently drops any field it doesn't explicitly copy).
+  it("round-trips the timezone claim when set", async () => {
+    const payload = await jwt.verify(await jwt.sign({ ...user, timezone: "Asia/Tokyo" }));
+    expect(payload.timezone).toBe("Asia/Tokyo");
+  });
+
+  it("omits the timezone claim when unset", async () => {
+    const payload = await jwt.verify(await jwt.sign(user));
+    expect(payload.timezone).toBeUndefined();
+  });
 });
 
 describe("createJwtHelper — keyring form", () => {

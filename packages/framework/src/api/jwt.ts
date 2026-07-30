@@ -10,6 +10,9 @@ export type JwtPayload = {
   sub: string;
   tenantId: TenantId;
   roles: string[];
+  // IANA zone from user.timezone, set at login — see SessionUser.timezone
+  // (fw#1636). Absent → ctx.tz.user falls back to ctx.tz.tenant.
+  timezone?: string;
   // Optional — present when a feature has registered auth claims via the
   // `r.authClaims()` hook system. Absent for stateless-JWT deployments
   // without auth-claims wiring.
@@ -106,6 +109,7 @@ export function createJwtHelper(
         tenantId: user.tenantId,
         roles: [...user.roles],
       };
+      if (user.timezone) body.timezone = user.timezone;
       if (user.claims) body.claims = { ...user.claims };
 
       const header: jose.JWTHeaderParameters = keyring.signKid
@@ -155,6 +159,9 @@ export function createJwtHelper(
         tenantId,
         roles,
       };
+      if (typeof payload["timezone"] === "string") {
+        result.timezone = payload["timezone"];
+      }
       const claims = payload["claims"];
       if (claims && typeof claims === "object") {
         result.claims = claims as DbRow;

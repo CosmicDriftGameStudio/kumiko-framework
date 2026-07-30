@@ -224,11 +224,13 @@ export async function gateBuildSession(
   userId: string,
   tenantId: TenantId,
   mergedRoles: readonly string[],
+  timezone?: string | null,
 ): Promise<GateOutcome<{ readonly kind: "auth-session"; readonly session: SessionUser }>> {
   const baseSession: SessionUser = {
     id: userId,
     tenantId,
     roles: mergedRoles,
+    ...(timezone !== null && timezone !== undefined && { timezone }),
   };
   const claims = await ctx.resolveAuthClaims(baseSession);
   const session: SessionUser =
@@ -294,7 +296,13 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
         return { isSuccess: true, data: mfaGate.value };
       }
 
-      const sessionGate = await gateBuildSession(ctx, found.id, chosen.tenantId, mergedRoles);
+      const sessionGate = await gateBuildSession(
+        ctx,
+        found.id,
+        chosen.tenantId,
+        mergedRoles,
+        found.timezone,
+      );
       if (!sessionGate.ok) return sessionGate.result;
       return { isSuccess: true, data: sessionGate.value };
     },

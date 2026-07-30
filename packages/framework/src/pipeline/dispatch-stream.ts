@@ -73,7 +73,7 @@ async function* executeStreamInner(
   // await; close is fire-and-forget instead (#1563).
   let abandonedForInvalidation = false;
   try {
-    const handlerContext = buildHandlerContext(ctx, type, user);
+    const handlerContext = await buildHandlerContext(ctx, type, user);
     const chunks = handler.handler({ type, payload: parsed.data, user }, handlerContext);
     iterator = chunks[Symbol.asyncIterator]();
 

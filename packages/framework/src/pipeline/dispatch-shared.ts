@@ -146,14 +146,14 @@ async function appendDomainEvent(
   );
 }
 
-export function buildHandlerContext(
+export async function buildHandlerContext(
   ctx: DispatchContext,
   type: string,
   user: SessionUser,
   tx?: DbTx,
   afterCommitHooks?: AfterCommitHook[],
   includeDeleted?: boolean,
-): HandlerContext {
+): Promise<HandlerContext> {
   const { registry, appContext: context, effectiveFeatures, jobRunner } = ctx;
   const isSystem = registry.isHandlerSystemScoped(type);
   // The outer dispatcher receives a DbConnection from the server/stack;
@@ -515,13 +515,19 @@ export function buildHandlerContext(
   // HandlerContext. The spread-then-assign order matters: anything in
   // `context` can be overridden, but we want the authoritative registry
   // from the dispatcher's own closure to win.
-  // ctx.tz ist immer da. Tenant + User-Defaults kommen aus dem
-  // SessionUser sobald die Felder existieren — bis dahin "UTC". Ein
-  // app-injizierter GeoTzProvider (context.geoTzProvider) speist
-  // ctx.tz.fromCoordinates / fromAddress.
-  const tz = createTzContext(
-    context.geoTzProvider !== undefined ? { geoTz: context.geoTzProvider } : {},
-  );
+  // ctx.tz ist immer da. tenant liest tenant:config:timezone über den
+  // bereits gebauten `config`-Accessor (raw qualified-key — kein Import
+  // des tenant-Features, framework/pipeline bleibt bundled-features-frei);
+  // fehlt config oder der Key, bleibt "UTC". user kommt aus
+  // SessionUser.timezone (an login gesetzt) und fällt sonst auf tenant
+  // zurück (createTzContext-Default). Ein app-injizierter GeoTzProvider
+  // (context.geoTzProvider) speist ctx.tz.fromCoordinates / fromAddress.
+  const tenantTz = config !== undefined ? await config("tenant:config:timezone") : undefined;
+  const tz = createTzContext({
+    ...(context.geoTzProvider !== undefined ? { geoTz: context.geoTzProvider } : {}),
+    tenant: typeof tenantTz === "string" ? tenantTz : "UTC",
+    ...(user.timezone !== undefined && { user: user.timezone }),
+  });
 
   return {
     ...context,
