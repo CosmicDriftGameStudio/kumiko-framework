@@ -27,9 +27,20 @@ export const sharedWidgetTable = buildEntityTable("widget", sharedWidgetEntity);
 // realistic-looking user record.
 export const sharedUserEntity = createEntity({
   fields: {
-    email: createTextField({ required: true, format: "email", searchable: true }),
-    firstName: createTextField({ searchable: true }),
-    lastName: createTextField({ searchable: true }),
+    email: createTextField({
+      required: true,
+      format: "email",
+      searchable: true,
+      allowPlaintext: "shared test fixture, not real user data",
+    }),
+    firstName: createTextField({
+      searchable: true,
+      allowPlaintext: "shared test fixture, not real user data",
+    }),
+    lastName: createTextField({
+      searchable: true,
+      allowPlaintext: "shared test fixture, not real user data",
+    }),
     isEnabled: createBooleanField({ default: true }),
   },
   softDelete: true,

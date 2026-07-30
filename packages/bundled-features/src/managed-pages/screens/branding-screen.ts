@@ -39,7 +39,11 @@ export function createBrandingSettingsScreen(opts: {
     },
     fields: {
       title: createTextField({ maxLength: 200 }),
-      description: createTextField({ maxLength: 500, multiline: { rows: 3 } }),
+      description: createTextField({
+        maxLength: 500,
+        multiline: { rows: 3 },
+        allowPlaintext: "tenant branding copy, business content not personal data",
+      }),
       siteUrl: createTextField({ maxLength: 2000, format: "url" }),
       accentColor: createTextField({ maxLength: 9 }),
       logoUrl: createTextField({ maxLength: 2000, format: "url" }),

@@ -41,7 +41,10 @@ export const mailAccountEntity = createEntity({
     // Owner + TenantAdmin (Compliance); KEIN Crypto-Subject-Wechsel in
     // V1 (Subject bleibt Tenant, siehe Header).
     ownerUserId: createTextField({ maxLength: 36 }),
-    displayName: createTextField({ maxLength: 200 }),
+    displayName: createTextField({
+      maxLength: 200,
+      allowPlaintext: "mailbox display name, tenant config not personal data",
+    }),
     // Postfach-Adresse — PII des Tenants.
     address: createTextField({ required: true, maxLength: 1000, tenantOwned: true }),
     status: createTextField({ required: true, maxLength: 30 }),
