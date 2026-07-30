@@ -558,6 +558,7 @@ describe("validateBoot — retention", () => {
         createEntity({
           fields: {
             invoiceNumber: createTextField({ allowPlaintext: "is-business-data" }),
+            customerName: createTextField({ pii: true }),
           },
           retention: { keepFor: "10y", strategy: "blockDelete" },
         }),
@@ -568,6 +569,25 @@ describe("validateBoot — retention", () => {
       String(args[0]).includes('strategy="blockDelete" but no field has an anonymize-function'),
     );
     expect(matchingWarn).toBeDefined();
+  });
+
+  test("blockDelete without any subject-annotated field stays silent (#1622)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "lease",
+        createEntity({
+          fields: {
+            reference: createTextField({ allowPlaintext: "is-business-data" }),
+          },
+          retention: { keepFor: "10y", strategy: "blockDelete" },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes('strategy="blockDelete" but no field has an anonymize-function'),
+    );
+    expect(matchingWarn).toBeUndefined();
   });
 
   test('retention.keepFor with invalid format "30days" warns', () => {

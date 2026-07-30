@@ -234,11 +234,17 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       }
 
       if (retention.strategy === "blockDelete") {
+        // blockDelete on an entity with no subject field is the correct
+        // "never auto-delete" choice; User-Forget never reaches those rows (#1622).
+        const hasSubjectField = Object.values(fieldsByName).some((f) => {
+          const a = f as PiiAnnotations; // @cast-boundary schema-walk
+          return Boolean(a.pii || a.userOwned || a.tenantOwned);
+        });
         const hasAnonymize = Object.values(fieldsByName).some((f) => {
           const a = f as PiiAnnotations; // @cast-boundary schema-walk
           return Boolean(a.anonymize);
         });
-        if (!hasAnonymize) {
+        if (hasSubjectField && !hasAnonymize) {
           // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
           console.warn(
             `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.strategy="blockDelete" but no field has an anonymize-function. User-Forget cannot anonymize — Forget will return error. Add { anonymize: () => null } or () => "[ANONYMIZED]" to PII fields.`,
