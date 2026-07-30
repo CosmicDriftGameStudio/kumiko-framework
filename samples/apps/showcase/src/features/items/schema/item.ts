@@ -115,6 +115,7 @@ export const itemListScreen: EntityListScreenDefinition = {
   // URL-Param übergibt (das actionForm liest sie via searchParams als
   // initial value für ein title-Feld).
   rowActions: [
+    { kind: "navigate", id: "edit", label: "showcase:actions.edit", screen: "item-edit" },
     {
       kind: "navigate",
       id: "duplicate",
@@ -153,6 +154,9 @@ export const itemFeedScreen: EntityListScreenDefinition = {
   pageSize: 30, // kleinere Pages damit Scroll-Effekt häufiger triggert
   defaultSort: { field: "title", dir: "asc" },
   searchable: true,
+  rowActions: [
+    { kind: "navigate", id: "edit", label: "showcase:actions.edit", screen: "item-edit" },
+  ],
 };
 
 // Tier 2.7c Demo — Screen-Level Filter. Selbe Entity, gleicher Query-
@@ -169,6 +173,9 @@ export const itemActiveScreen: EntityListScreenDefinition = {
   defaultSort: { field: "title", dir: "asc" },
   searchable: true,
   filter: { field: "status", op: "eq", value: "active" },
+  rowActions: [
+    { kind: "navigate", id: "edit", label: "showcase:actions.edit", screen: "item-edit" },
+  ],
 };
 
 // Tier 2.7d Demo — actionForm Screen-Typ. Non-CRUD Write-Handler-

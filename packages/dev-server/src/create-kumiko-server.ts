@@ -686,19 +686,14 @@ export async function createKumikoServer(
   await createEventsTable(stack.db);
   await pushEntityProjectionTables(stack, stack.registry);
 
-  // Hook für Caller-spezifische Tables + Seed. Läuft nach den Entity-
-  // Tabellen damit das Sample auf `stack.db` / `stack.dispatcher`
-  // zugreifen kann, und VOR dem Server-Start damit der erste HTTP-Request
-  // bereits gegen einen gefüllten State läuft. Idempotenz ist Caller-
-  // Verantwortung (persistent-DB-Modus läuft es bei jedem Boot).
-  if (options.onAfterSetup !== undefined) {
-    await options.onAfterSetup(stack);
-  }
-
   // App-eigene HTTP-Routes ans Hono-app hängen — symmetrisch zur
   // gleichnamigen Option in runProdApp. Wird vor dem dev-fallback
   // (HTML/JS/CSS-Serving via handleFetch unten) registriert, damit
   // explizite Routen wie /feed.xml den Asset-Pfad schlagen.
+  //
+  // Muss VOR dem Seed laufen: ein Seed, der über stack.http dispatcht,
+  // baut Honos Matcher — danach wirft jedes weitere app.get() mit
+  // "Can not add a route since the matcher is already built".
   if (options.extraRoutes !== undefined) {
     options.extraRoutes(stack.app, {
       db: stack.db,
@@ -708,6 +703,15 @@ export async function createKumikoServer(
       registry: stack.registry,
       dispatchSystemWrite: makeDispatchSystemWrite(stack.dispatcher),
     });
+  }
+
+  // Hook für Caller-spezifische Tables + Seed. Läuft nach den Entity-
+  // Tabellen damit das Sample auf `stack.db` / `stack.dispatcher`
+  // zugreifen kann, und VOR dem Server-Start damit der erste HTTP-Request
+  // bereits gegen einen gefüllten State läuft. Idempotenz ist Caller-
+  // Verantwortung (persistent-DB-Modus läuft es bei jedem Boot).
+  if (options.onAfterSetup !== undefined) {
+    await options.onAfterSetup(stack);
   }
 
   // setupTestStack konfiguriert den eventDispatcher, startet ihn aber
