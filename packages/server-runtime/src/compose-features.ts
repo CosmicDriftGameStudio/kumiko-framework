@@ -14,6 +14,7 @@
 // ones (e.g. authClaims hooks on user/tenant).
 
 import {
+  type AccountLockoutOptions,
   type AccountUnlockOptions,
   type AuthEmailPasswordOptions,
   type AuthMailLocale,
@@ -116,6 +117,7 @@ export type AuthOptionsCarrier = {
   readonly signup?: SignupOptions;
   readonly invite?: InviteOptions;
   readonly accountUnlock?: AccountUnlockOptions;
+  readonly accountLockout?: AccountLockoutOptions;
 };
 
 /** Baut den authOptions-Block für composeFeatures aus einem
@@ -178,11 +180,15 @@ export function buildComposeAuthOptions(
       ...pickMailFields(auth.accountUnlock),
     };
   }
+  if (auth.accountLockout) {
+    opts.accountLockout = auth.accountLockout;
+  }
   return opts.passwordReset ||
     opts.emailVerification ||
     opts.signup ||
     opts.invite ||
-    opts.accountUnlock
+    opts.accountUnlock ||
+    opts.accountLockout
     ? opts
     : undefined;
 }

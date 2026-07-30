@@ -91,6 +91,7 @@ import { renderWelcomeBanner } from "./welcome-banner";
 // @cosmicdrift/kumiko-server-runtime (single source of truth) — hier nur
 // durchgereicht.
 export type {
+  AccountLockoutSetup,
   AccountUnlockSetup,
   AuthMailOptions,
   EmailVerificationSetup,
@@ -100,6 +101,7 @@ export type {
 } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 
 import type {
+  AccountLockoutSetup,
   AccountUnlockSetup,
   AuthMailOptions,
   EmailVerificationSetup,
@@ -140,6 +142,10 @@ export type RunDevAppAuthOptions = {
   readonly invite?: InviteSetup;
   /** Account-unlock flow (#1266). Symmetric to RunProdAppAuthOptions. */
   readonly accountUnlock?: AccountUnlockSetup;
+  /** Brute-force guard on the login handler (maxFailedAttempts,
+   *  lockoutDurationMinutes). Mounts no routes. Symmetric to
+   *  RunProdAppAuthOptions.accountLockout (kumiko-framework#1627). */
+  readonly accountLockout?: AccountLockoutSetup;
   /** Domain attribute for both auth cookies (see
    *  AuthRoutesConfig.cookieDomain). Symmetric to RunProdAppAuthOptions. */
   readonly cookieDomain?: string;

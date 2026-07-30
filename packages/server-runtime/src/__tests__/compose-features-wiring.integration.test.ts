@@ -329,6 +329,75 @@ describe("composeFeatures wiring — asymmetric activation", () => {
   });
 });
 
+describe("composeFeatures wiring — accountLockout (kumiko-framework#1627)", () => {
+  // Pinst dass authOptions.accountLockout genauso durchgereicht wird wie
+  // passwordReset/emailVerification — der Bug-Fall war, dass runDevApp die
+  // Option gar nicht erst annahm (kein Feld auf RunDevAppAuthOptions) und
+  // buildComposeAuthOptions sie ignoriert hätte, selbst wenn doch. Anders als
+  // reset/verify mountet accountLockout keine eigenen Routes — der Beweis
+  // ist Login-Verhalten, kein Mail-Capture.
+  let stack: TestStack;
+  const MAX_ATTEMPTS = 2;
+
+  beforeAll(async () => {
+    const features = composeFeatures([], {
+      includeBundled: true,
+      authOptions: {
+        accountLockout: { maxFailedAttempts: MAX_ATTEMPTS, lockoutDurationMinutes: 1 },
+      },
+    });
+    stack = await setupTestStack({
+      features,
+      extraContext: { configResolver: createConfigResolver() },
+      authConfig: {
+        membershipQuery: "tenant:query:memberships",
+        loginHandler: AuthHandlers.login,
+        loginErrorStatusMap: {
+          [AuthErrors.invalidCredentials]: 401,
+          [AuthErrors.noMembership]: 403,
+          [AuthErrors.accountLocked]: 423,
+        },
+      },
+    });
+    await unsafeCreateEntityTable(stack.db, userEntity);
+    await unsafeCreateEntityTable(stack.db, tenantEntity);
+    await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+  });
+
+  afterEach(async () => {
+    await deleteRows(stack.db, userTable, {});
+    await deleteRows(stack.db, tenantMembershipsTable, {});
+    await stack.redis.flushNamespace();
+  });
+
+  test("MAX_ATTEMPTS wrong passwords via the wrapper path lock the account (423)", async () => {
+    await seedUser(stack, { email: "lockout@example.com", password: "right-pw-1234" });
+
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      const res = await stack.http.raw("POST", "/api/auth/login", {
+        email: "lockout@example.com",
+        password: `wrong-${i}`,
+      });
+      expect(res.status).toBe(401);
+    }
+
+    // Correct password no longer helps once locked — proves the option
+    // actually reached createLoginHandler's accountLockout param, not just
+    // the type.
+    const lockedRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: "lockout@example.com",
+      password: "right-pw-1234",
+    });
+    expect(lockedRes.status).toBe(423);
+    const body = (await lockedRes.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.accountLocked);
+  });
+});
+
 describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
   // Der Bug den der Review-Agent gefangen hat. Whitebox-Variante in
   // compose-features.test.ts checkt nur Object.keys(writeHandlers); hier

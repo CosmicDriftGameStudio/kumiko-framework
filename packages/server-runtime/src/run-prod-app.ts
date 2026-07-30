@@ -40,6 +40,7 @@
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
 import {
+  type AccountLockoutOptions,
   type AccountUnlockOptions,
   AuthErrors,
   AuthHandlers,
@@ -270,6 +271,14 @@ export type InviteSetup = InviteOptions;
  *  independently like the other flows. */
 export type AccountUnlockSetup = AccountUnlockOptions;
 
+/** Wrapper API for the account-lockout brute-force guard on the login
+ *  handler. = AccountLockoutOptions (maxFailedAttempts, lockoutDurationMinutes
+ *  — no mail/appUrl fields, it doesn't mount any routes). Symmetric to
+ *  RunDevAppAuthOptions.accountLockout (kumiko-framework#1627) — before this,
+ *  `accountUnlock` existed on both wrappers with no way to ever set the
+ *  lockout it's meant to escape. */
+export type AccountLockoutSetup = AccountLockoutOptions;
+
 /** Auth-Mail-Convenience-Optionen — shared zwischen runProdApp + runDevApp.
  *  Verdrahtet alle 4 Mail-Flows aus einem env-SMTP-Transport + Standard-
  *  Templates (siehe `auth.mail` + resolveAuthMail). */
@@ -331,6 +340,11 @@ export type RunProdAppAuthOptions = {
    *  hatch for accountLockout's monotonic failure-counter — confirming
    *  clears the Redis lockout state, no entity write. */
   readonly accountUnlock?: AccountUnlockSetup;
+  /** Brute-force guard on the login handler (maxFailedAttempts,
+   *  lockoutDurationMinutes). Mounts no routes — unlike the other flows,
+   *  it's a login-handler config knob, not a magic-link flow. Pair with
+   *  `accountUnlock` for a self-service escape hatch. */
+  readonly accountLockout?: AccountLockoutSetup;
   /** Domain attribute for both auth cookies (see
    *  AuthRoutesConfig.cookieDomain). Set to the registrable parent
    *  domain when login and app live on different subdomains. */
