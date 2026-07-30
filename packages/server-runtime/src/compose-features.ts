@@ -183,12 +183,9 @@ export function buildComposeAuthOptions(
   if (auth.accountLockout) {
     opts.accountLockout = auth.accountLockout;
   }
-  return opts.passwordReset ||
-    opts.emailVerification ||
-    opts.signup ||
-    opts.invite ||
-    opts.accountUnlock ||
-    opts.accountLockout
-    ? opts
-    : undefined;
+  return hasAnyAuthFlow(opts) ? opts : undefined;
+}
+
+function hasAnyAuthFlow(opts: AuthEmailPasswordOptions): boolean {
+  return Object.values(opts).some(Boolean);
 }
