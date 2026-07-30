@@ -245,6 +245,7 @@ describe("text-content :: query (openToAll)", () => {
     const otherTenant = createTestUser({
       id: 99,
       tenantId: "11111111-1111-4111-8111-111111111111",
+      roles: ["TenantAdmin"],
     });
     await seedTextBlock(db, {
       tenantId: tenantAdmin.tenantId,
@@ -257,8 +258,7 @@ describe("text-content :: query (openToAll)", () => {
       { slug: "tenant-only", lang: "de" },
       otherTenant,
     );
-    // null oder undefined je nach pipeline-shape — beides bedeutet "nicht gefunden"
-    expect(result).toBeFalsy();
+    expect(result).toBeNull();
   });
 
   test("by-slug works for SystemAdmin scoped to system tenant", async () => {
