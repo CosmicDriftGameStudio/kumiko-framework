@@ -87,7 +87,8 @@ export const userEntity = createEntity({
       pii: true,
       searchable: true,
     }),
-    locale: createTextField({ maxLength: 10, default: "de" }),
+    // No default here — tenant-settings owns the app-wide locale default; see #1637.
+    locale: createTextField({ maxLength: 10 }),
 
     // Which tenant should this user land in on next login. Set by the login
     // handler (SYSTEM), read by the login flow + UI for deep-linking.

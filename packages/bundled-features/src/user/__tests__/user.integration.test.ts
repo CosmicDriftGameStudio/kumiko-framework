@@ -64,8 +64,9 @@ describe("scenario 1: create + me", () => {
       id: created.id,
       email: "marc@example.com",
       displayName: "Marc",
-      locale: "de", // comes from the entity's default — client didn't send it
     });
+    // No entity-level default — client didn't send a locale, so it stays unset.
+    expect(me["locale"] == null).toBe(true);
   });
 
   test("normal user cannot create another user", async () => {

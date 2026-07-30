@@ -2981,8 +2981,7 @@
           "name": "locale",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "default": "'de'"
+          "notNull": false
         },
         "last_active_tenant_id": {
           "name": "last_active_tenant_id",

@@ -2763,8 +2763,7 @@
         {
           "name": "locale",
           "pgType": "text",
-          "notNull": false,
-          "defaultSql": "'de'"
+          "notNull": false
         },
         {
           "name": "last_active_tenant_id",
