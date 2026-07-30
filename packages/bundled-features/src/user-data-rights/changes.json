@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.165.1",
+    "type": "fix",
+    "title": "restrict-account runs the same cross-tenant membership check as lift-restriction (fw#1543).",
+    "detail": "Any Admin/TenantAdmin — not just SystemAdmin — could restrict a user's account and force-revoke their sessions regardless of tenant, as long as they held an admin role in some tenant. Also: the GET /user-export/by-token fallback now forwards x-forwarded-for to the internal query call, so the per-IP 30/min limit stops collapsing into one global bucket."
+  },
+  {
     "version": "0.165.3",
     "type": "improvement",
     "title": "Forget cleanup purges derived Meili docs for searchable subject-PII (fw#1610).",

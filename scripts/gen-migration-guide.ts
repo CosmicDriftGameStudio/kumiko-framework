@@ -23,6 +23,7 @@ const FEATURES_DIRS = [
   "packages/bundled-features/src",  // framework
   "packages",                        // enterprise (packages/<name>/src/)
 ];
+const CORE_FILE = "packages/framework/src/changes.json"; // framework core — belongs to no feature
 const DEFAULT_OUT = "docs/reference/migration-guide.md";
 
 function compareVersions(a: string, b: string): number {
@@ -37,8 +38,46 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+function readEntries(filePath: string, fromVersion?: string): ChangelogEntry[] {
+  if (!existsSync(filePath)) return [];
+
+  const entries: ChangelogEntry[] = [];
+  try {
+    const parsed = JSON.parse(readFileSync(filePath, "utf-8"));
+    if (!Array.isArray(parsed)) return [];
+
+    for (const entry of parsed) {
+      if (
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof entry["version"] === "string" &&
+        ["breaking", "improvement", "fix"].includes(entry["type"]) &&
+        typeof entry["title"] === "string"
+      ) {
+        const e: ChangelogEntry = {
+          version: entry["version"],
+          type: entry["type"],
+          title: entry["title"],
+          detail: typeof entry["detail"] === "string" ? entry["detail"] : undefined,
+          migration: typeof entry["migration"] === "string" ? entry["migration"] : undefined,
+        };
+
+        if (fromVersion && compareVersions(e.version, fromVersion) <= 0) continue;
+        entries.push(e);
+      }
+    }
+  } catch {
+    // Skip malformed files
+  }
+
+  return entries;
+}
+
 function collectChangelogs(fromVersion?: string): Map<string, ChangelogEntry[]> {
   const result = new Map<string, ChangelogEntry[]>();
+
+  const coreEntries = readEntries(CORE_FILE, fromVersion);
+  if (coreEntries.length > 0) result.set("framework-core", coreEntries);
 
   for (const featuresDir of FEATURES_DIRS) {
     if (!existsSync(featuresDir)) continue;
@@ -55,42 +94,10 @@ function collectChangelogs(fromVersion?: string): Map<string, ChangelogEntry[]> 
         ? join(featuresDir, name, "src")
         : join(featuresDir, name);
 
-      const filePath = join(dir, "changes.json");
-      if (!existsSync(filePath)) continue;
-
-      try {
-        const raw = readFileSync(filePath, "utf-8");
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) continue;
-
-        const entries: ChangelogEntry[] = [];
-        for (const entry of parsed) {
-          if (
-            typeof entry === "object" &&
-            entry !== null &&
-            typeof entry["version"] === "string" &&
-            ["breaking", "improvement", "fix"].includes(entry["type"]) &&
-            typeof entry["title"] === "string"
-          ) {
-            const e: ChangelogEntry = {
-              version: entry["version"],
-              type: entry["type"],
-              title: entry["title"],
-              detail: typeof entry["detail"] === "string" ? entry["detail"] : undefined,
-              migration: typeof entry["migration"] === "string" ? entry["migration"] : undefined,
-            };
-
-            if (fromVersion && compareVersions(e.version, fromVersion) <= 0) continue;
-            entries.push(e);
-          }
-        }
-
-        if (entries.length > 0) {
-          const featureKey = isEnterprisePkg ? `enterprise:${name}` : name;
-          result.set(featureKey, entries);
-        }
-      } catch {
-        // Skip malformed files
+      const entries = readEntries(join(dir, "changes.json"), fromVersion);
+      if (entries.length > 0) {
+        const featureKey = isEnterprisePkg ? `enterprise:${name}` : name;
+        result.set(featureKey, entries);
       }
     }
   }

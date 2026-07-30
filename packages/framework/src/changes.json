@@ -1,0 +1,40 @@
+[
+  {
+    "version": "0.167.0",
+    "type": "breaking",
+    "title": "resetEntityFieldEncryptionCacheForTests / resetEventPiiCatalogForTests moved to /testing (fw#1631).",
+    "detail": "Test-only reset helpers with no owning feature: resetEntityFieldEncryptionCacheForTests left the /db barrel, resetEventPiiCatalogForTests left /crypto. The functions did not move, only their export path.",
+    "migration": "Import both from \"@cosmicdrift/kumiko-framework/testing\" instead of \"/db\" and \"/crypto\". Relative deep-imports of the defining module are unaffected."
+  },
+  {
+    "version": "0.167.0",
+    "type": "breaking",
+    "title": "Six identity-sensitive error classes moved from kumiko-types into kumiko-framework (fw#1616).",
+    "detail": "VersionConflictError, IdempotentAppendConflictError and ArchivedStreamError now live in /event-store, KeyErasedError, KeyNotFoundError and KeyAlreadyExistsError in /crypto — the public paths callers already import from. With no classes left in it, kumiko-types is a plain dependency again instead of a peerDependency, which closes the changesets cycle that escalated every minor release to a major.",
+    "migration": "Only affects direct imports from the removed @cosmicdrift/kumiko-types/event-store-errors subpath: import from @cosmicdrift/kumiko-framework/event-store or /crypto instead. Apps importing from the framework paths need no change."
+  },
+  {
+    "version": "0.167.0",
+    "type": "fix",
+    "title": "hono range raised to ^4.12.27 — security floor for the HTTP layer (fw#1634).",
+    "detail": "Carries the fixes for three advisories: cross-request data disclosure in hono/jsx (context not isolated per request), server-side XSS via a JSX escaping bypass in cx(), and a dropped repeated request header in the API-Gateway v1 adapter. The old ^4.12.18 allowed the patched versions, but the lockfile sat on 4.12.25 — the range now states the floor instead of relying on resolution luck."
+  },
+  {
+    "version": "0.165.2",
+    "type": "improvement",
+    "title": "buildEntityTableMeta renamed to deriveEntityTableMeta (fw#1208).",
+    "detail": "The old name read like the unmanaged escape hatch (defineUnmanagedTable). Unmanaged builders now reject the reserved read_ table-name prefix. The deprecated alias still works."
+  },
+  {
+    "version": "0.165.1",
+    "type": "fix",
+    "title": "isSafeHref decodes HTML character references before its scheme check (fw#1551).",
+    "detail": "javascript&colon;alert(1) and java&Tab;script:alert(1) slipped through because neither contains a literal colon for the pre-decode regex, while the browser decodes the entity back into an executable javascript: URL on click. Affects renderSafeMarkdown (page-render) and the renderer-web Link primitive."
+  },
+  {
+    "version": "0.165.1",
+    "type": "improvement",
+    "title": "createNumberField accepts max (fw#1573).",
+    "detail": "Mirrored from min; the schema-builder applies Zod .max() at the write boundary so integer CRUD rejects values that would overflow a Postgres integer instead of failing at insert time."
+  }
+]

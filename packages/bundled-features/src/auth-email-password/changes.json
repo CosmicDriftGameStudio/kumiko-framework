@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.165.1",
+    "type": "breaking",
+    "title": "makeAuthGate / makeSessionAuthGate take a single LoginRouteOptions object (fw#1545).",
+    "detail": "The four positional args (LoginComponent, loginProps, MfaVerifyComponent, MfaSetupComponent) did not scale past two optional MFA params. Shipped in the stranded 2.0.0 major and carried into the 0.165.1 line.",
+    "migration": "Rewrite call sites as makeAuthGate({ loginScreen, loginScreenProps, mfaVerifyScreen, mfaSetupScreen }). Type-check catches every occurrence."
+  },
+  {
     "version": "0.167.1",
     "type": "improvement",
     "title": "accountLockout is reachable through runProdApp/runDevApp (fw#1627).",
