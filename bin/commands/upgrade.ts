@@ -56,6 +56,38 @@ function readCurrentVersion(cwd: string): string | null {
   return null;
 }
 
+function readChangelogFile(filePath: string): ChangelogEntry[] {
+  if (!existsSync(filePath)) return [];
+
+  const entries: ChangelogEntry[] = [];
+  try {
+    const parsed = JSON.parse(readFileSync(filePath, "utf-8"));
+    if (!Array.isArray(parsed)) return [];
+
+    for (const entry of parsed) {
+      if (
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof entry["version"] === "string" &&
+        ["breaking", "improvement", "fix"].includes(entry["type"]) &&
+        typeof entry["title"] === "string"
+      ) {
+        entries.push({
+          version: entry["version"],
+          type: entry["type"],
+          title: entry["title"],
+          detail: typeof entry["detail"] === "string" ? entry["detail"] : undefined,
+          migration: typeof entry["migration"] === "string" ? entry["migration"] : undefined,
+        });
+      }
+    }
+  } catch {
+    // Skip malformed files
+  }
+
+  return entries;
+}
+
 function collectChangelogs(featuresDir: string): ChangelogEntry[] {
   if (!existsSync(featuresDir)) return [];
 
@@ -72,37 +104,28 @@ function collectChangelogs(featuresDir: string): ChangelogEntry[] {
       ? join(featuresDir, name, "src")
       : join(featuresDir, name);
 
-    const filePath = join(dir, "changes.json");
-    if (!existsSync(filePath)) continue;
-
-    try {
-      const raw = readFileSync(filePath, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) continue;
-
-      for (const entry of parsed) {
-        if (
-          typeof entry === "object" &&
-          entry !== null &&
-          typeof entry["version"] === "string" &&
-          ["breaking", "improvement", "fix"].includes(entry["type"]) &&
-          typeof entry["title"] === "string"
-        ) {
-          entries.push({
-            version: entry["version"],
-            type: entry["type"],
-            title: entry["title"],
-            detail: typeof entry["detail"] === "string" ? entry["detail"] : undefined,
-            migration: typeof entry["migration"] === "string" ? entry["migration"] : undefined,
-          });
-        }
-      }
-    } catch {
-      // Skip malformed files
-    }
+    entries.push(...readChangelogFile(join(dir, "changes.json")));
   }
 
   return entries;
+}
+
+// Framework core changes belong to no feature — they live in a single
+// changes.json next to the framework sources.
+function findCoreChangelogFile(cwd: string): string | null {
+  const repoPath = join(cwd, "packages/framework/src/changes.json");
+  if (existsSync(repoPath)) return repoPath;
+
+  let dir = cwd;
+  for (let i = 0; i < 10; i++) {
+    const nmPath = join(dir, "node_modules/@cosmicdrift/kumiko-framework/src/changes.json");
+    if (existsSync(nmPath)) return nmPath;
+    const parent = join(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  return null;
 }
 
 function findFeaturesDirs(cwd: string): string[] {
@@ -120,7 +143,11 @@ function findFeaturesDirs(cwd: string): string[] {
     if (hasEntPkgs) dirs.push(entDir);
   }
 
-  // App repos: walk up to find bundled-features in hoisted node_modules
+  // App repos: walk up to find bundled-features in hoisted node_modules.
+  // Skipped inside the framework repo — the workspace symlink points back at
+  // the dir already collected above and would duplicate every entry.
+  if (dirs.includes(fwDir)) return dirs;
+
   let dir = cwd;
   for (let i = 0; i < 10; i++) {
     const nmDir = join(dir, "node_modules/@cosmicdrift/kumiko-bundled-features/src");
@@ -143,8 +170,8 @@ export const upgradeCommand = defineCommand({
   help: [
     "Usage: kumiko upgrade [--from <version>] [--json] [--verbose]",
     "",
-    "Reads changes.json from all bundled features and shows what's new",
-    "since your current (or specified) Kumiko version.",
+    "Reads changes.json from all bundled features plus the framework core",
+    "and shows what's new since your current (or specified) Kumiko version.",
     "",
     "Flags:",
     "  --from <ver>   Override current version (default: auto-detect from node_modules)",
@@ -181,7 +208,8 @@ export const upgradeCommand = defineCommand({
     }
 
     const featuresDirs = findFeaturesDirs(ctx.cwd);
-    if (featuresDirs.length === 0) {
+    const coreChangelogFile = findCoreChangelogFile(ctx.cwd);
+    if (featuresDirs.length === 0 && !coreChangelogFile) {
       ctx.out.err("");
       ctx.out.err("  Could not find bundled-features directory.");
       ctx.out.err("  Run from framework/enterprise repo or an app with node_modules.");
@@ -192,6 +220,9 @@ export const upgradeCommand = defineCommand({
     const allEntries: ChangelogEntry[] = [];
     for (const dir of featuresDirs) {
       allEntries.push(...collectChangelogs(dir));
+    }
+    if (coreChangelogFile) {
+      allEntries.push(...readChangelogFile(coreChangelogFile));
     }
     const pending = allEntries
       .filter((e) => compareVersions(e.version, currentVersion) > 0)

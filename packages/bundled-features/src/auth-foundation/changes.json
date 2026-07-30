@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.165.1",
+    "type": "improvement",
+    "title": "validateSessionStoreMultiplicity accepts zero sessionStore providers (fw#1547).",
+    "detail": "A machine-API-only deployment (PAT-bearer auth, no browser sessions) can mount auth-foundation without also mounting sessions."
+  },
+  {
+    "version": "0.161.0",
+    "type": "improvement",
+    "title": "tenantResolver/tenantExistence extension points, sessionStore without auth.sessions (fw#1372-1375).",
+    "detail": "Auth-foundation migration: tenant resolution and tenant-existence become extension points, sessionStore is wired without going through auth.sessions, AnonymousAccessConfig is slimmed down. See the auth-foundation-providers recipe."
+  },
+  {
     "version": "0.165.0",
     "type": "fix",
     "title": "Allow zero tokenVerifier when sessionStore present",

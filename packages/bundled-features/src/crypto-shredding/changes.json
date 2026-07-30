@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.166.0",
+    "type": "improvement",
+    "title": "resolveKmsWiring / requireKmsWiring / buildPgKmsOptions: boot-time KMS env validation (fw#1617).",
+    "detail": "The subject-keys KMS env trio was validated by four copy-pasted app-side helpers that had drifted: only one parsed PLATFORM_KEK_VERSION strictly, so \"1e21\", \"0x10\" and \"-1\" were accepted and silently produced an unreachable rotation slot. Ordering of previous vs. active version stays enforced by PgKmsAdapter."
+  },
+  {
+    "version": "0.166.0",
+    "type": "fix",
+    "title": "KmsWiringEnv accepts process.env directly (fw#1618).",
+    "detail": "All members being optional made TypeScript's weak-type detection reject ProcessEnv for having no properties in common, which forced every consumer into a cast or a six-key mapping — the boilerplate fw#1617 set out to remove."
+  },
+  {
     "version": "0.167.0",
     "type": "breaking",
     "title": "Test-only reset helpers moved from /crypto to /testing (fw#1631).",

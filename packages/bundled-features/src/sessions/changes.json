@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.165.1",
+    "type": "fix",
+    "title": "Mid-stream access revocation aborts idle SSE pulls; sseHeartbeatMs is a real buildServer option (fw#1587).",
+    "detail": "A revoked session used to keep an idle SSE stream alive until the client disconnected. clientIpOf now falls back to x-real-ip before the shared \"unknown\" bucket, so per-IP rate limits stop collapsing into one bucket behind proxies that only set that header."
+  },
+  {
     "version": "0.165.0",
     "type": "improvement",
     "title": "Revoke handlers emit session-revoked event",
