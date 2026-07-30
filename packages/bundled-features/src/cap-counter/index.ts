@@ -27,6 +27,11 @@ export {
 export { capCounterEntity } from "./entity";
 export { capCounterFeature } from "./feature";
 export {
+  createStockCapGuard,
+  type StockCapGuard,
+  type StockCapSpec,
+} from "./stock-cap-guard";
+export {
   type CalendarCapDef,
   type CalendarCapResolver,
   type RollingCapDef,

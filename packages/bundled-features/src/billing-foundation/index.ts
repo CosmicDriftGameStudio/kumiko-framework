@@ -31,6 +31,13 @@ export {
 export { billingFoundationFeature } from "./feature";
 export { getSubscriptionForTenant, type SubscriptionView } from "./get-subscription-for-tenant";
 export { subscriptionsProjectionTable } from "./projection";
+export {
+  createSubscriptionTierSync,
+  effectiveTierFromSubscription,
+  SUBSCRIPTION_WEBHOOK_PATH,
+  type SubscriptionTierSyncDeps,
+  type SystemWriteResult,
+} from "./subscription-tier-sync";
 export type {
   SubscriptionEvent,
   SubscriptionProviderPlugin,

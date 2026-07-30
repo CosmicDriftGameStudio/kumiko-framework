@@ -24,4 +24,9 @@ export {
   createTierEngineFeature,
   tierEngineFeature,
 } from "./feature";
+export {
+  createTierResolver,
+  type TierResolver,
+  type TierResolverDeps,
+} from "./tier-resolver";
 export { isTrialActive, type TrialPolicy } from "./trial";
