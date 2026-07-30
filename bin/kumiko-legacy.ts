@@ -323,6 +323,22 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
       "No-Direct-Process-Env Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).",
     );
   }
+  // No bunx fallback here on purpose: the guard checks GUARD_REPO_PRESETS (the
+  // required repo list), not just whatever siblings happen to exist — a
+  // standalone run with missing siblings would fail for a reason unrelated to
+  // this repo's own renovate.json, so it only runs from the parent workspace.
+  const renovatePresetsGuard = join(REPO_ROOT, "infra/guards/check-renovate-presets.ts");
+  if (existsSync(renovatePresetsGuard)) {
+    steps.push({ name: "Renovate-Presets Guard", cmd: `bun ${renovatePresetsGuard}` });
+  } else {
+    console.log("Renovate-Presets Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).");
+  }
+  const subpathExportsGuard = join(REPO_ROOT, "infra/guards/check-subpath-exports.ts");
+  if (existsSync(subpathExportsGuard)) {
+    steps.push({ name: "Subpath-Exports Guard", cmd: `bun ${subpathExportsGuard}` });
+  } else {
+    console.log("Subpath-Exports Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).");
+  }
   steps.push({ name: "Deprecated Deps", cmd: "bunx kumiko-check-outdated" });
 
   return steps;
