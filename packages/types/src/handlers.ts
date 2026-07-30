@@ -483,13 +483,14 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   readonly metrics: MetricsHandle;
   readonly tracer: Tracer;
 
-  // Time + TZ helper. Feature-Code MUSS hier durch statt `new Date()` —
-  // ctx.tz.now() liefert Temporal.Instant, ctx.tz.parse(wallClock, tz)
-  // produziert ZonedDateTime, ctx.tz.toLocatedJson serialisiert für die
-  // API-Boundary. Lint-Regel gegen `new Date()` kommt sobald alle internen
-  // usages migriert sind. tenant liest tenant:config:timezone (fällt auf
-  // "UTC" zurück wenn kein config-Feature gemountet oder Wert ungesetzt);
-  // user liest SessionUser.timezone (fällt auf tenant zurück).
+  // Time + TZ helper. Feature code MUST go through this instead of
+  // `new Date()` — ctx.tz.now() returns Temporal.Instant, ctx.tz.parse
+  // (wallClock, tz) produces a ZonedDateTime, ctx.tz.toLocatedJson
+  // serializes for the API boundary. The lint rule against `new Date()`
+  // lands once all internal usages are migrated. tenant reads
+  // tenant:config:timezone (falls back to "UTC" when no config feature is
+  // mounted or the value is unset); user reads SessionUser.timezone (falls
+  // back to tenant).
   readonly tz: TzContext;
 
   // Resolve every registered r.authClaims() hook against `user` and return

@@ -515,13 +515,13 @@ export async function buildHandlerContext(
   // HandlerContext. The spread-then-assign order matters: anything in
   // `context` can be overridden, but we want the authoritative registry
   // from the dispatcher's own closure to win.
-  // ctx.tz ist immer da. tenant liest tenant:config:timezone über den
-  // bereits gebauten `config`-Accessor (raw qualified-key — kein Import
-  // des tenant-Features, framework/pipeline bleibt bundled-features-frei);
-  // fehlt config oder der Key, bleibt "UTC". user kommt aus
-  // SessionUser.timezone (an login gesetzt) und fällt sonst auf tenant
-  // zurück (createTzContext-Default). Ein app-injizierter GeoTzProvider
-  // (context.geoTzProvider) speist ctx.tz.fromCoordinates / fromAddress.
+  // ctx.tz is always present. tenant reads tenant:config:timezone through
+  // the already-built `config` accessor (raw qualified-key — no import of
+  // the tenant feature, framework/pipeline stays bundled-features-free);
+  // falls back to "UTC" when config is missing or the key is unset. user
+  // comes from SessionUser.timezone (set at login), else falls back to
+  // tenant (createTzContext's own default). An app-injected GeoTzProvider
+  // (context.geoTzProvider) feeds ctx.tz.fromCoordinates / fromAddress.
   const tenantTz = config !== undefined ? await config("tenant:config:timezone") : undefined;
   const tz = createTzContext({
     ...(context.geoTzProvider !== undefined ? { geoTz: context.geoTzProvider } : {}),
