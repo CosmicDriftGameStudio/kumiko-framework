@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.167.1",
+    "type": "fix",
+    "title": "blockDelete boot warning only fires for entities that have a subject (fw#1622).",
+    "detail": "The warning \"retention.strategy=blockDelete but no field has an anonymize-function\" checked the strategy alone. blockDelete is the legal-hold mode and therefore the obvious choice for anything under a statutory retention period — including entities that hold nothing but business data and foreign keys. Those got warned at every boot about something that cannot be satisfied: there is nothing to anonymize, and User-Forget never reaches a row without a subject. The warning made the correct declaration louder than the wrong one. It now requires at least one field annotated pii/userOwned/tenantOwned.",
+    "migration": "None. Warnings disappear for entities without subject-annotated fields; entities that do carry PII still get warned, unchanged."
+  },
+  {
     "version": "0.116.0",
     "type": "improvement",
     "title": "data-retention cleanup now implements the `anonymize` strategy (per-field anonymize funct…",

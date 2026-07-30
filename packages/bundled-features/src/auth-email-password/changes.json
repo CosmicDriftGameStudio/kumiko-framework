@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.167.1",
+    "type": "improvement",
+    "title": "accountLockout is reachable through runProdApp/runDevApp (fw#1627).",
+    "detail": "accountLockout was an option on createAuthEmailPasswordFeature, but both wrappers mount auth-email-password themselves and their auth options only knew accountUnlock — an app on either entrypoint had no way to turn brute-force protection on. RunProdAppAuthOptions and RunDevAppAuthOptions now carry accountLockout and composeFeatures passes it through.",
+    "migration": "Opt-in, nothing breaks without it. Two things to know before relying on it: without ctx.redis the lockout is silently skipped in login.write.ts — no error, no warning, no protection — so treat Redis as a deploy invariant, and prove the lockout with a behavioural test instead of assuming the mount is enough."
+  },
+  {
     "version": "0.162.0",
     "type": "improvement",
     "title": "auth-email-password: runtime toggle for self-registration.",
