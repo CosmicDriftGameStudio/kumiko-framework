@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.169.0
+
+### Patch Changes
+
+- 63157c0: `seedAdmin` now accepts an optional `emailVerified` flag and passes it through to `seedUserWithPassword` (default stays `false`, unverified). Without it, a dev-admin seeded via `seedAdmin()` was unverified and login failed with 422 `email_not_verified` — two apps (money-horse, solon) had already written their own backfill to work around it.
+- 74e97f3: `@types/mailparser` moved from `devDependencies` to `dependencies` — it was only a devDependency despite `mailparser` itself being a runtime dependency, so standalone consumers of the IMAP provider hit `tsc` type errors that stayed invisible in the monorepo (types get hoisted there).
+- Updated dependencies [644274a]
+- Updated dependencies [b136040]
+  - @cosmicdrift/kumiko-framework@0.169.0
+  - @cosmicdrift/kumiko-types@0.169.0
+  - @cosmicdrift/kumiko-renderer-web@0.169.0
+  - @cosmicdrift/kumiko-headless@0.169.0
+  - @cosmicdrift/kumiko-renderer@0.169.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.169.0
+
 ## 0.168.0
 
 ### Minor Changes

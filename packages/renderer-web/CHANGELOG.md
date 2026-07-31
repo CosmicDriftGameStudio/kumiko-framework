@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.169.0
+
+### Minor Changes
+
+- b136040: `WorkspaceShell` gains a `fill?: boolean` prop, mirroring `DefaultAppShell`'s existing viewport-fit mode: `true` pins the shell to `h-svh` and scrolls the content area instead of the whole page. Apps that mount long tables/lists through `WorkspaceShell` (solon, publicstatus, money-horse) can opt in per-screen the same way they already can with `DefaultAppShell`.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.169.0
+- @cosmicdrift/kumiko-renderer@0.169.0
+- @cosmicdrift/kumiko-dispatcher-live@0.169.0
+
 ## 0.168.0
 
 ### Patch Changes
