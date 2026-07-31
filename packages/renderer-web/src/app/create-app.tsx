@@ -7,6 +7,7 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import {
+  AppFeaturesProvider,
   type AppSchema,
   type ColumnRendererComponent,
   ColumnRenderersProvider,
@@ -328,26 +329,28 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
     <TokensBoot>
       <LocaleProvider resolver={localeResolver} fallbackBundles={fallbackBundles}>
         <PrimitivesProvider value={primitives}>
-          <DispatcherProvider dispatcher={dispatcher}>
-            <LiveEventsProvider value={liveEvents}>
-              <DashboardBodyProvider value={WebDashboardBody}>
-                <CustomScreensProvider value={customScreens}>
-                  <ColumnRenderersProvider value={columnRenderers}>
-                    <ExtensionSectionsProvider value={extensionSectionComponents}>
-                      <NavProvidersProvider value={navProviders} entities={navEntities}>
-                        <ResolversProvider resolvers={resolvers}>
-                          <ToastProvider>
-                            <UpdateChecker />
-                            {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                          </ToastProvider>
-                        </ResolversProvider>
-                      </NavProvidersProvider>
-                    </ExtensionSectionsProvider>
-                  </ColumnRenderersProvider>
-                </CustomScreensProvider>
-              </DashboardBodyProvider>
-            </LiveEventsProvider>
-          </DispatcherProvider>
+          <AppFeaturesProvider features={app.features}>
+            <DispatcherProvider dispatcher={dispatcher}>
+              <LiveEventsProvider value={liveEvents}>
+                <DashboardBodyProvider value={WebDashboardBody}>
+                  <CustomScreensProvider value={customScreens}>
+                    <ColumnRenderersProvider value={columnRenderers}>
+                      <ExtensionSectionsProvider value={extensionSectionComponents}>
+                        <NavProvidersProvider value={navProviders} entities={navEntities}>
+                          <ResolversProvider resolvers={resolvers}>
+                            <ToastProvider>
+                              <UpdateChecker />
+                              {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                            </ToastProvider>
+                          </ResolversProvider>
+                        </NavProvidersProvider>
+                      </ExtensionSectionsProvider>
+                    </ColumnRenderersProvider>
+                  </CustomScreensProvider>
+                </DashboardBodyProvider>
+              </LiveEventsProvider>
+            </DispatcherProvider>
+          </AppFeaturesProvider>
         </PrimitivesProvider>
       </LocaleProvider>
     </TokensBoot>

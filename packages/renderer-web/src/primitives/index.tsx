@@ -79,6 +79,7 @@ import {
 import { FileUploadInput } from "./file-upload";
 import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
+import { DefaultModal } from "./modal";
 import { formatMoney, MoneyInput } from "./money-input";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
@@ -409,6 +410,8 @@ function DefaultInput(props: InputProps): ReactNode {
         ...(props.emptyText !== undefined && { emptyText: props.emptyText }),
         ...(props.onSearchChange !== undefined && { onSearchChange: props.onSearchChange }),
         ...(props.loading !== undefined && { loading: props.loading }),
+        ...(props.onCreate !== undefined && { onCreate: props.onCreate }),
+        ...(props.createLabel !== undefined && { createLabel: props.createLabel }),
       } as const;
       if (props.multiple === true) {
         return (
@@ -1804,6 +1807,7 @@ export const defaultPrimitives: CorePrimitives = {
   Text: DefaultText,
   Heading: DefaultHeading,
   Dialog: DefaultDialog,
+  Modal: DefaultModal,
   Lightbox: DefaultLightbox,
   ConfigSourceBadge: DefaultConfigSourceBadge,
   ConfigCascadeView: DefaultConfigCascadeView,

@@ -302,6 +302,11 @@ export type InputProps =
        *  debounced an den Caller). */
       readonly onSearchChange?: (q: string) => void;
       readonly loading?: boolean;
+      /** Fixed "+ createLabel" footer row that fires instead of
+       *  selecting an option — omit for the plain select-existing
+       *  combobox (kumiko-framework#1681). */
+      readonly onCreate?: () => void;
+      readonly createLabel?: string;
     } & (
       | {
           readonly multiple?: false;
@@ -635,6 +640,21 @@ export type DialogProps = {
   readonly testId?: string;
 };
 
+/** Bare content shell for hosting an existing self-contained form/widget
+ *  (own submit/cancel buttons) inside a modal overlay — unlike `Dialog`,
+ *  it renders no footer buttons of its own. Web renders the same
+ *  focus-trapped Radix overlay as `Dialog`, just without the button row. */
+export type ModalProps = {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  /** Screen-reader-only accessible title (required by the underlying
+   *  dialog primitive) — not shown visually since the hosted content
+   *  is expected to render its own heading. */
+  readonly title: string;
+  readonly children: ReactNode;
+  readonly testId?: string;
+};
+
 /** Image lightbox — full-size preview on click. Web renders Radix overlay;
  *  trigger (thumbnail) and open state live in the app. */
 export type LightboxProps = {
@@ -725,6 +745,7 @@ export type CorePrimitives = {
   readonly Text: ComponentType<TextProps>;
   readonly Heading: ComponentType<HeadingProps>;
   readonly Dialog: ComponentType<DialogProps>;
+  readonly Modal: ComponentType<ModalProps>;
   readonly Lightbox: ComponentType<LightboxProps>;
   readonly ConfigSourceBadge: ComponentType<ConfigSourceBadgeProps>;
   readonly ConfigCascadeView: ComponentType<ConfigCascadeViewProps>;

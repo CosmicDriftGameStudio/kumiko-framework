@@ -16,7 +16,7 @@
 import { REFERENCE_SEARCH_DEBOUNCE_MS, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Command } from "cmdk";
-import { Check, ChevronDown, Loader2 } from "lucide-react";
+import { Check, ChevronDown, Loader2, Plus } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/cn";
 
@@ -44,6 +44,14 @@ type ComboboxBaseProps = {
   readonly onSearchChange?: (q: string) => void;
   /** Spinner im Trigger + Popover-Footer wenn remote search läuft. */
   readonly loading?: boolean;
+  /** Fixed footer row below the option list ("+ createLabel"). Rendered
+   *  unfiltered — stays visible even when the search matches nothing,
+   *  which is the most common case for reference-lookups on a freshly
+   *  seeded system (kumiko-framework#1681). Omit for the plain
+   *  select-existing combobox. */
+  readonly onCreate?: () => void;
+  /** Label for the create-footer row. Default: i18n `kumiko.actions.create`. */
+  readonly createLabel?: string;
   /** Test-Hook: forciert den initial open-state des Popovers. In
    *  jsdom + Radix-Popover triggert userEvent.click auf den Trigger
    *  nicht zuverlässig PointerEvents — Tests setzen defaultOpen=true,
@@ -109,6 +117,8 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
     onSearchChange,
     loading,
     defaultOpen,
+    onCreate,
+    createLabel,
   } = props;
   // i18n-Defaults aus dem Framework-Bundle (kumikoDefaultTranslations).
   // Caller-Override gewinnt; Bundle-Override greift wenn der Caller
@@ -118,6 +128,7 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
   const effectiveSearchPlaceholder = searchPlaceholder ?? t("kumiko.combobox.search-placeholder");
   const effectiveEmptyText = emptyText ?? t("kumiko.combobox.empty");
   const loadingText = t("kumiko.combobox.loading");
+  const effectiveCreateLabel = createLabel ?? t("kumiko.actions.create");
   const multiple = props.multiple === true;
   const [open, setOpen] = useState(defaultOpen === true);
   // Local Search-Buffer für Remote-Mode. Tipps werden mit 300ms
@@ -253,6 +264,20 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
                 );
               })}
             </Command.List>
+            {onCreate !== undefined && (
+              <button
+                type="button"
+                data-testid={`combobox-${id}-create`}
+                onClick={() => {
+                  setOpen(false);
+                  onCreate();
+                }}
+                className="flex w-full cursor-pointer select-none items-center gap-2 border-t border-border px-3 py-1.5 text-left text-sm text-primary outline-none hover:bg-accent hover:text-accent-foreground"
+              >
+                <Plus className="h-4 w-4" />
+                <span>{effectiveCreateLabel}</span>
+              </button>
+            )}
           </Command>
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>

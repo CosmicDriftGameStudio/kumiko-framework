@@ -1,10 +1,17 @@
+import type {
+  AccessRule,
+  EntityEditScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { useAppFeatures } from "../app/app-features-context";
 import { toKebab } from "../app/qn";
+import { useUserRoles } from "../context/user-roles-context";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits";
 import { useQuery } from "../hooks/use-query";
-import { useLocale } from "../i18n";
+import { useLocale, useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
+import { ReferenceCreateDialog } from "./reference-create-dialog";
 
 // RenderField übersetzt ein EditFieldViewModel → Primitives-Baum.
 // Kein raw HTML mehr; alle Darstellungsentscheidungen (Label-Position,
@@ -82,6 +89,19 @@ export function RenderField({
   );
 }
 
+// Duplicated from kumiko-screen.tsx's screenAccessAllows (not imported —
+// that module imports RenderEdit → RenderField, importing back from here
+// would cycle). Same minimal role-gate logic.
+function createScreenAccessAllows(
+  access: AccessRule | undefined,
+  userRoles: readonly string[] | undefined,
+): boolean {
+  if (!access) return true;
+  if ("openToAll" in access) return access.openToAll;
+  if (userRoles === undefined) return false;
+  return access.roles.some((role) => userRoles.includes(role));
+}
+
 // Tier 2.7e-3 + 2.1c: Reference-Input rendert eine Searchable Combobox
 // gefüllt aus einer Live-Query auf die referenced Entity. Default-
 // Limit: 200 — bei größeren Datasets fehlt der Tail im Dropdown
@@ -120,6 +140,26 @@ function ReferenceInput({
   // (z.B. items.assignee → users:query:user:list). Default ist
   // same-feature, kommt aus dem ViewModel (parseRefTarget).
   const queryQn = `${toKebab(refFeature)}:query:${toKebab(refEntity)}:list`;
+  // Issue #1681: "+ Neu" in der Combobox öffnet den Create-Screen der
+  // referenced entity als Dialog, statt die aktuelle Form zu verlassen.
+  // refFeature kann ein anderes Feature als das aktuell gerenderte sein
+  // — appFeatures (createKumikoApp) kennt alle Feature-Schemas, nicht
+  // nur das der aktiven Screen. Kein Match (Feature/Screen/Entity nicht
+  // registriert, oder allowCreate:false) → onCreate bleibt undefined,
+  // Combobox rendert dann ohne den Footer.
+  const appFeatures = useAppFeatures();
+  const userRoles = useUserRoles();
+  const t = useTranslation();
+  const [createOpen, setCreateOpen] = useState(false);
+  const refTargetSchema = appFeatures.find((f) => f.featureName === refFeature);
+  const refCreateScreen = refTargetSchema?.screens.find(
+    (s): s is EntityEditScreenDefinition =>
+      s.type === "entityEdit" &&
+      s.entity === refEntity &&
+      s.allowCreate !== false &&
+      createScreenAccessAllows(s.access, userRoles),
+  );
+  const refEntityDef = refTargetSchema?.entities[refEntity];
   // Tier 2.7e Remote-Search: User tippt im Combobox → Server filtert
   // via existing list-payload `search`-Param (Tier 2.6c). Combobox
   // debounced den keystroke selbst (300ms) und ruft onSearchChange.
@@ -137,6 +177,20 @@ function ReferenceInput({
     queryPayload,
   );
   const handleSearchChange = useCallback((q: string) => setSearchTerm(q), []);
+  const canCreate = !field.readOnly && refCreateScreen !== undefined && refEntityDef !== undefined;
+  const handleCreated = useCallback(
+    (newId: string) => {
+      setCreateOpen(false);
+      void queryResult.refetch();
+      if (isMultiple) {
+        const current = Array.isArray(field.value) ? (field.value as readonly string[]) : [];
+        onChange([...current, newId]);
+      } else {
+        onChange(newId);
+      }
+    },
+    [isMultiple, field.value, onChange, queryResult.refetch],
+  );
   const options = useMemo(() => {
     const rows = queryResult.data?.rows ?? [];
     return rows.map((row) => {
@@ -158,29 +212,49 @@ function ReferenceInput({
     options,
     onSearchChange: handleSearchChange,
     loading: queryResult.loading,
+    ...(canCreate && {
+      onCreate: () => setCreateOpen(true),
+      createLabel: t("kumiko.actions.create"),
+    }),
   } as const;
+  const createDialog = canCreate && refCreateScreen && refEntityDef && (
+    <ReferenceCreateDialog
+      open={createOpen}
+      onClose={() => setCreateOpen(false)}
+      onCreated={handleCreated}
+      featureName={refFeature}
+      screen={refCreateScreen}
+      entity={refEntityDef}
+    />
+  );
   if (isMultiple) {
     const arrayValue: readonly string[] = Array.isArray(field.value)
       ? (field.value as readonly string[])
       : [];
     return (
-      <Input
-        kind="combobox"
-        {...baseInputProps}
-        multiple
-        value={arrayValue}
-        onChange={(v) => onChange(v)}
-      />
+      <>
+        <Input
+          kind="combobox"
+          {...baseInputProps}
+          multiple
+          value={arrayValue}
+          onChange={(v) => onChange(v)}
+        />
+        {createDialog}
+      </>
     );
   }
   const stringValue = field.value === undefined || field.value === null ? "" : String(field.value);
   return (
-    <Input
-      kind="combobox"
-      {...baseInputProps}
-      value={stringValue}
-      onChange={(v) => onChange(v === "" ? null : v)}
-    />
+    <>
+      <Input
+        kind="combobox"
+        {...baseInputProps}
+        value={stringValue}
+        onChange={(v) => onChange(v === "" ? null : v)}
+      />
+      {createDialog}
+    </>
   );
 }
 
