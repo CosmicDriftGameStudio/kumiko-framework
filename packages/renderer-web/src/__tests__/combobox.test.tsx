@@ -237,11 +237,11 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(screen.getByTestId("combobox-combo").getAttribute("aria-invalid")).toBe("true");
   });
 
-  // #1681: "+ Neu" muss auch bei leeren Optionen sichtbar bleiben — der
-  // Fall ist der häufigste (frisch aufgesetztes System hat noch keine
-  // referenzierbaren Rows), nicht der Rand. Der Footer lebt bewusst
-  // AUSSERHALB von Command.List/cmdk's Filter+Empty-Mechanik, damit er
-  // nicht mit ihr um Sichtbarkeit konkurriert.
+  // #1681: "+ Create" must stay visible even with zero matching options —
+  // that's the most common case (a freshly seeded system has no
+  // referenceable rows yet), not the edge case. The footer deliberately
+  // lives OUTSIDE Command.List/cmdk's filter+empty machinery so it never
+  // competes with it for visibility.
   test("onCreate: Footer bleibt sichtbar wenn keine Optionen matchen, klick feuert onCreate + schließt Popover", async () => {
     const user = userEvent.setup();
     let created = 0;

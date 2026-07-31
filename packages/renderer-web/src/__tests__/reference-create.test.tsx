@@ -1,8 +1,7 @@
-// #1681: Reference-Feld kann aus der Combobox heraus einen fehlenden
-// Zieldatensatz anlegen. Deckt die volle Kette ab, in einem Test — jedes
-// Glied (Screen-Resolution über Features hinweg, Dialog-Host, Create-
-// Dispatch, Rückgabe der neuen id, Refetch der Lookup-Liste) lässt den
-// Test failen wenn es bricht.
+// #1681: a reference field can create a missing target record right from
+// the combobox. Covers the full chain in one test — every link (screen
+// resolution across features, dialog host, create dispatch, returning the
+// new id, refetching the lookup list) fails the test if it breaks.
 
 import { describe, expect, test } from "bun:test";
 import type {
@@ -59,9 +58,9 @@ const catalogSchema: FeatureSchema = {
 
 function makeDispatcher(): Dispatcher & { readonly writes: string[] } {
   const writes: string[] = [];
-  // Lookup-Query kennt neu angelegte widgets erst NACH dem create-write —
-  // pinnt den Refetch: ohne ihn bliebe die Options-Liste (und damit das
-  // Label des neu gewählten Werts) leer.
+  // The lookup query only knows about newly created widgets AFTER the
+  // create-write — pins the refetch: without it, the options list (and
+  // thus the label of the newly selected value) would stay empty.
   const createdIds: string[] = [];
   const dispatcher = createMockDispatcher({
     query: (async () => ({
@@ -96,24 +95,24 @@ describe("Reference-field create-in-place (#1681)", () => {
     const createButton = await screen.findByTestId("combobox-kumiko-edit-assignee-create");
     await user.click(createButton);
 
-    // Create-Dialog für "widget" ist gemountet — sein eigenes Form-Feld
-    // ("name") ist sichtbar. Zwei "render-edit-submit"-Buttons existieren
-    // jetzt (Host-Form dahinter + Dialog-Form) — der Dialog-Portal
-    // mountet zuletzt, also ist seiner der letzte im DOM.
+    // The "widget" create-dialog is mounted — its own form field ("name")
+    // is visible. Two "render-edit-submit" buttons now exist (the host
+    // form behind it + the dialog form) — the dialog portal mounts last,
+    // so its button is the last one in the DOM.
     const nameInput = (await screen.findByTestId("field-name")).querySelector("input");
     if (!nameInput) throw new Error("expected name input in create dialog");
     await user.type(nameInput, "Widget A");
     const submitButtons = screen.getAllByTestId("render-edit-submit");
     await user.click(submitButtons[submitButtons.length - 1] as HTMLElement);
 
-    // Dispatch ging an den qualifizierten Create-Handler des ZIELfeatures
-    // ("catalog"), nicht des Host-Features ("tasks").
+    // Dispatch went to the TARGET feature's ("catalog") qualified create
+    // handler, not the host feature's ("tasks").
     await waitFor(() => expect(dispatcher.writes.length).toBe(1));
     expect(dispatcher.writes[0]).toBe("catalog:write:widget:create");
 
-    // Dialog schließt, das Reference-Feld zeigt die neu angelegte id als
-    // gewählten Wert — der Trigger-Text ist die id (kein labelField
-    // gesetzt → Fallback-Label = id, siehe ReferenceInput.options).
+    // Dialog closes, the reference field shows the newly created id as
+    // the selected value — the trigger text is the id (no labelField set
+    // → fallback label = id, see ReferenceInput.options).
     await waitFor(() => expect(screen.queryByTestId("field-name")).toBeNull());
     expect(screen.getByTestId("combobox-kumiko-edit-assignee").textContent).toContain("widget-1");
   });
