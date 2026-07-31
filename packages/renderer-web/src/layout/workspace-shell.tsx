@@ -77,6 +77,9 @@ export type WorkspaceShellProps = {
   readonly sidebarFooter?: ReactNode;
   /** Runtime badge slot per nav leaf (bare nav id), same as DefaultAppShell. */
   readonly navBadges?: ReadonlyMap<string, ReactNode>;
+  /** Viewport-fit shell. true → fixed viewport height (`h-svh`), content
+   *  scrolls INSIDE instead of the whole page. Default false (page scroll). */
+  readonly fill?: boolean;
   /** Screen content. */
   readonly children: ReactNode;
 };
@@ -89,6 +92,7 @@ export function WorkspaceShell({
   initialWorkspaceId,
   sidebarFooter,
   navBadges,
+  fill,
   children,
 }: WorkspaceShellProps): ReactNode {
   const app = useMemo(() => toAppSchema(schema), [schema]);
@@ -220,7 +224,7 @@ export function WorkspaceShell({
   // Content. topbarActions landen rechts in der Header-Zeile statt in einer
   // separaten Topbar — eine Kopfzeile statt zwei.
   return (
-    <SidebarProvider>
+    <SidebarProvider {...(fill === true && { className: "h-svh" })}>
       <Sidebar collapsible="icon">
         <SidebarHeader data-kumiko-layout="sidebar-header">
           {brand}
@@ -232,13 +236,13 @@ export function WorkspaceShell({
         )}
         <SidebarRail />
       </Sidebar>
-      <SidebarInset>
+      <SidebarInset className={fill === true ? "min-h-0" : undefined}>
         <ShellHeader
           schema={app}
           {...(user !== undefined && { user })}
           {...(topbarActions !== undefined && { headerActions: topbarActions })}
         />
-        <main className="flex-1 overflow-auto">
+        <main className={fill === true ? "min-h-0 flex-1 overflow-auto" : "flex-1 overflow-auto"}>
           {activeTarget !== undefined ? (
             <EditorPanel resolvers={resolvers} />
           ) : (
