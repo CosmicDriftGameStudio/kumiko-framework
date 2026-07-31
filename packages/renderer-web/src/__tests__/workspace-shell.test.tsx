@@ -421,6 +421,28 @@ describe("WorkspaceShell", () => {
     expect(screen.queryByText("Orders")).toBeNull();
     expect(screen.queryByText("Tours")).toBeNull();
   });
+
+  test("fill=true applies h-svh on root and min-h-0 on inset/main", () => {
+    renderShell(
+      <WorkspaceShell
+        brand={<div>Brand</div>}
+        schema={schema}
+        user={{ id: "u1", roles: ["admin"] }}
+        fill
+      >
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    const root = document.querySelector('[data-slot="sidebar-wrapper"]');
+    expect(root?.classList.contains("h-svh")).toBe(true);
+    const inset = document.querySelector('[data-slot="sidebar-inset"]');
+    expect(inset?.classList.contains("min-h-0")).toBe(true);
+    const mains = screen.getAllByRole("main");
+    const innerMain = mains.find((m) => m !== inset);
+    expect(innerMain?.classList.contains("min-h-0")).toBe(true);
+    expect(innerMain?.classList.contains("flex-1")).toBe(true);
+    expect(innerMain?.classList.contains("overflow-auto")).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
