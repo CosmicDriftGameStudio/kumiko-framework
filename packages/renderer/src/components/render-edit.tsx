@@ -435,6 +435,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               />
             );
           }
+          if (!section.visible) return null;
           // Section-Header unterdrücken wenn er den Form-Titel der
           // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
           // ActionForms, deren Section-Label = Screen-Titel ist).

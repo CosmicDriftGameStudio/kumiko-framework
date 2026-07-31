@@ -152,6 +152,10 @@ export type EditSectionViewModel = EditFieldsSectionViewModel | EditExtensionSec
 
 export type EditFieldsSectionViewModel = {
   readonly kind: "fields";
+  /** False when the section has fields but none of them is visible.
+   *  The renderer then draws nothing, but the section stays in the array
+   *  (key stability). */
+  readonly visible: boolean;
   /** Optional — eine titellose Section rendert nur ihre Felder (flache Form). */
   readonly title?: string;
   readonly columns: number;

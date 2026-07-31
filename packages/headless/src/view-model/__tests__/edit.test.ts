@@ -19,6 +19,7 @@ const orderEntity = {
     notes: { type: "text" },
     vatExempt: { type: "boolean" },
     vatReason: { type: "text" },
+    kind: { type: "text" },
   },
 } as unknown as EntityDefinition;
 
@@ -150,6 +151,34 @@ describe("computeEditViewModel", () => {
     const reasonShown = asFields(shown.sections[0]).fields[1];
     expect(reasonShown?.visible).toBe(true);
     expect(reasonShown?.required).toBe(true);
+  });
+
+  test("section with all fields hidden by visible condition → section.visible is false but section stays in the array (key stability)", () => {
+    const screen = editScreen({
+      sections: [
+        {
+          title: "Person",
+          fields: [{ field: "customerName", visible: { field: "kind", eq: "person" } }],
+        },
+        {
+          title: "Firma",
+          fields: [{ field: "notes", visible: { field: "kind", eq: "company" } }],
+        },
+      ],
+    });
+
+    const vm = computeEditViewModel({
+      screen,
+      entity: orderEntity,
+      values: { kind: "person", customerName: "Acme" },
+      translate,
+      featureName: "orders",
+    });
+
+    expect(vm.sections).toHaveLength(2);
+    expect(asFields(vm.sections[0]).visible).toBe(true);
+    expect(asFields(vm.sections[1]).visible).toBe(false);
+    expect(vm.sections[1]?.title).toBe("Firma");
   });
 
   test("readonly condition { field, ne } evaluates against form values", () => {
