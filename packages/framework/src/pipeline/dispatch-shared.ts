@@ -154,7 +154,7 @@ export async function buildHandlerContext(
   afterCommitHooks?: AfterCommitHook[],
   includeDeleted?: boolean,
 ): Promise<HandlerContext> {
-  const { registry, appContext: context, effectiveFeatures, jobRunner } = ctx;
+  const { registry, appContext: context, effectiveFeatures, jobRunner, lifecycle } = ctx;
   const isSystem = registry.isHandlerSystemScoped(type);
   // The outer dispatcher receives a DbConnection from the server/stack;
   // AppContext's `db` union also allows TenantDb (for downstream hook calls),
@@ -537,6 +537,18 @@ export async function buildHandlerContext(
     notify,
     ...(config && { config }),
     ...(files && { files }),
+    // preSave hooks need `changes`/`previous`/`isNew`, which only exist once
+    // a handler actually starts building its write — bound here so entity
+    // CRUD handlers (entity-handlers.ts) can forward it to the executor
+    // (kumiko-framework#1672).
+    ...(lifecycle && {
+      runPreSave: (
+        handlerName: string,
+        changes: Record<string, unknown>,
+        previous: Readonly<Record<string, unknown>>,
+        isNew: boolean,
+      ) => lifecycle.runPreSave(handlerName, changes, previous, isNew, context),
+    }),
     tracer,
     metrics,
     tz,

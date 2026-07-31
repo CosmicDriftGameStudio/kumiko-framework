@@ -182,7 +182,14 @@ export function defineEntityWriteHandler(
   switch (verb) {
     case "create":
       schema = buildInsertSchema(entity);
-      handler = async (event, ctx) => executor.create(event.payload as DbRow, event.user, ctx.db);
+      handler = async (event, ctx) => {
+        const { runPreSave } = ctx;
+        return executor.create(event.payload as DbRow, event.user, ctx.db, {
+          preSave:
+            runPreSave &&
+            ((changes, previous, isNew) => runPreSave(event.type, changes, previous, isNew)),
+        });
+      };
       break;
     case "update":
       schema = z.object({
@@ -190,16 +197,21 @@ export function defineEntityWriteHandler(
         version: z.number(),
         changes: buildUpdateSchema(entity),
       });
-      handler = async (event, ctx) =>
+      handler = async (event, ctx) => {
+        const { runPreSave } = ctx;
         // skipUnchanged (#464): API-driven updates diff against the stored
         // row so a resubmitted-but-identical field doesn't force a fresh
         // pii/encrypted ciphertext. Direct executor.update() callers (e.g.
         // KEK-rotation, the user-data-rights #494 backfill) don't go through
         // this handler and keep today's always-re-encrypt behavior, which
         // they rely on to intentionally force a fresh event/ciphertext.
-        executor.update(event.payload as UpdatePayload, event.user, ctx.db, {
+        return executor.update(event.payload as UpdatePayload, event.user, ctx.db, {
           skipUnchanged: true,
+          preSave:
+            runPreSave &&
+            ((changes, previous, isNew) => runPreSave(event.type, changes, previous, isNew)),
         }); // @cast-boundary engine-payload
+      };
       break;
     case "delete":
       schema = idSchema;

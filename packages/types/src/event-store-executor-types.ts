@@ -5,18 +5,29 @@ import type { EntityId } from "./identifiers";
 import type { SearchAdapter } from "./search-adapter";
 import type { TenantDb } from "./tenant-db-types";
 
+// Runs the caller's preSave hooks against changes not yet persisted, for
+// the executor's create()/update() only — restore/delete/forget have no
+// `changes` to shape. See HandlerContext.runPreSave for how this gets bound
+// to a specific handler name + AppContext.
+export type PreSaveRunner = (
+  changes: Record<string, unknown>,
+  previous: Readonly<Record<string, unknown>>,
+  isNew: boolean,
+) => Promise<Record<string, unknown>>;
+
 export type EventStoreExecutor = {
   create: (
     payload: Record<string, unknown>,
     user: SessionUser,
     db: TenantDb,
+    options?: { preSave?: PreSaveRunner },
   ) => Promise<WriteResult<SaveContext>>;
 
   update: (
     payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
     db: TenantDb,
-    options?: { skipOptimisticLock?: boolean; skipUnchanged?: boolean },
+    options?: { skipOptimisticLock?: boolean; skipUnchanged?: boolean; preSave?: PreSaveRunner },
   ) => Promise<WriteResult<SaveContext>>;
 
   delete: (

@@ -354,6 +354,21 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // still apply, so this never widens what a user may see beyond the live list.
   readonly includeDeleted?: boolean;
 
+  // Wired by the write dispatcher whenever a lifecycle pipeline is active;
+  // runs the registered `preSave` hooks (+ system preSave hooks) for
+  // `handlerName`, returning the hook-transformed `changes`. Entity CRUD
+  // handlers (create/update) forward this to the executor so preSave hooks
+  // actually run before persistence (kumiko-framework#1672). A custom
+  // `r.writeHandler` handler that doesn't go through the executor must call
+  // this itself to get preSave semantics — undefined when no lifecycle
+  // pipeline is wired (e.g. bare HandlerContext stubs in unit tests).
+  readonly runPreSave?: (
+    handlerName: string,
+    changes: Record<string, unknown>,
+    previous: Readonly<Record<string, unknown>>,
+    isNew: boolean,
+  ) => Promise<Record<string, unknown>>;
+
   readonly query: (qn: string, payload: unknown) => Promise<unknown>;
   readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
   readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
