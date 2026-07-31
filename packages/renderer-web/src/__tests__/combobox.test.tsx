@@ -236,4 +236,47 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     );
     expect(screen.getByTestId("combobox-combo").getAttribute("aria-invalid")).toBe("true");
   });
+
+  // #1681: "+ Create" must stay visible even with zero matching options —
+  // that's the most common case (a freshly seeded system has no
+  // referenceable rows yet), not the edge case. The footer deliberately
+  // lives OUTSIDE Command.List/cmdk's filter+empty machinery so it never
+  // competes with it for visibility.
+  test("onCreate: Footer bleibt sichtbar wenn keine Optionen matchen, klick feuert onCreate + schließt Popover", async () => {
+    const user = userEvent.setup();
+    let created = 0;
+    render(
+      <ComboboxInput
+        id="combo"
+        name="combo"
+        value=""
+        onChange={() => {}}
+        options={[]}
+        onCreate={() => {
+          created += 1;
+        }}
+        createLabel="Neuen Kontakt anlegen"
+        defaultOpen
+      />,
+    );
+    const createButton = await screen.findByTestId("combobox-combo-create");
+    expect(createButton.textContent).toContain("Neuen Kontakt anlegen");
+    await user.click(createButton);
+    expect(created).toBe(1);
+  });
+
+  test("ohne onCreate: kein Footer-Item im Popover", async () => {
+    render(
+      <ComboboxInput
+        id="combo"
+        name="combo"
+        value=""
+        onChange={() => {}}
+        options={[{ value: "a", label: "Alpha" }]}
+        defaultOpen
+      />,
+    );
+    await screen.findByText("Alpha");
+    expect(screen.queryByTestId("combobox-combo-create")).toBeNull();
+  });
 });

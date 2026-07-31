@@ -37,6 +37,7 @@ const testPrimitives: CorePrimitives = {
   Text: noop,
   Heading: noop,
   Dialog: noop,
+  Modal: noop,
   Lightbox: noop,
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,

@@ -9,6 +9,8 @@
 // eigenen Bootstrap schreiben will. Normale Samples gehen über
 // @cosmicdrift/kumiko-renderer-web/createKumikoApp, das alle Provider verdrahtet.
 
+export type { AppFeaturesProviderProps } from "./app/app-features-context";
+export { AppFeaturesProvider, useAppFeatures } from "./app/app-features-context";
 export type {
   ColumnRendererComponent,
   ColumnRendererProps,
@@ -138,6 +140,7 @@ export type {
   InputProps,
   LightboxProps,
   LinkProps,
+  ModalProps,
   PrimitivesProviderProps,
   PrimitivesRegistry,
   RuntimeRenderer,

@@ -320,7 +320,7 @@ function useNavigateToCreateFor(
 // with a `default: true`/`default: 5` would show the form in a state
 // the entity didn't ask for — subtle and easy to miss until a user
 // submits and is surprised.
-function buildInitialValues(
+export function buildInitialValues(
   fields: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
