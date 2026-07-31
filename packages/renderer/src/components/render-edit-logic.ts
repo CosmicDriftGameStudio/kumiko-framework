@@ -7,7 +7,9 @@ import type { EditSectionViewModel, SubmitResult } from "@cosmicdrift/kumiko-hea
 // without anyone deciding that on purpose.
 export function hasEditableSection(sections: readonly EditSectionViewModel[]): boolean {
   return sections.some(
-    (s) => s.kind === "extension" || (s.kind === "fields" && s.fields.some((f) => !f.readOnly)),
+    (s) =>
+      s.kind === "extension" ||
+      (s.kind === "fields" && s.visible && s.fields.some((f) => !f.readOnly)),
   );
 }
 

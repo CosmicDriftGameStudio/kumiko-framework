@@ -80,6 +80,7 @@ const field = (readOnly: boolean): EditFieldViewModel => ({
 const fieldsSection = (...readOnly: boolean[]): EditSectionViewModel => ({
   kind: "fields",
   columns: 1,
+  visible: true,
   fields: readOnly.map(field),
 });
 const extensionSection: EditSectionViewModel = {
@@ -110,5 +111,15 @@ describe("hasEditableSection", () => {
 
   test("no sections → false", () => {
     expect(hasEditableSection([])).toBe(false);
+  });
+
+  test("hidden section with editable field → false (user cannot see the field)", () => {
+    const hiddenSectionWithEditableField: EditSectionViewModel = {
+      kind: "fields",
+      columns: 1,
+      visible: false,
+      fields: [field(false)],
+    };
+    expect(hasEditableSection([hiddenSectionWithEditableField])).toBe(false);
   });
 });

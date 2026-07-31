@@ -154,8 +154,12 @@ export function computeEditViewModel<
       };
       return view;
     });
+    // Boot-validator rejects fields.length === 0 (screens.ts), so an empty
+    // section never reaches this code.
+    const visible = fields.some((field) => field.visible);
     return {
       kind: "fields" as const,
+      visible,
       // Titellose Section (flache Form) → kein h3; nur übersetzen wenn gesetzt.
       ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),
       columns: sectionSpec.columns ?? 1,
