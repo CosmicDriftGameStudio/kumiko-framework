@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "strict": true,
+    "noPropertyAccessFromIndexSignature": true,
     "noUncheckedIndexedAccess": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,

@@ -20,4 +20,4 @@ if (cmd !== "schema") {
 const features = composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH });
 // biome-ignore lint/suspicious/noConsole: CLI output is the feature.
 const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };
-process.exit(await runSchemaCli(rest, process.env.INIT_CWD ?? process.cwd(), out, { features }));
+process.exit(await runSchemaCli(rest, process.env["INIT_CWD"] ?? process.cwd(), out, { features }));
