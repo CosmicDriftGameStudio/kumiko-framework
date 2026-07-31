@@ -190,6 +190,9 @@ export type SeedAdminOptions = {
    *  membership-Rollen. Typischer use-case: `["SystemAdmin"]` für
    *  einen Plattform-Operator. Default: leer. */
   readonly globalRoles?: readonly string[];
+  /** Initial-emailVerified-Flag — Default false (unverified),
+   *  gleicher Mechanismus wie seedUserWithPassword.emailVerified. */
+  readonly emailVerified?: boolean;
   readonly by?: SessionUser;
 };
 
@@ -213,6 +216,7 @@ export async function seedAdmin(
     password: options.password,
     displayName: options.displayName,
     ...(options.globalRoles !== undefined && { roles: options.globalRoles }),
+    ...(options.emailVerified !== undefined && { emailVerified: options.emailVerified }),
     by,
   });
 
