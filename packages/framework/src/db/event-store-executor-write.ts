@@ -67,14 +67,19 @@ export function createWriteVerbs(
   } = ctx;
 
   return {
-    async create(payload, user, db) {
+    async create(payload, user, db, options) {
       // Respect an explicit id in the payload (seed pattern, SCIM import). Without
       // one the framework mints a fresh UUIDv7 via generateId. Strip it out of the
       // event payload so defaults + downstream consumers don't see a redundant id field.
       const explicitId = typeof payload["id"] === "string" ? (payload["id"] as string) : undefined; // @cast-boundary engine-payload
       const aggregateId = explicitId ?? generateId();
       const { id: _id, ...payloadWithoutId } = payload;
-      const data = applyDefaults(payloadWithoutId);
+      // preSave runs before ownership checks: authorization must evaluate the
+      // row as it will actually be persisted, including hook-derived fields
+      // (kumiko-framework#1672).
+      const data = options?.preSave
+        ? await options.preSave(applyDefaults(payloadWithoutId), {}, true)
+        : applyDefaults(payloadWithoutId);
 
       // H.2 — entity-level write-ownership on create. No oldRow exists, so
       // only the new row is checked. No Straddle concern for creates.
@@ -221,12 +226,19 @@ export function createWriteVerbs(
       const previous = await loadById(payload.id, db);
       if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
 
+      // preSave runs before ownership checks: authorization must evaluate the
+      // row as it will actually be persisted, including hook-derived fields
+      // (kumiko-framework#1672).
+      const changes = updateOptions?.preSave
+        ? await updateOptions.preSave(payload.changes, previous, false)
+        : payload.changes;
+
       // H.2 — entity-level write-ownership on update. Load old row (already
       // done above), build post-change row via shallow merge. Straddle-safe
       // multi-role check: at least one role must accept BOTH old and new —
       // prevents the attack where role A passes old, role B passes new and
       // aggregation would wrongly allow a row-grab.
-      const mergedNew: Record<string, unknown> = { ...previous, ...payload.changes };
+      const mergedNew: Record<string, unknown> = { ...previous, ...changes };
       if (!userCanWriteFieldRow(user, entity.access?.write, previous, mergedNew)) {
         return writeFailure(
           new UnprocessableError("ownership_denied", {
@@ -247,7 +259,7 @@ export function createWriteVerbs(
       // `previous`, we can run the ownership rules per field against both
       // sides and reject individual fields the user isn't entitled to
       // touch on this specific row.
-      const fieldDeniedUpdate = checkWriteFieldOwnership(entity, payload.changes, user, previous);
+      const fieldDeniedUpdate = checkWriteFieldOwnership(entity, changes, user, previous);
       if (fieldDeniedUpdate) {
         return writeFailure(
           new UnprocessableError("ownership_denied", {
@@ -303,11 +315,11 @@ export function createWriteVerbs(
         // ownerField — the merged row still names the subject.
         const submittedChanges = updateOptions?.skipUnchanged
           ? Object.fromEntries(
-              Object.entries(payload.changes).filter(
+              Object.entries(changes).filter(
                 ([key, value]) => !isUnchangedValue(value, previous[key]),
               ),
             )
-          : payload.changes;
+          : changes;
         const flatChangesPlain = flattenCompoundTypes(submittedChanges, entity);
         const flatChanges = await encryptForStorage(flatChangesPlain, user, {
           onlyKeys: Object.keys(submittedChanges),
@@ -368,7 +380,7 @@ export function createWriteVerbs(
             kind: "save",
             id: data["id"] as EntityId, // @cast-boundary engine-payload
             data,
-            changes: payload.changes,
+            changes,
             previous,
             isNew: false,
             entityName,
