@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.173.0
+
+### Minor Changes
+
+- 20dfb78: Dedup and dead-code cleanup with two breaking removals:
+
+  - `schedulerIdForJobName` is no longer exported from `@cosmicdrift/kumiko-framework/jobs` — it was only ever called internally by the job runner.
+  - `ManifestFeature.changelog` is removed — the field was never populated by the manifest builder.
+  - `ReferenceCreateDialogProps.translate` is removed from `@cosmicdrift/kumiko-renderer` — the dialog already resolves translations via `useTranslation()` internally, the prop was dead.
+
+  `compareVersions`/`ChangelogEntry`/changelog parsing in `bin/commands/upgrade.ts` and `scripts/gen-migration-guide.ts` now import the shared implementation from `@cosmicdrift/kumiko-framework/engine` instead of duplicating it.
+
+### Patch Changes
+
+- ffce47c: Fix `PgKmsAdapter` cold-start crash when two processes (e.g. API + worker) boot simultaneously against a fresh subject-keys database. `createSchema` now serializes its DDL with a `pg_advisory_xact_lock`, so the second process waits instead of colliding on the implicit `pg_type` row and crashing with a `23505` unique violation.
+  - @cosmicdrift/kumiko-types@0.173.0
+
 ## 0.172.0
 
 ### Minor Changes
