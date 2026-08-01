@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.174.0
+
+### Patch Changes
+
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+  - @cosmicdrift/kumiko-framework@0.174.0
+  - @cosmicdrift/kumiko-headless@0.174.0
+
 ## 0.173.1
 
 ### Patch Changes

@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.174.0
+
+### Minor Changes
+
+- f4dc0d9: **BREAKING:** `defineCreateWithTenantDefaults`'s `access` option is now required instead of optional. A caller that omitted it registered a `:create` write handler with no access rule at all — silently unreachable to the audit that scans `writeHandlers` for missing access, and open to anyone who could reach the handler. Both existing call sites already pass `access`, so this is a type-level guard, not a behavior change for any current usage; a caller relying on the old optional shape needs to add an explicit `access` (e.g. `{ roles: ["Admin"] }`).
+
+### Patch Changes
+
+- f4dc0d9: `runForgetCleanup`'s search-document purge now runs before the `EXT_USER_DATA` delete hooks, not after, and no longer requires a configured KMS. Previously, a hook with `UserDataDeleteStrategy: "delete"` could hard-delete a row before the purge's discovery `SELECT` ran, permanently stranding that row's plaintext PII in the search index — the purge now sees every candidate row before any hook has a chance to remove it.
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+- Updated dependencies [f4dc0d9]
+  - @cosmicdrift/kumiko-renderer-web@0.174.0
+  - @cosmicdrift/kumiko-framework@0.174.0
+  - @cosmicdrift/kumiko-headless@0.174.0
+  - @cosmicdrift/kumiko-renderer@0.174.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.174.0
+  - @cosmicdrift/kumiko-types@0.174.0
+
 ## 0.173.1
 
 ### Patch Changes
