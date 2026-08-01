@@ -80,8 +80,15 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
     case "select": {
       const [first, ...rest] = field.options;
       if (!first) return z.string();
-      const schema = z.enum([first, ...rest]);
-      return field.default !== undefined ? schema.default(field.default) : schema;
+      const enumSchema = z.enum([first, ...rest]);
+      if (field.default !== undefined) return enumSchema.default(field.default);
+      if (field.required) return enumSchema;
+      // Optional select without a default: an untouched HTML <select> submits
+      // "" for its placeholder option. Treat that as "unset" (null) instead of
+      // an invalid enum value — null (not undefined) so the value survives the
+      // JSON-serialized event payload and an update can actually clear a
+      // previously-set select back to unset, not just skip validation.
+      return z.preprocess((value) => (value === "" ? null : value), enumSchema.nullable());
     }
     case "multiSelect": {
       const [first, ...rest] = field.options;

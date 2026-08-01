@@ -384,6 +384,42 @@ describe("buildInsertSchema", () => {
       schema.safeParse({ pickup: { at: "2026-04-03T10:00:00", tz: "Mars/Phobos" } }).success,
     ).toBe(false);
   });
+
+  // #1674: an untouched HTML <select> submits "" for its placeholder option.
+  // An optional select without a default must treat "" as "not set" (null),
+  // not reject it as an invalid enum value.
+  test("optional select without default accepts empty string as unset (null)", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { locale: createSelectField({ options: ["de", "en", "fr"] as const }) },
+    });
+    const schema = buildInsertSchema(entity);
+    const result = schema.safeParse({ locale: "" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data["locale"]).toBeNull();
+    }
+  });
+
+  test("optional select without default still validates a real value", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { locale: createSelectField({ options: ["de", "en", "fr"] as const }) },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ locale: "en" }).success).toBe(true);
+    expect(schema.safeParse({ locale: "xx" }).success).toBe(false);
+  });
+
+  test("required select rejects empty string", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { locale: createSelectField({ options: ["de", "en"] as const, required: true }) },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ locale: "" }).success).toBe(false);
+  });
+
 });
 
 // --- Update schema (all partial) ---
@@ -421,5 +457,37 @@ describe("buildUpdateSchema", () => {
 
     expect(schema.safeParse({ email: "valid@test.de" }).success).toBe(true);
     expect(schema.safeParse({ email: "not-email" }).success).toBe(false);
+  });
+
+  // #1674: clearing a previously-set optional select back to "unset" must
+  // work through the update path too — "" from an untouched <select> maps to
+  // an explicit `null`, not `undefined` (which would be dropped from the
+  // changes payload and silently no-op instead of clearing).
+  test("optional select accepts empty string as an explicit clear-to-null", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { locale: createSelectField({ options: ["de", "en"] as const }) },
+    });
+
+    const schema = buildUpdateSchema(entity);
+    const result = schema.safeParse({ locale: "" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data["locale"]).toBeNull();
+    }
+  });
+
+  test("omitting an optional select on update leaves it untouched", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { locale: createSelectField({ options: ["de", "en"] as const }) },
+    });
+
+    const schema = buildUpdateSchema(entity);
+    const result = schema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(Object.hasOwn(result.data, "locale")).toBe(false);
+    }
   });
 });
