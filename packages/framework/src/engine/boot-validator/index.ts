@@ -1,6 +1,7 @@
 import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption";
 import { QnTypes, qualifyEntityName } from "../qualified-name";
 import type { ClaimKeyDefinition, FeatureDefinition } from "../types";
+import { warnOnUniqueAccessRoles } from "./access-roles";
 import { validateActionWiring, validateFieldWiring } from "./action-wiring";
 import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext";
 import { validateFeatureBootChecks } from "./boot-check";
@@ -212,4 +213,5 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
 
   validateConfigReads(features, allConfigKeys);
   warnOnToggleableDependencies(features, featureMap);
+  warnOnUniqueAccessRoles(features);
 }
