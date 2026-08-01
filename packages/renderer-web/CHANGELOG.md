@@ -1,5 +1,42 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.174.1
+
+### Patch Changes
+
+- de0da71: PR-review fix batch (careful-tier findings, batch 4):
+
+  - `enrichWithReferences` (eagerload) computes each ref entity's PII/encrypted-field sets and KMS handle once per reference field instead of once per referenced row.
+  - `event-store-executor-write`'s `runPreSave` now strips `id`/`version` from a preSave hook's return value before it's persisted — a hook that echoes them back could otherwise override the framework-minted `aggregateId`.
+  - `subscription-tier-sync`'s webhook route no longer turns an already-committed write into `isSuccess: false` when the follow-up tier sync fails — Stripe/PayPal would otherwise retry an event whose primary effect already landed. The sync failure is now logged instead.
+  - `revoke-all-for-user` hard-fails (instead of silently defaulting to `eventVersion: 1`) when `SESSION_REVOKED_EVENT_QN` isn't registered; the surrounding write transaction rolls the session-revoke back too.
+  - `schema-builder`'s defaulted-select preprocessing now also maps `null` to the field default, matching the no-default branch's own "" → null normalization.
+  - `watch-supervisor` no longer routes a projection-write failure (marking an account "watching") through the sync-error/backoff path — the watch itself is healthy.
+  - `styleguide`'s inbox-messages query handler validates `cursor`/`limit` instead of accepting unbounded/negative values.
+  - `backfill-changelogs --days` now rejects a non-numeric value instead of producing `Invalid time value`.
+  - `seed-items` (showcase) probes via `{ limit: 1, totalCount: true }` instead of comparing `rows.length` against a page size that a future max-limit clamp could invalidate.
+  - `gen-feature-screenshots`: sample screenshots keep their own preview label separate from the URL path segment, the SAMPLES_OUT default no longer escapes an explicit `SCREENSHOT_DIR`, and the summary log line now counts sample PNGs too.
+  - `PII_USER_REFERENCE_NAME_HINTS` gained `createdby`/`updatedby`/`assigneeuserid`/`memberid` — the boot-validator's GDPR-hook-coverage guard previously missed those common FK-naming shapes.
+  - `engine`'s public barrel now re-exports `userCanCreateFieldRow`/`normalizeAccessEntry` (already public in `ownership.ts`, just missing from the index).
+  - Small dedup/doc fixes: `screenAccessAllows` (renderer/render-field), `fillClasses` (renderer-web layout shells), `fieldIconFor` (renderer-web primitives), `entity-table-meta`'s deprecated-alias error message, `schema-cli`'s `storeTable()` hint, the `guard-types-class-free` mutable-state regex (no longer flags readonly object/array literals), and an `InfiniteSentinel` LocaleProvider-requirement doc note.
+
+- f5da76a: PR-review fix batch (careful-tier findings):
+
+  - `stock-cap-guard`'s `checkStockCap` no longer lets a caller-supplied `where.tenantId` override the real tenant scope (spread order fix).
+  - `defineCreateWithTenantDefaults` now validates `localeField` against the entity at define-time, matching the existing `currencyFields` check.
+  - `resolveMfaTokenSecrets` treats an empty-string override the same as `undefined` — falls back to derivation instead of signing MFA tokens with an empty HMAC key.
+  - `buildUpdateSchema` (schema-builder): a `""` submission for a `select` field with a default now maps to that default, not `null` — matches the insert path's "a field with a default is never unset" invariant, on both optional and required selects.
+  - `kumiko upgrade`'s enterprise-package changelog discovery is detected by `changes.json` presence, not an `"ai-"` name-prefix heuristic that silently dropped differently-named or renamed packages.
+  - **Deletion-request magic link** (`user-data-rights`): the verify token now goes in the URL fragment (`#token=`) instead of a query param, so it never lands in proxy/access logs — same convention as the export-download link.
+  - `InfinityList` (renderer-web) discards a response whose request was superseded by a newer one (request-sequence guard) — a slow response for an old search term can no longer overwrite a faster response for a newer one.
+  - `END_LABEL_MIN_ROWS` (renderer-web `DataTable`/`InfiniteSentinel`) aligned to the framework's default `pageSize` (50, was 20) so the "end of list" marker's default-case threshold matches reality; per-screen custom `pageSize` still isn't threaded down to this component (follow-up).
+
+- Updated dependencies [de0da71]
+- Updated dependencies [50b7d0c]
+  - @cosmicdrift/kumiko-renderer@0.174.1
+  - @cosmicdrift/kumiko-headless@0.174.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.174.1
+
 ## 0.174.0
 
 ### Patch Changes
