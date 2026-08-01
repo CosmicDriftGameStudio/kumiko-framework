@@ -419,7 +419,6 @@ describe("buildInsertSchema", () => {
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ locale: "" }).success).toBe(false);
   });
-
 });
 
 // --- Update schema (all partial) ---
