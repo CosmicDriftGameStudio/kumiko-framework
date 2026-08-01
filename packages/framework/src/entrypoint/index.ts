@@ -142,6 +142,12 @@ export type WorkerEntrypoint = {
   readonly eventDispatcher: EventDispatcher;
   readonly jobRunner: JobRunner;
   readonly observability: ObservabilityProvider;
+  // Same dispatcher the API process exposes — a worker builds the identical
+  // server, only without routes. App-wired components that run in the worker
+  // and must persist their result need it: JobContext has no write/query
+  // (handlers.ts JobContext), so writing goes through dispatchSystemWrite,
+  // the pattern inbound-mail-foundation/watch-supervisor.ts established.
+  readonly dispatcher: Dispatcher;
   readonly mode: "worker";
   // Starts event-dispatcher poll + BullMQ worker. SIGTERM triggers
   // `lifecycle.drain()`, which stops both via registered hooks.
@@ -428,6 +434,7 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
     eventDispatcher,
     jobRunner,
     observability: server.observability,
+    dispatcher: server.dispatcher,
     mode: "worker",
     async start() {
       await eventDispatcher.start();
