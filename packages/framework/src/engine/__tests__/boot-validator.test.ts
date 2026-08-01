@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { z } from "zod";
 import type { SchemaTable } from "../../db/dialect";
 import { table, text } from "../../db/dialect";
@@ -588,6 +588,31 @@ describe("boot-validator", () => {
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("warns when a role is used by exactly one handler, reached through the real validateBoot wiring", () => {
+    const warnSpy = spyOn(console, "warn");
+    try {
+      const features = [
+        defineFeature("a", (r) => {
+          r.queryHandler("list", z.object({}), async () => [], {
+            access: { roles: ["OnlyHereRole"] },
+          });
+        }),
+      ];
+      validateBoot(features);
+      // Not toHaveBeenCalledTimes(1): this file's tests share the process-global
+      // console.warn and run with the default concurrency (bunfig.toml) — other
+      // concurrently-running tests' own "role used by one handler" warnings can
+      // land on this spy too. Assert the wiring fired at least once instead.
+      expect(
+        warnSpy.mock.calls.some((call) =>
+          (call[0] as string | undefined)?.includes("OnlyHereRole"),
+        ),
+      ).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   test("throws when a stream handler has no access rule", () => {
@@ -2951,6 +2976,67 @@ describe("boot-validator — config key backing × scope", () => {
     expect(() => validateBoot([feature])).toThrow(
       /resolves to UPDATE mode \(explicit entityId "name"\)/,
     );
+  });
+
+  // framework#1708: the same params-vs-update-mode check as entityList,
+  // extended to projectionList rowActions (#1680 covered entityList only).
+  test("projectionList rowAction: navigate with params to an entityEdit target + explicit entityId → Throw", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.screen({
+        id: "product-projection",
+        type: "projectionList",
+        query: "shop:query:products",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "open",
+            label: "actions.open",
+            screen: "product-edit",
+            entityId: "name",
+            params: { pick: ["name"] },
+          },
+        ],
+      });
+      r.screen({
+        id: "product-edit",
+        type: "entityEdit",
+        entity: "product",
+        layout: { sections: [{ columns: 1, fields: ["name"] }] },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /\(projectionList\) rowAction "open".*resolves to UPDATE mode \(explicit entityId "name"\)/,
+    );
+  });
+
+  test("projectionList rowAction: navigate with params to an entityEdit-create target (no entityId) → no throw", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.screen({
+        id: "product-projection",
+        type: "projectionList",
+        query: "shop:query:products",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "open",
+            label: "actions.open",
+            screen: "product-edit",
+            params: { pick: ["name"] },
+          },
+        ],
+      });
+      r.screen({
+        id: "product-edit",
+        type: "entityEdit",
+        entity: "product",
+        layout: { sections: [{ columns: 1, fields: ["name"] }] },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("navigate with params targeting a cross-entity entityEdit screen (no explicit entityId) → no throw", () => {

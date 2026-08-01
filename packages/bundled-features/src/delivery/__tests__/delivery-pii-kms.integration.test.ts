@@ -225,6 +225,11 @@ describe("delivery attempt log under KMS", () => {
     const otherSubjectBefore = beforeErase.rows.find(
       (r) => r["recipientId"] === recipient.id && r["channel"] === "email",
     )?.["recipientAddress"];
+    // Guard against a vacuous pass: if the row fell outside the `limit 100`
+    // window, both sides below would be `undefined` and the "unaffected"
+    // assertion would prove nothing.
+    expect(otherSubjectBefore).toBeDefined();
+    expect(otherSubjectBefore).not.toBe(PII_ERASED_SENTINEL);
 
     await kms.eraseKey({ kind: "user", userId: subjectId });
 

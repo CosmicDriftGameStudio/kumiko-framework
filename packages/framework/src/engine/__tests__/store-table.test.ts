@@ -84,6 +84,21 @@ describe("r.storeTable — declaration", () => {
     ).toThrow(/the "read_" prefix is reserved/);
   });
 
+  // #1598: registration guard — plain literal meta bypasses defineUnmanagedTable
+  test("r.storeTable rejects a plain literal meta with reserved read_ prefix", () => {
+    const literalMeta = {
+      tableName: "read_rt_probe",
+      columns: [{ name: "id", pgType: "text" as const, notNull: true, primaryKey: true }],
+      source: "unmanaged" as const,
+      indexes: [],
+    };
+    expect(() =>
+      defineFeature("probe", (r) => {
+        r.storeTable(literalMeta, { reason: "test" });
+      }),
+    ).toThrow(/the "read_" prefix is reserved/);
+  });
+
   test("accepts valid registration and stores meta + reason", () => {
     const feature = defineFeature("probe", (r) => {
       r.storeTable(probeMeta, {

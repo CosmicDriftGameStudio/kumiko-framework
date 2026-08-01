@@ -443,6 +443,23 @@ describe("WorkspaceShell", () => {
     expect(innerMain?.classList.contains("flex-1")).toBe(true);
     expect(innerMain?.classList.contains("overflow-auto")).toBe(true);
   });
+
+  // #1692: default (no fill) must not force viewport-lock classes
+  test("without fill does not apply h-svh or min-h-0", () => {
+    renderShell(
+      <WorkspaceShell
+        brand={<div>Brand</div>}
+        schema={schema}
+        user={{ id: "u1", roles: ["admin"] }}
+      >
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    const root = document.querySelector('[data-slot="sidebar-wrapper"]');
+    expect(root?.classList.contains("h-svh")).toBe(false);
+    const inset = document.querySelector('[data-slot="sidebar-inset"]');
+    expect(inset?.classList.contains("min-h-0")).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -35,13 +35,19 @@ function readEntries(filePath: string, fromVersion?: string): readonly Changelog
   }
 }
 
-function collectChangelogs(fromVersion?: string): Map<string, readonly ChangelogEntry[]> {
+// baseDir defaults to cwd (the real CLI invocation) — parameterized so
+// tests can point it at a temp-dir fixture instead of the real repo tree.
+export function collectChangelogs(
+  fromVersion?: string,
+  baseDir: string = process.cwd(),
+): Map<string, readonly ChangelogEntry[]> {
   const result = new Map<string, readonly ChangelogEntry[]>();
 
-  const coreEntries = readEntries(CORE_FILE, fromVersion);
+  const coreEntries = readEntries(join(baseDir, CORE_FILE), fromVersion);
   if (coreEntries.length > 0) result.set("framework-core", coreEntries);
 
-  for (const featuresDir of FEATURES_DIRS) {
+  for (const featuresDirRel of FEATURES_DIRS) {
+    const featuresDir = join(baseDir, featuresDirRel);
     if (!existsSync(featuresDir)) continue;
 
     const features = readdirSync(featuresDir, { withFileTypes: true })
@@ -51,12 +57,19 @@ function collectChangelogs(fromVersion?: string): Map<string, readonly Changelog
     for (const name of features) {
       // Enterprise: features live in packages/<name>/src/changes.json
       // Framework: features live in packages/<name>/changes.json
-      const isEnterprisePkg = featuresDir === "packages";
+      const isEnterprisePkg = featuresDirRel === "packages";
       const dir = isEnterprisePkg
         ? join(featuresDir, name, "src")
         : join(featuresDir, name);
+      const filePath = join(dir, "changes.json");
 
-      const entries = readEntries(join(dir, "changes.json"), fromVersion);
+      // The generic "packages" scan (enterprise pattern) re-discovers
+      // packages/framework/src/changes.json under packages/framework —
+      // that IS CORE_FILE, already collected above under "framework-core".
+      // Without this guard framework's breaking changes are listed twice.
+      if (isEnterprisePkg && filePath === join(baseDir, CORE_FILE)) continue;
+
+      const entries = readEntries(filePath, fromVersion);
       if (entries.length > 0) {
         const featureKey = isEnterprisePkg ? `enterprise:${name}` : name;
         result.set(featureKey, entries);
@@ -117,9 +130,16 @@ function generateMarkdown(changelogs: Map<string, readonly ChangelogEntry[]>): s
     lines.push(`## ${version}`);
     lines.push("");
 
+    // A feature can have multiple breaking entries in the same version —
+    // one "### feature" header per feature, not per entry, or the same
+    // header repeats back-to-back for no reason.
+    let lastFeature: string | undefined;
     for (const { feature, entry } of items) {
-      lines.push(`### ${feature}`);
-      lines.push("");
+      if (feature !== lastFeature) {
+        lines.push(`### ${feature}`);
+        lines.push("");
+        lastFeature = feature;
+      }
       lines.push(`**${entry.title}**`);
       lines.push("");
       if (entry.detail) {
@@ -171,4 +191,6 @@ function main() {
   console.log(`  Migration Guide: ${breakingCount} breaking changes → ${outPath}`);
 }
 
-main();
+// Guarded so importing collectChangelogs() for tests doesn't also run the
+// CLI and overwrite docs/reference/migration-guide.md as a side effect.
+if (import.meta.main) main();

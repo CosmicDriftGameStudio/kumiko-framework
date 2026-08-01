@@ -9,7 +9,7 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import userEvent from "@testing-library/user-event";
-import { defaultPrimitives } from "../primitives";
+import { defaultPrimitives, END_LABEL_MIN_ROWS } from "../primitives";
 import { PageSection, Stack } from "../primitives/layout";
 import { fireEvent, render, screen } from "./test-utils";
 
@@ -483,6 +483,8 @@ describe("DataTable", () => {
       id: `r${i}`,
       values: { name: `A${i}` },
     }));
+    const rowsOfCount = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ id: `r${i}`, values: { name: `A${i}` } }));
 
     test("ohne onReachEnd: kein Sentinel im DOM", () => {
       render(<DataTable columns={cols} rows={oneRow} testId="dt" />);
@@ -549,6 +551,34 @@ describe("DataTable", () => {
       );
       expect(screen.queryByTestId("dt-sentinel-end")).toBeNull();
       expect(screen.getByTestId("dt-sentinel").textContent).toBe("");
+    });
+
+    test(`hasMore=false + ${END_LABEL_MIN_ROWS - 1} Zeilen: kein End-Marker (Grenzfall unter Threshold)`, () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={rowsOfCount(END_LABEL_MIN_ROWS - 1)}
+          testId="dt"
+          onReachEnd={mock()}
+          loadingMore={false}
+          hasMore={false}
+        />,
+      );
+      expect(screen.queryByTestId("dt-sentinel-end")).toBeNull();
+    });
+
+    test(`hasMore=false + ${END_LABEL_MIN_ROWS} Zeilen: End-Marker (Grenzfall auf Threshold)`, () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={rowsOfCount(END_LABEL_MIN_ROWS)}
+          testId="dt"
+          onReachEnd={mock()}
+          loadingMore={false}
+          hasMore={false}
+        />,
+      );
+      expect(screen.getByTestId("dt-sentinel-end")).not.toBeNull();
     });
 
     test("hasMore=false + de-Locale: Marker kommt aus i18n statt hartcodiert", async () => {

@@ -178,4 +178,71 @@ describe("Reference-field create-in-place (#1681)", () => {
     expect(dispatcher.writes).toHaveLength(0);
     expect(screen.getByTestId("combobox-kumiko-edit-assignee").textContent).not.toContain("widget");
   });
+
+  // The three negative gates that decide whether the "+ Create" footer
+  // renders at all (render-field.tsx ReferenceInput.canCreate). A regression
+  // here silently shows a create button the server would reject.
+  describe("create-footer gates: no combobox-*-create in the DOM", () => {
+    test("allowCreate: false on the target screen", async () => {
+      const noCreateSchema: FeatureSchema = {
+        ...catalogSchema,
+        screens: [{ ...widgetCreateScreen, allowCreate: false }],
+      };
+      render(
+        <AppFeaturesProvider features={[tasksSchema, noCreateSchema]}>
+          <DispatcherProvider dispatcher={makeDispatcher()}>
+            <KumikoScreen schema={tasksSchema} qn="tasks:screen:task-edit" />
+          </DispatcherProvider>
+        </AppFeaturesProvider>,
+      );
+      await waitFor(() => screen.getByTestId("render-edit-form"));
+      await userEvent.setup().click(screen.getByTestId("combobox-kumiko-edit-assignee"));
+      expect(screen.queryByTestId("combobox-kumiko-edit-assignee-create")).toBeNull();
+    });
+
+    test("target screen gated by a role the user doesn't have (no UserRolesProvider mounted)", async () => {
+      const roleGatedSchema: FeatureSchema = {
+        ...catalogSchema,
+        screens: [{ ...widgetCreateScreen, access: { roles: ["Admin"] } }],
+      };
+      render(
+        <AppFeaturesProvider features={[tasksSchema, roleGatedSchema]}>
+          <DispatcherProvider dispatcher={makeDispatcher()}>
+            <KumikoScreen schema={tasksSchema} qn="tasks:screen:task-edit" />
+          </DispatcherProvider>
+        </AppFeaturesProvider>,
+      );
+      await waitFor(() => screen.getByTestId("render-edit-form"));
+      await userEvent.setup().click(screen.getByTestId("combobox-kumiko-edit-assignee"));
+      expect(screen.queryByTestId("combobox-kumiko-edit-assignee-create")).toBeNull();
+    });
+
+    test("field.readOnly on the reference field itself", async () => {
+      const readOnlySchema: FeatureSchema = {
+        ...tasksSchema,
+        screens: [
+          {
+            ...taskEditScreen,
+            layout: {
+              sections: [
+                {
+                  title: "Basics",
+                  fields: ["title", { field: "assignee", readOnly: true }, "tags"],
+                },
+              ],
+            },
+          },
+        ],
+      };
+      render(
+        <AppFeaturesProvider features={[readOnlySchema, catalogSchema]}>
+          <DispatcherProvider dispatcher={makeDispatcher()}>
+            <KumikoScreen schema={readOnlySchema} qn="tasks:screen:task-edit" />
+          </DispatcherProvider>
+        </AppFeaturesProvider>,
+      );
+      await waitFor(() => screen.getByTestId("render-edit-form"));
+      expect(screen.queryByTestId("combobox-kumiko-edit-assignee-create")).toBeNull();
+    });
+  });
 });

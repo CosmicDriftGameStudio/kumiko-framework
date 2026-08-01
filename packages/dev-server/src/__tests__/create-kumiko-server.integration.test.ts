@@ -9,6 +9,7 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { z } from "zod";
 import { createKumikoServer, type KumikoServerHandle } from "../create-kumiko-server";
 
@@ -334,6 +335,32 @@ describe("createKumikoServer extraRoutes-deps", () => {
     expect(body.isSuccess).toBe(true);
     expect(body.data?.tenantSeen).toBe(tenantId);
     expect(body.data?.roles).toContain("SystemAdmin");
+  });
+});
+
+// framework#1668: extraRoutes must be registered BEFORE onAfterSetup
+// dispatches through stack.http — Hono builds its matcher on first dispatch,
+// and any route registered after that throws. Pins the ordering.
+describe("createKumikoServer — extraRoutes vs. onAfterSetup ordering", () => {
+  test("an extraRoutes route stays reachable after onAfterSetup dispatches via stack.http", async () => {
+    handle = await createKumikoServer({
+      features: [probeFeature],
+      port: 0,
+      installSignalHandlers: false,
+      extraRoutes: (app) => {
+        app.get("/probe", (c) => c.json({ ok: true }));
+      },
+      onAfterSetup: async (stack) => {
+        await stack.http.writeOk(
+          "dev-server-probe:write:probe-write",
+          { note: "onAfterSetup" },
+          TestUsers.systemAdmin,
+        );
+      },
+    });
+
+    const res = await handle.fetch(new Request("http://test/probe"));
+    expect(res.status).toBe(200);
   });
 });
 

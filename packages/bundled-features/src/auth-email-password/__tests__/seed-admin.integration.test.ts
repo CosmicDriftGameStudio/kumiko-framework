@@ -111,6 +111,33 @@ describe("seedAdmin", () => {
     expect(betaMembership[0]?.["roles"]).toBe(JSON.stringify(["User"]));
   });
 
+  test("emailVerified: true wird an seedUserWithPassword durchgereicht", async () => {
+    await seedAdmin(stack.db, {
+      email: "verified@example.com",
+      password: "secret-pw",
+      displayName: "Verified Admin",
+      emailVerified: true,
+      memberships: [
+        { tenantId: TENANT_DEV, tenantKey: "dev", tenantName: "Dev", roles: ["Admin"] },
+      ],
+    });
+    const [user] = await selectMany(stack.db, userTable, { email: "verified@example.com" });
+    expect(user?.["emailVerified"]).toBe(true);
+  });
+
+  test("emailVerified: ohne Flag bleibt der User unverifiziert (Default)", async () => {
+    await seedAdmin(stack.db, {
+      email: "unverified@example.com",
+      password: "secret-pw",
+      displayName: "Unverified Admin",
+      memberships: [
+        { tenantId: TENANT_DEV, tenantKey: "dev", tenantName: "Dev", roles: ["Admin"] },
+      ],
+    });
+    const [user] = await selectMany(stack.db, userTable, { email: "unverified@example.com" });
+    expect(user?.["emailVerified"]).toBe(false);
+  });
+
   test("idempotent: zweiter Aufruf no-op (kein Crash, Stand bleibt)", async () => {
     // Erstaufruf
     const { id: userId1 } = await seedAdmin(stack.db, {

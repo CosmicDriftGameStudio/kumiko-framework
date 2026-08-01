@@ -449,6 +449,23 @@ describe("buildInsertSchema", () => {
     expect(schema.safeParse({ locale: "en" }).success).toBe(true);
     expect(schema.safeParse({ locale: "xx" }).success).toBe(false);
   });
+
+  // #1712: pin omitted-key + explicit undefined — ZodPipe/optin path for defaults
+  test("optional select with default applies when key omitted or undefined", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        locale: createSelectField({ options: ["de", "en", "fr"] as const, default: "de" }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    const omitted = schema.safeParse({});
+    expect(omitted.success).toBe(true);
+    if (omitted.success) expect(omitted.data["locale"]).toBe("de");
+    const undef = schema.safeParse({ locale: undefined });
+    expect(undef.success).toBe(true);
+    if (undef.success) expect(undef.data["locale"]).toBe("de");
+  });
 });
 
 // --- Update schema (all partial) ---
