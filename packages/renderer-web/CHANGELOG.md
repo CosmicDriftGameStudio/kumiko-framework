@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.171.0
+
+### Minor Changes
+
+- 32123ff: `entityEdit`/`configEdit`/`actionForm`/`projectionDetail` screens can now set `layout.width` ("sm" | "3xl" | "4xl" | "full") to opt out of the hardcoded 3xl-centered form shell — useful for dense multi-column masks that previously left dead space on both sides (#1676). Unset stays "3xl" (unchanged default).
+- 9cc21ed: `entityEdit` screens now support two declarative form-affordances that previously required custom JSX:
+
+  - `EditFieldsSection.description` — an optional help text (i18n key or raw string) under a block heading, rendered through the same `subtitle` slot as `FormProps.subtitle`.
+  - `EditFieldSpec.icon` — an optional prefix icon on `text`/`number` fields, resolved against a small `FIELD_ICONS` registry in `kumiko-renderer-web` (mail, lock, hash, search, user, phone, calendar, link, tag, building, globe, key, map-pin). Unknown keys fall back to no icon.
+
+  Closes #1677.
+
+- 3f926d4: Reference-field comboboxes now offer a "+ Create" footer that opens the referenced entity's create screen in a modal, selects the newly created record, and refreshes the option list — no more leaving the current form to create a missing referenced record first (#1681).
+
+  Adds a new `Modal` core primitive (bare content shell for hosting self-contained forms in an overlay) and `AppFeaturesProvider`/`useAppFeatures` for cross-feature schema access.
+
+### Patch Changes
+
+- f2d69c7: `InfiniteSentinel`'s "— End of list —" marker now goes through `t("kumiko.list.end-of-list")` instead of a hardcoded English string, so it translates correctly in non-English apps (#1675).
+- Updated dependencies [7ed113b]
+- Updated dependencies [d125a49]
+- Updated dependencies [32123ff]
+- Updated dependencies [9cc21ed]
+- Updated dependencies [f2d69c7]
+- Updated dependencies [3f926d4]
+  - @cosmicdrift/kumiko-renderer@0.171.0
+  - @cosmicdrift/kumiko-headless@0.171.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.171.0
+
 ## 0.170.0
 
 ### Patch Changes

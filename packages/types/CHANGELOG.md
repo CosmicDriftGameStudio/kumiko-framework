@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-types
 
+## 0.171.0
+
+### Minor Changes
+
+- 32123ff: `entityEdit`/`configEdit`/`actionForm`/`projectionDetail` screens can now set `layout.width` ("sm" | "3xl" | "4xl" | "full") to opt out of the hardcoded 3xl-centered form shell — useful for dense multi-column masks that previously left dead space on both sides (#1676). Unset stays "3xl" (unchanged default).
+
 ## 0.170.0
 
 ## 0.169.0

@@ -1,5 +1,41 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.171.0
+
+### Minor Changes
+
+- 32123ff: `entityEdit`/`configEdit`/`actionForm`/`projectionDetail` screens can now set `layout.width` ("sm" | "3xl" | "4xl" | "full") to opt out of the hardcoded 3xl-centered form shell — useful for dense multi-column masks that previously left dead space on both sides (#1676). Unset stays "3xl" (unchanged default).
+- 9cc21ed: `entityEdit` screens now support two declarative form-affordances that previously required custom JSX:
+
+  - `EditFieldsSection.description` — an optional help text (i18n key or raw string) under a block heading, rendered through the same `subtitle` slot as `FormProps.subtitle`.
+  - `EditFieldSpec.icon` — an optional prefix icon on `text`/`number` fields, resolved against a small `FIELD_ICONS` registry in `kumiko-renderer-web` (mail, lock, hash, search, user, phone, calendar, link, tag, building, globe, key, map-pin). Unknown keys fall back to no icon.
+
+  Closes #1677.
+
+- 3f926d4: Reference-field comboboxes now offer a "+ Create" footer that opens the referenced entity's create screen in a modal, selects the newly created record, and refreshes the option list — no more leaving the current form to create a missing referenced record first (#1681).
+
+  Adds a new `Modal` core primitive (bare content shell for hosting self-contained forms in an overlay) and `AppFeaturesProvider`/`useAppFeatures` for cross-feature schema access.
+
+### Patch Changes
+
+- 7ed113b: `hasEditableSection` now also respects field-level `visible`, so a visible section whose only editable field is hidden by a field-level `FieldCondition` no longer shows a Save button over zero visible editable fields.
+- d125a49: Fix `navigate` rowAction `params` being silently ignored on `entityEdit`-create targets (#1680). `RowActionNavigate.params` was documented as pre-filling both `actionForm` and `entityEdit` create screens, but the renderer's `EntityEditCreateBody` never read `nav.searchParams` — only `ActionFormBody` did. A rowAction like "create contract" navigating from a unit row with `params: { map: { unitId: "id" } }` opened the create form empty instead of pre-filled.
+
+  `EntityEditCreateBody` now reads `nav.searchParams` the same way `ActionFormBody` already did (shared `mergeSearchParamsIntoInitial` helper). Fields marked `sensitive` are skipped even when a matching search param exists.
+
+  The boot-validator now catches the general case: a `navigate` rowAction with `params` targeting anything other than an `actionForm` or a cross-entity `entityEdit`-create screen throws at boot, since those targets never read URL search params. This includes same-entity `entityEdit` targets and explicit-`entityId` targets — both resolve to update mode, which ignores `params`. `custom` screen targets are exempt: the framework has no visibility into an app-registered component, which may read `nav.searchParams` itself.
+
+  This new boot check is stricter than before — a feature whose `entityList` had a `navigate` rowAction with `params` on a same-entity `entityEdit` target (previously silently broken at runtime) will now fail to boot until the `params` extractor is removed or the target is retargeted. `boot-validator-fixture.ts`'s synthetic same-entity edit rowAction (used across dozens of boot-validator tests to stub row-navigation without hand-writing `rowActions`) carried exactly this pattern and needed the same fix; apps with the same pattern in real feature code will need it too on upgrade.
+
+- f2d69c7: `InfiniteSentinel`'s "— End of list —" marker now goes through `t("kumiko.list.end-of-list")` instead of a hardcoded English string, so it translates correctly in non-English apps (#1675).
+- Updated dependencies [d125a49]
+- Updated dependencies [32123ff]
+- Updated dependencies [716acd6]
+- Updated dependencies [9cc21ed]
+- Updated dependencies [c284d61]
+  - @cosmicdrift/kumiko-framework@0.171.0
+  - @cosmicdrift/kumiko-headless@0.171.0
+
 ## 0.170.0
 
 ### Minor Changes
