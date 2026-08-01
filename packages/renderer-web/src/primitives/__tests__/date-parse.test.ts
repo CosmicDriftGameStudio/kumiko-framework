@@ -36,6 +36,17 @@ describe("parseIso", () => {
     expect(parseIso("0026-04-25")).toBeUndefined();
     expect(parseIso("26-04-25")).toBeUndefined();
   });
+
+  test("year above 9999 → undefined (Temporal.toString() would switch to signed extended ISO)", () => {
+    expect(parseIso("10000-04-25")).toBeUndefined();
+    expect(parseIso("999999-04-25")).toBeUndefined();
+  });
+
+  test("year 9999 is still accepted (upper boundary)", () => {
+    const d = parseIso("9999-04-25");
+    expect(d).toBeDefined();
+    expect(toIso(d as Temporal.PlainDate)).toBe("9999-04-25");
+  });
 });
 
 describe("toIso", () => {
@@ -78,6 +89,10 @@ describe("parseTypedDate", () => {
     const d = parseTypedDate("25.04.26", "de-DE");
     expect(d).toBeDefined();
     if (d !== undefined) expect(toIso(d)).toBe("2026-04-25");
+  });
+
+  test("six-digit year → undefined, not a signed extended-ISO wire value", () => {
+    expect(parseTypedDate("25.04.999999", "de-DE")).toBeUndefined();
   });
 
   test("partial/invalid input → undefined", () => {

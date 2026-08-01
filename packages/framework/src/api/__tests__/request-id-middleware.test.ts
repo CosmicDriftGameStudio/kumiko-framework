@@ -121,3 +121,76 @@ describe("requestIdMiddleware — ip + userAgent capture (603/2)", () => {
     expect(captured).toBeUndefined();
   });
 });
+
+describe("requestIdMiddleware — client-supplied id sanitization (input-validation)", () => {
+  test("oversized X-Request-ID is rejected, a fresh id is generated instead", async () => {
+    let captured: string | undefined;
+
+    const app = new Hono();
+    app.use("/probe", requestIdMiddleware());
+    app.get("/probe", (c) => {
+      captured = requestContext.get()?.requestId;
+      return c.text("ok");
+    });
+
+    const junk = "x".repeat(5000);
+    const res = await app.request(
+      new Request("http://test.local/probe", {
+        method: "GET",
+        headers: { "X-Request-ID": junk },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(captured).toBeDefined();
+    expect(captured).not.toBe(junk);
+    expect(captured?.length).toBeLessThan(128);
+  });
+
+  test("disallowed-character X-Correlation-ID falls back to the (sanitized) requestId", async () => {
+    let captured: { requestId: string | undefined; correlationId: string | undefined } = {
+      requestId: undefined,
+      correlationId: undefined,
+    };
+
+    const app = new Hono();
+    app.use("/probe", requestIdMiddleware());
+    app.get("/probe", (c) => {
+      const ctx = requestContext.get();
+      captured = { requestId: ctx?.requestId, correlationId: ctx?.correlationId };
+      return c.text("ok");
+    });
+
+    const res = await app.request(
+      new Request("http://test.local/probe", {
+        method: "GET",
+        headers: { "X-Request-ID": "req-1", "X-Correlation-ID": "corr injected; drop table" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(captured.requestId).toBe("req-1");
+    expect(captured.correlationId).toBe("req-1");
+  });
+
+  test("a well-formed client id is preserved", async () => {
+    let captured: string | undefined;
+
+    const app = new Hono();
+    app.use("/probe", requestIdMiddleware());
+    app.get("/probe", (c) => {
+      captured = requestContext.get()?.requestId;
+      return c.text("ok");
+    });
+
+    const res = await app.request(
+      new Request("http://test.local/probe", {
+        method: "GET",
+        headers: { "X-Request-ID": "trace-abc123.def" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(captured).toBe("trace-abc123.def");
+  });
+});

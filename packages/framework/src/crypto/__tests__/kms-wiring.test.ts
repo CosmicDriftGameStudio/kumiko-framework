@@ -83,6 +83,12 @@ describe("buildPgKmsOptions", () => {
       /PLATFORM_KEK_PREVIOUS_VERSION must be set/,
     );
   });
+
+  test("rejects PLATFORM_KEK_PREVIOUS_VERSION without PLATFORM_KEK_PREVIOUS — half-set rotation must not silently drop the version", () => {
+    expect(() => buildPgKmsOptions({ ...rotationEnv, PLATFORM_KEK_PREVIOUS_VERSION: "1" })).toThrow(
+      /PLATFORM_KEK_PREVIOUS must be set/,
+    );
+  });
 });
 
 describe("resolveKmsWiring", () => {

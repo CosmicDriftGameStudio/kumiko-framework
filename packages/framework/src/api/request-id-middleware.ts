@@ -4,6 +4,16 @@ import { requestContext } from "./request-context";
 const REQUEST_ID_HEADER = "X-Request-ID";
 const CORRELATION_ID_HEADER = "X-Correlation-ID";
 
+// requestId/correlationId flow unvalidated into append-only event-store
+// metadata (e.g. sessions:revoke-all-for-user) — cap shape at the trust
+// boundary so a client can't smuggle an oversized/control-char payload into
+// permanent, replayed, DSGVO-exported storage via a client-set header.
+const SAFE_ID_RE = /^[A-Za-z0-9._:-]{1,128}$/;
+
+function sanitizeClientId(value: string | undefined): string | undefined {
+  return value !== undefined && SAFE_ID_RE.test(value) ? value : undefined;
+}
+
 /**
  * Assigns a requestId + correlationId to every request and wraps execution
  * in AsyncLocalStorage. Runs BEFORE auth — both ids are available even for
@@ -15,8 +25,9 @@ const CORRELATION_ID_HEADER = "X-Correlation-ID";
  */
 export function requestIdMiddleware() {
   return async (c: Context, next: Next) => {
-    const requestId = c.req.header(REQUEST_ID_HEADER) ?? requestContext.generateId();
-    const correlationId = c.req.header(CORRELATION_ID_HEADER) ?? requestId;
+    const requestId =
+      sanitizeClientId(c.req.header(REQUEST_ID_HEADER)) ?? requestContext.generateId();
+    const correlationId = sanitizeClientId(c.req.header(CORRELATION_ID_HEADER)) ?? requestId;
     c.header(REQUEST_ID_HEADER, requestId);
     c.header(CORRELATION_ID_HEADER, correlationId);
     c.set("requestId", requestId);

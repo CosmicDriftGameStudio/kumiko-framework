@@ -19,9 +19,13 @@ export type SseBroker = {
   getClientCount(channel: string): number;
   getTotalClientCount(): number;
   // Separate from addClient so it doesn't count towards getClientCount.
-  // Optional: additive for external/test SseBroker impls (call sites use?.).
-  subscribeAccessInvalidation?(userId: string, onInvalidate: () => void): () => void;
-  publishAccessInvalidation?(userId: string): void;
+  // Required (fw#1601): an app-injected SseBroker (e.g. a Redis-backed
+  // multi-replica broker) that skips these silently turns the mid-stream
+  // access-teardown security control (#1561) into a no-op — a revoked
+  // session keeps receiving live SSE data with no error or log. A no-op
+  // stub is one line for a broker that genuinely doesn't need it.
+  subscribeAccessInvalidation(userId: string, onInvalidate: () => void): () => void;
+  publishAccessInvalidation(userId: string): void;
 };
 
 export function createSseBroker(): SseBroker {

@@ -133,7 +133,20 @@ export function createWriteVerbs(
       // Field-level write-ownership on create — mirror of entity-level but
       // per declared field. Role-level was already checked by the
       // dispatcher; here we enforce ownership-rules against the new row.
-      const fieldDeniedCreate = checkWriteFieldOwnership(entity, data, user);
+      //
+      // Which fields get checked is scoped to the pre-hook payload (fw#1685)
+      // — a hook-derived field the user never submitted must not be
+      // field-ownership-checked against the user. The rule for a checked
+      // field is still evaluated against the full post-hook row (`data`) —
+      // an ownership rule can reference a column only a hook populates
+      // (kumiko-framework#1672).
+      const fieldDeniedCreate = checkWriteFieldOwnership(
+        entity,
+        applyDefaults(payloadWithoutId),
+        user,
+        undefined,
+        data,
+      );
       if (fieldDeniedCreate) {
         return writeFailure(
           new UnprocessableError("ownership_denied", {
@@ -301,7 +314,24 @@ export function createWriteVerbs(
       // `previous`, we can run the ownership rules per field against both
       // sides and reject individual fields the user isn't entitled to
       // touch on this specific row.
-      const fieldDeniedUpdate = checkWriteFieldOwnership(entity, changes, user, previous);
+      //
+      // Which fields get checked is scoped to `payload.changes` (the user's
+      // actual submission), NOT `changes` (post-preSave-hook data, fw#1685)
+      // — a hook-derived field the user never submitted (e.g. a system hook
+      // setting `assignedTo`) has no business being field-ownership-checked
+      // against the *user*, and doing so rejects writes the user is fully
+      // entitled to make. The dispatcher's role-gate (checkWriteFieldAccess)
+      // already runs on this same pre-hook payload for consistency. The rule
+      // for a checked field is still evaluated against the full post-hook
+      // row (`changes` merged onto `previous`) — an ownership rule can
+      // reference a column only a hook populates (kumiko-framework#1672).
+      const fieldDeniedUpdate = checkWriteFieldOwnership(
+        entity,
+        payload.changes,
+        user,
+        previous,
+        changes,
+      );
       if (fieldDeniedUpdate) {
         return writeFailure(
           new UnprocessableError("ownership_denied", {

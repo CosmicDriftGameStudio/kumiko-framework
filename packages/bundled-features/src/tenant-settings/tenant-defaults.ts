@@ -24,7 +24,10 @@ export function defineCreateWithTenantDefaults(
   entityName: string,
   entity: EntityDefinition,
   options: {
-    readonly access?: AccessRule;
+    /** Required — this is a write-path helper; making it optional let a
+     *  forgetful caller register a create handler with no access rule at
+     *  all (fw#1581). */
+    readonly access: AccessRule;
     /** Money field names whose `currency` is filled from tenant-settings when missing. */
     readonly currencyFields?: readonly string[];
     /** Field name (select/text) that receives the tenant locale when missing. */
@@ -45,7 +48,7 @@ export function defineCreateWithTenantDefaults(
   return {
     name: `${entityName}:create`,
     schema,
-    ...(options.access && { access: options.access }),
+    access: options.access,
     handler: async (event, ctx) => {
       const payload = { ...(event.payload as Record<string, unknown>) };
 

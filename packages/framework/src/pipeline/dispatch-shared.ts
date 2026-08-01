@@ -60,7 +60,7 @@ import {
   observabilityContext,
 } from "../observability";
 import { buildBucketKey } from "../rate-limit";
-import { createTzContext } from "../time";
+import { createTzContext, isValidIanaTimeZone } from "../time";
 import { appendDomainEventCore } from "./append-event-core";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver";
 import { executeQuery } from "./dispatch-query";
@@ -523,10 +523,18 @@ export async function buildHandlerContext(
   // tenant (createTzContext's own default). An app-injected GeoTzProvider
   // (context.geoTzProvider) feeds ctx.tz.fromCoordinates / fromAddress.
   const tenantTz = config !== undefined ? await config("tenant:config:timezone") : undefined;
+  // Guarded against garbage: an unvalidated string here (free-form config
+  // key, legacy JWT claim predating validation) blows up every ctx.tz call
+  // for the whole tenant with a RangeError. Fall back to UTC/tenant instead
+  // of trusting the raw value.
+  const safeTenantTz =
+    typeof tenantTz === "string" && isValidIanaTimeZone(tenantTz) ? tenantTz : "UTC";
+  const safeUserTz =
+    user.timezone !== undefined && isValidIanaTimeZone(user.timezone) ? user.timezone : undefined;
   const tz = createTzContext({
     ...(context.geoTzProvider !== undefined ? { geoTz: context.geoTzProvider } : {}),
-    tenant: typeof tenantTz === "string" ? tenantTz : "UTC",
-    ...(user.timezone !== undefined && { user: user.timezone }),
+    tenant: safeTenantTz,
+    ...(safeUserTz !== undefined && { user: safeUserTz }),
   });
 
   return {

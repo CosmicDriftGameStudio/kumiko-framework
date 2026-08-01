@@ -9,7 +9,11 @@ import type { DbRunner } from "../db/connection";
 import { resolveTableName } from "../db/entity-table-meta";
 import { executeRawQuery } from "../db/queries/raw-sql";
 import type { Registry, TenantId } from "../engine/types";
-import { buildSearchDocument } from "../pipeline/system-hooks";
+import {
+  buildSearchDocument,
+  decryptSearchableSubjectFields,
+  hasErasedSearchableSubjectField,
+} from "../pipeline/system-hooks";
 import { toSnakeCase } from "../utils/case";
 import type { SearchAdapter, SearchDocument } from "./types";
 
@@ -135,7 +139,16 @@ export async function reindexEntity(
       result.scannedRows++;
       const entityId = String(row["id"]);
       try {
-        const state = rowToState(row, fieldNames);
+        const rawState = rowToState(row, fieldNames);
+        // `pii + searchable` fields hold ciphertext on the read-table row —
+        // decrypt the same way the live write-path consumer does. An
+        // erased subject key doesn't throw, it swaps the value for
+        // PII_ERASED_SENTINEL (see decryptSearchableSubjectFields) — check
+        // for that AFTER decrypting, mirroring the softDelete filter above:
+        // resurrecting a crypto-shredded row here would undo
+        // purgeSearchDocumentsForSubject and make it findable again.
+        const state = await decryptSearchableSubjectFields(entityName, rawState, registry);
+        if (hasErasedSearchableSubjectField(entityName, state, registry)) continue;
         const doc = await buildSearchDocument(entityName, entityId, state, registry);
         if (doc) docs.push({ entityId, doc });
       } catch (e) {

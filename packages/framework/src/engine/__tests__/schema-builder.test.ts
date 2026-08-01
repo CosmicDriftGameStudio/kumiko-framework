@@ -132,6 +132,18 @@ describe("buildInsertSchema", () => {
       invalid: { age: 11 },
     },
     {
+      name: "integer field rejects a value outside Postgres int4 range (must 400, not crash the DB write)",
+      fields: { attempt: createNumberField({ integer: true }) },
+      valid: { attempt: 2147483647 },
+      invalid: { attempt: 2147483648 },
+    },
+    {
+      name: "integer field with explicit max narrower than int4 still enforces the explicit bound",
+      fields: { displayOrder: createNumberField({ integer: true, max: 100 }) },
+      valid: { displayOrder: 100 },
+      invalid: { displayOrder: 101 },
+    },
+    {
       name: "date field",
       fields: { born: createDateField() },
       valid: { born: "2026-01-01" },

@@ -109,7 +109,10 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
     }
     case "number": {
       let schema = z.number();
-      if (field.integer) schema = schema.int();
+      // `integer: true` maps to a Postgres int4 column (entity-table-meta.ts)
+      // — bound it here so an out-of-range write fails loud (400) at the
+      // schema boundary instead of dying in Postgres (22003 → 500).
+      if (field.integer) schema = schema.int().min(-2147483648).max(2147483647);
       if (field.min !== undefined) schema = schema.min(field.min);
       if (field.max !== undefined) schema = schema.max(field.max);
       return field.default !== undefined ? schema.default(field.default) : schema;
