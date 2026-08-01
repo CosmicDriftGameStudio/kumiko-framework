@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.171.1
+
+### Patch Changes
+
+- 07b9c04: Boot-time warning when an `access.roles` entry on a handler is used by exactly one handler in the whole boot scan — a common typo signature that previously caused a silent lockout for that role.
+- f8261c1: `kumiko-schema validate`'s migration-content drift check now points an `unexpected-table` mismatch at `table()`/`defineUnmanagedTable()` + `r.storeTable()` instead of suggesting a hand-fix of the SQL file — the established way to register a raw/hand-written table so it flows into `ENTITY_METAS` and `.snapshot.json`.
+- 74a0fb3: An optional `select` field **with** a `default` now treats an untouched `<select>`'s `""` as "use the default" on insert instead of rejecting it as an invalid enum value (#1702). Update schemas keep their existing behavior — they strip defaults deliberately, so there `""` still maps to an explicit clear-to-null.
+  - @cosmicdrift/kumiko-types@0.171.1
+
 ## 0.171.0
 
 ### Minor Changes
