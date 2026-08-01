@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { USER_STATUS } from "../../user";
 import type { AuthUserRow } from "../auth-user-row";
+import { accountRestricted, emailNotVerified, invalidCredentials } from "../errors";
 import {
   gateBuildSession,
   gateEnforceAccountStatus,
@@ -21,7 +22,7 @@ describe("login.write gates (fw#1284)", () => {
   test("gateEnforceEmailVerified rejects when strict and unverified", () => {
     const g = gateEnforceEmailVerified(row({ emailVerified: false }), true);
     expect(g.ok).toBe(false);
-    if (!g.ok) expect(g.result.isSuccess).toBe(false);
+    if (!g.ok) expect(g.result).toEqual(emailNotVerified());
   });
 
   test("gateEnforceEmailVerified passes when not strict", () => {
@@ -31,16 +32,21 @@ describe("login.write gates (fw#1284)", () => {
   test("gateEnforceAccountStatus rejects restricted", () => {
     const g = gateEnforceAccountStatus(row({ status: USER_STATUS.Restricted }));
     expect(g.ok).toBe(false);
+    if (!g.ok) expect(g.result).toEqual(accountRestricted());
   });
 
   test("gateEnforceAccountStatus rejects deletion_requested as invalid_creds shape", () => {
     const g = gateEnforceAccountStatus(row({ status: USER_STATUS.DeletionRequested }));
     expect(g.ok).toBe(false);
-    if (!g.ok) {
-      expect(g.result.isSuccess).toBe(false);
-      // anti-enumeration — same family as invalid credentials
-      expect(g.result).toMatchObject({ isSuccess: false });
-    }
+    // anti-enumeration — same payload as invalid credentials, not a
+    // distinguishable "account deleted" error.
+    if (!g.ok) expect(g.result).toEqual(invalidCredentials());
+  });
+
+  test("gateEnforceAccountStatus rejects deleted as invalid_creds shape", () => {
+    const g = gateEnforceAccountStatus(row({ status: USER_STATUS.Deleted }));
+    expect(g.ok).toBe(false);
+    if (!g.ok) expect(g.result).toEqual(invalidCredentials());
   });
 
   test("gateEnforceAccountStatus passes active", () => {

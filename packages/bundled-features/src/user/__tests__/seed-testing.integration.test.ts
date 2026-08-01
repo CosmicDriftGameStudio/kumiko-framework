@@ -104,6 +104,31 @@ describe("seedUser", () => {
     expect(row?.["passwordHash"]).toBeNull();
   });
 
+  test("emailVerified:true reconciled auf einem bereits geseedeten User (#1687)", async () => {
+    const first = await seedUser(stack.db, {
+      email: "frank@example.com",
+      displayName: "Frank",
+    });
+    const [rowBefore] = await selectMany(stack.db, userTable, { id: first.id });
+    expect(rowBefore?.["emailVerified"]).not.toBe(true);
+
+    const second = await seedUser(stack.db, {
+      email: "frank@example.com",
+      displayName: "Frank",
+      emailVerified: true,
+    });
+    expect(second.id).toBe(first.id);
+
+    const [rowAfter] = await selectMany(stack.db, userTable, { id: first.id });
+    expect(rowAfter?.["emailVerified"]).toBe(true);
+
+    const updated = await selectMany(stack.db, eventsTable, {
+      aggregateType: "user",
+      type: "user.updated",
+    });
+    expect(updated).toHaveLength(1);
+  });
+
   test("default `by` ist TestUsers.systemAdmin (für audit-trail)", async () => {
     const { id: userId } = await seedUser(stack.db, {
       email: "eve@example.com",

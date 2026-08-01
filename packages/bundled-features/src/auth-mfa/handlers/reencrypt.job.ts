@@ -38,8 +38,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { type EnvelopeCipher, isStoredEnvelope } from "@cosmicdrift/kumiko-framework/secrets";
-import { type ChunkedMigrationStopReason, runChunkedMigration } from "../../shared";
+import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
+import {
+  type ChunkedMigrationStopReason,
+  classifyStoredEnvelope,
+  runChunkedMigration,
+} from "../../shared";
 import { userMfaEntity, userMfaTable } from "../schema/user-mfa";
 
 const DEFAULT_BATCH_SIZE = 100;
@@ -65,22 +69,6 @@ export type MfaReencryptJobResult = {
   readonly batchesProcessed: number;
   readonly stoppedReason: ChunkedMigrationStopReason;
 };
-
-type EnvelopeClassification = "rotate" | "current" | "unrecognized";
-
-// After PII peel (when configured), values must be current-cipher envelopes.
-// Non-JSON / non-envelope is not a supported legacy decrypt path — fail the
-// row instead of treating it as "needs rotate" (#1541, mirrors config #1513).
-function classifyEnvelope(value: string, targetVersion: number): EnvelopeClassification {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(value);
-  } catch {
-    return "unrecognized";
-  }
-  if (!isStoredEnvelope(parsed)) return "unrecognized";
-  return parsed.kekVersion === targetVersion ? "current" : "rotate";
-}
 
 export const mfaReencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
   const payload = rawPayload as MfaReencryptJobPayload; // @cast-boundary engine-payload
@@ -166,8 +154,11 @@ export const mfaReencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<vo
       envelopeValues = unwrapped as { totpSecret: string; recoveryCodes: string }; // @cast-boundary engine-payload
     }
 
-    const totpClass = classifyEnvelope(envelopeValues.totpSecret, targetVersion);
-    const recoveryClass = classifyEnvelope(envelopeValues.recoveryCodes, targetVersion);
+    // After PII peel (when configured), values must be current-cipher
+    // envelopes — non-JSON/non-envelope is not a supported legacy decrypt
+    // path (#1541, mirrors config #1513).
+    const totpClass = classifyStoredEnvelope(envelopeValues.totpSecret, targetVersion);
+    const recoveryClass = classifyStoredEnvelope(envelopeValues.recoveryCodes, targetVersion);
     if (totpClass === "unrecognized" || recoveryClass === "unrecognized") {
       ctx.log?.warn?.(
         `[auth-mfa:reencrypt] row ${row.id} has a field that is not a current-cipher envelope, not re-encryptable`,

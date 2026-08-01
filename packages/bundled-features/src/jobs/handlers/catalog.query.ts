@@ -1,5 +1,6 @@
 import { defineQueryHandler, type JobDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { isManualTrigger } from "../is-manual-trigger";
 
 export type ManualJobCatalogEntry = {
   readonly jobName: string;
@@ -7,10 +8,6 @@ export type ManualJobCatalogEntry = {
   /** Compact JSON Schema (or null when the job accepts any/empty payload). */
   readonly payloadSchema: Record<string, unknown> | null;
 };
-
-function isManualTrigger(trigger: JobDefinition["trigger"]): boolean {
-  return "manual" in trigger && trigger.manual === true;
-}
 
 function payloadSchemaJson(job: JobDefinition): Record<string, unknown> | null {
   if (job.schema === undefined) return null;

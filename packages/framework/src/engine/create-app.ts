@@ -1,4 +1,4 @@
-import { validateBoot } from "./boot-validator";
+import { type ValidateBootOptions, validateBoot } from "./boot-validator";
 import { createRegistry } from "./registry";
 import type { FeatureDefinition, Registry } from "./types";
 import { DEFAULT_CURRENCIES } from "./types";
@@ -8,6 +8,8 @@ export type AppConfig = {
   features: readonly FeatureDefinition[];
   softDelete?: boolean; // Global default for all entities (default: true)
   currencies?: readonly string[]; // Extends DEFAULT_CURRENCIES
+  /** Opt-in boot-validator warnings — see ValidateBootOptions. */
+  validateBootOptions?: ValidateBootOptions;
 };
 
 export type App = {
@@ -98,7 +100,7 @@ export function createApp(config: AppConfig): App {
   }
 
   // Run boot-time validation before creating registry
-  validateBoot(config.features);
+  validateBoot(config.features, config.validateBootOptions);
 
   return {
     registry: createRegistry(config.features),

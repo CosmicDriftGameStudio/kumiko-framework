@@ -568,6 +568,10 @@ function renderDev(appName: string): string {
             writer.writeLine(`email: "admin@${appName}.local",`);
             writer.writeLine(`password: "changeme",`);
             writer.writeLine(`displayName: "Admin",`);
+            // Dev-only: skip the email-verify login gate for the seeded
+            // admin. Prod's scaffold (renderMain) leaves this unset on
+            // purpose — the verify flow must run there.
+            writer.writeLine("emailVerified: true,");
             writer.write("memberships: [");
             writer.indent(() => {
               writer.inlineBlock(() => {

@@ -9,6 +9,7 @@ import {
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { z } from "zod";
 import { JobErrors } from "../constants";
+import { isManualTrigger } from "../is-manual-trigger";
 
 export const triggerWrite = defineWriteHandler({
   name: "trigger",
@@ -31,7 +32,7 @@ export const triggerWrite = defineWriteHandler({
       );
     }
 
-    if (!("manual" in jobDef.trigger) || jobDef.trigger.manual !== true) {
+    if (!isManualTrigger(jobDef.trigger)) {
       return writeFailure(
         new UnprocessableError(JobErrors.notManual, {
           i18nKey: "jobs.errors.notManual",

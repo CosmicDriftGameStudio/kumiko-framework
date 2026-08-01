@@ -16,7 +16,10 @@ export function DemoPage({
 }): ReactNode {
   return (
     <div className="flex flex-col w-full">
-      <div className="h-12 px-6 bg-muted/30 border-b flex items-center gap-3">
+      <div
+        data-testid="demo-page-header"
+        className="h-12 px-6 bg-muted/30 border-b flex items-center gap-3"
+      >
         <div className="text-base font-semibold tracking-tight truncate">{title}</div>
       </div>
       <div className="px-6 pt-6 pb-12 max-w-4xl flex flex-col gap-6">

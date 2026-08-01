@@ -24,7 +24,10 @@ import {
   DOCUMENT_INGEST_AGGREGATE_TYPE,
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
   DOCUMENT_INGEST_REQUESTED_EVENT_SHORT,
+  DOCUMENT_INGEST_SKIPPED_EVENT_QN,
+  DOCUMENT_INGEST_SKIPPED_EVENT_SHORT,
   documentIngestRequestedPayloadSchema,
+  documentIngestSkippedPayloadSchema,
 } from "./events";
 import { documentExtractTenantDestroyHook } from "./tenant-destroy-hook";
 
@@ -100,6 +103,7 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
   );
 
   r.defineEvent(DOCUMENT_INGEST_REQUESTED_EVENT_SHORT, documentIngestRequestedPayloadSchema);
+  r.defineEvent(DOCUMENT_INGEST_SKIPPED_EVENT_SHORT, documentIngestSkippedPayloadSchema);
 
   r.multiStreamProjection({
     name: "request-ingest",
@@ -112,10 +116,31 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
         if (!parsed.success) return;
         const payload = parsed.data;
 
+        const skip = (reason: "file-too-large" | "unsupported-mime-type") =>
+          ctx.unsafeAppendEvent({
+            aggregateId: event.aggregateId,
+            aggregateType: DOCUMENT_INGEST_AGGREGATE_TYPE,
+            type: DOCUMENT_INGEST_SKIPPED_EVENT_QN,
+            payload: {
+              fileRefId: event.aggregateId,
+              storageKey: payload.storageKey,
+              fileName: payload.fileName,
+              mimeType: payload.mimeType,
+              size: payload.size,
+              reason,
+            },
+          });
+
         // skip: over the fixed cap — no ingest requested, upload itself already succeeded
-        if (payload.size > MAX_FILE_BYTES) return;
+        if (payload.size > MAX_FILE_BYTES) {
+          await skip("file-too-large");
+          return;
+        }
         // skip: outside the Phase-1 mime allowlist — no ingest requested
-        if (!ALLOWED_MIME_TYPES.has(payload.mimeType)) return;
+        if (!ALLOWED_MIME_TYPES.has(payload.mimeType)) {
+          await skip("unsupported-mime-type");
+          return;
+        }
 
         await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,

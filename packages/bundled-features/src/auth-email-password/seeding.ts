@@ -191,8 +191,9 @@ export type SeedAdminOptions = {
    *  einen Plattform-Operator. Default: leer. */
   readonly globalRoles?: readonly string[];
   /** Initial emailVerified state — defaults to false (unverified). Same
-   *  mechanism as seedUserWithPassword.emailVerified; only applied on
-   *  first create. */
+   *  mechanism as seedUserWithPassword.emailVerified. Re-running the seed
+   *  against an already-seeded row reconciles this flag too (true → sets
+   *  it via a real `.updated` event; never flips true → false). */
   readonly emailVerified?: boolean;
   readonly by?: SessionUser;
 };

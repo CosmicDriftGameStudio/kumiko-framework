@@ -23,3 +23,18 @@ export const documentIngestRequestedPayloadSchema = z.object({
   size: z.number().int().min(0),
 });
 export type DocumentIngestRequestedPayload = z.infer<typeof documentIngestRequestedPayloadSchema>;
+
+export const DOCUMENT_INGEST_SKIPPED_EVENT_SHORT = "documentIngest.skipped" as const;
+
+export const DOCUMENT_INGEST_SKIPPED_EVENT_QN =
+  "document-ingest-foundation:event:document-ingest-skipped" as const;
+
+export const documentIngestSkippedPayloadSchema = z.object({
+  fileRefId: z.string().min(1),
+  storageKey: z.string().min(1),
+  fileName: z.string().min(1),
+  mimeType: z.string().min(1),
+  size: z.number().int().min(0),
+  reason: z.enum(["file-too-large", "unsupported-mime-type"]),
+});
+export type DocumentIngestSkippedPayload = z.infer<typeof documentIngestSkippedPayloadSchema>;

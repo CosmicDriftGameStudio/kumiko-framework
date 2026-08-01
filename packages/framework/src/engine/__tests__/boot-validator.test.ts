@@ -600,7 +600,7 @@ describe("boot-validator", () => {
           });
         }),
       ];
-      validateBoot(features);
+      validateBootRaw(withBootValidatorFixture(features), { warnOnUniqueAccessRoles: true });
       // Not toHaveBeenCalledTimes(1): this file's tests share the process-global
       // console.warn and run with the default concurrency (bunfig.toml) — other
       // concurrently-running tests' own "role used by one handler" warnings can
@@ -610,6 +610,27 @@ describe("boot-validator", () => {
           (call[0] as string | undefined)?.includes("OnlyHereRole"),
         ),
       ).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  test("does NOT warn on unique access roles by default — opt-in only (#1711)", () => {
+    const warnSpy = spyOn(console, "warn");
+    try {
+      const features = [
+        defineFeature("b", (r) => {
+          r.queryHandler("list", z.object({}), async () => [], {
+            access: { roles: ["OnlyThereRole"] },
+          });
+        }),
+      ];
+      validateBoot(features);
+      expect(
+        warnSpy.mock.calls.some((call) =>
+          (call[0] as string | undefined)?.includes("OnlyThereRole"),
+        ),
+      ).toBe(false);
     } finally {
       warnSpy.mockRestore();
     }

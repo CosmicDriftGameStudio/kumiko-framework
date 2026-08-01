@@ -69,7 +69,31 @@ export async function seedUser(
   const existing = await fetchOne(db, userTable, { email: options.email });
   // @cast-boundary db-row: users.id ist uuid-Spalte (string), fetchOne
   // liefert die Projection-Row als Record<string, unknown>.
-  if (existing) return { id: existing["id"] as string };
+  if (existing) {
+    const id = existing["id"] as string;
+    // Reconcile emailVerified on an already-seeded row: a persistent dev DB
+    // (or a re-run bootstrap) can carry a User seeded before this flag
+    // existed or before it flipped to true — without this, "seed with
+    // emailVerified: true" only ever takes effect on the very first insert
+    // and the flag silently does nothing on every re-run after (#1687).
+    // Goes through the executor (a real `.updated` event), never a direct
+    // write.
+    if (options.emailVerified === true && existing["emailVerified"] !== true) {
+      const result = await userExecutor.update(
+        { id, version: existing["version"] as number, changes: { emailVerified: true } },
+        by,
+        tdb,
+      );
+      // version_conflict = a concurrent write already changed the row —
+      // fine for a seed helper, don't fail the whole seed run over it.
+      if (!result.isSuccess && result.error.code !== "version_conflict") {
+        throw new Error(
+          `seedUser emailVerified reconcile failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
+        );
+      }
+    }
+    return { id };
+  }
 
   const result = await userExecutor.create(
     {

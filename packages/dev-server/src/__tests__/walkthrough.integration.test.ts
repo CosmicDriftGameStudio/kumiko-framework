@@ -127,5 +127,14 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     expect(main).toContain("admin: {");
     expect(main).toContain("memberships:");
     expect(main).toContain("runProdApp");
+    // Prod writer stays untouched — the verify flow must run there (#1687).
+    expect(main).not.toContain("emailVerified");
+  });
+
+  test("bin/dev.ts seeds the admin as emailVerified: true so login doesn't 422", async () => {
+    await scaffoldApp({ name: "my-notes", destination: appRoot });
+    const dev = readFileSync(join(appRoot, "bin/dev.ts"), "utf-8");
+    expect(dev).toContain("admin: {");
+    expect(dev).toContain("emailVerified: true,");
   });
 });

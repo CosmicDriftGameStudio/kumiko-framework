@@ -45,4 +45,24 @@ describe("mergeSearchParamsIntoInitial", () => {
     const result = mergeSearchParamsIntoInitial(fields, { price: "19.99" });
     expect(result["price"]).toBe(19.99);
   });
+
+  test("renderableFields set given: searchParam for a non-rendered field is ignored (#1708)", () => {
+    const fields: Record<string, FieldDef> = {
+      status: { type: "text", default: "draft" },
+      ownerId: { type: "text" },
+    };
+    const result = mergeSearchParamsIntoInitial(
+      fields,
+      { status: "approved", ownerId: "user-123" },
+      new Set(["status"]),
+    );
+    expect(result["status"]).toBe("approved");
+    expect(result["ownerId"]).toBe("");
+  });
+
+  test("no renderableFields set given (undefined): behaves as before, all fields eligible", () => {
+    const fields: Record<string, FieldDef> = { ownerId: { type: "text" } };
+    const result = mergeSearchParamsIntoInitial(fields, { ownerId: "user-123" });
+    expect(result["ownerId"]).toBe("user-123");
+  });
 });

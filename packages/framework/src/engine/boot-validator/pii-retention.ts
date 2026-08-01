@@ -21,6 +21,13 @@ const FRAMEWORK_TIMESTAMP_FIELDS: ReadonlySet<string> = new Set([
 // werden statt erst beim ersten Cleanup-Run.
 const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 
+// A field carries a subject binding — pii/userOwned/tenantOwned mark
+// annotated content, subjectRef marks a bare FK into `user` with no
+// annotated content of its own but the same Art.17 obligations (#1645).
+function hasSubjectAnnotation(annot: PiiAnnotations): boolean {
+  return Boolean(annot.pii || annot.userOwned || annot.tenantOwned || annot.subjectRef);
+}
+
 // --- PII / Subject-Key Annotations + Retention validation ---
 //
 // Drei Klassen von Checks:
@@ -216,7 +223,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         } else if (PII_USER_REFERENCE_NAME_HINTS.has(lower) && !annot.subjectRef) {
           // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
           console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no { subjectRef: true } annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { subjectRef: true }, or { userOwned: { ownerField: "${fieldName}" } } on the field it owns. If business data, set { allowPlaintext: "..." } to silence.`,
+            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no { subjectRef: true } annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { subjectRef: true } AND register r.useExtension(EXT_USER_DATA, "${entityName}", …) — without the hook the V3 boot guard throws. Or { userOwned: { ownerField: "${fieldName}" } } on the field it owns. If business data, set { allowPlaintext: "..." } to silence.`,
           );
         }
       }
@@ -246,10 +253,9 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       if (retention.strategy === "blockDelete") {
         // blockDelete on an entity with no subject field is the correct
         // "never auto-delete" choice; User-Forget never reaches those rows (#1622).
-        const hasSubjectField = Object.values(fieldsByName).some((f) => {
-          const a = f as PiiAnnotations; // @cast-boundary schema-walk
-          return Boolean(a.pii || a.userOwned || a.tenantOwned);
-        });
+        const hasSubjectField = Object.values(fieldsByName).some(
+          (f) => hasSubjectAnnotation(f as PiiAnnotations), // @cast-boundary schema-walk
+        );
         const hasAnonymize = Object.values(fieldsByName).some((f) => {
           const a = f as PiiAnnotations; // @cast-boundary schema-walk
           return Boolean(a.anonymize);
