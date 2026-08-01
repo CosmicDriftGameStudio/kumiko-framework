@@ -91,6 +91,37 @@ describe("default-mailers dispatch", () => {
     expect(cap.sent[1]?.subject).toBe("Acme — Dein Datenexport ist bereit");
   });
 
+  test("null user.locale (der Normalfall seit fw#1637, kein Entity-Default mehr): mailDefaults.locale entscheidet, sonst en", async () => {
+    const cap = capturingTransport();
+    const resolve = async () => cap.transport;
+
+    // userLocale: null + mailDefaults.locale: "de" → deutscher Betreff.
+    await makeDefaultExportReadyEmail(resolve, { locale: "de", appName: "Acme" })({
+      userId: "u1",
+      userEmail: "u1@example.com",
+      userLocale: null,
+      tenantId: TENANT_A,
+      jobId: "j1",
+      downloadUrl: "u",
+      expiresAt: "x",
+      bytesWritten: null,
+    });
+    expect(cap.sent[0]?.subject).toBe("Acme — Dein Datenexport ist bereit");
+
+    // userLocale: null + kein mailDefaults.locale → Template-Default "en".
+    await makeDefaultExportReadyEmail(resolve, { appName: "Acme" })({
+      userId: "u2",
+      userEmail: "u2@example.com",
+      userLocale: null,
+      tenantId: TENANT_A,
+      jobId: "j2",
+      downloadUrl: "u",
+      expiresAt: "x",
+      bytesWritten: null,
+    });
+    expect(cap.sent[1]?.subject).toBe("Acme — Your data export is ready");
+  });
+
   test("deletion-executed: sendet ueber den ersten Membership-Tenant", async () => {
     const cap = capturingTransport();
     const resolved: string[] = [];

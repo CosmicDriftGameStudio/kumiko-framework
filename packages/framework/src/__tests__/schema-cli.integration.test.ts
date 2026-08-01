@@ -200,6 +200,24 @@ CREATE TABLE IF NOT EXISTS "read_widgets_v2" ("id" uuid PRIMARY KEY);
     expect(cap.err.join("\n")).toContain("read_widgets");
   });
 
+  test("migration file missing a column its snapshot entry claims → column-drift hint, not unexpected-table", async () => {
+    writeSchemaFile(appCwd, "read_widgets", "note");
+    await runSchemaCli(["generate", "init"], appCwd, captureOut().out);
+    writeFileSync(
+      join(appCwd, "kumiko/migrations/0001_init.sql"),
+      `-- oops: hand-edited to drop the "note" column the snapshot still claims
+CREATE TABLE IF NOT EXISTS "read_widgets" ("id" uuid PRIMARY KEY);
+`,
+    );
+    const cap = captureOut();
+    const code = await runSchemaCli(["validate"], appCwd, cap.out);
+    expect(code).toBe(1);
+    const err = cap.err.join("\n");
+    expect(err).toContain("missing columns: note");
+    expect(err).toContain("Fix (missing-table/column-drift)");
+    expect(err).not.toContain("Fix (unexpected-table)");
+  });
+
   test("migration creates a table with no snapshot entry → unexpected-table hint points at r.storeTable, not hand-fix", async () => {
     writeSchemaFile(appCwd, "read_widgets");
     await runSchemaCli(["generate", "init"], appCwd, captureOut().out);

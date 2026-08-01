@@ -69,6 +69,23 @@ describe("scenario 1: create + me", () => {
     expect(me["locale"] == null).toBe(true);
   });
 
+  test("locale sent by the client is persisted and returned via me", async () => {
+    const created = await stack.http.writeOk<{ id: number }>(
+      UserHandlers.create,
+      {
+        email: "locale@example.com",
+        displayName: "Locale User",
+        passwordHash: "seeded-hash",
+        locale: "de",
+      },
+      systemAdmin,
+    );
+
+    const signedIn = createTestUser({ id: created.id, roles: ["User"] });
+    const me = await stack.http.queryOk<Record<string, unknown>>(UserQueries.me, {}, signedIn);
+    expect(me["locale"]).toBe("de");
+  });
+
   test("normal user cannot create another user", async () => {
     const normal = createTestUser({ id: 42, roles: ["User"] });
     const error = await stack.http.writeErr(
