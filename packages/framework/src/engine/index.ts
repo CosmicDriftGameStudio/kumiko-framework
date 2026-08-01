@@ -202,7 +202,12 @@ export {
   stripForbiddenMembershipRoles,
 } from "./membership-roles";
 export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership";
-export { from } from "./ownership";
+export {
+  buildOwnershipClause,
+  from,
+  userCanReadFieldRow,
+  userCanWriteFieldRow,
+} from "./ownership";
 export { buildPipelineSteps, stepsPipeline } from "./pipeline";
 export { defineApply, defineMspApply, setFields } from "./projection-helpers";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";
