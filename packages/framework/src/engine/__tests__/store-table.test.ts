@@ -88,8 +88,9 @@ describe("r.storeTable — declaration", () => {
   test("r.storeTable rejects a plain literal meta with reserved read_ prefix", () => {
     const literalMeta = {
       tableName: "read_rt_probe",
-      columns: [{ name: "id", pgType: "text", notNull: true, primaryKey: true }],
+      columns: [{ name: "id", pgType: "text" as const, notNull: true, primaryKey: true }],
       source: "unmanaged" as const,
+      indexes: [],
     };
     expect(() =>
       defineFeature("probe", (r) => {

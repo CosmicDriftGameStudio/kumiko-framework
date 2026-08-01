@@ -48,6 +48,40 @@ function isUnchangedValue(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+type PreSaveFn = (
+  changes: Record<string, unknown>,
+  previous: Record<string, unknown>,
+  isNew: boolean,
+) => Promise<Record<string, unknown>>;
+
+// preSave runs before ownership checks: authorization must evaluate the row
+// as it will actually be persisted, including hook-derived fields
+// (kumiko-framework#1672). A throwing hook is an app-author bug (bad
+// business rule, not a framework fault) — map it to a clean writeFailure
+// instead of letting it propagate as an internal_error 500.
+async function runPreSave(
+  preSave: PreSaveFn | undefined,
+  changes: Record<string, unknown>,
+  previous: Record<string, unknown>,
+  isNew: boolean,
+  entityName: string,
+  action: "create" | "update",
+): Promise<{ readonly data: DbRow } | { readonly failure: ReturnType<typeof writeFailure> }> {
+  if (!preSave) return { data: changes as DbRow };
+  try {
+    return { data: (await preSave(changes, previous, isNew)) as DbRow };
+  } catch (e) {
+    return {
+      failure: writeFailure(
+        new UnprocessableError("presave_hook_failed", {
+          i18nKey: "errors.presaveHookFailed",
+          details: { entityName, action, message: e instanceof Error ? e.message : String(e) },
+        }),
+      ),
+    };
+  }
+}
+
 export function createWriteVerbs(
   ctx: ExecutorContext,
 ): Pick<EventStoreExecutor, "create" | "update" | "delete" | "forget" | "restore"> {
@@ -74,12 +108,16 @@ export function createWriteVerbs(
       const explicitId = typeof payload["id"] === "string" ? (payload["id"] as string) : undefined; // @cast-boundary engine-payload
       const aggregateId = explicitId ?? generateId();
       const { id: _id, ...payloadWithoutId } = payload;
-      // preSave runs before ownership checks: authorization must evaluate the
-      // row as it will actually be persisted, including hook-derived fields
-      // (kumiko-framework#1672).
-      const data = options?.preSave
-        ? await options.preSave(applyDefaults(payloadWithoutId), {}, true)
-        : applyDefaults(payloadWithoutId);
+      const preSaveResult = await runPreSave(
+        options?.preSave,
+        applyDefaults(payloadWithoutId),
+        {},
+        true,
+        entityName,
+        "create",
+      );
+      if ("failure" in preSaveResult) return preSaveResult.failure;
+      const data = preSaveResult.data;
 
       // H.2 — entity-level write-ownership on create. No oldRow exists, so
       // only the new row is checked. No Straddle concern for creates.
@@ -226,12 +264,16 @@ export function createWriteVerbs(
       const previous = await loadById(payload.id, db);
       if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
 
-      // preSave runs before ownership checks: authorization must evaluate the
-      // row as it will actually be persisted, including hook-derived fields
-      // (kumiko-framework#1672).
-      const changes = updateOptions?.preSave
-        ? await updateOptions.preSave(payload.changes, previous, false)
-        : payload.changes;
+      const preSaveResult = await runPreSave(
+        updateOptions?.preSave,
+        payload.changes,
+        previous,
+        false,
+        entityName,
+        "update",
+      );
+      if ("failure" in preSaveResult) return preSaveResult.failure;
+      const changes = preSaveResult.data;
 
       // H.2 — entity-level write-ownership on update. Load old row (already
       // done above), build post-change row via shallow merge. Straddle-safe

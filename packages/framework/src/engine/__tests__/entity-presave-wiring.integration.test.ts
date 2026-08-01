@@ -8,6 +8,7 @@ import { asRawClient } from "../../db/query";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { defineFeature } from "../define-feature";
 import { createEntity, createTextField } from "../factories";
+import { from } from "../ownership";
 
 const contactEntity = createEntity({
   table: "presave_wiring_contacts",
@@ -15,6 +16,12 @@ const contactEntity = createEntity({
     firstName: createTextField({ required: true }),
     lastName: createTextField({ required: true }),
     displayName: createTextField(),
+    // authorId is never set by the client — only deriveAuthorId (a preSave
+    // hook) writes it. secretNote's ownership rule checks authorId, so
+    // create only succeeds if the hook ran BEFORE the field-ownership check
+    // (kumiko-framework#1672 — see also event-store-executor-write.ts).
+    authorId: createTextField(),
+    secretNote: createTextField({ access: { write: { User: from("user:id", "authorId") } } }),
   },
 });
 
@@ -30,6 +37,16 @@ const deriveDisplayName: import("../types").PreSaveHookFn = async (changes, ctx)
   return { ...changes, displayName: `${first ?? ""} ${last ?? ""}`.trim() };
 };
 
+const deriveAuthorId: import("../types").PreSaveHookFn = async (changes) => ({
+  ...changes,
+  authorId: TestUsers.user.id,
+});
+
+const THROWING_HOOK_MESSAGE = "business rule violated";
+const throwOnPreSave: import("../types").PreSaveHookFn = async () => {
+  throw new Error(THROWING_HOOK_MESSAGE);
+};
+
 const contactFeature = defineFeature("presave-wiring", (r) => {
   r.crud("contact", contactEntity, {
     write: { access: { roles: ["User"] } },
@@ -41,17 +58,34 @@ const contactFeature = defineFeature("presave-wiring", (r) => {
   // handlers, so both need their own target.
   r.hook("preSave", "contact:create", deriveDisplayName);
   r.hook("preSave", "contact:update", deriveDisplayName);
+  r.hook("preSave", "contact:create", deriveAuthorId);
+  r.hook("preSave", "contact:update", deriveAuthorId);
+});
+
+const throwingEntity = createEntity({
+  table: "presave_wiring_throwing",
+  fields: { name: createTextField({ required: true }) },
+});
+
+const throwingFeature = defineFeature("presave-wiring-throw", (r) => {
+  r.crud("thing", throwingEntity, {
+    write: { access: { roles: ["User"] } },
+    read: { access: { openToAll: true } },
+  });
+  r.hook("preSave", "thing:create", throwOnPreSave);
 });
 
 const CREATE = "presave-wiring:write:contact:create";
 const UPDATE = "presave-wiring:write:contact:update";
+const THROWING_CREATE = "presave-wiring-throw:write:thing:create";
 
 describe("preSave hooks — real dispatcher path (#1672)", () => {
   let stack: TestStack;
 
   beforeAll(async () => {
-    stack = await setupTestStack({ features: [contactFeature] });
+    stack = await setupTestStack({ features: [contactFeature, throwingFeature] });
     await unsafeCreateEntityTable(stack.db, contactEntity);
+    await unsafeCreateEntityTable(stack.db, throwingEntity);
   });
 
   afterAll(async () => {
@@ -93,5 +127,23 @@ describe("preSave hooks — real dispatcher path (#1672)", () => {
     const { data: updated } = (await res.json()) as { data: { data: { displayName: string } } };
     expect(updated.data.displayName).toBe("Marc Kumiko");
     expect(seenIsNew).toEqual([true, false]);
+  });
+
+  test("preSave runs before ownership checks: field authz sees the hook-derived owner id", async () => {
+    const res = await stack.http.write(
+      CREATE,
+      { firstName: "Marc", lastName: "Ristone", secretNote: "psst" },
+      TestUsers.user,
+    );
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as { data: { data: { secretNote: string } } };
+    expect(data.data.secretNote).toBe("psst");
+  });
+
+  test("a throwing preSave hook maps to a clean writeFailure, not a 500", async () => {
+    const res = await stack.http.write(THROWING_CREATE, { name: "x" }, TestUsers.user);
+    expect(res.status).not.toBe(500);
+    const body = (await res.json()) as { error?: { details?: { message?: string } } };
+    expect(body.error?.details?.message).toBe(THROWING_HOOK_MESSAGE);
   });
 });
