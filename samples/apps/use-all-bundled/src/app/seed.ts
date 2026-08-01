@@ -15,7 +15,7 @@ import {
   tagAssignmentEntity,
   tagEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tags";
-import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
+import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import { fetchOne, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -209,7 +209,7 @@ export const seedScreenshotData: SeedFn = async (stack) => {
   await seedPage(stack.db, {
     tenantId: devTenant,
     slug: "about",
-    lang: "en",
+    locale: "en",
     title: "About Acme",
     body: "# About Acme\n\nWe build calm software.",
     published: true,
@@ -217,7 +217,7 @@ export const seedScreenshotData: SeedFn = async (stack) => {
   await seedPage(stack.db, {
     tenantId: devTenant,
     slug: "pricing",
-    lang: "en",
+    locale: "en",
     title: "Pricing",
     body: "# Pricing\n\nSimple, per-seat pricing.",
     published: false,
@@ -228,9 +228,9 @@ export const seedScreenshotData: SeedFn = async (stack) => {
   await seedTextBlock(stack.db, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "privacy",
-    lang: "en",
+    locale: "en",
     title: "Privacy Policy",
-    body: PRIVACY_BODY,
+    content: PRIVACY_BODY,
   });
 
   // tags + notes + assignments in the dev tenant for the tags screenshots.

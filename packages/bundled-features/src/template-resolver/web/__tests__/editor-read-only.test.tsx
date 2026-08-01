@@ -11,7 +11,7 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { textContentClient } from "../client-plugin";
+import { textBlocksClient } from "../client-plugin";
 
 mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => ({
   useShellUser: mock(),
@@ -24,9 +24,9 @@ mock.module("@cosmicdrift/kumiko-renderer", () => ({
   useQuery: mock(() => ({
     data: {
       slug: "imprint",
-      lang: "de",
+      locale: "de",
       title: "Impressum",
-      body: "Inhalt",
+      content: "Inhalt",
       folder: "legal",
     },
     loading: false,
@@ -38,14 +38,14 @@ mock.module("@cosmicdrift/kumiko-renderer", () => ({
 const { useDispatcher } = await import("@cosmicdrift/kumiko-renderer");
 
 const TARGET = {
-  featureId: "text-content",
+  featureId: "template-resolver",
   action: "edit",
-  args: { slug: "imprint", lang: "de" },
+  args: { slug: "imprint", locale: "de" },
 } as const;
 
 function getEditor() {
-  const def = textContentClient();
-  const Editor = def.resolvers?.["text-content:edit"];
+  const def = textBlocksClient();
+  const Editor = def.resolvers?.["template-resolver:edit"];
   if (!Editor) throw new Error("Editor not registered");
   return Editor;
 }

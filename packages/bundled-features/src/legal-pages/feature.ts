@@ -1,7 +1,8 @@
 import {
-  requireTextContent,
-  type TextContentApi,
-} from "@cosmicdrift/kumiko-bundled-features/text-content";
+  requireTemplateResolver,
+  TEXT_BLOCK_KIND,
+  type TemplateResolverApi,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
 import {
   defineFeature,
@@ -12,22 +13,26 @@ import { cachedSecurePageResponse } from "../page-render";
 import { LEGAL_REQUIRED_BLOCKS, LEGAL_ROUTES } from "./constants";
 import { renderMarkdownToHtml, wrapInLayout } from "./markdown";
 
-// QN-Konstante als dokumentierter Public-Contract des text-content-
+// QN-Konstante als dokumentierter Public-Contract des template-resolver-
 // Features. Ein magic-string statt eines Code-Imports ist hier explizit
 // gewollt: Cross-Feature-Calls gehen nur über stable Public-API
 // (handler-name + payload-shape), nicht über interne Module-Refs. Wenn
-// text-content's Handler-Name sich ändert, ist das ein semver-major
+// template-resolver's Handler-Name sich ändert, ist das ein semver-major
 // und muss in beiden Features synchronisiert werden — gleiches Risiko
 // wie bei jedem API-Endpunkt.
-const TEXT_CONTENT_BY_SLUG_QN = "text-content:query:by-slug";
+const TEXT_BLOCK_BY_SLUG_QN = "template-resolver:query:by-slug";
 
-// Return-Shape von bySlugQuery (text-content/handlers/by-slug.query.ts).
-type TextBlockQueryResult = { title: string; body: string | null; updatedAt: string } | null;
+// Return shape of bySlugQuery (template-resolver/handlers/by-slug.query.ts).
+type TextBlockQueryResult = {
+  title: string | null;
+  content: string | null;
+  updatedAt: string;
+} | null;
 
 // 60s-shared-cache saves the origin-revalidate roundtrip; legal-content edits are live within 60s.
 const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 
-// legal-pages — Opt-in-Wrapper um text-content für DACH-Compliance.
+// legal-pages — Opt-in-Wrapper um template-resolver (kind text-block) für DACH-Compliance.
 // Liefert vier feste Public-HTML-Routes (/legal/impressum,
 // /legal/datenschutz, /legal/imprint, /legal/privacy) mit
 // Markdown→HTML-Rendering und einen Boot-Check der in Production hart
@@ -35,14 +40,14 @@ const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 //
 // Cross-Feature-Decoupling:
 //   • Routes nutzen app.fetch zu "/api/query" mit dem QN-string
-//     `text-content:query:by-slug` — kein Code-Import von text-content
-//   • Boot-Check nutzt ctx.textContent (über extraContext) — symmetrisch
+//     `template-resolver:query:by-slug` — kein Code-Import von template-resolver
+//   • Boot-Check nutzt ctx.templateResolver (über extraContext) — symmetrisch
 //     zum config/tenant-Pattern
-//   • Single Type-Import (TextContentApi) bleibt — type-only verstößt
+//   • Single Type-Import (TemplateResolverApi) bleibt — type-only verstößt
 //     nicht gegen Cross-Feature-Coupling
 //
 // Voraussetzungen für Production:
-//   • App-Bootstrap muss extraContext: { textContent: createTextContentApi(db) }
+//   • App-Bootstrap muss extraContext: { templateResolver: createTemplateResolverApi(db) }
 //     setzen — sonst wirft Boot-Check beim Start
 //   • anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID } — sonst
 //     antworten die Routes mit 503
@@ -65,14 +70,14 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
   const wrapLayout = opts.wrapLayout ?? wrapInLayout;
   return defineFeature("legal-pages", (r) => {
     r.describe(
-      "Opt-in wrapper around `text-content` that registers four public HTML routes (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required DE blocks (`imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`. Requires `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` and `extraContext.textContent` to be wired at app bootstrap; for per-tenant imprints or a custom layout call `text-content:query:by-slug` directly.",
+      "Opt-in wrapper around `template-resolver` text-blocks that registers four public HTML routes (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required DE blocks (`imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`. Requires `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` and `extraContext.templateResolver` to be wired at app bootstrap; for per-tenant imprints or a custom layout call `template-resolver:query:by-slug` directly.",
     );
     r.uiHints({
       displayLabel: "Legal Pages",
       category: "content",
       recommended: false,
     });
-    r.requires("text-content");
+    r.requires("template-resolver");
 
     // 4 Public-HTML-Routes
     for (const route of LEGAL_ROUTES) {
@@ -92,19 +97,19 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
           try {
             // @cast-boundary engine-payload — dispatcher.query returnt
             // unknown; Shape ist durch bySlugQuery's Handler-Return-Type
-            // (siehe text-content/handlers/by-slug.query.ts) vertraut.
+            // (siehe template-resolver/handlers/by-slug.query.ts) vertraut.
             data = (await systemQuery(
-              TEXT_CONTENT_BY_SLUG_QN,
-              { slug: route.slug, lang: route.lang },
+              TEXT_BLOCK_BY_SLUG_QN,
+              { slug: route.slug, locale: route.lang },
               SYSTEM_TENANT_ID,
             )) as TextBlockQueryResult;
           } catch (err) {
             // biome-ignore lint/suspicious/noConsole: ops-visible fallback, no logger wired into HttpRouteHandlerDeps
-            console.error(`legal-pages: text-content query failed for slug="${route.slug}"`, err);
+            console.error(`legal-pages: text-block query failed for slug="${route.slug}"`, err);
             return c.text("legal page unavailable", 503);
           }
 
-          if (!data?.body) {
+          if (!data?.content) {
             return c.text(
               `${route.titleFallback} not configured. Tenant-Admin must set this text-block.`,
               404,
@@ -134,7 +139,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
 
           const html = wrapLayout({
             title: data.title || route.titleFallback,
-            bodyHtml: renderMarkdownToHtml(data.body),
+            bodyHtml: renderMarkdownToHtml(data.content),
             lang: route.lang,
             slug: route.slug,
           });
@@ -149,8 +154,8 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
       });
     }
 
-    // Boot-Check via ctx.textContent (extraContext-Pattern, symmetrisch
-    // zu requireConfigResolver in config). App-Bootstrap muss textContent
+    // Boot-Check via ctx.templateResolver (extraContext-Pattern, symmetrisch
+    // zu requireConfigResolver in config). App-Bootstrap muss templateResolver
     // wired haben — der Helper gibt einen klaren Wiring-Hinweis wenn nicht.
     //
     // Body als named function extrahiert (`runLegalPagesBootCheck`) damit
@@ -173,31 +178,35 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
 
 // Minimal-shape für die Boot-Check-Logik — nur die Felder die der Check
 // braucht. Akzeptiert HandlerContext + AppContext + jeden anderen
-// Container der textContent + log mitbringt. Macht den Check direkt
+// Container der templateResolver + log mitbringt. Macht den Check direkt
 // unit-testbar mit constructed ctx-Objects.
 export type LegalPagesBootCheckCtx = {
-  readonly textContent?: TextContentApi;
+  readonly templateResolver?: TemplateResolverApi;
   readonly log?: {
     readonly info?: (msg: string) => void;
     readonly warn?: (msg: string) => void;
   };
 };
 
-// Exportiert für direkte Tests. Wirft InternalError wenn ctx.textContent
+// Exportiert für direkte Tests. Wirft InternalError wenn ctx.templateResolver
 // nicht gewired ist (Hinweis auf fehlenden extraContext). Wirft Error
 // in NODE_ENV=production wenn Pflicht-Blocks fehlen, sonst log.warn.
 // Logged log.info wenn alles vorhanden ist (kein silent-skip).
 export async function runLegalPagesBootCheck(ctx: LegalPagesBootCheckCtx): Promise<void> {
-  const textContent: TextContentApi = requireTextContent(ctx, "legal-pages-boot-check");
+  const templateResolver: TemplateResolverApi = requireTemplateResolver(
+    ctx,
+    "legal-pages-boot-check",
+  );
   const missing: { slug: string; lang: string }[] = [];
 
   for (const required of LEGAL_REQUIRED_BLOCKS) {
-    const block = await textContent.getBlock({
+    const block = await templateResolver.findExact({
       tenantId: SYSTEM_TENANT_ID,
       slug: required.slug,
-      lang: required.lang,
+      kind: TEXT_BLOCK_KIND,
+      locale: required.lang,
     });
-    if (!block?.body) {
+    if (!block?.content) {
       missing.push({ slug: required.slug, lang: required.lang });
     }
   }
@@ -208,7 +217,7 @@ export async function runLegalPagesBootCheck(ctx: LegalPagesBootCheckCtx): Promi
     const message =
       `legal-pages: missing ${missing.length} required text-block(s) in SYSTEM_TENANT: ` +
       missing.map((m) => `${m.slug}/${m.lang}`).join(", ") +
-      ". Seed via text-content:write:set or seedTextBlock helper.";
+      ". Seed via template-resolver:write:set or the seedTextBlock helper.";
 
     if (process.env["NODE_ENV"] === "production") {
       throw new Error(`Boot-Validation failed: ${message}`);

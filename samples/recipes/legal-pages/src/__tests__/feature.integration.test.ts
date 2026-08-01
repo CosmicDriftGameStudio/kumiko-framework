@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
-  createTextContentApi,
-  textBlockEntity,
-} from "@cosmicdrift/kumiko-bundled-features/text-content";
-import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
+  createTemplateResolverApi,
+  templateResourceEntity,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -12,30 +12,30 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { LEGAL_ROUTES, legalPagesFeature, textContentFeature } from "../feature";
+import { LEGAL_ROUTES, legalPagesFeature, templateResolverFeature } from "../feature";
 
 let stack: TestStack;
 let db: DbConnection;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [textContentFeature, legalPagesFeature],
+    features: [templateResolverFeature, legalPagesFeature],
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
     extraContext: ({ db }) => ({
-      textContent: createTextContentApi(db),
+      templateResolver: createTemplateResolverApi(db),
     }),
   });
   db = stack.db;
-  await unsafeCreateEntityTable(db, textBlockEntity);
+  await unsafeCreateEntityTable(db, templateResourceEntity);
   await createEventsTable(db);
 
   // Seed Pflicht-Blocks für SYSTEM_TENANT (DE Impressum + DSE)
   await seedTextBlock(db, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "imprint",
-    lang: "de",
+    locale: "de",
     title: "Impressum",
-    body: [
+    content: [
       "## Angaben gemäß § 5 TMG",
       "",
       "**Marc Frost**",
@@ -52,9 +52,9 @@ beforeAll(async () => {
   await seedTextBlock(db, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "privacy",
-    lang: "de",
+    locale: "de",
     title: "Datenschutzerklärung",
-    body: [
+    content: [
       "## 1. Verantwortlicher",
       "",
       "Marc Frost, Slevogtstr. 10, 04159 Leipzig.",

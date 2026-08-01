@@ -22,7 +22,7 @@ const KEK = Buffer.alloc(32, 7).toString("base64");
 const otherFeature = defineFeature("widgets", () => {});
 
 describe("buildBootExtraContext — framework-default provider autowire", () => {
-  test("textContent is wired unconditionally (no secrets feature, no auth)", () => {
+  test("templateResolver is wired unconditionally (no secrets feature, no auth)", () => {
     const ctx = buildBootExtraContext({
       db: fakeDb,
       features: [otherFeature],
@@ -30,7 +30,7 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
       registry,
       hasAuth: false,
     });
-    expect(typeof (ctx["textContent"] as { getBlock?: unknown }).getBlock).toBe("function");
+    expect(typeof (ctx["templateResolver"] as { findExact?: unknown }).findExact).toBe("function");
     expect(ctx["secrets"]).toBeUndefined();
     expect(ctx["configResolver"]).toBeUndefined();
     expect(ctx["_notifyFactory"]).toBeUndefined();

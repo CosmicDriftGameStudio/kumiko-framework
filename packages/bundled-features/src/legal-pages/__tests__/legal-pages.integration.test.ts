@@ -1,11 +1,16 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { TextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
+import type {
+  TemplateResolverApi,
+  TemplateResource,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
-  createTextContentApi,
-  createTextContentFeature,
-  textBlockEntity,
-} from "@cosmicdrift/kumiko-bundled-features/text-content";
-import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
+  createTemplateResolverApi,
+  createTemplateResolverFeature,
+  TEXT_BLOCK_KIND,
+  TemplateNotFoundError,
+  templateResourceEntity,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -20,46 +25,46 @@ import { renderMarkdownToHtml, wrapInLayout } from "../markdown";
 let stack: TestStack;
 let db: DbConnection;
 
-const textFeature = createTextContentFeature();
+const textFeature = createTemplateResolverFeature();
 const legalFeature = createLegalPagesFeature();
 
 beforeAll(async () => {
   // legal-pages braucht zwei wirings:
   //   1. anonymousAccess für die /legal/*-Routes (laufen ohne JWT)
-  //   2. extraContext.textContent damit der Boot-Check + interner
+  //   2. extraContext.templateResolver damit der Boot-Check + interner
   //      Cross-Feature-Lookup ohne direct DB-Coupling funktioniert
   stack = await setupTestStack({
     features: [textFeature, legalFeature],
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
     extraContext: ({ db }) => ({
-      textContent: createTextContentApi(db),
+      templateResolver: createTemplateResolverApi(db),
     }),
   });
   db = stack.db;
-  await unsafeCreateEntityTable(db, textBlockEntity);
+  await unsafeCreateEntityTable(db, templateResourceEntity);
   await createEventsTable(db);
 
   // Seed legal blocks für SYSTEM_TENANT in DE
   await seedTextBlock(db, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "imprint",
-    lang: "de",
+    locale: "de",
     title: "Impressum",
-    body: "## Angaben gemäß § 5 TMG\n\n**Marc Frost**\n\nSlevogtstr. 10, Leipzig",
+    content: "## Angaben gemäß § 5 TMG\n\n**Marc Frost**\n\nSlevogtstr. 10, Leipzig",
   });
   await seedTextBlock(db, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "privacy",
-    lang: "de",
+    locale: "de",
     title: "Datenschutzerklärung",
-    body: "## 1. Überblick\n\nWir verarbeiten **keine Tracking-Cookies**.",
+    content: "## 1. Überblick\n\nWir verarbeiten **keine Tracking-Cookies**.",
   });
   await seedTextBlock(db, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "imprint",
-    lang: "en",
+    locale: "en",
     title: "Imprint",
-    body: "## Provider\n\n**Marc Frost**\n\nLeipzig, Germany",
+    content: "## Provider\n\n**Marc Frost**\n\nLeipzig, Germany",
   });
 });
 
@@ -120,9 +125,9 @@ describe("legal-pages :: edge-cases", () => {
     await seedTextBlock(db, {
       tenantId: SYSTEM_TENANT_ID,
       slug: "imprint",
-      lang: "fr",
+      locale: "fr",
       title: "Mentions légales",
-      body: null,
+      content: null,
     });
     // Keine /legal/imprint-fr-Route registriert (LEGAL_ROUTES ist
     // de+en) — wir adden nicht extra. Stattdessen testen wir das
@@ -131,9 +136,9 @@ describe("legal-pages :: edge-cases", () => {
     await seedTextBlock(db, {
       tenantId: SYSTEM_TENANT_ID,
       slug: "privacy",
-      lang: "en",
+      locale: "en",
       title: "Privacy Policy",
-      body: null,
+      content: null,
     });
     const res = await stack.app.request("/legal/privacy");
     expect(res.status).toBe(404);
@@ -147,9 +152,9 @@ describe("legal-pages :: edge-cases", () => {
     await seedTextBlock(db, {
       tenantId: SYSTEM_TENANT_ID,
       slug: "imprint",
-      lang: "de",
+      locale: "de",
       title: "Impressum",
-      body: "## XSS-Test\n\n<script>window.x=1</script>\n\nDanach.",
+      content: "## XSS-Test\n\n<script>window.x=1</script>\n\nDanach.",
       ifExists: "update",
     });
     const res = await stack.app.request("/legal/impressum");
@@ -233,7 +238,7 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
     // (leeren) imprint-Block abfragen → 404. Mit Fix immer SYSTEM_TENANT.
     const otherTenantId = "22222222-2222-4222-8222-222222222222";
     const hostScopedStack = await setupTestStack({
-      features: [createTextContentFeature(), createLegalPagesFeature()],
+      features: [createTemplateResolverFeature(), createLegalPagesFeature()],
       anonymousAccess: {
         // Resolver gibt IMMER einen anderen Tenant zurück — wenn legal-
         // pages den respektieren würde, wäre der DB-Lookup leer.
@@ -245,20 +250,20 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
         tenantExists: async (id) => id === otherTenantId || id === SYSTEM_TENANT_ID,
       },
       extraContext: ({ db }) => ({
-        textContent: createTextContentApi(db),
+        templateResolver: createTemplateResolverApi(db),
       }),
     });
     try {
-      await unsafeCreateEntityTable(hostScopedStack.db, textBlockEntity);
+      await unsafeCreateEntityTable(hostScopedStack.db, templateResourceEntity);
       await createEventsTable(hostScopedStack.db);
 
       // Block NUR im SYSTEM_TENANT seeden — NICHT im otherTenantId
       await seedTextBlock(hostScopedStack.db, {
         tenantId: SYSTEM_TENANT_ID,
         slug: "imprint",
-        lang: "de",
+        locale: "de",
         title: "System-Impressum",
-        body: "## Plattform\n\nMarc Frost",
+        content: "## Plattform\n\nMarc Frost",
       });
 
       const res = await hostScopedStack.app.request("/legal/impressum");
@@ -277,7 +282,7 @@ describe("legal-pages :: wrapLayout erhält route.slug (alt-lang-switch-regressi
     const seenSlugs: (string | undefined)[] = [];
     const customStack = await setupTestStack({
       features: [
-        createTextContentFeature(),
+        createTemplateResolverFeature(),
         createLegalPagesFeature({
           wrapLayout: (opts) => {
             seenSlugs.push(opts.slug);
@@ -287,25 +292,25 @@ describe("legal-pages :: wrapLayout erhält route.slug (alt-lang-switch-regressi
       ],
       anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
       extraContext: ({ db }) => ({
-        textContent: createTextContentApi(db),
+        templateResolver: createTemplateResolverApi(db),
       }),
     });
     try {
-      await unsafeCreateEntityTable(customStack.db, textBlockEntity);
+      await unsafeCreateEntityTable(customStack.db, templateResourceEntity);
       await createEventsTable(customStack.db);
       await seedTextBlock(customStack.db, {
         tenantId: SYSTEM_TENANT_ID,
         slug: "imprint",
-        lang: "de",
+        locale: "de",
         title: "Impressum",
-        body: "Body",
+        content: "Body",
       });
       await seedTextBlock(customStack.db, {
         tenantId: SYSTEM_TENANT_ID,
         slug: "privacy",
-        lang: "de",
+        locale: "de",
         title: "Datenschutzerklärung",
-        body: "Body",
+        content: "Body",
       });
 
       const imprintRes = await customStack.app.request("/legal/impressum");
@@ -328,36 +333,61 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
   // keine JobRunner-Coupling, keine Test-Stacks. Das ist die echte
   // Verhalten-Test-Surface; r.job() ist nur thin shell darum.
 
-  type Block = { slug: string; lang: string; title: string; body: string | null };
+  type Block = { slug: string; lang: string; title: string; content: string | null };
 
-  function fakeTextContent(blocks: readonly Block[]): {
-    api: TextContentApi;
+  function fakeTemplateResolver(blocks: readonly Block[]): {
+    api: TemplateResolverApi;
     calls: { tenantId: string; slug: string; lang: string }[];
   } {
     const calls: { tenantId: string; slug: string; lang: string }[] = [];
+    const find = (slug: string, locale: string): TemplateResource | null => {
+      const block = blocks.find((b) => b.slug === slug && b.lang === locale);
+      if (!block) return null;
+      return {
+        id: `${block.slug}-${block.lang}`,
+        version: 1,
+        tenantId: SYSTEM_TENANT_ID,
+        slug: block.slug,
+        kind: TEXT_BLOCK_KIND,
+        locale: block.lang,
+        title: block.title,
+        folder: null,
+        content: block.content ?? "",
+        contentFormat: "markdown",
+        variableSchema: {},
+        linkedResources: {},
+        scope: "system",
+        parentTemplateId: null,
+        status: "active",
+        updatedAt: new Date(),
+      };
+    };
     return {
       calls,
       api: {
-        getBlock: async ({ tenantId, slug, lang }) => {
-          calls.push({ tenantId, slug, lang });
-          const block = blocks.find((b) => b.slug === slug && b.lang === lang);
-          if (!block) return null;
-          return { ...block, updatedAt: new Date() };
+        findExact: async ({ tenantId, slug, locale }) => {
+          calls.push({ tenantId, slug, lang: locale });
+          return find(slug, locale);
+        },
+        resolveTemplate: async ({ slug, kind, locale }) => {
+          const found = find(slug, locale);
+          if (!found) throw new TemplateNotFoundError({ slug, kind, locale });
+          return found;
         },
       },
     };
   }
 
   test("alle Pflicht-Blocks vorhanden → log.info, kein throw", async () => {
-    const { api } = fakeTextContent([
-      { slug: "imprint", lang: "de", title: "I", body: "body" },
-      { slug: "privacy", lang: "de", title: "P", body: "body" },
+    const { api } = fakeTemplateResolver([
+      { slug: "imprint", lang: "de", title: "I", content: "body" },
+      { slug: "privacy", lang: "de", title: "P", content: "body" },
     ]);
     const infos: string[] = [];
     const warns: string[] = [];
     await expect(
       runLegalPagesBootCheck({
-        textContent: api,
+        templateResolver: api,
         log: { info: (m) => infos.push(m), warn: (m) => warns.push(m) },
       }),
     ).resolves.toBeUndefined();
@@ -367,11 +397,11 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
   });
 
   test("missing blocks + NODE_ENV=production → throws mit slug-Liste", async () => {
-    const { api } = fakeTextContent([]);
+    const { api } = fakeTemplateResolver([]);
     const originalEnv = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "production";
     try {
-      await expect(runLegalPagesBootCheck({ textContent: api })).rejects.toThrow(
+      await expect(runLegalPagesBootCheck({ templateResolver: api })).rejects.toThrow(
         /Boot-Validation failed.*imprint\/de.*privacy\/de/s,
       );
     } finally {
@@ -381,14 +411,14 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
   });
 
   test("missing blocks + NODE_ENV!=production → log.warn, kein throw", async () => {
-    const { api } = fakeTextContent([]);
+    const { api } = fakeTemplateResolver([]);
     const warns: string[] = [];
     const originalEnv = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "development";
     try {
       await expect(
         runLegalPagesBootCheck({
-          textContent: api,
+          templateResolver: api,
           log: { warn: (m) => warns.push(m) },
         }),
       ).resolves.toBeUndefined();
@@ -402,21 +432,23 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     }
   });
 
-  test("ctx ohne textContent → InternalError mit Wiring-Hinweis", async () => {
-    await expect(runLegalPagesBootCheck({})).rejects.toThrow(/textContent missing.*extraContext/s);
+  test("ctx ohne templateResolver → InternalError mit Wiring-Hinweis", async () => {
+    await expect(runLegalPagesBootCheck({})).rejects.toThrow(
+      /templateResolver missing.*extraContext/s,
+    );
   });
 
-  test("Block existiert aber body ist null → wird als missing gezählt", async () => {
-    const { api } = fakeTextContent([
-      { slug: "imprint", lang: "de", title: "I", body: null },
-      { slug: "privacy", lang: "de", title: "P", body: "body" },
+  test("Block existiert aber content ist null → wird als missing gezählt", async () => {
+    const { api } = fakeTemplateResolver([
+      { slug: "imprint", lang: "de", title: "I", content: null },
+      { slug: "privacy", lang: "de", title: "P", content: "body" },
     ]);
     const warns: string[] = [];
     const originalEnv = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "development";
     try {
       await runLegalPagesBootCheck({
-        textContent: api,
+        templateResolver: api,
         log: { warn: (m) => warns.push(m) },
       });
       expect(warns[0]).toContain("missing 1 required text-block(s)");
@@ -429,11 +461,11 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
   });
 
   test("alle Lookups erfolgen gegen SYSTEM_TENANT_ID (nie tenant-scoped)", async () => {
-    const { api, calls } = fakeTextContent([
-      { slug: "imprint", lang: "de", title: "I", body: "x" },
-      { slug: "privacy", lang: "de", title: "P", body: "x" },
+    const { api, calls } = fakeTemplateResolver([
+      { slug: "imprint", lang: "de", title: "I", content: "x" },
+      { slug: "privacy", lang: "de", title: "P", content: "x" },
     ]);
-    await runLegalPagesBootCheck({ textContent: api });
+    await runLegalPagesBootCheck({ templateResolver: api });
     expect(calls).toHaveLength(2);
     for (const call of calls) {
       expect(call.tenantId).toBe(SYSTEM_TENANT_ID);

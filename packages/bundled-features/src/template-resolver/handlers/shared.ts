@@ -1,6 +1,6 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { z } from "zod";
-import { CONTENT_FORMATS, RENDER_KINDS, TEMPLATE_STATUSES } from "../constants";
+import { CONTENT_FORMATS, TEMPLATE_STATUSES, UPSERT_KINDS } from "../constants";
 import { templateResourceEntity, templateResourcesTable } from "../table";
 
 // Single executor pro Bundle — Pattern aus text-content. Wird von allen
@@ -23,7 +23,16 @@ export const localeSchema = z
   .max(8)
   .regex(/^[a-z]{2}(-[a-z]{2})?$/i, "locale must be ISO 639-1 (e.g. de, en, en-us)");
 
-export const kindSchema = z.enum(RENDER_KINDS);
+export const kindSchema = z.enum(UPSERT_KINDS);
+
+// Folder path for the content tree: kebab segments joined by `/`.
+export const folderSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/, "folder must be kebab-case path");
+
+export const titleSchema = z.string().min(1).max(200);
 export const contentFormatSchema = z.enum(CONTENT_FORMATS);
 export const statusSchema = z.enum(TEMPLATE_STATUSES);
 
@@ -38,4 +47,6 @@ export const upsertPayloadSchema = z.object({
   variableSchema: z.record(z.string(), z.unknown()).default({}),
   linkedResources: z.record(z.string(), z.string()).default({}),
   parentTemplateId: z.string().min(1).optional(),
+  title: titleSchema.nullable().optional(),
+  folder: folderSchema.nullable().optional(),
 });

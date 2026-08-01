@@ -17,17 +17,21 @@ import {
   tenantComplianceProfileTable,
 } from "../compliance-profiles/schema/profile-selection";
 import { seedComplianceProfile } from "../compliance-profiles/seeding";
-import { createTextContentFeature } from "../text-content/feature";
-import { seedTextBlock } from "../text-content/seeding";
-import { type TextBlockRow, textBlockEntity, textBlocksTable } from "../text-content/table";
+import { createTemplateResolverFeature } from "../template-resolver/feature";
+import { seedTextBlock } from "../template-resolver/seeding";
+import {
+  type TemplateResourceRow,
+  templateResourceEntity,
+  templateResourcesTable,
+} from "../template-resolver/table";
 
 let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createTextContentFeature(), createComplianceProfilesFeature()],
+    features: [createTemplateResolverFeature(), createComplianceProfilesFeature()],
   });
-  await unsafeCreateEntityTable(stack.db, textBlockEntity);
+  await unsafeCreateEntityTable(stack.db, templateResourceEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await createEventsTable(stack.db);
 });
@@ -43,32 +47,32 @@ describe("boot-seed contract", () => {
     await seedTextBlock(stack.db, {
       tenantId,
       slug: "imprint",
-      lang: "de",
+      locale: "de",
       title: "Impressum",
-      body: "seed body",
+      content: "seed body",
     });
     await seedTextBlock(stack.db, {
       tenantId,
       slug: "imprint",
-      lang: "de",
+      locale: "de",
       title: "Impressum (edited)",
-      body: "admin body",
+      content: "admin body",
       ifExists: "update",
     });
     await seedTextBlock(stack.db, {
       tenantId,
       slug: "imprint",
-      lang: "de",
+      locale: "de",
       title: "Impressum",
-      body: "seed body",
+      content: "seed body",
     });
 
-    const row = await fetchOne<TextBlockRow>(stack.db, textBlocksTable, {
+    const row = await fetchOne<TemplateResourceRow>(stack.db, templateResourcesTable, {
       tenantId,
       slug: "imprint",
-      lang: "de",
+      locale: "de",
     });
-    expect(row).toMatchObject({ title: "Impressum (edited)", body: "admin body", version: 2 });
+    expect(row).toMatchObject({ title: "Impressum (edited)", content: "admin body", version: 2 });
 
     const events = await selectMany(stack.db, eventsTable, { aggregateId: String(row!.id) });
     expect(events).toHaveLength(2);

@@ -6,11 +6,11 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { seedPage } from "@cosmicdrift/kumiko-bundled-features/managed-pages/seeding";
 import {
-  createTextContentApi,
-  createTextContentFeature,
-  textBlockEntity,
-} from "@cosmicdrift/kumiko-bundled-features/text-content";
-import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
+  createTemplateResolverApi,
+  createTemplateResolverFeature,
+  templateResourceEntity,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -42,39 +42,39 @@ const managed = createManagedPagesFeature({
 });
 const legal = createLegalPagesFeature();
 const configFeature = createConfigFeature();
-const textContent = createTextContentFeature();
+const templateResolver = createTemplateResolverFeature();
 
 beforeAll(async () => {
   const resolver = createConfigResolver();
   stack = await setupTestStack({
-    features: [configFeature, textContent, managed, legal, seo],
+    features: [configFeature, templateResolver, managed, legal, seo],
     anonymousAccess: {
       tenantExists: async (id) => id === TENANT_A || id === SYSTEM_TENANT_ID,
     },
     extraContext: ({ registry, db }) => ({
       configResolver: resolver,
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
-      textContent: createTextContentApi(db),
+      templateResolver: createTemplateResolverApi(db),
     }),
   });
   await unsafeCreateEntityTable(stack.db, pageEntity);
-  await unsafeCreateEntityTable(stack.db, textBlockEntity);
+  await unsafeCreateEntityTable(stack.db, templateResourceEntity);
   await unsafePushTables(stack.db, { configValuesTable });
   await createEventsTable(stack.db);
 
   await seedTextBlock(stack.db, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "imprint",
-    lang: "de",
+    locale: "de",
     title: "Impressum",
-    body: "## Test\n\nAcme",
+    content: "## Test\n\nAcme",
   });
   await seedTextBlock(stack.db, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "privacy",
-    lang: "de",
+    locale: "de",
     title: "Datenschutz",
-    body: "## Test\n\nAcme",
+    content: "## Test\n\nAcme",
   });
 
   await seedPage(stack.db, {

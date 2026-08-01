@@ -5,7 +5,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { CONTENT_FORMATS, RENDER_KINDS, TEMPLATE_SCOPES, TEMPLATE_STATUSES } from "./constants";
+import { CONTENT_FORMATS, TEMPLATE_KINDS, TEMPLATE_SCOPES, TEMPLATE_STATUSES } from "./constants";
 
 // TemplateResource — strukturierte Template-Definition mit Tenant-
 // Override-Hierarchie, Locale-Fallback und Resource-Linking via
@@ -19,8 +19,15 @@ export const templateResourceEntity = createEntity({
   table: "read_template_resources",
   fields: {
     slug: createTextField({ required: true }),
-    kind: createSelectField({ required: true, options: [...RENDER_KINDS] }),
+    kind: createSelectField({ required: true, options: [...TEMPLATE_KINDS] }),
     locale: createTextField({ required: true }),
+    // Human-facing heading for kind="text-block" (legal pages, marketing
+    // copy). Nullable because render templates carry their subject inside
+    // the body; a NOT NULL here would break every existing mail row.
+    title: createTextField({}),
+    // Folder path for the content tree, `/`-separated ("page/marketing").
+    // null = root node.
+    folder: createTextField({}),
     // Template-body is authored by TenantAdmin/Operator (email-templates etc.),
     // business data — kein end-user UGC.
     content: createLongTextField({ allowPlaintext: "is-business-data" }),
@@ -52,6 +59,8 @@ export type TemplateResourceRow = {
   readonly slug: string;
   readonly kind: string;
   readonly locale: string;
+  readonly title: string | null;
+  readonly folder: string | null;
   readonly content: string | null;
   readonly contentFormat: string;
   readonly variableSchema: string | null;

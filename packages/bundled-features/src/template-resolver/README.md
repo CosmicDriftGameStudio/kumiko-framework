@@ -1,6 +1,6 @@
 # template-resolver
 
-Strukturierter Template-Storage mit Tenant-Override-Hierarchie, Locale-Fallback und Resource-Linking via `file-foundation`.
+Strukturierter Content-Storage mit Tenant-Override-Hierarchie, Locale-Fallback und Resource-Linking via `file-foundation`. Eine Entity (`template-resource`) für alle Content-Arten — Render-Templates (`mail-html`, `document-pdf`, `notification`, `image-snapshot`), Markdown-Textblöcke (`text-block`, ex `text-content`-Feature) und AI-Prompts (`ai-prompt`).
 
 **Plan-Doc:** [`kumiko-platform/docs/plans/features/template-resolver.md`](../../../../../../kumiko-platform/docs/plans/features/template-resolver.md)
 
@@ -119,6 +119,35 @@ describe("my-mail-renderer :: template-resolver conformance", () => {
 ```
 
 The harness checks `TemplateNotFoundError` propagation, locale-fallback, and (when `resolveResources` is provided) missing resource keys.
+
+## Text-Blöcke (`kind: "text-block"`)
+
+Marketing-, FAQ- und Legal-Texte laufen über denselben Store, aber über einen
+eigenen Write-Pfad: `set.write` trägt `title` + `folder` (Content-Tree) und
+kennt keinen draft-Status — Speichern veröffentlicht.
+
+| Handler | QN | Wer | Was |
+|---|---|---|---|
+| `TemplateResolverHandlers.set` | `template-resolver:write:set` | TenantAdmin + SystemAdmin (via `tenantIdOverride` auch auf `SYSTEM_TENANT_ID`) | Upsert eines Text-Blocks pro `(tenantId, slug, locale)` |
+| `TemplateResolverQueries.bySlug` | `template-resolver:query:by-slug` | anonymous + User + Admins | Ein Text-Block — der Public-Read für Landing-/Legal-Pages |
+| `TemplateResolverQueries.byTenant` | `template-resolver:query:by-tenant` | anonymous + User + Admins | Alle Text-Blöcke eines Tenants für den Content-Tree |
+
+Die beiden Queries sind fest auf `kind: "text-block"` verdrahtet: Mail-Templates
+und AI-Prompts liegen in derselben Tabelle und dürfen nicht über den anonymen
+Pfad rausfallen.
+
+Seed-Helper: `seedTextBlock` / `seedLegalContentFromJson` aus
+`@cosmicdrift/kumiko-bundled-features/template-resolver/seeding`.
+
+Content-Tree + Editor (Desktop-Web):
+
+```typescript
+import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+
+createKumikoApp({
+  clientFeatures: [textBlocksClient({ navId: "myapp:nav:content", tenantId: SYSTEM_TENANT_ID })],
+});
+```
 
 ## Out-of-Scope
 

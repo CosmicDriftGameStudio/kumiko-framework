@@ -9,10 +9,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { TextContentHandlers, TextContentQueries } from "../constants";
-import { createTextContentFeature } from "../feature";
+import { TEXT_BLOCK_KIND } from "../constants";
+import { createTemplateResolverFeature } from "../feature";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names";
 import { seedTextBlock } from "../seeding";
-import { type TextBlockRow, textBlockEntity, textBlocksTable } from "../table";
+import { type TemplateResourceRow, templateResourceEntity, templateResourcesTable } from "../table";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -21,12 +22,12 @@ const systemAdmin = TestUsers.systemAdmin;
 const tenantAdmin = createTestUser({ id: 2, roles: ["TenantAdmin"] });
 const normalUser = createTestUser({ id: 3 });
 
-const feature = createTextContentFeature();
+const feature = createTemplateResolverFeature();
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   db = stack.db;
-  await unsafeCreateEntityTable(db, textBlockEntity);
+  await unsafeCreateEntityTable(db, templateResourceEntity);
   await createEventsTable(db);
 });
 
@@ -34,40 +35,40 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("text-content :: write", () => {
+describe("text-blocks :: write", () => {
   test("TenantAdmin can create a text block", async () => {
     const result = await stack.http.writeOk<Record<string, unknown>>(
-      TextContentHandlers.set,
+      TemplateResolverHandlers.set,
       {
         slug: "imprint",
-        lang: "de",
+        locale: "de",
         title: "Impressum",
-        body: "## Angaben gemäß § 5 TMG\n\nMarc Frost",
+        content: "## Angaben gemäß § 5 TMG\n\nMarc Frost",
       },
       tenantAdmin,
     );
-    expect(result).toMatchObject({ slug: "imprint", lang: "de", isNew: true });
+    expect(result).toMatchObject({ slug: "imprint", locale: "de", isNew: true });
   });
 
   test("set is idempotent — second call updates existing block", async () => {
     await stack.http.writeOk(
-      TextContentHandlers.set,
-      { slug: "privacy", lang: "de", title: "Datenschutz v1", body: "alt" },
+      TemplateResolverHandlers.set,
+      { slug: "privacy", locale: "de", title: "Datenschutz v1", content: "alt" },
       tenantAdmin,
     );
     const result = await stack.http.writeOk<Record<string, unknown>>(
-      TextContentHandlers.set,
-      { slug: "privacy", lang: "de", title: "Datenschutz v2", body: "neu" },
+      TemplateResolverHandlers.set,
+      { slug: "privacy", locale: "de", title: "Datenschutz v2", content: "neu" },
       tenantAdmin,
     );
     expect(result).toMatchObject({ slug: "privacy", isNew: false });
 
     const fetched = await stack.http.queryOk<Record<string, unknown>>(
-      TextContentQueries.bySlug,
-      { slug: "privacy", lang: "de" },
+      TemplateResolverQueries.bySlug,
+      { slug: "privacy", locale: "de" },
       tenantAdmin,
     );
-    expect(fetched).toMatchObject({ title: "Datenschutz v2", body: "neu" });
+    expect(fetched).toMatchObject({ title: "Datenschutz v2", content: "neu" });
   });
 
   test("SystemAdmin can create text blocks for SYSTEM_TENANT (without TenantAdmin role)", async () => {
@@ -75,12 +76,12 @@ describe("text-content :: write", () => {
     // membership. Das Set-Handler-ACL muss SystemAdmin explizit erlauben
     // sonst kann niemand Plattform-Texte (z.B. Impressum) setzen.
     const result = await stack.http.writeOk<Record<string, unknown>>(
-      TextContentHandlers.set,
+      TemplateResolverHandlers.set,
       {
         slug: "system-imprint-write",
-        lang: "de",
+        locale: "de",
         title: "System-Impressum",
-        body: "## Plattform\n\nMarc",
+        content: "## Plattform\n\nMarc",
       },
       systemAdmin,
     );
@@ -89,8 +90,8 @@ describe("text-content :: write", () => {
 
   test("normal User cannot create text blocks (access denied)", async () => {
     const error = await stack.http.writeErr(
-      TextContentHandlers.set,
-      { slug: "about", lang: "de", title: "Über", body: null },
+      TemplateResolverHandlers.set,
+      { slug: "about", locale: "de", title: "Über", content: null },
       normalUser,
     );
     expectErrorIncludes(error, "access_denied");
@@ -98,8 +99,8 @@ describe("text-content :: write", () => {
 
   test("invalid slug rejected by schema validation", async () => {
     const error = await stack.http.writeErr(
-      TextContentHandlers.set,
-      { slug: "Invalid Slug!", lang: "de", title: "x", body: null },
+      TemplateResolverHandlers.set,
+      { slug: "Invalid Slug!", locale: "de", title: "x", content: null },
       tenantAdmin,
     );
     expectErrorIncludes(error, "validation_error");
@@ -112,12 +113,12 @@ describe("text-content :: write", () => {
     // statt SYSTEM_TENANT — legal-pages-routes lesen ihn dann nie.
     const targetTenant = createTestUser({ id: 99 }).tenantId;
     const result = await stack.http.writeOk<Record<string, unknown>>(
-      TextContentHandlers.set,
+      TemplateResolverHandlers.set,
       {
         slug: "override-target",
-        lang: "de",
+        locale: "de",
         title: "Override-Test",
-        body: "via tenantIdOverride",
+        content: "via tenantIdOverride",
         tenantIdOverride: targetTenant,
       },
       systemAdmin,
@@ -127,8 +128,8 @@ describe("text-content :: write", () => {
     // Beweis: text landed auf TARGET-tenant, nicht auf systemAdmin's
     // eigenem tenant. Read mit denselben override returnt den block.
     const read = await stack.http.queryOk<Record<string, unknown>>(
-      TextContentQueries.bySlug,
-      { slug: "override-target", lang: "de", tenantIdOverride: targetTenant },
+      TemplateResolverQueries.bySlug,
+      { slug: "override-target", locale: "de", tenantIdOverride: targetTenant },
       systemAdmin,
     );
     expect(read).toMatchObject({ slug: "override-target", title: "Override-Test" });
@@ -146,12 +147,12 @@ describe("text-content :: write", () => {
 
     // Schritt 1: create mit override.
     await stack.http.writeOk<Record<string, unknown>>(
-      TextContentHandlers.set,
+      TemplateResolverHandlers.set,
       {
         slug: "update-target",
-        lang: "de",
+        locale: "de",
         title: "v1",
-        body: "first",
+        content: "first",
         tenantIdOverride: targetTenant,
       },
       systemAdmin,
@@ -160,12 +161,12 @@ describe("text-content :: write", () => {
     // Schritt 2: UPDATE mit override (selbe slug+lang+target). Vor dem
     // Fix: version_conflict. Nach dem Fix: clean update.
     const result = await stack.http.writeOk<Record<string, unknown>>(
-      TextContentHandlers.set,
+      TemplateResolverHandlers.set,
       {
         slug: "update-target",
-        lang: "de",
+        locale: "de",
         title: "v2",
-        body: "updated",
+        content: "updated",
         tenantIdOverride: targetTenant,
       },
       systemAdmin,
@@ -174,11 +175,11 @@ describe("text-content :: write", () => {
 
     // Beweis: read returnt den UPDATED content auf TARGET-tenant.
     const read = await stack.http.queryOk<Record<string, unknown>>(
-      TextContentQueries.bySlug,
-      { slug: "update-target", lang: "de", tenantIdOverride: targetTenant },
+      TemplateResolverQueries.bySlug,
+      { slug: "update-target", locale: "de", tenantIdOverride: targetTenant },
       systemAdmin,
     );
-    expect(read).toMatchObject({ slug: "update-target", title: "v2", body: "updated" });
+    expect(read).toMatchObject({ slug: "update-target", title: "v2", content: "updated" });
   });
 
   test("TenantAdmin's tenantIdOverride attempt → 403 access_denied", async () => {
@@ -187,12 +188,12 @@ describe("text-content :: write", () => {
     // Tenant-Admin von Tenant-A einfach Tenant-B's Impressum überschreiben.
     const otherTenant = createTestUser({ id: 88 }).tenantId;
     const error = await stack.http.writeErr(
-      TextContentHandlers.set,
+      TemplateResolverHandlers.set,
       {
         slug: "evil-override",
-        lang: "de",
+        locale: "de",
         title: "evil",
-        body: null,
+        content: null,
         tenantIdOverride: otherTenant,
       },
       tenantAdmin,
@@ -202,40 +203,40 @@ describe("text-content :: write", () => {
 
   test("invalid lang rejected by schema validation", async () => {
     const error = await stack.http.writeErr(
-      TextContentHandlers.set,
-      { slug: "ok", lang: "DEUTSCH", title: "x", body: null },
+      TemplateResolverHandlers.set,
+      { slug: "ok", locale: "DEUTSCH", title: "x", content: null },
       tenantAdmin,
     );
     expectErrorIncludes(error, "validation_error");
   });
 });
 
-describe("text-content :: query (openToAll)", () => {
+describe("text-blocks :: query (openToAll)", () => {
   test("by-slug returns existing block for matching tenant/lang", async () => {
     await seedTextBlock(db, {
       tenantId: tenantAdmin.tenantId,
       slug: "about",
-      lang: "de",
+      locale: "de",
       title: "Über uns",
-      body: "Wir sind ein Team.",
+      content: "Wir sind ein Team.",
     });
     const result = await stack.http.queryOk<Record<string, unknown>>(
-      TextContentQueries.bySlug,
-      { slug: "about", lang: "de" },
+      TemplateResolverQueries.bySlug,
+      { slug: "about", locale: "de" },
       tenantAdmin,
     );
     expect(result).toMatchObject({
       slug: "about",
-      lang: "de",
+      locale: "de",
       title: "Über uns",
-      body: "Wir sind ein Team.",
+      content: "Wir sind ein Team.",
     });
   });
 
   test("by-slug returns null for missing block", async () => {
     const result = await stack.http.queryOk<Record<string, unknown> | null>(
-      TextContentQueries.bySlug,
-      { slug: "does-not-exist", lang: "de" },
+      TemplateResolverQueries.bySlug,
+      { slug: "does-not-exist", locale: "de" },
       tenantAdmin,
     );
     expect(result).toBeFalsy();
@@ -250,12 +251,12 @@ describe("text-content :: query (openToAll)", () => {
     await seedTextBlock(db, {
       tenantId: tenantAdmin.tenantId,
       slug: "tenant-only",
-      lang: "de",
+      locale: "de",
       title: "Tenant-A only",
     });
     const result = await stack.http.queryOk<Record<string, unknown> | null>(
-      TextContentQueries.bySlug,
-      { slug: "tenant-only", lang: "de" },
+      TemplateResolverQueries.bySlug,
+      { slug: "tenant-only", locale: "de" },
       otherTenant,
     );
     expect(result).toBeNull();
@@ -265,70 +266,70 @@ describe("text-content :: query (openToAll)", () => {
     await seedTextBlock(db, {
       tenantId: systemAdmin.tenantId,
       slug: "system-imprint",
-      lang: "de",
+      locale: "de",
       title: "System-Impressum",
-      body: "Plattform-Betreiber",
+      content: "Plattform-Betreiber",
     });
     const result = await stack.http.queryOk<Record<string, unknown>>(
-      TextContentQueries.bySlug,
-      { slug: "system-imprint", lang: "de" },
+      TemplateResolverQueries.bySlug,
+      { slug: "system-imprint", locale: "de" },
       systemAdmin,
     );
     expect(result).toMatchObject({ title: "System-Impressum" });
   });
 });
 
-describe("text-content :: edge-cases", () => {
+describe("text-blocks :: edge-cases", () => {
   test("body=null roundtrip — set + query liefert null body zurück", async () => {
     // Sinnvoller Use-Case: Tenant-Admin legt einen leeren Block als
     // Stub an (z.B. während Onboarding) und befüllt ihn später.
     await stack.http.writeOk<Record<string, unknown>>(
-      TextContentHandlers.set,
-      { slug: "stub-page", lang: "de", title: "Wird noch gefüllt", body: null },
+      TemplateResolverHandlers.set,
+      { slug: "stub-page", locale: "de", title: "Wird noch gefüllt", content: null },
       tenantAdmin,
     );
     const fetched = await stack.http.queryOk<Record<string, unknown>>(
-      TextContentQueries.bySlug,
-      { slug: "stub-page", lang: "de" },
+      TemplateResolverQueries.bySlug,
+      { slug: "stub-page", locale: "de" },
       tenantAdmin,
     );
-    expect(fetched).toMatchObject({ title: "Wird noch gefüllt", body: null });
+    expect(fetched).toMatchObject({ title: "Wird noch gefüllt", content: null });
   });
 
   test("body=null kann via update auf string gesetzt werden", async () => {
     await stack.http.writeOk(
-      TextContentHandlers.set,
-      { slug: "later-filled", lang: "de", title: "Stub", body: null },
+      TemplateResolverHandlers.set,
+      { slug: "later-filled", locale: "de", title: "Stub", content: null },
       tenantAdmin,
     );
     await stack.http.writeOk(
-      TextContentHandlers.set,
-      { slug: "later-filled", lang: "de", title: "Stub", body: "Inhalt" },
+      TemplateResolverHandlers.set,
+      { slug: "later-filled", locale: "de", title: "Stub", content: "Inhalt" },
       tenantAdmin,
     );
     const fetched = await stack.http.queryOk<Record<string, unknown>>(
-      TextContentQueries.bySlug,
-      { slug: "later-filled", lang: "de" },
+      TemplateResolverQueries.bySlug,
+      { slug: "later-filled", locale: "de" },
       tenantAdmin,
     );
-    expect(fetched!["body"]).toBe("Inhalt");
+    expect(fetched!["content"]).toBe("Inhalt");
   });
 
-  test("body knapp unter max-length (100k Zeichen) wird akzeptiert", async () => {
-    const justBelowMax = "a".repeat(100_000);
+  test("body knapp unter max-length (200k Zeichen) wird akzeptiert", async () => {
+    const justBelowMax = "a".repeat(200_000);
     const result = await stack.http.writeOk<Record<string, unknown>>(
-      TextContentHandlers.set,
-      { slug: "max-length-ok", lang: "de", title: "Max", body: justBelowMax },
+      TemplateResolverHandlers.set,
+      { slug: "max-length-ok", locale: "de", title: "Max", content: justBelowMax },
       tenantAdmin,
     );
     expect(result).toMatchObject({ slug: "max-length-ok", isNew: true });
   });
 
-  test("body über max-length (100k+1 Zeichen) → validation_error", async () => {
-    const overLimit = "a".repeat(100_001);
+  test("body über max-length (200k+1 Zeichen) → validation_error", async () => {
+    const overLimit = "a".repeat(200_001);
     const error = await stack.http.writeErr(
-      TextContentHandlers.set,
-      { slug: "max-length-fail", lang: "de", title: "Over", body: overLimit },
+      TemplateResolverHandlers.set,
+      { slug: "max-length-fail", locale: "de", title: "Over", content: overLimit },
       tenantAdmin,
     );
     expectErrorIncludes(error, "validation_error");
@@ -340,17 +341,17 @@ describe("text-content :: edge-cases", () => {
     // sie sanitizen — siehe legal-pages/README.md XSS-Sektion.
     const xssPayload = "## Title\n\n<script>alert('xss')</script>\n\nText.";
     await stack.http.writeOk(
-      TextContentHandlers.set,
-      { slug: "xss-test", lang: "de", title: "XSS", body: xssPayload },
+      TemplateResolverHandlers.set,
+      { slug: "xss-test", locale: "de", title: "XSS", content: xssPayload },
       tenantAdmin,
     );
     const fetched = await stack.http.queryOk<Record<string, unknown>>(
-      TextContentQueries.bySlug,
-      { slug: "xss-test", lang: "de" },
+      TemplateResolverQueries.bySlug,
+      { slug: "xss-test", locale: "de" },
       tenantAdmin,
     );
     // Roundtrip: Body bleibt exakt was reingeschrieben wurde
-    expect(fetched!["body"]).toBe(xssPayload);
+    expect(fetched!["content"]).toBe(xssPayload);
   });
 
   test("concurrent set auf gleichen (tenantId, slug, lang) — mindestens einer succeed", async () => {
@@ -362,20 +363,20 @@ describe("text-content :: edge-cases", () => {
     // (oder beide succeed wenn sequenziell genug). Mindestens einer
     // muss durchlaufen, sonst ist der Race-Pfad kaputt.
     await stack.http.writeOk(
-      TextContentHandlers.set,
-      { slug: "race-test", lang: "de", title: "Initial", body: "v1" },
+      TemplateResolverHandlers.set,
+      { slug: "race-test", locale: "de", title: "Initial", content: "v1" },
       tenantAdmin,
     );
 
     const results = await Promise.allSettled([
       stack.http.writeOk(
-        TextContentHandlers.set,
-        { slug: "race-test", lang: "de", title: "A", body: "from-a" },
+        TemplateResolverHandlers.set,
+        { slug: "race-test", locale: "de", title: "A", content: "from-a" },
         tenantAdmin,
       ),
       stack.http.writeOk(
-        TextContentHandlers.set,
-        { slug: "race-test", lang: "de", title: "B", body: "from-b" },
+        TemplateResolverHandlers.set,
+        { slug: "race-test", locale: "de", title: "B", content: "from-b" },
         tenantAdmin,
       ),
     ]);
@@ -385,30 +386,30 @@ describe("text-content :: edge-cases", () => {
     // Egal welcher gewinnt — die Row ist nach beiden Aufrufen konsistent
     // mit einem der beiden Werte (kein partial state).
     const fetched = await stack.http.queryOk<Record<string, unknown>>(
-      TextContentQueries.bySlug,
-      { slug: "race-test", lang: "de" },
+      TemplateResolverQueries.bySlug,
+      { slug: "race-test", locale: "de" },
       tenantAdmin,
     );
-    const finalBody = fetched!["body"] as string;
+    const finalBody = fetched!["content"] as string;
     expect(["from-a", "from-b", "v1"]).toContain(finalBody);
   });
 });
 
-describe("text-content :: seedTextBlock", () => {
+describe("text-blocks :: seedTextBlock", () => {
   test('ifExists="update" overwrites existing row (same aggregate id)', async () => {
     const a = await seedTextBlock(db, {
       tenantId: tenantAdmin.tenantId,
       slug: "seed-test",
-      lang: "de",
+      locale: "de",
       title: "v1",
-      body: "alt",
+      content: "alt",
     });
     const b = await seedTextBlock(db, {
       tenantId: tenantAdmin.tenantId,
       slug: "seed-test",
-      lang: "de",
+      locale: "de",
       title: "v2",
-      body: "neu",
+      content: "neu",
       ifExists: "update",
     });
     expect(a.id).toBe(b.id);
@@ -418,33 +419,39 @@ describe("text-content :: seedTextBlock", () => {
     const base = {
       tenantId: tenantAdmin.tenantId,
       slug: "seed-skip",
-      lang: "de",
+      locale: "de",
     };
     await seedTextBlock(db, {
       ...base,
       title: "Initial",
-      body: "from seed",
+      content: "from seed",
     });
     await seedTextBlock(db, {
       ...base,
       title: "User edit",
-      body: "from admin",
+      content: "from admin",
       ifExists: "update",
     });
     await seedTextBlock(db, {
       ...base,
       title: "Seed again",
-      body: "would overwrite",
+      content: "would overwrite",
     });
 
-    const row = await fetchOne<TextBlockRow>(db, textBlocksTable, base);
-    expect(row).toMatchObject({ title: "User edit", body: "from admin", version: 2 });
+    const row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      ...base,
+      kind: TEXT_BLOCK_KIND,
+    });
+    expect(row).toMatchObject({ title: "User edit", content: "from admin", version: 2 });
 
     const events = await selectMany(db, eventsTable, {
       aggregateId: String(row!.id),
     });
     expect(events).toHaveLength(2);
-    expect(events.map((e) => e.type)).toEqual(["text-block.created", "text-block.updated"]);
+    expect(events.map((e) => e.type)).toEqual([
+      "template-resource.created",
+      "template-resource.updated",
+    ]);
   });
 
   // Drift-Documentation: seedTextBlock geht direkt durch den Executor
@@ -467,16 +474,16 @@ describe("text-content :: seedTextBlock", () => {
     const seeded = await seedTextBlock(db, {
       tenantId: tenantAdmin.tenantId,
       slug: "page:hero",
-      lang: "de",
+      locale: "de",
       title: "Seeded",
-      body: "from-seed",
+      content: "from-seed",
     });
     expect(seeded.id).toBeDefined();
 
     // Set.write auf demselben Slug → validation_error (kebab-only regex)
     const error = await stack.http.writeErr(
-      TextContentHandlers.set,
-      { slug: "page:hero", lang: "de", title: "User-edit", body: "from-write" },
+      TemplateResolverHandlers.set,
+      { slug: "page:hero", locale: "de", title: "User-edit", content: "from-write" },
       tenantAdmin,
     );
     expectErrorIncludes(error, "validation_error");
@@ -489,13 +496,13 @@ describe("text-content :: seedTextBlock", () => {
     await seedTextBlock(db, {
       tenantId: tenantAdmin.tenantId,
       slug: "page-hero",
-      lang: "de",
+      locale: "de",
       title: "Seeded",
-      body: "from-seed",
+      content: "from-seed",
     });
-    const result = await stack.http.writeOk<{ slug: string; lang: string }>(
-      TextContentHandlers.set,
-      { slug: "page-hero", lang: "de", title: "User-edit", body: "from-write" },
+    const result = await stack.http.writeOk<{ slug: string; locale: string }>(
+      TemplateResolverHandlers.set,
+      { slug: "page-hero", locale: "de", title: "User-edit", content: "from-write" },
       tenantAdmin,
     );
     expect(result.slug).toBe("page-hero");

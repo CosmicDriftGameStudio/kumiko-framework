@@ -2,7 +2,7 @@
 // Apps pass the same feature list as run-config (APP_FEATURES / buildAppFeatures).
 
 import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
-import { createTextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
+import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -14,7 +14,7 @@ import {
   composeFeatures,
 } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 
-export type TestStackPreset = "config" | "text-content";
+export type TestStackPreset = "config" | "template-resolver";
 
 export type SetupTestStackFromFeaturesOptions = Omit<TestStackOptions, "features"> & {
   readonly includeBundled?: boolean;
@@ -37,8 +37,8 @@ export function mergeExtraContext(
       const configResolver = createConfigResolver();
       merged["configResolver"] = configResolver;
     }
-    if (presets.includes("text-content")) {
-      merged["textContent"] = createTextContentApi(deps.db);
+    if (presets.includes("template-resolver")) {
+      merged["templateResolver"] = createTemplateResolverApi(deps.db);
     }
 
     return merged;

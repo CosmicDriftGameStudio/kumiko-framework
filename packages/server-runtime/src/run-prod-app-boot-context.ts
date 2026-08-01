@@ -17,7 +17,7 @@ import {
   SECRETS_FEATURE_NAME,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { bindAutoRevokeFromFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
-import { createTextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
+import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -38,7 +38,7 @@ import type {
 } from "./run-prod-app";
 
 // Boot-time context helpers for runProdApp: ctx-extra-context wiring
-// (textContent/delivery/secrets/config-resolver), auth-mail convenience
+// (templateResolver/delivery/secrets/config-resolver), auth-mail convenience
 // normalization, and prod session-auth wiring. Split out of run-prod-app.ts
 // (#1005, Welle 2) — mechanical relocation, these are self-contained pure
 // functions, no closure over runProdApp's local boot state.
@@ -58,7 +58,7 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
 // Framework-Default-Provider für den AppContext — gleicher Mechanismus wie
 // der tenantTierResolver-Autowire (findTierResolverUsage): deklarierter
 // Bedarf (Feature gemountet) → Default aus db/env, App überschreibt nur die
-// Ausnahme. textContent ist unbedingt (createTextContentApi wirft nie, baut
+// Ausnahme. templateResolver ist unbedingt (createTemplateResolverApi wirft nie, baut
 // nur einen db-gebundenen Accessor). secrets wird nur auto-verdrahtet wenn
 // das secrets-Feature gemountet ist UND ein KEK tatsächlich verfügbar ist
 // (masterKey-Override ODER env-KEK present) — sonst skip, damit der eager
@@ -108,7 +108,7 @@ export function buildBootExtraContext(opts: {
   const wireSecrets = hasSecretsFeature && crypto.masterKeyProvider !== undefined;
   const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
   return {
-    textContent: createTextContentApi(opts.db),
+    templateResolver: createTemplateResolverApi(opts.db),
     ...(opts.kms && { kms: opts.kms }),
     ...(hasDeliveryFeature && {
       _notifyFactory: buildDeliveryNotifyFactory({

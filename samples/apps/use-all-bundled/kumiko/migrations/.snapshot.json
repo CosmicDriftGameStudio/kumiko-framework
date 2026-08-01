@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-01T16:21:46.881Z",
+  "generatedAt": "2026-08-01T21:42:01.064Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -2000,6 +2000,16 @@
           "notNull": true
         },
         {
+          "name": "title",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "folder",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "content",
           "pgType": "text",
           "notNull": false
@@ -2526,87 +2536,6 @@
         {
           "name": "read_tenants_key_unique",
           "columns": ["key"],
-          "unique": true
-        }
-      ],
-      "source": "managed"
-    },
-    {
-      "tableName": "read_text_blocks",
-      "columns": [
-        {
-          "name": "id",
-          "pgType": "uuid",
-          "notNull": true,
-          "defaultSql": "gen_random_uuid()",
-          "primaryKey": true
-        },
-        {
-          "name": "tenant_id",
-          "pgType": "uuid",
-          "notNull": true
-        },
-        {
-          "name": "version",
-          "pgType": "integer",
-          "notNull": true,
-          "defaultSql": "1"
-        },
-        {
-          "name": "inserted_at",
-          "pgType": "timestamptz",
-          "notNull": true,
-          "defaultSql": "now()"
-        },
-        {
-          "name": "modified_at",
-          "pgType": "timestamptz",
-          "notNull": false
-        },
-        {
-          "name": "inserted_by_id",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "modified_by_id",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "slug",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "lang",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "title",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "body",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "folder",
-          "pgType": "text",
-          "notNull": false
-        }
-      ],
-      "indexes": [
-        {
-          "name": "read_text_blocks_tenant_id_idx",
-          "columns": ["tenant_id"]
-        },
-        {
-          "name": "read_text_blocks_unique",
-          "columns": ["tenant_id", "slug", "lang"],
           "unique": true
         }
       ],

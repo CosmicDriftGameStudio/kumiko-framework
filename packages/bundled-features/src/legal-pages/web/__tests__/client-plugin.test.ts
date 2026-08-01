@@ -43,11 +43,11 @@ describe("legalPagesClient", () => {
     expect(emitted.length).toBeGreaterThan(0);
 
     // Jeder Top-Level-Knoten ist ein slug-Folder mit lang-Leaves, die per
-    // Cross-Link auf text-content:edit zeigen.
+    // Cross-Link auf template-resolver:edit zeigen.
     const folder = emitted[0];
     expect(Array.isArray(folder?.children)).toBe(true);
     const langLeaf = Array.isArray(folder?.children) ? folder?.children[0] : undefined;
-    expect(langLeaf?.target?.featureId).toBe("text-content");
+    expect(langLeaf?.target?.featureId).toBe("template-resolver");
     expect(langLeaf?.target?.action).toBe("edit");
   });
 });

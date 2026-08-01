@@ -218,11 +218,6 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/user-profile",
     factory: "createUserProfileFeature",
   },
-  "text-content": {
-    kind: "factory",
-    path: "@cosmicdrift/kumiko-bundled-features/text-content",
-    factory: "createTextContentFeature",
-  },
   "legal-pages": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/legal-pages",

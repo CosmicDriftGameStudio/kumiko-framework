@@ -23,15 +23,15 @@ function inside(result: readonly TreeNode[]): readonly TreeNode[] {
 function block(opts: {
   slug: string;
   folder?: string | null;
-  body?: string | null;
+  content?: string | null;
   title?: string;
 }): BlockSummary {
   return {
     slug: opts.slug,
-    lang: "de",
+    locale: "de",
     title: opts.title ?? opts.slug,
     // Nicht ?? — null soll durchgereicht werden (state="stub"-Test).
-    body: opts.body === undefined ? "irgendwas" : opts.body,
+    content: opts.content === undefined ? "irgendwas" : opts.content,
     folder: opts.folder === undefined ? null : opts.folder,
     updatedAt: "2026-05-19T00:00:00Z",
   };
@@ -48,9 +48,9 @@ describe("groupBlocksByFolder", () => {
     if (!root) return;
     expect(root.label).toBe("imprint");
     expect(root.target).toEqual({
-      featureId: "text-content",
+      featureId: "template-resolver",
       action: "edit",
-      args: { slug: "imprint", lang: "de" },
+      args: { slug: "imprint", locale: "de" },
     });
     expect(root.children).toBeUndefined();
     expect(root.icon).toBe("file");
@@ -71,7 +71,7 @@ describe("groupBlocksByFolder", () => {
     expect(child).toBeDefined();
     if (!child) return;
     expect(child.label).toBe("Hero");
-    expect(child.target?.args).toEqual({ slug: "hero", lang: "de" });
+    expect(child.target?.args).toEqual({ slug: "hero", locale: "de" });
   });
   test("mehrere Slugs gleicher Folder → ein Folder mit mehreren children", () => {
     const nodes = inside(
@@ -116,12 +116,12 @@ describe("groupBlocksByFolder", () => {
     const folderLabels = nodes.map((n) => n.label);
     expect(folderLabels).toEqual(["apple", "mango", "zebra"]);
   });
-  test('body=null → state="stub" (Designer-Hinweis dass Slug existiert aber leer)', () => {
-    const nodes = inside(groupBlocksByFolder([block({ slug: "draft", body: null })]));
+  test('content=null → state="stub" (Designer-Hinweis dass Slug existiert aber leer)', () => {
+    const nodes = inside(groupBlocksByFolder([block({ slug: "draft", content: null })]));
     expect(nodes[0]?.state).toBe("stub");
   });
-  test('body=string → state="filled"', () => {
-    const nodes = inside(groupBlocksByFolder([block({ slug: "imprint", body: "content" })]));
+  test('content=string → state="filled"', () => {
+    const nodes = inside(groupBlocksByFolder([block({ slug: "imprint", content: "content" })]));
     expect(nodes[0]?.state).toBe("filled");
   });
   test("title leer → fallback auf slug als label", () => {
@@ -144,7 +144,7 @@ describe("groupBlocksByFolder", () => {
     const marketingChildren = childrenArray(marketingFolder?.children);
     expect(marketingChildren).toHaveLength(1);
     expect(marketingChildren[0]?.label).toBe("Hero");
-    expect(marketingChildren[0]?.target?.args).toEqual({ slug: "hero", lang: "de" });
+    expect(marketingChildren[0]?.target?.args).toEqual({ slug: "hero", locale: "de" });
   });
   test("V.1.6a shared folder-prefix → ein gemeinsamer parent", () => {
     // Zwei blocks mit verschachteltem Pfad teilen die ersten Segmente.
@@ -200,20 +200,20 @@ describe("groupBlocksByFolder", () => {
     // Root-Leaf trägt den Override.
     expect(nodes[0]?.target?.args).toEqual({
       slug: "imprint",
-      lang: "de",
+      locale: "de",
       tenantIdOverride: "00000000-0000-4000-8000-000000000000",
     });
     // Auch der Leaf im Folder (rekursiv durchgereicht).
     const folderChild = childrenArray(nodes[1]?.children)[0];
     expect(folderChild?.target?.args).toEqual({
       slug: "hero",
-      lang: "de",
+      locale: "de",
       tenantIdOverride: "00000000-0000-4000-8000-000000000000",
     });
   });
   test("ohne tenantIdOverride bleiben die Args frei davon (Default: Session-Tenant)", () => {
     const nodes = inside(groupBlocksByFolder([block({ slug: "imprint", folder: null })]));
-    expect(nodes[0]?.target?.args).toEqual({ slug: "imprint", lang: "de" });
+    expect(nodes[0]?.target?.args).toEqual({ slug: "imprint", locale: "de" });
   });
   test("Wrapper-Folder 'Content' umschließt alle blocks", () => {
     // V.1.5d Wrapper-Convention: groupBlocksByFolder gibt EINEN Knoten

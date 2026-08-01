@@ -7,11 +7,14 @@ export const TemplateResolverHandlers = {
   upsertTenant: "template-resolver:write:upsert-tenant",
   publish: "template-resolver:write:publish",
   archive: "template-resolver:write:archive",
+  set: "template-resolver:write:set",
 } as const;
 
 export const TemplateResolverQueries = {
   findById: "template-resolver:query:find-by-id",
   list: "template-resolver:query:list",
+  bySlug: "template-resolver:query:by-slug",
+  byTenant: "template-resolver:query:by-tenant",
 } as const;
 
 export const TemplateResolverErrors = {

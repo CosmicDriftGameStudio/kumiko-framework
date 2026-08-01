@@ -10,7 +10,7 @@
 // user-list, tier-admin, GDPR-Inspector). anonymousAccess + extraContext.text
 // Content: die öffentlichen legal-pages-Routen (/legal/*).
 
-import { createTextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
+import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
@@ -33,7 +33,7 @@ await runDevApp({
   htmlPath: "./public/index.html",
   watchDirs: ["./src", "../../../packages/*/src"],
   anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-  extraContext: ({ db }) => ({ textContent: createTextContentApi(db) }),
+  extraContext: ({ db }) => ({ templateResolver: createTemplateResolverApi(db) }),
   seeds: [seedScreenshotData],
   auth: {
     admin: {
