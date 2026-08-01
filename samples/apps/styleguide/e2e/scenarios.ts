@@ -64,4 +64,11 @@ export const SCENARIOS: readonly Scenario[] = [
     settleMs: 400,
     fullPage: true,
   },
+  {
+    name: "widgets",
+    description: "Widget-Katalog: jedes Widget auf einer Seite (Stats, Charts, Forms, Inbox)",
+    url: "/widgets",
+    waitFor: "[data-testid='widgets-page']",
+    settleMs: 400,
+  },
 ];
