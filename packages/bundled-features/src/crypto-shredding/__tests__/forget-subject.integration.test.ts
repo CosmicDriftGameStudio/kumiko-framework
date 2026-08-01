@@ -9,10 +9,26 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { setupTestStack, type TestStack, testTenantId } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  testTenantId,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
 import { createCryptoShreddingFeature } from "../feature";
@@ -140,5 +156,130 @@ describe("crypto-shredding :: forget-subject", () => {
       dpoUser,
     );
     expect(err.httpStatus).toBe(400);
+  });
+});
+
+// fw#1611: forget-subject's ctx.searchAdapter wiring (forget-subject.write.ts
+// → purgeSearchDocumentsForSubject) had zero end-to-end coverage — a broken
+// extension registration would silently turn the whole GDPR search purge
+// into a no-op. Own stack (own entity feature) so it doesn't perturb the
+// scenarios above.
+describe("crypto-shredding :: forget-subject purges the derived search index (#1611)", () => {
+  const probeEntity = createEntity({
+    table: "read_forget_subject_search_probe",
+    fields: {
+      ownerId: createTextField({ required: true }),
+      userNote: createTextField({
+        required: true,
+        maxLength: 100,
+        userOwned: { ownerField: "ownerId" },
+        searchable: true,
+      }),
+      tenantNote: createTextField({
+        required: true,
+        maxLength: 100,
+        tenantOwned: true,
+        searchable: true,
+      }),
+    },
+  });
+  const probeTable = buildEntityTable("forgetSubjectSearchProbe", probeEntity);
+  const probeFeature = defineFeature("forget-subject-search-probe", (r) => {
+    r.entity("probe", probeEntity);
+  });
+
+  let searchStack: TestStack;
+  let searchKms: InMemoryKmsAdapter;
+  const admin = TestUsers.admin;
+
+  beforeAll(async () => {
+    searchStack = await setupTestStack({
+      features: [createCryptoShreddingFeature(), probeFeature],
+    });
+    await unsafeCreateEntityTable(searchStack.db, probeEntity, "probe");
+    await createEventsTable(searchStack.db);
+  });
+
+  afterAll(async () => {
+    await searchStack.cleanup();
+  });
+
+  beforeEach(() => {
+    searchKms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(searchKms);
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  function probeExecutor() {
+    return createEventStoreExecutor(probeTable, probeEntity, {
+      entityName: "probe",
+      searchAdapter: searchStack.search,
+    });
+  }
+
+  function probeTenantDb() {
+    return createTenantDb(searchStack.db, admin.tenantId, "system");
+  }
+
+  test("forget-subject over HTTP purges userOwned rows from the search index", async () => {
+    const ownerId = crypto.randomUUID();
+    const userNote = "UniqueUserOwnedNote1611";
+    const created = await probeExecutor().create(
+      { ownerId, userNote, tenantNote: "irrelevant-tenant-note" },
+      admin,
+      probeTenantDb(),
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = String(created.data.id);
+
+    await searchStack.eventDispatcher?.runOnce();
+    expect(
+      (await searchStack.search.search(admin.tenantId, userNote, { filterType: "probe" })).some(
+        (h) => String(h.entityId) === id,
+      ),
+    ).toBe(true);
+
+    await searchStack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: ownerId }, reason: REASON },
+      dpoUser,
+    );
+
+    const after = await searchStack.search.search(admin.tenantId, userNote, {
+      filterType: "probe",
+    });
+    expect(after.some((h) => String(h.entityId) === id)).toBe(false);
+  });
+
+  test("forget-subject over HTTP purges tenantOwned rows from the search index", async () => {
+    const tenantNote = "UniqueTenantOwnedNote1611";
+    const created = await probeExecutor().create(
+      { ownerId: crypto.randomUUID(), userNote: "irrelevant-user-note", tenantNote },
+      admin,
+      probeTenantDb(),
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = String(created.data.id);
+
+    await searchStack.eventDispatcher?.runOnce();
+    expect(
+      (await searchStack.search.search(admin.tenantId, tenantNote, { filterType: "probe" })).some(
+        (h) => String(h.entityId) === id,
+      ),
+    ).toBe(true);
+
+    await searchStack.http.writeOk(
+      FORGET,
+      { subject: { kind: "tenant", tenantId: admin.tenantId }, reason: REASON },
+      dpoUser,
+    );
+
+    const after = await searchStack.search.search(admin.tenantId, tenantNote, {
+      filterType: "probe",
+    });
+    expect(after.some((h) => String(h.entityId) === id)).toBe(false);
   });
 });
