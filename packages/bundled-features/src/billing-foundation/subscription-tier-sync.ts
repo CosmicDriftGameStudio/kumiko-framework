@@ -116,9 +116,16 @@ export function createSubscriptionTierSync<TTier extends string>(
           tenantId: targetTenantId,
         });
         if (!result.isSuccess) return result;
+        // The primary write already committed — a webhook caller (Stripe/
+        // PayPal) that sees isSuccess:false here retries the whole event,
+        // re-running an already-succeeded side effect. Log the tier-sync
+        // failure instead of masking the primary write's success.
         const syncError = await syncTierFromSubscription(targetTenantId);
         if (syncError) {
-          return { isSuccess: false, error: syncError };
+          // biome-ignore lint/suspicious/noConsole: operator visibility for a post-commit sync failure
+          console.warn(
+            `[subscription-tier-sync] tier sync failed for tenant ${targetTenantId} after successful webhook write: ${syncError.code} ${syncError.message}`,
+          );
         }
         return result;
       },

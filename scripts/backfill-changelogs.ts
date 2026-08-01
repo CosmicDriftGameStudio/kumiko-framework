@@ -336,7 +336,12 @@ function main() {
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--days" && args[i + 1]) {
-      days = Number.parseInt(args[i + 1], 10);
+      const parsed = Number.parseInt(args[i + 1], 10);
+      if (!Number.isFinite(parsed)) {
+        console.error(`--days expects a number, got "${args[i + 1]}"`);
+        process.exit(1);
+      }
+      days = parsed;
       i++;
     } else if (args[i] === "--write") {
       write = true;

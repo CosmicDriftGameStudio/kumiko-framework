@@ -291,8 +291,9 @@ export async function runSchemaCli(
               out.err(
                 "    Fix (unexpected-table): build a meta via `defineUnmanagedTable()` " +
                   "from `@cosmicdrift/kumiko-framework/db`, then `r.storeTable(meta, { reason: ... })` " +
-                  "inside a feature — this adds it to ENTITY_METAS and the snapshot without going " +
-                  "through r.entity(). `table()` returns a query handle, not a storeTable()-compatible " +
+                  "inside a feature — this adds it to ENTITY_METAS immediately; the .snapshot.json " +
+                  "only picks it up on the NEXT `kumiko-schema generate` run, which you still need " +
+                  "to run and commit. `table()` returns a query handle, not a storeTable()-compatible " +
                   "meta — don't pass its result to storeTable(). See the bundled `jobs` feature's " +
                   "job-run-log store table for the pattern.",
               );

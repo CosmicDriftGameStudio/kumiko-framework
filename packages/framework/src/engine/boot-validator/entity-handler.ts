@@ -61,9 +61,12 @@ export const PII_USER_OWNED_NAME_HINTS: ReadonlySet<string> = new Set([
 export const PII_USER_REFERENCE_NAME_HINTS: ReadonlySet<string> = new Set([
   "authorid",
   "assigneeid",
+  "assigneeuserid",
   "ownerid",
+  "createdby",
   "createdbyid",
   "createdbyuserid",
+  "updatedby",
   "updatedbyid",
   "updatedbyuserid",
   "invitedby",
@@ -72,6 +75,7 @@ export const PII_USER_REFERENCE_NAME_HINTS: ReadonlySet<string> = new Set([
   "uploadedby",
   "assignedto",
   "reportedby",
+  "memberid",
 ]);
 
 // --- Extension preSave wiring validation ---

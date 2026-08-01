@@ -408,8 +408,17 @@ export function createInboundMailSupervisor(
       state.stop = stop;
       state.backoffMs = backoffInitialMs;
       // Await — fire-and-forget raced with a later auth_error mark under
-      // try-first waitFor (isWatching true before projection settled).
-      await markAccount(account, { watchState: "watching" }, "watch_supervisor");
+      // try-first waitFor (isWatching true before projection settled). Own
+      // try/catch: a projection-write hiccup here is not a sync failure —
+      // the watch itself is healthy, so it must not trigger handleSyncError's
+      // backoff/restart/auth_error handling below.
+      try {
+        await markAccount(account, { watchState: "watching" }, "watch_supervisor");
+      } catch (err) {
+        log(
+          `inbound-mail: markAccount(watching) for account ${account.id} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     } catch (err) {
       const keepRunning = await handleSyncError(account, err);
       if (keepRunning) scheduleRestart(err);

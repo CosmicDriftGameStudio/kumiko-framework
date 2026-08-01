@@ -30,6 +30,7 @@ import {
   SidebarProvider,
   SidebarRail,
 } from "../ui/sidebar";
+import { fillClasses } from "./fill-classes";
 import { NavTree } from "./nav-tree";
 import { ShellHeader } from "./shell-header";
 
@@ -83,8 +84,9 @@ export function DefaultAppShell({
   fill,
   children,
 }: DefaultAppShellProps): ReactNode {
+  const fillCls = fillClasses(fill);
   return (
-    <SidebarProvider {...(fill === true && { className: "h-svh" })}>
+    <SidebarProvider {...fillCls.provider}>
       {/* sidebar-07-Muster: Standard-Variante (border-r, flush content) +
           collapsible="icon" — der Rail klappt auf Icon-Breite zu (Trigger/Rail). */}
       <Sidebar collapsible="icon">
@@ -109,13 +111,13 @@ export function DefaultAppShell({
         )}
         <SidebarRail />
       </Sidebar>
-      <SidebarInset className={fill === true ? "min-h-0" : undefined}>
+      <SidebarInset className={fillCls.inset}>
         <ShellHeader
           schema={schema}
           {...(user !== undefined && { user })}
           {...(headerActions !== undefined && { headerActions })}
         />
-        <main className={fill === true ? "min-h-0 flex-1 overflow-auto" : "flex-1 overflow-auto"}>
+        <main className={fillCls.main}>
           <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
         </main>
       </SidebarInset>

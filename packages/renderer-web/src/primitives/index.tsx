@@ -288,12 +288,16 @@ const FIELD_ICONS: Readonly<Record<string, typeof Mail>> = {
   "map-pin": MapPin,
 };
 
+function fieldIconFor(icon: string | undefined): (typeof FIELD_ICONS)[string] | undefined {
+  return icon !== undefined ? FIELD_ICONS[icon] : undefined;
+}
+
 // Wraps a text/number input with a left-positioned prefix icon when
 // `icon` carries a known FIELD_ICONS key. `pl-8` overrides (via
 // tailwind-merge) only the left padding of the vendored ui/input.tsx —
 // right padding and other defaults stay untouched.
 function withFieldIcon(icon: string | undefined, input: ReactNode): ReactNode {
-  const Icon = icon !== undefined ? FIELD_ICONS[icon] : undefined;
+  const Icon = fieldIconFor(icon);
   if (Icon === undefined) return input;
   return (
     <div className="relative">
@@ -329,7 +333,7 @@ function DefaultInput(props: InputProps): ReactNode {
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           {...(props.autoComplete !== undefined && { autoComplete: props.autoComplete })}
-          className={cn(props.icon !== undefined && FIELD_ICONS[props.icon] ? "pl-8" : undefined)}
+          className={cn(fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined)}
         />,
       );
     case "email":
@@ -369,7 +373,7 @@ function DefaultInput(props: InputProps): ReactNode {
           }}
           className={cn(
             "text-right tabular-nums",
-            props.icon !== undefined && FIELD_ICONS[props.icon] ? "pl-8" : undefined,
+            fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,
           )}
         />,
       );
@@ -1018,7 +1022,11 @@ function RowActionsKebab({
 // caller debounces via loadingMore (further visibility events are ignored
 // while a page is loading). No observer during server-side render, no
 // observer when hasMore=false — then the sentinel only shows the
-// end-of-list hint.
+// end-of-list hint via t("kumiko.list.end-of-list"), which requires a
+// LocaleProvider in the tree (same requirement as Field/useRowActionTrigger).
+// Without one, useTranslation() throws; with one that's missing the framework
+// defaults (fallbackBundles not including kumikoDefaultTranslations), the
+// user sees the raw key instead of translated text.
 // ponytail: threshold mirrors the framework default pageSize (kumiko-screen.tsx
 // `screen.pageSize ?? 50`) rather than the real per-screen pageSize, which isn't
 // threaded down to this component. A screen with a custom pageSize can still

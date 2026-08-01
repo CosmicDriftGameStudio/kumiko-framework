@@ -205,6 +205,8 @@ export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from 
 export {
   buildOwnershipClause,
   from,
+  normalizeAccessEntry,
+  userCanCreateFieldRow,
   userCanReadFieldRow,
   userCanWriteFieldRow,
 } from "./ownership";

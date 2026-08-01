@@ -118,9 +118,10 @@ function hasOwnershipScopedRead(refEntity: EntityDefinition): boolean {
 async function decryptReferencedRow(
   row: Record<string, unknown>,
   refEntity: EntityDefinition,
+  piiFields: readonly string[],
+  encryptedFields: ReadonlySet<string>,
+  kms: ReturnType<typeof configuredPiiSubjectKms>,
 ): Promise<Record<string, unknown>> {
-  const piiFields = collectPiiSubjectFields(refEntity);
-  const encryptedFields = collectEncryptedFieldNames(refEntity);
   if (hasOwnershipScopedRead(refEntity)) {
     if (piiFields.length === 0 && encryptedFields.size === 0) return row;
     const out = { ...row };
@@ -130,7 +131,6 @@ async function decryptReferencedRow(
   }
 
   let out = row;
-  const kms = configuredPiiSubjectKms();
   if (piiFields.length > 0 && kms) {
     out = await decryptPiiFieldValues(out, piiFields, kms, {
       requestId: requestContext.get()?.requestId ?? "eagerload",
@@ -147,16 +147,22 @@ async function decryptReferencedRow(
 // must not 500 the whole list request — the main rows the caller asked for
 // are unrelated to this one broken reference. Drop just that row from the
 // map; the renderer falls back to the raw UUID.
+//
+// piiFields/encryptedFields/kms are constant per refEntity (fw#1671) — the
+// caller computes them once and passes them in instead of recomputing per row.
 async function buildRefLookupMap(
   rawRefRows: ReadonlyArray<Record<string, unknown>>,
   refEntity: EntityDefinition,
   refEntityName: string,
+  piiFields: readonly string[],
+  encryptedFields: ReadonlySet<string>,
+  kms: ReturnType<typeof configuredPiiSubjectKms>,
 ): Promise<Map<string, Record<string, unknown>>> {
   const map = new Map<string, Record<string, unknown>>();
   for (const r of rawRefRows) {
     let decrypted: Record<string, unknown>;
     try {
-      decrypted = await decryptReferencedRow(r, refEntity);
+      decrypted = await decryptReferencedRow(r, refEntity, piiFields, encryptedFields, kms);
     } catch (e) {
       console.warn(
         `[eagerload] failed to decrypt referenced row entity=${refEntityName} id=${String(r["id"])}: ${e instanceof Error ? e.message : String(e)}`,
@@ -214,7 +220,17 @@ export async function enrichWithReferences(
       const rawRefRows = (await selectMany(db, refTable, { id: idArray })) as Array<
         Record<string, unknown>
       >;
-      const map = await buildRefLookupMap(rawRefRows, refEntity, rf.refEntityName);
+      const piiFields = collectPiiSubjectFields(refEntity);
+      const encryptedFields = collectEncryptedFieldNames(refEntity);
+      const kms = configuredPiiSubjectKms();
+      const map = await buildRefLookupMap(
+        rawRefRows,
+        refEntity,
+        rf.refEntityName,
+        piiFields,
+        encryptedFields,
+        kms,
+      );
       return { fieldName: rf.fieldName, multiple: rf.multiple, map };
     }),
   );

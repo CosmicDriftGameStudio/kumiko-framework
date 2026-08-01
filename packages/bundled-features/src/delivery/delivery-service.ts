@@ -488,7 +488,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             tenantId,
             notificationType,
             channel: "*",
-            recipientId: null,
+            recipientId: options.recipientId ?? null,
             recipientAddress: null,
             status: "skipped",
             error: "duplicate_idempotency_key",

@@ -272,6 +272,24 @@ describe("event-store-executor write-verbs — field-level ownership_denied", ()
     );
     expect(result.isSuccess).toBe(true);
   });
+
+  // Review-fix (kumiko-framework#1685): a preSave hook that echoes `id`/
+  // `version` back in its return value must not have those leak into the
+  // persisted row — the framework-minted aggregateId stays authoritative.
+  test("create: preSave hook returning `id`/`version` does not override the minted aggregateId", async () => {
+    const result = await crud.create({ authorId: nonAdmin.id, note: "mine" }, nonAdmin, tdb, {
+      preSave: async (changes) => ({ ...changes, id: "hook-injected-id", version: 999 }),
+    });
+    expect(result.isSuccess).toBe(true);
+    if (!result.isSuccess) return;
+    expect(result.data.id).not.toBe("hook-injected-id");
+
+    const row = await asRawClient(testDb.db).unsafe(
+      `SELECT id FROM read_es_write_owned_field WHERE id = $1`,
+      [result.data.id],
+    );
+    expect(row.length).toBe(1);
+  });
 });
 
 // =============================================================================
