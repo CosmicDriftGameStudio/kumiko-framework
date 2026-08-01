@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 59,
+  "featureCount": 61,
   "features": [
     {
       "name": "admin-shell",
@@ -1436,6 +1436,50 @@
         "category": "content",
         "recommended": false
       }
+    },
+    {
+      "name": "notes-history",
+      "description": "Generic, host-agnostic, append-only note history for any entity. Owns one event-sourced entity, `note-entry` (`read_note_entries`), keyed by (entityType, entityId) — so attaching notes adds NO column to the host entity and needs no relational pivot or JOIN. Provides a `create` write-handler (author stamped server-side from the caller, never client-supplied) and a `list` query filterable on entityId. Deliberately append-only: no update or delete handler is registered — a correction is a new entry, not an edit, so who-said-what-when stays reconstructable. Every path uses one access rule — adopt the host's model with createNotesHistoryFeature({ access: { openToAll: true } }) or pin roles with createNotesHistoryFeature({ roles }).",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "notes-history:write:add-note"
+      ],
+      "uiHints": {
+        "displayLabel": "Notes",
+        "category": "data",
+        "recommended": false
+      }
+    },
+    {
+      "name": "notes-history-user-data",
+      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `notes-history` feature's `note-entry` entity. Mounts the EXT_USER_DATA export hook so a user's authored notes are included in the user-data export bundle; the delete hook is a deliberate no-op because `body` is annotated `userOwned` on the entity — erasure runs via crypto-shredding (destroying the author's subject key) instead of a physical delete, keeping the append-only note history intact for entities other co-authors still read. Kept separate from `notes-history` so notes consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `notes-history`.",
+      "toggleableDefault": null,
+      "requires": [
+        "user-data-rights"
+      ],
+      "optionalRequires": [
+        "notes-history"
+      ],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "note-entry"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "personal-access-tokens",

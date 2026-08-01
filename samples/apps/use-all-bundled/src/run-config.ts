@@ -55,6 +55,8 @@ import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail
 import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
 import { mailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
+import { notesHistoryUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history-user-data";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createRateLimitingFeature } from "@cosmicdrift/kumiko-bundled-features/rate-limiting";
 import { readinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
@@ -121,6 +123,11 @@ export const APP_FEATURES = [
         write: ["managed-pages:write:*"],
       },
       tags: { label: "Tags", read: ["tags:query:*"], write: ["tags:write:*"] },
+      notesHistory: {
+        label: "Notes",
+        read: ["notes-history:query:*"],
+        write: ["notes-history:write:*"],
+      },
       ledger: { label: "Ledger", read: ["ledger:query:*"], write: ["ledger:write:*"] },
     },
   }),
@@ -239,6 +246,13 @@ export const APP_FEATURES = [
   // global SystemAdmin (see server.ts admin), so add SystemAdmin or every tag
   // query/screen is access_denied — exactly what the constants doc warns about.
   createTagsFeature({ roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] }),
+  // notes-history: default roles are TenantAdmin/TenantMember; same
+  // SystemAdmin-operator reasoning as tags above.
+  createNotesHistoryFeature({ roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] }),
+  // notes-history-user-data: GDPR export/erase coverage for note-entry.
+  // Depends (optionally) on notes-history + (hard) on user-data-rights —
+  // both mounted here.
+  notesHistoryUserDataFeature,
   foldersFeature,
   // folders-user-data: GDPR hooks for folder entities. Depends (optionally)
   // on folders + (hard) on user-data-rights — both mounted above.

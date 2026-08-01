@@ -293,6 +293,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/tags",
     exportName: "tagsFeature",
   },
+  "notes-history": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/notes-history",
+    exportName: "notesHistoryFeature",
+  },
   folders: {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/folders",
