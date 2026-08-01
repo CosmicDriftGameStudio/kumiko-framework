@@ -142,6 +142,33 @@ async function decryptReferencedRow(
   return out;
 }
 
+// Per-row, not Promise.all: a single legacy/backfilled row without a valid
+// envelope (decryptEntityFieldValues throws hard on malformed ciphertext)
+// must not 500 the whole list request — the main rows the caller asked for
+// are unrelated to this one broken reference. Drop just that row from the
+// map; the renderer falls back to the raw UUID.
+async function buildRefLookupMap(
+  rawRefRows: ReadonlyArray<Record<string, unknown>>,
+  refEntity: EntityDefinition,
+  refEntityName: string,
+): Promise<Map<string, Record<string, unknown>>> {
+  const map = new Map<string, Record<string, unknown>>();
+  for (const r of rawRefRows) {
+    let decrypted: Record<string, unknown>;
+    try {
+      decrypted = await decryptReferencedRow(r, refEntity);
+    } catch (e) {
+      console.warn(
+        `[eagerload] failed to decrypt referenced row entity=${refEntityName} id=${String(r["id"])}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      continue;
+    }
+    const id = decrypted["id"];
+    if (typeof id === "string") map.set(id, decrypted);
+  }
+  return map;
+}
+
 /** Eagerload für eine Liste von Rows. Mutiert nicht — gibt eine
  *  flache Kopie der Rows mit hinzugefügtem `_refs`-Property zurück. */
 export async function enrichWithReferences(
@@ -187,25 +214,7 @@ export async function enrichWithReferences(
       const rawRefRows = (await selectMany(db, refTable, { id: idArray })) as Array<
         Record<string, unknown>
       >;
-      // Per-row, not Promise.all: a single legacy/backfilled row without a
-      // valid envelope (decryptEntityFieldValues throws hard on malformed
-      // ciphertext) must not 500 the whole list request — the main rows the
-      // caller asked for are unrelated to this one broken reference. Drop
-      // just that row from the map; the renderer falls back to the raw UUID.
-      const map = new Map<string, Record<string, unknown>>();
-      for (const r of rawRefRows) {
-        let decrypted: Record<string, unknown>;
-        try {
-          decrypted = await decryptReferencedRow(r, refEntity);
-        } catch (e) {
-          console.warn(
-            `[eagerload] failed to decrypt referenced row entity=${rf.refEntityName} id=${String(r["id"])}: ${e instanceof Error ? e.message : String(e)}`,
-          );
-          continue;
-        }
-        const id = decrypted["id"];
-        if (typeof id === "string") map.set(id, decrypted);
-      }
+      const map = await buildRefLookupMap(rawRefRows, refEntity, rf.refEntityName);
       return { fieldName: rf.fieldName, multiple: rf.multiple, map };
     }),
   );
