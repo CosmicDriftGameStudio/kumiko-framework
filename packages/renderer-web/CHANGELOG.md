@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.171.1
+
+### Patch Changes
+
+- ed45fb2: `InfiniteSentinel` only shows its "— End of list —" marker once a list has at least one full page of rows (default 20). A short list (a single page) now ends with no marker — the list visibly ends itself, the marker was just noise there (#1699).
+- Updated dependencies [ed45fb2]
+  - @cosmicdrift/kumiko-renderer@0.171.1
+  - @cosmicdrift/kumiko-headless@0.171.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.171.1
+
 ## 0.171.0
 
 ### Minor Changes
