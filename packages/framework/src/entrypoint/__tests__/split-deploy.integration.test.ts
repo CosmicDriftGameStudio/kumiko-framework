@@ -5,7 +5,8 @@
 // pin the public guarantees:
 //
 //   1. API entrypoint has no eventDispatcher/jobRunner handles.
-//   2. Worker entrypoint has no HTTP app.
+//   2. Worker entrypoint has no HTTP app, but does hand out the
+//      command-dispatcher — app-wired background components need it.
 //   3. All-in-one has both.
 //   4. Worker throws when there's literally nothing to consume (defensive
 //      guard — buildServer always wires an SSE consumer so this only
@@ -14,10 +15,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { asRawClient } from "../../db/query";
 import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
-import { createTestRedis, type TestRedis } from "../../stack";
+import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
 import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index";
 
 const splitFeature = defineFeature("split", (r) => {
@@ -28,6 +30,24 @@ const splitFeature = defineFeature("split", (r) => {
       [tick.name]: async () => {},
     },
   });
+});
+
+const workerWriteFeature = defineFeature("workerWrite", (r) => {
+  const noted = r.defineEvent("noted", z.object({ note: z.string() }), { version: 1 });
+  r.writeHandler(
+    "note",
+    z.object({ note: z.string() }),
+    async (event, ctx) => {
+      await ctx.unsafeAppendEvent({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "worker-note",
+        type: noted.name,
+        payload: { note: event.payload.note },
+      });
+      return { isSuccess: true as const, data: { note: event.payload.note } };
+    },
+    { access: { openToAll: true } },
+  );
 });
 
 const JWT = "split-deploy-test-secret-must-be-32-chars!!";
@@ -86,6 +106,7 @@ describe("entrypoint factories", () => {
     expect(worker.mode).toBe("worker");
     expect(worker.eventDispatcher).toBeDefined();
     expect(worker.jobRunner).toBeDefined();
+    expect(worker.dispatcher).toBeDefined();
     expect("app" in worker).toBe(false);
     expect("jwt" in worker).toBe(false);
 
@@ -93,6 +114,42 @@ describe("entrypoint factories", () => {
     // jobRunner hook which must be idempotent against an unstarted
     // BullMQ worker.
     await worker.stop();
+  });
+
+  // An app-wired component running in the worker (analysis service, IMAP
+  // supervisor) has to persist its result, and persisting goes through the
+  // write-path — JobContext has no write/query. The dispatcher is the only
+  // way in, so a worker that doesn't hand it out forces such a component
+  // into the API process, which defeats the split.
+  test("Worker dispatcher runs a write end-to-end — handler executes, event lands in the store", async () => {
+    const registry = createRegistry([workerWriteFeature]);
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const worker = createWorkerEntrypoint({
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl,
+      queueNamePrefix: uniquePrefix("split-dispatch"),
+    });
+
+    try {
+      const result = await worker.dispatcher.write(
+        "worker-write:write:note",
+        { note: "written from the worker" },
+        TestUsers.admin,
+      );
+      expect(result.isSuccess).toBe(true);
+
+      const rows = await asRawClient(testDb.db).unsafe(
+        `SELECT payload FROM kumiko_events WHERE type = 'worker-write:event:noted'`,
+      );
+      expect(rows).toHaveLength(1);
+      expect((rows[0] as { payload: { note: string } }).payload.note).toBe(
+        "written from the worker",
+      );
+    } finally {
+      await worker.stop();
+    }
   });
 
   test("All-in-one entrypoint has both HTTP surface and background workers", async () => {
