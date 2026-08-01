@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { z } from "zod";
 import type { SchemaTable } from "../../db/dialect";
 import { table, text } from "../../db/dialect";
@@ -588,6 +588,24 @@ describe("boot-validator", () => {
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("warns when a role is used by exactly one handler, reached through the real validateBoot wiring", () => {
+    const warnSpy = spyOn(console, "warn");
+    try {
+      const features = [
+        defineFeature("a", (r) => {
+          r.queryHandler("list", z.object({}), async () => [], {
+            access: { roles: ["OnlyHereRole"] },
+          });
+        }),
+      ];
+      validateBoot(features);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0]?.[0] as string).toContain("OnlyHereRole");
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   test("throws when a stream handler has no access rule", () => {

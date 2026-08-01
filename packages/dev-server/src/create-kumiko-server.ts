@@ -710,6 +710,8 @@ export async function createKumikoServer(
   // zugreifen kann, und VOR dem Server-Start damit der erste HTTP-Request
   // bereits gegen einen gefüllten State läuft. Idempotenz ist Caller-
   // Verantwortung (persistent-DB-Modus läuft es bei jedem Boot).
+  // Dispatching through stack.http below builds Hono's matcher — no route
+  // may be registered after this point (see extraRoutes above).
   if (options.onAfterSetup !== undefined) {
     await options.onAfterSetup(stack);
   }
