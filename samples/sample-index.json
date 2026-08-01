@@ -327,7 +327,7 @@
     },
     "template-resolver": {
       "samples": [
-        "apps-use-all-bundled"
+        "recipes-legal-pages"
       ],
       "hasVisualOutput": true,
       "readmeSummary": "DACH compliance stack: two opt-in bundled features wired up to auto-rendered Imprint + Privacy-Policy pages, with Markdown authoring and a boot check for required content.",

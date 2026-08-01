@@ -79,9 +79,9 @@ describe("text-blocks :: write", () => {
   });
 
   test("SystemAdmin can create text blocks for SYSTEM_TENANT (without TenantAdmin role)", async () => {
-    // SystemAdmin ist global, hat KEIN implicit TenantAdmin auf seiner
-    // membership. Das Set-Handler-ACL muss SystemAdmin explizit erlauben
-    // sonst kann niemand Plattform-Texte (z.B. Impressum) setzen.
+    // SystemAdmin is global and has NO implicit TenantAdmin on its
+    // membership. The set-handler ACL must explicitly allow SystemAdmin,
+    // otherwise no one could set platform texts (e.g. imprint).
     const result = await stack.http.writeOk<Record<string, unknown>>(
       TemplateResolverHandlers.set,
       {
@@ -114,10 +114,10 @@ describe("text-blocks :: write", () => {
   });
 
   test("SystemAdmin can write with tenantIdOverride to a different tenant (legal-pages use-case)", async () => {
-    // Use-case: Plattform-App's Edit-UI lädt SystemAdmin der NICHT
-    // member auf SYSTEM_TENANT ist + lässt ihn dort schreiben.
-    // Ohne override würde der text auf systemAdmin.tenantId landen
-    // statt SYSTEM_TENANT — legal-pages-routes lesen ihn dann nie.
+    // Use-case: a platform app's edit UI loads a SystemAdmin who is NOT
+    // a member of SYSTEM_TENANT and lets them write there.
+    // Without override, the text would land on systemAdmin.tenantId
+    // instead of SYSTEM_TENANT — legal-pages routes would never read it.
     const targetTenant = createTestUser({ id: 99 }).tenantId;
     const result = await stack.http.writeOk<Record<string, unknown>>(
       TemplateResolverHandlers.set,
@@ -132,8 +132,8 @@ describe("text-blocks :: write", () => {
     );
     expect(result).toMatchObject({ slug: "override-target", isNew: true });
 
-    // Beweis: text landed auf TARGET-tenant, nicht auf systemAdmin's
-    // eigenem tenant. Read mit denselben override returnt den block.
+    // Proof: text landed on the TARGET tenant, not on systemAdmin's
+    // own tenant. Reading with the same override returns the block.
     const read = await stack.http.queryOk<Record<string, unknown>>(
       TemplateResolverQueries.bySlug,
       { slug: "override-target", locale: "de", tenantIdOverride: targetTenant },
@@ -143,16 +143,16 @@ describe("text-blocks :: write", () => {
   });
 
   test("SystemAdmin can UPDATE with tenantIdOverride (regression: stream-lookup must use override-tenantId, not user.tenantId)", async () => {
-    // Regression-Guard für 2026-05-04: bei tenantIdOverride MUSS auch der
-    // user-context für den event-store-executor remapped werden — sonst
-    // landet append() auf user.tenantId aber getStreamVersion (auf
-    // update) sucht ebenfalls auf user.tenantId, findet aber NUR den
-    // stream auf override-tenantId aus dem ersten write → version_conflict
-    // obwohl die projection-row da ist. Test der NUR create+override
-    // hatte den Bug nicht gefangen weil append=create ohne stream-lookup.
+    // Regression guard for 2026-05-04: with tenantIdOverride, the
+    // user-context for the event-store executor MUST also be remapped —
+    // otherwise append() lands on user.tenantId but getStreamVersion (on
+    // update) also looks up user.tenantId, finding only the stream on
+    // override-tenantId from the first write → version_conflict even
+    // though the projection row is there. A test with only create+override
+    // did not catch the bug because append=create has no stream lookup.
     const targetTenant = createTestUser({ id: 77 }).tenantId;
 
-    // Schritt 1: create mit override.
+    // Step 1: create with override.
     await stack.http.writeOk<Record<string, unknown>>(
       TemplateResolverHandlers.set,
       {
@@ -165,8 +165,8 @@ describe("text-blocks :: write", () => {
       systemAdmin,
     );
 
-    // Schritt 2: UPDATE mit override (selbe slug+lang+target). Vor dem
-    // Fix: version_conflict. Nach dem Fix: clean update.
+    // Step 2: UPDATE with override (same slug+lang+target). Before the
+    // fix: version_conflict. After the fix: clean update.
     const result = await stack.http.writeOk<Record<string, unknown>>(
       TemplateResolverHandlers.set,
       {
@@ -180,7 +180,7 @@ describe("text-blocks :: write", () => {
     );
     expect(result).toMatchObject({ slug: "update-target", isNew: false });
 
-    // Beweis: read returnt den UPDATED content auf TARGET-tenant.
+    // Proof: read returns the UPDATED content on the TARGET tenant.
     const read = await stack.http.queryOk<Record<string, unknown>>(
       TemplateResolverQueries.bySlug,
       { slug: "update-target", locale: "de", tenantIdOverride: targetTenant },
@@ -190,9 +190,9 @@ describe("text-blocks :: write", () => {
   });
 
   test("TenantAdmin's tenantIdOverride attempt → 403 access_denied", async () => {
-    // Defense-in-Depth: override ist SystemAdmin-only. TenantAdmin
-    // darf NICHT auf andere tenants schreiben — sonst könnte ein
-    // Tenant-Admin von Tenant-A einfach Tenant-B's Impressum überschreiben.
+    // Defense-in-depth: override is SystemAdmin-only. TenantAdmin
+    // must NOT be able to write to other tenants — otherwise a
+    // tenant admin of tenant A could simply overwrite tenant B's imprint.
     const otherTenant = createTestUser({ id: 88 }).tenantId;
     const error = await stack.http.writeErr(
       TemplateResolverHandlers.set,
@@ -333,8 +333,8 @@ describe("text-blocks :: query (openToAll)", () => {
 
 describe("text-blocks :: edge-cases", () => {
   test("body=null roundtrip — set + query liefert null body zurück", async () => {
-    // Sinnvoller Use-Case: Tenant-Admin legt einen leeren Block als
-    // Stub an (z.B. während Onboarding) und befüllt ihn später.
+    // Realistic use-case: a tenant admin creates an empty block as a
+    // stub (e.g. during onboarding) and fills it in later.
     await stack.http.writeOk<Record<string, unknown>>(
       TemplateResolverHandlers.set,
       { slug: "stub-page", locale: "de", title: "Wird noch gefüllt", content: null },
@@ -388,9 +388,9 @@ describe("text-blocks :: edge-cases", () => {
   });
 
   test("body mit XSS-Payload wird unverändert gespeichert (Markdown-Renderer ist verantwortlich für Escaping)", async () => {
-    // Dokumentiertes Verhalten: text-content speichert Markdown 1:1.
-    // Konsumenten (z.B. legal-pages mit `marked`) müssen entscheiden ob
-    // sie sanitizen — siehe legal-pages/README.md XSS-Sektion.
+    // Documented behavior: text-content stores markdown 1:1.
+    // Consumers (e.g. legal-pages with `marked`) must decide whether
+    // to sanitize — see legal-pages/README.md XSS section.
     const xssPayload = "## Title\n\n<script>alert('xss')</script>\n\nText.";
     await stack.http.writeOk(
       TemplateResolverHandlers.set,
@@ -402,18 +402,18 @@ describe("text-blocks :: edge-cases", () => {
       { slug: "xss-test", locale: "de" },
       tenantAdmin,
     );
-    // Roundtrip: Body bleibt exakt was reingeschrieben wurde
+    // Roundtrip: body stays exactly what was written in
     expect(fetched!["content"]).toBe(xssPayload);
   });
 
   test("concurrent set auf gleichen (tenantId, slug, lang) — mindestens einer succeed", async () => {
-    // Race-Test: Zwei TenantAdmins (oder selber Admin von zwei Tabs)
-    // setzen gleichzeitig. fetchOne+update ist nicht atomar — wenn
-    // beide das selbe `existing` finden und beide updaten wollen,
-    // greift Optimistic-Locking via version-check im Executor.
-    // Erwartung: einer succeed, einer kann version_conflict werfen
-    // (oder beide succeed wenn sequenziell genug). Mindestens einer
-    // muss durchlaufen, sonst ist der Race-Pfad kaputt.
+    // Race test: two tenant admins (or the same admin from two tabs)
+    // write concurrently. fetchOne+update is not atomic — if both find
+    // the same `existing` and both try to update, optimistic locking
+    // via the executor's version check kicks in.
+    // Expectation: one succeeds, one may throw version_conflict
+    // (or both succeed if sequential enough). At least one
+    // must go through, otherwise the race path is broken.
     await stack.http.writeOk(
       TemplateResolverHandlers.set,
       { slug: "race-test", locale: "de", title: "Initial", content: "v1" },
@@ -435,8 +435,8 @@ describe("text-blocks :: edge-cases", () => {
     const succeeded = results.filter((r) => r.status === "fulfilled").length;
     expect(succeeded).toBeGreaterThanOrEqual(1);
 
-    // Egal welcher gewinnt — die Row ist nach beiden Aufrufen konsistent
-    // mit einem der beiden Werte (kein partial state).
+    // Whichever wins — the row is consistent after both calls
+    // with one of the two values (no partial state).
     const fetched = await stack.http.queryOk<Record<string, unknown>>(
       TemplateResolverQueries.bySlug,
       { slug: "race-test", locale: "de" },
@@ -507,23 +507,23 @@ describe("text-blocks :: seedTextBlock", () => {
     ]);
   });
 
-  // Drift-Documentation: seedTextBlock geht direkt durch den Executor
-  // OHNE slugSchema-Validation, set.write läuft DURCH die Validation.
-  // Folge: seedTextBlock akzeptiert Slugs mit ":" oder "/" (legal-pages
-  // Plattform-Seeds nutzen das für "page:index:hero.title" etc.), aber
-  // ein User-Edit derselben Block über set.write würde mit
-  // validation_error fail (regex `^[a-z0-9][a-z0-9-]*$`). Drift ist
-  // **bewusst** in V.1.3 — seedTextBlock ist system-trusted (boot-fixture,
-  // kein User-Input). V.1.4 plant ein echtes `folder`-Field statt
-  // `:`-Separator-im-Slug, dann fällt die Drift weg.
+  // Drift documentation: seedTextBlock goes directly through the executor
+  // WITHOUT slugSchema validation, set.write goes THROUGH the validation.
+  // Consequence: seedTextBlock accepts slugs with ":" or "/" (legal-pages
+  // platform seeds use this for "page:index:hero.title" etc.), but
+  // a user edit of the same block via set.write would fail with
+  // validation_error (regex `^[a-z0-9][a-z0-9-]*$`). The drift is
+  // **deliberate** in V.1.3 — seedTextBlock is system-trusted (boot fixture,
+  // no user input). V.1.4 plans a real `folder` field instead of a
+  // `:` separator in the slug, then the drift goes away.
   //
-  // Dieser Test pinnt den Status quo: Editor-Form via set.write rejected
-  // ":"-Slugs auch wenn seedTextBlock sie angelegt hat. Plus-Test
-  // verhindert dass jemand silent seedTextBlock-Validation hinzufügt
-  // ohne app-side seed-Slugs (z.B. legal-pages-Plattform-Seeds) zu
-  // konvertieren.
+  // This test pins the status quo: the editor form via set.write rejects
+  // ":" slugs even if seedTextBlock created them. This test guards
+  // against someone silently adding seedTextBlock validation
+  // without converting app-side seed slugs (e.g. legal-pages platform
+  // seeds).
   test("seedTextBlock + set.write drift: `:`-slugs sind seed-only, set.write rejected sie", async () => {
-    // Seed mit `:`-Slug funktioniert (legal-pages-Pattern)
+    // Seed with `:` slug works (legal-pages pattern)
     const seeded = await seedTextBlock(db, {
       tenantId: tenantAdmin.tenantId,
       slug: "page:hero",
@@ -533,7 +533,7 @@ describe("text-blocks :: seedTextBlock", () => {
     });
     expect(seeded.id).toBeDefined();
 
-    // Set.write auf demselben Slug → validation_error (kebab-only regex)
+    // set.write on the same slug → validation_error (kebab-only regex)
     const error = await stack.http.writeErr(
       TemplateResolverHandlers.set,
       { slug: "page:hero", locale: "de", title: "User-edit", content: "from-write" },
@@ -543,9 +543,9 @@ describe("text-blocks :: seedTextBlock", () => {
   });
 
   test("seedTextBlock + set.write parity: kebab-only Slugs durchlaufen beide Pfade", async () => {
-    // Inverse-Test: für kebab-only Slugs (`page-hero`) klappen beide
-    // Pfade. App-Builder die Edit-Form-fähige Seeds wollen, müssen
-    // kebab-only verwenden (siehe publicstatus/bin/seed-demo.ts).
+    // Inverse test: for kebab-only slugs (`page-hero`) both paths
+    // work. App builders who want edit-form-capable seeds must
+    // use kebab-only (see publicstatus/bin/seed-demo.ts).
     await seedTextBlock(db, {
       tenantId: tenantAdmin.tenantId,
       slug: "page-hero",

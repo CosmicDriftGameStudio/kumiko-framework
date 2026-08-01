@@ -209,7 +209,7 @@ export const seedScreenshotData: SeedFn = async (stack) => {
   await seedPage(stack.db, {
     tenantId: devTenant,
     slug: "about",
-    locale: "en",
+    lang: "en",
     title: "About Acme",
     body: "# About Acme\n\nWe build calm software.",
     published: true,
@@ -217,7 +217,7 @@ export const seedScreenshotData: SeedFn = async (stack) => {
   await seedPage(stack.db, {
     tenantId: devTenant,
     slug: "pricing",
-    locale: "en",
+    lang: "en",
     title: "Pricing",
     body: "# Pricing\n\nSimple, per-seat pricing.",
     published: false,

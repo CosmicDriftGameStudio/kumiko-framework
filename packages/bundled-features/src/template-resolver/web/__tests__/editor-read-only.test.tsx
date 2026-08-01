@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
-// mock.module eretzt imports für alle Konsumenten — statische imports
-// vor mock.module sehen die gemockte Version weil Bun am Loader-Level
-// intercepted. useShellUser ist hier ein Mock-Objekt.
+// mock.module replaces imports for all consumers — static imports
+// before mock.module still see the mocked version because Bun
+// intercepts at the loader level. useShellUser is a mock object here.
 import { useShellUser } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import {
   createStaticLocaleResolver,

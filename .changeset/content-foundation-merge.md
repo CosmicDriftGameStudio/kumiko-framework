@@ -1,7 +1,7 @@
 ---
-"@cosmicdrift/kumiko-bundled-features": major
-"@cosmicdrift/kumiko-server-runtime": major
-"@cosmicdrift/kumiko-dev-server": major
+"@cosmicdrift/kumiko-bundled-features": minor
+"@cosmicdrift/kumiko-server-runtime": minor
+"@cosmicdrift/kumiko-dev-server": minor
 ---
 
 **BREAKING: `text-content` merged into `template-resolver`.**

@@ -2,10 +2,10 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import { textBlocksClient } from "../client-plugin";
 
-// Deckt die drei neuen Migrations-Pfade (advisor-Gap): navId-Attach + SSE-
-// Entities, no-leak ohne navId (conditional-spread), und der Unwrap (Provider
-// emittiert die Folder/Leaves direkt, NICHT unter dem "Content"-Wrapper).
-// Der Provider fetcht → fetch wird gemockt.
+// Covers the three new migration paths (advisor gap): navId attach + SSE
+// entities, no-leak without navId (conditional spread), and the unwrap (the
+// provider emits the folder/leaves directly, NOT under the "Content" wrapper).
+// The provider fetches → fetch is mocked.
 
 describe("textBlocksClient — shape", () => {
   test("ohne navId: kein navProvider/navEntities (no-leak), aber Resolver bleibt", () => {
@@ -42,8 +42,8 @@ describe("textBlocksClient — Provider unwrappt den Content-Container", () => {
       },
       { slug: "hero", locale: "de", title: "Hero", content: null, folder: "page", updatedAt: "" },
     ];
-    // Test-Mock-Grenze: bun-Mock deckt nicht die volle fetch-Signatur
-    // (preconnect etc.) — Double-Cast bewusst, nur dieser Test ruft fetch.
+    // Test-mock boundary: bun's mock doesn't cover the full fetch signature
+    // (preconnect etc.) — double-cast is deliberate, only this test calls fetch.
     globalThis.fetch = mock(
       async () =>
         new Response(JSON.stringify({ data: { blocks } }), {
@@ -60,12 +60,12 @@ describe("textBlocksClient — Provider unwrappt den Content-Container", () => {
     provider()((nodes) => {
       emitted = nodes;
     });
-    // fetch().then(...) ist async → eine Makrotask abwarten bis emit lief.
+    // fetch().then(...) is async → wait one macrotask until emit has run.
     await new Promise((r) => setTimeout(r, 0));
 
     expect(emitted).toBeDefined();
     const labels = (emitted ?? []).map((n) => n.label).sort();
-    // Kein "Content"-Wrapper — root-leaf "Imprint" + folder "page" direkt.
+    // No "Content" wrapper — root-leaf "Imprint" + folder "page" directly.
     expect(labels).not.toContain("Content");
     expect(labels).toEqual(["Imprint", "page"]);
   });
