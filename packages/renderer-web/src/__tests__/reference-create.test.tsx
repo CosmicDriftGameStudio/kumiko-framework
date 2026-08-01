@@ -197,7 +197,6 @@ describe("Reference-field create-in-place (#1681)", () => {
       );
       await waitFor(() => screen.getByTestId("render-edit-form"));
       await userEvent.setup().click(screen.getByTestId("combobox-kumiko-edit-assignee"));
-      process.stderr.write("DEBUG_HTML:" + document.body.innerHTML + "\n");
       expect(screen.queryByTestId("combobox-kumiko-edit-assignee-create")).toBeNull();
     });
 
