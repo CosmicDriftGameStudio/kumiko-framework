@@ -72,6 +72,7 @@ export type {
   EntityListScreenDefinition,
   FieldCondition,
   FieldRenderer,
+  FormWidth,
   ListColumnSpec,
   PlatformComponent,
   ProjectionDetailScreenDefinition,

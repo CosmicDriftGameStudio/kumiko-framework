@@ -243,6 +243,43 @@ describe("RenderEdit", () => {
     expect(seenResults[0]?.isSuccess).toBe(true);
   });
 
+  test("layout.width defaults the form shell to max-w-3xl when unset", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const shell = screen.getByTestId("render-edit-form").firstElementChild;
+    expect(shell?.className).toContain("max-w-3xl");
+    expect(shell?.className).not.toContain("max-w-full");
+  });
+
+  test("layout.width: 'full' widens the form shell to max-w-full (#1676)", () => {
+    const screenDef = makeScreen();
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={{ ...screenDef, layout: { ...screenDef.layout, width: "full" } }}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const shell = screen.getByTestId("render-edit-form").firstElementChild;
+    expect(shell?.className).toContain("max-w-full");
+    expect(shell?.className).not.toContain("max-w-3xl");
+  });
+
   test("title resolved aus i18n-Key `screen:<id>.title` mit screenId als Fallback", () => {
     const dispatcher = makeDispatcher();
     render(

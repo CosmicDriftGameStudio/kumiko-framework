@@ -134,6 +134,7 @@ export type {
   DialogProps,
   FieldProps,
   FormProps,
+  FormWidth,
   GridCellProps,
   GridProps,
   HeadingProps,

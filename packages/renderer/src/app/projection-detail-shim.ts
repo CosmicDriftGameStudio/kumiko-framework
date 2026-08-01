@@ -62,7 +62,7 @@ export function synthesizeProjectionDetailScreen(
     id: screen.id,
     type: "entityEdit",
     entity: PROJECTION_DETAIL_PSEUDO_ENTITY,
-    layout: { sections },
+    layout: { sections, ...(screen.layout.width !== undefined && { width: screen.layout.width }) },
     allowCreate: false,
     allowDelete: false,
     ...(screen.fieldLabels !== undefined && { fieldLabels: screen.fieldLabels }),

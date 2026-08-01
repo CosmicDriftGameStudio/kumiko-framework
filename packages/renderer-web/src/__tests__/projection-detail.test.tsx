@@ -59,6 +59,36 @@ describe("KumikoScreen / projectionDetail", () => {
     expect(screen.queryByTestId("render-edit-submit")).toBeNull();
   });
 
+  // synthesizeProjectionDetailScreen rebuilds `layout` from `sections` alone
+  // (structural readOnly:true proof) — a naive rebuild would drop sibling
+  // layout fields like `width` (#1676).
+  test("layout.width survives the projectionDetail → entityEdit shim", async () => {
+    const wideDetailScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: { ...detailScreen.layout, width: "full" },
+    };
+    const wideSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [wideDetailScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={wideSchema} qn="sessions:screen:session-detail" entityId="sess-1" />
+      </DispatcherProvider>,
+    );
+
+    const form = await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(form.firstElementChild?.className).toContain("max-w-full");
+  });
+
   test("missing entityId shows an error banner instead of crashing", async () => {
     let resolveQuery: (value: unknown) => void = () => {};
     const dispatcher: Dispatcher = createMockDispatcher({
