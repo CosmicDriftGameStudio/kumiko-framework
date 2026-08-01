@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-types
 
+## 0.171.2
+
+### Patch Changes
+
+- c717af3: `NotifyOptions` gains an optional `recipientId` for the `route` (direct, no-user-account) delivery path. Previously `route:{email}` sends always logged `recipientId: null` in the delivery-attempt event, so `recipientAddress` (piiFields subject = recipientId) had no subject key to encrypt under and stayed plaintext. Callers without a user account (e.g. a share-token recipient) can now pass `recipientId` to tie the logged address to a crypto-shredding subject.
+
 ## 0.171.1
 
 ## 0.171.0
