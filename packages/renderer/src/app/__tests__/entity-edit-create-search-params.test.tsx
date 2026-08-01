@@ -1,14 +1,11 @@
-// Issue #1680: navigate-params waren bei entityEdit-create nur am
-// Papier ("Wird gelesen") dokumentiert — `EntityEditCreateBody` rief
-// nie `nav.searchParams` ab, sondern nur `buildInitialValues(entity.
-// fields)`. Ein rowAction-navigate mit `params` auf ein entityEdit-
-// Ziel öffnete die Maske also leer, ohne Boot-Fehler und ohne
-// Warnung. Dieser Test rendert den echten create-Pfad (KumikoScreen →
-// EntityEditScreen → EntityEditCreateBody → RenderEdit → RenderField)
-// unter einem NavProvider mit gesetzten searchParams und prüft, dass
-// der Input tatsächlich vorbelegt ist — nicht nur die extrahierte
-// Helper-Funktion isoliert.
-
+// Issue #1680: navigate params on entityEdit-create were documented as
+// "will be read" but EntityEditCreateBody never consulted nav.searchParams —
+// only buildInitialValues(entity.fields). A rowAction navigate with params
+// to an entityEdit target therefore opened an empty form with no boot error.
+// This test renders the real create path (KumikoScreen → EntityEditScreen →
+// EntityEditCreateBody → RenderEdit → RenderField) under a NavProvider with
+// searchParams set and asserts the input is prefilled — not just the helper
+// in isolation.
 import { describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,
