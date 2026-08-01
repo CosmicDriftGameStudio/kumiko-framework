@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.173.1
+
+### Patch Changes
+
+- f23aa36: A `preSave` hook that throws no longer crashes the write with an uncaught `internal_error` 500. `EventStoreExecutor.create`/`.update` now catch the hook and map it to a clean `writeFailure` (`presave_hook_failed`, `errors.presaveHookFailed`), carrying the hook's error message in `error.details.message`.
+- f23aa36: Boot-validator now catches `projectionList` navigate rowActions that set `params` on a target screen that would silently ignore them (same check `entityList` already had — #1680). A rowAction that resolves to entityEdit-update mode, or targets a screen type other than actionForm/entityEdit-create, now fails boot with a clear message instead of the params silently no-oping at runtime.
+  - @cosmicdrift/kumiko-types@0.173.1
+
 ## 0.173.0
 
 ### Minor Changes
