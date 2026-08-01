@@ -969,6 +969,7 @@ function InfiniteSentinel({
   readonly hasMore: boolean;
   readonly testId?: string;
 }): ReactNode {
+  const t = useTranslation();
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -1004,7 +1005,7 @@ function InfiniteSentinel({
     >
       {!hasMore ? (
         <span data-testid={testId !== undefined ? `${testId}-end` : undefined}>
-          — End of list —
+          {t("kumiko.list.end-of-list")}
         </span>
       ) : loadingMore ? (
         <Loader2 className="size-4 animate-spin" aria-hidden="true" />
