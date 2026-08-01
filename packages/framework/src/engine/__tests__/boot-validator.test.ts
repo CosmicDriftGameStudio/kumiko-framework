@@ -606,7 +606,9 @@ describe("boot-validator", () => {
       // concurrently-running tests' own "role used by one handler" warnings can
       // land on this spy too. Assert the wiring fired at least once instead.
       expect(
-        warnSpy.mock.calls.some((call) => (call[0] as string | undefined)?.includes("OnlyHereRole")),
+        warnSpy.mock.calls.some((call) =>
+          (call[0] as string | undefined)?.includes("OnlyHereRole"),
+        ),
       ).toBe(true);
     } finally {
       warnSpy.mockRestore();
