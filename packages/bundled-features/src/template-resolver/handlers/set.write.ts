@@ -77,7 +77,19 @@ export const setWrite = defineWriteHandler({
 
     if (existing) {
       const result = await executor.update(
-        { id: existing.id, version: existing.version, changes: fields },
+        {
+          id: existing.id,
+          version: existing.version,
+          // Only the editable columns — slug/kind/locale are the unique key,
+          // and rewriting scope/status/variableSchema here would reset whatever
+          // the template upserts put on the row.
+          changes: {
+            title: fields.title,
+            content: fields.content,
+            contentFormat: fields.contentFormat,
+            folder: fields.folder,
+          },
+        },
         executorUser,
         db,
       );

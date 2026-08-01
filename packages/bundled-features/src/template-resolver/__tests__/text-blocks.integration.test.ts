@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type DbConnection, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createTenantDb,
+  type DbConnection,
+  fetchOne,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -11,6 +17,7 @@ import {
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { TEXT_BLOCK_KIND } from "../constants";
 import { createTemplateResolverFeature } from "../feature";
+import { executor } from "../handlers/shared";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names";
 import { seedTextBlock } from "../seeding";
 import { type TemplateResourceRow, templateResourceEntity, templateResourcesTable } from "../table";
@@ -208,6 +215,51 @@ describe("text-blocks :: write", () => {
       tenantAdmin,
     );
     expectErrorIncludes(error, "validation_error");
+  });
+
+  test("update only touches the editable columns — variableSchema/status survive a save", async () => {
+    // set.write shares the table with the template upserts. If it wrote its
+    // whole field set on update, every editor save would reset a row's
+    // variableSchema to {} and force status back to active.
+    await stack.http.writeOk(
+      TemplateResolverHandlers.set,
+      { slug: "shared-row", locale: "de", title: "v1", content: "first" },
+      tenantAdmin,
+    );
+    const row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      tenantId: tenantAdmin.tenantId,
+      slug: "shared-row",
+      kind: TEXT_BLOCK_KIND,
+      locale: "de",
+    });
+    await executor.update(
+      {
+        id: String(row!.id),
+        version: row!.version,
+        changes: { variableSchema: JSON.stringify({ firstName: "string" }), status: "archived" },
+      },
+      createSystemUser(tenantAdmin.tenantId),
+      createTenantDb(db, tenantAdmin.tenantId, "system"),
+    );
+
+    await stack.http.writeOk(
+      TemplateResolverHandlers.set,
+      { slug: "shared-row", locale: "de", title: "v2", content: "second" },
+      tenantAdmin,
+    );
+
+    const after = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      tenantId: tenantAdmin.tenantId,
+      slug: "shared-row",
+      kind: TEXT_BLOCK_KIND,
+      locale: "de",
+    });
+    expect(after).toMatchObject({
+      title: "v2",
+      content: "second",
+      variableSchema: JSON.stringify({ firstName: "string" }),
+      status: "archived",
+    });
   });
 });
 
@@ -448,7 +500,8 @@ describe("text-blocks :: seedTextBlock", () => {
       aggregateId: String(row!.id),
     });
     expect(events).toHaveLength(2);
-    expect(events.map((e) => e.type)).toEqual([
+    // Sorted: selectMany has no ORDER BY and both events share a timestamp.
+    expect(events.map((e) => e.type).sort()).toEqual([
       "template-resource.created",
       "template-resource.updated",
     ]);
