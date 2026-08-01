@@ -15,4 +15,10 @@ export type {
   SignupSetup,
 } from "./run-prod-app";
 export { runProdApp } from "./run-prod-app";
+export type {
+  RunWorkerAppOptions,
+  WorkerAppHandle,
+  WorkerWireDeps,
+} from "./run-worker-app";
+export { runWorkerApp } from "./run-worker-app";
 export type { SecurityHeadersOption } from "./security-headers";

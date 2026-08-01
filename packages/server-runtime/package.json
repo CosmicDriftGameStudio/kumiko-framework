@@ -30,6 +30,10 @@
       "types": "./src/run-prod-app.ts",
       "default": "./src/run-prod-app.ts"
     },
+    "./run-worker-app": {
+      "types": "./src/run-worker-app.ts",
+      "default": "./src/run-worker-app.ts"
+    },
     "./bun-serve-options": {
       "types": "./src/bun-serve-options.ts",
       "default": "./src/bun-serve-options.ts"
