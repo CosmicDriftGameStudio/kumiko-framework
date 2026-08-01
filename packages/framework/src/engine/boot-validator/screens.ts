@@ -22,6 +22,45 @@ import type {
   ToolbarAction,
 } from "../types/screen";
 
+// Tier 2.7e navigate rowAction → target-screen params validity. Shared by
+// entityList and projectionList (framework#1708) — projectionList has no
+// `screen.entity`, so there's no same-entity row["id"] auto-fill case: any
+// entityEdit target without an explicit entityId reaches create there.
+function validateRowActionNavigateParams(
+  featureName: string,
+  screenId: string,
+  screenType: "entityList" | "projectionList",
+  screenEntity: string | undefined,
+  action: RowAction,
+  target: { readonly featureName: string; readonly screen: ScreenDefinition } | undefined,
+): void {
+  if (action.kind !== "navigate" || action.params === undefined) return;
+  if (target === undefined || target.screen.type === "custom") return;
+
+  const isEntityEditUpdate =
+    target.screen.type === "entityEdit" &&
+    (action.entityId !== undefined ||
+      (screenEntity !== undefined && target.screen.entity === screenEntity));
+  if (
+    (target.screen.type !== "actionForm" && target.screen.type !== "entityEdit") ||
+    isEntityEditUpdate
+  ) {
+    const reason = isEntityEditUpdate
+      ? `resolves to UPDATE mode (${
+          action.entityId !== undefined
+            ? `explicit entityId "${action.entityId}"`
+            : `same entity "${screenEntity}" auto-fills row["id"]`
+        })`
+      : `screen type "${target.screen.type}"`;
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${action.id}" ` +
+        `sets params on navigate-target "${action.screen}" which ${reason} — only actionForm ` +
+        `and entityEdit-create targets read URL search params as initial values. Remove the ` +
+        `params extractor or retarget to an actionForm / cross-entity entityEdit-create screen.`,
+    );
+  }
+}
+
 // --- Screen validation ---
 //
 // For every r.screen() declaration check what's locally knowable at boot:
@@ -168,6 +207,28 @@ export function validateScreens(
       }
       for (const col of screen.columns) {
         validateColumnRendererForm(feature.name, screenId, normalizeListColumn(col));
+      }
+      if (screen.rowActions !== undefined) {
+        for (const action of screen.rowActions) {
+          if (action.kind === "navigate") {
+            const candidateQn = qualifyEntityName(feature.name, "screen", action.screen);
+            if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionList) rowAction "${action.id}" ` +
+                  `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
+              );
+            }
+            const target = screensByShortId.get(action.screen)?.[0];
+            validateRowActionNavigateParams(
+              feature.name,
+              screenId,
+              "projectionList",
+              undefined,
+              action,
+              target,
+            );
+          }
+        }
       }
       continue;
     }
@@ -590,33 +651,14 @@ export function validateScreens(
             // explicit entityId) a same-entity target gets row["id"] auto-
             // injected — only a cross-entity target with no explicit
             // entityId reaches create.
-            if (
-              action.params !== undefined &&
-              target !== undefined &&
-              target.screen.type !== "custom"
-            ) {
-              const isEntityEditUpdate =
-                target.screen.type === "entityEdit" &&
-                (action.entityId !== undefined || target.screen.entity === screen.entity);
-              if (
-                (target.screen.type !== "actionForm" && target.screen.type !== "entityEdit") ||
-                isEntityEditUpdate
-              ) {
-                const reason = isEntityEditUpdate
-                  ? `resolves to UPDATE mode (${
-                      action.entityId !== undefined
-                        ? `explicit entityId "${action.entityId}"`
-                        : `same entity "${screen.entity}" auto-fills row["id"]`
-                    })`
-                  : `screen type "${target.screen.type}"`;
-                throw new Error(
-                  `[Feature ${feature.name}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
-                    `sets params on navigate-target "${action.screen}" which ${reason} — only actionForm ` +
-                    `and entityEdit-create targets read URL search params as initial values. Remove the ` +
-                    `params extractor or retarget to an actionForm / cross-entity entityEdit-create screen.`,
-                );
-              }
-            }
+            validateRowActionNavigateParams(
+              feature.name,
+              screenId,
+              "entityList",
+              screen.entity,
+              action,
+              target,
+            );
           } else {
             if (!allWriteHandlerQns.has(action.handler)) {
               throw new Error(
