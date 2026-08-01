@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.174.0
+
+### Minor Changes
+
+- f4dc0d9: **BREAKING:** `SseBroker.subscribeAccessInvalidation` and `.publishAccessInvalidation` are now required instead of optional. An app-injected `SseBroker` (e.g. a Redis-backed multi-replica broker) that omitted them made the mid-stream access-teardown security control (#1561) a silent no-op — a revoked session kept receiving live SSE data with no error or log. A custom `SseBroker` implementation needs to add both methods; a no-op stub (`subscribeAccessInvalidation: () => () => {}`, `publishAccessInvalidation: () => {}`) is enough for a broker that genuinely doesn't need cross-instance invalidation.
+- f4dc0d9: **BREAKING (retroactive note, fw#1598):** the `read_*`-prefix rejection in `assertUnmanagedTableName` (added in `0.165.2`, released as a _patch_) is a breaking change for any consumer calling `buildEntityTableMeta(name, entity, { source: "unmanaged" })` without an explicit `entity.table` — such a call used to silently default to a `read_*` table name and now throws at module-import time. If you hit `assertUnmanagedTableName` throwing after an update, set an explicit `table: "store_*"` (or another non-`read_`-prefixed name) on the affected `createEntity`/`defineUnmanagedTable` call.
+
+### Patch Changes
+
+- f4dc0d9: Server-side eagerload (`_refs`) for reference fields now behaves correctly for two edge cases it previously mishandled:
+
+  - A referenced entity that declares row-level ownership on `access.read` (beyond a plain `"all"` role) has its PII/encrypted fields stripped from `_refs` instead of decrypted — eagerload has no `SessionUser` to evaluate the ownership rule against, so decrypting unconditionally could leak another user's PII to anyone holding a reference to their row.
+  - A single referenced row with a malformed/legacy encrypted field no longer 500s the whole list/detail response. That row is dropped from `_refs` (renderer falls back to the raw UUID) and logged; every other row and the main list still resolve.
+
+- f4dc0d9: `checkWriteFieldOwnership` now only evaluates fields the caller actually submitted, not fields a `preSave` hook derived afterward. Previously, a hook that set an ownership-restricted field the user never touched (e.g. a system hook deriving `assignedTo`) caused that write to be wrongly rejected with `ownership_denied`, even though the user never wrote that field. A checked field's rule is still evaluated against the full post-hook row, so a rule referencing a hook-derived column (e.g. an `authorId` a hook sets, used to gate a different user-submitted field) keeps working exactly as before.
+- f4dc0d9: A `number` field with `integer: true` now rejects values outside Postgres' `int4` range (-2147483648..2147483647) at the Zod schema boundary, returning a clean 400 instead of letting the write reach Postgres and crash with a 500 (22003). No behavior change for values already inside the int4 range.
+- f4dc0d9: `buildPgKmsOptions` now throws when `PLATFORM_KEK_PREVIOUS_VERSION` is set without `PLATFORM_KEK_PREVIOUS`, mirroring the existing check in the other direction. Previously this half-set rotation pair silently dropped the version instead of failing loud.
+- f4dc0d9: Client-supplied `X-Request-ID` / `X-Correlation-ID` headers are now validated against `/^[A-Za-z0-9._:-]{1,128}$/` before use. An oversized or malformed value is replaced with a freshly generated id instead of flowing unvalidated into append-only event-store metadata, where it would have been permanently stored, replayed on every rebuild, and included in GDPR exports.
+  - @cosmicdrift/kumiko-types@0.174.0
+
 ## 0.173.1
 
 ### Patch Changes
