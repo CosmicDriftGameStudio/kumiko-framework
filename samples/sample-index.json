@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 38,
+  "featureCount": 39,
   "features": {
     "admin-shell": {
       "samples": [
@@ -255,6 +255,13 @@
       "whenToUse": "Tenants need their own public marketing or help pages with branding, Markdown bodies, and optional tier-gated custom CSS.",
       "sampleBlurb": "Tenant-branded public pages with Markdown body and optional tier-gated CSS — from route mount to rendered HTML.",
       "screenshot": "/screenshots/features/managed-pages.png"
+    },
+    "notes-history": {
+      "samples": [
+        "recipes-notes-history-basic"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Zero host changes: — task has no notes column, no notes-specific wiring, no awareness of notes at all. Note-taking works anyway, because the notes-history feature owns its own table. - **notes-history:write:add-note** — appends a note-entry (read_note_entries) keyed by { entityType, entityId, body }. The author is never client-supplied: the write always attributes to the authenticated caller, and insertedAt (a framework base column) is the timestamp. - **Strictly append-only** — there is no update or delete handler. A correction is a new entry, not an edit, so who wrote what and when stays reconstructable — the entire reason this bundle exists (a single overwritable textarea can't do that). - **Read-layer composition, no JOIN** — \"this task's note history\" lists note-entry filtered by entityId, sorted by insertedAt. The app reads and sorts; there is no relational pivot."
     },
     "personal-access-tokens": {
       "samples": [

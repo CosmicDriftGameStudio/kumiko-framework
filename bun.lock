@@ -587,6 +587,13 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/notes-history-basic": {
+      "name": "@cosmicdrift/kumiko-sample-notes-history-basic",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "samples/recipes/ownership": {
       "name": "@cosmicdrift/kumiko-sample-ownership",
       "dependencies": {
@@ -905,6 +912,8 @@
     "@cosmicdrift/kumiko-sample-managed-config": ["@cosmicdrift/kumiko-sample-managed-config@workspace:samples/recipes/managed-config"],
 
     "@cosmicdrift/kumiko-sample-managed-pages": ["@cosmicdrift/kumiko-sample-managed-pages@workspace:samples/recipes/managed-pages"],
+
+    "@cosmicdrift/kumiko-sample-notes-history-basic": ["@cosmicdrift/kumiko-sample-notes-history-basic@workspace:samples/recipes/notes-history-basic"],
 
     "@cosmicdrift/kumiko-sample-ownership": ["@cosmicdrift/kumiko-sample-ownership@workspace:samples/recipes/ownership"],
 
