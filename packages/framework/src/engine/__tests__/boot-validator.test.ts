@@ -601,8 +601,13 @@ describe("boot-validator", () => {
         }),
       ];
       validateBoot(features);
-      expect(warnSpy).toHaveBeenCalledTimes(1);
-      expect(warnSpy.mock.calls[0]?.[0] as string).toContain("OnlyHereRole");
+      // Not toHaveBeenCalledTimes(1): this file's tests share the process-global
+      // console.warn and run with the default concurrency (bunfig.toml) — other
+      // concurrently-running tests' own "role used by one handler" warnings can
+      // land on this spy too. Assert the wiring fired at least once instead.
+      expect(
+        warnSpy.mock.calls.some((call) => (call[0] as string | undefined)?.includes("OnlyHereRole")),
+      ).toBe(true);
     } finally {
       warnSpy.mockRestore();
     }

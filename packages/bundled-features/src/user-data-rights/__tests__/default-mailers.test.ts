@@ -95,7 +95,7 @@ describe("default-mailers dispatch", () => {
     const cap = capturingTransport();
     const resolve = async () => cap.transport;
 
-    // userLocale: null + mailDefaults.locale: "de" → deutscher Betreff.
+    // userLocale: null + mailDefaults.locale: "de" → German subject.
     await makeDefaultExportReadyEmail(resolve, { locale: "de", appName: "Acme" })({
       userId: "u1",
       userEmail: "u1@example.com",
@@ -108,7 +108,7 @@ describe("default-mailers dispatch", () => {
     });
     expect(cap.sent[0]?.subject).toBe("Acme — Dein Datenexport ist bereit");
 
-    // userLocale: null + kein mailDefaults.locale → Template-Default "en".
+    // userLocale: null + no mailDefaults.locale → template default "en".
     await makeDefaultExportReadyEmail(resolve, { appName: "Acme" })({
       userId: "u2",
       userEmail: "u2@example.com",

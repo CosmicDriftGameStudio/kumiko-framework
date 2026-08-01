@@ -225,7 +225,10 @@ describe("Reference-field create-in-place (#1681)", () => {
             ...taskEditScreen,
             layout: {
               sections: [
-                { title: "Basics", fields: ["title", { field: "assignee", readOnly: true }, "tags"] },
+                {
+                  title: "Basics",
+                  fields: ["title", { field: "assignee", readOnly: true }, "tags"],
+                },
               ],
             },
           },

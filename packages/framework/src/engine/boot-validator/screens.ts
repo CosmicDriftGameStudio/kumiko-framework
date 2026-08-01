@@ -34,7 +34,9 @@ function validateRowActionNavigateParams(
   action: RowAction,
   target: { readonly featureName: string; readonly screen: ScreenDefinition } | undefined,
 ): void {
+  // skip: not a navigate-with-params action — nothing to validate here.
   if (action.kind !== "navigate" || action.params === undefined) return;
+  // skip: unresolvable/custom target already reported (or exempt) elsewhere.
   if (target === undefined || target.screen.type === "custom") return;
 
   const isEntityEditUpdate =
