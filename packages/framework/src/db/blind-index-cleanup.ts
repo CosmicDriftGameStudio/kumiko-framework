@@ -1,15 +1,15 @@
-// Sofortiges Blind-Index-Nulling nach einem Subject-Erase (#818).
+// Immediate blind-index nulling after a subject erase (#818).
 //
-// Nach kms.eraseKey ist der Ciphertext unlesbar, aber die deterministische
-// bidx-Spalte bliebe bis zum nächsten Write/Rebuild matchbar — ein
-// Linkage-Fenster ("hat irgendeine Row den Wert X"). Dieser Sweep schließt
-// es sofort: der Ciphertext nennt sein Subject inline
-// (kumiko-pii:v1:<subjectKey>:...), also findet ein LIKE-Prefix-Match exakt
-// die Rows des erased Subjects — pro lookupable-Feld ein UPDATE.
+// After kms.eraseKey the ciphertext is unreadable, but the deterministic
+// bidx column would stay matchable until the next write/rebuild — a
+// linkage window ("does any row hold value X"). This sweep closes it right
+// away: the ciphertext names its subject inline
+// (kumiko-pii:v1:<subjectKey>:...), so a LIKE-prefix match finds exactly
+// the erased subject's rows — one UPDATE per lookupable field.
 //
-// Rows, die der Forget-Lauf ohnehin via Executor löscht/anonymisiert,
-// bekommen ihren bidx dort automatisch neu berechnet; dieser Sweep deckt
-// die liegen bleibenden Rows ab (fremde Entities mit userOwned-Feldern).
+// Rows the forget run deletes/anonymizes via the executor anyway get their
+// bidx recomputed automatically there; this sweep covers the rows left
+// behind (foreign entities with userOwned fields).
 
 import { collectLookupableFields } from "../crypto/blind-index";
 import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern";
@@ -29,9 +29,9 @@ export async function nullBlindIndexesForSubject(
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       const lookupable = collectLookupableFields(entity);
       if (lookupable.length === 0) continue;
-      // Kein featureName-Prefix — der Dispatcher baut Entity-Tables ohne
-      // (buildEntityTable ohne featureName-Option), der Sweep muss dieselben
-      // Namen treffen.
+      // No featureName prefix — the dispatcher builds entity tables without
+      // one (buildEntityTable with no featureName option), the sweep has to
+      // hit the same names.
       const tableName = resolveTableName(entityName, entity, undefined);
       for (const fieldName of lookupable) {
         const snake = toSnakeCase(fieldName);

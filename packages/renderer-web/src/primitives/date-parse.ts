@@ -76,9 +76,7 @@ type DateSlot = "y" | "m" | "d";
 function localeDateOrder(locale: string): readonly DateSlot[] {
   const refEpochMillis = activeTemporal()
     .PlainDate.from({ year: 2026, month: 1, day: 2 })
-    .toZonedDateTime(
-    "UTC",
-  ).epochMilliseconds;
+    .toZonedDateTime("UTC").epochMilliseconds;
   const order: DateSlot[] = [];
   for (const part of new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).formatToParts(
     refEpochMillis,
