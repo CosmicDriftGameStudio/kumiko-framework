@@ -28,9 +28,7 @@ describe("buildRobotsTxt", () => {
   });
 
   test("aiCrawlers: true + allow: false → no per-bot block (blanket Disallow already covers it)", () => {
-    expect(buildRobotsTxt({ allow: false, aiCrawlers: true })).toBe(
-      "User-agent: *\nDisallow: /\n",
-    );
+    expect(buildRobotsTxt({ allow: false, aiCrawlers: true })).toBe("User-agent: *\nDisallow: /\n");
   });
 
   test("contentSignal appends a Content-Signal line", () => {
