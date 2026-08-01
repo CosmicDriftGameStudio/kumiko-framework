@@ -81,7 +81,14 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
       const [first, ...rest] = field.options;
       if (!first) return z.string();
       const enumSchema = z.enum([first, ...rest]);
-      if (field.default !== undefined) return enumSchema.default(field.default);
+      if (field.default !== undefined)
+        // Untouched <select> sends "" too; with a default that maps to the
+        // default (same semantics as undefined) instead of the invalid-value
+        // rejection from #1702. A field with a default is never "unset".
+        return z.preprocess(
+          (value) => (value === "" ? field.default : value),
+          enumSchema.default(field.default),
+        );
       if (field.required) return enumSchema;
       // Optional select without a default: an untouched HTML <select> submits
       // "" for its placeholder option. Treat that as "unset" (null) instead of
