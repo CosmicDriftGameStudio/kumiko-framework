@@ -32,6 +32,11 @@ const splitFeature = defineFeature("split", (r) => {
   });
 });
 
+// Consumed by the worker's OWN eventDispatcher after worker.start() — proves
+// the write→afterCommit→MSP chain runs end-to-end inside the worker lane,
+// not just that the write itself lands in the event store (framework#1720).
+const consumedNotes: string[] = [];
+
 const workerWriteFeature = defineFeature("workerWrite", (r) => {
   const noted = r.defineEvent("noted", z.object({ note: z.string() }), { version: 1 });
   r.writeHandler(
@@ -48,7 +53,23 @@ const workerWriteFeature = defineFeature("workerWrite", (r) => {
     },
     { access: { openToAll: true } },
   );
+  r.multiStreamProjection({
+    name: "consume-notes",
+    apply: {
+      [noted.name]: async (event) => {
+        consumedNotes.push((event.payload as { note: string }).note);
+      },
+    },
+  });
 });
+
+async function waitForCondition(check: () => boolean, timeoutMs = 5000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!check()) {
+    if (Date.now() > deadline) throw new Error("waitForCondition: timed out");
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
 
 const JWT = "split-deploy-test-secret-must-be-32-chars!!";
 
@@ -132,6 +153,8 @@ describe("entrypoint factories", () => {
       queueNamePrefix: uniquePrefix("split-dispatch"),
     });
 
+    consumedNotes.length = 0;
+    await worker.start();
     try {
       const result = await worker.dispatcher.write(
         "worker-write:write:note",
@@ -147,6 +170,11 @@ describe("entrypoint factories", () => {
       expect((rows[0] as { payload: { note: string } }).payload.note).toBe(
         "written from the worker",
       );
+
+      // The worker's own eventDispatcher (started above) picks the event
+      // back up and runs the MSP — proves the afterCommit/MSP chain works
+      // inside the worker lane, not just that the write itself succeeded.
+      await waitForCondition(() => consumedNotes.includes("written from the worker"));
     } finally {
       await worker.stop();
     }
