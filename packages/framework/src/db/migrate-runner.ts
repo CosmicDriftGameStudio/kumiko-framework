@@ -160,6 +160,11 @@ export function splitSqlStatements(sqlText: string): readonly string[] {
       current += ch;
       continue;
     }
+    if (ch === "$" && /^\$([A-Za-z_]\w*)?\$/.test(sqlText.slice(i))) {
+      throw new Error(
+        "splitSqlStatements: unsupported dollar-quoted body — migration SQL is malformed, refusing to split",
+      );
+    }
     if (ch === ";") {
       statements.push(current);
       current = "";

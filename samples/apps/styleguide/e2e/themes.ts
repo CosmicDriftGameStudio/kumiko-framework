@@ -1,11 +1,12 @@
 import type { Page } from "@playwright/test";
+import { applyDefaultTheme, DEFAULT_THEMES, type DefaultThemeId } from "../../../e2e/screenshots";
 
 // Die 3 Doku-Themes. default-light/-dark sind der nackte renderer-web-Default
 // (Mode via .dark-Klasse). brand demonstriert App-Mount-Customizing: ein
 // Token-Override (Cream/Bernstein, recycelt aus marketing-demo) den der Runner
 // zur Laufzeit injiziert — so braucht die App selbst keinen Theme-Code.
 
-export const THEMES = ["default-light", "default-dark", "brand"] as const;
+export const THEMES = [...DEFAULT_THEMES, "brand"] as const;
 export type ThemeId = (typeof THEMES)[number];
 
 const BRAND_VARS = `
@@ -37,9 +38,9 @@ const STYLE_ID = "sg-theme-override";
 // und injiziert das Brand-Override mit gleicher Selektor-Spezifität wie der
 // renderer-web Light-Block — als letztes <style> gewinnt es bei Gleichstand.
 export async function applyTheme(page: Page, theme: ThemeId): Promise<void> {
+  await applyDefaultTheme(page, (theme === "brand" ? "default-light" : theme) as DefaultThemeId);
   await page.evaluate(
     ({ theme, brandVars, styleId }) => {
-      document.documentElement.classList.toggle("dark", theme === "default-dark");
       document.getElementById(styleId)?.remove();
       if (theme === "brand") {
         const style = document.createElement("style");

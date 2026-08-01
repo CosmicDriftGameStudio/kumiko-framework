@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { schedulerIdForJobName } from "../job-runner";
+import { bootJobIdForJobName, schedulerIdForJobName } from "../job-runner";
 
 describe("schedulerIdForJobName", () => {
   test("strips dots and colons so BullMQ job ids stay under the 5-segment legacy heuristic", () => {
@@ -14,5 +14,17 @@ describe("schedulerIdForJobName", () => {
 
   test("still collapses dotted QNs", () => {
     expect(schedulerIdForJobName("app.job.tick")).toBe("scheduler-app-job-tick");
+  });
+});
+
+describe("bootJobIdForJobName", () => {
+  test("strips colons, same hazard as schedulerIdForJobName (fw#1604)", () => {
+    const id = bootJobIdForJobName("publicstatus:job:uptime-probe");
+    expect(id).toBe("boot-publicstatus-job-uptime-probe");
+    expect(id.includes(":")).toBe(false);
+  });
+
+  test("still collapses dotted QNs", () => {
+    expect(bootJobIdForJobName("app.job.tick")).toBe("boot-app-job-tick");
   });
 });

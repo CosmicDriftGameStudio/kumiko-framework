@@ -195,6 +195,29 @@ describe("userCanReadFieldRow() — multi-role OR", () => {
     // row with mismatched teamId — TeamMember would fail, Admin passes
     expect(userCanReadFieldRow(user, accessMap, { teamId: "ops" })).toBe(true);
   });
+
+  // fw#1700: matchesRule() throws on a where-rule (SQL-layer only, can't
+  // evaluate in-memory). Field-level access is boot-validator-rejected for
+  // where-rules, but this function is also reachable from hand-rolled
+  // entity-level reads — a role backed by a where-rule must fail closed
+  // (deny, no throw) instead of crashing the caller with an uncaught 500.
+  test("role backed by a where-rule → fails closed (deny), does not throw", () => {
+    const whereMap: OwnershipMap = {
+      Support: { kind: "where", where: () => ({ sqlText: "1=1", params: [] }) },
+    };
+    const user = mkUser({ roles: ["Support"] });
+    expect(() => userCanReadFieldRow(user, whereMap, { teamId: "ops" })).not.toThrow();
+    expect(userCanReadFieldRow(user, whereMap, { teamId: "ops" })).toBe(false);
+  });
+
+  test("where-rule role does not block a later 'all' role in the same access map", () => {
+    const mixedMap: OwnershipMap = {
+      Support: { kind: "where", where: () => ({ sqlText: "1=1", params: [] }) },
+      Admin: "all",
+    };
+    const user = mkUser({ roles: ["Support", "Admin"] });
+    expect(userCanReadFieldRow(user, mixedMap, { teamId: "ops" })).toBe(true);
+  });
 });
 
 // --- userCanWriteFieldRow() — STRADDLE PREVENTION ---

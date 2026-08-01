@@ -190,8 +190,9 @@ export type SeedAdminOptions = {
    *  membership-Rollen. Typischer use-case: `["SystemAdmin"]` für
    *  einen Plattform-Operator. Default: leer. */
   readonly globalRoles?: readonly string[];
-  /** Initial-emailVerified-Flag — Default false (unverified),
-   *  gleicher Mechanismus wie seedUserWithPassword.emailVerified. */
+  /** Initial emailVerified state — defaults to false (unverified). Same
+   *  mechanism as seedUserWithPassword.emailVerified; only applied on
+   *  first create. */
   readonly emailVerified?: boolean;
   readonly by?: SessionUser;
 };

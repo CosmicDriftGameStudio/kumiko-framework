@@ -359,7 +359,7 @@ export type ReferenceFieldDef = {
    *  statt single UUID. Storage als jsonb-Array<uuid>. UI rendert
    *  Multi-Select-Combobox mit Tag-Anzeige der gewählten Items. */
   readonly multiple?: boolean;
-};
+} & PiiAnnotations;
 
 // --- Currency ---
 

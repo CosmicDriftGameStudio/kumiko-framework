@@ -36,8 +36,16 @@ function validateRowActionNavigateParams(
 ): void {
   // skip: not a navigate-with-params action — nothing to validate here.
   if (action.kind !== "navigate" || action.params === undefined) return;
-  // skip: unresolvable/custom target already reported (or exempt) elsewhere.
-  if (target === undefined || target.screen.type === "custom") return;
+  // entityList/projectionList targets also read URL search params (Tier
+  // 2.7c filter-prefill, see use-list-url-state.ts: `<screenId>.q/.sort/
+  // .dir/.page/.f.<field>`), not just actionForm/entityEdit-create.
+  const exemptTargetType =
+    target === undefined ||
+    target.screen.type === "custom" ||
+    target.screen.type === "entityList" ||
+    target.screen.type === "projectionList";
+  // skip: unresolvable/custom/list target already reported (or exempt) elsewhere.
+  if (exemptTargetType) return;
 
   const isEntityEditUpdate =
     target.screen.type === "entityEdit" &&

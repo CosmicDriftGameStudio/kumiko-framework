@@ -12,28 +12,19 @@
 // die liegen bleibenden Rows ab (fremde Entities mit userOwned-Feldern).
 
 import { collectLookupableFields } from "../crypto/blind-index";
+import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern";
 import type { FeatureDefinition } from "../engine/types";
 import { toSnakeCase } from "../utils/case";
 import type { DbRunner } from "./connection";
 import { resolveTableName } from "./entity-table-meta";
 import { executeRawQuery } from "./queries/raw-sql";
 
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
-function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, (m) => `\\${m}`);
-}
-
 export async function nullBlindIndexesForSubject(
   db: DbRunner,
   features: ReadonlyMap<string, FeatureDefinition>,
   subjectKey: string,
 ): Promise<void> {
-  // "v%" matches any format version (v1 no-AAD, v2 AAD-bound, #1263) — the
-  // subject key placement is stable across versions.
-  const likePattern = `kumiko-pii:v%:${escapeLikePattern(subjectKey)}:%`;
+  const likePattern = subjectCiphertextLikePattern(subjectKey);
   for (const feature of features.values()) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       const lookupable = collectLookupableFields(entity);

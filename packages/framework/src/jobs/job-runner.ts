@@ -45,6 +45,12 @@ export function schedulerIdForJobName(jobName: string): string {
   return `scheduler-${jobName.replace(/[.:]/g, "-")}`;
 }
 
+// Same colon-in-BullMQ-id hazard as schedulerIdForJobName (fw#1603/#1604) —
+// a QN like "publicstatus:job:uptime-probe" must not leave ":" in the id.
+export function bootJobIdForJobName(jobName: string): string {
+  return `boot-${jobName.replace(/[.:]/g, "-")}`;
+}
+
 // ponytail: migration shim, remove after fw#1603 deploy is everywhere.
 function legacySchedulerIdForJobName(jobName: string): string {
   return `scheduler-${jobName.replace(/\./g, "-")}`;
@@ -518,7 +524,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         if (laneForJob(jobDef) !== consumerLane) continue;
         if (jobDef.runOnBoot) {
           const bootName = jobDef.perTenant ? `_perTenant:${name}` : name;
-          await consumerQueue.add(bootName, {}, { jobId: `boot-${name.replace(/\./g, "-")}` });
+          await consumerQueue.add(bootName, {}, { jobId: bootJobIdForJobName(name) });
         }
       }
 

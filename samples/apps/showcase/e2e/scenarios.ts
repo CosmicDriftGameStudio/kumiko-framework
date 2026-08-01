@@ -22,9 +22,11 @@ async function openLightbox(page: Page): Promise<void> {
 const demoTitle = (title: string) => `.h-12.border-b >> text=${title}`;
 
 // The generated item screens render the framework's own markers, same as any
-// list/edit screen.
-const RENDER_MARKERS =
-  '[data-testid="render-edit-form"], [data-testid="render-list-table"], [data-testid="render-list-empty"]';
+// list/edit screen. List and edit wait on different markers — a shared
+// selector including render-list-empty let a seed failure (0 rows) pass a
+// list scenario as "rendered" with an empty table instead of failing it.
+const LIST_RENDER_MARKER = '[data-testid="render-list-table"]';
+const EDIT_RENDER_MARKER = '[data-testid="render-edit-form"]';
 
 const demo = (name: string, title: string, description: string): Scenario => ({
   name,
@@ -35,11 +37,11 @@ const demo = (name: string, title: string, description: string): Scenario => ({
   fullPage: true,
 });
 
-const item = (name: string, description: string): Scenario => ({
+const item = (name: string, description: string, waitFor: string): Scenario => ({
   name,
   description,
   url: `/${name}`,
-  waitFor: RENDER_MARKERS,
+  waitFor,
   settleMs: 300,
 });
 
@@ -55,9 +57,9 @@ export const SCENARIOS: readonly Scenario[] = [
     description: "React Lightbox open — ModalShell + enlarged image",
     flow: openLightbox,
   },
-  item("item-list", "Generated list screen over the kitchen-sink entity"),
-  item("item-feed", "The same entity rendered as a feed"),
-  item("item-active", "List screen with a filtered view"),
-  item("item-edit", "Generated edit form across the full field-type range"),
-  item("item-quick-add", "Compact create form"),
+  item("item-list", "Generated list screen over the kitchen-sink entity", LIST_RENDER_MARKER),
+  item("item-feed", "The same entity rendered as a feed", LIST_RENDER_MARKER),
+  item("item-active", "List screen with a filtered view", LIST_RENDER_MARKER),
+  item("item-edit", "Generated edit form across the full field-type range", EDIT_RENDER_MARKER),
+  item("item-quick-add", "Compact create form", EDIT_RENDER_MARKER),
 ];

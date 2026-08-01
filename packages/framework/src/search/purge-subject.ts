@@ -8,6 +8,7 @@
 //   2. Ciphertext LIKE prefix (same as nullBlindIndexesForSubject) for rows
 //      that still carry the subject key in encrypted columns.
 
+import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern";
 import type { SubjectId } from "../crypto/kms-adapter";
 import { collectSearchableSubjectFields } from "../crypto/subject-resolver";
 import type { DbRunner } from "../db/connection";
@@ -18,14 +19,6 @@ import type { EntityDefinition } from "../engine/types/fields";
 import type { EntityId, TenantId } from "../engine/types/identifiers";
 import { toSnakeCase } from "../utils/case";
 import type { SearchAdapter } from "./types";
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
-function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, (m) => `\\${m}`);
-}
 
 /** Build OR predicates for rows owned by `subject` (id / ownerField / tenant_id). */
 function ownershipPredicates(
@@ -76,7 +69,7 @@ export async function purgeSearchDocumentsForSubject(
   /** When set, also match rows by ownership — needed after anonymize rewrites ciphertext. */
   subject?: SubjectId,
 ): Promise<void> {
-  const likePattern = `kumiko-pii:v%:${escapeLikePattern(subjectKey)}:%`;
+  const likePattern = subjectCiphertextLikePattern(subjectKey);
   const byTenant = new Map<string, { entityType: string; entityId: EntityId }[]>();
   const seen = new Set<string>();
 

@@ -355,6 +355,7 @@ type ZodInternals = {
   readonly format?: string;
   readonly innerType?: z.ZodTypeAny;
   readonly entries?: Record<string, string>;
+  readonly out?: z.ZodTypeAny;
 };
 
 function readZodInternals(schema: z.ZodTypeAny): ZodInternals | undefined {
@@ -384,6 +385,10 @@ export function generateZodFixture(schema: z.ZodTypeAny): unknown {
     }
     case "date":
       return new Date("2026-01-01T00:00:00Z");
+    case "pipe": {
+      if (!def?.out) throw new Error("zod pipe without out");
+      return generateZodFixture(def.out);
+    }
     default:
       throw new Error(`generateZodFixture: not supported yet: ${typeName ?? "<unknown>"}`);
   }

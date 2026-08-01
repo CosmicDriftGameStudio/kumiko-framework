@@ -193,6 +193,11 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           bun samples/apps/use-all-bundled/schema/generate.ts
           git diff --exit-code samples/apps/use-all-bundled/schema/schema.generated.ts
+      - name: Verify migration-guide.md is generated, not hand-edited
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          bun scripts/gen-migration-guide.ts
+          git diff --exit-code docs/reference/migration-guide.md
       - name: Coverage lint (M5)
         # Diffs bundled-features exports gegen FEATURE_IMPORT_REGISTRY +
         # known held-back. Fail wenn ein neuer feature-export ohne mount

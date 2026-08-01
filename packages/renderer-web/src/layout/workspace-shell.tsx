@@ -218,11 +218,11 @@ export function WorkspaceShell({
     />
   );
 
-  // Modern shell (wie DefaultAppShell): collapsible Icon-Rail-Sidebar trägt
-  // Brand + Workspace-Switcher + Nav + Footer; der SidebarInset rendert die
-  // geteilte ShellHeader (Panel-Toggle + Breadcrumb + Actions) über dem
-  // Content. topbarActions landen rechts in der Header-Zeile statt in einer
-  // separaten Topbar — eine Kopfzeile statt zwei.
+  // Modern shell (like DefaultAppShell): collapsible icon-rail sidebar
+  // carries brand + workspace switcher + nav + footer; the SidebarInset
+  // renders the shared ShellHeader (panel toggle + breadcrumb + actions)
+  // above the content. topbarActions render right inside the header row
+  // instead of a separate topbar — one header line, not two.
   return (
     <SidebarProvider {...(fill === true && { className: "h-svh" })}>
       <Sidebar collapsible="icon">

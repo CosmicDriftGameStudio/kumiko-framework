@@ -133,11 +133,12 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         );
       }
 
-      // Sortierung liest die Projection-Spalte — die bleibt Ciphertext, also
-      // sortable + Subject-Annotation bleibt Boot-Fail. searchable ist seit
-      // #1610 erlaubt: der Search-Consumer decryptet in den abgeleiteten
-      // Index und forget purgt die Docs (siehe createSearchEventConsumer).
-      // sensitive + searchable bleibt verboten (nobody-may-read-back).
+      // Sorting reads the projection column — that stays ciphertext, so
+      // sortable + subject annotation stays a boot-fail. searchable has
+      // been allowed since #1610: the search consumer decrypts into the
+      // derived index and forget purges those docs (see
+      // createSearchEventConsumer). sensitive + searchable stays forbidden
+      // (nobody-may-read-back).
       {
         const flags = field as {
           readonly searchable?: boolean;

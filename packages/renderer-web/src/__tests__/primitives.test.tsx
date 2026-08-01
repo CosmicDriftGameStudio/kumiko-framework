@@ -470,12 +470,12 @@ describe("DataTable", () => {
     });
   });
 
-  // Infinite-Scroll Sentinel: rendert sentinel-div, zeigt Spinner wenn
-  // loadingMore, den i18n End-of-list-Marker (kumiko.list.end-of-list)
-  // wenn !hasMore und genug Zeilen geladen sind (kurze Listen brauchen
-  // keinen Marker — sie zeigen ihr Ende selbst). IntersectionObserver
-  // selbst ist in jsdom unmocked — wir testen nur die Marker, der
-  // Observer-Fire-Pfad ist im KumikoScreen.EntityListBody.
+  // Infinite-scroll sentinel: renders a sentinel div, shows a spinner when
+  // loadingMore, and the i18n end-of-list marker (kumiko.list.end-of-list)
+  // when !hasMore and enough rows have loaded (short lists don't need a
+  // marker — they show their end on their own). IntersectionObserver itself
+  // is unmocked in jsdom — we only test the marker; the observer-fire path
+  // lives in KumikoScreen.EntityListBody.
   describe("InfiniteSentinel", () => {
     const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
     const oneRow = [{ id: "r1", values: { name: "A" } }];

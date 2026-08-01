@@ -7,6 +7,13 @@
 
 import { Temporal } from "temporal-polyfill";
 
+// Prefer the native Temporal (Chromium 144+/Firefox 139+) over the bundled
+// polyfill so `instanceof` checks match values crossing package boundaries;
+// falls back to the polyfill where native support is absent.
+function activeTemporal(): typeof Temporal {
+  return (globalThis as unknown as { Temporal?: typeof Temporal }).Temporal ?? Temporal;
+}
+
 export function guessLocale(): string {
   if (typeof navigator !== "undefined" && navigator.language) return navigator.language;
   return "en-US";
@@ -17,7 +24,7 @@ export function guessLocale(): string {
 // a different date.
 function makePlainDate(y: number, m: number, d: number): Temporal.PlainDate | undefined {
   try {
-    return Temporal.PlainDate.from({ year: y, month: m, day: d }, { overflow: "reject" });
+    return activeTemporal().PlainDate.from({ year: y, month: m, day: d }, { overflow: "reject" });
   } catch {
     return undefined;
   }
@@ -67,7 +74,9 @@ type DateSlot = "y" | "m" | "d";
 // "UTC" keeps the reference from shifting to the 1st depending on the
 // browser's TZ.
 function localeDateOrder(locale: string): readonly DateSlot[] {
-  const refEpochMillis = Temporal.PlainDate.from({ year: 2026, month: 1, day: 2 }).toZonedDateTime(
+  const refEpochMillis = activeTemporal()
+    .PlainDate.from({ year: 2026, month: 1, day: 2 })
+    .toZonedDateTime(
     "UTC",
   ).epochMilliseconds;
   const order: DateSlot[] = [];

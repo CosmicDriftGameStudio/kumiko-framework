@@ -6,19 +6,19 @@ import { createUserDataRightsFeature, type UserDataRightsOptions } from "../user
 import { createUserProfileFeature } from "../user-profile";
 
 export type DsgvoSelfServiceOptions = {
-  /** Durchgereicht an createUserDataRightsFeature — Export-/Deletion-Mail-
-   *  Callbacks + Apex-Deletion-HMAC. Default {} (no-op Mail-Side). */
+  /** Passed through to createUserDataRightsFeature — export/deletion mail
+   *  callbacks + Apex deletion HMAC. Default {} (no-op mail side). */
   readonly userDataRights?: UserDataRightsOptions;
 };
 
-// DSGVO- + Account-Self-Service-Kette, die jede Kumiko-SaaS-App mountet
-// (Privacy-Center, Account-Löschung Art. 17, Export Art. 20, Sessions).
-// Order is load-bearing (Require-Order): user-data-rights braucht
-// data-retention + compliance-profiles + sessions, user-profile braucht
-// user-data-rights. Genau diese Order stand bisher in jeder App handkopiert
-// mit Erklär-Kommentar. text-content + legal-pages bleiben bewusst draußen —
-// legal-pages hat ein app-spezifisches wrapLayout, text-content ist
-// standalone Foundation; beide spreaded die App selbst dazu.
+// DSGVO + account self-service chain every Kumiko SaaS app mounts (privacy
+// center, account deletion Art. 17, export Art. 20, sessions). Order is
+// load-bearing (require-order): user-data-rights needs data-retention +
+// compliance-profiles + sessions, user-profile needs user-data-rights. This
+// exact order used to be hand-copied into every app with an explainer
+// comment. text-content + legal-pages stay out deliberately — legal-pages
+// has an app-specific wrapLayout, text-content is a standalone foundation;
+// both are spread in by the app itself.
 export function dsgvoSelfServiceFeatures(opts: DsgvoSelfServiceOptions = {}): FeatureDefinition[] {
   return [
     createDataRetentionFeature(),

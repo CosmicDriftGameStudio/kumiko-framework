@@ -111,9 +111,22 @@ export async function decryptSearchableSubjectFields(
     }
     return out;
   }
-  return decryptPiiFieldValues(state, fields, kms, {
-    requestId: "system:consumer:search",
-  });
+  try {
+    return await decryptPiiFieldValues(state, fields, kms, {
+      requestId: "system:consumer:search",
+    });
+  } catch (err) {
+    console.warn(
+      `[kumiko:search] decryptSearchableSubjectFields failed for "${entityName}" — ` +
+        `dropping ciphertext fields for this document instead of wedging the consumer.`,
+      err,
+    );
+    const out = { ...state };
+    for (const name of fields) {
+      if (isPiiCiphertext(out[name])) delete out[name];
+    }
+    return out;
+  }
 }
 
 export function hasErasedSearchableSubjectField(
