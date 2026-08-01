@@ -200,6 +200,10 @@ export type NotifyOptions = {
   // can be replayed (webhook retry, user double-click) and you don't want
   // the notification to fire twice.
   readonly idempotencyKey?: string;
+  // Pseudonymous subject key for the `route` path (no user account). Threaded
+  // into the delivery-attempt event's recipientId so crypto-shredding's
+  // forget-subject can reach recipientAddress under this subject.
+  readonly recipientId?: string;
 };
 
 // Minimal interface for delivery notifications (concrete type in bundled-features/delivery)

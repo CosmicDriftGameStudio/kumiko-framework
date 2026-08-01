@@ -68,6 +68,23 @@ const appFeature = defineFeature("app", (r) => {
       access: { openToAll: true },
     }),
   );
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "ping-direct",
+      schema: z.object({ email: z.string(), subjectId: z.string() }),
+      handler: async (event, ctx) => {
+        const notify = ctx.notify as NotifyFn;
+        await notify(qn("app", "notify", "pinged"), {
+          route: { email: event.payload.email },
+          recipientId: event.payload.subjectId,
+          data: { title: "Ping", body: "Du wurdest angepingt" },
+        });
+        return { isSuccess: true, data: { sent: true } };
+      },
+      access: { openToAll: true },
+    }),
+  );
 });
 
 let stack: TestStack;
@@ -167,5 +184,65 @@ describe("delivery attempt log under KMS", () => {
       (r) => r["recipientId"] === recipient.id && r["channel"] === "email",
     );
     expect(erased?.["recipientAddress"]).toBe(PII_ERASED_SENTINEL);
+  });
+
+  // money-horse#330: route:{email} (no user account, e.g. a share-token
+  // recipient) carries recipientId so recipientAddress is encrypted under
+  // that subject too, not left plaintext.
+  test("route:{email} with recipientId ciphers recipientAddress under that subject; erasing it doesn't touch other subjects", async () => {
+    const directEmail = "share-recipient@test.com";
+    const subjectId = "share-token-330";
+
+    await stack.http.writeOk(
+      qn("app", "write", "ping-direct"),
+      { email: directEmail, subjectId },
+      admin,
+    );
+    await pingRecipient();
+
+    const events = await selectMany(stack.db, eventsTable, { type: DELIVERY_ATTEMPT_EVENT });
+    const direct = events
+      .map((e) => e.payload as Record<string, unknown>)
+      .find((p) => p["channel"] === "email" && p["recipientId"] === subjectId);
+    expect(direct).toBeDefined();
+    expect(isPiiCiphertext(direct?.["recipientAddress"])).toBe(true);
+    expect(String(direct?.["recipientAddress"])).toContain(`user:${subjectId}`);
+
+    const rowsBefore = await selectMany(stack.db, deliveryAttemptsTable, {
+      recipientId: subjectId,
+      channel: "email",
+    });
+    expect(rowsBefore.length).toBeGreaterThan(0);
+    expect(isPiiCiphertext(rowsBefore[0]?.["recipientAddress"])).toBe(true);
+
+    // Snapshot the plain `to:` recipient's entry before erasing the
+    // share-token subject, to prove the erase below is subject-scoped.
+    const beforeErase = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      "delivery:query:log",
+      { limit: 100 },
+      admin,
+    );
+    const otherSubjectBefore = beforeErase.rows.find(
+      (r) => r["recipientId"] === recipient.id && r["channel"] === "email",
+    )?.["recipientAddress"];
+
+    await kms.eraseKey({ kind: "user", userId: subjectId });
+
+    const after = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      "delivery:query:log",
+      { limit: 100 },
+      admin,
+    );
+    const shredded = after.rows.find(
+      (r) => r["recipientId"] === subjectId && r["channel"] === "email",
+    );
+    expect(shredded?.["recipientAddress"]).toBe(PII_ERASED_SENTINEL);
+
+    // Other subjects (e.g. the plain `to:` recipient) are unaffected by the
+    // share-token subject's erasure.
+    const otherSubjectAfter = after.rows.find(
+      (r) => r["recipientId"] === recipient.id && r["channel"] === "email",
+    )?.["recipientAddress"];
+    expect(otherSubjectAfter).toBe(otherSubjectBefore);
   });
 });

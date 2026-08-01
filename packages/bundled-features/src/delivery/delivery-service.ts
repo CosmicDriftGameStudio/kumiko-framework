@@ -422,6 +422,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     data: Readonly<Record<string, unknown>> | undefined,
     tenantId: TenantId,
     priority: NotifyPriority,
+    recipientId: string | null,
   ): Promise<void> {
     const channelCtx = buildChannelContext(db, registry, sseBroker, tenantId);
 
@@ -439,7 +440,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             tenantId,
             notificationType,
             channel: channel.name,
-            recipientId: null,
+            recipientId,
             recipientAddress: address,
             status: "skipped",
             error: "rate_limited",
@@ -456,7 +457,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           message,
           channelCtx,
           tenantId,
-          recipientId: null,
+          recipientId,
           notificationType,
           priority,
         });
@@ -465,7 +466,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           tenantId,
           notificationType,
           channel: channel.name,
-          recipientId: null,
+          recipientId,
           recipientAddress: address,
           status: "failed",
           error: err instanceof Error ? err.message : String(err),
@@ -499,7 +500,14 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       }
 
       if (route) {
-        await deliverDirect(route, notificationType, data, tenantId, priority);
+        await deliverDirect(
+          route,
+          notificationType,
+          data,
+          tenantId,
+          priority,
+          options.recipientId ?? null,
+        );
         // skip: direct route delivered, no recipient resolution needed
         return;
       }
