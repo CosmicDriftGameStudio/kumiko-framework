@@ -424,6 +424,11 @@ function columnsByNameMeta(meta: EntityTableMeta): Map<string, ColumnMeta> {
 /**
  * Hand-built EntityTableMeta for direct-write stores (no entity base columns).
  * Prefer a `store_*` table name; `read_` is reserved for managed projections (#1220).
+ *
+ * Escape hatch, not a shortcut: no audit trail, no automatic tenant_id index,
+ * no softDelete — the app author owns tenant-scoping and retention for this
+ * table. Justify WHY in the call site; reviewers should scrutinize every new
+ * unmanaged table.
  */
 export function defineUnmanagedTable(input: UnmanagedTableInput): EntityTableMeta {
   assertUnmanagedTableName(input.tableName, "defineUnmanagedTable");

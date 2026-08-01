@@ -2886,6 +2886,35 @@ describe("boot-validator — config key backing × scope", () => {
     );
   });
 
+  test("navigate with params targeting a cross-entity entityList screen → no throw (list screens read URL search params for filter-prefill, fw#1708)", () => {
+    const feature = defineFeature("housing", (r) => {
+      r.entity("unit", createEntity({ fields: { id: createTextField() } }));
+      r.entity("contract", createEntity({ fields: { unitId: createTextField() } }));
+      r.screen({
+        id: "unit-list",
+        type: "entityList",
+        entity: "unit",
+        columns: ["id"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "view-contracts",
+            label: "actions.viewContracts",
+            screen: "contract-list",
+            params: { map: { "housing:contract-list.f.unitId": "id" } },
+          },
+        ],
+      });
+      r.screen({
+        id: "contract-list",
+        type: "entityList",
+        entity: "contract",
+        columns: ["unitId"],
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
   test("navigate with params targeting a custom screen → no throw (author owns the component, may read searchParams itself)", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity("product", createEntity({ fields: { name: createTextField() } }));

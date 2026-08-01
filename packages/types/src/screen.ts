@@ -518,9 +518,10 @@ export type EditFieldSpec =
       /** Prefix icon on the input — symbolic key into the FIELD_ICONS
        *  registry (renderer-web), analogous to `ScreenNavSugar.icon`.
        *  Unknown key → no icon (clean fallback, no boot-fail). Only takes
-       *  effect for `type: "text"` and `"number"` — other input kinds
-       *  (select, combobox, date, …) have no icon slot and silently
-       *  ignore the key. */
+       *  effect for single-line `type: "text"` and `"number"` — a `text`
+       *  field with `multiline` routes to a textarea (no icon slot), and
+       *  other input kinds (select, combobox, date, …) silently ignore
+       *  the key. */
       readonly icon?: string;
     };
 

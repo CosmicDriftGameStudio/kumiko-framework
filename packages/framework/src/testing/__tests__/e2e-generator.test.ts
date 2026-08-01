@@ -259,4 +259,11 @@ describe("generateZodFixture", () => {
     expect(() => generateZodFixture(z.object({}))).toThrow(/not supported yet/);
     expect(() => generateZodFixture(z.array(z.string()))).toThrow(/not supported yet/);
   });
+
+  test("pipe (select-with-default, same shape schema-builder's z.preprocess produces) unwraps to the underlying type's fixture (fw#1712)", () => {
+    const enumSchema = z.enum(["a", "b"]);
+    const pipe = z.preprocess((value) => (value === "" ? "a" : value), enumSchema);
+    expect(pipe._def.type).toBe("pipe");
+    expect(generateZodFixture(pipe)).toBe("a");
+  });
 });

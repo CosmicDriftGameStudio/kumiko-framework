@@ -42,7 +42,7 @@ export function createBrandingSettingsScreen(opts: {
       description: createTextField({
         maxLength: 500,
         multiline: { rows: 3 },
-        allowPlaintext: "tenant branding copy, business content not personal data",
+        allowPlaintext: "is-business-data",
       }),
       siteUrl: createTextField({ maxLength: 2000, format: "url" }),
       accentColor: createTextField({ maxLength: 9 }),

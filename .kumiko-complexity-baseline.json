@@ -1,7 +1,7 @@
 {
   "format": 1,
   "generated": "2026-08-01",
-  "total": 101,
+  "total": 103,
   "perFile": {
     "packages/bundled-features/src/auth-mfa/handlers/enable-confirm-preauth.write.ts": 1,
     "packages/bundled-features/src/auth-mfa/handlers/verify.write.ts": 1,
@@ -39,7 +39,7 @@
     "packages/framework/src/engine/boot-validator/entity-list-screens.ts": 1,
     "packages/framework/src/engine/boot-validator/index.ts": 1,
     "packages/framework/src/engine/boot-validator/pii-retention.ts": 1,
-    "packages/framework/src/engine/boot-validator/screens.ts": 1,
+    "packages/framework/src/engine/boot-validator/screens.ts": 2,
     "packages/framework/src/engine/build-app-schema.ts": 2,
     "packages/framework/src/engine/codemod/pipeline-codemod.ts": 3,
     "packages/framework/src/engine/create-app.ts": 1,
@@ -76,7 +76,7 @@
     "packages/framework/src/secrets/leak-guard.ts": 1,
     "packages/framework/src/stack/request-helper.ts": 1,
     "packages/framework/src/stack/test-stack.ts": 1,
-    "packages/framework/src/testing/e2e-generator.ts": 2,
+    "packages/framework/src/testing/e2e-generator.ts": 3,
     "packages/headless/src/apex/index.ts": 1,
     "packages/headless/src/format/index.ts": 1,
     "packages/headless/src/view-model/edit.ts": 1,

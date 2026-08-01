@@ -158,6 +158,12 @@ export function userCanReadFieldRow(
   for (const role of user.roles) {
     const rule = accessMap[role];
     if (!rule) continue;
+    // where-rules are entity-level SQL predicates (buildOwnershipClause);
+    // matchesRule can't evaluate them in-memory and throws. Field-level
+    // access is boot-validator-rejected for where-rules, but this function
+    // is also reachable from hand-rolled entity-level reads.
+    // skip: where-rules are SQL-layer only — fail closed instead of throwing.
+    if (rule !== "all" && rule.kind === "where") continue;
     if (matchesRule(rule, user, row)) return true;
   }
   return false;
@@ -180,6 +186,8 @@ export function userCanWriteFieldRow(
     const rule = accessMap[role];
     if (!rule) continue;
     if (rule === "all") return true;
+    // skip: where-rules are SQL-layer only — fail closed instead of throwing.
+    if (rule.kind === "where") continue;
     if (matchesRule(rule, user, oldRow) && matchesRule(rule, user, newRow)) return true;
   }
   return false;

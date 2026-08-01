@@ -12,12 +12,12 @@ import { defineCommand } from "./registry";
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
-function readCurrentVersion(cwd: string): string | null {
-  // Walk up from cwd to find node_modules/@cosmicdrift/kumiko-framework/package.json
+function readPackageVersion(cwd: string, pkgName: string, repoLocalPath: string): string | null {
+  // Walk up from cwd to find node_modules/@cosmicdrift/<pkgName>/package.json
   // (handles bun workspace hoisting where packages live in parent node_modules)
   let dir = cwd;
   for (let i = 0; i < 10; i++) {
-    const nmPath = join(dir, "node_modules/@cosmicdrift/kumiko-framework/package.json");
+    const nmPath = join(dir, `node_modules/@cosmicdrift/${pkgName}/package.json`);
     if (existsSync(nmPath)) {
       try {
         const pkg = JSON.parse(readFileSync(nmPath, "utf-8"));
@@ -30,17 +30,27 @@ function readCurrentVersion(cwd: string): string | null {
     if (parent === dir) break;
     dir = parent;
   }
-  // Fallback: framework repo root
-  const fwPath = join(cwd, "packages/framework/package.json");
-  if (existsSync(fwPath)) {
+  // Fallback: repo-local package root
+  const repoPath = join(cwd, repoLocalPath);
+  if (existsSync(repoPath)) {
     try {
-      const pkg = JSON.parse(readFileSync(fwPath, "utf-8"));
+      const pkg = JSON.parse(readFileSync(repoPath, "utf-8"));
       return pkg.version ?? null;
     } catch {
       return null;
     }
   }
   return null;
+}
+
+// Changelog entries come from @cosmicdrift/kumiko-bundled-features (see
+// findFeaturesDirs); comparing against the framework version instead
+// compares unrelated packages once the two stop being versioned in lockstep.
+function readCurrentVersion(cwd: string): string | null {
+  return (
+    readPackageVersion(cwd, "kumiko-bundled-features", "packages/bundled-features/package.json") ??
+    readPackageVersion(cwd, "kumiko-framework", "packages/framework/package.json")
+  );
 }
 
 function readChangelogFile(filePath: string): ChangelogEntry[] {

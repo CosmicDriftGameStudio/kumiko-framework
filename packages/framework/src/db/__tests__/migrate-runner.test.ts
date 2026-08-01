@@ -99,4 +99,20 @@ describe("splitSqlStatements", () => {
       'CREATE TABLE "a" ("id" uuid);',
     ]);
   });
+
+  test("throws fail-loud on a dollar-quoted body instead of splitting it in half", () => {
+    expect(() => splitSqlStatements("DO $$ BEGIN PERFORM 1; END $$;")).toThrow(
+      /unsupported dollar-quoted body/,
+    );
+  });
+
+  test("throws fail-loud on a tagged dollar-quoted body ($tag$...$tag$)", () => {
+    expect(() => splitSqlStatements("DO $tag$ BEGIN PERFORM 1; END $tag$;")).toThrow(
+      /unsupported dollar-quoted body/,
+    );
+  });
+
+  test("a bare $ not opening a dollar-tag does not false-positive (digit after $ is not a tag)", () => {
+    expect(splitSqlStatements("SELECT $1;")).toEqual(["SELECT $1;"]);
+  });
 });

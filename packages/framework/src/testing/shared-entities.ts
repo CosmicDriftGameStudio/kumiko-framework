@@ -31,15 +31,15 @@ export const sharedUserEntity = createEntity({
       required: true,
       format: "email",
       searchable: true,
-      allowPlaintext: "shared test fixture, not real user data",
+      allowPlaintext: "test-fixture",
     }),
     firstName: createTextField({
       searchable: true,
-      allowPlaintext: "shared test fixture, not real user data",
+      allowPlaintext: "test-fixture",
     }),
     lastName: createTextField({
       searchable: true,
-      allowPlaintext: "shared test fixture, not real user data",
+      allowPlaintext: "test-fixture",
     }),
     isEnabled: createBooleanField({ default: true }),
   },

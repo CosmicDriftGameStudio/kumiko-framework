@@ -13,7 +13,7 @@
  * Breaking entries are listed but never auto-written (need real migration).
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -63,9 +63,25 @@ function shOk(cmd: string, cwd = process.cwd()): string | null {
   }
 }
 
+// pkgJsonRel comes from a package directory name (readdirSync over
+// packages/) — a branch introducing a maliciously-named directory could
+// inject shell code through sh()'s string interpolation. execFileSync
+// passes args directly to the process, no shell involved.
+function gitShowOk(args: readonly string[], cwd = process.cwd()): string | null {
+  try {
+    return execFileSync("git", ["show", ...args], {
+      encoding: "utf-8",
+      cwd,
+      maxBuffer: 16 * 1024 * 1024,
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
 /** Published version at a commit (PR body majors can lie — see guard-no-major). */
 function packageVersionAt(commitish: string, pkgJsonRel: string, cwd: string): string | null {
-  const raw = shOk(`git show ${commitish}:${pkgJsonRel}`, cwd);
+  const raw = gitShowOk([`${commitish}:${pkgJsonRel}`], cwd);
   if (!raw) return null;
   try {
     const v = (JSON.parse(raw) as { version?: string }).version;
@@ -200,7 +216,7 @@ function parseVersionPrBody(body: string): ParsedBullet[] {
 }
 
 function filesTouched(sha: string, cwd: string): string[] {
-  const out = shOk(`git show --name-only --pretty=format: ${sha}`, cwd);
+  const out = gitShowOk(["--name-only", "--pretty=format:", sha], cwd);
   if (!out) return [];
   return out
     .split("\n")

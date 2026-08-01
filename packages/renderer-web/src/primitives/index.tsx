@@ -1012,13 +1012,13 @@ function RowActionsKebab({
   );
 }
 
-// InfiniteSentinel — leeres div am Ende der Tabelle, das via
-// IntersectionObserver erkennt wann der User in die Nähe des Listen-
-// Endes scrollt. onReachEnd feuert genau einmal pro "wird sichtbar"-
-// Übergang; der Caller debounced via loadingMore (während eine Page
-// lädt, ignorieren wir weitere Sichtbar-Events). Kein observer in
-// Server-Side-Render, kein observer wenn hasMore=false — dann zeigt
-// der Sentinel nur den End-of-list-Hinweis.
+// InfiniteSentinel — empty div at the end of the table that uses
+// IntersectionObserver to detect when the user scrolls near the list end.
+// onReachEnd fires exactly once per "becomes visible" transition; the
+// caller debounces via loadingMore (further visibility events are ignored
+// while a page is loading). No observer during server-side render, no
+// observer when hasMore=false — then the sentinel only shows the
+// end-of-list hint.
 // ponytail: threshold mirrors the framework default pageSize (kumiko-screen.tsx
 // `screen.pageSize ?? 50`) rather than the real per-screen pageSize, which isn't
 // threaded down to this component. A screen with a custom pageSize can still

@@ -32,7 +32,10 @@ export default defineConfig({
     // KUMIKO_DEV_DB_NAME="" → ephemeral DB per Playwright run.
     env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },
     reuseExistingServer: !process.env["CI"],
-    timeout: 120_000,
+    // 200 sequential showcase:write:item:create seeds go through the full
+    // pipeline (validation, read-side, search-index, audit) on an ephemeral
+    // DB — 120s was tuned for the pre-seed screenshot-server variant.
+    timeout: 240_000,
     stdout: "pipe",
     stderr: "pipe",
   },
