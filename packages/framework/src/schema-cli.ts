@@ -287,9 +287,22 @@ export async function runSchemaCli(
             for (const m of mismatches) {
               out.err(`    ${m.tableName} (${m.kind}): ${m.detail}`);
             }
-            out.err(
-              "    Fix: a migration file's body doesn't match what it (or the snapshot) claims — hand-fix the file, or ship a corrective migration if it's already applied in prod.",
-            );
+            if (mismatches.some((m) => m.kind === "unexpected-table")) {
+              out.err(
+                "    Fix (unexpected-table): register the raw/hand-written table via `table()` " +
+                  "(or `defineUnmanagedTable()`) from `@cosmicdrift/kumiko-framework/db`, then " +
+                  "`r.storeTable(meta, { reason: ... })` inside a feature — this adds it to " +
+                  "ENTITY_METAS and the snapshot without going through r.entity(). See the " +
+                  "bundled `jobs` feature's job-run-log store table for the pattern.",
+              );
+            }
+            if (mismatches.some((m) => m.kind !== "unexpected-table")) {
+              out.err(
+                "    Fix (missing-table/column-drift): a migration file's body doesn't match " +
+                  "what it (or the snapshot) claims — hand-fix the file, or ship a corrective " +
+                  "migration if it's already applied in prod.",
+              );
+            }
           }
         } catch (e) {
           // replayMigrationsDir fail-loud's on a table-DDL statement it can't

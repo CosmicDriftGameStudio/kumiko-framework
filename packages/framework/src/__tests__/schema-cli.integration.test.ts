@@ -200,6 +200,25 @@ CREATE TABLE IF NOT EXISTS "read_widgets_v2" ("id" uuid PRIMARY KEY);
     expect(cap.err.join("\n")).toContain("read_widgets");
   });
 
+  test("migration creates a table with no snapshot entry → unexpected-table hint points at r.storeTable, not hand-fix", async () => {
+    writeSchemaFile(appCwd, "read_widgets");
+    await runSchemaCli(["generate", "init"], appCwd, captureOut().out);
+    writeFileSync(
+      join(appCwd, "kumiko/migrations/0002_raw.sql"),
+      `-- hand-written table outside the entity system, never registered via r.storeTable
+CREATE TABLE IF NOT EXISTS "marketing_waitlist" ("id" uuid PRIMARY KEY);
+`,
+    );
+    const cap = captureOut();
+    const code = await runSchemaCli(["validate"], appCwd, cap.out);
+    expect(code).toBe(1);
+    const err = cap.err.join("\n");
+    expect(err).toContain("marketing_waitlist");
+    expect(err).toContain("Fix (unexpected-table)");
+    expect(err).toContain("r.storeTable");
+    expect(err).not.toContain("Fix (missing-table/column-drift)");
+  });
+
   test("no FEATURES export → validateBoot skipped (drift still checked)", async () => {
     writeSchemaFile(appCwd, "read_widgets");
     await runSchemaCli(["generate", "init"], appCwd, captureOut().out);
