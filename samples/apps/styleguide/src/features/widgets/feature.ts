@@ -14,6 +14,21 @@ const RESPONSE_POINTS = Array.from({ length: 48 }, (_, i) => ({
   value: i === 20 ? null : 120 + Math.round(80 * Math.abs(Math.sin(i / 5))),
 }));
 
+// Statische Demo-Inbox (18 Nachrichten) für die InfinityList-Demo — genug
+// Rows, um über pageSize=6 hinweg mehrere Seiten nachzuladen.
+const INBOX_MESSAGES = Array.from({ length: 18 }, (_, i) => ({
+  id: `m${i + 1}`,
+  sender: ["William Smith", "Alice Smith", "Bob Johnson", "Emily Davis"][i % 4] as string,
+  subject: ["Meeting Tomorrow", "Re: Project Update", "Weekend Plans", "Re: Budget"][
+    i % 4
+  ] as string,
+  snippet: "Hi team, just a reminder about our meeting tomorrow at 10 AM.",
+  // % 4 statt % 3: bleibt an der sender/subject-Rotation ausgerichtet, sonst
+  // ist irgendwann jede Kombination mal unread und der Filter zeigt visuell
+  // keinen Unterschied.
+  unread: i % 4 === 0,
+}));
+
 export const widgetsFeature = defineFeature("widgets", (r) => {
   r.screen({ id: "widgets", type: "custom", renderer: { react: { __component: "widgets" } } });
   r.screen({
@@ -152,6 +167,31 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       ],
       nextCursor: null,
     }),
+    { access: { openToAll: true } },
+  );
+  r.queryHandler(
+    "metrics:inbox-messages",
+    z.object({
+      cursor: z.string().optional(),
+      limit: z.number().optional(),
+      unreadOnly: z.boolean().optional(),
+      search: z.string().optional(),
+    }),
+    async ({ payload: { cursor, limit, unreadOnly, search } }) => {
+      const term = search?.trim().toLowerCase() ?? "";
+      const filtered = INBOX_MESSAGES.filter(
+        (m) =>
+          (unreadOnly !== true || m.unread) &&
+          (term === "" ||
+            m.sender.toLowerCase().includes(term) ||
+            m.subject.toLowerCase().includes(term)),
+      );
+      const start = cursor !== undefined ? Number(cursor) : 0;
+      const pageSize = limit ?? 6;
+      const rows = filtered.slice(start, start + pageSize);
+      const nextCursor = start + pageSize < filtered.length ? String(start + pageSize) : null;
+      return { rows, nextCursor };
+    },
     { access: { openToAll: true } },
   );
   r.queryHandler(

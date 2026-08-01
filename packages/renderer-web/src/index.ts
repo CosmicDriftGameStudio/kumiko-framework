@@ -156,6 +156,7 @@ export {
   lightTokens,
   useBrowserTokensApi,
 } from "./tokens";
+export { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "./ui/resizable";
 export { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "./ui/sidebar";
 export type {
   AiTextAreaProps,

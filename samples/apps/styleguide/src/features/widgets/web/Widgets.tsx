@@ -12,12 +12,16 @@ import {
   DetailList,
   Drawer,
   EmptyState,
+  InfinityList,
   MiniStat,
   ModeSwitch,
   MoneyField,
   PercentField,
   ProgressBar,
   RangeField,
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
   ResultPanel,
   ResultTable,
   SectionCard,
@@ -144,11 +148,108 @@ export function Widgets(): ReactNode {
         <p className="text-sm">Hi team, just a reminder about our meeting tomorrow at 10 AM.</p>
       </Drawer>
 
+      <InboxDemo />
       <FinancingCalculatorDemo />
       <FormFieldsDemo />
       <ComparisonDemo />
       <AiTextDemo />
     </div>
+  );
+}
+
+type InboxMessage = {
+  readonly id: string;
+  readonly sender: string;
+  readonly subject: string;
+  readonly snippet: string;
+  readonly unread: boolean;
+};
+type InboxPage = { readonly rows: readonly InboxMessage[]; readonly nextCursor: string | null };
+
+// Inbox-artige Scroll-Liste: Filter (Unread-Toggle + Suche) + Row-Action
+// (Archivieren, no-op wie die anderen Demo-Buttons hier). Klick auf eine Zeile
+// zeigt die Nachricht im rechten Panel — Split via Resizable, wie das
+// Listen/Lese-Paar in echten Mail-Clients (ziehbarer Handle dazwischen statt
+// eines OS-Resize-Griffs).
+function InboxDemo(): ReactNode {
+  const { Button } = usePrimitives();
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<InboxMessage | null>(null);
+  return (
+    <SectionCard
+      title="Inbox (InfinityList)"
+      action={
+        <div className="flex items-center gap-2">
+          <ModeSwitch
+            value={unreadOnly ? "unread" : "all"}
+            onChange={(v) => setUnreadOnly(v === "unread")}
+            options={[
+              { value: "all", label: "Alle" },
+              { value: "unread", label: "Ungelesen" },
+            ]}
+          />
+          <Button variant="secondary" onClick={() => {}}>
+            Alle als gelesen markieren
+          </Button>
+        </div>
+      }
+    >
+      <TextField
+        label="Suchen"
+        id="inbox-search"
+        name="inbox-search"
+        value={search}
+        onChange={setSearch}
+        placeholder="Absender oder Betreff…"
+      />
+      <ResizablePanelGroup orientation="horizontal" className="mt-3 h-96 rounded-lg border">
+        <ResizablePanel defaultSize="35" minSize="25" className="overflow-y-auto">
+          <InfinityList<InboxPage, InboxMessage>
+            query="widgets:query:metrics:inbox-messages"
+            payload={{ unreadOnly, search, limit: 6 }}
+            pageSize={6}
+            rows={(data) => data.rows}
+            nextCursor={(data) => data.nextCursor}
+            rowId={(row) => row.id}
+            testId="inbox-demo"
+            renderRow={(row) => (
+              <div
+                className={`flex items-start justify-between gap-4 border-b px-3 py-2 last:border-b-0 hover:bg-muted/50 ${
+                  selected?.id === row.id ? "bg-muted" : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setSelected(row)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <div className={row.unread ? "font-semibold" : ""}>
+                    {row.sender} · {row.subject}
+                  </div>
+                  <div className="truncate text-sm text-muted-foreground">{row.snippet}</div>
+                </button>
+                <Button variant="secondary" size="sm" onClick={() => {}}>
+                  Archivieren
+                </Button>
+              </div>
+            )}
+          />
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize="65" minSize="30" className="overflow-y-auto p-4">
+          {selected === null ? (
+            <EmptyState title="Keine Nachricht ausgewählt" description="Zeile links anklicken." />
+          ) : (
+            <div>
+              <div className="font-semibold">{selected.sender}</div>
+              <div className="text-sm text-muted-foreground">{selected.subject}</div>
+              <p className="mt-4 text-sm">{selected.snippet}</p>
+            </div>
+          )}
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </SectionCard>
   );
 }
 

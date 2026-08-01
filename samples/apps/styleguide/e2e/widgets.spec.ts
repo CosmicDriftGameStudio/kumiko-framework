@@ -31,6 +31,28 @@ test("Widget-Katalog rendert und ModeSwitch schaltet", async ({ page }) => {
   await drawer.getByRole("button", { name: "Schließen" }).click();
   await expect(drawer).toBeHidden();
 
+  // InfinityList: erste Seite lädt, Unread-Filter refetcht auf einen Teil.
+  const inbox = page.getByTestId("inbox-demo");
+  await expect(inbox.getByText("William Smith · Meeting Tomorrow").first()).toBeVisible();
+  await expect(inbox.getByText("Archivieren").first()).toBeVisible();
+  await page.getByRole("button", { name: "Ungelesen" }).click();
+  await expect(inbox.getByText("William Smith · Meeting Tomorrow").first()).toBeVisible();
+  await expect(inbox.getByText("Alice Smith · Re: Project Update")).toBeHidden();
+
+  // Suchfeld filtert serverseitig (Sender/Betreff-Substring).
+  await page.getByRole("button", { name: "Alle", exact: true }).click();
+  await page.getByLabel("Suchen").fill("Bob");
+  await expect(inbox.getByText("Bob Johnson · Weekend Plans").first()).toBeVisible();
+  await expect(inbox.getByText("William Smith · Meeting Tomorrow")).toBeHidden();
+
+  // Klick auf eine Zeile zeigt die Nachricht im rechten Panel (Split-View).
+  await expect(page.getByText("Keine Nachricht ausgewählt")).toBeVisible();
+  await inbox
+    .getByRole("button", { name: /Bob Johnson/ })
+    .first()
+    .click();
+  await expect(page.getByText("Keine Nachricht ausgewählt")).toBeHidden();
+
   if (process.env["SCREENSHOT"] === "1") {
     await page.screenshot({ path: "/tmp/widgets-catalog.png", fullPage: true });
   }
