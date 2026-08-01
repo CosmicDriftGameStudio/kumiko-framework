@@ -112,6 +112,11 @@ export type PiiAnnotations = {
    *  text-Feldern MIT Subject-Annotation erlaubt (Boot-Validator).
    *  Siehe docs/plans/datenschutz/blind-index.md (kumiko-framework#818). */
   readonly lookupable?: true;
+  /** Foreign key into the `user` entity (authorId, assigneeId, ...) with no
+   *  annotated content of its own. Triggers no encryption — feeds only the
+   *  GDPR-hook-coverage boot guard, which otherwise can't see subject data
+   *  that lives purely in an FK column. */
+  readonly subjectRef?: boolean;
 };
 
 // --- Retention (DSGVO Art. 5(1)(e) + HGB/AO Aufbewahrungspflichten) ---
