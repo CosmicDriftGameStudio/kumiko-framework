@@ -1,6 +1,7 @@
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
@@ -55,6 +56,14 @@ export const revokeAllForUserWrite = defineWriteHandler({
     // parse explicitly before the raw append so a shape drift fails loudly
     // here instead of landing unvalidated on the events table.
     if (updated.length > 0) {
+      const eventDef = ctx.registry.getEvent(SESSION_REVOKED_EVENT_QN);
+      if (!eventDef) {
+        return writeFailure(
+          new UnprocessableError("session_revoked_event_not_registered", {
+            details: { eventQn: SESSION_REVOKED_EVENT_QN },
+          }),
+        );
+      }
       const payload = sessionRevokedSchema.parse({
         userId: event.payload.userId,
         sessionIds: updated.map((row) => row.id),
@@ -66,7 +75,7 @@ export const revokeAllForUserWrite = defineWriteHandler({
         tenantId: SYSTEM_TENANT_ID,
         expectedVersion: 0,
         type: SESSION_REVOKED_EVENT_QN,
-        eventVersion: ctx.registry.getEvent(SESSION_REVOKED_EVENT_QN)?.version ?? 1,
+        eventVersion: eventDef.version,
         payload,
         metadata: {
           userId: event.user.id,

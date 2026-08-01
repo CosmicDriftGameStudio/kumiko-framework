@@ -35,8 +35,12 @@ const APPS_OUT = `${OUT_DIR}/apps`;
 
 // Sample-app matrices live next to the feature matrix, keyed by the recipe's
 // directory path — the docgen derives the same path from the sample's source,
-// so a preview needs no name mapping.
-const SAMPLES_OUT = resolve(OUT_DIR, "..", "samples");
+// so a preview needs no name mapping. Only escape OUT_DIR by default (repo
+// layout: kumiko-platform sits next to samples/); an explicit SCREENSHOT_DIR
+// override nests samples inside it instead of writing outside the requested dir.
+const SAMPLES_NESTED = process.env["SCREENSHOT_DIR"] !== undefined;
+const SAMPLES_OUT = SAMPLES_NESTED ? join(OUT_DIR, "samples") : resolve(OUT_DIR, "..", "samples");
+const SAMPLES_URL_PREFIX = SAMPLES_NESTED ? "samples" : "../samples";
 const sampleOut = (dirPath: string) => join(SAMPLES_OUT, dirPath);
 
 type Runner = {
@@ -177,16 +181,24 @@ async function runAllScreenshots(): Promise<void> {
   }
 }
 
-function listPngs(dir: string, prefix = ""): Array<{ rel: string; label: string }> {
+function listPngs(
+  dir: string,
+  urlPrefix = "",
+  labelPrefix = urlPrefix,
+): Array<{ rel: string; label: string }> {
   if (!existsSync(dir)) return [];
   const out: Array<{ rel: string; label: string }> = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    const relPath = urlPrefix ? `${urlPrefix}/${entry.name}` : entry.name;
+    const labelPath = labelPrefix ? `${labelPrefix}/${entry.name}` : entry.name;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      out.push(...listPngs(full, rel));
+      out.push(...listPngs(full, relPath, labelPath));
     } else if (entry.name.endsWith(".png")) {
-      out.push({ rel: `./${rel}`, label: rel.replace(/\.png$/, "").replace(/\//g, " · ") });
+      out.push({
+        rel: `./${relPath}`,
+        label: labelPath.replace(/\.png$/, "").replace(/\//g, " · "),
+      });
     }
   }
   return out.sort((a, b) => a.label.localeCompare(b.label));
@@ -195,7 +207,7 @@ function listPngs(dir: string, prefix = ""): Array<{ rel: string; label: string 
 function writePreviewIndex(): void {
   const featurePngs = listPngs(OUT_DIR).filter((p) => !p.rel.includes("/apps/"));
   const appPngs = listPngs(APPS_OUT, "apps");
-  const samplePngs = listPngs(SAMPLES_OUT, "../samples");
+  const samplePngs = listPngs(SAMPLES_OUT, SAMPLES_URL_PREFIX, "");
 
   const section = (title: string, items: Array<{ rel: string; label: string }>) =>
     items.length === 0
@@ -224,7 +236,9 @@ function writePreviewIndex(): void {
 `;
   const indexPath = `${OUT_DIR}/index.html`;
   writeFileSync(indexPath, html, "utf-8");
-  console.log(`\nwrote ${indexPath} (${featurePngs.length} feature + ${appPngs.length} app PNGs)`);
+  console.log(
+    `\nwrote ${indexPath} (${featurePngs.length} feature + ${appPngs.length} app + ${samplePngs.length} sample PNGs)`,
+  );
 }
 
 function writeScreenshotManifest(): void {

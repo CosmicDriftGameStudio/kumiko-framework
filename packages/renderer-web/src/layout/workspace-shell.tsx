@@ -44,6 +44,7 @@ import {
   SidebarRail,
 } from "../ui/sidebar";
 import { EditorPanel } from "./editor-panel";
+import { fillClasses } from "./fill-classes";
 import { lastSegment, NavTree } from "./nav-tree";
 import { ShellHeader } from "./shell-header";
 import { parseTargetFromSearchParams } from "./target-url";
@@ -223,8 +224,9 @@ export function WorkspaceShell({
   // renders the shared ShellHeader (panel toggle + breadcrumb + actions)
   // above the content. topbarActions render right inside the header row
   // instead of a separate topbar — one header line, not two.
+  const fillCls = fillClasses(fill);
   return (
-    <SidebarProvider {...(fill === true && { className: "h-svh" })}>
+    <SidebarProvider {...fillCls.provider}>
       <Sidebar collapsible="icon">
         <SidebarHeader data-kumiko-layout="sidebar-header">
           {brand}
@@ -236,13 +238,13 @@ export function WorkspaceShell({
         )}
         <SidebarRail />
       </Sidebar>
-      <SidebarInset className={fill === true ? "min-h-0" : undefined}>
+      <SidebarInset className={fillCls.inset}>
         <ShellHeader
           schema={app}
           {...(user !== undefined && { user })}
           {...(topbarActions !== undefined && { headerActions: topbarActions })}
         />
-        <main className={fill === true ? "min-h-0 flex-1 overflow-auto" : "flex-1 overflow-auto"}>
+        <main className={fillCls.main}>
           {activeTarget !== undefined ? (
             <EditorPanel resolvers={resolvers} />
           ) : (

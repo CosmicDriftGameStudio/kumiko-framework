@@ -34,7 +34,6 @@ const demo = (name: string, title: string, description: string): Scenario => ({
   url: `/${name}`,
   waitFor: demoTitle(title),
   settleMs: 300,
-  fullPage: true,
 });
 
 const item = (name: string, description: string, waitFor: string): Scenario => ({

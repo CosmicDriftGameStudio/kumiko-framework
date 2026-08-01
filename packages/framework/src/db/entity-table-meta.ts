@@ -247,7 +247,7 @@ export function deriveEntityTableMeta(
   const tableName = resolveTableName(entityName, entity, options?.featureName);
   const source = options?.source ?? "managed";
   if (source === "unmanaged") {
-    assertUnmanagedTableName(tableName, "deriveEntityTableMeta");
+    assertUnmanagedTableName(tableName, "deriveEntityTableMeta/buildEntityTableMeta");
   }
   const idType = entity.idType ?? "uuid";
 

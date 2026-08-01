@@ -28,15 +28,19 @@ function mulberry32(seed: number): () => number {
 
 export const seedShowcaseItems: SeedFn = async (stack) => {
   // Skip probe through the list handler, not direct SQL: the seed then knows
-  // nothing about table names, and survives a read-side rename.
-  const existing = await stack.http.queryOk<{ rows: readonly unknown[] }>(
+  // nothing about table names, and survives a read-side rename. total:true +
+  // limit:1 counts server-side instead of comparing rows.length against a
+  // page size — a future max-limit clamp below 100 would otherwise make
+  // this probe never reach the threshold and re-seed 200 items every boot.
+  const existing = await stack.http.queryOk<{ rows: readonly unknown[]; total?: number }>(
     "showcase:query:item:list",
-    { limit: 100 },
+    { limit: 1, totalCount: true },
     TestUsers.admin,
   );
-  if (existing.rows.length >= 100) {
+  const existingCount = existing.total ?? 0;
+  if (existingCount >= 100) {
     // biome-ignore lint/suspicious/noConsole: sample-server diagnostics
-    console.log(`[showcase-seed] ${existing.rows.length}+ items present — skip`);
+    console.log(`[showcase-seed] ${existingCount}+ items present — skip`);
     return;
   }
 

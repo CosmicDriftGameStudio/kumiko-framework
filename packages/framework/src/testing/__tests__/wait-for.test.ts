@@ -9,11 +9,11 @@ describe("waitFor", () => {
       () => {
         calls++;
       },
-      { delays: [200, 200, 200] },
+      { delays: [2000] },
     );
     expect(calls).toBe(1);
     // try-first: must not burn the first delay when the condition already holds
-    expect(Date.now() - started).toBeLessThan(100);
+    expect(Date.now() - started).toBeLessThan(500);
   });
 
   test("retries on failure and succeeds once fn passes", async () => {

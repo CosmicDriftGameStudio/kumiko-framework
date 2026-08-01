@@ -1,11 +1,9 @@
-import type {
-  AccessRule,
-  EntityEditScreenDefinition,
-} from "@cosmicdrift/kumiko-framework/ui-types";
+import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context";
 import { toKebab } from "../app/qn";
+import { screenAccessAllows } from "../app/screen-access";
 import { useUserRoles } from "../context/user-roles-context";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits";
 import { useQuery } from "../hooks/use-query";
@@ -89,19 +87,6 @@ export function RenderField({
   );
 }
 
-// Duplicated from kumiko-screen.tsx's screenAccessAllows (not imported —
-// that module imports RenderEdit → RenderField, importing back from here
-// would cycle). Same minimal role-gate logic.
-function createScreenAccessAllows(
-  access: AccessRule | undefined,
-  userRoles: readonly string[] | undefined,
-): boolean {
-  if (!access) return true;
-  if ("openToAll" in access) return access.openToAll;
-  if (userRoles === undefined) return false;
-  return access.roles.some((role) => userRoles.includes(role));
-}
-
 // Tier 2.7e-3 + 2.1c: Reference-Input rendert eine Searchable Combobox
 // gefüllt aus einer Live-Query auf die referenced Entity. Default-
 // Limit: 200 — bei größeren Datasets fehlt der Tail im Dropdown
@@ -158,7 +143,7 @@ function ReferenceInput({
       s.type === "entityEdit" &&
       s.entity === refEntity &&
       s.allowCreate !== false &&
-      createScreenAccessAllows(s.access, userRoles),
+      screenAccessAllows(s.access, userRoles),
   );
   const refEntityDef = refTargetSchema?.entities[refEntity];
   // Tier 2.7e Remote-Search: User tippt im Combobox → Server filtert

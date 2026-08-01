@@ -172,8 +172,8 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
   r.queryHandler(
     "metrics:inbox-messages",
     z.object({
-      cursor: z.string().optional(),
-      limit: z.number().optional(),
+      cursor: z.coerce.number().int().min(0).optional(),
+      limit: z.number().int().min(1).max(100).optional(),
       unreadOnly: z.boolean().optional(),
       search: z.string().optional(),
     }),
@@ -186,7 +186,7 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
             m.sender.toLowerCase().includes(term) ||
             m.subject.toLowerCase().includes(term)),
       );
-      const start = cursor !== undefined ? Number(cursor) : 0;
+      const start = cursor ?? 0;
       const pageSize = limit ?? 6;
       const rows = filtered.slice(start, start + pageSize);
       const nextCursor = start + pageSize < filtered.length ? String(start + pageSize) : null;

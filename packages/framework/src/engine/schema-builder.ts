@@ -98,7 +98,13 @@ export function fieldToZod(
         // true on both insert AND update, so this branch (and its "" → default
         // mapping) fires regardless of applyDefaults; only the `.default(...)`
         // schema-level fallback for OMITTED input is update-gated below.
-        const mapped = z.preprocess((value) => (value === "" ? field.default : value), enumSchema);
+        // `null` maps the same way: the no-default branch below normalizes
+        // an untouched select to null, and a client that reuses that value
+        // against a since-defaulted field must not get rejected either.
+        const mapped = z.preprocess(
+          (value) => (value === "" || value === null ? field.default : value),
+          enumSchema,
+        );
         return applyDefaults ? mapped.default(field.default) : mapped;
       }
       if (field.required) return enumSchema;

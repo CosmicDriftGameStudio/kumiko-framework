@@ -1,6 +1,5 @@
 import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
 import type {
-  AccessRule,
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
   DashboardScreenDefinition,
@@ -51,6 +50,7 @@ import {
 } from "./projection-detail-shim";
 import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim";
 import { lastSegment, toKebab } from "./qn";
+import { screenAccessAllows } from "./screen-access";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
 
 function evalRowExtractor(
@@ -118,21 +118,7 @@ export function qualifyNavId(featureName: string, navId: string): string {
   return `${featureName}:nav:${navId}`;
 }
 
-// Minimal role-gate for the screen-render path (#1203 — nav filtering via
-// filterByAccess in workspace-shell.tsx hid role-gated screens from the
-// menu, but a direct URL/screenQn hit reached KumikoScreen unchecked).
-// Duplicated instead of imported from framework/engine's hasAccess (pulls
-// server-side deps) — same bundle-purity reasoning as headless/nav's
-// resolve.ts:userCanSee, which this mirrors.
-export function screenAccessAllows(
-  access: AccessRule | undefined,
-  userRoles: readonly string[] | undefined,
-): boolean {
-  if (!access) return true;
-  if ("openToAll" in access) return access.openToAll;
-  if (userRoles === undefined) return false;
-  return access.roles.some((role) => userRoles.includes(role));
-}
+export { screenAccessAllows };
 
 export function KumikoScreen({
   schema,

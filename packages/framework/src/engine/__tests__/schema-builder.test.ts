@@ -450,6 +450,26 @@ describe("buildInsertSchema", () => {
     }
   });
 
+  // Review-fix (kumiko-framework#1712): an optional select WITHOUT a default
+  // normalizes an untouched <select> to null (see the "unset (null)" test
+  // above). A client that reuses that null against a since-defaulted field
+  // must fall back to the default too, not get rejected as an invalid enum
+  // value the way a bare `null` previously was.
+  test("optional select with default accepts null and falls back to the default", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        locale: createSelectField({ options: ["de", "en", "fr"] as const, default: "de" }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    const result = schema.safeParse({ locale: null });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data["locale"]).toBe("de");
+    }
+  });
+
   test("optional select with default still validates a real value", () => {
     const entity = createEntity({
       table: "Test",

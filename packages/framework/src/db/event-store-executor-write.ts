@@ -69,7 +69,12 @@ async function runPreSave(
 ): Promise<{ readonly data: DbRow } | { readonly failure: ReturnType<typeof writeFailure> }> {
   if (!preSave) return { data: changes as DbRow };
   try {
-    return { data: (await preSave(changes, previous, isNew)) as DbRow };
+    const hookResult = await preSave(changes, previous, isNew);
+    // A hook that echoes `id`/`version` back (e.g. `{ ...changes, id: x }`)
+    // must not leak them into the persisted row — aggregateId already comes
+    // from generateId()/the loaded row, not from hook output (fw#1685).
+    const { id: _hookId, version: _hookVersion, ...safe } = hookResult as Record<string, unknown>;
+    return { data: safe as DbRow };
   } catch (e) {
     return {
       failure: writeFailure(

@@ -41,7 +41,11 @@ describe("kumiko-types stays free of runtime identity", () => {
   // other, and unlike a failed instanceof this surfaces as missing data rather
   // than as an error.
   it("holds no module-scope mutable state", () => {
-    expect(offenders(/^(export\s+)?(const|let|var)\s+\w+[^=\n]*=\s*(new (Map|Set|WeakMap|WeakSet)\b|[[{])/m)).toEqual(
+    // Only flags `new Map/Set/WeakMap/WeakSet` initializers — a bare object/
+    // array literal (`const X = { ... }`) is the common shape for a readonly
+    // lookup table in a types-only package and isn't identity-sensitive the
+    // way a shared collection instance is (#1639).
+    expect(offenders(/^(export\s+)?(const|let|var)\s+\w+[^=\n]*=\s*new (Map|Set|WeakMap|WeakSet)\b/m)).toEqual(
       [],
     );
     expect(offenders(/^(export\s+)?(let|var)\s/m)).toEqual([]);
