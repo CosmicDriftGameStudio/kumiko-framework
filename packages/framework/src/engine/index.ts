@@ -2,16 +2,6 @@
 
 export { hasAccess } from "./access";
 export {
-  type ChangelogEntry,
-  type ChangelogType,
-  compareVersions,
-  type FeatureChangelog,
-  filterEntriesAfter,
-  parseFeatureChangelog,
-  sortEntries,
-  validateChangelog,
-} from "./feature-changelog";
-export {
   collectWriteHandlerQns,
   validateAppCustomScreenWriteQns,
   validateBoot,
@@ -173,6 +163,16 @@ export {
   replacePattern,
   VERSION_HEADER,
 } from "./feature-ast";
+export {
+  type ChangelogEntry,
+  type ChangelogType,
+  compareVersions,
+  type FeatureChangelog,
+  filterEntriesAfter,
+  parseFeatureChangelog,
+  sortEntries,
+  validateChangelog,
+} from "./feature-changelog";
 export {
   type BuildManifestOptions,
   buildManifestFromRegistry,
