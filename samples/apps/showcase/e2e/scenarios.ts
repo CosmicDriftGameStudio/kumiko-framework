@@ -19,7 +19,7 @@ async function openLightbox(page: Page): Promise<void> {
 // Every demo screen renders through DemoPage, whose sticky top bar carries the
 // screen title — a title match inside that bar means the screen itself is up,
 // not just the nav entry of the same name.
-const demoTitle = (title: string) => `.h-12.border-b >> text=${title}`;
+const demoTitle = (title: string) => `[data-testid="demo-page-header"] >> text="${title}"`;
 
 // The generated item screens render the framework's own markers, same as any
 // list/edit screen. List and edit wait on different markers — a shared

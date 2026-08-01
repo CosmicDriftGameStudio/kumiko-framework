@@ -5,6 +5,10 @@ export {
   type MigrationRowOutcome,
   runChunkedMigration,
 } from "./chunked-entity-migration";
+export {
+  classifyStoredEnvelope,
+  type StoredEnvelopeClassification,
+} from "./classify-stored-envelope";
 export { decryptStoredPii } from "./decrypt-stored-pii";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write";
 export { entitiesOf } from "./entities-of";

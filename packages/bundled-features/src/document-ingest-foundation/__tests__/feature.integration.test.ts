@@ -89,6 +89,14 @@ async function loadIngestRequestedEvents(): Promise<{ payload: Record<string, un
   return rows as { payload: Record<string, unknown> }[];
 }
 
+async function loadIngestSkippedEvents(): Promise<{ payload: Record<string, unknown> }[]> {
+  const rows = await asRawClient(stack.db).unsafe(
+    `SELECT payload FROM kumiko_events WHERE type = $1`,
+    ["document-ingest-foundation:event:document-ingest-skipped"],
+  );
+  return rows as { payload: Record<string, unknown> }[];
+}
+
 describe("fileRef.created → documentIngest.requested", () => {
   test("PDF upload requests ingest with the fileRef pointer, no binary", async () => {
     const { id, storageKey } = await uploadFile("invoice.pdf", pdfBytes, "application/pdf");
@@ -97,12 +105,13 @@ describe("fileRef.created → documentIngest.requested", () => {
 
     const rows = await loadIngestRequestedEvents();
     expect(rows).toHaveLength(1);
-    const payload = rows[0]?.payload;
-    expect(payload?.["fileRefId"]).toBe(id);
-    expect(payload?.["storageKey"]).toBe(storageKey);
-    expect(payload?.["mimeType"]).toBe("application/pdf");
-    expect(payload?.["data"]).toBeUndefined();
-    expect(payload?.["binary"]).toBeUndefined();
+    expect(rows[0]?.payload).toEqual({
+      fileRefId: id,
+      storageKey,
+      fileName: "invoice.pdf",
+      mimeType: "application/pdf",
+      size: pdfBytes.length,
+    });
   });
 
   test("image/png upload also requests ingest (Phase-1 mime allowlist)", async () => {
@@ -113,19 +122,32 @@ describe("fileRef.created → documentIngest.requested", () => {
     expect(await loadIngestRequestedEvents()).toHaveLength(1);
   });
 
-  test("unsupported mime type is skipped — no ingest requested", async () => {
-    await uploadFile("notes.txt", textBytes, "text/plain");
+  test("unsupported mime type is skipped — no ingest requested, skip is observable", async () => {
+    const { id, storageKey } = await uploadFile("notes.txt", textBytes, "text/plain");
 
     await stack.eventDispatcher?.runOnce();
 
     expect(await loadIngestRequestedEvents()).toHaveLength(0);
+    const skipped = await loadIngestSkippedEvents();
+    expect(skipped).toHaveLength(1);
+    // mimeType not pinned exactly: the upload route/File API append a
+    // charset suffix ("text/plain;charset=utf-8") that isn't this MSP's
+    // concern — the allowlist-miss is.
+    expect(skipped[0]?.payload).toMatchObject({
+      fileRefId: id,
+      storageKey,
+      fileName: "notes.txt",
+      reason: "unsupported-mime-type",
+    });
+    expect(String(skipped[0]?.payload["mimeType"])).toStartWith("text/plain");
   });
 
-  test("oversized file is skipped before the mime check — no ingest requested", async () => {
+  test("oversized file is skipped before the mime check — no ingest requested, skip is observable", async () => {
     // Real uploads can't exceed file-routes.ts' 10mb unconstrained-upload
     // default, well below this feature's 25mb domain cap — so an oversized
     // fileRef.created is inserted directly (bypassing the upload route) to
     // prove the MSP's own size-check fires independently of it.
+    const oversizedSize = 26 * 1024 * 1024;
     await asRawClient(stack.db).unsafe(
       `
       INSERT INTO kumiko_events
@@ -142,9 +164,13 @@ describe("fileRef.created → documentIngest.requested", () => {
           storageKey: "huge.pdf",
           fileName: "huge.pdf",
           mimeType: "application/pdf",
-          size: 26 * 1024 * 1024,
+          size: oversizedSize,
         }),
-        "{}",
+        // MSP-apply's ctx.unsafeAppendEvent stamps the new event's actor from
+        // the TRIGGERING event's metadata.userId (server.ts) — an empty
+        // metadata object here leaves it undefined and the skip-event insert
+        // rejects with "UNDEFINED_VALUE".
+        JSON.stringify({ userId: admin.id }),
         admin.id,
       ],
     );
@@ -152,5 +178,15 @@ describe("fileRef.created → documentIngest.requested", () => {
     await stack.eventDispatcher?.runOnce();
 
     expect(await loadIngestRequestedEvents()).toHaveLength(0);
+    const skipped = await loadIngestSkippedEvents();
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0]?.payload).toEqual({
+      fileRefId: "00000000-0000-4000-8000-0000000000ff",
+      storageKey: "huge.pdf",
+      fileName: "huge.pdf",
+      mimeType: "application/pdf",
+      size: oversizedSize,
+      reason: "file-too-large",
+    });
   });
 });

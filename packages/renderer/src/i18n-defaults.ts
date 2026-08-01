@@ -34,6 +34,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.time": "Uhrzeit",
     "kumiko.field.timezone": "Zeitzone",
     "kumiko.field.locatedTzHint": "Zeit lokal am angegebenen Ort",
+    "kumiko.field.reference-created-no-id":
+      "Datensatz wurde angelegt, konnte aber nicht automatisch ausgewählt werden. Bitte manuell auswählen.",
 
     // List — DataTable Toolbar, Empty-State, Search.
     "kumiko.list.search-placeholder": "Suchen…",
@@ -172,6 +174,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.time": "Time",
     "kumiko.field.timezone": "Time zone",
     "kumiko.field.locatedTzHint": "Time local to the given location",
+    "kumiko.field.reference-created-no-id":
+      "Record was created but could not be selected automatically. Please select it manually.",
 
     "kumiko.list.search-placeholder": "Search…",
     "kumiko.list.empty.title": "No entries yet.",

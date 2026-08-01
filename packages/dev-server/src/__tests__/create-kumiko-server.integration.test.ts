@@ -462,18 +462,14 @@ describe("createKumikoServer — hot-reload broadcast", () => {
       const initialBuilds = builds;
       writeFileSync(join(webDir, "page.tsx"), "export const x = 1;\n");
 
-      const deadline = Date.now() + 3000;
-      let sawReload = false;
-      while (Date.now() < deadline && !sawReload) {
-        const readPromise = reader.read();
-        const timeout = new Promise<{ done: true; value: undefined }>((resolve) =>
-          setTimeout(() => resolve({ done: true, value: undefined }), 200),
-        );
-        const { value, done } = await Promise.race([readPromise, timeout]);
-        if (done || value === undefined) continue;
-        const chunk = new TextDecoder().decode(value);
-        if (chunk.includes("event: reload")) sawReload = true;
-      }
+      const readAll = (async () => {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) return false;
+          if (new TextDecoder().decode(value).includes("event: reload")) return true;
+        }
+      })();
+      const sawReload = await Promise.race([readAll, Bun.sleep(3000).then(() => false)]);
       await reader.cancel();
 
       expect(builds).toBeGreaterThan(initialBuilds);

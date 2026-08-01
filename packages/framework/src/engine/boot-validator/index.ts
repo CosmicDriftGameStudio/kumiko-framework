@@ -61,11 +61,24 @@ export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns";
 // dieselbe Extraktionslogik.
 export { collectWriteHandlerQns } from "./nav";
 
+export type ValidateBootOptions = {
+  /** Warn when an access role is used by exactly one handler/config-key/
+   *  field across the whole boot scan — often a typo, but also the normal
+   *  shape of a legitimate fine-grained role (one role scoped to one admin
+   *  endpoint on purpose). Opt-in (default false, #1711): a default-on
+   *  prod warning that nobody can silence per-role isn't worth the noise
+   *  it generates on every boot. */
+  readonly warnOnUniqueAccessRoles?: boolean;
+};
+
 /**
  * Validates all feature configurations at boot time.
  * Throws on the first error found — fail fast.
  */
-export function validateBoot(features: readonly FeatureDefinition[]): void {
+export function validateBoot(
+  features: readonly FeatureDefinition[],
+  options?: ValidateBootOptions,
+): void {
   const featureMap = new Map<string, FeatureDefinition>();
   for (const f of features) {
     featureMap.set(f.name, f);
@@ -213,5 +226,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
 
   validateConfigReads(features, allConfigKeys);
   warnOnToggleableDependencies(features, featureMap);
-  warnOnUniqueAccessRoles(features);
+  if (options?.warnOnUniqueAccessRoles === true) {
+    warnOnUniqueAccessRoles(features);
+  }
 }

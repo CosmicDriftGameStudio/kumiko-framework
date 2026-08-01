@@ -564,9 +564,18 @@ describe("POST /api/stream pre-pull race", () => {
     // in-flight .next(), so cleanup only runs once the pending pull settles.
     // Abort before heartbeatMs so the route hits the 499 branch; sleep then
     // completes and the queued return drains the generator's finally.
+    //
+    // Abort is triggered off an entry signal, not a fixed sleep margin against
+    // the heartbeat timer — a stalled event loop could otherwise let the
+    // heartbeat fire first and flip the route onto the 200-SSE branch.
     let cleanedUp = false;
+    let entered: () => void;
+    const atEntry = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
     const dispatcher = stubDispatcher(async function* () {
       try {
+        entered();
         await Bun.sleep(80);
         yield { i: 0 };
       } finally {
@@ -583,8 +592,8 @@ describe("POST /api/stream pre-pull race", () => {
         signal: ac.signal,
       }),
     );
-    // Abort while firstPull is still racing the heartbeat timer.
-    await Bun.sleep(5);
+    // Abort as soon as the generator has been entered — no timing window left.
+    await atEntry;
     ac.abort();
     const res = await pending;
     expect(res.status).toBe(499);

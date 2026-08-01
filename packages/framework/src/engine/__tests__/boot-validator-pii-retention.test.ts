@@ -626,6 +626,25 @@ describe("validateBoot — retention", () => {
     expect(matchingWarn).toBeUndefined();
   });
 
+  test("blockDelete with only a subjectRef-only field and no anonymize warns (#1645)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "lease",
+        createEntity({
+          fields: {
+            authorId: createTextField({ subjectRef: true }),
+          },
+          retention: { keepFor: "10y", strategy: "blockDelete" },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes('strategy="blockDelete" but no field has an anonymize-function'),
+    );
+    expect(matchingWarn).toBeDefined();
+  });
+
   test('retention.keepFor with invalid format "30days" warns', () => {
     const feature = defineFeature("test", (r) => {
       r.entity(

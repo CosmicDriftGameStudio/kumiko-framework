@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { documentExtractEntity } from "../entity";
-import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "../events";
+import { DOCUMENT_INGEST_REQUESTED_EVENT_QN, DOCUMENT_INGEST_SKIPPED_EVENT_QN } from "../events";
 import { documentIngestFoundationFeature } from "../feature";
 
 describe("documentIngestFoundationFeature — shape", () => {
@@ -64,9 +64,10 @@ describe("documentIngestFoundationFeature — shape", () => {
     expect(Object.keys(documentIngestFoundationFeature.queryHandlers)).toHaveLength(0);
   });
 
-  test("registers the documentIngest.requested event under the exported QN", () => {
+  test("registers the documentIngest.requested and documentIngest.skipped events under their exported QNs", () => {
     expect(Object.keys(documentIngestFoundationFeature.events)).toEqual([
       "documentIngest.requested",
+      "documentIngest.skipped",
     ]);
     // The registry qualifies short → QN via qn(toKebab(feature), "event",
     // toKebab(short)) — pin the hand-written DOCUMENT_INGEST_REQUESTED_EVENT_QN
@@ -76,6 +77,9 @@ describe("documentIngestFoundationFeature — shape", () => {
     // at compile time).
     expect(documentIngestFoundationFeature.events["documentIngest.requested"]?.name).toBe(
       DOCUMENT_INGEST_REQUESTED_EVENT_QN,
+    );
+    expect(documentIngestFoundationFeature.events["documentIngest.skipped"]?.name).toBe(
+      DOCUMENT_INGEST_SKIPPED_EVENT_QN,
     );
   });
 

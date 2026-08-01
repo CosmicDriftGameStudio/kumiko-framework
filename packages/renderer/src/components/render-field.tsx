@@ -132,6 +132,7 @@ function ReferenceInput({
   readonly Input: ReturnType<typeof usePrimitives>["Input"];
   readonly featureName: string;
 }): ReactNode {
+  const { Banner } = usePrimitives();
   const refEntity = field.refEntity ?? "";
   const refFeature = field.refFeature ?? featureName;
   const labelField = field.refLabelField ?? "id";
@@ -178,10 +179,18 @@ function ReferenceInput({
   );
   const handleSearchChange = useCallback((q: string) => setSearchTerm(q), []);
   const canCreate = !field.readOnly && refCreateScreen !== undefined && refEntityDef !== undefined;
+  const [createdWithoutIdWarning, setCreatedWithoutIdWarning] = useState(false);
   const handleCreated = useCallback(
-    (newId: string) => {
+    (newId: string | undefined) => {
       setCreateOpen(false);
       void queryResult.refetch();
+      if (newId === undefined) {
+        // Record was created server-side but the payload carried no id —
+        // can't auto-select it, surface that instead of failing silently.
+        setCreatedWithoutIdWarning(true);
+        return;
+      }
+      setCreatedWithoutIdWarning(false);
       if (isMultiple) {
         const current = Array.isArray(field.value) ? (field.value as readonly string[]) : [];
         onChange([...current, newId]);
@@ -217,15 +226,22 @@ function ReferenceInput({
       createLabel: t("kumiko.actions.create"),
     }),
   } as const;
-  const createDialog = canCreate && refCreateScreen && refEntityDef && (
-    <ReferenceCreateDialog
-      open={createOpen}
-      onClose={() => setCreateOpen(false)}
-      onCreated={handleCreated}
-      featureName={refFeature}
-      screen={refCreateScreen}
-      entity={refEntityDef}
-    />
+  const createDialog = (
+    <>
+      {canCreate && refCreateScreen && refEntityDef && (
+        <ReferenceCreateDialog
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreated={handleCreated}
+          featureName={refFeature}
+          screen={refCreateScreen}
+          entity={refEntityDef}
+        />
+      )}
+      {createdWithoutIdWarning && (
+        <Banner variant="error">{t("kumiko.field.reference-created-no-id")}</Banner>
+      )}
+    </>
   );
   if (isMultiple) {
     const arrayValue: readonly string[] = Array.isArray(field.value)

@@ -25,8 +25,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { type EnvelopeCipher, isStoredEnvelope } from "@cosmicdrift/kumiko-framework/secrets";
-import { type ChunkedMigrationStopReason, runChunkedMigration } from "../../shared";
+import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
+import {
+  type ChunkedMigrationStopReason,
+  classifyStoredEnvelope,
+  runChunkedMigration,
+} from "../../shared";
 import { configValueEntity, configValuesTable } from "../table";
 
 const DEFAULT_MAX_FAILURES = 10;
@@ -48,21 +52,6 @@ export type ReencryptJobResult = {
   readonly alreadyCurrent: number;
   readonly stoppedReason: ChunkedMigrationStopReason;
 };
-
-type RowClassification = "rotate" | "current" | "unrecognized";
-
-function classifyRow(value: string, targetVersion: number): RowClassification {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(value);
-  } catch {
-    // not JSON at all — no supported format decrypts this; let
-    // cipher.decrypt reject it and count the row as failed.
-    return "unrecognized";
-  }
-  if (!isStoredEnvelope(parsed)) return "unrecognized";
-  return parsed.kekVersion === targetVersion ? "current" : "rotate";
-}
 
 export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
   const payload = rawPayload as ReencryptJobPayload; // @cast-boundary engine-payload
@@ -148,7 +137,7 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
 
   async function migrateRow(row: ConfigRow): Promise<"migrated" | "skipped" | "failed"> {
     if (row.value === null || row.value === undefined) return "skipped";
-    const classification = classifyRow(row.value, targetVersion);
+    const classification = classifyStoredEnvelope(row.value, targetVersion);
     if (classification === "current") {
       alreadyCurrent++;
       return "skipped";

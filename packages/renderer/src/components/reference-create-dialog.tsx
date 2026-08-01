@@ -32,7 +32,11 @@ function extractCreatedId(data: unknown): string | undefined {
 export type ReferenceCreateDialogProps = {
   readonly open: boolean;
   readonly onClose: () => void;
-  readonly onCreated: (id: string) => void;
+  // id is undefined when the record was created but the write-handler's
+  // success payload carried no `id` (custom create-handler variant) — the
+  // record already exists server-side, so this is still a success signal
+  // to the caller, just one it can't auto-select from (#1694).
+  readonly onCreated: (id: string | undefined) => void;
   readonly featureName: string;
   readonly screen: EntityEditScreenDefinition;
   readonly entity: EntityDefinition;
@@ -52,8 +56,7 @@ export function ReferenceCreateDialog({
   const writeCommand = entityWriteCommand(featureName, screen.entity);
   const handleSubmitted = (result: SubmitResult<unknown>): void => {
     if (result.validationBlocked || !result.isSuccess) return;
-    const id = extractCreatedId(result.data);
-    if (id !== undefined) onCreated(id);
+    onCreated(extractCreatedId(result.data));
   };
   if (!open) return null;
   return (

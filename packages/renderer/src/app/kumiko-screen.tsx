@@ -16,7 +16,11 @@ import type {
   ScreenDefinition,
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  evalFieldCondition,
+  isExtensionEditSection,
+  normalizeEditField,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
   FormSnapshot,
@@ -336,13 +340,30 @@ export function buildInitialValues(
   return out;
 }
 
+// Field names actually rendered by the screen's layout — a search-param
+// merge must not set fields the form never shows the user (#1708:
+// unrendered fields get no client-side validation and no chance to
+// review/correct the injected value).
+function layoutFieldNames(screen: EntityEditScreenDefinition): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const section of screen.layout.sections) {
+    if (isExtensionEditSection(section)) continue;
+    for (const spec of section.fields) {
+      names.add(normalizeEditField(spec).field);
+    }
+  }
+  return names;
+}
+
 export function mergeSearchParamsIntoInitial(
   fields: Readonly<Record<string, unknown>>,
   searchParams: Readonly<Record<string, string>>,
+  renderableFields?: ReadonlySet<string>,
 ): Record<string, unknown> {
   const defaults = buildInitialValues(fields) as Record<string, unknown>;
   const merged: Record<string, unknown> = { ...defaults };
   for (const [name, fieldDef] of Object.entries(fields)) {
+    if (renderableFields !== undefined && !renderableFields.has(name)) continue;
     const shape = fieldDef as { type?: string; sensitive?: boolean };
     if (shape.sensitive === true) continue;
     const raw = searchParams[name];
@@ -431,8 +452,13 @@ function EntityEditCreateBody({
 }): ReactNode {
   const nav = useNav();
   const initial = useMemo(
-    () => mergeSearchParamsIntoInitial(entity.fields, nav.searchParams) as FormValues,
-    [entity.fields, nav.searchParams],
+    () =>
+      mergeSearchParamsIntoInitial(
+        entity.fields,
+        nav.searchParams,
+        layoutFieldNames(screen),
+      ) as FormValues,
+    [entity.fields, nav.searchParams, screen],
   );
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "create");
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
@@ -1430,8 +1456,13 @@ function ActionFormBody({
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
   const initial = useMemo(
-    () => mergeSearchParamsIntoInitial(screen.fields, nav.searchParams) as FormValues,
-    [screen.fields, nav.searchParams],
+    () =>
+      mergeSearchParamsIntoInitial(
+        screen.fields,
+        nav.searchParams,
+        layoutFieldNames(synthScreen),
+      ) as FormValues,
+    [screen.fields, nav.searchParams, synthScreen],
   );
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
