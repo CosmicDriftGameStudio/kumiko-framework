@@ -83,6 +83,11 @@ export function buildPgKmsOptions(env: PgKmsRotationEnv): PgKmsAdapterOptions {
     ? parseKekVersion(env.PLATFORM_KEK_VERSION, "PLATFORM_KEK_VERSION")
     : 1;
   if (!env.PLATFORM_KEK_PREVIOUS) {
+    if (env.PLATFORM_KEK_PREVIOUS_VERSION) {
+      throw new Error(
+        "PLATFORM_KEK_PREVIOUS must be set when PLATFORM_KEK_PREVIOUS_VERSION is set.",
+      );
+    }
     return {
       databaseUrl: env.SUBJECT_KEYS_DATABASE_URL,
       platformKek: env.PLATFORM_KEK,

@@ -95,19 +95,47 @@ export function collectReferenceFields(entity: EntityDefinition): readonly Refer
 // event-store-executor-context's decryptForRead ordering: PII is the outer
 // layer, peel it before the envelope-encrypted fields, or the envelope
 // cipher chokes on a still-PII-wrapped string.
+//
+// Ownership guard (fw#1671): the ref lookup below is tenant-scoped only, not
+// ownership-scoped — this function has no SessionUser to evaluate
+// refEntity.access.read against. If the ref entity declares row-level
+// ownership at all, decrypting here would hand a same-tenant User A the
+// plaintext PII of a User B row they merely reference (e.g. a freely-settable
+// reference UUID), even though refEntity.access.read says "own" — the caller
+// never gets to run that ownership check. Fail closed: strip PII/encrypted
+// fields entirely instead of decrypting (or leaking ciphertext) when that
+// guarantee can't be evaluated here.
+function hasOwnershipScopedRead(refEntity: EntityDefinition): boolean {
+  const readMap = refEntity.access?.read;
+  if (readMap === undefined) return false;
+  // "all" means that role sees every row unrestricted — a map where every
+  // rule is "all" carries no ownership restriction at all, so stripping
+  // here would just silently drop PII/encrypted fields #1667 wants
+  // decrypted, for no security benefit.
+  return Object.values(readMap).some((rule) => rule !== "all");
+}
+
 async function decryptReferencedRow(
   row: Record<string, unknown>,
   refEntity: EntityDefinition,
 ): Promise<Record<string, unknown>> {
-  let out = row;
   const piiFields = collectPiiSubjectFields(refEntity);
+  const encryptedFields = collectEncryptedFieldNames(refEntity);
+  if (hasOwnershipScopedRead(refEntity)) {
+    if (piiFields.length === 0 && encryptedFields.size === 0) return row;
+    const out = { ...row };
+    for (const field of piiFields) delete out[field];
+    for (const field of encryptedFields) delete out[field];
+    return out;
+  }
+
+  let out = row;
   const kms = configuredPiiSubjectKms();
   if (piiFields.length > 0 && kms) {
     out = await decryptPiiFieldValues(out, piiFields, kms, {
       requestId: requestContext.get()?.requestId ?? "eagerload",
     });
   }
-  const encryptedFields = collectEncryptedFieldNames(refEntity);
   if (encryptedFields.size > 0) {
     out = await decryptEntityFieldValues(out, encryptedFields, resolveEntityFieldEncryption());
   }
@@ -159,11 +187,24 @@ export async function enrichWithReferences(
       const rawRefRows = (await selectMany(db, refTable, { id: idArray })) as Array<
         Record<string, unknown>
       >;
-      const refRows = await Promise.all(rawRefRows.map((r) => decryptReferencedRow(r, refEntity)));
+      // Per-row, not Promise.all: a single legacy/backfilled row without a
+      // valid envelope (decryptEntityFieldValues throws hard on malformed
+      // ciphertext) must not 500 the whole list request — the main rows the
+      // caller asked for are unrelated to this one broken reference. Drop
+      // just that row from the map; the renderer falls back to the raw UUID.
       const map = new Map<string, Record<string, unknown>>();
-      for (const r of refRows) {
-        const id = r["id"];
-        if (typeof id === "string") map.set(id, r);
+      for (const r of rawRefRows) {
+        let decrypted: Record<string, unknown>;
+        try {
+          decrypted = await decryptReferencedRow(r, refEntity);
+        } catch (e) {
+          console.warn(
+            `[eagerload] failed to decrypt referenced row entity=${rf.refEntityName} id=${String(r["id"])}: ${e instanceof Error ? e.message : String(e)}`,
+          );
+          continue;
+        }
+        const id = decrypted["id"];
+        if (typeof id === "string") map.set(id, decrypted);
       }
       return { fieldName: rf.fieldName, multiple: rf.multiple, map };
     }),

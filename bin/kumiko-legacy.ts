@@ -281,10 +281,14 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // regenerated with `--write-baseline` from framework repo after validation.
   // steps.push({ name: "as-Cast Audit", cmd: "bunx kumiko-check-as-casts" });
   steps.push({ name: "Table-DDL Guard", cmd: "bunx kumiko-guard-table-ddl" });
-  // Feature-CHANGELOG guard: breaking changes must have migration field
+  // Feature-CHANGELOG guard: breaking changes must have migration field.
+  // Cross-repo scan (guard file lives in infra/guards) — loud-skip standalone,
+  // same pattern as Semantic-Duplicates/Secret-Literal Guard further below.
   const featureChangelogGuard = join(REPO_ROOT, "infra/guards/guard-feature-changelog.ts");
   if (existsSync(featureChangelogGuard)) {
     steps.push({ name: "Feature-Changelog Guard", cmd: `bun ${featureChangelogGuard}` });
+  } else {
+    console.log("Feature-Changelog Guard skipped: infra/guards not in workspace (CI-standalone).");
   }
   // Baseline-Regression-Guard (infra#295): failt nur bei NEUEN DE-Kommentaren,
   // Altbestand ist via .kumiko-comment-lang-baseline.json eingefroren.

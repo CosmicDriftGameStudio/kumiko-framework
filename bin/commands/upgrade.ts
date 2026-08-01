@@ -165,7 +165,7 @@ export const upgradeCommand = defineCommand({
       return 1;
     }
 
-    if (!SEMVER_RE.test(currentVersion) && !fromFlag) {
+    if (!SEMVER_RE.test(currentVersion)) {
       ctx.out.err("");
       ctx.out.err(`  Invalid version format: "${currentVersion}" — expected x.y.z`);
       ctx.out.err("");

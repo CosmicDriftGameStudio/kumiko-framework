@@ -362,6 +362,24 @@ async function processUser(args: {
   let currentEntityName: string | null = null;
   try {
     await runInSubTransaction(db, async (tx) => {
+      // Discover + purge search docs for this subject BEFORE any delete
+      // hook runs (fw#1611). purgeSearchDocumentsForSubject finds candidate
+      // rows via a live SELECT on each entity's read-table — a hook that
+      // hard-deletes a row (UserDataDeleteStrategy "delete") makes that row
+      // invisible to a purge running afterward, permanently stranding its
+      // plaintext PII in the search index. Running the purge first means it
+      // sees every row a hook is about to touch, delete or not.
+      if (args.searchAdapter) {
+        const subject = { kind: "user" as const, userId };
+        await purgeSearchDocumentsForSubject(
+          tx,
+          registry.features,
+          args.searchAdapter,
+          subjectIdToKey(subject),
+          subject,
+        );
+      }
+
       for (const tenantId of tenantList) {
         currentTenantId = tenantId;
         // Refine the app-level model to THIS tenant: "single-user" only if the
@@ -435,16 +453,6 @@ async function processUser(args: {
           registry.features,
           subjectIdToKey({ kind: "user", userId }),
         );
-        if (args.searchAdapter) {
-          const subject = { kind: "user" as const, userId };
-          await purgeSearchDocumentsForSubject(
-            tx,
-            registry.features,
-            args.searchAdapter,
-            subjectIdToKey(subject),
-            subject,
-          );
-        }
       }
 
       // Status-Flip in derselben Sub-Tx. Falls einer der Hooks oben

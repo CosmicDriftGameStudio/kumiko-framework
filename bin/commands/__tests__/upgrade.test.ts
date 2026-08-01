@@ -88,4 +88,17 @@ describe("upgrade command — framework core changelog", () => {
 
     expect(result.pending).toEqual([]);
   });
+
+  test("--from is rejected when it isn't a valid semver — no silent 'nothing new'", async () => {
+    const cwd = tmp({ "packages/framework/src/changes.json": CORE_ENTRY });
+    const spy = makeSpyOutput();
+
+    const exit = await upgradeCommand.run(
+      makeContext({ cwd, argv: ["--from", "latest", "--json"], out: spy.out }),
+    );
+
+    expect(exit).toBe(1);
+    expect(spy.errs.join("\n")).toContain("Invalid version format");
+    expect(spy.logs).toEqual([]);
+  });
 });

@@ -94,7 +94,7 @@ export function createSearchEventConsumer(
 // #1610 — subject-annotated searchable fields are ciphertext in the event
 // payload; decrypt into the derived index only. No KMS → omit ciphertext
 // values rather than indexing blobs.
-async function decryptSearchableSubjectFields(
+export async function decryptSearchableSubjectFields(
   entityName: string,
   state: Record<string, unknown>,
   registry: Registry,
@@ -116,7 +116,7 @@ async function decryptSearchableSubjectFields(
   });
 }
 
-function hasErasedSearchableSubjectField(
+export function hasErasedSearchableSubjectField(
   entityName: string,
   state: Record<string, unknown>,
   registry: Registry,
@@ -416,7 +416,7 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
         // poison would otherwise permanently stop access-invalidation for
         // every user behind one bad row).
         if (typeof userId !== "string" || userId.length === 0) return;
-        sseBroker.publishAccessInvalidation?.(userId);
+        sseBroker.publishAccessInvalidation(userId);
       }
 
       if (
@@ -427,7 +427,7 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
         // skip: previous snapshot missing/malformed userId — same fail-open
         // reasoning as above.
         if (userId === undefined) return;
-        sseBroker.publishAccessInvalidation?.(userId);
+        sseBroker.publishAccessInvalidation(userId);
       }
     },
   };

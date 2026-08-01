@@ -37,7 +37,11 @@ export function parseIso(v: string): Temporal.PlainDate | undefined {
     Number.isNaN(d) ||
     // Reject 2-digit years — matches the pre-PlainDate behavior where
     // `new Date`'s 1900+y quirk made a round-trip check fail on them.
-    y < 100
+    y < 100 ||
+    // Reject years outside 0000-9999 — Temporal.toString() switches to the
+    // signed extended ISO format above that range (e.g. "+010000-04-25"),
+    // breaking the "unchanged ISO string" wire contract (toIso below).
+    y > 9999
   ) {
     return undefined;
   }
@@ -106,6 +110,7 @@ export function parseTypedDate(input: string, locale: string): Temporal.PlainDat
     else d = val;
   });
   if (y < 100) y += 2000;
+  if (y > 9999) return undefined;
 
   return makePlainDate(y, m, d);
 }

@@ -245,6 +245,33 @@ describe("event-store-executor write-verbs — field-level ownership_denied", ()
     if (result.isSuccess) return;
     expect((result.error.details as { reason?: string }).reason).toBe("ownership_denied");
   });
+
+  // fw#1685: a preSave hook that derives a field the user never submitted
+  // must not have that field field-ownership-checked against the user —
+  // only what the user actually wrote in `payload.changes` is checked.
+  test("create: preSave-derived `note` (not submitted by the user) does not trigger ownership_denied", async () => {
+    const result = await crud.create({ authorId: TestUsers.driver.id }, nonAdmin, tdb, {
+      preSave: async (changes) => ({ ...changes, note: "hook-derived" }),
+    });
+    expect(result.isSuccess).toBe(true);
+  });
+
+  test("update: preSave-derived `note` (not submitted by the user) does not trigger ownership_denied", async () => {
+    const created = await crud.create(
+      { authorId: TestUsers.driver.id, note: "original" },
+      admin,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("setup failed");
+
+    const result = await crud.update(
+      { id: created.data.id, version: 1, changes: {} },
+      nonAdmin,
+      tdb,
+      { preSave: async (changes) => ({ ...changes, note: "hook-derived" }) },
+    );
+    expect(result.isSuccess).toBe(true);
+  });
 });
 
 // =============================================================================
