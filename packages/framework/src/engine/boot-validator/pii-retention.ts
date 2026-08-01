@@ -1,6 +1,10 @@
 import type { FeatureDefinition } from "../types";
 import type { FieldAccess, PiiAnnotations } from "../types/fields";
-import { PII_DIRECT_NAME_HINTS, PII_USER_OWNED_NAME_HINTS } from "./entity-handler";
+import {
+  PII_DIRECT_NAME_HINTS,
+  PII_USER_OWNED_NAME_HINTS,
+  PII_USER_REFERENCE_NAME_HINTS,
+} from "./entity-handler";
 
 // Framework-managed Timestamp-Spalten — dürfen als retention.reference
 // genutzt werden auch wenn nicht in entity.fields deklariert.
@@ -207,6 +211,11 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
           // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
           console.warn(
             `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-content-typical name but no { userOwned } annotation. If this contains user-generated content, mark it { userOwned: { ownerField: "<authorIdField>" }}. If business data, set { allowPlaintext: "..." } to silence.`,
+          );
+        } else if (PII_USER_REFERENCE_NAME_HINTS.has(lower) && !annot.subjectRef) {
+          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+          console.warn(
+            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no { subjectRef: true } annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { subjectRef: true }, or { userOwned: { ownerField: "${fieldName}" } } on the field it owns. If business data, set { allowPlaintext: "..." } to silence.`,
           );
         }
       }

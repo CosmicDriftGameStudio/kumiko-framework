@@ -53,6 +53,28 @@ export const PII_USER_OWNED_NAME_HINTS: ReadonlySet<string> = new Set([
   "notes",
 ]);
 
+// Field-Namen die typischerweise eine FK auf die `user`-Entity sind (kumiko-
+// framework#1696) — tragen selbst keinen Content, aber die Subject-Data-
+// Pflicht haengt am Link, nicht an annotiertem Content. Ein Entity ohne
+// annotiertes Feld (weil kein userOwned-Content existiert) bleibt fuer den
+// GDPR-Hook-Coverage-Guard sonst unsichtbar, obwohl `authorId` weiterhin
+// personenbezogen ist.
+export const PII_USER_REFERENCE_NAME_HINTS: ReadonlySet<string> = new Set([
+  "authorid",
+  "assigneeid",
+  "ownerid",
+  "createdbyid",
+  "createdbyuserid",
+  "updatedbyid",
+  "updatedbyuserid",
+  "invitedby",
+  "approvedby",
+  "reviewedby",
+  "uploadedby",
+  "assignedto",
+  "reportedby",
+]);
+
 // --- Extension preSave wiring validation ---
 
 /** Extensions with preSave must target an entity that has mapped write handlers. */
