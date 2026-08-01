@@ -8,7 +8,6 @@
 
 import { compareByCodepoint } from "../utils";
 import { isEncryptedAtRest } from "./config-helpers";
-import type { ChangelogEntry } from "./feature-changelog";
 import { qualifyEntityName } from "./qualified-name";
 import type { Registry, UiHints } from "./types/feature";
 
@@ -65,9 +64,6 @@ export type ManifestFeature = {
   readonly uiHints?: UiHints;
   /** Optionaler Herkunfts-Tag (z.B. "enterprise") — gesetzt via Options. */
   readonly tier?: string;
-  /** Per-feature changelog entries (from changes.json). Optional —
-   *  absent when no changes.json exists or feature has no entries. */
-  readonly changelog?: readonly ChangelogEntry[];
 };
 
 export type FeatureManifest = {

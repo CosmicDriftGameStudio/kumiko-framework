@@ -129,8 +129,6 @@ describe("my-audit-log", () => {
     // ihre Payload, bob nur seine.
     const aliceRow = aliceLog.rows[0];
     const bobRow = bobLog.rows[0];
-    expect(aliceRow).toBeDefined();
-    expect(bobRow).toBeDefined();
     if (!aliceRow || !bobRow) throw new Error("expected audit rows");
     expect((aliceRow.payload as { foo: string }).foo).toBe("alice");
     expect((bobRow.payload as { foo: string }).foo).toBe("bob");

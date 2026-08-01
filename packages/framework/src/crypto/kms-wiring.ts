@@ -115,8 +115,15 @@ function assertTrioConsistent(env: KmsWiringEnv, logPrefix: string | undefined):
   }
   if (Boolean(env.PLATFORM_KEK_PREVIOUS) !== Boolean(env.PLATFORM_KEK_PREVIOUS_VERSION)) {
     throw new Error(
-      "PLATFORM_KEK_PREVIOUS and PLATFORM_KEK_PREVIOUS_VERSION must be set together " +
+      `${logPrefix ? `${logPrefix} ` : ""}PLATFORM_KEK_PREVIOUS and ` +
+        "PLATFORM_KEK_PREVIOUS_VERSION must be set together " +
         "(KEK rotation, runbook kek-rotation.md).",
+    );
+  }
+  if (!complete && (env.PLATFORM_KEK_PREVIOUS || env.PLATFORM_KEK_PREVIOUS_VERSION)) {
+    throw new Error(
+      `${logPrefix ? `${logPrefix} ` : ""}PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / ` +
+        "KUMIKO_BLIND_INDEX_KEY are all-or-none — rotation settings require the complete KMS wiring.",
     );
   }
   return complete;

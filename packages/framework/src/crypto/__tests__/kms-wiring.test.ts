@@ -124,6 +124,15 @@ describe("resolveKmsWiring", () => {
     );
   });
 
+  test("rejects rotation settings when the main trio is absent", () => {
+    expect(() =>
+      resolveKmsWiring({
+        PLATFORM_KEK_PREVIOUS: KEK_B,
+        PLATFORM_KEK_PREVIOUS_VERSION: "1",
+      }),
+    ).toThrow(/all-or-none/);
+  });
+
   test.each([
     ["PLATFORM_KEK_PREVIOUS without version", { PLATFORM_KEK_PREVIOUS: KEK_B }],
     ["version without PLATFORM_KEK_PREVIOUS", { PLATFORM_KEK_PREVIOUS_VERSION: "1" }],

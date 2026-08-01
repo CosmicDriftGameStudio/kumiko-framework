@@ -55,8 +55,7 @@ describe("login.write gates (fw#1284)", () => {
       ["User"],
       "Asia/Tokyo",
     );
-    expect(g.ok).toBe(true);
-    if (g.ok) expect(g.value.session.timezone).toBe("Asia/Tokyo");
+    expect(g.session.timezone).toBe("Asia/Tokyo");
   });
 
   test("gateBuildSession omits timezone when the user never set one (fw#1636)", async () => {
@@ -67,7 +66,6 @@ describe("login.write gates (fw#1284)", () => {
       ["User"],
       null,
     );
-    expect(g.ok).toBe(true);
-    if (g.ok) expect(g.value.session.timezone).toBeUndefined();
+    expect(g.session.timezone).toBeUndefined();
   });
 });

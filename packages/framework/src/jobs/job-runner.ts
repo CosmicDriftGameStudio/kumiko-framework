@@ -45,7 +45,7 @@ export function schedulerIdForJobName(jobName: string): string {
   return `scheduler-${jobName.replace(/[.:]/g, "-")}`;
 }
 
-/** Pre-sanitize id (`.` only) — remove on boot so colon-form ghosts die. */
+// ponytail: migration shim, remove after fw#1603 deploy is everywhere.
 function legacySchedulerIdForJobName(jobName: string): string {
   return `scheduler-${jobName.replace(/\./g, "-")}`;
 }
