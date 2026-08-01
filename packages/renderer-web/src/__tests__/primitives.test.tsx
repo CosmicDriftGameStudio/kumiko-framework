@@ -447,7 +447,8 @@ describe("DataTable", () => {
   });
 
   // Infinite-Scroll Sentinel: rendert sentinel-div, zeigt Spinner wenn
-  // loadingMore, "End of list" wenn !hasMore. IntersectionObserver
+  // loadingMore, den i18n End-of-list-Marker (kumiko.list.end-of-list)
+  // wenn !hasMore. IntersectionObserver
   // selbst ist in jsdom unmocked — wir testen nur die Marker, der
   // Observer-Fire-Pfad ist im KumikoScreen.EntityListBody.
   describe("InfiniteSentinel", () => {
@@ -504,6 +505,27 @@ describe("DataTable", () => {
       );
       expect(screen.getByTestId("dt-sentinel-end")).not.toBeNull();
       expect(screen.getByTestId("dt-sentinel-end").textContent).toContain("End of list");
+    });
+
+    test("hasMore=false + de-Locale: Marker kommt aus i18n statt hartcodiert", async () => {
+      const { LocaleProvider, createStaticLocaleResolver, kumikoDefaultTranslations } =
+        await import("@cosmicdrift/kumiko-renderer");
+      render(
+        <LocaleProvider
+          resolver={createStaticLocaleResolver({ locale: "de" })}
+          fallbackBundles={[kumikoDefaultTranslations]}
+        >
+          <DataTable
+            columns={cols}
+            rows={oneRow}
+            testId="dt"
+            onReachEnd={mock()}
+            loadingMore={false}
+            hasMore={false}
+          />
+        </LocaleProvider>,
+      );
+      expect(screen.getByTestId("dt-sentinel-end").textContent).toBe("— Ende der Liste —");
     });
   });
 
