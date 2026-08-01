@@ -287,6 +287,42 @@ describe("computeEditViewModel", () => {
     });
     expect(asFields(vm.sections[0]).fields[0]?.span).toBe(2);
   });
+
+  test("section.description is translated and passed through; absent stays undefined", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            title: "Basics",
+            description: "orders:screen:order-edit.basics.help",
+            fields: ["notes"],
+          },
+          { title: "Extra", fields: ["kind"] },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+    expect(asFields(vm.sections[0]).description).toBe("orders:screen:order-edit.basics.help");
+    expect(asFields(vm.sections[1]).description).toBeUndefined();
+  });
+
+  test("field.icon propagates to the view model; absent stays undefined", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [{ title: "x", fields: [{ field: "customerName", icon: "user" }, "notes"] }],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+    const fields = asFields(vm.sections[0]).fields;
+    expect(fields[0]?.icon).toBe("user");
+    expect(fields[1]?.icon).toBeUndefined();
+  });
 });
 
 describe("computeEditViewModel — date/timestamp min/max/locale (#369)", () => {

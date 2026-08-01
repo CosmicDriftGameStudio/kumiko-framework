@@ -166,6 +166,30 @@ describe("Input kind mapping", () => {
     render(<Input id="i" name="i" kind="text" value="" hasError onChange={() => {}} />);
     expect(screen.getByRole("textbox").getAttribute("aria-invalid")).toBe("true");
   });
+
+  test('kind="text" icon="mail": renders prefix icon + pads the input', () => {
+    render(<Input id="i" name="i" kind="text" value="" icon="mail" onChange={() => {}} />);
+    const input = screen.getByRole("textbox");
+    expect(input.className).toContain("pl-8");
+    expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+  });
+
+  test('kind="text" icon="not-a-real-key": unknown key → no icon, no padding', () => {
+    render(
+      <Input id="i" name="i" kind="text" value="" icon="not-a-real-key" onChange={() => {}} />,
+    );
+    const input = screen.getByRole("textbox");
+    expect(input.className).not.toContain("pl-8");
+    expect(document.querySelector("svg[aria-hidden='true']")).toBeNull();
+  });
+
+  test('kind="number" icon="hash": renders prefix icon alongside existing right-align classes', () => {
+    render(<Input id="i" name="i" kind="number" value={0} icon="hash" onChange={() => {}} />);
+    const input = screen.getByRole("spinbutton");
+    expect(input.className).toContain("pl-8");
+    expect(input.className).toContain("text-right");
+    expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+  });
 });
 
 describe("DataTable", () => {

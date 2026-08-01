@@ -158,6 +158,9 @@ export type InputProps =
       /** Read-only Input (z.B. gewürfelter Free-Tier-Slug). Nicht `disabled`
        *  — bleibt fokussier-/kopierbar. */
       readonly readOnly?: boolean;
+      /** Symbolic icon key (FIELD_ICONS registry, renderer-web) — renders
+       *  as a prefix on the input. Unknown key → no icon (no boot-fail). */
+      readonly icon?: string;
     }
   | {
       readonly kind: "email";
@@ -199,6 +202,9 @@ export type InputProps =
       readonly required?: boolean;
       readonly hasError?: boolean;
       readonly testId?: string;
+      /** Symbolic icon key (FIELD_ICONS registry, renderer-web) — renders
+       *  as a prefix on the input. Unknown key → no icon (no boot-fail). */
+      readonly icon?: string;
     }
   | {
       readonly kind: "range";

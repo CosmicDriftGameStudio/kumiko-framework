@@ -513,6 +513,13 @@ export type EditFieldSpec =
       readonly readOnly?: FieldCondition;
       readonly required?: FieldCondition;
       readonly renderer?: FieldRenderer;
+      /** Prefix icon on the input — symbolic key into the FIELD_ICONS
+       *  registry (renderer-web), analogous to `ScreenNavSugar.icon`.
+       *  Unknown key → no icon (clean fallback, no boot-fail). Only takes
+       *  effect for `type: "text"` and `"number"` — other input kinds
+       *  (select, combobox, date, …) have no icon slot and silently
+       *  ignore the key. */
+      readonly icon?: string;
     };
 
 // A section is either a normal field-grid (default — `kind` omitted keeps
@@ -529,6 +536,12 @@ export type EditFieldsSection = {
    *  Überschrift) — für flache Forms (Card-Titel + Felder direkt, ein
    *  einzelner Abschnitt) wie bei den meisten shadcn-Form-Mustern. */
   readonly title?: string;
+  /** Optional help text under the block heading (i18n key or raw string,
+   *  like `title`) — makes a form usable without training instead of
+   *  falling back to custom JSX for help text. Renders through the same
+   *  `subtitle` slot as `FormProps.subtitle`. Works without `title` too
+   *  (subtitle-only section). */
+  readonly description?: string;
   readonly columns?: number;
   readonly fields: readonly EditFieldSpec[];
 };
