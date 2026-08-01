@@ -419,6 +419,36 @@ describe("buildInsertSchema", () => {
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ locale: "" }).success).toBe(false);
   });
+
+  // #1702: same ""-problem as #1674, but for a select WITH a default —
+  // an untouched <select> sends "" and the default only kicks in for
+  // undefined. "" maps to the default (a defaulted field is never unset).
+  test("optional select with default accepts empty string and falls back to the default", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        locale: createSelectField({ options: ["de", "en", "fr"] as const, default: "de" }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    const result = schema.safeParse({ locale: "" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data["locale"]).toBe("de");
+    }
+  });
+
+  test("optional select with default still validates a real value", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        locale: createSelectField({ options: ["de", "en"] as const, default: "de" }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ locale: "en" }).success).toBe(true);
+    expect(schema.safeParse({ locale: "xx" }).success).toBe(false);
+  });
 });
 
 // --- Update schema (all partial) ---
@@ -487,6 +517,26 @@ describe("buildUpdateSchema", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(Object.hasOwn(result.data, "locale")).toBe(false);
+    }
+  });
+
+  // Update schemas strip defaults deliberately (buildUpdateSchema never
+  // applies them — omitting a field must leave it untouched). So "" maps
+  // to the same explicit clear-to-null as the no-default case; only the
+  // insert path falls back to the default (#1702).
+  test("optional select with default on update: empty string is a clear-to-null, not the default", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        locale: createSelectField({ options: ["de", "en"] as const, default: "de" }),
+      },
+    });
+
+    const schema = buildUpdateSchema(entity);
+    const result = schema.safeParse({ locale: "" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data["locale"]).toBeNull();
     }
   });
 });
