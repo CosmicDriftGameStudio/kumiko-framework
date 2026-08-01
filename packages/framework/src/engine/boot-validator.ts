@@ -1,6 +1,6 @@
 export {
   collectWriteHandlerQns,
+  type ValidateBootOptions,
   validateAppCustomScreenWriteQns,
   validateBoot,
-  type ValidateBootOptions,
 } from "./boot-validator/index";
