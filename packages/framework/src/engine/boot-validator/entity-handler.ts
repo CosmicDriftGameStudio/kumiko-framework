@@ -53,6 +53,27 @@ export const PII_USER_OWNED_NAME_HINTS: ReadonlySet<string> = new Set([
   "notes",
 ]);
 
+// Field names that typically hold a FK into the `user` entity — carry no
+// content of their own, but the subject-data obligation attaches to the
+// link, not to annotated content. Without this hint, an entity with no
+// userOwned-content field stays invisible to the GDPR-hook-coverage guard
+// even though `authorId` is still personal data.
+export const PII_USER_REFERENCE_NAME_HINTS: ReadonlySet<string> = new Set([
+  "authorid",
+  "assigneeid",
+  "ownerid",
+  "createdbyid",
+  "createdbyuserid",
+  "updatedbyid",
+  "updatedbyuserid",
+  "invitedby",
+  "approvedby",
+  "reviewedby",
+  "uploadedby",
+  "assignedto",
+  "reportedby",
+]);
+
 // --- Extension preSave wiring validation ---
 
 /** Extensions with preSave must target an entity that has mapped write handlers. */

@@ -9,7 +9,7 @@ export function hasEditableSection(sections: readonly EditSectionViewModel[]): b
   return sections.some(
     (s) =>
       s.kind === "extension" ||
-      (s.kind === "fields" && s.visible && s.fields.some((f) => !f.readOnly)),
+      (s.kind === "fields" && s.visible && s.fields.some((f) => !f.readOnly && f.visible)),
   );
 }
 

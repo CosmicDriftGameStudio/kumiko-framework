@@ -35,8 +35,9 @@ export function validateGdprHookCompleteness(features: readonly FeatureDefinitio
 
 // V3: PII-entity-without-hook gate. V2 checks registered hooks for
 // completeness; V3 catches the entity nobody registered at all — fields
-// annotated as user-subject data (pii / userOwned) yet invisible to the
-// Art.15/20 export and Art.17 forget pipeline. Hard boot failure: a
+// annotated as user-subject data (pii / userOwned / subjectRef) yet
+// invisible to the Art.15/20 export and Art.17 forget pipeline. Hard boot
+// failure: a
 // subject-data entity that skips the pipeline is exactly the "feature built
 // past GDPR" leak this gate exists to stop. No "is user-data-rights mounted"
 // guard needed here (unlike the framework-internal predecessor) — this runs
@@ -58,7 +59,7 @@ export function validateGdprPiiHookCoverage(features: readonly FeatureDefinition
       const subjectFields = Object.entries(entity.fields)
         .filter(([, field]) => {
           const annot = field as PiiAnnotations; // @cast-boundary schema-walk
-          return Boolean(annot.pii) || Boolean(annot.userOwned);
+          return Boolean(annot.pii) || Boolean(annot.userOwned) || Boolean(annot.subjectRef);
         })
         .map(([name]) => name);
       if (subjectFields.length === 0) continue;

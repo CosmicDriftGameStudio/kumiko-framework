@@ -102,6 +102,28 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/EXT_USER_DATA hook.*Art\.17 gap/);
   });
 
+  test("V3: subjectRef field (FK to user, no pii/userOwned annotation) without EXT_USER_DATA hook → throws", () => {
+    const bad = defineFeature("tasks", (r) => {
+      r.entity(
+        "task",
+        createEntity({ fields: { assigneeId: createTextField({ subjectRef: true }) } }),
+      );
+    });
+    expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/EXT_USER_DATA hook.*Art\.17 gap/);
+  });
+
+  test("V3: subjectRef field WITH EXT_USER_DATA hook registered → no throw", () => {
+    const hooked = defineFeature("tasks-hooked", (r) => {
+      r.requires("user-data-rights");
+      r.entity(
+        "task",
+        createEntity({ fields: { assigneeId: createTextField({ subjectRef: true }) } }),
+      );
+      r.useExtension(EXT_USER_DATA, "task", { export: async () => null, delete: async () => {} });
+    });
+    expect(() => validateBoot([...baseFeatures(), hooked])).not.toThrow();
+  });
+
   test("V3: projection-only pii entity WITH EXT_USER_DATA hook registered for its entity name → no throw", () => {
     const projectionTable = projectionProbeTable("crm_contact_summary_hooked");
     const hooked = defineFeature("crm-hooked", (r) => {

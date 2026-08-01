@@ -166,6 +166,30 @@ describe("Input kind mapping", () => {
     render(<Input id="i" name="i" kind="text" value="" hasError onChange={() => {}} />);
     expect(screen.getByRole("textbox").getAttribute("aria-invalid")).toBe("true");
   });
+
+  test('kind="text" icon="mail": renders prefix icon + pads the input', () => {
+    render(<Input id="i" name="i" kind="text" value="" icon="mail" onChange={() => {}} />);
+    const input = screen.getByRole("textbox");
+    expect(input.className).toContain("pl-8");
+    expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+  });
+
+  test('kind="text" icon="not-a-real-key": unknown key → no icon, no padding', () => {
+    render(
+      <Input id="i" name="i" kind="text" value="" icon="not-a-real-key" onChange={() => {}} />,
+    );
+    const input = screen.getByRole("textbox");
+    expect(input.className).not.toContain("pl-8");
+    expect(document.querySelector("svg[aria-hidden='true']")).toBeNull();
+  });
+
+  test('kind="number" icon="hash": renders prefix icon alongside existing right-align classes', () => {
+    render(<Input id="i" name="i" kind="number" value={0} icon="hash" onChange={() => {}} />);
+    const input = screen.getByRole("spinbutton");
+    expect(input.className).toContain("pl-8");
+    expect(input.className).toContain("text-right");
+    expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+  });
 });
 
 describe("DataTable", () => {
@@ -447,7 +471,8 @@ describe("DataTable", () => {
   });
 
   // Infinite-Scroll Sentinel: rendert sentinel-div, zeigt Spinner wenn
-  // loadingMore, "End of list" wenn !hasMore. IntersectionObserver
+  // loadingMore, den i18n End-of-list-Marker (kumiko.list.end-of-list)
+  // wenn !hasMore. IntersectionObserver
   // selbst ist in jsdom unmocked — wir testen nur die Marker, der
   // Observer-Fire-Pfad ist im KumikoScreen.EntityListBody.
   describe("InfiniteSentinel", () => {
@@ -504,6 +529,27 @@ describe("DataTable", () => {
       );
       expect(screen.getByTestId("dt-sentinel-end")).not.toBeNull();
       expect(screen.getByTestId("dt-sentinel-end").textContent).toContain("End of list");
+    });
+
+    test("hasMore=false + de-Locale: Marker kommt aus i18n statt hartcodiert", async () => {
+      const { LocaleProvider, createStaticLocaleResolver, kumikoDefaultTranslations } =
+        await import("@cosmicdrift/kumiko-renderer");
+      render(
+        <LocaleProvider
+          resolver={createStaticLocaleResolver({ locale: "de" })}
+          fallbackBundles={[kumikoDefaultTranslations]}
+        >
+          <DataTable
+            columns={cols}
+            rows={oneRow}
+            testId="dt"
+            onReachEnd={mock()}
+            loadingMore={false}
+            hasMore={false}
+          />
+        </LocaleProvider>,
+      );
+      expect(screen.getByTestId("dt-sentinel-end").textContent).toBe("— Ende der Liste —");
     });
   });
 

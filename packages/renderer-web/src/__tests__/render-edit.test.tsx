@@ -85,6 +85,46 @@ describe("RenderEdit", () => {
     expect(screen.queryByTestId("field-notes")).toBeNull();
   });
 
+  // Issue #1677: a section's optional `description` renders as the
+  // Section's subtitle slot underneath the block heading, and a field's
+  // `icon` reaches the DOM as a prefix icon on its input.
+  test("section.description renders as the section subtitle; field.icon renders a prefix icon", () => {
+    const entity = {
+      fields: { email: { type: "text", required: true } },
+    } as unknown as EntityDefinition;
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        sections: [
+          {
+            title: "Contact",
+            description: "How we'll reach you.",
+            columns: 1,
+            fields: [{ field: "email", icon: "mail" }],
+          },
+        ],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit
+          screen={screenDef}
+          entity={entity}
+          featureName="orders"
+          initial={{ email: "" } as never}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("section-Contact-subtitle").textContent).toBe("How we'll reach you.");
+    const fieldEl = screen.getByTestId("field-email");
+    expect(fieldEl.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+    expect(fieldEl.querySelector("input")?.className).toContain("pl-8");
+  });
+
   // End-to-end-Routing: ein `type:"locatedTimestamp"`-Entity-Feld muss durch
   // computeEditViewModel → render-field → DefaultInput auf den Located-Picker
   // laufen (Datum + Uhrzeit + Zone), NICHT auf den Klartext-Fallthrough. Vor
@@ -201,6 +241,43 @@ describe("RenderEdit", () => {
     expect(write).toHaveBeenCalledWith("order:create", expect.anything());
     expect(seenResults).toHaveLength(1);
     expect(seenResults[0]?.isSuccess).toBe(true);
+  });
+
+  test("layout.width defaults the form shell to max-w-3xl when unset", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const shell = screen.getByTestId("render-edit-form").firstElementChild;
+    expect(shell?.className).toContain("max-w-3xl");
+    expect(shell?.className).not.toContain("max-w-full");
+  });
+
+  test("layout.width: 'full' widens the form shell to max-w-full (#1676)", () => {
+    const screenDef = makeScreen();
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={{ ...screenDef, layout: { ...screenDef.layout, width: "full" } }}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const shell = screen.getByTestId("render-edit-form").firstElementChild;
+    expect(shell?.className).toContain("max-w-full");
+    expect(shell?.className).not.toContain("max-w-3xl");
   });
 
   test("title resolved aus i18n-Key `screen:<id>.title` mit screenId als Fallback", () => {

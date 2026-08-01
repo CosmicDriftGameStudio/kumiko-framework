@@ -271,6 +271,42 @@ describe("validateBoot — PII annotations", () => {
     expect(matchingWarn).toBeDefined();
   });
 
+  test("user-reference-name heuristic warns when authorId field has no subjectRef annotation", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "thing",
+        createEntity({
+          fields: {
+            authorId: createTextField(),
+          },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes("user-reference-typical name"),
+    );
+    expect(matchingWarn).toBeDefined();
+  });
+
+  test("subjectRef: true on authorId field silences user-reference-name heuristic warning", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "thing",
+        createEntity({
+          fields: {
+            authorId: createTextField({ subjectRef: true }),
+          },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes("user-reference-typical name"),
+    );
+    expect(matchingWarn).toBeUndefined();
+  });
+
   test("allowPlaintext marker silences PII-name heuristic warning", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(

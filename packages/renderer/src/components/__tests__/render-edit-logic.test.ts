@@ -122,4 +122,58 @@ describe("hasEditableSection", () => {
     };
     expect(hasEditableSection([hiddenSectionWithEditableField])).toBe(false);
   });
+
+  test("visible section with only a field-hidden editable field → false", () => {
+    const section: EditSectionViewModel = {
+      kind: "fields",
+      columns: 1,
+      visible: true,
+      fields: [
+        {
+          field: "f",
+          label: "F",
+          type: "text",
+          value: "",
+          visible: false,
+          readOnly: false,
+          required: false,
+        },
+      ],
+    };
+    expect(hasEditableSection([section])).toBe(false);
+  });
+
+  // The #1689 regression: the section is visible because field A is visible
+  // (readOnly), but the only editable field B is hidden by its own
+  // FieldCondition. Old code checked section.visible + !readOnly only, so it
+  // saw B's !readOnly and returned true — Save appeared over zero editable
+  // visible fields.
+  test("visible section, visible readOnly field + hidden editable field → false", () => {
+    const section: EditSectionViewModel = {
+      kind: "fields",
+      columns: 1,
+      visible: true,
+      fields: [
+        {
+          field: "a",
+          label: "A",
+          type: "text",
+          value: "",
+          visible: true,
+          readOnly: true,
+          required: false,
+        },
+        {
+          field: "b",
+          label: "B",
+          type: "text",
+          value: "",
+          visible: false,
+          readOnly: false,
+          required: false,
+        },
+      ],
+    };
+    expect(hasEditableSection([section])).toBe(false);
+  });
 });

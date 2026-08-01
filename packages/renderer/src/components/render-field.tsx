@@ -297,6 +297,7 @@ function renderInput({
           {...common}
           value={numberValue(field.value)}
           onChange={(v) => onChange(v)}
+          {...(field.icon !== undefined && { icon: field.icon })}
         />
       );
     case "money": {
@@ -418,6 +419,7 @@ function renderInput({
           {...common}
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}
+          {...(field.icon !== undefined && { icon: field.icon })}
         />
       );
     }

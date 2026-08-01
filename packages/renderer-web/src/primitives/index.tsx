@@ -25,6 +25,7 @@ import {
   type DataTableProps,
   type FieldProps,
   type FormProps,
+  type FormWidth,
   type GridCellProps,
   type GridProps,
   type HeadingProps,
@@ -41,11 +42,24 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Building,
+  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Globe,
+  Hash,
+  KeyRound,
+  Link,
   Loader2,
+  Lock,
+  Mail,
+  MapPin,
   MoreHorizontal,
+  Phone,
+  Search,
+  Tag,
+  User,
   X,
 } from "lucide-react";
 import {
@@ -252,6 +266,46 @@ function DefaultField({
 
 // ---- Input ----
 
+// Field-icon registry: `EditFieldSpec.icon`/`InputProps.icon` sets a
+// symbolic key, mapped here to a lucide component. Unknown keys → no
+// icon (clean fallback, no boot-fail). Mirrors NAV_ICONS' pattern
+// (nav-tree.tsx) — a separate, smaller registry instead of a shared
+// import, because field icons cover a different use case (email, phone,
+// location, …) than nav icons (dashboard, tables, …).
+const FIELD_ICONS: Readonly<Record<string, typeof Mail>> = {
+  mail: Mail,
+  lock: Lock,
+  hash: Hash,
+  search: Search,
+  user: User,
+  phone: Phone,
+  calendar: CalendarDays,
+  link: Link,
+  tag: Tag,
+  building: Building,
+  globe: Globe,
+  key: KeyRound,
+  "map-pin": MapPin,
+};
+
+// Wraps a text/number input with a left-positioned prefix icon when
+// `icon` carries a known FIELD_ICONS key. `pl-8` overrides (via
+// tailwind-merge) only the left padding of the vendored ui/input.tsx —
+// right padding and other defaults stay untouched.
+function withFieldIcon(icon: string | undefined, input: ReactNode): ReactNode {
+  const Icon = icon !== undefined ? FIELD_ICONS[icon] : undefined;
+  if (Icon === undefined) return input;
+  return (
+    <div className="relative">
+      <Icon
+        aria-hidden="true"
+        className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+      />
+      {input}
+    </div>
+  );
+}
+
 function DefaultInput(props: InputProps): ReactNode {
   // Vendored ui/input + ui/checkbox stylen Fehler über `aria-invalid`
   // selbst — kein manuelles border-destructive mehr nötig.
@@ -264,7 +318,8 @@ function DefaultInput(props: InputProps): ReactNode {
   } as const;
   switch (props.kind) {
     case "text":
-      return (
+      return withFieldIcon(
+        props.icon,
         <UiInput
           type="text"
           {...common}
@@ -274,7 +329,8 @@ function DefaultInput(props: InputProps): ReactNode {
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           {...(props.autoComplete !== undefined && { autoComplete: props.autoComplete })}
-        />
+          className={cn(props.icon !== undefined && FIELD_ICONS[props.icon] ? "pl-8" : undefined)}
+        />,
       );
     case "email":
       return (
@@ -300,7 +356,8 @@ function DefaultInput(props: InputProps): ReactNode {
         />
       );
     case "number":
-      return (
+      return withFieldIcon(
+        props.icon,
         <UiInput
           type="number"
           {...common}
@@ -310,8 +367,11 @@ function DefaultInput(props: InputProps): ReactNode {
             const v = e.target.value;
             props.onChange(v === "" ? undefined : Number(v));
           }}
-          className="text-right tabular-nums"
-        />
+          className={cn(
+            "text-right tabular-nums",
+            props.icon !== undefined && FIELD_ICONS[props.icon] ? "pl-8" : undefined,
+          )}
+        />,
       );
     case "range":
       return (
@@ -969,6 +1029,7 @@ function InfiniteSentinel({
   readonly hasMore: boolean;
   readonly testId?: string;
 }): ReactNode {
+  const t = useTranslation();
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -1004,7 +1065,7 @@ function InfiniteSentinel({
     >
       {!hasMore ? (
         <span data-testid={testId !== undefined ? `${testId}-end` : undefined}>
-          — End of list —
+          {t("kumiko.list.end-of-list")}
         </span>
       ) : loadingMore ? (
         <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -1410,6 +1471,7 @@ function DefaultForm({
   subtitle,
   actions,
   testId,
+  width,
 }: FormProps): ReactNode {
   // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
   // der Container trägt Card/Titel selbst, sonst Card-in-Card.
@@ -1447,7 +1509,7 @@ function DefaultForm({
       data-testid={testId}
       className="flex flex-col w-full"
     >
-      <FormScreenShell>
+      <FormScreenShell {...(width !== undefined && { maxWidth: width })}>
         <div className={cn(cardSurface(), "overflow-hidden")}>
           {(title !== undefined || subtitle !== undefined) && (
             <div className="px-6 pb-2 pt-5">
@@ -1503,7 +1565,7 @@ function DefaultForm({
 // beliebiger max-w-*-Overrides: sm=schmale Auth-Forms, 3xl=Standard-Detail,
 // 4xl=tabellen-nahe Forms, full=volle Breite. Inhalt nutzt Card-Primitives;
 // `className` (z.B. "flex flex-col gap-6") für Multi-Card-Stacks.
-export type FormScreenShellWidth = "sm" | "3xl" | "4xl" | "full";
+export type FormScreenShellWidth = FormWidth;
 
 const formScreenShellWidth: Record<FormScreenShellWidth, string> = {
   sm: "max-w-sm mx-auto",

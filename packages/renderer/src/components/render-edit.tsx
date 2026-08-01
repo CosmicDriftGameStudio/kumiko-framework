@@ -422,6 +422,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {...(formSubtitle !== undefined && { subtitle: formSubtitle })}
         actions={formActions}
         testId="render-edit-form"
+        {...(screen.layout.width !== undefined && { width: screen.layout.width })}
       >
         {vm.sections.map((section: EditSectionViewModel, sectionIndex: number) => {
           if (section.kind === "extension") {
@@ -446,6 +447,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             <Section
               key={sectionKey}
               {...(sectionTitle !== undefined && { title: sectionTitle })}
+              {...(section.description !== undefined && { subtitle: section.description })}
               testId={`section-${sectionKey}`}
             >
               <Grid columns={section.columns}>

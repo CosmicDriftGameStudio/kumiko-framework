@@ -48,6 +48,7 @@ import {
   KeyRound,
   Layers,
   LayoutDashboard,
+  LayoutGrid,
   LineChart,
   Link,
   List,
@@ -107,6 +108,7 @@ import { parseTargetFromSearchParams } from "./target-url";
 // Keys; Erweiterung = neuer Eintrag hier (eine Quelle, alle Apps).
 const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
   dashboard: LayoutDashboard,
+  "layout-grid": LayoutGrid,
   gauge: Gauge,
   list: List,
   table: Table,

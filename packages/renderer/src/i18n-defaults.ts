@@ -40,6 +40,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.empty.title": "Noch keine Einträge.",
     "kumiko.list.empty.hint": "Lege den ersten an, um loszulegen.",
     "kumiko.list.no-entries": "Keine Einträge.",
+    "kumiko.list.end-of-list": "— Ende der Liste —",
 
     // Combobox — Tier 2.1c Searchable-Select.
     "kumiko.combobox.search-placeholder": "Suchen…",
@@ -176,6 +177,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.empty.title": "No entries yet.",
     "kumiko.list.empty.hint": "Create the first one to get started.",
     "kumiko.list.no-entries": "No entries.",
+    "kumiko.list.end-of-list": "— End of list —",
 
     "kumiko.combobox.search-placeholder": "Search…",
     "kumiko.combobox.empty": "No matches.",

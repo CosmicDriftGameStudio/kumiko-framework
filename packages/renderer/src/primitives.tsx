@@ -34,6 +34,7 @@ import type {
   ConfigScope,
   ConfigValueSource,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { FormWidth } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   FieldIssue,
   ListColumnViewModel,
@@ -158,6 +159,9 @@ export type InputProps =
       /** Read-only Input (z.B. gewürfelter Free-Tier-Slug). Nicht `disabled`
        *  — bleibt fokussier-/kopierbar. */
       readonly readOnly?: boolean;
+      /** Symbolic icon key (FIELD_ICONS registry, renderer-web) — renders
+       *  as a prefix on the input. Unknown key → no icon (no boot-fail). */
+      readonly icon?: string;
     }
   | {
       readonly kind: "email";
@@ -199,6 +203,9 @@ export type InputProps =
       readonly required?: boolean;
       readonly hasError?: boolean;
       readonly testId?: string;
+      /** Symbolic icon key (FIELD_ICONS registry, renderer-web) — renders
+       *  as a prefix on the input. Unknown key → no icon (no boot-fail). */
+      readonly icon?: string;
     }
   | {
       readonly kind: "range";
@@ -526,6 +533,8 @@ export type DataTableProps = {
   readonly testId?: string;
 };
 
+export type { FormWidth };
+
 /** Submit-Wrapper. Web: `<form onSubmit>`, Native: View das einen
  *  onSubmit-Callback via Button-Press triggert. `onSubmit` bekommt
  *  eine abstrakte Signatur (keine FormEvent) damit Native-Impls das
@@ -547,6 +556,10 @@ export type FormProps = {
   readonly subtitle?: ReactNode;
   readonly actions?: ReactNode;
   readonly testId?: string;
+  /** Max width of the form container. Default "3xl" — see FormWidth
+   *  (`packages/types/src/screen.ts`, EditLayout.width, #1676). Native
+   *  impls may ignore this prop (no width constraint there). */
+  readonly width?: FormWidth;
 };
 
 /** Titled Gruppe von Feldern. Web: `<fieldset>` + `<legend>`, Native:
