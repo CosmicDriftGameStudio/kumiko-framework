@@ -336,6 +336,29 @@ export function buildInitialValues(
   return out;
 }
 
+export function mergeSearchParamsIntoInitial(
+  fields: Readonly<Record<string, unknown>>,
+  searchParams: Readonly<Record<string, string>>,
+): Record<string, unknown> {
+  const defaults = buildInitialValues(fields) as Record<string, unknown>;
+  const merged: Record<string, unknown> = { ...defaults };
+  for (const [name, fieldDef] of Object.entries(fields)) {
+    const shape = fieldDef as { type?: string; sensitive?: boolean };
+    if (shape.sensitive === true) continue;
+    const raw = searchParams[name];
+    if (raw === undefined) continue;
+    if (shape.type === "number" || shape.type === "money") {
+      const parsed = Number(raw);
+      merged[name] = Number.isNaN(parsed) ? defaults[name] : parsed;
+    } else if (shape.type === "boolean") {
+      merged[name] = raw === "true";
+    } else {
+      merged[name] = raw;
+    }
+  }
+  return merged;
+}
+
 function EntityEditScreen({
   schema,
   screen,
@@ -406,7 +429,11 @@ function EntityEditCreateBody({
   readonly entity: EntityDefinition;
   readonly translate?: Translate;
 }): ReactNode {
-  const initial = useMemo(() => buildInitialValues(entity.fields) as FormValues, [entity.fields]);
+  const nav = useNav();
+  const initial = useMemo(
+    () => mergeSearchParamsIntoInitial(entity.fields, nav.searchParams) as FormValues,
+    [entity.fields, nav.searchParams],
+  );
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "create");
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
   const handleSubmitted = useCallback(
@@ -1402,32 +1429,10 @@ function ActionFormBody({
   const nav = useNav();
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
-  // Tier 2.7e-2: URL-Search-Params überschreiben Field-Defaults bei
-  // initial values. Use-case: rowAction kind=navigate setzt
-  // `?customerId=row-uuid` und der actionForm liest das pre-filled.
-  // String-Coercion auf Field-Type: URL kennt nur Strings, aber
-  // ein Field mit type:"number" erwartet eine Zahl. Boolean-Strings
-  // ("true"/"false") und Number-Strings werden hier coerced; sonst
-  // bleibt der String — der Field-Validator beim Submit fängt einen
-  // Type-Mismatch ab.
-  const initial = useMemo(() => {
-    const defaults = buildInitialValues(screen.fields) as Record<string, unknown>; // @cast-boundary render-helper
-    const merged: Record<string, unknown> = { ...defaults };
-    for (const [name, fieldDef] of Object.entries(screen.fields)) {
-      const raw = nav.searchParams[name];
-      if (raw === undefined) continue;
-      const ftype = (fieldDef as { type?: string }).type;
-      if (ftype === "number" || ftype === "money") {
-        const parsed = Number(raw);
-        merged[name] = Number.isNaN(parsed) ? defaults[name] : parsed;
-      } else if (ftype === "boolean") {
-        merged[name] = raw === "true";
-      } else {
-        merged[name] = raw;
-      }
-    }
-    return merged as FormValues;
-  }, [screen.fields, nav.searchParams]);
+  const initial = useMemo(
+    () => mergeSearchParamsIntoInitial(screen.fields, nav.searchParams) as FormValues,
+    [screen.fields, nav.searchParams],
+  );
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
       // Redirect ist optional. Bei isSuccess + redirect → nav.navigate.

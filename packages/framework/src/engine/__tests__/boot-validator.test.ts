@@ -2820,4 +2820,204 @@ describe("boot-validator — config key backing × scope", () => {
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
+
+  test("navigate with params targeting a dashboard screen → Throw", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "view",
+            label: "actions.view",
+            screen: "product-dashboard",
+            params: { pick: ["name"] },
+          },
+        ],
+      });
+      r.queryHandler("count", z.object({}), async () => ({ total: 0 }), {
+        access: { openToAll: true },
+      });
+      r.screen({
+        id: "product-dashboard",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "stat",
+            id: "count",
+            label: "Products",
+            query: "shop:query:count",
+            valueField: "total",
+          },
+        ],
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /sets params on navigate-target "product-dashboard".*screen type "dashboard".*only actionForm and entityEdit-create/,
+    );
+  });
+
+  test("navigate with params targeting a custom screen → no throw (author owns the component, may read searchParams itself)", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "view",
+            label: "actions.view",
+            screen: "product-dashboard",
+            params: { pick: ["name"] },
+          },
+        ],
+      });
+      r.screen({
+        id: "product-dashboard",
+        type: "custom",
+        renderer: { react: "stub" },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("navigate with params targeting a same-entity entityEdit screen → Throw (resolves to update mode)", () => {
+    // No explicit entityId + same entity as the source list → the renderer's
+    // runNavigate() auto-fills row["id"], landing in EntityEditUpdateBody,
+    // which never reads searchParams. Params would silently no-op.
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "open",
+            label: "actions.open",
+            screen: "product-edit",
+            params: { pick: ["name"] },
+          },
+        ],
+      });
+      r.screen({
+        id: "product-edit",
+        type: "entityEdit",
+        entity: "product",
+        layout: { sections: [{ columns: 1, fields: ["name"] }] },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /resolves to UPDATE mode.*same entity "product" auto-fills row\["id"\]/,
+    );
+  });
+
+  test("navigate with params + explicit entityId targeting an entityEdit screen → Throw (forced update mode)", () => {
+    const feature = defineFeature("housing", (r) => {
+      r.entity("unit", createEntity({ fields: { name: createTextField() } }));
+      r.entity("contract", createEntity({ fields: { unitId: createTextField() } }));
+      r.screen({
+        id: "unit-list",
+        type: "entityList",
+        entity: "unit",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "edit-contract",
+            label: "actions.edit-contract",
+            screen: "contract-edit",
+            entityId: "name",
+            params: { pick: ["name"] },
+          },
+        ],
+      });
+      r.screen({
+        id: "contract-edit",
+        type: "entityEdit",
+        entity: "contract",
+        layout: { sections: [{ columns: 1, fields: ["unitId"] }] },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /resolves to UPDATE mode \(explicit entityId "name"\)/,
+    );
+  });
+
+  test("navigate with params targeting a cross-entity entityEdit screen (no explicit entityId) → no throw", () => {
+    // The issue's actual use case: a unit row navigates to "create contract"
+    // pre-filled with unitId. Different entity + no explicit entityId → the
+    // renderer's same-entity row["id"] fallback does NOT fire, so this stays
+    // in create mode and EntityEditCreateBody reads the params.
+    const feature = defineFeature("housing", (r) => {
+      r.entity("unit", createEntity({ fields: { name: createTextField() } }));
+      r.entity("contract", createEntity({ fields: { unitId: createTextField() } }));
+      r.screen({
+        id: "unit-list",
+        type: "entityList",
+        entity: "unit",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "create-contract",
+            label: "actions.create-contract",
+            screen: "contract-edit",
+            params: { map: { unitId: "name" } },
+          },
+        ],
+      });
+      r.screen({
+        id: "contract-edit",
+        type: "entityEdit",
+        entity: "contract",
+        layout: { sections: [{ columns: 1, fields: ["unitId"] }] },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("navigate with params targeting an actionForm screen → no throw", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.writeHandler(
+        "create",
+        z.object({ name: z.string() }),
+        async () => ({ isSuccess: true as const, data: { id: "1" } }),
+        { access: { openToAll: true } },
+      );
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "open-form",
+            label: "actions.form",
+            screen: "product-form",
+            params: { pick: ["name"] },
+          },
+        ],
+      });
+      r.screen({
+        id: "product-form",
+        type: "actionForm",
+        handler: "shop:write:create",
+        fields: { name: createTextField() },
+        layout: { sections: [{ columns: 1, fields: ["name"] }] },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
 });
