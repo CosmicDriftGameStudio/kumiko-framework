@@ -102,3 +102,28 @@ describe("upgrade command — framework core changelog", () => {
     expect(spy.logs).toEqual([]);
   });
 });
+
+describe("upgrade command — enterprise package layout", () => {
+  // Layout is detected by presence of changes.json, not an "ai-" name
+  // prefix — the old heuristic silently dropped every enterprise package
+  // whose name didn't start with "ai-" (fw#1605).
+  test("collects changes.json from a package without an 'ai-' prefix", async () => {
+    const cwd = tmp({
+      "packages/billing-designer/src/changes.json": FEATURE_ENTRY,
+    });
+
+    const result = await runJson(cwd, "0.165.0");
+
+    expect(result.pending.map((e) => e.title)).toEqual(["feature fix"]);
+  });
+
+  test("flat layout (no src/ subdir) is also collected", async () => {
+    const cwd = tmp({
+      "packages/billing-designer/changes.json": FEATURE_ENTRY,
+    });
+
+    const result = await runJson(cwd, "0.165.0");
+
+    expect(result.pending.map((e) => e.title)).toEqual(["feature fix"]);
+  });
+});

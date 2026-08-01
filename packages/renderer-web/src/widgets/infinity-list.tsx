@@ -56,14 +56,22 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   const nextCursorRef = useRef(nextCursor);
   nextCursorRef.current = nextCursor;
 
+  // Discards a response whose request was superseded by a newer one before
+  // it resolved (e.g. two searches fired in quick succession) — without
+  // this, a slow earlier response can land after a faster later one and
+  // overwrite it, leaving stale rows on screen (fw#1705).
+  const requestSeq = useRef(0);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: payload goes through payloadKey
   const load = useCallback(
     async (cursor: string | null): Promise<void> => {
+      const mySeq = ++requestSeq.current;
       const res = await dispatcher.query<TData>(query, {
         ...payload,
         limit: pageSize,
         ...(cursor !== null && { cursor }),
       });
+      if (mySeq !== requestSeq.current) return;
       if (!res.isSuccess) {
         setState({ kind: "error", error: res.error });
         return;
@@ -81,6 +89,9 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   useEffect(() => {
     setState({ kind: "loading" });
     void load(null);
+    return () => {
+      requestSeq.current += 1;
+    };
   }, [load]);
 
   useEffect(() => {

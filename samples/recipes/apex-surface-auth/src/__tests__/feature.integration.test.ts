@@ -81,7 +81,8 @@ describe("apex-surface-auth recipe", () => {
     expect(reqRes.status).toBe(200);
     expect(verifyCalls).toHaveLength(1);
 
-    const token = new URL(verifyCalls[0]?.verifyUrl ?? "").searchParams.get("token") ?? "";
+    const verifyUrl = new URL(verifyCalls[0]?.verifyUrl ?? "");
+    const token = new URLSearchParams(verifyUrl.hash.slice(1)).get("token") ?? "";
     expect(token.length).toBeGreaterThan(0);
 
     const confirmRes = await stack.http.raw("POST", "/api/write", {

@@ -55,7 +55,17 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
   }
 }
 
-export function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.ZodTypeAny {
+export function fieldToZod(
+  field: FieldDefinition,
+  currencies: readonly string[],
+  opts: { readonly applyDefaults?: boolean } = {},
+): z.ZodTypeAny {
+  // Insert callers want `.default(...)` applied so an omitted field falls
+  // back to it; buildUpdateSchema passes applyDefaults: false so an omitted
+  // field on update stays omitted (a `{ title }` patch must not clobber
+  // other columns with their defaults) while a field's own default value is
+  // still known here for "" → default mapping (select case below).
+  const applyDefaults = opts.applyDefaults ?? true;
   switch (field.type) {
     case "text": {
       let schema = z.string();
@@ -63,7 +73,7 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
       if (field.format === "email") schema = schema.email();
       if (field.format === "url") schema = schema.url();
       if (field.required) schema = schema.min(1);
-      return field.default !== undefined ? schema.default(field.default) : schema;
+      return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }
     case "longText": {
       // longText hat keine `format`-Variante (per type-design). Nur
@@ -71,24 +81,26 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
       let schema = z.string();
       if (field.maxLength) schema = schema.max(field.maxLength);
       if (field.required) schema = schema.min(1);
-      return field.default !== undefined ? schema.default(field.default) : schema;
+      return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }
     case "boolean": {
       const schema = z.boolean();
-      return field.default !== undefined ? schema.default(field.default) : schema;
+      return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }
     case "select": {
       const [first, ...rest] = field.options;
       if (!first) return z.string();
       const enumSchema = z.enum([first, ...rest]);
-      if (field.default !== undefined)
+      if (field.default !== undefined) {
         // Untouched <select> sends "" too; with a default that maps to the
         // default (same semantics as undefined) instead of the invalid-value
-        // rejection from #1702. A field with a default is never "unset".
-        return z.preprocess(
-          (value) => (value === "" ? field.default : value),
-          enumSchema.default(field.default),
-        );
+        // rejection from #1702. A field with a default is never "unset" —
+        // true on both insert AND update, so this branch (and its "" → default
+        // mapping) fires regardless of applyDefaults; only the `.default(...)`
+        // schema-level fallback for OMITTED input is update-gated below.
+        const mapped = z.preprocess((value) => (value === "" ? field.default : value), enumSchema);
+        return applyDefaults ? mapped.default(field.default) : mapped;
+      }
       if (field.required) return enumSchema;
       // Optional select without a default: an untouched HTML <select> submits
       // "" for its placeholder option. Treat that as "unset" (null) instead of
@@ -105,7 +117,9 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
       // in buildInsertSchema kümmert sich um „darf fehlen".
       let schema = z.array(z.enum([first, ...rest]));
       if (field.required) schema = schema.min(1);
-      return field.default !== undefined ? schema.default([...field.default]) : schema;
+      return field.default !== undefined && applyDefaults
+        ? schema.default([...field.default])
+        : schema;
     }
     case "number": {
       let schema = z.number();
@@ -115,7 +129,7 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
       if (field.integer) schema = schema.int().min(-2147483648).max(2147483647);
       if (field.min !== undefined) schema = schema.min(field.min);
       if (field.max !== undefined) schema = schema.max(field.max);
-      return field.default !== undefined ? schema.default(field.default) : schema;
+      return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }
     case "decimal": {
       // Stored as numeric(precision, scale), surfaced as JS number. Bound the
@@ -129,7 +143,7 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
         .refine((n) => isRepresentableAtScale(n, field.scale), {
           message: `at most ${field.scale} decimal places`,
         });
-      return field.default !== undefined ? schema.default(field.default) : schema;
+      return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }
     case "bigInt": {
       // JS-`number`-Round-trip via mode:"number"; sicher bis 2^53.
@@ -137,7 +151,7 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
       // Float reinwirft (z.B. parseFloat-Bug), beim Insert sofort
       // failed statt silent-Truncation zu kassieren.
       const schema = z.number().int().safe();
-      return field.default !== undefined ? schema.default(field.default) : schema;
+      return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }
     case "money": {
       const [first, ...rest] = currencies;
@@ -245,14 +259,15 @@ export function buildUpdateSchema(
   const shape: Record<string, z.ZodTypeAny> = {};
 
   for (const [name, field] of Object.entries(entity.fields)) {
-    // Update schemas never apply defaults — a user that sends only
-    // `{ title }` means "only change title"; zod defaults would silently
-    // inject default values for every omitted field and clobber existing
-    // data via the event-store-executor's `changes` payload.
-    // Cast widens the discriminated union so destructure works for variants
-    // without a `default` field; remainder is structurally a FieldDefinition.
-    const { default: _default, ...stripped } = field as FieldDefinition & { default?: unknown }; // @cast-boundary schema-walk
-    shape[name] = fieldToZod(stripped as FieldDefinition, currencies).optional(); // @cast-boundary schema-walk
+    // Update schemas never apply defaults for OMITTED fields — a user that
+    // sends only `{ title }` means "only change title"; zod defaults would
+    // silently inject default values for every omitted field and clobber
+    // existing data via the event-store-executor's `changes` payload.
+    // The field is passed through un-stripped (unlike before fw#1703) so
+    // fieldToZod still knows the default for its "" → default mapping
+    // (e.g. select) — applyDefaults: false only suppresses the schema-level
+    // `.default(...)` fallback for a genuinely omitted key.
+    shape[name] = fieldToZod(field, currencies, { applyDefaults: false }).optional();
   }
 
   return z.object(shape);

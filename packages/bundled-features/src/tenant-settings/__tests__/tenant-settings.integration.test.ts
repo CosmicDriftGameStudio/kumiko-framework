@@ -47,6 +47,15 @@ test("defineCreateWithTenantDefaults throws on an unknown currency field", () =>
   ).toThrow(/unknown field "notARealField"/);
 });
 
+test("defineCreateWithTenantDefaults throws on an unknown locale field", () => {
+  expect(() =>
+    defineCreateWithTenantDefaults("invoice", invoiceEntity, {
+      access: ACCESS,
+      localeField: "languge",
+    }),
+  ).toThrow(/unknown field "languge"/);
+});
+
 describe("without tenant-settings mount", () => {
   const invoiceFeature = defineFeature("invoice", (r) => {
     r.entity("invoice", invoiceEntity);
