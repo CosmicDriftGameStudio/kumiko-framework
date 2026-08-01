@@ -25,6 +25,7 @@ import {
   type DataTableProps,
   type FieldProps,
   type FormProps,
+  type FormWidth,
   type GridCellProps,
   type GridProps,
   type HeadingProps,
@@ -1410,6 +1411,7 @@ function DefaultForm({
   subtitle,
   actions,
   testId,
+  width,
 }: FormProps): ReactNode {
   // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
   // der Container trägt Card/Titel selbst, sonst Card-in-Card.
@@ -1447,7 +1449,7 @@ function DefaultForm({
       data-testid={testId}
       className="flex flex-col w-full"
     >
-      <FormScreenShell>
+      <FormScreenShell {...(width !== undefined && { maxWidth: width })}>
         <div className={cn(cardSurface(), "overflow-hidden")}>
           {(title !== undefined || subtitle !== undefined) && (
             <div className="px-6 pb-2 pt-5">
@@ -1503,7 +1505,7 @@ function DefaultForm({
 // beliebiger max-w-*-Overrides: sm=schmale Auth-Forms, 3xl=Standard-Detail,
 // 4xl=tabellen-nahe Forms, full=volle Breite. Inhalt nutzt Card-Primitives;
 // `className` (z.B. "flex flex-col gap-6") für Multi-Card-Stacks.
-export type FormScreenShellWidth = "sm" | "3xl" | "4xl" | "full";
+export type FormScreenShellWidth = FormWidth;
 
 const formScreenShellWidth: Record<FormScreenShellWidth, string> = {
   sm: "max-w-sm mx-auto",

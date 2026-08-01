@@ -34,6 +34,7 @@ import type {
   ConfigScope,
   ConfigValueSource,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { FormWidth } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   FieldIssue,
   ListColumnViewModel,
@@ -526,6 +527,8 @@ export type DataTableProps = {
   readonly testId?: string;
 };
 
+export type { FormWidth };
+
 /** Submit-Wrapper. Web: `<form onSubmit>`, Native: View das einen
  *  onSubmit-Callback via Button-Press triggert. `onSubmit` bekommt
  *  eine abstrakte Signatur (keine FormEvent) damit Native-Impls das
@@ -547,6 +550,10 @@ export type FormProps = {
   readonly subtitle?: ReactNode;
   readonly actions?: ReactNode;
   readonly testId?: string;
+  /** Max width of the form container. Default "3xl" — see FormWidth
+   *  (`packages/types/src/screen.ts`, EditLayout.width, #1676). Native
+   *  impls may ignore this prop (no width constraint there). */
+  readonly width?: FormWidth;
 };
 
 /** Titled Gruppe von Feldern. Web: `<fieldset>` + `<legend>`, Native:

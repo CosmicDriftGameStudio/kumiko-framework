@@ -539,8 +539,15 @@ export type EditExtensionSection = {
   readonly component: PlatformComponent;
 };
 
+// Max width of the form container (see FormScreenShell in renderer-web).
+export type FormWidth = "sm" | "3xl" | "4xl" | "full";
+
 export type EditLayout = {
   readonly sections: readonly EditSectionSpec[];
+  /** Default "3xl". "full" for dense multi-column masks (many sections,
+   *  three-column fields) that would leave dead space on both sides in a
+   *  3xl column — see #1676. */
+  readonly width?: FormWidth;
 };
 
 export type EntityEditScreenDefinition = {
