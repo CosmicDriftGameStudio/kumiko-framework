@@ -93,6 +93,25 @@ describe("PgKmsAdapter — pg specifics", () => {
     expect(rows[0]?.["erase_reason"]).toBe("user-forget");
   });
 
+  test("concurrent cold-start createSchema across processes does not crash", async () => {
+    const coldDb = await createTestDb();
+    const coldUrl = baseUrl.replace(/\/[^/]+$/, `/${coldDb.dbName}`);
+    const kek = randomBytes(32).toString("base64");
+    const adapters = Array.from(
+      { length: 4 },
+      () => new PgKmsAdapter({ databaseUrl: coldUrl, platformKek: kek, maxConnections: 1 }),
+    );
+    try {
+      // Simulates API + worker processes booting simultaneously against a
+      // schema-less DB — each adapter races createSchema on its own connection.
+      const results = await Promise.all(adapters.map((a) => a.health()));
+      expect(results.every((r) => r.ok)).toBe(true);
+    } finally {
+      await Promise.all(adapters.map((a) => a.close()));
+      await coldDb.cleanup();
+    }
+  });
+
   test("repeat erase keeps the original tombstone audit fields", async () => {
     const user = freshUser();
     await adapter.createKey(user, ctx);

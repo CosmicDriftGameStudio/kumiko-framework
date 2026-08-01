@@ -46,6 +46,10 @@ function decodePlatformKek(base64: string): Buffer {
 
 const PG_UNIQUE_VIOLATION = "23505";
 
+// pg_advisory_xact_lock key for createSchema — serializes concurrent cold-start
+// DDL across processes sharing one subject-keys DB.
+const SCHEMA_ADVISORY_LOCK_KEY = 0x6b_6d_73_31; // 'kms1'
+
 function isPgUniqueViolation(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -182,23 +186,26 @@ export class PgKmsAdapter implements LocalKeyKmsAdapter {
   }
 
   private async createSchema(): Promise<void> {
-    await this.sql`
-      CREATE TABLE IF NOT EXISTS kumiko_subject_keys (
-        subject_id    TEXT        PRIMARY KEY,
-        cipher_key    BYTEA,
-        kek_version   INTEGER     NOT NULL DEFAULT 1,
-        created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-        created_by    TEXT,
-        erased_at     TIMESTAMPTZ,
-        erased_by     TEXT,
-        erase_reason  TEXT
-      )`;
-    await this.sql`
-      CREATE INDEX IF NOT EXISTS kumiko_subject_keys_erased_idx
-      ON kumiko_subject_keys (erased_at) WHERE erased_at IS NOT NULL`;
-    await this.sql`
-      CREATE INDEX IF NOT EXISTS kumiko_subject_keys_audit_idx
-      ON kumiko_subject_keys (created_at, erased_at)`;
+    await this.sql.begin(async (tx) => {
+      await tx`SELECT pg_advisory_xact_lock(${SCHEMA_ADVISORY_LOCK_KEY})`;
+      await tx`
+        CREATE TABLE IF NOT EXISTS kumiko_subject_keys (
+          subject_id    TEXT        PRIMARY KEY,
+          cipher_key    BYTEA,
+          kek_version   INTEGER     NOT NULL DEFAULT 1,
+          created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+          created_by    TEXT,
+          erased_at     TIMESTAMPTZ,
+          erased_by     TEXT,
+          erase_reason  TEXT
+        )`;
+      await tx`
+        CREATE INDEX IF NOT EXISTS kumiko_subject_keys_erased_idx
+        ON kumiko_subject_keys (erased_at) WHERE erased_at IS NOT NULL`;
+      await tx`
+        CREATE INDEX IF NOT EXISTS kumiko_subject_keys_audit_idx
+        ON kumiko_subject_keys (created_at, erased_at)`;
+    });
   }
 }
 
