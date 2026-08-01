@@ -10,14 +10,12 @@
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-
-type ChangelogEntry = {
-  version: string;
-  type: "breaking" | "improvement" | "fix";
-  title: string;
-  detail?: string;
-  migration?: string;
-};
+import {
+  compareVersions,
+  filterEntriesAfter,
+  parseFeatureChangelog,
+  type ChangelogEntry,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 const FEATURES_DIRS = [
   "packages/bundled-features/src",  // framework
@@ -26,55 +24,19 @@ const FEATURES_DIRS = [
 const CORE_FILE = "packages/framework/src/changes.json"; // framework core — belongs to no feature
 const DEFAULT_OUT = "docs/reference/migration-guide.md";
 
-function compareVersions(a: string, b: string): number {
-  const pa = a.split(".").map(Number);
-  const pb = b.split(".").map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const na = pa[i] ?? 0;
-    const nb = pb[i] ?? 0;
-    if (na > nb) return 1;
-    if (na < nb) return -1;
-  }
-  return 0;
-}
-
-function readEntries(filePath: string, fromVersion?: string): ChangelogEntry[] {
+function readEntries(filePath: string, fromVersion?: string): readonly ChangelogEntry[] {
   if (!existsSync(filePath)) return [];
-
-  const entries: ChangelogEntry[] = [];
   try {
-    const parsed = JSON.parse(readFileSync(filePath, "utf-8"));
-    if (!Array.isArray(parsed)) return [];
-
-    for (const entry of parsed) {
-      if (
-        typeof entry === "object" &&
-        entry !== null &&
-        typeof entry["version"] === "string" &&
-        ["breaking", "improvement", "fix"].includes(entry["type"]) &&
-        typeof entry["title"] === "string"
-      ) {
-        const e: ChangelogEntry = {
-          version: entry["version"],
-          type: entry["type"],
-          title: entry["title"],
-          detail: typeof entry["detail"] === "string" ? entry["detail"] : undefined,
-          migration: typeof entry["migration"] === "string" ? entry["migration"] : undefined,
-        };
-
-        if (fromVersion && compareVersions(e.version, fromVersion) <= 0) continue;
-        entries.push(e);
-      }
-    }
+    const entries = parseFeatureChangelog(readFileSync(filePath, "utf-8"), filePath)?.entries ?? [];
+    return fromVersion ? filterEntriesAfter(entries, fromVersion) : entries;
   } catch {
     // Skip malformed files
+    return [];
   }
-
-  return entries;
 }
 
-function collectChangelogs(fromVersion?: string): Map<string, ChangelogEntry[]> {
-  const result = new Map<string, ChangelogEntry[]>();
+function collectChangelogs(fromVersion?: string): Map<string, readonly ChangelogEntry[]> {
+  const result = new Map<string, readonly ChangelogEntry[]>();
 
   const coreEntries = readEntries(CORE_FILE, fromVersion);
   if (coreEntries.length > 0) result.set("framework-core", coreEntries);
@@ -105,7 +67,7 @@ function collectChangelogs(fromVersion?: string): Map<string, ChangelogEntry[]> 
   return result;
 }
 
-function generateMarkdown(changelogs: Map<string, ChangelogEntry[]>): string {
+function generateMarkdown(changelogs: Map<string, readonly ChangelogEntry[]>): string {
   const lines: string[] = [];
 
   lines.push("---");

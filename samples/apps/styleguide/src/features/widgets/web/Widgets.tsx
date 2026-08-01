@@ -207,7 +207,7 @@ function InboxDemo(): ReactNode {
         <ResizablePanel defaultSize="35" minSize="25" className="overflow-y-auto">
           <InfinityList<InboxPage, InboxMessage>
             query="widgets:query:metrics:inbox-messages"
-            payload={{ unreadOnly, search, limit: 6 }}
+            payload={{ unreadOnly, search }}
             pageSize={6}
             rows={(data) => data.rows}
             nextCursor={(data) => data.nextCursor}

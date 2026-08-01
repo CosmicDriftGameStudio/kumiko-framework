@@ -2,7 +2,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { FormValues, SubmitResult, Translate } from "@cosmicdrift/kumiko-headless";
+import type { FormValues, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useMemo } from "react";
 import { buildInitialValues } from "../app/kumiko-screen";
 import { toKebab } from "../app/qn";
@@ -36,7 +36,6 @@ export type ReferenceCreateDialogProps = {
   readonly featureName: string;
   readonly screen: EntityEditScreenDefinition;
   readonly entity: EntityDefinition;
-  readonly translate?: Translate;
 };
 
 export function ReferenceCreateDialog({
@@ -46,7 +45,6 @@ export function ReferenceCreateDialog({
   featureName,
   screen,
   entity,
-  translate,
 }: ReferenceCreateDialogProps): ReactNode {
   const { Modal } = usePrimitives();
   const t = useTranslation();
@@ -73,7 +71,6 @@ export function ReferenceCreateDialog({
         onSubmit={handleSubmitted}
         onCancel={onClose}
         {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
-        {...(translate !== undefined && { translate })}
       />
     </Modal>
   );

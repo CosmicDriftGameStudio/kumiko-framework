@@ -245,7 +245,6 @@ describe("audit: list query", () => {
     );
     expect(untilBefore.rows).toHaveLength(1);
     const untilRow = untilBefore.rows[0];
-    expect(untilRow).toBeDefined();
     if (!untilRow) throw new Error("expected untilBefore row");
     expect((untilRow.payload as { name?: string }).name).toBe("before-window");
   });

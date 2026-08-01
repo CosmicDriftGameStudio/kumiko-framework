@@ -206,16 +206,16 @@ export async function gateEnforceMfa(
   userId: string,
   tenantId: TenantId,
   mergedRoles: readonly string[],
-): Promise<GateOutcome<LoginResult | undefined>> {
-  if (!opts.mfaStatusChecker) return ok(undefined);
+): Promise<LoginResult | undefined> {
+  if (!opts.mfaStatusChecker) return undefined;
   const mfaStatus = await opts.mfaStatusChecker(ctx, userId, tenantId, mergedRoles);
   if ("challengeToken" in mfaStatus) {
-    return ok({ kind: "mfa-challenge", challengeToken: mfaStatus.challengeToken });
+    return { kind: "mfa-challenge", challengeToken: mfaStatus.challengeToken };
   }
   if ("setupRequired" in mfaStatus) {
-    return ok({ kind: "mfa-setup-required", preauthSetupToken: mfaStatus.preauthSetupToken });
+    return { kind: "mfa-setup-required", preauthSetupToken: mfaStatus.preauthSetupToken };
   }
-  return ok(undefined);
+  return undefined;
 }
 
 /** Auth-claims hooks → session. */
@@ -225,7 +225,7 @@ export async function gateBuildSession(
   tenantId: TenantId,
   mergedRoles: readonly string[],
   timezone?: string | null,
-): Promise<GateOutcome<{ readonly kind: "auth-session"; readonly session: SessionUser }>> {
+): Promise<{ readonly kind: "auth-session"; readonly session: SessionUser }> {
   const baseSession: SessionUser = {
     id: userId,
     tenantId,
@@ -235,7 +235,7 @@ export async function gateBuildSession(
   const claims = await ctx.resolveAuthClaims(baseSession);
   const session: SessionUser =
     Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
-  return ok({ kind: "auth-session", session });
+  return { kind: "auth-session", session };
 }
 
 // Login — unauthenticated entry point. The route is wired public (no JWT
@@ -291,20 +291,18 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       const { chosen, mergedRoles } = membershipGate.value;
 
       const mfaGate = await gateEnforceMfa(ctx, opts, found.id, chosen.tenantId, mergedRoles);
-      if (!mfaGate.ok) return mfaGate.result;
-      if (mfaGate.value !== undefined) {
-        return { isSuccess: true, data: mfaGate.value };
+      if (mfaGate !== undefined) {
+        return { isSuccess: true, data: mfaGate };
       }
 
-      const sessionGate = await gateBuildSession(
+      const session = await gateBuildSession(
         ctx,
         found.id,
         chosen.tenantId,
         mergedRoles,
         found.timezone,
       );
-      if (!sessionGate.ok) return sessionGate.result;
-      return { isSuccess: true, data: sessionGate.value };
+      return { isSuccess: true, data: session };
     },
   });
 }

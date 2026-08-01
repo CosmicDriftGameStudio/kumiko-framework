@@ -1019,10 +1019,7 @@ function RowActionsKebab({
 // lädt, ignorieren wir weitere Sichtbar-Events). Kein observer in
 // Server-Side-Render, kein observer wenn hasMore=false — dann zeigt
 // der Sentinel nur den End-of-list-Hinweis.
-// ponytail: End-Marker nur ab END_LABEL_MIN_ROWS Zeilen — eine kurze
-// Liste (eine einzige Page) zeigt ihr Ende selbst, da wäre der Marker
-// nur Lärm. Schwellwert = eine Page; per Prop übersteuerbar falls Apps
-// andere Page-Größen fahren.
+// ponytail: Short lists do not need an end marker.
 const END_LABEL_MIN_ROWS = 20;
 
 function InfiniteSentinel({
