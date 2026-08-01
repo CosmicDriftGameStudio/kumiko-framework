@@ -41,11 +41,24 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Building,
+  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Globe,
+  Hash,
+  KeyRound,
+  Link,
   Loader2,
+  Lock,
+  Mail,
+  MapPin,
   MoreHorizontal,
+  Phone,
+  Search,
+  Tag,
+  User,
   X,
 } from "lucide-react";
 import {
@@ -252,6 +265,46 @@ function DefaultField({
 
 // ---- Input ----
 
+// Field-icon registry: `EditFieldSpec.icon`/`InputProps.icon` sets a
+// symbolic key, mapped here to a lucide component. Unknown keys → no
+// icon (clean fallback, no boot-fail). Mirrors NAV_ICONS' pattern
+// (nav-tree.tsx) — a separate, smaller registry instead of a shared
+// import, because field icons cover a different use case (email, phone,
+// location, …) than nav icons (dashboard, tables, …).
+const FIELD_ICONS: Readonly<Record<string, typeof Mail>> = {
+  mail: Mail,
+  lock: Lock,
+  hash: Hash,
+  search: Search,
+  user: User,
+  phone: Phone,
+  calendar: CalendarDays,
+  link: Link,
+  tag: Tag,
+  building: Building,
+  globe: Globe,
+  key: KeyRound,
+  "map-pin": MapPin,
+};
+
+// Wraps a text/number input with a left-positioned prefix icon when
+// `icon` carries a known FIELD_ICONS key. `pl-8` overrides (via
+// tailwind-merge) only the left padding of the vendored ui/input.tsx —
+// right padding and other defaults stay untouched.
+function withFieldIcon(icon: string | undefined, input: ReactNode): ReactNode {
+  const Icon = icon !== undefined ? FIELD_ICONS[icon] : undefined;
+  if (Icon === undefined) return input;
+  return (
+    <div className="relative">
+      <Icon
+        aria-hidden="true"
+        className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+      />
+      {input}
+    </div>
+  );
+}
+
 function DefaultInput(props: InputProps): ReactNode {
   // Vendored ui/input + ui/checkbox stylen Fehler über `aria-invalid`
   // selbst — kein manuelles border-destructive mehr nötig.
@@ -264,7 +317,8 @@ function DefaultInput(props: InputProps): ReactNode {
   } as const;
   switch (props.kind) {
     case "text":
-      return (
+      return withFieldIcon(
+        props.icon,
         <UiInput
           type="text"
           {...common}
@@ -274,7 +328,8 @@ function DefaultInput(props: InputProps): ReactNode {
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           {...(props.autoComplete !== undefined && { autoComplete: props.autoComplete })}
-        />
+          className={cn(props.icon !== undefined && FIELD_ICONS[props.icon] ? "pl-8" : undefined)}
+        />,
       );
     case "email":
       return (
@@ -300,7 +355,8 @@ function DefaultInput(props: InputProps): ReactNode {
         />
       );
     case "number":
-      return (
+      return withFieldIcon(
+        props.icon,
         <UiInput
           type="number"
           {...common}
@@ -310,8 +366,11 @@ function DefaultInput(props: InputProps): ReactNode {
             const v = e.target.value;
             props.onChange(v === "" ? undefined : Number(v));
           }}
-          className="text-right tabular-nums"
-        />
+          className={cn(
+            "text-right tabular-nums",
+            props.icon !== undefined && FIELD_ICONS[props.icon] ? "pl-8" : undefined,
+          )}
+        />,
       );
     case "range":
       return (

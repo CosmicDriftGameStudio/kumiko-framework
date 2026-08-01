@@ -85,6 +85,46 @@ describe("RenderEdit", () => {
     expect(screen.queryByTestId("field-notes")).toBeNull();
   });
 
+  // Issue #1677: a section's optional `description` renders as the
+  // Section's subtitle slot underneath the block heading, and a field's
+  // `icon` reaches the DOM as a prefix icon on its input.
+  test("section.description renders as the section subtitle; field.icon renders a prefix icon", () => {
+    const entity = {
+      fields: { email: { type: "text", required: true } },
+    } as unknown as EntityDefinition;
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        sections: [
+          {
+            title: "Contact",
+            description: "How we'll reach you.",
+            columns: 1,
+            fields: [{ field: "email", icon: "mail" }],
+          },
+        ],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit
+          screen={screenDef}
+          entity={entity}
+          featureName="orders"
+          initial={{ email: "" } as never}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("section-Contact-subtitle").textContent).toBe("How we'll reach you.");
+    const fieldEl = screen.getByTestId("field-email");
+    expect(fieldEl.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+    expect(fieldEl.querySelector("input")?.className).toContain("pl-8");
+  });
+
   // End-to-end-Routing: ein `type:"locatedTimestamp"`-Entity-Feld muss durch
   // computeEditViewModel → render-field → DefaultInput auf den Located-Picker
   // laufen (Datum + Uhrzeit + Zone), NICHT auf den Klartext-Fallthrough. Vor

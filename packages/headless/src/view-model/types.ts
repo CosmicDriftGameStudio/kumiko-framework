@@ -143,6 +143,11 @@ export type EditFieldViewModel = {
    *  die richtige Field-Def prüfen kann. */
   readonly entityType?: string;
   readonly fieldName?: string;
+  /** Prefix-icon key from `EditFieldSpec.icon`, passed through unchanged
+   *  (no i18n — it's a symbolic key, not a display string). The renderer
+   *  resolves it against the FIELD_ICONS registry; unknown keys silently
+   *  fall back to "no icon". */
+  readonly icon?: string;
 };
 
 // Discriminated by `kind` — mirrors EditSectionSpec on the engine side.
@@ -158,6 +163,9 @@ export type EditFieldsSectionViewModel = {
   readonly visible: boolean;
   /** Optional — eine titellose Section rendert nur ihre Felder (flache Form). */
   readonly title?: string;
+  /** Translated help text under the block heading, from
+   *  `EditFieldsSection.description`. Renders even without `title`. */
+  readonly description?: string;
   readonly columns: number;
   readonly fields: readonly EditFieldViewModel[];
 };

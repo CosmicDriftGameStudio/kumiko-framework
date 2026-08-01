@@ -151,6 +151,7 @@ export function computeEditViewModel<
         ...(fileDef?.accept !== undefined && { accept: fileDef.accept }),
         ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),
         ...(isFileType && { entityType: screen.entity, fieldName: normalized.field }),
+        ...(normalized.icon !== undefined && { icon: normalized.icon }),
       };
       return view;
     });
@@ -162,6 +163,9 @@ export function computeEditViewModel<
       visible,
       // Titellose Section (flache Form) → kein h3; nur übersetzen wenn gesetzt.
       ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),
+      ...(sectionSpec.description !== undefined && {
+        description: translate(sectionSpec.description),
+      }),
       columns: sectionSpec.columns ?? 1,
       fields,
     };

@@ -446,6 +446,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             <Section
               key={sectionKey}
               {...(sectionTitle !== undefined && { title: sectionTitle })}
+              {...(section.description !== undefined && { subtitle: section.description })}
               testId={`section-${sectionKey}`}
             >
               <Grid columns={section.columns}>
