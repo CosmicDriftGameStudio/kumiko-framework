@@ -142,7 +142,7 @@ describe("preSave hooks — real dispatcher path (#1672)", () => {
 
   test("a throwing preSave hook maps to a clean writeFailure, not a 500", async () => {
     const res = await stack.http.write(THROWING_CREATE, { name: "x" }, TestUsers.user);
-    expect(res.status).not.toBe(500);
+    expect(res.status).toBe(422);
     const body = (await res.json()) as { error?: { details?: { message?: string } } };
     expect(body.error?.details?.message).toBe(THROWING_HOOK_MESSAGE);
   });
