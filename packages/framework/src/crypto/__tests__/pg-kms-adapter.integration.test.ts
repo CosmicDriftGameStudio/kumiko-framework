@@ -104,7 +104,8 @@ describe("PgKmsAdapter — pg specifics", () => {
     try {
       // Simulates API + worker processes booting simultaneously against a
       // schema-less DB — each adapter races createSchema on its own connection.
-      await Promise.all(adapters.map((a) => a.health()));
+      const results = await Promise.all(adapters.map((a) => a.health()));
+      expect(results.every((r) => r.ok)).toBe(true);
     } finally {
       await Promise.all(adapters.map((a) => a.close()));
       await coldDb.cleanup();
