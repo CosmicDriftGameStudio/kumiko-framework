@@ -472,12 +472,17 @@ describe("DataTable", () => {
 
   // Infinite-Scroll Sentinel: rendert sentinel-div, zeigt Spinner wenn
   // loadingMore, den i18n End-of-list-Marker (kumiko.list.end-of-list)
-  // wenn !hasMore. IntersectionObserver
+  // wenn !hasMore und genug Zeilen geladen sind (kurze Listen brauchen
+  // keinen Marker — sie zeigen ihr Ende selbst). IntersectionObserver
   // selbst ist in jsdom unmocked — wir testen nur die Marker, der
   // Observer-Fire-Pfad ist im KumikoScreen.EntityListBody.
   describe("InfiniteSentinel", () => {
     const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
     const oneRow = [{ id: "r1", values: { name: "A" } }];
+    const manyRows = Array.from({ length: 25 }, (_, i) => ({
+      id: `r${i}`,
+      values: { name: `A${i}` },
+    }));
 
     test("ohne onReachEnd: kein Sentinel im DOM", () => {
       render(<DataTable columns={cols} rows={oneRow} testId="dt" />);
@@ -516,7 +521,22 @@ describe("DataTable", () => {
       expect(screen.getByTestId("dt-sentinel").querySelector("svg")).not.toBeNull();
     });
 
-    test("hasMore=false: 'End of list' Marker statt Sentinel-Wirkung", () => {
+    test("hasMore=false + viele Zeilen: 'End of list' Marker statt Sentinel-Wirkung", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={manyRows}
+          testId="dt"
+          onReachEnd={mock()}
+          loadingMore={false}
+          hasMore={false}
+        />,
+      );
+      expect(screen.getByTestId("dt-sentinel-end")).not.toBeNull();
+      expect(screen.getByTestId("dt-sentinel-end").textContent).toContain("End of list");
+    });
+
+    test("hasMore=false + kurze Liste: kein End-Marker (#1699)", () => {
       render(
         <DataTable
           columns={cols}
@@ -527,8 +547,8 @@ describe("DataTable", () => {
           hasMore={false}
         />,
       );
-      expect(screen.getByTestId("dt-sentinel-end")).not.toBeNull();
-      expect(screen.getByTestId("dt-sentinel-end").textContent).toContain("End of list");
+      expect(screen.queryByTestId("dt-sentinel-end")).toBeNull();
+      expect(screen.getByTestId("dt-sentinel").textContent).toBe("");
     });
 
     test("hasMore=false + de-Locale: Marker kommt aus i18n statt hartcodiert", async () => {
@@ -541,7 +561,7 @@ describe("DataTable", () => {
         >
           <DataTable
             columns={cols}
-            rows={oneRow}
+            rows={manyRows}
             testId="dt"
             onReachEnd={mock()}
             loadingMore={false}
