@@ -272,6 +272,17 @@ export function shiftParams(fragment: SqlFragment, shift: number): SqlFragment {
 // SQL names via the kumiko:schema:Columns symbol. Unknown column on a from-rule
 // is a boot-time misconfiguration; at request time we treat it as empty
 // (safe default) rather than passing silently.
+//
+// Caller obligations (fw#1700) — this function returns ONLY the ownership
+// fragment, not the full row-access contract. A raw-SQL caller (not going
+// through `ctx.db`, which already applies all three) must additionally:
+//   1. Pass `paramStart` as `params.length + 1` for its own already-bound
+//      params, or `$N` placeholders in the returned fragment silently splice
+//      into the wrong query params.
+//   2. Apply tenant + soft-delete scoping itself (event-store-executor-read.ts
+//      does this outside `buildOwnershipClause`) — this function does not.
+//   3. Treat `kind: "empty"` (see `OwnershipClause`) as a hard DENY, and
+//      `kind: "pass"` as an explicit bypass — not as "no additional filter".
 export function buildOwnershipClause(
   user: SessionUser,
   accessMap: OwnershipMap | undefined,

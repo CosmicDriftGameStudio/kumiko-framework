@@ -103,7 +103,7 @@ afterEach(() => {
 
 function tokenFromLastVerifyCall(): string {
   const url = new URL(verifyCalls[0]?.verifyUrl ?? "");
-  return url.searchParams.get("token") ?? "";
+  return new URLSearchParams(url.hash.slice(1)).get("token") ?? "";
 }
 
 describe("anonymous deletion flow with active KMS", () => {

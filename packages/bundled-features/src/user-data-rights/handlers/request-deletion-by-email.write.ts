@@ -30,18 +30,20 @@ export type RequestDeletionByEmailOptions = {
    *  deaktiviert (Handler antwortet still mit success, kein Link). */
   readonly deletionTokenSecret?: string;
   /** Basis-URL des Apex-Confirm-Screens, z.B.
-   *  "https://app.example.com/delete-account/confirm". Der Handler hängt
-   *  `?token=<token>` an. Ohne URL kein Link. */
+   *  "https://app.example.com/delete-account/confirm". Der Handler hängt das
+   *  Token als URL-Fragment an (`#token=<token>`, fw#1554). Ohne URL kein Link. */
   readonly deletionVerifyUrl?: string;
   readonly sendDeletionVerificationEmail?: SendDeletionVerificationEmailFn;
 };
 
-// URL-safe append: handles a base URL that already carries query params
-// (`?lang=de` → `?lang=de&token=…`) instead of producing an invalid
-// `?lang=de?token=…`. searchParams.set encodes the token.
+// Token goes in the URL fragment, not a query param — fragments never leave
+// the browser (not sent to the server, so they never land in proxy/access
+// logs, unlike `?token=`). Same convention as the export-download link
+// (feature.ts, issue #1271). Preserves any existing query params on `base`
+// (`?lang=de` stays a query param; only the token is a fragment).
 export function buildDeletionVerifyUrl(base: string, token: string): string {
   const url = new URL(base);
-  url.searchParams.set("token", token);
+  url.hash = `token=${encodeURIComponent(token)}`;
   return url.toString();
 }
 

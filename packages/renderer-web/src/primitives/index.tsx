@@ -1019,8 +1019,12 @@ function RowActionsKebab({
 // lädt, ignorieren wir weitere Sichtbar-Events). Kein observer in
 // Server-Side-Render, kein observer wenn hasMore=false — dann zeigt
 // der Sentinel nur den End-of-list-Hinweis.
-// ponytail: Short lists do not need an end marker.
-export const END_LABEL_MIN_ROWS = 20;
+// ponytail: threshold mirrors the framework default pageSize (kumiko-screen.tsx
+// `screen.pageSize ?? 50`) rather than the real per-screen pageSize, which isn't
+// threaded down to this component. A screen with a custom pageSize can still
+// under- or over-show the marker; thread pageSize through KumikoScreen →
+// RenderList → DataTable → InfiniteSentinel if that's needed (fw#1713).
+export const END_LABEL_MIN_ROWS = 50;
 
 function InfiniteSentinel({
   onReachEnd,

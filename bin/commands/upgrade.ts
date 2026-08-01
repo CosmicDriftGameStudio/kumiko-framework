@@ -62,14 +62,15 @@ function collectChangelogs(featuresDir: string): ChangelogEntry[] {
     .map((d) => d.name);
 
   for (const name of features) {
-    // Enterprise: features live in packages/<name>/src/changes.json
-    // Framework: features live in packages/<name>/changes.json
-    const isEnterprisePkg = featuresDir.endsWith("/packages") && !featuresDir.includes("bundled-features");
-    const dir = isEnterprisePkg
-      ? join(featuresDir, name, "src")
-      : join(featuresDir, name);
+    // Layout is detected per-package, not guessed from a naming convention:
+    // enterprise packages keep changes.json under src/, framework's
+    // bundled-features keep it flat. A name-prefix heuristic (e.g. "ai-*")
+    // silently drops packages that don't match it (fw#1605).
+    const srcLayout = join(featuresDir, name, "src", "changes.json");
+    const flatLayout = join(featuresDir, name, "changes.json");
+    const changelogPath = existsSync(srcLayout) ? srcLayout : flatLayout;
 
-    entries.push(...readChangelogFile(join(dir, "changes.json")));
+    entries.push(...readChangelogFile(changelogPath));
   }
 
   return entries;
@@ -100,11 +101,23 @@ function findFeaturesDirs(cwd: string): string[] {
   const fwDir = join(cwd, "packages/bundled-features/src");
   if (existsSync(fwDir)) dirs.push(fwDir);
 
-  // Enterprise repo: packages (each package has src/changes.json)
+  // Enterprise repo: packages/<name>/src/changes.json or packages/<name>/changes.json.
+  // Detected by presence of changes.json, not a package-name prefix — a
+  // prefix heuristic silently stops matching once packages are renamed or a
+  // differently-named package is added (fw#1605). Skipped inside the
+  // framework repo itself (packages/framework present): its own
+  // packages/framework/src/changes.json is the core changelog (already
+  // collected via findCoreChangelogFile), not a feature package, and would
+  // otherwise get double-counted as one here.
+  const isFrameworkRepo = existsSync(join(cwd, "packages/framework"));
   const entDir = join(cwd, "packages");
-  if (existsSync(entDir)) {
-    const hasEntPkgs = readdirSync(entDir, { withFileTypes: true })
-      .some((d) => d.isDirectory() && d.name.startsWith("ai-"));
+  if (!isFrameworkRepo && existsSync(entDir)) {
+    const hasEntPkgs = readdirSync(entDir, { withFileTypes: true }).some(
+      (d) =>
+        d.isDirectory() &&
+        (existsSync(join(entDir, d.name, "changes.json")) ||
+          existsSync(join(entDir, d.name, "src", "changes.json"))),
+    );
     if (hasEntPkgs) dirs.push(entDir);
   }
 

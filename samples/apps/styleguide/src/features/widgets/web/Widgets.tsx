@@ -35,7 +35,7 @@ import {
   useDraft,
 } from "@cosmicdrift/kumiko-renderer-web";
 import { Wallet } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 const UPTIME = Array.from({ length: 90 }, (_, i) => ({
   key: `day-${i}`,
@@ -175,6 +175,14 @@ function InboxDemo(): ReactNode {
   const { Button } = usePrimitives();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [search, setSearch] = useState("");
+  // Debounced: InfinityList refetches whenever its payload identity changes
+  // (payloadKey = JSON.stringify(payload)), so wiring `search` directly in
+  // would refetch on every keystroke — a loading flash per character.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 250);
+    return () => clearTimeout(id);
+  }, [search]);
   const [selected, setSelected] = useState<InboxMessage | null>(null);
   return (
     <SectionCard
@@ -207,7 +215,7 @@ function InboxDemo(): ReactNode {
         <ResizablePanel defaultSize="35" minSize="25" className="overflow-y-auto">
           <InfinityList<InboxPage, InboxMessage>
             query="widgets:query:metrics:inbox-messages"
-            payload={{ unreadOnly, search }}
+            payload={{ unreadOnly, search: debouncedSearch }}
             pageSize={6}
             rows={(data) => data.rows}
             nextCursor={(data) => data.nextCursor}

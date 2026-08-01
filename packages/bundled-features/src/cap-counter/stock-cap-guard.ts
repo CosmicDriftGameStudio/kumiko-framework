@@ -39,7 +39,7 @@ export function createStockCapGuard<TCaps>(
     spec: StockCapSpec<TCaps>,
   ): Promise<WriteFailure | null> {
     const caps = await resolveTierCaps(db, tenantId);
-    const current = await countWhere(db, spec.table, { tenantId, ...spec.where });
+    const current = await countWhere(db, spec.table, { ...spec.where, tenantId });
     const { state, limit } = enforceStockCap({
       current,
       limit: spec.limit(caps),

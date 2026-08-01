@@ -479,7 +479,12 @@ describe("DataTable", () => {
   describe("InfiniteSentinel", () => {
     const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
     const oneRow = [{ id: "r1", values: { name: "A" } }];
-    const manyRows = Array.from({ length: 25 }, (_, i) => ({
+    // 60 rows — above END_LABEL_MIN_ROWS (50, the framework default pageSize)
+    // so hasMore=false genuinely means "reached the end of a full default
+    // page". 25 used to pass here too, back when the threshold was a
+    // mismatched 20 (fw#1713) — that under-a-page case is now covered
+    // separately below by the exact-boundary tests.
+    const manyRows = Array.from({ length: 60 }, (_, i) => ({
       id: `r${i}`,
       values: { name: `A${i}` },
     }));

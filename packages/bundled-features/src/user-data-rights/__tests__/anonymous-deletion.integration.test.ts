@@ -95,7 +95,7 @@ async function seedAlice(status: string = USER_STATUS.Active, email: string = AL
 
 function tokenFromLastVerifyCall(): string {
   const url = new URL(verifyCalls[0]?.verifyUrl ?? "");
-  return url.searchParams.get("token") ?? "";
+  return new URLSearchParams(url.hash.slice(1)).get("token") ?? "";
 }
 
 async function statusOf(): Promise<string | undefined> {
@@ -118,7 +118,7 @@ describe("anonymous deletion flow", () => {
 
     expect(verifyCalls).toHaveLength(1);
     expect(verifyCalls[0]?.email).toBe(ALICE_EMAIL);
-    expect(verifyCalls[0]?.verifyUrl.startsWith(`${VERIFY_URL}?token=`)).toBe(true);
+    expect(verifyCalls[0]?.verifyUrl.startsWith(`${VERIFY_URL}#token=`)).toBe(true);
     expect(tokenFromLastVerifyCall().length).toBeGreaterThan(0);
     // Status noch NICHT geflipt — erst confirm startet die Grace-Period.
     expect(await statusOf()).toBe(USER_STATUS.Active);

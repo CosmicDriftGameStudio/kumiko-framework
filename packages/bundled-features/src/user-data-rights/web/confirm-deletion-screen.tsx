@@ -1,6 +1,7 @@
 // @runtime client
 // ConfirmAccountDeletionScreen — anonymer Apex-Screen Schritt 2. Liest das
-// `?token` aus der Verify-Link-URL und dispatcht beim Bestätigen
+// Token aus dem URL-Fragment (`#token=…`, nie an den Server gesendet — landet
+// so nicht in Proxy-/Access-Logs, fw#1554) und dispatcht beim Bestätigen
 // user-data-rights:write:confirm-deletion-by-token → startet die Grace-Period.
 //
 // App mountet den Screen unter der deletionVerifyUrl-Route (z.B.
@@ -15,7 +16,7 @@ type Phase = "idle" | "submitting" | "success" | "missing" | "invalid" | "error"
 
 function readToken(): string {
   if (typeof window === "undefined") return "";
-  return new URLSearchParams(window.location.search).get("token") ?? "";
+  return new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
 }
 
 export type ConfirmAccountDeletionScreenProps = {

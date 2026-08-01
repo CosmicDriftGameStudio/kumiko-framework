@@ -129,4 +129,58 @@ describe("InfinityList", () => {
     );
     await waitFor(() => expect(screen.getByText("Keine Nachrichten")).toBeTruthy());
   });
+
+  // fw#1705: a fast payload change (e.g. two keystrokes in a search field)
+  // fires a second request before the first resolves. Without sequencing,
+  // a slow first response landing after a faster second one clobbers it —
+  // the displayed rows end up out of sync with the current payload.
+  test("verwirft eine überholte Response, wenn eine frühere Anfrage später auflöst", async () => {
+    const resolvers: Array<(res: unknown) => void> = [];
+    const dispatcher = createMockDispatcher({
+      query: (() =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        })) as unknown as Dispatcher["query"],
+    });
+
+    function SearchList({ search }: { readonly search: string }) {
+      return (
+        <InfinityList<Page, Row>
+          query="inbox:query:message:list"
+          payload={{ search }}
+          rows={(data) => data.rows}
+          nextCursor={(data) => data.nextCursor}
+          rowId={(row) => row.id}
+          renderRow={(row) => <span>{row.subject}</span>}
+          testId="inbox"
+        />
+      );
+    }
+
+    const { rerender } = renderWithDispatcher(<SearchList search="Bo" />, dispatcher);
+    await waitFor(() => expect(resolvers.length).toBe(1));
+
+    rerender(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <SearchList search="Bob" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(resolvers.length).toBe(2));
+
+    // "Bob" (second, faster) resolves first.
+    resolvers[1]?.({
+      isSuccess: true,
+      data: { rows: [{ id: "m2", subject: "Bob-Treffer" }], nextCursor: null },
+    });
+    await waitFor(() => expect(screen.getByText("Bob-Treffer")).toBeTruthy());
+
+    // "Bo" (first, slower) resolves late — must be discarded, not overwrite the display.
+    resolvers[0]?.({
+      isSuccess: true,
+      data: { rows: [{ id: "m1", subject: "Bo-Treffer" }], nextCursor: null },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(screen.queryByText("Bo-Treffer")).toBeNull();
+    expect(screen.getByText("Bob-Treffer")).toBeTruthy();
+  });
 });

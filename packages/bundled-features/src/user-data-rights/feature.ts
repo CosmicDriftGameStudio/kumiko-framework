@@ -112,8 +112,9 @@ export type UserDataRightsOptions = {
    *  by-token weist generisch ab). */
   readonly deletionTokenSecret?: string;
   /** Basis-URL des Apex-Confirm-Screens, z.B.
-   *  "https://app.example.com/delete-account/confirm". Der Handler hängt
-   *  `?token=<token>` an. Required wenn deletionTokenSecret gesetzt. */
+   *  "https://app.example.com/delete-account/confirm". Der Handler hängt das
+   *  Token als URL-Fragment an (`#token=<token>`, fw#1554). Required wenn
+   *  deletionTokenSecret gesetzt. */
   readonly deletionVerifyUrl?: string;
   /** Versand des Verify-Magic-Links (Schritt 1 des anonymen Flows).
    *  Best-effort, app-author-wired. MUSS non-blocking sein (enqueue, z.B.

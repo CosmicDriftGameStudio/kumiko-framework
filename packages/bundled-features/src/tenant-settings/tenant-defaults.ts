@@ -42,6 +42,9 @@ export function defineCreateWithTenantDefaults(
     const isRequired = "required" in def && def.required === true;
     relax[field] = isRequired ? OPTIONAL_CURRENCY_MONEY : OPTIONAL_CURRENCY_MONEY.optional();
   }
+  if (options.localeField && !entity.fields[options.localeField]) {
+    throw new Error(`defineCreateWithTenantDefaults: unknown field "${options.localeField}"`);
+  }
   const baseSchema = buildInsertSchema(entity);
   const schema = Object.keys(relax).length > 0 ? baseSchema.extend(relax) : baseSchema;
 

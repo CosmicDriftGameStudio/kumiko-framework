@@ -80,7 +80,8 @@ import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 export type ApexAccountAppOptions = {
   /** HMAC-Secret für das Deletion-Verify-Token. */
   readonly deletionTokenSecret: string;
-  /** Apex-Route des Confirm-Screens; der Handler hängt `?token=` an. */
+  /** Apex-Route des Confirm-Screens; der Handler hängt das Token als
+   *  URL-Fragment an (`#token=`). */
   readonly deletionVerifyUrl: string;
   /** Versand des Verify-Magic-Links. MUSS non-blocking sein (enqueue) — ein
    *  synchroner Send würde ein Timing-Oracle für Account-Enumeration öffnen. */

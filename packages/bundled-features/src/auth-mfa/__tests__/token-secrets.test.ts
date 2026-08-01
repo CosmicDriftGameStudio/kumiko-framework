@@ -30,6 +30,25 @@ describe("resolveMfaTokenSecrets", () => {
     );
   });
 
+  test("an empty-string override falls back to derivation instead of an empty key", () => {
+    const resolved = resolveMfaTokenSecrets(JWT_SECRET, {
+      setupTokenSecret: "",
+      challengeTokenSecret: "",
+    });
+
+    expect(resolved).toEqual(resolveMfaTokenSecrets(JWT_SECRET));
+    expect(resolved.setupTokenSecret).not.toBe("");
+  });
+
+  test("a whitespace-only override falls back to derivation too", () => {
+    const resolved = resolveMfaTokenSecrets(JWT_SECRET, {
+      setupTokenSecret: "   ",
+      challengeTokenSecret: "\t",
+    });
+
+    expect(resolved).toEqual(resolveMfaTokenSecrets(JWT_SECRET));
+  });
+
   test("rotating the master rotates both", () => {
     const before = resolveMfaTokenSecrets(JWT_SECRET);
     const after = resolveMfaTokenSecrets(`${JWT_SECRET}-rotated`);
