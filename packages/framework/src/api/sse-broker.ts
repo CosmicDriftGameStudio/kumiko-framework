@@ -25,9 +25,8 @@ export type SseBroker = {
 };
 
 export function createSseBroker(): SseBroker {
-  // ponytail: in-process only — publishAccessInvalidation does not fan out via
-  // Redis. Multi-replica deployments will not revoke SSE streams on other pods
-  // (security control is single-node). Upgrade: Redis pub/sub on userAccessChannel.
+  // Cross-replica fanout lives one level up: the SSE + access-invalidation
+  // consumers (system-hooks.ts) run delivery: "per-instance" (#1718).
   const channels = new Map<string, Map<string, SseClient>>();
   const accessInvalidationListeners = new Map<string, Set<() => void>>();
 
