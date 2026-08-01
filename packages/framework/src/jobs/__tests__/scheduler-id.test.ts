@@ -9,7 +9,7 @@ describe("schedulerIdForJobName", () => {
     const id = schedulerIdForJobName("publicstatus:job:uptime-probe");
     expect(id).toBe("scheduler-publicstatus-job-uptime-probe");
     expect(id.includes(":")).toBe(false);
-    expect(`repeat:${id}:1784992080000`.split(":").length).toBeLessThan(5);
+    expect(`repeat:${id}:1784992080000`.split(":").length).toBe(3);
   });
 
   test("still collapses dotted QNs", () => {

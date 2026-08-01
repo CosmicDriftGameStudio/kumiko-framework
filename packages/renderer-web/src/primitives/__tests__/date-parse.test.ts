@@ -108,4 +108,15 @@ describe("formatDateForInput", () => {
     expect(roundtrip).toBeDefined();
     if (roundtrip !== undefined) expect(toIso(roundtrip)).toBe("2026-04-25");
   });
+
+  // #1659: y/m/d locale branch of localeDateOrder (ISO-like)
+  test("ja-JP locale (y/m/d order), re-parseable", () => {
+    const formatted = formatDateForInput(
+      Temporal.PlainDate.from({ year: 2026, month: 4, day: 25 }),
+      "ja-JP",
+    );
+    const roundtrip = parseTypedDate(formatted, "ja-JP");
+    expect(roundtrip).toBeDefined();
+    if (roundtrip !== undefined) expect(toIso(roundtrip)).toBe("2026-04-25");
+  });
 });
