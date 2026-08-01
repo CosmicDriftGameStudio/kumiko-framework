@@ -1,7 +1,7 @@
-// Visueller Katalog des Widget-Kits — jede Sektion zeigt ein Widget mit
-// statischen Daten. Dient zugleich als e2e-Renderfläche (content.spec).
+// Visual catalog of the widget kit — every section shows one widget with
+// static data. Also serves as the e2e render surface (content.spec).
 
-import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import {
   AiTextArea,
   AiTextField,
@@ -35,14 +35,7 @@ import {
   useDraft,
 } from "@cosmicdrift/kumiko-renderer-web";
 import { Wallet } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
-
-const UPTIME = Array.from({ length: 90 }, (_, i) => ({
-  key: `day-${i}`,
-  level: i === 30 ? 0.25 : i % 17 === 0 ? 0.75 : 1,
-  tone: i === 30 ? ("critical" as const) : i % 17 === 0 ? ("warn" as const) : ("ok" as const),
-  label: `Tag ${i + 1}`,
-}));
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 const RESPONSE_TIMES = Array.from({ length: 48 }, (_, i) => ({
   atMs: i * 30 * 60 * 1000,
@@ -50,99 +43,145 @@ const RESPONSE_TIMES = Array.from({ length: 48 }, (_, i) => ({
 }));
 
 export function Widgets(): ReactNode {
+  const t = useTranslation();
   const [mode, setMode] = useState<"annuity" | "fixed">("annuity");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { Button } = usePrimitives();
+
+  const uptime = useMemo(
+    () =>
+      Array.from({ length: 90 }, (_, i) => ({
+        key: `day-${i}`,
+        level: i === 30 ? 0.25 : i % 17 === 0 ? 0.75 : 1,
+        tone: i === 30 ? ("critical" as const) : i % 17 === 0 ? ("warn" as const) : ("ok" as const),
+        label: t("widgets:catalog:uptime-day", { n: i + 1 }),
+      })),
+    [t],
+  );
+
   return (
     <div className="flex flex-col gap-6 p-6" data-testid="widgets-page">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={<Wallet className="size-4" aria-hidden="true" />}
-          label="Portfolio"
+          label={t("widgets:catalog:portfolio")}
           value="92.753 €"
-          sub="über 4 Konten"
+          sub={t("widgets:catalog:portfolio-sub")}
           delta={{ value: "2,1 %", direction: "up", tone: "positive" }}
           spark={[3, 5, 4, 7, 6, 9, 11, 10]}
         />
-        <StatCard label="Restschuld" value="184.000 €" tone="warn" trend="−1.200 €/Monat" />
-        <MiniStat label="Zins p.a." value="3,1 %" />
-        <MiniStat label="Rate" value="890 €" tone="positive" emphasize />
+        <StatCard
+          label={t("widgets:catalog:remaining-debt")}
+          value="184.000 €"
+          tone="warn"
+          trend={t("widgets:catalog:remaining-debt-trend")}
+        />
+        <MiniStat label={t("widgets:catalog:interest-rate")} value="3,1 %" />
+        <MiniStat label={t("widgets:catalog:rate")} value="890 €" tone="positive" emphasize />
       </div>
 
       <SectionCard
-        title="Uptime"
-        subtitle="Letzte 90 Tage"
-        action={<StatusBadge tone="ok">Operational</StatusBadge>}
+        title={t("widgets:catalog:uptime")}
+        subtitle={t("widgets:catalog:uptime-subtitle")}
+        action={<StatusBadge tone="ok">{t("widgets:catalog:operational")}</StatusBadge>}
       >
         <StatusBarChart
-          ariaLabel="Uptime der letzten 90 Tage"
-          entries={UPTIME}
-          startLabel="90 Tage"
-          endLabel="heute"
+          ariaLabel={t("widgets:catalog:uptime-aria")}
+          entries={uptime}
+          startLabel={t("widgets:catalog:uptime-start")}
+          endLabel={t("widgets:catalog:uptime-end")}
         />
       </SectionCard>
 
-      <SectionCard title="Antwortzeit" subtitle="Letzte 24 Stunden">
+      <SectionCard
+        title={t("widgets:catalog:response-time")}
+        subtitle={t("widgets:catalog:response-time-subtitle")}
+      >
         <TimeseriesChart
           points={RESPONSE_TIMES}
           windowStartMs={0}
           windowEndMs={24 * 60 * 60 * 1000}
-          ariaLabel="Antwortzeit-Verlauf"
-          axisLabels={{ start: "vor 24h", mid: "vor 12h", end: "jetzt" }}
+          ariaLabel={t("widgets:catalog:response-time-aria")}
+          axisLabels={{
+            start: t("widgets:catalog:24h-ago"),
+            mid: t("widgets:catalog:12h-ago"),
+            end: t("widgets:catalog:now"),
+          }}
         />
       </SectionCard>
 
-      <SectionCard title="Status-Tones" action={<ProgressBar value={0.65} className="w-40" />}>
+      <SectionCard
+        title={t("widgets:catalog:status-tones")}
+        action={<ProgressBar value={0.65} className="w-40" />}
+      >
         <div className="flex flex-wrap gap-2">
-          <StatusBadge tone="ok">operational</StatusBadge>
-          <StatusBadge tone="warn">degraded</StatusBadge>
-          <StatusBadge tone="bad">partial outage</StatusBadge>
-          <StatusBadge tone="critical">major outage</StatusBadge>
-          <StatusBadge tone="muted">maintenance</StatusBadge>
+          <StatusBadge tone="ok">{t("widgets:catalog:status-operational")}</StatusBadge>
+          <StatusBadge tone="warn">{t("widgets:catalog:status-degraded")}</StatusBadge>
+          <StatusBadge tone="bad">{t("widgets:catalog:status-partial-outage")}</StatusBadge>
+          <StatusBadge tone="critical">{t("widgets:catalog:status-major-outage")}</StatusBadge>
+          <StatusBadge tone="muted">{t("widgets:catalog:status-maintenance")}</StatusBadge>
         </div>
       </SectionCard>
 
       <SectionCard
-        title="Tilgungsmodell"
+        title={t("widgets:catalog:repayment-model")}
         action={
           <ModeSwitch
             value={mode}
             onChange={setMode}
             options={[
-              { value: "annuity", label: "Annuität" },
-              { value: "fixed", label: "Feste Rate" },
+              { value: "annuity", label: t("widgets:catalog:mode-annuity") },
+              { value: "fixed", label: t("widgets:catalog:mode-fixed") },
             ]}
           />
         }
       >
         <DetailList
           rows={[
-            { label: "Modell", value: mode === "annuity" ? "Annuität" : "Feste Rate" },
-            { label: "Sollzins", value: "3,1 %" },
-            { label: "Status", value: <StatusBadge tone="ok">aktiv</StatusBadge> },
+            {
+              label: t("widgets:catalog:model"),
+              value:
+                mode === "annuity"
+                  ? t("widgets:catalog:mode-annuity")
+                  : t("widgets:catalog:mode-fixed"),
+            },
+            { label: t("widgets:catalog:nominal-rate"), value: "3,1 %" },
+            {
+              label: t("widgets:catalog:status"),
+              value: <StatusBadge tone="ok">{t("widgets:catalog:active")}</StatusBadge>,
+            },
           ]}
         />
       </SectionCard>
 
-      <CollapsibleSection title="Erweiterte Einstellungen">
+      <CollapsibleSection title={t("widgets:catalog:advanced-settings")}>
         <EmptyState
-          title="Noch keine Sondertilgungen"
-          description="Lege die erste an, um den Plan zu verkürzen."
+          title={t("widgets:catalog:no-extra-repayments-title")}
+          description={t("widgets:catalog:no-extra-repayments-description")}
         />
       </CollapsibleSection>
 
       <SectionCard
-        title="Drawer"
-        action={<Button onClick={() => setDrawerOpen(true)}>Öffnen</Button>}
+        title={t("widgets:catalog:drawer")}
+        action={<Button onClick={() => setDrawerOpen(true)}>{t("widgets:catalog:open")}</Button>}
       >
-        <DetailList rows={[{ label: "Status", value: drawerOpen ? "offen" : "geschlossen" }]} />
+        <DetailList
+          rows={[
+            {
+              label: t("widgets:catalog:status"),
+              value: drawerOpen
+                ? t("widgets:catalog:open-status")
+                : t("widgets:catalog:closed-status"),
+            },
+          ]}
+        />
       </SectionCard>
       <Drawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        title="Nachricht"
+        title={t("widgets:catalog:drawer-message-title")}
         description="William Smith · 09:34"
-        footer={<Button onClick={() => setDrawerOpen(false)}>Schließen</Button>}
+        footer={<Button onClick={() => setDrawerOpen(false)}>{t("widgets:catalog:close")}</Button>}
         testId="drawer-demo"
       >
         <p className="text-sm">Hi team, just a reminder about our meeting tomorrow at 10 AM.</p>
@@ -166,12 +205,13 @@ type InboxMessage = {
 };
 type InboxPage = { readonly rows: readonly InboxMessage[]; readonly nextCursor: string | null };
 
-// Inbox-artige Scroll-Liste: Filter (Unread-Toggle + Suche) + Row-Action
-// (Archivieren, no-op wie die anderen Demo-Buttons hier). Klick auf eine Zeile
-// zeigt die Nachricht im rechten Panel — Split via Resizable, wie das
-// Listen/Lese-Paar in echten Mail-Clients (ziehbarer Handle dazwischen statt
-// eines OS-Resize-Griffs).
+// Inbox-like scroll list: filter (unread toggle + search) + row action
+// (archive, no-op like the other demo buttons here). Clicking a row shows
+// the message in the right panel — split via resizable, like the list/read
+// pair in real mail clients (a draggable handle instead of an OS resize
+// grip).
 function InboxDemo(): ReactNode {
+  const t = useTranslation();
   const { Button } = usePrimitives();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [search, setSearch] = useState("");
@@ -186,30 +226,30 @@ function InboxDemo(): ReactNode {
   const [selected, setSelected] = useState<InboxMessage | null>(null);
   return (
     <SectionCard
-      title="Inbox (InfinityList)"
+      title={t("widgets:catalog:inbox")}
       action={
         <div className="flex items-center gap-2">
           <ModeSwitch
             value={unreadOnly ? "unread" : "all"}
             onChange={(v) => setUnreadOnly(v === "unread")}
             options={[
-              { value: "all", label: "Alle" },
-              { value: "unread", label: "Ungelesen" },
+              { value: "all", label: t("widgets:catalog:filter-all") },
+              { value: "unread", label: t("widgets:catalog:filter-unread") },
             ]}
           />
           <Button variant="secondary" onClick={() => {}}>
-            Alle als gelesen markieren
+            {t("widgets:catalog:mark-all-read")}
           </Button>
         </div>
       }
     >
       <TextField
-        label="Suchen"
+        label={t("widgets:catalog:search")}
         id="inbox-search"
         name="inbox-search"
         value={search}
         onChange={setSearch}
-        placeholder="Absender oder Betreff…"
+        placeholder={t("widgets:catalog:search-placeholder")}
       />
       <ResizablePanelGroup orientation="horizontal" className="mt-3 h-96 rounded-lg border">
         <ResizablePanel defaultSize="35" minSize="25" className="overflow-y-auto">
@@ -238,7 +278,7 @@ function InboxDemo(): ReactNode {
                   <div className="truncate text-sm text-muted-foreground">{row.snippet}</div>
                 </button>
                 <Button variant="secondary" size="sm" onClick={() => {}}>
-                  Archivieren
+                  {t("widgets:catalog:archive")}
                 </Button>
               </div>
             )}
@@ -247,7 +287,10 @@ function InboxDemo(): ReactNode {
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize="65" minSize="30" className="overflow-y-auto p-4">
           {selected === null ? (
-            <EmptyState title="Keine Nachricht ausgewählt" description="Zeile links anklicken." />
+            <EmptyState
+              title={t("widgets:catalog:no-message-selected-title")}
+              description={t("widgets:catalog:no-message-selected-description")}
+            />
           ) : (
             <div>
               <div className="font-semibold">{selected.sender}</div>
@@ -261,35 +304,36 @@ function InboxDemo(): ReactNode {
   );
 }
 
-// Ghost-Text-Completion + Correct/Translate/Rewrite-Toolbar. Server-Handler
-// hier ist eine handgerollte Demo-Feature (ai-text-demo.ts, canned strings),
-// nicht die echte Enterprise-Feature — kumiko-framework darf kumiko-enterprise
-// nicht importieren. Titel-Feld ist bewusst mit einem Wert vorbelegt, der die
-// Box-Breite überschreitet (Ghost-Overlay-Scroll-Sync), die Notiz-Textarea
-// mit mehr Zeilen als sichtbar sind (vertikaler Scroll-Sync).
-const LONG_TITLE =
-  "Ein Titel, der bewusst deutlich breiter ist als das Eingabefeld, damit horizontales Scrollen den Ghost-Text testet";
-const LONG_NOTE = Array.from(
-  { length: 12 },
-  (_, i) => `Zeile ${i + 1} der Notiz — Lorem ipsum dolor sit amet.`,
-).join("\n");
-
+// Ghost-text completion + correct/translate/rewrite toolbar. The server
+// handler here is a hand-rolled demo feature (ai-text-demo.ts, canned
+// strings), not the real enterprise feature — kumiko-framework must not
+// import kumiko-enterprise. The title field is deliberately pre-filled with
+// a value wider than the box (ghost-overlay scroll sync), the note textarea
+// with more lines than visible (vertical scroll sync).
 function AiTextDemo(): ReactNode {
-  const [title, setTitle] = useState(LONG_TITLE);
-  const [note, setNote] = useState(LONG_NOTE);
+  const t = useTranslation();
+  const [title, setTitle] = useState(() => t("widgets:catalog:long-title-demo"));
+  const [note, setNote] = useState(() =>
+    Array.from({ length: 12 }, (_, i) => t("widgets:catalog:long-note-line", { n: i + 1 })).join(
+      "\n",
+    ),
+  );
   return (
-    <SectionCard title="AI-Text" subtitle="Ghost-Text-Completion, Correct, Translate, Rewrite">
+    <SectionCard
+      title={t("widgets:catalog:ai-text")}
+      subtitle={t("widgets:catalog:ai-text-subtitle")}
+    >
       <AiTextField
         id="ai-text-title"
         name="title"
-        label="Titel"
+        label={t("widgets:catalog:title")}
         value={title}
         onChange={setTitle}
       />
       <AiTextArea
         id="ai-text-note"
         name="note"
-        label="Notiz"
+        label={t("widgets:catalog:note")}
         value={note}
         onChange={setNote}
         rows={4}
@@ -298,8 +342,8 @@ function AiTextDemo(): ReactNode {
   );
 }
 
-// Feld-Widgets für Nicht-Zahl-Typen (Select/Date/Text/Boolean/Textarea) —
-// wrappen dieselben usePrimitives-Input-kinds wie NumberField.
+// Field widgets for non-number types (select/date/text/boolean/textarea) —
+// wrap the same usePrimitives input kinds as NumberField.
 interface FieldsDraft {
   readonly land: string;
   readonly datum: string;
@@ -319,42 +363,48 @@ const FIELDS_DEFAULTS: FieldsDraft = {
 };
 
 function FormFieldsDemo(): ReactNode {
+  const t = useTranslation();
   const { draft, field } = useDraft<FieldsDraft>(FIELDS_DEFAULTS);
   const { Button } = usePrimitives();
   return (
-    <SectionCard title="Feld-Widgets">
-      <TextField label="Name" {...field("name")} placeholder="z. B. Variante A" />
+    <SectionCard title={t("widgets:catalog:form-fields")}>
+      <TextField
+        label={t("widgets:catalog:name")}
+        {...field("name")}
+        placeholder={t("widgets:catalog:name-placeholder")}
+      />
       <SelectField
-        label="Bundesland"
+        label={t("widgets:catalog:state")}
         {...field("land")}
         options={[
-          { value: "NW", label: "Nordrhein-Westfalen" },
-          { value: "BY", label: "Bayern" },
+          { value: "NW", label: t("widgets:catalog:state-nw") },
+          { value: "BY", label: t("widgets:catalog:state-by") },
         ]}
       />
-      <DateField label="Datum" {...field("datum")} />
-      <BooleanField label="Makler einbeziehen" {...field("aktiv")} />
+      <DateField label={t("widgets:catalog:date")} {...field("datum")} />
+      <BooleanField label={t("widgets:catalog:include-broker")} {...field("aktiv")} />
       <RangeField
-        label={`Abruf: ${draft.abruf} %`}
+        label={t("widgets:catalog:call-rate", { n: draft.abruf })}
         {...field("abruf")}
         min={0}
         max={100}
         step={5}
       />
-      <TextareaField label="Notiz" {...field("notiz")} rows={3} />
+      <TextareaField label={t("widgets:catalog:note")} {...field("notiz")} rows={3} />
       <div className="flex items-center gap-2">
         <Button size="sm" variant="secondary" onClick={() => {}}>
-          Klein
+          {t("widgets:catalog:small")}
         </Button>
-        <Button onClick={() => {}}>Standard</Button>
+        <Button onClick={() => {}}>{t("widgets:catalog:standard")}</Button>
       </div>
     </SectionCard>
   );
 }
 
-// Transponierter Vergleich (Zeile = Kennzahl, Spalte = Variante), beste
-// hervorgehoben — für Szenario-/Angebotsvergleiche.
+// Transposed comparison (row = metric, column = variant), best value
+// highlighted — for scenario/offer comparisons.
 function ComparisonDemo(): ReactNode {
+  const t = useTranslation();
   const euro = (n: number): string => `${n.toLocaleString("de-DE")} €`;
   const scenarios = [
     { name: "A", rate: 890, interest: 84000 },
@@ -373,20 +423,20 @@ function ComparisonDemo(): ReactNode {
     return bestI;
   };
   return (
-    <SectionCard title="Vergleich">
+    <SectionCard title={t("widgets:catalog:comparison")}>
       <ComparisonTable
         columns={scenarios}
         columnHeader={(s) => s.name}
         columnKey={(s) => s.name}
-        metricLabel="Kennzahl"
+        metricLabel={t("widgets:catalog:metric")}
         metrics={[
           {
-            label: "Monatsrate",
+            label: t("widgets:catalog:monthly-rate"),
             value: (s) => euro(s.rate),
             bestIndex: () => minIndex((s) => s.rate),
           },
           {
-            label: "Gesamtzins",
+            label: t("widgets:catalog:total-interest"),
             value: (s) => euro(s.interest),
             bestIndex: () => minIndex((s) => s.interest),
           },
@@ -396,8 +446,8 @@ function ComparisonDemo(): ReactNode {
   );
 }
 
-// Live-Input-Rechner: useDraft → pure Berechnung → ResultPanel/ResultTable.
-// Belegt, dass das Form-Kit das Rechner-Muster der Apps ohne Custom-CSS trägt.
+// Live-input calculator: useDraft → pure calculation → ResultPanel/ResultTable.
+// Shows the form kit carries the apps' calculator pattern without custom CSS.
 interface CalcDraft {
   readonly sum: number | undefined;
   readonly interest: number | undefined;
@@ -407,6 +457,7 @@ interface CalcDraft {
 const CALC_DEFAULTS: CalcDraft = { sum: 300000, interest: 3.8, repayment: 2 };
 
 function FinancingCalculatorDemo(): ReactNode {
+  const t = useTranslation();
   const { draft, field } = useDraft<CalcDraft>(CALC_DEFAULTS);
   const ready = draft.sum !== undefined && draft.interest !== undefined;
   const rate = ready
@@ -415,26 +466,29 @@ function FinancingCalculatorDemo(): ReactNode {
   const euro = (n: number): string => `${n.toLocaleString("de-DE")} €`;
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <SectionCard title="Finanzierung">
-        <MoneyField label="Darlehen" {...field("sum")} required />
-        <PercentField label="Sollzins" {...field("interest")} required />
-        <PercentField label="Tilgung" {...field("repayment")} />
+      <SectionCard title={t("widgets:catalog:financing")}>
+        <MoneyField label={t("widgets:catalog:loan")} {...field("sum")} required />
+        <PercentField label={t("widgets:catalog:nominal-rate")} {...field("interest")} required />
+        <PercentField label={t("widgets:catalog:repayment")} {...field("repayment")} />
       </SectionCard>
       <ResultPanel
-        title="Ergebnis"
+        title={t("widgets:catalog:result")}
         empty={!ready}
-        emptyText="Darlehen und Zins eingeben."
+        emptyText={t("widgets:catalog:enter-loan-and-interest")}
         rows={[
-          { label: "Darlehen", value: euro(draft.sum ?? 0) },
-          { label: "Monatsrate", value: euro(rate), emphasize: true },
+          { label: t("widgets:catalog:loan"), value: euro(draft.sum ?? 0) },
+          { label: t("widgets:catalog:monthly-rate"), value: euro(rate), emphasize: true },
         ]}
       >
         <ResultTable
           columns={[
-            { header: "Tranche", cell: (r: { label: string; rate: number }) => r.label },
-            { header: "Rate", align: "right", cell: (r) => euro(r.rate) },
+            {
+              header: t("widgets:catalog:tranche"),
+              cell: (r: { label: string; rate: number }) => r.label,
+            },
+            { header: t("widgets:catalog:rate"), align: "right", cell: (r) => euro(r.rate) },
           ]}
-          rows={[{ label: "Bankdarlehen", rate }]}
+          rows={[{ label: t("widgets:catalog:bank-loan"), rate }]}
           rowKey={(r) => r.label}
         />
       </ResultPanel>
