@@ -62,12 +62,15 @@ function ensureEntityListRowNavigation(
     ...screen,
     rowActions: [
       ...(screen.rowActions ?? []),
+      // No `params` here: this same-entity target always resolves to
+      // UPDATE mode (the renderer auto-fills entityId from row["id"]),
+      // and entityEdit-update never reads search-params as initial
+      // values — the boot-validator now rejects that combination (#1680).
       {
         kind: "navigate",
         id: "edit",
         label: "stub:edit",
         screen: editScreen.id,
-        params: { pick: ["id"] },
       },
     ],
   };

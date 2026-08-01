@@ -212,9 +212,11 @@ export type RowActionNavigate = {
    *  AUSSCHLIESSLICH aus dem Pfad. Default: "id" wenn der Ziel-Screen
    *  ein entityEdit ist. */
   readonly entityId?: string;
-  /** Deklarative URL-Search-Params aus row-Context. Wird in actionForm-
-   *  Targets als initial values gelesen (actionForm pre-fillen).
-   *  `pick` extrahiert Felder gleichen Namens; `map` benennt um. */
+  /** Declarative URL search params extracted from the clicked row.
+   *  Both actionForm and entityEdit-create targets read `params` as
+   *  initial values (pre-filling the form). entityEdit-update does
+   *  not — the existing record's values take precedence.
+   *  `pick` extracts fields of the same name; `map` renames them. */
   readonly params?: RowFieldExtractor;
   /** Conditional Visibility pro Row. */
   readonly visible?: FieldCondition;

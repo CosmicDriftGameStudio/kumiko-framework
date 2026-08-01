@@ -575,6 +575,48 @@ export function validateScreens(
                   `the row field that names the target entity's id.`,
               );
             }
+            // params only have a reader in actionForm and entityEdit-CREATE;
+            // on projectionDetail/dashboard/configEdit/entityEdit-update they
+            // are silently ignored at runtime. `custom` is deliberately
+            // exempt: it renders an app-registered component the framework
+            // has no visibility into — the author may read nav.searchParams
+            // directly (real example: publicstatus's MonitorDetailScreen
+            // does exactly that), so flagging it would be a false positive
+            // on working code, not a caught bug.
+            //
+            // Whether an entityEdit target lands in create or update mode is
+            // decided by the same rule the renderer's runNavigate() uses: an
+            // explicit entityId always forces update mode, and (absent an
+            // explicit entityId) a same-entity target gets row["id"] auto-
+            // injected — only a cross-entity target with no explicit
+            // entityId reaches create.
+            if (
+              action.params !== undefined &&
+              target !== undefined &&
+              target.screen.type !== "custom"
+            ) {
+              const isEntityEditUpdate =
+                target.screen.type === "entityEdit" &&
+                (action.entityId !== undefined || target.screen.entity === screen.entity);
+              if (
+                (target.screen.type !== "actionForm" && target.screen.type !== "entityEdit") ||
+                isEntityEditUpdate
+              ) {
+                const reason = isEntityEditUpdate
+                  ? `resolves to UPDATE mode (${
+                      action.entityId !== undefined
+                        ? `explicit entityId "${action.entityId}"`
+                        : `same entity "${screen.entity}" auto-fills row["id"]`
+                    })`
+                  : `screen type "${target.screen.type}"`;
+                throw new Error(
+                  `[Feature ${feature.name}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
+                    `sets params on navigate-target "${action.screen}" which ${reason} — only actionForm ` +
+                    `and entityEdit-create targets read URL search params as initial values. Remove the ` +
+                    `params extractor or retarget to an actionForm / cross-entity entityEdit-create screen.`,
+                );
+              }
+            }
           } else {
             if (!allWriteHandlerQns.has(action.handler)) {
               throw new Error(
