@@ -2,6 +2,10 @@
 
 ## 0.173.0
 
+### Minor Changes
+
+- bca8b46: Add `runWorkerApp` — the worker-shaped counterpart to `runProdApp`. It shares the same boot core (feature composition, PII boot gate, KMS health check, crypto wiring, schema-drift gate, `ensureTemporalPolyfill`) and ends in `createWorkerEntrypoint` instead of `createApiEntrypoint`, plus a `wireComponents` hook for app-wired co-running pieces (analysis runners, IMAP supervisors) that need the system-write dispatcher. Apps deploying a dedicated worker no longer hand-rebuild that boot — a missing polyfill there breaks every job with "Temporal is not defined" in a silent retry loop.
+
 ### Patch Changes
 
 - Updated dependencies [20dfb78]

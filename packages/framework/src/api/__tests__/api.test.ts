@@ -532,8 +532,14 @@ describe("POST /api/stream pre-pull race", () => {
     // First .next() takes longer than heartbeatMs → settledInTime=false →
     // streamSSE opens immediately and pumpStream emits ping until the chunk
     // arrives (framework#1547 route-level contract).
+    //
+    // 25x the heartbeat, not 3x: the assertion rides on the timer winning the
+    // race, and a loaded CI runner delays timers by tens of milliseconds. At
+    // 60ms the timer occasionally fired after the chunk, the route took the
+    // settled path, and the run failed with ["chunk","done"] — a red main that
+    // blocks the release job.
     const dispatcher = stubDispatcher(async function* () {
-      await Bun.sleep(60);
+      await Bun.sleep(500);
       yield { i: 0 };
     });
     const app = mountStreamApp(dispatcher, 20);
