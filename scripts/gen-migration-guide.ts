@@ -52,7 +52,8 @@ export function collectChangelogs(
 
     const features = readdirSync(featuresDir, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => d.name);
+      .map((d) => d.name)
+      .sort();
 
     for (const name of features) {
       // Enterprise: features live in packages/<name>/src/changes.json
@@ -115,8 +116,13 @@ function generateMarkdown(changelogs: Map<string, readonly ChangelogEntry[]>): s
     return lines.join("\n");
   }
 
-  // Sort by version descending
-  breaking.sort((a, b) => compareVersions(b.entry.version, a.entry.version));
+  // Sort by version descending, feature name as tiebreaker within a version
+  // (readdirSync order isn't guaranteed stable across filesystems/OSes —
+  // without this, the same source data could emit sections in a different
+  // order on CI vs. locally, making the generated file look "drifted").
+  breaking.sort(
+    (a, b) => compareVersions(b.entry.version, a.entry.version) || a.feature.localeCompare(b.feature),
+  );
 
   // Group by version
   const byVersion = new Map<string, Array<{ feature: string; entry: ChangelogEntry }>>();
