@@ -1,12 +1,12 @@
-// runWorkerApp Integration: bootet den dedizierten Worker-Prozess mit
-// echtem Postgres + Redis. Beweist:
-//   - ensureTemporalPolyfill lief VOR der Job-Ausführung (fw#1725: der Bug,
-//     den es gekostet hat — ohne Polyfill scheitert jeder Job im Worker
-//     mit "Temporal is not defined")
-//   - Event-getriggerte Jobs laufen End-to-End (afterCommit → BullMQ → Handler)
-//   - Schema-Drift-Gate bricht den Boot bei pending Migrations ab
-//   - wireComponents bekommt db/redis/registry/dispatchSystemWrite/lifecycle
-//     und kann eigene Shutdown-Hooks registrieren
+// runWorkerApp integration: boots the dedicated worker process against
+// real Postgres + Redis. Proves:
+//   - ensureTemporalPolyfill ran BEFORE the job executed (fw#1725: the
+//     bug that cost real time — without the polyfill, every job in the
+//     worker fails with "Temporal is not defined")
+//   - event-triggered jobs run end-to-end (afterCommit → BullMQ → handler)
+//   - the schema-drift gate aborts the boot on pending migrations
+//   - wireComponents gets db/redis/registry/dispatchSystemWrite/lifecycle
+//     and can register its own shutdown hooks
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -46,10 +46,10 @@ const workerProbeFeature = defineFeature("worker-probe", (r) => {
       data: { note: (event.payload as { note: string }).note },
     }),
   });
-  // Job's einzige Aufgabe: beweisen dass Temporal beim Handler-Aufruf
-  // bereits definiert ist. Vor fw#1725 gab es dafür keinen framework-
-  // seitigen Boot-Pfad — Apps mussten den Polyfill-Call von Hand
-  // nachbauen (solon#42) und vergaßen ihn.
+  // The job's only purpose: prove Temporal is already defined by the time
+  // the handler runs. Before fw#1725 there was no framework-side boot
+  // path for this — apps had to rebuild the polyfill call by hand
+  // (solon#42) and forgot it.
   r.job(
     "record-ping",
     { trigger: { on: "worker-probe:write:ping" }, runIn: "worker" },

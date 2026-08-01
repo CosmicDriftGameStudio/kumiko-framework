@@ -1,19 +1,19 @@
-// runWorkerApp — production-grade Bootstrap-Wrapper für einen dedizierten
-// Kumiko-Worker-Prozess. Symmetrisch zu runProdApp, aber ohne HTTP: kein
-// Hono-App, keine Auth-Routes, kein SSE-Broker, keine Seeds. Teilt sich
-// mit runProdApp den Boot-Kern (Env-Fail-Fast, Temporal-Polyfill,
-// composeFeatures/Registry, PII-Invarianten, KMS-Health-Gate, Connections,
-// Schema-Drift-Gate, Boot-Crypto, extraContext) — siehe fw#1725: vor dieser
-// Funktion baute jede App, die einen Worker deployen wollte, diesen Boot
-// von Hand nach (solon#42), und jede Abweichung war still: ohne
-// `ensureTemporalPolyfill` scheitert jeder Job im Worker mit "Temporal is
-// not defined" in einer Retry-Schleife, ohne dass am Boot etwas auffällt.
+// runWorkerApp — production-grade bootstrap wrapper for a dedicated
+// Kumiko worker process. Symmetric to runProdApp, but without HTTP: no
+// Hono app, no auth routes, no SSE broker, no seeds. Shares the boot core
+// with runProdApp (env fail-fast, Temporal polyfill, composeFeatures/
+// registry, PII invariants, KMS health gate, connections, schema-drift
+// gate, boot-crypto, extraContext) — see fw#1725: before this function,
+// every app deploying a worker rebuilt this boot by hand (solon#42), and
+// every deviation was silent: without `ensureTemporalPolyfill`, every job
+// in the worker fails with "Temporal is not defined" in a retry loop,
+// with no boot-time signal that anything is wrong.
 //
-// App-Author schreibt:
+// App-author writes:
 //   await runWorkerApp({ features, wireComponents: async (deps) => {...} });
 //
-// Container/Coolify setzt dieselben env-Vars wie runProdApp:
-//   DATABASE_URL, REDIS_URL, JWT_SECRET, PORT wird nicht gebraucht.
+// Container/Coolify sets the same env vars as runProdApp:
+//   DATABASE_URL, REDIS_URL, JWT_SECRET — PORT is not needed.
 
 import { loadJwtSecretOrKeyring, type ServerOptions } from "@cosmicdrift/kumiko-framework/api";
 import {
@@ -73,59 +73,58 @@ export type WorkerDeps = {
   readonly registry: Registry;
 };
 
-/** Deps für den `wireComponents`-Hook — app-verdrahtete mitlaufende
- *  Komponenten (Analysis-Runner, IMAP-Supervisor, ...) die den
- *  System-Write-Dispatcher brauchen und ihre eigenen Shutdown-Hooks auf
- *  der Worker-Lifecycle registrieren. Gleiche Deps-Shape wie extraRoutes,
- *  plus `lifecycle` für `registerShutdownHook`. */
+/** Deps for the `wireComponents` hook — app-wired co-running components
+ *  (an analysis runner, an IMAP supervisor, ...) that need the system-
+ *  write dispatcher and register their own shutdown hooks on the worker
+ *  lifecycle. Same deps shape as extraRoutes, plus `lifecycle` for
+ *  `registerShutdownHook`. */
 export type WorkerWireDeps = ExtraRoutesSystemDeps & {
   readonly lifecycle: WorkerEntrypoint["lifecycle"];
 };
 
 export type RunWorkerAppOptions = {
-  /** App-specific features — gleiches Array wie im API-/All-in-one-Prozess,
-   *  damit Registry + Schema zwischen den Prozessen identisch bleiben. */
+  /** App-specific features — same array as in the API/all-in-one process,
+   *  so the registry + schema stay identical across processes. */
   readonly features: readonly FeatureDefinition[];
-  /** Auto-mixed config/user/tenant/auth-email-password-Features mounten —
-   *  MUSS mit dem `includeBundled`-Wert des API-Prozesses übereinstimmen,
-   *  sonst laufen API und Worker mit unterschiedlicher Registry-Topologie.
-   *  Steuert zusätzlich, ob buildBootExtraContext den `configResolver`
-   *  auto-verdrahtet (gleiche Auth-Mode-Gate wie runProdApp). */
+  /** Mount the auto-mixed config/user/tenant/auth-email-password features —
+   *  MUST match the API process's `includeBundled` value, otherwise API
+   *  and worker run with a diverging registry topology. Also controls
+   *  whether buildBootExtraContext auto-wires `configResolver` (same
+   *  auth-mode gate as runProdApp). */
   readonly includeBundled?: boolean;
-  /** Pfad zu kumiko/migrations für den Boot-Gate. Siehe RunProdAppOptions
-   *  ["migrations"] — identische Semantik. */
+  /** Path to kumiko/migrations for the boot gate. See RunProdAppOptions
+   *  ["migrations"] — identical semantics. */
   readonly migrations?: { readonly dir: string } | false;
-  /** Extra AppContext keys — gleiches Factory-Union-Pattern wie
-   *  RunProdAppOptions["extraContext"], ohne sseBroker (der Worker hat
-   *  keinen — siehe entrypoint/index.ts's dokumentierte SSE-Limitation). */
+  /** Extra AppContext keys — same factory-union pattern as
+   *  RunProdAppOptions["extraContext"], without sseBroker (the worker
+   *  has none — see entrypoint/index.ts's documented SSE limitation). */
   readonly extraContext?: WorkerContextOption;
-  /** MasterKeyProvider für ctx.secrets. Default: env-KEK (siehe
+  /** MasterKeyProvider for ctx.secrets. Default: env-KEK (see
    *  RunProdAppOptions["masterKey"]). */
   readonly masterKey?: MasterKeyProvider;
-  /** Subject-Key-Adapter für Crypto-Shredding — Boot prüft health() vor
-   *  jeder Connection (siehe RunProdAppOptions["kms"]). */
+  /** Subject-key adapter for crypto-shredding — boot checks health()
+   *  before any connection (see RunProdAppOptions["kms"]). */
   readonly kms?: KmsAdapter;
-  /** Blind-Index-Key für lookupable-Felder (siehe
+  /** Blind-index key for lookupable fields (see
    *  RunProdAppOptions["blindIndexKey"]). */
   readonly blindIndexKey?: string;
-  /** Explizites Opt-out aus dem PII-Boot-Gate (siehe
+  /** Explicit opt-out from the PII boot gate (see
    *  RunProdAppOptions["allowPlaintextPii"]). */
   readonly allowPlaintextPii?: string;
   readonly jobs?: {
     readonly queueNamePrefix?: string;
   };
-  /** Tuning-Knobs für den Event-Dispatcher-Loop (pollIntervalMs, pgClient
-   *  für LISTEN/NOTIFY). */
+  /** Tuning knobs for the event-dispatcher loop (pollIntervalMs, pgClient
+   *  for LISTEN/NOTIFY). */
   readonly eventDispatcher?: ServerOptions["eventDispatcher"];
-  /** Hook für app-verdrahtete mitlaufende Komponenten die den
-   *  System-Write-Dispatcher brauchen (z.B. ein Analysis-Runner, ein
-   *  IMAP-Supervisor). Läuft NACH `entrypoint.start()` — der Hook ist
-   *  selbst dafür verantwortlich, seine Komponente zu starten und einen
-   *  Shutdown-Hook auf `lifecycle` zu registrieren. */
+  /** Hook for app-wired co-running components that need the system-write
+   *  dispatcher (e.g. an analysis runner, an IMAP supervisor). Runs AFTER
+   *  `entrypoint.start()` — the hook itself is responsible for starting
+   *  its component and registering a shutdown hook on `lifecycle`. */
   readonly wireComponents?: (deps: WorkerWireDeps) => Promise<void> | void;
-  /** Feature-toggle resolver (siehe RunProdAppOptions["effectiveFeatures"]). */
+  /** Feature-toggle resolver (see RunProdAppOptions["effectiveFeatures"]). */
   readonly effectiveFeatures?: EffectiveFeaturesResolver;
-  /** Override `process.env` für env-validation (siehe
+  /** Override `process.env` for env-validation (see
    *  RunProdAppOptions["envSource"]). */
   readonly envSource?: Record<string, string | undefined>;
   readonly observability?: ObservabilityProvider;
@@ -133,16 +132,16 @@ export type RunWorkerAppOptions = {
 };
 
 export type WorkerAppHandle = {
-  /** In KUMIKO_DRY_RUN_ENV=boot mode mit injiziertem envSource (Test-Pfad)
-   *  lief kein Boot — dieser Slot ist ein undefined-Cast, nicht zugreifen. */
+  /** In KUMIKO_DRY_RUN_ENV=boot mode with an injected envSource (test
+   *  path), no boot ran — this slot is an undefined-cast, do not access. */
   readonly entrypoint: WorkerEntrypoint;
   readonly stop: () => Promise<void>;
 };
 
 function makeBootModeHandle(): WorkerAppHandle {
   return {
-    // @cast-boundary boot-mode: kein Entrypoint existiert, weil kein Boot
-    // lief — der Slot wird von Callern in diesem Pfad nie gelesen.
+    // @cast-boundary boot-mode: no entrypoint exists because no boot ran —
+    // callers on this path never read this slot.
     entrypoint: undefined as unknown as WorkerEntrypoint,
     stop: async () => {},
   };
@@ -151,15 +150,15 @@ function makeBootModeHandle(): WorkerAppHandle {
 export async function runWorkerApp(options: RunWorkerAppOptions): Promise<WorkerAppHandle> {
   const envSource = options.envSource ?? process.env;
 
-  // 1. Polyfill before anything else — genau der Bug aus fw#1725: ohne
-  //    ihn scheitert jeder Job im Worker mit "Temporal is not defined" in
-  //    einer Retry-Schleife, ohne dass am Boot etwas auffällt.
+  // 1. Polyfill before anything else — exactly the bug fw#1725 reports:
+  //    without it, every job in the worker fails with "Temporal is not
+  //    defined" in a retry loop, with no boot-time signal.
   const { ensureTemporalPolyfill } = await import("@cosmicdrift/kumiko-framework/time");
   await ensureTemporalPolyfill();
 
-  // 2. Env-vars: fail-fast, gleiche requireEnv wie runProdApp. JWT_SECRET
-  //    wird von loadJwtSecretOrKeyring selbst validiert (wirft wenn weder
-  //    JWT_SECRET noch JWT_SECRET_V<n> gesetzt ist).
+  // 2. Env vars: fail-fast, same requireEnv as runProdApp. JWT_SECRET is
+  //    validated by loadJwtSecretOrKeyring itself (throws when neither
+  //    JWT_SECRET nor JWT_SECRET_V<n> is set).
   const databaseUrl = requireEnv("DATABASE_URL", envSource, "runWorkerApp");
   const redisUrl = requireEnv("REDIS_URL", envSource, "runWorkerApp");
   const jwtSecretOrKeyring = loadJwtSecretOrKeyring(envSource);
@@ -167,8 +166,8 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
   console.log("[runWorkerApp] booting Kumiko worker…");
 
-  // 3. Feature registry — identisch zu runProdApp, MUSS mit dem API-Prozess
-  //    übereinstimmenden `includeBundled` gebaut werden.
+  // 3. Feature registry — identical to runProdApp, MUST be built with the
+  //    same `includeBundled` as the API process.
   const features = composeFeatures(options.features, {
     includeBundled: !!options.includeBundled,
   });
@@ -182,9 +181,9 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   });
   const registry = createRegistry(features);
 
-  // Boot-mode exit (parity mit runProdApp's C1): validators liefen +
-  // Registry ist gebaut, kein DB/Redis-Client konstruiert. Macht den Boot
-  // ohne echte Postgres/Redis-Infra testbar.
+  // Boot-mode exit (parity with runProdApp's C1): validators ran and the
+  // registry is built, no DB/Redis client was constructed. Makes the boot
+  // testable without real Postgres/Redis infra.
   if (envSource["KUMIKO_DRY_RUN_ENV"] === "boot") {
     // biome-ignore lint/suspicious/noConsole: boot-mode output IS the deliverable
     console.log(
@@ -196,8 +195,8 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
     return makeBootModeHandle();
   }
 
-  // 4. KMS-Health-Gate — läuft VOR den Connections, damit ein Abort nichts
-  //    leakt (identisch zu runProdApp).
+  // 4. KMS health gate — runs BEFORE the connections, so an abort leaks
+  //    nothing (identical to runProdApp).
   if (options.kms) {
     const kmsHealth = await options.kms.health();
     if (!kmsHealth.ok) {
@@ -219,7 +218,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
     }
   }
 
-  // 5. Schema-Drift-Gate — identisch zu runProdApp.
+  // 5. Schema-drift gate — identical to runProdApp.
   if (options.migrations !== false) {
     const migrationsDir = options.migrations?.dir ?? "./kumiko/migrations";
     // biome-ignore lint/suspicious/noConsole: boot-time progress hint
@@ -235,16 +234,15 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
     }
   }
 
-  // 6. Pipeline pieces — gleiche Defaults wie runProdApp.
+  // 6. Pipeline pieces — same defaults as runProdApp.
   const idempotency = createIdempotencyGuard(redis, { ttlSeconds: 60 });
   const eventDedup = createEventDedup(redis, { ttlSeconds: 60 });
   const entityCache = createEntityCache(redis, { ttlSeconds: 60 });
 
-  // 7. Boot-Crypto + extraContext — der Kern des issues (fw#1725): KMS-
-  //    Wiring, Blind-Index, Config-Encryption müssen im Worker exakt so
-  //    verdrahtet sein wie in der API, sonst schreibt der Worker Rows, die
-  //    die API mit anderem Cipher/fehlendem Blind-Index nicht mehr lesen
-  //    kann.
+  // 7. Boot-crypto + extraContext — the core of fw#1725: KMS wiring,
+  //    blind-index, config-encryption must be wired in the worker exactly
+  //    like in the API, otherwise the worker writes rows the API can no
+  //    longer read (different cipher, missing blind index).
   const deps: WorkerDeps = { db, redis, registry };
   const resolvedExtraContext =
     typeof options.extraContext === "function"

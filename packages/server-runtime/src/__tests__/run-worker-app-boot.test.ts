@@ -1,8 +1,7 @@
-// Boot-mode + KMS-Gate Tests für runWorkerApp — kein echtes Postgres/Redis
-// nötig (wie run-prod-app-env-source.test.ts): KUMIKO_DRY_RUN_ENV=boot
-// exits VOR jeder Connection, und der KMS-Health-Gate läuft VOR
-// createDbConnection/new Redis(...) — beide Pfade brauchen also keine
-// echte Infra.
+// Boot-mode + KMS-gate tests for runWorkerApp — no real Postgres/Redis
+// needed (like run-prod-app-env-source.test.ts): KUMIKO_DRY_RUN_ENV=boot
+// exits BEFORE any connection, and the KMS health gate runs BEFORE
+// createDbConnection/new Redis(...) — so neither path needs real infra.
 
 import { describe, expect, test } from "bun:test";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
@@ -47,11 +46,11 @@ describe("runWorkerApp boot-mode", () => {
   });
 
   test("ensureTemporalPolyfill runs even in boot-mode — Temporal is defined right after boot validation", async () => {
-    // Regression-Pin für fw#1725: der Bug, den es gekostet hat, war ein
-    // fehlender Polyfill-Aufruf. Boot-mode bootet, ohne einen Job laufen zu
-    // lassen — dieser Test beweist nur "der Polyfill-Aufruf passiert",
-    // die Ordering-vor-composeFeatures-Garantie deckt der Integration-Test
-    // (run-worker-app.integration.test.ts) über einen echten Job ab.
+    // Regression pin for fw#1725: the bug that cost real time was a
+    // missing polyfill call. Boot-mode boots without running any job —
+    // this test only proves "the polyfill call happens"; the ordering-
+    // before-composeFeatures guarantee is covered by the integration
+    // test (run-worker-app.integration.test.ts) via a real job.
     const originalLog = console.log;
     console.log = () => {};
     try {
