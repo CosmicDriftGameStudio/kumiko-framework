@@ -654,6 +654,7 @@ function DefaultDataTable({
           onReachEnd={onReachEnd}
           loadingMore={loadingMore === true}
           hasMore={hasMore !== false}
+          rowsCount={rows.length}
           testId={testId !== undefined ? `${testId}-sentinel` : "render-list-sentinel"}
         />
       </>
@@ -1018,15 +1019,23 @@ function RowActionsKebab({
 // lädt, ignorieren wir weitere Sichtbar-Events). Kein observer in
 // Server-Side-Render, kein observer wenn hasMore=false — dann zeigt
 // der Sentinel nur den End-of-list-Hinweis.
+// ponytail: End-Marker nur ab END_LABEL_MIN_ROWS Zeilen — eine kurze
+// Liste (eine einzige Page) zeigt ihr Ende selbst, da wäre der Marker
+// nur Lärm. Schwellwert = eine Page; per Prop übersteuerbar falls Apps
+// andere Page-Größen fahren.
+const END_LABEL_MIN_ROWS = 20;
+
 function InfiniteSentinel({
   onReachEnd,
   loadingMore,
   hasMore,
+  rowsCount,
   testId,
 }: {
   readonly onReachEnd: () => void;
   readonly loadingMore: boolean;
   readonly hasMore: boolean;
+  readonly rowsCount: number;
   readonly testId?: string;
 }): ReactNode {
   const t = useTranslation();
@@ -1057,23 +1066,28 @@ function InfiniteSentinel({
     return () => observer.disconnect();
   }, [onReachEnd, loadingMore, hasMore]);
 
+  const showEndLabel = !hasMore && rowsCount >= END_LABEL_MIN_ROWS;
+
   return (
     <div
       ref={ref}
       data-testid={testId}
-      className="flex items-center justify-center py-4 text-sm text-muted-foreground"
+      className={cn(
+        "flex items-center justify-center text-sm text-muted-foreground",
+        showEndLabel || loadingMore ? "py-4" : "",
+      )}
     >
-      {!hasMore ? (
+      {showEndLabel ? (
         <span data-testid={testId !== undefined ? `${testId}-end` : undefined}>
           {t("kumiko.list.end-of-list")}
         </span>
       ) : loadingMore ? (
         <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-      ) : (
-        // Unsichtbar-Spacer wenn weder loading noch end — der Observer
-        // braucht ein DOM-Node, der User soll aber nichts sehen.
+      ) : hasMore ? (
+        // Unsichtbar-Spacer solange noch geladen werden kann — der
+        // Observer braucht ein DOM-Node, der User soll aber nichts sehen.
         <span aria-hidden="true">&nbsp;</span>
-      )}
+      ) : null}
     </div>
   );
 }
