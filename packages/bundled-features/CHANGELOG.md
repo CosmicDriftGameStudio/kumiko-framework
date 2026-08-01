@@ -1,5 +1,59 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.174.1
+
+### Patch Changes
+
+- de0da71: PR-review fix batch (careful-tier findings, batch 4):
+
+  - `enrichWithReferences` (eagerload) computes each ref entity's PII/encrypted-field sets and KMS handle once per reference field instead of once per referenced row.
+  - `event-store-executor-write`'s `runPreSave` now strips `id`/`version` from a preSave hook's return value before it's persisted — a hook that echoes them back could otherwise override the framework-minted `aggregateId`.
+  - `subscription-tier-sync`'s webhook route no longer turns an already-committed write into `isSuccess: false` when the follow-up tier sync fails — Stripe/PayPal would otherwise retry an event whose primary effect already landed. The sync failure is now logged instead.
+  - `revoke-all-for-user` hard-fails (instead of silently defaulting to `eventVersion: 1`) when `SESSION_REVOKED_EVENT_QN` isn't registered; the surrounding write transaction rolls the session-revoke back too.
+  - `schema-builder`'s defaulted-select preprocessing now also maps `null` to the field default, matching the no-default branch's own "" → null normalization.
+  - `watch-supervisor` no longer routes a projection-write failure (marking an account "watching") through the sync-error/backoff path — the watch itself is healthy.
+  - `styleguide`'s inbox-messages query handler validates `cursor`/`limit` instead of accepting unbounded/negative values.
+  - `backfill-changelogs --days` now rejects a non-numeric value instead of producing `Invalid time value`.
+  - `seed-items` (showcase) probes via `{ limit: 1, totalCount: true }` instead of comparing `rows.length` against a page size that a future max-limit clamp could invalidate.
+  - `gen-feature-screenshots`: sample screenshots keep their own preview label separate from the URL path segment, the SAMPLES_OUT default no longer escapes an explicit `SCREENSHOT_DIR`, and the summary log line now counts sample PNGs too.
+  - `PII_USER_REFERENCE_NAME_HINTS` gained `createdby`/`updatedby`/`assigneeuserid`/`memberid` — the boot-validator's GDPR-hook-coverage guard previously missed those common FK-naming shapes.
+  - `engine`'s public barrel now re-exports `userCanCreateFieldRow`/`normalizeAccessEntry` (already public in `ownership.ts`, just missing from the index).
+  - Small dedup/doc fixes: `screenAccessAllows` (renderer/render-field), `fillClasses` (renderer-web layout shells), `fieldIconFor` (renderer-web primitives), `entity-table-meta`'s deprecated-alias error message, `schema-cli`'s `storeTable()` hint, the `guard-types-class-free` mutable-state regex (no longer flags readonly object/array literals), and an `InfiniteSentinel` LocaleProvider-requirement doc note.
+
+- f5da76a: PR-review fix batch (careful-tier findings):
+
+  - `stock-cap-guard`'s `checkStockCap` no longer lets a caller-supplied `where.tenantId` override the real tenant scope (spread order fix).
+  - `defineCreateWithTenantDefaults` now validates `localeField` against the entity at define-time, matching the existing `currencyFields` check.
+  - `resolveMfaTokenSecrets` treats an empty-string override the same as `undefined` — falls back to derivation instead of signing MFA tokens with an empty HMAC key.
+  - `buildUpdateSchema` (schema-builder): a `""` submission for a `select` field with a default now maps to that default, not `null` — matches the insert path's "a field with a default is never unset" invariant, on both optional and required selects.
+  - `kumiko upgrade`'s enterprise-package changelog discovery is detected by `changes.json` presence, not an `"ai-"` name-prefix heuristic that silently dropped differently-named or renamed packages.
+  - **Deletion-request magic link** (`user-data-rights`): the verify token now goes in the URL fragment (`#token=`) instead of a query param, so it never lands in proxy/access logs — same convention as the export-download link.
+  - `InfinityList` (renderer-web) discards a response whose request was superseded by a newer one (request-sequence guard) — a slow response for an old search term can no longer overwrite a faster response for a newer one.
+  - `END_LABEL_MIN_ROWS` (renderer-web `DataTable`/`InfiniteSentinel`) aligned to the framework's default `pageSize` (50, was 20) so the "end of list" marker's default-case threshold matches reality; per-screen custom `pageSize` still isn't threaded down to this component (follow-up).
+
+- 50b7d0c: PR-review fix batch (deferred careful-tier findings):
+
+  - `document-ingest-foundation`'s `fileRef.created` MSP now appends a `documentIngest.skipped` event (with a `reason`) instead of silently dropping oversized/unsupported-mime uploads — the previous behavior gave neither the user nor ops any way to tell "not supported" from "ingest broken".
+  - `pii-retention` boot-validator: the `blockDelete`-without-`anonymize` warning now also fires for entities whose only subject binding is a `{ subjectRef: true }` FK (no annotated content) — it previously missed those entirely.
+  - `warnOnUniqueAccessRoles` now scans config-key and entity/field access rules too (not just handlers), and is opt-in via `validateBoot(features, { warnOnUniqueAccessRoles: true })` / `createApp({ validateBootOptions })` instead of always-on — a role scoped to exactly one endpoint on purpose is the normal shape of fine-grained access, not always a typo.
+  - `seedUser`/`seedUserWithPassword`/`seedAdmin` now reconcile `emailVerified: true` onto an already-seeded row (via a real `.updated` event) instead of only applying it on first insert — a persistent dev DB re-seeded with the flag previously stayed stuck unverified.
+  - Dev-server scaffold (`bin/dev.ts`) now seeds the admin with `emailVerified: true` so a fresh `bun dev` doesn't immediately hit the `422 email_not_verified` login gate; the prod scaffold (`bin/main.ts`) is unchanged on purpose.
+  - `EntityEditCreateBody`/`ActionFormBody` (renderer): a URL search-param no longer sets a value for a field the screen's layout doesn't render — it previously could inject an invisible, unvalidated value into a create-form submission.
+  - `ReferenceCreateDialog`: a create-handler success with no `id` in the payload (custom create variant) now still closes the dialog and refetches the reference list, with a visible banner explaining the record couldn't be auto-selected — it previously returned silently, leaving the dialog open with no feedback.
+  - Two `config`/`auth-mfa` KEK-rotation jobs' duplicated envelope-classification logic is now one shared `classifyStoredEnvelope` (`bundled-features/shared`).
+  - `jobs` feature's "is this job manually triggerable" check is now one shared predicate instead of two independently-maintained copies (`catalog.query.ts`, `trigger.write.ts`).
+  - `login-gates`/`document-ingest-foundation`/dev-server integration tests hardened against several fake-test / flaky-timing gaps found in review (exact payload assertions instead of `ok === false`, deterministic abort-timing instead of a race against a heartbeat timer, a single read-loop instead of a per-iteration `Promise.race` that could drop an SSE chunk).
+
+- Updated dependencies [de0da71]
+- Updated dependencies [f5da76a]
+- Updated dependencies [50b7d0c]
+  - @cosmicdrift/kumiko-framework@0.174.1
+  - @cosmicdrift/kumiko-renderer@0.174.1
+  - @cosmicdrift/kumiko-renderer-web@0.174.1
+  - @cosmicdrift/kumiko-headless@0.174.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.174.1
+  - @cosmicdrift/kumiko-types@0.174.1
+
 ## 0.174.0
 
 ### Minor Changes
