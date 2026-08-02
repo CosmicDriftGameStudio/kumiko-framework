@@ -28,7 +28,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { decryptStoredPii, verifyPassword } from "../../shared";
+import { decryptStoredPii, sessionTimezoneField, verifyPassword } from "../../shared";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
   INVITATION_STATUS,
@@ -96,7 +96,11 @@ export function createInviteAcceptWithLoginHandler() {
         readonly role: string;
         readonly version: number;
       };
-      type UserAuthRow = { readonly id: string; readonly passwordHash: string | null };
+      type UserAuthRow = {
+        readonly id: string;
+        readonly passwordHash: string | null;
+        readonly timezone?: string | null;
+      };
 
       let committed = false;
       try {
@@ -173,6 +177,7 @@ export function createInviteAcceptWithLoginHandler() {
           // buildSessionRoles calls stripForbiddenMembershipRoles internally —
           // a reserved role on the invitation itself must never reach the session.
           roles: buildSessionRoles([], [invitationRole]),
+          ...sessionTimezoneField(userRow.timezone),
         };
 
         committed = true;

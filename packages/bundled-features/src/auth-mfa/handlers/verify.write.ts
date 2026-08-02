@@ -8,7 +8,7 @@ import {
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
-import { burnToken } from "../../shared";
+import { burnToken, sessionTimezoneField } from "../../shared";
 import { USER_STATUS, UserQueries } from "../../user";
 import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants";
 import { findUserMfaRow } from "../db/queries";
@@ -135,7 +135,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
       const userRow = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
         id: userId,
-      })) as { roles?: string | null; status?: string } | null; // @cast-boundary engine-payload
+      })) as { roles?: string | null; status?: string; timezone?: string | null } | null; // @cast-boundary engine-payload
 
       // Re-check status + membership the way login.write.ts does after its
       // password check — the challenge token only proves "password was
@@ -168,7 +168,12 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // read-time backstop against a rebuild-resurrected role.
       const mergedRoles = buildSessionRoles(globalRoles, membership.roles);
 
-      const baseSession: SessionUser = { id: userId, tenantId, roles: mergedRoles };
+      const baseSession: SessionUser = {
+        id: userId,
+        tenantId,
+        roles: mergedRoles,
+        ...sessionTimezoneField(userRow?.timezone),
+      };
       const claims = await ctx.resolveAuthClaims(baseSession);
       const session: SessionUser =
         Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;

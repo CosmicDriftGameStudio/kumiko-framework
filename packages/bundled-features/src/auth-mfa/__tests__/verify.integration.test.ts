@@ -14,9 +14,12 @@ import {
   expectErrorIncludes,
   seedRow,
 } from "@cosmicdrift/kumiko-framework/testing";
+import { AuthHandlers as AuthEmailPasswordHandlers } from "../../auth-email-password/constants";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { hashPassword } from "../../shared";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
@@ -25,7 +28,7 @@ import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { base32Decode } from "../base32";
 import { AuthMfaHandlers } from "../constants";
-import { createAuthMfaFeature } from "../feature";
+import { createAuthMfaFeature, mfaStatusCheckerFromFeature } from "../feature";
 import { signMfaChallengeToken } from "../mfa-challenge-token";
 import { userMfaEntity } from "../schema/user-mfa";
 import { currentTotpCode } from "../totp";
@@ -49,18 +52,26 @@ beforeAll(async () => {
   const encryption = createTestEnvelopeCipher();
   configureEntityFieldEncryption(encryption);
   const resolver = createConfigResolver({ cipher: encryption });
+  const authMfaFeature = createAuthMfaFeature({
+    setupTokenSecret: SETUP_TOKEN_SECRET,
+    issuer: "Kumiko Test",
+    challengeTokenSecret: CHALLENGE_TOKEN_SECRET,
+  });
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createAuthMfaFeature({
-        setupTokenSecret: SETUP_TOKEN_SECRET,
-        issuer: "Kumiko Test",
-        challengeTokenSecret: CHALLENGE_TOKEN_SECRET,
+      authMfaFeature,
+      createAuthEmailPasswordFeature({
+        mfaStatusChecker: mfaStatusCheckerFromFeature(authMfaFeature),
       }),
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
+    authConfig: {
+      membershipQuery: "tenant:query:memberships",
+      loginHandler: AuthEmailPasswordHandlers.login,
+    },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
@@ -76,8 +87,10 @@ async function enableMfaFor(idSeed: number): Promise<{
   user: ReturnType<typeof createTestUser>;
   secret: Buffer;
   recoveryCodes: string[];
+  password: string;
 }> {
   const user = createTestUser({ id: idSeed, roles: ["User"] });
+  const password = `password-${idSeed}-long-enough`;
   const start = await stack.http.writeOk<{
     setupToken: string;
     otpauthUri: string;
@@ -103,14 +116,14 @@ async function enableMfaFor(idSeed: number): Promise<{
     id: user.id,
     tenantId: user.tenantId,
     email: `user-${user.id}@example.com`,
-    passwordHash: "h",
+    passwordHash: await hashPassword(password),
     displayName: `Test User ${idSeed}`,
     locale: "de",
     emailVerified: true,
     roles: "[]",
     status: USER_STATUS.Active,
   });
-  return { user, secret, recoveryCodes: start.recoveryCodes };
+  return { user, secret, recoveryCodes: start.recoveryCodes, password };
 }
 
 function challengeFor(userId: string, tenantId: TenantId): string {
@@ -129,6 +142,50 @@ describe("mfa verify — completes a two-step login", () => {
     );
     expect(res.session.id).toBe(user.id);
     expect(res.session.tenantId).toBe(user.tenantId);
+  });
+
+  test("a password login followed by MFA verify retains the user's timezone", async () => {
+    const { user, password, secret } = await enableMfaFor(9);
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${userTable.tableName}" SET timezone = $1 WHERE id = $2`,
+      ["Europe/Berlin", user.id],
+    );
+
+    const loginRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: `user-${user.id}@example.com`,
+      password,
+    });
+    expect(loginRes.status).toBe(200);
+    const login = (await loginRes.json()) as { challengeToken?: string };
+    expect(login.challengeToken).toBeTypeOf("string");
+    if (!login.challengeToken) throw new Error("MFA login did not return a challenge token");
+
+    const verified = await stack.http.writeOk<{ session: SessionUser }>(
+      AuthMfaHandlers.verify,
+      { challengeToken: login.challengeToken, code: currentTotpCode(secret) },
+      GUEST,
+    );
+    expect(verified.session.timezone).toBe("Europe/Berlin");
+  });
+
+  test("a password login followed by MFA verify omits an unset timezone", async () => {
+    const { user, password, secret } = await enableMfaFor(10);
+
+    const loginRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: `user-${user.id}@example.com`,
+      password,
+    });
+    expect(loginRes.status).toBe(200);
+    const login = (await loginRes.json()) as { challengeToken?: string };
+    expect(login.challengeToken).toBeTypeOf("string");
+    if (!login.challengeToken) throw new Error("MFA login did not return a challenge token");
+
+    const verified = await stack.http.writeOk<{ session: SessionUser }>(
+      AuthMfaHandlers.verify,
+      { challengeToken: login.challengeToken, code: currentTotpCode(secret) },
+      GUEST,
+    );
+    expect(verified.session.timezone).toBeUndefined();
   });
 
   test("a wrong TOTP code is rejected", async () => {

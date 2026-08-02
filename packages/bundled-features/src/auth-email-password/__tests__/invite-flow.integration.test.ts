@@ -351,6 +351,37 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     expect(memberships).toHaveLength(2);
   });
 
+  test("Bob accepts with a timezone → JWT retains the timezone", async () => {
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${userTable.tableName}" SET timezone = $1 WHERE id = $2`,
+      ["Europe/Berlin", bobId],
+    );
+    try {
+      const token = await inviteEmail(BOB_EMAIL, "Editor");
+
+      const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+        token,
+        email: BOB_EMAIL,
+        password: BOB_PASSWORD,
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { token?: string };
+      expect(body.token).toBeTypeOf("string");
+      if (!body.token) throw new Error("invite acceptance did not return a token");
+
+      const payload = await stack.jwt.verify(body.token);
+      expect(payload.timezone).toBe("Europe/Berlin");
+    } finally {
+      // Bob is shared across this describe block (other tests rely on his
+      // membership state persisting) — restore his timezone so later tests
+      // don't silently inherit it.
+      await asRawClient(stack.db).unsafe(
+        `UPDATE "${userTable.tableName}" SET timezone = NULL WHERE id = $1`,
+        [bobId],
+      );
+    }
+  });
+
   test("Wrong password → 422 invalid_invite_token (anti-enum)", async () => {
     const token = await inviteEmail(BOB_EMAIL, "Editor");
     const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
