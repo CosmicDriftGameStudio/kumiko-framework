@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { collectChangelogs } from "../gen-migration-guide";
+import { collectChangelogs, keepVerifiedDateIfUnchanged } from "../gen-migration-guide";
 
 function writeChangesJson(filePath: string, entries: unknown[]): void {
   mkdirSync(join(filePath, ".."), { recursive: true });
@@ -66,5 +66,55 @@ describe("collectChangelogs", () => {
     } finally {
       rmSync(baseDir, { recursive: true, force: true });
     }
+  });
+});
+
+// The CI step regenerates the guide and then runs `git diff --exit-code`.
+// A fresh `verified` stamp on unchanged content made every day after the
+// last commit fail the pipeline.
+describe("keepVerifiedDateIfUnchanged", () => {
+  const doc = (date: string, body: string) =>
+    `---\ntitle: Migration Guide\nverified: ${date}\n---\n\n${body}\n`;
+  let dir: string;
+  let outPath: string;
+
+  function withCommitted(content: string): void {
+    dir = mkdtempSync(join(tmpdir(), "gen-migration-guide-verified-"));
+    outPath = join(dir, "migration-guide.md");
+    writeFileSync(outPath, content);
+  }
+
+  test("same body → committed date survives (no diff, green pipeline)", () => {
+    withCommitted(doc("2026-08-01", "one breaking change"));
+    try {
+      const result = keepVerifiedDateIfUnchanged(
+        doc("2026-08-02", "one breaking change"),
+        outPath,
+        "2026-08-02",
+      );
+      expect(result).toContain("verified: 2026-08-01");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("changed body → today's date wins", () => {
+    withCommitted(doc("2026-08-01", "one breaking change"));
+    try {
+      const result = keepVerifiedDateIfUnchanged(
+        doc("2026-08-02", "two breaking changes"),
+        outPath,
+        "2026-08-02",
+      );
+      expect(result).toContain("verified: 2026-08-02");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("no committed file yet → today's date", () => {
+    const missing = join(tmpdir(), "gen-migration-guide-does-not-exist.md");
+    const generated = doc("2026-08-02", "first run");
+    expect(keepVerifiedDateIfUnchanged(generated, missing, "2026-08-02")).toBe(generated);
   });
 });
