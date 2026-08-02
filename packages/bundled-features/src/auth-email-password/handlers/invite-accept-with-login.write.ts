@@ -96,7 +96,11 @@ export function createInviteAcceptWithLoginHandler() {
         readonly role: string;
         readonly version: number;
       };
-      type UserAuthRow = { readonly id: string; readonly passwordHash: string | null };
+      type UserAuthRow = {
+        readonly id: string;
+        readonly passwordHash: string | null;
+        readonly timezone?: string | null;
+      };
 
       let committed = false;
       try {
@@ -173,6 +177,10 @@ export function createInviteAcceptWithLoginHandler() {
           // buildSessionRoles calls stripForbiddenMembershipRoles internally —
           // a reserved role on the invitation itself must never reach the session.
           roles: buildSessionRoles([], [invitationRole]),
+          ...(userRow.timezone !== null &&
+            userRow.timezone !== undefined && {
+              timezone: userRow.timezone,
+            }),
         };
 
         committed = true;

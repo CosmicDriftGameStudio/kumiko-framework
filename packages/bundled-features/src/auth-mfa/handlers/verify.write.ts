@@ -135,7 +135,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
       const userRow = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
         id: userId,
-      })) as { roles?: string | null; status?: string } | null; // @cast-boundary engine-payload
+      })) as { roles?: string | null; status?: string; timezone?: string | null } | null; // @cast-boundary engine-payload
 
       // Re-check status + membership the way login.write.ts does after its
       // password check — the challenge token only proves "password was
@@ -168,7 +168,15 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // read-time backstop against a rebuild-resurrected role.
       const mergedRoles = buildSessionRoles(globalRoles, membership.roles);
 
-      const baseSession: SessionUser = { id: userId, tenantId, roles: mergedRoles };
+      const baseSession: SessionUser = {
+        id: userId,
+        tenantId,
+        roles: mergedRoles,
+        ...(userRow?.timezone !== null &&
+          userRow?.timezone !== undefined && {
+            timezone: userRow.timezone,
+          }),
+      };
       const claims = await ctx.resolveAuthClaims(baseSession);
       const session: SessionUser =
         Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
