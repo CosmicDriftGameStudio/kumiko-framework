@@ -47,6 +47,7 @@ const EXPECTED_HELD_BACK = new Set([
 // needs them in FEATURE_IMPORT_REGISTRY; coverage must not flag them stale.
 const EXPECTED_REGISTRY_ONLY = new Set([
   "auth-self-registration", // from ./auth-email-password, auto-mounted with signup (#1521)
+  "collection-labels", // app-local (src/app/), nav labels for this app's content collections
 ]);
 
 // Sub-paths in bundled-features's package.json exports (./tenant/seeding,
