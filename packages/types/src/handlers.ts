@@ -202,7 +202,8 @@ export type NotifyOptions = {
   readonly idempotencyKey?: string;
   // Pseudonymous subject key for the `route` path (no user account). Threaded
   // into the delivery-attempt event's recipientId so crypto-shredding's
-  // forget-subject can reach recipientAddress under this subject.
+  // forget-subject can reach recipientAddress under this subject. Ignored on
+  // the `to` path — there the resolved user id is the recipientId, silently.
   readonly recipientId?: string;
 };
 

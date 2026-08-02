@@ -18,7 +18,7 @@
 // setContent only. Set SKIP_APP_SCREENSHOTS=1 to skip live captures (syncs
 // committed hero-app.png into showcase public/ only).
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { syncLightboxAssets } from "./sync-lightbox-assets.ts";
@@ -52,6 +52,12 @@ type Runner = {
   readonly required?: boolean;
   /** Runs after a successful spawn (e.g. copy recipe assets into an app). */
   readonly after?: () => void;
+  /** Wipe `out` before spawning — only safe for a runMatrix() sample-preview
+   *  dir dedicated to this one runner. NOT set on use-all-bundled (`out` IS
+   *  the shared features tree that marketing-demo/config.png also live
+   *  under) or on apex-landing/marketing-demo (no runMatrix, no per-scenario
+   *  dirs to go stale). */
+  readonly cleanOut?: boolean;
 };
 
 const SCREENSHOTS_CMD = [
@@ -90,28 +96,38 @@ const SCREENSHOT_RUNNERS: readonly Runner[] = [
     cwd: resolve(SAMPLES_ROOT, "apps/ui-walkthrough"),
     command: SCREENSHOTS_CMD,
     out: sampleOut("apps/ui-walkthrough"),
+    cleanOut: true,
   },
   {
     id: "workspaces",
     cwd: resolve(SAMPLES_ROOT, "apps/workspaces"),
     command: SCREENSHOTS_CMD,
     out: sampleOut("apps/workspaces"),
+    cleanOut: true,
   },
   {
     id: "showcase",
     cwd: resolve(SAMPLES_ROOT, "apps/showcase"),
     command: ["bun", "run", "screenshot"],
     out: sampleOut("apps/showcase"),
+    cleanOut: true,
   },
   {
     id: "styleguide",
     cwd: resolve(SAMPLES_ROOT, "apps/styleguide"),
     command: SCREENSHOTS_CMD,
     out: sampleOut("apps/styleguide"),
+    cleanOut: true,
   },
 ];
 
 async function runRunner(r: Runner): Promise<void> {
+  if (r.cleanOut) {
+    // Renamed/removed scenarios leave their old directory behind —
+    // findPreviews reads the tree as truth, so a stale dir keeps producing
+    // a docgen preview for a scenario that no longer exists.
+    rmSync(r.out, { recursive: true, force: true });
+  }
   mkdirSync(r.out, { recursive: true });
   console.log(`\n→ ${r.id} …`);
   const proc = Bun.spawn([...r.command], {

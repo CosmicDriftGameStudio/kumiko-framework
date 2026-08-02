@@ -122,7 +122,13 @@ function axis<T extends string>(env: string | undefined, all: readonly T[]): rea
     .filter(Boolean);
   if (!picked || picked.length === 0) return all;
   // ponytail: filter-instead-of-cast — unbekannte Werte werden still ignoriert
-  return picked.filter((p): p is T => (all as readonly string[]).includes(p));
+  const matched = picked.filter((p): p is T => (all as readonly string[]).includes(p));
+  if (matched.length === 0) {
+    throw new Error(
+      `axis(): env filter "${env}" matched none of [${all.join(", ")}] — 0 registered tests.`,
+    );
+  }
+  return matched;
 }
 
 export interface MatrixOptions<T extends string> {

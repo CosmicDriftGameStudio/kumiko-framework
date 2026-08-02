@@ -98,18 +98,32 @@ export async function purgeSearchDocumentsForSubject(
         }
       }
 
-      const rows = await executeRawQuery<{ id: string; tenant_id: string }>(
-        db,
-        `SELECT id, tenant_id FROM ${quoteIdent(tableName)} WHERE ${orParts.join(" OR ")}`,
-        params,
-      );
-      for (const row of rows) {
-        const key = `${row.tenant_id}:${entityName}:${row.id}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const list = byTenant.get(row.tenant_id) ?? [];
-        list.push({ entityType: entityName, entityId: row.id as EntityId });
-        byTenant.set(row.tenant_id, list);
+      // ponytail: LIMIT/OFFSET, not a keyset cursor — mirrors reindexEntity's
+      // same tradeoff (id type varies uuid/serial across entities). A
+      // tenant-destroy purge is a one-time sweep, not a hot path.
+      const batchSize = 500;
+      const whereSql = orParts.join(" OR ");
+      let offset = 0;
+      for (;;) {
+        const offsetN = params.length + 1;
+        const rows = await executeRawQuery<{ id: string; tenant_id: string }>(
+          db,
+          `SELECT id, tenant_id FROM ${quoteIdent(tableName)} WHERE ${whereSql}
+            ORDER BY ${quoteIdent("id")} ASC
+            LIMIT ${batchSize} OFFSET $${offsetN}`,
+          [...params, offset],
+        );
+        if (rows.length === 0) break;
+        for (const row of rows) {
+          const key = `${row.tenant_id}:${entityName}:${row.id}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const list = byTenant.get(row.tenant_id) ?? [];
+          list.push({ entityType: entityName, entityId: row.id as EntityId });
+          byTenant.set(row.tenant_id, list);
+        }
+        offset += rows.length;
+        if (rows.length < batchSize) break;
       }
     }
   }

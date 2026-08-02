@@ -168,7 +168,14 @@ function ReferenceInput({
   const handleCreated = useCallback(
     (newId: string | undefined) => {
       setCreateOpen(false);
-      void queryResult.refetch();
+      // Clear the search filter before refetching — the just-created record
+      // won't match whatever the user had typed pre-create, and would then
+      // be missing from `options` (shown as a raw id instead of a label).
+      setSearchTerm("");
+      queryResult.refetch().catch((err: unknown) => {
+        // biome-ignore lint/suspicious/noConsole: no error-surfacing path exists in this widget yet — at minimum, don't swallow it silently.
+        console.error("render-field: refetch after create failed", err);
+      });
       if (newId === undefined) {
         // Record was created server-side but the payload carried no id —
         // can't auto-select it, surface that instead of failing silently.

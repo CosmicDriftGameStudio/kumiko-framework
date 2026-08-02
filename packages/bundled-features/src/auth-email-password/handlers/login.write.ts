@@ -86,19 +86,21 @@ function ok<T>(value: T): GateOk<T> {
   return { ok: true, value };
 }
 
+type AuthenticatableUserRow = AuthUserRow & { readonly passwordHash: string };
+
 /** Uniform response on any credential miss — burns argon2 cost (#774). */
 export async function gateResolveAuthUser(
   ctx: HandlerContext,
   systemUser: SessionUser,
   email: string,
   password: string,
-): Promise<GateOutcome<AuthUserRow>> {
+): Promise<GateOutcome<AuthenticatableUserRow>> {
   const found = parseAuthUserRow(await ctx.queryAs(systemUser, UserQueries.findForAuth, { email }));
   if (!found?.passwordHash || found.isDeleted) {
     await verifyDummyPassword(password);
     return reject(invalidCredentials());
   }
-  return ok(found);
+  return ok({ ...found, passwordHash: found.passwordHash });
 }
 
 /**
@@ -124,14 +126,12 @@ export async function gateEnforceLockout(
 /** Verify password; record miss / clear lockout on hit. */
 export async function gateVerifyPassword(
   ctx: HandlerContext,
-  found: AuthUserRow,
+  found: AuthenticatableUserRow,
   password: string,
   maxFailedAttempts: number,
   lockoutDurationMinutes: number,
 ): Promise<GateOutcome<undefined>> {
-  const passwordHash = found.passwordHash;
-  if (!passwordHash) return reject(invalidCredentials());
-  const passwordOk = await verifyPassword(passwordHash, password);
+  const passwordOk = await verifyPassword(found.passwordHash, password);
   if (!passwordOk) {
     if (ctx.redis) {
       await recordFailedAttempt(ctx.redis, found.id, maxFailedAttempts, lockoutDurationMinutes);

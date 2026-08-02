@@ -88,8 +88,13 @@ describe("buildHandlerContext ctx.tz resolution", () => {
   });
 
   test("ctx.tz.user reads SessionUser.timezone independently of tenant", async () => {
-    // Same tenant as the previous test (Europe/Berlin already set) — proves
-    // user overrides without needing to touch tenant config.
+    const admin = createTestUser({ id: 13, roles: ["Admin"] });
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: "tenant:config:timezone", value: "Europe/Berlin" },
+      admin,
+    );
+
     const user = createTestUser({ id: 12, timezone: "Asia/Tokyo" });
     const res = await stack.http.writeOk<{ tenant: string; user: string }>(
       "probe:write:read-tz",

@@ -14,14 +14,15 @@ const RESPONSE_POINTS = Array.from({ length: 48 }, (_, i) => ({
   value: i === 20 ? null : 120 + Math.round(80 * Math.abs(Math.sin(i / 5))),
 }));
 
+const SENDERS = ["William Smith", "Alice Smith", "Bob Johnson", "Emily Davis"] as const;
+const SUBJECTS = ["Meeting Tomorrow", "Re: Project Update", "Weekend Plans", "Re: Budget"] as const;
+
 // Statische Demo-Inbox (18 Nachrichten) für die InfinityList-Demo — genug
 // Rows, um über pageSize=6 hinweg mehrere Seiten nachzuladen.
 const INBOX_MESSAGES = Array.from({ length: 18 }, (_, i) => ({
   id: `m${i + 1}`,
-  sender: ["William Smith", "Alice Smith", "Bob Johnson", "Emily Davis"][i % 4] as string,
-  subject: ["Meeting Tomorrow", "Re: Project Update", "Weekend Plans", "Re: Budget"][
-    i % 4
-  ] as string,
+  sender: SENDERS[i % SENDERS.length],
+  subject: SUBJECTS[i % SUBJECTS.length],
   snippet: "Hi team, just a reminder about our meeting tomorrow at 10 AM.",
   // % 4 statt % 3: bleibt an der sender/subject-Rotation ausgerichtet, sonst
   // ist irgendwann jede Kombination mal unread und der Filter zeigt visuell

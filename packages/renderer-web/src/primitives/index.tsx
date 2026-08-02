@@ -289,7 +289,7 @@ const FIELD_ICONS: Readonly<Record<string, typeof Mail>> = {
 };
 
 function fieldIconFor(icon: string | undefined): (typeof FIELD_ICONS)[string] | undefined {
-  return icon !== undefined ? FIELD_ICONS[icon] : undefined;
+  return icon !== undefined && Object.hasOwn(FIELD_ICONS, icon) ? FIELD_ICONS[icon] : undefined;
 }
 
 // Wraps a text/number input with a left-positioned prefix icon when

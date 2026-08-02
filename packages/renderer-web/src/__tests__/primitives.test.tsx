@@ -183,6 +183,13 @@ describe("Input kind mapping", () => {
     expect(document.querySelector("svg[aria-hidden='true']")).toBeNull();
   });
 
+  test('kind="text" icon="constructor": prototype-chain key → no icon, no padding', () => {
+    render(<Input id="i" name="i" kind="text" value="" icon="constructor" onChange={() => {}} />);
+    const input = screen.getByRole("textbox");
+    expect(input.className).not.toContain("pl-8");
+    expect(document.querySelector("svg[aria-hidden='true']")).toBeNull();
+  });
+
   test('kind="number" icon="hash": renders prefix icon alongside existing right-align classes', () => {
     render(<Input id="i" name="i" kind="number" value={0} icon="hash" onChange={() => {}} />);
     const input = screen.getByRole("spinbutton");

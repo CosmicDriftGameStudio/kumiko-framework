@@ -1149,6 +1149,21 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // statt eines fixed JSON-Strings. Heute: registry-static, also OK.
   const appSchemaJson = JSON.stringify(buildAppSchema(registry));
 
+  // App-eigene HTTP-Routes mounten — VOR den Seeds (symmetrisch zum
+  // dev-server, siehe create-kumiko-server.ts). Ein Seed, der über den
+  // Dispatcher dispatcht, baut Honos Matcher; danach wirft jedes weitere
+  // app.get() "Can not add a route since the matcher is already built".
+  // Eingehende /api/*-Pfade sind schon vom dispatcher belegt; extraRoutes
+  // sollte die nicht überschreiben (kein enforce, das ist Author-Verantwortung).
+  if (options.extraRoutes) {
+    options.extraRoutes(entrypoint.app, {
+      db,
+      redis,
+      registry,
+      dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
+    });
+  }
+
   // 9. Seeds: admin first, then config-seeds from r.config({seeds}),
   //    then app-specific. All idempotent — runProdApp doesn't gate
   //    "first boot" via flag, every seed-step checks its own
@@ -1192,21 +1207,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   }
 
   await entrypoint.start();
-
-  // 10. App-eigene HTTP-Routes mounten — vor dem static-fallback. Hono
-  //     matcht in Eintrags-Reihenfolge, also greifen explizite Routen
-  //     der App (z.B. /feed.xml) bevor der Static-Fallback nach Disk-
-  //     Files sucht. Eingehende /api/*-Pfade sind schon vom dispatcher
-  //     belegt; extraRoutes sollte die nicht überschreiben (kein
-  //     enforce, das ist Author-Verantwortung).
-  if (options.extraRoutes) {
-    options.extraRoutes(entrypoint.app, {
-      db,
-      redis,
-      registry,
-      dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
-    });
-  }
 
   // 11. Build the fetch-handler. Static-fallback for non-/api/ paths
   //     wired via a wrapper so Hono owns /api/* + extraRoutes and disk

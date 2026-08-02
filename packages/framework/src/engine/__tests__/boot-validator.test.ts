@@ -591,7 +591,7 @@ describe("boot-validator", () => {
   });
 
   test("warns when a role is used by exactly one handler, reached through the real validateBoot wiring", () => {
-    const warnSpy = spyOn(console, "warn");
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const features = [
         defineFeature("a", (r) => {
@@ -616,7 +616,7 @@ describe("boot-validator", () => {
   });
 
   test("does NOT warn on unique access roles by default — opt-in only (#1711)", () => {
-    const warnSpy = spyOn(console, "warn");
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const features = [
         defineFeature("b", (r) => {

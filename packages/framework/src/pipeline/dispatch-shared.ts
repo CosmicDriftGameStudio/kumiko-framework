@@ -73,6 +73,13 @@ import {
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 
+// Framework/pipeline stays bundled-features-free, so this can't import the
+// `tenant` feature — the literal below IS the coupling to its `timezone`
+// config key. Renaming that key (or the "tenant" feature name) must update
+// this constant too; tenant-timezone-boot.integration.test.ts boots the real
+// createTenantFeature() and would catch a drift.
+const TENANT_TIMEZONE_CONFIG_KEY = "tenant:config:timezone";
+
 export type BatchCommand = {
   readonly type: string;
   readonly payload: unknown;
@@ -522,7 +529,7 @@ export async function buildHandlerContext(
   // comes from SessionUser.timezone (set at login), else falls back to
   // tenant (createTzContext's own default). An app-injected GeoTzProvider
   // (context.geoTzProvider) feeds ctx.tz.fromCoordinates / fromAddress.
-  const tenantTz = config !== undefined ? await config("tenant:config:timezone") : undefined;
+  const tenantTz = config !== undefined ? await config(TENANT_TIMEZONE_CONFIG_KEY) : undefined;
   // Guarded against garbage: an unvalidated string here (free-form config
   // key, legacy JWT claim predating validation) blows up every ctx.tz call
   // for the whole tenant with a RangeError. Fall back to UTC/tenant instead

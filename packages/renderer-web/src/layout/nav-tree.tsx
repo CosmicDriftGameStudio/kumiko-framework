@@ -315,7 +315,8 @@ function NavLeadingIcon({
   expanded?: boolean;
 }): ReactNode {
   const iconKey = expanded && node.icon === "folder" ? "folder-open" : node.icon;
-  const NavIcon = iconKey !== undefined ? NAV_ICONS[iconKey] : undefined;
+  const NavIcon =
+    iconKey !== undefined && Object.hasOwn(NAV_ICONS, iconKey) ? NAV_ICONS[iconKey] : undefined;
   if (NavIcon !== undefined) return <NavIcon aria-hidden="true" className="shrink-0" />;
   return (
     <span
@@ -489,7 +490,7 @@ function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNode
 // Action-Icon-Lookup: bekannter NAV_ICONS-Key → Lucide, sonst der rohe
 // String als Text (Provider-Konvention, kein Boot-Fail bei unknown).
 function ActionGlyph({ icon }: { readonly icon: string }): ReactNode {
-  const Icon = NAV_ICONS[icon];
+  const Icon = Object.hasOwn(NAV_ICONS, icon) ? NAV_ICONS[icon] : undefined;
   if (Icon !== undefined) return <Icon aria-hidden className="size-3.5" />;
   return (
     <span aria-hidden className="text-xs">
