@@ -49,10 +49,12 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
     // The nav entry alone doesn't say which kind a collection lists, so the
     // client can't derive its tree provider from `navs` — project the
     // collections separately, with the nav QN already qualified.
-    const contentCollections = Object.values(feature.contentCollections ?? {}).map((collection) => ({
-      ...collection,
-      navQn: `${featureName}:nav:${collection.id}`,
-    }));
+    const contentCollections = Object.values(feature.contentCollections ?? {}).map(
+      (collection) => ({
+        ...collection,
+        navQn: `${featureName}:nav:${collection.id}`,
+      }),
+    );
     const featureSchema: FeatureSchema = {
       featureName,
       entities: projectEntities(feature.entities ?? {}),

@@ -4,8 +4,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
-import { buildAppSchema } from "../build-app-schema";
 import { validateBoot as validateBootRaw } from "../boot-validator";
+import { buildAppSchema } from "../build-app-schema";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
 
@@ -30,7 +30,7 @@ describe("r.contentCollection() — registration", () => {
     expect(feature.navs["templates"]?.provider).toBe(true);
     expect(feature.navs["templates"]?.label).toBe("mail:nav.templates");
     expect(feature.navs["templates"]?.icon).toBe("file");
-    expect(feature.contentCollections["templates"]?.kind).toBe("mail-html");
+    expect(feature.contentCollections?.["templates"]?.kind).toBe("mail-html");
   });
 
   test("passes nav placement through: parent, order, access, workspaces", () => {
@@ -54,6 +54,26 @@ describe("r.contentCollection() — registration", () => {
     expect(nav?.order).toBe(20);
     expect(nav?.access).toEqual({ roles: ["TenantAdmin"] });
     expect(nav?.workspaces).toEqual(["mail:workspace:ops"]);
+  });
+
+  test("passes createAction and hover actions through to the nav entry", () => {
+    const target = { featureId: "template-resolver", action: "create", args: { folder: "" } };
+    const feature = defineFeature("mail", (r) => {
+      r.contentCollection({
+        id: "templates",
+        kind: "mail-html",
+        nav: {
+          label: "mail:nav.templates",
+          createAction: { label: "mail:action.new", icon: "plus", target },
+          actions: [{ label: "mail:action.list", icon: "list", target }],
+        },
+      });
+    });
+
+    // Without these a collection can only list what already exists — the "+"
+    // affordance is the whole authoring entry point.
+    expect(feature.navs["templates"]?.createAction?.label).toBe("mail:action.new");
+    expect(feature.navs["templates"]?.actions).toHaveLength(1);
   });
 
   test("rejects a second collection with the same id", () => {

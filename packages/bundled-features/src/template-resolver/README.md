@@ -177,6 +177,14 @@ dem Schema und können nicht auseinanderlaufen.
 dangling Refs ab — eine Collection unter einem nicht gemounteten Feature lässt
 den Boot scheitern statt still aus der Sidebar zu verschwinden.
 
+Ein "+" am Knoten braucht ein explizites `nav.createAction` (Ziel ist
+üblicherweise `treeHandle.create`); ohne das listet die Collection nur, was
+schon existiert. `nav.actions` setzt Hover-Actions auf die Zeile.
+
+Speichern im Collection-Editor läuft über `set` und **veröffentlicht sofort** —
+Status `active`, leeres `variableSchema`. Wer eine Draft-Stufe oder ein
+Variablen-Schema braucht, nimmt `upsertSystem`/`upsertTenant` + `publish`.
+
 ## Out-of-Scope
 
 - Rendering (Markdown/MJML → HTML/PDF) — siehe `renderer-foundation`

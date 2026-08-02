@@ -18,11 +18,10 @@ import type {
 } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
 
-/** Rückgabe einer `navProvidersFromCollections`-Factory: die Provider selbst
- *  plus die Entities deren Live-Events sie neu feuern sollen. Ohne `entities`
- *  bliebe der abgeleitete Tree stehen bis zum Re-Mount — der statisch
- *  verdrahtete Pfad hat den SSE-Refresh, der abgeleitete darf ihn nicht
- *  verlieren. */
+/** What a `navProvidersFromCollections` factory returns: the providers plus
+ *  the entities whose live events should re-fire them. Without `entities` a
+ *  derived tree would sit stale until re-mount — the hand-wired path has the
+ *  SSE refresh and the derived one must not lose it. */
 export type CollectionNavProviders = {
   readonly providers: Readonly<Record<string, TreeChildrenSubscribe>>;
   readonly entities?: Readonly<Record<string, readonly string[]>>;
@@ -79,13 +78,13 @@ export type ClientFeatureDefinition = {
    *  (analog `treeEntities`). Live-Event für eine Entity → Provider des
    *  Knotens wird neu aufgerufen → neue Kinder erscheinen live. */
   readonly navEntities?: Readonly<Record<string, readonly string[]>>;
-  /** Nav-Provider die erst aus dem App-Schema hervorgehen — aufgerufen mit
-   *  allen `r.contentCollection()`-Deklarationen der App. Ein Feature das
-   *  beliebig viele Collections bedient (template-resolver) kann so pro
-   *  Collection einen Provider bauen, ohne dass die App navId + kind ein
-   *  zweites Mal hinschreibt und ohne dass der Renderer bundled-features
-   *  kennen muss. Ergebnis wird mit `navProviders` gemerged; die statische
-   *  Map gewinnt bei Key-Kollision (explizit schlägt abgeleitet). */
+  /** Nav providers derived from the app schema — called with every
+   *  `r.contentCollection()` the app declares. A feature that serves any
+   *  number of collections (template-resolver) builds one provider per
+   *  collection this way, without the app writing navId + kind a second time
+   *  and without the renderer having to know bundled-features. Merged with
+   *  `navProviders`; the static map wins on key collision (explicit beats
+   *  derived). */
   readonly navProvidersFromCollections?: (
     collections: readonly QualifiedContentCollection[],
   ) => CollectionNavProviders;

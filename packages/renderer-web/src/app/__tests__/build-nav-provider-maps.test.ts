@@ -93,7 +93,10 @@ describe("buildNavProviderMaps", () => {
 
   test("Feature ohne Collections-Factory bleibt unberührt von deklarierten Collections", () => {
     const feature: ClientFeatureDefinition = { name: "cms", navProviders: { content: provider() } };
-    const { navProviders } = buildNavProviderMaps([feature], [collection("templates", "mail-html")]);
+    const { navProviders } = buildNavProviderMaps(
+      [feature],
+      [collection("templates", "mail-html")],
+    );
     expect([...navProviders.keys()]).toEqual(["cms:nav:content"]);
   });
 });

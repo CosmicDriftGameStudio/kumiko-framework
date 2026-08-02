@@ -360,7 +360,7 @@ export type FeatureDefinition = {
   // feature-local short id. Each one also produced a nav entry under the
   // same id — this slot carries the `kind` the client needs to build the
   // matching tree provider, which a NavDefinition has no place for.
-  readonly contentCollections: Readonly<Record<string, ContentCollectionDefinition>>;
+  readonly contentCollections?: Readonly<Record<string, ContentCollectionDefinition>>;
   // HTTP-Routes declared via r.httpRoute(). Index is "METHOD path"
   // (z.B. "GET /feed.xml") — eindeutig pro Feature. Die App-Server-
   // Boot-Stage iteriert getAllHttpRoutes() und mountet jede Route auf

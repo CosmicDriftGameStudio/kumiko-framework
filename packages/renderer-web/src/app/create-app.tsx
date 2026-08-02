@@ -65,10 +65,10 @@ export function qualifyNavProviderKey(feature: string, id: string): string {
 // (cross-feature, z.B. App registriert Nav für ein bundled-feature) gehen
 // unverändert durch.
 //
-// Schema-abgeleitete Provider (r.contentCollection) laufen zuerst und sind der
-// schwächere Anspruch auf eine QN — ein explizit registrierter navProvider
-// überschreibt sie kommentarlos. Nur zwei EXPLIZITE Registrierungen auf
-// derselben QN sind der Konflikt, der die Warnung verdient.
+// Schema-derived providers (r.contentCollection) run first and hold the weaker
+// claim on a QN — an explicitly registered navProvider overrides them without
+// comment. Only two EXPLICIT registrations on the same QN are the conflict
+// that deserves the warning.
 export function buildNavProviderMaps(
   clientFeatures: readonly ClientFeatureDefinition[],
   collections: readonly QualifiedContentCollection[],

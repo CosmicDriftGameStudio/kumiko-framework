@@ -20,6 +20,13 @@ import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema }
 // `kind` defaults to text-block. A collection editor passes its own kind; on
 // update only title/content/contentFormat/folder move, so a mail template's
 // variableSchema and status survive being edited through the tree.
+//
+// On CREATE this path stays what it is for text-blocks: status "active",
+// empty variableSchema, no parent. A mail template created through a
+// collection tree is therefore live immediately and skips the
+// upsertTenant → publish draft stage. That is the deliberate split between
+// the two authoring routes — use upsertSystem/upsertTenant when a template
+// needs a draft or a variable schema.
 export const setWrite = defineWriteHandler({
   name: "set",
   schema: z.object({

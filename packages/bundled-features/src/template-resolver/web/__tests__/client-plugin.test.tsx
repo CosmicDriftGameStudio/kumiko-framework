@@ -105,7 +105,8 @@ describe("textBlocksClient — content collections", () => {
   test("a collection's provider requests its own kind and stamps it on the edit target", async () => {
     let sentPayload: Record<string, unknown> = {};
     globalThis.fetch = mock(async (_url: string, init?: RequestInit) => {
-      sentPayload = (JSON.parse(String(init?.body)) as { payload: Record<string, unknown> }).payload;
+      sentPayload = (JSON.parse(String(init?.body)) as { payload: Record<string, unknown> })
+        .payload;
       return new Response(
         JSON.stringify({
           data: {

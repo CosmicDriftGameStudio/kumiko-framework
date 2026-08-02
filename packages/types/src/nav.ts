@@ -67,11 +67,11 @@ export type NavDefinition = {
 };
 
 // A feature's content collection — a set of template-resources of one `kind`,
-// mounted in the nav where it fachlich belongs rather than under a central
-// "Content" section. Declared via r.contentCollection(), which registers the
-// nav entry (always `provider: true`, the tree children arrive at runtime)
-// and records the `kind` so the client can build the matching tree provider
-// without the app repeating it.
+// mounted in the nav next to the feature it belongs to rather than under a
+// central "Content" section. Declared via r.contentCollection(), which
+// registers the nav entry (always `provider: true`, the tree children arrive
+// at runtime) and records the `kind` so the client can build the matching tree
+// provider without the app repeating it.
 //
 // `parent` may point at another feature's nav QN; the boot validator rejects
 // dangling refs, so a collection mounted under a feature that isn't mounted
@@ -91,5 +91,11 @@ export type ContentCollectionDefinition = {
     readonly order?: number;
     readonly access?: AccessRule;
     readonly workspaces?: readonly string[];
+    // "+" affordance on the node and hover actions on the row — same meaning
+    // as on NavDefinition. Without a createAction a collection can only list
+    // what already exists; the target is usually the owning feature's
+    // r.treeActions create.
+    readonly createAction?: TreeAction;
+    readonly actions?: readonly TreeAction[];
   };
 };

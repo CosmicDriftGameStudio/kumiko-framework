@@ -4,7 +4,7 @@
 // no kind other than text-block may leave through the anonymous path.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { createAnonymousUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -17,7 +17,7 @@ import {
 import { createTemplateResolverFeature } from "../feature";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names";
 import { seedTextBlock } from "../seeding";
-import { templateResourceEntity } from "../table";
+import { type TemplateResourceRow, templateResourceEntity, templateResourcesTable } from "../table";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -164,5 +164,31 @@ describe("set :: kind round-trip", () => {
       tenantAdmin,
     );
     expect(block.title).toBe("Willkommen (Text-Block)");
+  });
+
+  test("creating through a collection publishes immediately — no draft stage", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.set,
+      {
+        slug: "invoice",
+        kind: "mail-html",
+        locale: "de",
+        title: "Rechnung",
+        content: "<p>Rechnung</p>",
+        contentFormat: "html",
+      },
+      tenantAdmin,
+    );
+
+    const row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      tenantId: tenantAdmin.tenantId,
+      slug: "invoice",
+      kind: "mail-html",
+      locale: "de",
+    });
+    // The tree editor is the no-draft route; upsertTenant + publish is the
+    // one that stages. Pinned because the split is easy to "fix" by accident.
+    expect(row?.status).toBe("active");
+    expect(row?.variableSchema).toBe("{}");
   });
 });

@@ -392,6 +392,10 @@ export function buildUiExtensionsMethods<TName extends string>(
         ...(definition.nav.order !== undefined && { order: definition.nav.order }),
         ...(definition.nav.access !== undefined && { access: definition.nav.access }),
         ...(definition.nav.workspaces !== undefined && { workspaces: definition.nav.workspaces }),
+        ...(definition.nav.createAction !== undefined && {
+          createAction: definition.nav.createAction,
+        }),
+        ...(definition.nav.actions !== undefined && { actions: definition.nav.actions }),
         // The tree children come from a runtime provider keyed on this QN —
         // a collection without it would render as an empty leaf.
         provider: true,
