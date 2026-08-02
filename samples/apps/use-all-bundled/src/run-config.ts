@@ -70,6 +70,7 @@ import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { templateResolverUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver-user-data";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createTenantSettingsFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
 import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
@@ -207,7 +208,30 @@ export const APP_FEATURES = [
 
   // CMS / content
   createLegalPagesFeature(),
-  createTemplateResolverFeature(),
+  createTemplateResolverFeature({
+    // One collection per ownership mode so the smoke app exercises both paths:
+    // a shared set an admin curates, and a per-user set every agent keeps.
+    collections: [
+      {
+        id: "reply-snippets",
+        kind: "mail-html",
+        access: { roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] },
+        nav: { label: "templateResolver:nav.snippets" },
+      },
+      {
+        id: "signatures",
+        kind: "mail-html",
+        ownership: "user",
+        access: { roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] },
+        nav: { label: "templateResolver:nav.signatures" },
+      },
+    ],
+  }),
+  // template-resolver-user-data: GDPR export/erase coverage for the
+  // user-content-entry rows the `signatures` collection writes. Mandatory
+  // whenever a user-owned collection is mounted — the boot guard refuses the
+  // subject-carrying entity without it.
+  templateResolverUserDataFeature,
   createRendererFoundationFeature(),
   createRendererSimpleFeature(),
 

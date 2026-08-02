@@ -64,6 +64,7 @@ export const exportJobTable = buildEntityTable("export-job", _userDataRights.ent
 export const exportDownloadTokenTable = buildEntityTable("export-download-token", _userDataRights.entities["export-download-token"]!);
 export const downloadAttemptTable = buildEntityTable("download-attempt", _userDataRights.entities["download-attempt"]!);
 export const templateResourceTable = buildEntityTable("template-resource", _templateResolver.entities["template-resource"]!);
+export const userContentEntryTable = buildEntityTable("user-content-entry", _templateResolver.entities["user-content-entry"]!);
 export const pageTable = buildEntityTable("page", _managedPages.entities["page"]!);
 export const fieldDefinitionTable = buildEntityTable("field-definition", _customFields.entities["field-definition"]!);
 export const tagTable = buildEntityTable("tag", _tags.entities["tag"]!);

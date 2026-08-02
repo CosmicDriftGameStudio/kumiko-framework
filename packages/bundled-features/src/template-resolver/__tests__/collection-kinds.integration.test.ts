@@ -262,20 +262,28 @@ describe("public handlers stay public and stay text-block", () => {
   });
 });
 
-describe("mount-time guard", () => {
-  test("ownership 'user' is rejected until the ownerId column exists", () => {
-    expect(() =>
-      createTemplateResolverFeature({
-        collections: [
-          {
-            id: "signatures",
-            kind: "mail-html",
-            ownership: "user",
-            access: { roles: ["Agent"] },
-            nav: { label: "mail:nav.signatures" },
-          },
-        ],
-      }),
-    ).toThrow(/#1770/);
+describe("mount-time entity registration", () => {
+  test("a tenant-only mount does not register the user-content entity", () => {
+    // It carries a `userOwned` field, which makes it subject data and puts the
+    // EXT_USER_DATA boot guard in play. Apps with no user-owned collection
+    // must not inherit that obligation.
+    const entities = Object.keys(feature.entities ?? {});
+    expect(entities).toContain("template-resource");
+    expect(entities).not.toContain("user-content-entry");
+  });
+
+  test("declaring a user-owned collection registers it", () => {
+    const withSignatures = createTemplateResolverFeature({
+      collections: [
+        {
+          id: "signatures",
+          kind: "mail-html",
+          ownership: "user",
+          access: { roles: ["Agent"] },
+          nav: { label: "mail:nav.signatures" },
+        },
+      ],
+    });
+    expect(Object.keys(withSignatures.entities ?? {})).toContain("user-content-entry");
   });
 });

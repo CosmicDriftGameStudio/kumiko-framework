@@ -208,9 +208,42 @@ Speichern **veröffentlicht sofort** — Status `active`, leeres `variableSchema
 Wer eine Draft-Stufe oder ein Variablen-Schema braucht, nimmt
 `upsertSystem`/`upsertTenant` + `publish`.
 
-`ownership: "user"` (jeder Enduser pflegt seine eigenen Einträge, z.B.
-Signaturen) ist im Typ vorhanden, aber noch nicht implementiert — der Mount
-wirft dann, statt still allen denselben Satz zu zeigen. Siehe #1770.
+### ownership: user vs. tenant
+
+`ownership: "tenant"` (Default) heißt: ein Satz, den alle im Tenant teilen —
+kuratierte Bausteine, AI-Prompts. `ownership: "user"` heißt: jeder Enduser
+pflegt seine eigenen Einträge — Mail-Signaturen, persönliche Antwort-Bausteine.
+
+User-owned Collections liegen in einer **eigenen Tabelle**
+(`read_user_content_entries`, Entity `user-content-entry`) mit `ownerId NOT
+NULL` und Unique-Index `(tenantId, ownerId, slug, kind, locale)`. Zwei Agents
+können damit beide eine Signatur `standard` haben.
+
+Warum nicht eine Tabelle mit nullbarer `ownerId`: das `content`-Feld dort
+trägt `userOwned` (Name, Telefonnummer, Anschrift → crypto-shredding). Diese
+Annotation wird **pro Entity** aufgelöst, nicht pro Zeile, und
+`resolveSubjectForField` wirft, wenn die Owner-Spalte leer ist — jede
+tenant-weite Mail-Template-Zeile würde beim Schreiben scheitern.
+
+Beim Mounten einer user-owned Collection sind zwei Dinge Pflicht:
+
+1. **Migration.** Die Entity kommt nur in den Schema-Diff, wenn mindestens eine
+   user-owned Collection deklariert ist. Danach in der App
+   `bunx kumiko-schema generate add-user-content` + `apply` — ohne die Tabelle
+   antwortet der Handler in Prod mit 500.
+2. **`template-resolver-user-data` mitmounten.** Die Entity trägt Subject-Daten;
+   ohne den EXT_USER_DATA-Hook verweigert der Boot-Guard den Start. Das Feature
+   liefert den Art.-20-Export; die Löschung (Art. 17) läuft über
+   crypto-shredding, nicht über einen physischen DELETE — der wäre bei einer
+   event-sourced Entity nicht replay-fest.
+
+Der Locale-Fallback von `resolveTemplate` gilt für user-owned Einträge **nicht**:
+sie werden gelistet und editiert, nie als Tenant/System-Override aufgelöst. Wer
+im Client eigene *und* geteilte Bausteine zeigen will, mountet zwei Collections
+nebeneinander und führt sie in der UI zusammen.
+
+Unter `tenantIdOverride` (SystemAdmin) bleibt die Zeile die **eigene** des
+Aufrufers im fremden Tenant — ein Admin editiert nie die Signatur eines anderen.
 
 ## Out-of-Scope
 

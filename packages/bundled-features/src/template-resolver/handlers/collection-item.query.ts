@@ -5,13 +5,17 @@ import {
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { type TemplateResourceRow, templateResourcesTable } from "../table";
-import { DEFAULT_COLLECTION_ACCESS, ownerFilter } from "./collection-shared";
+import {
+  type CollectionEntryRow,
+  collectionStore,
+  DEFAULT_COLLECTION_ACCESS,
+  toCollectionEntry,
+} from "./collection-shared";
 
 // Single entry of one collection, for the editor behind a tree node. Same
 // per-collection construction as collection-list — see there for why.
 export function makeCollectionItemQuery(collection: ContentCollectionDefinition) {
-  const isUserOwned = collection.ownership === "user";
+  const store = collectionStore(collection);
   return defineQueryHandler({
     name: `${collection.id}-item`,
     schema: z.object({
@@ -30,23 +34,16 @@ export function makeCollectionItemQuery(collection: ContentCollectionDefinition)
       );
       if (overrideDenied) throw overrideDenied;
       const tenantId = override ?? query.user.tenantId;
-      const row = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
+      const row = await fetchOne<CollectionEntryRow>(ctx.db, store.table, {
         tenantId,
         slug: query.payload.slug,
         kind: collection.kind,
         locale: query.payload.locale,
-        ...ownerFilter(isUserOwned, query.user),
+        ...store.scopeOf(query.user),
       });
 
       if (!row) return null;
-      return {
-        slug: row.slug,
-        locale: row.locale,
-        title: row.title,
-        content: row.content,
-        folder: row.folder,
-        updatedAt: row.updatedAt,
-      };
+      return toCollectionEntry(row);
     },
   });
 }
