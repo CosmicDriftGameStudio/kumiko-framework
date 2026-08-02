@@ -81,7 +81,10 @@ export function collectChangelogs(
   return result;
 }
 
-function generateMarkdown(changelogs: Map<string, readonly ChangelogEntry[]>): string {
+function generateMarkdown(
+  changelogs: Map<string, readonly ChangelogEntry[]>,
+  verifiedDate: string,
+): string {
   const lines: string[] = [];
 
   lines.push("---");
@@ -91,7 +94,7 @@ function generateMarkdown(changelogs: Map<string, readonly ChangelogEntry[]>): s
   // guard-doc-status requires an ISO `verified` on every doc under docs/.
   // For a derived doc that date is the generation date — regenerating IS the
   // verification, there is nothing else to check by hand.
-  lines.push(`verified: ${new Date().toISOString().slice(0, 10)}`);
+  lines.push(`verified: ${verifiedDate}`);
   lines.push("---");
   lines.push("");
   lines.push("# Migration Guide");
@@ -162,6 +165,22 @@ function generateMarkdown(changelogs: Map<string, readonly ChangelogEntry[]>): s
   return lines.join("\n");
 }
 
+const VERIFIED_LINE = /^verified: \d{4}-\d{2}-\d{2}$/m;
+
+export function keepVerifiedDateIfUnchanged(
+  generated: string,
+  outPath: string,
+  today: string,
+): string {
+  if (!existsSync(outPath)) return generated;
+  const previous = readFileSync(outPath, "utf-8");
+  const previousDate = previous.match(VERIFIED_LINE)?.[0];
+  if (previousDate === undefined) return generated;
+  const stripDate = (doc: string) => doc.replace(VERIFIED_LINE, "");
+  if (stripDate(previous) !== stripDate(generated)) return generated;
+  return generated.replace(`verified: ${today}`, previousDate);
+}
+
 function main() {
   const args = process.argv.slice(2);
   let fromVersion: string | undefined;
@@ -178,7 +197,16 @@ function main() {
   }
 
   const changelogs = collectChangelogs(fromVersion);
-  const markdown = generateMarkdown(changelogs);
+  const today = new Date().toISOString().slice(0, 10);
+  // Keep the committed `verified` date when only the date would change:
+  // the CI step regenerates and then runs `git diff --exit-code`, so a
+  // fresh stamp on unchanged content turns every day after the last commit
+  // into a red pipeline.
+  const markdown = keepVerifiedDateIfUnchanged(
+    generateMarkdown(changelogs, today),
+    outPath,
+    today,
+  );
 
   // Ensure output directory exists
   const outDir = outPath.split("/").slice(0, -1).join("/");
