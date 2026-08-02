@@ -7,20 +7,26 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { TEXT_BLOCK_KIND } from "../constants";
+import { TEMPLATE_KINDS, TEXT_BLOCK_KIND } from "../constants";
 import { type TemplateResourceRow, templateResourcesTable } from "../table";
 import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema } from "./shared";
 
-// Upsert of a single text-block, one operation per (tenantId, slug, locale).
-// This is the authoring path for kind=text-block: unlike upsertTenant it takes
-// a title and a folder, has no draft stage (text blocks are live when saved)
-// and it may write onto SYSTEM_TENANT_ID, which is where legal and marketing
-// copy lives. Cross-tenant writes are SystemAdmin-only.
+// Upsert of a single resource, one operation per (tenantId, slug, kind,
+// locale). This is the content-tree authoring path: unlike upsertTenant it
+// takes a title and a folder, has no draft stage (saving publishes) and it may
+// write onto SYSTEM_TENANT_ID, which is where legal and marketing copy lives.
+// Cross-tenant writes are SystemAdmin-only.
+//
+// `kind` defaults to text-block. A collection editor passes its own kind; on
+// update only title/content/contentFormat/folder move, so a mail template's
+// variableSchema and status survive being edited through the tree.
 export const setWrite = defineWriteHandler({
   name: "set",
   schema: z.object({
     slug: slugSchema,
     locale: localeSchema,
+    /** Which kind to author. Defaults to text-block. */
+    kind: z.enum(TEMPLATE_KINDS).optional(),
     title: z.string().min(1).max(200),
     content: z.string().max(200_000).nullable(),
     contentFormat: contentFormatSchema.default("markdown"),
@@ -51,16 +57,17 @@ export const setWrite = defineWriteHandler({
     // and reports a version conflict although the projection row exists.
     const executorUser = override !== undefined ? { ...event.user, tenantId } : event.user;
 
+    const kind = event.payload.kind ?? TEXT_BLOCK_KIND;
     const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
       tenantId,
       slug: event.payload.slug,
-      kind: TEXT_BLOCK_KIND,
+      kind,
       locale: event.payload.locale,
     });
 
     const fields = {
       slug: event.payload.slug,
-      kind: TEXT_BLOCK_KIND,
+      kind,
       locale: event.payload.locale,
       title: event.payload.title,
       content: event.payload.content,

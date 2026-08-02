@@ -9,7 +9,7 @@
 
 import type { TranslationKeys } from "../engine/types/config";
 import type { EntityDefinition } from "../engine/types/fields";
-import type { NavDefinition } from "../engine/types/nav";
+import type { ContentCollectionDefinition, NavDefinition } from "../engine/types/nav";
 import type { ScreenDefinition } from "../engine/types/screen";
 import type { WorkspaceDefinition } from "../engine/types/workspace";
 
@@ -20,6 +20,12 @@ export type FeatureSchema = {
   // Flat list; resolveNavigation builds the tree at render-time from
   // the registry's indexes. Omitted when the app has no top-level nav.
   readonly navs?: readonly NavDefinition[];
+  // Content collections declared via r.contentCollection(), each with its nav
+  // QN already qualified. The matching nav entries are in `navs` like any
+  // other; this list only carries what a NavDefinition can't express — which
+  // template-resource `kind` the node lists — so the client can build one
+  // tree provider per collection. Omitted when a feature declares none.
+  readonly contentCollections?: readonly QualifiedContentCollection[];
   // Server-authored `r.translations({ keys })`, projected verbatim — byte-
   // identical keys, NOT re-prefixed with featureName (unlike the registry's
   // internal mergedTranslations, which double-prefixes features that
@@ -37,6 +43,12 @@ export type FeatureSchema = {
   // Fallback erhalten damit alte clientSchema-Files (vor AppSchema)
   // ohne Migration weiter laufen — toAppSchema() hebt die Liste hoch.
   readonly workspaces?: readonly WorkspaceSchema[];
+};
+
+// A content collection as it reaches the client: the declaration plus the
+// already-qualified nav QN, so consumers don't rebuild "<feature>:nav:<id>".
+export type QualifiedContentCollection = ContentCollectionDefinition & {
+  readonly navQn: string;
 };
 
 // Per-workspace projection of the engine's WorkspaceDefinition + the

@@ -25,7 +25,7 @@ import type {
 } from "./types";
 import { HookPhases } from "./types";
 import type { HttpRouteDefinition } from "./types/http-route";
-import type { NavDefinition } from "./types/nav";
+import type { ContentCollectionDefinition, NavDefinition } from "./types/nav";
 import type { ScreenDefinition } from "./types/screen";
 import type { WorkspaceDefinition } from "./types/workspace";
 
@@ -372,6 +372,32 @@ export function buildUiExtensionsMethods<TName extends string>(
     },
     nav(definition: NavDefinition): void {
       registerNav(definition);
+    },
+    contentCollection(definition: ContentCollectionDefinition): string {
+      if (state.contentCollections[definition.id]) {
+        throw new Error(
+          `[Feature ${name}] Content collection "${definition.id}" already registered. ` +
+            `Collection ids must be unique per feature.`,
+        );
+      }
+      // registerNav owns the kebab + collision checks, including collisions
+      // with a plain r.nav() of the same id. Optional fields stay absent
+      // rather than explicitly undefined — buildAppSchema's JSON-safety check
+      // flags undefined values.
+      registerNav({
+        id: definition.id,
+        label: definition.nav.label,
+        ...(definition.nav.icon !== undefined && { icon: definition.nav.icon }),
+        ...(definition.nav.parent !== undefined && { parent: definition.nav.parent }),
+        ...(definition.nav.order !== undefined && { order: definition.nav.order }),
+        ...(definition.nav.access !== undefined && { access: definition.nav.access }),
+        ...(definition.nav.workspaces !== undefined && { workspaces: definition.nav.workspaces }),
+        // The tree children come from a runtime provider keyed on this QN —
+        // a collection without it would render as an empty leaf.
+        provider: true,
+      });
+      state.contentCollections[definition.id] = definition;
+      return `${name}:nav:${definition.id}`;
     },
     workspace(definition: WorkspaceDefinition): void {
       // Same kebab guard as r.screen / r.nav so authoring-time mistakes

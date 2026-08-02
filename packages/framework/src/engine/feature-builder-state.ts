@@ -38,7 +38,7 @@ import type {
   WriteHandlerDef,
 } from "./types";
 import type { HttpRouteDefinition } from "./types/http-route";
-import type { NavDefinition } from "./types/nav";
+import type { ContentCollectionDefinition, NavDefinition } from "./types/nav";
 import type { ScreenDefinition } from "./types/screen";
 import type { WorkspaceDefinition } from "./types/workspace";
 
@@ -95,6 +95,7 @@ export type FeatureBuilderState = {
   claimKeys: Record<string, ClaimKeyDefinition>;
   screens: Record<string, ScreenDefinition>;
   navs: Record<string, NavDefinition>;
+  contentCollections: Record<string, ContentCollectionDefinition>;
   workspaces: Record<string, WorkspaceDefinition>;
   httpRoutes: Record<string, HttpRouteDefinition>;
   translations: TranslationKeys;
@@ -155,6 +156,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     claimKeys: {},
     screens: {},
     navs: {},
+    contentCollections: {},
     workspaces: {},
     httpRoutes: {},
     translations: {},

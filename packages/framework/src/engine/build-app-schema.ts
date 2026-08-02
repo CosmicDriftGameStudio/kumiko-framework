@@ -46,11 +46,19 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
   const features: FeatureSchema[] = [];
   for (const [featureName, feature] of registry.features) {
     const navs = Object.values(feature.navs);
+    // The nav entry alone doesn't say which kind a collection lists, so the
+    // client can't derive its tree provider from `navs` — project the
+    // collections separately, with the nav QN already qualified.
+    const contentCollections = Object.values(feature.contentCollections ?? {}).map((collection) => ({
+      ...collection,
+      navQn: `${featureName}:nav:${collection.id}`,
+    }));
     const featureSchema: FeatureSchema = {
       featureName,
       entities: projectEntities(feature.entities ?? {}),
       screens: Object.values(feature.screens),
       ...(navs.length > 0 && { navs }),
+      ...(contentCollections.length > 0 && { contentCollections }),
       // #1059: verbatim r.translations({keys}) — see FeatureSchema.translations
       // doc for why this must NOT go through registry.getAllTranslations()
       // (double-prefixes features that already qualify their own keys).

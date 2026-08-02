@@ -26,6 +26,7 @@ import {
   NavProvider,
   PrimitivesProvider,
   type PrimitivesRegistry,
+  type QualifiedContentCollection,
   qualifyScreenId,
   TokensProvider,
   type TranslationsByLocale,
@@ -56,6 +57,55 @@ import { type ResolverComponent, ResolversProvider } from "./resolvers-context";
 // der NavTree-Knoten (Schema-Seite) seinen Provider nicht.
 export function qualifyNavProviderKey(feature: string, id: string): string {
   return id.includes(":nav:") ? id : `${feature}:nav:${id}`;
+}
+
+// Nav-Provider-Map: ein navProvider hängt dynamische Children an einen
+// konkreten r.nav({provider:true})-Knoten (per QN). Lokale nav-ids werden wie
+// in r.nav mit dem Feature-Namen qualifiziert; bereits qualifizierte QNs
+// (cross-feature, z.B. App registriert Nav für ein bundled-feature) gehen
+// unverändert durch.
+//
+// Schema-abgeleitete Provider (r.contentCollection) laufen zuerst und sind der
+// schwächere Anspruch auf eine QN — ein explizit registrierter navProvider
+// überschreibt sie kommentarlos. Nur zwei EXPLIZITE Registrierungen auf
+// derselben QN sind der Konflikt, der die Warnung verdient.
+export function buildNavProviderMaps(
+  clientFeatures: readonly ClientFeatureDefinition[],
+  collections: readonly QualifiedContentCollection[],
+): {
+  readonly navProviders: ReadonlyMap<string, TreeChildrenSubscribe>;
+  readonly navEntities: ReadonlyMap<string, readonly string[]>;
+} {
+  const navProviders = new Map<string, TreeChildrenSubscribe>();
+  const navEntities = new Map<string, readonly string[]>();
+  const derivedQns = new Set<string>();
+  for (const f of clientFeatures) {
+    if (f.navProvidersFromCollections === undefined) continue;
+    const derived = f.navProvidersFromCollections(collections);
+    for (const [qn, provider] of Object.entries(derived.providers)) {
+      navProviders.set(qn, provider);
+      derivedQns.add(qn);
+    }
+    for (const [qn, entities] of Object.entries(derived.entities ?? {})) {
+      if (entities.length > 0) navEntities.set(qn, entities);
+    }
+  }
+  for (const f of clientFeatures) {
+    for (const [navId, provider] of Object.entries(f.navProviders ?? {})) {
+      const qn = qualifyNavProviderKey(f.name, navId);
+      if (navProviders.has(qn) && !derivedQns.delete(qn)) {
+        // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
+        console.warn(
+          `[kumiko] navProvider for "${qn}" defined by multiple clientFeatures — last wins.`,
+        );
+      }
+      navProviders.set(qn, provider);
+    }
+    for (const [navId, entities] of Object.entries(f.navEntities ?? {})) {
+      if (entities.length > 0) navEntities.set(qualifyNavProviderKey(f.name, navId), entities);
+    }
+  }
+  return { navProviders, navEntities };
 }
 
 // Web-Bootstrap. Mounted den ganzen Kumiko-Render-Stack im Browser:
@@ -270,28 +320,10 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
     }
   }
 
-  // Nav-Provider-Map: ein navProvider hängt dynamische Children an einen
-  // konkreten r.nav({provider:true})-Knoten (per QN). Lokale nav-ids werden
-  // wie in r.nav mit dem Feature-Namen qualifiziert; bereits qualifizierte
-  // QNs (cross-feature, z.B. App registriert Nav für ein bundled-feature)
-  // gehen unverändert durch.
-  const navProviders = new Map<string, TreeChildrenSubscribe>();
-  const navEntities = new Map<string, readonly string[]>();
-  for (const f of clientFeatures) {
-    for (const [navId, provider] of Object.entries(f.navProviders ?? {})) {
-      const qn = qualifyNavProviderKey(f.name, navId);
-      if (navProviders.has(qn)) {
-        // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
-        console.warn(
-          `[kumiko] navProvider for "${qn}" defined by multiple clientFeatures — last wins.`,
-        );
-      }
-      navProviders.set(qn, provider);
-    }
-    for (const [navId, entities] of Object.entries(f.navEntities ?? {})) {
-      if (entities.length > 0) navEntities.set(qualifyNavProviderKey(f.name, navId), entities);
-    }
-  }
+  const { navProviders, navEntities } = buildNavProviderMaps(
+    clientFeatures,
+    app.features.flatMap((f) => f.contentCollections ?? []),
+  );
 
   // Editor-Resolver aggregieren — keyed by "featureId:action". Gleiche
   // Last-Wins-Semantik wie columnRenderers. Warnung bei Kollision.

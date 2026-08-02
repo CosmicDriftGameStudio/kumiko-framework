@@ -128,13 +128,13 @@ kennt keinen draft-Status — Speichern veröffentlicht.
 
 | Handler | QN | Wer | Was |
 |---|---|---|---|
-| `TemplateResolverHandlers.set` | `template-resolver:write:set` | TenantAdmin + SystemAdmin (via `tenantIdOverride` auch auf `SYSTEM_TENANT_ID`) | Upsert eines Text-Blocks pro `(tenantId, slug, locale)` |
-| `TemplateResolverQueries.bySlug` | `template-resolver:query:by-slug` | anonymous + User + Admins | Ein Text-Block — der Public-Read für Landing-/Legal-Pages |
-| `TemplateResolverQueries.byTenant` | `template-resolver:query:by-tenant` | anonymous + User + Admins | Alle Text-Blöcke eines Tenants für den Content-Tree |
+| `TemplateResolverHandlers.set` | `template-resolver:write:set` | TenantAdmin + SystemAdmin (via `tenantIdOverride` auch auf `SYSTEM_TENANT_ID`) | Upsert einer Ressource pro `(tenantId, slug, kind, locale)` |
+| `TemplateResolverQueries.bySlug` | `template-resolver:query:by-slug` | anonymous + User + Admins | Eine Ressource — der Public-Read für Landing-/Legal-Pages |
+| `TemplateResolverQueries.byTenant` | `template-resolver:query:by-tenant` | anonymous + User + Admins | Alle Ressourcen eines Kinds für den Content-Tree |
 
-Die beiden Queries sind fest auf `kind: "text-block"` verdrahtet: Mail-Templates
-und AI-Prompts liegen in derselben Tabelle und dürfen nicht über den anonymen
-Pfad rausfallen.
+Alle drei nehmen ein optionales `kind` und defaulten auf `text-block`. Jeder
+andere Wert verlangt TenantAdmin oder SystemAdmin: die Queries sind anonym
+erreichbar, und Mail-Templates wie AI-Prompts liegen in derselben Tabelle.
 
 Seed-Helper: `seedTextBlock` / `seedLegalContentFromJson` aus
 `@cosmicdrift/kumiko-bundled-features/template-resolver/seeding`.
@@ -148,6 +148,34 @@ createKumikoApp({
   clientFeatures: [textBlocksClient({ navId: "myapp:nav:content", tenantId: SYSTEM_TENANT_ID })],
 });
 ```
+
+## Content-Collections (`r.contentCollection`)
+
+Eine Sammlung erscheint dort in der Nav, wo sie fachlich hingehört — statt alles
+in einen zentralen "Content"-Bereich zu kippen:
+
+```typescript
+export function createMailFeature() {
+  return defineFeature("mail", (r) => {
+    r.nav({ id: "root", label: "mail:nav.root" });
+    r.contentCollection({
+      id: "templates",
+      kind: "mail-html",
+      nav: { label: "mail:nav.templates", parent: "mail:nav:root" },
+    });
+  });
+}
+```
+
+Der Registrar legt den Nav-Knoten mit `provider: true` an und gibt dessen QN
+zurück. `textBlocksClient()` bedient jede deklarierte Collection automatisch —
+ein Folder-Tree pro Collection, gefiltert auf ihren `kind`, inklusive
+SSE-Refresh. Die App reicht dafür nichts durch: navId und kind kommen beide aus
+dem Schema und können nicht auseinanderlaufen.
+
+`nav.parent` darf auf ein fremdes Feature zeigen. Der Boot-Validator lehnt
+dangling Refs ab — eine Collection unter einem nicht gemounteten Feature lässt
+den Boot scheitern statt still aus der Sidebar zu verschwinden.
 
 ## Out-of-Scope
 

@@ -13,9 +13,20 @@ import type { TargetRef, TreeChildrenSubscribe } from "@cosmicdrift/kumiko-frame
 import type {
   ColumnRendererComponent,
   ExtensionSectionComponent,
+  QualifiedContentCollection,
   TranslationsByLocale,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
+
+/** Rückgabe einer `navProvidersFromCollections`-Factory: die Provider selbst
+ *  plus die Entities deren Live-Events sie neu feuern sollen. Ohne `entities`
+ *  bliebe der abgeleitete Tree stehen bis zum Re-Mount — der statisch
+ *  verdrahtete Pfad hat den SSE-Refresh, der abgeleitete darf ihn nicht
+ *  verlieren. */
+export type CollectionNavProviders = {
+  readonly providers: Readonly<Record<string, TreeChildrenSubscribe>>;
+  readonly entities?: Readonly<Record<string, readonly string[]>>;
+};
 
 export type ClientFeatureDefinition = {
   readonly name: string;
@@ -68,6 +79,16 @@ export type ClientFeatureDefinition = {
    *  (analog `treeEntities`). Live-Event für eine Entity → Provider des
    *  Knotens wird neu aufgerufen → neue Kinder erscheinen live. */
   readonly navEntities?: Readonly<Record<string, readonly string[]>>;
+  /** Nav-Provider die erst aus dem App-Schema hervorgehen — aufgerufen mit
+   *  allen `r.contentCollection()`-Deklarationen der App. Ein Feature das
+   *  beliebig viele Collections bedient (template-resolver) kann so pro
+   *  Collection einen Provider bauen, ohne dass die App navId + kind ein
+   *  zweites Mal hinschreibt und ohne dass der Renderer bundled-features
+   *  kennen muss. Ergebnis wird mit `navProviders` gemerged; die statische
+   *  Map gewinnt bei Key-Kollision (explizit schlägt abgeleitet). */
+  readonly navProvidersFromCollections?: (
+    collections: readonly QualifiedContentCollection[],
+  ) => CollectionNavProviders;
 
   /** Editor-Resolver-Komponenten pro featureId:action-Key. Wenn ein
    *  TreeNode mit target angeklickt wird, schlägt der EditorPanel das

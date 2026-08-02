@@ -65,3 +65,31 @@ export type NavDefinition = {
   // → entry belongs to no workspace).
   readonly workspaces?: readonly string[];
 };
+
+// A feature's content collection — a set of template-resources of one `kind`,
+// mounted in the nav where it fachlich belongs rather than under a central
+// "Content" section. Declared via r.contentCollection(), which registers the
+// nav entry (always `provider: true`, the tree children arrive at runtime)
+// and records the `kind` so the client can build the matching tree provider
+// without the app repeating it.
+//
+// `parent` may point at another feature's nav QN; the boot validator rejects
+// dangling refs, so a collection mounted under a feature that isn't mounted
+// fails boot instead of silently disappearing from the sidebar.
+export type ContentCollectionDefinition = {
+  // Feature-local short id, kebab-case. Also becomes the nav entry's id, so
+  // it must not collide with an r.nav()/r.screen() id in the same feature.
+  readonly id: string;
+  // Which template-resource kind this collection lists ("mail-html",
+  // "document-pdf", "text-block", ...). The engine keeps it opaque —
+  // bundled-features owns the kind vocabulary.
+  readonly kind: string;
+  readonly nav: {
+    readonly label: string;
+    readonly icon?: string;
+    readonly parent?: string;
+    readonly order?: number;
+    readonly access?: AccessRule;
+    readonly workspaces?: readonly string[];
+  };
+};
