@@ -3,14 +3,16 @@ import {
   type ContentCollectionDefinition,
   crossTenantOverrideDenied,
   defineWriteHandler,
-  SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { type TemplateResourceRow, templateResourcesTable } from "../table";
-import { DEFAULT_COLLECTION_ACCESS, ownerFilter } from "./collection-shared";
-import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema } from "./shared";
+import {
+  type CollectionEntryRow,
+  collectionStore,
+  DEFAULT_COLLECTION_ACCESS,
+} from "./collection-shared";
+import { contentFormatSchema, folderSchema, localeSchema, slugSchema } from "./shared";
 
 // Upsert inside one collection. Mirrors set.write for text-blocks, but the
 // kind comes from the declaration and the access rule is the collection's own,
@@ -20,7 +22,7 @@ import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema }
 // Like set.write this publishes on save (status active, empty variableSchema)
 // — the draft stage lives on upsertTenant + publish.
 export function makeCollectionSetWrite(collection: ContentCollectionDefinition) {
-  const isUserOwned = collection.ownership === "user";
+  const store = collectionStore(collection);
   return defineWriteHandler({
     name: `${collection.id}-set`,
     schema: z.object({
@@ -47,9 +49,12 @@ export function makeCollectionSetWrite(collection: ContentCollectionDefinition) 
       // user's own tenantId is already TenantId-branded.
       const tenantId = (override ?? event.user.tenantId) as TenantId;
       const executorUser = override !== undefined ? { ...event.user, tenantId } : event.user;
-      const owner = ownerFilter(isUserOwned, event.user);
+      // Scoped to the acting user even under a tenant override: a SystemAdmin
+      // writing into another tenant still writes their own entry, never
+      // someone else's signature.
+      const owner = store.scopeOf(event.user);
 
-      const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      const existing = await fetchOne<CollectionEntryRow>(db, store.table, {
         tenantId,
         slug: event.payload.slug,
         kind: collection.kind,
@@ -58,7 +63,7 @@ export function makeCollectionSetWrite(collection: ContentCollectionDefinition) 
       });
 
       if (existing) {
-        const result = await executor.update(
+        const result = await store.executor.update(
           {
             id: existing.id,
             version: existing.version,
@@ -82,7 +87,7 @@ export function makeCollectionSetWrite(collection: ContentCollectionDefinition) 
         };
       }
 
-      const result = await executor.create(
+      const result = await store.executor.create(
         {
           tenantId,
           slug: event.payload.slug,
@@ -92,11 +97,7 @@ export function makeCollectionSetWrite(collection: ContentCollectionDefinition) 
           content: event.payload.content,
           contentFormat: event.payload.contentFormat,
           folder: event.payload.folder ?? null,
-          variableSchema: "{}",
-          linkedResources: "{}",
-          scope: tenantId === SYSTEM_TENANT_ID ? ("system" as const) : ("tenant" as const),
-          parentTemplateId: null,
-          status: "active" as const,
+          ...store.createDefaults(tenantId),
           ...owner,
         },
         executorUser,

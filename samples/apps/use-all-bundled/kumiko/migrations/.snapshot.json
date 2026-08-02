@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-01T21:42:01.064Z",
+  "generatedAt": "2026-08-02T16:02:10.869Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -2601,6 +2601,103 @@
         }
       ],
       "source": "managed"
+    },
+    {
+      "tableName": "read_user_content_entries",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "owner_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "slug",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "kind",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "locale",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "title",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "folder",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "content",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "content_format",
+          "pgType": "text",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_user_content_entries_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_user_content_entries_unique",
+          "columns": ["tenant_id", "owner_id", "slug", "kind", "locale"],
+          "unique": true
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": ["content"]
     },
     {
       "tableName": "read_user_mfa",

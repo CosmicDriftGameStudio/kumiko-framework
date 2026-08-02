@@ -298,6 +298,18 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/notes-history-user-data",
     exportName: "notesHistoryUserDataFeature",
   },
+  "template-resolver-user-data": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/template-resolver-user-data",
+    exportName: "templateResolverUserDataFeature",
+  },
+  // collection-labels: app-local, translations only, kein r.entity →
+  // generate.ts skipt silent. Listed für schema-check ↔ mounted-set Konsistenz.
+  "collection-labels": {
+    kind: "named",
+    path: "../src/app/collection-labels-feature",
+    exportName: "collectionLabelsFeature",
+  },
   folders: {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/folders",

@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 60,
+  "featureCount": 62,
   "features": [
     {
       "name": "admin-shell",
@@ -353,6 +353,20 @@
         "category": "notifications",
         "recommended": false
       }
+    },
+    {
+      "name": "collection-labels",
+      "description": "Nav labels for the content collections mounted by this sample app.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "compliance-profiles",
@@ -1963,7 +1977,7 @@
     },
     {
       "name": "template-resolver",
-      "description": "The one content store: notification and mail templates, PDF document templates, AI prompts and plain editable text blocks all live here as one entity, distinguished by `kind` (`notification`, `mail-html`, `document-pdf`, `ai-prompt`, `text-block`, `image-snapshot`). Resolution uses a 4-level fallback: tenant+locale → system+locale → tenant+fallback-locale → system+fallback-locale, so tenants can override system defaults without touching application code. Call `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })` at render time; manage templates via the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers. Apps that want an editable collection in their navigation declare it at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })` — `access` belongs to the mount because a bundled feature does not know the host's role vocabulary. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers carrying that collection's access rule, so the dispatcher enforces the separation. Replaces the former `text-content` feature, whose blocks now live here as kind `text-block`.",
+      "description": "The one content store: notification and mail templates, PDF document templates, AI prompts and plain editable text blocks all live here as one entity, distinguished by `kind` (`notification`, `mail-html`, `document-pdf`, `ai-prompt`, `text-block`, `image-snapshot`). Resolution uses a 4-level fallback: tenant+locale → system+locale → tenant+fallback-locale → system+fallback-locale, so tenants can override system defaults without touching application code. Call `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })` at render time; manage templates via the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers. Apps that want an editable collection in their navigation declare it at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })` — `access` belongs to the mount because a bundled feature does not know the host's role vocabulary. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers carrying that collection's access rule, so the dispatcher enforces the separation. A collection is either tenant-wide (default) or `ownership: \"user\"`, where every user keeps their own entries (mail signatures) in the separate `user-content-entry` entity — that one carries `userOwned` content, so mounting it also requires the `template-resolver-user-data` feature and an app-side migration. Replaces the former `text-content` feature, whose blocks now live here as kind `text-block`.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -1976,7 +1990,9 @@
       "writeHandlers": [
         "template-resolver:write:archive",
         "template-resolver:write:publish",
+        "template-resolver:write:reply-snippets-set",
         "template-resolver:write:set",
+        "template-resolver:write:signatures-set",
         "template-resolver:write:upsert-system",
         "template-resolver:write:upsert-tenant"
       ],
@@ -1985,6 +2001,29 @@
         "category": "notifications",
         "recommended": false
       }
+    },
+    {
+      "name": "template-resolver-user-data",
+      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `template-resolver` feature's `user-content-entry` entity — the per-user half of the content store (mail signatures, personal reply snippets). Mounts the EXT_USER_DATA export hook so a user's own entries land in the export bundle; the delete hook is a deliberate no-op because `content` is annotated `userOwned`, so erasure runs via crypto-shredding (destroying the owner's subject key) rather than a physical delete, which would not survive an event replay. Mount this whenever `createTemplateResolverFeature` declares a collection with `ownership: \"user\"` — the boot guard otherwise refuses the entity. Requires `user-data-rights`, optionalRequires `template-resolver`.",
+      "toggleableDefault": null,
+      "requires": [
+        "user-data-rights"
+      ],
+      "optionalRequires": [
+        "template-resolver"
+      ],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "user-content-entry"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "tenant",

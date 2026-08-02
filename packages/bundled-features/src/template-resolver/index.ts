@@ -33,3 +33,8 @@ export {
   TemplateResolverQueries,
 } from "./qualified-names";
 export { type TemplateResourceRow, templateResourceEntity, templateResourcesTable } from "./table";
+export {
+  type UserContentEntryRow,
+  userContentEntriesTable,
+  userContentEntryEntity,
+} from "./user-content-table";

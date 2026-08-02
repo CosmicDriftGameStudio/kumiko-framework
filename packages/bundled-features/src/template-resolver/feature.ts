@@ -14,6 +14,7 @@ import { archiveWrite, publishWrite } from "./handlers/toggle-status.write";
 import { upsertSystemWrite } from "./handlers/upsert-system.write";
 import { upsertTenantWrite } from "./handlers/upsert-tenant.write";
 import { templateResourceEntity } from "./table";
+import { userContentEntryEntity } from "./user-content-table";
 
 // template-resolver — structured template storage with tenant-override
 // hierarchy, locale fallback and resource linking via file-foundation.
@@ -38,19 +39,10 @@ export type TemplateResolverOptions = {
 
 export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}) {
   const collections = opts.collections ?? [];
-  const userOwned = collections.filter((c) => c.ownership === "user");
-  if (userOwned.length > 0) {
-    // Fail loudly at mount instead of quietly serving one shared set to every
-    // user — the ownerId column doesn't exist yet (#1770).
-    throw new Error(
-      `template-resolver: ownership "user" is not implemented yet (#1770) — ` +
-        `collections ${userOwned.map((c) => `"${c.id}"`).join(", ")} would silently ` +
-        `share one tenant-wide set between all users.`,
-    );
-  }
+  const hasUserOwned = collections.some((c) => c.ownership === "user");
   return defineFeature("template-resolver", (r) => {
     r.describe(
-      "The one content store: notification and mail templates, PDF document templates, AI prompts and plain editable text blocks all live here as one entity, distinguished by `kind` (`notification`, `mail-html`, `document-pdf`, `ai-prompt`, `text-block`, `image-snapshot`). Resolution uses a 4-level fallback: tenant+locale \u2192 system+locale \u2192 tenant+fallback-locale \u2192 system+fallback-locale, so tenants can override system defaults without touching application code. Call `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })` at render time; manage templates via the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers. Apps that want an editable collection in their navigation declare it at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })` \u2014 `access` belongs to the mount because a bundled feature does not know the host's role vocabulary. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers carrying that collection's access rule, so the dispatcher enforces the separation. Replaces the former `text-content` feature, whose blocks now live here as kind `text-block`.",
+      "The one content store: notification and mail templates, PDF document templates, AI prompts and plain editable text blocks all live here as one entity, distinguished by `kind` (`notification`, `mail-html`, `document-pdf`, `ai-prompt`, `text-block`, `image-snapshot`). Resolution uses a 4-level fallback: tenant+locale \u2192 system+locale \u2192 tenant+fallback-locale \u2192 system+fallback-locale, so tenants can override system defaults without touching application code. Call `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })` at render time; manage templates via the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers. Apps that want an editable collection in their navigation declare it at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })` \u2014 `access` belongs to the mount because a bundled feature does not know the host's role vocabulary. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers carrying that collection's access rule, so the dispatcher enforces the separation. A collection is either tenant-wide (default) or `ownership: \"user\"`, where every user keeps their own entries (mail signatures) in the separate `user-content-entry` entity — that one carries `userOwned` content, so mounting it also requires the `template-resolver-user-data` feature and an app-side migration. Replaces the former `text-content` feature, whose blocks now live here as kind `text-block`.",
     );
     r.uiHints({
       displayLabel: "Template Resolver",
@@ -58,6 +50,11 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       recommended: false,
     });
     r.entity("template-resource", templateResourceEntity);
+    // Only when the app actually mounts a user-owned collection: the entity's
+    // `content` is `userOwned`, which makes it subject data — the boot guard
+    // then requires an EXT_USER_DATA hook (mount `template-resolver-user-data`).
+    // Registering it unconditionally would impose that on every app.
+    if (hasUserOwned) r.entity("user-content-entry", userContentEntryEntity);
 
     const handlers = {
       upsertSystem: r.writeHandler(upsertSystemWrite),

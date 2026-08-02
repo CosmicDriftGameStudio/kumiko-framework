@@ -6,8 +6,12 @@ import {
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { type TemplateResourceRow, templateResourcesTable } from "../table";
-import { DEFAULT_COLLECTION_ACCESS, ownerFilter } from "./collection-shared";
+import {
+  type CollectionEntryRow,
+  collectionStore,
+  DEFAULT_COLLECTION_ACCESS,
+  toCollectionEntry,
+} from "./collection-shared";
 
 // One list handler per declared collection: `kind`, `ownership` and `access`
 // come from the declaration, never from the payload.
@@ -18,7 +22,7 @@ import { DEFAULT_COLLECTION_ACCESS, ownerFilter } from "./collection-shared";
 // in its body — one bug there and a prompt engineer's collection is open to
 // everyone who may edit a signature.
 export function makeCollectionListQuery(collection: ContentCollectionDefinition) {
-  const isUserOwned = collection.ownership === "user";
+  const store = collectionStore(collection);
   return defineQueryHandler({
     name: `${collection.id}-list`,
     schema: z.object({
@@ -35,23 +39,14 @@ export function makeCollectionListQuery(collection: ContentCollectionDefinition)
       );
       if (overrideDenied) throw overrideDenied;
       const tenantId = override ?? query.user.tenantId;
-      const rows = castTenantRows<TemplateResourceRow>(
-        await selectMany(ctx.db, templateResourcesTable, {
+      const rows = castTenantRows<CollectionEntryRow>(
+        await selectMany(ctx.db, store.table, {
           tenantId,
           kind: collection.kind,
-          ...ownerFilter(isUserOwned, query.user),
+          ...store.scopeOf(query.user),
         }),
       );
-      return {
-        blocks: rows.map((row) => ({
-          slug: row.slug,
-          locale: row.locale,
-          title: row.title,
-          content: row.content,
-          folder: row.folder,
-          updatedAt: row.updatedAt,
-        })),
-      };
+      return { blocks: rows.map(toCollectionEntry) };
     },
   });
 }
