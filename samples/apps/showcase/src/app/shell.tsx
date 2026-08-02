@@ -13,8 +13,22 @@ import {
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 
+// Zwei Fassungen statt einer: auf Icon-Breite hat ein zweiwortiger Name keinen
+// Platz, er bricht um und schiebt sich unter die Rail. Das Kuerzel haelt die
+// Kopfzeile auf einer Zeile — dasselbe, was SidebarBrand mit seinem
+// Logo-Quadrat tut.
 const Brand = (): ReactNode => (
-  <strong className="text-foreground tracking-tight">Kumiko Showcase</strong>
+  <>
+    <strong className="truncate text-foreground tracking-tight group-data-[collapsible=icon]:hidden">
+      Kumiko Showcase
+    </strong>
+    <strong
+      aria-hidden="true"
+      className="hidden text-foreground tracking-tight group-data-[collapsible=icon]:inline"
+    >
+      K
+    </strong>
+  </>
 );
 
 // Linear-Style Profile-Menu Demo. items sind App-spezifisch — Caller

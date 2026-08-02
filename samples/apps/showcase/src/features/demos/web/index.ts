@@ -10,6 +10,7 @@ import { ButtonsDemo } from "./pages/buttons";
 import { DialogDemo } from "./pages/dialog";
 import { InputsDemo } from "./pages/inputs";
 import { LayoutDemo } from "./pages/layout";
+import { SidebarPanelDemo } from "./pages/sidebar-panel";
 import { TextDemo } from "./pages/text";
 import { ToastDemo } from "./pages/toast";
 
@@ -23,6 +24,7 @@ export const demosClient: ClientFeatureDefinition = {
     "demo-banner": BannerDemo,
     "demo-dialog": DialogDemo,
     "demo-toast": ToastDemo,
+    "demo-sidebar-panel": SidebarPanelDemo,
     "demo-text": TextDemo,
   },
 };

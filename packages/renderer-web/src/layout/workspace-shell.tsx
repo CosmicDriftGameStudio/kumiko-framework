@@ -47,6 +47,7 @@ import { EditorPanel } from "./editor-panel";
 import { fillClasses } from "./fill-classes";
 import { lastSegment, NavTree } from "./nav-tree";
 import { ShellHeader } from "./shell-header";
+import { SidebarPanelProvider, useSidebarPanelHost } from "./sidebar-panel";
 import { parseTargetFromSearchParams } from "./target-url";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
@@ -225,33 +226,43 @@ export function WorkspaceShell({
   // above the content. topbarActions render right inside the header row
   // instead of a separate topbar — one header line, not two.
   const fillCls = fillClasses(fill);
+  // Zweite Spalte nur wenn ein Screen sie fuellt (sidebar-09-Muster) — sonst
+  // stuende auf jedem anderen Screen ein leerer Streifen neben der Navigation.
+  const panel = useSidebarPanelHost();
   return (
     <SidebarProvider {...fillCls.provider}>
-      <Sidebar collapsible="icon">
-        <SidebarHeader data-kumiko-layout="sidebar-header">
-          {brand}
-          {switcher}
-        </SidebarHeader>
-        <SidebarContent data-kumiko-layout="sidebar-nav">{sidebarContent}</SidebarContent>
-        {sidebarFooter !== undefined && (
-          <SidebarFooter data-kumiko-layout="sidebar-footer">{sidebarFooter}</SidebarFooter>
-        )}
-        <SidebarRail />
-      </Sidebar>
-      <SidebarInset className={fillCls.inset}>
-        <ShellHeader
-          schema={app}
-          {...(user !== undefined && { user })}
-          {...(topbarActions !== undefined && { headerActions: topbarActions })}
-        />
-        <main className={fillCls.main}>
-          {activeTarget !== undefined ? (
-            <EditorPanel resolvers={resolvers} />
-          ) : (
-            <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
+      <SidebarPanelProvider value={panel.value}>
+        <Sidebar collapsible="icon">
+          <SidebarHeader data-kumiko-layout="sidebar-header">
+            {brand}
+            {switcher}
+          </SidebarHeader>
+          <SidebarContent data-kumiko-layout="sidebar-nav">{sidebarContent}</SidebarContent>
+          {sidebarFooter !== undefined && (
+            <SidebarFooter data-kumiko-layout="sidebar-footer">{sidebarFooter}</SidebarFooter>
           )}
-        </main>
-      </SidebarInset>
+          <SidebarRail />
+        </Sidebar>
+        <div
+          ref={panel.ref}
+          data-kumiko-layout="sidebar-panel"
+          className={panel.occupied ? "flex h-svh shrink-0 flex-col" : "hidden"}
+        />
+        <SidebarInset className={fillCls.inset}>
+          <ShellHeader
+            schema={app}
+            {...(user !== undefined && { user })}
+            {...(topbarActions !== undefined && { headerActions: topbarActions })}
+          />
+          <main className={fillCls.main}>
+            {activeTarget !== undefined ? (
+              <EditorPanel resolvers={resolvers} />
+            ) : (
+              <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
+            )}
+          </main>
+        </SidebarInset>
+      </SidebarPanelProvider>
     </SidebarProvider>
   );
 }

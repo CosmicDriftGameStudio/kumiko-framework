@@ -47,6 +47,7 @@ export const itemsFeature = defineFeature("showcase", (r) => {
   r.nav({ id: "data", label: "Data", order: 100 });
   r.nav({
     id: "item-list",
+    icon: "table",
     label: "showcase:nav.list",
     parent: "showcase:nav:data",
     screen: "showcase:screen:item-list",
@@ -54,6 +55,7 @@ export const itemsFeature = defineFeature("showcase", (r) => {
   });
   r.nav({
     id: "item-feed",
+    icon: "list",
     label: "showcase:nav.feed",
     parent: "showcase:nav:data",
     screen: "showcase:screen:item-feed",
@@ -61,6 +63,7 @@ export const itemsFeature = defineFeature("showcase", (r) => {
   });
   r.nav({
     id: "item-active",
+    icon: "gauge",
     label: "showcase:nav.active-items",
     parent: "showcase:nav:data",
     screen: "showcase:screen:item-active",
@@ -68,6 +71,7 @@ export const itemsFeature = defineFeature("showcase", (r) => {
   });
   r.nav({
     id: "item-new",
+    icon: "plus",
     label: "showcase:nav.new",
     parent: "showcase:nav:data",
     screen: "showcase:screen:item-edit",
@@ -75,6 +79,7 @@ export const itemsFeature = defineFeature("showcase", (r) => {
   });
   r.nav({
     id: "item-quick-add",
+    icon: "sparkles",
     label: "showcase:nav.quick-add",
     parent: "showcase:nav:data",
     screen: "showcase:screen:item-quick-add",

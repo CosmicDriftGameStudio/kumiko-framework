@@ -23,6 +23,7 @@ const REQUIRED_I18N = {
   "screen:demo-dialog.title": { de: "Dialog & Lightbox", en: "Dialog & Lightbox" },
   "screen:demo-toast.title": { de: "Toast", en: "Toast" },
   "screen:demo-text.title": { de: "Text", en: "Text" },
+  "screen:demo-sidebar-panel.title": { de: "Sidebar-Panel", en: "Sidebar panel" },
 } as const;
 
 export const demosFeature = defineFeature("showcase-demos", (r) => {
@@ -59,12 +60,22 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
     renderer: { react: { __component: "demo-toast" } },
   });
   r.screen({ id: "demo-text", type: "custom", renderer: { react: { __component: "demo-text" } } });
+  r.screen({
+    id: "demo-sidebar-panel",
+    type: "custom",
+    renderer: { react: { __component: "demo-sidebar-panel" } },
+  });
 
   // Section "Primitives" — clickbar-collapsible weil parent ohne screen.
+  //
+  // Jeder Eintrag traegt ein Icon: auf Icon-Breite ist es das Einzige, was
+  // von ihm uebrig bleibt. Ohne Icon steht dort nur ein Punkt, und eine Rail
+  // aus gleichen Punkten sagt nicht, wo man hinklickt.
   r.nav({ id: "primitives", label: "Primitives", order: 10 });
   r.nav({
     id: "demo-layout",
     label: "Layout",
+    icon: "layout-grid",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-layout",
     order: 5,
@@ -72,6 +83,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   r.nav({
     id: "demo-buttons",
     label: "Buttons",
+    icon: "wand",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-buttons",
     order: 10,
@@ -79,6 +91,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   r.nav({
     id: "demo-inputs",
     label: "Inputs",
+    icon: "list",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-inputs",
     order: 20,
@@ -86,6 +99,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   r.nav({
     id: "demo-banner",
     label: "Banner",
+    icon: "bell",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-banner",
     order: 30,
@@ -93,6 +107,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   r.nav({
     id: "demo-dialog",
     label: "Dialog & Lightbox",
+    icon: "layers",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-dialog",
     order: 35,
@@ -100,6 +115,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   r.nav({
     id: "demo-toast",
     label: "Toast",
+    icon: "sparkles",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-toast",
     order: 38,
@@ -107,8 +123,17 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   r.nav({
     id: "demo-text",
     label: "Text",
+    icon: "file",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-text",
     order: 40,
+  });
+  r.nav({
+    id: "demo-sidebar-panel",
+    label: "Sidebar-Panel",
+    icon: "mail",
+    parent: "showcase-demos:nav:primitives",
+    screen: "showcase-demos:screen:demo-sidebar-panel",
+    order: 42,
   });
 });

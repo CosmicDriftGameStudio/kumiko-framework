@@ -29,11 +29,16 @@ export default defineConfig({
     trace: "retain-on-failure",
     actionTimeout: 5_000,
     navigationTimeout: 15_000,
-    viewport: { width: 1280, height: 800 },
+    viewport: { width: 1920, height: 1080 },
     deviceScaleFactor: 2,
   },
 
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1920, height: 1080 } },
+    },
+  ],
 
   webServer: {
     command: `bun ${ENV_ARG} run src/app/server.ts`.replace(/\s+/g, " ").trim(),
