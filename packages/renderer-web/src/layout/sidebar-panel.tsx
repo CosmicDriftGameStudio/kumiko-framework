@@ -143,7 +143,8 @@ export function SidebarPanel({
       style={{ width: `${width}px` }}
     >
       {children}
-      {/* biome-ignore lint/a11y/useKeyWithMouseEvents: the width itself is the keyboard equivalent — it is optional, the content stays fully reachable without dragging. */}
+      {/* No keyboard equivalent on purpose: the width is optional, the content
+          stays fully reachable without ever dragging. */}
       <div
         data-kumiko-layout="sidebar-panel-handle"
         onPointerDown={startDrag}

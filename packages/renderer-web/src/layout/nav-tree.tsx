@@ -823,7 +823,12 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             if (s.expandable) onToggle(node.qualifiedName);
           }}
         >
-          <NavLeadingIcon node={node} active={false} expanded={s.isExpanded} label={s.displayLabel} />
+          <NavLeadingIcon
+            node={node}
+            active={false}
+            expanded={s.isExpanded}
+            label={s.displayLabel}
+          />
           <span className="truncate group-data-[collapsible=icon]:hidden">{s.displayLabel}</span>
         </button>
       </SidebarMenuSubButton>

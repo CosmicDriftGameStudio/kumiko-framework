@@ -99,29 +99,27 @@ export function SidebarPanelDemo(): ReactNode {
   return (
     <>
       <SidebarPanel storageKey="showcase:sidebar-panel-demo:width">
-        <>
-          <div className={PANEL_HEADER}>
-            <span className="font-medium text-base">Posteingang</span>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            {MAILS.map((mail) => (
-              // kumiko-lint-ignore primitives-discipline multi-line clickable row (from/subject/teaser stacked) — the core Button primitive is a single-line inline control
-              <button
-                type="button"
-                key={mail.subject}
-                onClick={() => setSelected(mail.subject)}
-                aria-current={mail.subject === selected}
-                className="flex flex-col items-start gap-1 border-sidebar-border border-b p-4 text-left text-sm leading-tight last:border-b-0 hover:bg-sidebar-accent aria-[current=true]:bg-sidebar-accent aria-[current=true]:text-sidebar-accent-foreground"
-              >
-                <span className="w-full truncate">{mail.from}</span>
-                <span className="line-clamp-2 w-full font-medium">{mail.subject}</span>
-                <span className="line-clamp-2 w-full text-muted-foreground text-xs">
-                  {mail.teaser}
-                </span>
-              </button>
-            ))}
-          </div>
-        </>
+        <div className={PANEL_HEADER}>
+          <span className="font-medium text-base">Posteingang</span>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          {MAILS.map((mail) => (
+            // kumiko-lint-ignore primitives-discipline multi-line clickable row (from/subject/teaser stacked) — the core Button primitive is a single-line inline control
+            <button
+              type="button"
+              key={mail.subject}
+              onClick={() => setSelected(mail.subject)}
+              aria-current={mail.subject === selected}
+              className="flex flex-col items-start gap-1 border-sidebar-border border-b p-4 text-left text-sm leading-tight last:border-b-0 hover:bg-sidebar-accent aria-[current=true]:bg-sidebar-accent aria-[current=true]:text-sidebar-accent-foreground"
+            >
+              <span className="w-full truncate">{mail.from}</span>
+              <span className="line-clamp-2 w-full font-medium">{mail.subject}</span>
+              <span className="line-clamp-2 w-full text-muted-foreground text-xs">
+                {mail.teaser}
+              </span>
+            </button>
+          ))}
+        </div>
       </SidebarPanel>
       <DemoPage title={active.subject} description={`Von ${active.from}`}>
         <DemoSection title="Nachricht">
