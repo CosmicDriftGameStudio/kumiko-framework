@@ -18,12 +18,11 @@ export const upsertSystemWrite = defineWriteHandler({
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     const db = ctx.db;
-    // @cast-boundary engine-payload — SYSTEM_TENANT_ID ist UUID-Literal,
-    // assert auf TenantId-Branded-Type (parseTenantId-Equivalent).
+    // @cast-boundary engine-payload — SYSTEM_TENANT_ID is a UUID literal,
+    // asserted to the branded TenantId (parseTenantId equivalent).
     const tenantId = SYSTEM_TENANT_ID as TenantId;
-    // executor-user muss SYSTEM_TENANT als tenantId haben, sonst sucht
-    // event-store stream unter user.tenantId statt SYSTEM_TENANT → conflict.
-    // Pattern symmetrisch zu text-content setWrite Override-Branch.
+    // The executor user must carry SYSTEM_TENANT as tenantId, otherwise the
+    // event store looks up the stream under user.tenantId → conflict.
     const executorUser = { ...event.user, tenantId };
 
     const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {

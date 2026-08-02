@@ -1,7 +1,6 @@
-// TemplateResolverApi — Cross-Feature-Schnittstelle. renderer-foundation
-// + delivery + Apps importieren NUR Types und holen die Implementation
-// runtime aus ctx.templateResolver. Pattern symmetrisch zu textContent
-// (siehe text-content/api.ts).
+// TemplateResolverApi — cross-feature interface. renderer-foundation,
+// delivery and apps import types ONLY and take the implementation from
+// ctx.templateResolver at runtime.
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";

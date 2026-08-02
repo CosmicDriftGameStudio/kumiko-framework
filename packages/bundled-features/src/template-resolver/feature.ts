@@ -15,14 +15,14 @@ import { upsertSystemWrite } from "./handlers/upsert-system.write";
 import { upsertTenantWrite } from "./handlers/upsert-tenant.write";
 import { templateResourceEntity } from "./table";
 
-// template-resolver — strukturierter Template-Storage mit Tenant-
-// Override-Hierarchie, Locale-Fallback und Resource-Linking via
-// file-foundation. Plan-Doc: kumiko-platform/docs/plans/features/template-resolver.md
+// template-resolver — structured template storage with tenant-override
+// hierarchy, locale fallback and resource linking via file-foundation.
+// Plan doc: kumiko-platform/docs/plans/features/template-resolver.md
 //
-// Konsumtions-Pfade:
-//   - Render-Time: ctx.templateResolver.resolveTemplate(...) (siehe api.ts)
-//   - Admin-UI: write/query-handlers (upsertSystem, upsertTenant, publish, archive, findById, list)
-//   - Cross-Feature: requireTemplateResolver(ctx, callerName) — Pattern wie requireTextContent
+// Consumption paths:
+//   - Render time: ctx.templateResolver.resolveTemplate(...) (see api.ts)
+//   - Admin UI: write/query handlers (upsertSystem, upsertTenant, publish, archive, findById, list)
+//   - Cross-feature: requireTemplateResolver(ctx, callerName)
 export type TemplateResolverOptions = {
   /** Content collections this app mounts. Declared here rather than inside the
    *  feature because `access` needs the host's role vocabulary — a bundled
@@ -50,7 +50,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
   }
   return defineFeature("template-resolver", (r) => {
     r.describe(
-      "Stores notification and mail templates in the database with a 4-level fallback: tenant+locale \u2192 system+locale \u2192 tenant+fallback-locale \u2192 system+fallback-locale. Call `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })` at render time; manage templates via the `upsertSystem`, `upsertTenant`, `publish`, and `archive` write handlers. Tenants can override system-default templates without touching application code.",
+      "The one content store: notification and mail templates, PDF document templates, AI prompts and plain editable text blocks all live here as one entity, distinguished by `kind` (`notification`, `mail-html`, `document-pdf`, `ai-prompt`, `text-block`, `image-snapshot`). Resolution uses a 4-level fallback: tenant+locale \u2192 system+locale \u2192 tenant+fallback-locale \u2192 system+fallback-locale, so tenants can override system defaults without touching application code. Call `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })` at render time; manage templates via the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers. Apps that want an editable collection in their navigation declare it at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })` \u2014 `access` belongs to the mount because a bundled feature does not know the host's role vocabulary. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers carrying that collection's access rule, so the dispatcher enforces the separation. Replaces the former `text-content` feature, whose blocks now live here as kind `text-block`.",
     );
     r.uiHints({
       displayLabel: "Template Resolver",

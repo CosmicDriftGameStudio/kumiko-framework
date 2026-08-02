@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-sample-apex-landing",
-  "description": "Apex landing page composed from other features — hero copy from text-content, prices and caps from tier-engine — rendered to one static HTML string.",
+  "description": "Apex landing page composed from other features — hero copy from template-resolver, prices and caps from tier-engine — rendered to one static HTML string.",
   "private": true,
   "type": "module",
   "scripts": {

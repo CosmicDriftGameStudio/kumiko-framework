@@ -14,7 +14,7 @@ points — write time **and** read time.
 Kumiko is multi-tenant and event-sourced. Access control is role-based:
 `hasAccess(user, rule)` (`engine/access.ts`) checks whether any of
 `session.roles` matches the handler's `AccessRule`. The cross-tenant handler
-surface (managed-pages, compliance-profiles, text-content, template-resolver,
+surface (managed-pages, compliance-profiles, template-resolver,
 the user/tenant admin screens) is gated on `SystemAdmin`. The entire isolation
 model rests on one assumption: **`SystemAdmin` cannot be obtained
 illegitimately.**
