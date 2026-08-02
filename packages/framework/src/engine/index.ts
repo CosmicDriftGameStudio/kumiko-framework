@@ -108,6 +108,7 @@ export {
   createDecimalField,
   createDerivedField,
   createEmbeddedField,
+  createEmbeddedListField,
   createEntity,
   createFileField,
   createFilesField,

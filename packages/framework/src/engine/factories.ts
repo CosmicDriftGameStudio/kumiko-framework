@@ -210,6 +210,27 @@ export function createEmbeddedField(
   };
 }
 
+// A list of like-shaped objects — see `EmbeddedFieldDef.multiple` for when an
+// embedded list is the right model and when the rows belong in their own
+// entity. `required: true` means the insert must carry the key AND at least
+// one row (analogous to multiSelect); the column itself is never null, it
+// defaults to `[]`.
+//
+// The `multiple: true` literal is part of the return type because the
+// table-builder's ColumnsForField branches on it — a widened `boolean` would
+// silently fall back to the single-object column type.
+export function createEmbeddedListField(
+  schema: EmbeddedFieldDef["schema"],
+  overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | "multiple">>,
+): EmbeddedFieldDef & { multiple: true } {
+  return {
+    type: "embedded",
+    schema,
+    ...overrides,
+    multiple: true,
+  };
+}
+
 // Free-form jsonb-Spalte — siehe `JsonbFieldDef`-Doku. Schema-less, default
 // `{}`, NOT NULL. Hauptnutzer: custom-fields-Bundle (host-entity's
 // `customFields`-Spalte). Andere valid uses: tenant-config-blobs, AI-

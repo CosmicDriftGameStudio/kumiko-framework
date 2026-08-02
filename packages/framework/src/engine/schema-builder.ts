@@ -173,7 +173,13 @@ export function fieldToZod(
         const zodSub = embeddedSubFieldToZod(subField);
         shape[subName] = subField.required ? zodSub : zodSub.optional();
       }
-      return z.object(shape);
+      const row = z.object(shape);
+      if (field.multiple !== true) return row;
+      // `required: true` means non-empty, same reading as multiSelect —
+      // whether the key may be omitted at all is decided by buildInsertSchema
+      // off the same flag.
+      const list = z.array(row);
+      return field.required === true ? list.min(1) : list;
     }
     case "jsonb": {
       // Free-form jsonb — keys sind tenant-/runtime-defined. Validation

@@ -223,7 +223,15 @@ export async function buildSearchDocument(
       if (embeddedFields.has(parentKey)) {
         const subKey = f.slice(underscoreIdx + 1);
         const parent = state[parentKey];
-        if (parent && typeof parent === "object") {
+        // A list-embedded parent contributes one indexed value per row —
+        // Meilisearch indexes a string array as a searchable multi-value.
+        if (Array.isArray(parent)) {
+          const values = parent
+            .filter((row): row is DbRow => Boolean(row) && typeof row === "object")
+            .map((row) => row[subKey])
+            .filter((value) => value !== undefined);
+          if (values.length > 0) fields[f] = values;
+        } else if (parent && typeof parent === "object") {
           const value = (parent as DbRow)[subKey];
           if (value !== undefined) fields[f] = value;
         }

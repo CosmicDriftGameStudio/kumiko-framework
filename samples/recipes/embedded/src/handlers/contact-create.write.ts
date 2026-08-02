@@ -22,6 +22,12 @@ const billingAddressSchema = z.object({
   vatId: z.string().optional(),
 });
 
+const phoneNumberSchema = z.object({
+  label: z.string().min(1),
+  number: z.string().min(1),
+  note: z.string().optional(),
+});
+
 export const contactCreate = defineWriteHandler({
   name: "contact:create",
   schema: z.object({
@@ -29,9 +35,11 @@ export const contactCreate = defineWriteHandler({
     email: z.email().optional(),
     address: addressSchema,
     billingAddress: billingAddressSchema.optional(),
+    phoneNumbers: z.array(phoneNumberSchema).optional(),
   }),
   access: { roles: ["Admin"] },
-  // Embedded fields (address/billingAddress) arrive as objects — already the
-  // combined API form the executor expects; it flattens them into the read row.
+  // Embedded fields (address/billingAddress) arrive as objects, the embedded
+  // list (phoneNumbers) as an array — already the combined API form the
+  // executor expects; it flattens them into the read row.
   handler: async (event, ctx) => contactCrud.create(event.payload, event.user, ctx.db),
 });

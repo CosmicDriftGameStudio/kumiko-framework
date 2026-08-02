@@ -1,7 +1,7 @@
 import {
   createDateField,
+  createEmbeddedListField,
   createEntity,
-  createJsonbField,
   createNumberField,
   createSelectField,
   createTextField,
@@ -27,7 +27,7 @@ export const accountEntity = createEntity({
 });
 
 // transaction — a journal entry. The balanced posting lines live embedded as
-// `lines` (jsonb: { accountId, amount }[], Σ amount = 0), so an entry is atomic:
+// `lines` (embedded list: { accountId, amount }[], Σ amount = 0), so an entry is atomic:
 // the Σ=0 invariant holds within a single command, no cross-row write. The
 // framework projects `read_ledger_transactions`; Phase 1 adds a flat
 // `read_ledger_postings` projection (one row per line) for per-account/period
@@ -50,7 +50,17 @@ export const transactionEntity = createEntity({
     // For a Storno entry this points at the reversed transaction's id.
     reference: createTextField({ maxLength: 120 }),
     status: createSelectField({ options: TRANSACTION_STATUS, required: true }),
-    lines: createJsonbField(),
+    // Posting lines are born with the entry and never change on their own —
+    // a correction is a new (reversing) entry. The embedded list validates
+    // each line's shape; the cross-line invariants (Σ=0, ≥2 distinct
+    // accounts) stay in createTransactionPayloadSchema.
+    lines: createEmbeddedListField(
+      {
+        accountId: { type: "text", required: true },
+        amount: { type: "number", required: true },
+      },
+      { required: true },
+    ),
   },
 });
 

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-02T16:02:10.869Z",
+  "generatedAt": "2026-08-02T20:10:18.935Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1303,7 +1303,7 @@
           "name": "lines",
           "pgType": "jsonb",
           "notNull": true,
-          "defaultSql": "'{}'::jsonb"
+          "defaultSql": "'[]'::jsonb"
         }
       ],
       "indexes": [

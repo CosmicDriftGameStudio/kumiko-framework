@@ -3,6 +3,7 @@ import {
   createBooleanField,
   createDateField,
   createEmbeddedField,
+  createEmbeddedListField,
   createEntity,
   createFileField,
   createFilesField,
@@ -369,6 +370,67 @@ describe("buildInsertSchema", () => {
     });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({}).success).toBe(false);
+  });
+
+  test("embedded-list field validates every row against the schema", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        lines: createEmbeddedListField({
+          accountId: { type: "text", required: true },
+          amount: { type: "number", required: true },
+          note: { type: "text" },
+        }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(
+      schema.safeParse({
+        lines: [
+          { accountId: "bank", amount: 100 },
+          { accountId: "rent", amount: -100, note: "Januar" },
+        ],
+      }).success,
+    ).toBe(true);
+    // second row is missing `amount` — a per-row check the free jsonb field
+    // this replaces could not make
+    expect(
+      schema.safeParse({ lines: [{ accountId: "bank", amount: 100 }, { accountId: "rent" }] })
+        .success,
+    ).toBe(false);
+    expect(schema.safeParse({ lines: [{ accountId: "bank", amount: "100" }] }).success).toBe(false);
+  });
+
+  test("embedded-list field rejects a bare object", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { lines: createEmbeddedListField({ accountId: { type: "text", required: true } }) },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ lines: { accountId: "bank" } }).success).toBe(false);
+  });
+
+  test("optional embedded-list accepts an empty list, required one does not", () => {
+    const optional = buildInsertSchema(
+      createEntity({
+        table: "Test",
+        fields: { lines: createEmbeddedListField({ accountId: { type: "text" } }) },
+      }),
+    );
+    expect(optional.safeParse({ lines: [] }).success).toBe(true);
+    expect(optional.safeParse({}).success).toBe(true);
+
+    const required = buildInsertSchema(
+      createEntity({
+        table: "Test",
+        fields: {
+          lines: createEmbeddedListField({ accountId: { type: "text" } }, { required: true }),
+        },
+      }),
+    );
+    expect(required.safeParse({ lines: [] }).success).toBe(false);
+    expect(required.safeParse({}).success).toBe(false);
+    expect(required.safeParse({ lines: [{ accountId: "bank" }] }).success).toBe(true);
   });
 
   test("tz field validates against the IANA zone list", () => {

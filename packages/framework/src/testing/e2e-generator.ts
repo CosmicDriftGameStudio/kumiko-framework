@@ -466,7 +466,7 @@ function fieldToFixture(name: string, field: FieldDefinition): unknown {
                 ? true
                 : "2026-01-01";
       }
-      return sub;
+      return field.multiple === true ? [sub] : sub;
     }
     case "jsonb":
       // Free-form jsonb — e2e-generator returns empty-object.
