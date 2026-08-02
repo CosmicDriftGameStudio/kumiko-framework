@@ -194,6 +194,52 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
   });
 });
 
+describe("buildSearchDocument — searchable embedded sub-fields", () => {
+  function registryWithLines(multiple: boolean) {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "invoices",
+          fields: {
+            lines: {
+              type: "embedded",
+              ...(multiple ? { multiple: true } : {}),
+              schema: { description: { type: "text", searchable: true } },
+            },
+          },
+        }),
+      );
+    });
+    return createRegistry([feature]);
+  }
+
+  test("a list-embedded sub-field indexes one value per row", async () => {
+    const doc = await buildSearchDocument(
+      "invoice",
+      "i1",
+      { lines: [{ description: "Kaltmiete" }, { description: "Stellplatz" }] },
+      registryWithLines(true),
+    );
+    expect(doc?.fields["lines_description"]).toEqual(["Kaltmiete", "Stellplatz"]);
+  });
+
+  test("an empty list contributes no indexed value", async () => {
+    const doc = await buildSearchDocument("invoice", "i1", { lines: [] }, registryWithLines(true));
+    expect(doc?.fields["lines_description"]).toBeUndefined();
+  });
+
+  test("a single-embedded sub-field still indexes the scalar", async () => {
+    const doc = await buildSearchDocument(
+      "invoice",
+      "i1",
+      { lines: { description: "Kaltmiete" } },
+      registryWithLines(false),
+    );
+    expect(doc?.fields["lines_description"]).toBe("Kaltmiete");
+  });
+});
+
 describe("Boot-Validation", () => {
   test("rejects searchPayloadExtension on unknown entity-name (sibling to entity-hooks)", () => {
     expect(() =>

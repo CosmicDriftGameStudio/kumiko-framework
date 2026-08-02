@@ -43,18 +43,24 @@ export function filterReadFields(
       continue; // entire field stripped (masked instead, for piiEncrypted)
     }
 
-    // For embedded fields: filter sub-fields with access restrictions
+    // For embedded fields: filter sub-fields with access restrictions.
+    // A list-embedded value is an array of rows — each row is filtered on its
+    // own, so a sub-field rule can reference the row it sits in. Filtering the
+    // array as if it were one object would turn it into `{0: …, 1: …}`.
     if (field.type === "embedded" && value && typeof value === "object") {
-      const filtered: Record<string, unknown> = {};
-      for (const [subKey, subValue] of Object.entries(value as DbRow)) {
-        const subField = field.schema[subKey];
-        const subAccess = normalizeAccessEntry(subField?.access?.read);
-        if (!userCanReadFieldRow(user, subAccess, value as DbRow)) {
-          continue;
+      const filterRow = (row: DbRow): Record<string, unknown> => {
+        const filtered: Record<string, unknown> = {};
+        for (const [subKey, subValue] of Object.entries(row)) {
+          const subField = field.schema[subKey];
+          const subAccess = normalizeAccessEntry(subField?.access?.read);
+          if (!userCanReadFieldRow(user, subAccess, row)) continue;
+          filtered[subKey] = subValue;
         }
-        filtered[subKey] = subValue;
-      }
-      result[key] = filtered;
+        return filtered;
+      };
+      result[key] = Array.isArray(value)
+        ? value.map((row) => (row && typeof row === "object" ? filterRow(row as DbRow) : row))
+        : filterRow(value as DbRow);
     } else {
       result[key] = value;
     }

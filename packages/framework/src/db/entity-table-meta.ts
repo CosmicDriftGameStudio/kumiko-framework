@@ -189,7 +189,14 @@ function fieldToColumnMeta(
       ];
     }
     case "embedded":
-      return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'{}'::jsonb" }];
+      return [
+        {
+          name: snake,
+          pgType: "jsonb",
+          notNull: true,
+          defaultSql: field.multiple === true ? "'[]'::jsonb" : "'{}'::jsonb",
+        },
+      ];
     case "jsonb":
       return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'{}'::jsonb" }];
     case "date":

@@ -175,6 +175,77 @@ describe("field access on embedded sub-fields", () => {
   });
 });
 
+// --- Embedded list (createEmbeddedListField) ---
+
+describe("embedded list of like-shaped rows", () => {
+  const withPhones = {
+    name: "Phone Book",
+    address: { street: "D-Str.", zip: "22222", city: "Bremen" },
+    phoneNumbers: [
+      { label: "Buero", number: "+49 30 1", note: "Durchwahl 12" },
+      { label: "Mobil", number: "+49 170 2" },
+    ],
+  };
+
+  test("rows round-trip as an array, in order", async () => {
+    const created = await stack.http.writeOk<SaveContext>(
+      "contacts:write:contact:create",
+      withPhones,
+      admin,
+    );
+    const detail = await stack.http.queryOk<Record<string, unknown>>(
+      "contacts:query:contact:detail",
+      { id: created.id },
+      admin,
+    );
+    expect(detail["phoneNumbers"]).toEqual(withPhones.phoneNumbers);
+  });
+
+  test("an omitted list reads back as an empty array (column default)", async () => {
+    const created = await stack.http.writeOk<SaveContext>(
+      "contacts:write:contact:create",
+      { name: "No Phones", address: { street: "E-Str.", zip: "33333", city: "Essen" } },
+      admin,
+    );
+    const detail = await stack.http.queryOk<Record<string, unknown>>(
+      "contacts:query:contact:detail",
+      { id: created.id },
+      admin,
+    );
+    expect(detail["phoneNumbers"]).toEqual([]);
+  });
+
+  test("a row missing a required sub-field is rejected", async () => {
+    const error = await stack.http.writeErr(
+      "contacts:write:contact:create",
+      {
+        name: "Bad Row",
+        address: { street: "F-Str.", zip: "44444", city: "Kiel" },
+        phoneNumbers: [{ label: "Buero", number: "+49 30 1" }, { label: "Mobil" }],
+      },
+      admin,
+    );
+    expect(error).toBeDefined();
+  });
+
+  test("field access is applied per row, the value stays an array", async () => {
+    const created = await stack.http.writeOk<SaveContext>(
+      "contacts:write:contact:create",
+      withPhones,
+      admin,
+    );
+    const detail = await stack.http.queryOk<Record<string, unknown>>(
+      "contacts:query:contact:detail",
+      { id: created.id },
+      viewer,
+    );
+    expect(detail["phoneNumbers"]).toEqual([
+      { label: "Buero", number: "+49 30 1" },
+      { label: "Mobil", number: "+49 170 2" },
+    ]);
+  });
+});
+
 // --- Searchable embedded sub-fields (registry) ---
 
 describe("searchable embedded sub-fields", () => {
@@ -185,6 +256,8 @@ describe("searchable embedded sub-fields", () => {
     expect(searchable).toContain("address_city");
     expect(searchable).not.toContain("address_zip"); // not marked searchable
     expect(searchable).not.toContain("address_country");
+    expect(searchable).toContain("phoneNumbers_label");
+    expect(searchable).not.toContain("phoneNumbers_number");
   });
 });
 

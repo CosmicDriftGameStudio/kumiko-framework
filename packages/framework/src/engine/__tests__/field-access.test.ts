@@ -47,6 +47,33 @@ describe("filterReadFields", () => {
     const filteredForAdmin = filterReadFields(entityWithPii, row, admin);
     expect(filteredForAdmin["iban"]).toBe("DE89370400440532013000");
   });
+
+  test("filters each row of an embedded list, keeping it an array", () => {
+    const entityWithLines: EntityDefinition = {
+      fields: {
+        lines: {
+          type: "embedded",
+          multiple: true,
+          schema: {
+            accountId: { type: "text" },
+            internalNote: { type: "text", access: { read: { admin: "all" } } },
+          },
+        },
+      },
+    };
+    const row = {
+      lines: [
+        { accountId: "bank", internalNote: "review me" },
+        { accountId: "rent", internalNote: "and me" },
+      ],
+    };
+
+    expect(filterReadFields(entityWithLines, row, editor)["lines"]).toEqual([
+      { accountId: "bank" },
+      { accountId: "rent" },
+    ]);
+    expect(filterReadFields(entityWithLines, row, admin)["lines"]).toEqual(row.lines);
+  });
 });
 
 describe("checkWriteFieldRoles", () => {

@@ -396,6 +396,17 @@ export type EmbeddedFieldDef = {
   readonly sensitive?: boolean;
   readonly schema: Readonly<Record<string, EmbeddedSubFieldDef>>;
   readonly access?: FieldAccess;
+  /** A list of like-shaped objects instead of exactly one: the value is an
+   *  array and every element is validated against `schema`. Storage stays
+   *  jsonb, the column default becomes `[]` instead of `{}`. Built via
+   *  `createEmbeddedListField()`.
+   *
+   *  Only for rows that come into being with their head and stay immutable
+   *  with it (posting lines, invoice positions). A row with its own lifetime
+   *  (own from/to dates, own history) belongs in its own entity referencing
+   *  the head — an embedded array is rewritten whole on every change and has
+   *  no per-row history. */
+  readonly multiple?: boolean;
 } & PiiAnnotations;
 
 // Free-form jsonb — keys/shape NOT validated at write-time. Use for:

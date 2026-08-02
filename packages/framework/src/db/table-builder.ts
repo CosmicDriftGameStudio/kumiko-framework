@@ -156,7 +156,10 @@ function fieldToColumns(
       // strukturell never-null macht. Wer optional-embedded möchte (=
       // "Feld komplett weglassen können") modelliert das über ein
       // wrapper-feld mit boolean-flag oder discriminierte-union.
-      return { [name]: jsonb(snakeName).default({}).notNull() };
+      // multiple → the value is a list of rows, so the empty default is `[]`.
+      return field.multiple === true
+        ? { [name]: jsonb(snakeName).default([]).notNull() }
+        : { [name]: jsonb(snakeName).default({}).notNull() };
     case "jsonb":
       // Free-form jsonb — keys nicht schema-validated. Default `{}`, NOT NULL
       // (analog zu embedded). Use-case: custom-fields-Bundle's host-entity-
@@ -324,28 +327,35 @@ type ColumnsForField<K extends string, F extends FieldDefinition> = F extends {
                   ? F extends { required: true }
                     ? { readonly [P in K]: Col<string> }
                     : { readonly [P in K]: NullCol<string> }
-                  : F extends { type: "embedded" }
-                    ? // jsonb default `{}`, immer notNull
-                      { readonly [P in K]: Col<Readonly<Record<string, unknown>>> }
-                    : F extends { type: "date" | "timestamp" }
-                      ? F extends { required: true }
-                        ? { readonly [P in K]: Col<Temporal.Instant> }
-                        : { readonly [P in K]: NullCol<Temporal.Instant> }
-                      : F extends { type: "locatedTimestamp" }
+                  : F extends { type: "embedded"; multiple: true }
+                    ? // jsonb default `[]`, immer notNull. ponytail: the row
+                      // type stays untyped like single-embedded; deriving it
+                      // from `schema` needs a generic createEmbeddedListField
+                      // that captures the literal schema — worth it once a
+                      // consumer actually reads rows off the table type.
+                      { readonly [P in K]: Col<readonly Readonly<Record<string, unknown>>[]> }
+                    : F extends { type: "embedded" }
+                      ? // jsonb default `{}`, immer notNull
+                        { readonly [P in K]: Col<Readonly<Record<string, unknown>>> }
+                      : F extends { type: "date" | "timestamp" }
                         ? F extends { required: true }
-                          ? { readonly [P in `${K}Utc`]: Col<Temporal.Instant> } & {
-                              readonly [P in `${K}Tz`]: Col<string>;
-                            }
-                          : { readonly [P in `${K}Utc`]: NullCol<Temporal.Instant> } & {
-                              readonly [P in `${K}Tz`]: NullCol<string>;
-                            }
-                        : F extends { type: "file" | "image" }
+                          ? { readonly [P in K]: Col<Temporal.Instant> }
+                          : { readonly [P in K]: NullCol<Temporal.Instant> }
+                        : F extends { type: "locatedTimestamp" }
                           ? F extends { required: true }
-                            ? { readonly [P in K]: Col<string> }
-                            : { readonly [P in K]: NullCol<string> }
-                          : F extends { type: "files" | "images" }
-                            ? Record<never, never>
-                            : never;
+                            ? { readonly [P in `${K}Utc`]: Col<Temporal.Instant> } & {
+                                readonly [P in `${K}Tz`]: Col<string>;
+                              }
+                            : { readonly [P in `${K}Utc`]: NullCol<Temporal.Instant> } & {
+                                readonly [P in `${K}Tz`]: NullCol<string>;
+                              }
+                          : F extends { type: "file" | "image" }
+                            ? F extends { required: true }
+                              ? { readonly [P in K]: Col<string> }
+                              : { readonly [P in K]: NullCol<string> }
+                            : F extends { type: "files" | "images" }
+                              ? Record<never, never>
+                              : never;
 
 type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (
   k: infer I,

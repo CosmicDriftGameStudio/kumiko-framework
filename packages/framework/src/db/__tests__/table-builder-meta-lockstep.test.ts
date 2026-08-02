@@ -25,6 +25,11 @@ const entityWithDefaults = createEntity({
     rate: { type: "decimal", precision: 6, scale: 4, required: true, default: 1.5 },
     price: { type: "money" },
     meta: { type: "embedded", fields: {} },
+    postings: {
+      type: "embedded",
+      multiple: true,
+      schema: { accountId: { type: "text", required: true } },
+    },
     startedAt: { type: "timestamp", required: true },
   },
 });
@@ -61,6 +66,13 @@ describe("buildEntityTable ↔ deriveEntityTableMeta lock-step", () => {
     expect(cols.get("title")?.defaultSql).toBe("'untitled'");
     expect(cols.get("active")?.defaultSql).toBe("true");
     expect(cols.get("rate")?.defaultSql).toBe("1.5");
+  });
+
+  test("embedded default is `{}`, embedded-list default is `[]` on both paths", () => {
+    const cols = new Map((fromBuilder?.columns ?? []).map((c) => [c.name, c]));
+    expect(cols.get("meta")?.defaultSql).toBe("'{}'::jsonb");
+    expect(cols.get("postings")?.defaultSql).toBe("'[]'::jsonb");
+    expect(cols.get("postings")?.notNull).toBe(true);
   });
 
   test("decimal field maps to numeric(precision,scale) on both paths", () => {
