@@ -35,6 +35,15 @@ const admin = (path: string) => async (page: Page) => {
   await page.goto(path);
 };
 
+// template-resolver — the text-block tree lives on the app-owned "content"
+// provider node; open it and select a leaf so the shot shows tree + editor.
+const contentEditor = () => async (page: Page) => {
+  await loginAsAdmin(page);
+  await page.goto("/platform/content");
+  await page.getByText("Landing hero").click();
+  await page.getByTestId("text-block-editor").waitFor();
+};
+
 // auth-mfa-enable is unlisted in any workspace's nav — reach it via an
 // explicit workspace prefix. Click "Start setup" so the screenshot shows the
 // QR/recovery-code step, not just the entry button.
@@ -109,8 +118,9 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "tags-section", flow: admin(`/tenant-admin/note-edit/${DEMO_NOTE_ID}`), settleMs: 1000 },
   // legal-pages — öffentliche, server-gerenderte Route (kein Login).
   { name: "legal-pages", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
-  // text-content — same public route; CMS blocks rendered by legal-pages wrapper.
-  { name: "text-content", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
+  // template-resolver — content tree (folders + stub state) with the text-block
+  // editor open on one leaf.
+  { name: "template-resolver", flow: contentEditor(), settleMs: 1000 },
   // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
   { name: "personal-access-tokens", flow: admin("/tenant-admin/api-tokens"), settleMs: 1000 },
   // config Settings-Hub — mask-derived configEdit under synthetic `settings` workspace.

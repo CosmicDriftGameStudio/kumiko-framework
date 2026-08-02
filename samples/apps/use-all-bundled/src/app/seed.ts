@@ -231,7 +231,34 @@ export const seedScreenshotData: SeedFn = async (stack) => {
     locale: "en",
     title: "Privacy Policy",
     content: PRIVACY_BODY,
+    folder: "legal",
   });
+
+  // template-resolver text-blocks — a folder tree for the content screen:
+  // legal/ from the block above, plus marketing copy and one empty stub.
+  for (const block of [
+    {
+      slug: "imprint",
+      title: "Imprint",
+      folder: "legal",
+      content: "## Provider\n\n**Acme GmbH**\n\nLeipzig, Germany",
+    },
+    {
+      slug: "hero",
+      title: "Landing hero",
+      folder: "page/marketing",
+      content: "# Calm software\n\nEverything your team needs, nothing it doesn't.",
+    },
+    {
+      slug: "pricing-intro",
+      title: "Pricing intro",
+      folder: "page/marketing",
+      content: "Simple, per-seat pricing. No surprises at renewal.",
+    },
+    { slug: "faq-billing", title: "FAQ — Billing", folder: "page", content: null },
+  ]) {
+    await seedTextBlock(stack.db, { tenantId: SYSTEM_TENANT_ID, locale: "en", ...block });
+  }
 
   // tags + notes + assignments in the dev tenant for the tags screenshots.
   await seedTagsAndNotes(stack.db, devTenant);
