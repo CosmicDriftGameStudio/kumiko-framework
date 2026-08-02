@@ -8,7 +8,7 @@ import {
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
-import { burnToken } from "../../shared";
+import { burnToken, sessionTimezoneField } from "../../shared";
 import { USER_STATUS, UserQueries } from "../../user";
 import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants";
 import { findUserMfaRow } from "../db/queries";
@@ -172,10 +172,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
         id: userId,
         tenantId,
         roles: mergedRoles,
-        ...(userRow?.timezone !== null &&
-          userRow?.timezone !== undefined && {
-            timezone: userRow.timezone,
-          }),
+        ...sessionTimezoneField(userRow?.timezone),
       };
       const claims = await ctx.resolveAuthClaims(baseSession);
       const session: SessionUser =

@@ -28,7 +28,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { decryptStoredPii, verifyPassword } from "../../shared";
+import { decryptStoredPii, sessionTimezoneField, verifyPassword } from "../../shared";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
   INVITATION_STATUS,
@@ -177,10 +177,7 @@ export function createInviteAcceptWithLoginHandler() {
           // buildSessionRoles calls stripForbiddenMembershipRoles internally —
           // a reserved role on the invitation itself must never reach the session.
           roles: buildSessionRoles([], [invitationRole]),
-          ...(userRow.timezone !== null &&
-            userRow.timezone !== undefined && {
-              timezone: userRow.timezone,
-            }),
+          ...sessionTimezoneField(userRow.timezone),
         };
 
         committed = true;
