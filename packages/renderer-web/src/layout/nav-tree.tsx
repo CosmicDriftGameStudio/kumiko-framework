@@ -147,8 +147,7 @@ const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
   hash: Hash,
   download: Download,
   rocket: Rocket,
-  // War importiert, aber nie registriert — `icon: "plus"` fiel damit still auf
-  // den Fallback zurueck.
+  // Was imported but never registered — `icon: "plus"` silently fell back.
   plus: Plus,
 };
 
@@ -317,7 +316,7 @@ function NavLeadingIcon({
   node: NavNode;
   active: boolean;
   expanded?: boolean;
-  /** Nur fuer den Rail-Fallback gebraucht — siehe unten. */
+  /** Only needed for the rail fallback — see below. */
   label?: string;
 }): ReactNode {
   const iconKey = expanded && node.icon === "folder" ? "folder-open" : node.icon;
@@ -327,10 +326,10 @@ function NavLeadingIcon({
   const initial = label?.trim().charAt(0).toUpperCase();
   return (
     <>
-      {/* Ausgeklappt genuegt ein Punkt: das Label steht daneben und traegt die
-          Bedeutung. Eingeklappt ist der Punkt wertlos — eine Rail aus lauter
-          gleichen Punkten sagt nichts darueber, wo man hinklickt. Dort tritt
-          der Anfangsbuchstabe an seine Stelle, bis die App ein Icon setzt. */}
+      {/* Expanded, a dot is enough: the label sits next to it and carries the
+          meaning. Collapsed the dot is worthless — a rail of identical dots says
+          nothing about what you are clicking. There the initial takes its place
+          until the app sets an icon. */}
       <span
         aria-hidden="true"
         className={cn(

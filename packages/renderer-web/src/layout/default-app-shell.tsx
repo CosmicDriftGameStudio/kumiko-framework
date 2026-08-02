@@ -86,8 +86,8 @@ export function DefaultAppShell({
   children,
 }: DefaultAppShellProps): ReactNode {
   const fillCls = fillClasses(fill);
-  // Zweite Spalte nur wenn ein Screen sie fuellt (sidebar-09-Muster) — sonst
-  // stuende auf jedem anderen Screen ein leerer Streifen neben der Navigation.
+  // Second column only when a screen fills it (sidebar-09 pattern) — otherwise
+  // every other screen would carry an empty strip next to the navigation.
   const panel = useSidebarPanelHost();
   return (
     <SidebarProvider {...fillCls.provider}>

@@ -1,15 +1,15 @@
-// Zweite Sidebar-Spalte fuer Screens, die eine Liste neben der Navigation
-// brauchen statt im Content — das shadcn-Muster `sidebar-09` (Mail-Client)
-// gegenueber dem `sidebar-07`, das die Shell sonst faehrt.
+// A second sidebar column for screens that need a list next to the navigation
+// rather than inside the content — the shadcn `sidebar-09` pattern (mail
+// client) against the `sidebar-07` the shell otherwise runs.
 //
-// Warum ein Slot und kein Screen-Layout: der Bereich liegt ausserhalb des
-// `SidebarInset` und damit oberhalb des ShellHeader. Ein Screen rendert aber
-// per Definition *in* den Content, unter dem Header — von dort kommt er nicht
-// an diese Stelle. Der Slot dreht die Richtung um: die Shell haelt den Platz,
-// der Screen fuellt ihn per Portal und bleibt sonst ein normaler Screen.
+// Why a slot and not a screen layout: the area sits outside the `SidebarInset`
+// and therefore above the ShellHeader. A screen renders by definition *into*
+// the content, below the header, and cannot reach that spot from there. The
+// slot inverts the direction: the shell holds the space, the screen fills it
+// through a portal and stays an ordinary screen otherwise.
 //
-// Ohne fuellenden Screen rendert die Shell den Platz nicht — kein leerer
-// Streifen auf jedem anderen Screen.
+// With no screen filling it the shell does not render the space at all — no
+// empty strip on every other screen.
 
 import {
   createContext,
@@ -28,7 +28,7 @@ type SlotElement = HTMLElement | null;
 
 type SidebarPanelSlot = {
   readonly element: SlotElement;
-  /** Meldet dem Shell-State, ob gerade ein Screen den Platz beansprucht. */
+  /** Tells the shell state whether a screen is currently claiming the space. */
   readonly setOccupied: (occupied: boolean) => void;
 };
 
@@ -36,20 +36,19 @@ const SidebarPanelContext = createContext<SidebarPanelSlot | null>(null);
 
 export const SidebarPanelProvider = SidebarPanelContext.Provider;
 
-/** Nur fuer die Shells — Screens nutzen `SidebarPanel`. */
+/** Shells only — screens use `SidebarPanel`. */
 export function useSidebarPanelSlot(): SidebarPanelSlot | null {
   return useContext(SidebarPanelContext);
 }
 
 export type SidebarPanelProps = {
   readonly children: ReactNode;
-  /** Startbreite in px. Nach dem ersten Ziehen gilt die gespeicherte Breite. */
+  /** Initial width in px. After the first drag the stored width wins. */
   readonly defaultWidth?: number;
   readonly minWidth?: number;
   readonly maxWidth?: number;
-  /** localStorage-Key fuer die gezogene Breite. Ohne Key wird nicht
-   *  gespeichert — zwei Screens mit eigener Liste sollen sich nicht
-   *  gegenseitig die Breite ueberschreiben. */
+  /** localStorage key for the dragged width. Without a key nothing is stored —
+   *  two screens with their own list should not overwrite each other's width. */
   readonly storageKey?: string;
   readonly className?: string;
 };
@@ -70,13 +69,12 @@ function readStoredWidth(key: string | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Rendert seine Kinder in die zweite Sidebar-Spalte, wenn die Shell eine
- *  anbietet. Tut sie das nicht (Public-Surface, Tests, aeltere Shell), landen
- *  die Kinder an Ort und Stelle — der Screen bleibt benutzbar, statt seine
- *  Liste zu verlieren.
+/** Renders its children into the second sidebar column when the shell offers
+ *  one. When it does not (public surface, tests, an older shell) the children
+ *  land in place — the screen stays usable instead of losing its list.
  *
- *  Die Breite ist ziehbar wie in jedem Mail-Programm: der Griff sitzt auf der
- *  Trennlinie, das Ergebnis ueberlebt einen Reload (mit `storageKey`). */
+ *  The width drags like in any mail client: the handle sits on the divider and
+ *  the result survives a reload (with `storageKey`). */
 export function SidebarPanel({
   children,
   defaultWidth = DEFAULT_WIDTH,
@@ -98,9 +96,8 @@ export function SidebarPanel({
     return () => setOccupied(false);
   }, [setOccupied]);
 
-  // Listener auf window, nicht auf dem Griff: wer schnell zieht, verlaesst den
-  // 4px-Streifen zwischen zwei Frames, und ein Handler am Element haette den
-  // Zug dann verloren.
+  // Listeners on window, not on the handle: a fast drag leaves the 4px strip
+  // between two frames, and a handler on the element would lose the drag there.
   useEffect(() => {
     const onMove = (event: PointerEvent) => {
       if (!dragging.current) return;
@@ -129,9 +126,9 @@ export function SidebarPanel({
   const startDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     dragging.current = true;
-    // Waehrend des Ziehens global setzen: sonst flackert der Cursor, sobald
-    // der Zeiger ueber der Liste statt ueber dem Griff steht, und ein Zug
-    // markiert nebenbei den Text der Zeilen.
+    // Set globally while dragging: otherwise the cursor flickers as soon as the
+    // pointer sits over the list instead of the handle, and a drag selects the
+    // row text on the way.
     document.body.style.setProperty("cursor", "col-resize");
     document.body.style.setProperty("user-select", "none");
   }, []);
@@ -146,7 +143,7 @@ export function SidebarPanel({
       style={{ width: `${width}px` }}
     >
       {children}
-      {/* biome-ignore lint/a11y/useKeyWithMouseEvents: Tastatur-Aequivalent ist die Breite selbst — sie ist optional, der Inhalt bleibt ohne Ziehen vollstaendig erreichbar. */}
+      {/* biome-ignore lint/a11y/useKeyWithMouseEvents: the width itself is the keyboard equivalent — it is optional, the content stays fully reachable without dragging. */}
       <div
         data-kumiko-layout="sidebar-panel-handle"
         onPointerDown={startDrag}
@@ -161,9 +158,9 @@ export function SidebarPanel({
   return createPortal(content, slot.element);
 }
 
-/** Shell-seitiges Gegenstueck: haelt das Slot-Element und den Belegt-Zustand.
- *  Eigener Hook, damit beide Shells (WorkspaceShell, DefaultAppShell) dieselbe
- *  Verdrahtung teilen und nicht zweimal dasselbe halb richtig machen. */
+/** Shell-side counterpart: holds the slot element and the occupied state. Its
+ *  own hook so both shells (WorkspaceShell, DefaultAppShell) share one wiring
+ *  instead of getting the same thing half right twice. */
 export function useSidebarPanelHost(): {
   readonly occupied: boolean;
   readonly value: SidebarPanelSlot;
