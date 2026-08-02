@@ -21,8 +21,11 @@ const SUBJECTS = ["Meeting Tomorrow", "Re: Project Update", "Weekend Plans", "Re
 // Rows, um über pageSize=6 hinweg mehrere Seiten nachzuladen.
 const INBOX_MESSAGES = Array.from({ length: 18 }, (_, i) => ({
   id: `m${i + 1}`,
-  sender: SENDERS[i % SENDERS.length],
-  subject: SUBJECTS[i % SUBJECTS.length],
+  // Cast is sound: `i % SENDERS.length` is always in [0, SENDERS.length) —
+  // noUncheckedIndexedAccess can't see that from a computed index, unlike
+  // the removed `as string` this replaces (which had no such guarantee).
+  sender: SENDERS[i % SENDERS.length] as (typeof SENDERS)[number],
+  subject: SUBJECTS[i % SUBJECTS.length] as (typeof SUBJECTS)[number],
   snippet: "Hi team, just a reminder about our meeting tomorrow at 10 AM.",
   // % 4 statt % 3: bleibt an der sender/subject-Rotation ausgerichtet, sonst
   // ist irgendwann jede Kombination mal unread und der Filter zeigt visuell

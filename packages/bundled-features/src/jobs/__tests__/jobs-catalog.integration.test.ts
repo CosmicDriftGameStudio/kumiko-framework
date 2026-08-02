@@ -87,10 +87,11 @@ describe("jobs:write:trigger hardening", () => {
   });
 
   test("accepts valid schema payload", async () => {
-    await stack.http.writeOk(
+    const result = await stack.http.writeOk<{ jobName: string; bullJobId: string }>(
       JobHandlers.trigger,
       { jobName: "catalog-app:job:manual-echo", payload: { entity: "credit" } },
       systemAdmin,
     );
+    expect(result.jobName).toBe("catalog-app:job:manual-echo");
   });
 });
