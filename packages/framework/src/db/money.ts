@@ -1,9 +1,19 @@
 // Auto-Convert für money-Felder im DB-Layer.
 //
 // Vertrag (siehe auch db/located-timestamp.ts — gleicher Compound-Type-Pattern):
-//   API-Form:    { amount, currency } | number (permissiv für Legacy)
-//   DB-Form:     <name> BIGINT + <name>Currency TEXT
-//   Read-Form:   { amount, currency }
+//   API-Form:    { amount, currency } | number — amount in MAJOR units (56799.16 EUR)
+//   DB-Form:     <name> BIGINT (minor units, e.g. cents) + <name>Currency TEXT
+//   Read-Form:   { amount, currency } — amount in MAJOR units again
+//
+// table-builder.ts's moneyAmount column has always documented BIGINT as
+// "the integer minor unit" — this file used to just pass the API amount
+// through unconverted, silently violating that contract: a caller doing
+// the ergonomic thing (passing 56799.16) got a float into a bigint column
+// (driver error) or, worse, an integer major-unit amount (56799) got
+// stored as if it were already minor units — 100× too small on read back.
+// MINOR_UNIT_SCALE fixes that at the boundary so every caller can just
+// pass/receive ordinary decimal amounts; DB storage stays exact-integer
+// cents (no float drift in SUM()/aggregate queries).
 //
 // Permissiv-Insert: primitive number wird als amount akzeptiert (Legacy aus
 // pre-Stufe-3-Samples). Currency fällt dann auf entity.defaultCurrency
@@ -17,6 +27,19 @@ import type { EntityDefinition } from "../engine/types";
 import { DEFAULT_CURRENCIES } from "../engine/types";
 
 const FRAMEWORK_DEFAULT_CURRENCY = DEFAULT_CURRENCIES[0]; // "EUR"
+
+// 2 decimal places (cents) — covers every currently-supported currency
+// (EUR/USD/GBP/...). No ISO-4217 minor-unit table yet (JPY=0, BHD=3) —
+// upgrade path once a currency needing a different scale actually lands.
+const MINOR_UNIT_SCALE = 100;
+
+function toMinorUnits(amount: number): number {
+  return Math.round(amount * MINOR_UNIT_SCALE);
+}
+
+function toMajorUnits(amountMinor: number): number {
+  return amountMinor / MINOR_UNIT_SCALE;
+}
 
 /**
  * API → DB: money-Felder zu zwei flachen Spalten flatten.
@@ -68,7 +91,7 @@ export function flattenMoney(
     }
 
     delete result[name];
-    result[name] = amount;
+    result[name] = toMinorUnits(amount);
     result[`${name}Currency`] = currency;
   }
 
@@ -103,18 +126,18 @@ export function rehydrateMoney(
       continue;
     }
 
-    let amount: number;
+    let amountMinor: number;
     if (typeof amountRaw === "number") {
-      amount = amountRaw;
+      amountMinor = amountRaw;
     } else if (typeof amountRaw === "bigint") {
-      amount = Number(amountRaw);
-      if (Number.isNaN(amount)) {
+      amountMinor = Number(amountRaw);
+      if (Number.isNaN(amountMinor)) {
         throw new Error(`rehydrateMoney: field "${name}" bigint amount is not a number`);
       }
     } else if (typeof amountRaw === "string" && amountRaw !== "") {
       // PG-driver liefert BIGINT manchmal als String (>2^53 sicher).
-      amount = Number(amountRaw);
-      if (Number.isNaN(amount)) {
+      amountMinor = Number(amountRaw);
+      if (Number.isNaN(amountMinor)) {
         throw new Error(
           `rehydrateMoney: field "${name}" amount string "${amountRaw}" is not a number — DB corruption?`,
         );
@@ -128,7 +151,7 @@ export function rehydrateMoney(
     const currency =
       typeof currencyRaw === "string" && currencyRaw !== "" ? currencyRaw : fallbackCurrency;
 
-    result[name] = { amount, currency };
+    result[name] = { amount: toMajorUnits(amountMinor), currency };
   }
 
   return result;
