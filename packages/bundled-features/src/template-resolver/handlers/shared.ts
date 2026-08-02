@@ -1,5 +1,4 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { CONTENT_FORMATS, TEMPLATE_STATUSES, UPSERT_KINDS } from "../constants";
 import { templateResourceEntity, templateResourcesTable } from "../table";
@@ -25,13 +24,6 @@ export const localeSchema = z
   .regex(/^[a-z]{2}(-[a-z]{2})?$/i, "locale must be ISO 639-1 (e.g. de, en, en-us)");
 
 export const kindSchema = z.enum(UPSERT_KINDS);
-
-// Who may list a kind other than text-block. by-tenant is reachable
-// anonymously (public legal pages need it), so every other kind — mail
-// templates, AI prompts — has to be gated inside the handler.
-export function isTemplateAdmin(user: SessionUser): boolean {
-  return user.roles.includes("TenantAdmin") || user.roles.includes("SystemAdmin");
-}
 
 // Folder path for the content tree: kebab segments joined by `/`.
 export const folderSchema = z

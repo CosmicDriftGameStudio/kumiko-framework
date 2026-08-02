@@ -13,8 +13,13 @@ export const TemplateResolverHandlers = {
 export const TemplateResolverQueries = {
   findById: "template-resolver:query:find-by-id",
   list: "template-resolver:query:list",
+  // Public pair — anonymous-reachable, kind pinned to text-block.
   bySlug: "template-resolver:query:by-slug",
   byTenant: "template-resolver:query:by-tenant",
+  // Admin pair — arbitrary kind, TenantAdmin/SystemAdmin only. The split is
+  // what keeps a new kind from becoming publicly readable by default.
+  collectionItem: "template-resolver:query:collection-item",
+  collectionList: "template-resolver:query:collection-list",
 } as const;
 
 export const TemplateResolverErrors = {

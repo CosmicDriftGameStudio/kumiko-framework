@@ -4,30 +4,22 @@ import {
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { TEXT_BLOCK_KIND } from "../constants";
+import { TEMPLATE_KINDS } from "../constants";
 import { type TemplateResourceRow, templateResourcesTable } from "../table";
 
-// Public read of a single text-block by (tenantId, slug, locale). Anonymous
-// must be listed explicitly — `openToAll` alone is auth-only (regression
-// guard). The kind is pinned to `text-block` and takes no parameter: mail
-// templates and AI prompts live in the same table and must not be readable
-// without a session. Collections of any other kind go through
-// `collection-item`, which is admin-only by its access rule rather than by a
-// branch in here.
-//
-// Tenant scope defaults to query.user.tenantId (an anonymous context resolves
-// to SYSTEM_TENANT_ID or the host-resolved tenant, depending on app setup).
-// Optional `tenantIdOverride` (SystemAdmin-only) allows a cross-tenant read —
-// symmetric to set.write.
-export const bySlugQuery = defineQueryHandler({
-  name: "by-slug",
+// Single resource of a collection, for the editor behind a tree node. The
+// admin-only counterpart to by-slug — see collection-list for why the public
+// and the admin read are two handlers instead of one with a `kind` parameter.
+export const collectionItemQuery = defineQueryHandler({
+  name: "collection-item",
   schema: z.object({
     slug: z.string().min(1).max(80),
+    kind: z.enum(TEMPLATE_KINDS),
     locale: z.string().min(2).max(8),
     /** Optional cross-tenant read — SystemAdmin only. See set.write.ts. */
     tenantIdOverride: z.string().min(1).optional(),
   }),
-  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (query, ctx) => {
     const override = query.payload.tenantIdOverride;
     const overrideDenied = crossTenantOverrideDenied(
@@ -40,7 +32,7 @@ export const bySlugQuery = defineQueryHandler({
     const row = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
       tenantId,
       slug: query.payload.slug,
-      kind: TEXT_BLOCK_KIND,
+      kind: query.payload.kind,
       locale: query.payload.locale,
     });
 

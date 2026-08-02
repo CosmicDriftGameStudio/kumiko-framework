@@ -129,12 +129,21 @@ kennt keinen draft-Status — Speichern veröffentlicht.
 | Handler | QN | Wer | Was |
 |---|---|---|---|
 | `TemplateResolverHandlers.set` | `template-resolver:write:set` | TenantAdmin + SystemAdmin (via `tenantIdOverride` auch auf `SYSTEM_TENANT_ID`) | Upsert einer Ressource pro `(tenantId, slug, kind, locale)` |
-| `TemplateResolverQueries.bySlug` | `template-resolver:query:by-slug` | anonymous + User + Admins | Eine Ressource — der Public-Read für Landing-/Legal-Pages |
-| `TemplateResolverQueries.byTenant` | `template-resolver:query:by-tenant` | anonymous + User + Admins | Alle Ressourcen eines Kinds für den Content-Tree |
+| `TemplateResolverQueries.bySlug` | `template-resolver:query:by-slug` | anonymous + User + Admins | Ein Text-Block — der Public-Read für Landing-/Legal-Pages |
+| `TemplateResolverQueries.byTenant` | `template-resolver:query:by-tenant` | anonymous + User + Admins | Alle Text-Blöcke eines Tenants für den Content-Tree |
+| `TemplateResolverQueries.collectionItem` | `template-resolver:query:collection-item` | TenantAdmin + SystemAdmin | Eine Ressource beliebigen Kinds |
+| `TemplateResolverQueries.collectionList` | `template-resolver:query:collection-list` | TenantAdmin + SystemAdmin | Alle Ressourcen eines Kinds für den Collection-Tree |
 
-Alle drei nehmen ein optionales `kind` und defaulten auf `text-block`. Jeder
-andere Wert verlangt TenantAdmin oder SystemAdmin: die Queries sind anonym
-erreichbar, und Mail-Templates wie AI-Prompts liegen in derselben Tabelle.
+Die beiden Public-Queries sind fest auf `kind: "text-block"` verdrahtet und
+nehmen **keinen** kind-Parameter. Mail-Templates und AI-Prompts liegen in
+derselben Tabelle und laufen deshalb über das eigene Handler-Paar
+`collection-*`, das per `access` admin-only ist. Zwei Handler statt eines mit
+kind-Parameter: so kann ein neuer kind nicht versehentlich öffentlich lesbar
+werden, und die Regel steht deklarativ am Handler statt in einem Zweig im
+Handler-Body.
+
+`set` braucht diesen Split nicht — der Handler ist ohnehin admin-only und nimmt
+`kind` direkt.
 
 Seed-Helper: `seedTextBlock` / `seedLegalContentFromJson` aus
 `@cosmicdrift/kumiko-bundled-features/template-resolver/seeding`.

@@ -20,10 +20,13 @@ Der Client baut pro Collection einen eigenen Folder-Tree, gefiltert auf ihren
 `kind` — `navId` und `kind` können nicht mehr auseinanderlaufen, weil beides
 aus dem Schema kommt.
 
-`by-tenant`, `by-slug` und `set` im template-resolver nehmen dafür ein
-optionales `kind`. Beide Queries sind anonym erreichbar (öffentliche
-Legal-Seiten brauchen das), deshalb bleibt der Default `text-block` und jeder
-andere kind verlangt TenantAdmin oder SystemAdmin.
+Dafür gibt es zwei neue Queries, `collection-list` und `collection-item`:
+beliebiger `kind`, per `access` auf TenantAdmin/SystemAdmin beschränkt.
+`by-slug` und `by-tenant` bleiben unverändert öffentlich und fest auf
+`text-block` — sie nehmen bewusst keinen kind-Parameter, sonst wären
+Mail-Vorlagen und AI-Prompts ein Payload-Feld vom anonymen Pfad entfernt.
+`set` nimmt ein optionales `kind` und braucht keinen Split, weil er ohnehin
+admin-only ist.
 
 Bestehende Apps ändern nichts: `textBlocksClient({ navId })` verhält sich
 unverändert, und ohne deklarierte Collections bleibt der abgeleitete Pfad leer.

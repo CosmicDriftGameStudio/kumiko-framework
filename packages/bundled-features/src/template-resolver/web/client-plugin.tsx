@@ -25,6 +25,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { TEXT_BLOCK_KIND } from "../constants";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names";
 import { defaultTranslations } from "./i18n";
 
@@ -142,7 +143,12 @@ export function groupBlocksByFolder(
 // tenantIdOverride (SystemAdmin-only) lets an app point the content tree at a
 // tenant other than the session's — publicstatus seeds marketing/legal blocks
 // on SYSTEM_TENANT_ID, so its SystemAdmin must read that tenant, not their own.
+// `kind` undefined or text-block → the anonymous-capable by-tenant query, so a
+// public page keeps its sidebar without a session. Any other kind → the
+// admin-only collection-list. Two handlers, not one with a kind parameter:
+// see collection-list.query.ts.
 function makeTreeProvider(tenantIdOverride?: string, kind?: string): TreeChildrenSubscribe {
+  const isPublicTree = kind === undefined || kind === TEXT_BLOCK_KIND;
   return () => (emit, emitError) => {
     // CSRF header is mandatory on authenticated requests (auth-middleware
     // double-submit pattern). Anonymous/pre-login has no token → header
@@ -154,10 +160,12 @@ function makeTreeProvider(tenantIdOverride?: string, kind?: string): TreeChildre
       method: "POST",
       headers,
       body: JSON.stringify({
-        type: TemplateResolverQueries.byTenant,
+        type: isPublicTree
+          ? TemplateResolverQueries.byTenant
+          : TemplateResolverQueries.collectionList,
         payload: {
           ...(tenantIdOverride !== undefined && { tenantIdOverride }),
-          ...(kind !== undefined && { kind }),
+          ...(isPublicTree ? {} : { kind }),
         },
       }),
     })
@@ -234,16 +242,19 @@ function TextBlockEditor({
   const canWrite =
     user?.roles.includes("TenantAdmin") === true || user?.roles.includes("SystemAdmin") === true;
 
+  // Same split as the tree provider: a text-block node reads through the
+  // public by-slug, a collection node through the admin-only collection-item.
+  const isPublicKind = kind === undefined || kind === TEXT_BLOCK_KIND;
   const {
     data: loaded,
     loading,
     error: loadError,
   } = useQuery<TextBlock | null>(
-    TemplateResolverQueries.bySlug,
+    isPublicKind ? TemplateResolverQueries.bySlug : TemplateResolverQueries.collectionItem,
     {
       slug,
       locale,
-      ...(kind !== undefined && { kind }),
+      ...(isPublicKind ? {} : { kind }),
       ...(tenantIdOverride !== undefined && { tenantIdOverride }),
     },
     { enabled: slug !== "" && locale !== "" },

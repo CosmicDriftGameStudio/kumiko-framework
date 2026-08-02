@@ -1,6 +1,8 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { bySlugQuery } from "./handlers/by-slug.query";
 import { byTenantQuery } from "./handlers/by-tenant.query";
+import { collectionItemQuery } from "./handlers/collection-item.query";
+import { collectionListQuery } from "./handlers/collection-list.query";
 import { findByIdQuery } from "./handlers/find-by-id.query";
 import { listQuery } from "./handlers/list.query";
 import { setWrite } from "./handlers/set.write";
@@ -42,6 +44,8 @@ export function createTemplateResolverFeature() {
       list: r.queryHandler(listQuery),
       bySlug: r.queryHandler(bySlugQuery),
       byTenant: r.queryHandler(byTenantQuery),
+      collectionItem: r.queryHandler(collectionItemQuery),
+      collectionList: r.queryHandler(collectionListQuery),
     };
 
     // Visual-tree actions for the text-block content tree. The handle is

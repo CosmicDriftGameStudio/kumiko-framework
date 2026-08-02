@@ -104,9 +104,14 @@ describe("textBlocksClient — content collections", () => {
 
   test("a collection's provider requests its own kind and stamps it on the edit target", async () => {
     let sentPayload: Record<string, unknown> = {};
+    let sentType = "";
     globalThis.fetch = mock(async (_url: string, init?: RequestInit) => {
-      sentPayload = (JSON.parse(String(init?.body)) as { payload: Record<string, unknown> })
-        .payload;
+      const body = JSON.parse(String(init?.body)) as {
+        type: string;
+        payload: Record<string, unknown>;
+      };
+      sentType = body.type;
+      sentPayload = body.payload;
       return new Response(
         JSON.stringify({
           data: {
@@ -138,9 +143,38 @@ describe("textBlocksClient — content collections", () => {
     });
     await new Promise((r) => setTimeout(r, 0));
 
+    // Non-text-block collections go through the admin-only handler, not the
+    // anonymous-capable by-tenant.
+    expect(sentType).toBe("template-resolver:query:collection-list");
     expect(sentPayload["kind"]).toBe("mail-html");
     // Without the kind on the target, the editor would read and write the
     // text-block row of the same slug instead of the mail template.
     expect(emitted?.[0]?.target?.args).toMatchObject({ slug: "reminder", kind: "mail-html" });
+  });
+
+  test("a text-block collection keeps the public handler — public pages need it without a session", async () => {
+    let sentType = "";
+    let sentPayload: Record<string, unknown> = {};
+    globalThis.fetch = mock(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as {
+        type: string;
+        payload: Record<string, unknown>;
+      };
+      sentType = body.type;
+      sentPayload = body.payload;
+      return new Response(JSON.stringify({ data: { blocks: [] } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+
+    const derived = textBlocksClient().navProvidersFromCollections?.([
+      collection("pages", "text-block"),
+    ]);
+    derived?.providers["mail:nav:pages"]?.()(() => {});
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(sentType).toBe("template-resolver:query:by-tenant");
+    expect(sentPayload).not.toHaveProperty("kind");
   });
 });

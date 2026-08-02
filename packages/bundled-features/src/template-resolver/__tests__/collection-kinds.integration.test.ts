@@ -1,7 +1,8 @@
-// by-tenant / by-slug / set take a `kind` so one content tree can exist per
-// r.contentCollection(). Both queries are reachable anonymously (public legal
-// pages need that), so the interesting assertions here are the negative ones:
-// no kind other than text-block may leave through the anonymous path.
+// Collections read through their own admin-only handler pair
+// (collection-list / collection-item) while by-tenant / by-slug stay public
+// and pinned to text-block. The interesting assertions are the negative ones:
+// nothing but a text-block leaves through the anonymous path, and the public
+// handlers have no kind parameter that could change that.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type DbConnection, fetchOne } from "@cosmicdrift/kumiko-framework/db";
@@ -62,7 +63,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("kind gating :: anonymous", () => {
+describe("public handlers :: kind is not reachable", () => {
   test("anonymous may list text-blocks", async () => {
     const result = await stack.http.queryOk<{ blocks: readonly { slug: string }[] }>(
       TemplateResolverQueries.byTenant,
@@ -72,38 +73,69 @@ describe("kind gating :: anonymous", () => {
     expect(result.blocks.map((b) => b.slug)).toContain("welcome");
   });
 
-  test("anonymous may NOT list mail templates", async () => {
-    const error = await stack.http.queryErr(
+  test("a kind in the by-tenant payload changes nothing — text-blocks either way", async () => {
+    // The public handler has no kind field. Passing one must not widen what
+    // comes back; zod strips it and the query stays pinned to text-block.
+    const result = await stack.http.queryOk<{ blocks: readonly { title: string }[] }>(
       TemplateResolverQueries.byTenant,
+      { kind: "mail-html" },
+      createAnonymousUser(tenantAdmin.tenantId),
+    );
+    expect(result.blocks.map((b) => b.title)).toEqual(["Willkommen (Text-Block)"]);
+  });
+
+  test("a kind in the by-slug payload still returns the text-block", async () => {
+    const result = await stack.http.queryOk<{ title: string }>(
+      TemplateResolverQueries.bySlug,
+      { slug: "welcome", locale: "de", kind: "mail-html" },
+      createAnonymousUser(tenantAdmin.tenantId),
+    );
+    expect(result.title).toBe("Willkommen (Text-Block)");
+  });
+});
+
+describe("collection handlers :: access", () => {
+  test("anonymous may not list a collection", async () => {
+    const error = await stack.http.queryErr(
+      TemplateResolverQueries.collectionList,
       { kind: "mail-html" },
       createAnonymousUser(tenantAdmin.tenantId),
     );
     expect(error.code).toBe("access_denied");
   });
 
-  test("anonymous may NOT read a mail template by slug", async () => {
+  test("a logged-in non-admin may not either", async () => {
     const error = await stack.http.queryErr(
-      TemplateResolverQueries.bySlug,
+      TemplateResolverQueries.collectionList,
+      { kind: "mail-html" },
+      normalUser,
+    );
+    expect(error.code).toBe("access_denied");
+  });
+
+  test("anonymous may not read a single collection item", async () => {
+    const error = await stack.http.queryErr(
+      TemplateResolverQueries.collectionItem,
       { slug: "welcome", locale: "de", kind: "mail-html" },
       createAnonymousUser(tenantAdmin.tenantId),
     );
     expect(error.code).toBe("access_denied");
   });
 
-  test("a logged-in non-admin may NOT read a mail template either", async () => {
+  test("collection-list requires a kind — no implicit default", async () => {
     const error = await stack.http.queryErr(
-      TemplateResolverQueries.bySlug,
-      { slug: "welcome", locale: "de", kind: "mail-html" },
-      normalUser,
+      TemplateResolverQueries.collectionList,
+      {},
+      tenantAdmin,
     );
-    expect(error.code).toBe("access_denied");
+    expect(error.code).toBeDefined();
   });
 });
 
-describe("kind gating :: admins", () => {
-  test("by-slug returns the row of the requested kind, not the text-block", async () => {
+describe("collection handlers :: admins", () => {
+  test("collection-item returns the requested kind, not the text-block of the same slug", async () => {
     const mail = await stack.http.queryOk<{ title: string; content: string }>(
-      TemplateResolverQueries.bySlug,
+      TemplateResolverQueries.collectionItem,
       { slug: "welcome", locale: "de", kind: "mail-html" },
       tenantAdmin,
     );
@@ -117,22 +149,31 @@ describe("kind gating :: admins", () => {
     expect(block.title).toBe("Willkommen (Text-Block)");
   });
 
-  test("by-tenant lists only the requested kind", async () => {
+  test("collection-list lists only the requested kind", async () => {
     const mails = await stack.http.queryOk<{ blocks: readonly { title: string }[] }>(
-      TemplateResolverQueries.byTenant,
+      TemplateResolverQueries.collectionList,
       { kind: "mail-html" },
       tenantAdmin,
     );
     expect(mails.blocks.map((b) => b.title)).toEqual(["Willkommen (Mail)"]);
   });
 
-  test("SystemAdmin passes the gate as well", async () => {
+  test("SystemAdmin reaches another tenant's collection via tenantIdOverride", async () => {
     const result = await stack.http.queryOk<{ blocks: readonly unknown[] }>(
-      TemplateResolverQueries.byTenant,
+      TemplateResolverQueries.collectionList,
       { kind: "mail-html", tenantIdOverride: tenantAdmin.tenantId },
       systemAdmin,
     );
     expect(result.blocks).toHaveLength(1);
+  });
+
+  test("TenantAdmin may not use tenantIdOverride", async () => {
+    const error = await stack.http.queryErr(
+      TemplateResolverQueries.collectionList,
+      { kind: "mail-html", tenantIdOverride: systemAdmin.tenantId },
+      tenantAdmin,
+    );
+    expect(error.code).toBe("access_denied");
   });
 });
 
@@ -152,7 +193,7 @@ describe("set :: kind round-trip", () => {
     );
 
     const mail = await stack.http.queryOk<{ title: string }>(
-      TemplateResolverQueries.bySlug,
+      TemplateResolverQueries.collectionItem,
       { slug: "welcome", locale: "de", kind: "mail-html" },
       tenantAdmin,
     );
