@@ -64,7 +64,7 @@ import type {
   ValidationHookFn,
 } from "./hooks";
 import type { HttpRouteDefinition } from "./http-route";
-import type { NavDefinition } from "./nav";
+import type { ContentCollectionDefinition, NavDefinition } from "./nav";
 import type {
   EntityProjectionExtension,
   MultiStreamProjectionDefinition,
@@ -356,6 +356,11 @@ export type FeatureDefinition = {
   // feature exports via setup-return — buildTarget consumes the handle,
   // not this slot. See visual-tree.md A5 + A7.
   readonly treeActions?: Readonly<Record<string, TreeActionDef>>;
+  // Content collections declared via r.contentCollection(). Keyed by the
+  // feature-local short id. Each one also produced a nav entry under the
+  // same id — this slot carries the `kind` the client needs to build the
+  // matching tree provider, which a NavDefinition has no place for.
+  readonly contentCollections?: Readonly<Record<string, ContentCollectionDefinition>>;
   // HTTP-Routes declared via r.httpRoute(). Index is "METHOD path"
   // (z.B. "GET /feed.xml") — eindeutig pro Feature. Die App-Server-
   // Boot-Stage iteriert getAllHttpRoutes() und mountet jede Route auf
@@ -763,6 +768,17 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // that `screen` and `parent` refs exist (cross-feature QNs allowed) and
   // that parent chains don't contain cycles.
   nav(definition: NavDefinition): void;
+
+  // Register a content collection — a set of template-resources of one kind,
+  // navigable where it fachlich belongs (mail templates under Mail, not under
+  // a central "Content" section). Sugar over r.nav(): registers the nav entry
+  // with `provider: true` under the same id and records the kind so the client
+  // can wire the tree provider without repeating navId + kind.
+  //
+  // Returns the qualified nav name ("<feature>:nav:<id>") — apps that pass the
+  // collection to a client feature explicitly take it from here instead of
+  // re-typing the QN.
+  contentCollection(definition: ContentCollectionDefinition): string;
 
   // Register a workspace — a persona-/role-scoped UI surface. Pure UI
   // composition; the registry qualifies the short id to

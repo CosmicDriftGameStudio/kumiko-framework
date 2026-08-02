@@ -152,6 +152,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     claimKeys: state.claimKeys,
     screens: state.screens,
     navs: state.navs,
+    contentCollections: state.contentCollections,
     workspaces: state.workspaces,
     httpRoutes: state.httpRoutes,
     storeTables: state.storeTables,

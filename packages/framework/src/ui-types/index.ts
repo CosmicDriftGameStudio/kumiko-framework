@@ -91,4 +91,9 @@ export type { TargetRef } from "../engine/types/target-ref";
 export type { TreeAction, TreeNode, TreeNodeState } from "../engine/types/tree-node";
 export type { WorkspaceDefinition } from "../engine/types/workspace";
 export { PROJECTION_DETAIL_ENTITY } from "../i18n/required-surface-keys";
-export type { AppSchema, FeatureSchema, WorkspaceSchema } from "./app-schema";
+export type {
+  AppSchema,
+  FeatureSchema,
+  QualifiedContentCollection,
+  WorkspaceSchema,
+} from "./app-schema";

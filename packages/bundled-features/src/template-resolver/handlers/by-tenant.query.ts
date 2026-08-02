@@ -8,9 +8,11 @@ import { z } from "zod";
 import { TEXT_BLOCK_KIND } from "../constants";
 import { type TemplateResourceRow, templateResourcesTable } from "../table";
 
-// All text-blocks of one tenant — feeds the content tree sidebar. Anonymous
-// is listed explicitly so no-JWT visitors get the sidebar on public pages;
-// `kind` is pinned to text-block for the same reason as in by-slug.
+// All text-blocks of one tenant — feeds the public content tree sidebar.
+// Anonymous is listed explicitly so no-JWT visitors get the sidebar on public
+// pages; `kind` is pinned to text-block for the same reason as in by-slug and
+// takes no parameter. Trees for any other kind go through `collection-list`,
+// which is admin-only by its access rule.
 //
 // Unlike by-slug this returns summaries for every slug. The body travels along
 // because the tree marks empty blocks as stubs; full render content for a

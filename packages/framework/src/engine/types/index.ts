@@ -206,7 +206,7 @@ export {
   parseTenantId,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-types/identifiers";
-export type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
+export type { ContentCollectionDefinition, NavDefinition } from "@cosmicdrift/kumiko-types/nav";
 export type {
   FromRule,
   FromRuleKind,

@@ -32,10 +32,11 @@
 import type {
   AppSchema,
   FeatureSchema,
+  QualifiedContentCollection,
   WorkspaceSchema,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
-export type { AppSchema, FeatureSchema, WorkspaceSchema };
+export type { AppSchema, FeatureSchema, QualifiedContentCollection, WorkspaceSchema };
 
 // Normalisiert FeatureSchema → AppSchema. Idempotent für AppSchema.
 // Hebt eine Feature-lokal deklarierte `workspaces`-Liste (Legacy) auf

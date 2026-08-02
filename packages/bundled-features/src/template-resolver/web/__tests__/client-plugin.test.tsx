@@ -70,3 +70,125 @@ describe("textBlocksClient — Provider unwrappt den Content-Container", () => {
     expect(labels).toEqual(["Imprint", "page"]);
   });
 });
+
+describe("textBlocksClient — content collections", () => {
+  const origFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = origFetch;
+  });
+
+  const collection = (id: string, kind: string) => ({
+    id,
+    kind,
+    nav: { label: `mail:nav.${id}` },
+    navQn: `mail:nav:${id}`,
+  });
+
+  test("one provider + SSE entities per declared collection, keyed on the schema's nav QN", () => {
+    const derived = textBlocksClient().navProvidersFromCollections?.([
+      collection("templates", "mail-html"),
+      collection("prompts", "ai-prompt"),
+    ]);
+
+    expect(Object.keys(derived?.providers ?? {}).sort()).toEqual([
+      "mail:nav:prompts",
+      "mail:nav:templates",
+    ]);
+    expect(derived?.entities?.["mail:nav:templates"]).toEqual(["template-resource"]);
+  });
+
+  test("no collections declared → nothing derived", () => {
+    const derived = textBlocksClient().navProvidersFromCollections?.([]);
+    expect(Object.keys(derived?.providers ?? {})).toEqual([]);
+  });
+
+  test("a collection's provider calls that collection's handler and stamps its id on the edit target", async () => {
+    let sentType = "";
+    globalThis.fetch = mock(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as {
+        type: string;
+        payload: Record<string, unknown>;
+      };
+      sentType = body.type;
+      return new Response(
+        JSON.stringify({
+          data: {
+            blocks: [
+              {
+                slug: "reminder",
+                locale: "de",
+                title: "Reminder",
+                content: "x",
+                folder: null,
+                updatedAt: "",
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as unknown as typeof fetch;
+
+    const derived = textBlocksClient().navProvidersFromCollections?.([
+      collection("templates", "mail-html"),
+    ]);
+    const provider = derived?.providers["mail:nav:templates"];
+    if (provider === undefined) throw new Error("provider missing");
+
+    let emitted: readonly TreeNode[] | undefined;
+    provider()((nodes) => {
+      emitted = nodes;
+    });
+    await new Promise((r) => setTimeout(r, 0));
+
+    // The collection's own handler carries its access rule — a shared one
+    // taking a kind would have to admit every collection's roles at once.
+    expect(sentType).toBe("template-resolver:query:templates-list");
+    // Without the collection id on the target, the editor would read and write
+    // through the public text-block pair instead of this collection.
+    expect(emitted?.[0]?.target?.args).toMatchObject({
+      slug: "reminder",
+      collectionId: "templates",
+    });
+  });
+
+  test("a text-block collection also uses its own handler — declared means declared", async () => {
+    let sentType = "";
+    globalThis.fetch = mock(async (_url: string, init?: RequestInit) => {
+      sentType = (JSON.parse(String(init?.body)) as { type: string }).type;
+      return new Response(JSON.stringify({ data: { blocks: [] } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+
+    const derived = textBlocksClient().navProvidersFromCollections?.([
+      collection("pages", "text-block"),
+    ]);
+    derived?.providers["mail:nav:pages"]?.()(() => {});
+    await new Promise((r) => setTimeout(r, 0));
+
+    // Same kind as the public tree, but declared as a collection → it gets the
+    // access the app declared, not anonymous reach.
+    expect(sentType).toBe("template-resolver:query:pages-list");
+  });
+
+  test("the hand-wired navId path stays on the anonymous-capable query", async () => {
+    let sentType = "";
+    globalThis.fetch = mock(async (_url: string, init?: RequestInit) => {
+      sentType = (JSON.parse(String(init?.body)) as { type: string }).type;
+      return new Response(JSON.stringify({ data: { blocks: [] } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+
+    // publicstatus renders its content sidebar on public pages without a
+    // session — that path must not move onto a collection handler.
+    const navId = "publicstatus:nav:content";
+    textBlocksClient({ navId }).navProviders?.[navId]?.()(() => {});
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(sentType).toBe("template-resolver:query:by-tenant");
+  });
+});

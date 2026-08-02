@@ -25,7 +25,12 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names";
+import {
+  collectionHandlerName,
+  collectionQueryName,
+  TemplateResolverHandlers,
+  TemplateResolverQueries,
+} from "../qualified-names";
 import { defaultTranslations } from "./i18n";
 
 // Exported for the unit test — groupBlocksByFolder is a pure function.
@@ -62,20 +67,26 @@ function newFolderNode(): FolderNode {
   return { leaves: [], subFolders: new Map() };
 }
 
-function attachBlock(root: FolderNode, block: BlockSummary, tenantIdOverride?: string): void {
+function attachBlock(
+  root: FolderNode,
+  block: BlockSummary,
+  tenantIdOverride?: string,
+  collectionId?: string,
+): void {
   const leaf: TreeNode = {
     label: block.title || block.slug,
     icon: "file",
     target: {
       featureId: "template-resolver",
       action: "edit",
-      // tenantIdOverride travels with the node → the editor's by-slug read +
-      // set write target the same tenant the tree was loaded from (SystemAdmin
-      // editing SYSTEM-tenant content). Omitted → session tenant.
+      // tenantIdOverride and collectionId travel with the node → the editor
+      // reads and writes through the same tenant and the same collection the
+      // tree was loaded from. Omitted → session tenant, public text-blocks.
       args: {
         slug: block.slug,
         locale: block.locale,
         ...(tenantIdOverride !== undefined && { tenantIdOverride }),
+        ...(collectionId !== undefined && { collectionId }),
       },
     },
     state: block.content ? "filled" : "stub",
@@ -115,10 +126,11 @@ function renderFolderNode(node: FolderNode): TreeNode[] {
 export function groupBlocksByFolder(
   blocks: readonly BlockSummary[],
   tenantIdOverride?: string,
+  collectionId?: string,
 ): readonly TreeNode[] {
   const root = newFolderNode();
   for (const block of blocks) {
-    attachBlock(root, block, tenantIdOverride);
+    attachBlock(root, block, tenantIdOverride, collectionId);
   }
   const rendered = renderFolderNode(root);
   if (rendered.length === 0) return [];
@@ -135,7 +147,14 @@ export function groupBlocksByFolder(
 // tenantIdOverride (SystemAdmin-only) lets an app point the content tree at a
 // tenant other than the session's — publicstatus seeds marketing/legal blocks
 // on SYSTEM_TENANT_ID, so its SystemAdmin must read that tenant, not their own.
-function makeTreeProvider(tenantIdOverride?: string): TreeChildrenSubscribe {
+// Without a collection id: the anonymous-capable by-tenant query, so a public
+// page keeps its content sidebar without a session. With one: that
+// collection's own list handler, which carries the collection's access rule.
+function makeTreeProvider(tenantIdOverride?: string, collectionId?: string): TreeChildrenSubscribe {
+  const queryType =
+    collectionId === undefined
+      ? TemplateResolverQueries.byTenant
+      : collectionQueryName(collectionId, "list");
   return () => (emit, emitError) => {
     // CSRF header is mandatory on authenticated requests (auth-middleware
     // double-submit pattern). Anonymous/pre-login has no token → header
@@ -147,7 +166,7 @@ function makeTreeProvider(tenantIdOverride?: string): TreeChildrenSubscribe {
       method: "POST",
       headers,
       body: JSON.stringify({
-        type: TemplateResolverQueries.byTenant,
+        type: queryType,
         payload: tenantIdOverride !== undefined ? { tenantIdOverride } : {},
       }),
     })
@@ -162,7 +181,7 @@ function makeTreeProvider(tenantIdOverride?: string): TreeChildrenSubscribe {
       .then((data: ByTenantResponse) => {
         // The app-side r.nav node IS the "Content" container → the provider's
         // children are the folders/leaves below it, not the wrapper.
-        const content = groupBlocksByFolder(data.data.blocks, tenantIdOverride)[0];
+        const content = groupBlocksByFolder(data.data.blocks, tenantIdOverride, collectionId)[0];
         emit(content !== undefined && Array.isArray(content.children) ? content.children : []);
       })
       .catch((e) => {
@@ -208,11 +227,14 @@ function TextBlockEditor({
   // same way event payloads do. Optional chaining absorbs missing fields so a
   // hand-edited URL cannot crash the editor.
   const args = target.args as
-    | { slug?: string; locale?: string; tenantIdOverride?: string }
+    | { slug?: string; locale?: string; collectionId?: string; tenantIdOverride?: string }
     | undefined;
   const slug = args?.slug ?? "";
   const locale = args?.locale ?? "";
   const tenantIdOverride = args?.tenantIdOverride;
+  // Which collection the node came from. Absent → the public text-block pair,
+  // which is what the hand-wired content tree uses.
+  const collectionId = args?.collectionId;
 
   const { Form, Field, Input, Button, Banner } = usePrimitives();
   const dispatcher = useDispatcher();
@@ -221,12 +243,20 @@ function TextBlockEditor({
   const canWrite =
     user?.roles.includes("TenantAdmin") === true || user?.roles.includes("SystemAdmin") === true;
 
+  // Same split as the tree provider: a node without a collection reads through
+  // the public by-slug, a collection node through that collection's handlers.
+  const readQuery =
+    collectionId === undefined
+      ? TemplateResolverQueries.bySlug
+      : collectionQueryName(collectionId, "item");
+  const writeHandler =
+    collectionId === undefined ? TemplateResolverHandlers.set : collectionHandlerName(collectionId);
   const {
     data: loaded,
     loading,
     error: loadError,
   } = useQuery<TextBlock | null>(
-    TemplateResolverQueries.bySlug,
+    readQuery,
     { slug, locale, ...(tenantIdOverride !== undefined && { tenantIdOverride }) },
     { enabled: slug !== "" && locale !== "" },
   );
@@ -252,7 +282,7 @@ function TextBlockEditor({
     setSaveError(null);
     setSavedMsg(null);
     try {
-      const result = await dispatcher.write<SetResponse>(TemplateResolverHandlers.set, {
+      const result = await dispatcher.write<SetResponse>(writeHandler, {
         slug,
         locale,
         title,
@@ -346,17 +376,32 @@ function TextBlockEditor({
 // `tenantId` (SystemAdmin-only): which tenant the tree and editor serve —
 // SYSTEM_TENANT_ID for apps that seed marketing/legal there. Omit for the
 // session tenant (default, no cross-tenant access).
+//
+// Beyond that single tree, this client also serves every content collection
+// the app declares via r.contentCollection() — one provider per collection,
+// filtered to its kind. Those need no navId here; their nav QN comes from the
+// schema, so navId and kind can't drift apart.
 export function textBlocksClient(opts?: {
   readonly navId?: string;
   readonly tenantId?: string;
 }): ClientFeatureDefinition {
   const navId = opts?.navId;
+  const tenantId = opts?.tenantId;
   return {
     name: "template-resolver",
     ...(navId !== undefined && {
-      navProviders: { [navId]: makeTreeProvider(opts?.tenantId) },
+      navProviders: { [navId]: makeTreeProvider(tenantId) },
       // SSE refresh: every template-resource event re-fires the provider.
       navEntities: { [navId]: ["template-resource"] },
+    }),
+    // Every r.contentCollection() in the app gets its own tree, filtered to
+    // that collection's kind. The explicit navId above stays independent of
+    // this — an app can have both a hand-wired content tree and collections.
+    navProvidersFromCollections: (collections) => ({
+      providers: Object.fromEntries(
+        collections.map((c) => [c.navQn, makeTreeProvider(tenantId, c.id)]),
+      ),
+      entities: Object.fromEntries(collections.map((c) => [c.navQn, ["template-resource"]])),
     }),
     resolvers: {
       "template-resolver:edit": TextBlockEditor,

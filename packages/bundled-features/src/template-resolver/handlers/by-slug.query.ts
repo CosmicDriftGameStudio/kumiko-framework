@@ -9,8 +9,11 @@ import { type TemplateResourceRow, templateResourcesTable } from "../table";
 
 // Public read of a single text-block by (tenantId, slug, locale). Anonymous
 // must be listed explicitly — `openToAll` alone is auth-only (regression
-// guard). The kind is pinned to `text-block`: mail templates and AI prompts
-// live in the same table and must not be readable without a session.
+// guard). The kind is pinned to `text-block` and takes no parameter: mail
+// templates and AI prompts live in the same table and must not be readable
+// without a session. Collections of any other kind go through
+// `collection-item`, which is admin-only by its access rule rather than by a
+// branch in here.
 //
 // Tenant scope defaults to query.user.tenantId (an anonymous context resolves
 // to SYSTEM_TENANT_ID or the host-resolved tenant, depending on app setup).

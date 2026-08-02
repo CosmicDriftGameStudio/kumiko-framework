@@ -13,9 +13,19 @@ import type { TargetRef, TreeChildrenSubscribe } from "@cosmicdrift/kumiko-frame
 import type {
   ColumnRendererComponent,
   ExtensionSectionComponent,
+  QualifiedContentCollection,
   TranslationsByLocale,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
+
+/** What a `navProvidersFromCollections` factory returns: the providers plus
+ *  the entities whose live events should re-fire them. Without `entities` a
+ *  derived tree would sit stale until re-mount — the hand-wired path has the
+ *  SSE refresh and the derived one must not lose it. */
+export type CollectionNavProviders = {
+  readonly providers: Readonly<Record<string, TreeChildrenSubscribe>>;
+  readonly entities?: Readonly<Record<string, readonly string[]>>;
+};
 
 export type ClientFeatureDefinition = {
   readonly name: string;
@@ -68,6 +78,16 @@ export type ClientFeatureDefinition = {
    *  (analog `treeEntities`). Live-Event für eine Entity → Provider des
    *  Knotens wird neu aufgerufen → neue Kinder erscheinen live. */
   readonly navEntities?: Readonly<Record<string, readonly string[]>>;
+  /** Nav providers derived from the app schema — called with every
+   *  `r.contentCollection()` the app declares. A feature that serves any
+   *  number of collections (template-resolver) builds one provider per
+   *  collection this way, without the app writing navId + kind a second time
+   *  and without the renderer having to know bundled-features. Merged with
+   *  `navProviders`; the static map wins on key collision (explicit beats
+   *  derived). */
+  readonly navProvidersFromCollections?: (
+    collections: readonly QualifiedContentCollection[],
+  ) => CollectionNavProviders;
 
   /** Editor-Resolver-Komponenten pro featureId:action-Key. Wenn ein
    *  TreeNode mit target angeklickt wird, schlägt der EditorPanel das

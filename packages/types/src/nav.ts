@@ -65,3 +65,54 @@ export type NavDefinition = {
   // → entry belongs to no workspace).
   readonly workspaces?: readonly string[];
 };
+
+// A feature's content collection — a set of template-resources of one `kind`,
+// mounted in the nav next to the feature it belongs to rather than under a
+// central "Content" section. Declared via r.contentCollection(), which
+// registers the nav entry (always `provider: true`, the tree children arrive
+// at runtime) and records the `kind` so the client can build the matching tree
+// provider without the app repeating it.
+//
+// `parent` may point at another feature's nav QN; the boot validator rejects
+// dangling refs, so a collection mounted under a feature that isn't mounted
+// fails boot instead of silently disappearing from the sidebar.
+export type ContentCollectionDefinition = {
+  // Feature-local short id, kebab-case. Also becomes the nav entry's id, so
+  // it must not collide with an r.nav()/r.screen() id in the same feature.
+  // Handlers take this id, not a kind — a payload can therefore only ever
+  // address a declared collection, with the rules that were declared for it.
+  readonly id: string;
+  // Which template-resource kind this collection lists ("mail-html",
+  // "document-pdf", "text-block", ...). The engine keeps it opaque —
+  // bundled-features owns the kind vocabulary. Two collections may share a
+  // kind and still differ in access and ownership.
+  readonly kind: string;
+  // Who may read and write this collection's entries. Declared at mount time
+  // by the app, because a bundled feature cannot know the host's role
+  // vocabulary — same reasoning as the `access` option on tags/folders/ledger.
+  // Omitted means the mounting app didn't decide; the feature's own default
+  // applies.
+  readonly access?: AccessRule;
+  // "tenant": one set of entries shared by everyone in the tenant (reply
+  // snippets an admin curates). "user": every user keeps their own (mail
+  // signatures). Defaults to "tenant".
+  readonly ownership?: "tenant" | "user";
+  readonly nav: {
+    readonly label: string;
+    readonly icon?: string;
+    readonly parent?: string;
+    readonly order?: number;
+    // Visibility of the nav node. Leave unset — it then follows the
+    // collection's `access`, so the sidebar never offers a node whose
+    // contents the handler will refuse. Set it only to hide the node from
+    // someone who may still reach the data another way.
+    readonly access?: AccessRule;
+    readonly workspaces?: readonly string[];
+    // "+" affordance on the node and hover actions on the row — same meaning
+    // as on NavDefinition. Without a createAction a collection can only list
+    // what already exists; the target is usually the owning feature's
+    // r.treeActions create.
+    readonly createAction?: TreeAction;
+    readonly actions?: readonly TreeAction[];
+  };
+};
