@@ -1,4 +1,8 @@
 // Pure Unit-Tests für money flatten/rehydrate Helpers.
+//
+// Contract: API-form amount is MAJOR units (56799.16 EUR), DB-form is
+// MINOR units (5679916 cents) — flattenMoney/rehydrateMoney convert at the
+// boundary (×100 / ÷100). See money.ts's file header for why this exists.
 
 import { describe, expect, test } from "bun:test";
 import { createEntity, createMoneyField, createTextField } from "../../engine";
@@ -21,24 +25,29 @@ const usdEntity: EntityDefinition = createEntity({
   },
 });
 
-describe("flattenMoney — Insert/Update Convert", () => {
-  test("{ amount, currency } → { <name>: amount, <name>Currency: currency }", () => {
-    const flat = flattenMoney({ buyingPrice: { amount: 45000, currency: "EUR" } }, orderEntity);
+describe("flattenMoney — Insert/Update Convert (major units → minor units)", () => {
+  test("{ amount, currency } → { <name>: amount*100, <name>Currency: currency }", () => {
+    const flat = flattenMoney({ buyingPrice: { amount: 450, currency: "EUR" } }, orderEntity);
     expect(flat).toEqual({ buyingPrice: 45000, buyingPriceCurrency: "EUR" });
   });
 
+  test("decimal amount rounds to the nearest cent", () => {
+    const flat = flattenMoney({ buyingPrice: { amount: 56799.16, currency: "EUR" } }, orderEntity);
+    expect(flat).toEqual({ buyingPrice: 5679916, buyingPriceCurrency: "EUR" });
+  });
+
   test("primitive number (legacy) wird akzeptiert + entity.defaultCurrency angehängt", () => {
-    const flat = flattenMoney({ buyingPrice: 45000 }, orderEntity);
+    const flat = flattenMoney({ buyingPrice: 450 }, orderEntity);
     expect(flat).toEqual({ buyingPrice: 45000, buyingPriceCurrency: "EUR" });
   });
 
   test("primitive number nutzt USD wenn entity.defaultCurrency = USD", () => {
-    const flat = flattenMoney({ fee: 199 }, usdEntity);
+    const flat = flattenMoney({ fee: 1.99 }, usdEntity);
     expect(flat).toEqual({ fee: 199, feeCurrency: "USD" });
   });
 
   test("expliziter <name>Currency im Payload überschreibt nicht", () => {
-    const flat = flattenMoney({ buyingPrice: 45000, buyingPriceCurrency: "USD" }, orderEntity);
+    const flat = flattenMoney({ buyingPrice: 450, buyingPriceCurrency: "USD" }, orderEntity);
     // Wenn bereits gesetzt, nicht überschreiben — caller-explicit gewinnt
     expect(flat["buyingPriceCurrency"]).toBe("USD");
   });
@@ -46,8 +55,8 @@ describe("flattenMoney — Insert/Update Convert", () => {
   test("mehrere money-Felder am gleichen Object", () => {
     const flat = flattenMoney(
       {
-        buyingPrice: { amount: 45000, currency: "EUR" },
-        sellingPrice: { amount: 60000, currency: "USD" },
+        buyingPrice: { amount: 450, currency: "EUR" },
+        sellingPrice: { amount: 600, currency: "USD" },
       },
       orderEntity,
     );
@@ -61,7 +70,7 @@ describe("flattenMoney — Insert/Update Convert", () => {
 
   test("andere Felder bleiben unverändert", () => {
     const flat = flattenMoney(
-      { label: "Premium", buyingPrice: { amount: 100, currency: "EUR" } },
+      { label: "Premium", buyingPrice: { amount: 1, currency: "EUR" } },
       orderEntity,
     );
     expect(flat["label"]).toBe("Premium");
@@ -77,33 +86,33 @@ describe("flattenMoney — Insert/Update Convert", () => {
     const noCurrencyEntity: EntityDefinition = createEntity({
       fields: { fee: createMoneyField() },
     });
-    const flat = flattenMoney({ fee: 50 }, noCurrencyEntity);
+    const flat = flattenMoney({ fee: 0.5 }, noCurrencyEntity);
     expect(flat["feeCurrency"]).toBe("EUR");
   });
 
   test("ist pure — input wird nicht mutiert", () => {
-    const input = { buyingPrice: { amount: 45000, currency: "EUR" } };
+    const input = { buyingPrice: { amount: 450, currency: "EUR" } };
     const before = JSON.stringify(input);
     flattenMoney(input, orderEntity);
     expect(JSON.stringify(input)).toBe(before);
   });
 });
 
-describe("rehydrateMoney — Read Convert", () => {
-  test("{ <name>: number, <name>Currency: string } → { <name>: { amount, currency } }", () => {
+describe("rehydrateMoney — Read Convert (minor units → major units)", () => {
+  test("{ <name>: minorUnits, <name>Currency: string } → { <name>: { amount: majorUnits, currency } }", () => {
     const out = rehydrateMoney({ buyingPrice: 45000, buyingPriceCurrency: "EUR" }, orderEntity);
-    expect(out).toEqual({ buyingPrice: { amount: 45000, currency: "EUR" } });
+    expect(out).toEqual({ buyingPrice: { amount: 450, currency: "EUR" } });
   });
 
   test("PG-BIGINT als String wird zu number gecastet", () => {
     // Postgres-driver liefert BIGINT manchmal als String (>2^53 sicher).
     const out = rehydrateMoney({ buyingPrice: "45000", buyingPriceCurrency: "EUR" }, orderEntity);
-    expect(out["buyingPrice"]).toEqual({ amount: 45000, currency: "EUR" });
+    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR" });
   });
 
   test("fehlende Currency-Spalte fällt auf entity.defaultCurrency", () => {
     const out = rehydrateMoney({ buyingPrice: 45000 }, orderEntity);
-    expect(out["buyingPrice"]).toEqual({ amount: 45000, currency: "EUR" });
+    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR" });
   });
 
   test("null/undefined amount → Field wird aus Output entfernt", () => {
@@ -122,25 +131,25 @@ describe("rehydrateMoney — Read Convert", () => {
       orderEntity,
     );
     expect(out).toEqual({
-      buyingPrice: { amount: 45000, currency: "EUR" },
-      sellingPrice: { amount: 60000, currency: "USD" },
+      buyingPrice: { amount: 450, currency: "EUR" },
+      sellingPrice: { amount: 600, currency: "USD" },
     });
   });
 
-  test("Round-Trip: flatten dann rehydrate ergibt dasselbe", () => {
+  test("Round-Trip: flatten dann rehydrate ergibt dasselbe, inkl. Cents", () => {
     const original = {
-      buyingPrice: { amount: 45000, currency: "EUR" },
-      sellingPrice: { amount: 60000, currency: "USD" },
+      buyingPrice: { amount: 450.5, currency: "EUR" },
+      sellingPrice: { amount: 56799.16, currency: "USD" },
     };
     const flat = flattenMoney(original, orderEntity);
     const rehydrated = rehydrateMoney(flat, orderEntity);
     expect(rehydrated).toEqual(original);
   });
 
-  test("Round-Trip primitive-Insert: flatten(45000) → rehydrate → { amount:45000, currency:EUR }", () => {
-    const flat = flattenMoney({ buyingPrice: 45000 }, orderEntity);
+  test("Round-Trip primitive-Insert: flatten(450) → rehydrate → { amount:450, currency:EUR }", () => {
+    const flat = flattenMoney({ buyingPrice: 450 }, orderEntity);
     const out = rehydrateMoney(flat, orderEntity);
-    expect(out["buyingPrice"]).toEqual({ amount: 45000, currency: "EUR" });
+    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR" });
   });
 
   test("ist pure — input wird nicht mutiert", () => {
@@ -166,13 +175,13 @@ describe("rehydrateMoney — Read Convert", () => {
 describe("Round-Trip im Update-Pfad (Helper-Verkettung wie im Executor)", () => {
   test("Update-Changes-Payload mit money geht durch flatten + zurück durch rehydrate", () => {
     // Simuliert was der Executor macht: changes → flatten → DB → rehydrate
-    const changes = { buyingPrice: { amount: 99_000, currency: "USD" } };
+    const changes = { buyingPrice: { amount: 990, currency: "USD" } };
     const flat = flattenMoney(changes, orderEntity);
     expect(flat).toEqual({ buyingPrice: 99_000, buyingPriceCurrency: "USD" });
 
     // DB liefert dieselben Spalten zurück
     const out = rehydrateMoney(flat, orderEntity);
-    expect(out).toEqual({ buyingPrice: { amount: 99_000, currency: "USD" } });
+    expect(out).toEqual({ buyingPrice: { amount: 990, currency: "USD" } });
   });
 
   test("List-Pfad: mehrere Rows hintereinander rehydraten", () => {
@@ -183,9 +192,9 @@ describe("Round-Trip im Update-Pfad (Helper-Verkettung wie im Executor)", () => 
     ];
     const apiRows = dbRows.map((r) => rehydrateMoney(r, orderEntity));
     expect(apiRows).toEqual([
-      { buyingPrice: { amount: 100, currency: "EUR" } },
-      { buyingPrice: { amount: 200, currency: "USD" } },
-      { buyingPrice: { amount: 300, currency: "GBP" } },
+      { buyingPrice: { amount: 1, currency: "EUR" } },
+      { buyingPrice: { amount: 2, currency: "USD" } },
+      { buyingPrice: { amount: 3, currency: "GBP" } },
     ]);
   });
 });

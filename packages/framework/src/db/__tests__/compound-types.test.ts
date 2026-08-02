@@ -49,7 +49,8 @@ describe("flattenCompoundTypes — Pipeline", () => {
     expect(flat["label"]).toBe("ACME");
     expect((flat["pickupUtc"] as Temporal.Instant).toString()).toBe("2026-04-15T09:00:00Z");
     expect(flat["pickupTz"]).toBe("Europe/Lisbon");
-    expect(flat["buyingPrice"]).toBe(45_000);
+    // flattenMoney converts major units (API) → minor units (DB, ×100).
+    expect(flat["buyingPrice"]).toBe(4_500_000);
     expect(flat["buyingPriceCurrency"]).toBe("EUR");
   });
 
@@ -75,7 +76,7 @@ describe("rehydrateCompoundTypes — Pipeline", () => {
         label: "ACME",
         pickupUtc: "2026-04-15T09:00:00Z",
         pickupTz: "Europe/Lisbon",
-        buyingPrice: 45_000,
+        buyingPrice: 4_500_000,
         buyingPriceCurrency: "EUR",
       },
       mixedEntity,
@@ -83,6 +84,7 @@ describe("rehydrateCompoundTypes — Pipeline", () => {
     expect(out).toEqual({
       label: "ACME",
       pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon", utc: "2026-04-15T09:00:00Z" },
+      // rehydrateMoney converts minor units (DB) → major units (API, ÷100).
       buyingPrice: { amount: 45_000, currency: "EUR" },
     });
   });
