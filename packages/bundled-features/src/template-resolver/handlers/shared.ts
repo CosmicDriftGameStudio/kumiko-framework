@@ -3,14 +3,13 @@ import { z } from "zod";
 import { CONTENT_FORMATS, TEMPLATE_STATUSES, UPSERT_KINDS } from "../constants";
 import { templateResourceEntity, templateResourcesTable } from "../table";
 
-// Single executor pro Bundle — Pattern aus text-content. Wird von allen
-// 4 Handlers geteilt für create/update-Operationen mit Event-Store +
-// Optimistic-Lock.
+// One executor per bundle, shared by all four handlers for create/update via
+// event store + optimistic lock.
 export const executor = createEventStoreExecutor(templateResourcesTable, templateResourceEntity, {
   entityName: "template-resource",
 });
 
-// Slug-Regex symmetrisch zu text-content + plan-doc naming-convention.
+// Slug regex follows the plan-doc naming convention.
 export const slugSchema = z
   .string()
   .min(1)

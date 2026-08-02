@@ -6,7 +6,7 @@
 // features it already runs, so the marketing page can never drift from the
 // product:
 //
-//   • hero headline / tagline  ← text-content  (editable blocks, keyed by slug)
+//   • hero headline / tagline  ← template-resolver (kind `text-block`, keyed by slug)
 //   • prices and plan caps     ← tier-engine   (the app's plan config)
 //
 // `buildLandingPage` below shows both seams. It takes the data those features
@@ -23,8 +23,8 @@ import { HERO_SCREENSHOT } from "./constants";
 
 // --- Inputs: shapes the surrounding features hand you -----------------------
 
-/** Editable copy as the `text-content` feature projects it: a body string per
- *  stable slug. A real app fills this Map from the text-content read model. */
+/** Editable copy as the `template-resolver` feature projects it: a content string
+ *  per stable slug. A real app fills this Map from the template-resolver read model. */
 export type ContentBlocks = ReadonlyMap<string, string>;
 
 /** One plan as the app's `tier-engine` config exposes it. */
@@ -41,7 +41,7 @@ export type PlanInfo = {
 };
 
 export type LandingInput = {
-  /** From `text-content`. Omit a slug and the baked-in fallback is used, so the
+  /** From `template-resolver`. Omit a slug and the baked-in fallback is used, so the
    *  page renders fully even before anything is seeded. */
   readonly blocks?: ContentBlocks;
   /** From `tier-engine`. */
@@ -52,7 +52,7 @@ export type LandingInput = {
 
 // --- The two feature seams --------------------------------------------------
 
-/** text-content seam: block body if seeded, else the fallback baked in here. */
+/** template-resolver seam: block content if seeded, else the fallback baked in here. */
 function block(blocks: ContentBlocks | undefined, slug: string, fallback: string): string {
   return blocks?.get(slug) ?? fallback;
 }

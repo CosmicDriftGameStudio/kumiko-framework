@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { buildLandingPage, renderLanding, SAMPLE_PLANS } from "../feature";
 
-describe("apex-landing: text-content seam", () => {
+describe("apex-landing: template-resolver seam", () => {
   test("uses the seeded block body when present", () => {
     const html = renderLanding({
       blocks: new Map([["index:hero.title", "Custom seeded headline"]]),

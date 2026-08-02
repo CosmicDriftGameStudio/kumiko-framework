@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-sample-legal-pages",
-  "description": "Auto-rendered Impressum + Datenschutzerklärung pages — text-content + legal-pages bundled features wired up with anonymousAccess for DACH-compliance.",
+  "description": "Auto-rendered Impressum + Datenschutzerklärung pages — template-resolver + legal-pages bundled features wired up with anonymousAccess for DACH-compliance.",
   "private": true,
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
