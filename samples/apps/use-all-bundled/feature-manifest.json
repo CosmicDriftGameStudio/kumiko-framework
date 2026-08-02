@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 60,
+  "featureCount": 62,
   "features": [
     {
       "name": "admin-shell",
@@ -353,6 +353,20 @@
         "category": "notifications",
         "recommended": false
       }
+    },
+    {
+      "name": "collection-labels",
+      "description": "Nav labels for the content collections mounted by this sample app.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "compliance-profiles",
@@ -1976,7 +1990,9 @@
       "writeHandlers": [
         "template-resolver:write:archive",
         "template-resolver:write:publish",
+        "template-resolver:write:reply-snippets-set",
         "template-resolver:write:set",
+        "template-resolver:write:signatures-set",
         "template-resolver:write:upsert-system",
         "template-resolver:write:upsert-tenant"
       ],
@@ -1985,6 +2001,29 @@
         "category": "notifications",
         "recommended": false
       }
+    },
+    {
+      "name": "template-resolver-user-data",
+      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `template-resolver` feature's `user-content-entry` entity — the per-user half of the content store (mail signatures, personal reply snippets). Mounts the EXT_USER_DATA export hook so a user's own entries land in the export bundle; the delete hook is a deliberate no-op because `content` is annotated `userOwned`, so erasure runs via crypto-shredding (destroying the owner's subject key) rather than a physical delete, which would not survive an event replay. Mount this whenever `createTemplateResolverFeature` declares a collection with `ownership: \"user\"` — the boot guard otherwise refuses the entity. Requires `user-data-rights`, optionalRequires `template-resolver`.",
+      "toggleableDefault": null,
+      "requires": [
+        "user-data-rights"
+      ],
+      "optionalRequires": [
+        "template-resolver"
+      ],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "user-content-entry"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "tenant",

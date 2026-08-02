@@ -77,6 +77,7 @@ import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-eng
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
+import { collectionLabelsFeature } from "./app/collection-labels-feature";
 
 // Smoke-only stubs. Boot-mode skipt jede operative Methode — diese werden
 // nie aufgerufen, nur typecheck'd.
@@ -232,6 +233,8 @@ export const APP_FEATURES = [
   // whenever a user-owned collection is mounted — the boot guard refuses the
   // subject-carrying entity without it.
   templateResolverUserDataFeature,
+  // collection-labels: the app-side nav labels for the two collections above.
+  collectionLabelsFeature,
   createRendererFoundationFeature(),
   createRendererSimpleFeature(),
 
