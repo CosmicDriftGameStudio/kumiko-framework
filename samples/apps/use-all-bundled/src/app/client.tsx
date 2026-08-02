@@ -24,6 +24,7 @@ import { foldersClient } from "@cosmicdrift/kumiko-bundled-features/folders/web"
 import { jobsClient } from "@cosmicdrift/kumiko-bundled-features/jobs/web";
 import { personalAccessTokensClient } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens/web";
 import { tagsClient } from "@cosmicdrift/kumiko-bundled-features/tags/web";
+import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { tenantClient } from "@cosmicdrift/kumiko-bundled-features/tenant/web";
 import { tierEngineClient } from "@cosmicdrift/kumiko-bundled-features/tier-engine/web";
 import { userDataRightsClient } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/web";
@@ -31,6 +32,7 @@ import {
   ProfileScreen,
   userProfileClient,
 } from "@cosmicdrift/kumiko-bundled-features/user-profile/web";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine/types";
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import { type ClientFeatureDefinition, createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
 import { AppShell } from "./shell";
@@ -110,6 +112,10 @@ createKumikoApp({
     // tag-list management screen (TagManager) + TagSection/TagFilter extension
     // slots + tag i18n. Required for the dev-only notesFeature host to render.
     tagsClient(),
+    // template-resolver text-block tree + editor under the app-owned "content"
+    // nav node. Points at SYSTEM_TENANT because that is where the legal and
+    // marketing copy is seeded.
+    textBlocksClient({ navId: "app-screens:nav:content", tenantId: SYSTEM_TENANT_ID }),
     appScreens,
   ],
 });

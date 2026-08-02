@@ -17,8 +17,23 @@ export const appScreensFeature: FeatureDefinition = defineFeature("app-screens",
     renderer: { react: { __component: "UserProfileScreen" } },
     nav: { label: "screen:profile.title" },
   });
+  // Provider node for template-resolver's text-block tree. The app owns
+  // label/icon/access, the feature supplies the children plus the editor
+  // (textBlocksClient in client.tsx).
+  r.nav({
+    id: "content",
+    label: "nav:content.title",
+    icon: "file",
+    provider: true,
+    order: 40,
+    access: { roles: ["SystemAdmin"] },
+    workspaces: ["admin-shell:workspace:platform"],
+  });
   r.translations({
-    keys: { "screen:profile.title": { de: "Profil", en: "Profile" } },
+    keys: {
+      "screen:profile.title": { de: "Profil", en: "Profile" },
+      "nav:content.title": { de: "Inhalte", en: "Content" },
+    },
   });
   return {};
 });

@@ -334,7 +334,7 @@
       "primarySample": "recipes-legal-pages",
       "whenToUse": "Mail bodies, PDF templates, AI prompts, and marketing or legal copy should be editable per tenant and language without redeploying.",
       "sampleBlurb": "One content store for templates and text blocks per tenant and language — the legal-pages recipe shows the CMS-light editing path.",
-      "screenshot": "/screenshots/features/text-content.png"
+      "screenshot": "/screenshots/features/template-resolver.png"
     },
     "tenant": {
       "samples": [
