@@ -17,10 +17,16 @@ import type {
   TreeChildrenSubscribe,
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { useDispatcher, usePrimitives, useQuery } from "@cosmicdrift/kumiko-renderer";
+import {
+  useDispatcher,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names";
+import { defaultTranslations } from "./i18n";
 
 // Exported for the unit test — groupBlocksByFolder is a pure function.
 export type BlockSummary = {
@@ -211,6 +217,7 @@ function TextBlockEditor({
   const { Form, Field, Input, Button, Banner } = usePrimitives();
   const dispatcher = useDispatcher();
   const user = useShellUser();
+  const t = useTranslation();
   const canWrite =
     user?.roles.includes("TenantAdmin") === true || user?.roles.includes("SystemAdmin") === true;
 
@@ -254,14 +261,20 @@ function TextBlockEditor({
         ...(tenantIdOverride !== undefined && { tenantIdOverride }),
       });
       if (result.isSuccess) {
-        setSavedMsg(result.data.isNew ? "Neu angelegt." : "Gespeichert.");
+        setSavedMsg(
+          result.data.isNew
+            ? t("template-resolver.editor.created")
+            : t("template-resolver.editor.saved"),
+        );
         return;
       }
-      setSaveError(result.error.message ?? result.error.code ?? "Speichern fehlgeschlagen.");
+      setSaveError(
+        result.error.message ?? result.error.code ?? t("template-resolver.editor.saveFailed"),
+      );
     } catch (e) {
       // Network blip / dispatcher throw — otherwise submitting stays true and
       // the save button is locked forever with no feedback.
-      setSaveError(e instanceof Error ? e.message : "Netzwerkfehler beim Speichern.");
+      setSaveError(e instanceof Error ? e.message : t("template-resolver.editor.networkError"));
     } finally {
       setSubmitting(false);
     }
@@ -283,21 +296,21 @@ function TextBlockEditor({
       actions={
         canWrite ? (
           <Button type="submit" loading={submitting} disabled={disabled}>
-            {submitting ? "Speichern…" : "Speichern"}
+            {submitting ? t("template-resolver.editor.saving") : t("template-resolver.editor.save")}
           </Button>
         ) : undefined
       }
     >
-      {loading && <Banner variant="loading">Lädt aktuellen Stand…</Banner>}
+      {loading && <Banner variant="loading">{t("template-resolver.editor.loading")}</Banner>}
       {loadError !== null && (
-        <Banner variant="error">Konnte Block nicht laden: {loadError.code}</Banner>
-      )}
-      {!canWrite && !loading && (
-        <Banner variant="info">
-          Read-only — TenantAdmin- oder SystemAdmin-Rolle f&uuml;r &Auml;nderungen erforderlich.
+        <Banner variant="error">
+          {t("template-resolver.editor.loadFailed")}: {loadError.code}
         </Banner>
       )}
-      <Field id="text-block-title" label="Titel" required>
+      {!canWrite && !loading && (
+        <Banner variant="info">{t("template-resolver.editor.readOnly")}</Banner>
+      )}
+      <Field id="text-block-title" label={t("template-resolver.editor.titleLabel")} required>
         <Input
           kind="text"
           id="text-block-title"
@@ -308,7 +321,7 @@ function TextBlockEditor({
           required
         />
       </Field>
-      <Field id="text-block-content" label="Inhalt">
+      <Field id="text-block-content" label={t("template-resolver.editor.contentLabel")}>
         <Input
           kind="textarea"
           id="text-block-content"
@@ -348,5 +361,6 @@ export function textBlocksClient(opts?: {
     resolvers: {
       "template-resolver:edit": TextBlockEditor,
     },
+    translations: defaultTranslations,
   };
 }

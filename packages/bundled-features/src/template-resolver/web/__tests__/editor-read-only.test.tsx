@@ -12,6 +12,7 @@ import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { textBlocksClient } from "../client-plugin";
+import { defaultTranslations } from "../i18n";
 
 mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => ({
   useShellUser: mock(),
@@ -50,11 +51,22 @@ function getEditor() {
   return Editor;
 }
 
-const localeResolver = createStaticLocaleResolver();
+const localeResolver = createStaticLocaleResolver({ locale: "de" });
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
-    <LocaleProvider resolver={localeResolver}>
+    <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
+      <PrimitivesProvider value={defaultPrimitives}>{children}</PrimitivesProvider>
+    </LocaleProvider>
+  );
+}
+
+function EnglishWrapper({ children }: { readonly children: ReactNode }): ReactNode {
+  return (
+    <LocaleProvider
+      resolver={createStaticLocaleResolver({ locale: "en" })}
+      fallbackBundles={[defaultTranslations]}
+    >
       <PrimitivesProvider value={defaultPrimitives}>{children}</PrimitivesProvider>
     </LocaleProvider>
   );
@@ -112,6 +124,19 @@ describe("TextContentEditor — role-based write-access", () => {
 
     expect(screen.getByText(/Read-only/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^speichern/i })).toBeNull();
+  });
+});
+
+describe("TextContentEditor — en locale", () => {
+  test("TenantAdmin sieht englische Labels statt hartcodiertem Deutsch (#1754)", () => {
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
+    const Editor = getEditor();
+    render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: EnglishWrapper });
+
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeTruthy();
+    expect(screen.getByLabelText(/title/i)).toBeTruthy();
+    expect(screen.getByLabelText(/content/i)).toBeTruthy();
   });
 });
 
