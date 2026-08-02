@@ -292,6 +292,7 @@ export type {
   ConfigValue,
   ConfigValueSource,
   ConfigValueWithSource,
+  ContentCollectionDefinition,
   CreateSeedOptions,
   CreateTenantSeedOptions,
   CreateUserSeedOptions,

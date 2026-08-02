@@ -16,11 +16,19 @@ export const TemplateResolverQueries = {
   // Public pair — anonymous-reachable, kind pinned to text-block.
   bySlug: "template-resolver:query:by-slug",
   byTenant: "template-resolver:query:by-tenant",
-  // Admin pair — arbitrary kind, TenantAdmin/SystemAdmin only. The split is
-  // what keeps a new kind from becoming publicly readable by default.
-  collectionItem: "template-resolver:query:collection-item",
-  collectionList: "template-resolver:query:collection-list",
 } as const;
+
+// Every r.contentCollection() gets its own handler trio, so each carries that
+// collection's access rule and the dispatcher enforces it. The names are
+// derived from the collection id on both sides — server-side in
+// createTemplateResolverFeature, client-side here.
+export function collectionQueryName(collectionId: string, op: "list" | "item"): string {
+  return `${TEMPLATE_RESOLVER_FEATURE}:query:${collectionId}-${op}`;
+}
+
+export function collectionHandlerName(collectionId: string): string {
+  return `${TEMPLATE_RESOLVER_FEATURE}:write:${collectionId}-set`;
+}
 
 export const TemplateResolverErrors = {
   notFound: "template_resource_not_found",

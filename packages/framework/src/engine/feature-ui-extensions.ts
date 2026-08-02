@@ -390,7 +390,12 @@ export function buildUiExtensionsMethods<TName extends string>(
         ...(definition.nav.icon !== undefined && { icon: definition.nav.icon }),
         ...(definition.nav.parent !== undefined && { parent: definition.nav.parent }),
         ...(definition.nav.order !== undefined && { order: definition.nav.order }),
-        ...(definition.nav.access !== undefined && { access: definition.nav.access }),
+        // Nav visibility follows the collection's access unless the caller
+        // overrode it — a node the handler would refuse has no business in
+        // the sidebar.
+        ...((definition.nav.access ?? definition.access) !== undefined && {
+          access: definition.nav.access ?? definition.access,
+        }),
         ...(definition.nav.workspaces !== undefined && { workspaces: definition.nav.workspaces }),
         ...(definition.nav.createAction !== undefined && {
           createAction: definition.nav.createAction,

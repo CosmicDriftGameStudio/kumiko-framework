@@ -76,6 +76,45 @@ describe("r.contentCollection() — registration", () => {
     expect(feature.navs["templates"]?.actions).toHaveLength(1);
   });
 
+  test("the nav node inherits the collection's access — no node the handler would refuse", () => {
+    const feature = defineFeature("mail", (r) => {
+      r.contentCollection({
+        id: "prompts",
+        kind: "ai-prompt",
+        access: { roles: ["PromptEngineer"] },
+        nav: { label: "mail:nav.prompts" },
+      });
+    });
+
+    expect(feature.navs["prompts"]?.access).toEqual({ roles: ["PromptEngineer"] });
+  });
+
+  test("an explicit nav.access still wins over the collection's", () => {
+    const feature = defineFeature("mail", (r) => {
+      r.contentCollection({
+        id: "prompts",
+        kind: "ai-prompt",
+        access: { roles: ["PromptEngineer"] },
+        nav: { label: "mail:nav.prompts", access: { roles: ["TenantAdmin"] } },
+      });
+    });
+
+    expect(feature.navs["prompts"]?.access).toEqual({ roles: ["TenantAdmin"] });
+  });
+
+  test("records ownership so the handlers can scope reads", () => {
+    const feature = defineFeature("mail", (r) => {
+      r.contentCollection({
+        id: "signatures",
+        kind: "mail-html",
+        ownership: "user",
+        nav: { label: "mail:nav.signatures" },
+      });
+    });
+
+    expect(feature.contentCollections?.["signatures"]?.ownership).toBe("user");
+  });
+
   test("rejects a second collection with the same id", () => {
     expect(() =>
       defineFeature("mail", (r) => {

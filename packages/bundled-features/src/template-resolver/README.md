@@ -131,19 +131,12 @@ kennt keinen draft-Status — Speichern veröffentlicht.
 | `TemplateResolverHandlers.set` | `template-resolver:write:set` | TenantAdmin + SystemAdmin (via `tenantIdOverride` auch auf `SYSTEM_TENANT_ID`) | Upsert einer Ressource pro `(tenantId, slug, kind, locale)` |
 | `TemplateResolverQueries.bySlug` | `template-resolver:query:by-slug` | anonymous + User + Admins | Ein Text-Block — der Public-Read für Landing-/Legal-Pages |
 | `TemplateResolverQueries.byTenant` | `template-resolver:query:by-tenant` | anonymous + User + Admins | Alle Text-Blöcke eines Tenants für den Content-Tree |
-| `TemplateResolverQueries.collectionItem` | `template-resolver:query:collection-item` | TenantAdmin + SystemAdmin | Eine Ressource beliebigen Kinds |
-| `TemplateResolverQueries.collectionList` | `template-resolver:query:collection-list` | TenantAdmin + SystemAdmin | Alle Ressourcen eines Kinds für den Collection-Tree |
+| `<collection>-list` / `-item` / `-set` | `template-resolver:query:<id>-list` … | wie deklariert | Pro Content-Collection, siehe unten |
 
 Die beiden Public-Queries sind fest auf `kind: "text-block"` verdrahtet und
 nehmen **keinen** kind-Parameter. Mail-Templates und AI-Prompts liegen in
-derselben Tabelle und laufen deshalb über das eigene Handler-Paar
-`collection-*`, das per `access` admin-only ist. Zwei Handler statt eines mit
-kind-Parameter: so kann ein neuer kind nicht versehentlich öffentlich lesbar
-werden, und die Regel steht deklarativ am Handler statt in einem Zweig im
-Handler-Body.
-
-`set` braucht diesen Split nicht — der Handler ist ohnehin admin-only und nimmt
-`kind` direkt.
+derselben Tabelle und laufen über die Handler ihrer Collection. So kann ein
+neuer kind nicht versehentlich öffentlich lesbar werden.
 
 Seed-Helper: `seedTextBlock` / `seedLegalContentFromJson` aus
 `@cosmicdrift/kumiko-bundled-features/template-resolver/seeding`.
@@ -158,41 +151,66 @@ createKumikoApp({
 });
 ```
 
-## Content-Collections (`r.contentCollection`)
+## Content-Collections
 
 Eine Sammlung erscheint dort in der Nav, wo sie fachlich hingehört — statt alles
-in einen zentralen "Content"-Bereich zu kippen:
+in einen zentralen "Content"-Bereich zu kippen. Deklariert wird sie **beim
+Mounten**, nicht im Feature:
 
 ```typescript
-export function createMailFeature() {
-  return defineFeature("mail", (r) => {
-    r.nav({ id: "root", label: "mail:nav.root" });
-    r.contentCollection({
-      id: "templates",
+createTemplateResolverFeature({
+  collections: [
+    {
+      id: "reply-snippets",
       kind: "mail-html",
-      nav: { label: "mail:nav.templates", parent: "mail:nav:root" },
-    });
-  });
-}
+      access: { roles: ["Agent", "TenantAdmin"] },
+      nav: { label: "mail:nav.snippets", parent: "mail:nav:root" },
+    },
+    {
+      id: "ai-prompts",
+      kind: "ai-prompt",
+      access: { roles: ["PromptEngineer"] },
+      nav: { label: "mail:nav.prompts", parent: "mail:nav:root" },
+    },
+  ],
+});
 ```
 
-Der Registrar legt den Nav-Knoten mit `provider: true` an und gibt dessen QN
-zurück. `textBlocksClient()` bedient jede deklarierte Collection automatisch —
-ein Folder-Tree pro Collection, gefiltert auf ihren `kind`, inklusive
-SSE-Refresh. Die App reicht dafür nichts durch: navId und kind kommen beide aus
-dem Schema und können nicht auseinanderlaufen.
+`access` gehört an den Mount, weil ein bundled-feature das Rollenvokabular der
+App nicht kennen kann — dasselbe Muster wie die `access`-Option von
+`tags`/`folders`/`ledger`. Ohne Angabe gilt TenantAdmin + SystemAdmin.
+
+Jede Collection bekommt **eigene Handler** — `<id>-list`, `<id>-item`,
+`<id>-set` — die je die Access-Regel ihrer Collection tragen. Deshalb setzt der
+Dispatcher die Trennung durch: wer Snippets pflegen darf, kommt an den
+AI-Prompts nicht vorbei. Ein gemeinsamer Handler mit `kind`-Parameter müsste
+die Vereinigung aller Rollen zulassen und im Body sortieren.
+
+Der Payload trägt entsprechend **keinen** `kind` — `kind`, `ownership` und
+`access` stammen aus der Deklaration. Zwei Collections dürfen denselben `kind`
+mit unterschiedlichen Regeln führen.
+
+`textBlocksClient()` bedient jede deklarierte Collection automatisch: ein
+Folder-Tree pro Collection inklusive SSE-Refresh, Editor-Ziel mit der
+`collectionId`. Die App reicht dafür nichts durch.
 
 `nav.parent` darf auf ein fremdes Feature zeigen. Der Boot-Validator lehnt
 dangling Refs ab — eine Collection unter einem nicht gemounteten Feature lässt
-den Boot scheitern statt still aus der Sidebar zu verschwinden.
+den Boot scheitern statt still aus der Sidebar zu verschwinden. Die
+Sichtbarkeit des Knotens folgt `access`, sofern `nav.access` nichts anderes
+sagt.
 
 Ein "+" am Knoten braucht ein explizites `nav.createAction` (Ziel ist
 üblicherweise `treeHandle.create`); ohne das listet die Collection nur, was
 schon existiert. `nav.actions` setzt Hover-Actions auf die Zeile.
 
-Speichern im Collection-Editor läuft über `set` und **veröffentlicht sofort** —
-Status `active`, leeres `variableSchema`. Wer eine Draft-Stufe oder ein
-Variablen-Schema braucht, nimmt `upsertSystem`/`upsertTenant` + `publish`.
+Speichern **veröffentlicht sofort** — Status `active`, leeres `variableSchema`.
+Wer eine Draft-Stufe oder ein Variablen-Schema braucht, nimmt
+`upsertSystem`/`upsertTenant` + `publish`.
+
+`ownership: "user"` (jeder Enduser pflegt seine eigenen Einträge, z.B.
+Signaturen) ist im Typ vorhanden, aber noch nicht implementiert — der Mount
+wirft dann, statt still allen denselben Satz zu zeigen. Siehe #1770.
 
 ## Out-of-Scope
 

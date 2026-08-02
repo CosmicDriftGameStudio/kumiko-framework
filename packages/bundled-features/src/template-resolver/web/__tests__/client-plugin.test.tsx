@@ -102,8 +102,7 @@ describe("textBlocksClient — content collections", () => {
     expect(Object.keys(derived?.providers ?? {})).toEqual([]);
   });
 
-  test("a collection's provider requests its own kind and stamps it on the edit target", async () => {
-    let sentPayload: Record<string, unknown> = {};
+  test("a collection's provider calls that collection's handler and stamps its id on the edit target", async () => {
     let sentType = "";
     globalThis.fetch = mock(async (_url: string, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as {
@@ -111,7 +110,6 @@ describe("textBlocksClient — content collections", () => {
         payload: Record<string, unknown>;
       };
       sentType = body.type;
-      sentPayload = body.payload;
       return new Response(
         JSON.stringify({
           data: {
@@ -143,25 +141,21 @@ describe("textBlocksClient — content collections", () => {
     });
     await new Promise((r) => setTimeout(r, 0));
 
-    // Non-text-block collections go through the admin-only handler, not the
-    // anonymous-capable by-tenant.
-    expect(sentType).toBe("template-resolver:query:collection-list");
-    expect(sentPayload["kind"]).toBe("mail-html");
-    // Without the kind on the target, the editor would read and write the
-    // text-block row of the same slug instead of the mail template.
-    expect(emitted?.[0]?.target?.args).toMatchObject({ slug: "reminder", kind: "mail-html" });
+    // The collection's own handler carries its access rule — a shared one
+    // taking a kind would have to admit every collection's roles at once.
+    expect(sentType).toBe("template-resolver:query:templates-list");
+    // Without the collection id on the target, the editor would read and write
+    // through the public text-block pair instead of this collection.
+    expect(emitted?.[0]?.target?.args).toMatchObject({
+      slug: "reminder",
+      collectionId: "templates",
+    });
   });
 
-  test("a text-block collection keeps the public handler — public pages need it without a session", async () => {
+  test("a text-block collection also uses its own handler — declared means declared", async () => {
     let sentType = "";
-    let sentPayload: Record<string, unknown> = {};
     globalThis.fetch = mock(async (_url: string, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body)) as {
-        type: string;
-        payload: Record<string, unknown>;
-      };
-      sentType = body.type;
-      sentPayload = body.payload;
+      sentType = (JSON.parse(String(init?.body)) as { type: string }).type;
       return new Response(JSON.stringify({ data: { blocks: [] } }), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -174,7 +168,27 @@ describe("textBlocksClient — content collections", () => {
     derived?.providers["mail:nav:pages"]?.()(() => {});
     await new Promise((r) => setTimeout(r, 0));
 
+    // Same kind as the public tree, but declared as a collection → it gets the
+    // access the app declared, not anonymous reach.
+    expect(sentType).toBe("template-resolver:query:pages-list");
+  });
+
+  test("the hand-wired navId path stays on the anonymous-capable query", async () => {
+    let sentType = "";
+    globalThis.fetch = mock(async (_url: string, init?: RequestInit) => {
+      sentType = (JSON.parse(String(init?.body)) as { type: string }).type;
+      return new Response(JSON.stringify({ data: { blocks: [] } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+
+    // publicstatus renders its content sidebar on public pages without a
+    // session — that path must not move onto a collection handler.
+    const navId = "publicstatus:nav:content";
+    textBlocksClient({ navId }).navProviders?.[navId]?.()(() => {});
+    await new Promise((r) => setTimeout(r, 0));
+
     expect(sentType).toBe("template-resolver:query:by-tenant");
-    expect(sentPayload).not.toHaveProperty("kind");
   });
 });
