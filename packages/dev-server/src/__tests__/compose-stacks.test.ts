@@ -29,8 +29,8 @@ describe("composeStacks", () => {
     ]);
   });
 
-  test("composePagesStack → text-content + legal-pages", () => {
-    expect(stackFeatureNames(composePagesStack())).toEqual(["text-content", "legal-pages"]);
+  test("composePagesStack → legal-pages (template-resolver comes from the renderer stack)", () => {
+    expect(stackFeatureNames(composePagesStack())).toEqual(["legal-pages"]);
   });
 
   test("composeMailStack mounts foundation + selected transports", () => {
@@ -134,6 +134,8 @@ describe("composeStacks boots for real", () => {
         createPersonalAccessTokensFeature({ scopes: {} }),
         ...composeOpsStack({ rateLimiting: true }),
         ...composePagesStack(),
+        // legal-pages requires template-resolver, which ships in the renderer stack.
+        ...composeRendererStack(),
         ...composeMailStack({ transports: ["inmemory"] }),
         ...composeFileStack({ providers: ["inmemory"] }),
         ...composeGdprStack({ order: "compliance-first", sessions: true }),
@@ -192,6 +194,8 @@ describe("composeStacks intended block names (snapshot, not live parity)", () =>
     const names = stackFeatureNames([
       ...composeOpsStack({ rateLimiting: true }),
       ...composePagesStack(),
+      // Pages content sits on template-resolver, which the renderer stack mounts.
+      ...composeRendererStack(),
       ...composeMailStack({ transports: ["inmemory", "smtp"] }),
       ...composeFileStack({ providers: ["inmemory", "s3"] }),
       ...composeGdprStack({ order: "compliance-first" }),
@@ -202,7 +206,7 @@ describe("composeStacks intended block names (snapshot, not live parity)", () =>
       "audit",
       "jobs",
       "rate-limiting",
-      "text-content",
+      "template-resolver",
       "legal-pages",
       "mail-foundation",
       "file-foundation",
@@ -226,7 +230,7 @@ describe("composeStacks intended block names (snapshot, not live parity)", () =>
       ...composeUserDataRightsStack(),
     ]);
     for (const expected of [
-      "text-content",
+      "template-resolver",
       "legal-pages",
       "data-retention",
       "compliance-profiles",
@@ -250,7 +254,7 @@ describe("composeStacks intended block names (snapshot, not live parity)", () =>
       ...composeUserDataRightsStack(),
     ]);
     for (const expected of [
-      "text-content",
+      "template-resolver",
       "legal-pages",
       "tenant-lifecycle",
       "audit",

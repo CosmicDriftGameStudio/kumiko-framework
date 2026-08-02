@@ -3,7 +3,7 @@ import { mergeExtraContext } from "../setup-test-stack-from-features";
 
 // #882/4: the integration test only asserted getFeature("config") — which
 // includeBundled already provides — never that presets:["config"] actually
-// merges configResolver/textContent into extraContext. Unit-test the merge
+// merges configResolver/templateResolver into extraContext. Unit-test the merge
 // directly instead.
 
 const fakeDeps = {
@@ -41,16 +41,16 @@ describe("mergeExtraContext", () => {
     expect(result["configResolver"]).toBeDefined();
   });
 
-  test("text-content preset merges textContent, built from deps.db", () => {
-    const merged = mergeExtraContext(undefined, ["text-content"]);
+  test("template-resolver preset merges templateResolver, built from deps.db", () => {
+    const merged = mergeExtraContext(undefined, ["template-resolver"]);
     const result = (merged as (deps: typeof fakeDeps) => Record<string, unknown>)(fakeDeps);
-    expect(result["textContent"]).toBeDefined();
+    expect(result["templateResolver"]).toBeDefined();
   });
 
   test("both presets merge both fields", () => {
-    const merged = mergeExtraContext(undefined, ["config", "text-content"]);
+    const merged = mergeExtraContext(undefined, ["config", "template-resolver"]);
     const result = (merged as (deps: typeof fakeDeps) => Record<string, unknown>)(fakeDeps);
     expect(result["configResolver"]).toBeDefined();
-    expect(result["textContent"]).toBeDefined();
+    expect(result["templateResolver"]).toBeDefined();
   });
 });

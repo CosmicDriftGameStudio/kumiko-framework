@@ -137,16 +137,16 @@
     "sampleBlurb": "Tag a plain note entity with zero host changes — assign/remove handlers, read-layer composition, and optional TagSection UI.",
     "screenshot": "/screenshots/features/tags.png"
   },
+  "template-resolver": {
+    "primarySample": "recipes-legal-pages",
+    "whenToUse": "Mail bodies, PDF templates, AI prompts, and marketing or legal copy should be editable per tenant and language without redeploying.",
+    "sampleBlurb": "One content store for templates and text blocks per tenant and language — the legal-pages recipe shows the CMS-light editing path.",
+    "screenshot": "/screenshots/features/text-content.png"
+  },
   "tenant": {
     "whenToUse": "Your app serves multiple organizations — tenants, memberships, and roles scope every query and write.",
     "sampleBlurb": "Multi-tenant memberships and roles — profile screen switches tenant context and scopes queries to the active membership.",
     "screenshot": "/screenshots/features/tenant.png"
-  },
-  "text-content": {
-    "primarySample": "recipes-legal-pages",
-    "whenToUse": "Marketing copy, help articles, and legal text should be editable per tenant without redeploying — keyed by slug and language.",
-    "sampleBlurb": "Keyed marketing and help strings per tenant and language — same recipe as legal-pages shows CMS-light editing.",
-    "screenshot": "/screenshots/features/text-content.png"
   },
   "tier-engine": {
     "primarySample": "recipes-tier-admin",

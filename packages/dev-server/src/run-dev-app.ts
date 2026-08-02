@@ -204,7 +204,7 @@ export type RunDevAppOptions = {
   /** Eigene Seed-Funktionen, laufen nach dem Admin (wenn auth) in
    *  Array-Reihenfolge. */
   readonly seeds?: readonly SeedFn[];
-  /** Extra-AppContext-Keys. `textContent` (immer) + `secrets` (wenn das
+  /** Extra-AppContext-Keys. `templateResolver` (immer) + `secrets` (wenn das
    *  secrets-Feature gemountet ist) + `configResolver` (auth-mode) werden
    *  automatisch ergänzt — App-Werte gewinnen. Symmetrisch zu runProdApp. */
   readonly extraContext?: CreateKumikoServerOptions["extraContext"];
@@ -379,7 +379,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         bootCrypto.configCipher,
       )
     : options.extraContext;
-  // Auto-wire textContent (immer) + secrets (feature-gated), symmetrisch zu
+  // Auto-wire templateResolver (immer) + secrets (feature-gated), symmetrisch zu
   // runProdApp. Anders als prod existiert die db hier erst im Factory-deps
   // (createKumikoServer baut den Stack), darum als Factory: buildBootExtraContext
   // mit hasAuth:false (configResolver kommt schon aus cfgExtra), App-Werte

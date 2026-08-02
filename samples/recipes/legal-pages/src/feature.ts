@@ -7,9 +7,9 @@
 //
 // Lösung: zwei opt-in bundled-features kombinieren:
 //
-//  - `text-content`  — generischer Markdown-Text-Container (Entity
-//    `text-block` mit slug+lang+title+body, scoped per Tenant). Auch
-//    nutzbar für FAQ, About, ToS, Marketing-Snippets — nicht
+//  - `template-resolver` — der Content-Store (Entity `template-resource`,
+//    kind `text-block` mit slug+locale+title+content, scoped per Tenant).
+//    Auch nutzbar für FAQ, About, ToS, Marketing-Snippets — nicht
 //    legal-spezifisch.
 //
 //  - `legal-pages`   — opt-in-Wrapper darauf, der vier feste Public-
@@ -20,30 +20,30 @@
 //
 // Tenant-Modell: 1 App = X Tenants = 1 Impressum. Alle Subdomains
 // teilen sich die SYSTEM_TENANT_ID-Version. Wer pro-Tenant-Impressums
-// braucht, muss sein eigenes Routing davorsetzen oder die text-content-
+// braucht, muss sein eigenes Routing davorsetzen oder die by-slug-
 // query mit tenant-specific tenantId nutzen.
 //
 // Voraussetzungen für Production:
 //  - `anonymousAccess` muss in runProdApp/runDevApp konfiguriert sein
 //    (defaultTenantId = SYSTEM_TENANT_ID), sonst antworten die
 //    legal-pages-Routes mit 503
-//  - `extraContext.textContent = createTextContentApi(db)` muss gewired
-//    sein, sonst wirft der Boot-Check mit Wiring-Hinweis
+//  - `extraContext.templateResolver = createTemplateResolverApi(db)` muss
+//    gewired sein, sonst wirft der Boot-Check mit Wiring-Hinweis
 //  - Beim ersten Boot müssen die TextBlocks geseedet sein —
-//    text-content/seeding `seedTextBlock` oder via API
-//    `text-content:write:set` mit TenantAdmin-Token
+//    template-resolver/seeding `seedTextBlock` oder via API
+//    `template-resolver:write:set` mit TenantAdmin-Token
 
 import {
   createLegalPagesFeature,
   LEGAL_REQUIRED_BLOCKS,
   LEGAL_ROUTES,
 } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
-import { createTextContentFeature } from "@cosmicdrift/kumiko-bundled-features/text-content";
+import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 
-// Beide Features aktivieren — text-content ist Foundation, legal-pages
-// requires sie. r.requires("text-content") greift automatisch im
+// Beide Features aktivieren — template-resolver ist Foundation, legal-pages
+// requires sie. r.requires("template-resolver") greift automatisch im
 // legal-pages-Feature.
-export const textContentFeature = createTextContentFeature();
+export const templateResolverFeature = createTemplateResolverFeature();
 export const legalPagesFeature = createLegalPagesFeature();
 
 // Re-exports für Tests + andere Demos

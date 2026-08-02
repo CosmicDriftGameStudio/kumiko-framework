@@ -72,7 +72,6 @@ import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createTenantSettingsFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
-import { createTextContentFeature } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
@@ -207,7 +206,6 @@ export const APP_FEATURES = [
   createUserProfileFeature(),
 
   // CMS / content
-  createTextContentFeature(),
   createLegalPagesFeature(),
   createTemplateResolverFeature(),
   createRendererFoundationFeature(),

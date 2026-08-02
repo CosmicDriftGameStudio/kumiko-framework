@@ -41,6 +41,8 @@ export const upsertSystemWrite = defineWriteHandler({
       contentFormat: event.payload.contentFormat,
       variableSchema: JSON.stringify(event.payload.variableSchema),
       linkedResources: JSON.stringify(event.payload.linkedResources),
+      title: event.payload.title ?? null,
+      folder: event.payload.folder ?? null,
       scope: "system" as const,
       parentTemplateId: event.payload.parentTemplateId ?? null,
       // System-Defaults sind sofort active (kein draft-Stage für seeds).

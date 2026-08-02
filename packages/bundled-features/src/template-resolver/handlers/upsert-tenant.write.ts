@@ -65,6 +65,8 @@ export const upsertTenantWrite = defineWriteHandler({
       contentFormat: event.payload.contentFormat,
       variableSchema: JSON.stringify(event.payload.variableSchema),
       linkedResources: JSON.stringify(event.payload.linkedResources),
+      title: event.payload.title ?? null,
+      folder: event.payload.folder ?? null,
       scope: "tenant" as const,
       parentTemplateId: event.payload.parentTemplateId ?? null,
       status: event.payload.status,

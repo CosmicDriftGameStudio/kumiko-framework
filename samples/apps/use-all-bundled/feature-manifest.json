@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 61,
+  "featureCount": 60,
   "features": [
     {
       "name": "admin-shell",
@@ -1028,10 +1028,10 @@
     },
     {
       "name": "legal-pages",
-      "description": "Opt-in wrapper around `text-content` that registers four public HTML routes (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required DE blocks (`imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`. Requires `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` and `extraContext.textContent` to be wired at app bootstrap; for per-tenant imprints or a custom layout call `text-content:query:by-slug` directly.",
+      "description": "Opt-in wrapper around `template-resolver` text-blocks that registers four public HTML routes (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required DE blocks (`imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`. Requires `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` and `extraContext.templateResolver` to be wired at app bootstrap; for per-tenant imprints or a custom layout call `template-resolver:query:by-slug` directly.",
       "toggleableDefault": null,
       "requires": [
-        "text-content"
+        "template-resolver"
       ],
       "optionalRequires": [],
       "configReads": [],
@@ -1976,6 +1976,7 @@
       "writeHandlers": [
         "template-resolver:write:archive",
         "template-resolver:write:publish",
+        "template-resolver:write:set",
         "template-resolver:write:upsert-system",
         "template-resolver:write:upsert-tenant"
       ],
@@ -2282,27 +2283,6 @@
       ],
       "secrets": [],
       "writeHandlers": []
-    },
-    {
-      "name": "text-content",
-      "description": "Generic Markdown text store keyed by `(tenantId, slug, lang)` — one row per combination in the `read_text_blocks` entity table. Provides `text-content:write:set` (TenantAdmin upsert) and `text-content:query:by-slug` (anonymous-capable read); use `SYSTEM_TENANT_ID` as the tenant for app-wide texts such as imprint, privacy policy, or FAQ. Other features (e.g. `legal-pages`) read blocks without a direct code import via the `createTextContentApi` / `requireTextContent` extraContext pattern.",
-      "toggleableDefault": null,
-      "requires": [],
-      "optionalRequires": [],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": [
-        "text-content:write:set"
-      ],
-      "uiHints": {
-        "displayLabel": "Text Content · Markdown Store",
-        "category": "content",
-        "recommended": false
-      }
     },
     {
       "name": "tier-engine",

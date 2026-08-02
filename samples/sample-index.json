@@ -325,6 +325,17 @@
       "sampleBlurb": "Tag a plain note entity with zero host changes — assign/remove handlers, read-layer composition, and optional TagSection UI.",
       "screenshot": "/screenshots/features/tags.png"
     },
+    "template-resolver": {
+      "samples": [
+        "recipes-legal-pages"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "DACH compliance stack: two opt-in bundled features wired up to auto-rendered Imprint + Privacy-Policy pages, with Markdown authoring and a boot check for required content.",
+      "primarySample": "recipes-legal-pages",
+      "whenToUse": "Mail bodies, PDF templates, AI prompts, and marketing or legal copy should be editable per tenant and language without redeploying.",
+      "sampleBlurb": "One content store for templates and text blocks per tenant and language — the legal-pages recipe shows the CMS-light editing path.",
+      "screenshot": "/screenshots/features/text-content.png"
+    },
     "tenant": {
       "samples": [
         "recipes-apex-surface-auth",
@@ -349,17 +360,6 @@
       ],
       "hasVisualOutput": true,
       "readmeSummary": "**What this shows:** how a per-tenant Currency + Locale default fills a money/locale field on create — without hard-coding `\"EUR\"`/`\"de\"` as a field literal, the mistake that cost a sibling project (phronexsis) a retrofit once a second tenant needed a different default."
-    },
-    "text-content": {
-      "samples": [
-        "recipes-legal-pages"
-      ],
-      "hasVisualOutput": true,
-      "readmeSummary": "DACH compliance stack: two opt-in bundled features wired up to auto-rendered Imprint + Privacy-Policy pages, with Markdown authoring and a boot check for required content.",
-      "primarySample": "recipes-legal-pages",
-      "whenToUse": "Marketing copy, help articles, and legal text should be editable per tenant without redeploying — keyed by slug and language.",
-      "sampleBlurb": "Keyed marketing and help strings per tenant and language — same recipe as legal-pages shows CMS-light editing.",
-      "screenshot": "/screenshots/features/text-content.png"
     },
     "tier-engine": {
       "samples": [

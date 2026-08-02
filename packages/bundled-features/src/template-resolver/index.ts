@@ -10,13 +10,20 @@ export {
   CONTENT_FORMATS,
   type ContentFormat,
   FALLBACK_LOCALE,
+  NON_RENDER_KINDS,
+  type NonRenderKind,
   RENDER_KINDS,
   type RenderKind,
   SYSTEM_TENANT_ID,
+  TEMPLATE_KINDS,
   TEMPLATE_SCOPES,
   TEMPLATE_STATUSES,
+  TEXT_BLOCK_KIND,
+  type TemplateKind,
   type TemplateScope,
   type TemplateStatus,
+  UPSERT_KINDS,
+  type UpsertKind,
 } from "./constants";
 export { createTemplateResolverFeature } from "./feature";
 export {

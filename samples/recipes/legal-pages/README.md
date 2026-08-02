@@ -1,4 +1,4 @@
-# Recipe: legal-pages + text-content
+# Recipe: legal-pages + template-resolver
 
 DACH compliance stack: two opt-in bundled features wired up to
 auto-rendered Imprint + Privacy-Policy pages, with Markdown authoring
@@ -6,7 +6,7 @@ and a boot check for required content.
 
 **What the recipe demonstrates:**
 - Activate both features in `runProdApp({ features: [...] })`
-- Required wirings: `anonymousAccess` + `extraContext.textContent`
+- Required wirings: `anonymousAccess` + `extraContext.templateResolver`
 - Initial seed of the DE required blocks (Imprint + Privacy) for SYSTEM_TENANT
 - 5 integration tests proving end-to-end behavior
 
@@ -39,7 +39,7 @@ Test Files  1 passed (1)
 ```
 
 When the tests are green:
-- text-content + legal-pages are compatible
+- template-resolver + legal-pages are compatible
 - Table schema is clean via `unsafeCreateEntityTable(stack.db, textBlockEntity)`
 - Routes are reachable via `stack.app.request("/legal/impressum")`
 - Markdown rendering produces valid HTML
@@ -56,23 +56,23 @@ Step-by-step for an existing Kumiko app (e.g.
 // bin/main.ts
 import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 import {
-  createTextContentApi,
-  createTextContentFeature,
-} from "@cosmicdrift/kumiko-bundled-features/text-content";
+  createTemplateResolverApi,
+  createTemplateResolverFeature,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 
 await runProdApp({
   features: [
-    createTextContentFeature(),
+    createTemplateResolverFeature(),
     createLegalPagesFeature(),
     /* ... your other features */
   ],
   // Required (1): routes run anonymous, need tenant resolution
   anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-  // Required (2): boot check + internal lookup use ctx.textContent
+  // Required (2): boot check + internal lookup use ctx.templateResolver
   extraContext: ({ db }) => ({
-    textContent: createTextContentApi(db),
+    templateResolver: createTemplateResolverApi(db),
   }),
 });
 ```
@@ -97,7 +97,7 @@ A one-shot setup routine that runs on first boot or via the CLI:
 
 ```typescript illustration
 // bin/seed-legal.ts
-import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
+import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createDb } from "@cosmicdrift/kumiko-framework/db";
 
@@ -106,9 +106,9 @@ const db = createDb(process.env.DATABASE_URL!);
 await seedTextBlock(db, {
   tenantId: SYSTEM_TENANT_ID,
   slug: "imprint",
-  lang: "de",
+  locale: "de",
   title: "Impressum",
-  body: `## Angaben gemäß § 5 TMG
+  content: `## Angaben gemäß § 5 TMG
 
 **[Dein Name / GmbH]**
 
@@ -128,9 +128,9 @@ E-Mail: [hello@example.com](mailto:hello@example.com)
 await seedTextBlock(db, {
   tenantId: SYSTEM_TENANT_ID,
   slug: "privacy",
-  lang: "de",
+  locale: "de",
   title: "Datenschutzerklärung",
-  body: `## 1. Verantwortlicher
+  content: `## 1. Verantwortlicher
 
 [Dein Name + Anschrift]
 
@@ -167,8 +167,8 @@ await fetch("/api/write", {
   method: "POST",
   headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
   body: JSON.stringify({
-    type: "text-content:write:set",
-    payload: { slug: "imprint", lang: "de", title: "Impressum", body: "..." },
+    type: "template-resolver:write:set",
+    payload: { slug: "imprint", locale: "de", title: "Impressum", content: "..." },
   }),
 });
 ```
@@ -193,14 +193,14 @@ from SYSTEM_TENANT:
 | Symptom | Cause | Fix |
 |---|---|---|
 | Route returns `503 legal page unavailable` | `anonymousAccess` not configured in `runProdApp` | Set `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` |
-| Boot check throws `ctx.textContent missing` | `extraContext.textContent` not wired | Set `extraContext: ({ db }) => ({ textContent: createTextContentApi(db) })` |
-| Route returns `404 not configured` | Required block doesn't exist or has `body=null` | `seedTextBlock` with a body string |
+| Boot check throws `ctx.templateResolver missing` | `extraContext.templateResolver` not wired | Set `extraContext: ({ db }) => ({ templateResolver: createTemplateResolverApi(db) })` |
+| Route returns `404 not configured` | Required block doesn't exist or has `content=null` | `seedTextBlock` with a content string |
 | Multi-tenant app: tenant subdomain shows an empty page | (Bug regression?) Routes should ALWAYS show SYSTEM_TENANT texts | The `legal-pages.integration.test.ts` test "SYSTEM_TENANT routing" covers this — should be green |
 | `<script>` tags in a Markdown body land 1:1 in the HTML | Deliberately accepted right now — see [legal-pages/README.md XSS section](../../../packages/bundled-features/src/legal-pages/README.md#xss--currently-not-secured-by-design) | DOMPurify is a Phase 2 once a multi-author setup arrives |
 
 ## Cross-refs
 
-- [packages/bundled-features/src/text-content/README.md](../../../packages/bundled-features/src/text-content/README.md) — generic text module
+- [packages/bundled-features/src/template-resolver/README.md](../../../packages/bundled-features/src/template-resolver/README.md) — content store
 - [packages/bundled-features/src/legal-pages/README.md](../../../packages/bundled-features/src/legal-pages/README.md) — DACH compliance wrapper
 - [docs/plans/datenschutz/](../../../docs/plans/datenschutz/) — consolidated privacy plan index
 - [docs/plans/datenschutz/legal-artifacts.md](../../../docs/plans/datenschutz/legal-artifacts.md) — template sources for legally-sound texts

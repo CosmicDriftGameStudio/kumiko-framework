@@ -30,7 +30,7 @@ import { createRendererSimpleFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
-import { createTextContentFeature } from "@cosmicdrift/kumiko-bundled-features/text-content";
+
 import {
   createUserDataRightsFeature,
   type UserDataRightsOptions,
@@ -98,8 +98,12 @@ export function stackFeatureNames(features: readonly FeatureDefinition[]): strin
 }
 
 export function composePagesStack(options: PagesStackOptions = {}): FeatureDefinition[] {
+  // Pages content lives in template-resolver (kind text-block), which the
+  // renderer stack already mounts — an app composing pages WITHOUT the renderer
+  // stack has to add createTemplateResolverFeature() itself, or legal-pages'
+  // r.requires fails the boot. Mounting it here instead would collide with
+  // composeRendererStack (createRegistry rejects duplicate features).
   return [
-    createTextContentFeature(),
     createLegalPagesFeature(
       options.wrapLayout !== undefined ? { wrapLayout: options.wrapLayout } : {},
     ),

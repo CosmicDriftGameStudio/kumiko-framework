@@ -7,7 +7,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import type { ContentFormat, RenderKind } from "./constants";
+import type { ContentFormat, TemplateKind } from "./constants";
 import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants";
 import { type TemplateResourceRow, templateResourcesTable } from "./table";
 
@@ -19,8 +19,10 @@ export type TemplateResource = {
   readonly version: number;
   readonly tenantId: string;
   readonly slug: string;
-  readonly kind: RenderKind;
+  readonly kind: TemplateKind;
   readonly locale: string;
+  readonly title: string | null;
+  readonly folder: string | null;
   readonly content: string;
   readonly contentFormat: ContentFormat;
   readonly variableSchema: Record<string, unknown>;
@@ -34,7 +36,7 @@ export type TemplateResource = {
 export type ResolveRequest = {
   readonly tenantId: TenantId;
   readonly slug: string;
-  readonly kind: RenderKind;
+  readonly kind: TemplateKind;
   readonly locale: string;
 };
 
@@ -53,7 +55,7 @@ export type TemplateResolverApi = {
   readonly findExact: (args: {
     readonly tenantId: TenantId;
     readonly slug: string;
-    readonly kind: RenderKind;
+    readonly kind: TemplateKind;
     readonly locale: string;
     readonly scope?: "system";
   }) => Promise<TemplateResource | null>;
@@ -108,7 +110,7 @@ async function fetchTemplate(
   db: DbConnection,
   tenantId: string,
   slug: string,
-  kind: RenderKind,
+  kind: TemplateKind,
   locale: string,
 ): Promise<TemplateResourceRow | null> {
   const rows = await selectMany(
@@ -127,7 +129,7 @@ function toPublic(row: TemplateResourceRow): TemplateResource {
   // scope/status als generic text. CHECK-Constraints in der DB schränken
   // sie auf die Union-Types ein; Cast assertet das Schema-Wissen.
   // linkedResources ist ein text-column mit JSON-payload (string→string map).
-  const kind = row.kind as RenderKind;
+  const kind = row.kind as TemplateKind;
   // @cast-boundary db-row — siehe kind.
   const contentFormat = row.contentFormat as ContentFormat;
   // @cast-boundary db-row — siehe kind.
@@ -144,6 +146,8 @@ function toPublic(row: TemplateResourceRow): TemplateResource {
     slug: row.slug,
     kind,
     locale: row.locale,
+    title: row.title,
+    folder: row.folder,
     content: row.content ?? "",
     contentFormat,
     variableSchema: parseJson(row.variableSchema),
@@ -168,7 +172,7 @@ function parseJson(raw: string | null): Record<string, unknown> {
 }
 
 export class TemplateNotFoundError extends Error {
-  constructor(public readonly query: { slug: string; kind: RenderKind; locale: string }) {
+  constructor(public readonly query: { slug: string; kind: TemplateKind; locale: string }) {
     super(
       `[template-resolver] no template found for slug="${query.slug}" kind="${query.kind}" locale="${query.locale}" (checked tenant + system, requested + fallback locale)`,
     );

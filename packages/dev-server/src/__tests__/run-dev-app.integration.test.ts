@@ -7,9 +7,10 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
-  requireTextContent,
-  type TextContentApi,
-} from "@cosmicdrift/kumiko-bundled-features/text-content";
+  requireTemplateResolver,
+  TEXT_BLOCK_KIND,
+  type TemplateResolverApi,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
   createEntity,
   createTextField,
@@ -111,28 +112,47 @@ describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {
 });
 
 describe("runDevApp — extraContext merge order: app values win over boot defaults (707/1)", () => {
-  test("a caller-supplied extraContext.textContent wins over the auto-wired boot default", async () => {
+  test("a caller-supplied extraContext.templateResolver wins over the auto-wired boot default", async () => {
     // runDevApp's extraContext factory does `{ ...boot, ...base }` — boot's
-    // auto-wired textContent must lose to a caller-supplied override, exactly
+    // auto-wired templateResolver must lose to a caller-supplied override, exactly
     // the "app values win" parity claim this PR made against runProdApp. Every
     // OTHER test in this file only checks that runDevApp boots without
     // throwing; none dispatch a request that actually reads the merged value.
-    const sentinel: TextContentApi = {
-      getBlock: async () => ({
+    const sentinel: TemplateResolverApi = {
+      findExact: async () => ({
+        id: "sentinel",
+        version: 1,
+        tenantId: TestUsers.systemAdmin.tenantId,
         slug: "sentinel",
-        lang: "en",
+        kind: TEXT_BLOCK_KIND,
+        locale: "en",
         title: "from caller extraContext",
-        body: null,
+        folder: null,
+        content: "",
+        contentFormat: "markdown",
+        variableSchema: {},
+        linkedResources: {},
+        scope: "system",
+        parentTemplateId: null,
+        status: "active",
         updatedAt: new Date(0),
       }),
+      resolveTemplate: async () => {
+        throw new Error("not used in this test");
+      },
     };
     const readBlockQuery = defineQueryHandler({
       name: "read-block",
       schema: z.object({}),
       access: { openToAll: true },
       handler: async (_query, ctx) => {
-        const api = requireTextContent(ctx, "textcheck:query:read-block");
-        return api.getBlock({ tenantId: TestUsers.systemAdmin.tenantId, slug: "x", lang: "en" });
+        const api = requireTemplateResolver(ctx, "textcheck:query:read-block");
+        return api.findExact({
+          tenantId: TestUsers.systemAdmin.tenantId,
+          slug: "x",
+          kind: TEXT_BLOCK_KIND,
+          locale: "en",
+        });
       },
     });
     const textcheckFeature = defineFeature("textcheck", (r) => {
@@ -142,7 +162,7 @@ describe("runDevApp — extraContext merge order: app values win over boot defau
     handle = await runDevApp({
       features: [validFeature(), textcheckFeature],
       port: 0,
-      extraContext: { textContent: sentinel },
+      extraContext: { templateResolver: sentinel },
     });
 
     const res = await handle.stack.http.queryOk<{ title: string } | null>(

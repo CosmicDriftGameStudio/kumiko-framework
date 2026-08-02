@@ -232,12 +232,6 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
   },
 
   // --- Content ---
-  "text-content": {
-    name: "text-content",
-    importPath: "@cosmicdrift/kumiko-bundled-features/text-content",
-    exportName: "createTextContentFeature",
-    callExpression: "createTextContentFeature()",
-  },
   "legal-pages": {
     name: "legal-pages",
     importPath: "@cosmicdrift/kumiko-bundled-features/legal-pages",

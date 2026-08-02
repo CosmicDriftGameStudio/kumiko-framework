@@ -33,7 +33,7 @@ const treeProvider: TreeChildrenSubscribe = () => (emit) => {
   // Slug ist der Übersetzungs-Anker — User pflegt DE+EN-Versionen
   // desselben Inhalts zusammen statt nach Sprache zu gruppieren.
   // Sub-Items sind reine Sprach-Leaves; Label = Sprache, target zeigt
-  // auf text-content:edit mit slug+lang.
+  // auf template-resolver:edit mit slug+locale.
 
   // Group all blocks by slug, collect set of langs per slug.
   const bySlug = new Map<string, string[]>();
@@ -50,9 +50,9 @@ const treeProvider: TreeChildrenSubscribe = () => (emit) => {
     const langLeaves: TreeNode[] = langs.sort().map((lang) => ({
       label: lang,
       target: {
-        featureId: "text-content",
+        featureId: "template-resolver",
         action: "edit",
-        args: { slug, lang },
+        args: { slug, locale: lang },
       },
     }));
     slugFolders.push({
