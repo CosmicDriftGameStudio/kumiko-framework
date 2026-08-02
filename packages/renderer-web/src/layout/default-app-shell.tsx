@@ -33,6 +33,7 @@ import {
 import { fillClasses } from "./fill-classes";
 import { NavTree } from "./nav-tree";
 import { ShellHeader } from "./shell-header";
+import { SidebarPanelProvider, useSidebarPanelHost } from "./sidebar-panel";
 
 export type DefaultAppShellUser = {
   readonly id: string;
@@ -85,42 +86,52 @@ export function DefaultAppShell({
   children,
 }: DefaultAppShellProps): ReactNode {
   const fillCls = fillClasses(fill);
+  // Zweite Spalte nur wenn ein Screen sie fuellt (sidebar-09-Muster) — sonst
+  // stuende auf jedem anderen Screen ein leerer Streifen neben der Navigation.
+  const panel = useSidebarPanelHost();
   return (
     <SidebarProvider {...fillCls.provider}>
-      {/* sidebar-07-Muster: Standard-Variante (border-r, flush content) +
+      <SidebarPanelProvider value={panel.value}>
+        {/* sidebar-07-Muster: Standard-Variante (border-r, flush content) +
           collapsible="icon" — der Rail klappt auf Icon-Breite zu (Trigger/Rail). */}
-      <Sidebar collapsible="icon">
-        <SidebarHeader data-kumiko-layout="sidebar-header">{brand}</SidebarHeader>
-        {sidebarActions !== undefined && (
-          <SidebarGroup
-            data-kumiko-layout="sidebar-actions"
-            className="flex-row items-center gap-1 py-0"
-          >
-            {sidebarActions}
-          </SidebarGroup>
-        )}
-        <SidebarContent data-kumiko-layout="sidebar-nav">
-          <NavTree
+        <Sidebar collapsible="icon">
+          <SidebarHeader data-kumiko-layout="sidebar-header">{brand}</SidebarHeader>
+          {sidebarActions !== undefined && (
+            <SidebarGroup
+              data-kumiko-layout="sidebar-actions"
+              className="flex-row items-center gap-1 py-0"
+            >
+              {sidebarActions}
+            </SidebarGroup>
+          )}
+          <SidebarContent data-kumiko-layout="sidebar-nav">
+            <NavTree
+              schema={schema}
+              {...(user !== undefined && { user })}
+              {...(navBadges !== undefined && { navBadges })}
+            />
+          </SidebarContent>
+          {sidebarFooter !== undefined && (
+            <SidebarFooter data-kumiko-layout="sidebar-footer">{sidebarFooter}</SidebarFooter>
+          )}
+          <SidebarRail />
+        </Sidebar>
+        <div
+          ref={panel.ref}
+          data-kumiko-layout="sidebar-panel"
+          className={panel.occupied ? "flex h-svh shrink-0 flex-col" : "hidden"}
+        />
+        <SidebarInset className={fillCls.inset}>
+          <ShellHeader
             schema={schema}
             {...(user !== undefined && { user })}
-            {...(navBadges !== undefined && { navBadges })}
+            {...(headerActions !== undefined && { headerActions })}
           />
-        </SidebarContent>
-        {sidebarFooter !== undefined && (
-          <SidebarFooter data-kumiko-layout="sidebar-footer">{sidebarFooter}</SidebarFooter>
-        )}
-        <SidebarRail />
-      </Sidebar>
-      <SidebarInset className={fillCls.inset}>
-        <ShellHeader
-          schema={schema}
-          {...(user !== undefined && { user })}
-          {...(headerActions !== undefined && { headerActions })}
-        />
-        <main className={fillCls.main}>
-          <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
-        </main>
-      </SidebarInset>
+          <main className={fillCls.main}>
+            <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
+          </main>
+        </SidebarInset>
+      </SidebarPanelProvider>
     </SidebarProvider>
   );
 }

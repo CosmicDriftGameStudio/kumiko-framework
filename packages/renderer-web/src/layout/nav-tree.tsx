@@ -147,6 +147,9 @@ const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
   hash: Hash,
   download: Download,
   rocket: Rocket,
+  // War importiert, aber nie registriert — `icon: "plus"` fiel damit still auf
+  // den Fallback zurueck.
+  plus: Plus,
 };
 
 export type NavTreeProps = {
@@ -309,23 +312,44 @@ function NavLeadingIcon({
   node,
   active,
   expanded = false,
+  label,
 }: {
   node: NavNode;
   active: boolean;
   expanded?: boolean;
+  /** Nur fuer den Rail-Fallback gebraucht — siehe unten. */
+  label?: string;
 }): ReactNode {
   const iconKey = expanded && node.icon === "folder" ? "folder-open" : node.icon;
   const NavIcon =
     iconKey !== undefined && Object.hasOwn(NAV_ICONS, iconKey) ? NAV_ICONS[iconKey] : undefined;
   if (NavIcon !== undefined) return <NavIcon aria-hidden="true" className="shrink-0" />;
+  const initial = label?.trim().charAt(0).toUpperCase();
   return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "inline-block size-1.5 rounded-full",
-        active ? "bg-sidebar-accent-foreground" : "bg-sidebar-foreground/40",
+    <>
+      {/* Ausgeklappt genuegt ein Punkt: das Label steht daneben und traegt die
+          Bedeutung. Eingeklappt ist der Punkt wertlos — eine Rail aus lauter
+          gleichen Punkten sagt nichts darueber, wo man hinklickt. Dort tritt
+          der Anfangsbuchstabe an seine Stelle, bis die App ein Icon setzt. */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "inline-block size-1.5 shrink-0 rounded-full group-data-[collapsible=icon]:hidden",
+          active ? "bg-sidebar-accent-foreground" : "bg-sidebar-foreground/40",
+        )}
+      />
+      {initial !== undefined && initial !== "" && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "hidden size-4 shrink-0 items-center justify-center font-medium text-xs group-data-[collapsible=icon]:flex",
+            active ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/70",
+          )}
+        >
+          {initial}
+        </span>
       )}
-    />
+    </>
   );
 }
 
@@ -645,8 +669,10 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             to={{ ...(s.workspaceId !== undefined && { workspaceId: s.workspaceId }), screenId }}
             {...(s.active && { "aria-current": "page" })}
           >
-            <NavLeadingIcon node={node} active={s.active} />
-            <span className="min-w-0 truncate">{s.displayLabel}</span>
+            <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
+            <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+              {s.displayLabel}
+            </span>
             <NavBadge node={node} />
           </KumikoLink>
         </SidebarMenuButton>
@@ -666,8 +692,10 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
           tooltip={s.displayLabel}
           onClick={() => dispatch(target)}
         >
-          <NavLeadingIcon node={node} active={s.active} />
-          <span className="min-w-0 truncate">{s.displayLabel}</span>
+          <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
+          <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+            {s.displayLabel}
+          </span>
           <NavBadge node={node} />
         </SidebarMenuButton>
         <NodeActions node={node} />
@@ -685,8 +713,8 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
         }}
         {...(s.expandable && { "aria-expanded": s.isExpanded })}
       >
-        <NavLeadingIcon node={node} active={false} expanded={s.isExpanded} />
-        <span className="truncate">{s.displayLabel}</span>
+        <NavLeadingIcon node={node} active={false} expanded={s.isExpanded} label={s.displayLabel} />
+        <span className="truncate group-data-[collapsible=icon]:hidden">{s.displayLabel}</span>
         {s.expandable &&
           (s.isExpanded ? (
             <ChevronDown className="ml-auto" />
@@ -753,8 +781,10 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             to={{ ...(s.workspaceId !== undefined && { workspaceId: s.workspaceId }), screenId }}
             {...(s.active && { "aria-current": "page" })}
           >
-            <NavLeadingIcon node={node} active={s.active} />
-            <span className="min-w-0 truncate">{s.displayLabel}</span>
+            <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
+            <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+              {s.displayLabel}
+            </span>
             <NavBadge node={node} />
           </KumikoLink>
         </SidebarMenuSubButton>
@@ -771,8 +801,10 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
       <SidebarMenuSubItem>
         <SidebarMenuSubButton asChild isActive={s.active}>
           <button type="button" onClick={() => dispatch(target)}>
-            <NavLeadingIcon node={node} active={s.active} />
-            <span className="min-w-0 truncate">{s.displayLabel}</span>
+            <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
+            <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+              {s.displayLabel}
+            </span>
             <NavBadge node={node} />
           </button>
         </SidebarMenuSubButton>
@@ -792,8 +824,8 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             if (s.expandable) onToggle(node.qualifiedName);
           }}
         >
-          <NavLeadingIcon node={node} active={false} expanded={s.isExpanded} />
-          <span className="truncate">{s.displayLabel}</span>
+          <NavLeadingIcon node={node} active={false} expanded={s.isExpanded} label={s.displayLabel} />
+          <span className="truncate group-data-[collapsible=icon]:hidden">{s.displayLabel}</span>
         </button>
       </SidebarMenuSubButton>
       <NodeActions node={node} />

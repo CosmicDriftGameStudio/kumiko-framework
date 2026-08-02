@@ -20,10 +20,15 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   use: {
     baseURL: BASE_URL,
-    viewport: { width: 1280, height: 900 },
+    viewport: { width: 1920, height: 1080 },
     deviceScaleFactor: 2,
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1920, height: 1080 } },
+    },
+  ],
   webServer: {
     // The full app, not a demos-only variant: the screenshots cover the item
     // screens too, and those need the entity plus its seeds.

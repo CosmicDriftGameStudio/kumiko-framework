@@ -114,6 +114,7 @@ export type { SidebarProps } from "./layout/sidebar";
 export { Sidebar } from "./layout/sidebar";
 export type { SidebarBrandProps } from "./layout/sidebar-brand";
 export { SidebarBrand } from "./layout/sidebar-brand";
+export { SidebarPanel } from "./layout/sidebar-panel";
 export type { SidebarUserProps } from "./layout/sidebar-user";
 export { SidebarUser } from "./layout/sidebar-user";
 export { parseTargetFromSearchParams } from "./layout/target-url";

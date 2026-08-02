@@ -12,6 +12,8 @@ export const demosTranslations: TranslationsByLocale = {
     "screen:demo-dialog.title": "Dialog & Lightbox",
     "screen:demo-toast.title": "Toast",
     "screen:demo-text.title": "Text",
+    "screen:demo-sidebar-panel.title": "Sidebar-Panel",
+    "screen:demo-sidebar-panel.title": "Sidebar-Panel",
   },
   en: {
     "screen:demo-layout.title": "Layout",
@@ -21,5 +23,7 @@ export const demosTranslations: TranslationsByLocale = {
     "screen:demo-dialog.title": "Dialog & Lightbox",
     "screen:demo-toast.title": "Toast",
     "screen:demo-text.title": "Text",
+    "screen:demo-sidebar-panel.title": "Sidebar-Panel",
+    "screen:demo-sidebar-panel.title": "Sidebar-Panel",
   },
 };

@@ -17,10 +17,15 @@ export default defineConfig({
     trace: "retain-on-failure",
     actionTimeout: 10_000,
     navigationTimeout: 30_000,
-    viewport: { width: 1280, height: 900 },
+    viewport: { width: 1920, height: 1080 },
     deviceScaleFactor: 2,
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1920, height: 1080 } },
+    },
+  ],
   webServer: {
     command: "bun --env-file=../../../.env run src/app/server.ts",
     url: BASE_URL,

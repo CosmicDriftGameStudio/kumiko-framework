@@ -104,7 +104,11 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
 }
 
 const VIEWPORTS = {
-  desktop: { width: 1280, height: 900 },
+  // 1920×1080 statt der frueheren 1280×900: die Masken landen im Handbuch und
+  // in Doku-Seiten, wo ein 1280er-Bild auf einem HiDPI-Display sichtbar weich
+  // wird. Breiter zeigt ausserdem, was ein Zwei-Spalten-Layout wirklich tut —
+  // bei 1280 sieht jede Liste neben einem Lesebereich gequetscht aus.
+  desktop: { width: 1920, height: 1080 },
   tablet: { width: 834, height: 1112 },
   mobile: { width: 390, height: 844 },
 } as const;
