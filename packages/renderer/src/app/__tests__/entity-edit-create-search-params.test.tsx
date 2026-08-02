@@ -21,7 +21,7 @@ import type { FeatureSchema } from "../feature-schema";
 import { KumikoScreen } from "../kumiko-screen";
 import { NavProvider } from "../nav";
 
-const captured: Record<string, InputProps> = {};
+const captured: Record<string, InputProps | undefined> = {};
 const captureInput: ComponentType<InputProps> = (props) => {
   captured[props.name] = props;
   return null;
@@ -85,10 +85,10 @@ function buildSchema(): FeatureSchema {
   } as FeatureSchema;
 }
 
-describe("EntityEditCreateBody — navigate-params als initial values (#1680)", () => {
-  test("URL-searchParams aus rowAction navigate füllen das Create-Form vor", () => {
-    captured["name"] = undefined as unknown as InputProps;
-    captured["floorCount"] = undefined as unknown as InputProps;
+describe("EntityEditCreateBody — navigate params as initial values (#1680)", () => {
+  test("URL searchParams from rowAction navigate prefill the create form", () => {
+    delete captured["name"];
+    delete captured["floorCount"];
     render(
       <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
         <DispatcherProvider dispatcher={stubDispatcher()}>
@@ -114,8 +114,8 @@ describe("EntityEditCreateBody — navigate-params als initial values (#1680)", 
     expect(captured["floorCount"]?.value).toBe(3);
   });
 
-  test("ohne matching searchParam bleibt der Field-Default (leer)", () => {
-    captured["name"] = undefined as unknown as InputProps;
+  test("without a matching searchParam the field keeps its default (empty)", () => {
+    delete captured["name"];
     render(
       <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
         <DispatcherProvider dispatcher={stubDispatcher()}>

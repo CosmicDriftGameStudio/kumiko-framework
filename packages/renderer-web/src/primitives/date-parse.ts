@@ -56,7 +56,10 @@ export function parseIso(v: string): Temporal.PlainDate | undefined {
 }
 
 export function toIso(d: Temporal.PlainDate): string {
-  return d.toString();
+  // calendarName: "never" — a non-ISO PlainDate (e.g. from a future
+  // PlainDate.from with a `[u-ca=...]` suffix) would otherwise append the
+  // calendar annotation to the wire string.
+  return d.toString({ calendarName: "never" });
 }
 
 // Editable, re-parseable display (numeric locale format, e.g. de

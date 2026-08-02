@@ -61,6 +61,66 @@ function ownershipPredicates(
   return { sql: parts.join(" OR "), params };
 }
 
+type MatchedRow = { id: string; tenant_id: string };
+
+// ponytail: LIMIT/OFFSET, not a keyset cursor — mirrors reindexEntity's same
+// tradeoff (id type varies uuid/serial across entities). A tenant-destroy
+// purge is a one-time sweep, not a hot path.
+const PURGE_BATCH_SIZE = 500;
+
+async function collectMatchingRowsForEntity(
+  db: DbRunner,
+  tableName: string,
+  whereSql: string,
+  params: readonly unknown[],
+): Promise<readonly MatchedRow[]> {
+  const rows: MatchedRow[] = [];
+  let offset = 0;
+  for (;;) {
+    const offsetN = params.length + 1;
+    const page = await executeRawQuery<MatchedRow>(
+      db,
+      `SELECT id, tenant_id FROM ${quoteIdent(tableName)} WHERE ${whereSql}
+        ORDER BY ${quoteIdent("id")} ASC
+        LIMIT ${PURGE_BATCH_SIZE} OFFSET $${offsetN}`,
+      [...params, offset],
+    );
+    if (page.length === 0) break;
+    rows.push(...page);
+    offset += page.length;
+    if (page.length < PURGE_BATCH_SIZE) break;
+  }
+  return rows;
+}
+
+function buildSubjectPredicate(
+  entity: EntityDefinition,
+  fields: readonly string[],
+  likePattern: string,
+  subject: SubjectId | undefined,
+): { sql: string; params: unknown[] } {
+  let paramIdx = 0;
+  const nextParam = () => ++paramIdx;
+  const params: unknown[] = [];
+  const orParts: string[] = [];
+
+  const likeN = nextParam();
+  params.push(likePattern);
+  orParts.push(
+    `(${fields.map((f) => `${quoteIdent(toSnakeCase(f))} LIKE $${likeN}`).join(" OR ")})`,
+  );
+
+  if (subject) {
+    const owned = ownershipPredicates(entity, fields, subject, nextParam);
+    if (owned) {
+      params.push(...owned.params);
+      orParts.push(`(${owned.sql})`);
+    }
+  }
+
+  return { sql: orParts.join(" OR "), params };
+}
+
 export async function purgeSearchDocumentsForSubject(
   db: DbRunner,
   features: ReadonlyMap<string, FeatureDefinition>,
@@ -78,30 +138,12 @@ export async function purgeSearchDocumentsForSubject(
       const fields = collectSearchableSubjectFields(entity);
       if (fields.length === 0) continue;
       const tableName = resolveTableName(entityName, entity, undefined);
-
-      let paramIdx = 0;
-      const nextParam = () => ++paramIdx;
-      const params: unknown[] = [];
-      const orParts: string[] = [];
-
-      const likeN = nextParam();
-      params.push(likePattern);
-      orParts.push(
-        `(${fields.map((f) => `${quoteIdent(toSnakeCase(f))} LIKE $${likeN}`).join(" OR ")})`,
-      );
-
-      if (subject) {
-        const owned = ownershipPredicates(entity, fields, subject, nextParam);
-        if (owned) {
-          params.push(...owned.params);
-          orParts.push(`(${owned.sql})`);
-        }
-      }
-
-      const rows = await executeRawQuery<{ id: string; tenant_id: string }>(
+      const predicate = buildSubjectPredicate(entity, fields, likePattern, subject);
+      const rows = await collectMatchingRowsForEntity(
         db,
-        `SELECT id, tenant_id FROM ${quoteIdent(tableName)} WHERE ${orParts.join(" OR ")}`,
-        params,
+        tableName,
+        predicate.sql,
+        predicate.params,
       );
       for (const row of rows) {
         const key = `${row.tenant_id}:${entityName}:${row.id}`;

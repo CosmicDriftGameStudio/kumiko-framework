@@ -116,7 +116,7 @@ export type PiiAnnotations = {
    *  annotated content of its own. Triggers no encryption — feeds only the
    *  GDPR-hook-coverage boot guard, which otherwise can't see subject data
    *  that lives purely in an FK column. */
-  readonly subjectRef?: boolean;
+  readonly subjectRef?: true;
 };
 
 // --- Retention (DSGVO Art. 5(1)(e) + HGB/AO Aufbewahrungspflichten) ---

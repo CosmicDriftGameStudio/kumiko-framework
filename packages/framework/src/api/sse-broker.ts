@@ -32,6 +32,10 @@ export function createSseBroker(): SseBroker {
   // Cross-replica fanout lives one level up: the SSE + access-invalidation
   // consumers (system-hooks.ts) run delivery: "per-instance" (#1718).
   const channels = new Map<string, Map<string, SseClient>>();
+  // Set, not Map<listenerId, fn> — dedup key is callback reference. Every
+  // subscriber must pass a distinct closure (dispatch-stream.ts does, one
+  // per stream). Two subscribes with the SAME reference for the same user
+  // collapse into one listener, and the first unsubscribe kills both.
   const accessInvalidationListeners = new Map<string, Set<() => void>>();
 
   function getOrCreateChannel(channel: string): Map<string, SseClient> {

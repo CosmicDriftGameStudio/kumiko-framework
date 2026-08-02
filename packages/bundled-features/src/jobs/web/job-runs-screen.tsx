@@ -86,6 +86,16 @@ export function JobRunsScreen(): ReactNode {
       ? JSON.stringify(selected.payloadSchema, null, 2)
       : null;
 
+  // Switching jobs invalidates any typed payload/messages against the new
+  // job's schema — reset so a submit can't validate stale payload text
+  // against the wrong job.
+  const handleJobNameChange = (name: string): void => {
+    setJobName(name);
+    setPayloadText("{}");
+    setClientError(null);
+    setSuccessMessage(null);
+  };
+
   const onTrigger = async (): Promise<void> => {
     setClientError(null);
     setSuccessMessage(null);
@@ -168,7 +178,7 @@ export function JobRunsScreen(): ReactNode {
                 id="job-trigger-name"
                 name="job-trigger-name"
                 value={jobName}
-                onChange={setJobName}
+                onChange={handleJobNameChange}
                 options={jobOptions}
               />
             </Field>

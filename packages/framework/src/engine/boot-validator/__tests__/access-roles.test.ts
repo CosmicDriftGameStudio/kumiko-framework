@@ -15,7 +15,7 @@ describe("warnOnUniqueAccessRoles", () => {
   let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
 
   beforeEach(() => {
-    warnSpy = spyOn(console, "warn");
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
