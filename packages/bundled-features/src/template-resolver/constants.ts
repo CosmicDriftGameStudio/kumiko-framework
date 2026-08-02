@@ -1,3 +1,7 @@
+// @runtime client
+// Plain data, no imports — the content tree in web/ needs TEXT_BLOCK_KIND to
+// pick between the public and the admin query.
+//
 // RenderKind identifiziert die Konsumenten-Klasse eines Templates.
 // Plugin-Renderer in `renderer-foundation` matchen auf kind; der
 // Resolver hier ist kind-agnostisch — er lädt nur, das Content-Format
