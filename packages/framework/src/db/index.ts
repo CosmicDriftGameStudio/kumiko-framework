@@ -49,6 +49,7 @@ export {
   decryptEntityFieldValues,
   encryptEntityFieldValues,
 } from "./entity-field-encryption";
+export { entityTableFromRegistry } from "./entity-table-from-registry";
 export type {
   BuildEntityTableMetaOptions,
   ColumnMeta,
