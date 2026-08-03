@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.182.0
+
+### Minor Changes
+
+- 8a3b0a9: `r.contentCollection()` accepts a new `contentFormat: "plain" | "rich"` field. `ClientFeatureDefinition` gets a sixth registry, `contentEditors` — a `contentFormat → EditorComponent` map merged with the same last-wins semantics as `columnRenderers`. `createKumikoApp` mounts a `ContentEditorsProvider`; `useContentEditor(contentFormat)` resolves the registered component or falls back to a plain textarea, so a missing editor is never an empty panel. `template-resolver`'s content-collection editor now renders through this registry instead of a hardcoded textarea.
+- 9c62bc8: `ContentCollectionDefinition` accepts a new `variableSchema` field — fixed variable names the app declares for a collection (e.g. an `ai-prompt` collection's `{customerName}`, `{orderId}`). The renderer gets `VariableChips`, an editor-agnostic chip bar that inserts `{{name}}` at the caret on click, and `renderer-web` gets `PlainContentEditor`, which pairs it with the existing textarea fallback. `template-resolver`'s client now registers `PlainContentEditor` under `contentEditors.plain` and passes the collection's variable names through, so AI-prompt and mail-html collections with `contentFormat: "plain"` get the chip bar without any app-side wiring.
+
+### Patch Changes
+
+- 0a50d9c: Zwei konkurrierende erste `assign-tag`-Aufrufe auf dieselbe (tag, entity)-Kombination konnten mit einem rohen 500 `internal_error` statt dem erwarteten konvergierten Erfolg fehlschlagen (`kumiko-framework#1778`), CI-Flake auf `main`.
+
+  Root Cause 1 (framework): `create()`/`update()` im `EventStoreExecutor` riefen `append()` direkt auf der äußeren Dispatcher-Transaktion auf. postgres.js/Bun.SQL vergiften den ganzen umschließenden `begin()`-Block, sobald darin ein Statement fehlschlägt — auch wenn der JS-Fehler bereits sauber zu `version_conflict` klassifiziert wurde. Der Verlierer-Schreiber bekam dadurch beim Commit den rohen `PostgresError` statt der bereits klassifizierten `WriteFailure`. Fix: `append()` läuft jetzt in einem `SAVEPOINT` (`runInSavepointIfSupported`), das isoliert zurückrollt statt die ganze Transaktion zu vergiften — mit Fallback auf einen direkten Aufruf, sowohl wenn `db` eine reine Pool-Connection ohne aktive Transaktion ist (Seeds/Tests) als auch wenn ein `afterCommit`-Hook einen bereits committeten Transaktions-Handle wiederverwendet (PG 25P01 „no active sql transaction").
+
+  Root Cause 2 (bundled-features): unabhängig davon konvergierte der `assign-tag`-Handler nur den `create()`-vs-`create()`-Race (`version_conflict`), nicht das schmalere Fenster, in dem der Verlierer nach einem `detail()`-Miss auf `restore()` trifft, während der Gewinner die aktive Zeile bereits geschrieben hat (`restore()` liefert dann `unprocessable/not_deleted`). Der Handler konvergiert diesen Fall jetzt ebenfalls zu Erfolg.
+
+- d722db8: Fix: the preauth-MFA-enrollment login (`/auth/mfa/preauth-confirm`) now carries the user's existing `timezone` into the minted session, matching password login and the MFA-verify/invite-accept-with-login fix in #1759. This was the one session-mint site that fix missed — an existing user blocked at login by MFA enforcement and completing enrollment through preauth-confirm lost their timezone until their next password login.
+- Updated dependencies [8a3b0a9]
+- Updated dependencies [9c62bc8]
+- Updated dependencies [9344050]
+- Updated dependencies [0a50d9c]
+  - @cosmicdrift/kumiko-framework@0.182.0
+  - @cosmicdrift/kumiko-types@0.182.0
+  - @cosmicdrift/kumiko-renderer@0.182.0
+  - @cosmicdrift/kumiko-renderer-web@0.182.0
+  - @cosmicdrift/kumiko-headless@0.182.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.182.0
+
 ## 0.181.0
 
 ### Patch Changes
