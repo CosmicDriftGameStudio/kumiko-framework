@@ -136,6 +136,19 @@ describe("r.contentCollection() — registration", () => {
     expect(feature.contentCollections?.["templates"]?.contentFormat).toBeUndefined();
   });
 
+  test("records contentFormat markdown as a third format alongside plain/rich", () => {
+    const feature = defineFeature("mail", (r) => {
+      r.contentCollection({
+        id: "notes",
+        kind: "text-block",
+        contentFormat: "markdown",
+        nav: { label: "mail:nav.notes" },
+      });
+    });
+
+    expect(feature.contentCollections?.["notes"]?.contentFormat).toBe("markdown");
+  });
+
   test("records variableSchema so the client can offer the right chips", () => {
     const feature = defineFeature("mail", (r) => {
       r.contentCollection({

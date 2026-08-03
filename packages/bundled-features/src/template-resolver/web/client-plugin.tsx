@@ -447,6 +447,11 @@ export function textBlocksClient(opts?: {
     // another clientFeature still wins, last-wins same as columnRenderers.
     contentEditors: {
       plain: PlainContentEditor,
+      // ponytail: same textarea+chips as "plain" — markdown is stored as
+      // text either way. Shares PlainContentEditor's fixed-DOM-id ceiling
+      // (see its own file comment); swap for a live-preview widget or a
+      // forwarded-ref variant if a collection actually needs one.
+      markdown: PlainContentEditor,
     },
     translations: defaultTranslations,
   };
