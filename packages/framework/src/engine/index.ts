@@ -69,6 +69,7 @@ export {
   defineEntityWriteHandler,
   defineProjectionQueryHandler,
   type EntityCrudRegistrar,
+  entityListSchema,
   type RegisterEntityCrudOptions,
   registerEntityCrud,
 } from "./entity-handlers";
