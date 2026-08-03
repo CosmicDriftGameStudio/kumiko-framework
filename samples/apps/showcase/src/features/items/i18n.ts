@@ -6,6 +6,7 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const itemsTranslations: TranslationsByLocale = {
   de: {
+    "showcase:nav.data": "Daten",
     "showcase:nav.list": "Items (Pages)",
     "showcase:nav.feed": "Items (Feed)",
     "showcase:nav.active-items": "Items (Active)",
@@ -42,6 +43,7 @@ export const itemsTranslations: TranslationsByLocale = {
     "showcase:actions.duplicate": "Duplizieren",
   },
   en: {
+    "showcase:nav.data": "Data",
     "showcase:nav.list": "Items (Pages)",
     "showcase:nav.feed": "Items (Feed)",
     "showcase:nav.active-items": "Items (Active)",

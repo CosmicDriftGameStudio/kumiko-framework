@@ -28,12 +28,14 @@ export const helpdeskFeature = defineFeature("helpdesk", (r) => {
   r.nav({
     id: "helpdesk",
     label: "helpdesk:nav.list",
+    icon: "mail",
     order: 20,
     screen: "helpdesk:screen:ticket-list",
   });
   r.nav({
     id: "ticket-new",
     label: "helpdesk:nav.new",
+    icon: "plus",
     parent: "helpdesk:nav:helpdesk",
     screen: "helpdesk:screen:ticket-edit",
     order: 10,

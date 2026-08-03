@@ -100,6 +100,7 @@ export function createBookshopFeature(): FeatureDefinition {
     r.nav({
       id: "books",
       label: "bookshop:nav.books",
+      icon: "list",
       parent: "bookshop:nav:main",
       screen: "bookshop:screen:book-list",
       order: 10,
@@ -121,6 +122,7 @@ export function createBookshopAdminFeature(): FeatureDefinition {
     r.nav({
       id: "audit",
       label: "bookshop-admin:nav.audit",
+      icon: "shield",
       parent: "bookshop:nav:main",
       screen: "bookshop-admin:screen:audit-log",
       access: { roles: ["Admin"] },

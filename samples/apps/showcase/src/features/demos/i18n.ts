@@ -5,6 +5,15 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const demosTranslations: TranslationsByLocale = {
   de: {
+    "showcase-demos:nav.primitives": "Primitives",
+    "showcase-demos:nav.layout": "Layout",
+    "showcase-demos:nav.buttons": "Buttons",
+    "showcase-demos:nav.inputs": "Inputs",
+    "showcase-demos:nav.banner": "Banner",
+    "showcase-demos:nav.dialog": "Dialog & Lightbox",
+    "showcase-demos:nav.toast": "Toast",
+    "showcase-demos:nav.text": "Text",
+    "showcase-demos:nav.sidebarPanel": "Sidebar-Panel",
     "screen:demo-layout.title": "Layout",
     "screen:demo-buttons.title": "Buttons",
     "screen:demo-inputs.title": "Inputs",
@@ -15,6 +24,15 @@ export const demosTranslations: TranslationsByLocale = {
     "screen:demo-sidebar-panel.title": "Sidebar-Panel",
   },
   en: {
+    "showcase-demos:nav.primitives": "Primitives",
+    "showcase-demos:nav.layout": "Layout",
+    "showcase-demos:nav.buttons": "Buttons",
+    "showcase-demos:nav.inputs": "Inputs",
+    "showcase-demos:nav.banner": "Banner",
+    "showcase-demos:nav.dialog": "Dialog & Lightbox",
+    "showcase-demos:nav.toast": "Toast",
+    "showcase-demos:nav.text": "Text",
+    "showcase-demos:nav.sidebarPanel": "Sidebar-Panel",
     "screen:demo-layout.title": "Layout",
     "screen:demo-buttons.title": "Buttons",
     "screen:demo-inputs.title": "Inputs",

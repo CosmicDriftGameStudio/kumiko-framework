@@ -71,10 +71,10 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   // Jeder Eintrag traegt ein Icon: auf Icon-Breite ist es das Einzige, was
   // von ihm uebrig bleibt. Ohne Icon steht dort nur ein Punkt, und eine Rail
   // aus gleichen Punkten sagt nicht, wo man hinklickt.
-  r.nav({ id: "primitives", label: "Primitives", order: 10 });
+  r.nav({ id: "primitives", label: "showcase-demos:nav.primitives", icon: "layers", order: 10 });
   r.nav({
     id: "demo-layout",
-    label: "Layout",
+    label: "showcase-demos:nav.layout",
     icon: "layout-grid",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-layout",
@@ -82,7 +82,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   });
   r.nav({
     id: "demo-buttons",
-    label: "Buttons",
+    label: "showcase-demos:nav.buttons",
     icon: "wand",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-buttons",
@@ -90,7 +90,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   });
   r.nav({
     id: "demo-inputs",
-    label: "Inputs",
+    label: "showcase-demos:nav.inputs",
     icon: "list",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-inputs",
@@ -98,7 +98,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   });
   r.nav({
     id: "demo-banner",
-    label: "Banner",
+    label: "showcase-demos:nav.banner",
     icon: "bell",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-banner",
@@ -106,7 +106,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   });
   r.nav({
     id: "demo-dialog",
-    label: "Dialog & Lightbox",
+    label: "showcase-demos:nav.dialog",
     icon: "layers",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-dialog",
@@ -114,7 +114,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   });
   r.nav({
     id: "demo-toast",
-    label: "Toast",
+    label: "showcase-demos:nav.toast",
     icon: "sparkles",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-toast",
@@ -122,7 +122,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   });
   r.nav({
     id: "demo-text",
-    label: "Text",
+    label: "showcase-demos:nav.text",
     icon: "file",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-text",
@@ -130,7 +130,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   });
   r.nav({
     id: "demo-sidebar-panel",
-    label: "Sidebar-Panel",
+    label: "showcase-demos:nav.sidebarPanel",
     icon: "mail",
     parent: "showcase-demos:nav:primitives",
     screen: "showcase-demos:screen:demo-sidebar-panel",

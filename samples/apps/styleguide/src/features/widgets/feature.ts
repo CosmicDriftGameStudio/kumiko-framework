@@ -225,7 +225,7 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
 
   r.nav({
     id: "widgets",
-    label: "Widgets",
+    label: "widgets:nav.widgets",
     parent: "gallery:nav:styleguide",
     screen: "widgets:screen:widgets",
     icon: "layout-grid",
@@ -233,7 +233,7 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
   });
   r.nav({
     id: "widgets-forms",
-    label: "Formulare (Beispiele)",
+    label: "widgets:nav.widgetsForms",
     parent: "gallery:nav:styleguide",
     screen: "widgets:screen:widgets-forms",
     icon: "clipboard-list",
@@ -241,7 +241,7 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
   });
   r.nav({
     id: "widgets-dashboard",
-    label: "Dashboard (deklarativ)",
+    label: "widgets:nav.widgetsDashboard",
     parent: "gallery:nav:styleguide",
     screen: "widgets:screen:widgets-dashboard",
     icon: "gauge",

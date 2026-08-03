@@ -143,10 +143,10 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
-  r.nav({ id: "examples", label: "Examples", order: 30 });
+  r.nav({ id: "examples", label: "examples:nav.examples", icon: "folder", order: 30 });
   r.nav({
     id: "shipping",
-    label: "Shipping address",
+    label: "examples:nav.shipping",
     parent: "examples:nav:examples",
     screen: "examples:screen:shipping-edit",
     icon: "file",
@@ -154,18 +154,18 @@ export const examplesFeature = defineFeature("examples", (r) => {
   });
   r.nav({
     id: "profile",
-    label: "Profile",
+    label: "examples:nav.profile",
     parent: "examples:nav:examples",
     screen: "examples:screen:profile-edit",
-    icon: "file",
+    icon: "user",
     order: 20,
   });
   r.nav({
     id: "delivery",
-    label: "Located date-time",
+    label: "examples:nav.delivery",
     parent: "examples:nav:examples",
     screen: "examples:screen:delivery-edit",
-    icon: "file",
+    icon: "calendar",
     order: 30,
   });
 });

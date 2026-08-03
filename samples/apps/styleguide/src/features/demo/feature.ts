@@ -92,17 +92,17 @@ export const demoFeature = defineFeature("styleguide", (r) => {
     ],
   });
 
-  r.nav({ id: "items", label: "Items", order: 10 });
+  r.nav({ id: "items", label: "styleguide:nav.items", icon: "layers", order: 10 });
   r.nav({
     id: "catalog",
-    label: "Catalog",
+    label: "styleguide:nav.catalog",
     parent: "styleguide:nav:items",
     icon: "folder",
     order: 10,
   });
   r.nav({
     id: "item-list",
-    label: "All items",
+    label: "styleguide:nav.itemList",
     parent: "styleguide:nav:catalog",
     screen: "styleguide:screen:item-list",
     icon: "list",
@@ -110,7 +110,7 @@ export const demoFeature = defineFeature("styleguide", (r) => {
   });
   r.nav({
     id: "item-new",
-    label: "New item",
+    label: "styleguide:nav.itemNew",
     parent: "styleguide:nav:catalog",
     screen: "styleguide:screen:item-edit",
     icon: "file",

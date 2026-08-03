@@ -41,6 +41,7 @@ defineFeature("designerDemo", (r) => {
   r.nav({
     id: "tasks",
     label: "Tasks",
+    icon: "list",
     screen: "designerDemo:screen:task-list",
   });
 

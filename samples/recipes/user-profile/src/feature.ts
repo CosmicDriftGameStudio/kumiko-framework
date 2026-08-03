@@ -43,6 +43,7 @@ export function createAccountFeature(): FeatureDefinition {
     r.nav({
       id: "profile",
       label: "account:nav.profile",
+      icon: "user",
       screen: "account:screen:profile",
       order: 90,
     });
