@@ -109,7 +109,8 @@ const VIEWPORTS = {
   // wird. Breiter zeigt ausserdem, was ein Zwei-Spalten-Layout wirklich tut —
   // bei 1280 sieht jede Liste neben einem Lesebereich gequetscht aus.
   desktop: { width: 1920, height: 1080 },
-  tablet: { width: 834, height: 1112 },
+  // iPad-Querformat (Landscape) statt Portrait: swap der iPad-Pro-11"-Maße.
+  tablet: { width: 1112, height: 834 },
   mobile: { width: 390, height: 844 },
 } as const;
 type ViewportId = keyof typeof VIEWPORTS;
