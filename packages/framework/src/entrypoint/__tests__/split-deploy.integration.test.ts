@@ -67,7 +67,7 @@ const workerWriteFeature = defineFeature("workerWrite", (r) => {
 // caller context — without the per-tenant file-provider resolver buildServer
 // wires onto it. An event-triggered job reaching for ctx.files then died in
 // the worker while the identical code worked on the request path.
-let jobSawFileResolver: string | undefined;
+const jobSawFileResolver: string[] = [];
 
 const fileJobFeature = defineFeature("fileJob", (r) => {
   const requested = r.defineEvent("bytes-requested", z.object({ storageKey: z.string() }), {
@@ -80,9 +80,13 @@ const fileJobFeature = defineFeature("fileJob", (r) => {
       throw new Error("no provider is built in this test — presence of the resolver is the point");
     },
   });
-  r.job("read-bytes", { trigger: { on: requested.name }, runIn: "worker" }, async (_payload, ctx) => {
-    jobSawFileResolver = typeof ctx._fileProviderResolver;
-  });
+  r.job(
+    "read-bytes",
+    { trigger: { on: requested.name }, runIn: "worker" },
+    async (_payload, ctx) => {
+      jobSawFileResolver.push(typeof ctx._fileProviderResolver);
+    },
+  );
   // Worker mode refuses to boot without a consumer to drain.
   r.multiStreamProjection({ name: "noop", apply: { [requested.name]: async () => {} } });
 });
@@ -172,7 +176,7 @@ describe("entrypoint factories", () => {
       queueNamePrefix: uniquePrefix("split-filejob"),
     });
 
-    jobSawFileResolver = undefined;
+    jobSawFileResolver.length = 0;
     await worker.start();
     try {
       await worker.jobRunner.handleEvent(
@@ -180,8 +184,8 @@ describe("entrypoint factories", () => {
         { storageKey: "some/key.pdf" },
         TestUsers.admin,
       );
-      await waitForCondition(() => jobSawFileResolver !== undefined);
-      expect(jobSawFileResolver).toBe("function");
+      await waitForCondition(() => jobSawFileResolver.length > 0);
+      expect(jobSawFileResolver[0]).toBe("function");
     } finally {
       await worker.stop();
     }

@@ -6,13 +6,7 @@ import { createSseBroker, type SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
 import { extractTableInfo } from "../db/query";
 import { createRegistry } from "../engine/registry";
-import type {
-  AppContext,
-  FeatureDefinition,
-  JobRunIn,
-  Registry,
-  TenantId,
-} from "../engine/types";
+import type { AppContext, FeatureDefinition, JobRunIn, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
 import { createJobRunner, type JobRunner } from "../jobs";
 import type { Lifecycle } from "../lifecycle";
