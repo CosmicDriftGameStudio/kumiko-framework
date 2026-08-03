@@ -1,5 +1,31 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.181.0
+
+### Minor Changes
+
+- fda4dc6: `createEmbeddedListField(schema)`: ein Feldtyp fuer Listen typisierter Objekte. `createEmbeddedField` beschreibt genau ein Objekt; eine Liste gleichartiger Objekte liess sich damit nicht ausdruecken und landete bisher als freies jsonb, dessen Form nur der Handler kannte.
+
+  Das neue Feld validiert jede Zeile gegen dasselbe Sub-Schema, das `createEmbeddedField` schon kennt. Storage bleibt jsonb, der Spalten-Default wird `[]` statt `{}`. `required: true` heisst „mindestens eine Zeile" — dieselbe Lesart wie bei `multiSelect`.
+
+  Gedacht ist es fuer Zeilen, die zusammen mit ihrem Kopf entstehen und mit ihm unveraenderlich bleiben: Buchungszeilen, Belegpositionen. Sobald eine Zeile eine eigene Lebensdauer hat — eigenes Von/Bis, eigene Historie — gehoert sie in eine eigene Entity mit Referenz auf den Kopf. Ein eingebettetes Array wird bei jeder Aenderung ganz neu geschrieben und hat keine Historie pro Zeile.
+
+  Erster Konsument ist `ledger.transaction.lines`. Die Form der Buchungszeile haengt jetzt am Typ statt am Handler; die zeilenuebergreifenden Invarianten (Summe = 0, mindestens zwei verschiedene Konten) bleiben da, wo sie hingehoeren — im Payload-Schema des Kommandos. Datenseitig ist das ein No-op: die Spalte enthielt immer schon Arrays, nur ihr Default war `{}`. Apps mit gemountetem `ledger` bekommen von `kumiko-schema generate` ein `ALTER COLUMN … SET DEFAULT '[]'::jsonb`.
+
+  Ausserdem gefixt: der Read-Side-Feldfilter behandelte einen Array-Wert wie ein einzelnes Objekt und machte aus `[{…}, {…}]` ein `{0: {…}, 1: {…}}` — dabei fielen die Zugriffsregeln der Sub-Felder still weg. Jede Zeile wird jetzt einzeln gefiltert, das Array bleibt ein Array. Searchable Sub-Felder einer Liste indexieren einen Wert pro Zeile.
+
+- 758cc7c: Embedded-Sub-Felder kennen jetzt `money` und `decimal`. Bisher erlaubte `EmbeddedSubFieldDef` nur `text | number | boolean | date` — ein Betrag in einer Buchungszeile oder Belegposition konnte nur `number` sein, und der Typ sagte nicht, ob der Wert Euro oder Cent meint.
+
+  `{ type: "money" }` ist ein vorzeichenbehafteter Ganzzahlbetrag in Minor Units (Cents); die Waehrung definiert das Kopf-Aggregat, nicht die Zeile. Anders als das Top-Level-`money`-Feld (BIGINT + Waehrungsspalte) liegt der Wert in jsonb und muss innerhalb von ±(2^53 − 1) bleiben — die Write-Validierung erzwingt das.
+
+  `{ type: "decimal", scale: N }` begrenzt eine JSON-Zahl auf `scale` Nachkommastellen (0–15), fuer Mengen wie Stunden oder Quadratmeter. `scale` ist Pflicht, ein `precision` gibt es nicht — hinter jsonb steht keine numeric-Spalte, deren Breite es beschreiben koennte. Der Scale-Check ist float-robust (dieselbe `isRepresentableAtScale`-Semantik wie beim Top-Level-`decimal`).
+
+  Erster Konsument ist `ledger.transaction.lines.amount`, das von `number` auf `money` wechselt. Die Werte dort waren schon immer Minor Units (das Kommando-Schema validierte `int`), jetzt sagt es der Typ. Datenseitig und im DDL ist das ein No-op.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-types@0.181.0
+
 ## 0.180.0
 
 ### Minor Changes
