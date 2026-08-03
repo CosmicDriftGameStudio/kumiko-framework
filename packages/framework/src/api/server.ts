@@ -236,7 +236,33 @@ export type KumikoServer = {
   // Echoed back so the caller has a single handle for both the app and the
   // lifecycle. Only set when the caller passed one in.
   lifecycle?: Lifecycle;
+  // The AppContext every handler on this server sees — options.context plus
+  // what buildServer wires onto it (_fileProviderResolver, rateLimit, the
+  // observability tracer/meter). Callers that build a second consumer of the
+  // same registry outside this server (a dev-server's job-runners) must pass
+  // THIS, not their own pre-buildServer literal, or that consumer reaches for
+  // fields only the request path has (#1232).
+  context: AppContext;
 };
+
+// The per-tenant file-provider resolver, built once for a registry+context so
+// a job-runner and the server it runs beside share one instance (and one
+// per-tenant provider cache). Mirrors buildServer's own resolution exactly —
+// including NOT inventing a resolver when no `file-provider-*` plugin is
+// mounted, which is what keeps buildServer's boot-guard below able to fire.
+export function withFileProviderResolver(registry: Registry, context: AppContext): AppContext {
+  if (context._fileProviderResolver !== undefined) return context;
+  if (registry.getExtensionUsages(EXT_FILE_PROVIDER).length === 0) return context;
+  return {
+    ...context,
+    _fileProviderResolver: makeFileProviderResolver({
+      registry,
+      _configAccessorFactory: context._configAccessorFactory,
+      secrets: context.secrets,
+      db: context.db,
+    }),
+  };
+}
 
 export function buildServer(options: ServerOptions): KumikoServer {
   // File-storage is resolved per-tenant through file-foundation: a mounted
@@ -336,16 +362,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // resolver once (when a provider plugin is mounted) — the dispatcher uses it
   // to materialise `ctx.files`, the upload routes + MSP-applies share it. The
   // resolver reads config + the s3.secretAccessKey secret under SYSTEM identity.
-  const fileProviderResolver =
-    options.context._fileProviderResolver ??
-    (hasFileProvider
-      ? makeFileProviderResolver({
-          registry: options.registry,
-          _configAccessorFactory: options.context._configAccessorFactory,
-          secrets: options.context.secrets,
-          db: options.context.db,
-        })
-      : undefined);
+  const contextWithFiles = withFileProviderResolver(options.registry, options.context);
+  const fileProviderResolver = contextWithFiles._fileProviderResolver;
   // Auto-wire the rate-limit resolver, but ONLY when at least one
   // handler actually declared a rateLimit option. Apps that don't use
   // L3 pay zero cost: no resolver instance, no Lua-script registration
@@ -363,9 +381,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
     options.context.rateLimit ??
     (wrappedRedis && wantsResolver ? createRateLimitResolver({ redis: wrappedRedis }) : undefined);
   const contextWithObservability: AppContext = {
-    ...options.context,
+    ...contextWithFiles,
     ...(wrappedRedis ? { redis: wrappedRedis } : {}),
-    ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
     ...(rateLimitResolver ? { rateLimit: rateLimitResolver } : {}),
     // Propagate the feature-toggle resolver to the context so the event-
     // dispatcher (and any future context-reading consumer) sees the same
@@ -783,6 +800,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     sseBroker,
     observability,
     dispatcher,
+    context: contextWithObservability,
     ...(eventDispatcher ? { eventDispatcher } : {}),
     ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
   };

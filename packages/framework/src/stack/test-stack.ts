@@ -6,7 +6,7 @@ import { createSseBroker, type SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
 import { extractTableInfo } from "../db/query";
 import { createRegistry } from "../engine/registry";
-import type { FeatureDefinition, JobRunIn, Registry, TenantId } from "../engine/types";
+import type { AppContext, FeatureDefinition, JobRunIn, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
 import { createJobRunner, type JobRunner } from "../jobs";
 import type { Lifecycle } from "../lifecycle";
@@ -39,6 +39,12 @@ export type TestStack = {
   // Command-dispatcher behind the HTTP routes — for direct system-writes
   // in tests and dev-server extraRoutes (provider-webhook wiring).
   dispatcher: Dispatcher;
+  // The AppContext buildServer handed the request path, incl. the fields it
+  // wires itself (_fileProviderResolver). A dev-server that starts its own
+  // lane job-runners beside this stack must hand them THIS, not a
+  // `{ db, registry }` literal — that's the #1232 drift, and it makes an
+  // event-triggered job reaching for ctx.files die where the request path works.
+  context: AppContext;
   // Present whenever a system consumer (SSE, Search) or
   // r.multiStreamProjection is wired. Tests drain it via runOnce() for
   // deterministic assertion — no timer-induced flakiness.
@@ -441,6 +447,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       observability: server.observability,
       sseBroker,
       dispatcher: server.dispatcher,
+      context: server.context,
       ...(eventDispatcher ? { eventDispatcher } : {}),
       ...(server.lifecycle ? { lifecycle: server.lifecycle } : {}),
       ...(jobRunner ? { jobRunner } : {}),
