@@ -23,7 +23,11 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel main runs: the release job publishes to npm and moves
+  # dist-tags — a cancel mid-publish strands a version under the throwaway
+  # tag, a state the publish script's registry diff cannot heal (#1781).
+  # PR runs keep cancel-on-newer-push.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   test:
@@ -620,3 +624,26 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish versions skipped by concurrent changesets
+        # changesets/action only reaches `publish` when main carries no
+        # changesets. If a PR with a fresh changeset merges right after a
+        # version-PR, the release run at that SHA takes the `version` branch
+        # and the just-bumped versions never reach npm (#1781: 0.175.0 and
+        # 0.179.0 died this way). The action also leaves the working tree on
+        # changeset-release/main with the NEXT unreleased versions, so reset
+        # to the pushed SHA before publishing the registry diff. Idempotent:
+        # after a normal publish run every package already matches the
+        # registry and the script only skips. Rescued versions get git tags
+        # (pushed here, since no action parses the "New tag:" lines in this
+        # path) but no GitHub Release.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          git checkout -f ${{ github.sha }}
+          git clean -fd
+          bun install --frozen-lockfile
+          bash scripts/publish-with-oidc.sh
+          git push origin --tags
