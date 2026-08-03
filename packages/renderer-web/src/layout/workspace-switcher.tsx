@@ -31,7 +31,7 @@ export function WorkspaceSwitcher({
       data-testid={testId}
       data-kumiko-layout="workspace-switcher"
       role="tablist"
-      className="flex items-center gap-1"
+      className="flex items-center gap-1 overflow-x-auto group-data-[collapsible=icon]:hidden"
     >
       {workspaces.map((ws) => {
         const active = ws.definition.id === activeId;
@@ -46,8 +46,9 @@ export function WorkspaceSwitcher({
             aria-selected={active}
             data-testid={`workspace-tab-${ws.definition.id}`}
             onClick={() => onSelect(ws.definition.id)}
+            title={label}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "shrink-0 max-w-[8rem] truncate rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               active
                 ? "bg-accent text-accent-foreground"
                 : "text-muted-foreground hover:bg-accent/40",
