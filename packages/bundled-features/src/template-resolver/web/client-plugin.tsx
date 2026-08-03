@@ -27,7 +27,11 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { type ClientFeatureDefinition, PlainContentEditor } from "@cosmicdrift/kumiko-renderer-web";
+import {
+  type ClientFeatureDefinition,
+  PlainContentEditor,
+  RichContentEditor,
+} from "@cosmicdrift/kumiko-renderer-web";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import {
   collectionHandlerName,
@@ -447,6 +451,7 @@ export function textBlocksClient(opts?: {
     // another clientFeature still wins, last-wins same as columnRenderers.
     contentEditors: {
       plain: PlainContentEditor,
+      rich: RichContentEditor,
     },
     translations: defaultTranslations,
   };
