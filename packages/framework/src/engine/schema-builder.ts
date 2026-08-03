@@ -50,8 +50,26 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
       return z.boolean();
     case "date":
       return z.string().date();
+    case "money":
+      // Signed minor units; the currency lives on the head aggregate, not the
+      // row. The safe-integer cap mirrors bigInt mode:"number" — jsonb has no
+      // BIGINT column behind it, so 2^53 is the real representability boundary.
+      return z.number().int().safe();
+    case "decimal": {
+      // No numeric column behind jsonb, so the bounds come from float
+      // representability alone: the value scaled by 10^scale must be a safe
+      // integer, i.e. at most `scale` fractional digits within ±2^53.
+      const limit = Number.MAX_SAFE_INTEGER / 10 ** subField.scale;
+      return z
+        .number()
+        .gte(-limit)
+        .lte(limit)
+        .refine((n) => isRepresentableAtScale(n, subField.scale), {
+          message: `at most ${subField.scale} decimal places`,
+        });
+    }
     default:
-      assertUnreachable(subField.type, "embedded sub-field type");
+      assertUnreachable(subField, "embedded sub-field type");
   }
 }
 

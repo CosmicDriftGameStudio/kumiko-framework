@@ -52,12 +52,14 @@ export const transactionEntity = createEntity({
     status: createSelectField({ options: TRANSACTION_STATUS, required: true }),
     // Posting lines are born with the entry and never change on their own —
     // a correction is a new (reversing) entry. The embedded list validates
-    // each line's shape; the cross-line invariants (Σ=0, ≥2 distinct
-    // accounts) stay in createTransactionPayloadSchema.
+    // each line's shape; `money` pins amount to signed integer minor units
+    // (the entry's currency is a book-level concern, not per line). The
+    // cross-line invariants (Σ=0, ≥2 distinct accounts) stay in
+    // createTransactionPayloadSchema.
     lines: createEmbeddedListField(
       {
         accountId: { type: "text", required: true },
-        amount: { type: "number", required: true },
+        amount: { type: "money", required: true },
       },
       { required: true },
     ),

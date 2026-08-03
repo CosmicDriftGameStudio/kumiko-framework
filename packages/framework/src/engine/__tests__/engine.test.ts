@@ -905,15 +905,38 @@ describe("createApp", () => {
           fields: {
             address: createEmbeddedField({
               // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
-              street: { type: "money" as any },
+              street: { type: "uuid" as any },
             }),
           },
         }),
       );
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
-      'invalid type "money"',
+      'invalid type "uuid"',
     );
+  });
+
+  test("rejects decimal sub-field with invalid scale", () => {
+    const featureWithScale = (scale: number) =>
+      defineFeature("test", (r) => {
+        r.entity(
+          "doc",
+          createEntity({
+            table: "Docs",
+            fields: {
+              items: createEmbeddedField({
+                qty: { type: "decimal", scale },
+              }),
+            },
+          }),
+        );
+      });
+    for (const scale of [-1, 1.5, 16]) {
+      expect(() => createApp({ roles: ["Admin"], features: [featureWithScale(scale)] })).toThrow(
+        `invalid scale ${scale}`,
+      );
+    }
+    expect(() => createApp({ roles: ["Admin"], features: [featureWithScale(3)] })).not.toThrow();
   });
 
   test("accepts valid embedded field with all sub-field types", () => {
@@ -928,6 +951,8 @@ describe("createApp", () => {
               count: { type: "number" },
               active: { type: "boolean" },
               created: { type: "date" },
+              amount: { type: "money" },
+              qty: { type: "decimal", scale: 3 },
             }),
           },
         }),

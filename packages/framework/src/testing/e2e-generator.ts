@@ -460,11 +460,13 @@ function fieldToFixture(name: string, field: FieldDefinition): unknown {
         sub[subName] =
           subDef.type === "text"
             ? `e2e ${subName}`
-            : subDef.type === "number"
+            : subDef.type === "number" || subDef.type === "decimal"
               ? 1
-              : subDef.type === "boolean"
-                ? true
-                : "2026-01-01";
+              : subDef.type === "money"
+                ? 100
+                : subDef.type === "boolean"
+                  ? true
+                  : "2026-01-01";
       }
       return field.multiple === true ? [sub] : sub;
     }
