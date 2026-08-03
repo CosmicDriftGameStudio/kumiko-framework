@@ -18,6 +18,10 @@ import type {
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  CONTENT_EDITOR_ELEMENT_ID,
+  type FeatureSchema,
+  useAppFeatures,
+  useContentEditor,
   useDispatcher,
   usePrimitives,
   useQuery,
@@ -197,6 +201,21 @@ function makeTreeProvider(tenantIdOverride?: string, collectionId?: string): Tre
   };
 }
 
+// contentFormat lives on the collection the node came from, not on the
+// entity — a node without a collectionId (the hand-wired text-block tree)
+// has none, useContentEditor then falls back to "plain" on its own.
+function findContentFormat(
+  features: readonly FeatureSchema[],
+  collectionId?: string,
+): string | undefined {
+  if (collectionId === undefined) return undefined;
+  for (const feature of features) {
+    const match = feature.contentCollections?.find((c) => c.id === collectionId);
+    if (match !== undefined) return match.contentFormat;
+  }
+  return undefined;
+}
+
 // Edit form: loads the current values via by-slug, lets TenantAdmin and
 // SystemAdmin edit title + content, dispatches set on submit. Other users see
 // the form read-only with a hint banner — write permission stays opinionated
@@ -240,6 +259,9 @@ function TextBlockEditor({
   const dispatcher = useDispatcher();
   const user = useShellUser();
   const t = useTranslation();
+  const features = useAppFeatures();
+  const contentFormat = findContentFormat(features, collectionId);
+  const ContentEditor = useContentEditor(contentFormat);
   const canWrite =
     user?.roles.includes("TenantAdmin") === true || user?.roles.includes("SystemAdmin") === true;
 
@@ -351,16 +373,8 @@ function TextBlockEditor({
           required
         />
       </Field>
-      <Field id="text-block-content" label={t("template-resolver.editor.contentLabel")}>
-        <Input
-          kind="textarea"
-          id="text-block-content"
-          name="text-block-content"
-          value={content}
-          onChange={setContent}
-          disabled={disabled}
-          rows={14}
-        />
+      <Field id={CONTENT_EDITOR_ELEMENT_ID} label={t("template-resolver.editor.contentLabel")}>
+        <ContentEditor value={content} onChange={setContent} variables={[]} readOnly={disabled} />
       </Field>
       {saveError !== null && <Banner variant="error">{saveError}</Banner>}
       {savedMsg !== null && <Banner variant="info">{savedMsg}</Banner>}

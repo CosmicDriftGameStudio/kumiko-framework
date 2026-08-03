@@ -11,6 +11,8 @@ import {
   type AppSchema,
   type ColumnRendererComponent,
   ColumnRenderersProvider,
+  type ContentEditorComponent,
+  ContentEditorsProvider,
   CustomScreensProvider,
   DashboardBodyProvider,
   DispatcherProvider,
@@ -216,6 +218,28 @@ export function firstOpenScreenQn(features: readonly FeatureSchema[]): string | 
   return undefined;
 }
 
+// Merges the content-editor map — same last-wins semantics as
+// columnRenderers. No entry for a contentFormat → useContentEditor falls
+// back to the textarea on its own, no warning needed.
+export function mergeContentEditors(
+  clientFeatures: readonly ClientFeatureDefinition[],
+): Record<string, ContentEditorComponent> {
+  const contentEditors: Record<string, ContentEditorComponent> = {};
+  for (const f of clientFeatures) {
+    if (f.contentEditors === undefined) continue;
+    for (const [key, value] of Object.entries(f.contentEditors)) {
+      if (contentEditors[key] !== undefined) {
+        // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
+        console.warn(
+          `[kumiko] contentEditor "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
+        );
+      }
+      contentEditors[key] = value;
+    }
+  }
+  return contentEditors;
+}
+
 export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonly root: Root } {
   const rootId = options.rootId ?? "root";
   const container = document.getElementById(rootId);
@@ -320,6 +344,8 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
     }
   }
 
+  const contentEditors = mergeContentEditors(clientFeatures);
+
   const { navProviders, navEntities } = buildNavProviderMaps(
     clientFeatures,
     app.features.flatMap((f) => f.contentCollections ?? []),
@@ -367,16 +393,18 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
                 <DashboardBodyProvider value={WebDashboardBody}>
                   <CustomScreensProvider value={customScreens}>
                     <ColumnRenderersProvider value={columnRenderers}>
-                      <ExtensionSectionsProvider value={extensionSectionComponents}>
-                        <NavProvidersProvider value={navProviders} entities={navEntities}>
-                          <ResolversProvider resolvers={resolvers}>
-                            <ToastProvider>
-                              <UpdateChecker />
-                              {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                            </ToastProvider>
-                          </ResolversProvider>
-                        </NavProvidersProvider>
-                      </ExtensionSectionsProvider>
+                      <ContentEditorsProvider value={contentEditors}>
+                        <ExtensionSectionsProvider value={extensionSectionComponents}>
+                          <NavProvidersProvider value={navProviders} entities={navEntities}>
+                            <ResolversProvider resolvers={resolvers}>
+                              <ToastProvider>
+                                <UpdateChecker />
+                                {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                              </ToastProvider>
+                            </ResolversProvider>
+                          </NavProvidersProvider>
+                        </ExtensionSectionsProvider>
+                      </ContentEditorsProvider>
                     </ColumnRenderersProvider>
                   </CustomScreensProvider>
                 </DashboardBodyProvider>

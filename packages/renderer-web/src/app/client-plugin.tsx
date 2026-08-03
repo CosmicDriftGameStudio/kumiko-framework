@@ -12,6 +12,7 @@
 import type { TargetRef, TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ColumnRendererComponent,
+  ContentEditorComponent,
   ExtensionSectionComponent,
   QualifiedContentCollection,
   TranslationsByLocale,
@@ -88,6 +89,15 @@ export type ClientFeatureDefinition = {
   readonly navProvidersFromCollections?: (
     collections: readonly QualifiedContentCollection[],
   ) => CollectionNavProviders;
+
+  /** Content-Editor-Components — Map `contentFormat` ("plain" | "rich") →
+   *  React-Component. `r.contentCollection()` declares which format an
+   *  editor edits; the collection's editor UI (template-resolver's
+   *  TextBlockEditor et al.) looks the component up here and falls back to
+   *  a plain textarea when no clientFeature registered one for that
+   *  format. Same Last-Wins-Semantik wie columnRenderers. Public component
+   *  contract: `{ value, onChange, variables, readOnly }`. */
+  readonly contentEditors?: Readonly<Record<string, ContentEditorComponent>>;
 
   /** Editor-Resolver-Komponenten pro featureId:action-Key. Wenn ein
    *  TreeNode mit target angeklickt wird, schlägt der EditorPanel das
