@@ -149,6 +149,9 @@ async function workerLaneSchedulers(prefix: string): Promise<{ name?: string; ke
   const queue = new Queue(`${prefix}-worker`, {
     connection: { host: url.hostname, port: Number(url.port) },
   });
+  // A post-close 'error' here is otherwise unhandled and bun:test
+  // attributes it to whichever test runs next (fw#1805).
+  queue.on("error", () => {});
   // Read-only: do NOT obliterate — the running all-in-one worker consumes this
   // same queue, and deleting its keys mid-flight aborts the worker's blocking
   // Redis read with "Connection is closed". The unique prefix isolates the

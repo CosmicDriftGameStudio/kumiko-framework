@@ -582,6 +582,9 @@ describe("concurrency: replace", () => {
         const queue = new Queue(`${queueNamePrefix}-worker`, {
           connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
         });
+        // A post-close 'error' here is otherwise unhandled and bun:test
+        // attributes it to whichever test runs next (fw#1805).
+        queue.on("error", () => {});
         try {
           const waiting = (await queue.getWaiting()).filter(
             (job) => job.name === "test:job:replace-job",
