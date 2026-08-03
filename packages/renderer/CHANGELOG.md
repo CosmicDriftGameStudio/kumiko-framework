@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.183.0
+
+### Minor Changes
+
+- 08c5c8c: `ContentCollectionDefinition.variableSchema` now maps each variable name to an example value (e.g. `{ customerName: "Max Mustermann" }`) instead of an unused placeholder. The renderer gets `ContentPreview` + `substituteVariables`: a read-only render of the collection's registered editor with `{{name}}` replaced by its example value, same mechanic for every `contentFormat` since it reuses the very component the collection edits with. `template-resolver`'s content-collection editor gets a Preview toggle next to the content field.
+
+### Patch Changes
+
+- Updated dependencies [b54a9e0]
+  - @cosmicdrift/kumiko-framework@0.183.0
+  - @cosmicdrift/kumiko-headless@0.183.0
+
 ## 0.182.1
 
 ### Patch Changes

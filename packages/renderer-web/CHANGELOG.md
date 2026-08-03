@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.183.0
+
+### Minor Changes
+
+- 14853d9: `renderer-web` gets `RichContentEditor`, the `contentFormat: "rich"` WYSIWYG editor (bold, italic, headings, lists, autolinking) — built on tiptap, dynamic-imported so an app that never mounts a "rich" collection never pays for it, and falling back to the plain textarea while the chunk loads. tiptap is a `dependencies` entry on `renderer-web` only, same as radix/cmdk/lucide — no tiptap type crosses the editor's public `{ value, onChange, variables, readOnly }` contract. `template-resolver`'s client now registers `RichContentEditor` under `contentEditors.rich`, so `rich` collections (e.g. mail-html templates) get the WYSIWYG without any app-side wiring.
+
+### Patch Changes
+
+- Updated dependencies [08c5c8c]
+  - @cosmicdrift/kumiko-renderer@0.183.0
+  - @cosmicdrift/kumiko-headless@0.183.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.183.0
+
 ## 0.182.1
 
 ### Patch Changes
