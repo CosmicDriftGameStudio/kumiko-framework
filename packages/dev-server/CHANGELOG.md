@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.183.0
+
+### Patch Changes
+
+- 4fecbb5: Dev-Server liefert das Default-HTML jetzt mit `<script type="module">`.
+
+  Als classic script werden die Top-Level-Deklarationen des Bundles zu
+  window-Properties. Eine Dependency mit `export function history()`
+  (prosemirror-history, kommt mit tiptap) ersetzt damit `window.history` —
+  danach wirft jedes `pushState`, und die Navigation ist tot, ohne dass die App
+  irgendetwas falsch gemacht hätte. Der Prod-Build emittiert die Modul-Form
+  seit jeher; nur der Dev-Server hing hinterher.
+
+- Updated dependencies [08c5c8c]
+- Updated dependencies [14853d9]
+- Updated dependencies [b54a9e0]
+- Updated dependencies [28c03cd]
+  - @cosmicdrift/kumiko-bundled-features@0.183.0
+  - @cosmicdrift/kumiko-framework@0.183.0
+  - @cosmicdrift/kumiko-server-runtime@0.183.0
+
 ## 0.182.1
 
 ### Patch Changes

@@ -1,5 +1,33 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.183.0
+
+### Minor Changes
+
+- 08c5c8c: `ContentCollectionDefinition.variableSchema` now maps each variable name to an example value (e.g. `{ customerName: "Max Mustermann" }`) instead of an unused placeholder. The renderer gets `ContentPreview` + `substituteVariables`: a read-only render of the collection's registered editor with `{{name}}` replaced by its example value, same mechanic for every `contentFormat` since it reuses the very component the collection edits with. `template-resolver`'s content-collection editor gets a Preview toggle next to the content field.
+- 14853d9: `renderer-web` gets `RichContentEditor`, the `contentFormat: "rich"` WYSIWYG editor (bold, italic, headings, lists, autolinking) — built on tiptap, dynamic-imported so an app that never mounts a "rich" collection never pays for it, and falling back to the plain textarea while the chunk loads. tiptap is a `dependencies` entry on `renderer-web` only, same as radix/cmdk/lucide — no tiptap type crosses the editor's public `{ value, onChange, variables, readOnly }` contract. `template-resolver`'s client now registers `RichContentEditor` under `contentEditors.rich`, so `rich` collections (e.g. mail-html templates) get the WYSIWYG without any app-side wiring.
+
+### Patch Changes
+
+- 28c03cd: template-resolver: Feature-Beschreibung in Absätze gegliedert und um den
+  Editor ergänzt.
+
+  Die Beschreibung war ein Block von 1500 Zeichen ohne Absatz — auf der
+  generierten Doku-Seite eine Textwand. Sie ist jetzt in sechs Abschnitte
+  geteilt (Was liegt drin, Lesen, Collections, Editor, User-Ownership,
+  Herkunft) und beschreibt erstmals `contentFormat`, Variablen-Chips und
+  Preview, die mit Phase 3 dazugekommen sind.
+
+- Updated dependencies [08c5c8c]
+- Updated dependencies [14853d9]
+- Updated dependencies [b54a9e0]
+  - @cosmicdrift/kumiko-types@0.183.0
+  - @cosmicdrift/kumiko-renderer@0.183.0
+  - @cosmicdrift/kumiko-renderer-web@0.183.0
+  - @cosmicdrift/kumiko-framework@0.183.0
+  - @cosmicdrift/kumiko-headless@0.183.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.183.0
+
 ## 0.182.1
 
 ### Patch Changes
