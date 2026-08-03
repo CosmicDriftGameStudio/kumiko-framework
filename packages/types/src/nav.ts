@@ -97,6 +97,10 @@ export type ContentCollectionDefinition = {
   // snippets an admin curates). "user": every user keeps their own (mail
   // signatures). Defaults to "tenant".
   readonly ownership?: "tenant" | "user";
+  // Which editor the client renders for this collection's entries — not how
+  // the content is stored. "rich" still stores HTML, because mail and PDF
+  // rendering want HTML either way. Defaults to "plain" (textarea).
+  readonly contentFormat?: "plain" | "rich";
   readonly nav: {
     readonly label: string;
     readonly icon?: string;

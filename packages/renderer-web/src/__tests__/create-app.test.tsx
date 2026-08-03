@@ -9,10 +9,11 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type {
   AppSchema,
   ColumnRendererProps,
+  ContentEditorProps,
   FeatureSchema,
   NavApi,
 } from "@cosmicdrift/kumiko-renderer";
-import { createStaticLocaleResolver } from "@cosmicdrift/kumiko-renderer";
+import { createStaticLocaleResolver, useContentEditor } from "@cosmicdrift/kumiko-renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { ClientFeatureDefinition } from "../app/client-plugin";
@@ -313,6 +314,47 @@ describe("createKumikoApp", () => {
     expect(await screen.findByTestId("ca-swatch")).toBeTruthy();
     expect(screen.getByTestId("ca-swatch-value").textContent).toBe("#a1b2c3");
     expect(screen.getByTestId("ca-swatch-field").textContent).toBe("color");
+  });
+
+  test("clientFeatures.contentEditors → createKumikoApp verdrahtet Merge → Provider → useContentEditor end-to-end", async () => {
+    // Beweist die ganze Kette: ClientFeatureDefinition.contentEditors →
+    // mergeContentEditors → ContentEditorsProvider im Tree → useContentEditor
+    // im Consumer. Ohne den Provider-Mount würde useContentEditor immer auf
+    // die Textarea zurückfallen — dieser Test failt dann.
+    function RichEditor({ value }: ContentEditorProps): ReactNode {
+      return <div data-testid="ca-rich-editor">{value}</div>;
+    }
+    function EditorProbe(): ReactNode {
+      const Editor = useContentEditor("rich");
+      return <Editor value="hello" onChange={() => {}} variables={[]} readOnly={false} />;
+    }
+    const probeSchema: FeatureSchema = {
+      featureName: "tasks",
+      entities: {},
+      screens: [{ id: "editor-probe", type: "custom", renderer: {} }],
+      navs: [
+        {
+          id: "editor-probe",
+          label: "tasks:nav.editor-probe",
+          screen: "tasks:screen:editor-probe",
+        },
+      ],
+    };
+    const clientFeature: ClientFeatureDefinition = {
+      name: "tasks",
+      components: { "editor-probe": EditorProbe },
+      contentEditors: { rich: RichEditor },
+    };
+
+    mountRoot();
+    await mountApp({
+      schema: probeSchema,
+      dispatcher: makeDispatcher(),
+      clientFeatures: [clientFeature],
+    });
+
+    expect(await screen.findByTestId("ca-rich-editor")).toBeTruthy();
+    expect(screen.getByTestId("ca-rich-editor").textContent).toBe("hello");
   });
 
   test("schema.translations (r.translations, #1059) resolves nav/dashboard labels without any clientFeatures duplication", async () => {

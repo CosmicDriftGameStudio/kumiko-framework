@@ -18,6 +18,18 @@ export type {
   ColumnRenderersProviderProps,
 } from "./app/column-renderers";
 export { ColumnRenderersProvider, useColumnRenderer } from "./app/column-renderers";
+export type {
+  ContentEditorComponent,
+  ContentEditorProps,
+  ContentEditorsMap,
+  ContentEditorsProviderProps,
+} from "./app/content-editors";
+export {
+  CONTENT_EDITOR_ELEMENT_ID,
+  ContentEditorsProvider,
+  TextareaContentEditor,
+  useContentEditor,
+} from "./app/content-editors";
 export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens";
 export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens";
 export type { DashboardBodyProps, DashboardBodyProviderProps } from "./app/dashboard-body";

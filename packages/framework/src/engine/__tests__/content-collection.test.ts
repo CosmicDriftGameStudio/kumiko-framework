@@ -115,6 +115,27 @@ describe("r.contentCollection() — registration", () => {
     expect(feature.contentCollections?.["signatures"]?.ownership).toBe("user");
   });
 
+  test("records contentFormat so the client can resolve the right editor", () => {
+    const feature = defineFeature("mail", (r) => {
+      r.contentCollection({
+        id: "prompts",
+        kind: "ai-prompt",
+        contentFormat: "plain",
+        nav: { label: "mail:nav.prompts" },
+      });
+    });
+
+    expect(feature.contentCollections?.["prompts"]?.contentFormat).toBe("plain");
+  });
+
+  test("contentFormat is optional — undefined when the app didn't declare one", () => {
+    const feature = defineFeature("mail", (r) => {
+      r.contentCollection({ id: "templates", kind: "mail-html", nav: { label: "a" } });
+    });
+
+    expect(feature.contentCollections?.["templates"]?.contentFormat).toBeUndefined();
+  });
+
   test("rejects a second collection with the same id", () => {
     expect(() =>
       defineFeature("mail", (r) => {
@@ -179,6 +200,7 @@ describe("buildAppSchema — content collections", () => {
         r.contentCollection({
           id: "templates",
           kind: "mail-html",
+          contentFormat: "rich",
           nav: { label: "mail:nav.templates", parent: "mail:nav:root" },
         });
       }),
@@ -190,6 +212,7 @@ describe("buildAppSchema — content collections", () => {
       {
         id: "templates",
         kind: "mail-html",
+        contentFormat: "rich",
         nav: { label: "mail:nav.templates", parent: "mail:nav:root" },
         navQn: "mail:nav:templates",
       },
