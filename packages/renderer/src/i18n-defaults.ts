@@ -85,6 +85,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     // Row-Actions — Fehler-Toast wenn ein Action-Write fehlschlägt.
     "kumiko.rowAction.failed": "Aktion fehlgeschlagen",
 
+    // ContentEditor — Variablen-Chip-Leiste (VariableChips).
+    "kumiko.contentEditor.insertVariable": "{name} einfügen",
+
     // Config-Cascade — Source-Badges + Cascade-Panel (ConfigCascadeView).
     "kumiko.config.source.user": "Mein Wert",
     "kumiko.config.source.tenant": "Tenant",
@@ -215,6 +218,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.aiText.capExceeded": "Monthly AI limit reached.",
 
     "kumiko.rowAction.failed": "Action failed",
+
+    "kumiko.contentEditor.insertVariable": "Insert {name}",
 
     "kumiko.config.source.user": "My value",
     "kumiko.config.source.tenant": "Tenant",

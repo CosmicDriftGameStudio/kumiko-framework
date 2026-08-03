@@ -95,6 +95,7 @@ export type { CreatePublicSurfaceOptions, PublicRoute } from "./app/create-publi
 export { createPublicSurface } from "./app/create-public-surface";
 export type { KumikoLinkProps } from "./app/nav";
 export { KumikoLink, useBrowserNavApi } from "./app/nav";
+export { PlainContentEditor } from "./app/plain-content-editor";
 export { useResolvers } from "./app/resolvers-context";
 export type { AppLayoutProps } from "./layout/app-layout";
 export { AppLayout } from "./layout/app-layout";
