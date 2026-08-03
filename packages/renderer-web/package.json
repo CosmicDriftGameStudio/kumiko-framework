@@ -38,11 +38,7 @@
     "react-dom": "^19.2.6",
     "react-resizable-panels": "^4.12.2",
     "tailwind-merge": "^3.6.0",
-    "temporal-polyfill": "^0.3.2",
-    "@tiptap/core": "^3.29.2",
-    "@tiptap/pm": "^3.29.2",
-    "@tiptap/react": "^3.29.2",
-    "@tiptap/starter-kit": "^3.29.2"
+    "temporal-polyfill": "^0.3.2"
   },
   "peerDependencies": {
     "@tailwindcss/cli": "^4.3.0",

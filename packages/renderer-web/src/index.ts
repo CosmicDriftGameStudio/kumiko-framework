@@ -97,7 +97,6 @@ export type { KumikoLinkProps } from "./app/nav";
 export { KumikoLink, useBrowserNavApi } from "./app/nav";
 export { PlainContentEditor } from "./app/plain-content-editor";
 export { useResolvers } from "./app/resolvers-context";
-export { RichContentEditor } from "./app/rich-content-editor";
 export type { AppLayoutProps } from "./layout/app-layout";
 export { AppLayout } from "./layout/app-layout";
 export type { AvatarProps, AvatarSize } from "./layout/avatar";
