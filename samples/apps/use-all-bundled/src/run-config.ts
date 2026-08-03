@@ -217,14 +217,32 @@ export const APP_FEATURES = [
         id: "reply-snippets",
         kind: "mail-html",
         access: { roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] },
-        nav: { label: "templateResolver:nav.snippets" },
+        // Without an explicit workspace the node lands in none of the three
+        // shells and the collection is unreachable in the UI.
+        nav: {
+          label: "templateResolver:nav.snippets",
+          workspaces: ["admin-shell:workspace:platform"],
+        },
+        // rich + variableSchema so the smoke app renders the WYSIWYG with
+        // insertable chips, not just the plain textarea — the preview
+        // substitutes these example values for `{{customerName}}` & co.
+        contentFormat: "rich",
+        variableSchema: {
+          customerName: "Max Mustermann",
+          orderId: "A-1042",
+          agentName: "Alex Bruns",
+        },
       },
       {
         id: "signatures",
         kind: "mail-html",
         ownership: "user",
         access: { roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] },
-        nav: { label: "templateResolver:nav.signatures" },
+        nav: {
+          label: "templateResolver:nav.signatures",
+          workspaces: ["admin-shell:workspace:platform"],
+        },
+        contentFormat: "rich",
       },
     ],
   }),

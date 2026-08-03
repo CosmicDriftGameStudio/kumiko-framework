@@ -268,4 +268,39 @@ export const seedScreenshotData: SeedFn = async (stack) => {
 
   // personal-access-tokens list for the admin (active tenant = dev).
   await seedApiTokens(stack.db, devTenant);
+
+  // reply-snippets — entries for the rich collection. Written through the
+  // collection's own set-handler, the same path the editor uses, so the rows
+  // carry whatever the handler derives instead of a hand-built projection.
+  // SYSTEM_TENANT, not the dev tenant: the screenshot admin reads the system
+  // tenant — the same reason the text-block tree above seeds there.
+  const snippetAuthor: SessionUser = {
+    ...TestUsers.systemAdmin,
+    tenantId: SYSTEM_TENANT_ID,
+    roles: ["TenantAdmin"],
+  };
+  for (const snippet of [
+    {
+      slug: "order-confirmed",
+      title: "Order confirmed",
+      content:
+        "<p>Hi {{customerName}},</p><p>your order <strong>{{orderId}}</strong> is on its way. " +
+        "We'll send a tracking link as soon as it ships.</p><p>— {{agentName}}</p>",
+    },
+    {
+      slug: "refund-approved",
+      title: "Refund approved",
+      content:
+        "<p>Hi {{customerName}},</p><p>we've approved the refund for {{orderId}}. " +
+        "It should appear on your statement within five working days.</p><p>— {{agentName}}</p>",
+    },
+  ]) {
+    // "html", not "rich": on a record contentFormat is the storage format,
+    // while on the collection it names the editor. The rich editor stores HTML.
+    await stack.http.writeOk(
+      "template-resolver:write:reply-snippets-set",
+      { ...snippet, locale: "en", contentFormat: "html" },
+      snippetAuthor,
+    );
+  }
 };

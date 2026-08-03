@@ -44,6 +44,22 @@ const contentEditor = () => async (page: Page) => {
   await page.getByTestId("text-block-editor").waitFor();
 };
 
+// template-resolver collections — the mounted "reply-snippets" collection is a
+// nav node of its own, not part of the content tree. Open it and select an
+// entry so the shot shows what the mount actually produces: the collection in
+// the sidebar, the rich editor, and the variable chips its variableSchema
+// declares.
+const collectionEditor = () => async (page: Page) => {
+  await loginAsAdmin(page);
+  await page.goto("/platform");
+  // Collection nodes render expanded, so no click on the node itself — that
+  // would collapse it and hide the very entries the shot is about.
+  const entry = page.getByRole("button", { name: "Order confirmed" });
+  await entry.waitFor({ timeout: 15_000 });
+  await entry.click();
+  await page.getByTestId("text-block-editor").waitFor();
+};
+
 // auth-mfa-enable is unlisted in any workspace's nav — reach it via an
 // explicit workspace prefix. Click "Start setup" so the screenshot shows the
 // QR/recovery-code step, not just the entry button.
@@ -120,7 +136,10 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "legal-pages", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
   // template-resolver — content tree (folders + stub state) with the text-block
   // editor open on one leaf.
-  { name: "template-resolver", flow: contentEditor(), settleMs: 1000 },
+  { name: "template-resolver", flow: collectionEditor(), settleMs: 1000 },
+  // template-resolver — the app-owned content tree with a text-block leaf open,
+  // the plain-format counterpart to the rich collection above.
+  { name: "template-resolver-content-tree", flow: contentEditor(), settleMs: 1000 },
   // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
   { name: "personal-access-tokens", flow: admin("/tenant-admin/api-tokens"), settleMs: 1000 },
   // config Settings-Hub — mask-derived configEdit under synthetic `settings` workspace.
