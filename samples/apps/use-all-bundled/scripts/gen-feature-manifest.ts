@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // @runtime dev
-// biome-ignore-all lint/suspicious/noConsole: CLI-Script, console ist Feature.
+// biome-ignore-all lint/suspicious/noConsole: CLI script, console output is the feature.
 //
 // Generates feature-manifest.json — the runtime-introspected metadata of
 // every bundled feature: config keys (type/scope/default/roles), hard +
@@ -8,9 +8,9 @@
 // docs.kumiko.rocks renders this as human-readable reference tables (see the
 // kumiko-platform docgen `feature-metadata` generator).
 //
-// Extraktionslogik lebt geteilt in `buildManifestFromRegistry`
-// (@cosmicdrift/kumiko-framework/engine) — auch der enterprise-Generator
-// nutzt sie; dieses Script liefert nur noch das Feature-Set + den Pfad.
+// Extraction logic lives shared in `buildManifestFromRegistry`
+// (@cosmicdrift/kumiko-framework/engine) — the enterprise generator uses it
+// too; this script only supplies the feature set + the output paths.
 //
 // Source set = APP_FEATURES (the canonical bootable list). Regenerate after
 // changing any feature's r.config / r.secret / r.requires / r.useExtension;
@@ -56,8 +56,19 @@ export const MANIFEST_PATH = resolve(
   "feature-manifest.json",
 );
 
+// Shipped to scaffolded apps via create-kumiko-app's package.json `files` list;
+// same content, second write target so the copy can never drift (#1774).
+export const CREATE_APP_MANIFEST_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../..",
+  "packages/create-kumiko-app/feature-manifest.json",
+);
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const manifest = buildFeatureManifest();
-  writeFileSync(MANIFEST_PATH, serializeManifest(manifest), "utf-8");
-  console.log(`feature-manifest.json: ${manifest.featureCount} features → ${MANIFEST_PATH}`);
+  const serialized = serializeManifest(manifest);
+  for (const path of [MANIFEST_PATH, CREATE_APP_MANIFEST_PATH]) {
+    writeFileSync(path, serialized, "utf-8");
+    console.log(`feature-manifest.json: ${manifest.featureCount} features → ${path}`);
+  }
 }
