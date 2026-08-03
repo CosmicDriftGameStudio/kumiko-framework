@@ -433,6 +433,47 @@ describe("buildInsertSchema", () => {
     expect(required.safeParse({ lines: [{ accountId: "bank" }] }).success).toBe(true);
   });
 
+  test("money sub-field accepts signed integer minor units, rejects fractions", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        lines: createEmbeddedListField({
+          accountId: { type: "text", required: true },
+          amount: { type: "money", required: true },
+        }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    const line = (amount: number) => ({ lines: [{ accountId: "bank", amount }] });
+    expect(schema.safeParse(line(100)).success).toBe(true);
+    expect(schema.safeParse(line(-100)).success).toBe(true);
+    expect(schema.safeParse(line(Number.MAX_SAFE_INTEGER)).success).toBe(true);
+    // a fractional amount is the Euro-vs-Cent confusion the type exists to catch
+    expect(schema.safeParse(line(10.5)).success).toBe(false);
+    expect(schema.safeParse(line(Number.MAX_SAFE_INTEGER + 1)).success).toBe(false);
+  });
+
+  test("decimal sub-field bounds the value to its scale", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        items: createEmbeddedListField({
+          qty: { type: "decimal", scale: 2, required: true },
+        }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    const row = (qty: number) => ({ items: [{ qty }] });
+    expect(schema.safeParse(row(1.25)).success).toBe(true);
+    expect(schema.safeParse(row(-3.5)).success).toBe(true);
+    // float artifact of an in-scale computation must pass (same contract as
+    // the top-level decimal field)
+    expect(schema.safeParse(row(0.1 + 0.2)).success).toBe(true);
+    expect(schema.safeParse(row(0.305)).success).toBe(false);
+    // scaled by 10^2 this leaves the safe-integer range
+    expect(schema.safeParse(row(Number.MAX_SAFE_INTEGER)).success).toBe(false);
+  });
+
   test("tz field validates against the IANA zone list", () => {
     const entity = createEntity({
       table: "Test",

@@ -364,7 +364,13 @@ export function validateFileFields(feature: FeatureDefinition): boolean {
 
 // --- Embedded field validation ---
 
-const VALID_EMBEDDED_SUB_TYPES = new Set(["text", "number", "boolean", "date"]);
+const VALID_EMBEDDED_SUB_TYPES = new Set(["text", "number", "boolean", "date", "money", "decimal"]);
+
+// 15 is where 10^scale exhausts a double's integer range — beyond it the
+// scale check in the write schema could no longer hold.
+function isValidEmbeddedDecimalScale(scale: number): boolean {
+  return Number.isInteger(scale) && scale >= 0 && scale <= 15;
+}
 
 // Tier 2.7e-3 + Cross-Feature: ReferenceFieldDef-Validation.
 //   1) referenced entity existiert (same-feature OR cross-feature
@@ -454,6 +460,11 @@ export function validateEmbeddedFields(feature: FeatureDefinition): void {
         if (!VALID_EMBEDDED_SUB_TYPES.has(subField.type)) {
           throw new Error(
             `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has invalid type "${subField.type}". Allowed: ${[...VALID_EMBEDDED_SUB_TYPES].join(", ")}`,
+          );
+        }
+        if (subField.type === "decimal" && !isValidEmbeddedDecimalScale(subField.scale)) {
+          throw new Error(
+            `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has invalid scale ${subField.scale}. Must be an integer between 0 and 15.`,
           );
         }
       }

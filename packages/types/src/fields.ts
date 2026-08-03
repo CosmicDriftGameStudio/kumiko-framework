@@ -383,12 +383,29 @@ export type DefaultCurrency =
 
 // --- Embedded Object ---
 
-export type EmbeddedSubFieldDef = {
-  readonly type: "text" | "number" | "boolean" | "date";
+type EmbeddedSubFieldBase = {
   readonly required?: boolean;
   readonly searchable?: boolean;
   readonly access?: FieldAccess;
 };
+
+/** `money` is a signed integer amount in minor units (cents); which currency
+ *  it means is defined by the owning aggregate (a head-level field or tenant
+ *  config), not per row. Unlike the top-level `money` field (BIGINT + currency
+ *  column) the value lives in jsonb, so it must stay within ±(2^53 − 1).
+ *
+ *  `decimal` bounds a JSON number to `scale` fractional digits (0–15). `scale`
+ *  is required — no silent default that could truncate — and there is no
+ *  `precision`: jsonb has no numeric column behind it whose width `precision`
+ *  could describe. */
+export type EmbeddedSubFieldDef =
+  | (EmbeddedSubFieldBase & {
+      readonly type: "text" | "number" | "boolean" | "date" | "money";
+    })
+  | (EmbeddedSubFieldBase & {
+      readonly type: "decimal";
+      readonly scale: number;
+    });
 
 export type EmbeddedFieldDef = {
   readonly type: "embedded";
