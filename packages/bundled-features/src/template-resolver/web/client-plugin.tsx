@@ -27,7 +27,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import { type ClientFeatureDefinition, PlainContentEditor } from "@cosmicdrift/kumiko-renderer-web";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import {
   collectionHandlerName,
@@ -216,6 +216,22 @@ function findContentFormat(
   return undefined;
 }
 
+// Same lookup as findContentFormat, for the collection's fixed variable
+// names (ContentCollectionDefinition.variableSchema) — the chip bar's data
+// source. A node without a collectionId gets no chips: the hand-wired
+// text-block tree has no collection to declare variables on.
+function findVariableSchema(
+  features: readonly FeatureSchema[],
+  collectionId?: string,
+): readonly string[] {
+  if (collectionId === undefined) return [];
+  for (const feature of features) {
+    const match = feature.contentCollections?.find((c) => c.id === collectionId);
+    if (match !== undefined) return Object.keys(match.variableSchema ?? {});
+  }
+  return [];
+}
+
 // Edit form: loads the current values via by-slug, lets TenantAdmin and
 // SystemAdmin edit title + content, dispatches set on submit. Other users see
 // the form read-only with a hint banner — write permission stays opinionated
@@ -261,6 +277,7 @@ function TextBlockEditor({
   const t = useTranslation();
   const features = useAppFeatures();
   const contentFormat = findContentFormat(features, collectionId);
+  const variables = findVariableSchema(features, collectionId);
   const ContentEditor = useContentEditor(contentFormat);
   const canWrite =
     user?.roles.includes("TenantAdmin") === true || user?.roles.includes("SystemAdmin") === true;
@@ -374,7 +391,12 @@ function TextBlockEditor({
         />
       </Field>
       <Field id={CONTENT_EDITOR_ELEMENT_ID} label={t("template-resolver.editor.contentLabel")}>
-        <ContentEditor value={content} onChange={setContent} variables={[]} readOnly={disabled} />
+        <ContentEditor
+          value={content}
+          onChange={setContent}
+          variables={variables}
+          readOnly={disabled}
+        />
       </Field>
       {saveError !== null && <Banner variant="error">{saveError}</Banner>}
       {savedMsg !== null && <Banner variant="info">{savedMsg}</Banner>}
@@ -419,6 +441,12 @@ export function textBlocksClient(opts?: {
     }),
     resolvers: {
       "template-resolver:edit": TextBlockEditor,
+    },
+    // The default for every "plain" collection (ai-prompt, mail-html without
+    // an explicit rich override) — an app-registered "plain" editor on
+    // another clientFeature still wins, last-wins same as columnRenderers.
+    contentEditors: {
+      plain: PlainContentEditor,
     },
     translations: defaultTranslations,
   };

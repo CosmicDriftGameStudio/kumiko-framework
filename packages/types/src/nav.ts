@@ -101,6 +101,13 @@ export type ContentCollectionDefinition = {
   // the content is stored. "rich" still stores HTML, because mail and PDF
   // rendering want HTML either way. Defaults to "plain" (textarea).
   readonly contentFormat?: "plain" | "rich";
+  // Fixed variable names the collection's editor offers as insertable chips
+  // (e.g. `{ customerName: {}, orderId: {} }` for an ai-prompt collection).
+  // Declared once per collection, not per entry — a collection-set write
+  // always persists an entry's own `variableSchema` as `{}` (collections
+  // never let a user redefine the variable set), so this is the only place
+  // the client can learn which variables exist.
+  readonly variableSchema?: Record<string, unknown>;
   readonly nav: {
     readonly label: string;
     readonly icon?: string;

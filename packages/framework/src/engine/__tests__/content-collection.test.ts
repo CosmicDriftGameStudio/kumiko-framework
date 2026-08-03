@@ -136,6 +136,31 @@ describe("r.contentCollection() — registration", () => {
     expect(feature.contentCollections?.["templates"]?.contentFormat).toBeUndefined();
   });
 
+  test("records variableSchema so the client can offer the right chips", () => {
+    const feature = defineFeature("mail", (r) => {
+      r.contentCollection({
+        id: "prompts",
+        kind: "ai-prompt",
+        contentFormat: "plain",
+        variableSchema: { customerName: {}, orderId: {} },
+        nav: { label: "mail:nav.prompts" },
+      });
+    });
+
+    expect(feature.contentCollections?.["prompts"]?.variableSchema).toEqual({
+      customerName: {},
+      orderId: {},
+    });
+  });
+
+  test("variableSchema is optional — undefined when the app didn't declare one", () => {
+    const feature = defineFeature("mail", (r) => {
+      r.contentCollection({ id: "templates", kind: "mail-html", nav: { label: "a" } });
+    });
+
+    expect(feature.contentCollections?.["templates"]?.variableSchema).toBeUndefined();
+  });
+
   test("rejects a second collection with the same id", () => {
     expect(() =>
       defineFeature("mail", (r) => {
@@ -220,6 +245,38 @@ describe("buildAppSchema — content collections", () => {
     // The nav entry itself still travels the normal route — the collection
     // list only carries what a NavDefinition cannot express.
     expect(mail?.navs?.map((n) => n.id)).toContain("templates");
+  });
+
+  test("projects variableSchema through to the client schema", () => {
+    const registry = createRegistry([
+      defineFeature("mail", (r) => {
+        r.contentCollection({
+          id: "prompts",
+          kind: "ai-prompt",
+          contentFormat: "plain",
+          variableSchema: { customerName: {} },
+          nav: { label: "mail:nav.prompts" },
+        });
+      }),
+    ]);
+
+    const schema = buildAppSchema(registry);
+    const mail = schema.features.find((f) => f.featureName === "mail");
+    expect(mail?.contentCollections?.[0]?.variableSchema).toEqual({ customerName: {} });
+    // buildAppSchema's JSON-safety check throws on undefined leaves — proves
+    // the new field survives that check instead of only the toEqual above.
+    expect(() =>
+      validateBoot([
+        defineFeature("mail2", (r) => {
+          r.contentCollection({
+            id: "prompts",
+            kind: "ai-prompt",
+            variableSchema: { customerName: {} },
+            nav: { label: "mail2:nav.prompts" },
+          });
+        }),
+      ]),
+    ).not.toThrow();
   });
 
   test("omits the slot for features without collections", () => {
