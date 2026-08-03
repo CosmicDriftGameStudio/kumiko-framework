@@ -30,6 +30,8 @@ export {
   TextareaContentEditor,
   useContentEditor,
 } from "./app/content-editors";
+export type { ContentPreviewProps } from "./app/content-preview";
+export { ContentPreview, substituteVariables } from "./app/content-preview";
 export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens";
 export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens";
 export type { DashboardBodyProps, DashboardBodyProviderProps } from "./app/dashboard-body";

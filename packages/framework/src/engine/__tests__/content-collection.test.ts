@@ -155,14 +155,14 @@ describe("r.contentCollection() — registration", () => {
         id: "prompts",
         kind: "ai-prompt",
         contentFormat: "plain",
-        variableSchema: { customerName: {}, orderId: {} },
+        variableSchema: { customerName: "Max Mustermann", orderId: "A-1042" },
         nav: { label: "mail:nav.prompts" },
       });
     });
 
     expect(feature.contentCollections?.["prompts"]?.variableSchema).toEqual({
-      customerName: {},
-      orderId: {},
+      customerName: "Max Mustermann",
+      orderId: "A-1042",
     });
   });
 
@@ -267,7 +267,7 @@ describe("buildAppSchema — content collections", () => {
           id: "prompts",
           kind: "ai-prompt",
           contentFormat: "plain",
-          variableSchema: { customerName: {} },
+          variableSchema: { customerName: "Max Mustermann" },
           nav: { label: "mail:nav.prompts" },
         });
       }),
@@ -275,7 +275,9 @@ describe("buildAppSchema — content collections", () => {
 
     const schema = buildAppSchema(registry);
     const mail = schema.features.find((f) => f.featureName === "mail");
-    expect(mail?.contentCollections?.[0]?.variableSchema).toEqual({ customerName: {} });
+    expect(mail?.contentCollections?.[0]?.variableSchema).toEqual({
+      customerName: "Max Mustermann",
+    });
     // buildAppSchema's JSON-safety check throws on undefined leaves — proves
     // the new field survives that check instead of only the toEqual above.
     expect(() =>
@@ -284,7 +286,7 @@ describe("buildAppSchema — content collections", () => {
           r.contentCollection({
             id: "prompts",
             kind: "ai-prompt",
-            variableSchema: { customerName: {} },
+            variableSchema: { customerName: "Max Mustermann" },
             nav: { label: "mail2:nav.prompts" },
           });
         }),

@@ -19,6 +19,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   CONTENT_EDITOR_ELEMENT_ID,
+  ContentPreview,
   type FeatureSchema,
   useAppFeatures,
   useContentEditor,
@@ -224,12 +225,21 @@ function findVariableSchema(
   features: readonly FeatureSchema[],
   collectionId?: string,
 ): readonly string[] {
-  if (collectionId === undefined) return [];
+  return Object.keys(findVariableExamples(features, collectionId));
+}
+
+// Same lookup, for the example values the Preview substitutes in for
+// `{{name}}` — the values half of the same variableSchema map.
+function findVariableExamples(
+  features: readonly FeatureSchema[],
+  collectionId?: string,
+): Readonly<Record<string, string>> {
+  if (collectionId === undefined) return {};
   for (const feature of features) {
     const match = feature.contentCollections?.find((c) => c.id === collectionId);
-    if (match !== undefined) return Object.keys(match.variableSchema ?? {});
+    if (match !== undefined) return match.variableSchema ?? {};
   }
-  return [];
+  return {};
 }
 
 // Edit form: loads the current values via by-slug, lets TenantAdmin and
@@ -278,6 +288,7 @@ function TextBlockEditor({
   const features = useAppFeatures();
   const contentFormat = findContentFormat(features, collectionId);
   const variables = findVariableSchema(features, collectionId);
+  const variableExamples = findVariableExamples(features, collectionId);
   const ContentEditor = useContentEditor(contentFormat);
   const canWrite =
     user?.roles.includes("TenantAdmin") === true || user?.roles.includes("SystemAdmin") === true;
@@ -302,6 +313,7 @@ function TextBlockEditor({
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [previewing, setPreviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
@@ -390,13 +402,34 @@ function TextBlockEditor({
           required
         />
       </Field>
-      <Field id={CONTENT_EDITOR_ELEMENT_ID} label={t("template-resolver.editor.contentLabel")}>
-        <ContentEditor
-          value={content}
-          onChange={setContent}
-          variables={variables}
-          readOnly={disabled}
-        />
+      <Field
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        label={t("template-resolver.editor.contentLabel")}
+        labelAppendix={
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setPreviewing((p) => !p)}
+          >
+            {previewing ? t("kumiko.contentEditor.editMode") : t("kumiko.contentEditor.preview")}
+          </Button>
+        }
+      >
+        {previewing ? (
+          <ContentPreview
+            content={content}
+            variables={variableExamples}
+            contentFormat={contentFormat}
+          />
+        ) : (
+          <ContentEditor
+            value={content}
+            onChange={setContent}
+            variables={variables}
+            readOnly={disabled}
+          />
+        )}
       </Field>
       {saveError !== null && <Banner variant="error">{saveError}</Banner>}
       {savedMsg !== null && <Banner variant="info">{savedMsg}</Banner>}
