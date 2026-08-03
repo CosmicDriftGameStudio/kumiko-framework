@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.182.0
+
+### Minor Changes
+
+- 8a3b0a9: `r.contentCollection()` accepts a new `contentFormat: "plain" | "rich"` field. `ClientFeatureDefinition` gets a sixth registry, `contentEditors` — a `contentFormat → EditorComponent` map merged with the same last-wins semantics as `columnRenderers`. `createKumikoApp` mounts a `ContentEditorsProvider`; `useContentEditor(contentFormat)` resolves the registered component or falls back to a plain textarea, so a missing editor is never an empty panel. `template-resolver`'s content-collection editor now renders through this registry instead of a hardcoded textarea.
+
+### Patch Changes
+
+- 9344050: `listSchema` in `engine/entity-handlers.ts` war nicht exportiert, sodass Consumer wie money-horse die Query-Schema-Shape der Entity-List-Handler kopieren mussten (`mieten-list.query.ts`). Diese Kopien drifteten still vom Framework-Kontrakt ab, sobald ein Feld ergänzt wurde (money-horse#293). Fix: als `entityListSchema` aus `@cosmicdrift/kumiko-framework/engine` exportiert, damit Consumer importieren statt duplizieren.
+- 0a50d9c: Zwei konkurrierende erste `assign-tag`-Aufrufe auf dieselbe (tag, entity)-Kombination konnten mit einem rohen 500 `internal_error` statt dem erwarteten konvergierten Erfolg fehlschlagen (`kumiko-framework#1778`), CI-Flake auf `main`.
+
+  Root Cause 1 (framework): `create()`/`update()` im `EventStoreExecutor` riefen `append()` direkt auf der äußeren Dispatcher-Transaktion auf. postgres.js/Bun.SQL vergiften den ganzen umschließenden `begin()`-Block, sobald darin ein Statement fehlschlägt — auch wenn der JS-Fehler bereits sauber zu `version_conflict` klassifiziert wurde. Der Verlierer-Schreiber bekam dadurch beim Commit den rohen `PostgresError` statt der bereits klassifizierten `WriteFailure`. Fix: `append()` läuft jetzt in einem `SAVEPOINT` (`runInSavepointIfSupported`), das isoliert zurückrollt statt die ganze Transaktion zu vergiften — mit Fallback auf einen direkten Aufruf, sowohl wenn `db` eine reine Pool-Connection ohne aktive Transaktion ist (Seeds/Tests) als auch wenn ein `afterCommit`-Hook einen bereits committeten Transaktions-Handle wiederverwendet (PG 25P01 „no active sql transaction").
+
+  Root Cause 2 (bundled-features): unabhängig davon konvergierte der `assign-tag`-Handler nur den `create()`-vs-`create()`-Race (`version_conflict`), nicht das schmalere Fenster, in dem der Verlierer nach einem `detail()`-Miss auf `restore()` trifft, während der Gewinner die aktive Zeile bereits geschrieben hat (`restore()` liefert dann `unprocessable/not_deleted`). Der Handler konvergiert diesen Fall jetzt ebenfalls zu Erfolg.
+
+- Updated dependencies [8a3b0a9]
+- Updated dependencies [9c62bc8]
+  - @cosmicdrift/kumiko-types@0.182.0
+
 ## 0.181.0
 
 ### Minor Changes

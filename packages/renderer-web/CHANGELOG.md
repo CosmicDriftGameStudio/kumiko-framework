@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.182.0
+
+### Minor Changes
+
+- 8a3b0a9: `r.contentCollection()` accepts a new `contentFormat: "plain" | "rich"` field. `ClientFeatureDefinition` gets a sixth registry, `contentEditors` — a `contentFormat → EditorComponent` map merged with the same last-wins semantics as `columnRenderers`. `createKumikoApp` mounts a `ContentEditorsProvider`; `useContentEditor(contentFormat)` resolves the registered component or falls back to a plain textarea, so a missing editor is never an empty panel. `template-resolver`'s content-collection editor now renders through this registry instead of a hardcoded textarea.
+- 9c62bc8: `ContentCollectionDefinition` accepts a new `variableSchema` field — fixed variable names the app declares for a collection (e.g. an `ai-prompt` collection's `{customerName}`, `{orderId}`). The renderer gets `VariableChips`, an editor-agnostic chip bar that inserts `{{name}}` at the caret on click, and `renderer-web` gets `PlainContentEditor`, which pairs it with the existing textarea fallback. `template-resolver`'s client now registers `PlainContentEditor` under `contentEditors.plain` and passes the collection's variable names through, so AI-prompt and mail-html collections with `contentFormat: "plain"` get the chip bar without any app-side wiring.
+
+### Patch Changes
+
+- Updated dependencies [8a3b0a9]
+- Updated dependencies [9c62bc8]
+  - @cosmicdrift/kumiko-renderer@0.182.0
+  - @cosmicdrift/kumiko-headless@0.182.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.182.0
+
 ## 0.181.0
 
 ### Patch Changes
