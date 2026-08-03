@@ -87,12 +87,6 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     // ContentEditor — Variablen-Chip-Leiste (VariableChips).
     "kumiko.contentEditor.insertVariable": "{name} einfügen",
-    "kumiko.contentEditor.bold": "Fett",
-    "kumiko.contentEditor.italic": "Kursiv",
-    "kumiko.contentEditor.heading1": "Überschrift 1",
-    "kumiko.contentEditor.heading2": "Überschrift 2",
-    "kumiko.contentEditor.bulletList": "Aufzählungsliste",
-    "kumiko.contentEditor.orderedList": "Nummerierte Liste",
 
     // Config-Cascade — Source-Badges + Cascade-Panel (ConfigCascadeView).
     "kumiko.config.source.user": "Mein Wert",
@@ -226,12 +220,6 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.rowAction.failed": "Action failed",
 
     "kumiko.contentEditor.insertVariable": "Insert {name}",
-    "kumiko.contentEditor.bold": "Bold",
-    "kumiko.contentEditor.italic": "Italic",
-    "kumiko.contentEditor.heading1": "Heading 1",
-    "kumiko.contentEditor.heading2": "Heading 2",
-    "kumiko.contentEditor.bulletList": "Bullet list",
-    "kumiko.contentEditor.orderedList": "Numbered list",
 
     "kumiko.config.source.user": "My value",
     "kumiko.config.source.tenant": "Tenant",
