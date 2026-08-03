@@ -20,8 +20,21 @@ const availableLocales = [
   { code: "en", label: "English" },
 ];
 
+// Zwei Fassungen statt einer: auf Icon-Breite hat ein mehrwortiger Name
+// keinen Platz, er bricht um und schiebt sich unter die Rail. Das Kuerzel
+// haelt die Kopfzeile auf einer Zeile.
 const Brand = (): ReactNode => (
-  <strong className="text-foreground tracking-tight">{APP_NAME}</strong>
+  <>
+    <strong className="truncate text-foreground tracking-tight group-data-[collapsible=icon]:hidden">
+      {APP_NAME}
+    </strong>
+    <strong
+      aria-hidden="true"
+      className="hidden text-foreground tracking-tight group-data-[collapsible=icon]:inline"
+    >
+      K
+    </strong>
+  </>
 );
 
 export function AppShell({

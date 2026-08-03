@@ -10,6 +10,7 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { render as _render, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { useBrowserNavApi } from "../app/nav";
 import {
@@ -20,7 +21,23 @@ import {
 } from "../layout/workspace-shell";
 import { WorkspaceSwitcher } from "../layout/workspace-switcher";
 import { defaultPrimitives } from "../primitives";
-import { createMockDispatcher, fireEvent, render, screen } from "./test-utils";
+import { createMockDispatcher, renderWithSidebar, screen } from "./test-utils";
+
+// Dropdown statt Tab-Reihe (siehe workspace-switcher.tsx) — der Trigger
+// zeigt immer nur das aktive Label, Radix rendert die Liste erst im
+// offenen Zustand. Assertions die nur "welcher Workspace ist aktiv"
+// prüfen, lesen den Trigger-Text statt ein per-Tab aria-selected; nur
+// Tests die die volle Liste sehen oder einen Eintrag anklicken müssen,
+// öffnen das Dropdown (userEvent, Radix reagiert auf pointerdown).
+function activeWorkspaceLabel(): string | null {
+  // Trigger trägt zwei Spans (voller Text + Kürzel für collapsed) — jsdom
+  // kennt kein CSS, "hidden" blendet im Test also nicht aus. Nur den
+  // sichtbaren (nicht aria-hidden) Span lesen.
+  return (
+    screen.getByTestId("workspace-switcher-trigger").querySelector("span:not([aria-hidden])")
+      ?.textContent ?? null
+  );
+}
 
 // jsdom shares window.history across tests in the same file. Reset to /
 // before each render so URL-driven workspace state from one test doesn't
@@ -208,18 +225,19 @@ describe("firstNavScreenId", () => {
 
 describe("WorkspaceSwitcher", () => {
   test("renders nothing for a single workspace (no choice = no UI)", () => {
-    const { container } = render(
+    const { container } = renderWithSidebar(
       <WorkspaceSwitcher
         workspaces={[ws("only", { openToAll: true })]}
         activeId="only"
         onSelect={() => {}}
       />,
     );
-    expect(container.firstChild).toBeNull();
+    expect(container.querySelector('[data-testid="workspace-switcher-trigger"]')).toBeNull();
   });
 
-  test("renders a tab per workspace and marks the active one", () => {
-    render(
+  test("trigger shows the active workspace, dropdown lists all with aria-checked", async () => {
+    const user = userEvent.setup();
+    renderWithSidebar(
       <WorkspaceSwitcher
         workspaces={[
           ws("admin", { label: "Admin", openToAll: true }),
@@ -229,15 +247,16 @@ describe("WorkspaceSwitcher", () => {
         onSelect={() => {}}
       />,
     );
-    const adminTab = screen.getByTestId("workspace-tab-admin");
-    const driverTab = screen.getByTestId("workspace-tab-driver");
-    expect(adminTab.getAttribute("aria-selected")).toBe("true");
-    expect(driverTab.getAttribute("aria-selected")).toBe("false");
+    expect(activeWorkspaceLabel()).toBe("Admin");
+    await user.click(screen.getByTestId("workspace-switcher-trigger"));
+    expect(screen.getByTestId("workspace-tab-admin").getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByTestId("workspace-tab-driver").getAttribute("aria-checked")).toBe("false");
   });
 
-  test("clicking a tab calls onSelect with that workspace id", () => {
+  test("clicking a dropdown entry calls onSelect with that workspace id", async () => {
+    const user = userEvent.setup();
     const onSelect = mock();
-    render(
+    renderWithSidebar(
       <WorkspaceSwitcher
         workspaces={[
           ws("admin", { label: "Admin", openToAll: true }),
@@ -247,7 +266,8 @@ describe("WorkspaceSwitcher", () => {
         onSelect={onSelect}
       />,
     );
-    fireEvent.click(screen.getByTestId("workspace-tab-driver"));
+    await user.click(screen.getByTestId("workspace-switcher-trigger"));
+    await user.click(screen.getByTestId("workspace-tab-driver"));
     expect(onSelect).toHaveBeenCalledWith("driver");
   });
 });
@@ -292,7 +312,8 @@ describe("WorkspaceShell", () => {
     ],
   } as const;
 
-  test("an admin sees admin + dispatch in the switcher (driver hidden)", () => {
+  test("an admin sees admin + dispatch in the switcher (driver hidden)", async () => {
+    const user = userEvent.setup();
     renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
@@ -302,6 +323,7 @@ describe("WorkspaceShell", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
+    await user.click(screen.getByTestId("workspace-switcher-trigger"));
     expect(screen.getByTestId("workspace-tab-admin")).toBeTruthy();
     expect(screen.getByTestId("workspace-tab-dispatch")).toBeTruthy();
     expect(screen.queryByTestId("workspace-tab-driver")).toBeNull();
@@ -317,7 +339,7 @@ describe("WorkspaceShell", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    expect(screen.getByTestId("workspace-tab-admin").getAttribute("aria-selected")).toBe("true");
+    expect(activeWorkspaceLabel()).toBe("Admin");
   });
 
   test("only the active workspace's nav members appear in the sidebar", () => {
@@ -337,7 +359,8 @@ describe("WorkspaceShell", () => {
     expect(screen.queryAllByText("Tours").length).toBe(0);
   });
 
-  test("clicking the dispatch tab swaps the visible nav set", () => {
+  test("clicking the dispatch tab swaps the visible nav set", async () => {
+    const user = userEvent.setup();
     renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
@@ -347,7 +370,8 @@ describe("WorkspaceShell", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    fireEvent.click(screen.getByTestId("workspace-tab-dispatch"));
+    await user.click(screen.getByTestId("workspace-switcher-trigger"));
+    await user.click(screen.getByTestId("workspace-tab-dispatch"));
     // dispatch → orders + tours, NOT system (getAllByText: Desktop + Mobile-Sheet)
     expect(screen.getAllByText("Orders").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Tours").length).toBeGreaterThan(0);
@@ -401,7 +425,7 @@ describe("WorkspaceShell", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    expect(screen.getByTestId("workspace-tab-dispatch").getAttribute("aria-selected")).toBe("true");
+    expect(activeWorkspaceLabel()).toBe("Cockpit");
   });
 
   // Security regression — without the empty-allow-set branch, the NavTree
@@ -535,17 +559,18 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    expect(screen.getByTestId("workspace-tab-dispatch").getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByTestId("workspace-tab-admin").getAttribute("aria-selected")).toBe("false");
+    expect(activeWorkspaceLabel()).toBe("dispatch");
   });
 
-  test("clicking a tab pushes /<workspace>/<screen> to the URL", () => {
+  test("clicking a tab pushes /<workspace>/<screen> to the URL", async () => {
+    const user = userEvent.setup();
     renderShell(
       <WorkspaceShell brand={<div>B</div>} schema={schema} user={{ id: "u1", roles: ["admin"] }}>
         <div>content</div>
       </WorkspaceShell>,
     );
-    fireEvent.click(screen.getByTestId("workspace-tab-dispatch"));
+    await user.click(screen.getByTestId("workspace-switcher-trigger"));
+    await user.click(screen.getByTestId("workspace-tab-dispatch"));
     // dispatch's first nav-member is bmc:nav:orders → screenId "orders"
     expect(window.location.pathname).toBe("/dispatch/orders");
   });
@@ -604,7 +629,7 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
       </WorkspaceShell>,
     );
     // Default workspace = admin. Ghost id ignored, no error thrown.
-    expect(screen.getByTestId("workspace-tab-admin").getAttribute("aria-selected")).toBe("true");
+    expect(activeWorkspaceLabel()).toBe("admin");
   });
 
   test("popstate (back/forward) updates the active tab", () => {
@@ -614,7 +639,7 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    expect(screen.getByTestId("workspace-tab-admin").getAttribute("aria-selected")).toBe("true");
+    expect(activeWorkspaceLabel()).toBe("admin");
     // Simulate the user hitting "forward" to /dispatch/orders. pushState
     // alone doesn't fire popstate — we synthesize the event so the
     // hook's listener-set notifies subscribers. act() flushes the
@@ -623,7 +648,7 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
       window.history.pushState(null, "", "/dispatch/orders");
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
-    expect(screen.getByTestId("workspace-tab-dispatch").getAttribute("aria-selected")).toBe("true");
+    expect(activeWorkspaceLabel()).toBe("dispatch");
   });
 });
 
