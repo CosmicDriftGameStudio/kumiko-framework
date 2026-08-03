@@ -9,6 +9,11 @@
 // hinaus — truncate+scroll versteckt dann den letzten Eintrag komplett
 // unklickbar. Ein Dropdown hat dagegen bei jeder Anzahl/Länge konstante
 // Trigger-Breite.
+//
+// Collapsed komplett ausgeblendet statt Icon/Kürzel: ein Label auf
+// Icon-Breite ist ohnehin nicht lesbar, und der Nutzer wechselt den
+// Workspace über die volle Sidebar — kein Anspruch, das auch im
+// Icon-Rail bedienbar zu halten (wie die Suche in nav-tree.tsx).
 
 import type { WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
@@ -45,18 +50,17 @@ export function WorkspaceSwitcher({
   const active = workspaces.find((ws) => ws.definition.id === activeId);
 
   return (
-    <SidebarMenu data-testid={testId} data-kumiko-layout="workspace-switcher">
+    <SidebarMenu
+      data-testid={testId}
+      data-kumiko-layout="workspace-switcher"
+      className="group-data-[collapsible=icon]:hidden"
+    >
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton data-testid="workspace-switcher-trigger">
-              <span className="truncate group-data-[collapsible=icon]:hidden">
-                {active !== undefined ? labelOf(active) : ""}
-              </span>
-              <span aria-hidden="true" className="hidden group-data-[collapsible=icon]:inline">
-                {active !== undefined ? labelOf(active).charAt(0).toUpperCase() : ""}
-              </span>
-              <ChevronsUpDown className="ml-auto group-data-[collapsible=icon]:hidden" />
+              <span className="truncate">{active !== undefined ? labelOf(active) : ""}</span>
+              <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-[10rem]">
