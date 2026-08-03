@@ -218,9 +218,9 @@ export function firstOpenScreenQn(features: readonly FeatureSchema[]): string | 
   return undefined;
 }
 
-// Content-Editor-Map mergen — gleiche Last-Wins-Semantik wie columnRenderers.
-// Kein Eintrag für ein contentFormat → useContentEditor fällt selbst auf die
-// Textarea zurück, kein Warnfall.
+// Merges the content-editor map — same last-wins semantics as
+// columnRenderers. No entry for a contentFormat → useContentEditor falls
+// back to the textarea on its own, no warning needed.
 export function mergeContentEditors(
   clientFeatures: readonly ClientFeatureDefinition[],
 ): Record<string, ContentEditorComponent> {

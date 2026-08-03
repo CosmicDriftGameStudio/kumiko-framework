@@ -317,10 +317,11 @@ describe("createKumikoApp", () => {
   });
 
   test("clientFeatures.contentEditors → createKumikoApp verdrahtet Merge → Provider → useContentEditor end-to-end", async () => {
-    // Beweist die ganze Kette: ClientFeatureDefinition.contentEditors →
-    // mergeContentEditors → ContentEditorsProvider im Tree → useContentEditor
-    // im Consumer. Ohne den Provider-Mount würde useContentEditor immer auf
-    // die Textarea zurückfallen — dieser Test failt dann.
+    // Proves the whole chain: ClientFeatureDefinition.contentEditors →
+    // mergeContentEditors → ContentEditorsProvider in the tree →
+    // useContentEditor in the consumer. Without the provider mount,
+    // useContentEditor would always fall back to the textarea — this test
+    // would fail then.
     function RichEditor({ value }: ContentEditorProps): ReactNode {
       return <div data-testid="ca-rich-editor">{value}</div>;
     }
