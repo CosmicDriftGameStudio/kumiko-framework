@@ -1,10 +1,10 @@
 // WorkspaceSwitcher Render-Tests (Phase 1, test-luecken-integration, Tier 2).
 //
-// Dropdown auf Radix-Basis (wie LanguageSwitcher/TenantSwitcher). Pinnt:
-// kein Switcher bei <= 1 Workspace, Trigger zeigt aktives Label, Dropdown
-// listet alle Workspaces mit aria-checked am aktiven, onSelect-Callback.
-// Radix öffnet auf pointerdown → userEvent statt fireEvent.click, wie bei
-// language-switcher.test.tsx.
+// Dropdown built on Radix (like LanguageSwitcher/TenantSwitcher). Pins:
+// no switcher at <= 1 workspace, trigger shows the active label, dropdown
+// lists all workspaces with aria-checked on the active one, onSelect
+// callback. Radix opens on pointerdown → userEvent instead of
+// fireEvent.click, same as language-switcher.test.tsx.
 
 import { describe, expect, mock, test } from "bun:test";
 import {
@@ -87,10 +87,10 @@ describe("WorkspaceSwitcher — i18n-Labels (Punkt-Konvention)", () => {
         />
       </LocaleProvider>,
     );
-    // Trigger zeigt das übersetzte aktive Label.
+    // Trigger shows the translated active label.
     expect(screen.getByText("Admin Area")).toBeTruthy();
     await user.click(screen.getByTestId("workspace-switcher-trigger"));
-    // ohne Punkt: verbatim, kein t()-Roundtrip
+    // No dot: verbatim, no t() roundtrip.
     expect(screen.getByTestId("workspace-tab-b").textContent).toBe("Plain Label");
   });
 });

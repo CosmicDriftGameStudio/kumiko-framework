@@ -16,6 +16,15 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 // r.translations() wants key-first shape — same screen titles already in
 // ./i18n's client (locale-first) bundle.
 const REQUIRED_I18N = {
+  "showcase-demos:nav.primitives": { de: "Primitives", en: "Primitives" },
+  "showcase-demos:nav.layout": { de: "Layout", en: "Layout" },
+  "showcase-demos:nav.buttons": { de: "Buttons", en: "Buttons" },
+  "showcase-demos:nav.inputs": { de: "Inputs", en: "Inputs" },
+  "showcase-demos:nav.banner": { de: "Banner", en: "Banner" },
+  "showcase-demos:nav.dialog": { de: "Dialog & Lightbox", en: "Dialog & Lightbox" },
+  "showcase-demos:nav.toast": { de: "Toast", en: "Toast" },
+  "showcase-demos:nav.text": { de: "Text", en: "Text" },
+  "showcase-demos:nav.sidebarPanel": { de: "Sidebar-Panel", en: "Sidebar panel" },
   "screen:demo-layout.title": { de: "Layout", en: "Layout" },
   "screen:demo-buttons.title": { de: "Buttons", en: "Buttons" },
   "screen:demo-inputs.title": { de: "Inputs", en: "Inputs" },

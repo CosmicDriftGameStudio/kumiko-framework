@@ -15,6 +15,7 @@ const openAdmin = async (page: Page): Promise<void> => {
 
 const openDispatch = async (page: Page): Promise<void> => {
   await openAdmin(page);
+  await page.getByTestId("workspace-switcher-trigger").click();
   await page.getByTestId("workspace-tab-dispatch").click();
   await page.waitForURL(/\/dispatch/);
 };
@@ -22,9 +23,9 @@ const openDispatch = async (page: Page): Promise<void> => {
 const SCENARIOS: readonly Scenario[] = [
   {
     name: "workspace-admin",
-    description: "Admin workspace — tab bar plus the workspace's own nav",
+    description: "Admin workspace — switcher dropdown plus the workspace's own nav",
     flow: openAdmin,
-    waitFor: '[data-testid="workspace-tab-admin"]',
+    waitFor: '[data-testid="workspace-switcher-trigger"]',
     settleMs: 400,
   },
   {

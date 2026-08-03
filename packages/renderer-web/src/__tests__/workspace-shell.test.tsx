@@ -23,20 +23,14 @@ import { WorkspaceSwitcher } from "../layout/workspace-switcher";
 import { defaultPrimitives } from "../primitives";
 import { createMockDispatcher, renderWithSidebar, screen } from "./test-utils";
 
-// Dropdown statt Tab-Reihe (siehe workspace-switcher.tsx) — der Trigger
-// zeigt immer nur das aktive Label, Radix rendert die Liste erst im
-// offenen Zustand. Assertions die nur "welcher Workspace ist aktiv"
-// prüfen, lesen den Trigger-Text statt ein per-Tab aria-selected; nur
-// Tests die die volle Liste sehen oder einen Eintrag anklicken müssen,
-// öffnen das Dropdown (userEvent, Radix reagiert auf pointerdown).
+// Dropdown instead of a tab row (see workspace-switcher.tsx) — the
+// trigger always shows only the active label, Radix renders the list
+// only once open. Assertions that just check "which workspace is
+// active" read the trigger text instead of a per-tab aria-selected;
+// only tests that need the full list or click an entry open the
+// dropdown (userEvent, Radix reacts to pointerdown).
 function activeWorkspaceLabel(): string | null {
-  // Trigger trägt zwei Spans (voller Text + Kürzel für collapsed) — jsdom
-  // kennt kein CSS, "hidden" blendet im Test also nicht aus. Nur den
-  // sichtbaren (nicht aria-hidden) Span lesen.
-  return (
-    screen.getByTestId("workspace-switcher-trigger").querySelector("span:not([aria-hidden])")
-      ?.textContent ?? null
-  );
+  return screen.getByTestId("workspace-switcher-trigger").textContent;
 }
 
 // jsdom shares window.history across tests in the same file. Reset to /

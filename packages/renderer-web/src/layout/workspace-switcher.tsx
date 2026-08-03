@@ -4,16 +4,15 @@
 // state (URL ?w=, defaults, role filtering) and tests can hand any list
 // in directly.
 //
-// Dropdown statt Tab-Reihe: eine Reihe fester Buttons lief mit 3+
-// Workspaces (oder schon mit 2 längeren Namen) über die Sidebar-Breite
-// hinaus — truncate+scroll versteckt dann den letzten Eintrag komplett
-// unklickbar. Ein Dropdown hat dagegen bei jeder Anzahl/Länge konstante
-// Trigger-Breite.
+// Dropdown instead of a tab row: a row of fixed buttons overflowed the
+// sidebar width with 3+ workspaces (or even 2 longer names) —
+// truncate+scroll then hid the last entry entirely, unclickable. A
+// dropdown has constant trigger width regardless of count/length.
 //
-// Collapsed komplett ausgeblendet statt Icon/Kürzel: ein Label auf
-// Icon-Breite ist ohnehin nicht lesbar, und der Nutzer wechselt den
-// Workspace über die volle Sidebar — kein Anspruch, das auch im
-// Icon-Rail bedienbar zu halten (wie die Suche in nav-tree.tsx).
+// Hidden entirely when collapsed instead of an icon/initial: a label at
+// icon width isn't readable anyway, and the user switches workspaces via
+// the full sidebar — no attempt to keep this operable in the icon rail
+// too (same as the search box in nav-tree.tsx).
 
 import type { WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
