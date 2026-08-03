@@ -36,18 +36,21 @@ export const demoFeature: FeatureDefinition = defineFeature("demo", (r) => {
   r.nav({
     id: "order-list",
     label: "demo:nav.orderList",
+    icon: "list",
     screen: "demo:screen:order-list",
     workspaces: ["demo:workspace:dispatch"],
   });
   r.nav({
     id: "order-edit",
     label: "demo:nav.orderNew",
+    icon: "plus",
     screen: "demo:screen:order-edit",
     workspaces: ["demo:workspace:driver"],
   });
   r.nav({
     id: "audit-log",
     label: "demo:nav.auditLog",
+    icon: "shield",
     workspaces: ["demo:workspace:admin"],
   });
 

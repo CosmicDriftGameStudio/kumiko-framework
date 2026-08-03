@@ -37,11 +37,13 @@ export function SidebarBrand({
           <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
             {logo ?? <span className="text-sm font-semibold">{name.charAt(0)}</span>}
           </div>
-          <div className="grid flex-1 text-left text-sm leading-tight">
+          <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
             <span className="truncate font-semibold">{name}</span>
             {plan !== undefined && <span className="truncate text-xs">{plan}</span>}
           </div>
-          {collapsible && <ChevronsUpDown className="ml-auto" />}
+          {collapsible && (
+            <ChevronsUpDown className="ml-auto group-data-[collapsible=icon]:hidden" />
+          )}
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>

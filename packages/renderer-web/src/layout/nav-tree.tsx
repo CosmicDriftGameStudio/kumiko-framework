@@ -31,11 +31,13 @@ import {
 import {
   BarChart3,
   Bell,
+  BookOpen,
   Building,
   Calculator,
   CalendarDays,
   ChevronDown,
   ChevronRight,
+  ClipboardList,
   Coins,
   CreditCard,
   Download,
@@ -54,6 +56,7 @@ import {
   List,
   Lock,
   Mail,
+  Package,
   Palette,
   PiggyBank,
   Plus,
@@ -109,6 +112,9 @@ import { parseTargetFromSearchParams } from "./target-url";
 const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
   dashboard: LayoutDashboard,
   "layout-grid": LayoutGrid,
+  "book-open": BookOpen,
+  "clipboard-list": ClipboardList,
+  package: Package,
   gauge: Gauge,
   list: List,
   table: Table,
@@ -231,7 +237,7 @@ export function NavTree({
     <NavFilterContext.Provider value={navFilter}>
       <NavBadgesContext.Provider value={navBadges ?? EMPTY_BADGES}>
         <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex w-full flex-col">
-          <div className="px-2 pt-2 pb-1">
+          <div className="px-2 pt-2 pb-1 group-data-[collapsible=icon]:hidden">
             <SidebarInput
               value={filter}
               onChange={(e) => setFilter(e.target.value)}

@@ -2,6 +2,9 @@
 // web/index.ts pivots this into the client TranslationsByLocale shape.
 
 export const WIDGETS_I18N = {
+  "widgets:nav.widgets": { de: "Widgets", en: "Widgets" },
+  "widgets:nav.widgetsForms": { de: "Formulare (Beispiele)", en: "Forms (examples)" },
+  "widgets:nav.widgetsDashboard": { de: "Dashboard (deklarativ)", en: "Dashboard (declarative)" },
   "screen:widgets.title": { de: "Widgets", en: "Widgets" },
   "screen:widgets-dashboard.title": {
     de: "Dashboard (deklarativ)",

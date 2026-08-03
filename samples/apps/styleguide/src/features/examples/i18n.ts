@@ -1,6 +1,10 @@
 import type { LocalizedString } from "../shared-i18n";
 
 export const EXAMPLES_I18N: Readonly<Record<string, LocalizedString>> = {
+  "examples:nav.examples": { de: "Beispiele", en: "Examples" },
+  "examples:nav.shipping": { de: "Lieferadresse", en: "Shipping address" },
+  "examples:nav.profile": { de: "Profil", en: "Profile" },
+  "examples:nav.delivery": { de: "Ort & Zeit", en: "Located date-time" },
   "screen:shipping-edit.title": { de: "Lieferadresse", en: "Shipping Address" },
   "screen:shipping-edit.create.title": { de: "Lieferadresse", en: "Shipping Address" },
   "screen:shipping-edit.create.subtitle": {

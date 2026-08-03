@@ -53,6 +53,7 @@ test.describe("SystemAdmin workspace gating", () => {
     await loginAsSysadmin(page);
     await page.goto("/");
 
+    await page.getByTestId("workspace-switcher-trigger").click();
     await expect(page.getByTestId("workspace-tab-tenant-admin")).toBeVisible();
     await expect(page.getByTestId("workspace-tab-platform")).toBeVisible();
   });
@@ -61,6 +62,7 @@ test.describe("SystemAdmin workspace gating", () => {
     await loginAsSysadmin(page);
     await page.goto("/");
 
+    await page.getByTestId("workspace-switcher-trigger").click();
     await page.getByTestId("workspace-tab-platform").click();
     await expect(page).toHaveURL(/\/platform\//);
     await expect(page.getByTestId("platform-overview-screen")).toBeVisible();

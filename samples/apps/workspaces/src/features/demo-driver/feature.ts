@@ -23,6 +23,7 @@ export const driverFeature: FeatureDefinition = defineFeature("demo-driver", (r)
   r.nav({
     id: "my-tour",
     label: "demo-driver:nav.myTour",
+    icon: "table",
     workspaces: ["demo:workspace:driver"],
   });
 });

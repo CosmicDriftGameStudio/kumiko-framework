@@ -157,6 +157,7 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
   r.nav({
     id: "gdpr-export-jobs",
     label: "GDPR · Export Jobs",
+    icon: "shield",
     screen: "user-data-rights:screen:export-job-list",
     access: { roles: ["SystemAdmin"] },
     order: 90,
@@ -164,6 +165,7 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
   r.nav({
     id: "gdpr-download-attempts",
     label: "GDPR · Download Attempts",
+    icon: "download",
     screen: "user-data-rights:screen:download-attempt-list",
     access: { roles: ["SystemAdmin"] },
     order: 91,

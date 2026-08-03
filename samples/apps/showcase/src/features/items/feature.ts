@@ -44,7 +44,7 @@ export const itemsFeature = defineFeature("showcase", (r) => {
   r.screen(itemQuickAddScreen);
 
   // Section "Data" — clickbar zum Auf/Zuklappen weil parent ohne screen.
-  r.nav({ id: "data", label: "Data", order: 100 });
+  r.nav({ id: "data", label: "showcase:nav.data", icon: "table", order: 100 });
   r.nav({
     id: "item-list",
     icon: "table",

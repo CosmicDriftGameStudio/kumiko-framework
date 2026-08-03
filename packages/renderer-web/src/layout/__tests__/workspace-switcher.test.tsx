@@ -1,8 +1,10 @@
 // WorkspaceSwitcher Render-Tests (Phase 1, test-luecken-integration, Tier 2).
 //
-// Dumb presentational component (kein Radix). Pinnt: kein Switcher bei
-// <= 1 Workspace, tablist mit aria-selected am aktiven, onSelect-Callback.
-// Nutzt useTranslation → über test-utils mit LocaleProvider gerendert.
+// Dropdown built on Radix (like LanguageSwitcher/TenantSwitcher). Pins:
+// no switcher at <= 1 workspace, trigger shows the active label, dropdown
+// lists all workspaces with aria-checked on the active one, onSelect
+// callback. Radix opens on pointerdown → userEvent instead of
+// fireEvent.click, same as language-switcher.test.tsx.
 
 import { describe, expect, mock, test } from "bun:test";
 import {
@@ -10,7 +12,8 @@ import {
   LocaleProvider,
   type WorkspaceSchema,
 } from "@cosmicdrift/kumiko-renderer";
-import { fireEvent, render, screen } from "../../__tests__/test-utils";
+import userEvent from "@testing-library/user-event";
+import { renderWithSidebar, screen } from "../../__tests__/test-utils";
 import { WorkspaceSwitcher } from "../workspace-switcher";
 
 function ws(id: string, label = id): WorkspaceSchema {
@@ -19,14 +22,14 @@ function ws(id: string, label = id): WorkspaceSchema {
 
 describe("WorkspaceSwitcher — Render", () => {
   test("ein einziger Workspace → rendert nichts (kein nutzloser Switcher)", () => {
-    const { container } = render(
+    const { container } = renderWithSidebar(
       <WorkspaceSwitcher workspaces={[ws("a")]} activeId="a" onSelect={() => {}} />,
     );
-    expect(container.querySelector('[role="tablist"]')).toBeNull();
+    expect(container.querySelector('[data-testid="workspace-switcher-trigger"]')).toBeNull();
   });
 
-  test("mehrere Workspaces → tablist, aria-selected am aktiven Tab", () => {
-    render(
+  test("mehrere Workspaces → Trigger zeigt aktives Label", () => {
+    renderWithSidebar(
       <WorkspaceSwitcher
         workspaces={[ws("a", "Alpha"), ws("b", "Beta")]}
         activeId="b"
@@ -34,29 +37,45 @@ describe("WorkspaceSwitcher — Render", () => {
         testId="sw"
       />,
     );
-    expect(screen.getByTestId("sw").getAttribute("role")).toBe("tablist");
-    expect(screen.getByTestId("workspace-tab-a").getAttribute("aria-selected")).toBe("false");
-    expect(screen.getByTestId("workspace-tab-b").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("sw")).toBeTruthy();
+    expect(screen.getByText("Beta")).toBeTruthy();
   });
 
-  test("Click ruft onSelect mit der Workspace-id", () => {
+  test("Dropdown öffnen listet alle Workspaces, aria-checked am aktiven", async () => {
+    const user = userEvent.setup();
+    renderWithSidebar(
+      <WorkspaceSwitcher
+        workspaces={[ws("a", "Alpha"), ws("b", "Beta")]}
+        activeId="b"
+        onSelect={() => {}}
+      />,
+    );
+    await user.click(screen.getByTestId("workspace-switcher-trigger"));
+    expect(screen.getByTestId("workspace-tab-a").getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByTestId("workspace-tab-b").getAttribute("aria-checked")).toBe("true");
+  });
+
+  test("Click auf einen Eintrag ruft onSelect mit der Workspace-id", async () => {
+    const user = userEvent.setup();
     const onSelect = mock((_id: string) => {});
-    render(
+    renderWithSidebar(
       <WorkspaceSwitcher
         workspaces={[ws("a", "Alpha"), ws("b", "Beta")]}
         activeId="a"
         onSelect={onSelect}
       />,
     );
-    fireEvent.click(screen.getByTestId("workspace-tab-b"));
+    await user.click(screen.getByTestId("workspace-switcher-trigger"));
+    await user.click(screen.getByTestId("workspace-tab-b"));
     expect(onSelect).toHaveBeenCalledWith("b");
   });
 });
 
 describe("WorkspaceSwitcher — i18n-Labels (Punkt-Konvention)", () => {
-  test("Label mit Punkt geht durch t() und rendert die Übersetzung", () => {
+  test("Label mit Punkt geht durch t() und rendert die Übersetzung", async () => {
+    const user = userEvent.setup();
     const bundle = { en: { "nav.adminArea": "Admin Area" } };
-    const { getByTestId } = render(
+    renderWithSidebar(
       <LocaleProvider
         resolver={createStaticLocaleResolver({ locale: "en" })}
         fallbackBundles={[bundle]}
@@ -68,8 +87,10 @@ describe("WorkspaceSwitcher — i18n-Labels (Punkt-Konvention)", () => {
         />
       </LocaleProvider>,
     );
-    expect(getByTestId("workspace-tab-a").textContent).toBe("Admin Area");
-    // ohne Punkt: verbatim, kein t()-Roundtrip
-    expect(getByTestId("workspace-tab-b").textContent).toBe("Plain Label");
+    // Trigger shows the translated active label.
+    expect(screen.getByText("Admin Area")).toBeTruthy();
+    await user.click(screen.getByTestId("workspace-switcher-trigger"));
+    // No dot: verbatim, no t() roundtrip.
+    expect(screen.getByTestId("workspace-tab-b").textContent).toBe("Plain Label");
   });
 });

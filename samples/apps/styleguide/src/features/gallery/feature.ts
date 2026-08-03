@@ -14,6 +14,8 @@ import type { LocalizedString } from "../shared-i18n";
 // gerenderten Titel aus i18n zieht.
 const GALLERY_I18N: Readonly<Record<string, LocalizedString>> = {
   "screen:gallery.title": { de: "Foundations & Components", en: "Foundations & Components" },
+  "gallery:nav.styleguide": { de: "Styleguide", en: "Styleguide" },
+  "gallery:nav.gallery": { de: "Foundations & Components", en: "Foundations & Components" },
 };
 
 export const galleryFeature = defineFeature("gallery", (r) => {
@@ -21,10 +23,10 @@ export const galleryFeature = defineFeature("gallery", (r) => {
 
   r.screen({ id: "gallery", type: "custom", renderer: { react: { __component: "gallery" } } });
 
-  r.nav({ id: "styleguide", label: "Styleguide", order: 20 });
+  r.nav({ id: "styleguide", label: "gallery:nav.styleguide", icon: "palette", order: 20 });
   r.nav({
     id: "gallery",
-    label: "Foundations & Components",
+    label: "gallery:nav.gallery",
     parent: "gallery:nav:styleguide",
     screen: "gallery:screen:gallery",
     icon: "sparkles",
