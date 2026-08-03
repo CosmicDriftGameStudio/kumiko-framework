@@ -102,13 +102,15 @@ export type ContentCollectionDefinition = {
   // rendering want HTML either way. "markdown" stores markdown text, not
   // HTML. Defaults to "plain" (textarea).
   readonly contentFormat?: "plain" | "rich" | "markdown";
-  // Fixed variable names the collection's editor offers as insertable chips
-  // (e.g. `{ customerName: {}, orderId: {} }` for an ai-prompt collection).
-  // Declared once per collection, not per entry — a collection-set write
-  // always persists an entry's own `variableSchema` as `{}` (collections
-  // never let a user redefine the variable set), so this is the only place
-  // the client can learn which variables exist.
-  readonly variableSchema?: Record<string, unknown>;
+  // Fixed variable names the collection's editor offers as insertable chips,
+  // mapped to an example value the Preview substitutes in for `{{name}}`
+  // (e.g. `{ customerName: "Max Mustermann", orderId: "A-1042" }` for an
+  // ai-prompt collection). Declared once per collection, not per entry — a
+  // collection-set write always persists an entry's own `variableSchema` as
+  // `{}` (collections never let a user redefine the variable set), so this
+  // is the only place the client can learn which variables exist and what
+  // their preview values are.
+  readonly variableSchema?: Readonly<Record<string, string>>;
   readonly nav: {
     readonly label: string;
     readonly icon?: string;
