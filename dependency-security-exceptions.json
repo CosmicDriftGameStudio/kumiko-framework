@@ -50,6 +50,13 @@
 			"reason": "Transitive Dependency der Astro-Image-Pipeline (docs/marketing), im Standalone-Baum dieses Repos nicht vorhanden — feuert nur im Parent-Audit. Praezisierung: der Parent-Baum haelt 0.34.5 (verwundbar: <0.35.0) neben einer bereits gepatchten 0.35.2; upstream ist 0.35.3. Build-time auf repo-eigenen Assets, keine untrusted Uploads in Prod. Fix waere ein Bump der Astro-Kette in kumiko-platform.",
 			"reviewedBy": "Marc, 2026-07-29",
 			"expires": "2026-08-28"
+		},
+		{
+			"advisory": "GHSA-RGW5-RVV9-X895",
+			"package": "brace-expansion",
+			"reason": "Neue CVE fuer denselben unbehobenen Fund wie GHSA-mh99-v99m-4gvg/GHSA-3jxr-9vmj-r5cp (umgeht deren Mitigation) — vermutlich dieselben verschachtelten Kopien via ts-morph/mjml, die der Top-Level-Override in resolutions nicht erreicht. Gleicher Ablauf wie die drei anderen offenen brace-expansion/js-yaml/etc-Eintraege (naechster gemeinsamer Review-Zyklus), NICHT weil die Tree-Analyse hier so tief ist wie bei jenen: die committete bun.lock dieses Repos zeigt lokal nur die sichere 5.0.8 (resolutions greift dort), CI meldet den Fund trotzdem reproduzierbar (2x rerun) gegen denselben Root — `bun audit` fragt vermutlich eine Live-Advisory-DB ab, Diskrepanz zwischen lokalem und CI-Stand nicht vollstaendig aufgeklaert. Kein direkter Prod-Pfad (Build-/Dev-Tooling), aber die Herkunft der verwundbaren Kopie ist unbestaetigt statt tree-verifiziert. Bei naechster Review zusammen mit den anderen drei brace-expansion/js-yaml-Eintraegen neu pruefen.",
+			"reviewedBy": "Marc, 2026-08-03",
+			"expires": "2026-08-28"
 		}
 	]
 }
