@@ -13,6 +13,7 @@ import {
   type TenantId,
 } from "../engine/types";
 import { createFileContext } from "../files/file-handle";
+import { createFallbackLogger } from "../logging";
 import type { Logger } from "../logging/types";
 import {
   emitJobQueueDepth,
@@ -197,6 +198,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // Use the context's tracer when present (observability-provider injected at
   // boot); otherwise noop so dispatch/handleJob stay zero-cost without config.
   const tracer: Tracer = context.tracer ?? getFallbackTracer();
+  const errorLogger = createFallbackLogger("job-runner", context.log);
 
   const allJobs = registry.getAllJobs();
 
@@ -218,6 +220,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   let sequentialLock: DistributedLock | null = null;
   if (hasSequential) {
     lockRedis = new Redis(redisOpts);
+    // Without a listener, a post-close 'error' (e.g. a teardown-race
+    // "Connection is closed") is unhandled and crashes the process — in
+    // bun:test it gets attributed to whichever test happens to run next
+    // (fw#1805).
+    lockRedis.on("error", (err) =>
+      errorLogger.error("lock redis connection error", { error: err.message }),
+    );
     const lockScope = consumerLane ?? "enqueue";
     sequentialLock = createDistributedLock(lockRedis, `${RedisKeys.lock}seq:${lockScope}:`);
   }
@@ -239,6 +248,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     api: new Queue(queueNameFor(queueNamePrefix, "api"), { connection: redisOpts }),
     worker: new Queue(queueNameFor(queueNamePrefix, "worker"), { connection: redisOpts }),
   };
+  // Same unhandled-'error'-crash hazard as lockRedis above, just via
+  // BullMQ's internal ioredis client (fw#1805).
+  for (const queue of Object.values(queues)) {
+    queue.on("error", (err) =>
+      errorLogger.error("queue redis connection error", { error: err.message }),
+    );
+  }
   let worker: Worker | null = null;
   let queueDepthTimer: ReturnType<typeof setInterval> | null = null;
   // Forward reference to the runner's own API, exposed on the job-handler ctx
@@ -488,6 +504,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         connection: redisOpts,
         concurrency: 5,
       });
+      worker.on("error", (err) =>
+        errorLogger.error("worker redis connection error", { error: err.message }),
+      );
+      // A caller that calls stop() right after start() otherwise races the
+      // still-settling blocking connection: it rejects in-flight commands
+      // via ioredis's flushQueue() during close(), which isn't a listenable
+      // 'error' event — the only fix is to not return until both of the
+      // worker's connections (main + blocking) are ready (fw#1805). This
+      // mirrors the wait BullMQ already does internally for
+      // upsertJobScheduler()/add() below when the lane has a cron/boot job.
+      await worker.waitUntilReady();
 
       // Only schedule cron + boot for jobs that belong to this lane. Jobs
       // assigned to the other lane get their cron/boot wiring from the
