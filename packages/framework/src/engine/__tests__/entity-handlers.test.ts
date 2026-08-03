@@ -14,6 +14,9 @@ import {
   registerEntityCrud,
 } from "../entity-handlers";
 import { createEntity, createTextField } from "../factories";
+// Barrel import, not "../entity-handlers": covers that entityListSchema is
+// actually re-exported through engine/index.ts.
+import { entityListSchema } from "../index";
 import type { QueryHandlerDef, WriteHandlerDef } from "../types";
 
 const VALID_UUID = "00000000-0000-4000-8000-000000000001";
@@ -117,6 +120,19 @@ describe("defineEntityQueryHandler", () => {
       }).success,
     ).toBe(true);
     expect(def.schema.safeParse({ sortDirection: "wrong" }).success).toBe(false);
+  });
+
+  test("list: schema is the exported entityListSchema, not a private copy", () => {
+    const def = defineEntityListHandler("note", noteEntity);
+    expect(def.schema).toBe(entityListSchema);
+    // money-horse#293: a consumer copy silently dropped these fields when it
+    // drifted from the handler's actual schema — assert they still round-trip.
+    expect(
+      def.schema.safeParse({
+        includeDeleted: true,
+        filters: [{ field: "title", op: "eq", value: "x" }],
+      }).success,
+    ).toBe(true);
   });
 
   test("detail: schema requires id", () => {

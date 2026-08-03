@@ -102,7 +102,7 @@ type ListPayload = {
 };
 
 const idSchema = z.object({ id: z.uuid() });
-const listSchema = z.object({
+export const entityListSchema = z.object({
   cursor: z.string().optional(),
   limit: z.number().optional(),
   search: z.string().optional(),
@@ -292,7 +292,7 @@ export function defineEntityQueryHandler(
 
   switch (verb) {
     case "list":
-      schema = listSchema;
+      schema = entityListSchema;
       handler = async (query, ctx) => {
         // Tier 2.7e Audit-Fix: SearchAdapter aus ctx durchreichen,
         // damit payload.search zur Laufzeit gegen Meilisearch/InMem
