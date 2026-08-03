@@ -9,7 +9,7 @@ import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
-import { burnToken } from "../../shared";
+import { burnToken, sessionTimezoneField } from "../../shared";
 import { USER_STATUS, UserQueries } from "../../user";
 import { base32Decode } from "../base32";
 import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants";
@@ -134,7 +134,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
       const userRow = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
         id: userId,
-      })) as { roles?: string | null; status?: string } | null; // @cast-boundary engine-payload
+      })) as { roles?: string | null; status?: string; timezone?: string | null } | null; // @cast-boundary engine-payload
 
       if (!userRow) return invalidSetupToken();
       if (
@@ -179,7 +179,16 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // verify.write.ts.
       const mergedRoles = buildSessionRoles(globalRoles, membership.roles);
 
-      const baseSession: SessionUser = { id: userId, tenantId, roles: mergedRoles };
+      const baseSession: SessionUser = {
+        id: userId,
+        tenantId,
+        roles: mergedRoles,
+        // This endpoint logs the user in directly (fw#1760), so a stored
+        // timezone must survive the preauth-MFA-enrollment login just like
+        // a plain password login does — same helper as verify.write.ts /
+        // invite-accept-with-login.write.ts (#1759).
+        ...sessionTimezoneField(userRow?.timezone),
+      };
       const claims = await ctx.resolveAuthClaims(baseSession);
       const session: SessionUser =
         Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
