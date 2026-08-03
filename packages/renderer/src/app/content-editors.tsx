@@ -1,5 +1,5 @@
 // Content-Editor-Components-Map: client-side lookup by `contentFormat`
-// ("plain" | "rich") for r.contentCollection() entries. A collection
+// ("plain" | "rich" | "markdown") for r.contentCollection() entries. A collection
 // declares its contentFormat in the schema; the client resolves it to a
 // React component here. Same registry shape as columnRenderers/
 // extensionSectionComponents — String-key in the schema, Component in the

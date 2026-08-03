@@ -99,8 +99,9 @@ export type ContentCollectionDefinition = {
   readonly ownership?: "tenant" | "user";
   // Which editor the client renders for this collection's entries — not how
   // the content is stored. "rich" still stores HTML, because mail and PDF
-  // rendering want HTML either way. Defaults to "plain" (textarea).
-  readonly contentFormat?: "plain" | "rich";
+  // rendering want HTML either way. "markdown" stores markdown text, not
+  // HTML. Defaults to "plain" (textarea).
+  readonly contentFormat?: "plain" | "rich" | "markdown";
   // Fixed variable names the collection's editor offers as insertable chips
   // (e.g. `{ customerName: {}, orderId: {} }` for an ai-prompt collection).
   // Declared once per collection, not per entry — a collection-set write
