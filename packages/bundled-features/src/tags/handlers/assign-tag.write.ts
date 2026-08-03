@@ -42,6 +42,14 @@ export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
 
       const restored = await tagAssignmentExecutor.restore({ id }, event.user, ctx.db);
       if (restored.isSuccess) return { isSuccess: true as const, data: { id } };
+      // A concurrent first-time assign can also land here: the other caller's
+      // create() already wrote an active row between our `existing` read
+      // above and this restore() call, so restore() correctly refuses with
+      // "not_deleted" — but the desired end state is already true. Converge
+      // like the create() race below instead of surfacing a spurious error.
+      if ((restored.error.details as { reason?: string } | undefined)?.reason === "not_deleted") {
+        return { isSuccess: true as const, data: { id } };
+      }
       if (restored.error.code !== "not_found") return restored;
 
       const tag = await tagExecutor.detail({ id: payload.tagId }, event.user, ctx.db);

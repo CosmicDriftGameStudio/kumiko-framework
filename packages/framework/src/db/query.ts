@@ -18,6 +18,7 @@ export {
   insertOne,
   type OrderByClause,
   runInSavepoint,
+  runInSavepointIfSupported,
   type SelectOptions,
   selectMany,
   type TableInfo,

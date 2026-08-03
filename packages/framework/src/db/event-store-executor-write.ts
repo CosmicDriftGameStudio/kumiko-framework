@@ -18,7 +18,7 @@ import {
 import { generateId } from "../utils";
 import { applyEntityEvent } from "./apply-entity-event";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
-import type { DbRow } from "./connection";
+import type { DbRow, DbRunner } from "./connection";
 import type { EventStoreExecutor } from "./event-store-executor";
 import {
   buildEventMetadata,
@@ -26,7 +26,7 @@ import {
   entityEventName,
   tryMapUniqueViolation,
 } from "./event-store-executor-context";
-import { selectMany } from "./query";
+import { runInSavepointIfSupported, selectMany } from "./query";
 
 // The five write verbs (create/update/delete/forget/restore) of the event-
 // store-executor. Split out of event-store-executor.ts (#1005, Welle 2) —
@@ -190,30 +190,34 @@ export function createWriteVerbs(
       //    selben catch (siehe line 493+).
       let event: Awaited<ReturnType<typeof append>>;
       try {
-        event = await append(db.raw, {
-          aggregateId,
-          aggregateType: entityName,
-          tenantId: streamTenantFor(user),
-          expectedVersion: 0,
-          type: entityEventName(entityName, "created"),
-          payload: flatData,
-          metadata: buildEventMetadata(user),
-        });
+        // Savepoint-scoped: postgres.js/Bun.SQL poison the WHOLE surrounding
+        // begin() once any statement inside it errors, even if the JS error
+        // is caught (kumiko-framework#1778) — a losing concurrent create's
+        // unique-violation would otherwise abort the caller's outer
+        // transaction and surface as internal_error at commit time instead
+        // of the version_conflict this catch classifies. runInSavepointIfSupported
+        // confines the failed INSERT to a nested scope that rolls back on
+        // its own (same pattern as ctx.tryAppendEvent), and falls back to a
+        // plain call when db.raw is a bare pool connection with no active
+        // transaction to poison (seeds/tests calling the executor directly).
+        event = await runInSavepointIfSupported(db.raw, (sp) =>
+          append(sp as DbRunner, {
+            aggregateId,
+            aggregateType: entityName,
+            tenantId: streamTenantFor(user),
+            expectedVersion: 0,
+            type: entityEventName(entityName, "created"),
+            payload: flatData,
+            metadata: buildEventMetadata(user),
+          }),
+        );
       } catch (e) {
         if (e instanceof EventStoreVersionConflict) {
-          // Try to look up the real stream-version for the diagnostic — but
-          // wrap defensively: when `append` raised the unique-violation, the
-          // current TX is already aborted, and a second query on the same
-          // runner would re-throw "current transaction is aborted". Update-
-          // path doesn't have this problem (it queries getStreamVersion
-          // BEFORE the try-block). Falling back to a sentinel keeps the
-          // version_conflict mapping reliable; the actual current version
-          // is recoverable client-side via a fresh detail-query if needed.
           let currentVersion = -1;
           try {
             currentVersion = await getStreamVersion(db.raw, aggregateId, streamTenantFor(user));
           } catch {
-            // Aborted TX or any lookup failure — keep the sentinel.
+            // Lookup failure — keep the sentinel.
           }
           return writeFailure(
             new FrameworkVersionConflict({
@@ -412,18 +416,24 @@ export function createWriteVerbs(
         // re-encrypt it before it's persisted so plaintext of pii/encrypted
         // fields doesn't land in the immutable log (flatChanges is already
         // ciphertext from encryptForStorage above).
-        const event = await append(db.raw, {
-          aggregateId: String(payload.id),
-          aggregateType: entityName,
-          tenantId: streamTenantFor(user),
-          expectedVersion: currentVersion,
-          type: entityEventName(entityName, "updated"),
-          payload: {
-            changes: flatChanges,
-            previous: await encryptForStorage(previous, user),
-          },
-          metadata: buildEventMetadata(user),
-        });
+        const encryptedPrevious = await encryptForStorage(previous, user);
+        // Savepoint-scoped — see the create() append() above for why:
+        // confines a losing writer's unique-violation to a nested scope
+        // instead of poisoning the whole outer transaction.
+        const event = await runInSavepointIfSupported(db.raw, (sp) =>
+          append(sp as DbRunner, {
+            aggregateId: String(payload.id),
+            aggregateType: entityName,
+            tenantId: streamTenantFor(user),
+            expectedVersion: currentVersion,
+            type: entityEventName(entityName, "updated"),
+            payload: {
+              changes: flatChanges,
+              previous: encryptedPrevious,
+            },
+            metadata: buildEventMetadata(user),
+          }),
+        );
 
         // Live==Rebuild via applyEntityEvent mit demselben StoredEvent —
         // apply liest nur `changes`, und die sind live wie im Replay

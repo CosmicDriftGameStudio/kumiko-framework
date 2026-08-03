@@ -30,6 +30,7 @@ import type {
 import { Temporal } from "temporal-polyfill";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index";
 import type { EntityTableMeta } from "../db/entity-table-meta";
+import { extractPgError } from "../db/pg-error";
 import { type NotExecutorOnly, toSnakeCase } from "../db/table-builder";
 import { camelCase as envCamelCase } from "../env";
 import { parseJsonSafe } from "../utils/safe-json";
@@ -133,6 +134,38 @@ export async function runInSavepoint<T>(tx: unknown, fn: (sp: unknown) => Promis
     );
   }
   return raw.savepoint(fn);
+}
+
+// Same error-confinement as runInSavepoint, but for call sites that don't
+// know whether `db` is a bare pool connection or an active transaction
+// (e.g. the CRUD executor, invoked both from a dispatcher tx and directly
+// against the pool by seeds/tests). A pool connection has no savepoint() —
+// and doesn't need one, since each statement there is its own auto-committed
+// unit and a failed statement can't poison anything downstream.
+//
+// `.savepoint` being present isn't proof the transaction is still open: an
+// afterCommit hook closure captures the same handlerContext (and therefore
+// the same TransactionSql-shaped db) that was live during the write, but by
+// the time the hook fires the outer tx has already committed — the object
+// still exposes `.savepoint`, calling it now fails with PG 25P01 ("no
+// active sql transaction") because there's no BEGIN left to nest into. That
+// SAVEPOINT command is the first thing the driver sends, before `fn` runs,
+// so catching 25P01 and retrying directly is safe — nothing from `fn` has
+// executed yet.
+export async function runInSavepointIfSupported<T>(
+  db: unknown,
+  fn: (sp: unknown) => Promise<T>,
+): Promise<T> {
+  const raw = asRawClient(db) as unknown as {
+    savepoint?: <TR>(cb: (sp: unknown) => Promise<TR>) => Promise<TR>;
+  };
+  if (typeof raw.savepoint !== "function") return fn(db);
+  try {
+    return await raw.savepoint(fn);
+  } catch (e) {
+    if (extractPgError(e)?.code === "25P01") return fn(db);
+    throw e;
+  }
 }
 
 /**

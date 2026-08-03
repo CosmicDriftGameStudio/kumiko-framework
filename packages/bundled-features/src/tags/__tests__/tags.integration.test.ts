@@ -307,19 +307,28 @@ describe("tags integration — idempotency", () => {
     expect(rows[0]?.["tagId"]).toBe(tagId);
   });
 
+  // 20 iterations, fresh (tag, entity) per run: this race has two distinct
+  // windows (create()-vs-create() unique-violation, and the narrower
+  // detail()-miss/restore()-hits window fixed alongside kumiko-framework#1778)
+  // that each fire in only a fraction of attempts — a single run isn't a
+  // reliable regression guard for either.
   test("two concurrent first-time assigns of the same (tag, entity) both succeed — one row", async () => {
-    // Both requests read `existing === null` before either write lands, so
-    // both fall through to create(); the loser's create() version_conflicts.
-    // The handler must converge that into success instead of surfacing a 409
-    // for what is, from the caller's perspective, an idempotent operation.
-    const tagId = await createTag("racy");
-    const [a, b] = await Promise.all([
-      assign(tagId, "credit", "credit-race"),
-      assign(tagId, "credit", "credit-race"),
-    ]);
-    expect(a).toBeDefined();
-    expect(b).toBeDefined();
-    expect(await countAssignments(admin.tenantId)).toBe(1);
+    for (let i = 0; i < 20; i++) {
+      // Both requests read `existing === null` before either write lands, so
+      // both fall through to create(); the loser's create() version_conflicts.
+      // The handler must converge that into success instead of surfacing a 409
+      // for what is, from the caller's perspective, an idempotent operation.
+      const tagId = await createTag(`racy-${i}`);
+      const entityId = `credit-race-${i}`;
+      const [a, b] = await Promise.all([
+        assign(tagId, "credit", entityId),
+        assign(tagId, "credit", entityId),
+      ]);
+      expect(a).toBeDefined();
+      expect(b).toBeDefined();
+      const rows = await listAssignments({ field: "entityId", op: "eq", value: entityId });
+      expect(rows).toHaveLength(1);
+    }
   });
 });
 
