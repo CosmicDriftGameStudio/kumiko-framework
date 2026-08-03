@@ -185,6 +185,26 @@ describe("POST /auth/mfa/preauth-confirm", () => {
     expect(revokedForUserIds).toContain(body.user.id);
   });
 
+  test("a stored user timezone survives the preauth-confirm login (fw#1760)", async () => {
+    const email = "tz-preauth@example.com";
+    const { preauthSetupToken, userId } = await loginBlockedByEnforcement(email);
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${userTable.tableName}" SET timezone = $1 WHERE id = $2`,
+      ["Asia/Tokyo", userId],
+    );
+    const { setupToken, secret } = await startEnrollment(preauthSetupToken, email);
+
+    const res = await stack.http.raw("POST", "/api/auth/mfa/preauth-confirm", {
+      setupToken,
+      code: currentTotpCode(secret),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const payload = JSON.parse(Buffer.from(body.token.split(".")[1], "base64url").toString());
+    expect(payload.timezone).toBe("Asia/Tokyo");
+  });
+
   test("wrong TOTP code → invalid_totp_code, no enrollment persisted", async () => {
     const email = "wrongcode@example.com";
     const { preauthSetupToken, userId } = await loginBlockedByEnforcement(email);
