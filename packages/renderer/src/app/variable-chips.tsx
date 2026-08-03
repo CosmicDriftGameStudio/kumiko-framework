@@ -3,7 +3,7 @@
 // surface, never inside it — step 3 (rich/tiptap) reuses this same bar over
 // a different editor, so it must not assume a textarea underneath.
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
 
@@ -13,12 +13,14 @@ export type VariableChipsProps = {
   readonly disabled?: boolean;
 };
 
+// No wrapping element: @cosmicdrift/kumiko-renderer is DOM-free (native impls
+// have no <div>), and layout is a platform concern anyway — the caller
+// (PlainContentEditor et al.) places these buttons in its own container.
 export function VariableChips({ variables, onInsert, disabled }: VariableChipsProps): ReactNode {
   const { Button } = usePrimitives();
   const t = useTranslation();
-  if (variables.length === 0) return null;
   return (
-    <div data-testid="variable-chips">
+    <Fragment>
       {variables.map((name) => (
         <Button
           key={name}
@@ -32,6 +34,6 @@ export function VariableChips({ variables, onInsert, disabled }: VariableChipsPr
           {`{{${name}}}`}
         </Button>
       ))}
-    </div>
+    </Fragment>
   );
 }

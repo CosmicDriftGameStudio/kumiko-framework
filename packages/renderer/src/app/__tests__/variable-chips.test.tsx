@@ -44,9 +44,9 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
 }
 
 describe("VariableChips", () => {
-  test("renders no chip bar when there are no variables", () => {
+  test("renders no chips when there are no variables", () => {
     render(<VariableChips variables={[]} onInsert={() => {}} />, { wrapper: Wrapper });
-    expect(screen.queryByTestId("variable-chips")).toBeNull();
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
   });
 
   test("renders one chip per variable and reports a click by name", () => {

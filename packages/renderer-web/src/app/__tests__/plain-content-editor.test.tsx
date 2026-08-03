@@ -19,9 +19,9 @@ describe("PlainContentEditor", () => {
     expect(screen.getByText("{{name}}")).toBeTruthy();
   });
 
-  test("no variables → no chip bar", () => {
+  test("no variables → no chips", () => {
     render(<PlainContentEditor value="" onChange={() => {}} variables={[]} readOnly={false} />);
-    expect(screen.queryByTestId("variable-chips")).toBeNull();
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
   });
 
   test("chip click inserts the placeholder at the caret, not appended", () => {
