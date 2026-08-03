@@ -82,6 +82,11 @@ describe("createKumikoServer", () => {
     expect(body).toMatch(/<div id="root">/);
     // Reload-Snippet wurde in </body> injiziert.
     expect(body).toMatch(/EventSource\("\/_reload"\)/);
+    // As a classic script the bundle's top-level declarations become window
+    // properties: a dependency exporting `function history()`
+    // (prosemirror-history, via tiptap) then replaces window.history and every
+    // pushState throws. Prod has always emitted the module form.
+    expect(body).toMatch(/<script type="module" src="\/client\.js"><\/script>/);
   });
 
   test("GET /client.js → 404 wenn clientEntry fehlt (Route nicht registriert)", async () => {

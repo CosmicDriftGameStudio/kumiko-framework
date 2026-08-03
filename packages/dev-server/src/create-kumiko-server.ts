@@ -255,6 +255,12 @@ const RELOAD_SNIPPET = `
 // Minimal HTML when the caller didn't hand one in. `#root` is the
 // default mount target for `createKumikoApp`, so the one-line client
 // can attach without the sample having to ship its own template.
+//
+// `type="module"` is load-bearing: a classic script turns the bundle's
+// top-level declarations into window properties, so a dependency exporting
+// `function history()` (prosemirror-history, pulled in by tiptap) silently
+// replaces `window.history` and every pushState afterwards throws. Prod
+// (build-prod-bundle) has always emitted the module form.
 const DEFAULT_HTML = `<!doctype html>
 <html lang="en">
   <head>
@@ -264,7 +270,7 @@ const DEFAULT_HTML = `<!doctype html>
   </head>
   <body>
     <div id="root"></div>
-    <script src="/client.js"></script>
+    <script type="module" src="/client.js"></script>
   </body>
 </html>
 `;
