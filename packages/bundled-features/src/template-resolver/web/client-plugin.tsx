@@ -28,7 +28,11 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { type ClientFeatureDefinition, PlainContentEditor } from "@cosmicdrift/kumiko-renderer-web";
+import {
+  type ClientFeatureDefinition,
+  PlainContentEditor,
+  RichContentEditor,
+} from "@cosmicdrift/kumiko-renderer-web";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import {
   collectionHandlerName,
@@ -480,6 +484,7 @@ export function textBlocksClient(opts?: {
     // another clientFeature still wins, last-wins same as columnRenderers.
     contentEditors: {
       plain: PlainContentEditor,
+      rich: RichContentEditor,
       // ponytail: same textarea+chips as "plain" — markdown is stored as
       // text either way. Shares PlainContentEditor's fixed-DOM-id ceiling
       // (see its own file comment); swap for a live-preview widget or a
