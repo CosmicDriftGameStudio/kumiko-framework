@@ -26,9 +26,10 @@ export async function startDevJobRunners(opts: {
 
   const logger = createJobRunLogger({ db: opts.db, registry: opts.registry });
   const runners: JobRunner[] = [];
-  const lanes = new Set(
-    jobs.map((j) => j.runIn).filter((lane): lane is JobRunIn => lane !== undefined),
-  );
+  // `?? "worker"` mirrors job-runner's laneForJob: a job without an explicit
+  // runIn is enqueued onto the worker lane, so filtering those out would leave
+  // its queue without a consumer whenever no other job named the lane.
+  const lanes = new Set<JobRunIn>(jobs.map((j) => j.runIn ?? "worker"));
 
   for (const lane of lanes) {
     const jr = createJobRunner({

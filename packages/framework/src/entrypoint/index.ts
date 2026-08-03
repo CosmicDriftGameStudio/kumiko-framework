@@ -34,7 +34,7 @@ import type { Hono } from "hono";
 import type { AuthRoutesConfig } from "../api/auth-routes";
 import type { JwtHelper, JwtKeyring } from "../api/jwt";
 import type { KumikoServer, ServerOptions } from "../api/server";
-import { buildServer } from "../api/server";
+import { buildServer, withFileProviderResolver } from "../api/server";
 import type { SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
@@ -322,6 +322,7 @@ function requireDispatcher(server: KumikoServer, mode: string): EventDispatcher 
 export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
   const observability = resolveObservability(options.observability);
+  const context = withFileProviderResolver(options.registry, options.context);
 
   // Boot-validation (Welle 2.6.c) — fail loud before traffic arrives:
   //   (a) Any jobs declared + no jobs-block → command-dispatcher would
@@ -356,7 +357,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
     ? buildJobRunnerWithHook(
         options.registry,
         contextWithObservability(
-          options.context,
+          context,
           observability,
           options.dispatcherOptions?.effectiveFeatures,
         ),
@@ -374,7 +375,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
   // apply anywhere.
   const { runLocal: runLocalDispatcher, ...dispatcherTunables } = options.eventDispatcher ?? {};
   const server = buildApiServer(
-    options,
+    { ...options, context },
     lifecycle,
     runLocalDispatcher ? dispatcherTunables : { disabled: true },
     apiJobRunner,
@@ -411,19 +412,16 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
 export function createWorkerEntrypoint(options: WorkerEntrypointOptions): WorkerEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
   const observability = resolveObservability(options.observability);
+  const context = withFileProviderResolver(options.registry, options.context);
   const jobRunner = buildJobRunnerWithHook(
     options.registry,
-    contextWithObservability(
-      options.context,
-      observability,
-      options.dispatcherOptions?.effectiveFeatures,
-    ),
+    contextWithObservability(context, observability, options.dispatcherOptions?.effectiveFeatures),
     options,
     "worker",
     lifecycle,
     "jobRunner",
   );
-  const server = buildWorkerServer(options, lifecycle, jobRunner);
+  const server = buildWorkerServer({ ...options, context }, lifecycle, jobRunner);
   const eventDispatcher = requireDispatcher(server, "worker");
 
   return {
@@ -448,8 +446,9 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
 export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): AllInOneEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
   const observability = resolveObservability(options.observability);
+  const context = withFileProviderResolver(options.registry, options.context);
   const jobRunnerContext = contextWithObservability(
-    options.context,
+    context,
     observability,
     options.dispatcherOptions?.effectiveFeatures,
   );
@@ -486,7 +485,7 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
   // the API-mode flag — all-in-one is always local, strip it.
   const { runLocal: _runLocal, ...allInOneDispatcherTunables } = options.eventDispatcher ?? {};
   const server = buildApiServer(
-    options,
+    { ...options, context },
     lifecycle,
     allInOneDispatcherTunables,
     workerJobRunner,

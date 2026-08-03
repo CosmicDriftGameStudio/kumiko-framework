@@ -63,6 +63,30 @@ const workerWriteFeature = defineFeature("workerWrite", (r) => {
   });
 });
 
+// The job-runner is built BEFORE the server, so it used to capture the raw
+// caller context — without the per-tenant file-provider resolver buildServer
+// wires onto it. An event-triggered job reaching for ctx.files then died in
+// the worker while the identical code worked on the request path.
+let jobSawFileResolver: string | undefined;
+
+const fileJobFeature = defineFeature("fileJob", (r) => {
+  const requested = r.defineEvent("bytes-requested", z.object({ storageKey: z.string() }), {
+    version: 1,
+  });
+  // Stands in for file-foundation, which this package cannot import.
+  r.extendsRegistrar("fileProvider", { onRegister: () => undefined });
+  r.useExtension("fileProvider", "spy", {
+    build: async () => {
+      throw new Error("no provider is built in this test — presence of the resolver is the point");
+    },
+  });
+  r.job("read-bytes", { trigger: { on: requested.name }, runIn: "worker" }, async (_payload, ctx) => {
+    jobSawFileResolver = typeof ctx._fileProviderResolver;
+  });
+  // Worker mode refuses to boot without a consumer to drain.
+  r.multiStreamProjection({ name: "noop", apply: { [requested.name]: async () => {} } });
+});
+
 async function waitForCondition(check: () => boolean, timeoutMs = 5000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (!check()) {
@@ -135,6 +159,32 @@ describe("entrypoint factories", () => {
     // jobRunner hook which must be idempotent against an unstarted
     // BullMQ worker.
     await worker.stop();
+  });
+
+  test("Worker job-context carries the file-provider resolver, not just the request path", async () => {
+    const registry = createRegistry([fileJobFeature]);
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const worker = createWorkerEntrypoint({
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl,
+      queueNamePrefix: uniquePrefix("split-filejob"),
+    });
+
+    jobSawFileResolver = undefined;
+    await worker.start();
+    try {
+      await worker.jobRunner.handleEvent(
+        "file-job:event:bytes-requested",
+        { storageKey: "some/key.pdf" },
+        TestUsers.admin,
+      );
+      await waitForCondition(() => jobSawFileResolver !== undefined);
+      expect(jobSawFileResolver).toBe("function");
+    } finally {
+      await worker.stop();
+    }
   });
 
   // An app-wired component running in the worker (analysis service, IMAP

@@ -730,7 +730,11 @@ export async function createKumikoServer(
   const devJobRunners = await startDevJobRunners({
     registry: stack.registry,
     db: stack.db,
-    context: { db: stack.db, registry: stack.registry },
+    // The stack's own AppContext, not a `{ db, registry }` literal: these
+    // runners consume the lanes, and a job reaching for ctx.files /
+    // ctx.notify / ctx.config would otherwise die here while the very same
+    // handler works on the request path (kumiko-framework#1232).
+    context: stack.context,
     redisUrl,
   });
 
