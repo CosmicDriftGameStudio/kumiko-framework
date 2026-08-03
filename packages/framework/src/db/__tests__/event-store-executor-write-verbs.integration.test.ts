@@ -5,7 +5,7 @@
 // verb entirely, and restore()'s two precondition failures.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query";
+import { asRawClient, transaction } from "../../db/query";
 import { createEntity, createTextField } from "../../engine";
 import { from } from "../../engine/ownership";
 import { createEventsTable } from "../../event-store";
@@ -413,6 +413,38 @@ describe("event-store-executor write-verbs — concurrent version race + cache",
     // failing — a trivial round-trip here catches that immediately instead
     // of leaving it to whichever later test happens to hit the bad
     // connection.
+    const healthCheck = (await asRawClient(testDb.db).unsafe(`SELECT 1 AS ok`)) as Array<{
+      ok: number;
+    }>;
+    expect(healthCheck[0]?.ok).toBe(1);
+  });
+
+  // kumiko-framework#1778 — a real write handler runs create() inside the
+  // dispatcher's transaction (sql.begin()), not on the bare pool like the
+  // race test above. postgres.js/Bun.SQL poison the WHOLE begin() block
+  // once any statement inside it errors, even if the JS layer already
+  // caught and classified that error — so without the runInSavepoint fix
+  // in event-store-executor-write.ts, the LOSER's transaction() call itself
+  // rejects with the raw PostgresError instead of resolving to the
+  // version_conflict writeFailure create() already produced.
+  test("two concurrent first-time creates of the same id inside a transaction → one succeeds, one converges to version_conflict", async () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+
+    const [a, b] = await Promise.all([
+      transaction(testDb.db, (tx) =>
+        crud.create({ id, email: "a@test.de" }, admin, createTenantDb(tx, admin.tenantId)),
+      ),
+      transaction(testDb.db, (tx) =>
+        crud.create({ id, email: "b@test.de" }, admin, createTenantDb(tx, admin.tenantId)),
+      ),
+    ]);
+
+    const results = [a, b];
+    expect(results.filter((r) => r.isSuccess)).toHaveLength(1);
+    expect(results.filter((r) => !r.isSuccess && r.error.code === "version_conflict")).toHaveLength(
+      1,
+    );
+
     const healthCheck = (await asRawClient(testDb.db).unsafe(`SELECT 1 AS ok`)) as Array<{
       ok: number;
     }>;
