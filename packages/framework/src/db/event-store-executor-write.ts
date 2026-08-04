@@ -243,9 +243,17 @@ export function createWriteVerbs(
       //    unhandled exception → 500 internal_error. Map auf
       //    UniqueViolationError 409 damit Designer/Frontend einen sauberen
       //    "duplicate" zeigen können statt cryptic "internal server error".
+      // Savepoint like the append above: an unclassified DB error out of the
+      // projection INSERT would otherwise poison the enclosing tx (Bun.SQL
+      // rejects the whole begin() once any statement in it failed), so a later
+      // write sharing that tx — a sibling write after a failed nested one —
+      // throws raw as a 500 instead of failing cleanly. The savepoint rolls the
+      // failed INSERT back; the error still propagates and stays catchable.
       let result: Awaited<ReturnType<typeof applyEntityEvent>>;
       try {
-        result = await applyEntityEvent(event, table, entity, db.raw);
+        result = await runInSavepointIfSupported(db.raw, (sp) =>
+          applyEntityEvent(event, table, entity, sp as DbRunner),
+        );
       } catch (e) {
         const mapped = tryMapUniqueViolation(e, entityName);
         if (mapped) return mapped;
@@ -443,9 +451,14 @@ export function createWriteVerbs(
         // — ein update das einen unique-Index verletzt (z.B. email-update
         // auf einen schon-existierenden Wert) wird mit 409 unique_violation
         // statt 500 internal_error rückgemeldet.
+        // Savepoint like the create path: a raw DB error out of the projection
+        // UPDATE poisons the enclosing tx otherwise, so a sibling write after a
+        // failed nested one throws 500 instead of failing cleanly.
         let result: Awaited<ReturnType<typeof applyEntityEvent>>;
         try {
-          result = await applyEntityEvent(event, table, entity, db.raw);
+          result = await runInSavepointIfSupported(db.raw, (sp) =>
+            applyEntityEvent(event, table, entity, sp as DbRunner),
+          );
         } catch (e) {
           const mapped = tryMapUniqueViolation(e, entityName);
           if (mapped) return mapped;
@@ -554,7 +567,12 @@ export function createWriteVerbs(
       // wird vom soft/hard-delete-Code gar nicht in die Tabelle geschrieben
       // (nur isDeleted/deletedAt/version-Bump). Live + Replay schreiben
       // dasselbe — kein payload-override nötig.
-      const deleteResult = await applyEntityEvent(event, table, entity, db.raw);
+      // Savepoint like the create/update paths: a raw DB error out of the
+      // projection delete poisons the enclosing tx otherwise, surfacing as a
+      // 500 on the next write that shares it rather than a clean failure.
+      const deleteResult = await runInSavepointIfSupported(db.raw, (sp) =>
+        applyEntityEvent(event, table, entity, sp as DbRunner),
+      );
       if (deleteResult.kind !== "applied") {
         return writeFailure(
           new InternalError({ message: "projection delete: applyEntityEvent skipped" }),

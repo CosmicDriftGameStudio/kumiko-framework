@@ -15,7 +15,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient, selectMany } from "../../db/query";
+import { asRawClient, selectMany, transaction } from "../../db/query";
 import { createEntity, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
@@ -141,6 +141,37 @@ describe("F8 — entity-level unique-violation auf update", () => {
 // =============================================================================
 // restore — kein try-catch nötig (drift-pin: dokumentiert die Annahme)
 // =============================================================================
+
+// =============================================================================
+// projection-INSERT savepoint — a step-2 failure inside a shared transaction
+// must not poison the enclosing begin() block
+// =============================================================================
+
+describe("F8 — a projection violation must not poison the enclosing transaction", () => {
+  test("a sibling write in the same tx survives a unique-violation from the projection INSERT", async () => {
+    // The path #1778 already covers for the event append but which was open for
+    // the projection INSERT (step 2): on a pool connection each write
+    // auto-commits on its own, so a 23505 can poison nothing. Only inside a
+    // shared begin() — the kind a real handler runs, whose second write follows
+    // a failed nested one — does postgres.js/Bun.SQL tear the whole block down
+    // once a statement failed, even after the JS layer caught the error.
+    // Without the savepoint around the projection INSERT the sibling write
+    // below throws raw 25P02 instead of running cleanly.
+    const outcome = await transaction(testDb.db, async (tx) => {
+      const txTdb = createTenantDb(tx, admin.tenantId);
+      const first = await exec.create({ email: "dup@x.de", displayName: "A" }, admin, txTdb);
+      const dup = await exec.create({ email: "dup@x.de", displayName: "B" }, admin, txTdb);
+      const sibling = await exec.create({ email: "fresh@x.de", displayName: "C" }, admin, txTdb);
+      return { first, dup, sibling };
+    });
+
+    expect(outcome.first.isSuccess).toBe(true);
+    expect(outcome.dup.isSuccess).toBe(false);
+    if (!outcome.dup.isSuccess) expect(outcome.dup.error.code).toBe("unique_violation");
+    // The point: the tx survives the caught violation.
+    expect(outcome.sibling.isSuccess).toBe(true);
+  });
+});
 
 describe("F8 — restore touch'd nur isDeleted, kein 23505-Pfad", () => {
   test("restore einer soft-gedeleteten row mit unique-field läuft konfliktfrei durch", async () => {
