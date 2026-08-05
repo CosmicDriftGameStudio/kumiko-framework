@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.184.0
+
+### Minor Changes
+
+- 9171858: channel-email: `EmailMessage` now carries optional `from` / `replyTo` / `headers`. A single send can override the app-wide default From (e.g. a reply from the mailbox the original mail reached) and set threading headers (`In-Reply-To` / `References`). `createSmtpTransport` forwards them to nodemailer, the email delivery channel copies them off the notification's channel data, and the PII guard refuses a ciphertext `from`/`reply-to` the same way it already refuses a ciphertext recipient. Fully backward-compatible — omit the fields and behaviour is unchanged.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.184.0
+- @cosmicdrift/kumiko-types@0.184.0
+- @cosmicdrift/kumiko-dispatcher-live@0.184.0
+- @cosmicdrift/kumiko-headless@0.184.0
+- @cosmicdrift/kumiko-renderer@0.184.0
+- @cosmicdrift/kumiko-renderer-web@0.184.0
+
 ## 0.183.2
 
 ### Patch Changes
