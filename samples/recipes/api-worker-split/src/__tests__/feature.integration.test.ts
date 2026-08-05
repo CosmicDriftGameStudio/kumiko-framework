@@ -102,8 +102,6 @@ describe("api-worker-split", () => {
       registry: createRegistry([createApiWorkerSplitFeature()]),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
-      redisUrl: redisUrl(),
-      queueNamePrefix: prefix,
       jobs: { redisUrl: redisUrl(), queueNamePrefix: prefix },
     });
     await api.start();
@@ -135,8 +133,6 @@ describe("api-worker-split", () => {
       registry: createRegistry([createApiWorkerSplitFeature()]),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
-      redisUrl: redisUrl(),
-      queueNamePrefix: prefix,
       jobs: { redisUrl: redisUrl(), queueNamePrefix: prefix },
     });
     const worker = createWorkerEntrypoint({
