@@ -43,7 +43,7 @@ export type UseQueryOptions = {
 // Extract the entity-name from a standard Kumiko query type. Returns
 // undefined for non-conforming types so the live-mode silently skips
 // them instead of subscribing to a channel no event will ever match.
-function entityFromQueryType(type: string): string | undefined {
+export function entityFromQueryType(type: string): string | undefined {
   // Expected shape: "<feature>:query:<entity>:<verb>"
   const parts = type.split(":");
   if (parts.length !== 4) return undefined;

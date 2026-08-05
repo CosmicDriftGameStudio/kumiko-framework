@@ -1,5 +1,10 @@
 import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
-import { useDispatcher, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  entityFromQueryType,
+  useDispatcher,
+  useLiveEvents,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "./states";
 
@@ -12,11 +17,19 @@ export type InfinityListProps<TData = unknown, TRow = Readonly<Record<string, un
   readonly rows: (data: TData) => readonly TRow[];
   /** Pull the next-page cursor from the result; `null` means last page. */
   readonly nextCursor: (data: TData) => string | null;
+  /** Must derive from row content (e.g. `row.id`), not from `index` — a
+   *  live refresh reorders rows (new/changed rows move to the front). */
   readonly rowId: (row: TRow, index: number) => string;
   readonly renderRow: (row: TRow) => ReactNode;
   readonly emptyState?: ReactNode;
   readonly className?: string;
   readonly testId?: string;
+  /** Subscribe to SSE events for the entity parsed from `query`
+   *  (`<feature>:query:<entity>:<verb>`) and refetch the first page on
+   *  any create/update/delete/restore event, merging it into the
+   *  already-accumulated rows instead of collapsing them — see
+   *  `useQuery`'s `live` option for the same convention. Default true. */
+  readonly live?: boolean;
 };
 
 type State<TRow> =
@@ -40,21 +53,26 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   emptyState,
   className,
   testId,
+  live = true,
 }: InfinityListProps<TData, TRow>): ReactNode {
   const dispatcher = useDispatcher();
   const t = useTranslation();
+  const subscribeLive = useLiveEvents();
   const [state, setState] = useState<State<TRow>>({ kind: "loading" });
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const payloadKey = JSON.stringify(payload ?? {});
 
-  // rows/nextCursor are fresh closures on every caller render (inline
-  // arrow props). As useCallback deps that would recreate `load` every
-  // render → the mount effect below would refetch in a loop. Refs keep
-  // `load` stable while always reading the current selector.
+  // rows/nextCursor/rowId are fresh closures on every caller render
+  // (inline arrow props). As useCallback deps that would recreate
+  // `load`/`refreshFirstPage` every render → the effects below would
+  // refetch in a loop. Refs keep them stable while always reading the
+  // current selector.
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const nextCursorRef = useRef(nextCursor);
   nextCursorRef.current = nextCursor;
+  const rowIdRef = useRef(rowId);
+  rowIdRef.current = rowId;
 
   // Discards a response whose request was superseded by a newer one before
   // it resolved (e.g. two searches fired in quick succession) — without
@@ -93,6 +111,46 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
       requestSeq.current += 1;
     };
   }, [load]);
+
+  // Live-mode: on an SSE event for the query's entity, refetch only the
+  // first page and merge it in — rows the fresh page still contains move
+  // to the front (newest-first feeds), rows it dropped (edited/deleted
+  // elsewhere) are pruned, and everything beyond page 1 stays untouched.
+  // A full reload would collapse already-accumulated pages and jump the
+  // scroll position; see fw#1827.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: payload goes through payloadKey
+  const refreshFirstPage = useCallback(async (): Promise<void> => {
+    // Read, don't bump: a concurrent load() (e.g. the mount fetch still
+    // in flight) must still land. Bumping here would make load()'s own
+    // sequence check discard it, and the refresh below then bails on
+    // `prev.kind !== "ready"` — the list gets stuck in loading forever.
+    const seqAtStart = requestSeq.current;
+    const res = await dispatcher.query<TData>(query, { ...payload, limit: pageSize });
+    if (seqAtStart !== requestSeq.current) return;
+    // skip: background live refresh failed, keep showing the current rows
+    if (!res.isSuccess) return;
+    const freshRows = rowsRef.current(res.data);
+    const freshIds = new Set(freshRows.map((row, index) => rowIdRef.current(row, index)));
+    setState((prev) => {
+      // skip: not showing an accumulated list yet, nothing to merge into
+      if (prev.kind !== "ready") return prev;
+      const staleRows = prev.rows.filter(
+        (row, index) => !freshIds.has(rowIdRef.current(row, index)),
+      );
+      return { kind: "ready", rows: [...freshRows, ...staleRows], cursor: prev.cursor };
+    });
+  }, [dispatcher, query, pageSize, payloadKey]);
+
+  useEffect(() => {
+    // skip: live mode off, no SSE subscription needed
+    if (!live) return;
+    const entity = entityFromQueryType(query);
+    // skip: query type has no mapped entity, nothing to subscribe to
+    if (entity === undefined) return;
+    return subscribeLive(entity, () => {
+      void refreshFirstPage();
+    });
+  }, [live, query, refreshFirstPage, subscribeLive]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;

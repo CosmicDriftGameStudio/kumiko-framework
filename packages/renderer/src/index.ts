@@ -115,7 +115,7 @@ export { useListUrlState } from "./hooks/use-list-url-state";
 export type { UseMutationResult } from "./hooks/use-mutation";
 export { useMutation } from "./hooks/use-mutation";
 export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query";
-export { useQuery } from "./hooks/use-query";
+export { entityFromQueryType, useQuery } from "./hooks/use-query";
 export { useStore, useStoreSelector } from "./hooks/use-store";
 export type {
   StreamStatus,
