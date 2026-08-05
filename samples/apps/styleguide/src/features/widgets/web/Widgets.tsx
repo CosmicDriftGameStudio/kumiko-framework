@@ -1,7 +1,7 @@
 // Visual catalog of the widget kit — every section shows one widget with
 // static data. Also serves as the e2e render surface (content.spec).
 
-import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useLocale, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import {
   AiTextArea,
   AiTextField,
@@ -42,8 +42,22 @@ const RESPONSE_TIMES = Array.from({ length: 48 }, (_, i) => ({
   value: i === 20 ? null : 120 + Math.round(80 * Math.abs(Math.sin(i / 5))),
 }));
 
+// Static catalog demo values — separators follow the active locale, unlike
+// MoneyField/PercentField which bring their own formatters.
+function euro(n: number, locale: string): string {
+  return `${n.toLocaleString(locale)} €`;
+}
+function percent(n: number, locale: string): string {
+  const formatted = n.toLocaleString(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+  return locale.startsWith("de") ? `${formatted} %` : `${formatted}%`;
+}
+
 export function Widgets(): ReactNode {
   const t = useTranslation();
+  const locale = useLocale().locale();
   const [mode, setMode] = useState<"annuity" | "fixed">("annuity");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { Button } = usePrimitives();
@@ -65,18 +79,18 @@ export function Widgets(): ReactNode {
         <StatCard
           icon={<Wallet className="size-4" aria-hidden="true" />}
           label={t("widgets:catalog:portfolio")}
-          value="92.753 €"
+          value={euro(92753, locale)}
           sub={t("widgets:catalog:portfolio-sub")}
-          delta={{ value: "2,1 %", direction: "up", tone: "positive" }}
+          delta={{ value: percent(2.1, locale), direction: "up", tone: "positive" }}
           spark={[3, 5, 4, 7, 6, 9, 11, 10]}
         />
         <StatCard
           label={t("widgets:catalog:remaining-debt")}
-          value="184.000 €"
+          value={euro(184000, locale)}
           tone="warn"
           trend={t("widgets:catalog:remaining-debt-trend")}
         />
-        <MiniStat label={t("widgets:catalog:interest-rate")} value="3,1 %" />
+        <MiniStat label={t("widgets:catalog:interest-rate")} value={percent(3.1, locale)} />
         <MiniStat label={t("widgets:catalog:rate")} value="890 €" tone="positive" emphasize />
       </div>
 
@@ -145,7 +159,7 @@ export function Widgets(): ReactNode {
                   ? t("widgets:catalog:mode-annuity")
                   : t("widgets:catalog:mode-fixed"),
             },
-            { label: t("widgets:catalog:nominal-rate"), value: "3,1 %" },
+            { label: t("widgets:catalog:nominal-rate"), value: percent(3.1, locale) },
             {
               label: t("widgets:catalog:status"),
               value: <StatusBadge tone="ok">{t("widgets:catalog:active")}</StatusBadge>,
@@ -405,7 +419,7 @@ function FormFieldsDemo(): ReactNode {
 // highlighted — for scenario/offer comparisons.
 function ComparisonDemo(): ReactNode {
   const t = useTranslation();
-  const euro = (n: number): string => `${n.toLocaleString("de-DE")} €`;
+  const locale = useLocale().locale();
   const scenarios = [
     { name: "A", rate: 890, interest: 84000 },
     { name: "B", rate: 940, interest: 71000 },
@@ -432,12 +446,12 @@ function ComparisonDemo(): ReactNode {
         metrics={[
           {
             label: t("widgets:catalog:monthly-rate"),
-            value: (s) => euro(s.rate),
+            value: (s) => euro(s.rate, locale),
             bestIndex: () => minIndex((s) => s.rate),
           },
           {
             label: t("widgets:catalog:total-interest"),
-            value: (s) => euro(s.interest),
+            value: (s) => euro(s.interest, locale),
             bestIndex: () => minIndex((s) => s.interest),
           },
         ]}
@@ -458,12 +472,12 @@ const CALC_DEFAULTS: CalcDraft = { sum: 300000, interest: 3.8, repayment: 2 };
 
 function FinancingCalculatorDemo(): ReactNode {
   const t = useTranslation();
+  const locale = useLocale().locale();
   const { draft, field } = useDraft<CalcDraft>(CALC_DEFAULTS);
   const ready = draft.sum !== undefined && draft.interest !== undefined;
   const rate = ready
     ? Math.round((draft.sum * ((draft.interest + (draft.repayment ?? 0)) / 100)) / 12)
     : 0;
-  const euro = (n: number): string => `${n.toLocaleString("de-DE")} €`;
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <SectionCard title={t("widgets:catalog:financing")}>
@@ -476,8 +490,8 @@ function FinancingCalculatorDemo(): ReactNode {
         empty={!ready}
         emptyText={t("widgets:catalog:enter-loan-and-interest")}
         rows={[
-          { label: t("widgets:catalog:loan"), value: euro(draft.sum ?? 0) },
-          { label: t("widgets:catalog:monthly-rate"), value: euro(rate), emphasize: true },
+          { label: t("widgets:catalog:loan"), value: euro(draft.sum ?? 0, locale) },
+          { label: t("widgets:catalog:monthly-rate"), value: euro(rate, locale), emphasize: true },
         ]}
       >
         <ResultTable
@@ -486,7 +500,11 @@ function FinancingCalculatorDemo(): ReactNode {
               header: t("widgets:catalog:tranche"),
               cell: (r: { label: string; rate: number }) => r.label,
             },
-            { header: t("widgets:catalog:rate"), align: "right", cell: (r) => euro(r.rate) },
+            {
+              header: t("widgets:catalog:rate"),
+              align: "right",
+              cell: (r) => euro(r.rate, locale),
+            },
           ]}
           rows={[{ label: t("widgets:catalog:bank-loan"), rate }]}
           rowKey={(r) => r.label}

@@ -13,6 +13,11 @@ test("widget catalog renders and ModeSwitch toggles", async ({ page }) => {
   await expect(page.getByRole("img", { name: "Response time history" })).toBeVisible();
   await expect(page.getByText("major outage")).toBeVisible();
 
+  // Locale-aware number formatting: en locale renders comma thousands
+  // separators, not the German dot/space convention.
+  await expect(page.getByText("92,753 €")).toBeVisible();
+  await expect(page.getByText("3.1%").first()).toBeVisible();
+
   // ModeSwitch: toggling updates aria-pressed + the DetailList value.
   const fixed = page.getByRole("button", { name: "Fixed rate" });
   await expect(fixed).toHaveAttribute("aria-pressed", "false");
