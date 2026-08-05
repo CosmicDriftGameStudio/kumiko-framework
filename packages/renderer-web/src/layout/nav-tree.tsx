@@ -71,6 +71,7 @@ import {
   Table,
   Tag,
   TrendingUp,
+  Upload,
   User,
   Users,
   Wallet,
@@ -152,6 +153,7 @@ const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
   lock: Lock,
   hash: Hash,
   download: Download,
+  upload: Upload,
   rocket: Rocket,
   // Was imported but never registered — `icon: "plus"` silently fell back.
   plus: Plus,
