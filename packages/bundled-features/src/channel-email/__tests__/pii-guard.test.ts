@@ -39,6 +39,29 @@ describe("guardEmailMessage", () => {
     expect(out.subject).toBe("Re: [pii-redacted]");
     expect(out.html).toBe("<p>[pii-redacted]</p>");
   });
+  test("ciphertext From is refused like a ciphertext recipient", () => {
+    expect(() =>
+      guardEmailMessage({ to: "ok@example.com", from: CIPHERTEXT, subject: "Hi", html: "x" }),
+    ).toThrow(/from address is a PII ciphertext/);
+  });
+
+  test("ciphertext Reply-To is refused", () => {
+    expect(() =>
+      guardEmailMessage({ to: "ok@example.com", replyTo: CIPHERTEXT, subject: "Hi", html: "x" }),
+    ).toThrow(/reply-to address is a PII ciphertext/);
+  });
+
+  test("clean message with an envelope passes through untouched", () => {
+    const msg = {
+      to: "ok@example.com",
+      from: "verwaltung@haus.de",
+      replyTo: "verwaltung@haus.de",
+      headers: { "In-Reply-To": "<abc@mail>" },
+      subject: "Hi",
+      html: "<p>Hi</p>",
+    };
+    expect(guardEmailMessage(msg)).toBe(msg);
+  });
 });
 
 describe("withPiiCiphertextGuard", () => {

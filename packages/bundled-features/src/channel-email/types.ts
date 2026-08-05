@@ -3,6 +3,15 @@ export type EmailMessage = {
   readonly to: string;
   readonly subject: string;
   readonly html: string;
+  // Per-message From override. Absent → the transport's configured From (the
+  // app-wide default). Set when one send must originate from a specific
+  // mailbox — a reply from the address the original mail reached, not noreply@.
+  readonly from?: string;
+  // Reply-To header: where a recipient's answer goes when it differs from From.
+  readonly replyTo?: string;
+  // Extra RFC-5322 headers — In-Reply-To / References thread a reply into the
+  // conversation it answers.
+  readonly headers?: Readonly<Record<string, string>>;
 };
 
 export type EmailTransport = {
