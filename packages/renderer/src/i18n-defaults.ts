@@ -36,6 +36,13 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.locatedTzHint": "Zeit lokal am angegebenen Ort",
     "kumiko.field.reference-created-no-id":
       "Datensatz wurde angelegt, konnte aber nicht automatisch ausgewählt werden. Bitte manuell auswählen.",
+    "kumiko.field.embedded-list.add-row": "Zeile hinzufügen",
+    "kumiko.field.embedded-list.remove-row": "Zeile entfernen",
+    "kumiko.field.embedded-list.duplicate-row": "Zeile duplizieren",
+    "kumiko.field.embedded-list.move-up": "Nach oben verschieben",
+    "kumiko.field.embedded-list.move-down": "Nach unten verschieben",
+    "kumiko.field.embedded-list.empty": "Noch keine Zeilen.",
+    "kumiko.field.embedded-list.empty-cta": "Erste Zeile hinzufügen",
 
     // List — DataTable Toolbar, Empty-State, Search.
     "kumiko.list.search-placeholder": "Suchen…",
@@ -192,6 +199,13 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.locatedTzHint": "Time local to the given location",
     "kumiko.field.reference-created-no-id":
       "Record was created but could not be selected automatically. Please select it manually.",
+    "kumiko.field.embedded-list.add-row": "Add row",
+    "kumiko.field.embedded-list.remove-row": "Remove row",
+    "kumiko.field.embedded-list.duplicate-row": "Duplicate row",
+    "kumiko.field.embedded-list.move-up": "Move up",
+    "kumiko.field.embedded-list.move-down": "Move down",
+    "kumiko.field.embedded-list.empty": "No rows yet.",
+    "kumiko.field.embedded-list.empty-cta": "Add first row",
 
     "kumiko.list.search-placeholder": "Search…",
     "kumiko.list.empty.title": "No entries yet.",

@@ -8,6 +8,7 @@ import { defineQueryHandler, defineWriteHandler } from "../define-handler";
 import {
   createBooleanField,
   createEmbeddedField,
+  createEmbeddedListField,
   createEntity,
   createMoneyField,
   createSelectField,
@@ -959,6 +960,83 @@ describe("createApp", () => {
       );
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
+  });
+
+  test("rejects embedded select sub-field with empty options", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          table: "Docs",
+          fields: {
+            lines: createEmbeddedListField({
+              status: { type: "select", options: [] },
+            }),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow("has empty options");
+  });
+
+  test("rejects embedded-list minItems greater than maxItems", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          table: "Docs",
+          fields: {
+            lines: createEmbeddedListField(
+              { accountId: { type: "text" } },
+              { minItems: 3, maxItems: 1 },
+            ),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      "greater than maxItems",
+    );
+  });
+
+  test("rejects derived cell referencing an unknown sub-field", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          table: "Docs",
+          fields: {
+            lines: createEmbeddedListField(
+              { qty: { type: "number" }, price: { type: "number" }, total: { type: "number" } },
+              { derived: { total: { op: "multiply", from: ["qty", "unknownField"] } } },
+            ),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'derived cell "total" reading unknown sub-field "unknownField"',
+    );
+  });
+
+  test("rejects totals referencing a non-numeric sub-field", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          table: "Docs",
+          fields: {
+            lines: createEmbeddedListField(
+              { label: { type: "text" }, amount: { type: "number" } },
+              { totals: ["label"] },
+            ),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'lists "label" in totals, but it is not a number/money/decimal sub-field',
+    );
   });
 
   test("rejects transitions on non-select field", () => {

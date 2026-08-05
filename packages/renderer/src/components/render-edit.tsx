@@ -468,6 +468,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                     {...(fieldAppendix !== undefined && {
                       fieldAppendix: fieldAppendix(field.field),
                     })}
+                    allIssues={snapshot.errors}
                   />
                 ))}
               </Grid>
@@ -533,6 +534,9 @@ type GridCellForFieldProps = {
   readonly featureName: string;
   readonly labelAppendix?: ReactNode;
   readonly fieldAppendix?: ReactNode;
+  /** Full issues-by-path map (FormSnapshot.errors) — passed through for
+   *  embedded-list fields, which bucket row-/cell-level issues themselves. */
+  readonly allIssues: Readonly<Record<string, readonly FieldIssue[]>>;
 };
 
 function GridCellForField({
@@ -544,6 +548,7 @@ function GridCellForField({
   featureName,
   labelAppendix,
   fieldAppendix,
+  allIssues,
 }: GridCellForFieldProps): ReactNode {
   const effectiveSpan = field.span !== undefined ? Math.min(field.span, columns) : 1;
   return (
@@ -555,6 +560,7 @@ function GridCellForField({
         featureName={featureName}
         {...(labelAppendix !== undefined && { labelAppendix })}
         {...(fieldAppendix !== undefined && { fieldAppendix })}
+        allIssues={allIssues}
       />
     </GridCell>
   );

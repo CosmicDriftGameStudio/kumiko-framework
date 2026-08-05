@@ -433,6 +433,63 @@ describe("buildInsertSchema", () => {
     expect(required.safeParse({ lines: [{ accountId: "bank" }] }).success).toBe(true);
   });
 
+  test("select sub-field accepts a listed option, rejects an unlisted string", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        lines: createEmbeddedListField({
+          status: { type: "select", options: ["draft", "sent"], required: true },
+        }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ lines: [{ status: "sent" }] }).success).toBe(true);
+    expect(schema.safeParse({ lines: [{ status: "archived" }] }).success).toBe(false);
+  });
+
+  test("reference sub-field accepts a UUID, rejects a non-UUID string", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        lines: createEmbeddedListField({
+          productId: { type: "reference", entity: "product", required: true },
+        }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(
+      schema.safeParse({ lines: [{ productId: "550e8400-e29b-41d4-a716-446655440000" }] }).success,
+    ).toBe(true);
+    expect(schema.safeParse({ lines: [{ productId: "not-a-uuid" }] }).success).toBe(false);
+  });
+
+  test("minItems/maxItems bound an embedded list", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        lines: createEmbeddedListField(
+          { accountId: { type: "text", required: true } },
+          { minItems: 2, maxItems: 3 },
+        ),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ lines: [{ accountId: "a" }] }).success).toBe(false);
+    expect(schema.safeParse({ lines: [{ accountId: "a" }, { accountId: "b" }] }).success).toBe(
+      true,
+    );
+    expect(
+      schema.safeParse({
+        lines: [{ accountId: "a" }, { accountId: "b" }, { accountId: "c" }],
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        lines: [{ accountId: "a" }, { accountId: "b" }, { accountId: "c" }, { accountId: "d" }],
+      }).success,
+    ).toBe(false);
+  });
+
   test("money sub-field accepts signed integer minor units, rejects fractions", () => {
     const entity = createEntity({
       table: "Test",

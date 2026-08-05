@@ -9,6 +9,7 @@ import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits";
 import { useQuery } from "../hooks/use-query";
 import { useLocale, useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
+import { EmbeddedListField } from "./embedded-list-field";
 import { ReferenceCreateDialog } from "./reference-create-dialog";
 
 // RenderField übersetzt ein EditFieldViewModel → Primitives-Baum.
@@ -32,6 +33,11 @@ export type RenderFieldProps = {
   /** Optionaler Zusatz-Inhalt der nach dem Input gerendert wird (z.B.
    *  ConfigCascade). */
   readonly fieldAppendix?: ReactNode;
+  /** Flat issues-by-path map (FormSnapshot.errors) — only relevant for
+   *  type:"embedded" with embeddedListCells, to bucket row-/cell-issues
+   *  (`${field}.${rowIndex}` / `${field}.${rowIndex}.${cellField}`).
+   *  Other field types ignore this prop. */
+  readonly allIssues?: Readonly<Record<string, readonly FieldIssue[]>>;
 };
 
 export function RenderField({
@@ -41,6 +47,7 @@ export function RenderField({
   featureName,
   labelAppendix,
   fieldAppendix,
+  allIssues,
 }: RenderFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
@@ -58,7 +65,15 @@ export function RenderField({
   // useQuery() für den Live-Lookup, also muss sie als React-
   // Komponente gemountet werden (nicht als pure render-Call).
   const control =
-    field.type === "reference" ? (
+    field.type === "embedded" && field.embeddedListCells !== undefined ? (
+      <EmbeddedListField
+        field={field}
+        id={id}
+        onChange={onChange}
+        allIssues={allIssues ?? {}}
+        featureName={featureName ?? ""}
+      />
+    ) : field.type === "reference" ? (
       <ReferenceInput
         field={field}
         id={id}

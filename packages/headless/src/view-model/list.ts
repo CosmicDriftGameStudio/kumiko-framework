@@ -103,9 +103,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       fieldDef.type === "select"
         ? buildOptionLabels(
             translate,
-            featureName,
-            screen.entity,
-            normalized.field,
+            (value) => fieldOptionLabelKey(featureName, screen.entity, normalized.field, value),
             (fieldDef as unknown as { options?: readonly string[] }).options ?? [],
           )
         : undefined;
@@ -155,6 +153,28 @@ export function fieldOptionLabelKey(
   return `${featureName}:entity:${entityName}:field:${fieldName}:option:${value}`;
 }
 
+// Embedded-list cell label key — one level deeper than fieldLabelKey,
+// keyed by the sub-field name inside an embedded-LIST field's `schema`
+// (invoice-positions-style tables built via createEmbeddedListField()).
+export function embeddedCellLabelKey(
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  subFieldName: string,
+): string {
+  return `${featureName}:entity:${entityName}:field:${fieldName}:cell:${subFieldName}`;
+}
+
+export function embeddedCellOptionLabelKey(
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  subFieldName: string,
+  value: string,
+): string {
+  return `${featureName}:entity:${entityName}:field:${fieldName}:cell:${subFieldName}:option:${value}`;
+}
+
 // Build a value→label map for a select-field's options. Convention:
 // translate() returns the input key when the lookup misses (i18next
 // default + LocaleResolver convention) — we surface the *raw value* in
@@ -162,18 +182,18 @@ export function fieldOptionLabelKey(
 // Without that fallback, an unlabeled option would render as the full
 // `feature:entity:field:option:value`-key.
 //
-// Shared between list-VM and edit-VM so both builders produce
-// identical option-translations.
+// `keyFor` carries whichever key convention the caller needs (top-level
+// field via fieldOptionLabelKey, embedded-list cell via
+// embeddedCellOptionLabelKey) — shared between list-VM, edit-VM, and
+// embedded-list cells so all three produce identical option-translations.
 export function buildOptionLabels(
   translate: (key: string, params?: Readonly<Record<string, unknown>>) => string,
-  featureName: string,
-  entityName: string,
-  fieldName: string,
+  keyFor: (value: string) => string,
   options: readonly string[],
 ): Readonly<Record<string, string>> {
   const out: Record<string, string> = {};
   for (const value of options) {
-    const key = fieldOptionLabelKey(featureName, entityName, fieldName, value);
+    const key = keyFor(value);
     const translated = translate(key);
     out[value] = translated === key ? value : translated;
   }

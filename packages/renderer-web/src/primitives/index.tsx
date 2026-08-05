@@ -90,6 +90,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./dropdown-menu";
+import { EmbeddedListInput } from "./embedded-list-input";
 import { FileUploadInput } from "./file-upload";
 import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
@@ -1888,6 +1889,7 @@ export const defaultPrimitives: CorePrimitives = {
   Field: DefaultField,
   Input: DefaultInput,
   DataTable: DefaultDataTable,
+  EmbeddedListInput,
   Form: DefaultForm,
   Section: DefaultSection,
   Card: DefaultCard,
