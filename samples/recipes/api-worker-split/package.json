@@ -1,0 +1,16 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-api-worker-split",
+  "description": "Split deploy topology: API process (runSingleInstance:false, enqueue-only) + worker process (consumes worker-lane jobs, applies multiStreamProjections, writes results back through the worker dispatcher).",
+  "private": true,
+  "scripts": {
+    "api": "bun bin/api.ts",
+    "worker": "bun bin/worker.ts",
+    "schema:apply": "bun bin/kumiko.ts schema apply",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-server-runtime": "workspace:*"
+  }
+}
