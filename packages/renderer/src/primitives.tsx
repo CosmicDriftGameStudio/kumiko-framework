@@ -46,6 +46,7 @@ import {
   createContext,
   type FormEvent,
   type ReactNode,
+  type Ref,
   useContext,
 } from "react";
 
@@ -82,6 +83,13 @@ export type ButtonProps = {
   readonly width?: "full" | "auto";
   readonly children: ReactNode;
   readonly testId?: string;
+  /** Layout extras — Web merges via cn(), native impls ignore it
+   *  (precedent: LinkProps.className). */
+  readonly className?: string;
+  /** DOM ref on the button — escape hatch for cases that need more than
+   *  a click (e.g. binding a drop-target handler). Web forwards it, native
+   *  impls ignore it (no native equivalent). */
+  readonly ref?: Ref<HTMLButtonElement>;
 };
 
 /** Navigations-Link. `variant="button"` rendert die Button-Optik auf einem

@@ -185,6 +185,7 @@ export type {
   TextareaFieldProps,
   TextFieldProps,
   TimeseriesPoint,
+  UploadZoneProps,
 } from "./widgets";
 export {
   AiTextArea,
@@ -223,5 +224,6 @@ export {
   TextareaField,
   TextField,
   TimeseriesChart,
+  UploadZone,
   useDraft,
 } from "./widgets";
