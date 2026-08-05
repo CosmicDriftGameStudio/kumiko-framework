@@ -242,7 +242,7 @@ describe("InfinityList", () => {
               data: { rows: [{ id: "m2", subject: "Alt-2" }], nextCursor: null },
             });
           }
-          // Live-Refresh der ersten Seite: m1 bleibt drin, eine neue Zeile kommt oben rein.
+          // Live refresh of the first page: m1 stays, a new row lands on top.
           return Promise.resolve({
             isSuccess: true,
             data: {
@@ -291,7 +291,7 @@ describe("InfinityList", () => {
       expect(screen.getByText("Alt-2")).toBeTruthy();
       expect(screen.getAllByText("Alt-1").length).toBe(1);
 
-      // Live-Refresh fragt nur die erste Seite an — kein cursor im Payload.
+      // The live refresh only requests the first page — no cursor in the payload.
       expect(calls[2]).toEqual({ limit: 1 });
     });
 
