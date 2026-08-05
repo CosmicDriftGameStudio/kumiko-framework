@@ -99,20 +99,33 @@ describe("flattenMoney — Insert/Update Convert (major units → minor units)",
 });
 
 describe("rehydrateMoney — Read Convert (minor units → major units)", () => {
-  test("{ <name>: minorUnits, <name>Currency: string } → { <name>: { amount: majorUnits, currency } }", () => {
+  test("{ <name>: minorUnits, <name>Currency: string } → { <name>: { amount: majorUnits, currency, amountMinor } }", () => {
     const out = rehydrateMoney({ buyingPrice: 45000, buyingPriceCurrency: "EUR" }, orderEntity);
-    expect(out).toEqual({ buyingPrice: { amount: 450, currency: "EUR" } });
+    expect(out).toEqual({ buyingPrice: { amount: 450, currency: "EUR", amountMinor: 45000 } });
   });
 
   test("PG-BIGINT als String wird zu number gecastet", () => {
     // Postgres-driver liefert BIGINT manchmal als String (>2^53 sicher).
     const out = rehydrateMoney({ buyingPrice: "45000", buyingPriceCurrency: "EUR" }, orderEntity);
-    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR" });
+    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR", amountMinor: 45000 });
   });
 
   test("fehlende Currency-Spalte fällt auf entity.defaultCurrency", () => {
     const out = rehydrateMoney({ buyingPrice: 45000 }, orderEntity);
-    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR" });
+    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR", amountMinor: 45000 });
+  });
+
+  test("amountMinor bleibt exakter Integer, amount kann Float-Drift haben (fw#1830)", () => {
+    const rows = [10, 20, 30].map(
+      (minor) =>
+        rehydrateMoney({ buyingPrice: minor, buyingPriceCurrency: "EUR" }, orderEntity)[
+          "buyingPrice"
+        ] as { amount: number; amountMinor: number },
+    );
+    const [a, b, c] = rows;
+
+    expect(a!.amountMinor + b!.amountMinor).toBe(c!.amountMinor);
+    expect(a!.amount + b!.amount).not.toBe(c!.amount);
   });
 
   test("null/undefined amount → Field wird aus Output entfernt", () => {
@@ -131,25 +144,28 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
       orderEntity,
     );
     expect(out).toEqual({
-      buyingPrice: { amount: 450, currency: "EUR" },
-      sellingPrice: { amount: 600, currency: "USD" },
+      buyingPrice: { amount: 450, currency: "EUR", amountMinor: 45000 },
+      sellingPrice: { amount: 600, currency: "USD", amountMinor: 60000 },
     });
   });
 
-  test("Round-Trip: flatten dann rehydrate ergibt dasselbe, inkl. Cents", () => {
+  test("Round-Trip: flatten dann rehydrate ergibt dasselbe amount/currency, plus amountMinor", () => {
     const original = {
       buyingPrice: { amount: 450.5, currency: "EUR" },
       sellingPrice: { amount: 56799.16, currency: "USD" },
     };
     const flat = flattenMoney(original, orderEntity);
     const rehydrated = rehydrateMoney(flat, orderEntity);
-    expect(rehydrated).toEqual(original);
+    expect(rehydrated).toEqual({
+      buyingPrice: { amount: 450.5, currency: "EUR", amountMinor: 45050 },
+      sellingPrice: { amount: 56799.16, currency: "USD", amountMinor: 5679916 },
+    });
   });
 
-  test("Round-Trip primitive-Insert: flatten(450) → rehydrate → { amount:450, currency:EUR }", () => {
+  test("Round-Trip primitive-Insert: flatten(450) → rehydrate → { amount:450, currency:EUR, amountMinor:45000 }", () => {
     const flat = flattenMoney({ buyingPrice: 450 }, orderEntity);
     const out = rehydrateMoney(flat, orderEntity);
-    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR" });
+    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR", amountMinor: 45000 });
   });
 
   test("ist pure — input wird nicht mutiert", () => {
@@ -181,7 +197,7 @@ describe("Round-Trip im Update-Pfad (Helper-Verkettung wie im Executor)", () => 
 
     // DB liefert dieselben Spalten zurück
     const out = rehydrateMoney(flat, orderEntity);
-    expect(out).toEqual({ buyingPrice: { amount: 990, currency: "USD" } });
+    expect(out).toEqual({ buyingPrice: { amount: 990, currency: "USD", amountMinor: 99_000 } });
   });
 
   test("List-Pfad: mehrere Rows hintereinander rehydraten", () => {
@@ -192,9 +208,9 @@ describe("Round-Trip im Update-Pfad (Helper-Verkettung wie im Executor)", () => 
     ];
     const apiRows = dbRows.map((r) => rehydrateMoney(r, orderEntity));
     expect(apiRows).toEqual([
-      { buyingPrice: { amount: 1, currency: "EUR" } },
-      { buyingPrice: { amount: 2, currency: "USD" } },
-      { buyingPrice: { amount: 3, currency: "GBP" } },
+      { buyingPrice: { amount: 1, currency: "EUR", amountMinor: 100 } },
+      { buyingPrice: { amount: 2, currency: "USD", amountMinor: 200 } },
+      { buyingPrice: { amount: 3, currency: "GBP", amountMinor: 300 } },
     ]);
   });
 });
