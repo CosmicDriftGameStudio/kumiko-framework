@@ -75,6 +75,32 @@ export type ListViewModel = {
 
 // --- edit view model ---
 
+// Per-cell metadata for one sub-field of an embedded-LIST field
+// (`multiple: true`) — the column/cell shape a renderer needs to draw an
+// invoice-positions-style table. One entry per key of the source
+// EmbeddedFieldDef's `schema`.
+export type EmbeddedListCellViewModel = {
+  readonly field: string;
+  readonly label: string;
+  readonly type:
+    | "text"
+    | "number"
+    | "boolean"
+    | "date"
+    | "money"
+    | "decimal"
+    | "select"
+    | "reference";
+  readonly required: boolean;
+  /** Only for `type: "select"`. */
+  readonly options?: readonly string[];
+  readonly optionLabels?: Readonly<Record<string, string>>;
+  /** Only for `type: "reference"`. */
+  readonly refEntity?: string;
+  readonly refFeature?: string;
+  readonly refLabelField?: string;
+};
+
 // Resolved field — all predicates evaluated, labels translated. The
 // renderer reads `{ visible, readonly, required }` directly without
 // re-running any predicate.
@@ -148,6 +174,24 @@ export type EditFieldViewModel = {
    *  resolves it against the FIELD_ICONS registry; unknown keys silently
    *  fall back to "no icon". */
   readonly icon?: string;
+  /** Only set for an embedded-LIST field (`multiple: true`) — the per-cell
+   *  metadata the renderer needs to draw each column/cell. Absent for a
+   *  plain (non-list) embedded field. */
+  readonly embeddedListCells?: readonly EmbeddedListCellViewModel[];
+  /** Minimum row count for the embedded list. From EmbeddedFieldDef.minItems. */
+  readonly embeddedListMinItems?: number;
+  /** Maximum row count for the embedded list. From EmbeddedFieldDef.maxItems. */
+  readonly embeddedListMaxItems?: number;
+  /** Sub-field name → how to compute its cell from other sub-fields of the
+   *  same row. From EmbeddedFieldDef.derived. */
+  readonly embeddedListDerived?: Readonly<
+    Record<
+      string,
+      { readonly op: "multiply" | "sum" | "subtract"; readonly from: readonly string[] }
+    >
+  >;
+  /** Numeric sub-field names to sum in a totals row. From EmbeddedFieldDef.totals. */
+  readonly embeddedListTotals?: readonly string[];
 };
 
 // Discriminated by `kind` — mirrors EditSectionSpec on the engine side.

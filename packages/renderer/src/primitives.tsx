@@ -15,6 +15,7 @@
 //   Field     — label + issues um ein Input-Control
 //   Input     — discriminated union über text/number/boolean/date
 //   DataTable — Spalten + Zeilen + onRowClick, Empty-State intern
+//   EmbeddedListInput — row array + totals table for createEmbeddedListField
 //   Form      — submit-Wrapper (Web: <form>, Native: View + onSubmit)
 //   Section   — titled Gruppe von Feldern (Web: <fieldset>+<legend>)
 //   Grid      — columns-basiertes Layout innerhalb einer Section
@@ -541,6 +542,93 @@ export type DataTableProps = {
   readonly testId?: string;
 };
 
+// ---- EmbeddedListInput (createEmbeddedListField widget) ----
+
+/** Cell type for one column of an embedded-list field. Mirrors
+ *  EmbeddedListCellViewModel["type"] from `@cosmicdrift/kumiko-headless`. */
+export type EmbeddedListCellType =
+  | "text"
+  | "number"
+  | "boolean"
+  | "date"
+  | "money"
+  | "decimal"
+  | "select"
+  | "reference";
+
+/** One column of an embedded-list table (one entry per key of the source
+ *  EmbeddedFieldDef's `schema`). */
+export type EmbeddedListColumn = {
+  readonly field: string;
+  readonly label: string;
+  readonly type: EmbeddedListCellType;
+  readonly required: boolean;
+  /** Read-only, value supplied by the caller (already computed from
+   *  sibling cells) — not directly user-editable. */
+  readonly derived: boolean;
+  /** Only for `type: "select"`. */
+  readonly options?: readonly string[];
+  readonly optionLabels?: Readonly<Record<string, string>>;
+  /** Only for `type: "reference"` — pre-fetched by the caller, ONE query
+   *  per column shared across every row (not one query per cell). */
+  readonly referenceOptions?: readonly { readonly value: string; readonly label: string }[];
+  readonly referenceLoading?: boolean;
+};
+
+/** One entry of an embedded-list totals row (e.g. an invoice's total
+ *  amount, summed across all rows by the caller). */
+export type EmbeddedListTotal = {
+  readonly field: string;
+  readonly label: string;
+  readonly value: number;
+};
+
+/** Row-array + totals table for a `createEmbeddedListField` (invoice-
+ *  positions-style) field — structurally too different from `Input`'s
+ *  value/onChange union to fit there, so it's its own primitive, same as
+ *  `DataTable`. Controlled: the caller (the eventual form-field wrapper)
+ *  computes rows/derived values/issue groups and wires every callback;
+ *  this primitive only renders and reports interaction. */
+export type EmbeddedListInputProps = {
+  readonly id: string;
+  readonly columns: readonly EmbeddedListColumn[];
+  readonly rows: readonly Readonly<Record<string, unknown>>[];
+  readonly totals?: readonly EmbeddedListTotal[];
+  /** Whole-list read-only (e.g. a released invoice) — hides row-mutation
+   *  affordances and disables every cell. */
+  readonly disabled?: boolean;
+  readonly minItems?: number;
+  readonly maxItems?: number;
+  /** Shown under the whole list (e.g. under the totals row). */
+  readonly listIssues?: readonly FieldIssue[];
+  /** Keyed by row index. */
+  readonly rowIssues?: Readonly<Record<number, readonly FieldIssue[]>>;
+  /** Keyed `${rowIndex}.${field}`. */
+  readonly cellIssues?: Readonly<Record<string, readonly FieldIssue[]>>;
+  readonly onCellChange: (rowIndex: number, field: string, value: unknown) => void;
+  readonly onAddRow: () => void;
+  readonly onRemoveRow: (rowIndex: number) => void;
+  readonly onDuplicateRow: (rowIndex: number) => void;
+  readonly onMoveRow: (fromIndex: number, toIndex: number) => void;
+  /** Tab/newline-delimited clipboard paste starting at (rowIndex,
+   *  columnIndex) — parsed to a 2D string grid by the Web impl (paste
+   *  events are a browser-only concept); undefined caller = no paste
+   *  handling wired up. */
+  readonly onPasteCells?: (
+    rowIndex: number,
+    columnIndex: number,
+    grid: readonly (readonly string[])[],
+  ) => void;
+  readonly addLabel: string;
+  readonly removeLabel: string;
+  readonly duplicateLabel: string;
+  readonly moveUpLabel: string;
+  readonly moveDownLabel: string;
+  readonly emptyLabel: string;
+  readonly emptyCtaLabel: string;
+  readonly testId?: string;
+};
+
 export type { FormWidth };
 
 /** Submit-Wrapper. Web: `<form onSubmit>`, Native: View das einen
@@ -758,6 +846,10 @@ export type CorePrimitives = {
   readonly Field: ComponentType<FieldProps>;
   readonly Input: ComponentType<InputProps>;
   readonly DataTable: ComponentType<DataTableProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly EmbeddedListInput?: ComponentType<EmbeddedListInputProps>;
   readonly Form: ComponentType<FormProps>;
   readonly Section: ComponentType<SectionProps>;
   readonly Card: ComponentType<CardProps>;

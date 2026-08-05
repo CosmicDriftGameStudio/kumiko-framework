@@ -362,3 +362,138 @@ describe("computeEditViewModel — date/timestamp min/max/locale (#369)", () => 
     expect(field?.dateLocale).toBeUndefined();
   });
 });
+
+describe("computeEditViewModel — embedded-list cells (#1835)", () => {
+  const lineFieldSchema = {
+    description: { type: "text", required: true },
+    quantity: { type: "number", required: true },
+    unit: { type: "select", options: ["hour", "day"] },
+    product: { type: "reference", entity: "product", labelField: "name" },
+  };
+
+  function embeddedListEntity(overrides?: Record<string, unknown>): EntityDefinition {
+    return {
+      fields: {
+        lines: {
+          type: "embedded",
+          multiple: true,
+          schema: lineFieldSchema,
+          ...overrides,
+        },
+      },
+    } as unknown as EntityDefinition;
+  }
+
+  test("multiple: true embedded field → embeddedListCells has one entry per schema key with correct type/required/options/optionLabels/refEntity", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["lines"] }] }),
+      entity: embeddedListEntity(),
+      values: { lines: [] },
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.type).toBe("embedded");
+    const cells = field?.embeddedListCells;
+    expect(cells).toHaveLength(4);
+
+    const byField = Object.fromEntries((cells ?? []).map((cell) => [cell.field, cell]));
+    expect(byField["description"]).toMatchObject({
+      type: "text",
+      required: true,
+      label: "orders:entity:order:field:lines:cell:description",
+    });
+    expect(byField["quantity"]).toMatchObject({ type: "number", required: true });
+    expect(byField["unit"]).toMatchObject({
+      type: "select",
+      required: false,
+      options: ["hour", "day"],
+      optionLabels: { hour: "hour", day: "day" },
+    });
+    expect(byField["product"]).toMatchObject({
+      type: "reference",
+      required: false,
+      refEntity: "product",
+      refFeature: "orders",
+      refLabelField: "name",
+    });
+  });
+
+  test("minItems/maxItems/derived/totals pass through onto the field view-model when set", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["lines"] }] }),
+      entity: embeddedListEntity({
+        minItems: 1,
+        maxItems: 20,
+        derived: { total: { op: "multiply", from: ["quantity", "unitPrice"] } },
+        totals: ["quantity", "total"],
+      }),
+      values: { lines: [] },
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.embeddedListMinItems).toBe(1);
+    expect(field?.embeddedListMaxItems).toBe(20);
+    expect(field?.embeddedListDerived).toEqual({
+      total: { op: "multiply", from: ["quantity", "unitPrice"] },
+    });
+    expect(field?.embeddedListTotals).toEqual(["quantity", "total"]);
+  });
+
+  test("minItems/maxItems/derived/totals stay undefined when not declared", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["lines"] }] }),
+      entity: embeddedListEntity(),
+      values: { lines: [] },
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.embeddedListMinItems).toBeUndefined();
+    expect(field?.embeddedListMaxItems).toBeUndefined();
+    expect(field?.embeddedListDerived).toBeUndefined();
+    expect(field?.embeddedListTotals).toBeUndefined();
+  });
+
+  test("a plain (non-list) embedded field never gets embeddedListCells — that's how the renderer tells it apart from an embedded list", () => {
+    const entity = {
+      fields: {
+        meta: { type: "embedded", schema: { note: { type: "text" } } },
+      },
+    } as unknown as EntityDefinition;
+
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["meta"] }] }),
+      entity,
+      values: { meta: {} },
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.type).toBe("embedded");
+    expect(field?.embeddedListCells).toBeUndefined();
+    expect(field?.embeddedListMinItems).toBeUndefined();
+  });
+
+  test("select-cell options are translated when registered, fall back to the raw value otherwise", () => {
+    const translateUnit = (key: string) =>
+      key === "orders:entity:order:field:lines:cell:unit:option:hour" ? "Stunde" : key;
+
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["lines"] }] }),
+      entity: embeddedListEntity(),
+      values: { lines: [] },
+      translate: translateUnit,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    const unitCell = field?.embeddedListCells?.find((cell) => cell.field === "unit");
+    expect(unitCell?.optionLabels).toEqual({ hour: "Stunde", day: "day" });
+  });
+});

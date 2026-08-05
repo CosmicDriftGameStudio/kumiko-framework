@@ -68,6 +68,13 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
           message: `at most ${subField.scale} decimal places`,
         });
     }
+    case "select": {
+      const [first, ...rest] = subField.options;
+      if (!first) return z.string();
+      return z.enum([first, ...rest]);
+    }
+    case "reference":
+      return z.uuid();
     default:
       assertUnreachable(subField, "embedded sub-field type");
   }
@@ -195,9 +202,12 @@ export function fieldToZod(
       if (field.multiple !== true) return row;
       // `required: true` means non-empty, same reading as multiSelect —
       // whether the key may be omitted at all is decided by buildInsertSchema
-      // off the same flag.
-      const list = z.array(row);
-      return field.required === true ? list.min(1) : list;
+      // off the same flag. `minItems` overrides that default when set.
+      let list = z.array(row);
+      const min = field.minItems ?? (field.required === true ? 1 : undefined);
+      if (min !== undefined) list = list.min(min);
+      if (field.maxItems !== undefined) list = list.max(field.maxItems);
+      return list;
     }
     case "jsonb": {
       // Free-form jsonb — keys sind tenant-/runtime-defined. Validation

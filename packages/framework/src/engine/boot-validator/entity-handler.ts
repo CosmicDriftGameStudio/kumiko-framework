@@ -1,5 +1,5 @@
 import { parseRefTarget } from "../parse-ref-target";
-import type { FeatureDefinition } from "../types";
+import type { EmbeddedFieldDef, FeatureDefinition } from "../types";
 
 export const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 
@@ -364,7 +364,18 @@ export function validateFileFields(feature: FeatureDefinition): boolean {
 
 // --- Embedded field validation ---
 
-const VALID_EMBEDDED_SUB_TYPES = new Set(["text", "number", "boolean", "date", "money", "decimal"]);
+const VALID_EMBEDDED_SUB_TYPES = new Set([
+  "text",
+  "number",
+  "boolean",
+  "date",
+  "money",
+  "decimal",
+  "select",
+  "reference",
+]);
+
+const NUMERIC_EMBEDDED_SUB_TYPES = new Set(["number", "money", "decimal"]);
 
 // 15 is where 10^scale exhausts a double's integer range — beyond it the
 // scale check in the write schema could no longer hold.
@@ -467,9 +478,109 @@ export function validateEmbeddedFields(feature: FeatureDefinition): void {
             `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has invalid scale ${subField.scale}. Must be an integer between 0 and 15.`,
           );
         }
+        if (subField.type === "select" && subField.options.length === 0) {
+          throw new Error(
+            `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has empty options`,
+          );
+        }
+      }
+
+      validateEmbeddedListMetadata(fieldName, entityName, field);
+    }
+  }
+}
+
+function validateEmbeddedListBounds(
+  fieldName: string,
+  entityName: string,
+  field: EmbeddedFieldDef,
+): void {
+  if (field.minItems !== undefined && field.minItems < 0) {
+    throw new Error(
+      `Embedded-list field "${fieldName}" on entity "${entityName}" has invalid minItems ${field.minItems}. Must be >= 0.`,
+    );
+  }
+  if (field.maxItems !== undefined && field.maxItems < 1) {
+    throw new Error(
+      `Embedded-list field "${fieldName}" on entity "${entityName}" has invalid maxItems ${field.maxItems}. Must be >= 1.`,
+    );
+  }
+  if (
+    field.minItems !== undefined &&
+    field.maxItems !== undefined &&
+    field.minItems > field.maxItems
+  ) {
+    throw new Error(
+      `Embedded-list field "${fieldName}" on entity "${entityName}" has minItems ${field.minItems} greater than maxItems ${field.maxItems}.`,
+    );
+  }
+}
+
+function validateEmbeddedDerivedCells(
+  fieldName: string,
+  entityName: string,
+  field: EmbeddedFieldDef,
+): void {
+  if (field.derived === undefined) return;
+  for (const [derivedName, derivedDef] of Object.entries(field.derived)) {
+    if (!(derivedName in field.schema)) {
+      throw new Error(
+        `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" that is not a sub-field in its schema.`,
+      );
+    }
+    for (const sourceName of derivedDef.from) {
+      if (!(sourceName in field.schema)) {
+        throw new Error(
+          `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" reading unknown sub-field "${sourceName}".`,
+        );
       }
     }
   }
+}
+
+function validateEmbeddedTotalsColumns(
+  fieldName: string,
+  entityName: string,
+  field: EmbeddedFieldDef,
+): void {
+  if (field.totals === undefined) return;
+  for (const totalName of field.totals) {
+    const totalSubField = field.schema[totalName];
+    if (!totalSubField || !NUMERIC_EMBEDDED_SUB_TYPES.has(totalSubField.type)) {
+      throw new Error(
+        `Embedded-list field "${fieldName}" on entity "${entityName}" lists "${totalName}" in totals, but it is not a number/money/decimal sub-field.`,
+      );
+    }
+  }
+}
+
+function validateEmbeddedDerivedAndTotals(
+  fieldName: string,
+  entityName: string,
+  field: EmbeddedFieldDef,
+): void {
+  validateEmbeddedDerivedCells(fieldName, entityName, field);
+  validateEmbeddedTotalsColumns(fieldName, entityName, field);
+}
+
+function validateEmbeddedListMetadata(
+  fieldName: string,
+  entityName: string,
+  field: EmbeddedFieldDef,
+): void {
+  validateEmbeddedListBounds(fieldName, entityName, field);
+  if (
+    field.multiple !== true &&
+    (field.minItems !== undefined ||
+      field.maxItems !== undefined ||
+      field.derived !== undefined ||
+      field.totals !== undefined)
+  ) {
+    throw new Error(
+      `Embedded field "${fieldName}" on entity "${entityName}" sets minItems/maxItems/derived/totals, which is only valid on an embedded LIST field (multiple: true).`,
+    );
+  }
+  validateEmbeddedDerivedAndTotals(fieldName, entityName, field);
 }
 
 // --- MultiSelect field validation ---

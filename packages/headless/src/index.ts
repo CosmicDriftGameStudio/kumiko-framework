@@ -86,6 +86,9 @@ export type {
   EditSectionSpec,
   EditSectionViewModel,
   EditViewModel,
+  EmbeddedDerivedOp,
+  EmbeddedListCellViewModel,
+  EmbeddedListIssueGroups,
   FieldConditionCtx,
   FieldRenderer,
   ListColumnSpec,
@@ -96,4 +99,13 @@ export type {
   ScreenSlots,
   Translate,
 } from "./view-model";
-export { computeEditViewModel, computeListViewModel, fieldLabelKey } from "./view-model";
+export {
+  computeDerivedCellValue,
+  computeEditViewModel,
+  computeListViewModel,
+  embeddedCellLabelKey,
+  embeddedCellOptionLabelKey,
+  fieldLabelKey,
+  groupEmbeddedListIssues,
+  sumEmbeddedListColumn,
+} from "./view-model";

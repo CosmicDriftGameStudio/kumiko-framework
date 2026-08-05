@@ -405,7 +405,25 @@ export type EmbeddedSubFieldDef =
   | (EmbeddedSubFieldBase & {
       readonly type: "decimal";
       readonly scale: number;
+    })
+  | (EmbeddedSubFieldBase & {
+      readonly type: "select";
+      readonly options: readonly string[];
+    })
+  | (EmbeddedSubFieldBase & {
+      readonly type: "reference";
+      readonly entity: string;
+      readonly labelField?: string;
     });
+
+/** A cell computed from other cells of the same row. `from` names the
+ *  sub-fields the operation reads (order matters for `subtract`). Purely
+ *  renderer metadata — the derived value is still validated like any other
+ *  value of its declared sub-field type in `schema`. */
+export type EmbeddedDerivedCellDef = {
+  readonly op: "multiply" | "sum" | "subtract";
+  readonly from: readonly string[];
+};
 
 export type EmbeddedFieldDef = {
   readonly type: "embedded";
@@ -424,6 +442,16 @@ export type EmbeddedFieldDef = {
    *  the head — an embedded array is rewritten whole on every change and has
    *  no per-row history. */
   readonly multiple?: boolean;
+  /** Minimum row count for an embedded list. Only valid with `multiple: true`. */
+  readonly minItems?: number;
+  /** Maximum row count for an embedded list. Only valid with `multiple: true`. */
+  readonly maxItems?: number;
+  /** Renderer metadata: sub-field name → how to compute its cell from other
+   *  sub-fields of the same row. Only valid with `multiple: true`. */
+  readonly derived?: Readonly<Record<string, EmbeddedDerivedCellDef>>;
+  /** Renderer metadata: numeric sub-field names to sum in a totals row. Only
+   *  valid with `multiple: true`. */
+  readonly totals?: readonly string[];
 } & PiiAnnotations;
 
 // Free-form jsonb — keys/shape NOT validated at write-time. Use for:

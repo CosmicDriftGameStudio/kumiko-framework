@@ -9,8 +9,41 @@ import {
   normalizeEditField,
   parseRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { buildOptionLabels, fieldLabelKey } from "./list";
-import type { EditFieldViewModel, EditSectionViewModel, EditViewModel, Translate } from "./types";
+import {
+  buildOptionLabels,
+  embeddedCellLabelKey,
+  embeddedCellOptionLabelKey,
+  fieldLabelKey,
+  fieldOptionLabelKey,
+} from "./list";
+import type {
+  EditFieldViewModel,
+  EditSectionViewModel,
+  EditViewModel,
+  EmbeddedListCellViewModel,
+  Translate,
+} from "./types";
+
+// Sub-field shape read off an EmbeddedFieldDef.schema entry. Mirrors
+// EmbeddedSubFieldDef from packages/types/src/fields.ts — headless only
+// depends on @cosmicdrift/kumiko-framework/ui-types (client-safe subset),
+// which doesn't re-export the embedded types, so this stays a local cast
+// shape like every other field-type narrowing in this file.
+type EmbeddedSubFieldShape = {
+  readonly type:
+    | "text"
+    | "number"
+    | "boolean"
+    | "date"
+    | "money"
+    | "decimal"
+    | "select"
+    | "reference";
+  readonly required?: boolean;
+  readonly options?: readonly string[];
+  readonly entity?: string;
+  readonly labelField?: string;
+};
 
 export type ComputeEditViewModelInput<
   TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
@@ -72,7 +105,11 @@ export function computeEditViewModel<
           : undefined;
       const optionLabels =
         options !== undefined
-          ? buildOptionLabels(translate, featureName, screen.entity, normalized.field, options)
+          ? buildOptionLabels(
+              translate,
+              (value) => fieldOptionLabelKey(featureName, screen.entity, normalized.field, value),
+              options,
+            )
           : undefined;
       // Multiline-Hint bei `type: "text"` — der Renderer wechselt
       // dann auf textarea. ViewModel hält die Form-Render-Decision
@@ -127,6 +164,69 @@ export function computeEditViewModel<
       const fileDef = isFileType
         ? (fieldDef as unknown as { accept?: readonly string[]; maxSize?: string })
         : undefined;
+      // Embedded-LIST field (`multiple: true`) — per-cell metadata for a
+      // renderer to draw one row per array item (invoice-positions-style
+      // table). A plain (non-list) embedded field emits none of this; the
+      // renderer tells the two apart by whether embeddedListCells is set,
+      // not by `type` (which stays "embedded" either way).
+      const isEmbeddedList =
+        fieldDef.type === "embedded" &&
+        (fieldDef as unknown as { multiple?: boolean }).multiple === true;
+      const embeddedListDef = isEmbeddedList
+        ? (fieldDef as unknown as {
+            schema: Readonly<Record<string, EmbeddedSubFieldShape>>;
+            minItems?: number;
+            maxItems?: number;
+            derived?: Readonly<
+              Record<
+                string,
+                { readonly op: "multiply" | "sum" | "subtract"; readonly from: readonly string[] }
+              >
+            >;
+            totals?: readonly string[];
+          })
+        : undefined;
+      const embeddedListCells: readonly EmbeddedListCellViewModel[] | undefined =
+        embeddedListDef !== undefined
+          ? Object.entries(embeddedListDef.schema).map(([subFieldName, subField]) => {
+              const cellLabel = translate(
+                embeddedCellLabelKey(featureName, screen.entity, normalized.field, subFieldName),
+              );
+              const cellOptions = subField.type === "select" ? (subField.options ?? []) : undefined;
+              const cellOptionLabels =
+                cellOptions !== undefined
+                  ? buildOptionLabels(
+                      translate,
+                      (value) =>
+                        embeddedCellOptionLabelKey(
+                          featureName,
+                          screen.entity,
+                          normalized.field,
+                          subFieldName,
+                          value,
+                        ),
+                      cellOptions,
+                    )
+                  : undefined;
+              const cellRefTarget =
+                subField.type === "reference" && subField.entity !== undefined
+                  ? parseRefTarget(subField.entity, featureName)
+                  : undefined;
+              const cell: EmbeddedListCellViewModel = {
+                field: subFieldName,
+                label: cellLabel,
+                type: subField.type,
+                required: subField.required === true,
+                ...(cellOptions !== undefined && { options: cellOptions }),
+                ...(cellOptionLabels !== undefined && { optionLabels: cellOptionLabels }),
+                ...(cellRefTarget !== undefined && { refEntity: cellRefTarget.entityName }),
+                ...(cellRefTarget !== undefined && { refFeature: cellRefTarget.featureName }),
+                ...(subField.type === "reference" &&
+                  subField.labelField !== undefined && { refLabelField: subField.labelField }),
+              };
+              return cell;
+            })
+          : undefined;
       const view: EditFieldViewModel = {
         field: normalized.field,
         label,
@@ -152,6 +252,19 @@ export function computeEditViewModel<
         ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),
         ...(isFileType && { entityType: screen.entity, fieldName: normalized.field }),
         ...(normalized.icon !== undefined && { icon: normalized.icon }),
+        ...(embeddedListCells !== undefined && { embeddedListCells }),
+        ...(embeddedListDef?.minItems !== undefined && {
+          embeddedListMinItems: embeddedListDef.minItems,
+        }),
+        ...(embeddedListDef?.maxItems !== undefined && {
+          embeddedListMaxItems: embeddedListDef.maxItems,
+        }),
+        ...(embeddedListDef?.derived !== undefined && {
+          embeddedListDerived: embeddedListDef.derived,
+        }),
+        ...(embeddedListDef?.totals !== undefined && {
+          embeddedListTotals: embeddedListDef.totals,
+        }),
       };
       return view;
     });

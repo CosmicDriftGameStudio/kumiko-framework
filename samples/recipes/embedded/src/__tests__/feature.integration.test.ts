@@ -13,6 +13,8 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { contactEntity } from "../entities/contact";
+import { invoiceEntity } from "../entities/invoice";
+import { productEntity } from "../entities/product";
 import { embeddedFeature } from "../feature";
 
 let stack: TestStack;
@@ -27,6 +29,8 @@ beforeAll(async () => {
     systemHooks: [],
   });
   await unsafeCreateEntityTable(stack.db, contactEntity);
+  await unsafeCreateEntityTable(stack.db, productEntity);
+  await unsafeCreateEntityTable(stack.db, invoiceEntity);
 });
 
 afterAll(async () => {
@@ -280,5 +284,70 @@ describe("tenant isolation", () => {
       otherTenant,
     );
     expect(detail).toBeNull();
+  });
+});
+
+// --- Invoice line items: select/reference/derived/totals metadata (#1835) ---
+
+describe("invoice line items with select/reference/derived/totals metadata", () => {
+  const validLine = {
+    product: "00000000-0000-4000-8000-000000000001",
+    unit: "pcs",
+    quantity: 2,
+    unitPrice: 500,
+    amount: 1000,
+  };
+
+  test("valid lines round-trip, including the client-computed amount", async () => {
+    const created = await stack.http.writeOk<SaveContext>(
+      "contacts:write:invoice:create",
+      { customer: "Acme Inc.", lines: [validLine] },
+      admin,
+    );
+    expect(created.data["lines"]).toEqual([validLine]);
+
+    const detail = await stack.http.queryOk<Record<string, unknown>>(
+      "contacts:query:invoice:detail",
+      { id: created.id },
+      admin,
+    );
+    expect(detail["lines"]).toEqual([validLine]);
+  });
+
+  test("a line with a unit outside the select options is rejected", async () => {
+    const error = await stack.http.writeErr(
+      "contacts:write:invoice:create",
+      { customer: "Bad Unit", lines: [{ ...validLine, unit: "liters" }] },
+      admin,
+    );
+    expect(error).toBeDefined();
+  });
+
+  test("a line with a non-UUID product reference is rejected", async () => {
+    const error = await stack.http.writeErr(
+      "contacts:write:invoice:create",
+      { customer: "Bad Product", lines: [{ ...validLine, product: "not-a-uuid" }] },
+      admin,
+    );
+    expect(error).toBeDefined();
+  });
+
+  test("an empty lines array violates minItems and is rejected", async () => {
+    const error = await stack.http.writeErr(
+      "contacts:write:invoice:create",
+      { customer: "No Lines", lines: [] },
+      admin,
+    );
+    expect(error).toBeDefined();
+  });
+
+  test("more than maxItems lines is rejected", async () => {
+    const tooManyLines = Array.from({ length: 6 }, () => ({ ...validLine }));
+    const error = await stack.http.writeErr(
+      "contacts:write:invoice:create",
+      { customer: "Too Many Lines", lines: tooManyLines },
+      admin,
+    );
+    expect(error).toBeDefined();
   });
 });
