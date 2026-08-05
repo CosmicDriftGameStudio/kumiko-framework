@@ -85,7 +85,7 @@ describe("rehydrateCompoundTypes — Pipeline", () => {
       label: "ACME",
       pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon", utc: "2026-04-15T09:00:00Z" },
       // rehydrateMoney converts minor units (DB) → major units (API, ÷100).
-      buyingPrice: { amount: 45_000, currency: "EUR" },
+      buyingPrice: { amount: 45_000, currency: "EUR", amountMinor: 4_500_000 },
     });
   });
 
@@ -98,7 +98,7 @@ describe("rehydrateCompoundTypes — Pipeline", () => {
     const round = rehydrateCompoundTypes(flattenCompoundTypes(original, mixedEntity), mixedEntity);
     // pickup bekommt utc dazu beim Read (war beim Insert nicht gesetzt)
     expect((round["pickup"] as { utc: string }).utc).toBe("2026-04-15T09:00:00Z");
-    expect(round["buyingPrice"]).toEqual({ amount: 100, currency: "EUR" });
+    expect(round["buyingPrice"]).toEqual({ amount: 100, currency: "EUR", amountMinor: 10_000 });
     expect(round["label"]).toBe("ACME");
   });
 

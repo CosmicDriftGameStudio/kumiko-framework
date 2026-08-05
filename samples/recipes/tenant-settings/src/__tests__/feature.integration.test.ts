@@ -47,9 +47,12 @@ afterAll(async () => {
 
 test("no tenant override yet — new invoice gets the feature's own default (EUR/en)", async () => {
   const invoice = await stack.http.writeOk<{
-    data: { amount: { amount: number; currency: string }; language: string };
+    data: {
+      amount: { amount: number; currency: string; amountMinor: number };
+      language: string;
+    };
   }>("invoice:write:invoice:create", { title: "Invoice 1", amount: { amount: 1000 } }, admin);
-  expect(invoice.data.amount).toEqual({ amount: 1000, currency: "EUR" });
+  expect(invoice.data.amount).toEqual({ amount: 1000, currency: "EUR", amountMinor: 100_000 });
   expect(invoice.data.language).toBe("en");
 });
 
@@ -66,20 +69,23 @@ test("tenant sets CHF/de — a new invoice without explicit values picks up the 
   );
 
   const invoice = await stack.http.writeOk<{
-    data: { amount: { amount: number; currency: string }; language: string };
+    data: {
+      amount: { amount: number; currency: string; amountMinor: number };
+      language: string;
+    };
   }>("invoice:write:invoice:create", { title: "Invoice 2", amount: { amount: 2000 } }, admin);
 
-  expect(invoice.data.amount).toEqual({ amount: 2000, currency: "CHF" });
+  expect(invoice.data.amount).toEqual({ amount: 2000, currency: "CHF", amountMinor: 200_000 });
   expect(invoice.data.language).toBe("de");
 });
 
 test("an explicit value in the payload wins over the tenant setting", async () => {
   const invoice = await stack.http.writeOk<{
-    data: { amount: { amount: number; currency: string } };
+    data: { amount: { amount: number; currency: string; amountMinor: number } };
   }>(
     "invoice:write:invoice:create",
     { title: "Invoice 3", amount: { amount: 3000, currency: "USD" } },
     admin,
   );
-  expect(invoice.data.amount).toEqual({ amount: 3000, currency: "USD" });
+  expect(invoice.data.amount).toEqual({ amount: 3000, currency: "USD", amountMinor: 300_000 });
 });

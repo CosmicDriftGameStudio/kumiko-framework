@@ -3,7 +3,10 @@
 // Vertrag (siehe auch db/located-timestamp.ts — gleicher Compound-Type-Pattern):
 //   API-Form:    { amount, currency } | number — amount in MAJOR units (56799.16 EUR)
 //   DB-Form:     <name> BIGINT (minor units, e.g. cents) + <name>Currency TEXT
-//   Read-Form:   { amount, currency } — amount in MAJOR units again
+//   Read-Form:   { amount, currency, amountMinor } — amount in MAJOR units again,
+//                amountMinor sits alongside as exact integer cents (fw#1830) for
+//                callers that need cent-exact comparisons (e.g. invoice sums)
+//                instead of round-tripping the float amount through /100·*100.
 //
 // table-builder.ts's moneyAmount column has always documented BIGINT as
 // "the integer minor unit" — this file used to just pass the API amount
@@ -151,7 +154,7 @@ export function rehydrateMoney(
     const currency =
       typeof currencyRaw === "string" && currencyRaw !== "" ? currencyRaw : fallbackCurrency;
 
-    result[name] = { amount: toMajorUnits(amountMinor), currency };
+    result[name] = { amount: toMajorUnits(amountMinor), currency, amountMinor };
   }
 
   return result;
