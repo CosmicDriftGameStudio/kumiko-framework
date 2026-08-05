@@ -9,6 +9,26 @@ import type {
 import { guardEmailMessage } from "./pii-guard";
 import type { EmailTransport } from "./types";
 
+// Envelope (From / Reply-To / threading headers) rides on the channel data —
+// the notification's email template echoes it out of the notify() call, since
+// buildMessage collapses the raw data to the template's result. Content
+// (subject, html) is rendered; these three are copied straight to the message.
+function emailEnvelopeFrom(data: Readonly<Record<string, unknown>> | undefined): {
+  from?: string;
+  replyTo?: string;
+  headers?: Readonly<Record<string, string>>;
+} {
+  if (!data) return {};
+  const from = typeof data["from"] === "string" ? (data["from"] as string) : undefined;
+  const replyTo = typeof data["replyTo"] === "string" ? (data["replyTo"] as string) : undefined;
+  const raw = data["headers"];
+  const headers =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Readonly<Record<string, string>>)
+      : undefined;
+  return { ...(from && { from }), ...(replyTo && { replyTo }), ...(headers && { headers }) };
+}
+
 export type EmailChannelOptions = {
   readonly transport: EmailTransport;
   readonly renderer: NotificationRenderer;
@@ -54,7 +74,8 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
 
     async send(address, message, _ctx, rendered) {
       const { html, subject } = rendered ?? (await renderMessage(message));
-      await transport.send(guardEmailMessage({ to: address, subject, html }));
+      const envelope = emailEnvelopeFrom(message.data);
+      await transport.send(guardEmailMessage({ to: address, subject, html, ...envelope }));
       return { status: "sent", address };
     },
   };

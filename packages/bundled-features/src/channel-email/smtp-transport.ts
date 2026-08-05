@@ -35,10 +35,10 @@ export type SmtpTransportOptions = {
     readonly user: string;
     readonly pass: string;
   };
-  /** Standard-From-Adresse für jede Mail. EmailMessage hat kein from-
-   *  Feld — die Auswahl gehört zur Transport-Konfig (App-weit, nicht
-   *  pro Mail). Format akzeptiert beides: "noreply@ex.com" oder
-   *  "Name <noreply@ex.com>". */
+  /** Default From-Adresse, app-weit. Eine einzelne Mail kann sie über
+   *  `EmailMessage.from` überschreiben (Reply aus einem bestimmten
+   *  Postfach); ohne Override greift diese. Format akzeptiert beides:
+   *  "noreply@ex.com" oder "Name <noreply@ex.com>". */
   readonly from: string;
 };
 
@@ -55,10 +55,12 @@ export function createSmtpTransport(options: SmtpTransportOptions): EmailTranspo
   return {
     async send(message: EmailMessage): Promise<void> {
       await transporter.sendMail({
-        from: options.from,
+        from: message.from ?? options.from,
         to: message.to,
         subject: message.subject,
         html: message.html,
+        ...(message.replyTo && { replyTo: message.replyTo }),
+        ...(message.headers && { headers: message.headers }),
       });
     },
   };
