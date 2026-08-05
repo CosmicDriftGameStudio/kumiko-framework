@@ -143,15 +143,19 @@ function DefaultButton({
   width = "auto",
   children,
   testId,
+  className,
+  ref,
 }: ButtonProps): ReactNode {
   // link-Variant rendert text-artig (Inline-Link im Fließtext/Banner), nicht als
   // gepolsterte Fläche; width="full" streckt CTA-Buttons in Karten/Panels.
-  const className =
-    [variant === "link" ? "h-auto px-0 py-0" : "", width === "full" ? "w-full" : ""]
-      .filter(Boolean)
-      .join(" ") || undefined;
+  const resolvedClassName = cn(
+    variant === "link" ? "h-auto px-0 py-0" : "",
+    width === "full" ? "w-full" : "",
+    className,
+  );
   return (
     <UiButton
+      ref={ref}
       type={type}
       onClick={onClick}
       disabled={disabled === true || loading === true}
@@ -160,7 +164,7 @@ function DefaultButton({
       variant={BUTTON_VARIANT[variant]}
       size={BUTTON_SIZE[size]}
       aria-label={ariaLabel}
-      className={className}
+      className={resolvedClassName}
     >
       {loading === true ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : children}
     </UiButton>

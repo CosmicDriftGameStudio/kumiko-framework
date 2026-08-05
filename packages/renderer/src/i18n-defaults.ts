@@ -58,6 +58,11 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.loading": "Lade…",
     "kumiko.widget.error.title": "Konnte nicht geladen werden.",
 
+    // Widgets — UploadZone Status-Zeile pro Datei.
+    "kumiko.widget.upload.uploading": "Wird hochgeladen…",
+    "kumiko.widget.upload.done": "Hochgeladen",
+    "kumiko.widget.upload.error": "Fehlgeschlagen",
+
     // Nav — Sidebar Tree (Toggle-aria-Labels).
     "kumiko.nav.expand": "Aufklappen",
     "kumiko.nav.collapse": "Zuklappen",
@@ -203,6 +208,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "kumiko.widget.loading": "Loading…",
     "kumiko.widget.error.title": "Couldn't load.",
+
+    "kumiko.widget.upload.uploading": "Uploading…",
+    "kumiko.widget.upload.done": "Uploaded",
+    "kumiko.widget.upload.error": "Failed",
 
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",
