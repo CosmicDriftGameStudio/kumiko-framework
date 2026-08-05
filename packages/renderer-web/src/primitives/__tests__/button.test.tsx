@@ -1,5 +1,3 @@
-// fw#1831 — ButtonProps.className/ref durchgereicht, damit ein Button auch
-// als Drop-Target o.ä. verwendet werden kann.
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import { createRef } from "react";

@@ -25,30 +25,30 @@ const STATUS_LABEL_KEY: Record<UploadRowStatus, string> = {
 };
 
 export type UploadZoneProps = {
-  /** Lädt eine einzelne Datei hoch (POST + ggf. Folge-Mutation). Wirft bei
-   *  Fehler — die Message landet in der Fehlerzeile. Läuft parallel pro
-   *  Datei eines Batches (kein sequentielles Warten). */
+  /** Uploads a single file (POST + optional follow-up mutation). Throws on
+   *  failure — the message ends up in the row's error line. Runs in
+   *  parallel per file within a batch (no sequential waiting). */
   readonly onUpload: (file: File) => Promise<void>;
   readonly title: ReactNode;
   readonly hint?: ReactNode;
   readonly accept?: readonly string[];
-  /** Mehrere Dateien pro Auswahl/Drop erlauben. Default true. */
+  /** Allow multiple files per pick/drop. Defaults to true. */
   readonly multiple?: boolean;
   readonly disabled?: boolean;
   readonly testId?: string;
 };
 
-// "jpg" → ".jpg", "image/png" bleibt. Leere Liste → kein accept-Attribut.
+// "jpg" → ".jpg", "image/png" stays as-is. Empty list → no accept attribute.
 function toAcceptAttr(accept?: readonly string[]): string | undefined {
   if (accept === undefined || accept.length === 0) return undefined;
   return accept.map((a) => (a.startsWith(".") || a.includes("/") ? a : `.${a}`)).join(",");
 }
 
-/** Drop-Zone + Multi-File-Picker mit Status-Zeile pro Datei (uploading/done/
- *  error). Für Screens die mehrere Dateien annehmen und eigenständig
- *  hochladen wollen — anders als `FileField` (Single-File, FileRef-Value in
- *  einem Form-Feld). `onUpload` entscheidet was "hochladen" heißt (Storage-
- *  POST, Ingest-Mutation, beides); die Zone kennt nur uploading/done/error. */
+/** Drop zone + multi-file picker with a per-file status row (uploading/done/
+ *  error). For screens that accept several files and upload them
+ *  independently — unlike `FileField` (single file, FileRef value inside a
+ *  form field). `onUpload` decides what "upload" means (storage POST, ingest
+ *  mutation, or both); the zone only tracks uploading/done/error. */
 export function UploadZone({
   onUpload,
   title,

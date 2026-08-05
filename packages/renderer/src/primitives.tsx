@@ -83,12 +83,12 @@ export type ButtonProps = {
   readonly width?: "full" | "auto";
   readonly children: ReactNode;
   readonly testId?: string;
-  /** Layout-Zusätze — Web merged via cn(), Native-Impls ignorieren es
-   *  (Präzedenz: LinkProps.className). */
+  /** Layout extras — Web merges via cn(), native impls ignore it
+   *  (precedent: LinkProps.className). */
   readonly className?: string;
-  /** DOM-Ref auf den Button — Escape-Hatch für Fälle die mehr brauchen als
-   *  Klick (z.B. Drop-Target-Handler binden). Web reicht sie durch, Native-
-   *  Impls ignorieren sie (kein natives Pendant vorhanden). */
+  /** DOM ref on the button — escape hatch for cases that need more than
+   *  a click (e.g. binding a drop-target handler). Web forwards it, native
+   *  impls ignore it (no native equivalent). */
   readonly ref?: Ref<HTMLButtonElement>;
 };
 
