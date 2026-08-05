@@ -521,6 +521,7 @@ function validateEmbeddedDerivedCells(
   entityName: string,
   field: EmbeddedFieldDef,
 ): void {
+  // skip: no derived cells declared — nothing to validate
   if (field.derived === undefined) return;
   for (const [derivedName, derivedDef] of Object.entries(field.derived)) {
     if (!(derivedName in field.schema)) {
@@ -543,6 +544,7 @@ function validateEmbeddedTotalsColumns(
   entityName: string,
   field: EmbeddedFieldDef,
 ): void {
+  // skip: no totals columns declared — nothing to validate
   if (field.totals === undefined) return;
   for (const totalName of field.totals) {
     const totalSubField = field.schema[totalName];
