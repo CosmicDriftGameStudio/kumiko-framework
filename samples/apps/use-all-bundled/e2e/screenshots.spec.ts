@@ -148,6 +148,13 @@ const SCENARIOS: readonly Scenario[] = [
     flow: admin("/settings/subscription-stripe-system"),
     settleMs: 1000,
   },
+  // audit — the event store exposed as the admin-gated audit log (tenant-admin
+  // workspace nav): paginated, filterable history of who/when/what.
+  { name: "audit-log", flow: admin("/tenant-admin/audit-log"), settleMs: 1000 },
+  // jobs — SystemAdmin operator UI on the platform workspace (run list, retry).
+  { name: "job-runs", flow: admin("/platform/job-runs"), settleMs: 1000 },
+  // delivery — delivery-attempt log (admin), the notification delivery record.
+  { name: "delivery-log", flow: admin("/tenant-admin/delivery-log"), settleMs: 1000 },
   // auth-mfa — logged-in self-service TOTP enrollment (QR + recovery codes).
   { name: "auth-mfa", flow: adminMfaEnroll(), settleMs: 1000 },
   // custom-fields + folders — drop-in extension sections on the note edit screen.
