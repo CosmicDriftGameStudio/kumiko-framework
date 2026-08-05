@@ -36,24 +36,12 @@ import {
 } from "@cosmicdrift/kumiko-renderer-web";
 import { Wallet } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { euro, percent } from "../lib/format";
 
 const RESPONSE_TIMES = Array.from({ length: 48 }, (_, i) => ({
   atMs: i * 30 * 60 * 1000,
   value: i === 20 ? null : 120 + Math.round(80 * Math.abs(Math.sin(i / 5))),
 }));
-
-// Static catalog demo values — separators follow the active locale, unlike
-// MoneyField/PercentField which bring their own formatters.
-function euro(n: number, locale: string): string {
-  return `${n.toLocaleString(locale)} €`;
-}
-function percent(n: number, locale: string): string {
-  const formatted = n.toLocaleString(locale, {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
-  return locale.startsWith("de") ? `${formatted} %` : `${formatted}%`;
-}
 
 export function Widgets(): ReactNode {
   const t = useTranslation();
