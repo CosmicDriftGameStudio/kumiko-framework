@@ -66,11 +66,22 @@ export function validateMetricName(name: string, type: MetricType): void {
 
 // Prefix a short feature-local metric name with the Kumiko + feature prefix.
 // Short name: "created_total". Feature: "orders". Result: "kumiko_orders_created_total".
+//
+// Feature names are kebab-case everywhere else (qualified-name segments,
+// r.metric() is called with `feature.name` as registered at defineFeature
+// time) — normalize "-" to "_" here so a feature like "ai-foundation"
+// resolves to the same "kumiko_ai_foundation_x" on both the registration
+// path (registry-ingest.ts) and the read path (ctx.metrics / ctx.metricsFor),
+// instead of the kebab form being rejected outright (framework#1844).
 export function buildMetricName(featureName: string, shortName: string): string {
-  if (!SNAKE_CASE.test(featureName)) {
-    throw new Error(`[Kumiko Observability] Feature name "${featureName}" must be snake_case.`);
+  const normalizedFeatureName = featureName.replace(/-/g, "_");
+  if (!SNAKE_CASE.test(normalizedFeatureName)) {
+    throw new Error(
+      `[Kumiko Observability] Feature name "${featureName}" must be kebab-case or snake_case ` +
+        `(a-z, 0-9, "-" or "_").`,
+    );
   }
-  return `kumiko_${featureName}_${shortName}`;
+  return `kumiko_${normalizedFeatureName}_${shortName}`;
 }
 
 // Validate label keys: snake_case, not reserved.

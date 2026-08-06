@@ -58,6 +58,7 @@ export function bridgeStub(opts?: {
   | "resolveAuthClaims"
   | "hasFeature"
   | "metrics"
+  | "metricsFor"
   | "tracer"
   | "tz"
   | "user"
@@ -119,6 +120,7 @@ export function bridgeStub(opts?: {
     // when no effectiveFeatures resolver is wired (tests without toggles).
     hasFeature: async () => true,
     metrics: createNoopMetricsHandle(),
+    metricsFor: () => createNoopMetricsHandle(),
     tracer: noopTracer,
     // Echter TzContext, kein notAvailable — Test-Code nutzt ctx.tz häufig
     // ohne dass es ein "Bridge"-Konzept ist. Default UTC.

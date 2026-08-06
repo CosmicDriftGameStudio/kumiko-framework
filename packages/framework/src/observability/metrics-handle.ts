@@ -27,6 +27,40 @@ export function createMetricsHandle(meter: Meter, featureName: string): MetricsH
   };
 }
 
+// Same feature-bound resolution as createMetricsHandle, but for an
+// explicit `featureName` chosen by the caller rather than the dispatching
+// handler's own feature (framework#1844). Meant for shared/library code
+// invoked from many features' HandlerContext (ctx.metricsFor) — the
+// library owns one stable metric name instead of splintering into
+// kumiko_<caller>_x per consumer.
+//
+// Decision (framework#1844 DoD): unlike createMetricsHandle, an
+// unregistered name here is a silent no-op, not a throw. This handle is
+// meant for error/catch-path counters in shared code — a missing
+// registration (consuming feature not mounted, metric not declared yet)
+// must not turn an already-swallowed error into a thrown one. Every other
+// failure (invalid featureName, wrong metric type for the call) still
+// throws — only the "not registered" case is swallowed.
+export function createSafeMetricsHandle(meter: Meter, featureName: string): MetricsHandle {
+  return {
+    inc(shortName, labels, value) {
+      const name = buildMetricName(featureName, shortName);
+      if (!meter.definitions().has(name)) return;
+      meter.counter(name).inc(value, labels);
+    },
+    observe(shortName, value, labels) {
+      const name = buildMetricName(featureName, shortName);
+      if (!meter.definitions().has(name)) return;
+      meter.histogram(name).observe(value, labels);
+    },
+    set(shortName, value, labels) {
+      const name = buildMetricName(featureName, shortName);
+      if (!meter.definitions().has(name)) return;
+      meter.gauge(name).set(value, labels);
+    },
+  };
+}
+
 // Fallback for contexts where the feature is unknown (e.g. system-hooks,
 // internal pipeline code). Short names are used verbatim — useful for
 // framework-level usage, but rejected by the Meter unless pre-registered.
