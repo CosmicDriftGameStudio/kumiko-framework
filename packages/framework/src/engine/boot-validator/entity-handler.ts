@@ -384,26 +384,17 @@ function isValidEmbeddedDecimalScale(scale: number): boolean {
   return Number.isInteger(scale) && scale >= 0 && scale <= 15;
 }
 
-// Tier 2.7e-3 + Cross-Feature: ReferenceFieldDef-Validation.
-//   1) referenced entity existiert (same-feature OR cross-feature
-//      qualifiziert per "<feature>:<entity>"). Same-feature ist
-//      Default; cross-feature verlangt expliziten ":"-Prefix.
-//   2) labelField (wenn gesetzt) existiert auf der referenced Entity.
-//   3) Self-Reference erlaubt (entity → entity).
-//   4) Audit-Fix: Query-Handler `<feature>:query:<entity>:list` muss
-//      registriert sein — der Renderer feuert den beim Combobox-
-//      Open. Ohne Handler crasht die Combobox zur Laufzeit.
-// Shared by top-level reference fields and reference sub-fields of an
-// embedded field — same three checks, only the field-path in error messages
-// differs ("accountId" vs "lines.accountId") so a failure is locatable
-// either way.
-//   1) referenced entity existiert (same-feature OR cross-feature
-//      qualifiziert per "<feature>:<entity>"). Same-feature ist
-//      Default; cross-feature verlangt expliziten ":"-Prefix.
-//   2) labelField (wenn gesetzt) existiert auf der referenced Entity.
-//   3) Audit-Fix: Query-Handler `<feature>:query:<entity>:list` muss
-//      registriert sein — der Renderer feuert den beim Combobox-Open.
-//      Ohne Handler crasht die Combobox zur Laufzeit.
+// Tier 2.7e-3 + Cross-Feature: ReferenceFieldDef validation, shared by
+// top-level reference fields and reference sub-fields of an embedded field
+// (only the field-path in error messages differs, e.g. "accountId" vs
+// "lines.accountId", so a failure is locatable either way).
+//   1) referenced entity exists (same-feature OR cross-feature qualified via
+//      "<feature>:<entity>"). Same-feature is the default; cross-feature
+//      requires an explicit ":" prefix.
+//   2) labelField (if set) exists on the referenced entity.
+//   3) Query handler `<feature>:query:<entity>:list` is registered — the
+//      renderer fires it on Combobox open, so a missing handler crashes the
+//      Combobox at runtime.
 function validateReferenceTarget(
   entityName: string,
   fieldPath: string,
@@ -440,7 +431,7 @@ function validateReferenceTarget(
   }
   if (labelField !== undefined) {
     const knownFields = Object.keys(targetEntity.fields);
-    // "id" ist immer da, auch ohne Field-Definition (PK).
+    // "id" always exists, even without an explicit field definition (PK).
     if (labelField !== "id" && !knownFields.includes(labelField)) {
       throw new Error(
         `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
@@ -449,11 +440,11 @@ function validateReferenceTarget(
       );
     }
   }
-  // Audit-Fix #2: Query-Handler-Existenz pinnen. Renderer feuert
-  // `<targetFeature>:query:<targetEntity>:list` beim Combobox-Open
-  // (use-reference-lookup, ReferenceInput); ohne Handler kommt
-  // beim ersten Klick ein 404. defaultEntityQueryHandler-Names
-  // sind als kurz "<entity>:list" in feature.queryHandlers gespeichert.
+  // Pins query-handler existence. The renderer fires
+  // `<targetFeature>:query:<targetEntity>:list` on Combobox open
+  // (use-reference-lookup, ReferenceInput); without a handler that's a 404
+  // on first click. defaultEntityQueryHandler names are stored short as
+  // "<entity>:list" in feature.queryHandlers.
   const expectedHandlerShortName = `${target.entityName}:list`;
   if (targetFeature.queryHandlers[expectedHandlerShortName] === undefined) {
     throw new Error(
@@ -466,10 +457,10 @@ function validateReferenceTarget(
   }
 }
 
-// Tier 2.7e-3 + Cross-Feature: ReferenceFieldDef-Validation für Top-Level-
-// Reference-Felder. Self-Reference erlaubt (entity → entity). Die eigentlichen
-// Checks laufen in validateReferenceTarget — geteilt mit den Reference-
-// Sub-Feldern eines embedded-Felds (validateEmbeddedFields).
+// Tier 2.7e-3 + Cross-Feature: ReferenceFieldDef validation for top-level
+// reference fields (self-reference, entity → entity, is allowed). The actual
+// checks run in validateReferenceTarget — shared with the reference
+// sub-fields of an embedded field (validateEmbeddedFields).
 export function validateReferenceFields(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
