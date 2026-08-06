@@ -49,13 +49,14 @@ export function RenderField({
   fieldAppendix,
   allIssues,
 }: RenderFieldProps): ReactNode {
-  const { Field, Input } = usePrimitives();
+  const { Field, Input, Banner } = usePrimitives();
   // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
   // navigator.language (Browser-Sprache) zurück statt der gewählten
   // App-Sprache. BEWUSSTE API-Verschärfung (seit 0.38): RenderField ist
   // public exportiert und verlangt jetzt einen LocaleProvider —
   // Standalone-Consumer/Tests müssen wrappen (createKumikoApp tut es).
   const appLocale = useLocale().locale();
+  const t = useTranslation();
   if (!field.visible) return null;
 
   const id = inputId(field);
@@ -83,7 +84,7 @@ export function RenderField({
         featureName={featureName ?? ""}
       />
     ) : (
-      renderInput({ field, id, hasError, onChange, Input, appLocale })
+      renderInput({ field, id, hasError, onChange, Input, appLocale, Banner, t })
     );
 
   return (
@@ -285,10 +286,11 @@ function inputId(field: EditFieldViewModel): string {
   return `kumiko-edit-${field.field}`;
 }
 
-// Dispatch auf field.type → Input-Kind. Select threaded options aus dem
-// EditFieldViewModel (computeEditViewModel zieht sie aus
-// SelectFieldDef.options). Unknown-Types fallen auf text zurück damit
-// die Form was Sinnvolles rendert statt blank zu sein.
+// Dispatches field.type → Input-kind. Select threads options through
+// from the EditFieldViewModel (computeEditViewModel pulls them from
+// SelectFieldDef.options). Structural types without a widget (embedded,
+// jsonb, multiSelect) render read-only instead of a data-destroying text
+// fallback (#1834); truly unknown scalar types still fall back to text.
 function renderInput({
   field,
   id,
@@ -296,6 +298,8 @@ function renderInput({
   onChange,
   Input,
   appLocale,
+  Banner,
+  t,
 }: {
   readonly field: EditFieldViewModel;
   readonly id: string;
@@ -303,6 +307,8 @@ function renderInput({
   readonly onChange: (value: unknown) => void;
   readonly Input: ReturnType<typeof usePrimitives>["Input"];
   readonly appLocale: string;
+  readonly Banner: ReturnType<typeof usePrimitives>["Banner"];
+  readonly t: ReturnType<typeof useTranslation>;
 }): ReactNode {
   const common = {
     id,
@@ -421,9 +427,23 @@ function renderInput({
         />
       );
     }
+    // embedded (without embeddedListCells — that's embeddedList, which has
+    // had its own EmbeddedListField widget since #1838), jsonb and
+    // multiSelect carry objects/arrays. Without a dedicated widget these
+    // must NOT fall through to a text input: stringValue() turns them into
+    // "[object Object]" / "a,b", and saving that overwrites the real data
+    // with the mangled string (#1834).
+    case "embedded":
+    case "jsonb":
+    case "multiSelect":
+      return (
+        <Banner id={id} variant="info">
+          {t("kumiko.field.unsupported")}
+        </Banner>
+      );
     default: {
-      // text + unknown → text input. Wenn TextFieldDef.multiline gesetzt
-      // ist (das ViewModel hält's), wechselt der Renderer auf textarea.
+      // text + unknown scalar type → text input. If TextFieldDef.multiline
+      // is set (the view-model carries it), the renderer switches to textarea.
       if (field.type === "text" && field.multiline) {
         const rows = typeof field.multiline === "object" ? field.multiline.rows : undefined;
         return (

@@ -126,6 +126,10 @@ export type BannerProps = {
    *  "loading", etc.). Web fügt p-6 als Margin um den Banner. */
   readonly padded?: boolean;
   readonly testId?: string;
+  /** Set when a `<Field>` wraps this Banner as its control (no actual
+   *  input exists to receive the label's `htmlFor` otherwise — see
+   *  render-field.tsx's unsupported-field-type fallback, #1834). */
+  readonly id?: string;
 };
 
 export type FieldProps = {

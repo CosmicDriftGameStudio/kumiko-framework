@@ -180,10 +180,12 @@ function DefaultBanner({
   actions,
   padded,
   testId,
+  id,
 }: BannerProps): ReactNode {
   const isError = variant === "error";
   const banner = (
     <div
+      id={id}
       data-testid={testId}
       role={isError ? "alert" : undefined}
       data-variant={variant}
