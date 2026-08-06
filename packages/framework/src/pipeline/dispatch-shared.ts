@@ -53,6 +53,7 @@ import { createFileContext } from "../files/file-handle";
 import {
   createMetricsHandle,
   createNoopMetricsHandle,
+  createSafeMetricsHandle,
   emitDispatcherError,
   emitDispatcherHandler,
   type getFallbackMeter,
@@ -217,6 +218,13 @@ export async function buildHandlerContext(
   const featureName = registry.getHandlerFeature(type);
   const metrics =
     meter && featureName ? createMetricsHandle(meter, featureName) : createNoopMetricsHandle();
+  // ctx.metricsFor(featureName) — shared/library code binds to a feature
+  // name of its own choosing instead of the dispatching handler's
+  // (framework#1844). Unregistered names no-op rather than throw, see
+  // createSafeMetricsHandle.
+  const metricsFor = meter
+    ? (targetFeatureName: string) => createSafeMetricsHandle(meter, targetFeatureName)
+    : () => createNoopMetricsHandle();
 
   // Cross-feature bridge. Queries and writes invoked through ctx.* share:
   //   - the current transaction (tx) — nested writes roll back with the parent
@@ -571,6 +579,7 @@ export async function buildHandlerContext(
     }),
     tracer,
     metrics,
+    metricsFor,
     tz,
     // Cancellation signal flows from the HTTP middleware via
     // requestContext. Conditional spread so non-HTTP entry-points

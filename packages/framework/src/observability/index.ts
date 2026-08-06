@@ -13,6 +13,7 @@ export {
 export {
   createMetricsHandle,
   createNoopMetricsHandle,
+  createSafeMetricsHandle,
   createUnboundMetricsHandle,
 } from "./metrics-handle";
 export { createNoopProvider } from "./noop-provider";

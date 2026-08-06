@@ -504,6 +504,20 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // Feature code can call ctx.metrics.inc(...) / ctx.tracer.startSpan(...)
   // without null-checks.
   readonly metrics: MetricsHandle;
+
+  // For shared/library code invoked from many features' HandlerContext
+  // (e.g. a helper package called by several consumer features): binds to
+  // `featureName` instead of the dispatching handler's own feature, so the
+  // library counts under one stable kumiko_<featureName>_x name instead of
+  // splintering per caller. `featureName` accepts the same kebab-case form
+  // used as the feature's own name at defineFeature() — normalized to
+  // snake_case internally before resolving the metric name.
+  //
+  // Unlike ctx.metrics, an unregistered metric name here is a silent
+  // no-op, not a throw (framework#1844) — this handle is meant for
+  // error/catch-path counters in shared code, where a missing registration
+  // must not turn an already-swallowed error into a thrown one.
+  readonly metricsFor: (featureName: string) => MetricsHandle;
   readonly tracer: Tracer;
 
   // Time + TZ helper. Feature code MUST go through this instead of

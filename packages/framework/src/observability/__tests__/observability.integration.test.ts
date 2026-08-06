@@ -557,3 +557,83 @@ describe("Observability (integration) — error path", () => {
     expect(errorCounter?.labels?.["handler"]).toBe("err:write:boom");
   });
 });
+
+// Simulates shared/library code called from several consumer features
+// (framework#1844's ai-foundation scenario) — the same call site, not a
+// copy-pasted inc() per feature. Feature names use real kebab-case (as
+// declared at defineFeature time and used in QN dispatch types) — buildMetricName
+// normalizes "-" to "_" so registration and lookup resolve to the same name.
+function recordSharedCall(ctx: {
+  metricsFor: (featureName: string) => { inc: (n: string) => void };
+}) {
+  ctx.metricsFor("shared-lib").inc("call_total");
+}
+
+const sharedLibFeature = defineFeature("shared-lib", (r) => {
+  r.metric("call_total", { type: "counter" });
+});
+
+const consumerAFeature = defineFeature("consumer-a", (r) => {
+  r.writeHandler(
+    "run",
+    z.object({}),
+    async (_event, ctx) => {
+      recordSharedCall(ctx);
+      return { isSuccess: true, data: { ok: true } };
+    },
+    { access: { openToAll: true } },
+  );
+});
+
+const consumerBFeature = defineFeature("consumer-b", (r) => {
+  r.writeHandler(
+    "run",
+    z.object({}),
+    async (_event, ctx) => {
+      recordSharedCall(ctx);
+      ctx.metricsFor("unregistered-lib").inc("never_total");
+      return { isSuccess: true, data: { ok: true } };
+    },
+    { access: { openToAll: true } },
+  );
+});
+
+describe("Observability (integration) — ctx.metricsFor", () => {
+  let stack: TestStack;
+  let provider: RecordingProvider;
+
+  beforeEach(async () => {
+    provider = createRecordingProvider();
+    stack = await setupTestStack({
+      features: [sharedLibFeature, consumerAFeature, consumerBFeature],
+      observability: provider,
+    });
+  });
+
+  afterEach(async () => {
+    await stack.cleanup();
+  });
+
+  it("resolves the same library-owned metric name from two different consumer features", async () => {
+    await stack.http.command("consumer-a:write:run", {}, adminUser);
+    await stack.http.command("consumer-b:write:run", {}, adminUser);
+
+    const sharedEvents = provider.metricEvents.filter(
+      (e) => e.type === "counter.inc" && e.name === "kumiko_shared_lib_call_total",
+    );
+    expect(sharedEvents).toHaveLength(2);
+
+    const splinteredEvents = provider.metricEvents.filter(
+      (e) => e.type === "counter.inc" && /^kumiko_consumer_(a|b)_call_total$/.test(e.name),
+    );
+    expect(splinteredEvents).toHaveLength(0);
+  });
+
+  it("does not throw and emits nothing for an unregistered metricsFor name", async () => {
+    const res = await stack.http.command("consumer-b:write:run", {}, adminUser);
+    expect(res.status).toBeLessThan(300);
+
+    const neverEvents = provider.metricEvents.filter((e) => e.name.includes("never_total"));
+    expect(neverEvents).toHaveLength(0);
+  });
+});
