@@ -2,6 +2,7 @@
 //   /combobox  → standalone ComboboxInput-Test-Page (Browser-Reality
 //                des Mouse-Click-Bugs reproduzieren ohne AppSchema)
 //   /date      → DateInput
+//   /money     → MoneyInput
 //   /signup    → SignupScreen via createPublicSurface (auth e2e)
 //   sonst      → createKumikoApp mit MockDispatcher (Standard-Smoke-Suite)
 
@@ -11,6 +12,7 @@ import { createRoot } from "react-dom/client";
 import { ComboboxTestPage } from "./combobox-page";
 import { DateTestPage } from "./date-page";
 import { createMockDispatcher } from "./mock-dispatcher";
+import { MoneyTestPage } from "./money-page";
 import { e2eSchema } from "./schema";
 
 function mountReact(node: ReactNode): void {
@@ -28,6 +30,11 @@ async function boot(): Promise<void> {
 
   if (path.startsWith("/date")) {
     mountReact(<DateTestPage />);
+    return;
+  }
+
+  if (path.startsWith("/money")) {
+    mountReact(<MoneyTestPage />);
     return;
   }
 

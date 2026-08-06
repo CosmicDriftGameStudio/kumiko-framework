@@ -104,6 +104,23 @@ describe("MoneyInput — Render (Tier 2)", () => {
     expect(value).not.toContain("€");
   });
 
+  test("Focus selektiert den gesamten Draft (bewusstes Select-all-on-focus) — sonst hängt ein danach eingefügter Wert an statt sie zu ersetzen (#1856)", () => {
+    render(
+      <MoneyInput
+        id="amt"
+        name="amt"
+        value={1000}
+        onChange={() => {}}
+        currency="EUR"
+        locale="de-DE"
+      />,
+    );
+    fireEvent.focus(inputEl());
+    const input = inputEl();
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(input.value.length);
+  });
+
   test("Blur mit neuem Wert ruft onChange mit Minor-Units (Cents)", () => {
     const onChange = mock((_v: number | undefined) => {});
     render(
