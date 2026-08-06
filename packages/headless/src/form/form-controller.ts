@@ -74,6 +74,24 @@ function valuesDiff<TValues extends FormValues>(
   return out;
 }
 
+// buildInitialValues seeds untouched optional fields with "" for controlled
+// inputs; a `.optional()` server schema accepts undefined but not "".
+function stripUntouchedEmptyStrings<TValues extends FormValues>(
+  values: TValues,
+  initial: TValues,
+): TValues {
+  const v = values as Record<string, unknown>; // @cast-boundary form-values
+  const ini = initial as Record<string, unknown>; // @cast-boundary form-values
+  let out: Record<string, unknown> | undefined;
+  for (const key of Object.keys(v)) {
+    if (v[key] === "" && Object.is(v[key], ini[key])) {
+      out ??= { ...v };
+      delete out[key];
+    }
+  }
+  return (out ?? v) as TValues;
+}
+
 // Shallow-freeze so accidental mutations on the snapshot (e.g. a test
 // writing `snapshot.values.title = "x"`) throw in strict mode instead of
 // silently diverging from the controller's internal state. Deep-freeze
@@ -304,7 +322,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
         }
         payload = submittedSnapshot.changes;
       } else {
-        payload = submittedValues;
+        payload = stripUntouchedEmptyStrings(submittedValues, submittedSnapshot.initial);
       }
 
       const runWrite = async (): Promise<SubmitResult<TData>> => {
