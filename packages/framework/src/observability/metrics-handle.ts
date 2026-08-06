@@ -45,16 +45,19 @@ export function createSafeMetricsHandle(meter: Meter, featureName: string): Metr
   return {
     inc(shortName, labels, value) {
       const name = buildMetricName(featureName, shortName);
+      // skip: unregistered name is the documented no-op contract of this handle
       if (!meter.definitions().has(name)) return;
       meter.counter(name).inc(value, labels);
     },
     observe(shortName, value, labels) {
       const name = buildMetricName(featureName, shortName);
+      // skip: unregistered name is the documented no-op contract of this handle
       if (!meter.definitions().has(name)) return;
       meter.histogram(name).observe(value, labels);
     },
     set(shortName, value, labels) {
       const name = buildMetricName(featureName, shortName);
+      // skip: unregistered name is the documented no-op contract of this handle
       if (!meter.definitions().has(name)) return;
       meter.gauge(name).set(value, labels);
     },
