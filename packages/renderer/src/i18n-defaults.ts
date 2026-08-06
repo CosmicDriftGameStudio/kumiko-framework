@@ -36,6 +36,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.locatedTzHint": "Zeit lokal am angegebenen Ort",
     "kumiko.field.reference-created-no-id":
       "Datensatz wurde angelegt, konnte aber nicht automatisch ausgewählt werden. Bitte manuell auswählen.",
+    "kumiko.field.unsupported": "Dieser Feldtyp kann hier noch nicht bearbeitet werden.",
     "kumiko.field.embedded-list.add-row": "Zeile hinzufügen",
     "kumiko.field.embedded-list.remove-row": "Zeile entfernen",
     "kumiko.field.embedded-list.duplicate-row": "Zeile duplizieren",
@@ -199,6 +200,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.locatedTzHint": "Time local to the given location",
     "kumiko.field.reference-created-no-id":
       "Record was created but could not be selected automatically. Please select it manually.",
+    "kumiko.field.unsupported": "This field type can't be edited here yet.",
     "kumiko.field.embedded-list.add-row": "Add row",
     "kumiko.field.embedded-list.remove-row": "Remove row",
     "kumiko.field.embedded-list.duplicate-row": "Duplicate row",
