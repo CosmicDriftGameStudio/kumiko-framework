@@ -51,8 +51,9 @@ CREATE INDEX events_load_idx ON kumiko_events (aggregate_id, version);
 CREATE INDEX events_tenant_type_idx ON kumiko_events (tenant_id, aggregate_type, created_at);
 
 -- =============================================================================
--- 2. Seed — one row per ai-call, payload keys match buildAiCallPayload()'s
---    "success" branch (the common case: successful chat completions).
+-- 2. Seed — one row per ai-call. Payload keys match a successful chat
+--    completion call (the common case; failed calls carry an error kind
+--    and HTTP status instead).
 --    Spread: :prompt_versions promptVersion buckets (12-hex-char sha256
 --    slices in reality; here just deterministic hex strings of the same
 --    length), 5 tenants, created_at spread across a 90-day window,
