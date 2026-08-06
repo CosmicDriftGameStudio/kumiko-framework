@@ -270,52 +270,52 @@ export function Gallery(): ReactNode {
         </div>
       </Block>
 
-      <Block id="form-flat" title="Form — flache Felder (Custom-Screen)">
-        {/* Custom-Screen-Muster (money-horse credit-calc): flache <Field> direkt
-            im <Form>, KEINE Sections. Erwartung: eine Card, Felder gepaddet +
-            gestapelt, KEINE Trennlinie zwischen jedem Feld. */}
+      <Block id="form-flat" title="Form — flat fields (Custom-Screen)">
+        {/* Custom-Screen pattern (money-horse credit-calc): flat <Field> directly
+            in <Form>, NO Sections. Expected: one Card, fields padded +
+            stacked, NO divider between each field. */}
         <Form
-          title="Kredit anlegen"
+          title="Create loan"
           onSubmit={noop}
           actions={
             <>
-              <Button variant="primary">Speichern</Button>
-              <Button variant="secondary">Neu</Button>
+              <Button variant="primary">Save</Button>
+              <Button variant="secondary">New</Button>
             </>
           }
         >
-          <Field id="cf-name" label="Bezeichnung" required>
+          <Field id="cf-name" label="Description" required>
             <Input kind="text" id="cf-name" name="cf-name" value="" onChange={noop} />
           </Field>
-          <Field id="cf-sum" label="Darlehenssumme" required>
+          <Field id="cf-sum" label="Loan amount" required>
             <Input kind="number" id="cf-sum" name="cf-sum" value="" onChange={noop} />
           </Field>
-          <Field id="cf-interest" label="Sollzins %" required>
+          <Field id="cf-interest" label="Interest rate %" required>
             <Input kind="number" id="cf-interest" name="cf-interest" value="" onChange={noop} />
           </Field>
           <p className="text-muted-foreground text-sm">
-            Hinweis: bei Volltilgung wird die Tilgung aus der Laufzeit abgeleitet.
+            Note: for full repayment, the amortization is derived from the term.
           </p>
-          <Field id="cf-start" label="Beginn" required>
+          <Field id="cf-start" label="Start date" required>
             <Input kind="text" id="cf-start" name="cf-start" value="" onChange={noop} />
           </Field>
         </Form>
       </Block>
 
       <Block id="form-sectioned" title="Form — Sections (Auto-UI-Edit, Gate)">
-        {/* Auto-UI-Edit-Muster: <Section>-Children, getrennt durch EINE Linie
-            zwischen den Sections. Darf durch den flat-Fix NICHT brechen. */}
-        <Form title="Eintrag bearbeiten" onSubmit={noop} actions={<Button>Speichern</Button>}>
-          <Section title="Stammdaten">
+        {/* Auto-UI-Edit pattern: <Section> children, separated by ONE line
+            between sections. Must NOT break from the flat-fix. */}
+        <Form title="Edit entry" onSubmit={noop} actions={<Button>Save</Button>}>
+          <Section title="Basic data">
             <Field id="sf-name" label="Name">
               <Input kind="text" id="sf-name" name="sf-name" value="" onChange={noop} />
             </Field>
-            <Field id="sf-email" label="E-Mail">
+            <Field id="sf-email" label="Email">
               <Input kind="text" id="sf-email" name="sf-email" value="" onChange={noop} />
             </Field>
           </Section>
-          <Section title="Adresse">
-            <Field id="sf-city" label="Ort">
+          <Section title="Address">
+            <Field id="sf-city" label="City">
               <Input kind="text" id="sf-city" name="sf-city" value="" onChange={noop} />
             </Field>
           </Section>
@@ -323,25 +323,25 @@ export function Gallery(): ReactNode {
       </Block>
 
       <Block id="card-standard" title="Card-Standard — Section (standalone)">
-        {/* Standalone <Section> (außerhalb Form) = der Calculator-Result-Card-
-            Standard. title-only = Bestands-Consumer (publicstatus/tier-admin),
-            darf durch den border-b-Removal NICHT schlechter werden; subtitle +
-            actions-Footer = neu. Kein Divider unterm Titel (shadcn-Muster). */}
+        {/* Standalone <Section> (outside Form) = the calculator-result-card
+            standard. title-only = existing consumer (publicstatus/tier-admin),
+            must NOT regress from the border-b removal; subtitle +
+            actions footer = new. No divider under the title (shadcn pattern). */}
         <div className="flex max-w-md flex-col gap-6">
-          <Section title="Tragbare Rate / Monat">
-            <div className="text-2xl font-semibold tabular-nums">2.500,00 €</div>
+          <Section title="Affordable rate / month">
+            <div className="text-2xl font-semibold tabular-nums">€2,500.00</div>
           </Section>
           <Section
-            title="Ergebnis"
-            subtitle="Aus deinem Budget die größtmögliche Kreditsumme."
-            actions={<Button variant="primary">In Finanzierung übernehmen</Button>}
+            title="Result"
+            subtitle="The largest loan amount your budget allows."
+            actions={<Button variant="primary">Apply to financing</Button>}
           >
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Maximalkredit</span>
-              <span className="font-semibold tabular-nums">545.455,00 €</span>
+              <span className="text-muted-foreground">Maximum loan</span>
+              <span className="font-semibold tabular-nums">€545,455.00</span>
             </div>
             <p className="text-muted-foreground text-sm">
-              Faustregel: die Rate sollte etwa 35 % des Haushaltsnettos nicht übersteigen.
+              Rule of thumb: the rate should not exceed about 35% of net household income.
             </p>
           </Section>
         </div>
