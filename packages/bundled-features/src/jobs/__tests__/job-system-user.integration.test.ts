@@ -77,6 +77,7 @@ const billingFeature = defineFeature("billing", (r) => {
         { type: "config:write:set", payload: parsed, user: systemUser },
         {
           db: tenantDb,
+          dbOutsideTransaction: tenantDb,
           registry: reg,
           configResolver: ctx["configResolver"] as ConfigResolver,
           ...bridgeStub(),
@@ -164,6 +165,7 @@ describe("SYSTEM_USER in jobs", () => {
       { type: ConfigHandlers.set, payload: parsed, user: adminUser },
       {
         db: createTenantDb(db, adminUser.tenantId, "system"),
+        dbOutsideTransaction: createTenantDb(db, adminUser.tenantId, "system"),
         registry,
         configResolver: resolver,
         ...bridgeStub(),
