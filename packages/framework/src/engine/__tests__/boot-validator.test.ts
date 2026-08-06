@@ -7,6 +7,7 @@ import { validateBoot as validateBootRaw } from "../boot-validator";
 import { createSystemConfig, createTenantConfig } from "../config-helpers";
 import {
   createDerivedField,
+  createEmbeddedListField,
   createEntity,
   createMultiSelectField,
   createTextField,
@@ -17,6 +18,23 @@ import {
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
+}
+
+// Registriert einen Stub-Query-Handler `<entity>:list` damit der Boot-
+// Validator den Audit-Fix-#2-Check (Handler-Existenz auf der target-
+// Entity) durch lässt — used by both top-level and embedded-list
+// reference-field tests.
+function stubListHandler(
+  // biome-ignore lint/suspicious/noExplicitAny: Registrar-Typ ist generisch, hier reicht das.
+  r: any,
+  entityName: string,
+): void {
+  r.queryHandler({
+    name: `${entityName}:list`,
+    schema: z.object({}),
+    handler: async () => ({ rows: [], nextCursor: null }) as never,
+    access: { openToAll: true },
+  });
 }
 
 describe("boot-validator", () => {
@@ -2030,22 +2048,6 @@ describe("boot-validator", () => {
 
   // --- Tier 2.7e-3: ReferenceFieldDef ---
   describe("reference field (Tier 2.7e-3)", () => {
-    // Helper: registriert einen Stub-Query-Handler `<entity>:list`
-    // damit der Boot-Validator den Audit-Fix-#2-Check (Handler-
-    // Existenz auf der target-Entity) durch lässt.
-    function stubListHandler(
-      // biome-ignore lint/suspicious/noExplicitAny: Registrar-Typ ist generisch, hier reicht das.
-      r: any,
-      entityName: string,
-    ): void {
-      r.queryHandler({
-        name: `${entityName}:list`,
-        schema: z.object({}),
-        handler: async () => ({ rows: [], nextCursor: null }) as never,
-        access: { openToAll: true },
-      });
-    }
-
     test("reference auf bestehende Entity → kein Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
@@ -2265,6 +2267,100 @@ describe("boot-validator", () => {
       ];
       expect(() => validateBoot(features)).toThrow(
         /references labelField "ghost-field" which does not exist on entity "user"/,
+      );
+    });
+  });
+
+  // --- fw#1839: reference sub-fields of an embedded-list field get the
+  // same target/labelField/query-handler checks as a top-level reference
+  // field, so a bad "lines.productId" fails at boot instead of crashing
+  // the Combobox at runtime.
+  describe("embedded-list reference sub-field (fw#1839)", () => {
+    test("reference sub-field targeting an unknown entity → Throw with the parent.child field path", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "invoice",
+            createEntity({
+              fields: {
+                lines: createEmbeddedListField({
+                  productId: { type: "reference", entity: "ghost-entity" },
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /Reference field "lines\.productId" on entity "invoice" targets unknown entity "ghost-entity"/,
+      );
+    });
+
+    test("reference sub-field with a valid target + registered list-handler → kein Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity("product", createEntity({ fields: { name: createTextField() } }));
+          stubListHandler(r, "product");
+          r.entity(
+            "invoice",
+            createEntity({
+              fields: {
+                lines: createEmbeddedListField({
+                  productId: { type: "reference", entity: "product", labelField: "name" },
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("reference sub-field with a valid target but no registered list-handler → Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity("product", createEntity({ fields: { name: createTextField() } }));
+          // KEIN stubListHandler — das ist der Punkt des Tests
+          r.entity(
+            "invoice",
+            createEntity({
+              fields: {
+                lines: createEmbeddedListField({
+                  productId: { type: "reference", entity: "product" },
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /Reference field "lines\.productId" on entity "invoice" targets entity "product" but no list-query-handler is registered/,
+      );
+    });
+
+    test("reference sub-field labelField referencing an unknown field → Throw with the parent.child field path", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity("product", createEntity({ fields: { name: createTextField() } }));
+          stubListHandler(r, "product");
+          r.entity(
+            "invoice",
+            createEntity({
+              fields: {
+                lines: createEmbeddedListField({
+                  productId: {
+                    type: "reference",
+                    entity: "product",
+                    labelField: "ghost-field",
+                  },
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /Reference field "lines\.productId" on entity "invoice" references labelField "ghost-field" which does not exist on entity "product"/,
       );
     });
   });

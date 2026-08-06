@@ -554,7 +554,8 @@ export type EmbeddedListCellType =
   | "money"
   | "decimal"
   | "select"
-  | "reference";
+  | "reference"
+  | "timestamp";
 
 /** One column of an embedded-list table (one entry per key of the source
  *  EmbeddedFieldDef's `schema`). */
@@ -594,6 +595,10 @@ export type EmbeddedListInputProps = {
   readonly columns: readonly EmbeddedListColumn[];
   readonly rows: readonly Readonly<Record<string, unknown>>[];
   readonly totals?: readonly EmbeddedListTotal[];
+  /** Currency for money cells and the totals row — one value for the whole
+   *  list (currency lives on the head aggregate, not the row). Web impl
+   *  falls back to "EUR" when absent. */
+  readonly currency?: string;
   /** Whole-list read-only (e.g. a released invoice) — hides row-mutation
    *  affordances and disables every cell. */
   readonly disabled?: boolean;

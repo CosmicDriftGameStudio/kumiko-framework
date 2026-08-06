@@ -1,8 +1,28 @@
 import { z } from "zod";
+import { toMinorUnits } from "../db/money";
 import { isValidIanaTimeZone } from "../time";
 import { assertUnreachable } from "../utils";
 import type { EmbeddedSubFieldDef, EntityDefinition, FieldDefinition } from "./types";
 import { DEFAULT_CURRENCIES } from "./types";
+
+// Mirrors computeDerivedCellValue from
+// packages/headless/src/view-model/embedded-list.ts (client-side live
+// calculation) — framework cannot import headless (headless already depends
+// on framework; the reverse would be circular), so this is a deliberate
+// duplicate. Keep both in sync when either changes.
+function computeDerivedCellValue(
+  op: "multiply" | "sum" | "subtract",
+  values: readonly (number | undefined)[],
+): number | undefined {
+  if (op === "multiply") {
+    if (values.some((value) => value === undefined)) return undefined;
+    return (values as readonly number[]).reduce((product, value) => product * value, 1);
+  }
+  const numeric = values.map((value) => value ?? 0);
+  if (op === "sum") return numeric.reduce((sum, value) => sum + value, 0);
+  const [first, ...rest] = numeric;
+  return rest.reduce((remainder, value) => remainder - value, first ?? 0);
+}
 
 // True if `n` carries at most `scale` decimal places. A relative epsilon
 // tolerates float artifacts (`0.1 + 0.2 = 0.30000000000000004` is accepted at
@@ -55,6 +75,10 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
       // row. The safe-integer cap mirrors bigInt mode:"number" — jsonb has no
       // BIGINT column behind it, so 2^53 is the real representability boundary.
       return z.number().int().safe();
+    case "timestamp":
+      // No locatedBy/min/max on EmbeddedSubFieldDef (unlike the top-level
+      // timestamp field) — plain UTC-instant ISO-datetime validation.
+      return z.iso.datetime();
     case "decimal": {
       // No numeric column behind jsonb, so the bounds come from float
       // representability alone: the value scaled by 10^scale must be a safe
@@ -198,7 +222,36 @@ export function fieldToZod(
         const zodSub = embeddedSubFieldToZod(subField);
         shape[subName] = subField.required ? zodSub : zodSub.optional();
       }
-      const row = z.object(shape);
+      const baseRow = z.object(shape);
+      const derived = field.derived;
+      // Runs per row regardless of `multiple` — Zod validates every array
+      // element against this row schema automatically when multiple: true.
+      const row =
+        derived === undefined
+          ? baseRow
+          : baseRow.superRefine((rowValue, ctx) => {
+              for (const [derivedFieldName, derivedDef] of Object.entries(derived)) {
+                const actual = rowValue[derivedFieldName];
+                // Derived cell absent from the payload (not sent, or not
+                // numeric) — nothing to check, NOT a mismatch against 0.
+                // A write that omits it (e.g. a partial update) must stay
+                // valid.
+                if (typeof actual !== "number") continue;
+                const sourceValues = derivedDef.from.map((sourceField) => {
+                  const value = rowValue[sourceField];
+                  return typeof value === "number" ? value : undefined;
+                });
+                const expected = computeDerivedCellValue(derivedDef.op, sourceValues);
+                if (expected === undefined) continue;
+                if (Math.abs(actual - expected) > 1e-9) {
+                  ctx.addIssue({
+                    code: "custom",
+                    path: [derivedFieldName],
+                    message: `Derived field "${derivedFieldName}" (${actual}) does not match computed value (${expected})`,
+                  });
+                }
+              }
+            });
       if (field.multiple !== true) return row;
       // `required: true` means non-empty, same reading as multiSelect —
       // whether the key may be omitted at all is decided by buildInsertSchema
@@ -276,6 +329,57 @@ export function fieldToZod(
   }
 }
 
+// Cross-field check for `EmbeddedFieldDef.totalsMatch`: the sum of a list
+// subfield across every row must equal a sibling top-level money field.
+// Runs via the same z.object().safeParse() call on both the client
+// (form-controller's runValidate) and the server (write handler) — one
+// mechanism, no separate client/server validation path to keep in sync.
+// ponytail: compares raw minor-unit amounts only, not currencies — a row
+// sum in the entity's default currency against a sibling amount tagged with
+// a different currency string still passes. Add a currency-equality check
+// here if multi-currency siblings become a real case.
+function applyTotalsMatchRefinements(
+  entity: EntityDefinition,
+  schema: z.ZodObject<Record<string, z.ZodTypeAny>>,
+): z.ZodObject<Record<string, z.ZodTypeAny>> {
+  let result = schema;
+  for (const [fieldName, field] of Object.entries(entity.fields)) {
+    if (field.type !== "embedded" || field.totalsMatch === undefined) continue;
+    const totalsMatch = field.totalsMatch;
+    result = result.superRefine((values, ctx) => {
+      for (const [subFieldName, siblingFieldName] of Object.entries(totalsMatch)) {
+        const rows = values[fieldName] as ReadonlyArray<Record<string, unknown>> | undefined;
+        const siblingRaw = values[siblingFieldName];
+        // Not sent -> not checkable, not an error (partial update payloads).
+        if (rows === undefined || siblingRaw === undefined) continue;
+        const siblingAmount =
+          typeof siblingRaw === "object" &&
+          siblingRaw !== null &&
+          "amount" in siblingRaw &&
+          typeof (siblingRaw as { amount: unknown }).amount === "number"
+            ? (siblingRaw as { amount: number }).amount
+            : typeof siblingRaw === "number"
+              ? siblingRaw
+              : undefined;
+        if (siblingAmount === undefined) continue;
+        const sumMinor = rows.reduce(
+          (total, row) =>
+            total + (typeof row[subFieldName] === "number" ? (row[subFieldName] as number) : 0),
+          0,
+        );
+        if (sumMinor !== toMinorUnits(siblingAmount)) {
+          ctx.addIssue({
+            code: "custom",
+            path: [fieldName],
+            message: `Sum of "${subFieldName}" across "${fieldName}" (${sumMinor}) does not match "${siblingFieldName}" (${toMinorUnits(siblingAmount)})`,
+          });
+        }
+      }
+    });
+  }
+  return result;
+}
+
 export function buildInsertSchema(
   entity: EntityDefinition,
   currencies: readonly string[] = [...DEFAULT_CURRENCIES],
@@ -289,7 +393,7 @@ export function buildInsertSchema(
     shape[name] = isRequired || hasDefault ? zodField : zodField.optional();
   }
 
-  return z.object(shape);
+  return applyTotalsMatchRefinements(entity, z.object(shape));
 }
 
 export function buildUpdateSchema(
@@ -310,5 +414,5 @@ export function buildUpdateSchema(
     shape[name] = fieldToZod(field, currencies, { applyDefaults: false }).optional();
   }
 
-  return z.object(shape);
+  return applyTotalsMatchRefinements(entity, z.object(shape));
 }

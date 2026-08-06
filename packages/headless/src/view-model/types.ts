@@ -90,7 +90,8 @@ export type EmbeddedListCellViewModel = {
     | "money"
     | "decimal"
     | "select"
-    | "reference";
+    | "reference"
+    | "timestamp";
   readonly required: boolean;
   /** Only for `type: "select"`. */
   readonly options?: readonly string[];
@@ -192,6 +193,10 @@ export type EditFieldViewModel = {
   >;
   /** Numeric sub-field names to sum in a totals row. From EmbeddedFieldDef.totals. */
   readonly embeddedListTotals?: readonly string[];
+  /** Currency for the whole embedded list's money cells and totals row —
+   *  currency lives on the head aggregate (EntityDefinition.defaultCurrency),
+   *  not per row. Falls back to "EUR" when the entity has no defaultCurrency. */
+  readonly embeddedListCurrency?: string;
 };
 
 // Discriminated by `kind` — mirrors EditSectionSpec on the engine side.

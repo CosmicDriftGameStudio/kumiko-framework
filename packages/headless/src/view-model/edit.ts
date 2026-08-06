@@ -38,7 +38,8 @@ type EmbeddedSubFieldShape = {
     | "money"
     | "decimal"
     | "select"
-    | "reference";
+    | "reference"
+    | "timestamp";
   readonly required?: boolean;
   readonly options?: readonly string[];
   readonly entity?: string;
@@ -264,6 +265,15 @@ export function computeEditViewModel<
         }),
         ...(embeddedListDef?.totals !== undefined && {
           embeddedListTotals: embeddedListDef.totals,
+        }),
+        // ponytail: "EUR" mirrors DEFAULT_CURRENCIES[0] from
+        // framework/src/engine/field-helpers.ts — headless has no dependency
+        // on that module, so the literal is duplicated here instead of
+        // importing it just for one fallback string. Currency lives on the
+        // head aggregate (entity.defaultCurrency), not per row — one value
+        // for the whole embedded list.
+        ...(embeddedListDef !== undefined && {
+          embeddedListCurrency: entity.defaultCurrency ?? "EUR",
         }),
       };
       return view;

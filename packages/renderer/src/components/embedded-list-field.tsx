@@ -58,6 +58,7 @@ function coerceCellValue(column: EmbeddedListColumn, text: string): unknown {
     case "boolean":
       return ["true", "1", "yes", "y", "ja"].includes(text.trim().toLowerCase());
     case "date":
+    case "timestamp":
       return text.trim();
     case "select": {
       const match = (column.options ?? []).find(
@@ -220,6 +221,7 @@ export function EmbeddedListField({
       columns={columns}
       rows={rows}
       totals={totals}
+      currency={field.embeddedListCurrency}
       disabled={field.readOnly}
       minItems={field.embeddedListMinItems}
       maxItems={field.embeddedListMaxItems}

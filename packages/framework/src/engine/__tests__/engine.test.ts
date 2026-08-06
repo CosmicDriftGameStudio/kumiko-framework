@@ -1039,6 +1039,111 @@ describe("createApp", () => {
     );
   });
 
+  test("rejects totalsMatch entry whose sub-field is not a money sub-field (fw#1839)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: {
+            total: createMoneyField({ required: true }),
+            lines: createEmbeddedListField(
+              { qty: { type: "number" } },
+              { totalsMatch: { qty: "total" } },
+            ),
+          },
+          defaultCurrency: "EUR",
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'has a totalsMatch entry for "qty", which is not a money sub-field',
+    );
+  });
+
+  test("rejects totalsMatch entry whose sibling field is not a money field on the entity (fw#1839)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: {
+            title: createTextField(),
+            lines: createEmbeddedListField(
+              { amount: { type: "money" } },
+              { totalsMatch: { amount: "title" } },
+            ),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'mapping "amount" to sibling field "title", which is not a money field on entity "invoice"',
+    );
+  });
+
+  test("rejects totalsMatch entry whose sibling field does not exist on the entity (fw#1839)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: {
+            lines: createEmbeddedListField(
+              { amount: { type: "money" } },
+              { totalsMatch: { amount: "ghostTotal" } },
+            ),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'mapping "amount" to sibling field "ghostTotal", which is not a money field on entity "invoice"',
+    );
+  });
+
+  test("accepts a valid totalsMatch entry (fw#1839)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: {
+            total: createMoneyField({ required: true }),
+            lines: createEmbeddedListField(
+              { amount: { type: "money" } },
+              { totalsMatch: { amount: "total" } },
+            ),
+          },
+          defaultCurrency: "EUR",
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
+  });
+
+  test("rejects totalsMatch on a plain (non-list) embedded field", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: {
+            total: createMoneyField({ required: true }),
+            meta: createEmbeddedField(
+              { amount: { type: "money" } },
+              { totalsMatch: { amount: "total" } },
+            ),
+          },
+          defaultCurrency: "EUR",
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      "which is only valid on an embedded LIST field (multiple: true)",
+    );
+  });
+
   test("rejects transitions on non-select field", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(

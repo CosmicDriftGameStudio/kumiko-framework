@@ -166,7 +166,7 @@ export function validateBoot(
     if (validateFileFields(feature)) hasFileFields = true;
     validatePiiAndRetention(feature);
     validateApiExposureMatching(feature, allExposedApis, featureMap);
-    validateEmbeddedFields(feature);
+    validateEmbeddedFields(feature, featureMap);
     validateMultiSelectFields(feature);
     validateReferenceFields(feature, featureMap);
     validateTransitions(feature);

@@ -496,4 +496,57 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
     const unitCell = field?.embeddedListCells?.find((cell) => cell.field === "unit");
     expect(unitCell?.optionLabels).toEqual({ hour: "Stunde", day: "day" });
   });
+
+  test("embeddedListCurrency mirrors entity.defaultCurrency (#1839)", () => {
+    const entity = {
+      defaultCurrency: "USD",
+      fields: {
+        lines: { type: "embedded", multiple: true, schema: lineFieldSchema },
+      },
+    } as unknown as EntityDefinition;
+
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["lines"] }] }),
+      entity,
+      values: { lines: [] },
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.embeddedListCurrency).toBe("USD");
+  });
+
+  test("embeddedListCurrency falls back to EUR when the entity has no defaultCurrency (#1839)", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["lines"] }] }),
+      entity: embeddedListEntity(),
+      values: { lines: [] },
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.embeddedListCurrency).toBe("EUR");
+  });
+
+  test("embeddedListCurrency is undefined for a plain (non-list) embedded field", () => {
+    const entity = {
+      defaultCurrency: "USD",
+      fields: {
+        meta: { type: "embedded", schema: { note: { type: "text" } } },
+      },
+    } as unknown as EntityDefinition;
+
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["meta"] }] }),
+      entity,
+      values: { meta: {} },
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.embeddedListCurrency).toBeUndefined();
+  });
 });
