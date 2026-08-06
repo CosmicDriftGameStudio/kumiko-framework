@@ -660,6 +660,120 @@ describe("buildInsertSchema", () => {
   });
 });
 
+// --- fw#1839: embedded-list timestamp sub-field ---
+
+describe("embedded sub-field: timestamp", () => {
+  test("accepts a valid ISO datetime, rejects an invalid string", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        lines: createEmbeddedListField({
+          loggedAt: { type: "timestamp", required: true },
+        }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ lines: [{ loggedAt: "2026-08-06T10:00:00Z" }] }).success).toBe(true);
+    expect(schema.safeParse({ lines: [{ loggedAt: "not-a-date" }] }).success).toBe(false);
+    expect(schema.safeParse({ lines: [{ loggedAt: "2026-08-06" }] }).success).toBe(false);
+  });
+});
+
+// --- fw#1839: totalsMatch cross-field validation (schema-level, shared by
+// client form-controller and server write handler via the same
+// z.object().safeParse() call) ---
+
+describe("totalsMatch (fw#1839)", () => {
+  function invoiceEntity() {
+    return createEntity({
+      table: "Invoices",
+      fields: {
+        total: createMoneyField({ required: true }),
+        lines: createEmbeddedListField(
+          { amount: { type: "money", required: true } },
+          { totalsMatch: { amount: "total" } },
+        ),
+      },
+      defaultCurrency: "EUR",
+    });
+  }
+
+  test("accepts when the sum of line amounts (minor units) equals the sibling total (major units)", () => {
+    const schema = buildInsertSchema(invoiceEntity());
+    const result = schema.safeParse({
+      total: { amount: 30, currency: "EUR" },
+      lines: [{ amount: 1000 }, { amount: 2000 }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  test("rejects when the sum diverges from the sibling total, issue path is the embedded field name", () => {
+    const schema = buildInsertSchema(invoiceEntity());
+    const result = schema.safeParse({
+      total: { amount: 30, currency: "EUR" },
+      lines: [{ amount: 1000 }, { amount: 1500 }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.path.join(".") === "lines")).toBe(true);
+    }
+  });
+
+  test("update payload omitting the embedded list is not checked (nothing to sum)", () => {
+    const schema = buildUpdateSchema(invoiceEntity());
+    expect(schema.safeParse({ total: { amount: 30, currency: "EUR" } }).success).toBe(true);
+  });
+
+  test("update payload omitting the sibling total is not checked (nothing to compare against)", () => {
+    const schema = buildUpdateSchema(invoiceEntity());
+    expect(schema.safeParse({ lines: [{ amount: 1000 }, { amount: 1500 }] }).success).toBe(true);
+  });
+});
+
+// --- fw#1839: derived-cell server-side recomputation (mirrors headless's
+// computeDerivedCellValue) ---
+
+describe("embedded-list derived cell recomputation (fw#1839)", () => {
+  function orderEntity() {
+    return createEntity({
+      table: "Orders",
+      fields: {
+        lines: createEmbeddedListField(
+          {
+            qty: { type: "number", required: true },
+            price: { type: "number", required: true },
+            amount: { type: "number", required: false },
+          },
+          { derived: { amount: { op: "multiply", from: ["qty", "price"] } } },
+        ),
+      },
+    });
+  }
+
+  test("accepts when the derived cell matches the computed value", () => {
+    const schema = buildInsertSchema(orderEntity());
+    const result = schema.safeParse({ lines: [{ qty: 3, price: 10, amount: 30 }] });
+    expect(result.success).toBe(true);
+  });
+
+  test("rejects when the derived cell diverges from the computed value, at the row-indexed path", () => {
+    const schema = buildInsertSchema(orderEntity());
+    const result = schema.safeParse({ lines: [{ qty: 3, price: 10, amount: 99 }] });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.path.join(".") === "lines.0.amount")).toBe(
+        true,
+      );
+    }
+  });
+
+  test("a derived cell absent from the payload is not checked against 0 (must not reject a valid write)", () => {
+    const schema = buildInsertSchema(orderEntity());
+    const result = schema.safeParse({ lines: [{ qty: 3, price: 10 }] });
+    expect(result.success).toBe(true);
+  });
+});
+
 // --- Update schema (all partial) ---
 
 describe("buildUpdateSchema", () => {

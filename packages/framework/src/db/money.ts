@@ -36,7 +36,7 @@ const FRAMEWORK_DEFAULT_CURRENCY = DEFAULT_CURRENCIES[0]; // "EUR"
 // upgrade path once a currency needing a different scale actually lands.
 const MINOR_UNIT_SCALE = 100;
 
-function toMinorUnits(amount: number): number {
+export function toMinorUnits(amount: number): number {
   return Math.round(amount * MINOR_UNIT_SCALE);
 }
 

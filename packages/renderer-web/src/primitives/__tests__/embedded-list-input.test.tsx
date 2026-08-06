@@ -11,7 +11,7 @@ import {
   LocaleProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { EmbeddedListInput } from "../embedded-list-input";
 
 function renderWithLocale(ui: ReactElement) {
@@ -61,6 +61,29 @@ function baseProps(overrides: Partial<EmbeddedListInputProps> = {}): EmbeddedLis
     ...LABELS,
     ...overrides,
   };
+}
+
+// A real onAddRow that appends a row via useState, wired to the same
+// pendingFocusCellId batching #1839 relies on — a mock onAddRow that
+// never actually grows `rows` can't reproduce the auto-focus effect,
+// since it targets a cell in a row that doesn't exist yet.
+function ControlledFocusHarness({
+  columns,
+  initialRows,
+}: {
+  readonly columns: readonly EmbeddedListColumn[];
+  readonly initialRows: ReadonlyArray<Record<string, unknown>>;
+}) {
+  const [rows, setRows] = useState(initialRows);
+  return (
+    <EmbeddedListInput
+      {...baseProps({
+        columns,
+        rows,
+        onAddRow: () => setRows((current) => [...current, {}]),
+      })}
+    />
+  );
 }
 
 describe("EmbeddedListInput — header + rows", () => {
@@ -354,5 +377,207 @@ describe("EmbeddedListInput — paste", () => {
     const clipboardData = { getData: (format: string) => (format === "text" ? "Solo" : "") };
     fireEvent.paste(input, { clipboardData });
     expect(onPasteCells).not.toHaveBeenCalled();
+  });
+});
+
+describe("EmbeddedListInput — Enter-to-add-row (#1839)", () => {
+  test("Enter on the last cell of the last row fires onAddRow and prevents default, same as Tab", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const onAddRow = mock(() => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastCell = desktop.getByTestId("lines-cell-0-amount");
+    const input = lastCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the last cell");
+
+    const notPrevented = fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    expect(onAddRow).toHaveBeenCalledTimes(1);
+    // false = event.preventDefault() was called — same convention the
+    // existing Tab test relies on. A form wrapping this field must not see
+    // Enter as a submit trigger.
+    expect(notPrevented).toBe(false);
+  });
+
+  test("Enter does not fire onAddRow once maxItems is reached", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const onAddRow = mock(() => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow, maxItems: 1 })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastCell = desktop.getByTestId("lines-cell-0-amount");
+    const input = lastCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the last cell");
+
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    expect(onAddRow).not.toHaveBeenCalled();
+  });
+});
+
+describe("EmbeddedListInput — auto-focus into wrapped cell types (#1839)", () => {
+  test("a date first-column focuses the inner DateField input, not the wrapper div", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      { field: "due", label: "Due", type: "date", required: false, derived: false },
+      { field: "desc", label: "Desc", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ due: "", desc: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-desc").querySelector("input");
+    if (lastInput === null) throw new Error("expected an <input> in the last cell");
+    fireEvent.keyDown(lastInput, { key: "Tab", code: "Tab" });
+
+    const newDueCell = desktop.getByTestId("lines-cell-1-due");
+    expect(newDueCell.tagName).not.toBe("INPUT");
+    const focusable = newDueCell.querySelector("input");
+    expect(focusable).not.toBeNull();
+    expect(document.activeElement).toBe(focusable);
+  });
+
+  test("a timestamp first-column focuses the inner TimestampInput date field, not the wrapper div (#1839)", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      { field: "loggedAt", label: "Logged at", type: "timestamp", required: false, derived: false },
+      { field: "desc", label: "Desc", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ loggedAt: "", desc: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-desc").querySelector("input");
+    if (lastInput === null) throw new Error("expected an <input> in the last cell");
+    fireEvent.keyDown(lastInput, { key: "Tab", code: "Tab" });
+
+    const newLoggedAtCell = desktop.getByTestId("lines-cell-1-loggedAt");
+    expect(newLoggedAtCell.tagName).not.toBe("INPUT");
+    const focusable = newLoggedAtCell.querySelector("input");
+    expect(focusable).not.toBeNull();
+    expect(document.activeElement).toBe(focusable);
+  });
+
+  test("a money first-column focuses the inner MoneyInput input, not the wrapper div", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      { field: "amount", label: "Amount", type: "money", required: false, derived: false },
+      { field: "desc", label: "Desc", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ amount: 0, desc: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-desc").querySelector("input");
+    if (lastInput === null) throw new Error("expected an <input> in the last cell");
+    fireEvent.keyDown(lastInput, { key: "Tab", code: "Tab" });
+
+    const newAmountCell = desktop.getByTestId("lines-cell-1-amount");
+    const focusable = newAmountCell.querySelector("input");
+    expect(focusable).not.toBeNull();
+    expect(document.activeElement).toBe(focusable);
+  });
+
+  test("a select first-column focuses the combobox trigger button, not the hidden name-input or the wrapper div", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      {
+        field: "unit",
+        label: "Unit",
+        type: "select",
+        required: false,
+        derived: false,
+        options: ["hour", "day"],
+      },
+      { field: "desc", label: "Desc", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ unit: "hour", desc: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-desc").querySelector("input");
+    if (lastInput === null) throw new Error("expected an <input> in the last cell");
+    fireEvent.keyDown(lastInput, { key: "Tab", code: "Tab" });
+
+    const newUnitCell = desktop.getByTestId("lines-cell-1-unit");
+    const hiddenInput = newUnitCell.querySelector('input[type="hidden"]');
+    const trigger = newUnitCell.querySelector("button");
+    expect(hiddenInput).not.toBeNull();
+    expect(trigger).not.toBeNull();
+    // Must not land on the hidden input (a no-op focus target) — must be
+    // the actual combobox trigger the user can operate.
+    expect(document.activeElement).not.toBe(hiddenInput);
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  test("a reference first-column focuses the combobox trigger button, not the hidden name-input or the wrapper div", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      {
+        field: "product",
+        label: "Product",
+        type: "reference",
+        required: false,
+        derived: false,
+        referenceOptions: [{ value: "p1", label: "Widget" }],
+      },
+      { field: "desc", label: "Desc", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ product: "p1", desc: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-desc").querySelector("input");
+    if (lastInput === null) throw new Error("expected an <input> in the last cell");
+    fireEvent.keyDown(lastInput, { key: "Tab", code: "Tab" });
+
+    const newProductCell = desktop.getByTestId("lines-cell-1-product");
+    const hiddenInput = newProductCell.querySelector('input[type="hidden"]');
+    const trigger = newProductCell.querySelector("button");
+    expect(hiddenInput).not.toBeNull();
+    expect(trigger).not.toBeNull();
+    expect(document.activeElement).not.toBe(hiddenInput);
+    expect(document.activeElement).toBe(trigger);
+  });
+});
+
+describe("EmbeddedListInput — currency (#1839)", () => {
+  const currencyColumns: readonly EmbeddedListColumn[] = [
+    { field: "description", label: "Description", type: "text", required: true, derived: false },
+    { field: "amount", label: "Amount", type: "money", required: false, derived: false },
+  ];
+
+  test("currency prop formats the totals row in that currency instead of the EUR default", () => {
+    const rows = [{ description: "A", amount: 150000 }];
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          columns: currencyColumns,
+          rows,
+          currency: "USD",
+          totals: [{ field: "amount", label: "Total", value: 150000 }],
+        })}
+      />,
+    );
+    const totals = within(screen.getByTestId("lines-desktop")).getByTestId("lines-totals");
+    expect(totals.textContent).toContain("$");
+    expect(totals.textContent).not.toContain("€");
+  });
+
+  test("currency prop is passed through to money-cell MoneyInput", () => {
+    const rows = [{ description: "A", amount: 150000 }];
+    renderWithLocale(
+      <EmbeddedListInput {...baseProps({ columns: currencyColumns, rows, currency: "USD" })} />,
+    );
+    const cell = within(screen.getByTestId("lines-desktop")).getByTestId("lines-cell-0-amount");
+    const input = cell.querySelector("input") as HTMLInputElement;
+    expect(input.value).toContain("$");
+  });
+
+  test("without a currency prop, totals row still formats as EUR (backward-compatible default)", () => {
+    const rows = [{ description: "A", amount: 150000 }];
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          columns: currencyColumns,
+          rows,
+          totals: [{ field: "amount", label: "Total", value: 150000 }],
+        })}
+      />,
+    );
+    const totals = within(screen.getByTestId("lines-desktop")).getByTestId("lines-totals");
+    expect(totals.textContent).toContain("€");
   });
 });

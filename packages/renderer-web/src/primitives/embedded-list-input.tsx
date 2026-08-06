@@ -34,6 +34,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { ComboboxInput } from "./combobox";
 import { DateInput } from "./date-input";
 import { formatMoney, MoneyInput } from "./money-input";
+import { TimestampInput } from "./timestamp-input";
+
+// `input[type=hidden]` excluded — ComboboxInput renders one as a plain
+// name-carrier before its focusable trigger button.
+const FOCUSABLE_SELECTOR = "input:not([type=hidden]), button, [tabindex]";
 
 function columnWidthClass(type: EmbeddedListCellType): string {
   switch (type) {
@@ -42,6 +47,9 @@ function columnWidthClass(type: EmbeddedListCellType): string {
     case "decimal":
     case "date":
       return "w-36";
+    // Wider than a bare date — carries a date field plus a time input.
+    case "timestamp":
+      return "w-44";
     case "boolean":
       return "w-16";
     case "text":
@@ -64,6 +72,7 @@ function columnAlignClass(type: EmbeddedListCellType): string {
     case "boolean":
       return "text-center";
     case "date":
+    case "timestamp":
     case "text":
     case "select":
     case "reference":
@@ -78,9 +87,10 @@ function columnAlignClass(type: EmbeddedListCellType): string {
 function formatTotalValue(
   total: EmbeddedListTotal,
   columns: readonly EmbeddedListColumn[],
+  currency: string,
 ): string {
   const column = columns.find((c) => c.field === total.field);
-  if (column?.type === "money") return formatMoney(total.value, "EUR");
+  if (column?.type === "money") return formatMoney(total.value, currency);
   return total.value.toLocaleString();
 }
 
@@ -118,12 +128,14 @@ function renderCellControl({
   value,
   disabled,
   onChange,
+  currency,
 }: {
   readonly cellId: string;
   readonly column: EmbeddedListColumn;
   readonly value: unknown;
   readonly disabled: boolean;
   readonly onChange: (value: unknown) => void;
+  readonly currency: string;
 }): ReactNode {
   const isDisabled = disabled || column.derived;
 
@@ -167,10 +179,24 @@ function renderCellControl({
     case "date":
       return (
         // ponytail: DateInput has no passthrough props for data-cell-id;
-        // wrap it instead — auto-focus degrades to a no-op for this cell
-        // type instead of crashing.
+        // wrap it instead — the pendingFocusCellId effect walks into the
+        // wrapper for its focusable descendant, so auto-focus still works.
         <div data-cell-id={cellId}>
           <DateInput
+            id={cellId}
+            name={cellId}
+            value={typeof value === "string" ? value : ""}
+            onChange={(v) => onChange(v)}
+            disabled={isDisabled}
+          />
+        </div>
+      );
+    case "timestamp":
+      return (
+        // ponytail: same wrapper pattern as "date" — TimestampInput has no
+        // data-cell-id passthrough either.
+        <div data-cell-id={cellId}>
+          <TimestampInput
             id={cellId}
             name={cellId}
             value={typeof value === "string" ? value : ""}
@@ -187,7 +213,7 @@ function renderCellControl({
             name={cellId}
             value={typeof value === "number" ? value : ""}
             onChange={(v) => onChange(v)}
-            currency="EUR"
+            currency={currency}
             disabled={isDisabled}
           />
         </div>
@@ -317,6 +343,7 @@ export function EmbeddedListInput({
   columns,
   rows,
   totals,
+  currency,
   disabled,
   minItems,
   maxItems,
@@ -338,6 +365,10 @@ export function EmbeddedListInput({
   emptyCtaLabel,
   testId,
 }: EmbeddedListInputProps): ReactNode {
+  // Callers that don't wire up the field-currency plumbing (or direct
+  // callers/tests that predate #1839) keep getting the same "EUR" this
+  // component always hardcoded.
+  const effectiveCurrency = currency ?? "EUR";
   const containerRef = useRef<HTMLDivElement>(null);
   const [pendingFocusCellId, setPendingFocusCellId] = useState<string | undefined>(undefined);
 
@@ -347,10 +378,21 @@ export function EmbeddedListInput({
   useEffect(() => {
     if (pendingFocusCellId === undefined) return;
     // ponytail: capability-scoped DOM query, not a global — degrades to
-    // "no auto-focus" on a hypothetical native impl instead of crashing
-    const target = containerRef.current?.querySelector<HTMLElement>(
+    // "no auto-focus" on a hypothetical native impl instead of crashing.
+    // `data-cell-id` sits on the focusable control itself for text/boolean
+    // cells, but on a non-focusable wrapper `<div>` for date/money/select/
+    // reference/timestamp cells (see renderCellControl) — walk into the
+    // wrapper for its focusable descendant instead of calling .focus() on
+    // a div. `input[type=hidden]` excluded: ComboboxInput (select/reference)
+    // renders a hidden name-carrier input before its trigger button — it
+    // would otherwise win the "first match in document order" query
+    // without ever actually receiving focus.
+    const matched = containerRef.current?.querySelector<HTMLElement>(
       `[data-cell-id="${pendingFocusCellId}"]`,
     );
+    const target = matched?.matches(FOCUSABLE_SELECTOR)
+      ? matched
+      : (matched?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? matched);
     target?.focus();
     setPendingFocusCellId(undefined);
   }, [pendingFocusCellId]);
@@ -374,8 +416,14 @@ export function EmbeddedListInput({
 
   const handleLastCellKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
     if (disabled === true) return;
-    if (event.key !== "Tab" || event.shiftKey) return;
+    const isTabForward = event.key === "Tab" && !event.shiftKey;
+    const isEnter = event.key === "Enter";
+    if (!isTabForward && !isEnter) return;
     if (maxItems !== undefined && rows.length >= maxItems) return;
+    // Enter bubbles up from the cell control through this TableCell — an
+    // ancestor of any <form> the caller wraps the whole field in.
+    // preventDefault() during the bubble phase still stops that form's
+    // default submit, same as it stops Tab's default focus-move below.
     event.preventDefault();
     const firstColumn = columns[0];
     if (firstColumn !== undefined) {
@@ -463,6 +511,7 @@ export function EmbeddedListInput({
                               value: row[column.field],
                               disabled: disabled === true,
                               onChange: (value) => onCellChange(rowIndex, column.field, value),
+                              currency: effectiveCurrency,
                             })}
                             <IssueMessages
                               issues={issues}
@@ -531,7 +580,7 @@ export function EmbeddedListInput({
                 <div key={total.field} className="flex items-baseline gap-2">
                   <span className="text-muted-foreground">{total.label}</span>
                   <span className="font-medium tabular-nums">
-                    {formatTotalValue(total, columns)}
+                    {formatTotalValue(total, columns, effectiveCurrency)}
                   </span>
                 </div>
               ))}
@@ -575,6 +624,7 @@ export function EmbeddedListInput({
                       value: row[column.field],
                       disabled: disabled === true,
                       onChange: (value) => onCellChange(rowIndex, column.field, value),
+                      currency: effectiveCurrency,
                     })}
                     <IssueMessages
                       issues={issues}
@@ -630,7 +680,9 @@ export function EmbeddedListInput({
             {totals.map((total) => (
               <div key={total.field} className="flex items-center justify-between">
                 <span className="text-muted-foreground">{total.label}</span>
-                <span className="font-medium tabular-nums">{formatTotalValue(total, columns)}</span>
+                <span className="font-medium tabular-nums">
+                  {formatTotalValue(total, columns, effectiveCurrency)}
+                </span>
               </div>
             ))}
           </div>

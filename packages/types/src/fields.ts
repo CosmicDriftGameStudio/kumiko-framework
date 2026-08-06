@@ -400,7 +400,7 @@ type EmbeddedSubFieldBase = {
  *  could describe. */
 export type EmbeddedSubFieldDef =
   | (EmbeddedSubFieldBase & {
-      readonly type: "text" | "number" | "boolean" | "date" | "money";
+      readonly type: "text" | "number" | "boolean" | "date" | "money" | "timestamp";
     })
   | (EmbeddedSubFieldBase & {
       readonly type: "decimal";
@@ -452,6 +452,11 @@ export type EmbeddedFieldDef = {
   /** Renderer metadata: numeric sub-field names to sum in a totals row. Only
    *  valid with `multiple: true`. */
   readonly totals?: readonly string[];
+  /** Maps an embedded-list subfield name to a sibling top-level money field
+   *  name — the sum of that subfield across all rows must equal the sibling
+   *  field's amount. Validated both client- and server-side (schema-builder
+   *  superRefine). Only meaningful with `multiple: true`. */
+  readonly totalsMatch?: Readonly<Record<string, string>>;
 } & PiiAnnotations;
 
 // Free-form jsonb — keys/shape NOT validated at write-time. Use for:
