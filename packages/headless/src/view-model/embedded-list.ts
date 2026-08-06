@@ -2,26 +2,9 @@ import type { FieldIssue } from "../dispatcher";
 
 export type EmbeddedDerivedOp = "multiply" | "sum" | "subtract";
 
-/** Computes a derived cell from its source values. Missing/non-numeric
- *  sources are treated as 0 for "sum"/"subtract"; "multiply" with any
- *  missing source returns undefined (an incomplete product isn't a
- *  meaningful partial value). Money cells are minor-unit integers — this
- *  function is unit-agnostic, it just does arithmetic on whatever numbers
- *  it's given (caller passes minor units for money, not major/float). */
-export function computeDerivedCellValue(
-  op: EmbeddedDerivedOp,
-  values: readonly (number | undefined)[],
-): number | undefined {
-  if (op === "multiply") {
-    if (values.some((value) => value === undefined)) return undefined;
-    return (values as readonly number[]).reduce((product, value) => product * value, 1);
-  }
-  const numeric = values.map((value) => value ?? 0);
-  if (op === "sum") return numeric.reduce((sum, value) => sum + value, 0);
-  // subtract: first value minus every subsequent value.
-  const [first, ...rest] = numeric;
-  return rest.reduce((remainder, value) => remainder - value, first ?? 0);
-}
+// Canonical implementation moved to packages/framework/src/engine/embedded-derived.ts
+// (the write-schema preprocess needs it server-side too).
+export { computeDerivedCellValue } from "@cosmicdrift/kumiko-framework/ui-types";
 
 /** Sums a numeric/money/decimal column across all rows. Non-numeric or
  *  missing values count as 0. Money columns are minor-unit integers —
