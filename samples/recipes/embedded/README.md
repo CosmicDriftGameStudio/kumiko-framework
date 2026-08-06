@@ -13,9 +13,11 @@ object and an embedded list rendered by a declarative `entityEdit` screen.
 - **Structured cells** — a line uses a reference, select, number, and money
   cell, with `amount` derived from `quantity × unitPrice` and a totals row.
 - **Server-authoritative derived cells** — the write schema recomputes
-  `derived` values before validation, so a client cannot supply a stale amount.
-- **Declarative editing** — the `invoice-edit` screen uses the framework's
-  embedded-list field; no custom screen component is required.
+  `derived` values before validation, so a client cannot supply a stale amount;
+  the edit view model exposes the definitions as `embeddedListDerived`.
+- **Declarative editing** — the `invoice-edit` screen uses
+  `createEmbeddedListField`; its renderer receives `embeddedListCells`, so no
+  custom screen component is required.
 
 ## When to reach for it
 

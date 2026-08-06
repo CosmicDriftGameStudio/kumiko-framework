@@ -52,7 +52,7 @@ uses the same arithmetic helper for live display, but the server is the
 authority on every write.
 
 The runnable [`embedded` sample](https://github.com/CosmicDriftGameStudio/kumiko-framework/tree/main/samples/recipes/embedded)
-shows invoice lines with reference, select, money, totals, and derived metadata.
+shows invoice lines with reference, select, money, totals, and `embeddedListDerived` values.
 Use an aggregate instead when a row needs its own status, history, or handler.
 
 ## Treat unsupported structural fields as read-only
@@ -63,9 +63,10 @@ the renderer shows an informational, read-only Banner. It does not fall back
 to an editable text input: coercing an object or array to text can turn a value
 into `"[object Object]"` or `"a,b"` and overwrite the real data on save.
 
-Use `embeddedList` metadata for list editing. Until a dedicated editor exists,
-keep the field read-only and expose the value through a purpose-built surface
-rather than adding a text fallback.
+`embeddedListCells` carries per-cell metadata for the list editor, and
+`embeddedListDerived` carries derived-cell definitions. For structural fields
+without a dedicated editor, keep the value read-only rather than adding a text
+fallback.
 
 ## See also
 
