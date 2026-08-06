@@ -167,13 +167,14 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
 
       const rawRows = await executeRawQuery<Record<string, unknown>>(db.raw, listSql, params);
       // Read-Side rehydrate pro Row + snake→camel coercion für driver-agnostic Feldnamen.
-      // Coerce BEFORE decrypt: the raw SELECT * rows carry snake_case column
-      // names, while the encrypted/pii field lists are camelCase — decrypting
-      // first silently skipped every multi-word field (ciphertext leaked to
-      // the caller).
+      // Coerce BEFORE rehydrate/decrypt: the raw SELECT * rows carry snake_case
+      // column names, while compound-type lookups (rehydrateMoney et al.) and the
+      // encrypted/pii field lists are all camelCase — running either first on a
+      // still-snake_case row silently no-ops (money) or skips every multi-word
+      // field (ciphertext leaked to the caller).
       const tableInfo = extractTableInfo(table);
       const encryptedRows = rawRows.map((r) =>
-        coerceRow(rehydrateCompoundTypes(r, entity), tableInfo),
+        rehydrateCompoundTypes(coerceRow(r, tableInfo), entity),
       );
       const rows = await Promise.all(encryptedRows.map((r) => decryptForRead(r)));
 
@@ -256,9 +257,11 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const rows = await loadWithOwnership(db, idWhere, ownership);
       const raw = rows[0];
       if (!raw) return null;
-      const row = await decryptForRead(rehydrateCompoundTypes(raw, entity));
+      // Same coerce-before-rehydrate/decrypt ordering as list() above — raw
+      // is snake_case only on the ownership.kind==="sql" branch (raw SQL);
+      // coerceRow is a no-op on the already-camelCase "pass" branch rows.
       const rowInfo = extractTableInfo(table);
-      const coerced = coerceRow(row, rowInfo);
+      const coerced = await decryptForRead(rehydrateCompoundTypes(coerceRow(raw, rowInfo), entity));
 
       if (entityCache && entityName) {
         await entityCache.set(
