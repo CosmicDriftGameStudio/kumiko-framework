@@ -2,27 +2,9 @@ import { z } from "zod";
 import { toMinorUnits } from "../db/money";
 import { isValidIanaTimeZone } from "../time";
 import { assertUnreachable } from "../utils";
+import { withDerivedCells } from "./embedded-derived";
 import type { EmbeddedSubFieldDef, EntityDefinition, FieldDefinition } from "./types";
 import { DEFAULT_CURRENCIES } from "./types";
-
-// Mirrors computeDerivedCellValue from
-// packages/headless/src/view-model/embedded-list.ts (client-side live
-// calculation) — framework cannot import headless (headless already depends
-// on framework; the reverse would be circular), so this is a deliberate
-// duplicate. Keep both in sync when either changes.
-function computeDerivedCellValue(
-  op: "multiply" | "sum" | "subtract",
-  values: readonly (number | undefined)[],
-): number | undefined {
-  if (op === "multiply") {
-    if (values.some((value) => value === undefined)) return undefined;
-    return (values as readonly number[]).reduce((product, value) => product * value, 1);
-  }
-  const numeric = values.map((value) => value ?? 0);
-  if (op === "sum") return numeric.reduce((sum, value) => sum + value, 0);
-  const [first, ...rest] = numeric;
-  return rest.reduce((remainder, value) => remainder - value, first ?? 0);
-}
 
 // True if `n` carries at most `scale` decimal places. A relative epsilon
 // tolerates float artifacts (`0.1 + 0.2 = 0.30000000000000004` is accepted at
@@ -224,34 +206,13 @@ export function fieldToZod(
       }
       const baseRow = z.object(shape);
       const derived = field.derived;
-      // Runs per row regardless of `multiple` — Zod validates every array
-      // element against this row schema automatically when multiple: true.
+      // The server is the authority for derived cells: a row is recomputed
+      // here, overwriting whatever the client sent, instead of merely
+      // being checked against it.
       const row =
         derived === undefined
           ? baseRow
-          : baseRow.superRefine((rowValue, ctx) => {
-              for (const [derivedFieldName, derivedDef] of Object.entries(derived)) {
-                const actual = rowValue[derivedFieldName];
-                // Derived cell absent from the payload (not sent, or not
-                // numeric) — nothing to check, NOT a mismatch against 0.
-                // A write that omits it (e.g. a partial update) must stay
-                // valid.
-                if (typeof actual !== "number") continue;
-                const sourceValues = derivedDef.from.map((sourceField) => {
-                  const value = rowValue[sourceField];
-                  return typeof value === "number" ? value : undefined;
-                });
-                const expected = computeDerivedCellValue(derivedDef.op, sourceValues);
-                if (expected === undefined) continue;
-                if (Math.abs(actual - expected) > 1e-9) {
-                  ctx.addIssue({
-                    code: "custom",
-                    path: [derivedFieldName],
-                    message: `Derived field "${derivedFieldName}" (${actual}) does not match computed value (${expected})`,
-                  });
-                }
-              }
-            });
+          : z.preprocess((value) => withDerivedCells(value, derived), baseRow);
       if (field.multiple !== true) return row;
       // `required: true` means non-empty, same reading as multiSelect —
       // whether the key may be omitted at all is decided by buildInsertSchema

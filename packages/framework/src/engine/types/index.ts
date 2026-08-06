@@ -96,6 +96,7 @@ export type {
   DerivedFieldDef,
   DerivedFieldsMap,
   DerivedValueType,
+  EmbeddedDerivedCellDef,
   EmbeddedFieldDef,
   EmbeddedSubFieldDef,
   EntityDefinition,

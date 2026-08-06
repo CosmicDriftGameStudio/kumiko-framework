@@ -730,10 +730,11 @@ describe("totalsMatch (fw#1839)", () => {
   });
 });
 
-// --- fw#1839: derived-cell server-side recomputation (mirrors headless's
-// computeDerivedCellValue) ---
+// --- kumiko-framework#1837: derived-cell server-side recomputation — the
+// server is the authority for derived cells, a client value is overwritten
+// with the recomputed one instead of merely checked against it. ---
 
-describe("embedded-list derived cell recomputation (fw#1839)", () => {
+describe("embedded-list derived cell recomputation (kumiko-framework#1837)", () => {
   function orderEntity() {
     return createEntity({
       table: "Orders",
@@ -750,27 +751,73 @@ describe("embedded-list derived cell recomputation (fw#1839)", () => {
     });
   }
 
-  test("accepts when the derived cell matches the computed value", () => {
+  test("a matching client-sent derived cell parses through unchanged", () => {
     const schema = buildInsertSchema(orderEntity());
     const result = schema.safeParse({ lines: [{ qty: 3, price: 10, amount: 30 }] });
     expect(result.success).toBe(true);
-  });
-
-  test("rejects when the derived cell diverges from the computed value, at the row-indexed path", () => {
-    const schema = buildInsertSchema(orderEntity());
-    const result = schema.safeParse({ lines: [{ qty: 3, price: 10, amount: 99 }] });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.some((issue) => issue.path.join(".") === "lines.0.amount")).toBe(
-        true,
-      );
+    if (result.success) {
+      expect(result.data["lines"]).toEqual([{ qty: 3, price: 10, amount: 30 }]);
     }
   });
 
-  test("a derived cell absent from the payload is not checked against 0 (must not reject a valid write)", () => {
+  test("a diverging client-sent derived cell is overwritten with the server-computed value, not rejected", () => {
+    const schema = buildInsertSchema(orderEntity());
+    const result = schema.safeParse({ lines: [{ qty: 3, price: 10, amount: 99 }] });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data["lines"]).toEqual([{ qty: 3, price: 10, amount: 30 }]);
+    }
+  });
+
+  test("a derived cell omitted from the payload is filled in server-side", () => {
     const schema = buildInsertSchema(orderEntity());
     const result = schema.safeParse({ lines: [{ qty: 3, price: 10 }] });
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data["lines"]).toEqual([{ qty: 3, price: 10, amount: 30 }]);
+    }
+  });
+
+  test("a missing source for a multiply-derived cell leaves the cell unset rather than 0", () => {
+    const entity = createEntity({
+      table: "Orders",
+      fields: {
+        lines: createEmbeddedListField(
+          {
+            qty: { type: "number", required: true },
+            price: { type: "number", required: false },
+            amount: { type: "number", required: false },
+          },
+          { derived: { amount: { op: "multiply", from: ["qty", "price"] } } },
+        ),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    const result = schema.safeParse({ lines: [{ qty: 3, amount: 30 }] });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const row = (result.data["lines"] as readonly Record<string, unknown>[])[0];
+      expect(row).toBeDefined();
+      expect(Object.hasOwn(row as Record<string, unknown>, "amount")).toBe(false);
+    }
+  });
+
+  test("an embedded-list field without `derived` leaves a client-sent value untouched", () => {
+    const entity = createEntity({
+      table: "Orders",
+      fields: {
+        lines: createEmbeddedListField({
+          qty: { type: "number", required: true },
+          amount: { type: "number", required: false },
+        }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    const result = schema.safeParse({ lines: [{ qty: 3, amount: 999 }] });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data["lines"]).toEqual([{ qty: 3, amount: 999 }]);
+    }
   });
 });
 
