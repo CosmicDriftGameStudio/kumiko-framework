@@ -116,6 +116,25 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  // Two inserts, one via ctx.db (tx-bound) and one via ctx.dbOutsideTransaction
+  // (unbound pool), then an unconditional failure. Proves the outside-tx write
+  // survives the handler's own rollback while the tx-bound one doesn't.
+  r.writeHandler(
+    "bag:create-outside-tx-then-fail",
+    z.object({ label: z.string() }),
+    async (event, ctx) => {
+      const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
+      await crud.create({ label: `${event.payload.label}-inside-tx` }, event.user, ctx.db);
+      await crud.create(
+        { label: `${event.payload.label}-outside-tx` },
+        event.user,
+        ctx.dbOutsideTransaction,
+      );
+      return writeFailure(new UnprocessableError("intentional_failure"));
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
   // Handler that fetches the secret via ctx.queryAs(system) — proves the
   // privileged call returns the token field even though the caller (Admin)
   // couldn't read it themselves.
@@ -231,5 +250,20 @@ describe("ctx.writeAs shares the outer transaction", () => {
 
     // Both hooks must stay silent — tx rolled back, afterCommit queue dropped.
     expect(afterCommitLog).toEqual([]);
+  });
+});
+
+describe("ctx.dbOutsideTransaction", () => {
+  test("a write through it survives the handler's own transaction rolling back", async () => {
+    const res = await stack.http.write(
+      "ctxbridge:write:bag:create-outside-tx-then-fail",
+      { label: "probe" },
+      admin,
+    );
+    expect((await res.json()).isSuccess).toBe(false);
+
+    const bags = await selectMany(stack.db, bagTable);
+    const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]);
+    expect(labels).toEqual(["probe-outside-tx"]);
   });
 });

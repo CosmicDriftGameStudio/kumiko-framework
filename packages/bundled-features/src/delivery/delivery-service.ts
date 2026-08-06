@@ -161,7 +161,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     // @cast-boundary engine-payload — generic query-handler return for typed convention
     return (await handler.handler(
       { type: tenantUserIdsQuery, payload: { tenantId }, user: systemUser },
-      { db: tenantDb, registry, ...bridgeStub() },
+      { db: tenantDb, dbOutsideTransaction: tenantDb, registry, ...bridgeStub() },
     )) as readonly string[];
   }
 

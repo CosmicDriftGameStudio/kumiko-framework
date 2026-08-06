@@ -338,6 +338,9 @@ export type AppContext = SharedContextFields & {
 // type-map (runtime-pluggable events) uses `unsafeAppendEvent`.
 export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedContextFields & {
   readonly db: TenantDb;
+  // Same tenant scoping as `db`, but never bound to the handler's tx: writes
+  // through it survive a rollback, for side effects that already happened outside the DB.
+  readonly dbOutsideTransaction: TenantDb;
   readonly registry: Registry;
   /** Aktiver SessionUser des Handler-Aufrufs — Convenience-Alias zu
    *  `event.user`. Existiert weil Handler intuitiv `ctx.user.tenantId`

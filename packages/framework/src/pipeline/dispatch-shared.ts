@@ -168,20 +168,24 @@ export async function buildHandlerContext(
   // but at this point we're the root of the pipeline — cast is safe.
   const dbSource = resolveDbSource(ctx, tx);
   const reqCtx = requestContext.get();
-  const db = dbSource
-    ? createTenantDb(
-        dbSource,
-        user.tenantId,
-        isSystem ? "system" : "tenant",
-        context.tracer,
-        context.meter,
-        // Propagate the request's AbortSignal so every TenantDb query
-        // throws when the client has disconnected — handlers with many
-        // sequential queries skip the rest of the chain instead of
-        // burning DB-CPU for results no one reads.
-        reqCtx?.signal,
-      )
-    : undefined;
+  const buildTenantScopedDb = (source: DbConnection | DbTx) =>
+    createTenantDb(
+      source,
+      user.tenantId,
+      isSystem ? "system" : "tenant",
+      context.tracer,
+      context.meter,
+      // Propagate the request's AbortSignal so every TenantDb query
+      // throws when the client has disconnected — handlers with many
+      // sequential queries skip the rest of the chain instead of
+      // burning DB-CPU for results no one reads.
+      reqCtx?.signal,
+    );
+  const db = dbSource ? buildTenantScopedDb(dbSource) : undefined;
+  // Unbound pool, tenant-scoped like `db` but never tx-bound — writes
+  // through it survive a rollback of the handler's own transaction.
+  const outsideTxSource = resolveDbSource(ctx, undefined);
+  const dbOutsideTransaction = outsideTxSource ? buildTenantScopedDb(outsideTxSource) : undefined;
   const log = context.log?.child({
     handler: type,
     tenantId: user.tenantId,
@@ -548,6 +552,7 @@ export async function buildHandlerContext(
     ...context,
     registry,
     db,
+    dbOutsideTransaction,
     log,
     notify,
     ...(config && { config }),
