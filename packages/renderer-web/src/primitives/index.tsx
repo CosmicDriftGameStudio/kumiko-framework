@@ -1396,8 +1396,7 @@ export function defaultCellRender(
     // formatMoney expects minor units. rehydrateMoney returns amount in MAJOR
     // units plus amountMinor (cents). Prefer amountMinor when present; legacy
     // shapes without it still carry cents in `amount`.
-    const minor =
-      typeof value.amountMinor === "number" ? value.amountMinor : value.amount;
+    const minor = typeof value.amountMinor === "number" ? value.amountMinor : value.amount;
     return formatMoney(minor, value.currency);
   }
   if (type === "select") {
