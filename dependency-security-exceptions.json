@@ -17,6 +17,27 @@
 			"expires": "2026-08-28"
 		},
 		{
+			"advisory": "GHSA-5p4m-2wfm-xmqj",
+			"package": "js-yaml",
+			"reason": "GHSA-5P4M-2WFM-XMQJ (CVE-2026-59870): Quadratic CPU in !!omap — Advisory sagt Fix nicht auf 3.x/4.x backported. Baum haelt 4.3.0 (Astro/Starlight, @changesets/parse, cosmiconfig→mjml) und 3.15.0 (read-yaml-file→@manypkg→@changesets/cli). Kein App-Code importiert js-yaml; kumiko-platform pinned bereits overrides js-yaml ^4.3.0. DoS braucht attacker-controlled YAML — Changesets/Astro parsen nur repo-eigene Frontmatter/Config, MJML nur Build-time Mail-Templates. Naechster Schritt: Upstream-Patch abwarten oder 3.x-Linie via Override/Changesets-Bump entfernen.",
+			"reviewedBy": "Marc, 2026-08-06",
+			"expires": "2026-09-05"
+		},
+		{
+			"advisory": "GHSA-4cwx-7wf7-3272",
+			"package": "undici",
+			"reason": "resolutions pin undici ^7.29.0 (first patched for 7.x). bun audit still reports via jsdom/mjml declared ranges (<7.29.0) even when the resolved copy is 7.29.0 — same lockfile/audit mismatch as brace-expansion GHSA-RGW5. Dev/test tooling (jsdom) + build-time mjml; no undici on the app request path. Re-check after next jsdom/mjml bump whether the advisory disappears.",
+			"reviewedBy": "Marc, 2026-08-07",
+			"expires": "2026-09-05"
+		},
+		{
+			"advisory": "GHSA-mwp4-54f8-5fhr",
+			"package": "ip-address",
+			"reason": "resolutions pin ip-address ^10.4.0 (patched; advisory is <=10.3.0). bun audit still reports via imapflow declared range even when resolved to 10.4.0 — same audit/lockfile mismatch class as undici/brace-expansion. Transitive via imapflow (email ingest), not attacker-controlled address parsing on a public surface. Re-check after imapflow bump.",
+			"reviewedBy": "Marc, 2026-08-07",
+			"expires": "2026-09-05"
+		},
+		{
 			"advisory": "GHSA-2P49-HGCM-8545",
 			"package": "svgo",
 			"reason": "Transitiv via CSS/SVG-Tooling (dev-time), im Standalone-Baum dieses Repos nicht vorhanden — feuert nur im Parent-Audit. KORREKTUR: 'Track upstream patch' ist ueberholt, 4.0.2 ist released; der Parent-Baum haelt weiterhin ausschliesslich 4.0.1 (verwundbar: >=4.0.0 <4.0.2). kumiko-enterprise hat bereits einen Override auf ^4.0.2, der im Parent-Workspace nicht greift — der gehoert in die Parent-Root-package.json. Build-Tooling, kein untrusted SVG im Prod-Runtime.",
