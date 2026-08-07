@@ -21,41 +21,41 @@ export function FormExamples(): ReactNode {
   return (
     <div className="flex flex-col gap-6 p-6" data-testid="form-examples-page">
       <CrmContactForm />
-      <IndustrieWartungsForm />
-      <MedizinAufnahmeForm />
-      <ProtokollForm />
+      <MaintenanceLogForm />
+      <PatientIntakeForm />
+      <IncidentLogForm />
     </div>
   );
 }
 
 interface CrmDraft {
-  readonly vorname: string;
-  readonly nachname: string;
+  readonly firstName: string;
+  readonly lastName: string;
   readonly email: string;
-  readonly telefon: string;
-  readonly firma: string;
+  readonly phone: string;
+  readonly company: string;
   readonly position: string;
-  readonly branche: string;
-  readonly strasse: string;
-  readonly plz: string;
-  readonly ort: string;
-  readonly land: string;
-  readonly notiz: string;
+  readonly industry: string;
+  readonly street: string;
+  readonly postalCode: string;
+  readonly city: string;
+  readonly country: string;
+  readonly note: string;
 }
 
 const CRM_DEFAULTS: CrmDraft = {
-  vorname: "",
-  nachname: "",
+  firstName: "",
+  lastName: "",
   email: "",
-  telefon: "",
-  firma: "",
+  phone: "",
+  company: "",
   position: "",
-  branche: "",
-  strasse: "",
-  plz: "",
-  ort: "",
-  land: "DE",
-  notiz: "",
+  industry: "",
+  street: "",
+  postalCode: "",
+  city: "",
+  country: "US",
+  note: "",
 };
 
 // CRM: create contact/lead — many optional fields, grouped by
@@ -64,124 +64,124 @@ function CrmContactForm(): ReactNode {
   const { field } = useDraft<CrmDraft>(CRM_DEFAULTS);
   const { Grid, GridCell } = usePrimitives();
   return (
-    <SectionCard title="CRM · Kontakt anlegen" subtitle="Person, Firma, Adresse">
+    <SectionCard title="CRM · Add contact" subtitle="Person, company, address">
       <Grid columns={2}>
         <GridCell>
-          <TextField label="Vorname" {...field("vorname")} />
+          <TextField label="First name" {...field("firstName")} />
         </GridCell>
         <GridCell>
-          <TextField label="Nachname" {...field("nachname")} />
+          <TextField label="Last name" {...field("lastName")} />
         </GridCell>
         <GridCell>
-          <TextField label="E-Mail" {...field("email")} autoComplete="email" />
+          <TextField label="Email" {...field("email")} autoComplete="email" />
         </GridCell>
         <GridCell>
-          <TextField label="Telefon" {...field("telefon")} autoComplete="tel" />
+          <TextField label="Phone" {...field("phone")} autoComplete="tel" />
         </GridCell>
       </Grid>
       <Grid columns={2}>
         <GridCell>
-          <TextField label="Firma" {...field("firma")} />
+          <TextField label="Company" {...field("company")} />
         </GridCell>
         <GridCell>
           <TextField label="Position" {...field("position")} />
         </GridCell>
         <GridCell span={2}>
           <SelectField
-            label="Branche"
-            {...field("branche")}
-            options={["Industrie", "Handel", "Dienstleistung", "Gesundheitswesen"]}
+            label="Industry"
+            {...field("industry")}
+            options={["Manufacturing", "Retail", "Services", "Healthcare"]}
           />
         </GridCell>
       </Grid>
       <Grid columns={3}>
         <GridCell span={2}>
-          <TextField label="Straße" {...field("strasse")} />
+          <TextField label="Street" {...field("street")} />
         </GridCell>
         <GridCell>
-          <TextField label="PLZ" {...field("plz")} />
+          <TextField label="Postal code" {...field("postalCode")} />
         </GridCell>
         <GridCell span={2}>
-          <TextField label="Ort" {...field("ort")} />
+          <TextField label="City" {...field("city")} />
         </GridCell>
         <GridCell>
           <SelectField
-            label="Land"
-            {...field("land")}
+            label="Country"
+            {...field("country")}
             options={[
-              { value: "DE", label: "Deutschland" },
-              { value: "AT", label: "Österreich" },
-              { value: "CH", label: "Schweiz" },
+              { value: "US", label: "United States" },
+              { value: "CA", label: "Canada" },
+              { value: "GB", label: "United Kingdom" },
             ]}
           />
         </GridCell>
       </Grid>
-      <TextareaField label="Notiz" {...field("notiz")} rows={3} />
+      <TextareaField label="Note" {...field("note")} rows={3} />
     </SectionCard>
   );
 }
 
-interface IndustrieDraft {
-  readonly anlagenId: string;
-  readonly standort: string;
-  readonly pruefdatum: string;
-  readonly temperatur: number | undefined;
-  readonly druck: number | undefined;
+interface MaintenanceDraft {
+  readonly assetId: string;
+  readonly location: string;
+  readonly inspectionDate: string;
+  readonly temperature: number | undefined;
+  readonly pressure: number | undefined;
   readonly vibration: number;
   readonly status: string;
-  readonly bestanden: boolean;
-  readonly maengel: string;
+  readonly passed: boolean;
+  readonly defects: string;
 }
 
-const INDUSTRIE_DEFAULTS: IndustrieDraft = {
-  anlagenId: "A-2231",
-  standort: "Halle 3",
-  pruefdatum: "2026-07-26",
-  temperatur: 62,
-  druck: 4.1,
+const MAINTENANCE_DEFAULTS: MaintenanceDraft = {
+  assetId: "A-2231",
+  location: "Bay 3",
+  inspectionDate: "2026-07-26",
+  temperature: 62,
+  pressure: 4.1,
   vibration: 2.5,
   status: "ok",
-  bestanden: true,
-  maengel: "",
+  passed: true,
+  defects: "",
 };
 
 // Industry: maintenance / asset check — measurements with units in the
 // label, often filled on a tablet on site.
-function IndustrieWartungsForm(): ReactNode {
-  const { draft, field } = useDraft<IndustrieDraft>(INDUSTRIE_DEFAULTS);
+function MaintenanceLogForm(): ReactNode {
+  const { draft, field } = useDraft<MaintenanceDraft>(MAINTENANCE_DEFAULTS);
   const { Grid, GridCell } = usePrimitives();
   return (
-    <SectionCard title="Industrie · Wartungsprotokoll" subtitle="Anlage, Messwerte, Ergebnis">
+    <SectionCard title="Industrial · Maintenance log" subtitle="Asset, measurements, result">
       <Grid columns={3}>
         <GridCell>
-          <TextField label="Anlagen-ID" {...field("anlagenId")} />
+          <TextField label="Asset ID" {...field("assetId")} />
         </GridCell>
         <GridCell>
           <SelectField
-            label="Standort"
-            {...field("standort")}
-            options={["Halle 1", "Halle 2", "Halle 3", "Außenlager"]}
+            label="Location"
+            {...field("location")}
+            options={["Bay 1", "Bay 2", "Bay 3", "Off-site storage"]}
           />
         </GridCell>
         <GridCell>
-          <DateField label="Prüfdatum" {...field("pruefdatum")} />
+          <DateField label="Inspection date" {...field("inspectionDate")} />
         </GridCell>
       </Grid>
       <Grid columns={3}>
         <GridCell>
-          <NumberField label="Temperatur (°C)" {...field("temperatur")} />
+          <NumberField label="Temperature (°C)" {...field("temperature")} />
         </GridCell>
         <GridCell>
-          <NumberField label="Druck (bar)" {...field("druck")} />
+          <NumberField label="Pressure (bar)" {...field("pressure")} />
         </GridCell>
         <GridCell>
           <SelectField
             label="Status"
             {...field("status")}
             options={[
-              { value: "ok", label: "In Ordnung" },
-              { value: "warn", label: "Beobachten" },
-              { value: "kritisch", label: "Kritisch" },
+              { value: "ok", label: "OK" },
+              { value: "warn", label: "Watch" },
+              { value: "critical", label: "Critical" },
             ]}
           />
         </GridCell>
@@ -193,136 +193,140 @@ function IndustrieWartungsForm(): ReactNode {
         max={10}
         step={0.1}
       />
-      <BooleanField label="Prüfung bestanden" {...field("bestanden")} />
-      <TextareaField label="Mängel" {...field("maengel")} rows={3} />
+      <BooleanField label="Inspection passed" {...field("passed")} />
+      <TextareaField label="Defects" {...field("defects")} rows={3} />
     </SectionCard>
   );
 }
 
-interface MedizinDraft {
+interface PatientIntakeDraft {
   readonly patientName: string;
-  readonly geburtsdatum: string;
-  readonly versicherung: string;
-  readonly groesse: number | undefined;
-  readonly gewicht: number | undefined;
-  readonly blutdruck: string;
-  readonly puls: number | undefined;
-  readonly allergien: string;
-  readonly dauermedikation: boolean;
-  readonly einwilligung: boolean;
+  readonly dateOfBirth: string;
+  readonly insurance: string;
+  readonly height: number | undefined;
+  readonly weight: number | undefined;
+  readonly bloodPressure: string;
+  readonly pulse: number | undefined;
+  readonly allergies: string;
+  readonly currentMedication: boolean;
+  readonly consentGiven: boolean;
 }
 
-const MEDIZIN_DEFAULTS: MedizinDraft = {
+const PATIENT_INTAKE_DEFAULTS: PatientIntakeDraft = {
   patientName: "",
-  geburtsdatum: "",
-  versicherung: "gesetzlich",
-  groesse: undefined,
-  gewicht: undefined,
-  blutdruck: "",
-  puls: undefined,
-  allergien: "",
-  dauermedikation: false,
-  einwilligung: false,
+  dateOfBirth: "",
+  insurance: "public",
+  height: undefined,
+  weight: undefined,
+  bloodPressure: "",
+  pulse: undefined,
+  allergies: "",
+  currentMedication: false,
+  consentGiven: false,
 };
 
 // Medicine: patient intake — sensitive data clearly separated, many
 // required fields, vitals as a narrow four-column row.
-function MedizinAufnahmeForm(): ReactNode {
-  const { field } = useDraft<MedizinDraft>(MEDIZIN_DEFAULTS);
+function PatientIntakeForm(): ReactNode {
+  const { field } = useDraft<PatientIntakeDraft>(PATIENT_INTAKE_DEFAULTS);
   const { Grid, GridCell } = usePrimitives();
   return (
-    <SectionCard title="Medizin · Patientenaufnahme" subtitle="Person, Vitalwerte, Anamnese">
+    <SectionCard title="Medical · Patient intake" subtitle="Person, vitals, history">
       <Grid columns={3}>
         <GridCell>
           <TextField label="Name" {...field("patientName")} required />
         </GridCell>
         <GridCell>
-          <DateField label="Geburtsdatum" {...field("geburtsdatum")} required />
+          <DateField label="Date of birth" {...field("dateOfBirth")} required />
         </GridCell>
         <GridCell>
           <SelectField
-            label="Versicherung"
-            {...field("versicherung")}
+            label="Insurance"
+            {...field("insurance")}
             options={[
-              { value: "gesetzlich", label: "Gesetzlich" },
-              { value: "privat", label: "Privat" },
-              { value: "selbstzahler", label: "Selbstzahler" },
+              { value: "public", label: "Public" },
+              { value: "private", label: "Private" },
+              { value: "selfPay", label: "Self-pay" },
             ]}
           />
         </GridCell>
       </Grid>
       <Grid columns={4}>
         <GridCell>
-          <NumberField label="Größe (cm)" {...field("groesse")} />
+          <NumberField label="Height (cm)" {...field("height")} />
         </GridCell>
         <GridCell>
-          <NumberField label="Gewicht (kg)" {...field("gewicht")} />
+          <NumberField label="Weight (kg)" {...field("weight")} />
         </GridCell>
         <GridCell>
-          <TextField label="Blutdruck" {...field("blutdruck")} placeholder="120/80" />
+          <TextField label="Blood pressure" {...field("bloodPressure")} placeholder="120/80" />
         </GridCell>
         <GridCell>
-          <NumberField label="Puls (bpm)" {...field("puls")} />
+          <NumberField label="Pulse (bpm)" {...field("pulse")} />
         </GridCell>
       </Grid>
-      <TextareaField label="Allergien" {...field("allergien")} rows={2} />
+      <TextareaField label="Allergies" {...field("allergies")} rows={2} />
       <Grid columns={2}>
         <GridCell>
-          <BooleanField label="Dauermedikation vorhanden" {...field("dauermedikation")} />
+          <BooleanField label="Currently on medication" {...field("currentMedication")} />
         </GridCell>
         <GridCell>
-          <BooleanField label="Einwilligung erteilt" {...field("einwilligung")} />
+          <BooleanField label="Consent given" {...field("consentGiven")} />
         </GridCell>
       </Grid>
     </SectionCard>
   );
 }
 
-interface ProtokollDraft {
-  readonly titel: string;
-  readonly datum: string;
-  readonly kategorie: string;
-  readonly teilnehmer: string;
-  readonly beschreibung: string;
-  readonly nachfassenNoetig: boolean;
-  readonly eskaliert: boolean;
-  readonly abgeschlossen: boolean;
+interface IncidentLogDraft {
+  readonly title: string;
+  readonly date: string;
+  readonly category: string;
+  readonly participants: string;
+  readonly description: string;
+  readonly followUpNeeded: boolean;
+  readonly escalated: boolean;
+  readonly closed: boolean;
 }
 
-const PROTOKOLL_DEFAULTS: ProtokollDraft = {
-  titel: "",
-  datum: "2026-07-26",
-  kategorie: "meeting",
-  teilnehmer: "",
-  beschreibung: "",
-  nachfassenNoetig: false,
-  eskaliert: false,
-  abgeschlossen: false,
+const INCIDENT_LOG_DEFAULTS: IncidentLogDraft = {
+  title: "",
+  date: "2026-07-26",
+  category: "meeting",
+  participants: "",
+  description: "",
+  followUpNeeded: false,
+  escalated: false,
+  closed: false,
 };
 
 // Protocol: meeting / incident log — free-text heavy, checklist as a
 // compact boolean row instead of a custom multi-select.
-function ProtokollForm(): ReactNode {
-  const { field } = useDraft<ProtokollDraft>(PROTOKOLL_DEFAULTS);
+function IncidentLogForm(): ReactNode {
+  const { field } = useDraft<IncidentLogDraft>(INCIDENT_LOG_DEFAULTS);
   const { Grid, GridCell } = usePrimitives();
   return (
-    <SectionCard title="Protokoll · Meeting/Incident-Log" subtitle="Meta, Verlauf, Maßnahmen">
+    <SectionCard title="Log · Meeting/incident log" subtitle="Meta, timeline, actions">
       <Grid columns={3}>
         <GridCell span={2}>
-          <TextField label="Titel" {...field("titel")} />
+          <TextField label="Title" {...field("title")} />
         </GridCell>
         <GridCell>
-          <DateField label="Datum" {...field("datum")} />
+          <DateField label="Date" {...field("date")} />
         </GridCell>
       </Grid>
       <Grid columns={3}>
         <GridCell span={2}>
-          <TextField label="Teilnehmer" {...field("teilnehmer")} placeholder="Kommagetrennt" />
+          <TextField
+            label="Participants"
+            {...field("participants")}
+            placeholder="Comma-separated"
+          />
         </GridCell>
         <GridCell>
           <SelectField
-            label="Kategorie"
-            {...field("kategorie")}
+            label="Category"
+            {...field("category")}
             options={[
               { value: "meeting", label: "Meeting" },
               { value: "incident", label: "Incident" },
@@ -331,16 +335,16 @@ function ProtokollForm(): ReactNode {
           />
         </GridCell>
       </Grid>
-      <TextareaField label="Beschreibung" {...field("beschreibung")} rows={6} />
+      <TextareaField label="Description" {...field("description")} rows={6} />
       <Grid columns={3}>
         <GridCell>
-          <BooleanField label="Nachfassen nötig" {...field("nachfassenNoetig")} />
+          <BooleanField label="Follow-up needed" {...field("followUpNeeded")} />
         </GridCell>
         <GridCell>
-          <BooleanField label="Eskaliert" {...field("eskaliert")} />
+          <BooleanField label="Escalated" {...field("escalated")} />
         </GridCell>
         <GridCell>
-          <BooleanField label="Abgeschlossen" {...field("abgeschlossen")} />
+          <BooleanField label="Closed" {...field("closed")} />
         </GridCell>
       </Grid>
     </SectionCard>
