@@ -15,7 +15,7 @@
 // Cent-genaue Steps will tippt halt im Focus-Modus.
 
 import { Minus, Plus } from "lucide-react";
-import { type FocusEvent, type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 
 export type MoneyInputProps = {
@@ -62,6 +62,7 @@ export function MoneyInput({
   // Raw-Edit-Buffer während Focus. Sonst würde jeder Tipp-Step durch
   // Math.round → format-Roundtrip jagen und der Cursor würde springen.
   const [draft, setDraft] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const major = value === "" ? null : value / factor;
   const formatted = value === "" ? "" : formatMoney(value, currency, resolvedLocale);
@@ -79,10 +80,26 @@ export function MoneyInput({
 
   const editable = focused ? draft : toEditable(major);
 
-  const handleFocus = (_e: FocusEvent<HTMLInputElement>): void => {
+  const handleFocus = (): void => {
     setDraft(toEditable(major));
     setFocused(true);
   };
+
+  // Select-all-on-focus: deliberate, not just a Playwright accommodation.
+  // Focus always swaps the displayed value from the formatted string
+  // ("1.234,56 €") to the raw editable one ("1234,56"). Measured in a real
+  // browser: on this kind of value swap, the browser collapses the cursor
+  // to the *end* of the new value rather than preserving position — so
+  // without an explicit re-select, typing right after focus appends
+  // instead of replacing. That's what silently corrupted values set via
+  // Playwright's `.fill()` (framework#1856). It also matches standard
+  // money-input UX (immediate overtype on click), and sidesteps mapping a
+  // click position from the formatted view to the editable one, which has
+  // no well-defined equivalent once separators and the currency symbol
+  // are stripped.
+  useEffect(() => {
+    if (focused) inputRef.current?.select();
+  }, [focused]);
 
   const handleBlur = (): void => {
     setFocused(false);
@@ -103,6 +120,7 @@ export function MoneyInput({
   return (
     <div className="relative w-full">
       <input
+        ref={inputRef}
         id={id}
         name={name}
         type="text"
