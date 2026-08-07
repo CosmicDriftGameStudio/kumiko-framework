@@ -147,6 +147,39 @@ describe("createFormController — submit()", () => {
     expect(disp.writeSpy).toHaveBeenCalledWith("app:write:task:update", { title: "world" });
   });
 
+  test("payloadMode: 'values' — strips an untouched optional field seeded with \"\"", async () => {
+    // `dueDate` was never touched by the user; buildInitialValues seeded it
+    // with "" for the controlled input. A `.optional()` server schema
+    // rejects "" but accepts a missing key, so the key must be dropped
+    // entirely — not sent as `dueDate: undefined`.
+    const disp = makeDispatcher();
+    const form = createFormController({
+      initial: { title: "hello", dueDate: "" },
+      submit: { dispatcher: disp, type: "app:write:task:create" },
+    });
+
+    await form.submit();
+
+    const call = disp.writeSpy.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect("dueDate" in call).toBe(false);
+    expect(call["title"]).toBe("hello");
+  });
+
+  test("payloadMode: 'values' — keeps an explicitly-cleared field that started non-empty", async () => {
+    // `note` had a real value initially; the user cleared it via setField.
+    // That's a genuine change, not an untouched seed — it must survive.
+    const disp = makeDispatcher();
+    const form = createFormController({
+      initial: { note: "x" },
+      submit: { dispatcher: disp, type: "app:write:task:create" },
+    });
+    form.setField("note", "");
+
+    await form.submit();
+
+    expect(disp.writeSpy).toHaveBeenCalledWith("app:write:task:create", { note: "" });
+  });
+
   test("stale-submit race: edits during the in-flight write stay dirty after success", async () => {
     // User submits "hello", the network takes 50ms. During those 50ms the
     // user types "world" into the same field. The server sees "hello"
