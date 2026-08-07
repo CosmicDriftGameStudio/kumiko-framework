@@ -183,6 +183,16 @@ describe("defaultCellRender", () => {
     expect(result).not.toMatch(/[.,]\d\d$/);
   });
 
+  test("money → rehydrated { amount major, amountMinor } uses amountMinor (not major×100 wrong)", () => {
+    // rehydrateMoney (fw#1830): amount is major units, amountMinor is cents.
+    // formatMoney expects cents — using amount would show 100× too small.
+    const result = defaultCellRender(
+      { amount: 119, currency: "EUR", amountMinor: 11900 },
+      "money",
+    );
+    expect(result.replace(/[^0-9]/g, "")).toBe("11900");
+  });
+
   test("money → unerwarteter Value-Shape fällt auf String zurück", () => {
     expect(defaultCellRender(45000, "money")).toBe("45000");
   });
