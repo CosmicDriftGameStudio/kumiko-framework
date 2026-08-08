@@ -1350,7 +1350,14 @@ export function isComponentRendererRef(renderer: unknown): { readonly name: stri
 // applyFormatSpec re-exported from headless (platform-agnostic).
 export { applyFormatSpec };
 
-function isMoneyValue(value: unknown): value is { amount: number; currency: string } {
+type MoneyCellValue = {
+  amount: number;
+  currency: string;
+  /** Exact integer cents from rehydrateMoney (fw#1830); preferred for display. */
+  amountMinor?: number;
+};
+
+function isMoneyValue(value: unknown): value is MoneyCellValue {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -1385,7 +1392,12 @@ export function defaultCellRender(
     // falls back to guessLocale() (navigator.language), so the same amount
     // can render differently in a table vs. a form on the same screen.
     // Mid-term: pass the app locale down here too, analogous to render-field.
-    return formatMoney(value.amount, value.currency);
+    //
+    // formatMoney expects minor units. rehydrateMoney returns amount in MAJOR
+    // units plus amountMinor (cents). Prefer amountMinor when present; legacy
+    // shapes without it still carry cents in `amount`.
+    const minor = typeof value.amountMinor === "number" ? value.amountMinor : value.amount;
+    return formatMoney(minor, value.currency);
   }
   if (type === "select") {
     const raw = String(value);
