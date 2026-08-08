@@ -1,9 +1,14 @@
 export type { ComputeEditViewModelInput } from "./edit";
 export { computeEditViewModel } from "./edit";
-export type { EmbeddedDerivedOp, EmbeddedListIssueGroups } from "./embedded-list";
+export type {
+  DerivedCellRoundingTarget,
+  EmbeddedDerivedOp,
+  EmbeddedListIssueGroups,
+} from "./embedded-list";
 export {
   computeDerivedCellValue,
   groupEmbeddedListIssues,
+  roundDerivedCellValue,
   sumEmbeddedListColumn,
 } from "./embedded-list";
 export type { ComputeListViewModelInput } from "./list";

@@ -819,6 +819,146 @@ describe("embedded-list derived cell recomputation (kumiko-framework#1837)", () 
       expect(result.data["lines"]).toEqual([{ qty: 3, amount: 999 }]);
     }
   });
+
+  // --- kumiko-framework#1852: a fractional product on a money/decimal
+  // target isn't representable by the target sub-field's strict
+  // integer/scale validation — round to the target's declared precision
+  // before it's written back, instead of rejecting the whole row. ---
+
+  test("a fractional product on a money target is rounded to whole minor units (kaufmännisch)", () => {
+    const entity = createEntity({
+      table: "Orders",
+      fields: {
+        lines: createEmbeddedListField(
+          {
+            qty: { type: "decimal", scale: 2, required: true },
+            price: { type: "money", required: true },
+            amount: { type: "money", required: false },
+          },
+          { derived: { amount: { op: "multiply", from: ["qty", "price"] } } },
+        ),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    // 12.34 * 187 = 2307.58 minor units — not representable by money's
+    // integer constraint. Rounds up (half-away-from-zero would round .58
+    // to .0 anyway, this just isn't a half-step case).
+    const result = schema.safeParse({ lines: [{ qty: 12.34, price: 187 }] });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const row = (result.data["lines"] as readonly Record<string, unknown>[])[0];
+      expect(row?.["amount"]).toBe(2308);
+    }
+  });
+
+  test("a negative product exactly on a half-step rounds away from zero, not toward it", () => {
+    const entity = createEntity({
+      table: "Orders",
+      fields: {
+        lines: createEmbeddedListField(
+          {
+            qty: { type: "decimal", scale: 1, required: true },
+            price: { type: "money", required: true },
+            amount: { type: "money", required: false },
+          },
+          { derived: { amount: { op: "multiply", from: ["qty", "price"] } } },
+        ),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    // 2.5 * -923 = -2307.5 exactly. `Math.round(-2307.5)` alone would give
+    // -2307 (rounds toward zero for negative .5); half-away-from-zero must
+    // give -2308.
+    const result = schema.safeParse({ lines: [{ qty: 2.5, price: -923 }] });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const row = (result.data["lines"] as readonly Record<string, unknown>[])[0];
+      expect(row?.["amount"]).toBe(-2308);
+    }
+  });
+
+  test("a decimal target rounds correctly through the classic float half-step trap", () => {
+    const entity = createEntity({
+      table: "Orders",
+      fields: {
+        lines: createEmbeddedListField(
+          {
+            qty: { type: "decimal", scale: 3, required: true },
+            price: { type: "number", required: true },
+            amount: { type: "decimal", scale: 2, required: false },
+          },
+          { derived: { amount: { op: "multiply", from: ["qty", "price"] } } },
+        ),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    // 1.005 * 1 === 1.005 as a JS number, but 1.005 * 100 is actually
+    // 100.49999999999999 in float — naive Math.round would floor this to
+    // 1.00 instead of the mathematically-correct 1.01.
+    const result = schema.safeParse({ lines: [{ qty: 1.005, price: 1 }] });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const row = (result.data["lines"] as readonly Record<string, unknown>[])[0];
+      expect(row?.["amount"]).toBe(1.01);
+    }
+  });
+
+  test("totalsMatch validates against the rounded derived values, not the raw fractional products", () => {
+    const entity = createEntity({
+      table: "Orders",
+      fields: {
+        total: createMoneyField({ required: true }),
+        lines: createEmbeddedListField(
+          {
+            qty: { type: "decimal", scale: 1, required: true },
+            price: { type: "money", required: true },
+            amount: { type: "money", required: false },
+          },
+          {
+            derived: { amount: { op: "multiply", from: ["qty", "price"] } },
+            totalsMatch: { amount: "total" },
+          },
+        ),
+      },
+      defaultCurrency: "EUR",
+    });
+    const schema = buildInsertSchema(entity);
+    // Each row's raw product is x.5 and rounds up by 1 minor unit: row 1 =
+    // 2.5 * 923 = 2307.5 -> 2308; row 2 = 3.5 * 100 = 350.0 -> 350 exactly.
+    // Sibling total must equal the sum of the ROUNDED amounts (26.58 EUR),
+    // not the sum of the raw fractional products.
+    const result = schema.safeParse({
+      total: { amount: 26.58, currency: "EUR" },
+      lines: [
+        { qty: 2.5, price: 923 },
+        { qty: 3.5, price: 100 },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  test("a number-typed derived cell is left unrounded (unit-agnostic pass-through)", () => {
+    const entity = createEntity({
+      table: "Orders",
+      fields: {
+        lines: createEmbeddedListField(
+          {
+            qty: { type: "number", required: true },
+            price: { type: "number", required: true },
+            amount: { type: "number", required: false },
+          },
+          { derived: { amount: { op: "multiply", from: ["qty", "price"] } } },
+        ),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    const result = schema.safeParse({ lines: [{ qty: 1.5, price: 2 }] });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const row = (result.data["lines"] as readonly Record<string, unknown>[])[0];
+      expect(row?.["amount"]).toBe(3);
+    }
+  });
 });
 
 // --- Update schema (all partial) ---

@@ -212,7 +212,7 @@ export function fieldToZod(
       const row =
         derived === undefined
           ? baseRow
-          : z.preprocess((value) => withDerivedCells(value, derived), baseRow);
+          : z.preprocess((value) => withDerivedCells(value, derived, field.schema), baseRow);
       if (field.multiple !== true) return row;
       // `required: true` means non-empty, same reading as multiSelect —
       // whether the key may be omitted at all is decided by buildInsertSchema

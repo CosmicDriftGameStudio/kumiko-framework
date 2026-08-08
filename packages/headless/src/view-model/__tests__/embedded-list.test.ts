@@ -3,6 +3,7 @@ import type { FieldIssue } from "../../dispatcher";
 import {
   computeDerivedCellValue,
   groupEmbeddedListIssues,
+  roundDerivedCellValue,
   sumEmbeddedListColumn,
 } from "../embedded-list";
 
@@ -37,6 +38,17 @@ describe("computeDerivedCellValue", () => {
 
   test("subtract treats a missing source as 0", () => {
     expect(computeDerivedCellValue("subtract", [10, undefined])).toBe(10);
+  });
+});
+
+describe("roundDerivedCellValue", () => {
+  test("rounds a money target to whole minor units, kaufmännisch", () => {
+    expect(roundDerivedCellValue(2307.58, { type: "money" })).toBe(2308);
+    expect(roundDerivedCellValue(-2307.5, { type: "money" })).toBe(-2308);
+  });
+
+  test("leaves a number target unrounded", () => {
+    expect(roundDerivedCellValue(1.5, { type: "number" })).toBe(1.5);
   });
 });
 

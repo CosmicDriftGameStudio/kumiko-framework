@@ -20,7 +20,8 @@
 // When adding a symbol here, verify it's either a type or a pure
 // helper with no cross-module side-effects.
 
-export { computeDerivedCellValue } from "../engine/embedded-derived";
+export type { DerivedCellRoundingTarget } from "../engine/embedded-derived";
+export { computeDerivedCellValue, roundDerivedCellValue } from "../engine/embedded-derived";
 export type { ParsedRefTarget } from "../engine/parse-ref-target";
 export { parseRefTarget } from "../engine/parse-ref-target";
 export {

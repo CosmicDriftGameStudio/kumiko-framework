@@ -417,9 +417,10 @@ export type EmbeddedSubFieldDef =
     });
 
 /** A cell computed from other cells of the same row. `from` names the
- *  sub-fields the operation reads (order matters for `subtract`). Purely
- *  renderer metadata — the derived value is still validated like any other
- *  value of its declared sub-field type in `schema`. */
+ *  sub-fields the operation reads (order matters for `subtract`). Renderer
+ *  metadata — the derived value is rounded server- and client-side to the
+ *  precision its target sub-field in `schema` declares (money → integer,
+ *  decimal → `scale`) before it's validated. */
 export type EmbeddedDerivedCellDef = {
   readonly op: "multiply" | "sum" | "subtract";
   readonly from: readonly string[];
@@ -447,7 +448,8 @@ export type EmbeddedFieldDef = {
   /** Maximum row count for an embedded list. Only valid with `multiple: true`. */
   readonly maxItems?: number;
   /** Renderer metadata: sub-field name → how to compute its cell from other
-   *  sub-fields of the same row. Only valid with `multiple: true`. */
+   *  sub-fields of the same row, rounded to that sub-field's declared
+   *  precision. Only valid with `multiple: true`. */
   readonly derived?: Readonly<Record<string, EmbeddedDerivedCellDef>>;
   /** Renderer metadata: numeric sub-field names to sum in a totals row. Only
    *  valid with `multiple: true`. */

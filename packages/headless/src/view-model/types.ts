@@ -100,6 +100,8 @@ export type EmbeddedListCellViewModel = {
   readonly refEntity?: string;
   readonly refFeature?: string;
   readonly refLabelField?: string;
+  /** Only for `type: "decimal"`. */
+  readonly scale?: number;
 };
 
 // Resolved field — all predicates evaluated, labels translated. The
