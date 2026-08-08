@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.186.1
+
+### Patch Changes
+
+- 3790863: Untouched optional fields seeded with "" are dropped from the submit payload in payloadMode "values" instead of being sent as an empty string, which a `.optional()` server schema rejects.
+  - @cosmicdrift/kumiko-framework@0.186.1
+
 ## 0.186.0
 
 ### Patch Changes

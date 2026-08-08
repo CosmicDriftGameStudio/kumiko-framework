@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.186.1
+
+### Patch Changes
+
+- ad5933d: DataTable money cells prefer `amountMinor` from rehydrateMoney so major-unit `amount` is not passed to formatMoney (which expects cents).
+- eb94d51: Fix #1834: `embedded` (non-list), `jsonb` and `multiSelect` fields without a dedicated
+  widget no longer fall back to an editable text input — that fallback ran the value
+  through `stringValue()` and saving the form overwrote the real data with the mangled
+  string (`"[object Object]"`, `"a,b"`). They now render a read-only `Banner` instead.
+
+  `BannerProps` gained an optional `id` so `<Field>`'s `<label htmlFor>` has a real target
+  when it wraps a Banner instead of an input.
+
+  `required: true` on one of these fields is currently a dead end (no widget to satisfy
+  it) — the actual list/object editor is tracked separately in #1835.
+
+- Updated dependencies [eb94d51]
+- Updated dependencies [3790863]
+  - @cosmicdrift/kumiko-renderer@0.186.1
+  - @cosmicdrift/kumiko-headless@0.186.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.186.1
+
 ## 0.186.0
 
 ### Patch Changes
