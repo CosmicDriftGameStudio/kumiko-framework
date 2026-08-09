@@ -29,8 +29,8 @@ export type DerivedCellRoundingTarget = {
 };
 
 /** Rounds a derived cell's computed value to the precision its target
- *  sub-field declares — kaufmännisch (round-half-away-from-zero, correct
- *  for signed minor-unit money). money → integer; decimal → `scale`
+ *  sub-field declares — commercial rounding (round-half-away-from-zero,
+ *  correct for signed minor-unit money). money → integer; decimal → `scale`
  *  digits; every other target type passes through unchanged (the function
  *  stays unit-agnostic for those). */
 export function roundDerivedCellValue(value: number, target: DerivedCellRoundingTarget): number {
