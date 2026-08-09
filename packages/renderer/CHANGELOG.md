@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.187.0
+
+### Minor Changes
+
+- 3e36735: Fix #1861: `usePrimitives().DataTable` gains three composition hooks for
+  apps that build the table directly (not via `RenderList`):
+
+  - `ColumnRendererProps` gains an optional `onChange`, wired from a new
+    `DataTableProps.onCellChange(rowId, field, value)` — a component
+    column-renderer can now mutate a cell instead of only displaying it.
+  - `ListColumnViewModel.highlighted` marks one column at runtime (e.g. the
+    selected base-year column in a multi-year grid); `DataTable` renders its
+    header and cells with a distinct background and `data-highlighted="true"`.
+  - `DataTableProps.getRowTestId` / `getCellTestId` override the previously
+    hardcoded `row-${id}` / `cell-${id}-${field}` test-id pattern.
+
+### Patch Changes
+
+- 1445686: DateField's placeholder now shows the locale's date format pattern (e.g. "TT.MM.JJJJ" in de, "MM/DD/YYYY" in en-US, "DD/MM/YYYY" in en-GB) instead of a hardcoded example date ("31.12.2026"), which read as an already-filled-in value and caused editors to skip the field. Fixes #1865.
+- Updated dependencies [3e36735]
+- Updated dependencies [1246ec0]
+  - @cosmicdrift/kumiko-headless@0.187.0
+  - @cosmicdrift/kumiko-framework@0.187.0
+
 ## 0.186.3
 
 ### Patch Changes

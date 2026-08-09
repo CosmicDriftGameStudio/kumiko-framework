@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.187.0
+
+### Minor Changes
+
+- 3e36735: Fix #1861: `usePrimitives().DataTable` gains three composition hooks for
+  apps that build the table directly (not via `RenderList`):
+
+  - `ColumnRendererProps` gains an optional `onChange`, wired from a new
+    `DataTableProps.onCellChange(rowId, field, value)` — a component
+    column-renderer can now mutate a cell instead of only displaying it.
+  - `ListColumnViewModel.highlighted` marks one column at runtime (e.g. the
+    selected base-year column in a multi-year grid); `DataTable` renders its
+    header and cells with a distinct background and `data-highlighted="true"`.
+  - `DataTableProps.getRowTestId` / `getCellTestId` override the previously
+    hardcoded `row-${id}` / `cell-${id}-${field}` test-id pattern.
+
+### Patch Changes
+
+- Updated dependencies [1246ec0]
+  - @cosmicdrift/kumiko-framework@0.187.0
+
 ## 0.186.3
 
 ### Patch Changes

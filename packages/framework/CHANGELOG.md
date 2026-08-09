@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.187.0
+
+### Patch Changes
+
+- 1246ec0: Embedded-list derived cells (multiply/sum/subtract) are now rounded kaufmännisch (half-away-from-zero) to the target sub-field's declared precision — integer minor units for `money`, `scale` for `decimal` — before validation, both server-side (write schema) and client-side (live preview). Previously a fractional product on a money/decimal target was rejected outright with a 422.
+  - @cosmicdrift/kumiko-types@0.187.0
+
 ## 0.186.3
 
 ### Patch Changes
