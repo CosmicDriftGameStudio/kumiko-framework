@@ -548,6 +548,18 @@ export type DataTableProps = {
    *  "Ende der Liste"-Hinweis statt des Sentinels. Default true. */
   readonly hasMore?: boolean;
   readonly testId?: string;
+  /** Wires an edit path into a component column-renderer: `DataTableCell`
+   *  passes this down as `ColumnRendererProps.onChange` for that cell,
+   *  bound to `(rowId, column.field)`. Renderers without a component
+   *  renderer (format-spec, type-default) ignore it — read-only stays
+   *  read-only unless the column has a custom renderer that reads
+   *  `onChange`. */
+  readonly onCellChange?: (rowId: string, field: string, value: unknown) => void;
+  /** Overrides the row `data-testid` (default `row-${row.id}`) — for a
+   *  screen that already has its own DOM-test/e2e naming scheme. */
+  readonly getRowTestId?: (row: ListRowViewModel) => string;
+  /** Overrides the cell `data-testid` (default `cell-${row.id}-${field}`). */
+  readonly getCellTestId?: (row: ListRowViewModel, field: string) => string;
 };
 
 // ---- EmbeddedListInput (createEmbeddedListField widget) ----

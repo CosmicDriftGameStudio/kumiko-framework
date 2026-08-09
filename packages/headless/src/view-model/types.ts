@@ -56,6 +56,11 @@ export type ListColumnViewModel = {
   /** Nur bei `type: "reference"` — Welches Feld der referenced Entity
    *  als Display-Wert in der Cell erscheint (Default "id"). */
   readonly refLabelField?: string;
+  /** Set by the caller at runtime (not schema-derived) to emphasize one
+   *  column — e.g. the currently selected base-year column in a
+   *  multi-year statement grid. DataTable renders it with a distinct
+   *  header/cell background. */
+  readonly highlighted?: boolean;
 };
 
 export type ListRowViewModel = {
