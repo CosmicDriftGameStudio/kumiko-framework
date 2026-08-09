@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.186.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-types@0.186.2
+
 ## 0.186.1
 
 ### Patch Changes
