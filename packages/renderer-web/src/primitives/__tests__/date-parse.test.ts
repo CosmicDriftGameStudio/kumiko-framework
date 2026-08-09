@@ -6,7 +6,16 @@
 
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { formatDateForInput, parseIso, parseTypedDate, toIso } from "../date-parse";
+import {
+  formatDateForInput,
+  formatDatePlaceholder,
+  parseIso,
+  parseTypedDate,
+  toIso,
+} from "../date-parse";
+
+const dePlaceholderLetters = { year: "J", month: "M", day: "T" };
+const enPlaceholderLetters = { year: "Y", month: "M", day: "D" };
 
 describe("parseIso", () => {
   test("valid yyyy-mm-dd → PlainDate (no TZ conversion)", () => {
@@ -133,5 +142,21 @@ describe("formatDateForInput", () => {
     const roundtrip = parseTypedDate(formatted, "ja-JP");
     expect(roundtrip).toBeDefined();
     if (roundtrip !== undefined) expect(toIso(roundtrip)).toBe("2026-04-25");
+  });
+});
+
+// #1865: placeholder shows the locale's format pattern, not a hardcoded
+// example date that reads as an already-filled-in value.
+describe("formatDatePlaceholder", () => {
+  test("de-DE → day.month.year pattern with dot separator", () => {
+    expect(formatDatePlaceholder("de-DE", dePlaceholderLetters)).toBe("TT.MM.JJJJ");
+  });
+
+  test("en-US → month/day/year pattern with slash separator", () => {
+    expect(formatDatePlaceholder("en-US", enPlaceholderLetters)).toBe("MM/DD/YYYY");
+  });
+
+  test("en-GB → day/month/year pattern with slash separator", () => {
+    expect(formatDatePlaceholder("en-GB", enPlaceholderLetters)).toBe("DD/MM/YYYY");
   });
 });

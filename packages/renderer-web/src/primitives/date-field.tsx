@@ -12,7 +12,14 @@ import { type ReactNode, useState } from "react";
 import { Temporal } from "temporal-polyfill";
 import { cn } from "../lib/cn";
 import { CalendarPopover } from "./calendar-popover";
-import { formatDateForInput, guessLocale, parseIso, parseTypedDate, toIso } from "./date-parse";
+import {
+  formatDateForInput,
+  formatDatePlaceholder,
+  guessLocale,
+  parseIso,
+  parseTypedDate,
+  toIso,
+} from "./date-parse";
 
 // CalendarPopover wraps react-day-picker, which only accepts native Date
 // objects — the PlainDate↔Date boundary conversion stays confined to
@@ -98,10 +105,11 @@ export function DateField({
         disabled={disabled}
         required={required}
         aria-invalid={hasError === true ? true : undefined}
-        placeholder={formatDateForInput(
-          Temporal.PlainDate.from({ year: 2026, month: 12, day: 31 }),
-          resolvedLocale,
-        )}
+        placeholder={formatDatePlaceholder(resolvedLocale, {
+          year: t("kumiko.field.dateField.placeholderYear"),
+          month: t("kumiko.field.dateField.placeholderMonth"),
+          day: t("kumiko.field.dateField.placeholderDay"),
+        })}
         onChange={(e) => {
           setDraft(e.target.value);
           commitTyped(e.target.value);
