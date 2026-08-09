@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.186.3
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.186.3
+- @cosmicdrift/kumiko-server-runtime@0.186.3
+- @cosmicdrift/kumiko-framework@0.186.3
+
 ## 0.186.2
 
 ### Patch Changes
