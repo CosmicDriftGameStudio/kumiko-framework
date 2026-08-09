@@ -605,3 +605,19 @@ describe("EmbeddedListInput — currency (#1839)", () => {
     expect(totals.textContent).toContain("€");
   });
 });
+
+describe("EmbeddedListInput — desktop table width (solon#107)", () => {
+  test("the table keeps min-w-max so columns don't shrink below their width classes", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    const desktop = screen.getByTestId("lines-desktop");
+    const table = desktop.querySelector("table");
+    if (table === null) throw new Error("expected a <table> in the desktop layout");
+    expect(table.className).toContain("min-w-max");
+
+    const headers = desktop.querySelectorAll("th");
+    expect(headers[0]?.className).toContain("min-w-[10rem]");
+    expect(headers[1]?.className).toContain("w-36");
+    expect(headers[2]?.className).toContain("w-36");
+  });
+});

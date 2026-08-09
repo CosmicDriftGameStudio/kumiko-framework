@@ -473,7 +473,8 @@ export function EmbeddedListInput({
       {!isMobile && (
         <div data-testid={testIdFor("desktop")} className="hidden md:block">
           <div className="overflow-hidden rounded-lg border bg-card">
-            <Table>
+            {/* w-full on Table's <table> would shrink columns below columnWidthClass; min-w-max keeps declared widths and lets the wrapper scroll instead */}
+            <Table className="min-w-max">
               <TableHeader className="bg-muted">
                 <TableRow className="hover:bg-transparent">
                   {columns.map((column) => (
