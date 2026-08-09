@@ -107,6 +107,30 @@ describe("EmbeddedListInput — header + rows", () => {
   });
 });
 
+describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1854)", () => {
+  const rows = [{ description: "Widget A", quantity: 2, amount: 1000 }];
+
+  test("desktop viewport mounts only the table, not the card layout", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    expect(screen.getByTestId("lines-desktop")).toBeTruthy();
+    expect(screen.queryByTestId("lines-mobile")).toBeNull();
+    expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
+  });
+
+  test("mobile viewport mounts only the card layout, not the table", () => {
+    const originalWidth = window.innerWidth;
+    window.innerWidth = 500;
+    try {
+      renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+      expect(screen.getByTestId("lines-mobile")).toBeTruthy();
+      expect(screen.queryByTestId("lines-desktop")).toBeNull();
+      expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
+    } finally {
+      window.innerWidth = originalWidth;
+    }
+  });
+});
+
 describe("EmbeddedListInput — row mutation callbacks", () => {
   const rows = [
     { description: "A", quantity: 1, amount: 100 },
