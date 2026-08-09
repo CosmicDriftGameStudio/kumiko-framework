@@ -47,12 +47,13 @@ const FOCUSABLE_SELECTOR = "input:not([type=hidden]), button, [tabindex]";
 
 function columnWidthClass(type: EmbeddedListCellType): string {
   switch (type) {
-    case "money":
     case "number":
     case "decimal":
     case "date":
       return "w-36";
-    // Wider than a bare date — carries a date field plus a time input.
+    // Wider than a bare number: MoneyInput appends stepper buttons, timestamp
+    // carries a date field plus a time input.
+    case "money":
     case "timestamp":
       return "w-44";
     case "boolean":

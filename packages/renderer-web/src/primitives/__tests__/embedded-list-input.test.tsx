@@ -618,6 +618,19 @@ describe("EmbeddedListInput — desktop table width (solon#107)", () => {
     const headers = desktop.querySelectorAll("th");
     expect(headers[0]?.className).toContain("min-w-[10rem]");
     expect(headers[1]?.className).toContain("w-36");
-    expect(headers[2]?.className).toContain("w-36");
+    expect(headers[2]?.className).toContain("w-44");
+  });
+
+  test("a money column is wider than a decimal/number column (framework#1880)", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      { field: "quantity", label: "Qty", type: "number", required: true, derived: false },
+      { field: "amount", label: "Amount", type: "money", required: false, derived: true },
+    ];
+    const rows = [{ quantity: 1, amount: 100 }];
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows })} />);
+    const desktop = screen.getByTestId("lines-desktop");
+    const headers = desktop.querySelectorAll("th");
+    expect(headers[0]?.className).toContain("w-36");
+    expect(headers[1]?.className).toContain("w-44");
   });
 });
