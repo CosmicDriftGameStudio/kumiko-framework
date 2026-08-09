@@ -24,6 +24,10 @@ export type ColumnRendererProps = {
   readonly column: {
     readonly field: string;
   };
+  /** Set only when the caller (DataTable's `onCellChange`) wired an
+   *  editable path for this cell — undefined means read-only. A renderer
+   *  can branch its own markup (input vs. plain text) on presence alone. */
+  readonly onChange?: (value: unknown) => void;
 };
 
 export type ColumnRendererComponent = ComponentType<ColumnRendererProps>;

@@ -623,6 +623,9 @@ function DefaultDataTable({
   onFilterChange,
   onFilterReset,
   testId,
+  onCellChange,
+  getRowTestId,
+  getCellTestId,
 }: DataTableProps): ReactNode {
   // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
   // beide visuell zusammengehören. Toolbar ist NICHT sticky — Lists
@@ -643,7 +646,18 @@ function DefaultDataTable({
       // Page-Background (z.B. Cream) matchen Listen sonst nicht die Cards.
       <div className="overflow-hidden rounded-lg border bg-card">
         <Table data-testid={testId}>
-          {tableInner(columns, rows, onRowClick, sort, onSortChange, rowActions, rowActionMode)}
+          {tableInner(
+            columns,
+            rows,
+            onRowClick,
+            sort,
+            onSortChange,
+            rowActions,
+            rowActionMode,
+            onCellChange,
+            getRowTestId,
+            getCellTestId,
+          )}
         </Table>
       </div>
     );
@@ -742,6 +756,9 @@ function tableInner(
   onSortChange?: DataTableProps["onSortChange"],
   rowActions?: DataTableProps["rowActions"],
   rowActionMode?: DataTableProps["rowActionMode"],
+  onCellChange?: DataTableProps["onCellChange"],
+  getRowTestId?: DataTableProps["getRowTestId"],
+  getCellTestId?: DataTableProps["getCellTestId"],
 ): ReactNode {
   const hasActions = rowActions !== undefined && rowActions.length > 0;
   return (
@@ -754,6 +771,7 @@ function tableInner(
               field={col.field}
               label={col.label}
               sortable={col.sortable === true}
+              highlighted={col.highlighted === true}
               {...(sort !== undefined && sort !== null && { sort })}
               {...(onSortChange !== undefined && { onSortChange })}
             />
@@ -775,20 +793,21 @@ function tableInner(
         {rows.map((row) => (
           <TableRow
             key={row.id}
-            data-testid={`row-${row.id}`}
+            data-testid={getRowTestId?.(row) ?? `row-${row.id}`}
             onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
             className={cn(onRowClick !== undefined && "cursor-pointer")}
           >
             {columns.map((col) => (
               <TableCell
                 key={col.field}
-                data-testid={`cell-${row.id}-${col.field}`}
+                data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
+                data-highlighted={col.highlighted === true ? "true" : undefined}
                 // Cells truncaten lange Werte mit ellipsis statt umzu-
                 // brechen — Lists bleiben einzeilig + scannbar (Linear-
                 // Pattern). max-w-xs gibt eine vernünftige Default-
                 // Obergrenze; der Table-Container scrollt horizontal
                 // falls die Summe der Spalten zu breit wird.
-                className="max-w-xs truncate"
+                className={cn("max-w-xs truncate", col.highlighted === true && "bg-accent/40")}
                 title={cellTitle(row.values[col.field])}
               >
                 <DataTableCell
@@ -798,6 +817,9 @@ function tableInner(
                   type={col.type}
                   renderer={col.renderer}
                   {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
+                  {...(onCellChange !== undefined && {
+                    onChange: (value: unknown) => onCellChange(row.id, col.field, value),
+                  })}
                 />
               </TableCell>
             ))}
@@ -1280,12 +1302,14 @@ function SortableHeader({
   field,
   label,
   sortable,
+  highlighted,
   sort,
   onSortChange,
 }: {
   readonly field: string;
   readonly label: string;
   readonly sortable: boolean;
+  readonly highlighted?: boolean;
   readonly sort?: DataTableSort;
   readonly onSortChange?: (next: DataTableSort | null) => void;
 }): ReactNode {
@@ -1298,7 +1322,8 @@ function SortableHeader({
       <TableHead
         data-testid={`column-${field}`}
         data-sortable={sortable === true ? true : undefined}
-        className="px-4 text-muted-foreground"
+        data-highlighted={highlighted === true ? "true" : undefined}
+        className={cn("px-4 text-muted-foreground", highlighted === true && "bg-accent/40")}
       >
         {label}
       </TableHead>
@@ -1312,8 +1337,9 @@ function SortableHeader({
     <TableHead
       data-testid={`column-${field}`}
       data-sortable="true"
+      data-highlighted={highlighted === true ? "true" : undefined}
       aria-sort={ariaSort}
-      className="px-4 text-muted-foreground"
+      className={cn("px-4 text-muted-foreground", highlighted === true && "bg-accent/40")}
     >
       <button
         type="button"
@@ -1443,6 +1469,7 @@ type DataTableCellProps = {
   readonly type: string;
   readonly renderer?: unknown;
   readonly optionLabels?: Readonly<Record<string, string>>;
+  readonly onChange?: (value: unknown) => void;
 };
 
 // Cell-Renderer als Component (statt reiner Funktion) damit der
@@ -1461,6 +1488,7 @@ function DataTableCell({
   type,
   renderer,
   optionLabels,
+  onChange,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
@@ -1473,7 +1501,14 @@ function DataTableCell({
   }
   if (componentRef !== undefined) {
     if (ResolvedComponent !== undefined) {
-      return <ResolvedComponent value={value} row={row} column={{ field }} />;
+      return (
+        <ResolvedComponent
+          value={value}
+          row={row}
+          column={{ field }}
+          {...(onChange !== undefined && { onChange })}
+        />
+      );
     }
     // Renderer im Schema referenziert, aber client-side kein Map-Eintrag —
     // typischer Fall: clientFeatures.columnRenderers vergessen oder

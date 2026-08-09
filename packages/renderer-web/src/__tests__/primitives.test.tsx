@@ -8,7 +8,9 @@
 // abhängen werden.
 
 import { describe, expect, mock, test } from "bun:test";
+import { type ColumnRendererProps, ColumnRenderersProvider } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { defaultPrimitives, END_LABEL_MIN_ROWS } from "../primitives";
 import { PageSection, Stack } from "../primitives/layout";
 import { fireEvent, render, screen } from "./test-utils";
@@ -874,6 +876,125 @@ describe("DataTable", () => {
       // onTrigger feuert, onRowClick MUSS NICHT — sonst würde der User
       // beim Action-Click gleichzeitig zum Edit-Screen navigieren.
       expect(onRowClick).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("highlighted column", () => {
+    const cols = [
+      { field: "name", label: "Name", type: "string", sortable: false },
+      { field: "y2026", label: "2026", type: "number", sortable: false, highlighted: true },
+    ] as const;
+    const oneRow = [{ id: "r1", values: { name: "Alice", y2026: 42 } }];
+
+    test("marks header + cell of the highlighted column, leaves others alone", () => {
+      render(<DataTable columns={cols} rows={oneRow} />);
+      expect(screen.getByTestId("column-y2026").getAttribute("data-highlighted")).toBe("true");
+      expect(screen.getByTestId("column-name").getAttribute("data-highlighted")).toBeNull();
+      expect(screen.getByTestId("cell-r1-y2026").getAttribute("data-highlighted")).toBe("true");
+      expect(screen.getByTestId("cell-r1-name").getAttribute("data-highlighted")).toBeNull();
+    });
+  });
+
+  describe("testId overrides", () => {
+    const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
+    const oneRow = [{ id: "r1", values: { name: "Alice" } }];
+
+    test("getRowTestId/getCellTestId override the row-<id>/cell-<id>-<field> defaults", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          getRowTestId={(row) => `own-row-${row.id}`}
+          getCellTestId={(row, field) => `own-cell-${row.id}-${field}`}
+        />,
+      );
+      expect(screen.getByTestId("own-row-r1")).not.toBeNull();
+      expect(screen.getByTestId("own-cell-r1-name")).not.toBeNull();
+      expect(screen.queryByTestId("row-r1")).toBeNull();
+    });
+
+    test("without overrides, defaults stay row-<id>/cell-<id>-<field>", () => {
+      render(<DataTable columns={cols} rows={oneRow} />);
+      expect(screen.getByTestId("row-r1")).not.toBeNull();
+      expect(screen.getByTestId("cell-r1-name")).not.toBeNull();
+    });
+  });
+
+  describe("onCellChange (editable cell)", () => {
+    function EditableSwatch({ value, column, onChange }: ColumnRendererProps): ReactNode {
+      return (
+        <input
+          data-testid={`edit-${column.field}`}
+          value={String(value)}
+          onChange={(e) => onChange?.(e.target.value)}
+        />
+      );
+    }
+
+    test("column-renderer receives onChange bound to (rowId, field, value) when onCellChange is set", () => {
+      const onCellChange = mock();
+      const cols = [
+        {
+          field: "name",
+          label: "Name",
+          type: "string",
+          sortable: false,
+          renderer: { react: { __component: "EditableSwatch" } },
+        },
+      ] as const;
+      render(
+        <ColumnRenderersProvider value={{ EditableSwatch }}>
+          <DataTable
+            columns={cols}
+            rows={[{ id: "r1", values: { name: "Alice" } }]}
+            onCellChange={onCellChange}
+          />
+        </ColumnRenderersProvider>,
+      );
+      fireEvent.change(screen.getByTestId("edit-name"), { target: { value: "Bob" } });
+      expect(onCellChange).toHaveBeenCalledWith("r1", "name", "Bob");
+    });
+
+    test("without onCellChange, the component renderer gets no onChange (read-only)", () => {
+      const cols = [
+        {
+          field: "name",
+          label: "Name",
+          type: "string",
+          sortable: false,
+          renderer: { react: { __component: "EditableSwatch" } },
+        },
+      ] as const;
+      render(
+        <ColumnRenderersProvider value={{ EditableSwatch }}>
+          <DataTable columns={cols} rows={[{ id: "r1", values: { name: "Alice" } }]} />
+        </ColumnRenderersProvider>,
+      );
+      // onChange is undefined → EditableSwatch's onChange?.(...) is a no-op;
+      // rendering itself must still succeed (no crash) with a stable value.
+      expect((screen.getByTestId("edit-name") as HTMLInputElement).value).toBe("Alice");
+    });
+
+    test("format-spec renderer ignores onCellChange — no crash, plain formatted text", () => {
+      const onCellChange = mock();
+      const cols = [
+        {
+          field: "amount",
+          label: "Amount",
+          type: "number",
+          sortable: false,
+          renderer: { format: "currency", symbol: "€" },
+        },
+      ] as const;
+      render(
+        <DataTable
+          columns={cols}
+          rows={[{ id: "r1", values: { amount: 42 } }]}
+          onCellChange={onCellChange}
+        />,
+      );
+      expect(screen.getByTestId("cell-r1-amount").textContent).toBe("42 €");
+      expect(onCellChange).not.toHaveBeenCalled();
     });
   });
 });
