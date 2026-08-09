@@ -299,6 +299,10 @@ export function fieldToZod(
 // sum in the entity's default currency against a sibling amount tagged with
 // a different currency string still passes. Add a currency-equality check
 // here if multi-currency siblings become a real case.
+//
+// Known limitation: compares against rounded `derived` cells, i.e.
+// "sum-of-rounded" not "round-of-sum" (kumiko-framework#1866). Follow-up
+// for a computed, read-only sibling total: kumiko-framework#1873.
 function applyTotalsMatchRefinements(
   entity: EntityDefinition,
   schema: z.ZodObject<Record<string, z.ZodTypeAny>>,

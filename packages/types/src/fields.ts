@@ -455,7 +455,9 @@ export type EmbeddedFieldDef = {
   /** Maps an embedded-list subfield name to a sibling top-level money field
    *  name — the sum of that subfield across all rows must equal the sibling
    *  field's amount. Validated both client- and server-side (schema-builder
-   *  superRefine). Only meaningful with `multiple: true`. */
+   *  superRefine). Only meaningful with `multiple: true`. Compares against
+   *  rounded `derived` cells, i.e. "sum-of-rounded" not "round-of-sum" —
+   *  see kumiko-framework#1866. */
   readonly totalsMatch?: Readonly<Record<string, string>>;
 } & PiiAnnotations;
 
