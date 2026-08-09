@@ -31,6 +31,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     // Field — aria-Labels der Date/Timestamp-Primitives.
     "kumiko.field.open-calendar": "Kalender öffnen",
+    "kumiko.field.dateField.placeholderYear": "J",
+    "kumiko.field.dateField.placeholderMonth": "M",
+    "kumiko.field.dateField.placeholderDay": "T",
     "kumiko.field.time": "Uhrzeit",
     "kumiko.field.timezone": "Zeitzone",
     "kumiko.field.locatedTzHint": "Zeit lokal am angegebenen Ort",
@@ -195,6 +198,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.toast.learn-more": "Learn more",
 
     "kumiko.field.open-calendar": "Open calendar",
+    "kumiko.field.dateField.placeholderYear": "Y",
+    "kumiko.field.dateField.placeholderMonth": "M",
+    "kumiko.field.dateField.placeholderDay": "D",
     "kumiko.field.time": "Time",
     "kumiko.field.timezone": "Time zone",
     "kumiko.field.locatedTzHint": "Time local to the given location",

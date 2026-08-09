@@ -71,24 +71,47 @@ export function formatDateForInput(d: Temporal.PlainDate, locale: string): strin
 
 type DateSlot = "y" | "m" | "d";
 
-// Field order of the numeric locale format. de → [d,m,y], en-US →
-// [m,d,y], ISO-like locales → [y,m,d]. formatToParts runs over an epoch-
-// millis number instead of a Date object (guard-compliant) — timeZone:
+// Shared by localeDateOrder and formatDatePlaceholder — both need the
+// locale's numeric formatToParts breakdown of the same reference date.
+// epoch-millis input instead of a Date object (guard-compliant); timeZone:
 // "UTC" keeps the reference from shifting to the 1st depending on the
 // browser's TZ.
-function localeDateOrder(locale: string): readonly DateSlot[] {
+function localeDateParts(locale: string): Intl.DateTimeFormatPart[] {
   const refEpochMillis = activeTemporal()
     .PlainDate.from({ year: 2026, month: 1, day: 2 })
     .toZonedDateTime("UTC").epochMilliseconds;
+  return new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).formatToParts(refEpochMillis);
+}
+
+// Field order of the numeric locale format. de → [d,m,y], en-US →
+// [m,d,y], ISO-like locales → [y,m,d].
+function localeDateOrder(locale: string): readonly DateSlot[] {
   const order: DateSlot[] = [];
-  for (const part of new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).formatToParts(
-    refEpochMillis,
-  )) {
+  for (const part of localeDateParts(locale)) {
     if (part.type === "year") order.push("y");
     else if (part.type === "month") order.push("m");
     else if (part.type === "day") order.push("d");
   }
   return order;
+}
+
+// Locale-shaped placeholder pattern, e.g. de "TT.MM.JJJJ", en-US
+// "MM/DD/YYYY", en-GB "DD/MM/YYYY". Slot order and separator both come
+// from formatToParts — nothing hardcoded per locale. `letters` is one
+// character per slot (from i18n); repeated to the slot's digit count
+// (day/month 2, year 4).
+export function formatDatePlaceholder(
+  locale: string,
+  letters: { readonly year: string; readonly month: string; readonly day: string },
+): string {
+  return localeDateParts(locale)
+    .map((part) => {
+      if (part.type === "year") return letters.year.repeat(4);
+      if (part.type === "month") return letters.month.repeat(2);
+      if (part.type === "day") return letters.day.repeat(2);
+      return part.value;
+    })
+    .join("");
 }
 
 // Typed input → PlainDate. Accepts ISO (yyyy-mm-dd) directly, plus three
