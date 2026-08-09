@@ -217,12 +217,19 @@ function DefaultField({
   fieldAppendix,
   children,
   layout,
+  hideLabel,
   testId,
 }: FieldProps): ReactNode {
   const t = useTranslation();
   const hasError = issues !== undefined && issues.length > 0;
   const labelEl = (
-    <UiLabel htmlFor={id} className={hasError ? "text-destructive" : "text-foreground"}>
+    <UiLabel
+      htmlFor={id}
+      className={cn(
+        hasError ? "text-destructive" : "text-foreground",
+        hideLabel === true && "sr-only",
+      )}
+    >
       {label}
       {required === true && <span className="ml-0.5 text-destructive">*</span>}
     </UiLabel>
