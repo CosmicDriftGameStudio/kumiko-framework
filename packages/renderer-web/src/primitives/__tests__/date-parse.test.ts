@@ -6,7 +6,13 @@
 
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { formatDateForInput, parseIso, parseTypedDate, toIso } from "../date-parse";
+import {
+  formatDateForInput,
+  formatDatePlaceholder,
+  parseIso,
+  parseTypedDate,
+  toIso,
+} from "../date-parse";
 
 describe("parseIso", () => {
   test("valid yyyy-mm-dd → PlainDate (no TZ conversion)", () => {
@@ -133,5 +139,24 @@ describe("formatDateForInput", () => {
     const roundtrip = parseTypedDate(formatted, "ja-JP");
     expect(roundtrip).toBeDefined();
     if (roundtrip !== undefined) expect(toIso(roundtrip)).toBe("2026-04-25");
+  });
+});
+
+describe("formatDatePlaceholder", () => {
+  const deTokens = { day: "TT", month: "MM", year: "JJJJ" };
+  const enTokens = { day: "DD", month: "MM", year: "YYYY" };
+
+  // #1865: a format pattern, not an example date — an example date reads
+  // as an already-entered value once the field loses focus.
+  test("de-DE → TT.MM.JJJJ order and separator, localized tokens", () => {
+    expect(formatDatePlaceholder("de-DE", deTokens)).toBe("TT.MM.JJJJ");
+  });
+
+  test("en-US → MM/DD/YYYY order and separator", () => {
+    expect(formatDatePlaceholder("en-US", enTokens)).toBe("MM/DD/YYYY");
+  });
+
+  test("ja-JP → YYYY/MM/DD order and separator", () => {
+    expect(formatDatePlaceholder("ja-JP", enTokens)).toBe("YYYY/MM/DD");
   });
 });

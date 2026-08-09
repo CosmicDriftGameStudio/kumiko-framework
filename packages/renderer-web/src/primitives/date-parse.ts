@@ -91,6 +91,33 @@ function localeDateOrder(locale: string): readonly DateSlot[] {
   return order;
 }
 
+export type DatePlaceholderTokens = {
+  readonly day: string;
+  readonly month: string;
+  readonly year: string;
+};
+
+// Placeholder as a format pattern ("TT.MM.JJJJ", "DD/MM/YYYY", ...) rather
+// than an example date — an example date reads as an already-entered value
+// once the field loses focus, especially a future year-end date in a form
+// where other fields are genuinely prefilled (#1865). Tokens are localized
+// (de: TT/JJJJ) by the caller via i18n, this only places them in locale
+// order with the locale's separator.
+export function formatDatePlaceholder(locale: string, tokens: DatePlaceholderTokens): string {
+  const refEpochMillis = activeTemporal()
+    .PlainDate.from({ year: 2026, month: 1, day: 2 })
+    .toZonedDateTime("UTC").epochMilliseconds;
+  return new Intl.DateTimeFormat(locale, { timeZone: "UTC" })
+    .formatToParts(refEpochMillis)
+    .map((part) => {
+      if (part.type === "year") return tokens.year;
+      if (part.type === "month") return tokens.month;
+      if (part.type === "day") return tokens.day;
+      return part.value;
+    })
+    .join("");
+}
+
 // Typed input → PlainDate. Accepts ISO (yyyy-mm-dd) directly, plus three
 // numeric tokens in locale order with any separator (".", "/", "-", " ").
 // Two-digit years → 2000s. Partial/invalid input → undefined (caller
