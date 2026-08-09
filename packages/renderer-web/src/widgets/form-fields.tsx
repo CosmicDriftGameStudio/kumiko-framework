@@ -9,6 +9,7 @@ export interface NumberFieldProps {
   readonly onChange: (v: number | undefined) => void;
   readonly required?: boolean;
   readonly disabled?: boolean;
+  readonly hideLabel?: boolean;
   readonly testId?: string;
 }
 
@@ -24,11 +25,12 @@ export function NumberField({
   onChange,
   required,
   disabled,
+  hideLabel,
   testId,
 }: NumberFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   return (
-    <Field id={id} label={label} required={required} testId={testId}>
+    <Field id={id} label={label} required={required} hideLabel={hideLabel} testId={testId}>
       <Input
         kind="number"
         id={id}
@@ -54,6 +56,7 @@ interface FieldBase {
   readonly name: string;
   readonly required?: boolean;
   readonly disabled?: boolean;
+  readonly hideLabel?: boolean;
   readonly testId?: string;
 }
 
@@ -75,11 +78,12 @@ export function TextField({
   disabled,
   placeholder,
   autoComplete,
+  hideLabel,
   testId,
 }: TextFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   return (
-    <Field id={id} label={label} required={required} testId={testId}>
+    <Field id={id} label={label} required={required} hideLabel={hideLabel} testId={testId}>
       <Input
         kind="text"
         id={id}
@@ -113,11 +117,12 @@ export function SelectField({
   options,
   required,
   disabled,
+  hideLabel,
   testId,
 }: SelectFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   return (
-    <Field id={id} label={label} required={required} testId={testId}>
+    <Field id={id} label={label} required={required} hideLabel={hideLabel} testId={testId}>
       <Input
         kind="select"
         id={id}
@@ -150,11 +155,12 @@ export function DateField({
   max,
   required,
   disabled,
+  hideLabel,
   testId,
 }: DateFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   return (
-    <Field id={id} label={label} required={required} testId={testId}>
+    <Field id={id} label={label} required={required} hideLabel={hideLabel} testId={testId}>
       <Input
         kind="date"
         id={id}
@@ -184,11 +190,19 @@ export function BooleanField({
   onChange,
   required,
   disabled,
+  hideLabel,
   testId,
 }: BooleanFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   return (
-    <Field id={id} label={label} required={required} layout="inline" testId={testId}>
+    <Field
+      id={id}
+      label={label}
+      required={required}
+      layout="inline"
+      hideLabel={hideLabel}
+      testId={testId}
+    >
       <Input
         kind="boolean"
         id={id}
@@ -218,11 +232,12 @@ export function TextareaField({
   rows,
   required,
   disabled,
+  hideLabel,
   testId,
 }: TextareaFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   return (
-    <Field id={id} label={label} required={required} testId={testId}>
+    <Field id={id} label={label} required={required} hideLabel={hideLabel} testId={testId}>
       <Input
         kind="textarea"
         id={id}
@@ -257,11 +272,12 @@ export function RangeField({
   step,
   required,
   disabled,
+  hideLabel,
   testId,
 }: RangeFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   return (
-    <Field id={id} label={label} required={required} testId={testId}>
+    <Field id={id} label={label} required={required} hideLabel={hideLabel} testId={testId}>
       <Input
         kind="range"
         id={id}
@@ -304,11 +320,12 @@ export function FileField({
   fieldName,
   required,
   disabled,
+  hideLabel,
   testId,
 }: FileFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   return (
-    <Field id={id} label={label} required={required} testId={testId}>
+    <Field id={id} label={label} required={required} hideLabel={hideLabel} testId={testId}>
       <Input
         kind={variant}
         id={id}

@@ -144,6 +144,10 @@ export type FieldProps = {
    *  Control + Label nebeneinander (Box links, Label rechts) — für
    *  Checkbox/Switch-Felder (boolean), wie das shadcn-Muster. */
   readonly layout?: "stacked" | "inline";
+  /** Collapses the visible label to `sr-only` — stays associated via
+   *  `htmlFor` (no separate `aria-label` needed). For tables/grids whose
+   *  column header already carries the label for each row. */
+  readonly hideLabel?: boolean;
   readonly testId?: string;
 };
 

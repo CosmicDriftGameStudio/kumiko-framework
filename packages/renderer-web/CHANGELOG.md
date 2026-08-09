@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.186.3
+
+### Patch Changes
+
+- 587f09d: Fix #1870: `FieldProps` and all `*Field` widgets (`SelectField`, `TextField`, `DateField`,
+  `BooleanField`, `TextareaField`, `RangeField`, `FileField`, `NumberField`) gain a `hideLabel`
+  prop that visually collapses the label to `sr-only` while keeping it associated via `htmlFor`.
+  For table/grid columns where the header already carries the label.
+- Updated dependencies [587f09d]
+  - @cosmicdrift/kumiko-renderer@0.186.3
+  - @cosmicdrift/kumiko-dispatcher-live@0.186.3
+  - @cosmicdrift/kumiko-headless@0.186.3
+
+## 0.186.2
+
+### Patch Changes
+
+- e4d0c30: Fix #1854: `EmbeddedListInput` mounted both the desktop table and the mobile card
+  layout at once, toggling visibility with `hidden`/`md:hidden`. Both mounts rendered
+  the same `data-cell-id`/`id` for every cell, so two live inputs (each with its own
+  draft state) shared one DOM id — automation could hit the hidden instance, and a
+  filled-in cell could appear empty while a derived total read the correct value.
+  Only the layout matching the current viewport (via `useIsMobile`) is mounted now.
+  - @cosmicdrift/kumiko-dispatcher-live@0.186.2
+  - @cosmicdrift/kumiko-headless@0.186.2
+  - @cosmicdrift/kumiko-renderer@0.186.2
+
 ## 0.186.1
 
 ### Patch Changes

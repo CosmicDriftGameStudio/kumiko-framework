@@ -4,9 +4,13 @@
 // and reports interaction (cell edits, row add/remove/duplicate/move,
 // paste).
 //
-// Two parallel layouts (table for md+, cards below md) are mounted at
-// the same time and toggled via Tailwind's `hidden`/`md:hidden` — cheaper
-// than a JS media-query and keeps SSR/hydration output stable.
+// Only one of the two layouts (table for md+, cards below md) is mounted
+// at a time, picked via useIsMobile — mounting both and toggling with
+// `hidden`/`md:hidden` left two live inputs per cell sharing one DOM id
+// (#1854). useIsMobile reports `false` for the first render regardless of
+// viewport, so the `hidden md:block` / `md:hidden` classes stay on the
+// wrapper divs too: on a phone that first (wrong) render is desktop but
+// CSS-hidden, not a visible flash of the wrong layout.
 
 import type { FieldIssue } from "@cosmicdrift/kumiko-headless";
 import type {
@@ -31,6 +35,7 @@ import { Button as UiButton } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input as UiInput } from "../ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { useIsMobile } from "../ui/use-mobile";
 import { ComboboxInput } from "./combobox";
 import { DateInput } from "./date-input";
 import { formatMoney, MoneyInput } from "./money-input";
@@ -369,6 +374,7 @@ export function EmbeddedListInput({
   // callers/tests that predate #1839) keep getting the same "EUR" this
   // component always hardcoded.
   const effectiveCurrency = currency ?? "EUR";
+  const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const [pendingFocusCellId, setPendingFocusCellId] = useState<string | undefined>(undefined);
 
@@ -464,120 +470,224 @@ export function EmbeddedListInput({
   return (
     <div ref={containerRef} data-testid={testId}>
       {/* ---- Desktop: table ---- */}
-      <div data-testid={testIdFor("desktop")} className="hidden md:block">
-        <div className="overflow-hidden rounded-lg border bg-card">
-          <Table>
-            <TableHeader className="bg-muted">
-              <TableRow className="hover:bg-transparent">
-                {columns.map((column) => (
-                  <TableHead
-                    key={column.field}
-                    className={cn(columnWidthClass(column.type), columnAlignClass(column.type))}
-                  >
-                    {column.label}
-                  </TableHead>
-                ))}
-                {showControls && <TableHead className="w-px text-right" aria-label="Actions" />}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row, rowIndex) => {
-                const isLastRow = rowIndex === rows.length - 1;
-                const rowIssuesForRow = rowIssues?.[rowIndex];
-                return (
-                  <Fragment
-                    // biome-ignore lint/suspicious/noArrayIndexKey: rows have no caller-guaranteed stable id; every cell is fully controlled (value+onChange), so reordering doesn't rely on DOM node identity surviving between renders.
-                    key={rowIndex}
-                  >
-                    <TableRow data-testid={testIdFor(`row-${rowIndex}`)}>
-                      {columns.map((column, columnIndex) => {
-                        const isLastCell = isLastRow && columnIndex === columns.length - 1;
-                        const issues = cellIssues?.[`${rowIndex}.${column.field}`];
-                        return (
-                          <TableCell
-                            key={column.field}
-                            data-testid={testIdFor(`cell-${rowIndex}-${column.field}`)}
-                            className={columnWidthClass(column.type)}
-                            onPaste={
-                              onPasteCells !== undefined
-                                ? handlePaste(rowIndex, columnIndex)
-                                : undefined
-                            }
-                            onKeyDown={isLastCell ? handleLastCellKeyDown : undefined}
-                          >
-                            {renderCellControl({
-                              cellId: cellId(rowIndex, column.field),
-                              column,
-                              value: row[column.field],
-                              disabled: disabled === true,
-                              onChange: (value) => onCellChange(rowIndex, column.field, value),
-                              currency: effectiveCurrency,
-                            })}
-                            <IssueMessages
-                              issues={issues}
-                              testId={testIdFor(`cell-${rowIndex}-${column.field}-errors`)}
+      {!isMobile && (
+        <div data-testid={testIdFor("desktop")} className="hidden md:block">
+          <div className="overflow-hidden rounded-lg border bg-card">
+            <Table>
+              <TableHeader className="bg-muted">
+                <TableRow className="hover:bg-transparent">
+                  {columns.map((column) => (
+                    <TableHead
+                      key={column.field}
+                      className={cn(columnWidthClass(column.type), columnAlignClass(column.type))}
+                    >
+                      {column.label}
+                    </TableHead>
+                  ))}
+                  {showControls && <TableHead className="w-px text-right" aria-label="Actions" />}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row, rowIndex) => {
+                  const isLastRow = rowIndex === rows.length - 1;
+                  const rowIssuesForRow = rowIssues?.[rowIndex];
+                  return (
+                    <Fragment
+                      // biome-ignore lint/suspicious/noArrayIndexKey: rows have no caller-guaranteed stable id; every cell is fully controlled (value+onChange), so reordering doesn't rely on DOM node identity surviving between renders.
+                      key={rowIndex}
+                    >
+                      <TableRow data-testid={testIdFor(`row-${rowIndex}`)}>
+                        {columns.map((column, columnIndex) => {
+                          const isLastCell = isLastRow && columnIndex === columns.length - 1;
+                          const issues = cellIssues?.[`${rowIndex}.${column.field}`];
+                          return (
+                            <TableCell
+                              key={column.field}
+                              data-testid={testIdFor(`cell-${rowIndex}-${column.field}`)}
+                              className={columnWidthClass(column.type)}
+                              onPaste={
+                                onPasteCells !== undefined
+                                  ? handlePaste(rowIndex, columnIndex)
+                                  : undefined
+                              }
+                              onKeyDown={isLastCell ? handleLastCellKeyDown : undefined}
+                            >
+                              {renderCellControl({
+                                cellId: cellId(rowIndex, column.field),
+                                column,
+                                value: row[column.field],
+                                disabled: disabled === true,
+                                onChange: (value) => onCellChange(rowIndex, column.field, value),
+                                currency: effectiveCurrency,
+                              })}
+                              <IssueMessages
+                                issues={issues}
+                                testId={testIdFor(`cell-${rowIndex}-${column.field}-errors`)}
+                              />
+                            </TableCell>
+                          );
+                        })}
+                        {showControls && (
+                          <TableCell className="text-right">
+                            <RowActions
+                              rowIndex={rowIndex}
+                              rowsLength={rows.length}
+                              minItems={minItems}
+                              maxItems={maxItems}
+                              onDuplicateRow={onDuplicateRow}
+                              onMoveRow={onMoveRow}
+                              onRemoveRow={onRemoveRow}
+                              duplicateLabel={duplicateLabel}
+                              moveUpLabel={moveUpLabel}
+                              moveDownLabel={moveDownLabel}
+                              removeLabel={removeLabel}
+                              testIdPrefix={testIdFor(`row-${rowIndex}`)}
                             />
                           </TableCell>
-                        );
-                      })}
-                      {showControls && (
-                        <TableCell className="text-right">
-                          <RowActions
-                            rowIndex={rowIndex}
-                            rowsLength={rows.length}
-                            minItems={minItems}
-                            maxItems={maxItems}
-                            onDuplicateRow={onDuplicateRow}
-                            onMoveRow={onMoveRow}
-                            onRemoveRow={onRemoveRow}
-                            duplicateLabel={duplicateLabel}
-                            moveUpLabel={moveUpLabel}
-                            moveDownLabel={moveDownLabel}
-                            removeLabel={removeLabel}
-                            testIdPrefix={testIdFor(`row-${rowIndex}`)}
-                          />
-                        </TableCell>
-                      )}
-                    </TableRow>
-                    {rowIssuesForRow !== undefined && rowIssuesForRow.length > 0 && (
-                      <TableRow>
-                        <TableCell colSpan={columns.length + (showControls ? 1 : 0)}>
-                          <IssueMessages
-                            issues={rowIssuesForRow}
-                            testId={testIdFor(`row-${rowIndex}-issues`)}
-                          />
-                        </TableCell>
+                        )}
                       </TableRow>
-                    )}
-                  </Fragment>
-                );
-              })}
-              {showControls && (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={columns.length + 1} className="p-2">
-                    <UiButton
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={onAddRow}
-                      disabled={addDisabled}
-                      data-testid={testIdFor("add")}
+                      {rowIssuesForRow !== undefined && rowIssuesForRow.length > 0 && (
+                        <TableRow>
+                          <TableCell colSpan={columns.length + (showControls ? 1 : 0)}>
+                            <IssueMessages
+                              issues={rowIssuesForRow}
+                              testId={testIdFor(`row-${rowIndex}-issues`)}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })}
+                {showControls && (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={columns.length + 1} className="p-2">
+                      <UiButton
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={onAddRow}
+                        disabled={addDisabled}
+                        data-testid={testIdFor("add")}
+                      >
+                        <Plus className="size-4" aria-hidden="true" />
+                        {addLabel}
+                      </UiButton>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+            {hasTotals && (
+              <div
+                data-testid={testIdFor("totals")}
+                className="flex flex-wrap items-center justify-end gap-6 border-t bg-muted/30 px-4 py-3 text-sm"
+              >
+                {totals.map((total) => (
+                  <div key={total.field} className="flex items-baseline gap-2">
+                    <span className="text-muted-foreground">{total.label}</span>
+                    <span className="font-medium tabular-nums">
+                      {formatTotalValue(total, columns, effectiveCurrency)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <IssueMessages issues={listIssues} testId={testIdFor("list-issues")} />
+        </div>
+      )}
+
+      {/* ---- Mobile: cards ---- */}
+      {isMobile && (
+        <div data-testid={testIdFor("mobile")} className="md:hidden flex flex-col gap-3">
+          {rows.map((row, rowIndex) => {
+            const isLastRow = rowIndex === rows.length - 1;
+            const rowIssuesForRow = rowIssues?.[rowIndex];
+            return (
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: rows have no caller-guaranteed stable id; every cell is fully controlled (value+onChange), so reordering doesn't rely on DOM node identity surviving between renders.
+                key={rowIndex}
+                data-testid={testIdFor(`row-${rowIndex}`)}
+                className="flex flex-col gap-3 rounded-lg border bg-card p-4"
+              >
+                {columns.map((column, columnIndex) => {
+                  const isLastCell = isLastRow && columnIndex === columns.length - 1;
+                  const issues = cellIssues?.[`${rowIndex}.${column.field}`];
+                  return (
+                    // biome-ignore lint/a11y/noStaticElementInteractions: paste/keydown are delegated from the focusable cell control rendered inside, not direct interaction on this wrapper div.
+                    <div
+                      key={column.field}
+                      className="flex flex-col gap-1"
+                      onPaste={
+                        onPasteCells !== undefined ? handlePaste(rowIndex, columnIndex) : undefined
+                      }
+                      onKeyDown={isLastCell ? handleLastCellKeyDown : undefined}
                     >
-                      <Plus className="size-4" aria-hidden="true" />
-                      {addLabel}
-                    </UiButton>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {column.label}
+                      </span>
+                      {renderCellControl({
+                        cellId: cellId(rowIndex, column.field),
+                        column,
+                        value: row[column.field],
+                        disabled: disabled === true,
+                        onChange: (value) => onCellChange(rowIndex, column.field, value),
+                        currency: effectiveCurrency,
+                      })}
+                      <IssueMessages
+                        issues={issues}
+                        testId={testIdFor(`cell-${rowIndex}-${column.field}-errors`)}
+                      />
+                    </div>
+                  );
+                })}
+                {rowIssuesForRow !== undefined && rowIssuesForRow.length > 0 && (
+                  <IssueMessages
+                    issues={rowIssuesForRow}
+                    testId={testIdFor(`row-${rowIndex}-issues`)}
+                  />
+                )}
+                {showControls && (
+                  <div className="flex items-center justify-end gap-1 border-t pt-3">
+                    <RowActions
+                      rowIndex={rowIndex}
+                      rowsLength={rows.length}
+                      minItems={minItems}
+                      maxItems={maxItems}
+                      onDuplicateRow={onDuplicateRow}
+                      onMoveRow={onMoveRow}
+                      onRemoveRow={onRemoveRow}
+                      duplicateLabel={duplicateLabel}
+                      moveUpLabel={moveUpLabel}
+                      moveDownLabel={moveDownLabel}
+                      removeLabel={removeLabel}
+                      testIdPrefix={testIdFor(`row-${rowIndex}`)}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {showControls && (
+            <UiButton
+              type="button"
+              variant="outline"
+              onClick={onAddRow}
+              disabled={addDisabled}
+              data-testid={testIdFor("add")}
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              {addLabel}
+            </UiButton>
+          )}
           {hasTotals && (
             <div
               data-testid={testIdFor("totals")}
-              className="flex flex-wrap items-center justify-end gap-6 border-t bg-muted/30 px-4 py-3 text-sm"
+              className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4 text-sm"
             >
               {totals.map((total) => (
-                <div key={total.field} className="flex items-baseline gap-2">
+                <div key={total.field} className="flex items-center justify-between">
                   <span className="text-muted-foreground">{total.label}</span>
                   <span className="font-medium tabular-nums">
                     {formatTotalValue(total, columns, effectiveCurrency)}
@@ -586,109 +696,9 @@ export function EmbeddedListInput({
               ))}
             </div>
           )}
+          <IssueMessages issues={listIssues} testId={testIdFor("list-issues")} />
         </div>
-        <IssueMessages issues={listIssues} testId={testIdFor("list-issues")} />
-      </div>
-
-      {/* ---- Mobile: cards ---- */}
-      <div data-testid={testIdFor("mobile")} className="md:hidden flex flex-col gap-3">
-        {rows.map((row, rowIndex) => {
-          const isLastRow = rowIndex === rows.length - 1;
-          const rowIssuesForRow = rowIssues?.[rowIndex];
-          return (
-            <div
-              // biome-ignore lint/suspicious/noArrayIndexKey: rows have no caller-guaranteed stable id; every cell is fully controlled (value+onChange), so reordering doesn't rely on DOM node identity surviving between renders.
-              key={rowIndex}
-              data-testid={testIdFor(`row-${rowIndex}`)}
-              className="flex flex-col gap-3 rounded-lg border bg-card p-4"
-            >
-              {columns.map((column, columnIndex) => {
-                const isLastCell = isLastRow && columnIndex === columns.length - 1;
-                const issues = cellIssues?.[`${rowIndex}.${column.field}`];
-                return (
-                  // biome-ignore lint/a11y/noStaticElementInteractions: paste/keydown are delegated from the focusable cell control rendered inside, not direct interaction on this wrapper div.
-                  <div
-                    key={column.field}
-                    className="flex flex-col gap-1"
-                    onPaste={
-                      onPasteCells !== undefined ? handlePaste(rowIndex, columnIndex) : undefined
-                    }
-                    onKeyDown={isLastCell ? handleLastCellKeyDown : undefined}
-                  >
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {column.label}
-                    </span>
-                    {renderCellControl({
-                      cellId: cellId(rowIndex, column.field),
-                      column,
-                      value: row[column.field],
-                      disabled: disabled === true,
-                      onChange: (value) => onCellChange(rowIndex, column.field, value),
-                      currency: effectiveCurrency,
-                    })}
-                    <IssueMessages
-                      issues={issues}
-                      testId={testIdFor(`cell-${rowIndex}-${column.field}-errors`)}
-                    />
-                  </div>
-                );
-              })}
-              {rowIssuesForRow !== undefined && rowIssuesForRow.length > 0 && (
-                <IssueMessages
-                  issues={rowIssuesForRow}
-                  testId={testIdFor(`row-${rowIndex}-issues`)}
-                />
-              )}
-              {showControls && (
-                <div className="flex items-center justify-end gap-1 border-t pt-3">
-                  <RowActions
-                    rowIndex={rowIndex}
-                    rowsLength={rows.length}
-                    minItems={minItems}
-                    maxItems={maxItems}
-                    onDuplicateRow={onDuplicateRow}
-                    onMoveRow={onMoveRow}
-                    onRemoveRow={onRemoveRow}
-                    duplicateLabel={duplicateLabel}
-                    moveUpLabel={moveUpLabel}
-                    moveDownLabel={moveDownLabel}
-                    removeLabel={removeLabel}
-                    testIdPrefix={testIdFor(`row-${rowIndex}`)}
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {showControls && (
-          <UiButton
-            type="button"
-            variant="outline"
-            onClick={onAddRow}
-            disabled={addDisabled}
-            data-testid={testIdFor("add")}
-          >
-            <Plus className="size-4" aria-hidden="true" />
-            {addLabel}
-          </UiButton>
-        )}
-        {hasTotals && (
-          <div
-            data-testid={testIdFor("totals")}
-            className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4 text-sm"
-          >
-            {totals.map((total) => (
-              <div key={total.field} className="flex items-center justify-between">
-                <span className="text-muted-foreground">{total.label}</span>
-                <span className="font-medium tabular-nums">
-                  {formatTotalValue(total, columns, effectiveCurrency)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-        <IssueMessages issues={listIssues} testId={testIdFor("list-issues")} />
-      </div>
+      )}
     </div>
   );
 }

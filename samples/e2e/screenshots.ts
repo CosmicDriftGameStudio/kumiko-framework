@@ -91,6 +91,11 @@ export function validateScenarios(scenarios: readonly Scenario[]): void {
 export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions): void {
   validateScenarios(scenarios);
   mkdirSync(opts.outDir, { recursive: true });
+  // Browser-context locale for JS-side Intl/navigator.language (e.g. money-input's
+  // resolvedLocale) — pinEnglishLocale() only seeds the app's own kumiko:locale.
+  // ponytail: native <input type="number"> still formats per the host OS region,
+  // unreachable from Playwright (context.locale and --lang both no-op there). #1851
+  if (opts.pinLocale) test.use({ locale: "en-US" });
   for (const s of scenarios) {
     test(s.description ? `${s.name} — ${s.description}` : s.name, async ({ page }) => {
       if (opts.pinLocale) await pinEnglishLocale(page);
@@ -143,6 +148,12 @@ export interface MatrixOptions<T extends string> {
   readonly locales?: readonly string[];
 }
 
+// App locale codes ("en"/"de") -> BCP47 tags for Playwright's browser-context
+// `locale` option, pinning JS-side Intl/navigator.language regardless of the
+// host's own locale — without it, a screenshot regen on a non-en-US host bakes
+// in the host's Intl-driven formatting regardless of SCREENSHOT_LOCALES.
+const LOCALE_TAGS: Readonly<Record<string, string>> = { en: "en-US", de: "de-DE" };
+
 export function runMatrix<T extends string>(
   scenarios: readonly Scenario[],
   opts: MatrixOptions<T>,
@@ -160,31 +171,44 @@ export function runMatrix<T extends string>(
   test.describe.configure({ mode: "serial" });
 
   for (const locale of locales) {
-    for (const s of scenarios) {
-      if (only !== undefined && only !== s.name) continue;
-      test(`${locale} — ${s.name}`, async ({ page }) => {
-        // kumiko:locale steuert die Boot-Sprache (vor goto); kumiko:theme löschen,
-        // damit der Mode allein über applyTheme bestimmt wird.
-        await page.addInitScript((lng) => {
-          localStorage.setItem("kumiko:locale", lng);
-          localStorage.removeItem("kumiko:theme");
-        }, locale);
-        await openScenario(page, s);
+    test.describe(locale, () => {
+      // Browser-context locale for JS-side Intl/navigator.language — the
+      // kumiko:locale seed below only drives the app's own i18n strings.
+      // ponytail: native <input type="number"> still formats per the host OS
+      // region, unreachable from Playwright (context.locale and --lang both
+      // no-op there). #1851
+      test.use({ locale: LOCALE_TAGS[locale] ?? locale });
 
-        for (const theme of themes) {
-          await opts.applyTheme(page, theme);
-          for (const vp of viewports) {
-            await page.setViewportSize(VIEWPORTS[vp]);
-            await page.waitForTimeout(150); // Reflow nach Viewport-Wechsel
-            const dir = `${opts.baseDir}/${s.name}/${locale}/${theme}`;
-            mkdirSync(dir, { recursive: true });
-            const path = `${dir}/${vp}.png`;
-            // animations: "disabled" jumps to end-state at the engine level — immune to CSS specificity, unlike an addStyleTag injection.
-            await page.screenshot({ path, fullPage: s.fullPage ?? false, animations: "disabled" });
-            expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
+      for (const s of scenarios) {
+        if (only !== undefined && only !== s.name) continue;
+        test(s.name, async ({ page }) => {
+          // kumiko:locale drives the boot-time language (before goto); kumiko:theme
+          // is cleared so the mode is decided solely by applyTheme.
+          await page.addInitScript((lng) => {
+            localStorage.setItem("kumiko:locale", lng);
+            localStorage.removeItem("kumiko:theme");
+          }, locale);
+          await openScenario(page, s);
+
+          for (const theme of themes) {
+            await opts.applyTheme(page, theme);
+            for (const vp of viewports) {
+              await page.setViewportSize(VIEWPORTS[vp]);
+              await page.waitForTimeout(150); // reflow after viewport change
+              const dir = `${opts.baseDir}/${s.name}/${locale}/${theme}`;
+              mkdirSync(dir, { recursive: true });
+              const path = `${dir}/${vp}.png`;
+              // animations: "disabled" jumps to end-state at the engine level — immune to CSS specificity, unlike an addStyleTag injection.
+              await page.screenshot({
+                path,
+                fullPage: s.fullPage ?? false,
+                animations: "disabled",
+              });
+              expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
+            }
           }
-        }
-      });
-    }
+        });
+      }
+    });
   }
 }
