@@ -151,6 +151,21 @@ describe("EmbeddedListField — cell change recomputes derived", () => {
       { product: "p1", unit: "pcs", quantity: 4, unitPrice: 500, amount: 2000 },
     ]);
   });
+
+  test("a fractional product on the money-typed amount cell shows the rounded live preview, not the raw fraction", () => {
+    const rows = [{ product: "p1", unit: "pcs", quantity: 2, unitPrice: 923, amount: 1846 }];
+    let lastValue: unknown;
+    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+      lastValue = v;
+    });
+    // 2.5 * 923 = 2307.5 — a fractional minor-unit amount the money target
+    // can't store as-is. The live preview must show the rounded value
+    // (2308), matching what the server would compute and persist.
+    captured?.onCellChange(0, "quantity", 2.5);
+    expect(lastValue).toEqual([
+      { product: "p1", unit: "pcs", quantity: 2.5, unitPrice: 923, amount: 2308 },
+    ]);
+  });
 });
 
 describe("EmbeddedListField — row operations", () => {

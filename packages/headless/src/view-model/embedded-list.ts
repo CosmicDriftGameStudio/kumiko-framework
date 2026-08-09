@@ -2,9 +2,13 @@ import type { FieldIssue } from "../dispatcher";
 
 export type EmbeddedDerivedOp = "multiply" | "sum" | "subtract";
 
+export type { DerivedCellRoundingTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 // Canonical implementation moved to packages/framework/src/engine/embedded-derived.ts
 // (the write-schema preprocess needs it server-side too).
-export { computeDerivedCellValue } from "@cosmicdrift/kumiko-framework/ui-types";
+export {
+  computeDerivedCellValue,
+  roundDerivedCellValue,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 
 /** Sums a numeric/money/decimal column across all rows. Non-numeric or
  *  missing values count as 0. Money columns are minor-unit integers —

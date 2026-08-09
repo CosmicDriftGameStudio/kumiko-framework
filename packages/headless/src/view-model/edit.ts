@@ -44,6 +44,7 @@ type EmbeddedSubFieldShape = {
   readonly options?: readonly string[];
   readonly entity?: string;
   readonly labelField?: string;
+  readonly scale?: number;
 };
 
 export type ComputeEditViewModelInput<
@@ -224,6 +225,8 @@ export function computeEditViewModel<
                 ...(cellRefTarget !== undefined && { refFeature: cellRefTarget.featureName }),
                 ...(subField.type === "reference" &&
                   subField.labelField !== undefined && { refLabelField: subField.labelField }),
+                ...(subField.type === "decimal" &&
+                  subField.scale !== undefined && { scale: subField.scale }),
               };
               return cell;
             })

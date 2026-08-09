@@ -79,6 +79,7 @@ export { createStore, shallowEqual } from "./store";
 export type {
   ComputeEditViewModelInput,
   ComputeListViewModelInput,
+  DerivedCellRoundingTarget,
   EditExtensionSectionViewModel,
   EditFieldSpec,
   EditFieldsSectionViewModel,
@@ -107,5 +108,6 @@ export {
   embeddedCellOptionLabelKey,
   fieldLabelKey,
   groupEmbeddedListIssues,
+  roundDerivedCellValue,
   sumEmbeddedListColumn,
 } from "./view-model";

@@ -1,7 +1,12 @@
-import type { EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
+import type {
+  EditFieldViewModel,
+  EmbeddedListCellViewModel,
+  FieldIssue,
+} from "@cosmicdrift/kumiko-headless";
 import {
   computeDerivedCellValue,
   groupEmbeddedListIssues,
+  roundDerivedCellValue,
   sumEmbeddedListColumn,
 } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
@@ -25,6 +30,7 @@ type EmbeddedRow = Readonly<Record<string, unknown>>;
 function withRecomputedDerived(
   row: EmbeddedRow,
   derived: EditFieldViewModel["embeddedListDerived"],
+  cells: readonly EmbeddedListCellViewModel[],
 ): EmbeddedRow {
   if (derived === undefined) return row;
   const result: Record<string, unknown> = { ...row };
@@ -33,7 +39,12 @@ function withRecomputedDerived(
       const v = result[src];
       return typeof v === "number" ? v : undefined;
     });
-    result[derivedField] = computeDerivedCellValue(def.op, values);
+    const computed = computeDerivedCellValue(def.op, values);
+    const target = cells.find((c) => c.field === derivedField);
+    result[derivedField] =
+      computed !== undefined && target !== undefined
+        ? roundDerivedCellValue(computed, target)
+        : computed;
   }
   return result;
 }
@@ -154,11 +165,13 @@ export function EmbeddedListField({
   }
 
   function handleCellChange(rowIndex: number, cellField: string, value: unknown): void {
-    replaceRow(rowIndex, (row) => withRecomputedDerived({ ...row, [cellField]: value }, derived));
+    replaceRow(rowIndex, (row) =>
+      withRecomputedDerived({ ...row, [cellField]: value }, derived, cells),
+    );
   }
 
   function handleAddRow(): void {
-    onChange([...rows, withRecomputedDerived({}, derived)]);
+    onChange([...rows, withRecomputedDerived({}, derived, cells)]);
   }
 
   function handleRemoveRow(rowIndex: number): void {
@@ -210,7 +223,7 @@ export function EmbeddedListField({
     });
 
     const recomputed = nextRows.map((row, i) =>
-      touchedIndices.has(i) ? withRecomputedDerived(row, derived) : row,
+      touchedIndices.has(i) ? withRecomputedDerived(row, derived, cells) : row,
     );
     onChange(recomputed);
   }
