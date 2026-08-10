@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-02T20:10:18.935Z",
+  "generatedAt": "2026-08-10T13:31:47.332Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -863,6 +863,78 @@
         {
           "name": "read_folders_tenant_id_idx",
           "columns": ["tenant_id"]
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_form_drafts",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "owner_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "draft_key",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "draft",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'{}'::jsonb"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_form_drafts_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_form_drafts_tenant_owner_key_uniq",
+          "columns": ["tenant_id", "owner_id", "draft_key"],
+          "unique": true
         }
       ],
       "source": "managed"
