@@ -14,6 +14,7 @@ import { formDraftExecutor, formDraftTable } from "../form-draft";
 
 export const formDraftExportHook: UserDataExportHook = async (ctx) => {
   const rows = await selectMany<Record<string, unknown>>(ctx.db, formDraftTable, {
+    tenantId: ctx.tenantId,
     ownerId: ctx.userId,
   });
   if (rows.length === 0) return null;

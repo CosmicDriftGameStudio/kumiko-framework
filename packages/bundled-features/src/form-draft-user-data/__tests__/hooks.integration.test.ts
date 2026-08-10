@@ -62,6 +62,41 @@ describe("formDraftExportHook", () => {
     expect(draftKeys).toEqual(["wizard:owner"]);
   });
 
+  test("same user id in a different tenant does not leak into this tenant's export", async () => {
+    const tenantATestTenantId = "00000000-0000-4000-8000-000000000021";
+    const tenantBTestTenantId = "00000000-0000-4000-8000-000000000022";
+    const sameIdTenantA = createTestUser({
+      id: 21,
+      roles: ["TenantMember"],
+      tenantId: tenantATestTenantId,
+    });
+    const sameIdTenantB = createTestUser({
+      id: 21,
+      roles: ["TenantMember"],
+      tenantId: tenantBTestTenantId,
+    });
+    await stack.http.writeOk(
+      FormDraftHandlers.save,
+      { draftKey: "wizard:tenant-a", values: { secret: "tenant-a-only" }, stepIndex: 0 },
+      sameIdTenantA,
+    );
+    await stack.http.writeOk(
+      FormDraftHandlers.save,
+      { draftKey: "wizard:tenant-b", values: { secret: "tenant-b-only" }, stepIndex: 0 },
+      sameIdTenantB,
+    );
+
+    const snippet = await formDraftExportHook({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: tenantATestTenantId,
+      userId: sameIdTenantA.id,
+    });
+
+    const draftKeys = (snippet?.rows ?? []).map((r) => r["draftKey"]);
+    expect(draftKeys).toEqual(["wizard:tenant-a"]);
+  });
+
   test("returns null when the user saved no drafts", async () => {
     const lurker = createTestUser({ id: 3, roles: ["TenantMember"] });
     const snippet = await formDraftExportHook({
