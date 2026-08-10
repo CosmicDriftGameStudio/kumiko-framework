@@ -863,6 +863,13 @@ export type CardProps = {
   readonly testId?: string;
 };
 
+/** Determinate progress bar (e.g. wizard step progress). `value` is a
+ *  0..1 fraction, not a percentage — implementations scale for display. */
+export type ProgressProps = {
+  readonly value: number;
+  readonly testId?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -888,6 +895,10 @@ export type CorePrimitives = {
   readonly ConfigSourceBadge: ComponentType<ConfigSourceBadgeProps>;
   readonly ConfigCascadeView: ComponentType<ConfigCascadeViewProps>;
   readonly Link: ComponentType<LinkProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly Progress?: ComponentType<ProgressProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern
