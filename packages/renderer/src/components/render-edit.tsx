@@ -21,7 +21,7 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { computeEditViewModel } from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { z } from "zod";
 import { ExtensionFormRegistryProvider, useExtensionFormHost } from "../app/extension-form-submit";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
@@ -96,6 +96,41 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  Wird mit dem Field-Namen aufgerufen, returnt ReactNode oder
    *  undefined. */
   readonly fieldAppendix?: (fieldName: string) => ReactNode | undefined;
+  /** Controlled mode (issue #1887): fires on every values-snapshot change
+   *  (typing, `patch(...)` from outside) with the current values. `changes`
+   *  is the delta against the initial values — same semantics as
+   *  `payloadMode: "changes"` — so a caller never overwrites unseen fields.
+   *  `valid` is a pure dry-run parse against `schema` (not a
+   *  `controller.validate()` call), so it does not paint field errors into
+   *  the UI and can diverge from the currently rendered `snapshot.errors` —
+   *  always `true` without `schema`. A caller that patches a fresh object
+   *  reference on every call must not do so unconditionally: `setValues` is
+   *  a no-op when the merged value is reference-equal to the current one,
+   *  so only a converging patch settles instead of looping. Without this
+   *  prop, existing behavior is unchanged. */
+  readonly onChange?: (state: RenderEditChangeState<TValues>) => void;
+  /** Controlled mode (issue #1887): called once after mount, hands the
+   *  caller `patch`/`validate`/`getValues` bound to this RenderEdit
+   *  instance — addressable from outside without a remount. `patch` merges
+   *  only the given keys (existing `controller.setValues` semantics),
+   *  values on unmentioned fields stay untouched. `validate` runs without a
+   *  write and reports field issues via `snapshot.errors` on the field
+   *  itself rather than as a summary banner. Without this prop, existing
+   *  behavior is unchanged. */
+  readonly onControlsReady?: (controls: RenderEditControls<TValues>) => void;
+};
+
+export type RenderEditChangeState<TValues extends FormValues> = {
+  readonly values: TValues;
+  readonly changes: Partial<TValues>;
+  readonly dirty: boolean;
+  readonly valid: boolean;
+};
+
+export type RenderEditControls<TValues extends FormValues> = {
+  readonly patch: (partial: Partial<TValues>) => void;
+  readonly validate: () => boolean;
+  readonly getValues: () => TValues;
 };
 
 function toConditionValue<TValues extends FormValues, TCtx>(
@@ -198,6 +233,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     fieldAppendix,
     entityId: entityIdProp,
     extensionInitialValues,
+    onChange,
+    onControlsReady,
   } = props;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -243,6 +280,42 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     ...(ctx !== undefined && { ctx }),
     ...(submitConfig !== undefined && { submit: submitConfig }),
   });
+
+  // Controlled mode (Issue #1887). Both callbacks live in refs so a
+  // re-rendering caller (identity-unstable `onChange`/`onControlsReady`
+  // closures, e.g. inline arrows) doesn't retrigger these effects — only a
+  // real snapshot mutation (typing, patch()) does. Without this, a caller
+  // whose onChange calls patch() to fill other fields (the VIN-decode use
+  // case from #1888) would loop: patch → new snapshot → effect
+  // re-subscribes with a "new" onChange → refires.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  useEffect(() => {
+    const cb = onChangeRef.current;
+    if (cb === undefined) return;
+    // Dry-run parse against `schema` — NOT controller.validate(). Calling
+    // validate() here would write field-level errors into snapshot.errors
+    // on every keystroke, painting error messages while the user is still
+    // typing. `valid` can therefore legitimately diverge from what's
+    // currently rendered under the fields (the last *mutating* validate()
+    // call, e.g. from controls.validate() or submit()).
+    const valid = schema === undefined ? true : schema.safeParse(snapshot.values).success;
+    cb({ values: snapshot.values, changes: snapshot.changes, dirty: snapshot.isDirty, valid });
+  }, [snapshot, schema]);
+
+  const onControlsReadyRef = useRef(onControlsReady);
+  onControlsReadyRef.current = onControlsReady;
+  useEffect(() => {
+    const cb = onControlsReadyRef.current;
+    if (cb === undefined) return;
+    cb({
+      patch: controller.setValues,
+      validate: controller.validate,
+      getValues: () => controller.getSnapshot().values,
+    });
+    // controller is mount-lifetime-stable (see useForm's comment on its
+    // own useMemo) — this fires exactly once per RenderEdit mount.
+  }, [controller]);
 
   const vm = useMemo(
     () =>

@@ -69,7 +69,11 @@ export { lastSegment } from "./app/qn";
 export type { VariableChipsProps } from "./app/variable-chips";
 export { VariableChips } from "./app/variable-chips";
 export { dispatcherErrorText, WriteFailedError } from "./app/write-failed-error";
-export type { RenderEditProps } from "./components/render-edit";
+export type {
+  RenderEditChangeState,
+  RenderEditControls,
+  RenderEditProps,
+} from "./components/render-edit";
 export { RenderEdit } from "./components/render-edit";
 export type { RenderFieldProps } from "./components/render-field";
 export { RenderField } from "./components/render-field";
