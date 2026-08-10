@@ -46,6 +46,23 @@ export type ExtensionSectionProps = {
    *  Panels haben keine Entity — entityName/entityId tragen dort die
    *  screen.id bzw. null, siehe CustomPanelBody in dashboard-body.tsx. */
   readonly filterParams?: Readonly<Record<string, unknown>>;
+  /** Current form values of the host RenderEdit (controlled mode,
+   *  issue #1887/#1888) — same snapshot reference as
+   *  `RenderEditChangeState.values`. Lets the section read the host
+   *  form's live state (e.g. for a review step). Only set in
+   *  entityEdit sections; undefined in list-header and dashboard
+   *  mounts, where no host form exists. */
+  readonly values?: Readonly<Record<string, unknown>>;
+  /** Sets host RenderEdit form values from outside (e.g. a VIN-decode
+   *  roundtrip that fills other fields) — same function as
+   *  `RenderEditControls.patch`, merges only the given keys. Undefined
+   *  outside entityEdit sections. */
+  readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
+  /** Validates the host form without writing — same function as
+   *  `RenderEditControls.validate`; field errors land in
+   *  `snapshot.errors` on the field instead of a collective message.
+   *  Undefined outside entityEdit sections. */
+  readonly validate?: () => boolean;
 };
 
 export type ExtensionSectionComponent = ComponentType<ExtensionSectionProps>;

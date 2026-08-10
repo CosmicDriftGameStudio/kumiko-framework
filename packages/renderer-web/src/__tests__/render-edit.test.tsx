@@ -443,6 +443,94 @@ describe("RenderEdit", () => {
     const placeholder = screen.getByTestId("section-extension-placeholder-Custom Fields");
     expect(placeholder.textContent).toContain("UnregisteredComp");
   });
+
+  // Issue #1888: ExtensionSectionProps.values/patch/validate pass-through —
+  // same controller functions as RenderEditControls (#1887), just handed to
+  // the extension section instead of onControlsReady.
+  test("extension section sees current form values and its patch(...) lands in the form + outer onChange", () => {
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        sections: [
+          { title: "Basics", columns: 2, fields: [{ field: "title", span: 2 }, "notes"] },
+          {
+            kind: "extension",
+            title: "VIN Decode",
+            component: { react: { __component: "VinDecodeSection" } },
+          },
+        ],
+      },
+    };
+    const VinDecodeSection = ({
+      values,
+      patch,
+      validate,
+    }: {
+      values?: Readonly<Record<string, unknown>>;
+      patch?: (partial: Readonly<Record<string, unknown>>) => void;
+      validate?: () => boolean;
+    }) => (
+      <div data-testid="vin-decode-section">
+        <span data-testid="vin-decode-sees-title">{String(values?.["title"])}</span>
+        <button type="button" onClick={() => patch?.({ notes: "decoded-from-vin" })}>
+          Decode
+        </button>
+        <button
+          type="button"
+          data-testid="vin-decode-validate"
+          onClick={() => {
+            lastValidateResult = validate?.() ?? true;
+          }}
+        >
+          Validate
+        </button>
+      </div>
+    );
+    const seen: RenderEditChangeState<TestValues>[] = [];
+    let lastValidateResult = true;
+    const schema = z.object({
+      title: z.string().min(1),
+      count: z.number().optional(),
+      isUrgent: z.boolean().optional(),
+    });
+    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <ExtensionSectionsProvider value={{ VinDecodeSection }}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0, isUrgent: false }}
+            writeCommand="order:create"
+            schema={schema}
+            onChange={(state) => seen.push(state)}
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("vin-decode-validate"));
+    });
+    expect(lastValidateResult).toBe(false);
+    expect(write).not.toHaveBeenCalled();
+    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme" } });
+    expect(screen.getByTestId("vin-decode-sees-title").textContent).toBe("Acme");
+
+    act(() => {
+      fireEvent.click(screen.getByText("Decode"));
+    });
+
+    const notesInput = screen.getByTestId("field-notes")?.querySelector("input");
+    expect((notesInput as HTMLInputElement | null)?.value).toBe("decoded-from-vin");
+    expect(seen.at(-1)?.values.notes).toBe("decoded-from-vin");
+  });
 });
 
 describe("RenderEdit — composed extension save (Bug-Bash 3 #1)", () => {
