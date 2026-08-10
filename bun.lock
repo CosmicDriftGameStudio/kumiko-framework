@@ -494,6 +494,18 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/embedded-entity-form": {
+      "name": "@cosmicdrift/kumiko-sample-embedded-entity-form",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-renderer": "workspace:*",
+        "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+        "react": "^19.2.6",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+      },
+    },
     "samples/recipes/encrypted-tenant-config": {
       "name": "@cosmicdrift/kumiko-sample-encrypted-tenant-config",
       "dependencies": {
@@ -896,6 +908,8 @@
     "@cosmicdrift/kumiko-sample-e2e-generator": ["@cosmicdrift/kumiko-sample-e2e-generator@workspace:samples/recipes/e2e-generator"],
 
     "@cosmicdrift/kumiko-sample-embedded": ["@cosmicdrift/kumiko-sample-embedded@workspace:samples/recipes/embedded"],
+
+    "@cosmicdrift/kumiko-sample-embedded-entity-form": ["@cosmicdrift/kumiko-sample-embedded-entity-form@workspace:samples/recipes/embedded-entity-form"],
 
     "@cosmicdrift/kumiko-sample-encrypted-tenant-config": ["@cosmicdrift/kumiko-sample-encrypted-tenant-config@workspace:samples/recipes/encrypted-tenant-config"],
 

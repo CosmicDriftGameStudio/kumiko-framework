@@ -1,0 +1,14 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-embedded-entity-form",
+  "description": "RenderEdit hosted in a Drawer, no screen or route — externally-sourced prefill, controlled mode, and a custom write handler instead of the built-in CRUD create.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-renderer": "workspace:*",
+    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+    "react": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14"
+  }
+}
