@@ -29,10 +29,14 @@ export const formDraftEntity = createEntity({
     // The blob shape is fixed by issue #1889, not left to the caller:
     // { values: Record<string, unknown>, stepIndex: number, savedAt: string }.
     // Free-form because `values` mirrors whatever fields the in-progress
-    // form has — userOwned because it can carry arbitrary user-entered PII;
-    // erasure runs via crypto-shredding (see form-draft-user-data/hooks.ts),
-    // same tradeoff as notes-history's `body`.
-    draft: createJsonbField({ userOwned: { ownerField: "ownerId" } }),
+    // form has, so it can carry arbitrary user-entered PII. NOT annotated
+    // `userOwned` — the framework's PII field-encryption engine only
+    // accepts string values (pii-field-encryption.ts throws on a non-string
+    // field), and this is a jsonb object. Erasure instead runs as a real
+    // physical row-delete on forget (see form-draft-user-data/hooks.ts),
+    // not crypto-shredding; `ownerId`'s `subjectRef` annotation alone
+    // already satisfies the GDPR-hook-coverage boot guard.
+    draft: createJsonbField(),
   },
   // One draft per (tenant, owner, draftKey) — save() is an upsert keyed on
   // this index (see handlers/save.write.ts); a resume query must find at
