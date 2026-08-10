@@ -91,7 +91,9 @@ describe("form-draft integration — save + get", () => {
       owner,
     );
     const { draft } = await getDraft("wizard:x");
-    expect(draft?.savedAt).not.toBe("1999-01-01T00:00:00Z");
+    const savedAtMs = draft?.savedAt ? Date.parse(draft.savedAt) : Number.NaN;
+    expect(Number.isNaN(savedAtMs)).toBe(false);
+    expect(Date.now() - savedAtMs).toBeLessThan(10_000);
   });
 });
 

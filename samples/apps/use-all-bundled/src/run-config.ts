@@ -45,6 +45,8 @@ import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/f
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
 import { foldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
+import { formDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
+import { formDraftUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft-user-data";
 import { inboundMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { inboundProviderImapFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-imap";
 import { inboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory";
@@ -296,6 +298,11 @@ export const APP_FEATURES = [
   // Depends (optionally) on notes-history + (hard) on user-data-rights —
   // both mounted here.
   notesHistoryUserDataFeature,
+  formDraftFeature,
+  // form-draft-user-data: GDPR export/erase coverage for the form-draft
+  // entity. Depends (optionally) on form-draft + (hard) on
+  // user-data-rights — both mounted here.
+  formDraftUserDataFeature,
   foldersFeature,
   // folders-user-data: GDPR hooks for folder entities. Depends (optionally)
   // on folders + (hard) on user-data-rights — both mounted above.

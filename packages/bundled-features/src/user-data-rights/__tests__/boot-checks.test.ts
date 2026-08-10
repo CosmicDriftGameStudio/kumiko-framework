@@ -26,6 +26,8 @@ function projectionProbeTable(name: string): SchemaTable {
   }) as unknown as SchemaTable; // @cast-boundary test-fixture — minimal probe shape, real schema-table irrelevant here
 }
 
+import { formDraftFeature } from "../../form-draft";
+import { formDraftUserDataFeature } from "../../form-draft-user-data";
 import { createUserFeature } from "../../user/feature";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature";
 import { createUserDataRightsFeature } from "../feature";
@@ -70,6 +72,18 @@ function minimalTenantLifecycleFeatures() {
 describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
   test("known-good assembly boot-validates (baseline)", () => {
     expect(() => validateBoot(baseFeatures())).not.toThrow();
+  });
+
+  test("form-draft + form-draft-user-data mounted together satisfies V2 and V3 (real feature pair, not synthetic)", () => {
+    expect(() =>
+      validateBoot([...baseFeatures(), formDraftFeature, formDraftUserDataFeature]),
+    ).not.toThrow();
+  });
+
+  test("form-draft mounted WITHOUT form-draft-user-data → V3 throws (userOwned draft field has no hook)", () => {
+    expect(() => validateBoot([...baseFeatures(), formDraftFeature])).toThrow(
+      /EXT_USER_DATA hook.*Art\.17 gap/,
+    );
   });
 
   test("V2: export hook without delete hook → Art.17 throw", () => {

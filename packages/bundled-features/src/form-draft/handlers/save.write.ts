@@ -12,7 +12,8 @@ import { saveDraftPayloadSchema } from "../schemas";
  * delivery/upsert-preference.ts, because createEventStoreExecutor has no
  * built-in upsert. Two racing saves for the same draftKey: the loser hits
  * the unique index (FORM_DRAFT_UNIQUE_KEY_CONSTRAINT), re-looks-up the
- * winner's row, and updates it instead of erroring.
+ * winner's row, and updates it (with the winner's version) instead of
+ * erroring.
  */
 function isDraftKeyConflict(failure: WriteFailure): boolean {
   const error = failure.error as {
@@ -35,14 +36,13 @@ export const saveDraftWrite = defineWriteHandler({
     const T = getTemporal();
     const draft = { values, stepIndex, savedAt: T.Now.instant().toString() };
 
-    // Autosave semantics, not collaborative editing: the caller's own latest
-    // save always wins, so updates skip the optimistic-lock check rather
-    // than round-tripping a row version through lookupDraft.
     const existing = await lookupDraft(ctx.db, event.user.tenantId, ownerId, draftKey);
     if (existing) {
-      return formDraftExecutor.update({ id: existing.id, changes: { draft } }, event.user, ctx.db, {
-        skipOptimisticLock: true,
-      });
+      return formDraftExecutor.update(
+        { id: existing.id, version: existing.version, changes: { draft } },
+        event.user,
+        ctx.db,
+      );
     }
 
     const result = await formDraftExecutor.create({ ownerId, draftKey, draft }, event.user, ctx.db);
@@ -51,8 +51,10 @@ export const saveDraftWrite = defineWriteHandler({
 
     const winner = await lookupDraft(ctx.db, event.user.tenantId, ownerId, draftKey);
     if (!winner) return result;
-    return formDraftExecutor.update({ id: winner.id, changes: { draft } }, event.user, ctx.db, {
-      skipOptimisticLock: true,
-    });
+    return formDraftExecutor.update(
+      { id: winner.id, version: winner.version, changes: { draft } },
+      event.user,
+      ctx.db,
+    );
   },
 });

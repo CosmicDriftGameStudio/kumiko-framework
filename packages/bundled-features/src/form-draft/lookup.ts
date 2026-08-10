@@ -6,6 +6,7 @@ import type { FormDraftBlob } from "./schemas";
 
 export type FormDraftRow = {
   readonly id: string;
+  readonly version: number;
   readonly draft: FormDraftBlob;
 };
 
