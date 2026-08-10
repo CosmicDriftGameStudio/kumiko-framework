@@ -122,3 +122,106 @@ describe("createFormController — validate()", () => {
     expect(form.getSnapshot().errors["address.city"]).toBeDefined();
   });
 });
+
+describe("createFormController — validate(scope)", () => {
+  test("scoped run reports only fields inside scope, drops issues outside it", () => {
+    const schema = z.object({
+      a: z.string().min(3),
+      b: z.string().min(3),
+    });
+    const form = createFormController({ initial: { a: "x", b: "y" }, schema });
+
+    const ok = form.validate(["a"]);
+    const snap = form.getSnapshot();
+
+    expect(ok).toBe(false);
+    expect(snap.errors["a"]).toBeDefined();
+    expect(snap.errors["b"]).toBeUndefined();
+  });
+
+  test("scoped run returns true when every field in scope is valid, even if fields outside scope are not", () => {
+    const schema = z.object({
+      a: z.string().min(1),
+      b: z.string().min(3),
+    });
+    const form = createFormController({ initial: { a: "ok", b: "y" }, schema });
+
+    const ok = form.validate(["a"]);
+
+    expect(ok).toBe(true);
+    expect(form.getSnapshot().errors).toEqual({});
+  });
+
+  // Hard rule (kumiko-framework#1885): an object-level .refine() issue has
+  // path "(root)", which never matches a field name — every scoped
+  // validate() call must ignore it, and only the unscoped final-submit
+  // validate() may surface it. Otherwise a step-boundary check would block
+  // a wizard step forever on an invariant no single step owns.
+  describe("root-path .refine() issues", () => {
+    const schema = z
+      .object({
+        start: z.string(),
+        end: z.string(),
+      })
+      .refine((v) => v.end >= v.start, { message: "end must be >= start" });
+
+    test("scoped validate() ignores the root issue regardless of which fields are in scope", () => {
+      const form = createFormController({ initial: { start: "b", end: "a" }, schema });
+
+      expect(form.validate(["start"])).toBe(true);
+      expect(form.validate(["end"])).toBe(true);
+      expect(form.validate(["start", "end"])).toBe(true);
+      expect(form.getSnapshot().errors).toEqual({});
+    });
+
+    test("unscoped validate() (final submit) reports the root issue under '(root)'", () => {
+      const form = createFormController({ initial: { start: "b", end: "a" }, schema });
+
+      const ok = form.validate();
+
+      expect(ok).toBe(false);
+      expect(form.getSnapshot().errors["(root)"]).toBeDefined();
+    });
+  });
+
+  test("hidden fields stay filtered in scoped mode even when the hidden field is itself in scope", () => {
+    // Discriminating case: field `b` is both hidden AND inside `scope`, so
+    // the assertion actually exercises the hidden-field filter — not just
+    // the scope filter dropping an out-of-scope field.
+    const schema = z.object({
+      a: z.string().min(3),
+      b: z.string().min(3),
+    });
+    const form = createFormController({
+      initial: { a: "x", b: "y", showB: false },
+      schema,
+      fields: { b: { visible: (values) => values.showB } },
+    });
+
+    const ok = form.validate(["a", "b"]);
+    const snap = form.getSnapshot();
+
+    expect(ok).toBe(false);
+    expect(snap.errors["a"]).toBeDefined();
+    expect(snap.errors["b"]).toBeUndefined();
+  });
+
+  test("hidden fields stay filtered in unscoped mode (regression guard alongside the scoped case)", () => {
+    const schema = z.object({
+      a: z.string().min(3),
+      b: z.string().min(3),
+    });
+    const form = createFormController({
+      initial: { a: "x", b: "y", showB: false },
+      schema,
+      fields: { b: { visible: (values) => values.showB } },
+    });
+
+    const ok = form.validate();
+    const snap = form.getSnapshot();
+
+    expect(ok).toBe(false);
+    expect(snap.errors["a"]).toBeDefined();
+    expect(snap.errors["b"]).toBeUndefined();
+  });
+});
