@@ -12,6 +12,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createConfigFeature } from "../../config";
 import { FormDraftHandlers, formDraftEntity, formDraftFeature } from "../../form-draft";
 import { formDraftDeleteHook, formDraftExportHook } from "../hooks";
 
@@ -28,7 +29,7 @@ const owner = createTestUser({ id: 1, roles: ["TenantMember"] });
 const other = createTestUser({ id: 2, roles: ["TenantMember"] });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [formDraftFeature] });
+  stack = await setupTestStack({ features: [formDraftFeature, createConfigFeature()] });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
   await createEventsTable(stack.db);
 });

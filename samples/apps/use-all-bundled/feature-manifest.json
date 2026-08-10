@@ -901,15 +901,40 @@
     },
     {
       "name": "form-draft",
-      "description": "Per-user, per-tenant working copy of an in-progress form, saved BEFORE the real domain entity exists. Owns one event-sourced entity, `form-draft` (`read_form_drafts`), keyed by a caller-assigned draftKey (typically screenId + optional hostEntityId), unique per (tenant, owner, draftKey). `save` upserts the draft blob ({ values, stepIndex, savedAt } — savedAt stamped server-side), `discard` deletes it (called once the real submit succeeds), `get` resumes it. Ownership is enforced by a per-row owner filter in every handler, not by roles — a foreign user's save/discard/get for someone else's draftKey never sees or touches that row. Never holds anything that already lives in a domain stream; the consuming app is responsible for discarding once the domain write succeeds.",
+      "description": "Per-user, per-tenant working copy of an in-progress form, saved BEFORE the real domain entity exists. Owns one event-sourced entity, `form-draft` (`read_form_drafts`), keyed by a caller-assigned draftKey (typically screenId + optional hostEntityId), unique per (tenant, owner, draftKey). `save` upserts the draft blob ({ values, stepIndex, savedAt } — savedAt stamped server-side), `discard` deletes it (called once the real submit succeeds), `get` resumes it. Ownership is enforced by a per-row owner filter in every handler, not by roles — a foreign user's save/discard/get for someone else's draftKey never sees or touches that row. Never holds anything that already lives in a domain stream; the consuming app is responsible for discarding once the domain write succeeds. A daily cron job hard-deletes drafts past a configurable retention window (`form-draft:config:retention-days`, SystemAdmin-writable, default 30 days).",
       "toggleableDefault": null,
-      "requires": [],
+      "requires": [
+        "config"
+      ],
       "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
       "extensionsUsed": [],
-      "configKeys": [],
+      "configKeys": [
+        {
+          "key": "retention-days",
+          "qualifiedName": "form-draft:config:retention-days",
+          "type": "number",
+          "scope": "system",
+          "default": 30,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": {
+            "min": 1
+          },
+          "pattern": null,
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        }
+      ],
       "secrets": [],
       "writeHandlers": [
         "form-draft:write:discard",

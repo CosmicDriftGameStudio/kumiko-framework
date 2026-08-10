@@ -16,6 +16,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createConfigFeature } from "../../config";
 import { FormDraftHandlers, FormDraftQueries } from "../constants";
 import { formDraftEntity } from "../entity";
 import { formDraftFeature } from "../feature";
@@ -24,7 +25,7 @@ import type { GetDraftResult } from "../handlers/get.query";
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [formDraftFeature] });
+  stack = await setupTestStack({ features: [formDraftFeature, createConfigFeature()] });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
   await createEventsTable(stack.db);
 });
