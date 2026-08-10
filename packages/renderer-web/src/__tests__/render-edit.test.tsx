@@ -617,9 +617,11 @@ describe("RenderEdit — controlled mode (#1887)", () => {
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "Acme" } });
 
-    // Settles at a small finite count instead of looping: mount, the
-    // onControlsReady-triggered re-render, the typing change, and the
-    // convergent patch() from inside onChange — not unbounded.
+    // Settles at a small finite count instead of looping: mount, the typing
+    // change, and the convergent patch() from inside onChange each fire
+    // onChange once — more than the no-patch case (1) but bounded, not
+    // unbounded.
+    expect(calls).toBeGreaterThan(1);
     expect(calls).toBeLessThan(10);
     expect(controls?.getValues().count).toBe("Acme".length);
   });
