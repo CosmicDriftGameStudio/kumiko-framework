@@ -15,6 +15,7 @@ import type {
   DashboardPanelDefinition,
   DashboardScreenDefinition,
   DashboardStatGroupPanel,
+  EditLayout,
   FieldCondition,
   RowAction,
   RowFieldExtractor,
@@ -69,6 +70,37 @@ function validateRowActionNavigateParams(
         `params extractor or retarget to an actionForm / cross-entity entityEdit-create screen.`,
     );
   }
+}
+
+// Wizard layouts (mode: "wizard") render one section per step — a single
+// step (or a step without a title, which would leave the progress
+// indicator blank) defeats the point, so both fail at boot rather than
+// as a broken step UI. Missing/blank titles are checked identically for
+// both section kinds — EditExtensionSection.title is required by type,
+// but that doesn't stop author code that circumvented the check from
+// passing an empty string.
+function validateWizardLayout(
+  featureName: string,
+  screenId: string,
+  screenType: "entityEdit" | "actionForm",
+  layout: EditLayout,
+): void {
+  // skip: mode omitted/"single" — no wizard constraints apply.
+  if (layout.mode !== "wizard") return;
+  if (layout.sections.length < 2) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "wizard" but only ` +
+        `${layout.sections.length} section(s) — a wizard needs at least 2 sections (one per step).`,
+    );
+  }
+  layout.sections.forEach((section, index) => {
+    if (section.title === undefined || section.title.trim().length === 0) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "wizard" but ` +
+          `sections[${index}] has no title — every wizard step needs a title.`,
+      );
+    }
+  });
 }
 
 // --- Screen validation ---
@@ -441,6 +473,7 @@ export function validateScreens(
           }
         }
       }
+      validateWizardLayout(feature.name, screenId, "actionForm", screen.layout);
       if (screen.redirect !== undefined) {
         // redirect ist die kurze Screen-ID (z.B. "item-list"); der
         // nav-Router resolved sie beim Mount gegen die Schema-Map.
@@ -772,6 +805,7 @@ export function validateScreens(
           }
         }
       }
+      validateWizardLayout(feature.name, screenId, "entityEdit", screen.layout);
     }
   }
 }

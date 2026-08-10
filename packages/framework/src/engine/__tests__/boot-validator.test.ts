@@ -1742,6 +1742,7 @@ describe("boot-validator", () => {
       readonly redirect?: string;
       readonly cancelTarget?: string | false;
       readonly extraScreens?: readonly string[];
+      readonly mode?: "single" | "wizard";
     };
 
     // Hilfs-Schema-Setup: stamps eine Test-Entity + write-handler
@@ -1770,7 +1771,10 @@ describe("boot-validator", () => {
           type: "actionForm",
           handler,
           fields: fields as never,
-          layout: { sections: sections as never },
+          layout: {
+            sections: sections as never,
+            ...(override.mode !== undefined && { mode: override.mode }),
+          },
           ...(override.redirect !== undefined && { redirect: override.redirect }),
           ...(override.cancelTarget !== undefined && { cancelTarget: override.cancelTarget }),
         });
@@ -1870,6 +1874,39 @@ describe("boot-validator", () => {
     test("extension section mit react component → kein Throw", () => {
       const section = { kind: "extension", title: "Custom", component: { react: "Panel" } };
       expect(() => validateBoot([makeFeature({ sections: [section] as never })])).not.toThrow();
+    });
+
+    test("mode: wizard mit nur 1 Section → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            mode: "wizard",
+            sections: [{ title: "Step 1", fields: ["note"] }],
+          }),
+        ]),
+      ).toThrow(/mode: "wizard" but only 1 section\(s\)/);
+    });
+
+    test("mode: wizard mit Section ohne Titel → Throw", () => {
+      const sections = [
+        { title: "Step 1", fields: ["note"] },
+        { title: "", fields: ["priority"] },
+      ];
+      expect(() => validateBoot([makeFeature({ mode: "wizard", sections })])).toThrow(
+        /sections\[1\] has no title/,
+      );
+    });
+
+    test("mode: wizard mit >= 2 betitelten Sections → kein Throw", () => {
+      const sections = [
+        { title: "Step 1", fields: ["note"] },
+        { title: "Step 2", fields: ["priority"] },
+      ];
+      expect(() => validateBoot([makeFeature({ mode: "wizard", sections })])).not.toThrow();
+    });
+
+    test("mode weggelassen (Default 'single') bleibt bestehendes Layout gültig → kein Throw", () => {
+      expect(() => validateBoot([makeFeature()])).not.toThrow();
     });
   });
 
@@ -2043,6 +2080,67 @@ describe("boot-validator", () => {
 
     test("extension section mit native component → kein Throw", () => {
       expect(() => validateBoot([makeFeature({ native: "CustomFieldsPanel" })])).not.toThrow();
+    });
+  });
+
+  // --- entityEdit wizard mode (framework#1884) ---
+  // layout.mode: "wizard" renders one section per step instead of all
+  // sections at once — needs >= 2 sections, each with a title (the step
+  // title), or it's a boot-fail instead of a broken step UI.
+  describe("entityEdit wizard mode", () => {
+    function makeFeature(
+      sections: readonly { readonly title?: string; readonly fields: readonly string[] }[],
+      mode?: "single" | "wizard",
+    ) {
+      return defineFeature("shop", (r) => {
+        r.entity(
+          "product",
+          createEntity({ fields: { name: createTextField(), sku: createTextField() } }),
+        );
+        r.screen({
+          id: "product-edit",
+          type: "entityEdit",
+          entity: "product",
+          layout: {
+            sections: sections as never,
+            ...(mode !== undefined && { mode }),
+          },
+        });
+      });
+    }
+
+    test("mode: wizard mit nur 1 Section → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature([{ title: "Step 1", fields: ["name"] }], "wizard")]),
+      ).toThrow(/mode: "wizard" but only 1 section\(s\)/);
+    });
+
+    test("mode: wizard mit Section ohne Titel → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature([{ title: "Step 1", fields: ["name"] }, { fields: ["sku"] }], "wizard"),
+        ]),
+      ).toThrow(/sections\[1\] has no title/);
+    });
+
+    test("mode: wizard mit >= 2 betitelten Sections → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature(
+            [
+              { title: "Step 1", fields: ["name"] },
+              { title: "Step 2", fields: ["sku"] },
+            ],
+            "wizard",
+          ),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("mode weggelassen (Default 'single') bleibt bestehendes Layout gültig → kein Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature([{ title: "Details", fields: ["name", "sku"] }])]),
+      ).not.toThrow();
     });
   });
 
