@@ -9,9 +9,12 @@ import {
   ExtensionSectionsProvider,
   type ExtensionSubmitContext,
   RenderEdit,
+  type RenderEditChangeState,
+  type RenderEditControls,
   useExtensionFormSubmit,
 } from "@cosmicdrift/kumiko-renderer";
 import { useState } from "react";
+import { z } from "zod";
 import { act, createMockDispatcher, fireEvent, render, screen } from "./test-utils";
 
 const orderEntity = {
@@ -517,5 +520,199 @@ describe("RenderEdit — composed extension save (Bug-Bash 3 #1)", () => {
     });
     expect(submitSpy).toHaveBeenCalledWith({ entityId: "order-99" });
     expect(writeSpy).not.toHaveBeenCalled();
+  });
+});
+
+// Issue #1887: controlled mode. onChange reports values out, onControlsReady
+// hands the caller patch()/validate()/getValues() bound to this instance —
+// all without an entity-write and without remounting RenderEdit.
+describe("RenderEdit — controlled mode (#1887)", () => {
+  test("onChange fires with the current values, the changes-delta, and dirty on typing", () => {
+    const seen: RenderEditChangeState<TestValues>[] = [];
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          onChange={(state) => seen.push(state)}
+        />
+      </DispatcherProvider>,
+    );
+
+    // Fires once on mount with the pristine snapshot.
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({ changes: {}, dirty: false, valid: true });
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme" } });
+
+    const last = seen.at(-1);
+    expect(last?.values.title).toBe("Acme");
+    // changes is the delta against the initial values (payloadMode: "changes"
+    // semantics) — only the touched field appears, nothing else.
+    expect(last?.changes).toEqual({ title: "Acme" });
+    expect(last?.dirty).toBe(true);
+  });
+
+  test("onChange's valid reflects a schema dry-run and never paints field errors (banner or per-field)", () => {
+    const schema = z.object({
+      title: z.string().min(1),
+      count: z.number().optional(),
+      isUrgent: z.boolean().optional(),
+    });
+    const seen: RenderEditChangeState<TestValues>[] = [];
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          schema={schema}
+          onChange={(state) => seen.push(state)}
+        />
+      </DispatcherProvider>,
+    );
+
+    // title is required by the schema and still empty — dry-run says invalid.
+    expect(seen.at(-1)?.valid).toBe(false);
+    // Dry-run parse never mutates snapshot.errors — no visible field error,
+    // no summary banner. Typing alone must not trigger validation display.
+    expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
+    expect(screen.queryByTestId("field-title-errors")).toBeNull();
+  });
+
+  test("a caller whose onChange calls patch() to derive a field settles instead of looping", () => {
+    let calls = 0;
+    let controls: RenderEditControls<TestValues> | undefined;
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          onChange={(state) => {
+            calls += 1;
+            // The #1888 VIN-decode shape: a derived field is patched from
+            // inside onChange itself. `count` converges to title.length, so
+            // once patch() computes the same value again, setValues' no-op
+            // guard (reference-equal merge) stops the chain — a caller that
+            // instead patched a *fresh object reference* every time would
+            // loop forever, since Object.is would never match.
+            controls?.patch({ count: state.values.title.length });
+          }}
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme" } });
+
+    // Settles at a small finite count instead of looping: mount, the
+    // onControlsReady-triggered re-render, the typing change, and the
+    // convergent patch() from inside onChange — not unbounded.
+    expect(calls).toBeLessThan(10);
+    expect(controls?.getValues().count).toBe("Acme".length);
+  });
+
+  test("controls.patch sets values from outside without losing edits already made in other fields", () => {
+    let controls: RenderEditControls<TestValues> | undefined;
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "User-typed" } });
+    expect(titleInput.value).toBe("User-typed");
+
+    act(() => {
+      controls?.patch({ count: 42 });
+    });
+
+    // count updated, title (the user's own edit) untouched.
+    expect(controls?.getValues().count).toBe(42);
+    expect(controls?.getValues().title).toBe("User-typed");
+    expect(
+      (screen.getByTestId("field-title").querySelector("input") as HTMLInputElement).value,
+    ).toBe("User-typed");
+  });
+
+  test("controls.validate() reports field errors on the field, never as a summary banner, and writes nothing", () => {
+    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    const schema = z.object({
+      title: z.string().min(1),
+      count: z.number().optional(),
+      isUrgent: z.boolean().optional(),
+    });
+    let controls: RenderEditControls<TestValues> | undefined;
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          schema={schema}
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    // Before validate(): no field error visible yet (mount alone never
+    // validates — matches "existing behaviour unchanged" for the schema path).
+    expect(screen.queryByTestId("field-title-errors")).toBeNull();
+
+    let isValid = true;
+    act(() => {
+      isValid = controls?.validate() ?? true;
+    });
+
+    expect(isValid).toBe(false);
+    expect(write).not.toHaveBeenCalled();
+    // Field-level error, not a form-wide summary banner.
+    expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
+    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+  });
+
+  test("without onChange/onControlsReady, existing single-field-per-keystroke behaviour is unchanged", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme" } });
+    expect(titleInput.value).toBe("Acme");
+    expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
   });
 });

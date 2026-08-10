@@ -36,6 +36,8 @@ export type {
   PrimitivesProviderProps,
   PrimitivesRegistry,
   RadiusTokens,
+  RenderEditChangeState,
+  RenderEditControls,
   RenderEditProps,
   RenderFieldProps,
   RenderListProps,
