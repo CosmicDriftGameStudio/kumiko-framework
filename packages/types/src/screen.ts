@@ -564,6 +564,13 @@ export type EditLayout = {
    *  three-column fields) that would leave dead space on both sides in a
    *  3xl column — see #1676. */
   readonly width?: FormWidth;
+  /** Default "single". "wizard" renders one section per step (with
+   *  progress + per-step validation) instead of all sections at once —
+   *  boot-validator requires >= 2 sections, each with a title, when set. */
+  readonly mode?: "single" | "wizard";
+  /** Persists in-progress wizard state as a resumable draft instead of
+   *  discarding it on navigation away. */
+  readonly draft?: boolean;
 };
 
 export type EntityEditScreenDefinition = {
