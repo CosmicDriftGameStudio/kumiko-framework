@@ -84,7 +84,28 @@ function validateWizardLayout(
   screenId: string,
   screenType: "entityEdit" | "actionForm",
   layout: EditLayout,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
+  // "form-draft" is hardcoded because the framework layer must not depend on
+  // @cosmicdrift/kumiko-bundled-features — same precedence as the
+  // "user-data-rights" check in gdpr-storage.ts.
+  if (layout.draft === true) {
+    if (layout.mode !== "wizard") {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets draft: true but ` +
+          `mode is not "wizard" — draft persistence only applies to wizard layouts. Remove ` +
+          `draft: true or set mode: "wizard".`,
+      );
+    }
+    if (!featureMap.has("form-draft")) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets draft: true but the ` +
+          `bundled feature "form-draft" is not mounted — every resume would silently lose its ` +
+          `values. Add formDraftFeature() from @cosmicdrift/kumiko-bundled-features to the app's ` +
+          `feature list.`,
+      );
+    }
+  }
   // skip: mode omitted/"single" — no wizard constraints apply.
   if (layout.mode !== "wizard") return;
   if (layout.sections.length < 2) {
@@ -473,7 +494,7 @@ export function validateScreens(
           }
         }
       }
-      validateWizardLayout(feature.name, screenId, "actionForm", screen.layout);
+      validateWizardLayout(feature.name, screenId, "actionForm", screen.layout, featureMap);
       if (screen.redirect !== undefined) {
         // redirect ist die kurze Screen-ID (z.B. "item-list"); der
         // nav-Router resolved sie beim Mount gegen die Schema-Map.
@@ -805,7 +826,7 @@ export function validateScreens(
           }
         }
       }
-      validateWizardLayout(feature.name, screenId, "entityEdit", screen.layout);
+      validateWizardLayout(feature.name, screenId, "entityEdit", screen.layout, featureMap);
     }
   }
 }
