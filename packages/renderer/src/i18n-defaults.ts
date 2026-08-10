@@ -22,6 +22,12 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.edit": "Bearbeiten",
     "kumiko.actions.copyLink": "Link kopieren",
     "kumiko.actions.copyLinkCopied": "Kopiert!",
+    "kumiko.actions.next": "Weiter",
+    "kumiko.actions.back": "Zurück",
+    "kumiko.actions.finish": "Abschließen",
+
+    // Wizard step chrome (RenderEdit layout.mode="wizard").
+    "kumiko.wizard.step": "Schritt {current} von {total}",
 
     // Version — Update-Awareness-Banner (UpdateChecker).
     "kumiko.version.update-available": "Eine neue Version ist verfügbar.",
@@ -192,6 +198,11 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.edit": "Edit",
     "kumiko.actions.copyLink": "Copy link",
     "kumiko.actions.copyLinkCopied": "Copied!",
+    "kumiko.actions.next": "Next",
+    "kumiko.actions.back": "Back",
+    "kumiko.actions.finish": "Finish",
+
+    "kumiko.wizard.step": "Step {current} of {total}",
 
     "kumiko.version.update-available": "A new version is available.",
 

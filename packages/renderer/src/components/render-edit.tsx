@@ -245,10 +245,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const t = useTranslation();
   const translate = translateProp ?? t;
 
+  const isWizard = screen.layout.mode === "wizard";
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<DispatcherError | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
   // Composed-Save: Extension-Sections melden hier ihren dirty-State (damit der
   // Save-Button aktiv wird wenn NUR eine Section geändert wurde) + ihren
   // Submit-Handler (läuft nach dem Entity-Write). extensionErrorKey hält den
@@ -257,7 +259,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const [extensionErrorKey, setExtensionErrorKey] = useState<string | null>(null);
   const { registry: extensionFormRegistry, runAll: runExtensionSubmits } =
     useExtensionFormHost(setExtensionDirty);
-  const { Button, Banner, Dialog, Form, Section, Grid, GridCell, Text } = usePrimitives();
+  const { Button, Banner, Dialog, Form, Section, Grid, GridCell, Text, Progress } = usePrimitives();
 
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
 
@@ -347,7 +349,32 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     return true;
   }
 
+  const lastStepIndex = Math.max(vm.sections.length - 1, 0);
+  const isLastWizardStep = currentStep >= lastStepIndex;
+
+  // Next: scoped validate() on the current step's fields — errors stay
+  // attached to the field and block the step transition. Extension steps
+  // have no field scope here (they validate via the controlled-mode
+  // controls.validate() API), so no call, no clearing of unrelated errors.
+  function handleWizardNext(): void {
+    const section = vm.sections[currentStep];
+    const fieldNames = section?.kind === "fields" ? section.fields.map((f) => f.field) : [];
+    if (fieldNames.length > 0 && !controller.validate(fieldNames)) return;
+    setCurrentStep((step) => Math.min(step + 1, lastStepIndex));
+  }
+
+  function handleWizardBack(): void {
+    setCurrentStep((step) => Math.max(step - 1, 0));
+  }
+
   async function handleSubmit(): Promise<void> {
+    // Enter in the active step triggers the native form submit (Next is
+    // type="submit" for Enter support) — on intermediate steps that means
+    // "Next", not "Save".
+    if (isWizard && !isLastWizardStep) {
+      handleWizardNext();
+      return;
+    }
     setIsSubmitting(true);
     setExtensionErrorKey(null);
     try {
@@ -451,7 +478,22 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate("kumiko.actions.cancel")}
         </Button>
       )}
-      {isFormEditable && (
+      {isWizard && currentStep > 0 && (
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={handleWizardBack}
+          testId="render-edit-wizard-back"
+        >
+          {translate("kumiko.actions.back")}
+        </Button>
+      )}
+      {isWizard && !isLastWizardStep && (
+        <Button type="submit" variant="primary" testId="render-edit-wizard-next">
+          {translate("kumiko.actions.next")}
+        </Button>
+      )}
+      {isFormEditable && (!isWizard || isLastWizardStep) && (
         <Button
           type="submit"
           disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting}
@@ -459,7 +501,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           variant="primary"
           testId="render-edit-submit"
         >
-          {translate(submitLabel ?? "kumiko.actions.save")}
+          {translate(submitLabel ?? (isWizard ? "kumiko.actions.finish" : "kumiko.actions.save"))}
         </Button>
       )}
     </>
@@ -497,57 +539,75 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         testId="render-edit-form"
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
       >
-        {vm.sections.map((section: EditSectionViewModel, sectionIndex: number) => {
-          if (section.kind === "extension") {
-            return (
-              <ExtensionSectionMount
-                key={section.title}
-                section={section}
-                entityName={vm.entityName}
-                entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
-                initialValues={extensionInitialValues}
+        {isWizard && (
+          <>
+            {Progress !== undefined && (
+              <Progress
+                value={(currentStep + 1) / (lastStepIndex + 1)}
+                testId="render-edit-wizard-progress"
               />
+            )}
+            <Text variant="small" testId="render-edit-wizard-step-label">
+              {translate("kumiko.wizard.step", {
+                current: currentStep + 1,
+                total: lastStepIndex + 1,
+              })}
+            </Text>
+          </>
+        )}
+        {(isWizard ? vm.sections.filter((_, i) => i === currentStep) : vm.sections).map(
+          (section: EditSectionViewModel, sectionIndex: number) => {
+            if (section.kind === "extension") {
+              return (
+                <ExtensionSectionMount
+                  key={section.title}
+                  section={section}
+                  entityName={vm.entityName}
+                  entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
+                  initialValues={extensionInitialValues}
+                />
+              );
+            }
+            if (!section.visible) return null;
+            // Section-Header unterdrücken wenn er den Form-Titel der
+            // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
+            // ActionForms, deren Section-Label = Screen-Titel ist).
+            const sectionTitle = section.title === formTitle ? undefined : section.title;
+            // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
+            const sectionKey = section.title ?? `section-${sectionIndex}`;
+            return (
+              <Section
+                key={sectionKey}
+                {...(sectionTitle !== undefined && { title: sectionTitle })}
+                {...(section.description !== undefined && { subtitle: section.description })}
+                testId={`section-${sectionKey}`}
+              >
+                <Grid columns={section.columns}>
+                  {section.fields.map((field: EditFieldViewModel) => (
+                    <GridCellForField
+                      key={field.field}
+                      field={field}
+                      columns={section.columns}
+                      issues={snapshot.errors[field.field]}
+                      onChange={(v) => {
+                        (controller.setField as (k: string, v: unknown) => void)(field.field, v);
+                      }}
+                      GridCell={GridCell}
+                      featureName={featureName}
+                      {...(labelAppendix !== undefined && {
+                        labelAppendix: labelAppendix(field.field),
+                      })}
+                      {...(fieldAppendix !== undefined && {
+                        fieldAppendix: fieldAppendix(field.field),
+                      })}
+                      allIssues={snapshot.errors}
+                    />
+                  ))}
+                </Grid>
+              </Section>
             );
-          }
-          if (!section.visible) return null;
-          // Section-Header unterdrücken wenn er den Form-Titel der
-          // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
-          // ActionForms, deren Section-Label = Screen-Titel ist).
-          const sectionTitle = section.title === formTitle ? undefined : section.title;
-          // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
-          const sectionKey = section.title ?? `section-${sectionIndex}`;
-          return (
-            <Section
-              key={sectionKey}
-              {...(sectionTitle !== undefined && { title: sectionTitle })}
-              {...(section.description !== undefined && { subtitle: section.description })}
-              testId={`section-${sectionKey}`}
-            >
-              <Grid columns={section.columns}>
-                {section.fields.map((field: EditFieldViewModel) => (
-                  <GridCellForField
-                    key={field.field}
-                    field={field}
-                    columns={section.columns}
-                    issues={snapshot.errors[field.field]}
-                    onChange={(v) => {
-                      (controller.setField as (k: string, v: unknown) => void)(field.field, v);
-                    }}
-                    GridCell={GridCell}
-                    featureName={featureName}
-                    {...(labelAppendix !== undefined && {
-                      labelAppendix: labelAppendix(field.field),
-                    })}
-                    {...(fieldAppendix !== undefined && {
-                      fieldAppendix: fieldAppendix(field.field),
-                    })}
-                    allIssues={snapshot.errors}
-                  />
-                ))}
-              </Grid>
-            </Section>
-          );
-        })}
+          },
+        )}
         {formError !== null && (
           <Banner
             variant="error"

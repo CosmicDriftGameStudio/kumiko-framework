@@ -173,6 +173,7 @@ export type {
   ModalProps,
   PrimitivesProviderProps,
   PrimitivesRegistry,
+  ProgressProps,
   RuntimeRenderer,
   SectionProps,
   TextProps,

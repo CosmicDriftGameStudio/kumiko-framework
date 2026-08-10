@@ -718,3 +718,141 @@ describe("RenderEdit — controlled mode (#1887)", () => {
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
   });
 });
+
+describe("RenderEdit wizard mode", () => {
+  function makeWizardScreen(): EntityEditScreenDefinition {
+    return {
+      id: "orders:screen:order-wizard",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        sections: [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          { title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+    };
+  }
+
+  test("renders only the current step's section", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeWizardScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("field-title")).toBeTruthy();
+    expect(screen.queryByTestId("field-count")).toBeNull();
+    expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("1");
+  });
+
+  test("Weiter is blocked by a field validation error and does not advance the step", async () => {
+    const schema = z.object({
+      title: z.string().min(1),
+      count: z.number().optional(),
+    });
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeWizardScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+          schema={schema}
+        />
+      </DispatcherProvider>,
+    );
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+    expect(screen.getByTestId("field-title")).toBeTruthy();
+    expect(screen.queryByTestId("field-count")).toBeNull();
+  });
+
+  test("Weiter advances to the next step once the current step is valid; last step shows the submit button", async () => {
+    const schema = z.object({
+      title: z.string().min(1),
+      count: z.number().optional(),
+    });
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeWizardScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+          schema={schema}
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.queryByTestId("render-edit-submit")).toBeNull();
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme" } });
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByTestId("field-title")).toBeNull();
+    expect(screen.getByTestId("field-count")).toBeTruthy();
+    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
+  });
+
+  test("Zurück preserves already-entered values without validating", async () => {
+    // count.min(1) with initial count=0 makes step 2 invalid on arrival —
+    // if Back ran validate() it would be blocked from returning to step 1.
+    const schema = z.object({
+      title: z.string().min(1),
+      count: z.number().min(1),
+    });
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeWizardScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+          schema={schema}
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme" } });
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId("field-count")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("render-edit-wizard-back"));
+
+    const titleInputAgain = screen
+      .getByTestId("field-title")
+      .querySelector("input") as HTMLInputElement;
+    expect(titleInputAgain.value).toBe("Acme");
+    expect(screen.queryByTestId("field-title-errors")).toBeNull();
+  });
+});

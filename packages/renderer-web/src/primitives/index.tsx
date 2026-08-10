@@ -31,6 +31,7 @@ import {
   type HeadingProps,
   type InputProps,
   type LinkProps,
+  type ProgressProps,
   type SectionProps,
   type TextProps,
   useColumnRenderer,
@@ -80,6 +81,7 @@ import { Input as UiInput } from "../ui/input";
 import { Label as UiLabel } from "../ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Textarea } from "../ui/textarea";
+import { ProgressBar } from "../widgets/progress-bar";
 import { ComboboxInput } from "./combobox";
 import { DateInput } from "./date-input";
 import { DefaultDialog } from "./dialog";
@@ -1866,6 +1868,10 @@ function DefaultLink({
   );
 }
 
+function DefaultProgress({ value, testId }: ProgressProps): ReactNode {
+  return <ProgressBar value={value} testId={testId} />;
+}
+
 function DefaultHeading({ variant = "page", children, testId }: HeadingProps): ReactNode {
   // Page-Heading = h1, sehr selten in einer App (max 1 pro Screen).
   // Section-Heading = h2 mit uppercase + muted-foreground — derselbe
@@ -1959,4 +1965,5 @@ export const defaultPrimitives: CorePrimitives = {
   ConfigSourceBadge: DefaultConfigSourceBadge,
   ConfigCascadeView: DefaultConfigCascadeView,
   Link: DefaultLink,
+  Progress: DefaultProgress,
 };
