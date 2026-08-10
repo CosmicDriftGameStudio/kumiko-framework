@@ -176,11 +176,17 @@ function ExtensionSectionMount({
   entityName,
   entityId,
   initialValues,
+  values,
+  patch,
+  validate,
 }: {
   readonly section: EditExtensionSectionViewModel;
   readonly entityName: string;
   readonly entityId: string | null;
   readonly initialValues?: Readonly<Record<string, unknown>>;
+  readonly values?: Readonly<Record<string, unknown>>;
+  readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
+  readonly validate?: () => boolean;
 }): ReactNode {
   const { Banner, Section, Text } = usePrimitives();
   const name = extensionSectionName(section.component);
@@ -204,7 +210,14 @@ function ExtensionSectionMount({
   }
   return (
     <Section title={section.title} testId={`section-extension-${section.title}`}>
-      <Component entityName={entityName} entityId={entityId} initialValues={initialValues} />
+      <Component
+        entityName={entityName}
+        entityId={entityId}
+        initialValues={initialValues}
+        values={values}
+        patch={patch}
+        validate={validate}
+      />
     </Section>
   );
 }
@@ -565,6 +578,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   entityName={vm.entityName}
                   entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
                   initialValues={extensionInitialValues}
+                  values={snapshot.values}
+                  // @cast-boundary form-values: ExtensionSectionProps is not generic
+                  // over TValues; controller is mount-lifetime-stable, see onControlsReady above.
+                  patch={
+                    controller.setValues as (partial: Readonly<Record<string, unknown>>) => void
+                  }
+                  validate={controller.validate}
                 />
               );
             }
