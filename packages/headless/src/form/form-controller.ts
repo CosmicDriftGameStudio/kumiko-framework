@@ -152,7 +152,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
   // Local shared implementations so submit() can call validate/rebase
   // without the this-in-object-literal dance. Both also expose themselves
   // as methods on the returned controller.
-  function runValidate(): boolean {
+  function runValidate(scope?: readonly string[]): boolean {
     if (!options.schema) {
       if (Object.keys(errors).length > 0) {
         errors = Object.freeze({});
@@ -173,10 +173,14 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     for (const [fieldKey, state] of Object.entries(fieldStates)) {
       if (!state.visible) hiddenFields.add(fieldKey);
     }
+    // See the validate() doc comment in types.ts for the scope contract.
+    const scopeSet = scope === undefined ? undefined : new Set(scope);
     const allIssues = zodErrorToFieldIssues(parsed.error);
     const relevantIssues = allIssues.filter((issue) => {
       const rootField = issue.path.split(".")[0] ?? "";
-      return !hiddenFields.has(rootField);
+      if (hiddenFields.has(rootField)) return false;
+      if (scopeSet && !scopeSet.has(rootField)) return false;
+      return true;
     });
     if (relevantIssues.length === 0) {
       if (Object.keys(errors).length > 0) {
