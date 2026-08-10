@@ -1743,6 +1743,7 @@ describe("boot-validator", () => {
       readonly cancelTarget?: string | false;
       readonly extraScreens?: readonly string[];
       readonly mode?: "single" | "wizard";
+      readonly draft?: boolean;
     };
 
     // Hilfs-Schema-Setup: stamps eine Test-Entity + write-handler
@@ -1774,6 +1775,7 @@ describe("boot-validator", () => {
           layout: {
             sections: sections as never,
             ...(override.mode !== undefined && { mode: override.mode }),
+            ...(override.draft !== undefined && { draft: override.draft }),
           },
           ...(override.redirect !== undefined && { redirect: override.redirect }),
           ...(override.cancelTarget !== undefined && { cancelTarget: override.cancelTarget }),
@@ -1903,6 +1905,33 @@ describe("boot-validator", () => {
         { title: "Step 2", fields: ["priority"] },
       ];
       expect(() => validateBoot([makeFeature({ mode: "wizard", sections })])).not.toThrow();
+    });
+
+    test("draft: true ohne gemountetes form-draft-Feature → Throw", () => {
+      const sections = [
+        { title: "Step 1", fields: ["note"] },
+        { title: "Step 2", fields: ["priority"] },
+      ];
+      expect(() => validateBoot([makeFeature({ mode: "wizard", sections, draft: true })])).toThrow(
+        /"form-draft" is not mounted/,
+      );
+    });
+
+    test("draft: true mit gemountetem form-draft-Feature → kein Throw", () => {
+      const sections = [
+        { title: "Step 1", fields: ["note"] },
+        { title: "Step 2", fields: ["priority"] },
+      ];
+      expect(() =>
+        validateBoot([
+          makeFeature({ mode: "wizard", sections, draft: true }),
+          defineFeature("form-draft", () => {}),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("draft: true ohne mode: 'wizard' → Throw", () => {
+      expect(() => validateBoot([makeFeature({ draft: true })])).toThrow(/mode is not "wizard"/);
     });
 
     test("mode weggelassen (Default 'single') bleibt bestehendes Layout gültig → kein Throw", () => {

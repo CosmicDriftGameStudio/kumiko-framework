@@ -25,6 +25,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { z } from "zod";
 import { ExtensionFormRegistryProvider, useExtensionFormHost } from "../app/extension-form-submit";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
+import { useDispatcher } from "../context/dispatcher-context";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
@@ -34,6 +35,19 @@ import {
   shouldNotifyCaller,
 } from "./render-edit-logic";
 import { RenderField } from "./render-field";
+
+// Qualified names of the bundled `form-draft` feature. Hardcoded because the
+// renderer must not depend on @cosmicdrift/kumiko-bundled-features; a screen
+// with `layout.draft: true` and that feature unmounted is a boot error, so
+// these can never dangle silently.
+const FORM_DRAFT_GET = "form-draft:query:get";
+const FORM_DRAFT_SAVE = "form-draft:write:save";
+const FORM_DRAFT_DISCARD = "form-draft:write:discard";
+
+type FormDraftBlob = {
+  readonly values: Record<string, unknown>;
+  readonly stepIndex: number;
+};
 
 // End-to-end renderer für einen entityEdit screen. Rendert aus-
 // schließlich über Primitives — kein raw HTML. Ein Native-Renderer
@@ -257,13 +271,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // ohnehin nur in einem mounted Kumiko-App-Tree läuft.
   const t = useTranslation();
   const translate = translateProp ?? t;
+  const dispatcher = useDispatcher();
 
   const isWizard = screen.layout.mode === "wizard";
+  const draftEnabled = isWizard && screen.layout.draft === true;
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<DispatcherError | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [rawStep, setRawStep] = useState(0);
   // Composed-Save: Extension-Sections melden hier ihren dirty-State (damit der
   // Save-Button aktiv wird wenn NUR eine Section geändert wurde) + ihren
   // Submit-Handler (läuft nach dem Entity-Write). extensionErrorKey hält den
@@ -295,6 +311,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     ...(ctx !== undefined && { ctx }),
     ...(submitConfig !== undefined && { submit: submitConfig }),
   });
+
+  // Derived from the screen id + the host entity id only — never from
+  // `vm.id`, which lives in the form values a restore mutates (load under one
+  // key, save under another).
+  const draftKey = useMemo(
+    () =>
+      entityIdProp === undefined || entityIdProp === null || entityIdProp === ""
+        ? screen.id
+        : `${screen.id}:${entityIdProp}`,
+    [screen.id, entityIdProp],
+  );
 
   // Controlled mode (Issue #1887). Both callbacks live in refs so a
   // re-rendering caller (identity-unstable `onChange`/`onControlsReady`
@@ -332,6 +359,34 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // own useMemo) — this fires exactly once per RenderEdit mount.
   }, [controller]);
 
+  useEffect(() => {
+    // skip: this screen does not persist a draft.
+    if (!draftEnabled) return;
+    let cancelled = false;
+    void (async () => {
+      const result = await dispatcher.query<{ readonly draft: FormDraftBlob | null }>(
+        FORM_DRAFT_GET,
+        { draftKey },
+      );
+      // skip: superseded by a newer mount, or the draft lookup failed — an
+      // unreachable draft store must not break the form itself.
+      if (cancelled || !result.isSuccess) return;
+      const draft = result.data?.draft ?? null;
+      // skip: nothing saved yet for this key.
+      if (draft === null) return;
+      // skip: the user already typed while the lookup was in flight — their
+      // input wins over the stored draft.
+      if (controller.getSnapshot().isDirty) return;
+      // @cast-boundary form-draft blob: `values` round-trips through an opaque
+      // jsonb column and comes back untyped.
+      controller.setValues(draft.values as Partial<TValues>);
+      setRawStep(Math.max(draft.stepIndex, 0));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draftEnabled, draftKey, dispatcher, controller]);
+
   const vm = useMemo(
     () =>
       computeEditViewModel({
@@ -363,7 +418,23 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   }
 
   const lastStepIndex = Math.max(vm.sections.length - 1, 0);
+  // Clamped on read, not on write: section visibility is value-dependent, so a
+  // stored stepIndex can point past what is currently rendered — that lands on
+  // the last step instead of an empty one.
+  const currentStep = Math.min(rawStep, lastStepIndex);
   const isLastWizardStep = currentStep >= lastStepIndex;
+
+  // Step transitions only — never per keystroke. Deliberately not awaited: a
+  // failed draft save must not block the step change.
+  function saveDraft(stepIndex: number): void {
+    // skip: this screen does not persist a draft.
+    if (!draftEnabled) return;
+    void dispatcher.write(FORM_DRAFT_SAVE, {
+      draftKey,
+      values: controller.getSnapshot().values,
+      stepIndex,
+    });
+  }
 
   // Next: scoped validate() on the current step's fields — errors stay
   // attached to the field and block the step transition. Extension steps
@@ -372,12 +443,23 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   function handleWizardNext(): void {
     const section = vm.sections[currentStep];
     const fieldNames = section?.kind === "fields" ? section.fields.map((f) => f.field) : [];
+    // skip: the current step has field errors — no transition, no draft save.
     if (fieldNames.length > 0 && !controller.validate(fieldNames)) return;
-    setCurrentStep((step) => Math.min(step + 1, lastStepIndex));
+    const next = Math.min(currentStep + 1, lastStepIndex);
+    setRawStep(next);
+    saveDraft(next);
   }
 
   function handleWizardBack(): void {
-    setCurrentStep((step) => Math.max(step - 1, 0));
+    const previous = Math.max(currentStep - 1, 0);
+    setRawStep(previous);
+    saveDraft(previous);
+  }
+
+  async function discardDraft(): Promise<void> {
+    // skip: this screen does not persist a draft.
+    if (!draftEnabled) return;
+    await dispatcher.write(FORM_DRAFT_DISCARD, { draftKey });
   }
 
   async function handleSubmit(): Promise<void> {
@@ -395,7 +477,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       // Kein Entity-Write (würde einen leeren changes-Payload schreiben) — nur
       // die Section-Handler laufen lassen.
       if (snapshot.isUnchanged && extensionDirty) {
-        await persistExtensions();
+        // Same discard as the main path: an extension-only save is still a
+        // successful submit, so the draft must not survive it.
+        if (await persistExtensions()) await discardDraft();
         return;
       }
       let result: SubmitResult<unknown>;
@@ -438,6 +522,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       let extensionsPersisted = true;
       if (result.isSuccess) {
         setFormError(null);
+        // Awaited, not fire-and-forget: `onSubmit` typically navigates away and
+        // unmounts this form, which would abort an in-flight discard and leave
+        // the draft behind after a successful submit.
+        await discardDraft();
         extensionsPersisted = await persistExtensions();
       } else if (!result.validationBlocked) {
         const fieldIssues = result.error.details?.fields ?? [];

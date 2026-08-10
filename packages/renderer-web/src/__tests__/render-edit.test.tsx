@@ -15,7 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { useState } from "react";
 import { z } from "zod";
-import { act, createMockDispatcher, fireEvent, render, screen } from "./test-utils";
+import { act, createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
 
 const orderEntity = {
   fields: {
@@ -942,5 +942,177 @@ describe("RenderEdit wizard mode", () => {
       .querySelector("input") as HTMLInputElement;
     expect(titleInputAgain.value).toBe("Acme");
     expect(screen.queryByTestId("field-title-errors")).toBeNull();
+  });
+});
+
+describe("RenderEdit wizard draft", () => {
+  function makeDraftWizardScreen(draft: boolean): EntityEditScreenDefinition {
+    return {
+      id: "orders:screen:order-wizard-draft",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        ...(draft && { draft: true }),
+        sections: [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          { title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+    };
+  }
+
+  type DraftBlob = { readonly values: Record<string, unknown>; readonly stepIndex: number };
+
+  function isDraftSavePayload(payload: unknown): payload is DraftBlob {
+    return (
+      typeof payload === "object" &&
+      payload !== null &&
+      "values" in payload &&
+      "stepIndex" in payload
+    );
+  }
+
+  // In-memory fake of the bundled form-draft feature's query/write handlers —
+  // proves RenderEdit round-trips through the dispatcher (real values, real
+  // step), not just that it calls the right command names.
+  function makeDraftDispatcher(): {
+    readonly dispatcher: Dispatcher;
+    readonly store: { current: DraftBlob | null };
+    readonly calls: string[];
+  } {
+    const store: { current: DraftBlob | null } = { current: null };
+    const calls: string[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string) => {
+        calls.push(type);
+        if (type === "form-draft:query:get") {
+          return { isSuccess: true, data: { draft: store.current } };
+        }
+        return { isSuccess: true, data: {} };
+      }) as Dispatcher["query"],
+      write: (async (type: string, payload: unknown) => {
+        calls.push(type);
+        if (type === "form-draft:write:save" && isDraftSavePayload(payload)) {
+          store.current = { values: payload.values, stepIndex: payload.stepIndex };
+        } else if (type === "form-draft:write:discard") {
+          store.current = null;
+        }
+        return { isSuccess: true, data: { id: "1" } };
+      }) as Dispatcher["write"],
+    });
+    return { dispatcher, store, calls };
+  }
+
+  test("values and step survive a remount", async () => {
+    const { dispatcher } = makeDraftDispatcher();
+
+    const first = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeDraftWizardScreen(true)}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme" } });
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+
+    first.unmount();
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeDraftWizardScreen(true)}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("field-count")).toBeTruthy());
+    expect(screen.queryByTestId("field-title")).toBeNull();
+    expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("2");
+
+    fireEvent.click(screen.getByTestId("render-edit-wizard-back"));
+    const titleInputAgain = screen
+      .getByTestId("field-title")
+      .querySelector("input") as HTMLInputElement;
+    expect(titleInputAgain.value).toBe("Acme");
+  });
+
+  test("a successful submit discards the draft", async () => {
+    const { dispatcher, store, calls } = makeDraftDispatcher();
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeDraftWizardScreen(true)}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme" } });
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId("field-count")).toBeTruthy();
+    expect(store.current).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+
+    expect(store.current).toBeNull();
+    expect(calls).toContain("form-draft:write:discard");
+  });
+
+  test("without layout.draft nothing hits the form-draft feature", async () => {
+    const { dispatcher, calls } = makeDraftDispatcher();
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeDraftWizardScreen(false)}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme" } });
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("field-count")).toBeTruthy();
+    expect(calls.some((c) => c.startsWith("form-draft:"))).toBe(false);
   });
 });
