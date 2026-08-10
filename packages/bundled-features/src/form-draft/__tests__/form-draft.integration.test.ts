@@ -79,7 +79,7 @@ describe("form-draft integration — save + get", () => {
     expect(draft).toBeNull();
   });
 
-  test("a client-supplied savedAt is ignored — it is always stamped server-side", async () => {
+  test("savedAt is always a fresh server-side stamp, not a client-supplied value", async () => {
     await stack.http.writeOk(
       FormDraftHandlers.save,
       {

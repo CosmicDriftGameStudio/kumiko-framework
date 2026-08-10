@@ -298,6 +298,16 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/notes-history-user-data",
     exportName: "notesHistoryUserDataFeature",
   },
+  "form-draft": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/form-draft",
+    exportName: "formDraftFeature",
+  },
+  "form-draft-user-data": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/form-draft-user-data",
+    exportName: "formDraftUserDataFeature",
+  },
   "template-resolver-user-data": {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/template-resolver-user-data",
