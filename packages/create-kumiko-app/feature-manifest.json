@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 62,
+  "featureCount": 64,
   "features": [
     {
       "name": "admin-shell",
@@ -893,6 +893,51 @@
         {
           "extensionName": "userData",
           "entityName": "folder-assignment"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "form-draft",
+      "description": "Per-user, per-tenant working copy of an in-progress form, saved BEFORE the real domain entity exists. Owns one event-sourced entity, `form-draft` (`read_form_drafts`), keyed by a caller-assigned draftKey (typically screenId + optional hostEntityId), unique per (tenant, owner, draftKey). `save` upserts the draft blob ({ values, stepIndex, savedAt } — savedAt stamped server-side), `discard` deletes it (called once the real submit succeeds), `get` resumes it. Ownership is enforced by a per-row owner filter in every handler, not by roles — a foreign user's save/discard/get for someone else's draftKey never sees or touches that row. Never holds anything that already lives in a domain stream; the consuming app is responsible for discarding once the domain write succeeds.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "form-draft:write:discard",
+        "form-draft:write:save"
+      ],
+      "uiHints": {
+        "displayLabel": "Form Drafts",
+        "category": "data",
+        "recommended": false
+      }
+    },
+    {
+      "name": "form-draft-user-data",
+      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `form-draft` feature's `form-draft` entity. Mounts the EXT_USER_DATA export hook so a user's saved drafts are included in the user-data export bundle, and a delete hook that physically removes the user's own draft rows on forget. Kept separate from `form-draft` so form-draft consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `form-draft`.",
+      "toggleableDefault": null,
+      "requires": [
+        "user-data-rights"
+      ],
+      "optionalRequires": [
+        "form-draft"
+      ],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "form-draft"
         }
       ],
       "configKeys": [],

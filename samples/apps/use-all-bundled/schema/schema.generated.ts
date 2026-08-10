@@ -22,6 +22,7 @@ import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { tagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { notesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
+import { formDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
 import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
 import { ledgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { documentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
@@ -43,6 +44,7 @@ const _managedPages = createManagedPagesFeature({ resolveApexTenant: () => null,
 const _customFields = customFieldsFeature;
 const _tags = tagsFeature;
 const _notesHistory = notesHistoryFeature;
+const _formDraft = formDraftFeature;
 const _folders = foldersFeature;
 const _ledger = ledgerFeature;
 const _documentIngestFoundation = documentIngestFoundationFeature;
@@ -70,6 +72,7 @@ export const fieldDefinitionTable = buildEntityTable("field-definition", _custom
 export const tagTable = buildEntityTable("tag", _tags.entities["tag"]!);
 export const tagAssignmentTable = buildEntityTable("tag-assignment", _tags.entities["tag-assignment"]!);
 export const noteEntryTable = buildEntityTable("note-entry", _notesHistory.entities["note-entry"]!);
+export const formDraftTable = buildEntityTable("form-draft", _formDraft.entities["form-draft"]!);
 export const folderTable = buildEntityTable("folder", _folders.entities["folder"]!);
 export const folderAssignmentTable = buildEntityTable("folder-assignment", _folders.entities["folder-assignment"]!);
 export const accountTable = buildEntityTable("account", _ledger.entities["account"]!);
