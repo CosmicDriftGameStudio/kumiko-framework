@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.191.0
+
+### Minor Changes
+
+- b156334: The wizard chrome (`RenderEdit` with `layout.mode: "wizard"`) now renders a step overview above the form instead of just "Step X of Y": numbered chips for every section, the current one highlighted, done ones showing a checkmark. Added the `StepBar` primitive (`CorePrimitives.StepBar`, optional like `Progress`) and its default web implementation (`@cosmicdrift/kumiko-renderer-web`'s `StepBar` widget). On narrow viewports the chip row hides in favor of the previous compact "Step X of Y · &lt;title&gt;" label — both the chrome and the widget stay backward compatible when a custom `PrimitivesRegistry` doesn't supply `StepBar`.
+
+### Patch Changes
+
+- Updated dependencies [b156334]
+  - @cosmicdrift/kumiko-renderer@0.191.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.191.0
+  - @cosmicdrift/kumiko-headless@0.191.0
+
 ## 0.190.0
 
 ### Minor Changes
