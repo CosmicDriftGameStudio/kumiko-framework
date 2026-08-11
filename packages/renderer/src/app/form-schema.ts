@@ -82,6 +82,8 @@ export function buildFormSchema(
           code: "custom",
           path: [spec.field],
           message: `"${spec.field}" is required.`,
+          // `params.i18nKey` override, see packages/headless/src/form/zod-bridge.ts.
+          params: { i18nKey: "kumiko.validation.required" },
         });
       }
     });

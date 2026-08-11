@@ -4,6 +4,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { createFormController } from "@cosmicdrift/kumiko-headless";
 import { buildFormSchema } from "../form-schema";
 
 function screenWith(fields: readonly EditFieldSpec[]): EntityEditScreenDefinition {
@@ -38,6 +39,41 @@ describe("buildFormSchema", () => {
         expect(result.error.issues[0]?.path).toEqual(["name"]);
       });
     }
+  });
+
+  // kumiko-framework#1927: a bare presence issue used to render as
+  // "Invalid value." — pin the params.i18nKey override so the resolved
+  // FieldIssue points at "kumiko.validation.required" ("Pflichtfeld.")
+  // instead of the generic errors.validation.custom fallback.
+  test("required field missing → issue carries the required-field i18nKey override", () => {
+    const entity = entityWith({ name: { type: "text", required: true } });
+    const screen = screenWith(["name"]);
+
+    const result = buildFormSchema(entity, screen).safeParse({ name: "" });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const issue = result.error.issues[0];
+    if (issue?.code !== "custom") throw new Error("expected a custom issue");
+    expect(issue.params).toMatchObject({ i18nKey: "kumiko.validation.required" });
+  });
+
+  // kumiko-framework#1927: the seam the bug actually lived in — a schema
+  // built here only round-trips through createFormController's validate(),
+  // which is what feeds FormSnapshot.errors that render-edit.tsx passes to
+  // RenderField. A unit test on buildFormSchema() alone can't catch a break
+  // in that hand-off (e.g. zodErrorToFieldIssues not honoring the override).
+  test("end-to-end via createFormController: required field left empty → snapshot error carries kumiko.validation.required", () => {
+    const entity = entityWith({ name: { type: "text", required: true } });
+    const screen = screenWith(["name"]);
+
+    const form = createFormController({
+      initial: { name: "" },
+      schema: buildFormSchema(entity, screen),
+    });
+
+    expect(form.validate()).toBe(false);
+    const fieldErrors = form.getSnapshot().errors["name"];
+    expect(fieldErrors?.[0]?.i18nKey).toBe("kumiko.validation.required");
   });
 
   describe("required field present → no issue", () => {

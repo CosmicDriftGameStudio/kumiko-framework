@@ -43,10 +43,28 @@ export function zodErrorToFieldIssues(error: ZodError): FieldIssue[] {
       // malformed" errors under — matches what the server does.
       path: issue.path.map(String).join(".") || "(root)",
       code: issue.code,
-      i18nKey: `errors.validation.${issue.code}`,
+      i18nKey: resolveI18nKey(issue),
       ...(params && { params }),
     };
   });
+}
+
+// Every zod code maps mechanically to `errors.validation.<code>` — except
+// `code: "custom"`, which is zod's one-size-fits-all bucket for every
+// `superRefine`/`refine` check in the codebase. Left mechanical, ALL of them
+// would collapse onto the same `errors.validation.custom` ("Invalid
+// value.") key, which is wrong for a check that has a more specific message
+// (e.g. form-schema.ts's presence check wants "Pflichtfeld." / "Required.").
+// A `superRefine` that needs its own key sets `params.i18nKey` on the issue;
+// this is the one place that honors it. Keep in sync with the server-side
+// mirror (packages/framework/src/errors/zod-bridge.ts) — a superRefine can
+// run on either side.
+function resolveI18nKey(issue: ZodIssue): string {
+  if (issue.code === "custom") {
+    const override = issue.params?.["i18nKey"];
+    if (typeof override === "string") return override;
+  }
+  return `errors.validation.${issue.code}`;
 }
 
 function extractIssueParams(issue: ZodIssue): Readonly<Record<string, unknown>> | undefined {

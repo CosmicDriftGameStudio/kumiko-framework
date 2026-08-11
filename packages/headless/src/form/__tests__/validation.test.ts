@@ -45,6 +45,45 @@ describe("zodErrorToFieldIssues", () => {
     expect(issues[0]?.params).toBeDefined();
     expect(issues[0]?.params?.["minimum"]).toBe(10);
   });
+
+  // kumiko-framework#1927: a bare `code:"custom"` issue (superRefine's only
+  // code) would otherwise always resolve to the generic "Invalid value."
+  // key — `params.i18nKey` lets a check like form-schema.ts's presence
+  // check point at its own key instead.
+  test("custom issue with params.i18nKey overrides the mechanical errors.validation.custom key", () => {
+    const schema = z.object({ name: z.string() }).superRefine((values, ctx) => {
+      if (values.name === "") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["name"],
+          message: '"name" is required.',
+          params: { i18nKey: "kumiko.validation.required" },
+        });
+      }
+    });
+    const result = schema.safeParse({ name: "" });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const issues = zodErrorToFieldIssues(result.error);
+
+    expect(issues[0]?.i18nKey).toBe("kumiko.validation.required");
+  });
+
+  test("custom issue without params.i18nKey still falls back to errors.validation.custom", () => {
+    const schema = z.object({ name: z.string() }).superRefine((values, ctx) => {
+      if (values.name === "bad") {
+        ctx.addIssue({ code: "custom", path: ["name"], message: "not allowed" });
+      }
+    });
+    const result = schema.safeParse({ name: "bad" });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const issues = zodErrorToFieldIssues(result.error);
+
+    expect(issues[0]?.i18nKey).toBe("errors.validation.custom");
+  });
 });
 
 describe("groupIssuesByPath", () => {
