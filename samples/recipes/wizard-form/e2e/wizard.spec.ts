@@ -80,21 +80,7 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     }
   });
 
-  // Framework gap, not a test bug: RenderEdit's per-step validate() is a
-  // no-op unless a zod `schema` prop is supplied (form-controller.ts
-  // runValidate: `if (!options.schema) { ...; return true; }`), and the
-  // auto-wired entityEdit path (KumikoScreen -> EntityEditScreen ->
-  // EntityEditCreateBody, exactly what this e2e boots) never builds or
-  // passes one — buildInsertSchema/buildUpdateSchema have zero call sites
-  // in packages/renderer or packages/renderer-web. So clicking "Weiter"
-  // with an empty required title currently just advances to step 2; no
-  // field error ever renders. test.fail() keeps this requirement visible
-  // and pins it red-on-pass: remove test.fail() once wizard step
-  // validation is wired to the entity's required fields. Tracked as
-  // CosmicDriftGameStudio/kumiko-framework#1910, not fixable from this
-  // recipe's e2e spec.
   test("an empty required field blocks Next and shows a field error", async ({ page }) => {
-    test.fail();
     await gotoWizard(page);
     // Fill category (also required) so the block is attributable to title
     // alone, not "any required field in the step is empty".
