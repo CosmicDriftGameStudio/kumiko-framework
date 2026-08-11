@@ -296,7 +296,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       // pattern the server-side event-dispatcher uses (passInFlight).
       if (submitInFlight) return submitInFlight as Promise<SubmitResult<TData>>;
 
-      if (!runValidate()) {
+      if (!runValidate(submitCfg.validateScope)) {
         return { validationBlocked: true, isSuccess: false };
       }
 

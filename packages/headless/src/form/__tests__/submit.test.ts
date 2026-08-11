@@ -73,6 +73,40 @@ describe("createFormController — submit()", () => {
     expect(form.getSnapshot().errors["title"]).toBeDefined();
   });
 
+  test("validateScope: a required field outside the scope missing/empty does not block submit", async () => {
+    // RenderEdit's `fields` filter narrows what's rendered; a schema-required
+    // field the user never sees (outside validateScope) must not be able to
+    // block a submit they have no way to fix.
+    const disp = makeDispatcher();
+    const form = createFormController({
+      initial: { title: "hello", notes: "" },
+      schema: z.object({ title: z.string().min(1), notes: z.string().min(1) }),
+      submit: { dispatcher: disp, type: "app:write:task:create", validateScope: ["title"] },
+    });
+
+    const result = await form.submit();
+
+    expect(result.validationBlocked).toBe(false);
+    expect(disp.writeSpy).toHaveBeenCalledTimes(1);
+    const call = disp.writeSpy.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(call["title"]).toBe("hello");
+  });
+
+  test("validateScope: a required field inside the scope missing/empty still blocks submit", async () => {
+    const disp = makeDispatcher();
+    const form = createFormController({
+      initial: { title: "", notes: "filled" },
+      schema: z.object({ title: z.string().min(1), notes: z.string().min(1) }),
+      submit: { dispatcher: disp, type: "app:write:task:create", validateScope: ["title"] },
+    });
+
+    const result = await form.submit();
+
+    expect(result.validationBlocked).toBe(true);
+    expect(disp.writeSpy).not.toHaveBeenCalled();
+    expect(form.getSnapshot().errors["title"]).toBeDefined();
+  });
+
   test("server validation failure: field errors land on the form", async () => {
     const disp = makeDispatcher({
       isSuccess: false,

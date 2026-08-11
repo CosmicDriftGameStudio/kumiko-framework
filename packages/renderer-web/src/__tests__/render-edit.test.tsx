@@ -1116,3 +1116,135 @@ describe("RenderEdit wizard draft", () => {
     expect(calls.some((c) => c.startsWith("form-draft:"))).toBe(false);
   });
 });
+
+describe("RenderEdit fields filter", () => {
+  const filterEntity = {
+    fields: {
+      title: { type: "text", required: true },
+      count: { type: "number" },
+      notes: { type: "text" },
+    },
+  } as unknown as EntityDefinition;
+
+  function makeTwoSectionScreen(): EntityEditScreenDefinition {
+    return {
+      id: "orders:screen:order-edit-filter",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        sections: [
+          { title: "Basics", columns: 1, fields: ["title"] },
+          { title: "Extra", columns: 2, fields: ["count", "notes"] },
+        ],
+      },
+    };
+  }
+
+  type FilterValues = { title: string; count?: number; notes?: string };
+
+  test("fields prop renders only the listed fields; others are absent from the DOM", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<FilterValues>
+          screen={makeTwoSectionScreen()}
+          entity={filterEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, notes: "" }}
+          writeCommand="order:create"
+          fields={["title"]}
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("field-title")).toBeTruthy();
+    expect(screen.queryByTestId("field-count")).toBeNull();
+    expect(screen.queryByTestId("field-notes")).toBeNull();
+  });
+
+  test("a section with no fields left after filtering renders no section container at all", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<FilterValues>
+          screen={makeTwoSectionScreen()}
+          entity={filterEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, notes: "" }}
+          writeCommand="order:create"
+          fields={["title"]}
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("section-Basics")).toBeTruthy();
+    expect(screen.queryByTestId("section-Extra")).toBeNull();
+  });
+
+  test("a schema-required field outside `fields` does not block submit", async () => {
+    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    const schema = z.object({
+      title: z.string().min(1),
+      notes: z.string().min(1),
+    });
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<FilterValues>
+          screen={makeTwoSectionScreen()}
+          entity={filterEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, notes: "" }}
+          writeCommand="order:create"
+          schema={schema}
+          fields={["title"]}
+        />
+      </DispatcherProvider>,
+    );
+
+    // `notes` is required by the schema and empty, but it's filtered out of
+    // the rendered form — the user has no way to fix it, so it must not
+    // block the submit.
+    expect(screen.queryByTestId("field-notes")).toBeNull();
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
+  });
+
+  test("a schema-required field inside `fields` still blocks submit", async () => {
+    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    const schema = z.object({
+      title: z.string().min(1),
+      notes: z.string().min(1),
+    });
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<FilterValues>
+          screen={makeTwoSectionScreen()}
+          entity={filterEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, notes: "" }}
+          writeCommand="order:create"
+          schema={schema}
+          fields={["title", "notes"]}
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("field-notes")).toBeTruthy();
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+
+    expect(write).not.toHaveBeenCalled();
+    expect(screen.getByTestId("field-notes-errors")).toBeTruthy();
+  });
+});

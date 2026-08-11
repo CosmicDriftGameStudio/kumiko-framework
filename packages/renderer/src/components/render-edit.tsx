@@ -21,7 +21,7 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { computeEditViewModel } from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { z } from "zod";
 import { ExtensionFormRegistryProvider, useExtensionFormHost } from "../app/extension-form-submit";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
@@ -30,6 +30,7 @@ import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
 import {
+  filterEditSections,
   hasEditableSection,
   resolveExtensionEntityId,
   shouldNotifyCaller,
@@ -132,6 +133,16 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  itself rather than as a summary banner. Without this prop, existing
    *  behavior is unchanged. */
   readonly onControlsReady?: (controls: RenderEditControls<TValues>) => void;
+  /** Renders only these fields (by `field` name from the layout) — section
+   *  order, title, and visibility still come from the layout, so the caller
+   *  doesn't duplicate its shape. A section with no fields left after
+   *  filtering is dropped entirely (not rendered empty). Submit validation
+   *  is scoped to the actually-rendered fields the same way — a required
+   *  field outside this list doesn't block submit. Omitting this prop keeps
+   *  unchanged behavior. Read once at mount for `controller.submit()`'s
+   *  validation scope (the underlying `useForm` controller is mount-lived);
+   *  rendering and `controls.validate()` do stay reactive to later changes. */
+  readonly fields?: readonly string[];
 };
 
 export type RenderEditChangeState<TValues extends FormValues> = {
@@ -262,6 +273,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     extensionInitialValues,
     onChange,
     onControlsReady,
+    fields: fieldsFilter,
   } = props;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -292,6 +304,24 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
 
+  // Scope für validate()/submit() — nur die tatsächlich gerenderten Feldnamen
+  // aus `fields` (bereits non-extension-only, siehe deriveFormFields), auf den
+  // `fields`-Filter-Prop eingeschränkt. Muss VOR submitConfig/useForm stehen
+  // (der Controller bakt submitConfig beim ersten Render dauerhaft ein) und
+  // kann daher nicht von `vm`/`filteredSections` abgeleitet werden, die erst
+  // nach dem Controller (aus snapshot.values) existieren — die Feldnamen-Menge
+  // pro Section ist aber wertunabhängig (nur visible/readOnly/value hängen von
+  // `values` ab), also liefert diese Ableitung dieselbe Menge wie
+  // filterEditSections(vm.sections, fieldsFilter) es täte. undefined (= kein
+  // Filter aktiv) heißt unscoped validate/submit — auf "alle gerenderten
+  // Felder" scopen würde sonst root-level .refine()-Issues aus der
+  // unscoped-Validierung stillschweigend wegfiltern.
+  const scopeFieldNames = useMemo(
+    () =>
+      fieldsFilter === undefined ? undefined : fieldsFilter.filter((f) => Object.hasOwn(fields, f)),
+    [fieldsFilter, fields],
+  );
+
   // Submit-Config nur wenn der Caller einen writeCommand mitgibt; bei
   // customSubmit-Pfad kommt der Form-Controller ohne Submit-Wiring,
   // weil wir controller.submit() eh nicht rufen.
@@ -301,6 +331,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           type: writeCommand,
           payloadMode,
           ...(buildPayload !== undefined && { buildPayload }),
+          ...(scopeFieldNames !== undefined && { validateScope: scopeFieldNames }),
         }
       : undefined;
 
@@ -347,17 +378,23 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   const onControlsReadyRef = useRef(onControlsReady);
   onControlsReadyRef.current = onControlsReady;
+  const scopeFieldNamesRef = useRef(scopeFieldNames);
+  scopeFieldNamesRef.current = scopeFieldNames;
+  const scopedValidate = useCallback(
+    () => controller.validate(scopeFieldNamesRef.current),
+    [controller],
+  );
   useEffect(() => {
     const cb = onControlsReadyRef.current;
     if (cb === undefined) return;
     cb({
       patch: controller.setValues,
-      validate: controller.validate,
+      validate: scopedValidate,
       getValues: () => controller.getSnapshot().values,
     });
     // controller is mount-lifetime-stable (see useForm's comment on its
     // own useMemo) — this fires exactly once per RenderEdit mount.
-  }, [controller]);
+  }, [controller, scopedValidate]);
 
   useEffect(() => {
     // skip: this screen does not persist a draft.
@@ -399,8 +436,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     [screen, entity, snapshot.values, translate, featureName],
   );
 
+  const filteredSections = useMemo(
+    () => filterEditSections(vm.sections, fieldsFilter),
+    [vm.sections, fieldsFilter],
+  );
+
   // true for an extension section with no fields of its own too (it carries its own dirty/save).
-  const isFormEditable = hasEditableSection(vm.sections);
+  const isFormEditable = hasEditableSection(filteredSections);
 
   // Persistiert alle composed Extension-Sections mit der aufgelösten entityId.
   // false = eine Section schlug fehl (ihr i18n-Key landet im Banner). Ohne
@@ -417,7 +459,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     return true;
   }
 
-  const lastStepIndex = Math.max(vm.sections.length - 1, 0);
+  const lastStepIndex = Math.max(filteredSections.length - 1, 0);
   // Clamped on read, not on write: section visibility is value-dependent, so a
   // stored stepIndex can point past what is currently rendered — that lands on
   // the last step instead of an empty one.
@@ -441,7 +483,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // have no field scope here (they validate via the controlled-mode
   // controls.validate() API), so no call, no clearing of unrelated errors.
   function handleWizardNext(): void {
-    const section = vm.sections[currentStep];
+    const section = filteredSections[currentStep];
     const fieldNames = section?.kind === "fields" ? section.fields.map((f) => f.field) : [];
     // skip: the current step has field errors — no transition, no draft save.
     if (fieldNames.length > 0 && !controller.validate(fieldNames)) return;
@@ -500,7 +542,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // aber gar nichts ist passiert. controller.getSnapshot() ist
         // immer aktuell — der Controller ist die Source-of-Truth, die
         // React-State ist nur ein Mirror für's Rendering.
-        const valid = controller.validate();
+        const valid = controller.validate(scopeFieldNames);
         if (!valid) {
           // Field-Order matters: validationBlocked-true ist eine eigene
           // Variante in der SubmitResult-Union (NICHT mit data/error
@@ -656,7 +698,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             </Text>
           </>
         )}
-        {(isWizard ? vm.sections.filter((_, i) => i === currentStep) : vm.sections).map(
+        {(isWizard ? filteredSections.filter((_, i) => i === currentStep) : filteredSections).map(
           (section: EditSectionViewModel, sectionIndex: number) => {
             if (section.kind === "extension") {
               return (
@@ -672,7 +714,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   patch={
                     controller.setValues as (partial: Readonly<Record<string, unknown>>) => void
                   }
-                  validate={controller.validate}
+                  validate={scopedValidate}
                 />
               );
             }
