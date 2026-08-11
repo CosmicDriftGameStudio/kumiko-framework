@@ -100,6 +100,7 @@ import { DefaultModal } from "./modal";
 import { formatMoney, MoneyInput } from "./money-input";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
+import { TzInput } from "./tz-input";
 
 // ---- Card-Chrome (eine Definition für Form/Section/Card) ----
 
@@ -553,6 +554,18 @@ function DefaultInput(props: InputProps): ReactNode {
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => props.onChange(e.target.value)}
           rows={props.rows ?? 4}
           className="resize-y"
+        />
+      );
+    case "tz":
+      return (
+        <TzInput
+          id={props.id}
+          name={props.name}
+          value={props.value}
+          onChange={props.onChange}
+          {...(props.disabled !== undefined && { disabled: props.disabled })}
+          {...(props.required !== undefined && { required: props.required })}
+          {...(props.hasError !== undefined && { hasError: props.hasError })}
         />
       );
   }

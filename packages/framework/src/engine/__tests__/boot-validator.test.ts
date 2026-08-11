@@ -7,8 +7,11 @@ import { validateBoot as validateBootRaw } from "../boot-validator";
 import { createSystemConfig, createTenantConfig } from "../config-helpers";
 import {
   createDerivedField,
+  createEmbeddedField,
   createEmbeddedListField,
   createEntity,
+  createFilesField,
+  createJsonbField,
   createMultiSelectField,
   createTextField,
   defineFeature,
@@ -2170,6 +2173,189 @@ describe("boot-validator", () => {
       expect(() =>
         validateBoot([makeFeature([{ title: "Details", fields: ["name", "sku"] }])]),
       ).not.toThrow();
+    });
+  });
+
+  // --- no-widget field types + required (#1925) ---
+  // jsonb/embedded/files/images render read-only on the auto-wired
+  // entityEdit path (render-field.tsx) — a statically-`required: true`
+  // field of one of these types would be unresolvable by the user, so it's
+  // caught loudly at boot instead of silently accepting an unfillable form.
+  // Only the static case (literal `true`, entity-level or screen-spec) is
+  // checked; a dynamic FieldCondition can't be evaluated without runtime
+  // form values and is a documented, accepted gap.
+  describe("no-widget field types + required (#1925)", () => {
+    test("embedded field, entity-level required: true → Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
+              },
+            }),
+          );
+          r.screen({
+            id: "order-edit",
+            type: "entityEdit",
+            entity: "order",
+            layout: { sections: [{ fields: ["lines"] }] },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /field "lines" is type "embedded", which renders read-only/,
+      );
+    });
+
+    test("embedded field, entity-level required: true, screen-spec required: false override → kein Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
+              },
+            }),
+          );
+          r.screen({
+            id: "order-edit",
+            type: "entityEdit",
+            entity: "order",
+            layout: { sections: [{ fields: [{ field: "lines", required: false }] }] },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("embedded field, entity-level required: true, screen-spec readOnly: true → kein Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
+              },
+            }),
+          );
+          r.screen({
+            id: "order-edit",
+            type: "entityEdit",
+            entity: "order",
+            layout: { sections: [{ fields: [{ field: "lines", readOnly: true }] }] },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("embedded field, entity-level required: true, dynamic screen-spec required condition → kein Throw (not statically resolvable)", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                kind: createTextField(),
+                lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
+              },
+            }),
+          );
+          r.screen({
+            id: "order-edit",
+            type: "entityEdit",
+            entity: "order",
+            layout: {
+              sections: [
+                { fields: ["kind", { field: "lines", required: { field: "kind", eq: "b2b" } }] },
+              ],
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("jsonb field, screen-spec required: true override → Throw (JsonbFieldDef has no entity-level required)", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity("order", createEntity({ fields: { data: createJsonbField() } }));
+          r.screen({
+            id: "order-edit",
+            type: "entityEdit",
+            entity: "order",
+            layout: { sections: [{ fields: [{ field: "data", required: true }] }] },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /field "data" is type "jsonb", which renders read-only/,
+      );
+    });
+
+    test("files field, screen-spec required: true override → Throw (deliberately deferred, no multi-upload widget)", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity("order", createEntity({ fields: { attachments: createFilesField() } }));
+          r.screen({
+            id: "order-edit",
+            type: "entityEdit",
+            entity: "order",
+            layout: { sections: [{ fields: [{ field: "attachments", required: true }] }] },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /field "attachments" is type "files", which renders read-only/,
+      );
+    });
+
+    test("multiSelect field, entity-level required: true → kein Throw (has a combobox widget since #1925)", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "product",
+            createEntity({
+              fields: {
+                tags: createMultiSelectField({ options: ["a", "b"] as const, required: true }),
+              },
+            }),
+          );
+          r.screen({
+            id: "product-edit",
+            type: "entityEdit",
+            entity: "product",
+            layout: { sections: [{ fields: ["tags"] }] },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("embedded LIST field (multiple: true), entity-level required: true → kein Throw (has an EmbeddedListField grid widget since #1838)", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "invoice",
+            createEntity({
+              fields: {
+                lines: createEmbeddedListField({ note: { type: "text" } }, { required: true }),
+              },
+            }),
+          );
+          r.screen({
+            id: "invoice-edit",
+            type: "entityEdit",
+            entity: "invoice",
+            layout: { sections: [{ fields: ["lines"] }] },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
     });
   });
 

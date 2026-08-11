@@ -9,27 +9,7 @@ import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { ComboboxInput } from "./combobox";
 import { TimestampInput } from "./timestamp-input";
-
-// Kuratierte Notliste falls die Runtime Intl.supportedValuesOf nicht kennt
-// (vor ES2022). Reicht für die häufigsten Zonen; moderne Browser + Bun liefern
-// die volle Liste.
-const FALLBACK_ZONES: readonly string[] = [
-  "UTC",
-  "Europe/Berlin",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Madrid",
-  "America/New_York",
-  "America/Los_Angeles",
-  "America/Sao_Paulo",
-  "Asia/Tokyo",
-  "Asia/Singapore",
-  "Australia/Sydney",
-];
-
-const TZ_OPTIONS: readonly { readonly value: string; readonly label: string }[] = (
-  typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : FALLBACK_ZONES
-).map((zone) => ({ value: zone, label: zone }));
+import { TZ_OPTIONS } from "./tz-options";
 
 export type LocatedTimestampValue = {
   readonly at: string;

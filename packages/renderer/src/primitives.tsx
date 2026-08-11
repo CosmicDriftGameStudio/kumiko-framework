@@ -409,6 +409,17 @@ export type InputProps =
       readonly hasError?: boolean;
     }
   | {
+      readonly kind: "tz";
+      readonly id: string;
+      readonly name: string;
+      /** IANA zone name, e.g. "Europe/Berlin". Empty-state = "". */
+      readonly value: string;
+      readonly onChange: (v: string | undefined) => void;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+    }
+  | {
       readonly kind: "textarea";
       readonly id: string;
       readonly name: string;

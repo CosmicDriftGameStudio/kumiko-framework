@@ -17,9 +17,15 @@ function isPresent(value: unknown): boolean {
 // Field types without a bound, editable widget on the auto-wired
 // entityEdit path (render-field.tsx renders a read-only banner instead) —
 // a presence error on one of them would be unresolvable by the user.
-// Tracked in #1925 (field types without an operable widget). `money` has an
-// operable widget (MoneyInput) and stays out of this set.
-const FIELD_TYPES_WITHOUT_WIDGET = new Set(["multiSelect", "jsonb", "embedded"]);
+// #1925 gave multiSelect/decimal/bigInt/tz/longText real widgets, so they
+// dropped out of this set; files/images stay out of scope (deferred, no
+// multi-upload widget yet) alongside jsonb/embedded (structural types with
+// no editor at all). A statically-`required: true` field of one of these
+// types is caught loudly at boot — validateNoWidgetRequiredField in
+// packages/framework/src/engine/boot-validator/screens.ts, which mirrors
+// this set (framework can't import renderer, so it can't import this
+// constant directly — keep both in sync).
+const FIELD_TYPES_WITHOUT_WIDGET = new Set(["jsonb", "embedded", "files", "images"]);
 
 // Client-side presence validation for the auto-wired entityEdit path —
 // checks that every rendered required field HAS a value, not that the
