@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 65,
+  "featureCount": 66,
   "features": [
     {
       "name": "admin-shell",
@@ -500,6 +500,32 @@
         "displayLabel": "Notifications · Dispatch Core",
         "category": "notifications",
         "recommended": true
+      }
+    },
+    {
+      "name": "derivatives-sharp",
+      "description": "Registers an `image/*` renderer against the `derivativeRenderer` extension point declared by `file-derivatives`, backed by sharp. Supports resize/fit (cover, inside, contain), format conversion with quality (webp, avif, jpeg), whole-image blur, and blurring individual regions burned in before resize (see BlurRegion). EXIF orientation is applied and then normalized away, and all other EXIF (including GPS) is dropped. Server-only: sharp is a native binding — never import this from client code.",
+      "toggleableDefault": null,
+      "requires": [
+        "file-derivatives"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "derivativeRenderer",
+          "entityName": "image/*"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "File Derivatives · Sharp",
+        "category": "storage",
+        "recommended": false
       }
     },
     {

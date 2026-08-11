@@ -55,6 +55,7 @@ const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
 // BUILD_ONLY_EXTERNALS instead.
 const RUNTIME_EXTERNALS = [
   "@node-rs/argon2",
+  "sharp",
   "bullmq",
   "ioredis",
   "postgres",

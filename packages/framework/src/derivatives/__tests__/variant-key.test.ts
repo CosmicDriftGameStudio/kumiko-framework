@@ -19,6 +19,12 @@ describe("specHash — key stability", () => {
   test("a changed value produces a different hash — the whole point of hashing the spec", () => {
     expect(specHash({ maxEdge: 512 })).not.toBe(specHash({ maxEdge: 640 }));
   });
+
+  test("different blurRegions produce different hashes — corrected regions need a fresh URL", () => {
+    expect(specHash({ blurRegions: [{ x: 0, y: 0, width: 0.5, height: 0.5 }] })).not.toBe(
+      specHash({ blurRegions: [{ x: 0.5, y: 0.5, width: 0.5, height: 0.5 }] }),
+    );
+  });
 });
 
 describe("variantSuffix", () => {

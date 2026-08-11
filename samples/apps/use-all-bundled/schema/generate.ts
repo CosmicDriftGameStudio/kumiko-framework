@@ -156,6 +156,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/file-derivatives",
     exportName: "fileDerivativesFeature",
   },
+  "derivatives-sharp": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/derivatives-sharp",
+    exportName: "derivativesSharpFeature",
+  },
   "file-provider-s3-env": {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/file-provider-s3-env",
