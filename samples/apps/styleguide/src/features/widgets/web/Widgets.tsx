@@ -183,7 +183,14 @@ export function Widgets(): ReactNode {
         onOpenChange={setDrawerOpen}
         title={t("widgets:catalog:drawer-message-title")}
         description="William Smith · 09:34"
-        footer={<Button onClick={() => setDrawerOpen(false)}>{t("widgets:catalog:close")}</Button>}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDrawerOpen(false)}>
+              {t("widgets:catalog:cancel")}
+            </Button>
+            <Button onClick={() => setDrawerOpen(false)}>{t("widgets:catalog:save")}</Button>
+          </>
+        }
         testId="drawer-demo"
       >
         <p className="text-sm">Hi team, just a reminder about our meeting tomorrow at 10 AM.</p>

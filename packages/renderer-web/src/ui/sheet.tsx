@@ -47,6 +47,7 @@ function SheetOverlay({
 
 function SheetContent({
   className,
+  overlayClassName,
   children,
   side = "right",
   showCloseButton = true,
@@ -54,10 +55,11 @@ function SheetContent({
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
+  overlayClassName?: string
 }) {
   return (
     <SheetPortal>
-      <SheetOverlay />
+      <SheetOverlay className={overlayClassName} />
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
@@ -100,7 +102,13 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-footer"
-      className={cn("mt-auto flex flex-col gap-2 p-4", className)}
+      // Matches the card footer convention (primitives/index.tsx cardFooter
+      // + cardFooterBorder) — same padding/border/button-row shape as
+      // SectionCard/DefaultCard so a drawer footer reads like a card footer.
+      className={cn(
+        "mt-auto flex items-center justify-end gap-2 border-t bg-muted/30 px-[var(--card-padding)] py-4",
+        className,
+      )}
       {...props}
     />
   )
