@@ -14,14 +14,18 @@
 //   - Orphan-User (0 Memberships): user-Profil-Hook laeuft trotzdem
 //     ueber Pseudo-Tenant.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
+  configureBlindIndexKey,
   configurePiiSubjectKms,
   encryptPiiFieldValues,
   InMemoryKmsAdapter,
+  isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser, type UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -30,17 +34,21 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
+  resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
   seedRow,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
+import { configValueEntity, createConfigFeature } from "../../config";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createFilesFeature } from "../../files";
 import { createSessionsFeature, userSessionEntity } from "../../sessions";
+import { createTenantFeature, tenantInvitationEntity, tenantInvitationsTable } from "../../tenant";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
+import { tenantInvitationExportHook } from "../../user-data-rights-defaults/hooks/tenant-invitation.userdata-hook";
 import { createUserDataRightsFeature } from "../feature";
 import { runUserExport } from "../run-user-export";
 
@@ -67,6 +75,8 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       authFoundationFeature,
       createSessionsFeature(),
+      createConfigFeature(),
+      createTenantFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
     ],
@@ -74,6 +84,8 @@ beforeAll(async () => {
 
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
+  await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
+  await unsafeCreateEntityTable(stack.db, configValueEntity);
   await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -101,7 +113,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [userTable, "read_tenant_memberships", fileRefsTable]);
+  await resetTestTables(stack.db, [
+    userTable,
+    "read_tenant_memberships",
+    fileRefsTable,
+    tenantInvitationsTable,
+  ]);
 });
 
 const NOW = () => getTemporal().Now.instant();
@@ -363,5 +380,90 @@ describe("runUserExport :: PII-Subject-Ciphertexte (#820)", () => {
     const json = JSON.stringify(bundle);
     expect(json).not.toContain("kumiko-pii:");
     expect(json).toContain("[encrypted:unavailable]");
+  });
+});
+
+describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
+  const BIDX_KEY = Buffer.alloc(32, 9).toString("base64");
+  const INVITE_EMAIL = "alice.invite@example.com";
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+    resetBlindIndexKeyForTests();
+  });
+
+  test("tenant-invitation export snippet contains plaintext email even though the hook does not decrypt locally", async () => {
+    // KMS + bidx MUST be configured before the executor write so the row
+    // lands encrypted with a real blind index, matching the KMS-active
+    // production shape (order matches anonymous-deletion-kms.integration.test.ts).
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+    configureBlindIndexKey(BIDX_KEY);
+
+    await seedUser(ALICE_ID, { email: INVITE_EMAIL, displayName: "Alice Invite" });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    // Real executor write path — the same one tenantInvitationExportHook's
+    // sibling delete hook and the invite-create handler use — so the row
+    // carries genuine ciphertext + a real email_bidx, not a hand-seeded stand-in.
+    const invitationExecutor = createEventStoreExecutor(
+      tenantInvitationsTable,
+      tenantInvitationEntity,
+      {
+        entityName: "tenant-invitation",
+      },
+    );
+    const systemUser = createSystemUser(TENANT_A);
+    const tenantDb = createTenantDb(stack.db, TENANT_A, "system");
+    const createResult = await invitationExecutor.create(
+      {
+        email: INVITE_EMAIL,
+        role: "Member",
+        status: "pending",
+        invitedBy: ALICE_ID,
+        expiresAt: NOW().add({ seconds: 7 * 24 * 60 * 60 }),
+      },
+      systemUser,
+      tenantDb,
+    );
+    expect(createResult.isSuccess).toBe(true);
+    const invitationId = (createResult as { data: { id: string } }).data.id;
+
+    const rawRows = await asRawClient(stack.db).unsafe<Record<string, unknown>>(
+      `SELECT email, email_bidx FROM read_tenant_invitations WHERE id = $1`,
+      [invitationId],
+    );
+    expect(isPiiCiphertext(rawRows[0]?.["email"])).toBe(true);
+    expect(String(rawRows[0]?.["email_bidx"])).toStartWith("kumiko-bidx:v1:");
+
+    // Pins the hook boundary directly: tenantInvitationExportHook itself must
+    // hand back ciphertext, not plaintext — decryption is the central sweep's
+    // job (decryptSnippetFields in run-user-export.ts), not the hook's. If the
+    // hook ever started decrypting locally, this assertion would catch it even
+    // though the runUserExport() assertion below would stay green either way.
+    const hookCtx: UserDataHookCtx = {
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: TENANT_A,
+      userId: ALICE_ID,
+    };
+    const rawSnippet = await tenantInvitationExportHook(hookCtx);
+    expect(isPiiCiphertext(rawSnippet?.rows[0]?.["email"])).toBe(true);
+
+    const bundle = await runUserExport({
+      db: stack.db,
+      registry: stack.registry,
+      userId: ALICE_ID,
+      now: NOW(),
+    });
+
+    const tenantA = bundle.tenants.find((t) => t.tenantId === TENANT_A);
+    expect(tenantA).toBeDefined();
+    // Critical check: the entity-name-keyed selectMany lookup must actually
+    // find the row via the blind-index OR-branch — a silent miss here would
+    // mean the hook found nothing and the bidx hypothesis is wrong.
+    const invitationSnippet = tenantA?.entities.find((e) => e.entity === "tenant-invitation");
+    expect(invitationSnippet).toBeDefined();
+    expect(invitationSnippet?.rows).toHaveLength(1);
+    expect(invitationSnippet?.rows[0]?.["email"]).toBe(INVITE_EMAIL);
   });
 });
