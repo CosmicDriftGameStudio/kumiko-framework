@@ -38,11 +38,13 @@ type Row = Record<string, unknown> & { id: string };
 type FormDraftBlob = {
   readonly values: Record<string, unknown>;
   readonly stepIndex: number;
+  readonly savedAt: string;
 };
 
 const FORM_DRAFT_SAVE = "form-draft:write:save";
 const FORM_DRAFT_DISCARD = "form-draft:write:discard";
 const FORM_DRAFT_GET = "form-draft:query:get";
+const FORM_DRAFT_LIST = "form-draft:query:list";
 const DRAFT_STORAGE_PREFIX = "mock-form-draft:";
 const CREATED_LISTINGS_KEY = "mock-created-listings";
 
@@ -85,6 +87,7 @@ export function createMockDispatcher(): Dispatcher {
       const blob: FormDraftBlob = {
         values: (data["values"] ?? {}) as Record<string, unknown>,
         stepIndex: (data["stepIndex"] as number | undefined) ?? 0,
+        savedAt: new Date().toISOString(),
       };
       localStorage.setItem(draftStorageKey(draftKey), JSON.stringify(blob));
       return { isSuccess: true, data: {} as unknown as TData };
@@ -128,6 +131,31 @@ export function createMockDispatcher(): Dispatcher {
       const raw = localStorage.getItem(draftStorageKey(draftKey));
       const draft = raw === null ? null : (JSON.parse(raw) as FormDraftBlob);
       return { isSuccess: true, data: { draft } as unknown as TData };
+    }
+    if (type === FORM_DRAFT_LIST) {
+      // Mirrors the real handler's LIKE-prefix scan (issue #1913's
+      // RenderEdit mount-time fallback needs this for create-mode wizards
+      // whose sessionStorage-held draftId was lost — new tab, cleared
+      // storage) — same source of truth as FORM_DRAFT_SAVE/GET above.
+      const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
+      const screenId = data["screenId"] as string;
+      const prefix = draftStorageKey(`${screenId}:`);
+      const drafts: Array<{
+        readonly id: string;
+        readonly draftKey: string;
+        readonly stepIndex: number;
+        readonly savedAt: string;
+      }> = [];
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (key === null || !key.startsWith(prefix)) continue;
+        const raw = localStorage.getItem(key);
+        if (raw === null) continue;
+        const blob = JSON.parse(raw) as FormDraftBlob;
+        const draftKey = key.slice(DRAFT_STORAGE_PREFIX.length);
+        drafts.push({ id: draftKey, draftKey, stepIndex: blob.stepIndex, savedAt: blob.savedAt });
+      }
+      return { isSuccess: true, data: { drafts } as unknown as TData };
     }
     throw new Error(`mock-dispatcher: unsupported query qn "${type}"`);
   }

@@ -36,6 +36,8 @@ export function createBrowserDraftStorage(
       }
     },
     setDraftId: (screenId, draftId) => {
+      // skip: no sessionStorage in this environment (SSR, disabled) — the
+      // draftId just stays in-memory-only for this render.
       if (typeof sessionStorage === "undefined") return;
       try {
         sessionStorage.setItem(keyFor(prefix, screenId), draftId);
@@ -45,6 +47,7 @@ export function createBrowserDraftStorage(
       }
     },
     clearDraftId: (screenId) => {
+      // skip: no sessionStorage in this environment — nothing to clear.
       if (typeof sessionStorage === "undefined") return;
       try {
         sessionStorage.removeItem(keyFor(prefix, screenId));
