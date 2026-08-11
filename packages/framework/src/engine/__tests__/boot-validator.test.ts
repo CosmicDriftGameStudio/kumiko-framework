@@ -2176,6 +2176,48 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- entityEdit redirect (framework#1942) ---
+  // Post-save navigation target, same validation as actionForm's redirect:
+  // short screen-ID, same feature, must resolve to a registered screen.
+  describe("entityEdit redirect", () => {
+    function makeFeature(redirect?: string, extraScreens: readonly string[] = []) {
+      return defineFeature("shop", (r) => {
+        r.entity(
+          "product",
+          createEntity({ fields: { name: createTextField(), sku: createTextField() } }),
+        );
+        r.screen({
+          id: "product-edit",
+          type: "entityEdit",
+          entity: "product",
+          layout: { sections: [{ fields: ["name", "sku"] }] },
+          ...(redirect !== undefined && { redirect }),
+        });
+        for (const extra of extraScreens) {
+          r.screen({
+            id: extra,
+            type: "custom",
+            renderer: { react: "stub" },
+          });
+        }
+      });
+    }
+
+    test("redirect → existing screen-id im selben feature → kein Throw", () => {
+      expect(() => validateBoot([makeFeature("product-list", ["product-list"])])).not.toThrow();
+    });
+
+    test("redirect → unknown screen-id → Throw", () => {
+      expect(() => validateBoot([makeFeature("ghost-screen")])).toThrow(
+        /redirect "ghost-screen" does not resolve to a registered screen/,
+      );
+    });
+
+    test("kein redirect gesetzt → kein Throw (Default: Liste)", () => {
+      expect(() => validateBoot([makeFeature()])).not.toThrow();
+    });
+  });
+
   // --- no-widget field types + required (#1925) ---
   // jsonb/embedded/files/images render read-only on the auto-wired
   // entityEdit path (render-field.tsx) — a statically-`required: true`
