@@ -42,6 +42,17 @@ describe("ProgressBar", () => {
     render(<ProgressBar value={-3} testId="bar" />);
     expect(screen.getByTestId("bar").getAttribute("aria-valuenow")).toBe("0");
   });
+
+  test("Füll-Element bildet den Wert über Breite ab und erbt die Höhe nicht vom Elternteil", () => {
+    render(<ProgressBar value={0.5} testId="bar" />);
+    const bar = screen.getByTestId("bar");
+    const fill = bar.firstElementChild as HTMLElement;
+    expect(fill.style.width).toBe("50%");
+    expect(fill.className).not.toContain("h-full");
+    expect(fill.className).toContain("absolute");
+    expect(fill.className).toContain("inset-y-0");
+    expect(bar.className).toContain("relative");
+  });
 });
 
 describe("ModeSwitch", () => {
