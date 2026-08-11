@@ -102,7 +102,7 @@ export function computeEditViewModel<
       // List-Builder), damit Form-Selects und List-Cells dieselbe
       // i18n-Quelle teilen.
       const options =
-        fieldDef.type === "select"
+        fieldDef.type === "select" || fieldDef.type === "multiSelect"
           ? ((fieldDef as unknown as { options?: readonly string[] }).options ?? [])
           : undefined;
       const optionLabels =
@@ -113,11 +113,12 @@ export function computeEditViewModel<
               options,
             )
           : undefined;
-      // Multiline-Hint bei `type: "text"` — der Renderer wechselt
-      // dann auf textarea. ViewModel hält die Form-Render-Decision
-      // damit der Renderer nicht selbst auf die FieldDefinition greift.
+      // Multiline hint for `type: "text"` — the renderer then switches to a
+      // textarea. `type: "longText"` always renders a textarea regardless
+      // of this hint; it's only carried through as an optional `{ rows }`
+      // override (#1925).
       const multiline =
-        fieldDef.type === "text"
+        fieldDef.type === "text" || fieldDef.type === "longText"
           ? (fieldDef as unknown as { multiline?: boolean | { rows?: number } }).multiline
           : undefined;
       // Wall-Clock-Hint bei `type: "timestamp"` mit locatedBy — der

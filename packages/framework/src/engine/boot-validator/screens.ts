@@ -8,13 +8,14 @@ import { rowMetaFieldNames } from "../../db/table-builder";
 import { qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
-import type { FeatureDefinition } from "../types";
+import type { EntityDefinition, FeatureDefinition } from "../types";
 import type {
   DashboardCustomPanel,
   DashboardFilterDefinition,
   DashboardPanelDefinition,
   DashboardScreenDefinition,
   DashboardStatGroupPanel,
+  EditFieldSpec,
   EditLayout,
   FieldCondition,
   RowAction,
@@ -22,6 +23,44 @@ import type {
   ScreenDefinition,
   ToolbarAction,
 } from "../types/screen";
+
+// Mirrors FIELD_TYPES_WITHOUT_WIDGET in packages/renderer/src/app/form-schema.ts.
+// Can't import it directly — renderer depends on framework, not the reverse.
+// Keep both lists in sync when a field type gains or loses an auto-wired widget.
+const NO_WIDGET_FIELD_TYPES = new Set(["jsonb", "embedded", "files", "images"]);
+
+// A field type in NO_WIDGET_FIELD_TYPES renders read-only on the auto-wired
+// entityEdit path (#1925) — a required field the user can never fill would
+// block every save. Only the statically-resolvable case is caught here: a
+// literal `required: true` (screen-spec override or entity-level default).
+// A dynamic FieldCondition depends on runtime form values and can't be
+// evaluated at boot; buildFormSchema() silently skips presence-checking it.
+function validateNoWidgetRequiredField(
+  featureName: string,
+  screenId: string,
+  entityDef: EntityDefinition,
+  fieldSpec: Exclude<EditFieldSpec, string>,
+): void {
+  const fieldDef = entityDef.fields[fieldSpec.field];
+  if (fieldDef === undefined || !NO_WIDGET_FIELD_TYPES.has(fieldDef.type)) return;
+  // Embedded LIST fields (`multiple: true`) get their own EmbeddedListField
+  // grid widget (#1838) — only plain (non-list) embedded has no widget.
+  const isEmbeddedList =
+    fieldDef.type === "embedded" &&
+    (fieldDef as unknown as { multiple?: boolean }).multiple === true;
+  if (isEmbeddedList) return;
+  if (fieldSpec.readOnly === true) return;
+  const entityRequired = "required" in fieldDef && fieldDef.required === true;
+  const isStaticallyRequired =
+    fieldSpec.required === undefined ? entityRequired : fieldSpec.required === true;
+  if (!isStaticallyRequired) return;
+  throw new Error(
+    `[Feature ${featureName}] Screen "${screenId}" (entityEdit) field "${fieldSpec.field}" is ` +
+      `type "${fieldDef.type}", which renders read-only on the auto-wired entityEdit path — a ` +
+      `required field the user could never fill would block every save. Set required: false, ` +
+      `move the field to a custom-component section, or drop the required constraint.`,
+  );
+}
 
 // Tier 2.7e navigate rowAction → target-screen params validity. Shared by
 // entityList and projectionList (framework#1708) — projectionList has no
@@ -824,6 +863,7 @@ export function validateScreens(
               ),
             );
           }
+          validateNoWidgetRequiredField(feature.name, screenId, entityDef, normalized);
         }
       }
       validateWizardLayout(feature.name, screenId, "entityEdit", screen.layout, featureMap);

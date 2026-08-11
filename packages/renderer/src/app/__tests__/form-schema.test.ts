@@ -72,12 +72,24 @@ describe("buildFormSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  test("required multiSelect → no issue (no editable widget on the auto-wired path)", () => {
+  test("required multiSelect, empty array → issue on that field (#1925: has a combobox widget now)", () => {
     const entity = entityWith({
       tags: { type: "multiSelect", required: true, options: ["a", "b"] },
     });
     const screen = screenWith(["tags"]);
-    expect(buildFormSchema(entity, screen).safeParse({ tags: undefined }).success).toBe(true);
+    const result = buildFormSchema(entity, screen).safeParse({ tags: [] });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues).toHaveLength(1);
+    expect(result.error.issues[0]?.path).toEqual(["tags"]);
+  });
+
+  test("required multiSelect, non-empty array → no issue", () => {
+    const entity = entityWith({
+      tags: { type: "multiSelect", required: true, options: ["a", "b"] },
+    });
+    const screen = screenWith(["tags"]);
+    expect(buildFormSchema(entity, screen).safeParse({ tags: ["a"] }).success).toBe(true);
   });
 
   test("jsonb field → no issue (no editable widget on the auto-wired path)", () => {
@@ -92,6 +104,20 @@ describe("buildFormSchema", () => {
     });
     const screen = screenWith(["lines"]);
     expect(buildFormSchema(entity, screen).safeParse({ lines: undefined }).success).toBe(true);
+  });
+
+  test("required files field → no issue (#1925: no multi-upload widget yet, deliberately deferred)", () => {
+    const entity = entityWith({ attachments: { type: "files" } });
+    const screen = screenWith([{ field: "attachments", required: true }]);
+    expect(buildFormSchema(entity, screen).safeParse({ attachments: undefined }).success).toBe(
+      true,
+    );
+  });
+
+  test("required images field → no issue (#1925: no multi-upload widget yet, deliberately deferred)", () => {
+    const entity = entityWith({ gallery: { type: "images" } });
+    const screen = screenWith([{ field: "gallery", required: true }]);
+    expect(buildFormSchema(entity, screen).safeParse({ gallery: undefined }).success).toBe(true);
   });
 
   test("required money — bare number (create-form representation) → no issue", () => {

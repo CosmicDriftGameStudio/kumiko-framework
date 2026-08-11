@@ -323,7 +323,13 @@ function renderInput({
   } as const;
 
   switch (field.type) {
+    // decimal/bigInt are both plain numbers on the wire (fieldToZod:
+    // z.number() / z.number().int().safe()) — the number input's onChange
+    // already emits `number | undefined`, so no extra coercion is needed
+    // beyond what "number" already does (#1925).
     case "number":
+    case "decimal":
+    case "bigInt":
       return (
         <Input
           kind="number"
@@ -333,6 +339,34 @@ function renderInput({
           {...(field.icon !== undefined && { icon: field.icon })}
         />
       );
+    case "tz":
+      return (
+        <Input
+          kind="tz"
+          {...common}
+          value={stringValue(field.value)}
+          onChange={(v) => onChange(v)}
+        />
+      );
+    case "multiSelect": {
+      const rawOptions = field.options ?? [];
+      const labels = field.optionLabels;
+      const multiSelectOptions =
+        labels !== undefined
+          ? rawOptions.map((value: string) => ({ value, label: labels[value] ?? value }))
+          : rawOptions.map((value: string) => ({ value, label: value }));
+      const arrayValue = Array.isArray(field.value) ? (field.value as readonly string[]) : [];
+      return (
+        <Input
+          kind="combobox"
+          {...common}
+          multiple
+          value={arrayValue}
+          onChange={(v) => onChange(v)}
+          options={multiSelectOptions}
+        />
+      );
+    }
     case "money": {
       const currency = field.currency ?? "EUR";
       return (
@@ -432,14 +466,19 @@ function renderInput({
       );
     }
     // embedded (without embeddedListCells — that's embeddedList, which has
-    // had its own EmbeddedListField widget since #1838), jsonb and
-    // multiSelect carry objects/arrays. Without a dedicated widget these
-    // must NOT fall through to a text input: stringValue() turns them into
-    // "[object Object]" / "a,b", and saving that overwrites the real data
-    // with the mangled string (#1834).
+    // had its own EmbeddedListField widget since #1838) and jsonb carry
+    // arbitrary objects; files/images carry a FileRef-UUID array and have
+    // no multi-upload widget yet (deliberately deferred, #1925). Without a
+    // dedicated widget these must NOT fall through to a text input:
+    // stringValue() turns them into "[object Object]" / a comma-joined
+    // string, and saving that overwrites the real data with the mangled
+    // string (#1834). A `required: true` on any of these is caught loudly
+    // at boot (validateNoWidgetRequiredField in the framework package)
+    // instead of silently failing here.
     case "embedded":
     case "jsonb":
-    case "multiSelect":
+    case "files":
+    case "images":
       return (
         <Banner id={id} variant="info">
           {t("kumiko.field.unsupported")}
@@ -447,8 +486,11 @@ function renderInput({
       );
     default: {
       // text + unknown scalar type → text input. If TextFieldDef.multiline
-      // is set (the view-model carries it), the renderer switches to textarea.
-      if (field.type === "text" && field.multiline) {
+      // is set (the view-model carries it), the renderer switches to
+      // textarea. longText always renders a textarea — that's the point of
+      // the type — regardless of whether `multiline` is set; `multiline`
+      // only supplies an optional `{ rows }` override for it (#1925).
+      if (field.type === "longText" || (field.type === "text" && field.multiline)) {
         const rows = typeof field.multiline === "object" ? field.multiline.rows : undefined;
         return (
           <Input

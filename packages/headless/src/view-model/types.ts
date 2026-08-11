@@ -128,18 +128,22 @@ export type EditFieldViewModel = {
   readonly required: boolean;
   readonly span?: number;
   readonly renderer?: FieldRenderer;
-  /** Nur bei `type: "select"` gesetzt — die zugelassenen Werte. Wird
-   *  vom Renderer als Dropdown-Optionen genutzt. Quelle ist
-   *  SelectFieldDef.options aus der EntityDefinition. */
+  /** Set for `type: "select"` and `type: "multiSelect"` — the allowed
+   *  values. The renderer uses these as dropdown/combobox options.
+   *  Source is SelectFieldDef.options / MultiSelectFieldDef.options on
+   *  the EntityDefinition. */
   readonly options?: readonly string[];
-  /** Nur bei `type: "select"` gesetzt — translated Labels pro Option,
-   *  keyed nach raw value. Renderer zeigt `optionLabels[value]` als
-   *  Dropdown-Label statt raw value. Convention-Key:
+  /** Set for `type: "select"` and `type: "multiSelect"` — translated
+   *  labels per option, keyed by raw value. The renderer shows
+   *  `optionLabels[value]` as the dropdown/combobox label instead of the
+   *  raw value. Convention key:
    *  `<feature>:entity:<entity>:field:<field>:option:<value>`. */
   readonly optionLabels?: Readonly<Record<string, string>>;
-  /** Nur bei `type: "text"` gesetzt wenn TextFieldDef.multiline true
-   *  ist — dann rendert der Renderer textarea statt single-line input.
-   *  `true` = Default-Zeilen, `{ rows }` = explizite Höhe. */
+  /** For `type: "text"`, set when TextFieldDef.multiline is true — the
+   *  renderer then renders a textarea instead of a single-line input.
+   *  `type: "longText"` always renders a textarea regardless of this
+   *  value; here it only carries an optional `{ rows }` override.
+   *  `true` = default rows, `{ rows }` = explicit height. */
   readonly multiline?: boolean | { readonly rows?: number };
   /** Nur bei `type: "timestamp"` gesetzt wenn TimestampFieldDef.locatedBy
    *  existiert — Wall-Clock-Zeit ohne Offset. Der Renderer emittiert
