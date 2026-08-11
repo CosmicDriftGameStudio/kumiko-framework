@@ -469,6 +469,7 @@ jobs:
             samples/apps/use-all-bundled/playwright.config.ts
             samples/apps/workspaces/playwright.config.ts
             samples/recipes/apex-landing/playwright.config.ts
+            samples/recipes/wizard-form/e2e/playwright.config.ts
           )
           failed=()
           for cfg in "${configs[@]}"; do

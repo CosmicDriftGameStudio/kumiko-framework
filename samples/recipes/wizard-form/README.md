@@ -63,4 +63,7 @@ The feature entry point is `src/feature.ts`; the review-step component is
 `src/web/listing-review-section.tsx`. The integration test under
 `src/__tests__/` covers the entity's CRUD create through the wizard's
 fields and the form-draft save/get/discard round-trip that backs
-`draft: true`.
+`draft: true`. `e2e/wizard.spec.ts` is a Playwright spec against the real
+client bundle — step navigation, a blocked step on a validation error,
+draft-resume after a page reload, and that a successful submit discards
+the draft (reopening the wizard starts fresh on step 1).
