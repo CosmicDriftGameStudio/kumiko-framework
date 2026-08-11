@@ -8,6 +8,7 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
+  type AppContext,
   access,
   type ConfigKeyDefinition,
   createSystemConfig,
@@ -16,7 +17,13 @@ import {
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { deleteStaleDraftsBatch } from "../db/queries/cleanup";
+import {
+  deleteDraftsByIds,
+  type StaleDraftRow,
+  selectStaleDraftsBatch,
+} from "../db/queries/cleanup";
+import { filterOwnedStorageKeys } from "../db/queries/owned-file-refs";
+import { collectDraftFileRefKeys, releaseDraftFileRefs } from "../release-file-refs";
 
 export const FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY = "form-draft:config:retention-days";
 export const FORM_DRAFT_DEFAULT_RETENTION_DAYS = 30;
@@ -31,6 +38,40 @@ export const formDraftRetentionDaysConfig: ConfigKeyDefinition<"number"> = creat
     read: access.admin,
   },
 );
+
+async function releaseRowFileRefs(
+  row: StaleDraftRow,
+  db: DbConnection,
+  fileProviderResolver: AppContext["_fileProviderResolver"],
+  log: AppContext["log"],
+): Promise<void> {
+  const keys = collectDraftFileRefKeys(row.draft);
+  // skip: no FileRefs in this row's blob — nothing to release.
+  if (keys.length === 0) return;
+  if (!fileProviderResolver) {
+    // skip: no resolver wired (files feature not mounted) — row still
+    // gets deleted below, but its FileRefs leak as storage orphans.
+    log?.warn?.(
+      `[form-draft:cleanup] tenant=${row.tenantId} has ${keys.length} FileRef(s) but no _fileProviderResolver is wired — row will be deleted without releasing storage`,
+    );
+    // skip: warning already logged above — nothing more to do for this row.
+    return;
+  }
+
+  try {
+    // Only storageKeys with a real file_refs row owned by this row's
+    // draft owner are releasable — `draft.values` is free-form JSON the
+    // owning user controls, so an unverified key could target someone
+    // else's file (see db/queries/owned-file-refs.ts).
+    const ownedKeys = await filterOwnedStorageKeys(db, row.tenantId, row.ownerId, keys);
+    const provider = await fileProviderResolver(row.tenantId);
+    await releaseDraftFileRefs(ownedKeys, (key) => provider.delete(key), log);
+  } catch (err) {
+    log?.warn?.(
+      `[form-draft:cleanup] no file provider resolvable for tenant=${row.tenantId} — FileRefs NOT released (row still deleted): ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
 
 export const cleanupDraftsJob: JobHandlerFn = async (_payload, ctx) => {
   if (!ctx.db || !ctx.registry) {
@@ -52,11 +93,28 @@ export const cleanupDraftsJob: JobHandlerFn = async (_payload, ctx) => {
   const retentionDays =
     typeof resolved === "number" && resolved >= 1 ? resolved : FORM_DRAFT_DEFAULT_RETENTION_DAYS;
 
+  const fileProviderResolver = ctx._fileProviderResolver;
+
   let deleted = 0;
   while (true) {
-    const batchDeleted = await deleteStaleDraftsBatch(db, retentionDays, DEFAULT_BATCH_SIZE);
+    const batch = await selectStaleDraftsBatch(db, retentionDays, DEFAULT_BATCH_SIZE);
+    if (batch.length === 0) break;
+
+    // Rows span arbitrary tenants (this job sweeps the whole table under
+    // SYSTEM_TENANT_ID, not per-tenant) — ctx.files is resolved for a single
+    // tenant per job run and would be wrong here, so each row resolves its
+    // own tenant's provider via _fileProviderResolver instead. Skipped
+    // entirely for rows with no FileRefs in the blob, the common case.
+    for (const row of batch) {
+      await releaseRowFileRefs(row, db, fileProviderResolver, ctx.log);
+    }
+
+    const batchDeleted = await deleteDraftsByIds(
+      db,
+      batch.map((row) => row.id),
+    );
     deleted += batchDeleted;
-    if (batchDeleted < DEFAULT_BATCH_SIZE) break;
+    if (batchDeleted === 0 || batch.length < DEFAULT_BATCH_SIZE) break;
   }
   ctx.log?.info?.(`[form-draft:cleanup] deleted=${deleted} retentionDays=${retentionDays}`);
 };
