@@ -10,6 +10,11 @@ export type InMemoryFileProvider = FileStorageProvider & {
   // Test-only introspection: keys currently stored. Useful for assertions
   // like `expect(provider.keys()).toContain("tenant/foo.jpg")`.
   keys(): readonly string[];
+  // Test-only introspection: the mimeType a write()/writeStream() stored for
+  // a key — undefined mirrors an untracked write. FileStorageProvider has no
+  // read-back-metadata method (mimeType lives on the FileRef row in prod),
+  // so this is the only way a test can assert what actually landed in storage.
+  mimeTypeOf(key: string): string | undefined;
   // Test-only reset between cases. beforeEach-friendly.
   clear(): void;
 };
@@ -91,6 +96,10 @@ export function createInMemoryFileProvider(): InMemoryFileProvider {
 
     keys() {
       return Array.from(store.keys());
+    },
+
+    mimeTypeOf(key) {
+      return store.get(key)?.mimeType;
     },
 
     clear() {

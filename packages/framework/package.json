@@ -95,6 +95,10 @@
       "types": "./src/files/index.ts",
       "default": "./src/files/index.ts"
     },
+    "./derivatives": {
+      "types": "./src/derivatives/index.ts",
+      "default": "./src/derivatives/index.ts"
+    },
     "./jobs": {
       "types": "./src/jobs/index.ts",
       "default": "./src/jobs/index.ts"

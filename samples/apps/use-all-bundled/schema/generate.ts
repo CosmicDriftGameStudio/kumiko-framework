@@ -151,6 +151,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory",
     exportName: "fileProviderInMemoryFeature",
   },
+  "file-derivatives": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/file-derivatives",
+    exportName: "fileDerivativesFeature",
+  },
   "file-provider-s3-env": {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/file-provider-s3-env",

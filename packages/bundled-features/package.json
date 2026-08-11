@@ -67,6 +67,7 @@
     "./document-ingest-foundation": "./src/document-ingest-foundation/index.ts",
     "./file-provider-s3-env": "./src/file-provider-s3-env/index.ts",
     "./file-provider-inmemory": "./src/file-provider-inmemory/index.ts",
+    "./file-derivatives": "./src/file-derivatives/index.ts",
     "./files": "./src/files/index.ts",
     "./user-data-rights": "./src/user-data-rights/index.ts",
     "./user-data-rights/web": "./src/user-data-rights/web/index.ts",

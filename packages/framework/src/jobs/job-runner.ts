@@ -3,6 +3,7 @@ import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbRow } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
+import { createDerivativesContext } from "../derivatives/derivatives-context";
 import { createSystemUser } from "../engine/system-user";
 import {
   type AppContext,
@@ -393,17 +394,33 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // at runtime the write-handler path never would (framework#1532).
     const notify = context._notifyFactory?.(jobSystemUser, tenantId);
     const configDb = context.db as DbConnection | undefined; // @cast-boundary db-operator
+    // Shared by the config accessor and ctx.derivatives below — both need the
+    // same tenant-scoped db, and building it twice would let the two calls
+    // drift apart.
+    const tenantScopedDb = configDb ? createTenantDb(configDb, tenantId, "system") : undefined;
     const config =
-      context._configAccessorFactory && configDb
+      context._configAccessorFactory && tenantScopedDb
         ? context._configAccessorFactory({
             user: { id: jobSystemUser.id, tenantId },
-            db: createTenantDb(configDb, tenantId, "system"),
+            db: tenantScopedDb,
             secrets: context.secrets,
           })
         : undefined;
+    // Mirror dispatch-shared.ts: ctx.derivatives needs files+db, same
+    // tenant-scoped db the config accessor above uses.
+    const derivatives =
+      files && tenantScopedDb
+        ? createDerivativesContext({
+            files,
+            registry,
+            db: tenantScopedDb,
+            tenantId,
+          })
+        : context.derivatives;
     const jobContext: AppContext = {
       ...context,
       files,
+      derivatives,
       ...(notify !== undefined && { notify }),
       ...(config !== undefined && { config }),
       // The runner owns the registry it resolved this job from — expose it so
