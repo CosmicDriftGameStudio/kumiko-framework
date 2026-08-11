@@ -95,6 +95,8 @@ export type { CreateKumikoAppOptions } from "./app/create-app";
 export { createKumikoApp } from "./app/create-app";
 export type { CreatePublicSurfaceOptions, PublicRoute } from "./app/create-public-surface";
 export { createPublicSurface } from "./app/create-public-surface";
+export type { CreateBrowserDraftStorageOptions } from "./app/draft-storage";
+export { createBrowserDraftStorage } from "./app/draft-storage";
 export type { KumikoLinkProps } from "./app/nav";
 export { KumikoLink, useBrowserNavApi } from "./app/nav";
 export { PlainContentEditor } from "./app/plain-content-editor";

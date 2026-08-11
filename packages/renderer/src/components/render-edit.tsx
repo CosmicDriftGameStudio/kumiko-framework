@@ -26,6 +26,8 @@ import type { z } from "zod";
 import { ExtensionFormRegistryProvider, useExtensionFormHost } from "../app/extension-form-submit";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
 import { useDispatcher } from "../context/dispatcher-context";
+import { useDraftStorage } from "../context/draft-storage-context";
+import { formatWhen } from "../format-when";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
@@ -44,11 +46,28 @@ import { RenderField } from "./render-field";
 const FORM_DRAFT_GET = "form-draft:query:get";
 const FORM_DRAFT_SAVE = "form-draft:write:save";
 const FORM_DRAFT_DISCARD = "form-draft:write:discard";
+const FORM_DRAFT_LIST = "form-draft:query:list";
 
 type FormDraftBlob = {
   readonly values: Record<string, unknown>;
   readonly stepIndex: number;
 };
+
+type DraftCandidate = {
+  readonly id: string;
+  readonly draftKey: string;
+  readonly stepIndex: number;
+  readonly savedAt: string;
+};
+
+// draftKey convention for a create-mode draft (framework-wizard-mode.md,
+// lookup.ts): `${screenId}:new:${draftId}`. Shared by the mount-time list
+// fallback (strip the prefix to recover a candidate's draftId) and the
+// list query itself (filter out edit-mode drafts, which share the same
+// `${screenId}:%` LIKE-prefix scan server-side).
+function newDraftPrefix(screenId: string): string {
+  return `${screenId}:new:`;
+}
 
 // End-to-end renderer für einen entityEdit screen. Rendert aus-
 // schließlich über Primitives — kein raw HTML. Ein Native-Renderer
@@ -295,11 +314,33 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   const isWizard = screen.layout.mode === "wizard";
   const draftEnabled = isWizard && screen.layout.draft === true;
+  const isCreateMode = entityIdProp === undefined || entityIdProp === null || entityIdProp === "";
+  const draftStorage = useDraftStorage();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<DispatcherError | null>(null);
   const [rawStep, setRawStep] = useState(0);
+  // Create-mode draftId (issue #1913) — resumed from `sessionStorage` (web)
+  // on mount so a same-tab reload finds the right one of several parallel
+  // create-sessions on this screen; `null` until the first step change
+  // mints one (saveDraft), or the mount-time `form-draft:query:list`
+  // fallback below adopts an existing one. Edit-mode never touches this —
+  // its draftKey is `${screen.id}:${entityIdProp}` unconditionally.
+  const [draftId, setDraftId] = useState<string | null>(() =>
+    isCreateMode ? draftStorage.getDraftId(screen.id) : null,
+  );
+  // Marks a draftId this instance minted itself (saveDraft, first step
+  // change) so the restore effect below doesn't immediately re-fetch what
+  // it just wrote — there is nothing to restore, the row is brand new.
+  const mintedDraftIdRef = useRef<string | null>(null);
+  // Marks that the mount-time `form-draft:query:list` fallback already ran
+  // once for this mount. Without this, a create-mode discard resets `draftId`
+  // to `null` (see discardDraft below) and would re-arm the list effect —
+  // silently adopting an unrelated parallel draft on the same screen right
+  // after the user just submitted (#1908).
+  const didListRef = useRef(false);
+  const [draftCandidates, setDraftCandidates] = useState<readonly DraftCandidate[] | null>(null);
   // Composed-Save: Extension-Sections melden hier ihren dirty-State (damit der
   // Save-Button aktiv wird wenn NUR eine Section geändert wurde) + ihren
   // Submit-Handler (läuft nach dem Entity-Write). extensionErrorKey hält den
@@ -353,13 +394,19 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   // Derived from the screen id + the host entity id only — never from
   // `vm.id`, which lives in the form values a restore mutates (load under one
-  // key, save under another).
+  // key, save under another). Edit-mode: `${screen.id}:${entityIdProp}`,
+  // unchanged. Create-mode: `${screen.id}:new:${draftId}` once a draftId
+  // exists (resumed, adopted, or minted), `undefined` before that — two
+  // parallel create sessions on the same screen must never collapse onto
+  // the same key (kumiko-framework#1908).
   const draftKey = useMemo(
     () =>
-      entityIdProp === undefined || entityIdProp === null || entityIdProp === ""
-        ? screen.id
+      isCreateMode
+        ? draftId !== null
+          ? `${screen.id}:new:${draftId}`
+          : undefined
         : `${screen.id}:${entityIdProp}`,
-    [screen.id, entityIdProp],
+    [screen.id, entityIdProp, isCreateMode, draftId],
   );
 
   // Controlled mode (Issue #1887). Both callbacks live in refs so a
@@ -407,6 +454,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   useEffect(() => {
     // skip: this screen does not persist a draft.
     if (!draftEnabled) return;
+    // skip: create-mode with no draftId yet — nothing to restore, either
+    // the list-fallback effect below finds one or the first step change
+    // mints a fresh one.
+    if (draftKey === undefined) return;
+    // skip: this draftId was just minted by saveDraft — the row it wrote
+    // is exactly the current form state, re-fetching it would be a no-op
+    // round-trip at best and a stale-echo clobber at worst.
+    if (draftId !== null && draftId === mintedDraftIdRef.current) return;
     let cancelled = false;
     void (async () => {
       const result = await dispatcher.query<{ readonly draft: FormDraftBlob | null }>(
@@ -430,7 +485,59 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     return () => {
       cancelled = true;
     };
-  }, [draftEnabled, draftKey, dispatcher, controller]);
+  }, [draftEnabled, draftKey, draftId, dispatcher, controller]);
+
+  // Mount-time fallback (issue #1913) for create-mode when no draftId
+  // survived in storage (new tab, cleared storage): ask the server for
+  // this screen's open drafts. Exactly one → adopt it silently (same
+  // effect as if storage had it). Multiple → render a simple picker
+  // (below) and let the user choose. Zero → stay null, saveDraft mints a
+  // fresh draftId on the first step change same as any other fresh create.
+  useEffect(() => {
+    // skip: this screen does not persist a draft, this is edit-mode, a
+    // draftId is already known (from storage or an earlier adoption), or
+    // this mount already ran the list lookup once (didListRef).
+    if (!draftEnabled || !isCreateMode || draftId !== null || didListRef.current) return;
+    didListRef.current = true;
+    let cancelled = false;
+    void (async () => {
+      const result = await dispatcher.query<{ readonly drafts: readonly DraftCandidate[] }>(
+        FORM_DRAFT_LIST,
+        { screenId: screen.id },
+      );
+      // skip: superseded by a newer mount, or the lookup failed — an
+      // unreachable draft store must not break a fresh create.
+      if (cancelled || !result.isSuccess) return;
+      const prefix = newDraftPrefix(screen.id);
+      // list's LIKE-prefix scan also matches edit-mode drafts
+      // (`${screenId}:${entityId}`) — keep only create-mode ones.
+      const candidates = (result.data?.drafts ?? []).filter((d) => d.draftKey.startsWith(prefix));
+      // skip: no open drafts for this screen — stay null, saveDraft mints a
+      // fresh draftId on the first step change same as any other create.
+      if (candidates.length === 0) return;
+      const [only] = candidates;
+      if (candidates.length === 1 && only !== undefined) {
+        const adoptedId = only.draftKey.slice(prefix.length);
+        draftStorage.setDraftId(screen.id, adoptedId);
+        setDraftId(adoptedId);
+        return;
+      }
+      setDraftCandidates(candidates);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draftEnabled, isCreateMode, draftId, dispatcher, screen.id, draftStorage]);
+
+  // User picked one of several open drafts from the mount-time picker
+  // (see draftCandidates below) — adopt it the same way a single
+  // auto-adopted candidate would be.
+  function adoptDraft(candidate: DraftCandidate): void {
+    const adoptedId = candidate.draftKey.slice(newDraftPrefix(screen.id).length);
+    draftStorage.setDraftId(screen.id, adoptedId);
+    setDraftId(adoptedId);
+    setDraftCandidates(null);
+  }
 
   const vm = useMemo(
     () =>
@@ -476,11 +583,33 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   // Step transitions only — never per keystroke. Deliberately not awaited: a
   // failed draft save must not block the step change.
+  //
+  // Create-mode, first step change: mints the draftId here (issue #1913)
+  // rather than at mount, so a form abandoned on step 0 never claims a
+  // draftId or writes a row at all. `draftKey`/`draftId` state won't
+  // reflect the mint until the next render, so the just-minted key is
+  // computed inline instead of read from the memoized `draftKey`.
   function saveDraft(stepIndex: number): void {
     // skip: this screen does not persist a draft.
     if (!draftEnabled) return;
+    let key = draftKey;
+    if (isCreateMode && draftId === null) {
+      const mintedId = crypto.randomUUID();
+      mintedDraftIdRef.current = mintedId;
+      draftStorage.setDraftId(screen.id, mintedId);
+      setDraftId(mintedId);
+      key = `${screen.id}:new:${mintedId}`;
+      // A stale picker from the mount-time list fallback must not survive a
+      // mint — picking a candidate afterwards would repoint draftKey at an
+      // unrelated draft mid-edit and overwrite it (#1908).
+      setDraftCandidates(null);
+    }
+    // skip: create-mode with a draftId that failed to mint — unreachable
+    // in practice (mint above always produces one), kept as a type-level
+    // guard against a stale `undefined` key ever reaching the write.
+    if (key === undefined) return;
     void dispatcher.write(FORM_DRAFT_SAVE, {
-      draftKey,
+      draftKey: key,
       values: controller.getSnapshot().values,
       stepIndex,
     });
@@ -509,7 +638,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   async function discardDraft(): Promise<void> {
     // skip: this screen does not persist a draft.
     if (!draftEnabled) return;
+    // skip: create-mode, no step change happened yet — no draftId was ever
+    // minted, so no row exists to discard.
+    if (draftKey === undefined) return;
     await dispatcher.write(FORM_DRAFT_DISCARD, { draftKey });
+    // A successful submit ends this draftId's life — a subsequent create on
+    // the same screen (new mount) must mint its own, not resume this one.
+    if (isCreateMode) {
+      draftStorage.clearDraftId(screen.id);
+      mintedDraftIdRef.current = null;
+      setDraftId(null);
+    }
   }
 
   async function handleSubmit(): Promise<void> {
@@ -699,6 +838,25 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         testId="render-edit-form"
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
       >
+        {draftCandidates !== null && (
+          <Banner
+            variant="info"
+            testId="render-edit-draft-picker"
+            actions={draftCandidates.map((candidate) => (
+              <Button
+                key={candidate.id}
+                type="button"
+                variant="link"
+                onClick={() => adoptDraft(candidate)}
+                testId={`render-edit-draft-pick-${candidate.id}`}
+              >
+                {formatWhen(candidate.savedAt)}
+              </Button>
+            ))}
+          >
+            <Text>{translate("kumiko.form.draft.resume-multiple")}</Text>
+          </Banner>
+        )}
         {isWizard && (
           <>
             {Progress !== undefined && (
