@@ -24,6 +24,7 @@ import {
   jsonb,
   moneyAmount,
   table as pgTable,
+  plainDate,
   type SqlExpression,
   serial,
   sql,
@@ -166,9 +167,10 @@ function fieldToColumns(
       // `customFields`-Spalte (tenant-definierte dynamische keys).
       return { [name]: jsonb(snakeName).default({}).notNull() };
     case "date": {
-      // `type:"date"` aliased auf instant() = TIMESTAMPTZ. Echte
-      // PlainDate-Migration (PG `date` Spalte, kein TZ) kommt später.
-      const col = instant(snakeName);
+      // Real PG `date` — no time-of-day, no timezone. Temporal.PlainDate
+      // end-to-end (see plainDate() in dialect.ts). Was aliased on instant()
+      // = TIMESTAMPTZ until kumiko-framework#1924 (TZ-dependent round-trip).
+      const col = plainDate(snakeName);
       return { [name]: field.required ? col.notNull() : col };
     }
     case "timestamp": {
@@ -337,25 +339,29 @@ type ColumnsForField<K extends string, F extends FieldDefinition> = F extends {
                     : F extends { type: "embedded" }
                       ? // jsonb default `{}`, immer notNull
                         { readonly [P in K]: Col<Readonly<Record<string, unknown>>> }
-                      : F extends { type: "date" | "timestamp" }
+                      : F extends { type: "date" }
                         ? F extends { required: true }
-                          ? { readonly [P in K]: Col<Temporal.Instant> }
-                          : { readonly [P in K]: NullCol<Temporal.Instant> }
-                        : F extends { type: "locatedTimestamp" }
+                          ? { readonly [P in K]: Col<Temporal.PlainDate> }
+                          : { readonly [P in K]: NullCol<Temporal.PlainDate> }
+                        : F extends { type: "timestamp" }
                           ? F extends { required: true }
-                            ? { readonly [P in `${K}Utc`]: Col<Temporal.Instant> } & {
-                                readonly [P in `${K}Tz`]: Col<string>;
-                              }
-                            : { readonly [P in `${K}Utc`]: NullCol<Temporal.Instant> } & {
-                                readonly [P in `${K}Tz`]: NullCol<string>;
-                              }
-                          : F extends { type: "file" | "image" }
+                            ? { readonly [P in K]: Col<Temporal.Instant> }
+                            : { readonly [P in K]: NullCol<Temporal.Instant> }
+                          : F extends { type: "locatedTimestamp" }
                             ? F extends { required: true }
-                              ? { readonly [P in K]: Col<string> }
-                              : { readonly [P in K]: NullCol<string> }
-                            : F extends { type: "files" | "images" }
-                              ? Record<never, never>
-                              : never;
+                              ? { readonly [P in `${K}Utc`]: Col<Temporal.Instant> } & {
+                                  readonly [P in `${K}Tz`]: Col<string>;
+                                }
+                              : { readonly [P in `${K}Utc`]: NullCol<Temporal.Instant> } & {
+                                  readonly [P in `${K}Tz`]: NullCol<string>;
+                                }
+                            : F extends { type: "file" | "image" }
+                              ? F extends { required: true }
+                                ? { readonly [P in K]: Col<string> }
+                                : { readonly [P in K]: NullCol<string> }
+                              : F extends { type: "files" | "images" }
+                                ? Record<never, never>
+                                : never;
 
 type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (
   k: infer I,

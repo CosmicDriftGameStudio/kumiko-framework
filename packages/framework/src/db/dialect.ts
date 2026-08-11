@@ -74,6 +74,8 @@ export function pgTypeToSqlType(pgType: PgType): string {
       return "timestamp with time zone";
     case "timestamptz(3)":
       return "timestamp(3) with time zone";
+    case "date":
+      return "date";
   }
 }
 
@@ -271,6 +273,14 @@ export function instant(
 ): ColumnBuilder<Temporal.Instant> {
   const pgType: PgType = opts?.precision === 3 ? "timestamptz(3)" : "timestamptz";
   return buildColumn(name, pgType) as ColumnBuilder<Temporal.Instant>;
+}
+
+// PG `date` — no time-of-day, no timezone. Calendar-day fields (invoice
+// date, lease term) round-trip as Temporal.PlainDate, never through an
+// Instant — that detour is exactly what made `type:"date"` TZ-dependent on
+// both read and write (kumiko-framework#1924).
+export function plainDate(name: string): ColumnBuilder<Temporal.PlainDate> {
+  return buildColumn(name, "date") as ColumnBuilder<Temporal.PlainDate>;
 }
 
 // Real numeric(precision, scale) column — exact decimal storage (interest

@@ -89,9 +89,9 @@ describe("field types", () => {
       admin,
     );
 
-    // A `date` field carries a calendar day; the read serializes it as an ISO
-    // instant at UTC midnight ("2026-04-20T00:00:00Z").
-    expect(detail["dropoffOn"]).toBe("2026-04-20T00:00:00Z");
+    // A `date` field carries a calendar day, no time-of-day/timezone
+    // component — it round-trips as a plain "yyyy-mm-dd" (kumiko-framework#1924).
+    expect(detail["dropoffOn"]).toBe("2026-04-20");
     expect(detail["homeZone"]).toBe("Europe/Berlin");
     expect(detail["bookedAt"]).toBe("2026-04-15T08:30:00Z");
   });

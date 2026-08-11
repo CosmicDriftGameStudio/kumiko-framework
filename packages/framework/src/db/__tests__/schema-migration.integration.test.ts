@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { Temporal } from "temporal-polyfill";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient, selectMany } from "../../db/query";
 import {
@@ -106,7 +107,7 @@ describe("schema migration workflows", () => {
     expect(columns.get("title")?.dataType).toBe("text");
     expect(columns.get("body")?.dataType).toBe("text");
     expect(columns.get("view_count")?.dataType).toBe("double precision");
-    expect(columns.get("published_at")?.dataType).toContain("timestamp");
+    expect(columns.get("published_at")?.dataType).toBe("date");
     expect(columns.get("is_draft")?.dataType).toBe("boolean");
     expect(columns.get("is_draft")?.isNullable).toBe(false); // has default → NOT NULL
 
@@ -274,5 +275,64 @@ describe("schema migration workflows", () => {
     expect(articleColumns.has("title")).toBe(true);
     expect(productColumns.has("name")).toBe(true);
     expect(productColumns.has("price")).toBe(true);
+  });
+});
+
+// kumiko-framework#1924: `type:"date"` used to be a TIMESTAMPTZ alias — read
+// gave back an ISO Instant, write took a bare "yyyy-mm-dd" that bound
+// straight to a timestamptz column via the session TZ. Both sides are now a
+// real PG `date` column round-tripping Temporal.PlainDate. This test proves
+// the full path (write → column DDL → read) and — since it lives under
+// `packages/framework/src/db/__tests__/`, the same glob the CI `tz-matrix`
+// job (.github/workflows/ci.yml) runs under America/Los_Angeles, Europe/
+// Berlin, Asia/Tokyo and Pacific/Apia — proves it independent of process TZ.
+describe("date field — real DATE column, no TZ dependence (kumiko-framework#1924)", () => {
+  test("column is a genuine `date`, not timestamptz", async () => {
+    const entity = createEntity({
+      table: "df1_invoices",
+      fields: { periodFrom: createDateField({ required: true }) },
+    });
+    await unsafePushTables(testDb.db, { invoice: buildEntityTable("invoice", entity) });
+
+    const columns = await getTableColumns("df1_invoices");
+    expect(columns.get("period_from")?.dataType).toBe("date");
+  });
+
+  test("a written calendar day round-trips exactly, as Temporal.PlainDate", async () => {
+    const entity = createEntity({
+      table: "df2_invoices",
+      fields: { periodFrom: createDateField({ required: true }) },
+    });
+    const table = buildEntityTable("invoice", entity);
+    await unsafePushTables(testDb.db, { invoice: table });
+
+    await seedRow(testDb.db, table, {
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      periodFrom: "2026-03-15",
+    });
+
+    const rows = await selectMany(testDb.db, table);
+    expect(rows).toHaveLength(1);
+    const periodFrom = (rows[0] as { periodFrom: unknown }).periodFrom;
+    expect(periodFrom).toBeInstanceOf(Temporal.PlainDate);
+    expect((periodFrom as Temporal.PlainDate).toString()).toBe("2026-03-15");
+  });
+
+  test("a Temporal.PlainDate value on write also round-trips exactly", async () => {
+    const entity = createEntity({
+      table: "df3_invoices",
+      fields: { periodFrom: createDateField({ required: true }) },
+    });
+    const table = buildEntityTable("invoice", entity);
+    await unsafePushTables(testDb.db, { invoice: table });
+
+    await seedRow(testDb.db, table, {
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      periodFrom: Temporal.PlainDate.from("2026-12-31"),
+    });
+
+    const rows = await selectMany(testDb.db, table);
+    const periodFrom = (rows[0] as { periodFrom: unknown }).periodFrom;
+    expect((periodFrom as Temporal.PlainDate).toString()).toBe("2026-12-31");
   });
 });

@@ -7,6 +7,7 @@ import {
   jsonb,
   boolean as pgBoolean,
   table as pgTable,
+  plainDate,
   serial,
   text,
   timestamp,
@@ -83,6 +84,14 @@ describe("renderTableDdl — column types", () => {
     // biome-ignore lint/suspicious/noExplicitAny: DDL test uses cast for mock tables
     const ddl = renderTableDdl(t as any);
     expect(ddl[0]).toContain('"created" timestamp with time zone DEFAULT now() NOT NULL');
+  });
+
+  test("date notNull — real PG date, not timestamptz (kumiko-framework#1924)", () => {
+    const t = pgTable("t_date", { publishedAt: plainDate("published_at").notNull() });
+    // biome-ignore lint/suspicious/noExplicitAny: DDL test uses cast for mock tables
+    const ddl = renderTableDdl(t as any);
+    expect(ddl[0]).toContain('"published_at" date NOT NULL');
+    expect(ddl[0]).not.toContain("timestamp");
   });
 
   test("bigint generatedAlwaysAsIdentity primaryKey", () => {

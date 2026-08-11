@@ -21,6 +21,10 @@ export type PgType =
   | "jsonb"
   | "timestamptz"
   | "timestamptz(3)"
+  // Calendar day, no time-of-day/timezone component — Temporal.PlainDate.
+  // Distinct from timestamptz: a `date` field is a pure calendar concept
+  // (invoice date, lease term) and must never round-trip through an Instant.
+  | "date"
   // Exact decimal — precision/scale are encoded in the type string so the
   // DDL renderer and read-coercion need no side-channel metadata.
   | `numeric(${number},${number})`;
