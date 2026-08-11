@@ -72,14 +72,14 @@
     "demo-kit": "bun scripts/demo-kit/engine/cli.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
-    "@changesets/cli": "^2.31.0",
+    "@biomejs/biome": "^2.5.7",
+    "@changesets/cli": "^2.31.1",
     "@cosmicdriftgamestudio/kumiko-guards": "0.23.9",
-    "@happy-dom/global-registrator": "^20.9.0",
-    "@playwright/test": "^1.60.0",
+    "@happy-dom/global-registrator": "^20.11.2",
+    "@playwright/test": "^1.62.1",
     "@testing-library/dom": "^10.4.1",
-    "bun-types": "^1.3.13",
-    "happy-dom": "^20.9.0",
+    "bun-types": "^1.3.14",
+    "happy-dom": "^20.11.2",
     "husky": "^9.1.7",
     "ts-morph": "^28.0.0",
     "typescript": "^7.0.2",
@@ -88,12 +88,14 @@
   "resolutions": {
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "brace-expansion": "^5.0.8",
+    "brace-expansion": "^5.0.9",
     "undici": "^7.29.0",
-    "ip-address": "^10.4.0"
+    "ip-address": "^10.5.0",
+    "js-yaml": "^4.3.1"
   },
   "dependencies": {
-    "ink": "^7.0.3",
+    "hono": "^4.13.1",
+    "ink": "^7.1.1",
     "ink-select-input": "^6.2.0",
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^6.0.0"

@@ -224,12 +224,12 @@
     }
   },
   "devDependencies": {
-    "hono": "^4.12.27",
+    "hono": "^4.13.1",
     "postgres": "^3.4.9",
     "temporal-polyfill": "^0.3.2"
   },
   "peerDependencies": {
-    "hono": "^4.12.27",
+    "hono": "^4.13.1",
     "postgres": "^3.4.9",
     "temporal-polyfill": "^0.3.2"
   },
