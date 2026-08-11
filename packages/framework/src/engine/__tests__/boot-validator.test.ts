@@ -1867,6 +1867,39 @@ describe("boot-validator", () => {
       expect(() => validateBoot([makeFeature({ cancelTarget: false })])).not.toThrow();
     });
 
+    // --- redirect/cancelTarget: cross-feature QN (#1946) ---
+    test("redirect → voll-qualifizierte Cross-Feature-QN → kein Throw", () => {
+      const consumer = defineFeature("statements", (r) => {
+        r.screen({ id: "statement-upload-list", type: "custom", renderer: { react: "stub" } });
+      });
+      expect(() =>
+        validateBoot([
+          makeFeature({ redirect: "statements:screen:statement-upload-list" }),
+          consumer,
+        ]),
+      ).not.toThrow();
+    });
+
+    test("redirect → unbekannte Cross-Feature-QN → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ redirect: "statements:screen:ghost-screen" })]),
+      ).toThrow(
+        /redirect "statements:screen:ghost-screen" does not resolve to a registered screen/,
+      );
+    });
+
+    test("cancelTarget → voll-qualifizierte Cross-Feature-QN → kein Throw", () => {
+      const consumer = defineFeature("statements", (r) => {
+        r.screen({ id: "statement-upload-list", type: "custom", renderer: { react: "stub" } });
+      });
+      expect(() =>
+        validateBoot([
+          makeFeature({ cancelTarget: "statements:screen:statement-upload-list" }),
+          consumer,
+        ]),
+      ).not.toThrow();
+    });
+
     test("extension section ohne component → Throw (Parität zu entityEdit)", () => {
       // synthesizeActionFormScreen reicht die layout 1:1 an RenderEdit weiter —
       // eine Extension-Section ohne react/native-Marker rendert sonst stumm leer.
@@ -2215,6 +2248,22 @@ describe("boot-validator", () => {
 
     test("kein redirect gesetzt → kein Throw (Default: Liste)", () => {
       expect(() => validateBoot([makeFeature()])).not.toThrow();
+    });
+
+    // --- redirect: cross-feature QN (#1946) ---
+    test("redirect → voll-qualifizierte Cross-Feature-QN → kein Throw", () => {
+      const consumer = defineFeature("statements", (r) => {
+        r.screen({ id: "statement-upload-list", type: "custom", renderer: { react: "stub" } });
+      });
+      expect(() =>
+        validateBoot([makeFeature("statements:screen:statement-upload-list"), consumer]),
+      ).not.toThrow();
+    });
+
+    test("redirect → unbekannte Cross-Feature-QN → Throw", () => {
+      expect(() => validateBoot([makeFeature("statements:screen:ghost-screen")])).toThrow(
+        /redirect "statements:screen:ghost-screen" does not resolve to a registered screen/,
+      );
     });
   });
 

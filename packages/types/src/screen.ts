@@ -602,11 +602,12 @@ export type EntityEditScreenDefinition = {
    *  applies there). */
   readonly singleton?: boolean;
   /** Navigate to this screen ID after a successful save (create or update).
-   *  Same-feature only, short screen-ID like `redirect` on actionForm —
-   *  the nav-router resolves it against the schema; boot-validator checks
-   *  the ID resolves to a registered screen. Overrides the default
-   *  post-save target (the entity's list screen); delete is unaffected
-   *  and still always navigates to the list. */
+   *  Either a same-feature short screen-ID, or a fully-qualified
+   *  cross-feature screen QN (`<feature>:screen:<id>`) — the nav-router
+   *  resolves both against the schema; boot-validator checks the target
+   *  resolves to a registered screen. Overrides the default post-save
+   *  target (the entity's list screen); delete is unaffected and still
+   *  always navigates to the list. */
   readonly redirect?: string;
   /** Optionaler per-Field-Label-i18n-Key (Field-Name → Key), überschreibt
    *  die Default-Konvention `<feature>:entity:<entity>:field:<name>`.
@@ -654,18 +655,20 @@ export type ActionFormScreenDefinition = {
   /** i18n-key für den Submit-Button. Default: i18n-Default des
    *  Renderers (typischerweise "actions.submit"). */
   readonly submitLabel?: string;
-  /** Nach erfolgreichem Submit zu dieser Screen-ID navigieren (kurze
-   *  ID, z.B. "item-list" — gleiche Feature, der nav-Router resolved
-   *  zum vollen Pfad). Cross-Feature-Redirect ist nicht supported.
-   *  Wenn nicht gesetzt, bleibt der User auf dem Form-Screen. Boot-
-   *  Validator prüft dass die ID einen registrierten Screen meint. */
+  /** Nach erfolgreichem Submit zu dieser Screen-ID navigieren: entweder
+   *  kurze ID (z.B. "item-list" — gleiche Feature, der nav-Router
+   *  resolved zum vollen Pfad) oder voll-qualifizierte Cross-Feature-QN
+   *  (`<feature>:screen:<id>`). Wenn nicht gesetzt, bleibt der User auf
+   *  dem Form-Screen. Boot-Validator prüft dass das Ziel einen
+   *  registrierten Screen meint. */
   readonly redirect?: string;
   /** Ziel des Abbrechen-Buttons. Default: `redirect` (historisches
    *  Verhalten — Cancel und Submit-Redirect landen dann am selben Ort).
    *  `false` = kein Abbrechen-Button; richtig für Single-Action-Screens
    *  ohne verwerfbaren Zustand (z.B. "Test-Mail senden"), wo Abbrechen
-   *  nur ein zweiter Weg zum selben Ziel wäre. Boot-Validator prüft
-   *  String-Targets wie `redirect`. */
+   *  nur ein zweiter Weg zum selben Ziel wäre. Akzeptiert dieselben
+   *  String-Targets wie `redirect` (kurze ID oder Cross-Feature-QN);
+   *  Boot-Validator prüft das. */
   readonly cancelTarget?: string | false;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;

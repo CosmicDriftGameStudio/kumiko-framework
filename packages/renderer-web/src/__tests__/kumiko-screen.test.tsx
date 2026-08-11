@@ -1404,6 +1404,50 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-list" });
   });
 
+  test("actionForm mit Cross-Feature-QN als redirect: navigiert per Short-Id (#1946)", async () => {
+    const navigateCalls: { screenId: string }[] = [];
+    const dispatcher = makeDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "x" },
+      })) as unknown as Dispatcher["write"],
+    });
+    const memoryNav = {
+      route: { screenId: "quick-add" },
+      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      redirect: "statements:screen:statement-upload-list",
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [actionScreen, listScreen] }}
+            qn="tasks:screen:quick-add"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "go" } });
+    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "statement-upload-list" });
+  });
+
   // cancelTarget (Bug-Bash 2026-06-07, Bug 9): redirect erzeugte
   // automatisch einen Abbrechen-Button mit demselben Ziel wie der
   // Submit-Redirect — auf Single-Action-Screens ("Test-Mail senden")

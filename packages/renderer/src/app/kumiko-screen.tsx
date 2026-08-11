@@ -456,7 +456,7 @@ function EntityEditCreateBody({
     (result: SubmitResult<unknown>) => {
       if (!result.isSuccess) return;
       if (screen.redirect !== undefined) {
-        nav.navigate({ screenId: screen.redirect });
+        nav.navigate({ screenId: lastSegment(screen.redirect) });
         return;
       }
       navigateToList();
@@ -614,7 +614,7 @@ function EntityEditUpdateForm({
     (result: SubmitResult<unknown>) => {
       if (!result.isSuccess) return;
       if (screen.redirect !== undefined) {
-        nav.navigate({ screenId: screen.redirect });
+        nav.navigate({ screenId: lastSegment(screen.redirect) });
         return;
       }
       navigateToList();
@@ -1571,7 +1571,7 @@ function ActionFormBody({
       // Author entscheidet bewusst ob "stay on form" (default) oder
       // "back to list" (typisch bei Create-style Aktionen).
       if (result.isSuccess && screen.redirect !== undefined) {
-        nav.navigate({ screenId: screen.redirect });
+        nav.navigate({ screenId: lastSegment(screen.redirect) });
       }
     },
     [nav, screen.redirect],
@@ -1583,7 +1583,7 @@ function ActionFormBody({
   const handleCancel = useMemo<(() => void) | undefined>(() => {
     const target = screen.cancelTarget ?? screen.redirect;
     if (target === undefined || target === false) return undefined;
-    return () => nav.navigate({ screenId: target });
+    return () => nav.navigate({ screenId: lastSegment(target) });
   }, [nav, screen.redirect, screen.cancelTarget]);
   return (
     <RenderEdit
