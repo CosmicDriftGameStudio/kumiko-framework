@@ -1303,6 +1303,143 @@ describe("RenderEdit wizard draft", () => {
     expect(screen.getByTestId("field-count")).toBeTruthy();
     expect(calls.some((c) => c.startsWith("form-draft:"))).toBe(false);
   });
+
+  // Issue #1914: patch() (controlled mode / extension sections) previously
+  // never triggered a draft save — only handleWizardNext/Back did. A patch()
+  // on the last step (no further Next click coming) or on a step abandoned
+  // without Next/Back was silently lost, forcing e.g. a repeat of a paid
+  // VIN-decode round-trip on resume (#1908).
+  test("controls.patch() on the last step persists into the draft blob (debounced)", async () => {
+    const { dispatcher, store } = makeDraftDispatcher();
+    let controls: RenderEditControls<TestValues> | undefined;
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeDraftWizardScreen(true)}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    // Reach the last step first (handleWizardNext's own saveDraft mints the
+    // draftId) — the bug is specifically about a patch() AFTER that, with no
+    // further Next/Back to piggyback a save on.
+    fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+    expect(screen.getByTestId("field-count")).toBeTruthy();
+
+    act(() => {
+      controls?.patch({ count: 7 });
+    });
+
+    await waitFor(
+      () => {
+        const values = store.current?.values as { count?: number } | undefined;
+        expect(values?.count).toBe(7);
+      },
+      { timeout: 3000 },
+    );
+  });
+
+  test("remount after patch() without a Next/Back click shows the patched value", async () => {
+    const { dispatcher, store } = makeDraftDispatcher();
+    const draftStorage = createFakeDraftStorage();
+    let controls: RenderEditControls<TestValues> | undefined;
+
+    const first = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={draftStorage}>
+          <RenderEdit<TestValues>
+            screen={makeDraftWizardScreen(true)}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+            onControlsReady={(c) => {
+              controls = c;
+            }}
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    // No Next/Back click anywhere in this test — patch() alone, on the
+    // first step, must still mint a draftId and persist (proves there is
+    // no second, blob-bypassing write path for patch()'d data either: this
+    // writes exclusively via patch(), the remount below reads exclusively
+    // via form-draft:query:get).
+    act(() => {
+      controls?.patch({ title: "Patched" });
+    });
+
+    await waitFor(() => expect(store.current).not.toBeNull(), { timeout: 3000 });
+
+    first.unmount();
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={draftStorage}>
+          <RenderEdit<TestValues>
+            screen={makeDraftWizardScreen(true)}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(
+      () => {
+        const titleInput = screen
+          .getByTestId("field-title")
+          .querySelector("input") as HTMLInputElement;
+        expect(titleInput.value).toBe("Patched");
+      },
+      { timeout: 3000 },
+    );
+  });
+
+  test("a burst of patch() calls collapses into a single debounced draft save", async () => {
+    const { dispatcher, calls } = makeDraftDispatcher();
+    let controls: RenderEditControls<TestValues> | undefined;
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeDraftWizardScreen(true)}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    const savesSoFar = () => calls.filter((c) => c === "form-draft:write:save").length;
+    const before = savesSoFar();
+
+    // Each patch() resets the same debounce timer — three patches in one
+    // burst must still land as exactly one form-draft:write:save, not three.
+    act(() => {
+      controls?.patch({ count: 1 });
+      controls?.patch({ count: 2 });
+      controls?.patch({ count: 3 });
+    });
+
+    await waitFor(() => expect(savesSoFar()).toBe(before + 1), { timeout: 3000 });
+    expect(savesSoFar()).toBe(before + 1);
+  });
 });
 
 describe("RenderEdit create-mode draftId (issue #1913)", () => {

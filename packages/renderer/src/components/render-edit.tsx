@@ -48,6 +48,14 @@ const FORM_DRAFT_SAVE = "form-draft:write:save";
 const FORM_DRAFT_DISCARD = "form-draft:write:discard";
 const FORM_DRAFT_LIST = "form-draft:query:list";
 
+// Trailing-edge debounce for patch()-triggered draft saves (#1914). A single
+// patch() call (VIN-decode, an extension section) should not save immediately
+// per call, but patch() can also fire from inside onChange on every keystroke
+// (the #1888 derived-field shape) — 500ms collapses a typing burst into one
+// save instead of one per keystroke, while still saving well before a user
+// abandons the tab.
+const PATCH_DRAFT_SAVE_DEBOUNCE_MS = 500;
+
 type FormDraftBlob = {
   readonly values: Record<string, unknown>;
   readonly stepIndex: number;
@@ -345,6 +353,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Save-Button aktiv wird wenn NUR eine Section geändert wurde) + ihren
   // Submit-Handler (läuft nach dem Entity-Write). extensionErrorKey hält den
   // i18n-Key einer fehlgeschlagenen Section-Persistierung.
+  //
+  // Not a second write path for saveDraft()'s data (#1914): deriveFormFields
+  // (above) skips extension sections entirely, so extension-owned field state
+  // never enters `fields`/`controller.getSnapshot().values` — there is no
+  // draft-blob-covered state left for persistExtensions() to compete over.
   const [extensionDirty, setExtensionDirty] = useState(false);
   const [extensionErrorKey, setExtensionErrorKey] = useState<string | null>(null);
   const { registry: extensionFormRegistry, runAll: runExtensionSubmits } =
@@ -439,17 +452,54 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     () => controller.validate(scopeFieldNamesRef.current),
     [controller],
   );
+
+  // `saveDraft` (defined below) is a fresh closure every render, over that
+  // render's `draftKey`/`draftId` — the ref lets the debounce timer below
+  // always call the CURRENT one even though the timer was scheduled by an
+  // earlier render's patch() call. `currentStepRef` gives it the current
+  // wizard step without depending on `currentStep` (computed further down,
+  // from `filteredSections`) at the point patchAndScheduleDraftSave itself
+  // is defined — kept fresh where `currentStep` is computed below.
+  const saveDraftRef = useRef(saveDraft);
+  saveDraftRef.current = saveDraft;
+  const currentStepRef = useRef(0);
+  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (draftSaveTimerRef.current !== null) clearTimeout(draftSaveTimerRef.current);
+    };
+  }, []);
+
+  // patch() (controlled mode, extension sections) applies immediately —
+  // only the resulting draft save is debounced (#1914), so a patch() burst
+  // (VIN-decode filling several fields, or onChange fanning a keystroke out
+  // through patch(), see the #1888 test above) collapses into one save.
+  const patchAndScheduleDraftSave = useCallback(
+    (partial: Partial<TValues>) => {
+      controller.setValues(partial);
+      if (!draftEnabled) return;
+      if (draftSaveTimerRef.current !== null) clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = setTimeout(() => {
+        draftSaveTimerRef.current = null;
+        saveDraftRef.current(currentStepRef.current);
+      }, PATCH_DRAFT_SAVE_DEBOUNCE_MS);
+    },
+    [controller, draftEnabled],
+  );
+
   useEffect(() => {
     const cb = onControlsReadyRef.current;
     if (cb === undefined) return;
     cb({
-      patch: controller.setValues,
+      patch: patchAndScheduleDraftSave,
       validate: scopedValidate,
       getValues: () => controller.getSnapshot().values,
     });
-    // controller is mount-lifetime-stable (see useForm's comment on its
-    // own useMemo) — this fires exactly once per RenderEdit mount.
-  }, [controller, scopedValidate]);
+    // controller is mount-lifetime-stable (see useForm's comment on its own
+    // useMemo), same for patchAndScheduleDraftSave/scopedValidate (both
+    // useCallback over mount-stable deps) — this fires exactly once per
+    // RenderEdit mount in practice.
+  }, [controller, scopedValidate, patchAndScheduleDraftSave]);
 
   useEffect(() => {
     // skip: this screen does not persist a draft.
@@ -579,6 +629,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // stored stepIndex can point past what is currently rendered — that lands on
   // the last step instead of an empty one.
   const currentStep = Math.min(rawStep, lastStepIndex);
+  // Kept fresh for patchAndScheduleDraftSave's debounce timer above, which
+  // is defined before `currentStep` exists (it depends on `filteredSections`,
+  // computed further up from `vm`) and so cannot close over it directly.
+  currentStepRef.current = currentStep;
   const isLastWizardStep = currentStep >= lastStepIndex;
 
   // Step transitions only — never per keystroke. Deliberately not awaited: a
@@ -638,6 +692,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   async function discardDraft(): Promise<void> {
     // skip: this screen does not persist a draft.
     if (!draftEnabled) return;
+    // A pending debounced patch-save must not fire after discard — it would
+    // resurrect the draft it just deleted.
+    if (draftSaveTimerRef.current !== null) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
     // skip: create-mode, no step change happened yet — no draftId was ever
     // minted, so no row exists to discard.
     if (draftKey === undefined) return;
@@ -887,7 +947,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   // @cast-boundary form-values: ExtensionSectionProps is not generic
                   // over TValues; controller is mount-lifetime-stable, see onControlsReady above.
                   patch={
-                    controller.setValues as (partial: Readonly<Record<string, unknown>>) => void
+                    patchAndScheduleDraftSave as (
+                      partial: Readonly<Record<string, unknown>>,
+                    ) => void
                   }
                   validate={scopedValidate}
                 />
