@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.189.0
+
+### Minor Changes
+
+- 833c4f7: `redirect` (actionForm, entityEdit) and `cancelTarget` (actionForm) now also accept a fully-qualified cross-feature screen QN (`<feature>:screen:<id>`), in addition to the existing same-feature short screen-ID. Boot-validator resolves the QN directly against all registered screens; the renderer strips it to the short id before navigating, since the runtime router already resolves bare short ids app-wide. Short IDs keep their unchanged same-feature behavior (kumiko-framework#1946).
+- 8226c65: Fix: `controls.patch()` (the `onControlsReady`-exposed API, and extension sections such as VIN-decode) now triggers a debounced draft save, matching `handleWizardNext`/`handleWizardBack`. Previously a `patch()` on the last wizard step, or on a step abandoned without Next/Back, was silently lost on resume — forcing e.g. a repeat of a paid VIN-decode round-trip (#1908). Bursts of `patch()` calls (e.g. an `onChange` fan-out) collapse into a single save via a 500ms trailing-edge debounce, cleared on unmount and on `discardDraft()` to avoid resurrecting a just-discarded draft.
+
+### Patch Changes
+
+- 321b375: `entityEdit` screens now support `redirect?: string`, mirroring `actionForm`'s field: navigate to this same-feature screen ID after a successful save (create or update) instead of the default "back to the entity's list" target. Boot-validator checks the ID resolves to a registered screen, same as `actionForm.redirect`. Delete is unaffected — it still always navigates to the list.
+- d0f03f9: `entityEdit` screens now support `singleton: true` for entities with exactly one record per tenant (organization, settings, tenant profile). A call without an `entityId` resolves the existing record via `<entity>:list` (limit 1) and renders the update branch with prefill on a hit, instead of always rendering an empty create form — so a declarative nav entry can point straight at a singleton edit screen without a wrapping entityList-with-one-row workaround. The create branch (and `allowCreate: false`) still applies when the table is empty.
+- 5137ce5: The auto-wired `entityEdit` path now has operable widgets for `multiSelect` (combobox), `decimal`/`bigInt` (number input), `tz` (IANA zone picker), and `longText` (always a textarea). `jsonb`, `embedded` (non-list), `files`, and `images` still render read-only — they stay unsupported on this path — but a statically `required: true` field of one of those types now throws a descriptive boot-time error instead of silently rendering an unfillable form.
+- cac0d04: `Form`'s new `stickyActions` prop pins the actions footer to the viewport bottom on narrow screens (`<640px`) instead of normal document flow, so a virtual keyboard shrinking the viewport can no longer push it out of reach. `RenderEdit` sets it automatically for wizard-mode screens. The default HTML shell's viewport meta also gains `interactive-widget=resizes-content`, so a real mobile keyboard shrinks the layout viewport (which the fixed footer anchors to) instead of only the visual viewport.
+- Updated dependencies [64c5f92]
+- Updated dependencies [321b375]
+- Updated dependencies [5137ce5]
+- Updated dependencies [833c4f7]
+  - @cosmicdrift/kumiko-framework@0.189.0
+  - @cosmicdrift/kumiko-headless@0.189.0
+
 ## 0.188.0
 
 ### Minor Changes

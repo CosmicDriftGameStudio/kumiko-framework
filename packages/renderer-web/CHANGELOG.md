@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.189.0
+
+### Patch Changes
+
+- 5137ce5: The auto-wired `entityEdit` path now has operable widgets for `multiSelect` (combobox), `decimal`/`bigInt` (number input), `tz` (IANA zone picker), and `longText` (always a textarea). `jsonb`, `embedded` (non-list), `files`, and `images` still render read-only — they stay unsupported on this path — but a statically `required: true` field of one of those types now throws a descriptive boot-time error instead of silently rendering an unfillable form.
+- cac0d04: `Form`'s new `stickyActions` prop pins the actions footer to the viewport bottom on narrow screens (`<640px`) instead of normal document flow, so a virtual keyboard shrinking the viewport can no longer push it out of reach. `RenderEdit` sets it automatically for wizard-mode screens. The default HTML shell's viewport meta also gains `interactive-widget=resizes-content`, so a real mobile keyboard shrinks the layout viewport (which the fixed footer anchors to) instead of only the visual viewport.
+- Updated dependencies [321b375]
+- Updated dependencies [d0f03f9]
+- Updated dependencies [5137ce5]
+- Updated dependencies [833c4f7]
+- Updated dependencies [cac0d04]
+- Updated dependencies [8226c65]
+  - @cosmicdrift/kumiko-renderer@0.189.0
+  - @cosmicdrift/kumiko-headless@0.189.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.189.0
+
 ## 0.188.0
 
 ### Minor Changes
