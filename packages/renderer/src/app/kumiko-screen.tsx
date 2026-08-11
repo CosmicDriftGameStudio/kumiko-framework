@@ -406,19 +406,19 @@ function EntityEditScreen({
       />
     );
   }
-  if (screen.allowCreate === false) {
-    // Update-only Screen ohne entityId (Direkt-URL / verirrte Navigation):
-    // ein Create-Form würde gegen den nicht registrierten
-    // `<entity>:create`-Handler submitten — Fehler statt Falle.
+  if (screen.singleton === true) {
     return (
-      <Banner padded variant="error" testId="kumiko-screen-create-disabled">
-        Screen <Text variant="code">{screen.id}</Text> is update-only (allowCreate: false) — open it
-        from a row action with an entity id.
-      </Banner>
+      <EntityEditSingletonBody
+        schema={schema}
+        screen={screen}
+        entity={entity}
+        {...(translate !== undefined && { translate })}
+        {...(onCopyLink !== undefined && { onCopyLink })}
+      />
     );
   }
   return (
-    <EntityEditCreateBody
+    <EntityEditCreateOrDisabled
       schema={schema}
       screen={screen}
       entity={entity}
@@ -642,6 +642,100 @@ function EntityEditUpdateForm({
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
       {...(onCopyLink !== undefined && { onCopyLink })}
+    />
+  );
+}
+
+// Singleton entities (`singleton: true`, exactly one record per tenant):
+// EntityEditScreen reaches here only without an entityId. Resolve the
+// existing record via list(limit:1) before deciding create vs update —
+// otherwise every visit without an id would create another record.
+function EntityEditSingletonBody({
+  schema,
+  screen,
+  entity,
+  translate,
+  onCopyLink,
+}: {
+  readonly schema: FeatureSchema;
+  readonly screen: EntityEditScreenDefinition;
+  readonly entity: EntityDefinition;
+  readonly translate?: Translate;
+  readonly onCopyLink?: () => Promise<void> | void;
+}): ReactNode {
+  const { Banner } = usePrimitives();
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
+  const listQn = entityQueryCommand(schema.featureName, screen.entity, "list");
+  const listQuery = useQuery<PagedRows>(listQn, { limit: 1 });
+
+  if (listQuery.loading && listQuery.data === null) {
+    return (
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
+        Loading…
+      </Banner>
+    );
+  }
+  if (listQuery.error) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-error">
+        {dispatcherErrorText(listQuery.error, effectiveTranslate)}
+      </Banner>
+    );
+  }
+  const existingId = listQuery.data?.rows[0]?.["id"] as string | undefined;
+  if (existingId !== undefined) {
+    return (
+      <EntityEditUpdateBody
+        schema={schema}
+        screen={screen}
+        entity={entity}
+        entityId={existingId}
+        {...(translate !== undefined && { translate })}
+        {...(onCopyLink !== undefined && { onCopyLink })}
+      />
+    );
+  }
+  return (
+    <EntityEditCreateOrDisabled
+      schema={schema}
+      screen={screen}
+      entity={entity}
+      {...(translate !== undefined && { translate })}
+    />
+  );
+}
+
+// Shared no-entityId tail for both the plain create path and the
+// singleton path's empty-table fallback: `allowCreate: false` blocks
+// both the same way, since a create submit there would hit an
+// unregistered `<entity>:create` handler.
+function EntityEditCreateOrDisabled({
+  schema,
+  screen,
+  entity,
+  translate,
+}: {
+  readonly schema: FeatureSchema;
+  readonly screen: EntityEditScreenDefinition;
+  readonly entity: EntityDefinition;
+  readonly translate?: Translate;
+}): ReactNode {
+  const { Banner, Text } = usePrimitives();
+  if (screen.allowCreate === false) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-create-disabled">
+        Screen <Text variant="code">{screen.id}</Text> is update-only (allowCreate: false) — open it
+        from a row action with an entity id.
+      </Banner>
+    );
+  }
+  return (
+    <EntityEditCreateBody
+      schema={schema}
+      screen={screen}
+      entity={entity}
+      {...(translate !== undefined && { translate })}
     />
   );
 }

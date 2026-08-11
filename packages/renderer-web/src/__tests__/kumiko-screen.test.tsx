@@ -1814,6 +1814,101 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
   });
 });
 
+// --- singleton entityEdit (fw#1941) ---
+// Singleton entities (exactly one record per tenant) have no nav path
+// that supplies an entityId. `singleton: true` resolves the existing
+// record via list(limit:1) before deciding create vs update.
+describe("KumikoScreen: singleton entityEdit", () => {
+  const singletonEdit: EntityEditScreenDefinition = {
+    id: "task-edit",
+    type: "entityEdit",
+    entity: "task",
+    singleton: true,
+    layout: { sections: [{ title: "Basics", fields: ["title"] }] },
+  };
+  const singletonSchema: FeatureSchema = {
+    featureName: "tasks",
+    entities: { task: taskEntity },
+    screens: [singletonEdit],
+  };
+
+  test("kein vorhandener Record → rendert leeres Create-Form", async () => {
+    const queryCalls: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher({
+      query: (async (type: string, payload: unknown) => {
+        queryCalls.push({ type, payload });
+        return { isSuccess: true, data: { rows: [], nextCursor: null } };
+      }) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={singletonSchema} qn="tasks:screen:task-edit" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    expect(titleInput.value).toBe("");
+    expect(queryCalls).toEqual([{ type: "tasks:query:task:list", payload: { limit: 1 } }]);
+  });
+
+  test("vorhandener Record → lädt ihn (Update-Form, prefilled) statt Create", async () => {
+    const queryCalls: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher({
+      query: (async (type: string, payload: unknown) => {
+        queryCalls.push({ type, payload });
+        if (type.endsWith(":list")) {
+          return {
+            isSuccess: true,
+            data: { rows: [{ id: "task-1", title: "loaded-title" }], nextCursor: null },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: { id: "task-1", version: 1, title: "loaded-title", count: 0, done: false },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={singletonSchema} qn="tasks:screen:task-edit" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    expect(titleInput.value).toBe("loaded-title");
+    // Anchor: the id resolved from list(limit:1) reaches the detail query —
+    // otherwise the form would render empty/create-mode instead of loading it.
+    expect(queryCalls).toContainEqual({
+      type: "tasks:query:task:detail",
+      payload: { id: "task-1" },
+    });
+  });
+
+  test("allowCreate:false + leere Tabelle → Fehler-Banner statt Create-Form", async () => {
+    const disabledSchema: FeatureSchema = {
+      featureName: "tasks",
+      entities: { task: taskEntity },
+      screens: [{ ...singletonEdit, allowCreate: false }],
+    };
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { rows: [], nextCursor: null },
+      })) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={disabledSchema} qn="tasks:screen:task-edit" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    expect(screen.getByTestId("kumiko-screen-create-disabled")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-form")).toBeNull();
+  });
+});
+
 // --- actionForm extension-section (Wave J: Incident-Update-Timeline) ---
 // actionForm hat keinen record — Extension-Sections bekommen stattdessen
 // die initialen Form-Values (inkl. searchParams-Prefill) als initialValues.

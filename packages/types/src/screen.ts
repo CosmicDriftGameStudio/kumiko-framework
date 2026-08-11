@@ -593,6 +593,14 @@ export type EntityEditScreenDefinition = {
    *  (History-/Audit-Erhalt): unterdrückt den Löschen-Button im
    *  Update-Form. */
   readonly allowDelete?: boolean;
+  /** Default false. `true` for singleton entities (exactly one record per
+   *  tenant: organization, settings, tenant profile). A call without an
+   *  `entityId` first resolves the existing record via `<entity>:list`
+   *  (limit 1) and renders the update branch with prefill on a hit,
+   *  instead of blindly creating another one. The create branch only
+   *  fires when the table is empty (and `allowCreate: false` still
+   *  applies there). */
+  readonly singleton?: boolean;
   /** Optionaler per-Field-Label-i18n-Key (Field-Name → Key), überschreibt
    *  die Default-Konvention `<feature>:entity:<entity>:field:<name>`.
    *  Primär für configEdit: dessen Pseudo-Entity `__config-edit__` hat
