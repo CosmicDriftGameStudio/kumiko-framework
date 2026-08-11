@@ -2,16 +2,26 @@
 // stack.jobRunner), no hand-fed context. Covers the #1891 acceptance
 // criteria: an old draft is deleted, a fresh one survives, and the
 // retention window actually comes from the config key (not a hardcoded
-// constant).
+// constant). Also covers #1915: FileRefs in a stale draft's blob are
+// released through the storage provider before the row is deleted, resolved
+// per-row's OWN tenant (not the job's SYSTEM_TENANT_ID run-tenant) — a
+// two-tenant, two-provider setup below proves rows never cross providers.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  createInMemoryFileProvider,
+  fileRefEntity,
+  type InMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
+  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -30,6 +40,12 @@ let stack: TestStack;
 const systemAdmin = createTestUser({ id: 1, roles: ["SystemAdmin"] });
 const owner = createTestUser({ id: 2, roles: ["TenantMember"] });
 
+const TENANT_B: TenantId = testTenantId(2);
+const ownerTenantB = createTestUser({ id: 3, roles: ["TenantMember"], tenantId: TENANT_B });
+
+const providerA: InMemoryFileProvider = createInMemoryFileProvider();
+const providerB: InMemoryFileProvider = createInMemoryFileProvider();
+
 beforeAll(async () => {
   const testEncryptionKey = randomBytes(32).toString("base64");
   const encryption = createTestEnvelopeCipher(testEncryptionKey);
@@ -45,9 +61,16 @@ beforeAll(async () => {
       configResolver: resolver,
       configEncryption: encryption,
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      // Two providers, keyed by tenant — proves the cleanup job resolves
+      // each stale row's OWN tenant rather than reusing a single
+      // job-level ctx.files (which would be bound to SYSTEM_TENANT_ID, the
+      // tenant this system-wide job actually dispatches under).
+      _fileProviderResolver: (tenantId: TenantId) =>
+        Promise.resolve(tenantId === TENANT_B ? providerB : providerA),
     }),
   });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
+  await unsafeCreateEntityTable(stack.db, fileRefEntity, "fileRef");
   await unsafePushTables(stack.db, { configValuesTable });
   await createEventsTable(stack.db);
 });
@@ -57,16 +80,33 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  providerA.clear();
+  providerB.clear();
   await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
   await asRawClient(stack.db).unsafe("DELETE FROM read_form_drafts");
   await asRawClient(stack.db).unsafe("DELETE FROM read_config_values");
+  await asRawClient(stack.db).unsafe("DELETE FROM file_refs");
 });
 
-async function saveDraft(draftKey: string): Promise<void> {
-  await stack.http.writeOk(
-    FormDraftHandlers.save,
-    { draftKey, values: { note: "x" }, stepIndex: 0 },
-    owner,
+async function saveDraft(
+  draftKey: string,
+  values: Record<string, unknown> = { note: "x" },
+  user = owner,
+): Promise<void> {
+  await stack.http.writeOk(FormDraftHandlers.save, { draftKey, values, stepIndex: 0 }, user);
+}
+
+function fileRefPointer(storageKey: string) {
+  return { id: "file-1", storageKey, fileName: "photo.jpg", mimeType: "image/jpeg", size: 3 };
+}
+
+// The real file_refs row a genuine POST /files upload would have created —
+// filterOwnedStorageKeys requires this to exist before a release proceeds.
+async function seedFileRef(storageKey: string, uploader = owner): Promise<void> {
+  await asRawClient(stack.db).unsafe(
+    `INSERT INTO "file_refs" ("tenant_id", "storage_key", "file_name", "mime_type", "size", "inserted_by_id")
+     VALUES ($1, $2, 'photo.jpg', 'image/jpeg', 3, $3)`,
+    [uploader.tenantId, storageKey, uploader.id],
   );
 }
 
@@ -141,5 +181,74 @@ describe("form-draft cleanup job", () => {
       expect(await draftExists("wizard:sentinel")).toBe(false);
     });
     expect(await draftExists("wizard:three-days-old")).toBe(true);
+  });
+});
+
+describe("form-draft cleanup job — FileRef release (#1915)", () => {
+  test("releases FileRefs from a stale draft, leaves a FileRef-less stale draft and a fresh draft unaffected", async () => {
+    const key = "tenant-a/vehicle/photo.jpg";
+    await providerA.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
+    await seedFileRef(key);
+
+    await saveDraft("wizard:stale-with-photo", { photo: fileRefPointer(key) });
+    await backdate("wizard:stale-with-photo", 31);
+    await saveDraft("wizard:stale-no-photo", { note: "plain" });
+    await backdate("wizard:stale-no-photo", 31);
+    await saveDraft("wizard:fresh", { note: "keep" });
+
+    await dispatchCleanup();
+
+    await waitFor(async () => {
+      expect(await draftExists("wizard:stale-with-photo")).toBe(false);
+    });
+    expect(await draftExists("wizard:stale-no-photo")).toBe(false);
+    expect(await draftExists("wizard:fresh")).toBe(true);
+    expect(providerA.keys()).not.toContain(key);
+  });
+
+  test("resolves each stale row's own tenant provider — never the job's SYSTEM_TENANT_ID run-tenant, never another row's tenant", async () => {
+    const keyA = "tenant-a/vehicle/photo-a.jpg";
+    const keyB = "tenant-b/vehicle/photo-b.jpg";
+    await providerA.write(keyA, new Uint8Array([1]), "image/jpeg");
+    await providerB.write(keyB, new Uint8Array([2]), "image/jpeg");
+    await seedFileRef(keyA, owner);
+    await seedFileRef(keyB, ownerTenantB);
+
+    await saveDraft("wizard:tenant-a-stale", { photo: fileRefPointer(keyA) }, owner);
+    await backdate("wizard:tenant-a-stale", 31);
+    await saveDraft("wizard:tenant-b-stale", { photo: fileRefPointer(keyB) }, ownerTenantB);
+    await backdate("wizard:tenant-b-stale", 31);
+
+    await dispatchCleanup();
+
+    await waitFor(async () => {
+      expect(await draftExists("wizard:tenant-a-stale")).toBe(false);
+    });
+    await waitFor(async () => {
+      expect(await draftExists("wizard:tenant-b-stale")).toBe(false);
+    });
+
+    expect(providerA.keys()).not.toContain(keyA);
+    expect(providerB.keys()).not.toContain(keyB);
+    // Cross-tenant guard: neither key ever lands in the other tenant's provider.
+    expect(providerA.keys()).not.toContain(keyB);
+    expect(providerB.keys()).not.toContain(keyA);
+  });
+
+  test("does NOT release a storageKey with no owned file_refs row (forged draft value)", async () => {
+    const forgedKey = "tenant-a/vehicle/victim.jpg";
+    await providerA.write(forgedKey, new Uint8Array([9, 9, 9]), "image/jpeg");
+    // Deliberately no seedFileRef — the stale draft's `values` claims a
+    // storageKey its owner never actually uploaded.
+
+    await saveDraft("wizard:stale-forged", { photo: fileRefPointer(forgedKey) });
+    await backdate("wizard:stale-forged", 31);
+
+    await dispatchCleanup();
+
+    await waitFor(async () => {
+      expect(await draftExists("wizard:stale-forged")).toBe(false);
+    });
+    expect(providerA.keys()).toContain(forgedKey);
   });
 });

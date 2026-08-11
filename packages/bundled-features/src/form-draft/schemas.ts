@@ -22,8 +22,15 @@ export const saveDraftPayloadSchema = z.object({
 });
 export type SaveDraftPayload = z.infer<typeof saveDraftPayloadSchema>;
 
+// releaseFiles defaults to false/absent: the caller's only two current call
+// sites (render-edit.tsx, both on a *successful submit*) delete the draft
+// row right after the domain entity write already carries the same
+// storageKeys forward — releasing them here would destroy files the entity
+// now depends on. Only an actual abandon/abort flow should pass
+// releaseFiles: true (issue #1915's "explicit abort" case).
 export const discardDraftPayloadSchema = z.object({
   draftKey: draftKeySchema,
+  releaseFiles: z.boolean().optional(),
 });
 export type DiscardDraftPayload = z.infer<typeof discardDraftPayloadSchema>;
 
