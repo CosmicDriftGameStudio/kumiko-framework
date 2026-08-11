@@ -41,7 +41,20 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: ["**/fixtures/**", "build-server.ts", "wizard-mobile.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
+    },
+    // iPhone SE/Mini-Klasse (375px) — Abnahmekriterium aus #1917: Chrome
+    // (Fortschritt/Zurück/Weiter/Schritttitel) rendert korrekt bei der
+    // schmalsten verbreiteten Telefonbreite, und der Weiter-Knopf bleibt
+    // erreichbar wenn die virtuelle Tastatur den Viewport verkleinert.
+    // Desktop-Chrome-Basis statt eines Mobile-Device-Descriptors — vermeidet
+    // isMobile/hasTouch-Nebenwirkungen (Touch-Events statt Click), die für
+    // reine Layout-Assertions nicht gebraucht werden.
+    {
+      name: "mobile-375",
+      testMatch: ["wizard-mobile.spec.ts"],
+      use: { ...devices["Desktop Chrome"], viewport: { width: 375, height: 667 } },
     },
   ],
 
