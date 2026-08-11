@@ -871,6 +871,20 @@ export function validateScreens(
         }
       }
       validateWizardLayout(feature.name, screenId, "entityEdit", screen.layout, featureMap);
+      if (screen.redirect !== undefined) {
+        // Same rule as actionForm's redirect: short screen-ID, same-feature
+        // only — the nav-router builds the URL from screenId directly, a
+        // full QN would land as `/shop:screen:foo/` and resolve nowhere.
+        const candidateQn = qualifyEntityName(feature.name, "screen", screen.redirect);
+        if (!allScreenQns.has(candidateQn)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) redirect "${screen.redirect}" ` +
+              `does not resolve to a registered screen in this feature. Known screens: ${
+                [...Object.keys(feature.screens)].sort().join(", ") || "(none)"
+              }.`,
+          );
+        }
+      }
     }
   }
 }

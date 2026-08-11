@@ -601,6 +601,13 @@ export type EntityEditScreenDefinition = {
    *  fires when the table is empty (and `allowCreate: false` still
    *  applies there). */
   readonly singleton?: boolean;
+  /** Navigate to this screen ID after a successful save (create or update).
+   *  Same-feature only, short screen-ID like `redirect` on actionForm —
+   *  the nav-router resolves it against the schema; boot-validator checks
+   *  the ID resolves to a registered screen. Overrides the default
+   *  post-save target (the entity's list screen); delete is unaffected
+   *  and still always navigates to the list. */
+  readonly redirect?: string;
   /** Optionaler per-Field-Label-i18n-Key (Field-Name → Key), überschreibt
    *  die Default-Konvention `<feature>:entity:<entity>:field:<name>`.
    *  Primär für configEdit: dessen Pseudo-Entity `__config-edit__` hat

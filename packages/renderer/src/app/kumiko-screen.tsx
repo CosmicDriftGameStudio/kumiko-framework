@@ -454,9 +454,14 @@ function EntityEditCreateBody({
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
-      if (result.isSuccess) navigateToList();
+      if (!result.isSuccess) return;
+      if (screen.redirect !== undefined) {
+        nav.navigate({ screenId: screen.redirect });
+        return;
+      }
+      navigateToList();
     },
-    [navigateToList],
+    [nav, screen.redirect, navigateToList],
   );
   return (
     <RenderEdit
@@ -602,13 +607,19 @@ function EntityEditUpdateForm({
     [entityId, recordVersion],
   );
 
+  const nav = useNav();
   const dispatcher = useDispatcher();
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
-      if (result.isSuccess) navigateToList();
+      if (!result.isSuccess) return;
+      if (screen.redirect !== undefined) {
+        nav.navigate({ screenId: screen.redirect });
+        return;
+      }
+      navigateToList();
     },
-    [navigateToList],
+    [nav, screen.redirect, navigateToList],
   );
   const handleDelete = useCallback(async () => {
     const res = await dispatcher.write(deleteCommand, { id: entityId });
