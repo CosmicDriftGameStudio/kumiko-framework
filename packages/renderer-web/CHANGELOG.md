@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.190.0
+
+### Minor Changes
+
+- 5e6a75b: Drawer: floats with margin and fully rounded corners, lighter backdrop so the page behind stays readable, card-style footer, maximize toggle and drag-to-resize width.
+
+### Patch Changes
+
+- 7af2994: `ProgressBar`'s fill bar no longer relies on `height: 100%` resolving against the wrapper's height, which silently rendered 0px tall whenever the surrounding layout stretched the wrapper instead of letting its own `h-2` apply. The wrapper is now `relative` and the fill is absolutely positioned with `inset-y-0`, so it always spans the wrapper's own box regardless of how the wrapper's height was determined.
+  - @cosmicdrift/kumiko-dispatcher-live@0.190.0
+  - @cosmicdrift/kumiko-headless@0.190.0
+  - @cosmicdrift/kumiko-renderer@0.190.0
+
 ## 0.189.0
 
 ### Patch Changes
