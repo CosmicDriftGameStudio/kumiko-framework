@@ -143,6 +143,13 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  validation scope (the underlying `useForm` controller is mount-lived);
    *  rendering and `controls.validate()` do stay reactive to later changes. */
   readonly fields?: readonly string[];
+  /** Locked state (issue #1896): every rendered field and the submit button
+   *  go visibly inactive, no write possible. For cases where input becomes
+   *  moot — e.g. Solon's editor pointing at an existing record instead of
+   *  creating a new one. Extension sections are out of scope: RenderEdit has
+   *  no way to force-disable an arbitrary registered component. Omitting
+   *  this prop keeps unchanged behavior. */
+  readonly disabled?: boolean;
 };
 
 export type RenderEditChangeState<TValues extends FormValues> = {
@@ -274,6 +281,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onChange,
     onControlsReady,
     fields: fieldsFilter,
+    disabled = false,
   } = props;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -505,6 +513,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   }
 
   async function handleSubmit(): Promise<void> {
+    // Locked state (#1896): the submit button is visibly disabled, but a
+    // native form submit (Enter key) reaches this handler regardless of the
+    // button's disabled attribute — block it here too, not just in the UI.
+    if (disabled) return;
     // Enter in the active step triggers the native form submit (Next is
     // type="submit" for Enter support) — on intermediate steps that means
     // "Next", not "Save".
@@ -632,14 +644,19 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         </Button>
       )}
       {isWizard && !isLastWizardStep && (
-        <Button type="submit" variant="primary" testId="render-edit-wizard-next">
+        <Button
+          type="submit"
+          disabled={disabled}
+          variant="primary"
+          testId="render-edit-wizard-next"
+        >
           {translate("kumiko.actions.next")}
         </Button>
       )}
       {isFormEditable && (!isWizard || isLastWizardStep) && (
         <Button
           type="submit"
-          disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting}
+          disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting || disabled}
           loading={isSubmitting}
           variant="primary"
           testId="render-edit-submit"
@@ -736,7 +753,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   {section.fields.map((field: EditFieldViewModel) => (
                     <GridCellForField
                       key={field.field}
-                      field={field}
+                      field={disabled ? { ...field, readOnly: true } : field}
                       columns={section.columns}
                       issues={snapshot.errors[field.field]}
                       onChange={(v) => {
