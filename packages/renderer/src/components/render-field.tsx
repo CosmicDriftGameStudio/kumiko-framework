@@ -1,5 +1,9 @@
 import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
+import {
+  currencyDecimals,
+  type EditFieldViewModel,
+  type FieldIssue,
+} from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context";
 import { toKebab } from "../app/qn";
@@ -330,15 +334,15 @@ function renderInput({
         />
       );
     case "money": {
-      const moneyDef = field as unknown as { currency?: string; locale?: string };
+      const currency = field.currency ?? "EUR";
       return (
         <Input
           kind="money"
           {...common}
-          value={numberValue(field.value)}
-          onChange={(v) => onChange(v)}
-          {...(moneyDef.currency !== undefined && { currency: moneyDef.currency })}
-          locale={moneyDef.locale ?? appLocale}
+          value={moneyMinorValue(field.value, currency)}
+          onChange={(v) => onChange(moneyPayload(v, currency))}
+          currency={currency}
+          locale={appLocale}
         />
       );
     }
@@ -477,6 +481,32 @@ function stringValue(v: unknown): string {
 function numberValue(v: unknown): number | "" {
   if (v === undefined || v === null || v === "") return "";
   return typeof v === "number" ? v : Number(v);
+}
+
+// Read/initial value → MoneyInput's minor-units contract. The server's
+// read shape is `{amount, currency, amountMinor}` in MAJOR units — deliberately
+// NOT reading `amountMinor` here: the server derives it via a flat
+// MINOR_UNIT_SCALE=100 (money.ts), which disagrees with currencyDecimals for
+// zero-decimal currencies like JPY, so it would double-scale JPY amounts.
+// Deriving from `amount * 10**currencyDecimals(currency)` keeps this the
+// exact inverse of moneyPayload below. A bare number is passed through
+// unchanged — legacy/malformed data, already in minor units.
+function moneyMinorValue(v: unknown, currency: string): number | "" {
+  if (v === undefined || v === null || v === "") return "";
+  if (typeof v === "number") return v;
+  if (typeof v === "object") {
+    const amount = (v as { amount?: unknown }).amount;
+    if (typeof amount === "number") return Math.round(amount * 10 ** currencyDecimals(currency));
+  }
+  return "";
+}
+
+// MoneyInput's minor-units onChange → the server payload shape
+// (`z.object({amount, currency})`, schema-builder.ts) — MAJOR units, no
+// `amountMinor` (the server derives that itself on write).
+function moneyPayload(minorUnits: number | undefined, currency: string): unknown {
+  if (minorUnits === undefined) return undefined;
+  return { amount: minorUnits / 10 ** currencyDecimals(currency), currency };
 }
 
 // locatedTimestamp-Feldwert: das Read-Wrapper liefert `{ at, tz, utc }`; leer

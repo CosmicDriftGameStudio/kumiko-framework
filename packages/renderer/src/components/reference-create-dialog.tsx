@@ -52,7 +52,10 @@ export function ReferenceCreateDialog({
 }: ReferenceCreateDialogProps): ReactNode {
   const { Modal } = usePrimitives();
   const t = useTranslation();
-  const initial = useMemo(() => buildInitialValues(entity.fields) as FormValues, [entity.fields]);
+  const initial = useMemo(
+    () => buildInitialValues(entity.fields, entity.defaultCurrency ?? "EUR") as FormValues,
+    [entity.fields, entity.defaultCurrency],
+  );
   const writeCommand = entityWriteCommand(featureName, screen.entity);
   const handleSubmitted = (result: SubmitResult<unknown>): void => {
     if (result.validationBlocked || !result.isSuccess) return;

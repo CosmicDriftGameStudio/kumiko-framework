@@ -14,9 +14,14 @@
 // Klick — also 100 cents bei EUR/USD, 1 yen bei JPY). User der nur
 // Cent-genaue Steps will tippt halt im Focus-Modus.
 
+import { currencyDecimals } from "@cosmicdrift/kumiko-headless";
 import { Minus, Plus } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
+
+// Re-exported for backward compat — callers used to import this from here
+// before it moved to headless (shared with RenderField, kumiko-framework#1923).
+export { currencyDecimals };
 
 export type MoneyInputProps = {
   readonly id: string;
@@ -163,15 +168,6 @@ export function MoneyInput({
       </div>
     </div>
   );
-}
-
-// Currency-Decimal-Stellen — überdeckt die wichtigsten Welt-Währungen.
-// Default 2 wenn Code unbekannt.
-export function currencyDecimals(code: string): number {
-  if (code === "JPY" || code === "KRW" || code === "VND" || code === "ISK") return 0;
-  if (code === "BHD" || code === "JOD" || code === "KWD" || code === "OMR" || code === "TND")
-    return 3;
-  return 2;
 }
 
 function guessLocale(): string {
