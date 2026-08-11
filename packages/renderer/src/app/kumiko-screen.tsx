@@ -15,11 +15,7 @@ import type {
   ScreenDefinition,
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import {
-  evalFieldCondition,
-  isExtensionEditSection,
-  normalizeEditField,
-} from "@cosmicdrift/kumiko-framework/ui-types";
+import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
   FormSnapshot,
@@ -43,6 +39,8 @@ import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config
 import { useCustomScreenComponent } from "./custom-screens";
 import { useDashboardBody } from "./dashboard-body";
 import type { FeatureSchema } from "./feature-schema";
+import { buildFormSchema } from "./form-schema";
+import { layoutFieldNames } from "./layout-fields";
 import { useNav } from "./nav";
 import {
   synthesizeProjectionDetailEntity,
@@ -326,21 +324,6 @@ export function buildInitialValues(
   return out;
 }
 
-// Field names actually rendered by the screen's layout — a search-param
-// merge must not set fields the form never shows the user (#1708:
-// unrendered fields get no client-side validation and no chance to
-// review/correct the injected value).
-function layoutFieldNames(screen: EntityEditScreenDefinition): ReadonlySet<string> {
-  const names = new Set<string>();
-  for (const section of screen.layout.sections) {
-    if (isExtensionEditSection(section)) continue;
-    for (const spec of section.fields) {
-      names.add(normalizeEditField(spec).field);
-    }
-  }
-  return names;
-}
-
 export function mergeSearchParamsIntoInitial(
   fields: Readonly<Record<string, unknown>>,
   searchParams: Readonly<Record<string, string>>,
@@ -446,6 +429,7 @@ function EntityEditCreateBody({
       ) as FormValues,
     [entity.fields, nav.searchParams, screen],
   );
+  const formSchema = useMemo(() => buildFormSchema(entity, screen), [entity, screen]);
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "create");
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
   const handleSubmitted = useCallback(
@@ -460,6 +444,7 @@ function EntityEditCreateBody({
       entity={entity}
       featureName={schema.featureName}
       initial={initial}
+      schema={formSchema}
       writeCommand={writeCommand}
       onSubmit={handleSubmitted}
       onCancel={navigateToList}
@@ -572,6 +557,8 @@ function EntityEditUpdateForm({
     return out as FormValues;
   }, [entity.fields, record]);
 
+  const formSchema = useMemo(() => buildFormSchema(entity, screen), [entity, screen]);
+
   // Extension-Werte (z.B. customFields-jsonb) an extension-sections geben,
   // damit sie beim Edit den Bestand zeigen statt write-only zu sein.
   const extensionInitialValues = useMemo((): Readonly<Record<string, unknown>> | undefined => {
@@ -619,6 +606,7 @@ function EntityEditUpdateForm({
       // customFields-Bestand an die extension-section, damit sie beim Edit
       // die gespeicherten Werte zeigt (nicht write-only).
       extensionInitialValues={extensionInitialValues}
+      schema={formSchema}
       writeCommand={writeCommand}
       payloadMode="changes"
       buildPayload={buildPayload}
