@@ -143,19 +143,18 @@ describe("originMiddleware", () => {
 
   // The guard runs as /api/* middleware before routing, so a disallowed-origin
   // request is rejected for every state-changing method even without a route.
-  test.each([
-    "PUT",
-    "PATCH",
-    "DELETE",
-  ])("cookie transport + %s + disallowed origin → 403 (every state-changing method)", async (method) => {
-    const { app, token } = await buildApp();
-    const res = await app.request("/api/write", {
-      method,
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, Origin: DISALLOWED },
-    });
-    expect(res.status).toBe(403);
-    expect(await readErrorCode(res)).toBe("origin_not_allowed");
-  });
+  test.each(["PUT", "PATCH", "DELETE"])(
+    "cookie transport + %s + disallowed origin → 403 (every state-changing method)",
+    async (method) => {
+      const { app, token } = await buildApp();
+      const res = await app.request("/api/write", {
+        method,
+        headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, Origin: DISALLOWED },
+      });
+      expect(res.status).toBe(403);
+      expect(await readErrorCode(res)).toBe("origin_not_allowed");
+    },
+  );
 
   test("disallowed origin is blocked even as a simple text/plain request", async () => {
     // The real vector: a `text/plain` POST skips the CORS preflight and reaches

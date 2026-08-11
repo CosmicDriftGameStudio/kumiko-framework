@@ -634,14 +634,13 @@ describe("hasAccess", () => {
     { userRoles: [], requiredRoles: ["Admin"], expected: false },
     // Empty required-roles list denies everyone under default-deny.
     { userRoles: ["Admin"], requiredRoles: [], expected: false },
-  ])("user $userRoles vs required $requiredRoles → $expected", ({
-    userRoles,
-    requiredRoles,
-    expected,
-  }) => {
-    const user = createTestUser({ roles: userRoles });
-    expect(hasAccess(user, { roles: requiredRoles })).toBe(expected);
-  });
+  ])(
+    "user $userRoles vs required $requiredRoles → $expected",
+    ({ userRoles, requiredRoles, expected }) => {
+      const user = createTestUser({ roles: userRoles });
+      expect(hasAccess(user, { roles: requiredRoles })).toBe(expected);
+    },
+  );
 
   test("missing access rule denies access (default-deny)", () => {
     const user = createTestUser({ roles: ["Employee"] });

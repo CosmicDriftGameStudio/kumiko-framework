@@ -728,7 +728,7 @@ describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", 
       subscriptionAggregateId(admin.tenantId),
       admin.tenantId,
     );
-    const ciphertextBefore = (esEventsBefore[0]?.payload as { providerCustomerId?: string })
+    const ciphertextBefore = (esEventsBefore[0]!.payload as { providerCustomerId?: string })
       .providerCustomerId as string;
 
     // This is exactly what tenant-lifecycle's "subject-keys" pipeline stage

@@ -4,26 +4,19 @@ import { isValidIanaTimeZone } from "../iana";
 describe("isValidIanaTimeZone", () => {
   // Die 5 Zonen der geplanten CI-TZ-Matrix (timezones.md) müssen alle gültig
   // sein — sonst kann die Matrix sie nicht setzen.
-  test.each([
-    "UTC",
-    "Europe/Berlin",
-    "America/Los_Angeles",
-    "Asia/Tokyo",
-    "Pacific/Apia",
-  ])("akzeptiert kanonische Zone %s", (zone) => {
-    expect(isValidIanaTimeZone(zone)).toBe(true);
-  });
+  test.each(["UTC", "Europe/Berlin", "America/Los_Angeles", "Asia/Tokyo", "Pacific/Apia"])(
+    "akzeptiert kanonische Zone %s",
+    (zone) => {
+      expect(isValidIanaTimeZone(zone)).toBe(true);
+    },
+  );
 
-  test.each([
-    "",
-    "Mars/Phobos",
-    "europe/berlin",
-    "Europe/Berlin ",
-    "GMT+2",
-    "not-a-zone",
-  ])("lehnt ungültigen / nicht-kanonischen String %p ab", (value) => {
-    expect(isValidIanaTimeZone(value)).toBe(false);
-  });
+  test.each(["", "Mars/Phobos", "europe/berlin", "Europe/Berlin ", "GMT+2", "not-a-zone"])(
+    "lehnt ungültigen / nicht-kanonischen String %p ab",
+    (value) => {
+      expect(isValidIanaTimeZone(value)).toBe(false);
+    },
+  );
 
   // Intl.supportedValuesOf("timeZone") listet nur kanonische Namen — gültige
   // IANA-Aliase fehlen darin, obwohl Intl.DateTimeFormat/Temporal/ctx.tz.parse
