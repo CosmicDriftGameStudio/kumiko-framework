@@ -1,5 +1,47 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.188.0
+
+### Minor Changes
+
+- 2de7583: `FormController.validate()` accepts an optional `scope` field-name list. Scoped calls report only issues for fields in `scope`; root-level `.refine()` issues (path `(root)`) are always excluded from scoped runs and only surface on an unscoped `validate()`. Hidden-field filtering stays active in both modes.
+- aa39a95: Fix #1895: `RenderEdit` gains an optional `fields?: readonly string[]` prop to
+  render only a subset of the layout's fields. Section order, title, and
+  visibility still come from the layout — the caller only supplies a field-name
+  list, not a duplicated layout shape. A section whose filtered field list ends
+  up empty is dropped entirely rather than rendered empty.
+
+  Submit validation is scoped to the same set: `SubmitConfig.validateScope` (new
+  optional field on `@cosmicdrift/kumiko-headless`) restricts `submit()`'s
+  internal `validate()` call to the given field names, so a schema-required
+  field outside the `fields` filter can no longer block a submit the user has
+  no way to fix.
+
+  Both are additive and optional — without `fields`, existing `RenderEdit`
+  behavior is unchanged.
+
+### Patch Changes
+
+- b79e547: Fix #1923: money fields now round-trip correctly on the auto-wired
+  entityEdit path. Create previously sent a bare number against the server's
+  `{amount, currency}` schema, update rendered the rehydrated read value as
+  `NaN`, and a naive fix would have been 100x off for zero-decimal currencies
+  like JPY (minor vs. major units). `RenderField`'s money case now converts
+  between `MoneyInput`'s minor-unit widget contract and the major-unit
+  `{amount, currency}` payload/read shape via a shared `currencyDecimals`
+  (moved to `kumiko-headless`), and `EditFieldViewModel` carries the field's
+  resolved currency so the conversion has one source of truth.
+
+  Money fields declared on a `configEdit`/`actionForm` screen (not entityEdit)
+  still submit correctly: `ConfigEditBody`'s `customSubmit` unwraps the
+  `{amount, currency}` payload back to a bare number before dispatching
+  `config:write:set`, matching `ConfigKeyType`'s scalar-only contract.
+
+- Updated dependencies [e55c957]
+- Updated dependencies [a9b8343]
+- Updated dependencies [5ca5131]
+  - @cosmicdrift/kumiko-framework@0.188.0
+
 ## 0.187.0
 
 ### Minor Changes

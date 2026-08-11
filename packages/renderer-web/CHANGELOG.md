@@ -1,5 +1,60 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.188.0
+
+### Minor Changes
+
+- 0920a90: Fix: two parallel create sessions on the same wizard screen no longer collapse onto the same `draftKey` and silently overwrite each other (#1908). `RenderEdit` now mints a client-side `draftId` (UUID) on the first step change in create-mode and persists it via the new `DraftStorage` context (`@cosmicdrift/kumiko-renderer-web` supplies a `sessionStorage`-backed default, `createBrowserDraftStorage`). If no `draftId` survived (new tab, cleared storage), `RenderEdit` falls back to `form-draft:query:list` and either auto-adopts a single open draft or shows a picker for multiple. Edit-mode `draftKey` (`${screenId}:${entityId}`) is unchanged.
+- fbe3723: Fix #1887: `RenderEdit` gains a controlled mode for callers that embed it
+  directly (e.g. Solon), without going through an Extension section:
+
+  - `onChange?: (state: { values, changes, dirty, valid }) => void` fires on
+    every values-snapshot change. `changes` is the delta against the initial
+    values (same semantics as `payloadMode: "changes"`), so a caller never
+    overwrites unseen fields. `valid` is a dry-run `schema.safeParse`, so it
+    never paints field errors into the UI.
+  - `onControlsReady?: (controls: { patch, validate, getValues }) => void`
+    fires once after mount and hands the caller `patch(partial)` to set
+    values from outside without a remount, `validate()` to check without a
+    write (reports field errors on the field itself, not a summary banner),
+    and `getValues()`.
+
+  Both props are optional and additive — without them, existing `RenderEdit`
+  behavior is unchanged.
+
+- d1db0ae: `RenderEdit` renders wizard-mode screens (`layout.mode: "wizard"`) one section per step, with a progress indicator, Back/Next/Finish buttons, and per-step field validation instead of rendering all sections at once.
+
+### Patch Changes
+
+- f570e09: Widen the money column in embedded lists to fit the amount plus the stepper buttons.
+- b79e547: Fix #1923: money fields now round-trip correctly on the auto-wired
+  entityEdit path. Create previously sent a bare number against the server's
+  `{amount, currency}` schema, update rendered the rehydrated read value as
+  `NaN`, and a naive fix would have been 100x off for zero-decimal currencies
+  like JPY (minor vs. major units). `RenderField`'s money case now converts
+  between `MoneyInput`'s minor-unit widget contract and the major-unit
+  `{amount, currency}` payload/read shape via a shared `currencyDecimals`
+  (moved to `kumiko-headless`), and `EditFieldViewModel` carries the field's
+  resolved currency so the conversion has one source of truth.
+
+  Money fields declared on a `configEdit`/`actionForm` screen (not entityEdit)
+  still submit correctly: `ConfigEditBody`'s `customSubmit` unwraps the
+  `{amount, currency}` payload back to a bare number before dispatching
+  `config:write:set`, matching `ConfigKeyType`'s scalar-only contract.
+
+- Updated dependencies [0920a90]
+- Updated dependencies [a2d768f]
+- Updated dependencies [2de7583]
+- Updated dependencies [b79e547]
+- Updated dependencies [fbe3723]
+- Updated dependencies [04d2f7b]
+- Updated dependencies [aa39a95]
+- Updated dependencies [d1db0ae]
+- Updated dependencies [a9b8343]
+  - @cosmicdrift/kumiko-renderer@0.188.0
+  - @cosmicdrift/kumiko-headless@0.188.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.188.0
+
 ## 0.187.0
 
 ### Minor Changes
