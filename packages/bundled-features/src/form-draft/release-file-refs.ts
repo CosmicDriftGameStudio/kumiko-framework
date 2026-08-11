@@ -16,10 +16,12 @@ function isFileRefPointer(value: unknown): value is { readonly storageKey: strin
 function collectStorageKeys(value: unknown, keys: Set<string>): void {
   if (isFileRefPointer(value)) {
     keys.add(value.storageKey);
+    // skip: FileRef pointer is a leaf — nothing further to recurse into.
     return;
   }
   if (Array.isArray(value)) {
     for (const item of value) collectStorageKeys(item, keys);
+    // skip: array items are already visited recursively above.
     return;
   }
   if (typeof value === "object" && value !== null) {
