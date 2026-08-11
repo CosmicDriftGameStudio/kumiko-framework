@@ -28,6 +28,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     // Wizard step chrome (RenderEdit layout.mode="wizard").
     "kumiko.wizard.step": "Schritt {current} von {total}",
+    "kumiko.wizard.step-with-title": "Schritt {current} von {total} · {title}",
+
+    // StepBar widget (renderer-web) — screen-reader text for completed steps whose number is visually replaced by a checkmark.
+    "kumiko.widget.stepBar.done": "Erledigt",
 
     // Version — Update-Awareness-Banner (UpdateChecker).
     "kumiko.version.update-available": "Eine neue Version ist verfügbar.",
@@ -205,6 +209,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.finish": "Finish",
 
     "kumiko.wizard.step": "Step {current} of {total}",
+    "kumiko.wizard.step-with-title": "Step {current} of {total} · {title}",
+
+    "kumiko.widget.stepBar.done": "Done",
 
     "kumiko.version.update-available": "A new version is available.",
 

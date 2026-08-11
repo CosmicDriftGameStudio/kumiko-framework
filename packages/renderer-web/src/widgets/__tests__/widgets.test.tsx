@@ -9,6 +9,7 @@ import { SectionCard } from "../section-card";
 import { MiniStat, StatCard } from "../stat";
 import { EmptyState } from "../states";
 import { StatusBadge } from "../status-badge";
+import { StepBar } from "../step-bar";
 
 describe("StatusBadge", () => {
   test("rendert Label mit Tone-Klassen", () => {
@@ -52,6 +53,82 @@ describe("ProgressBar", () => {
     expect(fill.className).toContain("absolute");
     expect(fill.className).toContain("inset-y-0");
     expect(bar.className).toContain("relative");
+  });
+});
+
+describe("StepBar", () => {
+  test("rendert einen Step-Eintrag pro Label mit sichtbarem Titel", () => {
+    render(
+      <StepBar
+        steps={["Basics", "Industry", "Review"]}
+        currentIndex={0}
+        compactLabel="Step 1 of 3 · Basics"
+        testId="steps"
+      />,
+    );
+    expect(screen.getByTestId("steps-step-0").textContent).toContain("Basics");
+    expect(screen.getByTestId("steps-step-1").textContent).toContain("Industry");
+    expect(screen.getByTestId("steps-step-2").textContent).toContain("Review");
+  });
+
+  test("markiert nur den aktiven Schritt via aria-current", () => {
+    render(
+      <StepBar
+        steps={["Basics", "Industry", "Review"]}
+        currentIndex={1}
+        compactLabel="Step 2 of 3 · Industry"
+        testId="steps"
+      />,
+    );
+    expect(screen.getByTestId("steps-step-0").getAttribute("aria-current")).toBeNull();
+    expect(screen.getByTestId("steps-step-1").getAttribute("aria-current")).toBe("step");
+    expect(screen.getByTestId("steps-step-2").getAttribute("aria-current")).toBeNull();
+  });
+
+  test("erledigte Schritte zeigen ein Häkchen statt der Nummer, kommende ihre Nummer", () => {
+    render(
+      <StepBar
+        steps={["Basics", "Industry", "Review"]}
+        currentIndex={1}
+        compactLabel="Step 2 of 3 · Industry"
+        testId="steps"
+      />,
+    );
+    const done = screen.getByTestId("steps-step-0");
+    expect(done.querySelector("svg")).not.toBeNull();
+    expect(done.textContent).not.toContain("1");
+
+    const current = screen.getByTestId("steps-step-1");
+    expect(current.querySelector("svg")).toBeNull();
+    expect(current.textContent).toContain("2");
+
+    const upcoming = screen.getByTestId("steps-step-2");
+    expect(upcoming.querySelector("svg")).toBeNull();
+    expect(upcoming.textContent).toContain("3");
+  });
+
+  test("erledigte Schritte bleiben für Screenreader als erledigt erkennbar", () => {
+    render(
+      <StepBar
+        steps={["Basics", "Industry"]}
+        currentIndex={1}
+        compactLabel="Step 2 of 2 · Industry"
+        testId="steps"
+      />,
+    );
+    expect(screen.getByTestId("steps-step-0").textContent).toContain("Done");
+  });
+
+  test("rendert den compactLabel-Fallback für schmale Viewports", () => {
+    render(
+      <StepBar
+        steps={["Basics", "Industry"]}
+        currentIndex={0}
+        compactLabel="Step 1 of 2 · Basics"
+        compactTestId="steps-compact"
+      />,
+    );
+    expect(screen.getByTestId("steps-compact").textContent).toBe("Step 1 of 2 · Basics");
   });
 });
 

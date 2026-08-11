@@ -224,6 +224,7 @@ export {
   StatCard,
   StatusBadge,
   StatusBarChart,
+  StepBar,
   smoothPath,
   TextareaField,
   TextField,
