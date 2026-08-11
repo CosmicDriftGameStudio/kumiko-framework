@@ -16,6 +16,7 @@ export const FormDraftHandlers = {
 
 export const FormDraftQueries = {
   get: "form-draft:query:get",
+  list: "form-draft:query:list",
 } as const;
 
 // Any authenticated tenant user may save/discard/read their OWN draft — the
