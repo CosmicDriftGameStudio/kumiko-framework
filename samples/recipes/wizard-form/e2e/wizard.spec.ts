@@ -98,6 +98,51 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     }
   });
 
+  test("the progress bar keeps its own 8px height inside the wizard's padded chrome", async ({
+    page,
+  }) => {
+    // Regression for fw#1963/#1967: RenderEdit's wizard chrome pads every
+    // direct child of the form body (`[&>:not(section)]:py-3`, first-child
+    // `pt-6`) — with `box-sizing: border-box` that padding used to consume
+    // the progress bar's `h-2` entirely, rendering a ~36px bar instead of
+    // 8px. A jsdom unit test can't catch this (layout returns 0 there);
+    // only a real browser box model does.
+    await gotoWizard(page);
+    const progress = page.getByTestId("render-edit-wizard-progress");
+    const fill = progress.locator("> div");
+
+    await expect(progress).toHaveCSS("height", "8px");
+    await expect(fill).toHaveCSS("height", "8px");
+
+    // Step 1 of 3 → fill should be ~1/3 of the track width.
+    const step1Wrapper = await progress.boundingBox();
+    const step1Fill = await fill.boundingBox();
+    expect(step1Wrapper).not.toBeNull();
+    expect(step1Fill).not.toBeNull();
+    const step1Ratio = step1Fill!.width / step1Wrapper!.width;
+    expect(step1Ratio).toBeGreaterThan(0.3);
+    expect(step1Ratio).toBeLessThan(0.36);
+
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+
+    // Step 2 of 3 → fill should have grown to ~2/3 of the track width, and
+    // both wrapper and fill must still be exactly 8px tall.
+    await expect(progress).toHaveCSS("height", "8px");
+    await expect(fill).toHaveCSS("height", "8px");
+    const step2Wrapper = await progress.boundingBox();
+    const step2Fill = await fill.boundingBox();
+    expect(step2Wrapper).not.toBeNull();
+    expect(step2Fill).not.toBeNull();
+    const step2Ratio = step2Fill!.width / step2Wrapper!.width;
+    expect(step2Ratio).toBeGreaterThan(0.64);
+    expect(step2Ratio).toBeLessThan(0.7);
+  });
+
   test("an empty required field blocks Next and shows a field error", async ({ page }) => {
     await gotoWizard(page);
     // Fill category (also required) so the block is attributable to title
