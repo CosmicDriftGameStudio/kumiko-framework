@@ -71,3 +71,66 @@ describe("entityEdit wizard — presence validation on Next (fw#1910)", () => {
     expect(screen.queryByTestId("field-fullName-errors")).toBeNull();
   });
 });
+
+// fw#1966: the wizard chrome used to only show a "Step X of Y" counter —
+// no way to see what the remaining steps are called. The step bar renders
+// every section title up front and marks the current one.
+describe("entityEdit wizard — step bar (fw#1966)", () => {
+  test("shows every section title as a step entry", () => {
+    renderWizard();
+
+    expect(screen.getByTestId("render-edit-wizard-steps-step-0").textContent).toContain("Step 1");
+    expect(screen.getByTestId("render-edit-wizard-steps-step-1").textContent).toContain("Step 2");
+  });
+
+  test("marks the active step and moves the marker forward on Next", async () => {
+    const { container } = renderWizard();
+
+    expect(screen.getByTestId("render-edit-wizard-steps-step-0").getAttribute("aria-current")).toBe(
+      "step",
+    );
+    expect(
+      screen.getByTestId("render-edit-wizard-steps-step-1").getAttribute("aria-current"),
+    ).toBeNull();
+
+    const fullNameInput = container.querySelector("#kumiko-edit-fullName");
+    await userEvent.type(fullNameInput as Element, "Ada Lovelace");
+    await userEvent.click(screen.getByTestId("render-edit-wizard-next"));
+
+    expect(
+      screen.getByTestId("render-edit-wizard-steps-step-0").getAttribute("aria-current"),
+    ).toBeNull();
+    expect(screen.getByTestId("render-edit-wizard-steps-step-1").getAttribute("aria-current")).toBe(
+      "step",
+    );
+  });
+
+  test("a wizard with N sections renders N step entries", () => {
+    const threeStepScreen: EntityEditScreenDefinition = {
+      id: "profile-edit-3",
+      type: "entityEdit",
+      entity: "profile",
+      layout: {
+        mode: "wizard",
+        sections: [
+          { title: "Basics", fields: ["fullName"] },
+          { title: "Contact", fields: ["email"] },
+          { title: "Review", fields: [] },
+        ],
+      },
+    };
+    const threeStepSchema: FeatureSchema = {
+      featureName: "demo",
+      entities: { profile: profileEntity },
+      screens: [threeStepScreen],
+    };
+    const { container } = render(
+      <DispatcherProvider dispatcher={createMockDispatcher()}>
+        <KumikoScreen schema={threeStepSchema} qn="demo:screen:profile-edit-3" />
+      </DispatcherProvider>,
+    );
+
+    const steps = container.querySelectorAll('[data-testid^="render-edit-wizard-steps-step-"]');
+    expect(steps.length).toBe(3);
+  });
+});

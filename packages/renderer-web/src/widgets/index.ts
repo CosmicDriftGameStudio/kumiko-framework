@@ -56,5 +56,6 @@ export { SectionCard } from "./section-card";
 export { MiniStat, Sparkline, StatCard, type StatDelta, type StatTone } from "./stat";
 export { EmptyState, ErrorState, LoadingState } from "./states";
 export { STATUS_TONE_TEXT, StatusBadge, type StatusTone } from "./status-badge";
+export { StepBar } from "./step-bar";
 export { UploadZone, type UploadZoneProps } from "./upload-zone";
 export { useDraft } from "./use-draft";

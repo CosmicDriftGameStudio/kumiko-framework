@@ -362,7 +362,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const [extensionErrorKey, setExtensionErrorKey] = useState<string | null>(null);
   const { registry: extensionFormRegistry, runAll: runExtensionSubmits } =
     useExtensionFormHost(setExtensionDirty);
-  const { Button, Banner, Dialog, Form, Section, Grid, GridCell, Text, Progress } = usePrimitives();
+  const { Button, Banner, Dialog, Form, Section, Grid, GridCell, Text, Progress, StepBar } =
+    usePrimitives();
 
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
 
@@ -926,12 +927,40 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 testId="render-edit-wizard-progress"
               />
             )}
-            <Text variant="small" testId="render-edit-wizard-step-label">
-              {translate("kumiko.wizard.step", {
-                current: currentStep + 1,
-                total: lastStepIndex + 1,
-              })}
-            </Text>
+            {(() => {
+              const currentTitle = filteredSections[currentStep]?.title;
+              const compactLabel =
+                currentTitle !== undefined
+                  ? translate("kumiko.wizard.step-with-title", {
+                      current: currentStep + 1,
+                      total: lastStepIndex + 1,
+                      title: currentTitle,
+                    })
+                  : translate("kumiko.wizard.step", {
+                      current: currentStep + 1,
+                      total: lastStepIndex + 1,
+                    });
+              // No StepBar registered → keep the plain label RenderEdit
+              // always had (additive rollout, see CorePrimitives.StepBar).
+              if (StepBar === undefined) {
+                return (
+                  <Text variant="small" testId="render-edit-wizard-step-label">
+                    {compactLabel}
+                  </Text>
+                );
+              }
+              return (
+                <StepBar
+                  steps={filteredSections.map(
+                    (section, sectionIndex) => section.title ?? String(sectionIndex + 1),
+                  )}
+                  currentIndex={currentStep}
+                  compactLabel={compactLabel}
+                  testId="render-edit-wizard-steps"
+                  compactTestId="render-edit-wizard-step-label"
+                />
+              );
+            })()}
           </>
         )}
         {(isWizard ? filteredSections.filter((_, i) => i === currentStep) : filteredSections).map(

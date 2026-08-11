@@ -883,6 +883,21 @@ export type ProgressProps = {
   readonly testId?: string;
 };
 
+/** Wizard step overview — numbered chips, one per step label, with the
+ *  active step highlighted. Not clickable (step-jump validation is a
+ *  separate concern, kumiko-framework#1966). Implementations render a
+ *  narrow-viewport fallback showing `compactLabel` instead (caller
+ *  supplies it pre-translated, e.g. "Step 2 of 5 · Industry") — which of
+ *  the two is visible is a responsive layout choice owned by the
+ *  implementation, not this contract. */
+export type StepBarProps = {
+  readonly steps: readonly string[];
+  readonly currentIndex: number;
+  readonly compactLabel: string;
+  readonly testId?: string;
+  readonly compactTestId?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -912,6 +927,10 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly Progress?: ComponentType<ProgressProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly StepBar?: ComponentType<StepBarProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

@@ -178,6 +178,7 @@ export type {
   ProgressProps,
   RuntimeRenderer,
   SectionProps,
+  StepBarProps,
   TextProps,
 } from "./primitives";
 export { PrimitivesProvider, usePrimitives } from "./primitives";
