@@ -42,17 +42,21 @@ function validateNoWidgetRequiredField(
   fieldSpec: Exclude<EditFieldSpec, string>,
 ): void {
   const fieldDef = entityDef.fields[fieldSpec.field];
+  // skip: field doesn't exist or its type already has a widget — nothing to validate.
   if (fieldDef === undefined || !NO_WIDGET_FIELD_TYPES.has(fieldDef.type)) return;
   // Embedded LIST fields (`multiple: true`) get their own EmbeddedListField
   // grid widget (#1838) — only plain (non-list) embedded has no widget.
   const isEmbeddedList =
     fieldDef.type === "embedded" &&
     (fieldDef as unknown as { multiple?: boolean }).multiple === true;
+  // skip: list variant has a widget — not the no-widget case this guard targets.
   if (isEmbeddedList) return;
+  // skip: already read-only by spec — no fillable widget needed regardless of type.
   if (fieldSpec.readOnly === true) return;
   const entityRequired = "required" in fieldDef && fieldDef.required === true;
   const isStaticallyRequired =
     fieldSpec.required === undefined ? entityRequired : fieldSpec.required === true;
+  // skip: not required — a read-only widget-less field is fine to leave empty.
   if (!isStaticallyRequired) return;
   throw new Error(
     `[Feature ${featureName}] Screen "${screenId}" (entityEdit) field "${fieldSpec.field}" is ` +
