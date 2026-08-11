@@ -35,9 +35,14 @@ export const invitationsQuery = defineQueryHandler({
         typeof email === "string"
           ? await decryptStoredPii(email, "email", "tenant:invitations")
           : email;
-      // invitedBy is a plain userId (invitation-table.ts: no `pii: true`) —
-      // never encrypted at write time, so it needs no decrypt (#1252).
-      return { ...row, email: decryptedEmail };
+      const invitedBy = row["invitedBy"];
+      // `userOwned` alone marks a field as a PII subject field, so invitedBy
+      // is encrypted at write time even without `pii: true`.
+      const decryptedInvitedBy =
+        typeof invitedBy === "string"
+          ? await decryptStoredPii(invitedBy, "invitedBy", "tenant:invitations")
+          : invitedBy;
+      return { ...row, email: decryptedEmail, invitedBy: decryptedInvitedBy };
     });
   },
 });
