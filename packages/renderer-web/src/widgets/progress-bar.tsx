@@ -19,9 +19,12 @@ export function ProgressBar({
       aria-valuenow={Math.round(pct * 100)}
       aria-valuemin={0}
       aria-valuemax={100}
-      className={cn("h-2 w-full overflow-hidden rounded-full bg-muted", className)}
+      className={cn("relative h-2 w-full overflow-hidden rounded-full bg-muted", className)}
     >
-      <div className="h-full rounded-full bg-primary" style={{ width: `${pct * 100}%` }} />
+      <div
+        className="absolute inset-y-0 left-0 rounded-full bg-primary"
+        style={{ width: `${pct * 100}%` }}
+      />
     </div>
   );
 }
