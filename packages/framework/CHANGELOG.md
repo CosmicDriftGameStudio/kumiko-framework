@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.188.0
+
+### Patch Changes
+
+- e55c957: Raise the hono peer range to ^4.13.1 so consumers no longer resolve 4.12.x builds affected by the JSX context-isolation, memo() and cx() advisories.
+- a9b8343: Wizard-mode `entityEdit`/`actionForm` screens with `layout.draft: true` now persist and resume in-progress state through the bundled `form-draft` feature: `RenderEdit` saves the current values + step on every Next/Back, restores them on mount (unless the user already started typing), and discards the draft after a successful submit. actionForm screens pick this up automatically since they render through the same wizard shim as entityEdit. The boot-validator now fails loud when a screen sets `draft: true` without `mode: "wizard"`, or when `form-draft` isn't mounted.
+- 5ca5131: The auto-wired `entityEdit` path now passes `RenderEdit` a presence schema that checks every rendered required field has a value. Wizard step navigation blocks on empty required fields instead of silently advancing. Format, range, and type validation stay server-side, since the client form state and the server payload shape differ per field type.
+- Updated dependencies [e55c957]
+  - @cosmicdrift/kumiko-types@0.188.0
+
 ## 0.187.0
 
 ### Patch Changes

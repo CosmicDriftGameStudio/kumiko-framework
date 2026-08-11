@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-types
 
+## 0.188.0
+
+### Patch Changes
+
+- e55c957: Raise the hono peer range to ^4.13.1 so consumers no longer resolve 4.12.x builds affected by the JSX context-isolation, memo() and cx() advisories.
+
 ## 0.187.0
 
 ## 0.186.3

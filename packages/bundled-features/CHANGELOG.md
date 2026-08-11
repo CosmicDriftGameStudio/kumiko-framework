@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.188.0
+
+### Minor Changes
+
+- f12b1b8: Add `form-draft` bundled feature: save/resume in-progress multi-step form state (`save`/`discard`/`get`), scoped per tenant + user, with a `form-draft-user-data` companion feature for GDPR export/erasure coverage.
+- 6ea31c7: `form-draft` gets a new query handler, `form-draft:query:list`, returning a user's open drafts for a given `screenId` (id, draftKey, stepIndex, savedAt — never the blob's `values`). Fallback path for wizard-mode resume when a client-generated `draftId` is lost (new tab, cleared storage, another device).
+- 9f2e2e5: `form-draft` now hard-deletes drafts past a configurable retention window via a daily cron job (`form-draft:job:cleanup`, config key `form-draft:config:retention-days`, SystemAdmin-writable, default 30 days). System-scoped rather than per-tenant: draft rows are ephemeral pre-submit scratch state, not a compliance policy that varies by tenant.
+
+### Patch Changes
+
+- Updated dependencies [0920a90]
+- Updated dependencies [f570e09]
+- Updated dependencies [a2d768f]
+- Updated dependencies [2de7583]
+- Updated dependencies [b79e547]
+- Updated dependencies [fbe3723]
+- Updated dependencies [04d2f7b]
+- Updated dependencies [aa39a95]
+- Updated dependencies [e55c957]
+- Updated dependencies [d1db0ae]
+- Updated dependencies [a9b8343]
+- Updated dependencies [5ca5131]
+  - @cosmicdrift/kumiko-renderer@0.188.0
+  - @cosmicdrift/kumiko-renderer-web@0.188.0
+  - @cosmicdrift/kumiko-headless@0.188.0
+  - @cosmicdrift/kumiko-types@0.188.0
+  - @cosmicdrift/kumiko-framework@0.188.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.188.0
+
 ## 0.187.0
 
 ### Patch Changes
