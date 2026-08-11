@@ -6,6 +6,8 @@
 //     never leaking the other owner's row
 //   - discard only ever removes the caller's own row
 //   - stepIndex + savedAt round-trip through the blob shape fixed by #1889
+//   - list resolves a user's open drafts for a screenId (draftKey prefix
+//     match), never another user's/tenant's rows and never the blob values
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -21,6 +23,7 @@ import { FormDraftHandlers, FormDraftQueries } from "../constants";
 import { formDraftEntity } from "../entity";
 import { formDraftFeature } from "../feature";
 import type { GetDraftResult } from "../handlers/get.query";
+import type { ListDraftsResult } from "../handlers/list.query";
 
 let stack: TestStack;
 
@@ -63,6 +66,10 @@ async function getDraft(draftKey: string, user = owner): Promise<GetDraftResult>
 
 async function discardDraft(draftKey: string, user = owner): Promise<unknown> {
   return stack.http.writeOk(FormDraftHandlers.discard, { draftKey }, user);
+}
+
+async function listDrafts(screenId: string, user = owner): Promise<ListDraftsResult> {
+  return stack.http.queryOk<ListDraftsResult>(FormDraftQueries.list, { screenId }, user);
 }
 
 describe("form-draft integration — save + get", () => {
@@ -171,5 +178,55 @@ describe("form-draft integration — ownership isolation", () => {
     expect((await getDraft("wizard:tenant-scoped", owner)).draft?.values).toEqual({
       secret: "tenant A",
     });
+  });
+});
+
+describe("form-draft integration — list", () => {
+  test("list returns open drafts for a screenId, newest first, without the blob's values", async () => {
+    await saveDraft("wizard:a", { name: "First" }, 0);
+    await saveDraft("wizard:b", { name: "Second" }, 1);
+
+    const { drafts } = await listDrafts("wizard");
+    expect(drafts.map((d) => d.draftKey)).toEqual(["wizard:b", "wizard:a"]);
+    expect(drafts[0]?.stepIndex).toBe(1);
+    expect(drafts[0]?.savedAt).toBeTruthy();
+    expect(drafts[0]).not.toHaveProperty("values");
+  });
+
+  test("list excludes a draft whose screenId is only a prefix, not a full segment match", async () => {
+    await saveDraft("wizard:a", {}, 0);
+    await saveDraft("wizardry:x", {}, 0);
+
+    const { drafts } = await listDrafts("wizard");
+    expect(drafts.map((d) => d.draftKey)).toEqual(["wizard:a"]);
+  });
+
+  test("a screenId containing LIKE metacharacters is matched literally, not as a wildcard", async () => {
+    await saveDraft("scr%en:a", {}, 0);
+    await saveDraft("wizard:a", {}, 0);
+
+    const { drafts } = await listDrafts("scr%en");
+    expect(drafts.map((d) => d.draftKey)).toEqual(["scr%en:a"]);
+  });
+
+  test("list resolves an empty array when nothing was ever saved for the screenId", async () => {
+    expect((await listDrafts("no-such-screen")).drafts).toEqual([]);
+  });
+
+  test("list excludes another user's drafts for the same screenId", async () => {
+    await saveDraft("wizard:mine", { secret: "only mine" }, 0, owner);
+    await saveDraft("wizard:theirs", { secret: "not mine" }, 0, otherUser);
+
+    expect((await listDrafts("wizard", owner)).drafts.map((d) => d.draftKey)).toEqual([
+      "wizard:mine",
+    ]);
+    expect((await listDrafts("wizard", otherUser)).drafts.map((d) => d.draftKey)).toEqual([
+      "wizard:theirs",
+    ]);
+  });
+
+  test("list excludes another tenant's drafts, even with the same user id", async () => {
+    await saveDraft("wizard:tenant-a", { secret: "tenant A" }, 0, owner);
+    expect((await listDrafts("wizard", otherTenant)).drafts).toEqual([]);
   });
 });

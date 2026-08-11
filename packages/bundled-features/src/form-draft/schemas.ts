@@ -31,3 +31,10 @@ export const getDraftPayloadSchema = z.object({
   draftKey: draftKeySchema,
 });
 export type GetDraftPayload = z.infer<typeof getDraftPayloadSchema>;
+
+// screenId is the draftKey's leading segment by convention (see lookup.ts),
+// so it shares the same charset/length constraints as a full draftKey.
+export const listDraftsPayloadSchema = z.object({
+  screenId: draftKeySchema,
+});
+export type ListDraftsPayload = z.infer<typeof listDraftsPayloadSchema>;
