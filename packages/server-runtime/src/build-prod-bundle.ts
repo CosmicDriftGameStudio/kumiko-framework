@@ -92,11 +92,13 @@ export type BuildInfo = {
 // Hat keine Asset-Placeholder, weil der Default-Pfad für vanilla apps
 // (nur public/) gedacht ist — wer JS/CSS will, schreibt ein eigenes
 // index.html mit den richtigen Placeholder-Tags.
+// interactive-widget=resizes-content (fw#1918): keeps `position: fixed`
+// bottom bars anchored above a mobile keyboard instead of behind it.
 const DEFAULT_HTML = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,interactive-widget=resizes-content" />
     <title>Kumiko</title>
   </head>
   <body>

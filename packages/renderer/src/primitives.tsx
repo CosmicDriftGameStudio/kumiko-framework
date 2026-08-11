@@ -667,18 +667,14 @@ export type EmbeddedListInputProps = {
 
 export type { FormWidth };
 
-/** Submit-Wrapper. Web: `<form onSubmit>`, Native: View das einen
- *  onSubmit-Callback via Button-Press triggert. `onSubmit` bekommt
- *  eine abstrakte Signatur (keine FormEvent) damit Native-Impls das
- *  sinnvoll füllen können.
+/** Submit wrapper. Web: `<form onSubmit>`, native: a View that triggers an
+ *  onSubmit callback via button press. `onSubmit` gets an abstract
+ *  signature (no FormEvent) so native impls can fill it meaningfully.
  *
- *  `title`: linker Slot der sticky-top Bar — typisch der Screen-Titel
- *  ("Neuer Eintrag", "Bestellung bearbeiten"). Wenn gesetzt, rendert
- *  die Bar mit `justify-between` (Title links, Actions rechts).
- *  `actions`: optionaler Slot für die primären Form-Aktionen (Save,
- *  Cancel). Web rendert die Bar sticky-top, damit der Save-Button
- *  bei langen Forms beim Scrollen erreichbar bleibt. Native-Impls
- *  dürfen denselben Slot z. B. als Bottom-Bar rendern. */
+ *  `title`: slot in the card header. `actions`: optional slot for the
+ *  primary form actions (Save, Cancel) — renders as a footer row at the
+ *  end of the card (normal document flow). Native impls may render the
+ *  same slot as a bottom bar instead. */
 export type FormProps = {
   readonly onSubmit: (e?: FormEvent) => void;
   readonly children: ReactNode;
@@ -692,6 +688,12 @@ export type FormProps = {
    *  (`packages/types/src/screen.ts`, EditLayout.width, #1676). Native
    *  impls may ignore this prop (no width constraint there). */
   readonly width?: FormWidth;
+  /** Pins `actions` to the viewport bottom on narrow screens (`<640px`)
+   *  instead of normal document flow, so it stays reachable when a virtual
+   *  keyboard shrinks the visible viewport (fw#1918). Desktop/tablet
+   *  unaffected. Native impls may ignore this prop (already bottom-bar by
+   *  convention there). */
+  readonly stickyActions?: boolean;
 };
 
 /** Titled Gruppe von Feldern. Web: `<fieldset>` + `<legend>`, Native:

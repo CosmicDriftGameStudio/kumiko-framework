@@ -1040,6 +1040,29 @@ describe("Form", () => {
     );
     expect(screen.queryByTestId("form-actions")).toBeNull();
   });
+
+  test("stickyActions: Footer bekommt mobile-fixed-Klassen (fw#1918)", () => {
+    render(
+      <Form
+        onSubmit={() => undefined}
+        actions={<button type="submit">Next</button>}
+        testId="form"
+        stickyActions
+      >
+        <div>content</div>
+      </Form>,
+    );
+    expect(screen.getByTestId("form-actions").className).toContain("max-sm:fixed");
+  });
+
+  test("ohne stickyActions: Footer bleibt im normalen Dokumentfluss", () => {
+    render(
+      <Form onSubmit={() => undefined} actions={<button type="submit">Save</button>} testId="form">
+        <div>content</div>
+      </Form>,
+    );
+    expect(screen.getByTestId("form-actions").className).not.toContain("max-sm:fixed");
+  });
 });
 
 describe("Banner padded", () => {
