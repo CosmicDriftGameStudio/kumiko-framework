@@ -39,3 +39,30 @@ export function shouldNotifyCaller(
 ): boolean {
   return !(result.isSuccess && !extensionsPersisted);
 }
+
+// Restricts rendered sections to the caller's `fields` filter, keeping
+// section order/title/visibility from the layout unchanged. A `fields`
+// section whose filtered field list is empty is dropped entirely — an empty
+// section container would read as a broken layout, not "nothing to show
+// here". Extension sections are never filtered — they carry their own field
+// set, unrelated to the `field`-name filter. `fieldsFilter === undefined`
+// (no prop passed) returns the same array reference, so callers that skip
+// the prop keep unchanged render behavior.
+export function filterEditSections(
+  sections: readonly EditSectionViewModel[],
+  fieldsFilter: readonly string[] | undefined,
+): readonly EditSectionViewModel[] {
+  if (fieldsFilter === undefined) return sections;
+  const filterSet = new Set(fieldsFilter);
+  const result: EditSectionViewModel[] = [];
+  for (const section of sections) {
+    if (section.kind === "extension") {
+      result.push(section);
+      continue;
+    }
+    const fields = section.fields.filter((f) => filterSet.has(f.field));
+    if (fields.length === 0) continue;
+    result.push({ ...section, fields });
+  }
+  return result;
+}

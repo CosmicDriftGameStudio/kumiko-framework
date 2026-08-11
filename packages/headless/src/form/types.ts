@@ -263,6 +263,12 @@ export type SubmitConfig<TValues extends FormValues = FormValues> = {
   // That's intentional: a caller choosing to write a transformer is
   // making an explicit statement about payload shape.
   readonly buildPayload?: (snapshot: FormSnapshot<TValues>) => unknown;
+  /** Restricts submit()'s internal validate() call to these field names —
+   *  same contract as validate()'s `scope` param. Set by RenderEdit when the
+   *  caller's `fields` prop narrows which fields are rendered, so an
+   *  unrendered required field can't block a submit the user can't fix.
+   *  Omitted = unscoped (existing behavior, validates everything). */
+  readonly validateScope?: readonly string[];
 };
 
 // What submit() returns. Mirrors WriteResult so a failed submit can

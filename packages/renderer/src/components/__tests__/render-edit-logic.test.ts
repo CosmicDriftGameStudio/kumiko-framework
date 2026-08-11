@@ -6,6 +6,7 @@ import type {
   SubmitResult,
 } from "@cosmicdrift/kumiko-headless";
 import {
+  filterEditSections,
   hasEditableSection,
   resolveExtensionEntityId,
   shouldNotifyCaller,
@@ -175,5 +176,52 @@ describe("hasEditableSection", () => {
       ],
     };
     expect(hasEditableSection([section])).toBe(false);
+  });
+});
+
+const namedField = (name: string): EditFieldViewModel => ({
+  field: name,
+  label: name,
+  type: "text",
+  value: "",
+  visible: true,
+  readOnly: false,
+  required: false,
+});
+const namedFieldsSection = (...names: string[]): EditSectionViewModel => ({
+  kind: "fields",
+  columns: 1,
+  visible: true,
+  fields: names.map(namedField),
+});
+
+describe("filterEditSections", () => {
+  test("fieldsFilter undefined → returns the same array reference (unchanged behavior)", () => {
+    const sections = [namedFieldsSection("a", "b")];
+    expect(filterEditSections(sections, undefined)).toBe(sections);
+  });
+
+  test("mixed section → only the filtered-in fields remain in section.fields", () => {
+    const sections = [namedFieldsSection("a", "b", "c")];
+    const result = filterEditSections(sections, ["a", "c"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.kind).toBe("fields");
+    expect(result[0]?.kind === "fields" ? result[0].fields.map((f) => f.field) : []).toEqual([
+      "a",
+      "c",
+    ]);
+  });
+
+  test("section whose filtered field list becomes empty is dropped entirely, not rendered empty", () => {
+    const sections = [namedFieldsSection("a", "b"), namedFieldsSection("c")];
+    const result = filterEditSections(sections, ["c"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.kind === "fields" ? result[0].fields.map((f) => f.field) : []).toEqual(["c"]);
+  });
+
+  test("extension section always survives the filter regardless of its content", () => {
+    const sections = [extensionSection, namedFieldsSection("a")];
+    const result = filterEditSections(sections, ["zzz"]);
+    expect(result).toEqual([extensionSection]);
   });
 });
