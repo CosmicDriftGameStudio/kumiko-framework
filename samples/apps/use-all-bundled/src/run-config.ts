@@ -38,6 +38,7 @@ import type { NotificationRenderer } from "@cosmicdrift/kumiko-bundled-features/
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { documentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
 import { createFeatureTogglesFeature } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
+import { fileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
 import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
 import { fileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
@@ -165,6 +166,10 @@ export const APP_FEATURES = [
   fileProviderS3Feature,
   fileProviderS3EnvFeature,
   createFilesFeature(),
+  // file-derivatives: no renderer feature exists yet (Schnitt 2) — mounted
+  // boot-only so `ctx.derivatives` is wired; `variant(...)` would throw if
+  // called (no derivativeRenderer registered), but nothing here calls it.
+  fileDerivativesFeature,
 
   // billing + providers
   billingFoundationFeature,

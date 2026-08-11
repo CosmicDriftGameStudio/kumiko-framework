@@ -194,6 +194,10 @@
       "types": "./src/file-provider-resolver-types.ts",
       "default": "./src/file-provider-resolver-types.ts"
     },
+    "./derivatives-types": {
+      "types": "./src/derivatives-types.ts",
+      "default": "./src/derivatives-types.ts"
+    },
     "./event-store-executor-types": {
       "types": "./src/event-store-executor-types.ts",
       "default": "./src/event-store-executor-types.ts"

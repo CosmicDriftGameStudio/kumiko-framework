@@ -4,6 +4,7 @@ import type { DbConnection, DbRunner, DbTx } from "../db/connection";
 import { runInSavepoint, selectMany } from "../db/query";
 import type { buildEntityTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
+import { createDerivativesContext } from "../derivatives/derivatives-context";
 import type { defineTransitions } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
 import type {
@@ -209,6 +210,14 @@ export async function buildHandlerContext(
   // to a statically-injected context.files (tests).
   const fileResolver = context._fileProviderResolver;
   const files = fileResolver ? createFileContext(() => fileResolver(user.tenantId)) : context.files;
+  // ctx.derivatives builds on ctx.files (needs a FileContext to read the
+  // original + write the variant) plus db (to look up the FileRef row) — so
+  // it can only be constructed exactly when files+db both resolved; falls
+  // back to a statically-injected context.derivatives otherwise (tests).
+  const derivatives =
+    files && db
+      ? createDerivativesContext({ files, registry, db, tenantId: user.tenantId })
+      : context.derivatives;
 
   // Observability — feature-bound metrics handle, so ctx.metrics.inc("foo")
   // resolves to kumiko_<feature>_foo. Unknown feature falls back to noop
@@ -565,6 +574,7 @@ export async function buildHandlerContext(
     notify,
     ...(config && { config }),
     ...(files && { files }),
+    ...(derivatives && { derivatives }),
     // preSave hooks need `changes`/`previous`/`isNew`, which only exist once
     // a handler actually starts building its write — bound here so entity
     // CRUD handlers (entity-handlers.ts) can forward it to the executor

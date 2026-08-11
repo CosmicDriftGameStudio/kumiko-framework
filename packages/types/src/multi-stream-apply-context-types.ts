@@ -1,3 +1,4 @@
+import type { DerivativesContext } from "./derivatives-types";
 import type { StoredEvent } from "./event-store-types";
 import type { KumikoEventTypeMap } from "./event-type-map";
 import type { FileContext } from "./file-handle-types";
@@ -35,4 +36,7 @@ export type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = 
   // `ctx.files.ref(payload.storageKey).read()` and write derivates via
   // `.derive("thumb").write(...)` — binaries never ride through events.
   readonly files?: FileContext;
+  // Derive-on-first-use variants, mirrors AppContext.derivatives. Present
+  // exactly when `files` is — same file-foundation-provider precondition.
+  readonly derivatives?: DerivativesContext;
 };

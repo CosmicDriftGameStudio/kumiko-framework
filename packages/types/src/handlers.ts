@@ -2,6 +2,7 @@ import type { Redis } from "ioredis";
 import type { ZodType } from "zod";
 import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./config";
 import type { DbConnection } from "./db-connection";
+import type { DerivativesContext } from "./derivatives-types";
 import type { EntityCache } from "./entity-cache";
 import type { KumikoEventTypeMap } from "./event-type-map";
 import type { FileContext } from "./file-handle-types";
@@ -239,6 +240,9 @@ type SharedContextFields = {
   // GDPR jobs all resolve through the same file-foundation provider. Hooks/
   // handlers use ctx.files.ref(key) instead of receiving binaries in payloads.
   readonly files?: FileContext;
+  // Derive-on-first-use variants (thumbnails, resized/reformatted images) of a
+  // tracked FileRef. Present whenever `files` resolves — see files above.
+  readonly derivatives?: DerivativesContext;
   // Boot-built, per-tenant file-provider resolver. Set by buildServer when a
   // `file-provider-*` plugin is mounted; the dispatcher reads it to materialise
   // ctx.files (and the upload routes + MSP-applies use the same resolver).

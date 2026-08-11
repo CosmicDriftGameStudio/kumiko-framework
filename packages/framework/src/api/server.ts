@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
+import { createDerivativesContext } from "../derivatives/derivatives-context";
 import { EXT_FILE_PROVIDER } from "../engine/extension-names";
 import { runsInLane } from "../engine/run-in";
 import { createAnonymousUser } from "../engine/system-user";
@@ -507,14 +508,23 @@ export function buildServer(options: ServerOptions): KumikoServer {
       // prefix before the first ":" owns the MSP. Used to reject
       // cross-feature ctx.appendEvent calls at emit-site.
       const mspOwner = msp.name.split(":")[0];
+      const mspFiles = fileProviderResolver
+        ? createFileContext(() => fileProviderResolver(event.tenantId))
+        : undefined;
       const applyCtx = createMultiStreamApplyContext({
         registry: options.registry,
         db: rawRunner,
         tenantId: event.tenantId,
         userId: event.metadata.userId,
         ...(mspOwner && { callerFeature: mspOwner }),
-        ...(fileProviderResolver && {
-          files: createFileContext(() => fileProviderResolver(event.tenantId)),
+        ...(mspFiles && { files: mspFiles }),
+        ...(mspFiles && {
+          derivatives: createDerivativesContext({
+            files: mspFiles,
+            registry: options.registry,
+            db: rawRunner,
+            tenantId: event.tenantId,
+          }),
         }),
       });
       await applyFn(event, rawRunner, applyCtx);

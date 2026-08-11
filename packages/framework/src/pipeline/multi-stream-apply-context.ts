@@ -1,3 +1,4 @@
+import type { DerivativesContext } from "@cosmicdrift/kumiko-types/derivatives-types";
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
 import type { DbRunner } from "../db/connection";
 import type { AppendEventArgs, AppendEventFn, Registry, TenantId } from "../engine/types";
@@ -29,6 +30,8 @@ export type MultiStreamApplyContextDeps = {
   // Same FileContext the outer AppContext carries, passed through so
   // MSP applies can reach binaries without another wiring indirection.
   readonly files?: FileContext;
+  // Same DerivativesContext the outer AppContext carries — mirrors `files`.
+  readonly derivatives?: DerivativesContext;
 };
 
 export function createMultiStreamApplyContext(
@@ -36,6 +39,7 @@ export function createMultiStreamApplyContext(
 ): MultiStreamApplyContext {
   return {
     ...(deps.files ? { files: deps.files } : {}),
+    ...(deps.derivatives ? { derivatives: deps.derivatives } : {}),
     appendEvent: (async (args: AppendEventArgs) => {
       await appendDomainEventCore(
         {

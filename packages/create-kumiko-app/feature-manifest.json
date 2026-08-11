@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 64,
+  "featureCount": 65,
   "features": [
     {
       "name": "admin-shell",
@@ -595,6 +595,27 @@
       "uiHints": {
         "displayLabel": "Feature Toggles · Operator Switches",
         "category": "operations",
+        "recommended": false
+      }
+    },
+    {
+      "name": "file-derivatives",
+      "description": "Declares the `derivativeRenderer` extension point. `ctx.derivatives.variant(fileRefId, spec, name)` derives a variant of a tracked FileRef the first time it's requested and reuses the stored result afterwards (derive-on-first-use, keyed by a hash of the spec). Mount at least one `derivatives-*` renderer feature alongside this one — without a registered renderer for the FileRef's MIME type, every `variant(...)` call throws.",
+      "toggleableDefault": null,
+      "requires": [
+        "file-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "File Derivatives",
+        "category": "storage",
         "recommended": false
       }
     },

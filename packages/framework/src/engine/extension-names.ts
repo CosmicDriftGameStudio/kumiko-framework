@@ -88,6 +88,23 @@ export const EXT_FILE_PROVIDER = "fileProvider" as const;
 export const FILE_PROVIDER_CONFIG_KEY = "file-foundation:config:provider" as const;
 
 /**
+ * `derivativeRenderer` — File-Derivative-Renderer-Plugin-Selection
+ * (file-derivatives).
+ *
+ * Renderer-Features (a future `derivatives-*` feature) register via
+ * `r.useExtension(EXT_DERIVATIVE_RENDERER, "<mimePattern>", { render })`,
+ * where `<mimePattern>` is an exact MIME type (`application/pdf`) or a
+ * type-wildcard (`image/*`). `ctx.derivatives.variant(...)` resolves the
+ * renderer for a FileRef's MIME type at call time — exact match first,
+ * wildcard second.
+ *
+ * No `r.extensionSelector` and no config key: unlike `fileProvider`, the
+ * resolution is deterministic from the MIME type — no tenant ever picks a
+ * different image library for the same content type.
+ */
+export const EXT_DERIVATIVE_RENDERER = "derivativeRenderer" as const;
+
+/**
  * `searchAdapter` — Search-Adapter-Forget-Hooks (Meilisearch-Index-Cleanup
  * bei User-Forget oder Tenant-Destroy).
  *

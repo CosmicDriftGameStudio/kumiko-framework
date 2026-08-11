@@ -1,0 +1,146 @@
+import type {
+  DerivativeRendererPlugin,
+  DerivativesContext,
+  VariantSpec,
+} from "@cosmicdrift/kumiko-types/derivatives-types";
+import { type AnyDb, fetchOne } from "../bun-db/query";
+import { EXT_DERIVATIVE_RENDERER } from "../engine/extension-names";
+import type { Registry, TenantId } from "../engine/types";
+import type { FileContext } from "../files/file-handle";
+import { fileRefsTable } from "../files/file-ref-table";
+import { assertSafeStorageKey } from "../files/types";
+import { variantSuffix } from "./variant-key";
+
+export type DerivativesContextDeps = {
+  readonly files: FileContext;
+  readonly registry: Registry;
+  readonly db: AnyDb;
+  readonly tenantId: TenantId;
+};
+
+// extension-usage `options` is engine-payload (unknown) — structurally validate
+// instead of casting blind, same pattern as isFileProviderPlugin.
+function isDerivativeRendererPlugin(o: unknown): o is DerivativeRendererPlugin {
+  return typeof o === "object" && o !== null && "render" in o && typeof o.render === "function";
+}
+
+// Mirrors validateFile's mime-normalization: strip a `; charset=…` suffix,
+// trim, lowercase — so a provider-supplied `image/jpeg; charset=binary`
+// still resolves.
+function normalizeMimeType(mimeType: string): string {
+  return mimeType.toLowerCase().split(";")[0]?.trim() ?? "";
+}
+
+export function resolveRenderer(
+  registry: Registry,
+  mimeType: string,
+): DerivativeRendererPlugin | undefined {
+  const normalized = normalizeMimeType(mimeType);
+  const usages = registry.getExtensionUsages(EXT_DERIVATIVE_RENDERER);
+
+  const exact = usages.find((u) => u.entityName === normalized);
+  if (exact) {
+    if (!isDerivativeRendererPlugin(exact.options))
+      throw new Error(
+        `derivatives.resolveRenderer: "${exact.entityName}" registered without a render(input, spec, sourceMimeType) — extension options must be a DerivativeRendererPlugin.`,
+      );
+    return exact.options;
+  }
+
+  const wildcard = usages.find((u) => u.entityName === `${normalized.split("/")[0]}/*`);
+  if (wildcard) {
+    if (!isDerivativeRendererPlugin(wildcard.options))
+      throw new Error(
+        `derivatives.resolveRenderer: "${wildcard.entityName}" registered without a render(input, spec, sourceMimeType) — extension options must be a DerivativeRendererPlugin.`,
+      );
+    return wildcard.options;
+  }
+
+  return undefined;
+}
+
+type FileRefRow = {
+  readonly storageKey: string;
+  readonly mimeType: string;
+};
+
+function isFileRefRow(row: Record<string, unknown>): row is FileRefRow {
+  return typeof row["storageKey"] === "string" && typeof row["mimeType"] === "string";
+}
+
+// The spec — not the renderer — determines the output mimeType, so it's the
+// single source of truth for both what gets written to storage and what the
+// caller receives; a cache hit never runs the renderer, so there's nothing
+// else to derive it from.
+function outputMimeType(spec: VariantSpec, sourceMimeType: string): string {
+  switch (spec.format) {
+    case "webp":
+      return "image/webp";
+    case "avif":
+      return "image/avif";
+    case "jpeg":
+      return "image/jpeg";
+    default:
+      return sourceMimeType;
+  }
+}
+
+export function createDerivativesContext(deps: DerivativesContextDeps): DerivativesContext {
+  return {
+    variant: async (fileRefId, spec, name) => {
+      const row = await fetchOne<Record<string, unknown>>(deps.db, fileRefsTable, {
+        id: fileRefId,
+        tenantId: deps.tenantId,
+        isDeleted: false,
+      });
+      if (!row) {
+        throw new Error(`derivatives.variant: no fileRef found for id "${fileRefId}"`);
+      }
+      if (!isFileRefRow(row)) {
+        throw new Error(
+          `derivatives.variant: fileRef "${fileRefId}" is missing storageKey/mimeType`,
+        );
+      }
+
+      const renderer = resolveRenderer(deps.registry, row.mimeType);
+      if (!renderer) {
+        const known =
+          deps.registry
+            .getExtensionUsages(EXT_DERIVATIVE_RENDERER)
+            .map((u) => u.entityName)
+            .join(", ") || "<none>";
+        throw new Error(
+          `derivatives.variant: no renderer registered for mimeType "${row.mimeType}". Known: ${known}.`,
+        );
+      }
+
+      const src = deps.files.ref(row.storageKey);
+      // ponytail: derived key keeps the source extension regardless of the
+      // spec's format — widen deriveKey if a storage backend ever routes on
+      // extension.
+      const target = src.derive(variantSuffix(name, spec));
+      // Belt-and-suspenders: variantSuffix already rejects an unsafe name,
+      // this catches a traversal segment reaching the key through any other
+      // path (e.g. a future deriveKey change).
+      assertSafeStorageKey(target.key);
+      const mimeType = outputMimeType(spec, row.mimeType);
+
+      if (await target.exists()) {
+        return {
+          storageKey: target.key,
+          mimeType,
+          rendered: false,
+        };
+      }
+
+      const original = await src.read();
+      const result = await renderer.render(original, spec, row.mimeType);
+      await target.write(result, mimeType);
+      return {
+        storageKey: target.key,
+        mimeType,
+        rendered: true,
+      };
+    },
+  };
+}
