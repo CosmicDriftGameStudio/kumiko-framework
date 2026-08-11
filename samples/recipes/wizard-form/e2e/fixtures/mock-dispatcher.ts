@@ -87,7 +87,7 @@ export function createMockDispatcher(): Dispatcher {
       const blob: FormDraftBlob = {
         values: (data["values"] ?? {}) as Record<string, unknown>,
         stepIndex: (data["stepIndex"] as number | undefined) ?? 0,
-        savedAt: new Date().toISOString(),
+        savedAt: Temporal.Now.instant().toString(),
       };
       localStorage.setItem(draftStorageKey(draftKey), JSON.stringify(blob));
       return { isSuccess: true, data: {} as unknown as TData };
