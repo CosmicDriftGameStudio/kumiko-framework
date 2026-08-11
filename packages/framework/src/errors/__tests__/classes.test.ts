@@ -106,6 +106,45 @@ describe("ValidationError", () => {
     expect(err.cause).toBe(result.error);
   });
 
+  test("custom issue with params.i18nKey overrides the mechanical errors.validation.custom key", () => {
+    const schema = z.object({ name: z.string() }).superRefine((values, ctx) => {
+      if (values.name === "") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["name"],
+          message: '"name" is required.',
+          params: { i18nKey: "kumiko.validation.required" },
+        });
+      }
+    });
+    const result = schema.safeParse({ name: "" });
+    if (result.success) throw new Error("zod did not reject");
+
+    const err = validationErrorFromZod(result.error);
+    const fields = (err.details as { fields: Array<Record<string, unknown>> }).fields;
+    expect(fields[0]).toMatchObject({
+      code: "custom",
+      i18nKey: "kumiko.validation.required",
+    });
+  });
+
+  test("custom issue without params.i18nKey still falls back to errors.validation.custom", () => {
+    const schema = z.object({ name: z.string() }).superRefine((values, ctx) => {
+      if (values.name === "bad") {
+        ctx.addIssue({ code: "custom", path: ["name"], message: "not allowed" });
+      }
+    });
+    const result = schema.safeParse({ name: "bad" });
+    if (result.success) throw new Error("zod did not reject");
+
+    const err = validationErrorFromZod(result.error);
+    const fields = (err.details as { fields: Array<Record<string, unknown>> }).fields;
+    expect(fields[0]).toMatchObject({
+      code: "custom",
+      i18nKey: "errors.validation.custom",
+    });
+  });
+
   test('root-level zod issue maps to path "(root)"', () => {
     const schema = z.string();
     const result = schema.safeParse(123);
