@@ -4,6 +4,18 @@
 export type VariantFit = "cover" | "inside" | "contain";
 export type VariantFormat = "webp" | "avif" | "jpeg";
 
+// Rectangle in relative coordinates (0…1 of width/height) so it survives a
+// resize. Burning blur into plates/faces needs coordinates that only exist at
+// runtime (detection + user correction), so they ride in the spec instead of a
+// field declaration — the spec hash keys the cache, so corrected regions
+// automatically yield a fresh URL.
+export type BlurRegion = {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+};
+
 export type VariantSpec = {
   // Default "inside" when omitted (renderer-side default, Schnitt 2).
   readonly fit?: VariantFit;
@@ -14,6 +26,7 @@ export type VariantSpec = {
   readonly quality?: number;
   // Whole-image blur radius.
   readonly blur?: number;
+  readonly blurRegions?: readonly BlurRegion[];
 };
 
 // A renderer turns the original bytes + a spec into the derived bytes for one
