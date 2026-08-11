@@ -1874,7 +1874,12 @@ describe("KumikoScreen: singleton entityEdit", () => {
         <KumikoScreen schema={singletonSchema} qn="tasks:screen:task-edit" />
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    // Two sequential loading cycles (list, then detail once the singleton
+    // wrapper hands off to EntityEditUpdateBody) — default waitFor timeout
+    // can be too tight under CI's shared-process test load.
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull(), {
+      timeout: 5000,
+    });
     expect(screen.getByTestId("render-edit-form")).toBeTruthy();
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("loaded-title");
