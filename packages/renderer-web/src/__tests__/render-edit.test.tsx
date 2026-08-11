@@ -807,6 +807,174 @@ describe("RenderEdit — controlled mode (#1887)", () => {
   });
 });
 
+// Issue #1916: proves FieldConditions (visible/readOnly/required) react to
+// values an extension section writes at runtime via patch() — not just to
+// user keystrokes. Tests already merged behavior from #1887/#1888
+// (controlled mode + extension-section pass-through); this is the missing
+// coverage for the VIN-decode shape: a decode result reveals a different
+// set of follow-up fields per car, and a field a previous decode revealed
+// must fall back when a later decode clears it.
+describe("RenderEdit — FieldConditions react to extension patch() (#1916)", () => {
+  type VehicleValues = {
+    title: string;
+    vin?: string;
+    trim?: string;
+    decodeStatus?: string;
+  };
+  const vehicleEntity = {
+    fields: {
+      title: { type: "text", required: true },
+      vin: { type: "text" },
+      trim: { type: "text" },
+    },
+  } as unknown as EntityDefinition;
+
+  function makeVehicleScreen(): EntityEditScreenDefinition {
+    return {
+      id: "vehicles:screen:vehicle-edit",
+      type: "entityEdit",
+      entity: "vehicle",
+      layout: {
+        sections: [
+          {
+            title: "Basics",
+            columns: 2,
+            fields: [
+              { field: "title", span: 2 },
+              // Locks once the decode confirms a match — no point letting
+              // the user hand-edit a VIN the provider just validated.
+              { field: "vin", readOnly: { field: "decodeStatus", eq: "hit" } },
+              // A VIN hit reveals + requires the derived trim field; a car
+              // whose VIN the provider can't resolve never shows it.
+              {
+                field: "trim",
+                visible: { field: "decodeStatus", eq: "hit" },
+                required: { field: "decodeStatus", eq: "hit" },
+              },
+            ],
+          },
+          {
+            kind: "extension",
+            title: "VIN Decode",
+            component: { react: { __component: "VinDecodeSection" } },
+          },
+        ],
+      },
+    };
+  }
+
+  function VinDecodeSection({
+    values,
+    patch,
+  }: {
+    readonly values?: Readonly<Record<string, unknown>>;
+    readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
+  }) {
+    return (
+      <div data-testid="vin-decode-section">
+        <span data-testid="decode-status">{String(values?.["decodeStatus"])}</span>
+        <button
+          type="button"
+          data-testid="decode-hit"
+          onClick={() => patch?.({ decodeStatus: "hit", trim: "Sport" })}
+        >
+          Decode (match found)
+        </button>
+        <button
+          type="button"
+          data-testid="decode-miss"
+          onClick={() => patch?.({ decodeStatus: "miss" })}
+        >
+          Decode (no match)
+        </button>
+        <button
+          type="button"
+          data-testid="decode-clear"
+          onClick={() => patch?.({ decodeStatus: undefined, trim: undefined })}
+        >
+          Clear decode
+        </button>
+      </div>
+    );
+  }
+
+  function renderVehicleForm(): void {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ VinDecodeSection }}>
+          <RenderEdit<VehicleValues>
+            screen={makeVehicleScreen()}
+            entity={vehicleEntity}
+            featureName="vehicles"
+            initial={{ title: "Listing", vin: "" }}
+            writeCommand="vehicle:create"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+  }
+
+  function isRequired(testId: string): boolean {
+    const label = screen.getByTestId(testId).querySelector("label");
+    return (label?.textContent ?? "").includes("*");
+  }
+
+  function isDisabled(testId: string): boolean {
+    return (
+      (screen.getByTestId(testId).querySelector("input") as HTMLInputElement | null)?.disabled ??
+      false
+    );
+  }
+
+  test("provider delivers a value: the gated field becomes visible and required, the source field locks", () => {
+    renderVehicleForm();
+    expect(screen.queryByTestId("field-trim")).toBeNull();
+    expect(isDisabled("field-vin")).toBe(false);
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("decode-hit"));
+    });
+
+    expect(screen.getByTestId("decode-status").textContent).toBe("hit");
+    const trimInput = screen.getByTestId("field-trim").querySelector("input") as HTMLInputElement;
+    expect(trimInput.value).toBe("Sport");
+    expect(isRequired("field-trim")).toBe(true);
+    expect(isDisabled("field-vin")).toBe(true);
+  });
+
+  test("provider delivers nothing (patch() without a matching condition value): gated fields stay normal", () => {
+    renderVehicleForm();
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("decode-miss"));
+    });
+
+    // Proves the patch landed (decodeStatus really changed to "miss"),
+    // ruling out a false pass from a no-op patch that never re-rendered.
+    expect(screen.getByTestId("decode-status").textContent).toBe("miss");
+    expect(screen.queryByTestId("field-trim")).toBeNull();
+    expect(isDisabled("field-vin")).toBe(false);
+  });
+
+  test("a previously delivered value cleared by a later patch() falls the fields back", () => {
+    renderVehicleForm();
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("decode-hit"));
+    });
+    expect(screen.getByTestId("field-trim")).toBeTruthy();
+    expect(isDisabled("field-vin")).toBe(true);
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("decode-clear"));
+    });
+
+    expect(screen.getByTestId("decode-status").textContent).toBe("undefined");
+    expect(screen.queryByTestId("field-trim")).toBeNull();
+    expect(isDisabled("field-vin")).toBe(false);
+  });
+});
+
 describe("RenderEdit wizard mode", () => {
   function makeWizardScreen(): EntityEditScreenDefinition {
     return {
