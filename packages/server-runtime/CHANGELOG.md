@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.189.0
+
+### Patch Changes
+
+- cac0d04: `Form`'s new `stickyActions` prop pins the actions footer to the viewport bottom on narrow screens (`<640px`) instead of normal document flow, so a virtual keyboard shrinking the viewport can no longer push it out of reach. `RenderEdit` sets it automatically for wizard-mode screens. The default HTML shell's viewport meta also gains `interactive-widget=resizes-content`, so a real mobile keyboard shrinks the layout viewport (which the fixed footer anchors to) instead of only the visual viewport.
+- Updated dependencies [64c5f92]
+- Updated dependencies [321b375]
+- Updated dependencies [5137ce5]
+- Updated dependencies [833c4f7]
+- Updated dependencies [88edff1]
+  - @cosmicdrift/kumiko-framework@0.189.0
+  - @cosmicdrift/kumiko-bundled-features@0.189.0
+
 ## 0.188.0
 
 ### Patch Changes

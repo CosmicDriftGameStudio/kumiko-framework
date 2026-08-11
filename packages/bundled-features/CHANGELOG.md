@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.189.0
+
+### Patch Changes
+
+- 88edff1: Fix: `tenant:query:invitations` now decrypts `invitedBy` (previously returned as ciphertext under active KMS, causing a 500 on the members screen).
+- Updated dependencies [64c5f92]
+- Updated dependencies [321b375]
+- Updated dependencies [d0f03f9]
+- Updated dependencies [5137ce5]
+- Updated dependencies [833c4f7]
+- Updated dependencies [cac0d04]
+- Updated dependencies [8226c65]
+  - @cosmicdrift/kumiko-types@0.189.0
+  - @cosmicdrift/kumiko-framework@0.189.0
+  - @cosmicdrift/kumiko-renderer@0.189.0
+  - @cosmicdrift/kumiko-headless@0.189.0
+  - @cosmicdrift/kumiko-renderer-web@0.189.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.189.0
+
 ## 0.188.0
 
 ### Minor Changes

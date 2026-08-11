@@ -1,5 +1,31 @@
 # @cosmicdrift/kumiko-types
 
+## 0.189.0
+
+### Minor Changes
+
+- 64c5f92: **BREAKING:** `type:"date"` fields (`createDateField`) now back onto a real Postgres `DATE` column and round-trip as `Temporal.PlainDate`, fully decoupled from `Temporal.Instant`/`TIMESTAMPTZ` (kumiko-framework#1924). Previously `date` was silently aliased onto the same `instant()`/`TIMESTAMPTZ` column as `type:"timestamp"`: reads returned a full ISO instant (`"2026-03-15T00:00:00Z"`), writes expected a bare `"yyyy-mm-dd"` string that got bound to a timestamptz column through the session's TimeZone — so both directions were timezone-dependent for what is meant to be a pure calendar-day value (invoice date, lease term).
+
+  After this change:
+
+  - **Read shape**: a `date` field now serializes as `"2026-03-15"` (via `Temporal.PlainDate`'s own `toJSON()`), not `"2026-03-15T00:00:00Z"`. Any non-form client that Instant-parses a date field's JSON value (`Temporal.Instant.from(value)`) will throw — that parse requires a UTC designator/offset a PlainDate string doesn't have. A client that only reads the leading `"yyyy-mm-dd"` (string slice, or the existing form-fill path) is unaffected, since both old and new values share that prefix.
+  - **Write shape**: unchanged — `date` fields already took a bare `"yyyy-mm-dd"` string; that now binds directly to a real `DATE` column instead of drifting through the session TimeZone on the way into a `TIMESTAMPTZ` column.
+  - **Where-filters**: a filter value built as a `Temporal.Instant` against a `date` column (a leftover pattern from when `date` was an Instant alias) still works — `prepareValue` anchors it at UTC before binding — but new code should build `date` filters as plain `"yyyy-mm-dd"` strings or `Temporal.PlainDate`.
+
+  **Migration, per entity's table kind:**
+
+  - **Managed (event-sourced projection) tables**: the generator emits `DROP TABLE` + `CREATE TABLE` and replays from the event log — no manual SQL needed, but factor in the replay cost for entities with a large event history.
+  - **Unmanaged (`store_*`, direct-write) tables**: the generator emits an in-place `ALTER TABLE … ALTER COLUMN … TYPE date USING (col AT TIME ZONE 'UTC')::date` for exactly this `timestamptz → date` transition — anchored explicitly at UTC. A bare `ALTER COLUMN … TYPE date` (no `USING`) falls back to Postgres's implicit cast, which reads the _session_ TimeZone and can migrate the same row to a different calendar day depending on who runs it; do not hand-write that fallback form.
+
+  No consumer-repo migration is included in this PR — solon has ~15 `type:"date"` fields on unmanaged tables and needs its own migration + existing-data audit as a follow-up.
+
+- 833c4f7: `redirect` (actionForm, entityEdit) and `cancelTarget` (actionForm) now also accept a fully-qualified cross-feature screen QN (`<feature>:screen:<id>`), in addition to the existing same-feature short screen-ID. Boot-validator resolves the QN directly against all registered screens; the renderer strips it to the short id before navigating, since the runtime router already resolves bare short ids app-wide. Short IDs keep their unchanged same-feature behavior (kumiko-framework#1946).
+
+### Patch Changes
+
+- 321b375: `entityEdit` screens now support `redirect?: string`, mirroring `actionForm`'s field: navigate to this same-feature screen ID after a successful save (create or update) instead of the default "back to the entity's list" target. Boot-validator checks the ID resolves to a registered screen, same as `actionForm.redirect`. Delete is unaffected — it still always navigates to the list.
+- d0f03f9: `entityEdit` screens now support `singleton: true` for entities with exactly one record per tenant (organization, settings, tenant profile). A call without an `entityId` resolves the existing record via `<entity>:list` (limit 1) and renders the update branch with prefill on a hit, instead of always rendering an empty create form — so a declarative nav entry can point straight at a singleton edit screen without a wrapping entityList-with-one-row workaround. The create branch (and `allowCreate: false`) still applies when the table is empty.
+
 ## 0.188.0
 
 ### Patch Changes

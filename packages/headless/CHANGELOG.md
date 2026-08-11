@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.189.0
+
+### Patch Changes
+
+- 5137ce5: The auto-wired `entityEdit` path now has operable widgets for `multiSelect` (combobox), `decimal`/`bigInt` (number input), `tz` (IANA zone picker), and `longText` (always a textarea). `jsonb`, `embedded` (non-list), `files`, and `images` still render read-only — they stay unsupported on this path — but a statically `required: true` field of one of those types now throws a descriptive boot-time error instead of silently rendering an unfillable form.
+- Updated dependencies [64c5f92]
+- Updated dependencies [321b375]
+- Updated dependencies [5137ce5]
+- Updated dependencies [833c4f7]
+  - @cosmicdrift/kumiko-framework@0.189.0
+
 ## 0.188.0
 
 ### Minor Changes
