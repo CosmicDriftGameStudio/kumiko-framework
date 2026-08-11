@@ -43,7 +43,7 @@ export const discardDraftWrite = defineWriteHandler({
       // unverified key could target someone else's file (see
       // db/queries/owned-file-refs.ts).
       const ownedKeys = await filterOwnedStorageKeys(
-        ctx.db,
+        ctx.db.raw,
         event.user.tenantId,
         ownerId,
         candidateKeys,

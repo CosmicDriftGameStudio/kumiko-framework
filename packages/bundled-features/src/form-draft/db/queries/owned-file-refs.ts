@@ -1,5 +1,5 @@
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 // Narrows a draft blob's raw FileRef-shaped storageKeys (collectDraftFileRefKeys
@@ -10,7 +10,7 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 // provider's delete() unchecked — the same ownership boundary file-routes.ts
 // enforces (loadFileForTenant + FileAccessGuard) before every read/delete.
 export async function filterOwnedStorageKeys(
-  db: DbConnection,
+  db: DbRunner,
   tenantId: TenantId,
   ownerId: string,
   candidateKeys: readonly string[],
