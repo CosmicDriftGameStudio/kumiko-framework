@@ -5,7 +5,7 @@
 // same-folder require cycle.
 
 import { rowMetaFieldNames } from "../../db/table-builder";
-import { qualifyEntityName } from "../qualified-name";
+import { isValidQn, qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
 import type { EntityDefinition, FeatureDefinition } from "../types";
@@ -267,6 +267,15 @@ export function validateScreenShortIdCollisions(
   }
 }
 
+// redirect/cancelTarget accept either a same-feature short id (unchanged
+// behavior, qualified against the owning feature) or a fully-qualified
+// cross-feature screen QN (`<feature>:screen:<id>`) given verbatim — a
+// short id can never itself be a valid QN (QN_SEGMENT forbids colons), so
+// the two forms don't collide.
+function resolveScreenTargetQn(featureName: string, target: string): string {
+  return isValidQn(target) ? target : qualifyEntityName(featureName, "screen", target);
+}
+
 export function validateScreens(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
@@ -282,8 +291,9 @@ export function validateScreens(
   // der Runtime-Router (create-app) löst eine bare screenId app-weit über ALLE
   // Features auf (eine deklarative Liste im owning-Feature der Entity navigiert
   // so zu den Custom-Editoren der Consumer-App). Der Validator spiegelt das:
-  // same-feature ODER irgendein Feature. (redirect/cancelTarget bleiben bewusst
-  // same-feature: deren Router baut die URL direkt aus der kurzen id.)
+  // same-feature ODER irgendein Feature. redirect/cancelTarget akzeptieren
+  // zusätzlich eine voll-qualifizierte Cross-Feature-QN (resolveScreenTargetQn,
+  // #1946) — kurze IDs bleiben same-feature wie zuvor.
   const navTargetShortIds = screenShortIdsFrom(allScreenQns);
   for (const [screenId, screen] of Object.entries(feature.screens)) {
     if (screen.type === "custom") {
@@ -539,31 +549,29 @@ export function validateScreens(
       }
       validateWizardLayout(feature.name, screenId, "actionForm", screen.layout, featureMap);
       if (screen.redirect !== undefined) {
-        // redirect ist die kurze Screen-ID (z.B. "item-list"); der
-        // nav-Router resolved sie beim Mount gegen die Schema-Map.
-        // Cross-Feature-Redirect ist nicht supported — der nav-Router
-        // baut die URL aus screenId direkt, eine voll-QN würde als
-        // `/shop:screen:foo/` landen und nirgendwo greifen.
-        const candidateQn = qualifyEntityName(feature.name, "screen", screen.redirect);
+        // redirect ist entweder die kurze Screen-ID (same-feature, z.B.
+        // "item-list") oder eine voll-qualifizierte Cross-Feature-QN
+        // (`<feature>:screen:<id>`) — der Renderer strippt letztere beim
+        // Navigieren auf die kurze ID (lastSegment), die der nav-Router
+        // app-weit auflöst (#1946).
+        const candidateQn = resolveScreenTargetQn(feature.name, screen.redirect);
         if (!allScreenQns.has(candidateQn)) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (actionForm) redirect "${screen.redirect}" ` +
-              `does not resolve to a registered screen in this feature. Known screens: ${
-                [...Object.keys(feature.screens)].sort().join(", ") || "(none)"
-              }.`,
+              `does not resolve to a registered screen (checked "${candidateQn}"). Known screens ` +
+              `in this feature: ${[...Object.keys(feature.screens)].sort().join(", ") || "(none)"}.`,
           );
         }
       }
       if (typeof screen.cancelTarget === "string") {
         // Gleiche Regel wie redirect — `false` (kein Cancel-Button)
         // braucht keine Validierung.
-        const candidateQn = qualifyEntityName(feature.name, "screen", screen.cancelTarget);
+        const candidateQn = resolveScreenTargetQn(feature.name, screen.cancelTarget);
         if (!allScreenQns.has(candidateQn)) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (actionForm) cancelTarget "${screen.cancelTarget}" ` +
-              `does not resolve to a registered screen in this feature. Known screens: ${
-                [...Object.keys(feature.screens)].sort().join(", ") || "(none)"
-              }.`,
+              `does not resolve to a registered screen (checked "${candidateQn}"). Known screens ` +
+              `in this feature: ${[...Object.keys(feature.screens)].sort().join(", ") || "(none)"}.`,
           );
         }
       }
@@ -872,16 +880,14 @@ export function validateScreens(
       }
       validateWizardLayout(feature.name, screenId, "entityEdit", screen.layout, featureMap);
       if (screen.redirect !== undefined) {
-        // Same rule as actionForm's redirect: short screen-ID, same-feature
-        // only — the nav-router builds the URL from screenId directly, a
-        // full QN would land as `/shop:screen:foo/` and resolve nowhere.
-        const candidateQn = qualifyEntityName(feature.name, "screen", screen.redirect);
+        // Same rule as actionForm's redirect: short screen-ID (same-feature)
+        // or a fully-qualified cross-feature QN (#1946).
+        const candidateQn = resolveScreenTargetQn(feature.name, screen.redirect);
         if (!allScreenQns.has(candidateQn)) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) redirect "${screen.redirect}" ` +
-              `does not resolve to a registered screen in this feature. Known screens: ${
-                [...Object.keys(feature.screens)].sort().join(", ") || "(none)"
-              }.`,
+              `does not resolve to a registered screen (checked "${candidateQn}"). Known screens ` +
+              `in this feature: ${[...Object.keys(feature.screens)].sort().join(", ") || "(none)"}.`,
           );
         }
       }

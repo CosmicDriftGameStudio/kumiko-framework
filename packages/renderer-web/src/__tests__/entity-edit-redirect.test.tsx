@@ -97,6 +97,37 @@ describe("entityEdit redirect (#1942)", () => {
     await waitFor(() => expect(navigated).toEqual([{ screenId: "product-list" }]));
   });
 
+  test("create: redirect as fully-qualified cross-feature QN navigates via its short id (#1946)", async () => {
+    // redirect may name a screen in ANOTHER feature via `<feature>:screen:<id>`
+    // (boot-validator accepts the QN directly) — the renderer must strip it
+    // down to the short id before calling nav.navigate, since the runtime
+    // router resolves bare short ids app-wide, not raw QNs (see nav.tsx).
+    const navigated: NavTarget[] = [];
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher()}>
+        <NavProvider
+          value={{
+            route: { screenId: "shop:screen:product-edit" },
+            navigate: (target) => navigated.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen
+            schema={buildSchema("statements:screen:statement-upload-list")}
+            qn="shop:screen:product-edit"
+          />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    fillNameAndSubmit();
+
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "statement-upload-list" }]));
+  });
+
   test("update: successful save with redirect set navigates there, not to the list", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
