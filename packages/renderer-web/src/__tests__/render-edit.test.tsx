@@ -1117,6 +1117,72 @@ describe("RenderEdit wizard draft", () => {
   });
 });
 
+describe("RenderEdit locked state (#1896)", () => {
+  test("disabled renders every field inactive and the submit button inactive", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1, isUrgent: false }}
+          writeCommand="order:create"
+          disabled
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input");
+    expect((titleInput as HTMLInputElement).disabled).toBe(true);
+    const countInput = screen.getByTestId("field-count").querySelector("input");
+    expect((countInput as HTMLInputElement).disabled).toBe(true);
+    const urgentCheckbox = screen.getByTestId("field-isUrgent").querySelector('[role="checkbox"]');
+    expect((urgentCheckbox as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test("disabled blocks the write even on a direct form submit (Enter key), not just via the button", async () => {
+    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1, isUrgent: false }}
+          writeCommand="order:create"
+          disabled
+        />
+      </DispatcherProvider>,
+    );
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  test("without disabled, fields and submit stay active (existing behaviour unchanged)", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input");
+    expect((titleInput as HTMLInputElement).disabled).toBe(false);
+  });
+});
+
 describe("RenderEdit fields filter", () => {
   const filterEntity = {
     fields: {
