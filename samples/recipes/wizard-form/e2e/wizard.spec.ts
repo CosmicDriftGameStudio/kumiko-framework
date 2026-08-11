@@ -37,7 +37,7 @@ async function draftInStorage(page: Page): Promise<unknown> {
   return page.evaluate((prefix) => {
     for (let i = 0; i < localStorage.length; i += 1) {
       const key = localStorage.key(i);
-      if (key !== null && key.startsWith(prefix)) return localStorage.getItem(key);
+      if (key?.startsWith(prefix)) return localStorage.getItem(key);
     }
     return null;
   }, DRAFT_STORAGE_PREFIX);

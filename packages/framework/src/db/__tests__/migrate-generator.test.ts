@@ -142,6 +142,29 @@ describe("renderMigrationSql — managed recreate vs unmanaged in-place", () => 
     expect(sql).not.toContain("WARN: destructive change");
   });
 
+  test("unmanaged: timestamptz → date type change emits an explicit UTC-anchored USING clause (kumiko-framework#1924)", () => {
+    // A bare `ALTER COLUMN ... TYPE date` (no USING) falls back to PG's
+    // implicit ::date cast, which reads the session TimeZone — the exact
+    // non-determinism this issue fixes. Managed tables never hit this path
+    // (they DROP+CREATE + replay from events instead); unmanaged/store_*
+    // tables carry real data through an in-place ALTER, so the generator
+    // must anchor at UTC explicitly rather than emit the generic naive cast.
+    const prev = snapshotFromMetas([
+      meta("store_invoices", { name: "period_from", pgType: "timestamptz", notNull: true }),
+    ]);
+    const next = snapshotFromMetas([
+      meta("store_invoices", { name: "period_from", pgType: "date", notNull: true }),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), {
+      name: "invoice-date",
+      sequenceNumber: 7,
+    });
+    expect(sql).toContain(
+      'ALTER TABLE "store_invoices" ALTER COLUMN "period_from" TYPE date USING ("period_from" AT TIME ZONE \'UTC\')::date;',
+    );
+    expect(sql).not.toContain("WARN: column-type-change");
+  });
+
   test("managed: multiple recreate reasons at once → all named in the warning", () => {
     const prev = snapshotFromMetas([
       meta("read_b", { name: "old_col", pgType: "text", notNull: false }, "managed"),

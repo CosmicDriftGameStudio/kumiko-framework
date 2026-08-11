@@ -271,13 +271,26 @@ function renderColumnChange(tableName: string, change: ColumnChange): readonly s
     }
   }
   if (change.typeChanged) {
-    // pg ALTER TYPE braucht oft USING-clause für nicht-implicit-castable
-    // type-changes. Wir emittieren das als Reviewer-Kommentar + raw cast —
-    // App-Author muss prüfen ob das gewünscht ist.
-    out.push(
-      `-- WARN: column-type-change ${change.typeChanged.from} → ${change.typeChanged.to}. Review USING-clause if needed.`,
-    );
-    out.push(`ALTER TABLE ${tbl} ALTER COLUMN ${col} TYPE ${change.typeChanged.to};`);
+    const { from, to } = change.typeChanged;
+    // timestamptz → date: PG's implicit ::date cast (what a bare ALTER ...
+    // TYPE without USING falls back to) reads the session TimeZone, so the
+    // same row migrates to a different calendar day depending on who/where
+    // runs it — exactly the non-determinism kumiko-framework#1924 fixes.
+    // Anchor explicitly at UTC instead of trusting the session.
+    if ((from === "timestamptz" || from === "timestamptz(3)") && to === "date") {
+      out.push(
+        `-- ${from} → date: explicit UTC anchor — a bare cast would use the session TimeZone (non-deterministic).`,
+      );
+      out.push(
+        `ALTER TABLE ${tbl} ALTER COLUMN ${col} TYPE date USING (${col} AT TIME ZONE 'UTC')::date;`,
+      );
+    } else {
+      // pg ALTER TYPE braucht oft USING-clause für nicht-implicit-castable
+      // type-changes. Wir emittieren das als Reviewer-Kommentar + raw cast —
+      // App-Author muss prüfen ob das gewünscht ist.
+      out.push(`-- WARN: column-type-change ${from} → ${to}. Review USING-clause if needed.`);
+      out.push(`ALTER TABLE ${tbl} ALTER COLUMN ${col} TYPE ${to};`);
+    }
   }
   return out;
 }

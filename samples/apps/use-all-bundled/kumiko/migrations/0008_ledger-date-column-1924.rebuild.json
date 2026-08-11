@@ -1,0 +1,4 @@
+{
+  "version": 1,
+  "tables": ["read_ledger_schedules", "read_ledger_transactions"]
+}

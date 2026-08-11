@@ -200,6 +200,9 @@ function fieldToColumnMeta(
     case "jsonb":
       return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'{}'::jsonb" }];
     case "date":
+      // Real PG `date` — Temporal.PlainDate, no time-of-day/timezone
+      // component. See plainDate() in dialect.ts (kumiko-framework#1924).
+      return [{ name: snake, pgType: "date", notNull: field.required === true }];
     case "timestamp":
       return [{ name: snake, pgType: "timestamptz", notNull: field.required === true }];
     case "tz":

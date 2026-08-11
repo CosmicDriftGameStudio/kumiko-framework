@@ -10,6 +10,7 @@
 // JSONB top-level equality: wird getestet (JSON.stringify + ::jsonb cast in prepareValue).
 // Deep-path-queries (->>'key') sind out-of-scope für bun-db's WhereObject.
 import { afterAll, describe, expect, test } from "bun:test";
+import { Temporal } from "temporal-polyfill";
 import { insertMany, selectMany } from "../query";
 import { closeDb, withTable } from "./_helpers";
 
@@ -25,6 +26,8 @@ const strNumCols = [
 const boolCols = [{ name: "active", pgType: "boolean" as const, notNull: false }] as const;
 
 const refCols = [{ name: "ref", pgType: "uuid" as const, notNull: false }] as const;
+
+const dateCols = [{ name: "day", pgType: "date" as const, notNull: true }] as const;
 
 describe("where — primitive equality", () => {
   test("string equality", async () => {
@@ -161,6 +164,31 @@ describe("where — WhereOperator", () => {
       ]);
       const rows = await selectMany(db, meta, { label: { like: "hello%" } });
       expect(rows.length).toBe(2);
+    });
+  });
+});
+
+describe("where — date column (kumiko-framework#1924)", () => {
+  test("plain 'yyyy-mm-dd' string equality matches the seeded row", async () => {
+    await withTable(dateCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [{ day: "2026-03-15" }, { day: "2026-03-16" }]);
+      const rows = await selectMany(db, meta, { day: "2026-03-15" });
+      expect(rows.length).toBe(1);
+    });
+  });
+
+  test("Temporal.Instant filter value still matches (compat cushion for pre-#1924 callers)", async () => {
+    // Before this fix, `date` was TIMESTAMPTZ and callers built where-filters
+    // with a Temporal.Instant (e.g. Temporal.Now.instant()). prepareValue
+    // anchors it at UTC before binding, so existing filter code doesn't
+    // start silently matching nothing (or throwing) after the column
+    // becomes a real `date`.
+    await withTable(dateCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [{ day: "2026-03-15" }, { day: "2026-03-16" }]);
+      const rows = await selectMany(db, meta, {
+        day: Temporal.Instant.from("2026-03-15T00:00:00Z") as unknown as string,
+      });
+      expect(rows.length).toBe(1);
     });
   });
 });

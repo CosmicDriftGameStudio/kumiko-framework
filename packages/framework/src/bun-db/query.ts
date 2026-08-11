@@ -376,6 +376,42 @@ function instantFromDriver(value: unknown): Temporal.Instant | null {
   return null;
 }
 
+function isTemporalPlainDate(v: unknown): boolean {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as { day?: unknown }).day === "number" &&
+    typeof (v as { calendarId?: unknown }).calendarId === "string"
+  );
+}
+
+// Verified empirically against Bun.SQL (kumiko-framework#1924): a `date`
+// column comes back as a native JS Date, but ALWAYS anchored at UTC
+// midnight regardless of process TZ — epochMilliseconds is stable across
+// zones, only the local wall-clock read of that Date would drift the day
+// (e.g. America/Los_Angeles reads back the 14th for a stored 15th). Routing
+// through Instant→ZonedDateTimeISO("UTC")→PlainDate reads the calendar day
+// back deterministically without ever touching a local Date getter — the
+// same +value idiom instantFromDriver uses (guard-no-date-api: no
+// `.getTime()`), just anchored to a fixed zone instead of process-local.
+function plainDateFromDriver(value: unknown): Temporal.PlainDate | null {
+  if (value === null || value === undefined) return null;
+  if (isTemporalPlainDate(value)) return value as Temporal.PlainDate;
+  if (typeof value === "string") {
+    const isoDay = /^\d{4}-\d{2}-\d{2}/.exec(value)?.[0];
+    if (isoDay === undefined) return null;
+    try {
+      return Temporal.PlainDate.from(isoDay);
+    } catch {
+      return null;
+    }
+  }
+  if (value instanceof Date) {
+    return Temporal.Instant.fromEpochMilliseconds(+value).toZonedDateTimeISO("UTC").toPlainDate();
+  }
+  return null;
+}
+
 // Walk the driver-row, applying three boundary-conversions per known column:
 //   - rename key snake_case → camelCase JS field-name (drizzle did this
 //     invisibly via its column-mapper; native dialect rebuild lost it)
@@ -400,6 +436,9 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
     if (pgType === "timestamptz" || pgType === "timestamptz(3)") {
       const t = instantFromDriver(value);
       if (t !== null) coerced = t;
+    } else if (pgType === "date") {
+      const d = plainDateFromDriver(value);
+      if (d !== null) coerced = d;
     } else if (pgType === "jsonb" && typeof value === "string") {
       coerced = parseJsonSafe(value, value);
     } else if (
@@ -466,28 +505,59 @@ function isSqlExpression(v: unknown): v is { kind: "sql-expr"; text: string } {
   return typeof v === "object" && v !== null && (v as { kind?: unknown }).kind === "sql-expr";
 }
 
+// A `date` column takes a plain "yyyy-mm-dd" string (or PlainDate.toString())
+// as-is — no Instant detour. Postgres parses a DATE literal without ever
+// consulting the session timezone, so this is TZ-independent by construction
+// (verified empirically — see plainDateFromDriver above for the read side).
+// Compat cushion: pre-#1924 code (this field used to be an Instant) may still
+// hand a Temporal.Instant into a where-filter or write on a `date` column —
+// same UTC anchor as plainDateFromDriver's read side, so a filter built with
+// `Temporal.Now.instant()` keeps working instead of binding a raw Instant the
+// driver can't serialize.
+function prepareDateValue(value: unknown): PreparedValue | undefined {
+  if (isTemporalPlainDate(value)) {
+    return { kind: "param", sql: "", bound: (value as Temporal.PlainDate).toString() };
+  }
+  if (isTemporalInstant(value)) {
+    const day = (value as Temporal.Instant).toZonedDateTimeISO("UTC").toPlainDate();
+    return { kind: "param", sql: "", bound: day.toString() };
+  }
+  return undefined;
+}
+
+// structured values bind directly with an ::jsonb cast; JSON.stringify first
+// would produce a JSON-string scalar instead of the structured value.
+function prepareJsonbValue(value: unknown): PreparedValue | undefined {
+  if (typeof value === "boolean") {
+    return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
+  }
+  if (typeof value !== "object" || isTemporalInstant(value)) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    return { kind: "param", sql: "::jsonb", bound: value };
+  }
+  // All-boolean arrays are inferred as boolean[] by postgres-js; route via text::jsonb.
+  if (value.length > 0 && value.every((entry) => typeof entry === "boolean")) {
+    return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
+  }
+  return { kind: "param", sql: "::jsonb", bound: value };
+}
+
 function prepareValue(value: unknown, pgType: string | undefined): PreparedValue {
   if (isSqlExpression(value)) {
     return { kind: "literal", literal: value.text };
   }
   if (pgType === "jsonb" && value !== null) {
-    if (typeof value === "boolean") {
-      return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
-    }
-    if (typeof value === "object" && !isTemporalInstant(value)) {
-      // Plain objects: bind directly — JSON.stringify + ::jsonb stores a JSON string scalar.
-      if (!Array.isArray(value)) {
-        return { kind: "param", sql: "::jsonb", bound: value };
-      }
-      // All-boolean arrays are inferred as boolean[] by postgres-js; route via text::jsonb.
-      if (value.length > 0 && value.every((entry) => typeof entry === "boolean")) {
-        return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
-      }
-      return { kind: "param", sql: "::jsonb", bound: value };
-    }
+    const prepared = prepareJsonbValue(value);
+    if (prepared) return prepared;
   }
   if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
     return { kind: "param", sql: "", bound: (value as Temporal.Instant).toString() };
+  }
+  if (pgType === "date") {
+    const prepared = prepareDateValue(value);
+    if (prepared) return prepared;
   }
   return { kind: "param", sql: "", bound: value };
 }
