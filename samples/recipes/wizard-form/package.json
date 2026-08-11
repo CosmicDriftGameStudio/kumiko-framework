@@ -1,0 +1,15 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-wizard-form",
+  "description": "EditLayout.mode: \"wizard\" — a multi-step entity form with a review step that reads live form values through an extension section, and draft: true resuming the in-progress form via the bundled form-draft feature.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-renderer": "workspace:*",
+    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+    "react": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14"
+  }
+}
