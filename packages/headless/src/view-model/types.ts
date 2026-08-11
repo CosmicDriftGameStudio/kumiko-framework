@@ -204,6 +204,11 @@ export type EditFieldViewModel = {
    *  currency lives on the head aggregate (EntityDefinition.defaultCurrency),
    *  not per row. Falls back to "EUR" when the entity has no defaultCurrency. */
   readonly embeddedListCurrency?: string;
+  /** Only set for a plain (non-list, non-embedded) `type: "money"` field —
+   *  same source as embeddedListCurrency (EntityDefinition.defaultCurrency,
+   *  falls back to "EUR"). The renderer needs this to build the payload's
+   *  `{amount, currency}` shape (kumiko-framework#1923). */
+  readonly currency?: string;
 };
 
 // Discriminated by `kind` — mirrors EditSectionSpec on the engine side.

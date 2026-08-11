@@ -308,14 +308,25 @@ function useNavigateToCreateFor(
 // with a `default: true`/`default: 5` would show the form in a state
 // the entity didn't ask for — subtle and easy to miss until a user
 // submits and is surprised.
+// `defaultCurrency` is only passed by entityEdit call sites — the money
+// payload shape it enables (`{amount, currency}`) matches the entity's
+// write schema (schema-builder.ts, kumiko-framework#1923). Callers outside
+// that path (config-edit, action-form) synthesize their own entity and use
+// money as a plain number against a different write contract, so they
+// deliberately keep the old bare-`0` default by omitting the argument.
 export function buildInitialValues(
   fields: Readonly<Record<string, unknown>>,
+  defaultCurrency?: string,
 ): Readonly<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   for (const [name, def] of Object.entries(fields)) {
     const shape = def as { type?: string; default?: unknown };
     if (shape.default !== undefined) {
       out[name] = shape.default;
+      continue;
+    }
+    if (shape.type === "money" && defaultCurrency !== undefined) {
+      out[name] = { amount: 0, currency: defaultCurrency };
       continue;
     }
     out[name] =
@@ -328,8 +339,9 @@ export function mergeSearchParamsIntoInitial(
   fields: Readonly<Record<string, unknown>>,
   searchParams: Readonly<Record<string, string>>,
   renderableFields?: ReadonlySet<string>,
+  defaultCurrency?: string,
 ): Record<string, unknown> {
-  const defaults = buildInitialValues(fields) as Record<string, unknown>;
+  const defaults = buildInitialValues(fields, defaultCurrency) as Record<string, unknown>;
   const merged: Record<string, unknown> = { ...defaults };
   for (const [name, fieldDef] of Object.entries(fields)) {
     if (renderableFields !== undefined && !renderableFields.has(name)) continue;
@@ -337,9 +349,16 @@ export function mergeSearchParamsIntoInitial(
     if (shape.sensitive === true) continue;
     const raw = searchParams[name];
     if (raw === undefined) continue;
-    if (shape.type === "number" || shape.type === "money") {
+    if (shape.type === "number") {
       const parsed = Number(raw);
       merged[name] = Number.isNaN(parsed) ? defaults[name] : parsed;
+    } else if (shape.type === "money") {
+      const parsed = Number(raw);
+      merged[name] = Number.isNaN(parsed)
+        ? defaults[name]
+        : defaultCurrency !== undefined
+          ? { amount: parsed, currency: defaultCurrency }
+          : parsed;
     } else if (shape.type === "boolean") {
       merged[name] = raw === "true";
     } else {
@@ -426,8 +445,9 @@ function EntityEditCreateBody({
         entity.fields,
         nav.searchParams,
         layoutFieldNames(screen),
+        entity.defaultCurrency ?? "EUR",
       ) as FormValues,
-    [entity.fields, nav.searchParams, screen],
+    [entity.fields, nav.searchParams, screen, entity.defaultCurrency],
   );
   const formSchema = useMemo(() => buildFormSchema(entity, screen), [entity, screen]);
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "create");
@@ -551,11 +571,13 @@ function EntityEditUpdateForm({
   const recordVersion = (record as { version?: number }).version ?? 1;
   const initial = useMemo(() => {
     const out: Record<string, unknown> = {};
+    const defaultCurrency = entity.defaultCurrency ?? "EUR";
     for (const name of Object.keys(entity.fields)) {
-      out[name] = record[name] ?? buildInitialValues({ [name]: entity.fields[name] })[name];
+      out[name] =
+        record[name] ?? buildInitialValues({ [name]: entity.fields[name] }, defaultCurrency)[name];
     }
     return out as FormValues;
-  }, [entity.fields, record]);
+  }, [entity.fields, entity.defaultCurrency, record]);
 
   const formSchema = useMemo(() => buildFormSchema(entity, screen), [entity, screen]);
 
@@ -1501,6 +1523,19 @@ type ConfigValueResponse = Readonly<
   Record<string, { value: string | number | boolean | undefined; scope: string; source: string }>
 >;
 
+// A money-typed config-edit field renders through RenderField's entityEdit
+// `{amount, currency}` payload shape (render-field.tsx, #1923), but
+// `ConfigKeyType` (write-helpers.ts validateType) only ever knows
+// number/boolean/text/select — a config value is always a bare scalar.
+// Unwrap back to the amount before it hits config:write:set.
+function unwrapMoneyValue(value: unknown): unknown {
+  if (typeof value === "object" && value !== null && "amount" in value) {
+    const amount = (value as { amount?: unknown }).amount;
+    if (typeof amount === "number") return amount;
+  }
+  return value;
+}
+
 function ConfigEditBody({
   schema,
   screen,
@@ -1592,9 +1627,14 @@ function ConfigEditBody({
       for (const [shortName, value] of Object.entries(snapshot.changes)) {
         const qualified = screen.configKeys[shortName];
         if (qualified === undefined) continue;
+        const ftype = (screen.fields[shortName] as { type?: string } | undefined)?.type;
         commands.push({
           type: "config:write:set",
-          payload: { key: qualified, value, scope: screen.scope },
+          payload: {
+            key: qualified,
+            value: ftype === "money" ? unwrapMoneyValue(value) : value,
+            scope: screen.scope,
+          },
         });
       }
       if (commands.length === 0) {
@@ -1611,7 +1651,14 @@ function ConfigEditBody({
       await Promise.allSettled([valuesQuery.refetch?.(), cascadeQuery.refetch?.()]);
       return { validationBlocked: false, isSuccess: true, data: undefined };
     },
-    [dispatcher, screen.configKeys, screen.scope, valuesQuery.refetch, cascadeQuery.refetch],
+    [
+      dispatcher,
+      screen.configKeys,
+      screen.fields,
+      screen.scope,
+      valuesQuery.refetch,
+      cascadeQuery.refetch,
+    ],
   );
 
   // Cascade-Disclosure (#429): Trigger sitzt in der Label-Row, das Panel

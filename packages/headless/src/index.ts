@@ -55,6 +55,7 @@ export type {
 export { createFormController } from "./form";
 export {
   applyFormatSpec,
+  currencyDecimals,
   escapeHtml,
   escapeHtmlAttr,
   escapeXml,

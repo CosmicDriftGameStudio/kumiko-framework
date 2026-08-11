@@ -163,6 +163,11 @@ export function computeEditViewModel<
       // file/image: accept/maxSize ins ViewModel + entityType/fieldName für
       // den Upload-POST (Endpoint validiert gegen die richtige Field-Def).
       const isFileType = fieldDef.type === "file" || fieldDef.type === "image";
+      // ponytail: "EUR" mirrors DEFAULT_CURRENCIES[0] from
+      // framework/src/engine/field-helpers.ts — headless has no dependency
+      // on that module, so the literal is duplicated here instead of
+      // importing it just for one fallback string.
+      const resolvedCurrency = entity.defaultCurrency ?? "EUR";
       const fileDef = isFileType
         ? (fieldDef as unknown as { accept?: readonly string[]; maxSize?: string })
         : undefined;
@@ -269,15 +274,10 @@ export function computeEditViewModel<
         ...(embeddedListDef?.totals !== undefined && {
           embeddedListTotals: embeddedListDef.totals,
         }),
-        // ponytail: "EUR" mirrors DEFAULT_CURRENCIES[0] from
-        // framework/src/engine/field-helpers.ts — headless has no dependency
-        // on that module, so the literal is duplicated here instead of
-        // importing it just for one fallback string. Currency lives on the
-        // head aggregate (entity.defaultCurrency), not per row — one value
-        // for the whole embedded list.
-        ...(embeddedListDef !== undefined && {
-          embeddedListCurrency: entity.defaultCurrency ?? "EUR",
-        }),
+        // Currency lives on the head aggregate (entity.defaultCurrency), not
+        // per row — one value for the whole embedded list.
+        ...(embeddedListDef !== undefined && { embeddedListCurrency: resolvedCurrency }),
+        ...(fieldDef.type === "money" && { currency: resolvedCurrency }),
       };
       return view;
     });

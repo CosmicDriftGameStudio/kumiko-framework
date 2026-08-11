@@ -69,6 +69,7 @@ function formatDateCell(
 
 export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape";
 export { type HtmlValue, html, RawHtml, raw } from "./html-template";
+export { currencyDecimals } from "./money";
 export function applyFormatSpec(
   spec: { format: string } & Record<string, unknown>,
   value: unknown,

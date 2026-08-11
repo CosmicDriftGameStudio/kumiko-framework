@@ -17,18 +17,18 @@ function isPresent(value: unknown): boolean {
 // Field types without a bound, editable widget on the auto-wired
 // entityEdit path (render-field.tsx renders a read-only banner instead) —
 // a presence error on one of them would be unresolvable by the user.
-// Tracked in #1925 (field types without an operable widget).
+// Tracked in #1925 (field types without an operable widget). `money` has an
+// operable widget (MoneyInput) and stays out of this set.
 const FIELD_TYPES_WITHOUT_WIDGET = new Set(["multiSelect", "jsonb", "embedded"]);
 
 // Client-side presence validation for the auto-wired entityEdit path —
 // checks that every rendered required field HAS a value, not that the
 // value has the right shape. Format/range/type validation stays server-
 // authoritative (buildInsertSchema/buildUpdateSchema): the form-state
-// representation of a value (e.g. money as a bare `number` on create vs.
-// `{amount,currency}` on update, #1923: money doesn't round-trip) diverges
-// from the server-payload shape, so a format check here would either
-// reject valid values or need per-representation branches that rot the
-// moment either side changes.
+// representation of a value can diverge from the server-payload shape (e.g.
+// money is `{amount,currency}`, not a bare number), so a format check here
+// would either reject valid values or need per-representation branches that
+// rot the moment either side changes.
 //
 // One `superRefine` instead of a per-field shape: a field-level `.refine()`
 // wouldn't run at all for a key that's simply absent from `values` —

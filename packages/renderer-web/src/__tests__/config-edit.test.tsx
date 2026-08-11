@@ -38,6 +38,28 @@ const settingsScreen: ConfigEditScreenDefinition = {
   },
 };
 
+// A money-typed field is a legitimate FieldDefinition (screen.fields reuses
+// the entity field-shape, kumiko-framework#1923 render-field.tsx money case)
+// even though ConfigKeyType (write-helpers.ts) never carries "money" — the
+// server side of a config key is always a bare scalar.
+const moneySettingsScreen: ConfigEditScreenDefinition = {
+  id: "money-settings",
+  type: "configEdit",
+  scope: "tenant",
+  configKeys: { priceLimit: "demo:config:price-limit" },
+  fields: {
+    priceLimit: { type: "money" },
+    // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
+  } as ConfigEditScreenDefinition["fields"],
+  layout: { sections: [{ title: "Basics", fields: ["priceLimit"] }] },
+};
+
+const moneySchema: FeatureSchema = {
+  featureName: "demo",
+  entities: {},
+  screens: [moneySettingsScreen],
+};
+
 const schema: FeatureSchema = {
   featureName: "demo",
   entities: {},
@@ -135,6 +157,50 @@ describe("KumikoScreen / configEdit", () => {
     expect(commands[0]).toEqual({
       type: "config:write:set",
       payload: { key: "demo:config:site-name", value: "Globex", scope: "tenant" },
+    });
+  });
+
+  // kumiko-framework#1923: RenderField's money case now always emits the
+  // entityEdit `{amount, currency}` payload shape. A config key's server
+  // value is always a bare scalar (ConfigKeyType has no "money" variant) —
+  // customSubmit must unwrap back to `.amount` before dispatching, or the
+  // batch's config:write:set value fails its `string | number | boolean`
+  // schema entirely (regression guard for that unwrap).
+  test("money field submit unwraps {amount, currency} back to a bare number", async () => {
+    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+      isSuccess: true as const,
+      results: [],
+    }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { "demo:config:price-limit": { value: 12.99, scope: "tenant" } },
+      })) as unknown as Dispatcher["query"],
+      batch: batchSpy as unknown as Dispatcher["batch"],
+    });
+
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={moneySchema} qn="demo:screen:money-settings" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const priceInput = screen.getByTestId("field-priceLimit").querySelector("input");
+    if (!priceInput) throw new Error("expected priceLimit input");
+
+    await user.clear(priceInput);
+    await user.type(priceInput, "15.00");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalled());
+    const commands = batchSpy.mock.calls[0]?.[0];
+    if (!commands) throw new Error("batchSpy not called");
+    expect(commands).toHaveLength(1);
+    expect(commands[0]).toEqual({
+      type: "config:write:set",
+      payload: { key: "demo:config:price-limit", value: 15, scope: "tenant" },
     });
   });
 

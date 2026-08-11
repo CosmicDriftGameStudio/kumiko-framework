@@ -40,10 +40,22 @@ describe("mergeSearchParamsIntoInitial", () => {
     expect(result["total"]).toBe(100);
   });
 
-  test("money-type field coerces a numeric string", () => {
+  test("money-type field without a defaultCurrency coerces a bare numeric string (legacy callers, e.g. config-edit/action-form)", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
     const result = mergeSearchParamsIntoInitial(fields, { price: "19.99" });
     expect(result["price"]).toBe(19.99);
+  });
+
+  test("money-type field WITH a defaultCurrency merges the entityEdit payload shape (#1923)", () => {
+    const fields: Record<string, FieldDef> = { price: { type: "money" } };
+    const result = mergeSearchParamsIntoInitial(fields, { price: "19.99" }, undefined, "USD");
+    expect(result["price"]).toEqual({ amount: 19.99, currency: "USD" });
+  });
+
+  test("money-type field WITH a defaultCurrency but no matching searchParam still defaults to the object shape", () => {
+    const fields: Record<string, FieldDef> = { price: { type: "money" } };
+    const result = mergeSearchParamsIntoInitial(fields, {}, undefined, "USD");
+    expect(result["price"]).toEqual({ amount: 0, currency: "USD" });
   });
 
   test("renderableFields set given: searchParam for a non-rendered field is ignored (#1708)", () => {
