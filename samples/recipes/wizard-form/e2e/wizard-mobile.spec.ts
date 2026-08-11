@@ -68,7 +68,7 @@ test.describe("wizard-form — 375px mobile chrome (#1917)", () => {
 
     await expect(progress).toBeVisible();
     await expect(stepLabel).toBeVisible();
-    await expect(stepLabel).toHaveText("Step 1 of 3");
+    await expect(stepLabel).toHaveText("Step 1 of 3 · Basics");
     await expect(next).toBeVisible();
     // Step 1 has no Back button — asserted by the desktop spec too.
     await expect(page.getByTestId("render-edit-wizard-back")).toHaveCount(0);
@@ -88,7 +88,9 @@ test.describe("wizard-form — 375px mobile chrome (#1917)", () => {
     await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
     await selectCombobox(page, "category", "furniture");
     await page.getByTestId("render-edit-wizard-next").click();
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 2 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
 
     const back = page.getByTestId("render-edit-wizard-back");
     const next = page.getByTestId("render-edit-wizard-next");
@@ -123,6 +125,8 @@ test.describe("wizard-form — 375px mobile chrome (#1917)", () => {
     // Functional confirmation: the button isn't just geometrically in
     // bounds, it's actually clickable and advances the wizard.
     await next.click();
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 2 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
   });
 });

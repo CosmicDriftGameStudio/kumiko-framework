@@ -30,8 +30,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.wizard.step": "Schritt {current} von {total}",
     "kumiko.wizard.step-with-title": "Schritt {current} von {total} · {title}",
 
-    // StepBar-Widget (renderer-web) — Screenreader-Text für erledigte Schritte,
-    // deren Nummer visuell durch ein Häkchen ersetzt ist.
+    // StepBar widget (renderer-web) — screen-reader text for completed steps whose number is visually replaced by a checkmark.
     "kumiko.widget.stepBar.done": "Erledigt",
 
     // Version — Update-Awareness-Banner (UpdateChecker).

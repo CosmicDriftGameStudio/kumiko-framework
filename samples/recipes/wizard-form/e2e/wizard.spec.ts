@@ -54,7 +54,9 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await gotoWizard(page);
 
     // Step 1 — Basics
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 1 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 1 of 3 · Basics",
+    );
     await expect(page.getByTestId("render-edit-wizard-back")).toHaveCount(0);
     await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
     await selectCombobox(page, "category", "furniture");
@@ -63,7 +65,9 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await page.getByTestId("render-edit-wizard-next").click();
 
     // Step 2 — Pricing
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 2 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
     await page.getByTestId("field-price").locator("input").fill("42");
     await selectCombobox(page, "condition", "used");
     await page.screenshot({ path: resolve(SCREENSHOT_DIR, "step-2-pricing.png") });
@@ -71,7 +75,9 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await page.getByTestId("render-edit-wizard-next").click();
 
     // Step 3 — Review
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 3 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 3 of 3 · Review",
+    );
     await expect(page.getByTestId("listing-review")).toBeVisible();
     await expect(page.getByTestId("render-edit-submit")).toBeVisible();
     await expect(page.getByTestId("render-edit-wizard-next")).toHaveCount(0);
@@ -79,9 +85,13 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
 
     // Back to Pricing, back to Basics.
     await page.getByTestId("render-edit-wizard-back").click();
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 2 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
     await page.getByTestId("render-edit-wizard-back").click();
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 1 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 1 of 3 · Basics",
+    );
 
     for (const name of ["step-1-basics.png", "step-2-pricing.png", "step-3-review.png"]) {
       expect(statSync(resolve(SCREENSHOT_DIR, name)).size).toBeGreaterThan(1024);
@@ -98,7 +108,9 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
 
     await expect(page.getByTestId("field-title-errors")).toBeVisible();
     await expect(page.getByTestId("field-title-errors")).toHaveAttribute("role", "alert");
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 1 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 1 of 3 · Basics",
+    );
   });
 
   test("values survive navigating back to a previous step", async ({ page }) => {
@@ -106,11 +118,15 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await page.getByTestId("field-title").locator("input").fill("Old bicycle");
     await selectCombobox(page, "category", "vehicles");
     await page.getByTestId("render-edit-wizard-next").click();
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 2 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
 
     await page.getByTestId("render-edit-wizard-back").click();
 
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 1 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 1 of 3 · Basics",
+    );
     await expect(page.getByTestId("field-title").locator("input")).toHaveValue("Old bicycle");
   });
 
@@ -122,12 +138,16 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     // saveDraft() is fire-and-forget (`void dispatcher.write(...)` in
     // render-edit.tsx) — wait for the step to actually change before
     // reloading so the reload doesn't race an in-flight draft save.
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 2 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
 
     await page.reload();
 
     await expect(page.getByTestId("render-edit-form")).toBeVisible();
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 2 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
     await page.getByTestId("render-edit-wizard-back").click();
     await expect(page.getByTestId("field-title").locator("input")).toHaveValue("Draft desk lamp");
   });
@@ -139,12 +159,16 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await page.getByTestId("field-title").locator("input").fill("Submit test lamp");
     await selectCombobox(page, "category", "furniture");
     await page.getByTestId("render-edit-wizard-next").click();
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 2 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
 
     await page.getByTestId("field-price").locator("input").fill("99");
     await selectCombobox(page, "condition", "new");
     await page.getByTestId("render-edit-wizard-next").click();
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 3 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 3 of 3 · Review",
+    );
 
     await expect.poll(() => draftInStorage(page)).not.toBeNull();
     await page.getByTestId("render-edit-submit").click();
@@ -168,7 +192,9 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
 
     await page.reload();
 
-    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText("Step 1 of 3");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 1 of 3 · Basics",
+    );
     await expect(page.getByTestId("field-title").locator("input")).toHaveValue("");
   });
 });
