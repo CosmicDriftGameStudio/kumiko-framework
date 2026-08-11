@@ -755,6 +755,19 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/wizard-form": {
+      "name": "@cosmicdrift/kumiko-sample-wizard-form",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-renderer": "workspace:*",
+        "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+        "react": "^19.2.6",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+      },
+    },
     "samples/recipes/workflow-engine": {
       "name": "@samples/workflow-engine",
     },
@@ -996,6 +1009,8 @@
     "@cosmicdrift/kumiko-sample-user-profile": ["@cosmicdrift/kumiko-sample-user-profile@workspace:samples/recipes/user-profile"],
 
     "@cosmicdrift/kumiko-sample-webhook-step": ["@cosmicdrift/kumiko-sample-webhook-step@workspace:samples/recipes/webhook-step"],
+
+    "@cosmicdrift/kumiko-sample-wizard-form": ["@cosmicdrift/kumiko-sample-wizard-form@workspace:samples/recipes/wizard-form"],
 
     "@cosmicdrift/kumiko-sample-workspaces": ["@cosmicdrift/kumiko-sample-workspaces@workspace:samples/apps/workspaces"],
 
