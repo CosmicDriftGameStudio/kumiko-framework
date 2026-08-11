@@ -29,8 +29,10 @@ let stack: TestStack;
 const admin = TestUsers.admin;
 const otherUser = createTestUser({ id: 2, roles: ["Admin"] });
 
-// Same derivation RenderEdit uses client-side for a create-mode wizard (no
-// host entityId yet): draftKey is just the screen id.
+// Arbitrary draftKey for exercising the handler contract directly — this
+// suite calls FormDraftHandlers/FormDraftQueries with an explicit key, it
+// doesn't go through RenderEdit's client-side derivation (which mints its
+// own `${screenId}:new:${draftId}` for a create-mode wizard, issue #1913).
 const DRAFT_KEY = "listing-wizard";
 
 beforeAll(async () => {

@@ -16,6 +16,8 @@ import {
   CustomScreensProvider,
   DashboardBodyProvider,
   DispatcherProvider,
+  type DraftStorage,
+  DraftStorageProvider,
   type ExtensionSectionComponent,
   ExtensionSectionsProvider,
   type FeatureSchema,
@@ -47,6 +49,7 @@ import { UpdateChecker } from "../version/update-checker";
 import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 import { WebDashboardBody } from "./dashboard-body";
+import { createBrowserDraftStorage } from "./draft-storage";
 import { useBrowserNavApi } from "./nav";
 import { NavProvidersProvider } from "./nav-providers-context";
 import { type ResolverComponent, ResolversProvider } from "./resolvers-context";
@@ -133,6 +136,13 @@ export type CreateKumikoAppOptions = {
   readonly schema?: AppSchema | FeatureSchema;
   readonly rootId?: string;
   readonly dispatcher?: Dispatcher;
+  /** RenderEdit's create-mode draftId storage (issue #1913) — where a
+   *  same-tab reload finds which of several parallel create-sessions on a
+   *  screen to resume. Default: `createBrowserDraftStorage()`
+   *  (sessionStorage-backed). Apps that don't want any client-side draftId
+   *  persistence can pass a no-op impl; RenderEdit still resolves via its
+   *  `form-draft:query:list` mount-time fallback either way. */
+  readonly draftStorage?: DraftStorage;
   readonly screenQn?: string;
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
@@ -274,6 +284,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   }
 
   const dispatcher = options.dispatcher ?? createLiveDispatcher();
+  const draftStorage = options.draftStorage ?? createBrowserDraftStorage();
   const primitives: PrimitivesRegistry = { ...defaultPrimitives, ...(options.primitives ?? {}) };
   const liveEvents = createEventSourceLiveEvents();
 
@@ -389,26 +400,28 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
         <PrimitivesProvider value={primitives}>
           <AppFeaturesProvider features={app.features}>
             <DispatcherProvider dispatcher={dispatcher}>
-              <LiveEventsProvider value={liveEvents}>
-                <DashboardBodyProvider value={WebDashboardBody}>
-                  <CustomScreensProvider value={customScreens}>
-                    <ColumnRenderersProvider value={columnRenderers}>
-                      <ContentEditorsProvider value={contentEditors}>
-                        <ExtensionSectionsProvider value={extensionSectionComponents}>
-                          <NavProvidersProvider value={navProviders} entities={navEntities}>
-                            <ResolversProvider resolvers={resolvers}>
-                              <ToastProvider>
-                                <UpdateChecker />
-                                {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                              </ToastProvider>
-                            </ResolversProvider>
-                          </NavProvidersProvider>
-                        </ExtensionSectionsProvider>
-                      </ContentEditorsProvider>
-                    </ColumnRenderersProvider>
-                  </CustomScreensProvider>
-                </DashboardBodyProvider>
-              </LiveEventsProvider>
+              <DraftStorageProvider value={draftStorage}>
+                <LiveEventsProvider value={liveEvents}>
+                  <DashboardBodyProvider value={WebDashboardBody}>
+                    <CustomScreensProvider value={customScreens}>
+                      <ColumnRenderersProvider value={columnRenderers}>
+                        <ContentEditorsProvider value={contentEditors}>
+                          <ExtensionSectionsProvider value={extensionSectionComponents}>
+                            <NavProvidersProvider value={navProviders} entities={navEntities}>
+                              <ResolversProvider resolvers={resolvers}>
+                                <ToastProvider>
+                                  <UpdateChecker />
+                                  {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                                </ToastProvider>
+                              </ResolversProvider>
+                            </NavProvidersProvider>
+                          </ExtensionSectionsProvider>
+                        </ContentEditorsProvider>
+                      </ColumnRenderersProvider>
+                    </CustomScreensProvider>
+                  </DashboardBodyProvider>
+                </LiveEventsProvider>
+              </DraftStorageProvider>
             </DispatcherProvider>
           </AppFeaturesProvider>
         </PrimitivesProvider>

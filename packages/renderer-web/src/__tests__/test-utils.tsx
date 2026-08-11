@@ -21,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
+  type DraftStorage,
   kumikoDefaultTranslations,
   type LiveEventSubscriber,
   LiveEventsProvider,
@@ -160,6 +161,29 @@ export function createMockDispatcher(options: MockDispatcherOptions = {}): Dispa
     async *stream() {},
     pendingWrites: () => [],
     pendingFiles: () => [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Fake-DraftStorage-Helper
+// ---------------------------------------------------------------------------
+
+/** In-memory DraftStorage for tests that need RenderEdit's create-mode
+ *  draftId to survive a same-tab remount (issue #1913) — the same role
+ *  `sessionStorage` plays for `createBrowserDraftStorage()` in production.
+ *  Fresh Map per call, so tests stay isolated from one another; wrap the
+ *  SAME instance around both renders of a "simulated reload" test to prove
+ *  persistence across the remount. */
+export function createFakeDraftStorage(): DraftStorage {
+  const store = new Map<string, string>();
+  return {
+    getDraftId: (screenId) => store.get(screenId) ?? null,
+    setDraftId: (screenId, draftId) => {
+      store.set(screenId, draftId);
+    },
+    clearDraftId: (screenId) => {
+      store.delete(screenId);
+    },
   };
 }
 

@@ -6,6 +6,7 @@ import type {
 import type { Dispatcher, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import {
   DispatcherProvider,
+  DraftStorageProvider,
   ExtensionSectionsProvider,
   type ExtensionSubmitContext,
   RenderEdit,
@@ -15,7 +16,16 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { useState } from "react";
 import { z } from "zod";
-import { act, createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
+import {
+  act,
+  createFakeDraftStorage,
+  createMockDispatcher,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "./test-utils";
 
 const orderEntity = {
   fields: {
@@ -1174,16 +1184,24 @@ describe("RenderEdit wizard draft", () => {
 
   test("values and step survive a remount", async () => {
     const { dispatcher } = makeDraftDispatcher();
+    // Simulates the browser: the same DraftStorage instance (sessionStorage
+    // in production) survives the remount below, RenderEdit's in-memory
+    // React state does not. Without it there's no draftId to resume from
+    // and the mount would fall back to `form-draft:query:list` instead —
+    // this test is specifically about the storage-resume path.
+    const draftStorage = createFakeDraftStorage();
 
     const first = render(
       <DispatcherProvider dispatcher={dispatcher}>
-        <RenderEdit<TestValues>
-          screen={makeDraftWizardScreen(true)}
-          entity={orderEntity}
-          featureName="orders"
-          initial={{ title: "", count: 0 }}
-          writeCommand="order:create"
-        />
+        <DraftStorageProvider value={draftStorage}>
+          <RenderEdit<TestValues>
+            screen={makeDraftWizardScreen(true)}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
       </DispatcherProvider>,
     );
 
@@ -1200,13 +1218,15 @@ describe("RenderEdit wizard draft", () => {
 
     render(
       <DispatcherProvider dispatcher={dispatcher}>
-        <RenderEdit<TestValues>
-          screen={makeDraftWizardScreen(true)}
-          entity={orderEntity}
-          featureName="orders"
-          initial={{ title: "", count: 0 }}
-          writeCommand="order:create"
-        />
+        <DraftStorageProvider value={draftStorage}>
+          <RenderEdit<TestValues>
+            screen={makeDraftWizardScreen(true)}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
       </DispatcherProvider>,
     );
 
@@ -1282,6 +1302,390 @@ describe("RenderEdit wizard draft", () => {
 
     expect(screen.getByTestId("field-count")).toBeTruthy();
     expect(calls.some((c) => c.startsWith("form-draft:"))).toBe(false);
+  });
+});
+
+describe("RenderEdit create-mode draftId (issue #1913)", () => {
+  function makeDraftWizardScreen(): EntityEditScreenDefinition {
+    return {
+      id: "orders:screen:order-wizard-draftid",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        draft: true,
+        sections: [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          { title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+    };
+  }
+
+  type DraftBlob = { readonly values: Record<string, unknown>; readonly stepIndex: number };
+  type StoredDraft = DraftBlob & { readonly savedAt: string };
+
+  // Per-draftKey fake (unlike the single-slot `makeDraftDispatcher` above) —
+  // needed to prove two parallel create sessions land on two distinct rows,
+  // and to back the `form-draft:query:list` fallback (multiple candidates,
+  // picker, adopt).
+  function makeMultiDraftDispatcher(): {
+    readonly dispatcher: Dispatcher;
+    readonly drafts: Map<string, StoredDraft>;
+  } {
+    const drafts = new Map<string, StoredDraft>();
+    let seq = 0;
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string, payload: unknown) => {
+        if (type === "form-draft:query:get") {
+          const { draftKey } = payload as { draftKey: string };
+          return { isSuccess: true, data: { draft: drafts.get(draftKey) ?? null } };
+        }
+        if (type === "form-draft:query:list") {
+          const { screenId } = payload as { screenId: string };
+          const prefix = `${screenId}:`;
+          const matches = [...drafts.entries()]
+            .filter(([key]) => key.startsWith(prefix))
+            .map(([key, draft]) => ({
+              id: key,
+              draftKey: key,
+              stepIndex: draft.stepIndex,
+              savedAt: draft.savedAt,
+            }));
+          return { isSuccess: true, data: { drafts: matches } };
+        }
+        return { isSuccess: true, data: {} };
+      }) as Dispatcher["query"],
+      write: (async (type: string, payload: unknown) => {
+        if (type === "form-draft:write:save") {
+          const { draftKey, values, stepIndex } = payload as {
+            draftKey: string;
+            values: Record<string, unknown>;
+            stepIndex: number;
+          };
+          seq += 1;
+          drafts.set(draftKey, {
+            values,
+            stepIndex,
+            savedAt: `2026-01-01T00:00:${String(seq).padStart(2, "0")}Z`,
+          });
+        } else if (type === "form-draft:write:discard") {
+          const { draftKey } = payload as { draftKey: string };
+          drafts.delete(draftKey);
+        }
+        return { isSuccess: true, data: { id: "1" } };
+      }) as Dispatcher["write"],
+    });
+    return { dispatcher, drafts };
+  }
+
+  test("two parallel create sessions on the same screen get different draftKeys and don't overwrite each other (#1908)", async () => {
+    const { dispatcher, drafts } = makeMultiDraftDispatcher();
+    const screenDef = makeDraftWizardScreen();
+
+    const sessionA = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+    const sessionB = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    const titleA = within(sessionA.container)
+      .getByTestId("field-title")
+      .querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleA, { target: { value: "Session A" } });
+    await act(async () => {
+      fireEvent.submit(within(sessionA.container).getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    const titleB = within(sessionB.container)
+      .getByTestId("field-title")
+      .querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleB, { target: { value: "Session B" } });
+    await act(async () => {
+      fireEvent.submit(within(sessionB.container).getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    const prefix = `${screenDef.id}:new:`;
+    const createDraftKeys = [...drafts.keys()].filter((k) => k.startsWith(prefix));
+    expect(createDraftKeys).toHaveLength(2);
+    const [keyA, keyB] = createDraftKeys as [string, string];
+    expect(keyA).not.toBe(keyB);
+    const titles = createDraftKeys.map((k) => drafts.get(k)?.values["title"]).sort();
+    expect(titles).toEqual(["Session A", "Session B"]);
+  });
+
+  test("cleared storage with exactly one open draft resumes it automatically via list", async () => {
+    const { dispatcher, drafts } = makeMultiDraftDispatcher();
+    const screenDef = makeDraftWizardScreen();
+    // Pre-seed one existing create-mode draft, as if minted by an earlier,
+    // now-storage-less session (new tab / cleared sessionStorage).
+    drafts.set(`${screenDef.id}:new:existing-id`, {
+      values: { title: "Resumed", count: 0 },
+      stepIndex: 0,
+      savedAt: "2026-01-01T00:00:00Z",
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => {
+      const titleInput = screen
+        .getByTestId("field-title")
+        .querySelector("input") as HTMLInputElement;
+      expect(titleInput.value).toBe("Resumed");
+    });
+    expect(screen.queryByTestId("render-edit-draft-picker")).toBeNull();
+  });
+
+  test("cleared storage with multiple open drafts shows a picker; picking one resumes it", async () => {
+    const { dispatcher, drafts } = makeMultiDraftDispatcher();
+    const screenDef = makeDraftWizardScreen();
+    drafts.set(`${screenDef.id}:new:draft-1`, {
+      values: { title: "First draft", count: 0 },
+      stepIndex: 0,
+      savedAt: "2026-01-01T00:00:00Z",
+    });
+    drafts.set(`${screenDef.id}:new:draft-2`, {
+      values: { title: "Second draft", count: 0 },
+      stepIndex: 0,
+      savedAt: "2026-01-02T00:00:00Z",
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    const pickSecond = screen.getByTestId(`render-edit-draft-pick-${screenDef.id}:new:draft-2`);
+    fireEvent.click(pickSecond);
+
+    await waitFor(() => {
+      const titleInput = screen
+        .getByTestId("field-title")
+        .querySelector("input") as HTMLInputElement;
+      expect(titleInput.value).toBe("Second draft");
+    });
+    expect(screen.queryByTestId("render-edit-draft-picker")).toBeNull();
+  });
+
+  test("minting a draftId clears a stale picker — a candidate can't hijack the just-minted key", async () => {
+    const { dispatcher, drafts } = makeMultiDraftDispatcher();
+    const screenDef = makeDraftWizardScreen();
+    drafts.set(`${screenDef.id}:new:draft-1`, {
+      values: { title: "First draft", count: 0 },
+      stepIndex: 0,
+      savedAt: "2026-01-01T00:00:00Z",
+    });
+    drafts.set(`${screenDef.id}:new:draft-2`, {
+      values: { title: "Second draft", count: 0 },
+      stepIndex: 0,
+      savedAt: "2026-01-02T00:00:00Z",
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+
+    // The user ignores the picker and starts a genuinely new record instead.
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Fresh session" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      await Promise.resolve();
+    });
+
+    // The stale picker must not survive the mint — picking draft-1/draft-2
+    // afterwards would repoint draftKey at an unrelated draft mid-edit.
+    expect(screen.queryByTestId("render-edit-draft-picker")).toBeNull();
+
+    const prefix = `${screenDef.id}:new:`;
+    const mintedKeys = [...drafts.keys()].filter(
+      (k) => k.startsWith(prefix) && k !== `${prefix}draft-1` && k !== `${prefix}draft-2`,
+    );
+    expect(mintedKeys).toHaveLength(1);
+    const [mintedKey] = mintedKeys as [string];
+    expect(drafts.get(mintedKey)?.values["title"]).toBe("Fresh session");
+    // The two pre-existing candidates are untouched by the fresh mint.
+    expect(drafts.get(`${prefix}draft-1`)?.values["title"]).toBe("First draft");
+    expect(drafts.get(`${prefix}draft-2`)?.values["title"]).toBe("Second draft");
+  });
+
+  test("discarding a draft doesn't re-arm the list fallback and silently adopt a parallel draft", async () => {
+    const { dispatcher: baseDispatcher, drafts } = makeMultiDraftDispatcher();
+    const screenDef = makeDraftWizardScreen();
+    // A parallel create session on the same screen, still open.
+    drafts.set(`${screenDef.id}:new:other-session`, {
+      values: { title: "Someone else's draft", count: 0 },
+      stepIndex: 0,
+      savedAt: "2026-01-01T00:00:00Z",
+    });
+
+    // Counts `form-draft:query:list` calls directly — the mechanism under
+    // test (didListRef) gates exactly this call, so this is a more precise
+    // signal than any DOM side effect of a (possibly delayed) re-adopt.
+    let listCallCount = 0;
+    const dispatcher: Dispatcher = {
+      ...baseDispatcher,
+      query: (async (type: string, payload: unknown) => {
+        if (type === "form-draft:query:list") listCallCount += 1;
+        return (baseDispatcher.query as (t: string, p: unknown) => Promise<unknown>)(type, payload);
+      }) as Dispatcher["query"],
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    // The lone open draft (`other-session`) auto-adopts on mount — the same
+    // path a cleared-storage tab takes. Wait for that to settle first.
+    await waitFor(() => {
+      const titleInput = screen
+        .getByTestId("field-title")
+        .querySelector("input") as HTMLInputElement;
+      expect(titleInput.value).toBe("Someone else's draft");
+    });
+    expect(listCallCount).toBe(1);
+
+    // The user overwrites the adopted draft with their own new record,
+    // steps through the wizard, and submits on the last step — a real
+    // submit (not just a draft-save Next), which discards the (now
+    // theirs) draftId.
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "My own record" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      await Promise.resolve();
+    });
+    const countInput = screen.getByTestId("field-count").querySelector("input") as HTMLInputElement;
+    fireEvent.change(countInput, { target: { value: "5" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+    });
+
+    expect(drafts.has(`${screenDef.id}:new:other-session`)).toBe(false);
+
+    // A second parallel draft appears on the same screen right after submit
+    // (e.g. another tab). The just-discarded instance's draftId reset to
+    // null must not re-run the list fallback and silently repopulate the
+    // form with it — a re-arm would auto-adopt it, jump the wizard back to
+    // its saved step (0) and overwrite the just-submitted values, which
+    // would put step 0's "field-title" section back on screen.
+    drafts.set(`${screenDef.id}:new:yet-another-session`, {
+      values: { title: "A completely different draft", count: 0 },
+      stepIndex: 0,
+      savedAt: "2026-01-03T00:00:00Z",
+    });
+    // Flush thoroughly (not just one microtask tick) — a re-armed effect's
+    // full chain (query → filter → setDraftId → re-render → GET restore →
+    // setValues) needs several turns to complete, and this assertion must
+    // hold even after every one of them ran.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(listCallCount).toBe(1);
+    expect(screen.queryByTestId("field-title")).toBeNull();
+    expect(screen.queryByTestId("render-edit-draft-picker")).toBeNull();
+    const countAfterSubmit = screen
+      .getByTestId("field-count")
+      .querySelector("input") as HTMLInputElement;
+    expect(countAfterSubmit.value).toBe("5");
+  });
+
+  test("edit-mode draftKey stays screenId:entityId — unaffected by create-mode draftId minting", async () => {
+    const { dispatcher, drafts } = makeMultiDraftDispatcher();
+    const screenDef = makeDraftWizardScreen();
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Existing", count: 5 }}
+            entityId="order-77"
+            writeCommand="order:update"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Existing edited" } });
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    expect([...drafts.keys()]).toEqual([`${screenDef.id}:order-77`]);
   });
 });
 

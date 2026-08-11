@@ -86,6 +86,8 @@ export {
   useDispatcherStatus,
   useOptionalDispatcher,
 } from "./context/dispatcher-context";
+export type { DraftStorage, DraftStorageProviderProps } from "./context/draft-storage-context";
+export { DraftStorageProvider, useDraftStorage } from "./context/draft-storage-context";
 export type { UserRolesProviderProps } from "./context/user-roles-context";
 export { UserRolesProvider, useUserRoles } from "./context/user-roles-context";
 export { formatWhen } from "./format-when";

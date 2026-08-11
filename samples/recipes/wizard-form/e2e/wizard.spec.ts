@@ -8,18 +8,17 @@
 // a blocked step really keeps its error on screen instead of advancing,
 // and that a page reload resumes exactly where the draft left off.
 //
-// draftKey for create-mode = screen.id ("listing-wizard") — same
-// derivation RenderEdit uses client-side (see render-edit.tsx's
-// `draftKey` useMemo) and the same key src/__tests__/feature.integration.
-// test.ts asserts against server-side.
+// draftKey for create-mode = `${screen.id}:new:${draftId}` (issue #1913) —
+// `draftId` is a client-minted UUID (see render-edit.tsx's `draftKey`
+// useMemo), so this spec matches on the `listing-wizard:new:` prefix
+// rather than a single literal key.
 
 import { mkdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 
 const SCREENSHOT_DIR = resolve(import.meta.dirname, "../screenshots");
-const DRAFT_KEY = "listing-wizard";
-const DRAFT_STORAGE_KEY = `mock-form-draft:${DRAFT_KEY}`;
+const DRAFT_STORAGE_PREFIX = "mock-form-draft:listing-wizard:new:";
 
 async function gotoWizard(page: Page): Promise<void> {
   await page.goto("/listing-wizard");
@@ -32,7 +31,16 @@ async function selectCombobox(page: Page, field: string, optionLabel: string): P
 }
 
 async function draftInStorage(page: Page): Promise<unknown> {
-  return page.evaluate((key) => localStorage.getItem(key), DRAFT_STORAGE_KEY);
+  // The draftId is a client-minted UUID (issue #1913), unknown ahead of
+  // time — scan for the one key under this screen's create-mode prefix
+  // instead of matching a fixed key.
+  return page.evaluate((prefix) => {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key !== null && key.startsWith(prefix)) return localStorage.getItem(key);
+    }
+    return null;
+  }, DRAFT_STORAGE_PREFIX);
 }
 
 async function createdListings(page: Page): Promise<Record<string, unknown>[]> {
