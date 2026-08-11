@@ -261,11 +261,16 @@ const RELOAD_SNIPPET = `
 // `function history()` (prosemirror-history, pulled in by tiptap) silently
 // replaces `window.history` and every pushState afterwards throws. Prod
 // (build-prod-bundle) has always emitted the module form.
+//
+// `interactive-widget=resizes-content` (fw#1918): without it, a mobile
+// keyboard shrinks only the visual viewport, not the layout viewport that
+// `position: fixed` anchors to — a fixed bottom action bar would stay
+// pinned behind the keyboard instead of above it.
 const DEFAULT_HTML = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,interactive-widget=resizes-content" />
     <title>Kumiko</title>
   </head>
   <body>

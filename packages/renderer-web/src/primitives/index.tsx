@@ -1571,6 +1571,7 @@ function DefaultForm({
   actions,
   testId,
   width,
+  stickyActions,
 }: FormProps): ReactNode {
   // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
   // der Container trägt Card/Titel selbst, sonst Card-in-Card.
@@ -1639,6 +1640,9 @@ function DefaultForm({
               "[&>section:not(:first-child)]:border-t",
               "[&>:not(section)]:px-6 [&>:not(section)]:py-3",
               "[&>:not(section):first-child]:pt-6 [&>:not(section):last-child]:pb-6",
+              // ponytail: fixed footer height is a guess (button row + safe-area) —
+              // widen if a wizard step's last field ever renders visibly clipped.
+              stickyActions === true && "max-sm:pb-24",
             )}
           >
             <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
@@ -1646,7 +1650,17 @@ function DefaultForm({
           {actions !== undefined && (
             <div
               data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-              className={cn(cardFooter, cardFooterBorder)}
+              className={cn(
+                cardFooter,
+                cardFooterBorder,
+                // Below sm (640px): pin to the viewport bottom instead of normal
+                // flow, so a virtual keyboard shrinking the viewport can't push
+                // this out of reach (fw#1918). `fixed` escapes the card's
+                // `overflow-hidden` (only transform/filter/contain ancestors trap
+                // it, confirmed against AppLayout/SidebarInset — neither sets those).
+                stickyActions === true &&
+                  "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)] max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]",
+              )}
             >
               {actions}
             </div>

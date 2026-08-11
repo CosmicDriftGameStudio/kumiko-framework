@@ -97,25 +97,15 @@ test.describe("wizard-form — 375px mobile chrome (#1917)", () => {
     await assertNoOverlap(back, next);
   });
 
-  // Framework gap, not a test bug: cardFooter (packages/renderer-web/src/
-  // primitives/index.tsx) lays the wizard's actions footer out in normal
-  // document flow — no sticky/fixed positioning, no safe-area/keyboard
-  // avoidance. On a short screen with the virtual keyboard up, the Next
-  // button ends up below the visible area with no way to reach it short of
-  // dismissing the keyboard first. test.fail() keeps this requirement
-  // visible and pins it red-on-pass: remove test.fail() once the wizard's
-  // actions footer gets keyboard-safe positioning. Tracked as
-  // CosmicDriftGameStudio/kumiko-framework#1918, not fixable from this
-  // recipe's e2e spec.
   test("Next stays reachable after focusing a field and the viewport shrinking (simulated keyboard)", async ({
     page,
   }) => {
-    test.fail();
     await gotoWizard(page);
     await assertCssIsLive(page);
 
     const titleInput = page.getByTestId("field-title").locator("input");
     await titleInput.fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
     await titleInput.focus();
 
     // Simulates a virtual keyboard covering roughly the bottom half of an

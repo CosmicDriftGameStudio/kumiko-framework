@@ -896,6 +896,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {...(formSubtitle !== undefined && { subtitle: formSubtitle })}
         actions={formActions}
         testId="render-edit-form"
+        stickyActions={isWizard}
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
       >
         {draftCandidates !== null && (
