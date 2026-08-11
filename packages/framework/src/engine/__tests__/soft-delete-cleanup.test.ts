@@ -120,7 +120,7 @@ describe("softDeleteCleanupJob handler", () => {
   test("cutoff defaults to DEFAULT_GRACE_DAYS when no config resolver", async () => {
     const calls: DeleteCall[] = [];
     await softDeleteCleanupJob({}, makeCtx({ calls }));
-    const cutoff = (calls[0]?.where["deletedAt"] as { lt: Temporal.Instant }).lt;
+    const cutoff = (calls[0]!.where["deletedAt"] as { lt: Temporal.Instant }).lt;
     const expected = Temporal.Now.instant().subtract({ hours: DEFAULT_GRACE_DAYS * 24 });
     expect(Math.abs(cutoff.epochMilliseconds - expected.epochMilliseconds)).toBeLessThan(10_000);
   });
@@ -128,7 +128,7 @@ describe("softDeleteCleanupJob handler", () => {
   test("honours a per-tenant grace-days value from the config resolver", async () => {
     const calls: DeleteCall[] = [];
     await softDeleteCleanupJob({}, makeCtx({ calls, graceDays: 7 }));
-    const cutoff = (calls[0]?.where["deletedAt"] as { lt: Temporal.Instant }).lt;
+    const cutoff = (calls[0]!.where["deletedAt"] as { lt: Temporal.Instant }).lt;
     const expected = Temporal.Now.instant().subtract({ hours: 7 * 24 });
     expect(Math.abs(cutoff.epochMilliseconds - expected.epochMilliseconds)).toBeLessThan(10_000);
   });
@@ -155,7 +155,7 @@ describe("softDeleteCleanupSystemJob handler", () => {
   test("cutoff is DEFAULT_GRACE_DAYS — no per-tenant config to read", async () => {
     const calls: DeleteCall[] = [];
     await softDeleteCleanupSystemJob({}, makeCtx({ calls }));
-    const cutoff = (calls[0]?.where["deletedAt"] as { lt: Temporal.Instant }).lt;
+    const cutoff = (calls[0]!.where["deletedAt"] as { lt: Temporal.Instant }).lt;
     const expected = Temporal.Now.instant().subtract({ hours: DEFAULT_GRACE_DAYS * 24 });
     expect(Math.abs(cutoff.epochMilliseconds - expected.epochMilliseconds)).toBeLessThan(10_000);
   });

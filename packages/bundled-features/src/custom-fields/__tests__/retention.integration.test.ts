@@ -210,7 +210,7 @@ describe("T1.5d: per-field retention sweep", () => {
     });
 
     const row = await readRow(propertyId);
-    expect((row?.["custom_fields"] as Record<string, unknown>)["recent"]).toBe("keep-me");
+    expect((row!["custom_fields"] as Record<string, unknown>)["recent"]).toBe("keep-me");
   });
 
   test("field without retention policy: untouched even on ancient rows", async () => {
@@ -233,7 +233,7 @@ describe("T1.5d: per-field retention sweep", () => {
 
     expect(report.rowsUpdated).toBe(0);
     const row = await readRow(propertyId);
-    expect((row?.["custom_fields"] as Record<string, unknown>)["forever"]).toBe("keep-me-always");
+    expect((row!["custom_fields"] as Record<string, unknown>)["forever"]).toBe("keep-me-always");
   });
 
   test("mixed: only expired-with-policy keys are stripped, others stay", async () => {

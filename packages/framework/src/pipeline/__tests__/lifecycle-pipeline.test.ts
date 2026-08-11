@@ -729,33 +729,36 @@ describe("runPostSaveBatch / runPostDeleteBatch", () => {
       (pipeline: ReturnType<typeof createLifecycleHooks>) =>
         pipeline.runPostDeleteBatch([deletectx], {}),
     ],
-  ])("one %s hook throwing doesn't stop the others (Promise.allSettled) — logged, never thrown", async (_name, buildHooks, run) => {
-    const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
-    try {
-      const calls: string[] = [];
-      const systemHooks = buildHooks([
-        {
-          name: "failing",
-          priority: 1000,
-          fn: async () => {
-            throw new Error("batch-hook-boom");
+  ])(
+    "one %s hook throwing doesn't stop the others (Promise.allSettled) — logged, never thrown",
+    async (_name, buildHooks, run) => {
+      const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const calls: string[] = [];
+        const systemHooks = buildHooks([
+          {
+            name: "failing",
+            priority: 1000,
+            fn: async () => {
+              throw new Error("batch-hook-boom");
+            },
           },
-        },
-        {
-          name: "ok",
-          priority: 1001,
-          fn: async () => {
-            calls.push("ok-ran");
+          {
+            name: "ok",
+            priority: 1001,
+            fn: async () => {
+              calls.push("ok-ran");
+            },
           },
-        },
-      ]);
-      const pipeline = createLifecycleHooks(makeRegistry(), systemHooks);
-      // Must not throw.
-      await run(pipeline);
-      expect(calls).toEqual(["ok-ran"]);
-      expect(consoleSpy).toHaveBeenCalled();
-    } finally {
-      consoleSpy.mockRestore();
-    }
-  });
+        ]);
+        const pipeline = createLifecycleHooks(makeRegistry(), systemHooks);
+        // Must not throw.
+        await run(pipeline);
+        expect(calls).toEqual(["ok-ran"]);
+        expect(consoleSpy).toHaveBeenCalled();
+      } finally {
+        consoleSpy.mockRestore();
+      }
+    },
+  );
 });

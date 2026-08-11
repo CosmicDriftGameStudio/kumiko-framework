@@ -29,17 +29,16 @@ describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", (
     expect(info.pgTypeOf("source")).toBe("text");
   });
 
-  test.each([
-    "columns",
-    "tableName",
-    "indexes",
-  ])("an entity field named `%s` (another meta key) also does not shadow it", (fieldName) => {
-    const table = buildEntityTable("thing", {
-      fields: { [fieldName]: { type: "text", required: true } },
-    });
-    const info = extractTableInfo(table);
-    expect(info.pgTypeOf("inserted_at")).toBe("timestamptz");
-  });
+  test.each(["columns", "tableName", "indexes"])(
+    "an entity field named `%s` (another meta key) also does not shadow it",
+    (fieldName) => {
+      const table = buildEntityTable("thing", {
+        fields: { [fieldName]: { type: "text", required: true } },
+      });
+      const info = extractTableInfo(table);
+      expect(info.pgTypeOf("inserted_at")).toBe("timestamptz");
+    },
+  );
 
   test("control entity without a colliding field is unaffected", () => {
     const table = buildEntityTable("note", {

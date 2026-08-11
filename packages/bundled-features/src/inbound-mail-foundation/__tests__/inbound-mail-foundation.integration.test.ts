@@ -624,7 +624,7 @@ describe("scenario 6: crypto-shredding (#800)", () => {
       inboundMessageAggregateId(accountId, "uid-shred"),
       admin.tenantId,
     );
-    const ciphertext = (events[0]?.payload as { from?: string }).from as string;
+    const ciphertext = (events[0]!.payload as { from?: string }).from as string;
     expect(isPiiCiphertext(ciphertext)).toBe(true);
 
     const kms = configuredPiiSubjectKms();

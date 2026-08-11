@@ -139,7 +139,7 @@ describe("upcaster error-policy: quarantine", () => {
     expect(result).toHaveLength(1);
     expect(result[0]?.id).toBe("10");
     expect(result[0]?.eventVersion).toBe(2);
-    expect((result[0]?.payload as { migrated?: boolean }).migrated).toBe(true);
+    expect((result[0]!.payload as { migrated?: boolean }).migrated).toBe(true);
 
     const dl = await listDeadLetters(testDb.db);
     expect(dl).toHaveLength(1);

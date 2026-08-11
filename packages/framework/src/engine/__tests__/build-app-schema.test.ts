@@ -160,7 +160,7 @@ describe("buildAppSchema", () => {
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
-      app.features[0]?.entities["thing"] as unknown as {
+      app.features[0]!.entities["thing"] as unknown as {
         fields: Record<string, Record<string, unknown>>;
       }
     ).fields;
@@ -186,7 +186,7 @@ describe("buildAppSchema", () => {
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
-      app.features[0]?.entities["thing"] as unknown as {
+      app.features[0]!.entities["thing"] as unknown as {
         fields: Record<string, Record<string, unknown>>;
       }
     ).fields;
@@ -207,7 +207,7 @@ describe("buildAppSchema", () => {
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
-      app.features[0]?.entities["thing"] as unknown as {
+      app.features[0]!.entities["thing"] as unknown as {
         fields: Record<string, Record<string, unknown>>;
       }
     ).fields;
@@ -228,7 +228,7 @@ describe("buildAppSchema", () => {
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
-      app.features[0]?.entities["thing"] as unknown as {
+      app.features[0]!.entities["thing"] as unknown as {
         fields: Record<string, Record<string, unknown>>;
       }
     ).fields;

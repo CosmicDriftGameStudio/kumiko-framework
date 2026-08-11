@@ -297,7 +297,7 @@ describe("entity cache", () => {
 
     const single = await cache.get("00000000-0000-4000-8000-000000000001", "event", 42);
     expect(single?.["insertedAt"]).toBeInstanceOf(Date);
-    expect((single?.["insertedAt"] as Date).getTime()).toBe(insertedAt.getTime());
+    expect((single!["insertedAt"] as Date).getTime()).toBe(insertedAt.getTime());
     // Non-ISO strings must not be coerced
     expect(typeof single?.["title"]).toBe("string");
     expect(single?.["note"]).toBe("not a date: 2026-04");
