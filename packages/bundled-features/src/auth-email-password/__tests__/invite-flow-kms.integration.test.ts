@@ -282,4 +282,20 @@ describe("auth flows with active KMS + blind index", () => {
     });
     expect(loginRes.status).toBe(200);
   });
+
+  test("tenant:query:invitations decrypts the invited email under active KMS (#1931)", async () => {
+    await inviteEmail(CAROL_EMAIL, "Editor");
+
+    const list = (await stack.http.queryOk(
+      "tenant:query:invitations",
+      {},
+      aliceSession(),
+    )) as Array<{ email: string; invitedBy: string; status: string }>;
+
+    expect(list).toHaveLength(1);
+    expect(isPiiCiphertext(list[0]?.email)).toBe(false);
+    expect(list[0]?.email).toBe(CAROL_EMAIL);
+    expect(isPiiCiphertext(list[0]?.invitedBy)).toBe(false);
+    expect(list[0]?.invitedBy).toBe(aliceId);
+  });
 });
