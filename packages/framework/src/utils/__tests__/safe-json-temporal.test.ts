@@ -12,3 +12,17 @@ describe("stringifyJson — Temporal.Instant without ambient Temporal", () => {
     });
   });
 });
+
+describe("stringifyJson — Temporal.PlainDate (kumiko-framework#1924)", () => {
+  test("serializes to yyyy-mm-dd via PlainDate's own toJSON(), no special-casing needed", () => {
+    const day = PolyfillTemporal.PlainDate.from("2026-03-15");
+    expect(stringifyJson({ publishedAt: day })).toBe('{"publishedAt":"2026-03-15"}');
+  });
+
+  test("serializes polyfill PlainDate when globalThis.Temporal is missing", async () => {
+    const day = PolyfillTemporal.PlainDate.from("2026-03-15");
+    await withoutAmbientTemporal(() => {
+      expect(stringifyJson({ publishedAt: day })).toBe('{"publishedAt":"2026-03-15"}');
+    });
+  });
+});
