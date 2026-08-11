@@ -1883,7 +1883,9 @@ describe("boot-validator", () => {
     test("redirect → unbekannte Cross-Feature-QN → Throw", () => {
       expect(() =>
         validateBoot([makeFeature({ redirect: "statements:screen:ghost-screen" })]),
-      ).toThrow(/redirect "statements:screen:ghost-screen" does not resolve to a registered screen/);
+      ).toThrow(
+        /redirect "statements:screen:ghost-screen" does not resolve to a registered screen/,
+      );
     });
 
     test("cancelTarget → voll-qualifizierte Cross-Feature-QN → kein Throw", () => {
@@ -2254,10 +2256,7 @@ describe("boot-validator", () => {
         r.screen({ id: "statement-upload-list", type: "custom", renderer: { react: "stub" } });
       });
       expect(() =>
-        validateBoot([
-          makeFeature("statements:screen:statement-upload-list"),
-          consumer,
-        ]),
+        validateBoot([makeFeature("statements:screen:statement-upload-list"), consumer]),
       ).not.toThrow();
     });
 
