@@ -172,11 +172,11 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       } catch (err) {
         dbThrewAbortError = err instanceof Error && err.name === "AbortError";
       }
-      await crud.create(
-        { label: `${event.payload.label}-outside-tx` },
-        event.user,
-        ctx.dbOutsideTransaction,
-      );
+      const outsideTx = ctx.dbOutsideTransaction;
+      if (!outsideTx) {
+        throw new Error("bag:create-signal-probe requires ctx.dbOutsideTransaction");
+      }
+      await crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, outsideTx);
       return { isSuccess: true as const, data: { dbThrewAbortError } };
     },
     { access: { roles: ["Admin"] } },

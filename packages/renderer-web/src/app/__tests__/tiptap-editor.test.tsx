@@ -175,6 +175,7 @@ describe("TiptapEditor — jsdom smoke", () => {
     const values: string[] = [];
     render(
       <TiptapEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
         value="<table><tbody><tr><td>cell</td></tr></tbody></table><p>hello</p>"
         onChange={(html) => values.push(html)}
         variables={[]}
