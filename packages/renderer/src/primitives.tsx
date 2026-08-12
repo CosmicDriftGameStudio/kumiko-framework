@@ -264,6 +264,9 @@ export type InputProps =
        *  gegen die Field-Def von (entityType, fieldName). */
       readonly entityType?: string;
       readonly fieldName?: string;
+      /** Only for kind:"image" — variant name for the preview
+       *  (`/api/files/:id/variant/:name`). Absent → the original. */
+      readonly imageVariant?: string;
     }
   | {
       readonly kind: "date";

@@ -1,7 +1,7 @@
-// File/Image-Upload-Widget für die Auto-Edit-Form. Lädt eine Datei per
-// multipart-POST an /api/files (vom Stack gemountet wenn ein storageProvider
-// gesetzt ist), bekommt die FileRef-UUID zurück und gibt sie als Field-Wert
-// hoch. Image → runde Avatar-Preview (GET /api/files/:id), file → Dateiname.
+// File/image upload widget for the auto-edit form. Uploads via multipart POST
+// to /api/files (mounted by the stack when a storageProvider is set), gets the
+// FileRef UUID back and lifts it up as the field value. Image → round avatar
+// preview (GET /api/files/:id, or the declared variant), file → file name.
 
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import { ImageIcon, Loader2, Upload } from "lucide-react";
@@ -17,6 +17,7 @@ export type FileUploadInputProps = {
   readonly disabled?: boolean;
   readonly entityType?: string;
   readonly fieldName?: string;
+  readonly imageVariant?: string;
 };
 
 // "jpg" → ".jpg", "image/png" bleibt. Leere Liste → kein accept-Attribut.
@@ -34,6 +35,7 @@ export function FileUploadInput({
   disabled,
   entityType,
   fieldName,
+  imageVariant,
 }: FileUploadInputProps): ReactNode {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -79,7 +81,11 @@ export function FileUploadInput({
       {kind === "image" &&
         (value !== null ? (
           <img
-            src={`/api/files/${value}`}
+            src={
+              imageVariant !== undefined
+                ? `/api/files/${value}/variant/${imageVariant}`
+                : `/api/files/${value}`
+            }
             alt=""
             className="size-16 rounded-full border object-cover"
           />

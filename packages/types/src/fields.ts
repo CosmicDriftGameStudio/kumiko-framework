@@ -1,5 +1,7 @@
 // --- Field Types ---
 
+import type { VariantSpec } from "./derivatives-types";
+
 // OwnershipMap is declared in ./ownership.ts — field-access maps to
 // per-role ownership rules. A legacy `readonly string[]` form is still
 // accepted at the type layer during migration: features that pass an
@@ -598,7 +600,10 @@ export type ImageFieldDef = {
   readonly required?: boolean;
   readonly maxSize?: string;
   readonly accept?: readonly string[];
-  readonly thumbnails?: boolean;
+  /** Named derived versions of the uploaded image. The name is the only
+   *  thing a caller may ask for — the spec lives here, never in a request,
+   *  so nobody can drive arbitrary renders. Boot-validated. */
+  readonly variants?: Readonly<Record<string, VariantSpec>>;
   readonly access?: FieldAccess;
 };
 
@@ -615,7 +620,7 @@ export type ImagesFieldDef = {
   readonly maxSize?: string;
   readonly accept?: readonly string[];
   readonly maxCount?: number;
-  readonly thumbnails?: boolean;
+  readonly variants?: Readonly<Record<string, VariantSpec>>;
   readonly access?: FieldAccess;
 };
 

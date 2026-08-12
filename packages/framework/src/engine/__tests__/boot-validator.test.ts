@@ -11,6 +11,8 @@ import {
   createEmbeddedListField,
   createEntity,
   createFilesField,
+  createImageField,
+  createImagesField,
   createJsonbField,
   createMultiSelectField,
   createTextField,
@@ -1352,6 +1354,138 @@ describe("boot-validator", () => {
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
+    });
+  });
+
+  describe("image variants", () => {
+    test("accepts a valid variant spec", () => {
+      process.env["FILE_STORAGE_PROVIDER"] = "local";
+      try {
+        const features = [
+          defineFeature("profile", (r) => {
+            r.entity(
+              "person",
+              createEntity({
+                fields: {
+                  avatar: createImageField({
+                    variants: {
+                      profile: { fit: "cover", size: { width: 512, height: 512 }, format: "webp" },
+                    },
+                  }),
+                },
+              }),
+            );
+          }),
+        ];
+        expect(() => validateBoot(features)).not.toThrow();
+      } finally {
+        delete process.env["FILE_STORAGE_PROVIDER"];
+      }
+    });
+
+    test("accepts a variant with only `format` — the legitimate format-only case, no size/maxEdge required", () => {
+      process.env["FILE_STORAGE_PROVIDER"] = "local";
+      try {
+        const features = [
+          defineFeature("profile", (r) => {
+            r.entity(
+              "person",
+              createEntity({
+                fields: {
+                  avatar: createImageField({ variants: { web: { format: "webp" } } }),
+                },
+              }),
+            );
+          }),
+        ];
+        expect(() => validateBoot(features)).not.toThrow();
+      } finally {
+        delete process.env["FILE_STORAGE_PROVIDER"];
+      }
+    });
+
+    test("rejects a variant setting both `size` and `maxEdge`", () => {
+      const features = [
+        defineFeature("profile", (r) => {
+          r.entity(
+            "person",
+            createEntity({
+              fields: {
+                avatar: createImageField({
+                  variants: {
+                    both: { size: { width: 100, height: 100 }, maxEdge: 200 },
+                  },
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/both/);
+    });
+
+    test("rejects a variant name containing a slash", () => {
+      const features = [
+        defineFeature("profile", (r) => {
+          r.entity(
+            "person",
+            createEntity({
+              fields: {
+                avatar: createImageField({ variants: { "a/b": { maxEdge: 200 } } }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/must match/);
+    });
+
+    test("rejects maxEdge: 0", () => {
+      const features = [
+        defineFeature("profile", (r) => {
+          r.entity(
+            "person",
+            createEntity({
+              fields: {
+                avatar: createImageField({ variants: { thumb: { maxEdge: 0 } } }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/maxEdge/);
+    });
+
+    test("rejects quality: 101", () => {
+      const features = [
+        defineFeature("profile", (r) => {
+          r.entity(
+            "person",
+            createEntity({
+              fields: {
+                avatar: createImageField({ variants: { thumb: { maxEdge: 200, quality: 101 } } }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/quality/);
+    });
+
+    test("the same validation applies to `images` (multi) fields", () => {
+      const features = [
+        defineFeature("profile", (r) => {
+          r.entity(
+            "person",
+            createEntity({
+              fields: {
+                gallery: createImagesField({ variants: { "a/b": { maxEdge: 200 } } }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/must match/);
     });
   });
 

@@ -1,3 +1,4 @@
+import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key";
 import { parseRefTarget } from "../parse-ref-target";
 import type { EmbeddedFieldDef, EntityDefinition, FeatureDefinition } from "../types";
 
@@ -679,6 +680,54 @@ export function validateMultiSelectFields(feature: FeatureDefinition): void {
               `MultiSelect default "${value}" on "${entityName}.${fieldName}" is not a valid option. Valid: ${field.options.join(", ")}`,
             );
           }
+        }
+      }
+    }
+  }
+}
+
+// --- Image variant validation ---
+
+function isPositiveInt(value: number): boolean {
+  return Number.isInteger(value) && value > 0;
+}
+
+// A bad spec is only visible when someone finally requests that variant —
+// possibly months later, in production. Catch it at boot instead.
+export function validateImageVariants(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      if (field.type !== "image" && field.type !== "images") continue;
+      if (field.variants === undefined) continue;
+      const where = `on "${entityName}.${fieldName}" in feature "${feature.name}"`;
+      for (const [name, spec] of Object.entries(field.variants)) {
+        if (!VARIANT_NAME_PATTERN.test(name)) {
+          throw new Error(
+            `Image variant "${name}" ${where} must match ${VARIANT_NAME_PATTERN.source} — the name becomes part of a storage key and a URL segment.`,
+          );
+        }
+        if (spec.size !== undefined && spec.maxEdge !== undefined) {
+          throw new Error(
+            `Image variant "${name}" ${where} sets both "size" and "maxEdge" — pick one.`,
+          );
+        }
+        if (
+          spec.size !== undefined &&
+          !(isPositiveInt(spec.size.width) && isPositiveInt(spec.size.height))
+        ) {
+          throw new Error(
+            `Image variant "${name}" ${where} has a non-positive-integer "size" (${spec.size.width}x${spec.size.height}).`,
+          );
+        }
+        if (spec.maxEdge !== undefined && !isPositiveInt(spec.maxEdge)) {
+          throw new Error(
+            `Image variant "${name}" ${where} has a non-positive-integer "maxEdge" (${spec.maxEdge}).`,
+          );
+        }
+        if (spec.quality !== undefined && !(isPositiveInt(spec.quality) && spec.quality <= 100)) {
+          throw new Error(
+            `Image variant "${name}" ${where} has "quality" ${spec.quality} — must be an integer in 1..100.`,
+          );
         }
       }
     }
