@@ -33,6 +33,55 @@ describe("Drawer", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  describe("backdrop", () => {
+    function getOverlay(): HTMLElement {
+      const overlay = document.querySelector('[data-slot="sheet-overlay"]');
+      if (overlay === null) throw new Error("sheet-overlay not found");
+      return overlay as HTMLElement;
+    }
+
+    test("default: keine Blur, 20% Abdunklung", () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} title="Mail" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      const overlay = getOverlay();
+      expect(overlay.style.backdropFilter).toBe("");
+      expect(overlay.style.backgroundColor).toBe("rgb(0 0 0 / 20%)");
+    });
+
+    test("backdrop={{ blurPx: 4 }}: backdrop-filter blur(4px)", () => {
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          title="Mail"
+          testId="drawer"
+          backdrop={{ blurPx: 4 }}
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(getOverlay().style.backdropFilter).toBe("blur(4px)");
+    });
+
+    test("backdrop={{ dimPercent: 0 }}: keine Abdunklung", () => {
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          title="Mail"
+          testId="drawer"
+          backdrop={{ dimPercent: 0 }}
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(getOverlay().style.backgroundColor).toBe("rgb(0 0 0 / 0%)");
+    });
+  });
+
   describe("resize", () => {
     test("clamps an out-of-range defaultWidthPx on initial render, before any interaction (fw#1965)", () => {
       render(
@@ -47,6 +96,137 @@ describe("Drawer", () => {
         </Drawer>,
       );
       expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("800");
+    });
+    test("Startbreite folgt max(520px, 25vw) wenn resize.defaultWidthPx fehlt", () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: 3000,
+      });
+      try {
+        render(
+          <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
+            <div>Body</div>
+          </Drawer>,
+        );
+        expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("750");
+      } finally {
+        Object.defineProperty(window, "innerWidth", {
+          configurable: true,
+          writable: true,
+          value: originalInnerWidth,
+        });
+      }
+    });
+
+    test("Startbreite clamped auf effectiveMaxWidthPx wenn 25vw ueber MAX_WIDTH_PX hinauslaeuft", () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: 8000,
+      });
+      try {
+        render(
+          <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
+            <div>Body</div>
+          </Drawer>,
+        );
+        const handle = screen.getByRole("separator");
+        const valueNow = Number(handle.getAttribute("aria-valuenow"));
+        const valueMax = Number(handle.getAttribute("aria-valuemax"));
+        expect(valueMax).toBe(1000);
+        expect(valueNow).toBe(valueMax);
+        expect(valueNow).toBeLessThanOrEqual(valueMax);
+      } finally {
+        Object.defineProperty(window, "innerWidth", {
+          configurable: true,
+          writable: true,
+          value: originalInnerWidth,
+        });
+      }
+    });
+
+    test("resize.defaultWidthPx wird ebenfalls gegen effectiveMaxWidthPx geclamped", () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: 2000,
+      });
+      try {
+        render(
+          <Drawer
+            open={true}
+            onOpenChange={() => {}}
+            side="right"
+            testId="drawer"
+            resize={{ defaultWidthPx: 5000 }}
+          >
+            <div>Body</div>
+          </Drawer>,
+        );
+        expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("1000");
+      } finally {
+        Object.defineProperty(window, "innerWidth", {
+          configurable: true,
+          writable: true,
+          value: originalInnerWidth,
+        });
+      }
+    });
+
+    test("Startbreite clamped auf 520px Minimum bei schmalem Viewport", () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: 800,
+      });
+      try {
+        render(
+          <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
+            <div>Body</div>
+          </Drawer>,
+        );
+        expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("520");
+      } finally {
+        Object.defineProperty(window, "innerWidth", {
+          configurable: true,
+          writable: true,
+          value: originalInnerWidth,
+        });
+      }
+    });
+
+    test("resize.defaultWidthPx schlägt die Viewport-Formel", () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: 3000,
+      });
+      try {
+        render(
+          <Drawer
+            open={true}
+            onOpenChange={() => {}}
+            side="right"
+            testId="drawer"
+            resize={{ defaultWidthPx: 600 }}
+          >
+            <div>Body</div>
+          </Drawer>,
+        );
+        expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("600");
+      } finally {
+        Object.defineProperty(window, "innerWidth", {
+          configurable: true,
+          writable: true,
+          value: originalInnerWidth,
+        });
+      }
     });
 
     test("side='right': ArrowLeft grows, ArrowRight shrinks", () => {

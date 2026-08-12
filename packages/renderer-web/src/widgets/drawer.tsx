@@ -25,11 +25,28 @@ export type DrawerProps = {
     readonly minWidthPx?: number;
     readonly maxWidthPx?: number;
   };
+  /** Backdrop behind the panel. A drawer exists so the content behind it
+   *  stays readable, so the blur is off by default. */
+  readonly backdrop?: {
+    readonly blurPx?: number;
+    readonly dimPercent?: number;
+  };
 };
 
-const DEFAULT_WIDTH_PX = 420;
 const MIN_WIDTH_PX = 320;
-const MAX_WIDTH_PX = 800;
+const MAX_WIDTH_PX = 1000;
+// Must match the static `max(520px,25vw)` in floatingSideClass — Tailwind's
+// JIT can't read these at runtime, so the two are kept in sync by hand.
+const DEFAULT_WIDTH_MIN_PX = 520;
+const DEFAULT_WIDTH_VIEWPORT_RATIO = 0.25;
+const DEFAULT_BLUR_PX = 0;
+const DEFAULT_DIM_PERCENT = 20;
+
+function defaultWidthFromViewport(): number {
+  return typeof window === "undefined"
+    ? DEFAULT_WIDTH_MIN_PX
+    : Math.max(DEFAULT_WIDTH_MIN_PX, Math.round(window.innerWidth * DEFAULT_WIDTH_VIEWPORT_RATIO));
+}
 
 // Floating panel with a clearly visible margin on every edge, rounded on
 // all four corners — replaces the sheet primitive's flush-to-viewport-edge
@@ -40,13 +57,13 @@ const MAX_WIDTH_PX = 800;
 function floatingSideClass(side: "left" | "right" | "top" | "bottom"): string {
   switch (side) {
     case "left":
-      return "inset-y-8 left-8 h-auto w-[420px] max-w-[85vw] sm:max-w-[420px] rounded-[2rem] border shadow-2xl";
+      return "inset-y-8 left-8 h-auto w-[max(520px,25vw)] max-w-[85vw] sm:max-w-[max(520px,25vw)] rounded-[2rem] border shadow-2xl";
     case "top":
       return "inset-x-8 top-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl";
     case "bottom":
       return "inset-x-8 bottom-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl";
     default:
-      return "inset-y-8 right-8 h-auto w-[420px] max-w-[85vw] sm:max-w-[420px] rounded-[2rem] border shadow-2xl";
+      return "inset-y-8 right-8 h-auto w-[max(520px,25vw)] max-w-[85vw] sm:max-w-[max(520px,25vw)] rounded-[2rem] border shadow-2xl";
   }
 }
 
@@ -67,19 +84,27 @@ export function Drawer({
   children,
   testId,
   resize,
+  backdrop,
 }: DrawerProps): ReactNode {
   const canResize = resize !== undefined && (side === "left" || side === "right");
-  const defaultWidthPx = resize?.defaultWidthPx ?? DEFAULT_WIDTH_PX;
   const minWidthPx = resize?.minWidthPx ?? MIN_WIDTH_PX;
   const maxWidthPx = resize?.maxWidthPx ?? MAX_WIDTH_PX;
-  const [width, setWidth] = useState(() => clamp(defaultWidthPx, minWidthPx, maxWidthPx));
-  const [maximized, setMaximized] = useState(false);
-  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
-
   const effectiveMaxWidthPx = () =>
     typeof window === "undefined"
       ? maxWidthPx
       : Math.min(maxWidthPx, Math.round(window.innerWidth * 0.9));
+  const [width, setWidth] = useState(() =>
+    clamp(resize?.defaultWidthPx ?? defaultWidthFromViewport(), minWidthPx, effectiveMaxWidthPx()),
+  );
+  const [maximized, setMaximized] = useState(false);
+  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const blurPx = backdrop?.blurPx ?? DEFAULT_BLUR_PX;
+  const dimPercent = backdrop?.dimPercent ?? DEFAULT_DIM_PERCENT;
+  const overlayStyle: React.CSSProperties = {
+    backgroundColor: `rgb(0 0 0 / ${dimPercent}%)`,
+    ...(blurPx > 0 ? { backdropFilter: `blur(${blurPx}px)` } : {}),
+  };
+
   const effectiveWidthPx = maximized ? effectiveMaxWidthPx() : width;
 
   const onHandlePointerDown = (event: React.PointerEvent<HTMLDivElement>): void => {
@@ -113,7 +138,7 @@ export function Drawer({
       <SheetContent
         side={side}
         data-testid={testId}
-        overlayClassName="bg-black/20 backdrop-blur-[2px]"
+        overlayStyle={overlayStyle}
         className={floatingSideClass(side)}
         style={canResize ? { width: effectiveWidthPx, maxWidth: "none" } : undefined}
       >

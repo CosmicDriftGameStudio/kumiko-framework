@@ -94,7 +94,6 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.nav.collapse": "Zuklappen",
     "kumiko.nav.search": "Navigation durchsuchen…",
 
-    // Workspace-Switcher — Fallback-Label wenn activeId auf keinen sichtbaren Workspace zeigt.
     "kumiko.workspace.select": "Workspace wählen",
 
     // Dialog — Confirm-Buttons + Close-aria-Label.

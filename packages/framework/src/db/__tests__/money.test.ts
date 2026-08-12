@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createMoneyField, createTextField } from "../../engine";
 import type { EntityDefinition } from "../../engine/types";
-import { flattenMoney, rehydrateMoney } from "../money";
+import { flattenMoney, moneyPayloadToMinorUnits, rehydrateMoney } from "../money";
 
 const orderEntity: EntityDefinition = createEntity({
   defaultCurrency: "EUR",
@@ -232,5 +232,30 @@ describe("flattenMoney — Strict-Mode Throw", () => {
     expect(() => flattenMoney({ buyingPrice: "100" }, orderEntity)).toThrow(
       /expects \{ amount, currency \} object or number/,
     );
+  });
+});
+
+// kumiko-framework#1972: the write-handler-facing counterpart a custom
+// totals check needs when reconciling a top-level money field's payload
+// (major units, `{amount, currency}` or bare number) against an
+// embedded-list row sum (minor-unit integers by convention).
+describe("moneyPayloadToMinorUnits", () => {
+  test("{ amount, currency } object, crooked amount, rounds to the exact cent", () => {
+    expect(moneyPayloadToMinorUnits({ amount: 1234.56, currency: "EUR" })).toBe(123456);
+  });
+
+  test("legacy bare-number payload (also major units, per flattenMoney's permissive-insert contract)", () => {
+    expect(moneyPayloadToMinorUnits(1234.56)).toBe(123456);
+  });
+
+  test("a round amount does not mask a factor-of-100 regression: 30 major -> 3000 minor, not 30", () => {
+    expect(moneyPayloadToMinorUnits({ amount: 30, currency: "EUR" })).toBe(3000);
+  });
+
+  test("undefined for a payload without a numeric amount (nothing to compare)", () => {
+    expect(moneyPayloadToMinorUnits({ currency: "EUR" })).toBeUndefined();
+    expect(moneyPayloadToMinorUnits("100")).toBeUndefined();
+    expect(moneyPayloadToMinorUnits(null)).toBeUndefined();
+    expect(moneyPayloadToMinorUnits(undefined)).toBeUndefined();
   });
 });

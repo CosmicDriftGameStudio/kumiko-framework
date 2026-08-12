@@ -184,6 +184,9 @@ describe("form-draft integration — ownership isolation", () => {
 describe("form-draft integration — list", () => {
   test("list returns open drafts for a screenId, newest first, without the blob's values", async () => {
     await saveDraft("wizard:a", { name: "First" }, 0);
+    // savedAt is a millisecond stamp (#1960) — without a gap, two saves this
+    // close together can land on the same millisecond and tie.
+    await Bun.sleep(5);
     await saveDraft("wizard:b", { name: "Second" }, 1);
 
     const { drafts } = await listDrafts("wizard");

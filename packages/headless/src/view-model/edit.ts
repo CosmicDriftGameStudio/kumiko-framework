@@ -174,10 +174,12 @@ export function computeEditViewModel<
             accept?: readonly string[];
             maxSize?: string;
             variants?: Readonly<Record<string, unknown>>;
+            capture?: "environment" | "user";
           })
         : undefined;
       const imageVariant =
         fieldDef.type === "image" ? Object.keys(fileDef?.variants ?? {})[0] : undefined;
+      const capture = fieldDef.type === "image" ? fileDef?.capture : undefined;
       // Embedded-LIST field (`multiple: true`) — per-cell metadata for a
       // renderer to draw one row per array item (invoice-positions-style
       // table). A plain (non-list) embedded field emits none of this; the
@@ -268,6 +270,7 @@ export function computeEditViewModel<
         ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),
         ...(isFileType && { entityType: screen.entity, fieldName: normalized.field }),
         ...(imageVariant !== undefined && { imageVariant }),
+        ...(capture !== undefined && { capture }),
         ...(normalized.icon !== undefined && { icon: normalized.icon }),
         ...(embeddedListCells !== undefined && { embeddedListCells }),
         ...(embeddedListDef?.minItems !== undefined && {

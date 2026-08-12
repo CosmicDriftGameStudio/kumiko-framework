@@ -726,6 +726,7 @@ function isValidBlurRegion(region: BlurRegion): boolean {
   );
 }
 
+// kumiko-lint-ignore complexity-budget blur/size bounds added for boot-time DoS guard
 function assertValidVariantSpec(name: string, spec: VariantSpec, where: string): void {
   if (!VARIANT_NAME_PATTERN.test(name)) {
     throw new Error(

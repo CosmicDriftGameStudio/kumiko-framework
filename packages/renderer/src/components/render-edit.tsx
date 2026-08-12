@@ -827,8 +827,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     setIsSubmitting(true);
     setExtensionErrorKey(null);
     try {
-      // Extension-only: nur eine Section ist dirty, das Haupt-Form unverändert.
-      // Kein Entity-Write (würde einen leeren changes-Payload schreiben) — nur
+      // Extension-only: only a section is dirty, the main form is unchanged.
+      // No entity write (would send an empty changes payload) — only
       // die Section-Handler laufen lassen.
       if (snapshot.isUnchanged && extensionDirty) {
         // Same discard as the main path: an extension-only save is still a
@@ -838,27 +838,27 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       }
       let result: SubmitResult<unknown>;
       if (customSubmit !== undefined) {
-        // customSubmit-Pfad (z.B. configEdit, das pro Field einen
-        // separaten Write feuert). Erst client-side Validation, dann
+        // customSubmit path (e.g. configEdit, which fires a separate write
+        // per field). Client-side validation first, then
         // an den Caller; on-success rebased der Form-State explizit
-        // weil controller.submit() das normalerweise selbst macht und
-        // ohne customSubmit's Hilfe weiß der Controller nichts vom
+        // because controller.submit() normally does this itself and
+        // without customSubmit's help the controller knows nothing about
         // erfolgreichen Submit (isUnchanged blieb sonst false).
         //
         // WICHTIG: snapshot direkt vom Controller holen statt aus
-        // React-State. Bei rapid fill→click kann React-Batching die
-        // Input-State-Updates noch nicht commited haben, wenn der
-        // submit-Click fire'd. handleSubmit's Closure würde dann mit
+        // React state. On rapid fill→click, React batching may not have
+        // committed input state updates yet when the submit click fires.
+        // handleSubmit's closure would then run with
         // stale snapshot.changes={} laufen, customSubmit fired keine
         // Writes, returnt success, Form rebase → User glaubt "saved"
         // aber gar nichts ist passiert. controller.getSnapshot() ist
         // immer aktuell — der Controller ist die Source-of-Truth, die
-        // React-State ist nur ein Mirror für's Rendering.
+        // React state is only a mirror for rendering.
         const valid = controller.validate(scopeFieldNames);
         if (!valid) {
-          // Field-Order matters: validationBlocked-true ist eine eigene
-          // Variante in der SubmitResult-Union (NICHT mit data/error
-          // gemixt), TS narrowt das nur ohne den Discriminator-Fight.
+          // Field order matters: validationBlocked:true is its own
+          // variant in the SubmitResult union (NOT mixed with data/error);
+          // TS only narrows cleanly without a discriminator fight.
           const blocked: SubmitResult<unknown> = {
             validationBlocked: true,
             isSuccess: false,
@@ -871,8 +871,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       } else {
         result = await controller.submit();
       }
-      // Form-level Errors (ohne field-level details) landen im Banner.
-      // Field-Errors fließen über snapshot.errors in die einzelnen Fields.
+      // Form-level errors (without field-level details) go to the banner.
+      // Field errors flow via snapshot.errors into the individual fields.
       let extensionsPersisted = true;
       if (result.isSuccess) {
         setFormError(null);
@@ -924,7 +924,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   // Sticky-top Action-Bar: Delete (links, destructive) + Cancel +
   // Save. Delete sitzt links abgesetzt damit die Click-Distanz zu
-  // Save groß ist; rot + Confirm-Dialog sind ausreichend Schutz
+  // Save is large; red styling + confirm dialog are enough protection
   // gegen Fehlklicks. Save bleibt rechts (primary affordance).
   const formActions = (
     <>
@@ -993,7 +993,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Title + Subtitle, create/edit-bewusst. i18n-Keys (mode = "create"|"edit"):
   //   screen:<id>.<mode>.title / .<mode>.subtitle
   // Fallback-Kette: mode-spezifisch → generisch (screen:<id>.title/.subtitle).
-  // title fällt zuletzt auf screenId, subtitle auf undefined (kein Untertitel).
+  // title falls back to screenId; subtitle to undefined (no subtitle).
   const isCreate = (() => {
     const id = resolveExtensionEntityId(entityIdProp, vm.id);
     return id == null || id === "";
