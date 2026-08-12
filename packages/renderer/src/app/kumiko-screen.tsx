@@ -1136,6 +1136,9 @@ function EntityListBody({
                 dispatcherErrorText(result.error, effectiveTranslate),
               );
             }
+            // Refetch — without a redirect nothing else remounts the screen,
+            // so the list would otherwise keep showing stale rows.
+            await rowsQuery.refetch();
           },
           isVisible:
             writeActionVisible !== undefined
@@ -1144,7 +1147,7 @@ function EntityListBody({
         };
       })
       .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
-  }, [screen.rowActions, effectiveTranslate, dispatcher, runNavigate]);
+  }, [screen.rowActions, effectiveTranslate, dispatcher, runNavigate, rowsQuery.refetch]);
 
   // ToolbarActions: Schema → Resolved-Form (analog rowActions).
   // navigate-kind → useNav().navigate({ screenId }), writeHandler-kind
@@ -1186,11 +1189,13 @@ function EntityListBody({
                 dispatcherErrorText(result.error, effectiveTranslate),
               );
             }
+            // Same refetch as rowActions above.
+            await rowsQuery.refetch();
           },
         };
       })
       .filter((a: ToolbarActionButton | null): a is ToolbarActionButton => a !== null);
-  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher]);
+  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -1375,6 +1380,8 @@ function ProjectionListBody({
               dispatcherErrorText(result.error, effectiveTranslate),
             );
           }
+          // Same refetch as EntityListBody's rowActions above.
+          await rowsQuery.refetch();
         },
         ...(writeVisible !== undefined && {
           isVisible: (row: ListRowViewModel) => evalFieldCondition(writeVisible, row.values),
@@ -1382,7 +1389,7 @@ function ProjectionListBody({
       });
     }
     return out.length > 0 ? out : undefined;
-  }, [screen.rowActions, effectiveTranslate, runNavigate, dispatcher]);
+  }, [screen.rowActions, effectiveTranslate, runNavigate, dispatcher, rowsQuery.refetch]);
 
   const toolbarActions = useMemo((): readonly ToolbarActionButton[] | undefined => {
     if (screen.toolbarActions === undefined) return undefined;
@@ -1419,11 +1426,13 @@ function ProjectionListBody({
               dispatcherErrorText(result.error, effectiveTranslate),
             );
           }
+          // Same refetch as rowActions above.
+          await rowsQuery.refetch();
         },
       });
     }
     return out.length > 0 ? out : undefined;
-  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher]);
+  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
