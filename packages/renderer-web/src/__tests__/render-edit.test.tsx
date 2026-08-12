@@ -3,7 +3,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher, SubmitResult } from "@cosmicdrift/kumiko-headless";
+import type { Dispatcher, FormSnapshot, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import {
   DispatcherProvider,
   DraftStorageProvider,
@@ -2224,6 +2224,91 @@ describe("RenderEdit locked state (#1896)", () => {
 
     const titleInput = screen.getByTestId("field-title").querySelector("input");
     expect((titleInput as HTMLInputElement).disabled).toBe(false);
+  });
+});
+
+describe("RenderEdit hideActions (host-driven action bar)", () => {
+  test("hideActions renders the fields but drops RenderEdit's own action bar", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1, isUrgent: false }}
+          writeCommand="order:create"
+          hideActions
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("field-title").querySelector("input")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-submit")).toBeNull();
+  });
+
+  test("without hideActions, the submit button stays (existing behaviour unchanged)", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+  });
+
+  test("controls.submit() writes an unchanged, pre-filled form through customSubmit — the built-in button (disabled while unchanged) cannot do this", async () => {
+    const customSubmit = mock(
+      async (_snapshot: FormSnapshot<TestValues>): Promise<SubmitResult<unknown>> => ({
+        validationBlocked: false,
+        isSuccess: true,
+        data: { id: "42" },
+      }),
+    );
+    const onSubmit = mock((_result: SubmitResult<unknown>) => {});
+    let controls: RenderEditControls<TestValues> | undefined;
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1, isUrgent: false }}
+          customSubmit={customSubmit}
+          onSubmit={onSubmit}
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    // Nothing was ever edited — the built-in save button proves it by
+    // staying disabled. controls.submit() has no such guard and must
+    // still write, which is exactly the point of this test.
+    expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(true);
+
+    await act(async () => {
+      await controls?.submit();
+    });
+
+    expect(customSubmit).toHaveBeenCalledTimes(1);
+    expect(customSubmit.mock.calls[0]?.[0]?.values).toEqual({
+      title: "Acme",
+      count: 1,
+      isUrgent: false,
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0]?.[0]).toEqual({
+      validationBlocked: false,
+      isSuccess: true,
+      data: { id: "42" },
+    });
   });
 });
 
