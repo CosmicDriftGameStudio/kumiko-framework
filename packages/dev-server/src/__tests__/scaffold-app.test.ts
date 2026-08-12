@@ -74,6 +74,18 @@ describe("scaffoldApp", () => {
     expect(pkg.scripts["lint"]).toBe("biome check .");
   });
 
+  test("src/seed.ts bare return has a skip comment directly above it (kumiko-guard-silent-skip)", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const lines = readFileSync(join(dest, "src/seed.ts"), "utf-8").split("\n");
+    const returnLineIndex = lines.findIndex((l) => /^\s*if\s*\(.*\)\s*return;\s*$/.test(l));
+    expect(returnLineIndex).toBeGreaterThan(-1);
+
+    const precedingLine = lines[returnLineIndex - 1];
+    expect(precedingLine).toMatch(/^\s*\/\/\s*skip:/i);
+  });
+
   test("init migration includes auth-mode tables (read_users)", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
