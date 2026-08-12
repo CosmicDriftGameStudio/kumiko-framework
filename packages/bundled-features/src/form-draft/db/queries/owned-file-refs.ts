@@ -25,13 +25,32 @@ export async function filterOwnedStorageKeys(
   candidateKeys: readonly string[],
   draftInsertedAt: Temporal.Instant,
 ): Promise<readonly string[]> {
+  const rows = await filterOwnedFileRefs(db, tenantId, ownerId, candidateKeys, draftInsertedAt);
+  return rows.map((row) => row.storageKey);
+}
+
+// Same ownership boundary as filterOwnedStorageKeys, but also returns the
+// file_refs row id — a hard-erasure call (executor.forget) addresses the
+// row by id, not by storageKey.
+export type OwnedFileRef = {
+  readonly id: string;
+  readonly storageKey: string;
+};
+
+export async function filterOwnedFileRefs(
+  db: DbRunner,
+  tenantId: TenantId,
+  ownerId: string,
+  candidateKeys: readonly string[],
+  draftInsertedAt: Temporal.Instant,
+): Promise<readonly OwnedFileRef[]> {
   if (candidateKeys.length === 0) return [];
   const rows = (await asRawClient(db).unsafe(
-    `SELECT "storage_key" FROM "file_refs"
+    `SELECT "id", "storage_key" FROM "file_refs"
      WHERE "tenant_id" = $1 AND "inserted_by_id" = $2
        AND "storage_key" = ANY($3::text[]) AND "is_deleted" = false
        AND "inserted_at" > $4::timestamptz`,
     [tenantId, ownerId, candidateKeys, draftInsertedAt.toString()],
-  )) as readonly { storage_key: string }[];
-  return rows.map((row) => row.storage_key);
+  )) as readonly { id: string; storage_key: string }[];
+  return rows.map((row) => ({ id: row.id, storageKey: row.storage_key }));
 }

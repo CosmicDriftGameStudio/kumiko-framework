@@ -281,6 +281,9 @@ export type SubmitConfig<TValues extends FormValues = FormValues> = {
 // `validationBlocked: true` signals a LOCAL (pre-dispatch) validate()
 // failure — no network call happened; caller doesn't need to retry the
 // network, the user needs to fix fields.
+// `isNoOp: true` signals a successful submit that skipped dispatcher.write
+// entirely because payloadMode "changes" found nothing changed — callers
+// must not treat this like a normal write (e.g. don't discard a draft).
 export type SubmitResult<TData = unknown> =
-  | ({ readonly validationBlocked: false } & WriteResult<TData>)
+  | ({ readonly validationBlocked: false; readonly isNoOp?: boolean } & WriteResult<TData>)
   | { readonly validationBlocked: true; readonly isSuccess: false };

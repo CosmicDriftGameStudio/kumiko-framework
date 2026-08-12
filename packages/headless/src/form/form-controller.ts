@@ -347,6 +347,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
           return {
             validationBlocked: false,
             isSuccess: true,
+            isNoOp: true,
             data: submittedValues as unknown as TData,
           };
         }
@@ -364,7 +365,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
           // Rebase to the SNAPSHOT, not to the current values — see
           // runRebaseToSnapshot comment for why.
           runRebaseToSnapshot(submittedValues);
-          return { validationBlocked: false, isSuccess: true, data: result.data };
+          return { validationBlocked: false, isSuccess: true, isNoOp: false, data: result.data };
         }
 
         const serverFields = result.error.details?.fields;
@@ -372,7 +373,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
           errors = Object.freeze(groupIssuesByPath(serverFields));
           invalidate();
         }
-        return { validationBlocked: false, isSuccess: false, error: result.error };
+        return { validationBlocked: false, isSuccess: false, isNoOp: false, error: result.error };
       };
 
       submitInFlight = runWrite();
