@@ -181,6 +181,13 @@ export type EditFieldViewModel = {
    *  die richtige Field-Def prüfen kann. */
   readonly entityType?: string;
   readonly fieldName?: string;
+  /** Only for `type: "image"` — the variant name the preview requests
+   *  (`/api/files/:id/variant/:name`) instead of the original. The FIRST
+   *  variant declared on the field def wins; a spec may legitimately carry
+   *  neither `size` nor `maxEdge` (format-/blur-only), so "the smallest one"
+   *  is not a rule that always has an answer. Absent when the field declares
+   *  no variants — the preview then loads the original. */
+  readonly imageVariant?: string;
   /** Prefix-icon key from `EditFieldSpec.icon`, passed through unchanged
    *  (no i18n — it's a symbolic key, not a display string). The renderer
    *  resolves it against the FIELD_ICONS registry; unknown keys silently
