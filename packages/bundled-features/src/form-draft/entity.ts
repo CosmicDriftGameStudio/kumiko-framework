@@ -24,7 +24,7 @@ export const formDraftEntity = createEntity({
     // feeds the GDPR-hook-coverage boot guard (it's a plain FK into `user`,
     // not content of its own) — see ../form-draft-user-data for the
     // required export/delete hook coverage.
-    ownerId: createTextField({ subjectRef: true }),
+    ownerId: createTextField({ subjectRef: true, required: true }),
     draftKey: createTextField({ required: true, maxLength: FORM_DRAFT_KEY_MAX_LENGTH }),
     // The blob shape is fixed by issue #1889, not left to the caller:
     // { values: Record<string, unknown>, stepIndex: number, savedAt: string }.

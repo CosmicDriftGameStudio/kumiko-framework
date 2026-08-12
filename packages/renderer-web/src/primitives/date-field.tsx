@@ -105,6 +105,14 @@ export function DateField({
         disabled={disabled}
         required={required}
         aria-invalid={hasError === true ? true : undefined}
+        // Deliberate: slot order/separator follow resolvedLocale (the
+        // `locale` prop, or the browser locale), but the letters follow
+        // the app's UI locale via t() — a caller rendering a date in a
+        // locale that differs from the UI locale gets a mixed-locale
+        // placeholder (e.g. German UI + locale="en-US" → "MM/TT/JJJJ").
+        // Accepted for now (fw#1879): a static per-locale letter lookup
+        // would need its own locale-root resolution and tests for a
+        // placeholder-only, Low-severity mismatch.
         placeholder={formatDatePlaceholder(resolvedLocale, {
           year: t("kumiko.field.dateField.placeholderYear"),
           month: t("kumiko.field.dateField.placeholderMonth"),

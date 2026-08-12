@@ -177,7 +177,9 @@ export function runMatrix<T extends string>(
       // ponytail: see the runScreenshots() locale comment above / #1851
       const tag = LOCALE_TAGS[locale];
       if (tag === undefined) {
-        throw new Error(`runMatrix(): no BCP47 tag mapped for locale "${locale}" — extend LOCALE_TAGS`);
+        throw new Error(
+          `runMatrix(): no BCP47 tag mapped for locale "${locale}" — extend LOCALE_TAGS`,
+        );
       }
       test.use({ locale: tag });
 

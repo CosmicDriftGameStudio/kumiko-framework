@@ -73,12 +73,7 @@ describe("UploadZone", () => {
   test("a dropped file that doesn't match `accept` is rejected, not passed to onUpload", async () => {
     const onUpload = mock(async () => {});
     render(
-      <UploadZone
-        title="Datei hochladen"
-        onUpload={onUpload}
-        accept={["image/*"]}
-        testId="zone"
-      />,
+      <UploadZone title="Datei hochladen" onUpload={onUpload} accept={["image/*"]} testId="zone" />,
     );
     const file = new File(["hi"], "dropped.pdf", { type: "application/pdf" });
     fireEvent.drop(screen.getByTestId("zone-dropzone"), { dataTransfer: { files: [file] } });
@@ -91,12 +86,7 @@ describe("UploadZone", () => {
   test("a dropped file that matches `accept` still uploads normally", async () => {
     const onUpload = mock(async () => {});
     render(
-      <UploadZone
-        title="Datei hochladen"
-        onUpload={onUpload}
-        accept={["image/*"]}
-        testId="zone"
-      />,
+      <UploadZone title="Datei hochladen" onUpload={onUpload} accept={["image/*"]} testId="zone" />,
     );
     const file = new File(["hi"], "photo.png", { type: "image/png" });
     fireEvent.drop(screen.getByTestId("zone-dropzone"), { dataTransfer: { files: [file] } });
@@ -107,7 +97,6 @@ describe("UploadZone", () => {
 
   test("a non-Error throw from onUpload shows the translated fallback, not the raw token", async () => {
     const onUpload = mock(async () => {
-      // biome-ignore lint/style/useThrowOnlyError: proves the non-Error branch of the catch specifically.
       throw "upload_failed";
     });
     render(<UploadZone title="Datei hochladen" onUpload={onUpload} testId="zone" />);

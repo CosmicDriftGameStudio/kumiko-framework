@@ -16,9 +16,10 @@
 import { mkdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { CREATED_LISTINGS_KEY, draftStorageKey } from "./fixtures/mock-dispatcher";
 
 const SCREENSHOT_DIR = resolve(import.meta.dirname, "../screenshots");
-const DRAFT_STORAGE_PREFIX = "mock-form-draft:listing-wizard:new:";
+const DRAFT_STORAGE_PREFIX = draftStorageKey("listing-wizard:new:");
 
 async function gotoWizard(page: Page): Promise<void> {
   await page.goto("/listing-wizard");
@@ -44,7 +45,7 @@ async function draftInStorage(page: Page): Promise<unknown> {
 }
 
 async function createdListings(page: Page): Promise<Record<string, unknown>[]> {
-  const raw = await page.evaluate(() => localStorage.getItem("mock-created-listings"));
+  const raw = await page.evaluate((key) => localStorage.getItem(key), CREATED_LISTINGS_KEY);
   return raw === null ? [] : (JSON.parse(raw) as Record<string, unknown>[]);
 }
 

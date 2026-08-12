@@ -49,7 +49,7 @@ export function StepBar({
                 {isDone ? (
                   <>
                     <Check aria-hidden="true" className="size-3.5" />
-                    <span className="sr-only">{t("kumiko.widget.stepBar.done")}</span>
+                    <span className="sr-only">{t("kumiko.widget.step-bar.done")}</span>
                   </>
                 ) : (
                   <span className="text-xs font-semibold">{i + 1}</span>

@@ -58,7 +58,9 @@ export function WorkspaceSwitcher({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton data-testid="workspace-switcher-trigger">
-              <span className="truncate">{active !== undefined ? labelOf(active) : ""}</span>
+              <span className="truncate">
+                {active !== undefined ? labelOf(active) : t("kumiko.workspace.select")}
+              </span>
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>

@@ -34,6 +34,21 @@ describe("Drawer", () => {
   });
 
   describe("resize", () => {
+    test("clamps an out-of-range defaultWidthPx on initial render, before any interaction (fw#1965)", () => {
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="right"
+          testId="drawer"
+          resize={{ defaultWidthPx: 1200, minWidthPx: 300, maxWidthPx: 800 }}
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("800");
+    });
+
     test("side='right': ArrowLeft grows, ArrowRight shrinks", () => {
       render(
         <Drawer

@@ -189,10 +189,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
 
   test("string amount jenseits von Number.MAX_SAFE_INTEGER → loud throw statt Präzisionsverlust", () => {
     expect(() =>
-      rehydrateMoney(
-        { buyingPrice: "9007199254740993", buyingPriceCurrency: "EUR" },
-        orderEntity,
-      ),
+      rehydrateMoney({ buyingPrice: "9007199254740993", buyingPriceCurrency: "EUR" }, orderEntity),
     ).toThrow(/not a safe integer — DB corruption/);
   });
 

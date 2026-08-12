@@ -72,7 +72,7 @@ export function Drawer({
   const defaultWidthPx = resize?.defaultWidthPx ?? DEFAULT_WIDTH_PX;
   const minWidthPx = resize?.minWidthPx ?? MIN_WIDTH_PX;
   const maxWidthPx = resize?.maxWidthPx ?? MAX_WIDTH_PX;
-  const [width, setWidth] = useState(defaultWidthPx);
+  const [width, setWidth] = useState(() => clamp(defaultWidthPx, minWidthPx, maxWidthPx));
   const [maximized, setMaximized] = useState(false);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 

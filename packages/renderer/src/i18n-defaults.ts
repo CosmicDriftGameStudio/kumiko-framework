@@ -30,9 +30,6 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.wizard.step": "Schritt {current} von {total}",
     "kumiko.wizard.step-with-title": "Schritt {current} von {total} · {title}",
 
-    // StepBar widget (renderer-web) — screen-reader text for completed steps whose number is visually replaced by a checkmark.
-    "kumiko.widget.stepBar.done": "Erledigt",
-
     // Version — Update-Awareness-Banner (UpdateChecker).
     "kumiko.version.update-available": "Eine neue Version ist verfügbar.",
 
@@ -89,10 +86,16 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.upload.error": "Fehlgeschlagen",
     "kumiko.widget.upload.rejected-type": "Dateityp nicht erlaubt",
 
+    // Widgets — StepBar screen-reader text for completed steps whose number is visually replaced by a checkmark.
+    "kumiko.widget.step-bar.done": "Erledigt",
+
     // Nav — Sidebar Tree (Toggle-aria-Labels).
     "kumiko.nav.expand": "Aufklappen",
     "kumiko.nav.collapse": "Zuklappen",
     "kumiko.nav.search": "Navigation durchsuchen…",
+
+    // Workspace-Switcher — Fallback-Label wenn activeId auf keinen sichtbaren Workspace zeigt.
+    "kumiko.workspace.select": "Workspace wählen",
 
     // Dialog — Confirm-Buttons + Close-aria-Label.
     "kumiko.dialog.confirm": "Bestätigen",
@@ -216,8 +219,6 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.wizard.step": "Step {current} of {total}",
     "kumiko.wizard.step-with-title": "Step {current} of {total} · {title}",
 
-    "kumiko.widget.stepBar.done": "Done",
-
     "kumiko.version.update-available": "A new version is available.",
 
     "kumiko.toast.learn-more": "Learn more",
@@ -265,9 +266,14 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.upload.error": "Failed",
     "kumiko.widget.upload.rejected-type": "File type not allowed",
 
+    "kumiko.widget.step-bar.done": "Done",
+
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",
     "kumiko.nav.search": "Search navigation…",
+
+    // Workspace-Switcher fallback label when activeId points at no visible workspace.
+    "kumiko.workspace.select": "Select workspace",
 
     "kumiko.dialog.confirm": "Confirm",
     "kumiko.dialog.cancel": "Cancel",

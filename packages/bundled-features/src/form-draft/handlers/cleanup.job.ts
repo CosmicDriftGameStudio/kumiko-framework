@@ -63,7 +63,13 @@ async function releaseRowFileRefs(
   // db/queries/owned-file-refs.ts). Not wrapped in try/catch: a query
   // failure here (pool exhaustion, missing table) is a real error, not the
   // "no provider resolvable" case below — let it propagate so the job retries.
-  const ownedKeys = await filterOwnedStorageKeys(db, row.tenantId, row.ownerId, keys, row.insertedAt);
+  const ownedKeys = await filterOwnedStorageKeys(
+    db,
+    row.tenantId,
+    row.ownerId,
+    keys,
+    row.insertedAt,
+  );
 
   try {
     const provider = await fileProviderResolver(row.tenantId);

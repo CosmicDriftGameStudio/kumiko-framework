@@ -1,5 +1,5 @@
-import { DispatcherProvider } from "@cosmicdrift/kumiko-renderer";
 import { describe, expect, test } from "bun:test";
+import { DispatcherProvider } from "@cosmicdrift/kumiko-renderer";
 import type { ReactElement } from "react";
 import { defaultPrimitives } from "../primitives";
 import { AiTextField } from "../widgets/ai-text-field";

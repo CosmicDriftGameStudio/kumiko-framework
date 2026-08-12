@@ -46,7 +46,7 @@ const FORM_DRAFT_DISCARD = "form-draft:write:discard";
 const FORM_DRAFT_GET = "form-draft:query:get";
 const FORM_DRAFT_LIST = "form-draft:query:list";
 const DRAFT_STORAGE_PREFIX = "mock-form-draft:";
-const CREATED_LISTINGS_KEY = "mock-created-listings";
+export const CREATED_LISTINGS_KEY = "mock-created-listings";
 
 let nextId = 1;
 
@@ -54,7 +54,10 @@ function generateId(): string {
   return `mock-${nextId++}`;
 }
 
-function draftStorageKey(draftKey: string): string {
+// Exported so the spec builds the same localStorage key instead of
+// hardcoding the prefix — a rename here would otherwise silently break
+// wizard.spec.ts's draft assertions without any test going red (fw#1911).
+export function draftStorageKey(draftKey: string): string {
   return `${DRAFT_STORAGE_PREFIX}${draftKey}`;
 }
 

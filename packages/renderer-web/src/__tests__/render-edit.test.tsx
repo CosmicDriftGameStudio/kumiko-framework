@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -721,6 +721,39 @@ describe("RenderEdit — controlled mode (#1887)", () => {
     // unbounded.
     expect(calls).toBeGreaterThan(1);
     expect(calls).toBeLessThan(10);
+    expect(controls?.getValues().count).toBe("Acme".length);
+  });
+
+  test("onControlsReady fires before the mount-time onChange call (fw#1899)", () => {
+    // A prefilled `initial` derives a dependent field on mount via
+    // controls.patch() from inside onChange — this only works if controls
+    // are already handed out by the time onChange fires for the first time.
+    let mountTimeControlsWereDefined = false;
+    let onChangeCalls = 0;
+    let controls: RenderEditControls<TestValues> | undefined;
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          onChange={(state) => {
+            onChangeCalls += 1;
+            if (onChangeCalls === 1) {
+              mountTimeControlsWereDefined = controls !== undefined;
+              controls?.patch({ count: state.values.title.length });
+            }
+          }}
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(mountTimeControlsWereDefined).toBe(true);
     expect(controls?.getValues().count).toBe("Acme".length);
   });
 
@@ -1703,6 +1736,38 @@ describe("RenderEdit wizard draft", () => {
       },
       { timeout: 3000 },
     );
+  });
+
+  test("a draftKey over the server's 256-char limit is not sent — warns and skips instead of failing silently server-side (fw#1903)", async () => {
+    const { dispatcher, calls } = makeDraftDispatcher();
+    let controls: RenderEditControls<TestValues> | undefined;
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <RenderEdit<TestValues>
+            screen={{ ...makeDraftWizardScreen(true), id: `orders:screen:${"x".repeat(300)}` }}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+            onControlsReady={(c) => {
+              controls = c;
+            }}
+          />
+        </DispatcherProvider>,
+      );
+
+      act(() => {
+        controls?.patch({ count: 1 });
+      });
+
+      await waitFor(() => expect(warnSpy).toHaveBeenCalled(), { timeout: 3000 });
+      expect(calls.filter((c) => c === "form-draft:write:save").length).toBe(0);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   test("a burst of patch() calls collapses into a single debounced draft save", async () => {

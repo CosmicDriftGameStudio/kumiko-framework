@@ -10,8 +10,8 @@ import {
 export const prospectEntity = createEntity({
   table: "read_sample_prospects",
   fields: {
-    name: createTextField({ required: true, searchable: true }),
-    email: createTextField({ format: "email" }),
+    name: createTextField({ required: true, searchable: true, pii: true }),
+    email: createTextField({ format: "email", pii: true }),
     company: createTextField(),
     notes: createTextField(),
     source: createTextField({ required: true }),

@@ -271,9 +271,7 @@ export function EmbeddedListField({
       touchedIndices.add(targetRowIndex);
     });
 
-    setPasteWarning(
-      droppedRows > 0 || unmatchedCells > 0 ? { droppedRows, unmatchedCells } : null,
-    );
+    setPasteWarning(droppedRows > 0 || unmatchedCells > 0 ? { droppedRows, unmatchedCells } : null);
 
     const recomputed = nextRows.map((row, i) =>
       touchedIndices.has(i) ? withRecomputedDerived(row, derived, cells) : row,
