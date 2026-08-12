@@ -37,15 +37,10 @@ export function validationErrorFromZod(error: ZodError): ValidationError {
   return new ValidationError({ fields }, { cause: error });
 }
 
-// Every zod code maps mechanically to `errors.validation.<code>` — except
-// `code: "custom"`, which is zod's one-size-fits-all bucket for every
-// `superRefine`/`refine` check in the codebase (e.g. schema-builder.ts's
-// totalsMatch check). Left mechanical, ALL of them would collapse onto the
-// same `errors.validation.custom` ("Invalid value.") key. A `superRefine`
-// that needs its own key sets `params.i18nKey` on the issue; this is the one
-// place that honors it. Keep in sync with the client-side mirror
-// (packages/headless/src/form/zod-bridge.ts) — a superRefine can run on
-// either side.
+// `code: "custom"` is zod's catch-all for every superRefine/refine check;
+// left mechanical it'd collapse onto one generic key, so a superRefine can
+// set `params.i18nKey` to override it. Keep in sync with the client mirror
+// (packages/headless/src/form/zod-bridge.ts).
 function resolveI18nKey(issue: ZodIssue): string {
   if (issue.code === "custom") {
     const override = issue.params?.["i18nKey"];

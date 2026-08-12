@@ -1,5 +1,6 @@
 import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { type ReactNode, useRef, useState } from "react";
+import { clamp } from "../lib/clamp";
 import { cn } from "../lib/cn";
 import {
   Sheet,
@@ -31,12 +32,8 @@ const DEFAULT_WIDTH_PX = 420;
 const MIN_WIDTH_PX = 320;
 const MAX_WIDTH_PX = 800;
 
-// Floating panel with a clearly visible margin on every edge, rounded on
-// all four corners — replaces the sheet primitive's flush-to-viewport-edge
-// per-side classes. twMerge resolves each utility group against the base
-// (inset/width/height/border/rounding), so this fully overrides rather than
-// stacking with it. 32px margin + 32px radius so the detachment from the
-// viewport edge reads clearly at a glance, not just on close 1:1 inspection.
+// 32px margin + 32px radius so the panel reads as detached from the
+// viewport edge, unlike the sheet primitive's flush-edge default.
 function floatingSideClass(side: "left" | "right" | "top" | "bottom"): string {
   switch (side) {
     case "left":
@@ -48,10 +45,6 @@ function floatingSideClass(side: "left" | "right" | "top" | "bottom"): string {
     default:
       return "inset-y-8 right-8 h-auto w-[420px] max-w-[85vw] sm:max-w-[420px] rounded-[2rem] border shadow-2xl";
   }
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
 }
 
 /** Slide-in panel beside a list (e.g. mail reader next to the inbox) —

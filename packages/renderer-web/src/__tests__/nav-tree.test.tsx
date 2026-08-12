@@ -237,7 +237,7 @@ describe("NavTree", () => {
     expectNavIcons(container, ["dashboard"]);
   });
 
-  test("layers + building (money-horse Kredit-Gruppen/Mandanten) lösen auf ein Icon auf", () => {
+  test("layers + building (money-horse credit groups/tenants) resolve to an icon", () => {
     const schema = {
       featureName: "showcase",
       entities: {},
@@ -254,7 +254,7 @@ describe("NavTree", () => {
     expectNavIcons(container, ["layers", "building"]);
   });
 
-  test("tag + key (custom-fields / api-tokens) lösen auf ein Icon auf", () => {
+  test("tag + key (custom-fields / api-tokens) resolve to an icon", () => {
     const schema = {
       featureName: "showcase",
       entities: {},
@@ -271,10 +271,12 @@ describe("NavTree", () => {
     expectNavIcons(container, ["tag", "key"]);
   });
 
-  test("server, mail, download, upload, rocket lösen auf ein Icon auf (Config-/SMTP-Nav)", () => {
-    // Config-Settings-Hub leitet Child-Nav-Icons aus dem mask.icon der
-    // ConfigKey ab (smtp-host="server", from="mail", subscription="rocket");
-    // fehlten sie in NAV_ICONS, rendert das Nav blank statt Icon.
+  test("server, mail, download, upload, rocket resolve to an icon (config/SMTP nav)", () => {
+    // The config settings hub derives child nav icons from a ConfigKey's
+    // mask.icon (smtp-host="server", from="mail", subscription="rocket");
+    // a missing NAV_ICONS entry renders the nav blank instead of an icon.
+    // download/upload guard the same map against feature-authored icons
+    // (e.g. GDPR export-job nav).
     const schema = {
       featureName: "app",
       entities: {},

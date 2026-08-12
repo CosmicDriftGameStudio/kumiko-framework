@@ -41,10 +41,6 @@ describe("buildFormSchema", () => {
     }
   });
 
-  // kumiko-framework#1927: a bare presence issue used to render as
-  // "Invalid value." — pin the params.i18nKey override so the resolved
-  // FieldIssue points at "kumiko.validation.required" ("Pflichtfeld.")
-  // instead of the generic errors.validation.custom fallback.
   test("required field missing → issue carries the required-field i18nKey override", () => {
     const entity = entityWith({ name: { type: "text", required: true } });
     const screen = screenWith(["name"]);
@@ -57,11 +53,11 @@ describe("buildFormSchema", () => {
     expect(issue.params).toMatchObject({ i18nKey: REQUIRED_FIELD_I18N_KEY });
   });
 
-  // kumiko-framework#1927: the seam the bug actually lived in — a schema
-  // built here only round-trips through createFormController's validate(),
-  // which is what feeds FormSnapshot.errors that render-edit.tsx passes to
-  // RenderField. A unit test on buildFormSchema() alone can't catch a break
-  // in that hand-off (e.g. zodErrorToFieldIssues not honoring the override).
+  // The seam the bug actually lived in — a schema built here only round-trips
+  // through createFormController's validate(), which is what feeds
+  // FormSnapshot.errors that render-edit.tsx passes to RenderField. A unit
+  // test on buildFormSchema() alone can't catch a break in that hand-off
+  // (e.g. zodErrorToFieldIssues not honoring the override).
   test("end-to-end via createFormController: required field left empty → snapshot error carries kumiko.validation.required", () => {
     const entity = entityWith({ name: { type: "text", required: true } });
     const screen = screenWith(["name"]);

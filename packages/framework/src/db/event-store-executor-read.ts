@@ -166,7 +166,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const listSql = `SELECT * FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
       const rawRows = await executeRawQuery<Record<string, unknown>>(db.raw, listSql, params);
-      // Read-Side rehydrate pro Row + snake→camel coercion für driver-agnostic Feldnamen.
+      // Per-row read-side rehydrate + snake→camel coercion for driver-agnostic field names.
       // Coerce BEFORE rehydrate/decrypt: the raw SELECT * rows carry snake_case
       // column names, while compound-type lookups (rehydrateMoney et al.) and the
       // encrypted/pii field lists are all camelCase — running either first on a

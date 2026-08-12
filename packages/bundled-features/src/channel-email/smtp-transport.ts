@@ -35,10 +35,10 @@ export type SmtpTransportOptions = {
     readonly user: string;
     readonly pass: string;
   };
-  /** Default From-Adresse, app-weit. Eine einzelne Mail kann sie über
-   *  `EmailMessage.from` überschreiben (Reply aus einem bestimmten
-   *  Postfach); ohne Override greift diese. Format akzeptiert beides:
-   *  "noreply@ex.com" oder "Name <noreply@ex.com>". */
+  /** App-wide default From. A single send can override it via
+   *  `EmailMessage.from` (reply from a specific mailbox); without an
+   *  override this applies. Accepts both "noreply@ex.com" and
+   *  "Name <noreply@ex.com>". */
   readonly from: string;
 };
 

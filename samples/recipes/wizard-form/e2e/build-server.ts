@@ -35,7 +35,10 @@ import { join, resolve } from "node:path";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { formDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
 import { buildAppSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveTailwindCli } from "@cosmicdrift/kumiko-server-runtime/resolve-tailwind-cli";
+import {
+  canResolveTailwindStylesheet,
+  resolveTailwindCli,
+} from "@cosmicdrift/kumiko-server-runtime/resolve-tailwind-cli";
 import { listingsFeature } from "../src/feature";
 
 const HERE = resolve(import.meta.dir);
@@ -46,14 +49,21 @@ async function buildStylesheet(): Promise<string> {
   const cliPath = resolveTailwindCli({ bun: Bun, cwd: HERE });
   if (cliPath === undefined) {
     throw new Error(
-      "wizard-form/e2e: @tailwindcss/cli nicht auflösbar — `bun install` am Repo-Root ausführen.",
+      "wizard-form/e2e: @tailwindcss/cli not resolvable — run `bun install` at the repo root.",
     );
   }
   const entryCss = resolve(HERE, "fixtures/styles.css");
+  if (!canResolveTailwindStylesheet(entryCss, { bun: Bun, cwd: HERE })) {
+    throw new Error(
+      `wizard-form/e2e: tailwindcss not resolvable for ${entryCss} — peer dependency missing at the stylesheet's location.`,
+    );
+  }
   const outDir = mkdtempSync(join(tmpdir(), "wizard-form-e2e-tw-"));
   const outPath = join(outDir, "styles.css");
   const bunBin = process.argv[0] ?? "bun";
-  const build = Bun.spawnSync([bunBin, "run", cliPath, "-i", entryCss, "-o", outPath]);
+  const build = Bun.spawnSync([bunBin, "run", cliPath, "-i", entryCss, "-o", outPath], {
+    cwd: HERE,
+  });
   if (!build.success) {
     throw new Error(
       `wizard-form/e2e: tailwind build failed (exit ${build.exitCode})\n${build.stderr.toString()}`,

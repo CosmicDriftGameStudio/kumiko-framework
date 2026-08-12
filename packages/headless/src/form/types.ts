@@ -142,17 +142,9 @@ export type FormController<TValues extends FormValues> = {
   // `true` when no schema was wired — a controller without a schema
   // relies entirely on server-side validation via the submit() path.
   //
-  // `scope` restricts which fields' issues get reported — pass the current
-  // wizard step's field names to validate only that step (used on
-  // "Weiter"). Issues on fields outside `scope` are silently dropped, and
-  // so are root-level issues from an object-level `.refine()` (their path
-  // is `(root)`, which never matches a real field name) — a scoped run can
-  // never surface those. That's deliberate: a step-boundary check exists
-  // to gate moving forward, not to catch whole-form invariants. Omit
-  // `scope` (as submit() does) to validate everything, including root
-  // issues — the final gate before dispatch must not let them through
-  // unnoticed. Hidden fields are filtered out in both modes regardless of
-  // scope.
+  // `scope` restricts reported issues to those field names; root-level
+  // `.refine()` issues (path `(root)`) never match a scope and are dropped
+  // by design — omit `scope` (as submit() does) to see them.
   validate(scope?: readonly string[]): boolean;
 
   // Reverts values to `initial`, clears errors. Doesn't fire a new

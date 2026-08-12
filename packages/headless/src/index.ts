@@ -52,7 +52,7 @@ export type {
   SubmitPayloadMode,
   SubmitResult,
 } from "./form";
-export { createFormController } from "./form";
+export { createFormController, I18N_KEY_PARAM } from "./form";
 export {
   applyFormatSpec,
   currencyDecimals,

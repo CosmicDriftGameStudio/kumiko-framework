@@ -11,15 +11,13 @@ import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table";
 // sequential loop caps concurrency at 1 and leaves 3 pool slots idle.
 const KMS_POOL_CONCURRENCY = 4;
 
-// Pending-Invitations-Liste für den aktuellen Tenant. Admin-only.
-// Filter: status="pending" — accepted/cancelled/expired sind für die
-// UI uninteressant (UI zeigt nur "ausstehende Einladungen"; Audit-Log
-// für historische gehört in ein separates Audit-Feature).
+// Pending invitations for the current tenant, admin-only, filtered to
+// status="pending" — accepted/cancelled/expired don't belong in this UI
+// (historical entries belong in a separate audit feature).
 //
-// SQL-side filter (vorher JS-side .filter): bei Tenants mit vielen
-// historischen invitations lädt die Query sonst alle Rows in den
-// Node-process um die meisten wegzuwerfen — DB indexed das auf den
-// (tenantId, …)-key, JS-filter ist redundant.
+// SQL-side filter (was JS-side .filter): a tenant with many historical
+// invitations would otherwise load every row into the node process just to
+// discard most of them — the DB indexes on (tenantId, …), a JS filter is redundant.
 export const invitationsQuery = defineQueryHandler({
   name: "invitations",
   schema: z.object({}),

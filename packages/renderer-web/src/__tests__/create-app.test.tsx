@@ -316,7 +316,7 @@ describe("createKumikoApp", () => {
     expect(screen.getByTestId("ca-swatch-field").textContent).toBe("color");
   });
 
-  test("clientFeatures.contentEditors → createKumikoApp verdrahtet Merge → Provider → useContentEditor end-to-end", async () => {
+  test("clientFeatures.contentEditors → createKumikoApp wires merge → provider → useContentEditor end-to-end", async () => {
     // Proves the whole chain: ClientFeatureDefinition.contentEditors →
     // mergeContentEditors → ContentEditorsProvider in the tree →
     // useContentEditor in the consumer. Without the provider mount,

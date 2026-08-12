@@ -87,18 +87,9 @@ export function MoneyInput({
     setFocused(true);
   };
 
-  // Select-all-on-focus: deliberate, not just a Playwright accommodation.
-  // Focus always swaps the displayed value from the formatted string
-  // ("1.234,56 €") to the raw editable one ("1234,56"). Measured in a real
-  // browser: on this kind of value swap, the browser collapses the cursor
-  // to the *end* of the new value rather than preserving position — so
-  // without an explicit re-select, typing right after focus appends
-  // instead of replacing. That's what silently corrupted values set via
-  // Playwright's `.fill()` (framework#1856). It also matches standard
-  // money-input UX (immediate overtype on click), and sidesteps mapping a
-  // click position from the formatted view to the editable one, which has
-  // no well-defined equivalent once separators and the currency symbol
-  // are stripped.
+  // Focus swaps the displayed value (formatted -> editable); the browser
+  // collapses the cursor to the end on that swap, so typing/.fill() would
+  // append instead of replace (#1856).
   useEffect(() => {
     if (focused) inputRef.current?.select();
   }, [focused]);

@@ -383,18 +383,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
 
-  // Scope für validate()/submit() — nur die tatsächlich gerenderten Feldnamen
-  // aus `fields` (bereits non-extension-only, siehe deriveFormFields), auf den
-  // `fields`-Filter-Prop eingeschränkt. Muss VOR submitConfig/useForm stehen
-  // (der Controller bakt submitConfig beim ersten Render dauerhaft ein) und
-  // kann daher nicht von `vm`/`filteredSections` abgeleitet werden, die erst
-  // nach dem Controller (aus snapshot.values) existieren — die Feldnamen-Menge
-  // pro Section ist aber wertunabhängig (nur visible/readOnly/value hängen von
-  // `values` ab), also liefert diese Ableitung dieselbe Menge wie
-  // filterEditSections(vm.sections, fieldsFilter) es täte. undefined (= kein
-  // Filter aktiv) heißt unscoped validate/submit — auf "alle gerenderten
-  // Felder" scopen würde sonst root-level .refine()-Issues aus der
-  // unscoped-Validierung stillschweigend wegfiltern.
+  // Must be computed before submitConfig/useForm bakes it in (the controller
+  // freezes it on first render) — safe because a section's field-name set is
+  // value-independent, so it matches filterEditSections(vm.sections, fieldsFilter).
+  // undefined = unscoped, since scoping would silently drop root-level .refine() issues.
   const scopeFieldNames = useMemo(
     () =>
       fieldsFilter === undefined ? undefined : fieldsFilter.filter((f) => Object.hasOwn(fields, f)),
