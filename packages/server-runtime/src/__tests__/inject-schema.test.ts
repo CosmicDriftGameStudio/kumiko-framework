@@ -1,8 +1,8 @@
-// injectSchema teilt sich dev-server (every HTML response) und prod-
-// server (static-fallback index.html) Pfad. Bug hier wäre stiller
-// Production-Fail: createKumikoApp findet `window.__KUMIKO_SCHEMA__`
-// nicht und mountet leer. Tests pinnen die Idempotenz + die zwei
-// Insertion-Punkte (vor /client.js-Tag oder vor </body>).
+// injectSchema is shared by the dev-server (every HTML response) and
+// prod-server (static-fallback index.html) paths. A bug here would be a
+// silent production failure: createKumikoApp wouldn't find
+// `window.__KUMIKO_SCHEMA__` and would mount empty. Tests pin idempotency
+// plus the two insertion points (before the /client.js tag or before </body>).
 
 import { describe, expect, test } from "bun:test";
 import { injectSchema } from "../inject-schema";
@@ -15,8 +15,8 @@ describe("injectSchema", () => {
     const html = '<html><body><script src="/client.js" defer></script></body></html>';
     const out = injectSchema(html, SCHEMA);
     expect(out).toContain(TAG);
-    // Schema MUSS vor dem Client-Bundle stehen — sonst läuft
-    // createKumikoApp() bevor window.__KUMIKO_SCHEMA__ gesetzt ist.
+    // Schema MUST come before the client bundle — otherwise createKumikoApp()
+    // runs before window.__KUMIKO_SCHEMA__ is set.
     expect(out.indexOf(TAG)).toBeLessThan(out.indexOf('<script src="/client.js"'));
   });
 
@@ -45,8 +45,8 @@ describe("injectSchema", () => {
   test("Idempotent: bei bereits injectem Schema kein zweiter Tag", () => {
     const html = `<html><body>${TAG}</body></html>`;
     const out = injectSchema(html, '{"features":[{"differentSchema":true}]}');
-    // Original-Tag bleibt, kein zweiter Tag hinzugefügt — der Marker-
-    // Check verhindert sonst stacking-Tags bei repeated reads.
+    // Original tag stays, no second tag added — the marker check otherwise
+    // prevents stacking tags on repeated reads.
     expect(out).toBe(html);
   });
 
@@ -62,18 +62,18 @@ describe("injectSchema", () => {
     });
     const html = '<html><body><script src="/client.js"></script></body></html>';
     const out = injectSchema(html, complex);
-    // Sanity: das injected Skript muss valid JS sein (Object-Literal-
-    // Syntax, keine HTML-Reserved-Chars im JSON die den <script>-Block
-    // brechen würden — JSON.stringify entkommt /, < usw. nicht, aber
-    // die Standard-Chars die wir hier nutzen sind unkritisch).
+    // Sanity: the injected script must be valid JS (object-literal syntax,
+    // no HTML-reserved chars in the JSON that would break the <script>
+    // block — JSON.stringify doesn't escape /, < etc., but the standard
+    // chars used here are harmless).
     expect(out).toContain(`window.__KUMIKO_SCHEMA__=${complex}`);
   });
 
   test("Schema mit $-Replacement-Patterns bleibt byte-identisch (kein HTML-Splicing)", () => {
-    // String.prototype.replace() interpretiert $$, $&, $`, $' im
-    // REPLACEMENT-Argument speziell. Der injizierte Schema-JSON-String landet
-    // dort — ein i18n-Label mit "$'" o.ä. würde sonst Teile von `html` in den
-    // Script-Tag hineinspleißen. Ein Replacer-Function-Argument umgeht das.
+    // String.prototype.replace() interprets $$, $&, $`, $' specially in the
+    // REPLACEMENT argument. The injected schema JSON string lands there — an
+    // i18n label containing "$'" or similar would otherwise splice parts of
+    // `html` into the script tag. A replacer-function argument sidesteps that.
     const dollarSchema = '{"label":"$\' tail $$ amp $& end"}';
     const dollarTag = `<script>window.__KUMIKO_SCHEMA__=${dollarSchema};</script>`;
     const html = '<html><body><script src="/client.js"></script></body></html>';
