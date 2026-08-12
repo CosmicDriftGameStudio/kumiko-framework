@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.196.0
+
+### Patch Changes
+
+- af7686d: Scaffolded `src/seed.ts` now carries a `// skip:` comment above its idempotency check, so freshly generated apps pass `kumiko-guard-silent-skip` in CI out of the box.
+- Updated dependencies [6f4ce3e]
+  - @cosmicdrift/kumiko-bundled-features@0.196.0
+  - @cosmicdrift/kumiko-server-runtime@0.196.0
+  - @cosmicdrift/kumiko-framework@0.196.0
+
 ## 0.195.0
 
 ### Patch Changes

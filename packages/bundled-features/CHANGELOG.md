@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.196.0
+
+### Minor Changes
+
+- 6f4ce3e: `createFileDerivativesFeature()` called without `resolveApexTenant` no longer registers the `publicVariant` query handler at all — previously it was still registered as a side effect of `r.queryHandler(...)`, so `file-derivatives:query:public-variant` (access: `["anonymous", ...]`) was dispatchable through the generic `/api` query path for any consumer with `anonymousAccess` wired, even with the anonymous `/media/:fileRefId/:variant` httpRoute unmounted. On that path `tenantId` came from the `anonymousAccess` resolution instead of the host, bypassing the feature's "tenantId only from the host" invariant. Without `resolveApexTenant`, `publicVariant` is now unreachable via both the httpRoute and the `/api` query dispatch.
+
+### Patch Changes
+
+- Updated dependencies [c4161d8]
+- Updated dependencies [12ba677]
+  - @cosmicdrift/kumiko-renderer@0.196.0
+  - @cosmicdrift/kumiko-renderer-web@0.196.0
+  - @cosmicdrift/kumiko-framework@0.196.0
+  - @cosmicdrift/kumiko-types@0.196.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.196.0
+  - @cosmicdrift/kumiko-headless@0.196.0
+
 ## 0.195.0
 
 ### Patch Changes
