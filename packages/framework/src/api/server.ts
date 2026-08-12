@@ -57,7 +57,8 @@ import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
 import { assertOriginGuardConfig, originMiddleware } from "./origin-middleware";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard";
-import { requestIdMiddleware } from "./request-id-middleware";
+import { requestContext } from "./request-context";
+import { buildRequestContextData, requestIdMiddleware } from "./request-id-middleware";
 import {
   DEFAULT_MAX_REQUEST_BYTES,
   registerBodyLimit,
@@ -769,7 +770,17 @@ export function buildServer(options: ServerOptions): KumikoServer {
             // it into a public response. The forced tenant already comes
             // from bypassing the HTTP layer entirely; no elevated role
             // is needed or wanted on top of that.
-            dispatcher.query(type, payload, createAnonymousUser(tenantId)),
+            //
+            // httpRoute handlers run OUTSIDE /api/* — requestIdMiddleware
+            // (which wraps requestContext.run with ip/requestId/
+            // correlationId) never sees this request. Without this wrap,
+            // `rateLimit: {per: "ip", ...}` on a handler invoked via
+            // systemQuery is silent dead-code: enforceRateLimit reads
+            // requestContext.get()?.ip, which is undefined here, so
+            // buildBucketKey always returns {kind: "skip"}.
+            requestContext.run(buildRequestContextData(c), () =>
+              dispatcher.query(type, payload, createAnonymousUser(tenantId)),
+            ),
         });
       switch (route.method) {
         case "GET":
