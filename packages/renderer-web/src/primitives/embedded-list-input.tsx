@@ -443,6 +443,18 @@ export function EmbeddedListInput({
     const isTabForward = event.key === "Tab" && !event.shiftKey;
     const isEnter = event.key === "Enter";
     if (!isTabForward && !isEnter) return;
+    // A select/reference last column renders its picker trigger as a
+    // <button> (or an open cmdk popover's own input) in the cell — Enter
+    // there is the browser's native button-activation, not "append a row".
+    // Returning before preventDefault() lets that activation proceed;
+    // Tab still falls through to the append-row behavior below.
+    if (
+      isEnter &&
+      event.target instanceof HTMLElement &&
+      event.target.closest('button, [role="combobox"], [cmdk-input]') !== null
+    ) {
+      return;
+    }
     if (maxItems !== undefined && rows.length >= maxItems) return;
     // Enter bubbles up from the cell control through this TableCell — an
     // ancestor of any <form> the caller wraps the whole field in.

@@ -14,7 +14,7 @@ import {
   type RenderEditControls,
   useExtensionFormSubmit,
 } from "@cosmicdrift/kumiko-renderer";
-import { useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { z } from "zod";
 import {
   act,
@@ -757,6 +757,55 @@ describe("RenderEdit — controlled mode (#1887)", () => {
     expect(controls?.getValues().count).toBe("Acme".length);
   });
 
+  // fw#1899: a caller that supplies onControlsReady only after this mount
+  // (e.g. `onControlsReady={ready ? handler : undefined}`) must still get
+  // delivered to for THIS mount — the effect's deps previously excluded
+  // onControlsReady itself, so it never re-ran once mounted without it.
+  test("onControlsReady delivers to a handler supplied after mount, not just at mount time", () => {
+    function Host(): ReactNode {
+      const [ready, setReady] = useState(false);
+      const [received, setReceived] = useState<RenderEditControls<TestValues> | undefined>(
+        undefined,
+      );
+      // Stable identity across renders, like a real caller's useCallback:
+      // an inline arrow here would change on every render and defeat the
+      // re-delivery guard's identity check, looping the effect.
+      const onControlsReady = useCallback((c: RenderEditControls<TestValues>) => {
+        setReceived(c);
+      }, []);
+      return (
+        <>
+          <button type="button" data-testid="make-ready" onClick={() => setReady(true)}>
+            ready
+          </button>
+          <div data-testid="received">{received !== undefined ? "yes" : "no"}</div>
+          <RenderEdit<TestValues>
+            screen={makeScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0, isUrgent: false }}
+            writeCommand="order:create"
+            {...(ready && { onControlsReady })}
+          />
+        </>
+      );
+    }
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <Host />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("received").textContent).toBe("no");
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("make-ready"));
+    });
+
+    expect(screen.getByTestId("received").textContent).toBe("yes");
+  });
+
   test("controls.patch sets values from outside without losing edits already made in other fields", () => {
     let controls: RenderEditControls<TestValues> | undefined;
     render(
@@ -1230,6 +1279,122 @@ describe("RenderEdit wizard mode", () => {
     expect(screen.queryByTestId("field-title-errors")).toBeNull();
   });
 
+  // fw#1901: handleWizardNext used to validate every field in the section,
+  // including ones currently hidden by their own condition. A required
+  // field that only applies conditionally (e.g. a VAT id shown only for
+  // companies) must not permanently block "Next" while it's hidden. Note:
+  // form-controller.ts's runValidate() already excludes hidden-field
+  // issues from every validate() call via its own `hiddenFields` set
+  // (form-controller.ts:200), independent of scope; this test protects
+  // that existing guard, not the fieldNames narrowing added here.
+  test("Weiter is not blocked by a required field that's currently hidden by its own condition", async () => {
+    const companyEntity = {
+      fields: {
+        isCompany: { type: "boolean" },
+        vatId: { type: "text", required: true },
+        count: { type: "number" },
+      },
+    } as unknown as EntityDefinition;
+    const wizardScreen: EntityEditScreenDefinition = {
+      id: "orders:screen:order-wizard-conditional",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        sections: [
+          {
+            title: "Basics",
+            columns: 1,
+            fields: [
+              "isCompany",
+              {
+                field: "vatId",
+                visible: { field: "isCompany", eq: true },
+                required: { field: "isCompany", eq: true },
+              },
+            ],
+          },
+          { title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+    };
+    // A schema that (realistically) doesn't special-case the conditional
+    // requirement itself — it's the FieldCondition's hidden-field exclusion
+    // that's supposed to keep this from blocking, not the schema.
+    const schema = z.object({ isCompany: z.boolean(), vatId: z.string().min(1) });
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit
+          screen={wizardScreen}
+          entity={companyEntity}
+          featureName="orders"
+          initial={{ isCompany: false, vatId: "", count: 0 } as never}
+          writeCommand="order:create"
+          schema={schema}
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.queryByTestId("field-vatId")).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("field-count")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
+  });
+
+  // fw#1901: a section that's entirely hidden (every field in it currently
+  // condition-hidden) must not occupy its own wizard step — it would render
+  // empty and the step count/progress would include a step nobody can see.
+  test("a fully-hidden section is skipped in the wizard step count instead of rendering an empty step", async () => {
+    const wizardScreen: EntityEditScreenDefinition = {
+      id: "orders:screen:order-wizard-hidden-section",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        sections: [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          {
+            title: "Company-only",
+            columns: 1,
+            fields: [{ field: "notes", visible: { field: "isUrgent", eq: true } }],
+          },
+          { title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={wizardScreen}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    // Only 2 real steps (Basics, Details) — "Company-only" is entirely
+    // hidden (isUrgent is false) and must not count as a step.
+    expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("of 2");
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      await Promise.resolve();
+    });
+
+    // Landed directly on Details, skipping the hidden "Company-only" step.
+    expect(screen.getByTestId("field-count")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
+  });
+
   // A server-side field error can land on a field belonging to a step the
   // user isn't currently viewing — the old `setFormError(fieldIssues.length
   // === 0 ? result.error : null)` rule suppressed the banner in that case
@@ -1605,6 +1770,62 @@ describe("RenderEdit wizard draft", () => {
     expect(calls).toContain("form-draft:write:discard");
   });
 
+  // fw#1978: payloadMode "changes" + an untouched form means
+  // controller.submit() never calls dispatcher.write (nothing changed to
+  // send) — handleSubmit must not treat that no-write success like a normal
+  // submit and discard the draft underneath it, or a host driving
+  // controls.submit() on a pre-filled, untouched form silently loses it.
+  test("payloadMode 'changes' + an unchanged form: submit() is a no-op that keeps the draft alive", async () => {
+    const { dispatcher, store, calls } = makeDraftDispatcher();
+    let controls: RenderEditControls<TestValues> | undefined;
+    let submitResult: SubmitResult<unknown> | undefined;
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeDraftWizardScreen(true)}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0 }}
+          writeCommand="order:create"
+          payloadMode="changes"
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+          onSubmit={(result) => {
+            submitResult = result;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    // Step to the last wizard step without touching any field — saveDraft()
+    // persists the current (unmodified) values, so a draft exists, but the
+    // form itself is still not dirty.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(store.current).not.toBeNull());
+    calls.length = 0;
+
+    // The built-in Save button stays disabled on an unchanged form — drive
+    // the write the way a host would (RenderEditControls.submit(), the API
+    // this changeset's "pre-filled, untouched form" use case documents).
+    await act(async () => {
+      await controls?.submit();
+    });
+
+    expect(submitResult?.validationBlocked).toBe(false);
+    if (submitResult?.validationBlocked === false) {
+      expect(submitResult.isSuccess).toBe(true);
+      expect(submitResult.isNoOp).toBe(true);
+    }
+    expect(calls).not.toContain("order:create");
+    expect(calls).not.toContain("form-draft:write:discard");
+    expect(store.current).not.toBeNull();
+  });
+
   test("without layout.draft nothing hits the form-draft feature", async () => {
     const { dispatcher, calls } = makeDraftDispatcher();
 
@@ -1861,6 +2082,41 @@ describe("RenderEdit wizard draft", () => {
     // no straggler.
     await new Promise((resolve) => setTimeout(resolve, PATCH_DRAFT_SAVE_DEBOUNCE_MS + 200));
     expect(savesSoFar()).toBe(before + 1);
+  });
+
+  // fw#1932: a patch() inside the 500ms debounce window followed by an
+  // unmount (navigation away, dialog close) must not drop the save — the
+  // old cleanup only cleared the timer, silently discarding the last edit.
+  test("a pending debounced patch-save flushes on unmount instead of being dropped", async () => {
+    const { dispatcher, store } = makeDraftDispatcher();
+    let controls: RenderEditControls<TestValues> | undefined;
+
+    const rendered = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeDraftWizardScreen(true)}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0 }}
+          writeCommand="order:create"
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+    expect(screen.getByTestId("field-count")).toBeTruthy();
+
+    // Arms the debounce, then unmounts well inside the 500ms window — before
+    // the timer could ever fire on its own.
+    act(() => {
+      controls?.patch({ count: 7 });
+    });
+    rendered.unmount();
+
+    await waitFor(() => expect(store.current?.values["count"]).toBe(7));
   });
 
   // #1914's debounce must not resurrect a draft after it was intentionally
@@ -2612,6 +2868,90 @@ describe("RenderEdit locked state (#1896)", () => {
 
     const titleInput = screen.getByTestId("field-title").querySelector("input");
     expect((titleInput as HTMLInputElement).disabled).toBe(false);
+  });
+
+  test("disabled prevents the Delete button from invoking onDelete (fw#1909)", async () => {
+    const onDelete = mock(async () => {});
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1, isUrgent: false }}
+          writeCommand="order:create"
+          onDelete={onDelete}
+          disabled
+        />
+      </DispatcherProvider>,
+    );
+
+    const deleteButton = screen.getByTestId("render-edit-delete") as HTMLButtonElement;
+    expect(deleteButton.disabled).toBe(true);
+    fireEvent.click(deleteButton);
+    expect(screen.queryByTestId("render-edit-delete-dialog")).toBeNull();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  test("disabled prevents picking a draft candidate from adopting it (fw#1909)", async () => {
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-wizard-locked-draftpicker",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        draft: true,
+        sections: [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          { title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+    };
+    const candidates = [
+      {
+        id: `${screenDef.id}:new:draft-1`,
+        draftKey: `${screenDef.id}:new:draft-1`,
+        stepIndex: 0,
+        savedAt: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: `${screenDef.id}:new:draft-2`,
+        draftKey: `${screenDef.id}:new:draft-2`,
+        stepIndex: 0,
+        savedAt: "2026-01-02T00:00:00Z",
+      },
+    ];
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string) => {
+        if (type === "form-draft:query:list")
+          return { isSuccess: true, data: { drafts: candidates } };
+        return { isSuccess: true, data: {} };
+      }) as Dispatcher["query"],
+      write: (async () => ({ isSuccess: true, data: { id: "1" } })) as Dispatcher["write"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+            disabled
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    const pickSecond = screen.getByTestId(`render-edit-draft-pick-${screenDef.id}:new:draft-2`);
+    fireEvent.click(pickSecond);
+
+    expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy();
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    expect(titleInput.value).toBe("");
   });
 });
 

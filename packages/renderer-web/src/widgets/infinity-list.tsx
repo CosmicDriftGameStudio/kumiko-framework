@@ -20,6 +20,12 @@ export type InfinityListProps<TData = unknown, TRow = Readonly<Record<string, un
   /** Must derive from row content (e.g. `row.id`), not from `index` — a
    *  live refresh reorders rows (new/changed rows move to the front). */
   readonly rowId: (row: TRow, index: number) => string;
+  /** Pass this when `rowId` depends on list position — the live-merge path
+   *  needs a position-independent identity. Without it, an index-based
+   *  `rowId` (legitimate when live-merge isn't used) can collide between
+   *  the freshly-fetched first page's local indices and the accumulated
+   *  list's indices, silently dropping an unrelated mid-list row on merge. */
+  readonly rowKey?: (row: TRow) => string;
   readonly renderRow: (row: TRow) => ReactNode;
   readonly emptyState?: ReactNode;
   readonly className?: string;
@@ -49,6 +55,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   rows,
   nextCursor,
   rowId,
+  rowKey,
   renderRow,
   emptyState,
   className,
@@ -73,6 +80,16 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   nextCursorRef.current = nextCursor;
   const rowIdRef = useRef(rowId);
   rowIdRef.current = rowId;
+  const rowKeyRef = useRef(rowKey);
+  rowKeyRef.current = rowKey;
+  // Position-independent when rowKey is supplied, otherwise falls back to
+  // the (possibly position-dependent) rowId — same identity function used
+  // for both sides of the live-merge diff below so a position-based rowId
+  // can no longer collide across the fresh page's local indices and the
+  // accumulated list's indices (fw#1829).
+  const identifyRef = useRef((row: TRow, index: number): string =>
+    rowKeyRef.current !== undefined ? rowKeyRef.current(row) : rowIdRef.current(row, index),
+  );
 
   // Discards a response whose request was superseded by a newer one before
   // it resolved (e.g. two searches fired in quick succession) — without
@@ -102,8 +119,11 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
       }
       const nextRows = rowsRef.current(res.data);
       if (cursor === null) {
+        // Same identity as refreshFirstPage's freshIds/staleRows diff below
+        // — this ref is what that diff's previousFirstPageIds reads, so it
+        // must agree on rowKey vs rowId or the two id spaces never overlap.
         firstPageIdsRef.current = new Set(
-          nextRows.map((row, index) => rowIdRef.current(row, index)),
+          nextRows.map((row, index) => identifyRef.current(row, index)),
         );
       }
       setState((prev) => {
@@ -154,7 +174,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     // skip: background live refresh failed, keep showing the current rows
     if (!res.isSuccess) return;
     const freshRows = rowsRef.current(res.data);
-    const freshIds = new Set(freshRows.map((row, index) => rowIdRef.current(row, index)));
+    const freshIds = new Set(freshRows.map((row, index) => identifyRef.current(row, index)));
     // A row absent from freshIds is stale for one of two reasons: it was
     // dropped from page 1 (deleted, or filtered out elsewhere) and must be
     // pruned, or it belongs to an already-accumulated later page and must
@@ -174,7 +194,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
         return { kind: "ready", rows: freshRows, cursor: nextCursorRef.current(res.data) };
       }
       const staleRows = prev.rows.filter((row, index) => {
-        const id = rowIdRef.current(row, index);
+        const id = identifyRef.current(row, index);
         return !freshIds.has(id) && !previousFirstPageIds.has(id);
       });
       return { kind: "ready", rows: [...freshRows, ...staleRows], cursor: prev.cursor };

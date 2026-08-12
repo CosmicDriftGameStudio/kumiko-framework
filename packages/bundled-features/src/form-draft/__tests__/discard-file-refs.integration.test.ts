@@ -187,4 +187,34 @@ describe("form-draft discard — FileRef release", () => {
 
     expect(provider.keys()).toContain(key);
   });
+
+  // fw#1922: a released FileRef must go through the fileRef executor
+  // (fileRef.forgotten event), not a raw provider.delete() that bypasses
+  // the event store; the file_refs row itself must be purged, not just
+  // the storage binary.
+  test("discarding with releaseFiles: true hard-purges the file_refs row through the event store, not just the storage binary", async () => {
+    const key = "tenant/vehicle/photo/row-purge.jpg";
+    await saveDraft("wizard:row-purge", {});
+    await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
+    await seedFileRef(key);
+    await saveDraft("wizard:row-purge", { photo: fileRefPointer(key) });
+
+    const before = await asRawClient(stack.db).unsafe(
+      `SELECT "id" FROM "file_refs" WHERE "storage_key" = $1`,
+      [key],
+    );
+    expect(before).toHaveLength(1);
+
+    await discardDraft("wizard:row-purge", true);
+
+    const after = await asRawClient(stack.db).unsafe(
+      `SELECT "id" FROM "file_refs" WHERE "storage_key" = $1`,
+      [key],
+    );
+    expect(after).toHaveLength(0);
+    const forgottenEvents = await asRawClient(stack.db).unsafe(
+      `SELECT "type" FROM "kumiko_events" WHERE "aggregate_type" = 'fileRef' AND "type" = 'fileRef.forgotten'`,
+    );
+    expect(forgottenEvents.length).toBeGreaterThan(0);
+  });
 });

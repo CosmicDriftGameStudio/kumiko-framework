@@ -473,8 +473,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // on every parent render, not just on a snapshot change, risking a loop if
   // the caller's onChange triggers a parent re-render. Held in a ref like
   // onChangeRef so only a real snapshot mutation retriggers this effect.
-  const onControlsReadyRef = useRef(onControlsReady);
-  onControlsReadyRef.current = onControlsReady;
+  // Guards against redelivering to the SAME callback identity on every
+  // render (an inline-arrow onControlsReady would otherwise refire the
+  // effect below on every render since the callback itself is now a dep).
+  // Tracks the actual prop, not a ref snapshot, so a caller that swaps in a
+  // real handler after mount (e.g. `onControlsReady={ready ? cb : undefined}`)
+  // gets delivered to for THIS mount instead of never (fw#1899).
+  const deliveredControlsToRef = useRef<typeof onControlsReady>(undefined);
   const scopeFieldNamesRef = useRef(scopeFieldNames);
   scopeFieldNamesRef.current = scopeFieldNames;
   const scopedValidate = useCallback(
@@ -499,7 +504,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     return () => {
-      if (draftSaveTimerRef.current !== null) clearTimeout(draftSaveTimerRef.current);
+      if (draftSaveTimerRef.current !== null) {
+        clearTimeout(draftSaveTimerRef.current);
+        // Flush the pending debounced save instead of dropping it — a
+        // navigation/unmount inside the debounce window would otherwise
+        // silently discard the last patch() (discardDraft nulls this ref
+        // first on the post-submit path, so this can't resurrect a
+        // just-submitted draft).
+        saveDraftRef.current(currentStepRef.current);
+      }
     };
   }, []);
 
@@ -529,9 +542,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // available on the very first onChange call, not just from the second
   // keystroke onward.
   useEffect(() => {
-    const cb = onControlsReadyRef.current;
-    if (cb === undefined) return;
-    cb({
+    if (onControlsReady === undefined) return;
+    if (deliveredControlsToRef.current === onControlsReady) return;
+    deliveredControlsToRef.current = onControlsReady;
+    onControlsReady({
       patch: patchAndScheduleDraftSave,
       validate: scopedValidate,
       getValues: () => controller.getSnapshot().values,
@@ -539,9 +553,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     });
     // controller is mount-lifetime-stable (see useForm's comment on its own
     // useMemo), same for patchAndScheduleDraftSave/scopedValidate (both
-    // useCallback over mount-stable deps) — this fires exactly once per
-    // RenderEdit mount in practice.
-  }, [controller, scopedValidate, patchAndScheduleDraftSave]);
+    // useCallback over mount-stable deps) — onControlsReady is the only dep
+    // that can legitimately change post-mount, and the guard above stops an
+    // unstable inline-arrow identity from redelivering on every render.
+  }, [onControlsReady, controller, scopedValidate, patchAndScheduleDraftSave]);
 
   const schemaRef = useRef(schema);
   schemaRef.current = schema;
@@ -647,6 +662,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // (see draftCandidates below) — adopt it the same way a single
   // auto-adopted candidate would be.
   function adoptDraft(candidate: DraftCandidate): void {
+    // Locked state (#1896/fw#1909): `disabled` means "no write possible" —
+    // repointing draftKey and patching in the candidate's values is exactly
+    // that, so a locked form must not adopt a draft.
+    if (disabled) return;
     const adoptedId = candidate.draftKey.slice(newDraftPrefix(screen.id).length);
     draftStorage.setDraftId(screen.id, adoptedId);
     setDraftId(adoptedId);
@@ -666,7 +685,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   );
 
   const filteredSections = useMemo(
-    () => filterEditSections(vm.sections, fieldsFilter),
+    // A fully-hidden "fields" section (every field in it currently
+    // condition-hidden) must not occupy a wizard step; it would render
+    // empty and block Back/Next on nothing. Extension sections carry no
+    // `visible` (they own their own dirty/save lifecycle), so they always
+    // pass through. A section with no fields at all (e.g. a review-only
+    // step) has `visible: fields.some(...)` = false vacuously; that's "no
+    // fields to hide", not "hidden", so it stays too (fw#1901).
+    () =>
+      filterEditSections(vm.sections, fieldsFilter).filter(
+        (section) => section.kind === "extension" || section.fields.length === 0 || section.visible,
+      ),
     [vm.sections, fieldsFilter],
   );
 
@@ -889,10 +918,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       let extensionsPersisted = true;
       if (result.isSuccess) {
         setFormError(null);
-        // Awaited, not fire-and-forget: `onSubmit` typically navigates away and
-        // unmounts this form, which would abort an in-flight discard and leave
-        // the draft behind after a successful submit.
-        await discardDraft();
+        // `isNoOp: true` (payloadMode "changes", pre-filled form submitted
+        // untouched) means controller.submit() never called dispatcher.write
+        // — nothing to discard, and discarding here would delete a draft the
+        // form never persisted (fw#1978). Awaited, not fire-and-forget:
+        // `onSubmit` typically navigates away and unmounts this form, which
+        // would abort an in-flight discard and leave the draft behind after
+        // a successful submit.
+        if (result.isNoOp !== true) await discardDraft();
         extensionsPersisted = await persistExtensions();
       } else if (result.validationBlocked) {
         // Root-level `.refine()`/cross-field issues from controller.validate()
@@ -959,6 +992,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           type="button"
           variant="danger"
           testId="render-edit-delete"
+          disabled={disabled}
           onClick={() => setConfirmDeleteOpen(true)}
         >
           {translate("kumiko.actions.delete")}
