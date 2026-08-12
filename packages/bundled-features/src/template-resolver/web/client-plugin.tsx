@@ -206,44 +206,38 @@ function makeTreeProvider(tenantIdOverride?: string, collectionId?: string): Tre
   };
 }
 
-// contentFormat lives on the collection the node came from, not on the
-// entity — a node without a collectionId (the hand-wired text-block tree)
-// has none, useContentEditor then falls back to "plain" on its own.
-function findContentFormat(
+type ContentCollectionSchema = NonNullable<FeatureSchema["contentCollections"]>[number];
+
+// A node without a collectionId (the hand-wired text-block tree) has no
+// collection to look up — contentFormat/variableSchema then fall back to
+// their own callers' defaults.
+function findCollection(
   features: readonly FeatureSchema[],
   collectionId?: string,
-): string | undefined {
+): ContentCollectionSchema | undefined {
   if (collectionId === undefined) return undefined;
   for (const feature of features) {
     const match = feature.contentCollections?.find((c) => c.id === collectionId);
-    if (match !== undefined) return match.contentFormat;
+    if (match !== undefined) return match;
   }
   return undefined;
 }
 
-// Same lookup as findContentFormat, for the collection's fixed variable
-// names (ContentCollectionDefinition.variableSchema) — the chip bar's data
-// source. A node without a collectionId gets no chips: the hand-wired
-// text-block tree has no collection to declare variables on.
-function findVariableSchema(
+function findContentFormat(
   features: readonly FeatureSchema[],
   collectionId?: string,
-): readonly string[] {
-  return Object.keys(findVariableExamples(features, collectionId));
+): string | undefined {
+  return findCollection(features, collectionId)?.contentFormat;
 }
 
-// Same lookup, for the example values the Preview substitutes in for
-// `{{name}}` — the values half of the same variableSchema map.
+// The collection's fixed variable names (ContentCollectionDefinition.
+// variableSchema) — the chip bar's data source and, keyed, the example
+// values the Preview substitutes in for `{{name}}`.
 function findVariableExamples(
   features: readonly FeatureSchema[],
   collectionId?: string,
 ): Readonly<Record<string, string>> {
-  if (collectionId === undefined) return {};
-  for (const feature of features) {
-    const match = feature.contentCollections?.find((c) => c.id === collectionId);
-    if (match !== undefined) return match.variableSchema ?? {};
-  }
-  return {};
+  return findCollection(features, collectionId)?.variableSchema ?? {};
 }
 
 // Edit form: loads the current values via by-slug, lets TenantAdmin and
@@ -311,8 +305,8 @@ function TextBlockEditor({
   const t = useTranslation();
   const features = useAppFeatures();
   const contentFormat = findContentFormat(features, collectionId);
-  const variables = findVariableSchema(features, collectionId);
   const variableExamples = findVariableExamples(features, collectionId);
+  const variables = Object.keys(variableExamples);
   const ContentEditor = useContentEditor(contentFormat);
   const canWrite =
     user?.roles.includes("TenantAdmin") === true || user?.roles.includes("SystemAdmin") === true;
