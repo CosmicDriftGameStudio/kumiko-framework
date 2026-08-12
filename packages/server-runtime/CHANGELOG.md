@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.194.0
+
+### Patch Changes
+
+- 2b1b089: `inject-schema.ts` matched the client bundle's `<script src="/client.js">` tag with an exact string, so schema injection silently never fired in dev mode, where the tag carries an extra `type="module"` attribute. The match is now a regex that finds the tag by its `src` attribute regardless of what else is on it.
+- Updated dependencies [2b1b089]
+- Updated dependencies [52b0ba6]
+- Updated dependencies [7938610]
+- Updated dependencies [52b0ba6]
+- Updated dependencies [074ccd4]
+  - @cosmicdrift/kumiko-bundled-features@0.194.0
+  - @cosmicdrift/kumiko-framework@0.194.0
+
 ## 0.193.1
 
 ### Patch Changes

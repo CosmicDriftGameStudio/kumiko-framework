@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.194.0
+
+### Minor Changes
+
+- 04f7a96: `ImageFieldDef` accepts `capture?: "environment" | "user"`, forwarded to the file input's `capture` attribute so a phone opens the camera instead of the file picker. Omitted by default, so existing image fields are unchanged.
+
+  Not added to `ImagesFieldDef`: multi-image fields still have no widget (they render an "unsupported" banner), and a flag no renderer reads is the dead-flag state `thumbnails` was just removed for.
+
+### Patch Changes
+
+- 52b0ba6: Renamed the i18n key `kumiko.widget.stepBar.done` to `kumiko.widget.step-bar.done` (all other widget keys are kebab-case) and moved it from the wizard section to the widgets section in both the `de` and `en` blocks, next to the other `kumiko.widget.*` keys. `StepBar`'s screen-reader "Done" label now reads from the renamed key.
+
+  If an app overrides this specific key via `clientFeatures.translations`, update the key name — the old key is no longer read and its override would silently stop applying.
+
+- 52b0ba6: `RenderEdit`'s `onControlsReady` effect is now declared before its `onChange` effect, so an `onChange` fired on mount always sees `controls !== undefined` — an initial value that derives dependent fields on mount (e.g. VIN-decode) previously needed a second keystroke before `controls.patch` was available.
+
+  Also: a draft-save key longer than the server's 256-char limit (`draftKeySchema.max`) is now caught client-side with a console warning and the save is skipped, instead of firing the write and losing it silently — the user would previously only notice on resume, with nothing to resume.
+
+- Updated dependencies [52b0ba6]
+- Updated dependencies [04f7a96]
+  - @cosmicdrift/kumiko-framework@0.194.0
+  - @cosmicdrift/kumiko-headless@0.194.0
+
 ## 0.193.1
 
 ### Patch Changes

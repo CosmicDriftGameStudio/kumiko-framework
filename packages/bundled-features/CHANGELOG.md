@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.194.0
+
+### Minor Changes
+
+- 074ccd4: The public `GET /media/:fileRefId/:variant` route (`file-derivatives`) resolves the variant spec from the FileRef's field declaration (`createImageField({ variants: {...} })`) instead of a fixed spec table. An app can now declare and publicly serve its own variant names (e.g. `plan`), and a field that overrides one of the built-in preset names (`thumb`/`card`/`hero`/`full`) with its own spec (e.g. a larger `maxEdge`) is served with that spec instead of the frozen preset size.
+
+  `publicVariantQuery`'s schema now accepts any `variant` name (`z.string().min(1).max(64)`) instead of `z.enum(PRESET_VARIANT_NAMES)`; resolution requires an exact match against the field's declared `variants` keys (unresolvable names answer 404, same as an unknown FileRef). The route's pre-DB path-param gate is now purely syntactic (`[a-zA-Z0-9_-]{1,64}`, mirroring the existing UUID guard on `fileRefId`) instead of a name allow-list — a known-valid preset name plus a random `fileRefId` reaches the same DB read as any other name, so a list only blocked the cheaper of two equally-costly attacks; the actual defense is the existing per-IP rate limit and the UUID guard, both unchanged. **Breaking:** `PRESET_VARIANT_NAMES` is gone from the package's public exports. It only ever named the allow-list this release deletes, so there is nothing to migrate to — `thumb`/`card`/`hero`/`full` remain as ready-made specs to spread into a field's own `variants`. No app in this workspace imported it.
+
+### Patch Changes
+
+- 2b1b089: `template-resolver`'s feature description now mentions `markdown` as a supported `contentFormat` alongside `plain`/`rich` — it was already handled at runtime but missing from the docs.
+
+  Also: `form-draft`'s empty `i18n.ts` (an unused, always-empty translation table) and its now-dead `r.translations()` registration are removed; no behavior change.
+
+- 52b0ba6: `form-draft`'s `ownerId` field is now `required: true` — it's always stamped server-side from `event.user.id` and never client-supplied, but the missing annotation let a draft with no owner exist, which `form-draft:query:list` (scoped by owner) would then silently never return.
+
+  Consuming apps: this is a `NOT NULL` change on an already-managed projection column, so the generated migration for it is a destructive `DROP TABLE` + `CREATE TABLE` (matching the framework's existing convention for in-place-unsafe schema changes) with a `.rebuild.json` marker — running it replays the `read_form_drafts` projection from the event log instead of migrating in place.
+
+- 7938610: `form-draft`'s `list` query now sorts newest-first with a deterministic `id` tiebreaker, instead of leaving ties (two drafts saved in the same millisecond) to Postgres' undefined row order.
+- Updated dependencies [43d39b8]
+- Updated dependencies [52b0ba6]
+- Updated dependencies [52b0ba6]
+- Updated dependencies [04f7a96]
+- Updated dependencies [52b0ba6]
+- Updated dependencies [2b1b089]
+- Updated dependencies [52b0ba6]
+- Updated dependencies [52b0ba6]
+  - @cosmicdrift/kumiko-renderer-web@0.194.0
+  - @cosmicdrift/kumiko-framework@0.194.0
+  - @cosmicdrift/kumiko-renderer@0.194.0
+  - @cosmicdrift/kumiko-types@0.194.0
+  - @cosmicdrift/kumiko-headless@0.194.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.194.0
+
 ## 0.193.1
 
 ### Patch Changes

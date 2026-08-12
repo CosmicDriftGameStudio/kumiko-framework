@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.194.0
+
+### Minor Changes
+
+- 04f7a96: `ImageFieldDef` accepts `capture?: "environment" | "user"`, forwarded to the file input's `capture` attribute so a phone opens the camera instead of the file picker. Omitted by default, so existing image fields are unchanged.
+
+  Not added to `ImagesFieldDef`: multi-image fields still have no widget (they render an "unsupported" banner), and a flag no renderer reads is the dead-flag state `thumbnails` was just removed for.
+
+### Patch Changes
+
+- Updated dependencies [52b0ba6]
+  - @cosmicdrift/kumiko-framework@0.194.0
+
 ## 0.193.1
 
 ### Patch Changes
