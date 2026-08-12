@@ -125,6 +125,27 @@ describe("ContentPreview", () => {
     expect(el.textContent).toBe("Preis: <b>0</b> & up");
   });
 
+  // Known limitation: escaping is keyed off the *declared* format, not the
+  // actually-resolved editor. If "rich" is declared but no rich editor is
+  // registered, useContentEditor falls back to the plain textarea and the
+  // markup-safe escaping (only applied for contentFormat === "rich") never
+  // ran for the plain path — entities show up literal instead of rendered.
+  // Pinned here rather than fixed: fixing it needs a per-editor
+  // `rendersHtml` flag threaded through content-editors.tsx.
+  test("rich format with no registered editor → falls back to the textarea, entities shown literally", () => {
+    render(
+      <ContentPreview
+        content="Preis: {{price}}"
+        variables={{ price: "<b>0</b> & up" }}
+        contentFormat="rich"
+      />,
+      { wrapper: Wrapper },
+    );
+
+    const el = screen.getByTestId("cp-textarea") as HTMLTextAreaElement;
+    expect(el.value).toBe("Preis: &lt;b&gt;0&lt;/b&gt; &amp; up");
+  });
+
   test("plain format: an example value with markup characters passes through unescaped", () => {
     render(
       <ContentPreview

@@ -215,6 +215,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // boot); otherwise noop so dispatch/handleJob stay zero-cost without config.
   const tracer: Tracer = context.tracer ?? getFallbackTracer();
   const errorLogger = createFallbackLogger("job-runner", context.log);
+  // Set at the top of stop() — a graceful shutdown closes the redis/BullMQ
+  // clients itself, which fires the exact same 'error' listeners below with
+  // an expected "Connection is closed." Downgrading to debug once stopping
+  // is true keeps those out of error-rate alerts without losing them.
+  let stopping = false;
 
   const allJobs = registry.getAllJobs();
 
@@ -240,9 +245,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // "Connection is closed") is unhandled and crashes the process — in
     // bun:test it gets attributed to whichever test happens to run next
     // (fw#1805).
-    lockRedis.on("error", (err) =>
-      errorLogger.error("lock redis connection error", { error: err.message }),
-    );
+    lockRedis.on("error", (err) => {
+      const log = stopping ? errorLogger.debug : errorLogger.error;
+      log("lock redis connection error", { error: err.message });
+    });
     const lockScope = consumerLane ?? "enqueue";
     sequentialLock = createDistributedLock(lockRedis, `${RedisKeys.lock}seq:${lockScope}:`);
   }
@@ -267,9 +273,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // Same unhandled-'error'-crash hazard as lockRedis above, just via
   // BullMQ's internal ioredis client (fw#1805).
   for (const queue of Object.values(queues)) {
-    queue.on("error", (err) =>
-      errorLogger.error("queue redis connection error", { error: err.message }),
-    );
+    queue.on("error", (err) => {
+      const log = stopping ? errorLogger.debug : errorLogger.error;
+      log("queue redis connection error", { error: err.message });
+    });
   }
   let worker: Worker | null = null;
   let queueDepthTimer: ReturnType<typeof setInterval> | null = null;
@@ -536,9 +543,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         connection: redisOpts,
         concurrency: 5,
       });
-      worker.on("error", (err) =>
-        errorLogger.error("worker redis connection error", { error: err.message }),
-      );
+      worker.on("error", (err) => {
+        const log = stopping ? errorLogger.debug : errorLogger.error;
+        log("worker redis connection error", { error: err.message });
+      });
       // A caller that calls stop() right after start() otherwise races the
       // still-settling blocking connection: it rejects in-flight commands
       // via ioredis's flushQueue() during close(), which isn't a listenable
@@ -603,6 +611,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     },
 
     async stop(): Promise<void> {
+      stopping = true;
       if (queueDepthTimer) {
         clearInterval(queueDepthTimer);
         queueDepthTimer = null;

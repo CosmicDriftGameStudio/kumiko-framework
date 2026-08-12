@@ -153,17 +153,21 @@ describe("api-worker-split", () => {
 
       // Worker's dispatcher applied the projection the API skipped…
       await waitFor(async () => {
-        const activity = await selectMany<{ orderKey: string }>(testDb.db, orderActivityTable, {});
+        const activity = await selectMany<{ orderKey: string }>(testDb.db, orderActivityTable, {
+          tenantId: adminUser.tenantId,
+        });
         expect(activity.some((row) => row.orderKey === "Globex Ltd")).toBe(true);
       });
 
       // …and the job wrote the fulfillment back through the WORKER's
-      // dispatcher (JobContext has no write/query).
+      // dispatcher (JobContext has no write/query), scoped to the tenant
+      // that fired the triggering order — an unfiltered query would still
+      // pass even if the fulfillment landed in the wrong tenant (fw#1823).
       await waitFor(async () => {
         const fulfillments = await selectMany<{ orderKey: string; carrier: string }>(
           testDb.db,
           fulfillmentTable,
-          {},
+          { tenantId: adminUser.tenantId },
         );
         expect(fulfillments.some((row) => row.orderKey === "Globex Ltd")).toBe(true);
         expect(fulfillments[0]?.carrier).toBe("DHL");

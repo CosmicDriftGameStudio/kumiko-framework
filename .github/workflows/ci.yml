@@ -339,13 +339,8 @@ jobs:
           REQUIRE_MEILI: "1"
         run: bun run test:integration
 
-      # Split (441/1, revised #1940): rebuildProjection flakes under load in
-      # THIS job (bulk integration suite runs immediately above, same VM,
-      # same DB) — stays advisory here. get-stream-version + pipeline perf
-      # show no such evidence and keep gating for real. Event-store latency
-      # moved out entirely to the event-store-perf job below, which runs it
-      # in isolation (no bulk suite ahead of it) and hard-blocks — no need
-      # to also run it here advisory-only.
+      # Split (#1940): rebuildProjection flakes under load in THIS job (bulk
+      # suite runs immediately above); stream-version/pipeline don't, so they stay hard-blocking here.
       - name: Run integration perf gates (stream-version, pipeline — hard-blocking)
         run: bun run test:integration:perf:strict
 
@@ -388,18 +383,8 @@ jobs:
           docker rm -f kumiko-ci-pg kumiko-ci-redis kumiko-ci-meili kumiko-ci-minio || true
           docker network rm kumiko-ci || true
 
-  # Event-store latency gate (#1940), split out of `integration`. Own job,
-  # own runner, postgres only — no bulk integration suite ahead of it, so a
-  # slow/loaded `integration` job can no longer redden this gate. That alone
-  # didn't fully explain the flake though: re-measuring against a fresh
-  # container per run (the same shape as this job) still produced p99
-  # spikes to 47–73ms against a 25–30ms budget on an otherwise idle machine
-  # — cold-Postgres connection/cache warm-up, not runner contention. The
-  # test's own gate was switched from p99 (single worst-of-200 sample) to
-  # p95 to absorb that outlier. Fails loudly on its own red X; it is NOT in
-  # release.needs or branch protection, so it doesn't block npm publish or
-  # merge — wiring it into branch protection (making it actually
-  # merge-blocking) is a separate repo-admin change, not part of this PR.
+  # Event-store latency gate (#1940), isolated in its own job (removes bulk-suite contention) and gated on p95 not p99 — cold-Postgres warm-up alone spikes p99 to 47-73ms even fully isolated.
+  # Fails loudly on its own red X, but is NOT in release.needs or branch protection yet — wiring it in is a separate repo-admin change.
   event-store-perf:
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -12,17 +12,8 @@
 // latency, single-node PG. Production deploys are slower; these numbers
 // are the ceiling.
 //
-// Isolated from bulk integration via `bun run test:integration:perf`. Used
-// to run inside the `integration` CI job, right after the ~213-test bulk
-// suite, and flaked up to 3.4x under that (30-102ms vs the 25-30ms budgets
-// above, #1940). Moved to its own `event-store-perf` CI job
-// (test:integration:perf:eventstore) — but re-measuring against a fresh
-// container per run (mirroring that job) showed the real cause wasn't job
-// contention: p50 sits at 1-3ms in every run, and single-sample p99 spikes
-// to 47-73ms even fully isolated on an idle machine, from cold-Postgres
-// connection/cache warm-up. Gate switched from p99 (the single worst-of-200
-// sample) to p95 (drops the top 10), which absorbs that cold-start outlier
-// while still catching a real order-of-magnitude regression.
+// Runs isolated in the `event-store-perf` CI job (test:integration:perf:eventstore,
+// #1940) — see that job's comment in ci.yml for why the gate is p95 not p99.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";

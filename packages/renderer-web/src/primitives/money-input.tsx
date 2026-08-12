@@ -16,7 +16,7 @@
 
 import { currencyDecimals } from "@cosmicdrift/kumiko-headless";
 import { Minus, Plus } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 
 // Re-exported for backward compat — callers used to import this from here
@@ -99,7 +99,7 @@ export function MoneyInput({
   // click position from the formatted view to the editable one, which has
   // no well-defined equivalent once separators and the currency symbol
   // are stripped.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (focused) inputRef.current?.select();
   }, [focused]);
 

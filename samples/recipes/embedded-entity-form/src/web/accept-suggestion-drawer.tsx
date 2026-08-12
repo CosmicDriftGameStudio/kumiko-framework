@@ -74,13 +74,13 @@ export function AcceptSuggestionDrawer({
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title="Vorschlag übernehmen"
+      title="Accept suggestion"
       description={
         !live.valid
-          ? "Bitte Pflichtfelder ausfüllen"
+          ? "Please fill in required fields"
           : live.dirty
-            ? "Ungespeicherte Änderungen"
-            : "Unverändert aus dem Vorschlag übernommen"
+            ? "Unsaved changes"
+            : "Unchanged from the suggestion"
       }
       footer={
         <Button
@@ -90,7 +90,7 @@ export function AcceptSuggestionDrawer({
             controls.current?.validate();
           }}
         >
-          AI-Vorschlag wiederherstellen
+          Restore AI suggestion
         </Button>
       }
     >

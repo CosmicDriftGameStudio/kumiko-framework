@@ -27,6 +27,35 @@ describe("createFallbackLogger", () => {
 
       expect(error).toHaveBeenCalledWith("[jobs] boom", undefined);
     });
+
+    test("debug() delegiert an logger.debug wenn vorhanden (fw#1812: graceful-shutdown log-level downgrade)", () => {
+      const error = mock((_msg: string, _data?: Record<string, unknown>) => {});
+      const debug = mock((_msg: string, _data?: Record<string, unknown>) => {});
+      const fallback = createFallbackLogger("job-runner", { error, debug });
+
+      fallback.debug("connection is closed", { reason: "graceful-shutdown" });
+
+      expect(debug).toHaveBeenCalledTimes(1);
+      expect(debug).toHaveBeenCalledWith("[job-runner] connection is closed", {
+        reason: "graceful-shutdown",
+      });
+      expect(error).not.toHaveBeenCalled();
+    });
+
+    test("debug() fällt auf console.debug zurück wenn der wrapped logger keine debug-Methode hat", () => {
+      const error = mock((_msg: string, _data?: Record<string, unknown>) => {});
+      const spy = spyOn(console, "debug").mockImplementation(() => {});
+      try {
+        const fallback = createFallbackLogger("job-runner", { error });
+
+        fallback.debug("connection is closed");
+
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy).toHaveBeenCalledWith("[job-runner] connection is closed", undefined);
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   describe("ohne logger (console-Fallback)", () => {
@@ -36,6 +65,20 @@ describe("createFallbackLogger", () => {
         const fallback = createFallbackLogger("boot");
 
         fallback.error("no logger wired", { phase: "init" });
+
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy).toHaveBeenCalledWith("[boot] no logger wired", { phase: "init" });
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    test("debug() schreibt auf console.debug mit [namespace]-Prefix", () => {
+      const spy = spyOn(console, "debug").mockImplementation(() => {});
+      try {
+        const fallback = createFallbackLogger("boot");
+
+        fallback.debug("no logger wired", { phase: "init" });
 
         expect(spy).toHaveBeenCalledTimes(1);
         expect(spy).toHaveBeenCalledWith("[boot] no logger wired", { phase: "init" });

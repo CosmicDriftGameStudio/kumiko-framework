@@ -106,11 +106,24 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
           nextRows.map((row, index) => rowIdRef.current(row, index)),
         );
       }
-      setState((prev) => ({
-        kind: "ready",
-        rows: cursor === null || prev.kind !== "ready" ? nextRows : [...prev.rows, ...nextRows],
-        cursor: nextCursorRef.current(res.data),
-      }));
+      setState((prev) => {
+        if (cursor === null || prev.kind !== "ready") {
+          return { kind: "ready", rows: nextRows, cursor: nextCursorRef.current(res.data) };
+        }
+        // The live-merge above can re-sort a row to the front of page 1; an
+        // offset-based cursor then re-serves that same row in a later page.
+        // Dedupe on append so it doesn't land twice under duplicate React
+        // keys.
+        const existingIds = new Set(prev.rows.map((row, index) => rowIdRef.current(row, index)));
+        const newRows = nextRows.filter(
+          (row, index) => !existingIds.has(rowIdRef.current(row, index)),
+        );
+        return {
+          kind: "ready",
+          rows: [...prev.rows, ...newRows],
+          cursor: nextCursorRef.current(res.data),
+        };
+      });
     },
     [dispatcher, query, pageSize, payloadKey],
   );
