@@ -4,9 +4,11 @@ import { getUser } from "../api/auth-middleware";
 import type { DbConnection } from "../db/connection";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { createTenantDb } from "../db/tenant-db";
+import { createDerivativesContext, resolveFieldVariant } from "../derivatives";
 import { isFileField, type Registry, type SessionUser, type TenantId } from "../engine/types";
 import { generateId } from "../utils";
 import { buildContentDispositionHeader } from "./content-disposition";
+import { createFileContext } from "./file-handle";
 import { fileRefEntity } from "./file-ref-entity";
 import { fileRefsTable } from "./file-ref-table";
 import type { FileProviderResolver } from "./provider-resolver";
@@ -232,6 +234,48 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         "Content-Disposition": buildContentDispositionHeader(fileRef.fileName),
         "Content-Length": String(fileRef.size),
       },
+    });
+  });
+
+  // GET /files/:id/variant/:name — a named derived version of the file.
+  // Same tenant + guard gate as the download above; the original stays
+  // reachable only through that route. The public, anonymous counterpart is
+  // a separate cut (#1951) and does not go through createFileRoutes.
+  api.get("/files/:id/variant/:name", async (c) => {
+    const user = getUser(c);
+    const id = c.req.param("id");
+    const name = c.req.param("name");
+    const fileRef = await loadFileForTenant(id, user.tenantId);
+    if (!fileRef) return c.json({ error: "not_found" }, 404);
+
+    const decision = await guard({ fileRef, user, operation: "read" });
+    if (decision === "deny") return c.json({ error: "not_found" }, 404);
+
+    // An unknown name and a denied file answer alike, so the route never
+    // confirms what exists. A missing renderer is NOT folded in here — that
+    // throws out of variant() as a 500, because a mount gap is a config
+    // error, not a missing variant.
+    const registry = options.registry;
+    const spec = registry
+      ? resolveFieldVariant(registry, fileRef.entityType, fileRef.fieldName, name)
+      : undefined;
+    if (!registry || !spec) return c.json({ error: "not_found" }, 404);
+
+    // Built per request: createFileContext caches the resolved provider, so
+    // one shared across requests would serve tenant A's store to tenant B.
+    const files = createFileContext(() => options.resolveProvider(user.tenantId));
+    const derivatives = createDerivativesContext({
+      files,
+      registry,
+      db,
+      tenantId: user.tenantId,
+    });
+    const result = await derivatives.variant(id, spec, name);
+    const data = await files.ref(result.storageKey).read();
+    // No Content-Length/Content-Disposition: fileRef.size is the ORIGINAL's
+    // size, and a variant is rendered for display, not for download.
+    return new Response(Buffer.from(data), {
+      headers: { "Content-Type": result.mimeType },
     });
   });
 

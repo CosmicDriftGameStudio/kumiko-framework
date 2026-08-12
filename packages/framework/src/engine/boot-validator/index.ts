@@ -25,6 +25,7 @@ import {
   validateExtensionPreSaveWiring,
   validateFileFields,
   validateHandlerAccess,
+  validateImageVariants,
   validateLocatedTimestamps,
   validateMultiSelectFields,
   validateMultiStreamProjections,
@@ -168,6 +169,7 @@ export function validateBoot(
     validateApiExposureMatching(feature, allExposedApis, featureMap);
     validateEmbeddedFields(feature, featureMap);
     validateMultiSelectFields(feature);
+    validateImageVariants(feature);
     validateReferenceFields(feature, featureMap);
     validateTransitions(feature);
     validateExtensionUsages(feature, extensionProviders);

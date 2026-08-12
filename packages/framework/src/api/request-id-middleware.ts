@@ -1,5 +1,5 @@
 import type { Context, Next } from "hono";
-import { requestContext } from "./request-context";
+import { type RequestContextData, requestContext } from "./request-context";
 
 const REQUEST_ID_HEADER = "X-Request-ID";
 const CORRELATION_ID_HEADER = "X-Correlation-ID";
@@ -15,6 +15,47 @@ function sanitizeClientId(value: string | undefined): string | undefined {
 }
 
 /**
+ * Builds the RequestContextData record for a Hono request — requestId
+ * (client-supplied + sanitized, or generated), correlationId (mirrors
+ * requestId unless the client set its own), the underlying abort signal,
+ * and the client IP/User-Agent. Extracted out of `requestIdMiddleware` so
+ * call-sites that invoke a handler outside that middleware's `next()`
+ * chain (e.g. server.ts's httpRoute→systemQuery mount) can still populate
+ * the same AsyncLocalStorage record via `requestContext.run(...)`.
+ */
+export function buildRequestContextData(c: Context): RequestContextData {
+  const requestId =
+    sanitizeClientId(c.req.header(REQUEST_ID_HEADER)) ?? requestContext.generateId();
+  const correlationId = sanitizeClientId(c.req.header(CORRELATION_ID_HEADER)) ?? requestId;
+
+  // Hono exposes the underlying Fetch Request — its `signal` aborts
+  // when the client disconnects (mobile back-press, tab close). We
+  // propagate it through requestContext so framework internals can
+  // honour cancellation at long-running checkpoints. Older Hono /
+  // adapter combos may not populate `c.req.raw.signal`; conditional
+  // spread keeps `signal: undefined` out of the stored record so
+  // downstream `signal?` checks behave as if no signal exists.
+  const signal = c.req.raw?.signal;
+  // Client IP for per-IP rate limiting. Trust `x-forwarded-for` when
+  // present (proxy/CDN) — first hop is the originating client. Adapter-
+  // specific socket-address fallback (bun, node) is not standardized
+  // in Hono; deployments behind a proxy should always set xff. Without
+  // either we leave `ip` undefined and skip ip-bucketed checks rather
+  // than fabricate one.
+  const xff = c.req.header("x-forwarded-for");
+  const ip = xff?.split(",")[0]?.trim();
+  const userAgent = c.req.header("user-agent");
+
+  return {
+    requestId,
+    correlationId,
+    ...(signal ? { signal } : {}),
+    ...(ip && ip.length > 0 ? { ip } : {}),
+    ...(userAgent !== undefined ? { userAgent } : {}),
+  };
+}
+
+/**
  * Assigns a requestId + correlationId to every request and wraps execution
  * in AsyncLocalStorage. Runs BEFORE auth — both ids are available even for
  * 401 responses.
@@ -25,39 +66,11 @@ function sanitizeClientId(value: string | undefined): string | undefined {
  */
 export function requestIdMiddleware() {
   return async (c: Context, next: Next) => {
-    const requestId =
-      sanitizeClientId(c.req.header(REQUEST_ID_HEADER)) ?? requestContext.generateId();
-    const correlationId = sanitizeClientId(c.req.header(CORRELATION_ID_HEADER)) ?? requestId;
-    c.header(REQUEST_ID_HEADER, requestId);
-    c.header(CORRELATION_ID_HEADER, correlationId);
-    c.set("requestId", requestId);
+    const data = buildRequestContextData(c);
+    c.header(REQUEST_ID_HEADER, data.requestId);
+    c.header(CORRELATION_ID_HEADER, data.correlationId);
+    c.set("requestId", data.requestId);
 
-    // Hono exposes the underlying Fetch Request — its `signal` aborts
-    // when the client disconnects (mobile back-press, tab close). We
-    // propagate it through requestContext so framework internals can
-    // honour cancellation at long-running checkpoints. Older Hono /
-    // adapter combos may not populate `c.req.raw.signal`; conditional
-    // spread keeps `signal: undefined` out of the stored record so
-    // downstream `signal?` checks behave as if no signal exists.
-    const signal = c.req.raw?.signal;
-    // Client IP for per-IP rate limiting. Trust `x-forwarded-for` when
-    // present (proxy/CDN) — first hop is the originating client. Adapter-
-    // specific socket-address fallback (bun, node) is not standardized
-    // in Hono; deployments behind a proxy should always set xff. Without
-    // either we leave `ip` undefined and skip ip-bucketed checks rather
-    // than fabricate one.
-    const xff = c.req.header("x-forwarded-for");
-    const ip = xff?.split(",")[0]?.trim();
-    const userAgent = c.req.header("user-agent");
-    await requestContext.run(
-      {
-        requestId,
-        correlationId,
-        ...(signal ? { signal } : {}),
-        ...(ip && ip.length > 0 ? { ip } : {}),
-        ...(userAgent !== undefined ? { userAgent } : {}),
-      },
-      () => next(),
-    );
+    await requestContext.run(data, () => next());
   };
 }

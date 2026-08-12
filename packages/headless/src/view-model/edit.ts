@@ -170,8 +170,14 @@ export function computeEditViewModel<
       // importing it just for one fallback string.
       const resolvedCurrency = entity.defaultCurrency ?? "EUR";
       const fileDef = isFileType
-        ? (fieldDef as unknown as { accept?: readonly string[]; maxSize?: string })
+        ? (fieldDef as unknown as {
+            accept?: readonly string[];
+            maxSize?: string;
+            variants?: Readonly<Record<string, unknown>>;
+          })
         : undefined;
+      const imageVariant =
+        fieldDef.type === "image" ? Object.keys(fileDef?.variants ?? {})[0] : undefined;
       // Embedded-LIST field (`multiple: true`) — per-cell metadata for a
       // renderer to draw one row per array item (invoice-positions-style
       // table). A plain (non-list) embedded field emits none of this; the
@@ -261,6 +267,7 @@ export function computeEditViewModel<
         ...(fileDef?.accept !== undefined && { accept: fileDef.accept }),
         ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),
         ...(isFileType && { entityType: screen.entity, fieldName: normalized.field }),
+        ...(imageVariant !== undefined && { imageVariant }),
         ...(normalized.icon !== undefined && { icon: normalized.icon }),
         ...(embeddedListCells !== undefined && { embeddedListCells }),
         ...(embeddedListDef?.minItems !== undefined && {

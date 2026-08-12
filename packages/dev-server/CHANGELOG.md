@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.192.0
+
+### Patch Changes
+
+- 58505c6: New `derivatives-sharp` feature: server-only image renderer that registers at the `derivativeRenderer` extension point for `image/*`. Resize (cover/inside/contain), format conversion with quality (webp/avif/jpeg), whole-image blur and `blurRegions` for burning blur into plates or faces. EXIF orientation is applied, all other EXIF (including GPS) is dropped. `blurRegions` is part of `VariantSpec`, so corrected regions hash to a fresh variant URL instead of serving a stale cache hit.
+- Updated dependencies [58505c6]
+  - @cosmicdrift/kumiko-bundled-features@0.192.0
+  - @cosmicdrift/kumiko-server-runtime@0.192.0
+  - @cosmicdrift/kumiko-framework@0.192.0
+
 ## 0.191.0
 
 ### Patch Changes

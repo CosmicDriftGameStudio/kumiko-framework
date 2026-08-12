@@ -25,7 +25,7 @@ export function specHash(spec: VariantSpec): string {
   return createHash("sha256").update(canonicalJson(spec)).digest("hex").slice(0, 8);
 }
 
-const VARIANT_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/i;
+export const VARIANT_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/i;
 
 export function variantSuffix(name: string, spec: VariantSpec): string {
   // `name` ends up in a storage key (see deriveKey) — an unvalidated value

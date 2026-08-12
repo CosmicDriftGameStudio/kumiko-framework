@@ -105,6 +105,22 @@ export const FILE_PROVIDER_CONFIG_KEY = "file-foundation:config:provider" as con
 export const EXT_DERIVATIVE_RENDERER = "derivativeRenderer" as const;
 
 /**
+ * `derivativePublicPredicate` — per-entityType "is this FileRef's derivative
+ * publicly readable?" gate for the anonymous variant route (file-derivatives).
+ *
+ * Apps register via
+ * `r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "<entityType>", { isPublic:
+ * (args, ctx) => boolean | Promise<boolean> })`, where `<entityType>` is the
+ * `entityType` string a FileRef carries from upload (e.g. "vehicle", "event").
+ * No registration for a given entityType is default-deny — the public route
+ * serves nothing for that entityType, not even a 403 (404, so existence isn't
+ * confirmed to an unauthorised caller).
+ *
+ * Registered/consumed by: `file-derivatives`' public variant route (#1951).
+ */
+export const EXT_DERIVATIVE_PUBLIC_PREDICATE = "derivativePublicPredicate" as const;
+
+/**
  * `searchAdapter` — Search-Adapter-Forget-Hooks (Meilisearch-Index-Cleanup
  * bei User-Forget oder Tenant-Destroy).
  *

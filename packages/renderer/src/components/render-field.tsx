@@ -475,6 +475,7 @@ function renderInput({
           {...(field.maxSize !== undefined && { maxSize: field.maxSize })}
           {...(field.entityType !== undefined && { entityType: field.entityType })}
           {...(field.fieldName !== undefined && { fieldName: field.fieldName })}
+          {...(field.imageVariant !== undefined && { imageVariant: field.imageVariant })}
         />
       );
     }

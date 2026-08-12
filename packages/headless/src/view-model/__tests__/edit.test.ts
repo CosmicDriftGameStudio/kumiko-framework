@@ -549,4 +549,48 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
     const field = asFields(vm.sections[0]).fields[0];
     expect(field?.embeddedListCurrency).toBeUndefined();
   });
+
+  test("imageVariant is the FIRST variant declared on the field def", () => {
+    const entity = {
+      fields: {
+        avatar: {
+          type: "image",
+          variants: {
+            profile: { fit: "cover", size: { width: 512, height: 512 }, format: "webp" },
+            big: { fit: "cover", size: { width: 1024, height: 1024 }, format: "webp" },
+          },
+        },
+      },
+    } as unknown as EntityDefinition;
+
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["avatar"] }] }),
+      entity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.imageVariant).toBe("profile");
+  });
+
+  test("imageVariant is undefined for an image field without variants", () => {
+    const entity = {
+      fields: {
+        avatar: { type: "image" },
+      },
+    } as unknown as EntityDefinition;
+
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["avatar"] }] }),
+      entity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.imageVariant).toBeUndefined();
+  });
 });
