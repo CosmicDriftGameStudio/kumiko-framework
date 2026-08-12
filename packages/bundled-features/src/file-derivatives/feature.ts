@@ -24,6 +24,12 @@ const FEATURE_NAME = "file-derivatives";
 // `.includes(variant)` accepts a plain `string` param without an `as` cast.
 const VALID_VARIANT_NAMES: readonly string[] = PRESET_VARIANT_NAMES;
 
+// fileRefsTable.id is a UUID column — a malformed id must fail here, not at
+// the DB. Without this, an anonymous, internet-facing caller can throw a
+// Postgres 22P02 on every request (Bun.SQL pools the failed connection),
+// a DoS primitive with no auth required.
+const FILE_REF_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export type PublicVariantResolveApexTenant = (
   host: string,
 ) => Promise<TenantId | null> | TenantId | null;
@@ -105,7 +111,12 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
           // lookups on arbitrary variant names (thumb-a, thumb-b, ...).
           // 404, not 400 — an invalid name and "doesn't exist" must answer
           // identically, no name-oracle.
-          if (!fileRefId || !variant || !VALID_VARIANT_NAMES.includes(variant)) {
+          if (
+            !fileRefId ||
+            !variant ||
+            !VALID_VARIANT_NAMES.includes(variant) ||
+            !FILE_REF_ID_RE.test(fileRefId)
+          ) {
             return c.text("not found", 404);
           }
 
