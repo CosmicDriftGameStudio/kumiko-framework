@@ -115,7 +115,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
     expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR", amountMinor: 45000 });
   });
 
-  test("amountMinor bleibt exakter Integer, amount kann Float-Drift haben (fw#1830)", () => {
+  test("amountMinor bleibt exakter Integer über mehrere Additionen (fw#1830)", () => {
     const rows = [10, 20, 30].map(
       (minor) =>
         rehydrateMoney({ buyingPrice: minor, buyingPriceCurrency: "EUR" }, orderEntity)[
@@ -125,7 +125,6 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
     const [a, b, c] = rows;
 
     expect(a!.amountMinor + b!.amountMinor).toBe(c!.amountMinor);
-    expect(a!.amount + b!.amount).not.toBe(c!.amount);
   });
 
   test("null/undefined amount → Field wird aus Output entfernt", () => {

@@ -607,7 +607,11 @@ export type EntityEditScreenDefinition = {
    *  resolves both against the schema; boot-validator checks the target
    *  resolves to a registered screen. Overrides the default post-save
    *  target (the entity's list screen); delete is unaffected and still
-   *  always navigates to the list. */
+   *  always navigates to the list. A cross-feature QN hard-couples this
+   *  feature to the target at boot time — an app that doesn't mount the
+   *  target feature fails the boot-validator; only use this form in a
+   *  reusable feature when the target feature is guaranteed to be
+   *  mounted alongside it. */
   readonly redirect?: string;
   /** Optionaler per-Field-Label-i18n-Key (Field-Name → Key), überschreibt
    *  die Default-Konvention `<feature>:entity:<entity>:field:<name>`.
@@ -655,20 +659,28 @@ export type ActionFormScreenDefinition = {
   /** i18n-key für den Submit-Button. Default: i18n-Default des
    *  Renderers (typischerweise "actions.submit"). */
   readonly submitLabel?: string;
-  /** Nach erfolgreichem Submit zu dieser Screen-ID navigieren: entweder
-   *  kurze ID (z.B. "item-list" — gleiche Feature, der nav-Router
-   *  resolved zum vollen Pfad) oder voll-qualifizierte Cross-Feature-QN
-   *  (`<feature>:screen:<id>`). Wenn nicht gesetzt, bleibt der User auf
-   *  dem Form-Screen. Boot-Validator prüft dass das Ziel einen
-   *  registrierten Screen meint. */
+  /** Navigate to this screen ID after a successful submit: either a short
+   *  ID (e.g. "item-list" — same feature, the nav-router resolves to the
+   *  full path) or a fully-qualified cross-feature QN
+   *  (`<feature>:screen:<id>`). If not set, the user stays on the form
+   *  screen. Boot-validator checks that the target resolves to a
+   *  registered screen. A cross-feature QN hard-couples this feature to
+   *  the target at boot time — an app that doesn't mount the target
+   *  feature fails the boot-validator; only use this form in a reusable
+   *  feature when the target feature is guaranteed to be mounted
+   *  alongside it. */
   readonly redirect?: string;
-  /** Ziel des Abbrechen-Buttons. Default: `redirect` (historisches
-   *  Verhalten — Cancel und Submit-Redirect landen dann am selben Ort).
-   *  `false` = kein Abbrechen-Button; richtig für Single-Action-Screens
-   *  ohne verwerfbaren Zustand (z.B. "Test-Mail senden"), wo Abbrechen
-   *  nur ein zweiter Weg zum selben Ziel wäre. Akzeptiert dieselben
-   *  String-Targets wie `redirect` (kurze ID oder Cross-Feature-QN);
-   *  Boot-Validator prüft das. */
+  /** Target of the Cancel button. Default: `redirect` (historical
+   *  behavior — Cancel and the submit-redirect then land in the same
+   *  place). `false` = no Cancel button; correct for single-action
+   *  screens with no discardable state (e.g. "Send test mail"), where
+   *  Cancel would just be a second path to the same target. Accepts the
+   *  same string targets as `redirect` (short ID or cross-feature QN);
+   *  boot-validator checks it. A cross-feature QN hard-couples this
+   *  feature to the target at boot time — an app that doesn't mount the
+   *  target feature fails the boot-validator; only use this form in a
+   *  reusable feature when the target feature is guaranteed to be
+   *  mounted alongside it. */
   readonly cancelTarget?: string | false;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
