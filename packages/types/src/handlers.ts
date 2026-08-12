@@ -343,8 +343,10 @@ export type AppContext = SharedContextFields & {
 export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedContextFields & {
   readonly db: TenantDb;
   // Same tenant scoping as `db`, but never bound to the handler's tx: writes
-  // through it survive a rollback, for side effects that already happened outside the DB.
-  readonly dbOutsideTransaction: TenantDb;
+  // through it survive a rollback, for side effects that already happened
+  // outside the DB. `undefined` when the pipeline has no outside-tx source
+  // for this dispatch (see dispatch-shared.ts) — callers must check before use.
+  readonly dbOutsideTransaction: TenantDb | undefined;
   readonly registry: Registry;
   /** Aktiver SessionUser des Handler-Aufrufs — Convenience-Alias zu
    *  `event.user`. Existiert weil Handler intuitiv `ctx.user.tenantId`

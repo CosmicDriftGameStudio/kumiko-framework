@@ -216,6 +216,25 @@ describe("renderImage — validation", () => {
     const meta = await sharp(output).metadata();
     expect(meta.format).toBe("webp");
   });
+
+  test("a sourceMimeType matching an inherited Object.prototype key throws instead of using it as an encoder", async () => {
+    // Plain-object lookup on SOURCE_FORMAT_ENCODERS would resolve
+    // "constructor" to Object (an inherited key, not a real entry) without
+    // an Object.hasOwn guard — proving the throw path, not a silent pass-through.
+    const input = await unmappedFormatFixture(50, 50);
+    await expect(renderImage(input, {}, "constructor")).rejects.toThrow(/no output encoder/);
+  });
+
+  test("image/png ignores spec.quality instead of switching into lossy palette quantization", async () => {
+    const input = await pngFixture(50, 50);
+    const withQuality = await renderImage(input, { quality: 10 }, "image/png");
+    const withoutQuality = await renderImage(input, {}, "image/png");
+    const withQualityMeta = await sharp(withQuality).metadata();
+    // A quality-driven palette encode would quantize to a small color count;
+    // an ignored quality keeps the full-color (non-palette) PNG.
+    expect(withQualityMeta.format).toBe("png");
+    expect(Buffer.compare(withQuality, withoutQuality)).toBe(0);
+  });
 });
 
 describe("imageMetadata", () => {

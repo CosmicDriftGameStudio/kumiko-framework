@@ -40,8 +40,11 @@ config      — form-draft requires this for its retention-days setting;
 1. A user opens the `listing-wizard` screen and fills in the "Basics"
    step, then "Pricing".
 2. If they navigate away mid-wizard, `RenderEdit` has already saved a
-   draft keyed by the screen id; reopening the screen resumes those
-   values instead of starting over.
+   draft under a client-minted `${screen.id}:new:${draftId}` key
+   (sessionStorage-backed); reopening the same tab resumes those values
+   instead of starting over. A new tab has no `draftId` yet — it falls
+   back to `form-draft:query:list` and either auto-adopts a single
+   in-progress draft or offers a picker when there's more than one.
 3. On the "Review" step, `ListingReviewSection` reads the values entered
    so far straight from the host form and displays them read-only — no
    extra network round-trip.

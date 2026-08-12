@@ -18,10 +18,16 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import type { VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { z } from "zod";
 import { card, full, hero, PRESET_VARIANT_NAMES, thumb } from "../presets";
 
-const VARIANT_SPECS = { thumb, card, hero, full } as const;
+// satisfies catches a preset added to PRESET_VARIANT_NAMES but not here (or
+// vice versa) at compile time instead of a runtime `undefined` spec lookup.
+const VARIANT_SPECS = { thumb, card, hero, full } as const satisfies Record<
+  (typeof PRESET_VARIANT_NAMES)[number],
+  VariantSpec
+>;
 
 type FileRefRow = {
   readonly entityType: string | null;

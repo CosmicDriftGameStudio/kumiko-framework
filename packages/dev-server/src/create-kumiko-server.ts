@@ -153,9 +153,9 @@ export type CreateKumikoServerOptions = {
    *  `stylesheet: false` → CSS-Pipeline explizit deaktivieren. */
   readonly stylesheet?: string | false;
   /** Optional HTML template served at `GET /`. The dev-server injects
-   *  a `<script src="/client.js">` and a reload-listener snippet into
-   *  `</body>` if those aren't already there. Defaults to a minimal
-   *  empty-body document — enough to boot the client. */
+   *  a `<script type="module" src="/client.js">` and a reload-listener
+   *  snippet into `</body>` if those aren't already there. Defaults to a
+   *  minimal empty-body document — enough to boot the client. */
   readonly htmlPath?: string;
   /** Port to listen on. Default 4173. Overridable via `PORT` env. */
   readonly port?: number;

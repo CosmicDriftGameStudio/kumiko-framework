@@ -98,7 +98,10 @@ const SOURCE_FORMAT_ENCODERS: Record<string, (pipeline: Sharp, quality?: number)
   // The upload whitelist admits the sloppy-but-common image/jpg alias
   "image/jpg": (pipeline, quality) =>
     pipeline.jpeg(quality !== undefined ? { quality } : undefined),
-  "image/png": (pipeline, quality) => pipeline.png(quality !== undefined ? { quality } : undefined),
+  // sharp's PngOptions.quality doesn't mean JPEG/WebP-style compression —
+  // it switches PNG into palette quantization (lossless -> color-reduced,
+  // banding instead of a softer/smaller image). Ignore it, same as gif.
+  "image/png": (pipeline) => pipeline.png(),
   "image/webp": (pipeline, quality) =>
     pipeline.webp(quality !== undefined ? { quality } : undefined),
   "image/avif": (pipeline, quality) =>
@@ -125,7 +128,7 @@ function applyEncoder(pipeline: Sharp, spec: VariantSpec, sourceMimeType: string
   }
 
   const encode = SOURCE_FORMAT_ENCODERS[sourceMimeType];
-  if (!encode) {
+  if (!Object.hasOwn(SOURCE_FORMAT_ENCODERS, sourceMimeType) || encode === undefined) {
     throw new Error(
       `derivatives-sharp: no output encoder for source mimeType "${sourceMimeType}" — set spec.format to pick an explicit output format.`,
     );

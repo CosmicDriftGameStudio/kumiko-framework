@@ -33,8 +33,8 @@ describe("variantSuffix", () => {
     expect(variantSuffix("thumb", spec)).not.toBe(variantSuffix("card", spec));
   });
 
-  test("shape is `<name>-<8 hex chars>`", () => {
-    expect(variantSuffix("thumb", { maxEdge: 512 })).toMatch(/^thumb-[0-9a-f]{8}$/);
+  test("shape is `<name>-<16 hex chars>`", () => {
+    expect(variantSuffix("thumb", { maxEdge: 512 })).toMatch(/^thumb-[0-9a-f]{16}$/);
   });
 
   test("a path-traversal name is rejected — it would escape the tenant prefix in the derived key", () => {

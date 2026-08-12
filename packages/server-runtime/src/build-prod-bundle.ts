@@ -11,7 +11,7 @@
 //                                        wenn nur clientEntry da ist und kein eigenes CSS)
 //   public/                          →  rsync 1:1 (kein Hash — User-bewusste URLs)
 //   public/index.html | index.html   →  Template, Placeholder-Tags ersetzt:
-//                                         <script src="/client.js"> → /assets/client-<hash>.js
+//                                         <script type="module" src="/client.js"> → /assets/client-<hash>.js
 //                                         <link href="/styles.css"> → /assets/styles-<hash>.css
 //   (kein HTML, vanilla)             →  Default-HTML ohne Asset-Tags
 //
@@ -569,8 +569,8 @@ function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry):
 //
 // Convention: das HTML-Template MUSS Placeholder-Tags für jedes Asset
 // dieses Entries enthalten:
-//   - `<script src="/client.js">` für single-mode entry "client"
-//   - `<script src="/client-<name>.js">` für multi-mode entry "<name>"
+//   - `<script type="module" src="/client.js">` für single-mode entry "client"
+//   - `<script type="module" src="/client-<name>.js">` für multi-mode entry "<name>"
 //   - `<link href="/styles.css">` für styles (gemeinsam über alle entries)
 // Der Build ersetzt sie durch die gehashten URLs.
 //

@@ -116,6 +116,29 @@ describe("Drawer", () => {
       expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("400");
     });
 
+    test("arrow key after maximize resizes from the maximized width, not the pre-maximize width", () => {
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="right"
+          testId="drawer"
+          resize={{ defaultWidthPx: 400, minWidthPx: 300, maxWidthPx: 500 }}
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      const maximizeButton = screen.getByRole("button", { name: /maximize drawer width/i });
+      fireEvent.click(maximizeButton);
+      expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("500");
+
+      const handle = screen.getByRole("separator");
+      fireEvent.keyDown(handle, { key: "ArrowRight" });
+      // Shrinking from the visible 500px maximized width, not from the
+      // stale 400px `width` state that was never updated while maximized.
+      expect(handle.getAttribute("aria-valuenow")).toBe("484");
+    });
+
     test("side='top' with resize set: no resize handle, no maximize button (vertical drawers can't resize)", () => {
       render(
         <Drawer

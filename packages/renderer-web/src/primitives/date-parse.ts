@@ -80,7 +80,12 @@ function localeDateParts(locale: string): Intl.DateTimeFormatPart[] {
   const refEpochMillis = activeTemporal()
     .PlainDate.from({ year: 2026, month: 1, day: 2 })
     .toZonedDateTime("UTC").epochMilliseconds;
-  return new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).formatToParts(refEpochMillis);
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(refEpochMillis);
 }
 
 // Field order of the numeric locale format. de → [d,m,y], en-US →

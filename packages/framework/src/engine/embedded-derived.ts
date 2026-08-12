@@ -35,7 +35,14 @@ export type DerivedCellRoundingTarget = {
  *  stays unit-agnostic for those). */
 export function roundDerivedCellValue(value: number, target: DerivedCellRoundingTarget): number {
   if (target.type === "money") return roundHalfAwayFromZero(value, 0);
-  if (target.type === "decimal") return roundHalfAwayFromZero(value, target.scale ?? 0);
+  // `scale` is required on the real decimal EmbeddedSubFieldDef (fields.ts:
+  // "no silent default that could truncate") — DerivedCellRoundingTarget
+  // only widens it to optional for the money/decimal split above. If it's
+  // ever missing anyway, pass the value through unrounded rather than
+  // guessing 0 decimals and truncating a value the caller never asked to round.
+  if (target.type === "decimal") {
+    return target.scale === undefined ? value : roundHalfAwayFromZero(value, target.scale);
+  }
   return value;
 }
 

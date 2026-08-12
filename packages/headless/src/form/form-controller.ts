@@ -152,10 +152,32 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
   // Local shared implementations so submit() can call validate/rebase
   // without the this-in-object-literal dance. Both also expose themselves
   // as methods on the returned controller.
+  // Clears/replaces errors for a scoped run without touching fields outside
+  // the scope — a step-2 validate() that comes back clean must not wipe
+  // step-1's still-unresolved errors from an earlier submit() (or vice
+  // versa when step-2 newly has issues).
+  function replaceScopedErrors(
+    scopeSet: Set<string> | undefined,
+    grouped: Readonly<Record<string, readonly FieldIssue[]>>,
+  ): void {
+    if (scopeSet === undefined) {
+      errors = Object.freeze(grouped);
+      return;
+    }
+    const merged: Record<string, readonly FieldIssue[]> = {};
+    for (const [path, issues] of Object.entries(errors)) {
+      if (!scopeSet.has(path)) merged[path] = issues;
+    }
+    Object.assign(merged, grouped);
+    errors = Object.freeze(merged);
+  }
+
   function runValidate(scope?: readonly string[]): boolean {
+    // See the validate() doc comment in types.ts for the scope contract.
+    const scopeSet = scope === undefined ? undefined : new Set(scope);
     if (!options.schema) {
       if (Object.keys(errors).length > 0) {
-        errors = Object.freeze({});
+        replaceScopedErrors(scopeSet, {});
         invalidate();
       }
       return true;
@@ -164,7 +186,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     const parsed = options.schema.safeParse(values);
     if (parsed.success) {
       if (Object.keys(errors).length > 0) {
-        errors = Object.freeze({});
+        replaceScopedErrors(scopeSet, {});
         invalidate();
       }
       return true;
@@ -173,8 +195,6 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     for (const [fieldKey, state] of Object.entries(fieldStates)) {
       if (!state.visible) hiddenFields.add(fieldKey);
     }
-    // See the validate() doc comment in types.ts for the scope contract.
-    const scopeSet = scope === undefined ? undefined : new Set(scope);
     const allIssues = zodErrorToFieldIssues(parsed.error);
     const relevantIssues = allIssues.filter((issue) => {
       const rootField = issue.path.split(".")[0] ?? "";
@@ -184,12 +204,12 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     });
     if (relevantIssues.length === 0) {
       if (Object.keys(errors).length > 0) {
-        errors = Object.freeze({});
+        replaceScopedErrors(scopeSet, {});
         invalidate();
       }
       return true;
     }
-    errors = Object.freeze(groupIssuesByPath(relevantIssues));
+    replaceScopedErrors(scopeSet, groupIssuesByPath(relevantIssues));
     invalidate();
     return false;
   }

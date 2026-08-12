@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createMoneyField, createTextField } from "../../engine";
 import type { EntityDefinition } from "../../engine/types";
-import { flattenMoney, rehydrateMoney } from "../money";
+import { flattenMoney, type MoneyRead, rehydrateMoney } from "../money";
 
 const orderEntity: EntityDefinition = createEntity({
   defaultCurrency: "EUR",
@@ -120,7 +120,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
       (minor) =>
         rehydrateMoney({ buyingPrice: minor, buyingPriceCurrency: "EUR" }, orderEntity)[
           "buyingPrice"
-        ] as { amount: number; amountMinor: number },
+        ] as MoneyRead,
     );
     const [a, b, c] = rows;
 
