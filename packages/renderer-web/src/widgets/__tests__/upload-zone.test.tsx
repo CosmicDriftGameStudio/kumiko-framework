@@ -54,4 +54,39 @@ describe("UploadZone", () => {
     await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(1));
     expect(input.value).toBe("");
   });
+
+  test("gibt Bilder verkleinert an onUpload weiter (nicht die Originaldatei)", async () => {
+    class FakeOffscreenCanvas {
+      getContext() {
+        return { drawImage: mock(() => {}) };
+      }
+      convertToBlob() {
+        return Promise.resolve(new Blob(["resized-bytes"], { type: "image/jpeg" }));
+      }
+    }
+    // @ts-expect-error test stub for a browser-only API missing in happy-dom
+    globalThis.OffscreenCanvas = FakeOffscreenCanvas;
+    globalThis.createImageBitmap = mock(async () => ({
+      close: mock(() => {}),
+      height: 100,
+      width: 100,
+    }));
+
+    try {
+      const onUpload = mock(async (_uploaded: File) => {});
+      render(<UploadZone title="Datei hochladen" onUpload={onUpload} testId="zone" />);
+      const file = new File(["x"], "photo.jpg", { type: "image/jpeg" });
+      pick(screen.getByTestId("zone-input"), [file]);
+
+      await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(1));
+      const [uploaded] = onUpload.mock.calls[0] ?? [];
+      expect(uploaded?.size).toBe("resized-bytes".length);
+      expect(uploaded?.size).not.toBe(file.size);
+    } finally {
+      // @ts-expect-error restore missing-API baseline
+      globalThis.OffscreenCanvas = undefined;
+      // @ts-expect-error restore missing-API baseline
+      globalThis.createImageBitmap = undefined;
+    }
+  });
 });
