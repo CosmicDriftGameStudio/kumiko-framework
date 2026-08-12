@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.193.0
+
+### Minor Changes
+
+- 181003b: Image fields declare named derived versions: `createImageField({ variants: { profile: { fit: "cover", size: { width: 512, height: 512 }, format: "webp" } } })`. The specs are boot-validated, and `GET /api/files/:id/variant/:name` serves them behind the same tenant + access guard as the download — a request carries only a NAME, never a spec, so no caller can drive an arbitrary render. The edit-form preview loads the first declared variant instead of the original.
+
+  BREAKING: `ImageFieldDef.thumbnails` / `ImagesFieldDef.thumbnails` are removed. The flag was never read by anything; `variants` is what it pointed at.
+
+- 9100e19: New extension point `derivativePublicPredicate` (`file-derivatives`) lets an app declare, per entityType, whether a FileRef's derived variants are publicly readable: `r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "<entityType>", { isPublic: (args, ctx) => boolean | Promise<boolean> })`. No registration for an entityType is default-deny.
+
+  `createFileDerivativesFeature({ resolveApexTenant })` mounts an anonymous `GET /media/:fileRefId/:variant` route serving one of the 4 fixed presets (`thumb`/`card`/`hero`/`full`) — never the original, never an arbitrary spec, only after the registered predicate says yes. `tenantId` is resolved exclusively from the request's Host header via `resolveApexTenant`, never from the payload. An unknown FileRef, an unregistered/denying predicate, and an invalid variant name all answer identically (404) — no existence-leak via distinct status codes. Without `resolveApexTenant` the route stays unmounted, so existing `ctx.derivatives`-only consumers are unaffected.
+
+  Also fixes a latent bug affecting every feature-declared `r.httpRoute`: `rateLimit: {per: "ip"}` (and other IP-keyed limits) silently did nothing for handlers invoked through an `r.httpRoute`'s `systemQuery`, because those routes run outside `/api/*` and never passed through the middleware that populates the request's IP/requestId context. `r.httpRoute` handlers are now wrapped in the same request context, so IP-based rate limiting works for them too.
+
+### Patch Changes
+
+- Updated dependencies [181003b]
+  - @cosmicdrift/kumiko-types@0.193.0
+
 ## 0.192.0
 
 ### Patch Changes
