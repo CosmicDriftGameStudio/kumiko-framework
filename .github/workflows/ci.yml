@@ -432,11 +432,11 @@ jobs:
             -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
             postgres:18.4-alpine
           for i in $(seq 1 30); do
-            if docker exec kumiko-ci-pg psql -U kumiko -d kumiko_dev -c "SELECT 1" >/dev/null 2>&1; then break; fi
+            if pg_isready -h 127.0.0.1 -p 15432 -U kumiko >/dev/null 2>&1; then break; fi
             sleep 2
           done
-          docker exec kumiko-ci-pg psql -U kumiko -d kumiko_dev -c "SELECT 1" >/dev/null
-          docker exec kumiko-ci-pg psql -U kumiko -d kumiko_dev -c "CREATE DATABASE kumiko_test;"
+          psql "postgresql://kumiko:kumiko@localhost:15432/kumiko_dev" -c "SELECT 1" >/dev/null
+          psql "postgresql://kumiko:kumiko@localhost:15432/kumiko_dev" -c "CREATE DATABASE kumiko_test;"
 
       - name: Run event-store perf gate
         env:

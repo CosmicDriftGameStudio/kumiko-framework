@@ -33,10 +33,15 @@ function withRecomputedDerived(
   cells: readonly EmbeddedListCellViewModel[],
 ): EmbeddedRow {
   if (derived === undefined) return row;
+  // Read sources from an unchanged snapshot, never from `result` (which this
+  // loop mutates) — mirrors withDerivedCells server-side so chained derived
+  // cells (e.g. net=qty*price, then gross=sum(net,tax)) can't drift between
+  // client preview and server depending on Object.entries(derived) order.
+  const source = { ...row };
   const result: Record<string, unknown> = { ...row };
   for (const [derivedField, def] of Object.entries(derived)) {
     const values = def.from.map((src) => {
-      const v = result[src];
+      const v = source[src];
       return typeof v === "number" ? v : undefined;
     });
     const computed = computeDerivedCellValue(def.op, values);

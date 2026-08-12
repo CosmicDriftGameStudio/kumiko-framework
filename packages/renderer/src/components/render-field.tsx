@@ -328,7 +328,6 @@ function renderInput({
     // already emits `number | undefined`, so no extra coercion is needed
     // beyond what "number" already does (#1925).
     case "number":
-    case "decimal":
     case "bigInt":
       return (
         <Input
@@ -336,6 +335,20 @@ function renderInput({
           {...common}
           value={numberValue(field.value)}
           onChange={(v) => onChange(v)}
+          {...(field.icon !== undefined && { icon: field.icon })}
+        />
+      );
+    case "decimal":
+      // step="any" disables the native stepMismatch constraint — without it
+      // <input type="number"> defaults to step=1 and blocks form submit on
+      // any fractional value via silent browser-native validation.
+      return (
+        <Input
+          kind="number"
+          {...common}
+          value={numberValue(field.value)}
+          onChange={(v) => onChange(v)}
+          step="any"
           {...(field.icon !== undefined && { icon: field.icon })}
         />
       );
@@ -531,11 +544,13 @@ function numberValue(v: unknown): number | "" {
 // MINOR_UNIT_SCALE=100 (money.ts), which disagrees with currencyDecimals for
 // zero-decimal currencies like JPY, so it would double-scale JPY amounts.
 // Deriving from `amount * 10**currencyDecimals(currency)` keeps this the
-// exact inverse of moneyPayload below. A bare number is passed through
-// unchanged — legacy/malformed data, already in minor units.
+// exact inverse of moneyPayload below. A bare number (e.g. ConfigEditBody's
+// stored-config coercion) is MAJOR units too — every producer in this repo
+// hands rehydrateMoney's `{amount,…}` shape or a raw major-unit number, never
+// pre-scaled minor units.
 function moneyMinorValue(v: unknown, currency: string): number | "" {
   if (v === undefined || v === null || v === "") return "";
-  if (typeof v === "number") return v;
+  if (typeof v === "number") return Math.round(v * 10 ** currencyDecimals(currency));
   if (typeof v === "object") {
     const amount = (v as { amount?: unknown }).amount;
     if (typeof amount === "number") return Math.round(amount * 10 ** currencyDecimals(currency));

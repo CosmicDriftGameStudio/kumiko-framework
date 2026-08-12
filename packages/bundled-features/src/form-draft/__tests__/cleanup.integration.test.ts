@@ -120,6 +120,14 @@ async function backdate(draftKey: string, daysAgo: number): Promise<void> {
   );
 }
 
+async function backdateFileRef(storageKey: string, daysAgo: number): Promise<void> {
+  await asRawClient(stack.db).unsafe(
+    `UPDATE "file_refs" SET "inserted_at" = now() - ($1::int * interval '1 day')
+     WHERE "storage_key" = $2`,
+    [daysAgo, storageKey],
+  );
+}
+
 async function draftExists(draftKey: string): Promise<boolean> {
   const rows = await asRawClient(stack.db).unsafe(
     "SELECT 1 FROM read_form_drafts WHERE draft_key = $1",
@@ -250,5 +258,27 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
       expect(await draftExists("wizard:stale-forged")).toBe(false);
     });
     expect(providerA.keys()).toContain(forgedKey);
+  });
+
+  test("does NOT release a storageKey whose file_refs row predates the draft (entity-prefilled edit-mode value, fw-review #5)", async () => {
+    const key = "tenant-a/vehicle/prefilled.jpg";
+    await providerA.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
+    await seedFileRef(key);
+    // The photo was uploaded when the domain entity was originally created —
+    // long before this editing session's draft. backdate() (below) also
+    // ages the draft row to 31 days, so the file must be aged further still
+    // to model "predates the draft" rather than "same moment".
+    await backdateFileRef(key, 60);
+
+    await saveDraft("wizard:stale-with-prefilled-photo", { photo: fileRefPointer(key) });
+    await backdate("wizard:stale-with-prefilled-photo", 31);
+
+    await dispatchCleanup();
+
+    await waitFor(async () => {
+      expect(await draftExists("wizard:stale-with-prefilled-photo")).toBe(false);
+    });
+    // The live domain entity this draft was editing still references `key`.
+    expect(providerA.keys()).toContain(key);
   });
 });

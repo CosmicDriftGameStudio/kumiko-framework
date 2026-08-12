@@ -406,6 +406,13 @@ export function EmbeddedListInput({
 
   const cellId = (rowIndex: number, field: string): string => `${id}-${rowIndex}-${field}`;
 
+  // handleLastCellKeyDown must attach to the last EDITABLE column, not
+  // columns.length - 1 — a derived column there is rendered disabled
+  // (renderCellControl) and never receives focus/keydown, which would
+  // silently kill Tab/Enter-appends-a-row whenever the table ends in a
+  // derived column (e.g. a trailing "amount" total).
+  const lastEditableIndex = columns.findLastIndex((column) => !column.derived);
+
   const showControls = disabled !== true;
   const addDisabled = maxItems !== undefined && rows.length >= maxItems;
 
@@ -500,7 +507,7 @@ export function EmbeddedListInput({
                     >
                       <TableRow data-testid={testIdFor(`row-${rowIndex}`)}>
                         {columns.map((column, columnIndex) => {
-                          const isLastCell = isLastRow && columnIndex === columns.length - 1;
+                          const isLastCell = isLastRow && columnIndex === lastEditableIndex;
                           const issues = cellIssues?.[`${rowIndex}.${column.field}`];
                           return (
                             <TableCell
@@ -614,7 +621,7 @@ export function EmbeddedListInput({
                 className="flex flex-col gap-3 rounded-lg border bg-card p-4"
               >
                 {columns.map((column, columnIndex) => {
-                  const isLastCell = isLastRow && columnIndex === columns.length - 1;
+                  const isLastCell = isLastRow && columnIndex === lastEditableIndex;
                   const issues = cellIssues?.[`${rowIndex}.${column.field}`];
                   return (
                     // biome-ignore lint/a11y/noStaticElementInteractions: paste/keydown are delegated from the focusable cell control rendered inside, not direct interaction on this wrapper div.

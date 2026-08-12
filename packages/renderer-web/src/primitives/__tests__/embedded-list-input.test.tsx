@@ -326,14 +326,17 @@ describe("EmbeddedListInput — totals", () => {
 });
 
 describe("EmbeddedListInput — tab-to-add-row", () => {
-  test("Tab on the last cell of the last row (no maxItems limit) fires onAddRow and prevents default", () => {
+  // COLUMNS' last column ("amount") is derived, so its control is rendered
+  // disabled and never focusable/keydown-reachable in a real browser — the
+  // append-row handler must live on "quantity", the last EDITABLE column.
+  test("Tab on the last editable cell of the last row (no maxItems limit) fires onAddRow and prevents default", () => {
     const rows = [{ description: "A", quantity: 1, amount: 100 }];
     const onAddRow = mock(() => {});
     renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow })} />);
     const desktop = within(screen.getByTestId("lines-desktop"));
-    const lastCell = desktop.getByTestId("lines-cell-0-amount");
-    const input = lastCell.querySelector("input");
-    if (input === null) throw new Error("expected an <input> inside the last cell");
+    const lastEditableCell = desktop.getByTestId("lines-cell-0-quantity");
+    const input = lastEditableCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the last editable cell");
 
     // fireEvent returns false when the event's default was prevented —
     // same return-value convention as native dispatchEvent.
@@ -347,9 +350,26 @@ describe("EmbeddedListInput — tab-to-add-row", () => {
     const onAddRow = mock(() => {});
     renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow, maxItems: 1 })} />);
     const desktop = within(screen.getByTestId("lines-desktop"));
-    const lastCell = desktop.getByTestId("lines-cell-0-amount");
-    const input = lastCell.querySelector("input");
-    if (input === null) throw new Error("expected an <input> inside the last cell");
+    const lastEditableCell = desktop.getByTestId("lines-cell-0-quantity");
+    const input = lastEditableCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the last editable cell");
+
+    fireEvent.keyDown(input, { key: "Tab", code: "Tab" });
+    expect(onAddRow).not.toHaveBeenCalled();
+  });
+
+  // Regression: a derived trailing column (e.g. "amount") used to be treated
+  // as the last cell (columns.length - 1), but its control is disabled and
+  // unreachable via Tab/Enter in a real browser — the handler must attach
+  // to "quantity" (last editable), not "amount" (last, but derived).
+  test("Tab on the derived trailing cell ('amount') does not fire onAddRow — it isn't the last editable column", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const onAddRow = mock(() => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const derivedCell = desktop.getByTestId("lines-cell-0-amount");
+    const input = derivedCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the derived cell");
 
     fireEvent.keyDown(input, { key: "Tab", code: "Tab" });
     expect(onAddRow).not.toHaveBeenCalled();
@@ -405,14 +425,14 @@ describe("EmbeddedListInput — paste", () => {
 });
 
 describe("EmbeddedListInput — Enter-to-add-row (#1839)", () => {
-  test("Enter on the last cell of the last row fires onAddRow and prevents default, same as Tab", () => {
+  test("Enter on the last editable cell of the last row fires onAddRow and prevents default, same as Tab", () => {
     const rows = [{ description: "A", quantity: 1, amount: 100 }];
     const onAddRow = mock(() => {});
     renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow })} />);
     const desktop = within(screen.getByTestId("lines-desktop"));
-    const lastCell = desktop.getByTestId("lines-cell-0-amount");
-    const input = lastCell.querySelector("input");
-    if (input === null) throw new Error("expected an <input> inside the last cell");
+    const lastEditableCell = desktop.getByTestId("lines-cell-0-quantity");
+    const input = lastEditableCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the last editable cell");
 
     const notPrevented = fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
     expect(onAddRow).toHaveBeenCalledTimes(1);
@@ -427,9 +447,9 @@ describe("EmbeddedListInput — Enter-to-add-row (#1839)", () => {
     const onAddRow = mock(() => {});
     renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow, maxItems: 1 })} />);
     const desktop = within(screen.getByTestId("lines-desktop"));
-    const lastCell = desktop.getByTestId("lines-cell-0-amount");
-    const input = lastCell.querySelector("input");
-    if (input === null) throw new Error("expected an <input> inside the last cell");
+    const lastEditableCell = desktop.getByTestId("lines-cell-0-quantity");
+    const input = lastEditableCell.querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside the last editable cell");
 
     fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
     expect(onAddRow).not.toHaveBeenCalled();

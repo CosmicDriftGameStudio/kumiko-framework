@@ -1,6 +1,7 @@
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { Temporal } from "temporal-polyfill";
 import { formDraftTable } from "./executor";
 import type { FormDraftBlob } from "./schemas";
 
@@ -8,6 +9,7 @@ export type FormDraftRow = {
   readonly id: string;
   readonly version: number;
   readonly draft: FormDraftBlob;
+  readonly insertedAt: Temporal.Instant;
 };
 
 // Shared by save (upsert lookup + race re-lookup), discard, and get — always

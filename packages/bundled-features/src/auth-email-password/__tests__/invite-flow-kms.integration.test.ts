@@ -33,7 +33,7 @@ import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery
 import { notificationPreferencesTable } from "../../delivery/tables";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
-import { hashPassword } from "../../shared";
+import { decryptStoredPii, hashPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table";
@@ -42,6 +42,7 @@ import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
+import { tenantInvitationDeleteHook } from "../../user-data-rights-defaults";
 import { AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { seedUser } from "../seeding";
@@ -297,5 +298,46 @@ describe("auth flows with active KMS + blind index", () => {
     expect(list[0]?.email).toBe(CAROL_EMAIL);
     expect(isPiiCiphertext(list[0]?.invitedBy)).toBe(false);
     expect(list[0]?.invitedBy).toBe(aliceId);
+  });
+
+  // fw-review #7: the inviter-forget arm compared a plaintext userId against
+  // the encrypted `invitedBy` column via selectMany's equality filter — with
+  // no lookupable/blind-index column on `invitedBy`, that filter matched
+  // zero rows under active KMS, so Alice's Art.17 forget never anonymized
+  // rows for invitations she sent. Fixed by loading the tenant's invitations
+  // and decrypting `invitedBy` per row for comparison instead.
+  test("Art.17 forget anonymizes invitedBy for an invite the requester sent, even under active KMS", async () => {
+    await inviteEmail(CAROL_EMAIL, "Editor");
+
+    const [rawBefore] = await asRawClient(stack.db).unsafe<Record<string, unknown>>(
+      `SELECT * FROM "${tenantInvitationsTable.tableName}" WHERE tenant_id = $1`,
+      [TENANT_A_ID],
+    );
+    if (!rawBefore) throw new Error("no invitation row seeded");
+    expect(isPiiCiphertext(rawBefore["invited_by"])).toBe(true);
+
+    await tenantInvitationDeleteHook(
+      { db: stack.db, registry: stack.registry, tenantId: TENANT_A_ID, userId: aliceId },
+      "delete",
+    );
+
+    const [rawAfter] = await asRawClient(stack.db).unsafe<Record<string, unknown>>(
+      `SELECT * FROM "${tenantInvitationsTable.tableName}" WHERE tenant_id = $1`,
+      [TENANT_A_ID],
+    );
+    if (!rawAfter)
+      throw new Error("invitation row disappeared — inviter-forget only severs the link");
+    // The invitee link is untouched — this row belongs to Carol, not Alice.
+    expect(isPiiCiphertext(rawAfter["email"])).toBe(true);
+    // invitedBy is re-encrypted on write, so assert on the decrypted value —
+    // the sentinel itself lives as INVITED_BY_ANONYMIZED in the hook file.
+    expect(isPiiCiphertext(rawAfter["invited_by"])).toBe(true);
+    const decryptedInvitedBy = await decryptStoredPii(
+      String(rawAfter["invited_by"]),
+      "invitedBy",
+      "test",
+    );
+    expect(decryptedInvitedBy).toBe("anonymized");
+    expect(decryptedInvitedBy).not.toBe(aliceId);
   });
 });

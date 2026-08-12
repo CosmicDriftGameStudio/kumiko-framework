@@ -1,6 +1,7 @@
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { Temporal } from "temporal-polyfill";
 
 // Narrows a draft blob's raw FileRef-shaped storageKeys (collectDraftFileRefKeys
 // output — extracted from free-form, client-supplied JSON, issue #1889) down to
@@ -9,18 +10,28 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 // { storageKey: "<someone-else's-real-key>" } would reach the storage
 // provider's delete() unchecked — the same ownership boundary file-routes.ts
 // enforces (loadFileForTenant + FileAccessGuard) before every read/delete.
+//
+// `draftInsertedAt` additionally excludes FileRefs that existed BEFORE the
+// draft row was created. In edit-mode the draft blob carries the full form
+// values, including FileRef pointers the domain entity pre-filled — those
+// storageKeys are owned by the caller (uploaded by them, on an earlier
+// entity) but must survive a discard/cleanup sweep because the live entity
+// still references them. Only uploads that happened during THIS draft's
+// lifetime (inserted after the draft row) are release-eligible.
 export async function filterOwnedStorageKeys(
   db: DbRunner,
   tenantId: TenantId,
   ownerId: string,
   candidateKeys: readonly string[],
+  draftInsertedAt: Temporal.Instant,
 ): Promise<readonly string[]> {
   if (candidateKeys.length === 0) return [];
   const rows = (await asRawClient(db).unsafe(
     `SELECT "storage_key" FROM "file_refs"
      WHERE "tenant_id" = $1 AND "inserted_by_id" = $2
-       AND "storage_key" = ANY($3::text[]) AND "is_deleted" = false`,
-    [tenantId, ownerId, candidateKeys],
+       AND "storage_key" = ANY($3::text[]) AND "is_deleted" = false
+       AND "inserted_at" > $4::timestamptz`,
+    [tenantId, ownerId, candidateKeys, draftInsertedAt.toString()],
   )) as readonly { storage_key: string }[];
   return rows.map((row) => row.storage_key);
 }

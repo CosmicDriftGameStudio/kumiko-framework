@@ -289,10 +289,15 @@ function useNavigateToCreateFor(
   const nav = useNav();
   const editScreenId = useMemo(() => {
     // allowCreate:false = update-only Edit-Screen (Create läuft über einen
-    // Lifecycle-Write) — der zählt nicht als „+ Neu"-Ziel.
+    // Lifecycle-Write) — der zählt nicht als „+ Neu"-Ziel. singleton:true
+    // öffnet ohne entityId den vorhandenen Record (EntityEditSingletonBody)
+    // statt eines leeren Create-Forms — zählt aus demselben Grund nicht.
     const edit = schema.screens.find(
       (s: ScreenDefinition) =>
-        s.type === "entityEdit" && s.entity === entityName && s.allowCreate !== false,
+        s.type === "entityEdit" &&
+        s.entity === entityName &&
+        s.allowCreate !== false &&
+        s.singleton !== true,
     );
     return edit !== undefined ? lastSegment(edit.id) : undefined;
   }, [schema.screens, entityName]);

@@ -6,23 +6,22 @@
 // Chunked DELETE (default 1000/batch) keeps lock durations bounded, mirror
 // of sessions/handlers/cleanup.job.ts.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   type AppContext,
   access,
   type ConfigKeyDefinition,
   createSystemConfig,
+  createSystemUser,
   type JobHandlerFn,
   SYSTEM_TENANT_ID,
   SYSTEM_USER_ID,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import {
-  deleteDraftsByIds,
-  type StaleDraftRow,
-  selectStaleDraftsBatch,
-} from "../db/queries/cleanup";
+import { type StaleDraftRow, selectStaleDraftsBatch } from "../db/queries/cleanup";
 import { filterOwnedStorageKeys } from "../db/queries/owned-file-refs";
+import { formDraftExecutor } from "../executor";
 import { collectDraftFileRefKeys, releaseDraftFileRefs } from "../release-file-refs";
 
 export const FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY = "form-draft:config:retention-days";
@@ -63,7 +62,13 @@ async function releaseRowFileRefs(
     // draft owner are releasable — `draft.values` is free-form JSON the
     // owning user controls, so an unverified key could target someone
     // else's file (see db/queries/owned-file-refs.ts).
-    const ownedKeys = await filterOwnedStorageKeys(db, row.tenantId, row.ownerId, keys);
+    const ownedKeys = await filterOwnedStorageKeys(
+      db,
+      row.tenantId,
+      row.ownerId,
+      keys,
+      row.insertedAt,
+    );
     const provider = await fileProviderResolver(row.tenantId);
     await releaseDraftFileRefs(ownedKeys, (key) => provider.delete(key), log);
   } catch (err) {
@@ -71,6 +76,50 @@ async function releaseRowFileRefs(
       `[form-draft:cleanup] no file provider resolvable for tenant=${row.tenantId} — FileRefs NOT released (row still deleted): ${err instanceof Error ? err.message : String(err)}`,
     );
   }
+}
+
+// A stale-drafts batch spans arbitrary tenants (this job sweeps the whole
+// table under SYSTEM_TENANT_ID, not per-tenant) — group by tenant so each
+// tenant's rows get deleted through a tenant-scoped db + system user, one
+// event-store delete per row rather than a raw cross-tenant DELETE.
+export function groupStaleDraftIdsByTenant(
+  batch: readonly StaleDraftRow[],
+): ReadonlyMap<TenantId, readonly string[]> {
+  const grouped = new Map<TenantId, string[]>();
+  for (const row of batch) {
+    const ids = grouped.get(row.tenantId);
+    if (ids) ids.push(row.id);
+    else grouped.set(row.tenantId, [row.id]);
+  }
+  return grouped;
+}
+
+// Raw `DELETE FROM read_form_drafts` would bypass the event store entirely
+// — a projection rebuild/replay has no `deleted` event to apply and the row
+// resurrects, PII included. formDraftExecutor.delete() is the event-sourced
+// path; it needs a tenant-scoped db + a SessionUser, so rows are grouped by
+// tenant first (see groupStaleDraftIdsByTenant above).
+async function deleteStaleDraftsBatch(
+  batch: readonly StaleDraftRow[],
+  db: DbConnection,
+  log: AppContext["log"],
+): Promise<number> {
+  let deleted = 0;
+  for (const [tenantId, ids] of groupStaleDraftIdsByTenant(batch)) {
+    const systemUser = createSystemUser(tenantId);
+    const tenantDb = createTenantDb(db, tenantId, "system");
+    for (const id of ids) {
+      const result = await formDraftExecutor.delete({ id }, systemUser, tenantDb);
+      if (result.isSuccess) {
+        deleted++;
+      } else {
+        log?.warn?.(
+          `[form-draft:cleanup] failed to delete stale draft id=${id} tenant=${tenantId}: ${result.error.message}`,
+        );
+      }
+    }
+  }
+  return deleted;
 }
 
 export const cleanupDraftsJob: JobHandlerFn = async (_payload, ctx) => {
@@ -109,10 +158,7 @@ export const cleanupDraftsJob: JobHandlerFn = async (_payload, ctx) => {
       await releaseRowFileRefs(row, db, fileProviderResolver, ctx.log);
     }
 
-    const batchDeleted = await deleteDraftsByIds(
-      db,
-      batch.map((row) => row.id),
-    );
+    const batchDeleted = await deleteStaleDraftsBatch(batch, db, ctx.log);
     deleted += batchDeleted;
     if (batchDeleted === 0 || batch.length < DEFAULT_BATCH_SIZE) break;
   }

@@ -1,7 +1,8 @@
 // Vendored manifest.json must match the source-of-truth in
 // samples/apps/use-all-bundled/feature-manifest.json. The picker reads
 // the vendored copy at runtime; a stale copy lets the picker show old
-// features or miss new ones. Refresh with `bun run vendor:manifest`.
+// features or miss new ones. Refresh by running `bun run gen:manifest`
+// inside samples/apps/use-all-bundled (writes both copies at once).
 
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";

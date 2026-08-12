@@ -26,9 +26,6 @@
       "default": "./src/index.ts"
     }
   },
-  "scripts": {
-    "vendor:manifest": "bun run scripts/vendor-manifest.ts"
-  },
   "dependencies": {
     "@cosmicdrift/kumiko-dev-server": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",

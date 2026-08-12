@@ -28,6 +28,7 @@ mock.module("@cosmicdrift/kumiko-renderer", () => ({
       locale: "de",
       title: "Impressum",
       content: "Inhalt",
+      contentFormat: "plain",
       folder: "legal",
     },
     loading: false,
@@ -159,5 +160,29 @@ describe("TextContentEditor — handleSave", () => {
     expect(write).toHaveBeenCalledTimes(1);
     const [, payload] = write.mock.calls[0] as unknown as [unknown, { folder: string | null }];
     expect(payload.folder).toBe("legal");
+  });
+
+  // TARGET has no collectionId, so the collection's declared contentFormat is
+  // always undefined here — the write payload must fall back to the loaded
+  // entry's own contentFormat ("plain") instead of silently defaulting to
+  // "markdown" via the write schema's contentFormatSchema.default("markdown").
+  test("sendet das geladene contentFormat unverändert mit, statt es auf markdown zu defaulten", async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
+    const write = mock(() => Promise.resolve({ isSuccess: true, data: { isNew: false } }));
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useDispatcher as any).mockReturnValue({ write, query: mock() });
+
+    const Editor = getEditor();
+    render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /speichern/i }));
+      await Promise.resolve();
+    });
+
+    expect(write).toHaveBeenCalledTimes(1);
+    const [, payload] = write.mock.calls[0] as unknown as [unknown, { contentFormat?: string }];
+    expect(payload.contentFormat).toBe("plain");
   });
 });

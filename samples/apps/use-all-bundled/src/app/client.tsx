@@ -20,6 +20,7 @@ import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-e
 import { authMfaClient, MfaVerifyScreen } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/web";
 import { configClient } from "@cosmicdrift/kumiko-bundled-features/config/web";
 import { customFieldsClient } from "@cosmicdrift/kumiko-bundled-features/custom-fields/web";
+import { deliveryClient } from "@cosmicdrift/kumiko-bundled-features/delivery/web";
 import { foldersClient } from "@cosmicdrift/kumiko-bundled-features/folders/web";
 import { jobsClient } from "@cosmicdrift/kumiko-bundled-features/jobs/web";
 import { personalAccessTokensClient } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens/web";
@@ -102,6 +103,7 @@ createKumikoApp({
     tenantClient(),
     auditClient(),
     jobsClient(),
+    deliveryClient(),
     configClient(),
     tierEngineClient(),
     userProfileClient(),

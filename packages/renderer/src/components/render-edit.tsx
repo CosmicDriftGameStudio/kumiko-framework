@@ -238,6 +238,7 @@ function ExtensionSectionMount({
   values,
   patch,
   validate,
+  hidden,
 }: {
   readonly section: EditExtensionSectionViewModel;
   readonly entityName: string;
@@ -246,6 +247,7 @@ function ExtensionSectionMount({
   readonly values?: Readonly<Record<string, unknown>>;
   readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
   readonly validate?: () => boolean;
+  readonly hidden?: boolean;
 }): ReactNode {
   const { Banner, Section, Text } = usePrimitives();
   const name = extensionSectionName(section.component);
@@ -256,6 +258,7 @@ function ExtensionSectionMount({
         key={section.title}
         title={section.title}
         testId={`section-extension-${section.title}`}
+        hidden={hidden}
       >
         <Banner variant="info" testId={`section-extension-placeholder-${section.title}`}>
           <Text>
@@ -268,7 +271,7 @@ function ExtensionSectionMount({
     );
   }
   return (
-    <Section title={section.title} testId={`section-extension-${section.title}`}>
+    <Section title={section.title} testId={`section-extension-${section.title}`} hidden={hidden}>
       <Component
         entityName={entityName}
         entityId={entityId}
@@ -432,6 +435,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // re-subscribes with a "new" onChange → refires.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  // `schema` is typically an inline caller prop (`schema={z.object({...})}`)
+  // with unstable identity across renders — as an effect dep it would refire
+  // on every parent render, not just on a snapshot change, risking a loop if
+  // the caller's onChange triggers a parent re-render. Held in a ref like
+  // onChangeRef so only a real snapshot mutation retriggers this effect.
+  const schemaRef = useRef(schema);
+  schemaRef.current = schema;
   useEffect(() => {
     const cb = onChangeRef.current;
     if (cb === undefined) return;
@@ -441,9 +451,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // typing. `valid` can therefore legitimately diverge from what's
     // currently rendered under the fields (the last *mutating* validate()
     // call, e.g. from controls.validate() or submit()).
-    const valid = schema === undefined ? true : schema.safeParse(snapshot.values).success;
+    const currentSchema = schemaRef.current;
+    const valid =
+      currentSchema === undefined ? true : currentSchema.safeParse(snapshot.values).success;
     cb({ values: snapshot.values, changes: snapshot.changes, dirty: snapshot.isDirty, valid });
-  }, [snapshot, schema]);
+  }, [snapshot]);
 
   const onControlsReadyRef = useRef(onControlsReady);
   onControlsReadyRef.current = onControlsReady;
@@ -539,11 +551,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   }, [draftEnabled, draftKey, draftId, dispatcher, controller]);
 
   // Mount-time fallback (issue #1913) for create-mode when no draftId
-  // survived in storage (new tab, cleared storage): ask the server for
-  // this screen's open drafts. Exactly one → adopt it silently (same
-  // effect as if storage had it). Multiple → render a simple picker
-  // (below) and let the user choose. Zero → stay null, saveDraft mints a
-  // fresh draftId on the first step change same as any other fresh create.
+  // survived in storage (new tab, cleared storage): ask the server for this
+  // screen's open drafts and let the user choose via a picker (below) —
+  // even for exactly one candidate. Auto-adopting a lone candidate would
+  // silently hand this tab someone else's in-progress draft from a parallel
+  // session on the same screen (cross-tab hijack); the picker's "start new"
+  // action covers the common case (it really was this tab's own draft) with
+  // one extra click. Zero candidates → stay null, saveDraft mints a fresh
+  // draftId on the first step change same as any other fresh create.
   useEffect(() => {
     // skip: this screen does not persist a draft, this is edit-mode, a
     // draftId is already known (from storage or an earlier adoption), or
@@ -566,19 +581,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       // skip: no open drafts for this screen — stay null, saveDraft mints a
       // fresh draftId on the first step change same as any other create.
       if (candidates.length === 0) return;
-      const [only] = candidates;
-      if (candidates.length === 1 && only !== undefined) {
-        const adoptedId = only.draftKey.slice(prefix.length);
-        draftStorage.setDraftId(screen.id, adoptedId);
-        setDraftId(adoptedId);
-        return;
-      }
       setDraftCandidates(candidates);
     })();
     return () => {
       cancelled = true;
     };
-  }, [draftEnabled, isCreateMode, draftId, dispatcher, screen.id, draftStorage]);
+  }, [draftEnabled, isCreateMode, draftId, dispatcher, screen.id]);
 
   // User picked one of several open drafts from the mount-time picker
   // (see draftCandidates below) — adopt it the same way a single
@@ -675,11 +683,20 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // have no field scope here (they validate via the controlled-mode
   // controls.validate() API), so no call, no clearing of unrelated errors.
   function handleWizardNext(): void {
+    const next = Math.min(currentStep + 1, lastStepIndex);
+    // Locked state (#1896): `disabled` means "no input/no write", not "no
+    // navigation" — a disabled wizard must still be steppable so Back/Next
+    // reach every step. But neither validate() (would block on an empty
+    // required field nobody can fill in) nor saveDraft() (would mint a
+    // draftId / dispatch a write — exactly what `disabled` forbids) may run.
+    if (disabled) {
+      setRawStep(next);
+      return;
+    }
     const section = filteredSections[currentStep];
     const fieldNames = section?.kind === "fields" ? section.fields.map((f) => f.field) : [];
     // skip: the current step has field errors — no transition, no draft save.
     if (fieldNames.length > 0 && !controller.validate(fieldNames)) return;
-    const next = Math.min(currentStep + 1, lastStepIndex);
     setRawStep(next);
     saveDraft(next);
   }
@@ -702,7 +719,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // skip: create-mode, no step change happened yet — no draftId was ever
     // minted, so no row exists to discard.
     if (draftKey === undefined) return;
-    await dispatcher.write(FORM_DRAFT_DISCARD, { draftKey });
+    // Best-effort: a rejected write (e.g. network error) must not propagate
+    // out of handleSubmit AFTER the entity write already succeeded — that
+    // would break onSubmit/navigation/toast and risk a duplicate submit on
+    // retry. An orphaned draft row is swept later by cleanup.job.ts. Local
+    // cleanup below still runs on failure so this instance doesn't try to
+    // resume a draft it already considers submitted.
+    try {
+      await dispatcher.write(FORM_DRAFT_DISCARD, { draftKey });
+    } catch {
+      // best-effort, see comment above.
+    }
     // A successful submit ends this draftId's life — a subsequent create on
     // the same screen (new mount) must mint its own, not resume this one.
     if (isCreateMode) {
@@ -712,18 +739,37 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     }
   }
 
+  // Wizard mode: locates the first step whose "fields" section contains one
+  // of the given field paths — matched on the path's first segment, since
+  // `FieldIssue.path`/`snapshot.errors` keys can be dotted (embedded-list
+  // rows, e.g. `tasks.2.title`) while a section's field name is always the
+  // plain top-level name. Returns undefined for a root-level issue (path
+  // `"(root)"`, see zod-bridge.ts) or one that matches no rendered field —
+  // callers must NOT suppress the error banner in that case, there is
+  // nowhere to jump the user to.
+  function findFirstErroringStep(fieldPaths: readonly string[]): number | undefined {
+    const erroredFields = new Set(fieldPaths.map((p) => p.split(".")[0]));
+    const idx = filteredSections.findIndex(
+      (s) => s.kind === "fields" && s.fields.some((f) => erroredFields.has(f.field)),
+    );
+    return idx === -1 ? undefined : idx;
+  }
+
   async function handleSubmit(): Promise<void> {
-    // Locked state (#1896): the submit button is visibly disabled, but a
-    // native form submit (Enter key) reaches this handler regardless of the
-    // button's disabled attribute — block it here too, not just in the UI.
-    if (disabled) return;
     // Enter in the active step triggers the native form submit (Next is
     // type="submit" for Enter support) — on intermediate steps that means
-    // "Next", not "Save".
+    // "Next", not "Save". Checked BEFORE the `disabled` guard below:
+    // `disabled` means "no input/no write", not "no navigation" — a
+    // disabled wizard must still be steppable (handleWizardNext itself
+    // blocks validate()/saveDraft() while disabled).
     if (isWizard && !isLastWizardStep) {
       handleWizardNext();
       return;
     }
+    // Locked state (#1896): the submit button is visibly disabled, but a
+    // native form submit (Enter key) reaches this handler regardless of the
+    // button's disabled attribute — block it here too, not just in the UI.
+    if (disabled) return;
     setIsSubmitting(true);
     setExtensionErrorKey(null);
     try {
@@ -781,9 +827,36 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // the draft behind after a successful submit.
         await discardDraft();
         extensionsPersisted = await persistExtensions();
-      } else if (!result.validationBlocked) {
+      } else if (result.validationBlocked) {
+        // Root-level `.refine()`/cross-field issues from controller.validate()
+        // — same "jump to the erroring step" treatment as a server field
+        // error below, sourced from the freshly-validated snapshot.
+        if (isWizard) {
+          const step = findFirstErroringStep(Object.keys(controller.getSnapshot().errors));
+          if (step !== undefined) setRawStep(step);
+        }
+      } else {
         const fieldIssues = result.error.details?.fields ?? [];
-        setFormError(fieldIssues.length === 0 ? result.error : null);
+        // A server field error on a step the wizard isn't currently showing
+        // is otherwise invisible — jump to the first step that contains one
+        // of the errored fields. Non-wizard forms render every field at
+        // once, so the original suppress-when-field-issues-exist rule still
+        // applies there (the field itself already shows the error inline).
+        if (isWizard) {
+          const step = findFirstErroringStep(fieldIssues.map((i) => i.path));
+          if (step !== undefined) {
+            setRawStep(step);
+            setFormError(null);
+          } else {
+            // No rendered step contains any of the errored fields (a
+            // root-level issue, or a field outside every step) — nothing
+            // will show this error inline, so the banner must not be
+            // suppressed.
+            setFormError(result.error);
+          }
+        } else {
+          setFormError(fieldIssues.length === 0 ? result.error : null);
+        }
       }
       // skip: on entity-success-but-extension-failure the extension-error
       // banner is showing — don't notify (the caller navigates away on success
@@ -844,12 +917,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         </Button>
       )}
       {isWizard && !isLastWizardStep && (
-        <Button
-          type="submit"
-          disabled={disabled}
-          variant="primary"
-          testId="render-edit-wizard-next"
-        >
+        <Button type="submit" variant="primary" testId="render-edit-wizard-next">
           {translate("kumiko.actions.next")}
         </Button>
       )}
@@ -904,17 +972,28 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           <Banner
             variant="info"
             testId="render-edit-draft-picker"
-            actions={draftCandidates.map((candidate) => (
+            actions={[
+              ...draftCandidates.map((candidate) => (
+                <Button
+                  key={candidate.id}
+                  type="button"
+                  variant="link"
+                  onClick={() => adoptDraft(candidate)}
+                  testId={`render-edit-draft-pick-${candidate.id}`}
+                >
+                  {formatWhen(candidate.savedAt)}
+                </Button>
+              )),
               <Button
-                key={candidate.id}
+                key="start-new"
                 type="button"
                 variant="link"
-                onClick={() => adoptDraft(candidate)}
-                testId={`render-edit-draft-pick-${candidate.id}`}
+                onClick={() => setDraftCandidates(null)}
+                testId="render-edit-draft-start-new"
               >
-                {formatWhen(candidate.savedAt)}
-              </Button>
-            ))}
+                {translate("kumiko.form.draft.start-new")}
+              </Button>,
+            ]}
           >
             <Text>{translate("kumiko.form.draft.resume-multiple")}</Text>
           </Banner>
@@ -963,68 +1042,72 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             })()}
           </>
         )}
-        {(isWizard ? filteredSections.filter((_, i) => i === currentStep) : filteredSections).map(
-          (section: EditSectionViewModel, sectionIndex: number) => {
-            if (section.kind === "extension") {
-              return (
-                <ExtensionSectionMount
-                  key={section.title}
-                  section={section}
-                  entityName={vm.entityName}
-                  entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
-                  initialValues={extensionInitialValues}
-                  values={snapshot.values}
-                  // @cast-boundary form-values: ExtensionSectionProps is not generic
-                  // over TValues; controller is mount-lifetime-stable, see onControlsReady above.
-                  patch={
-                    patchAndScheduleDraftSave as (
-                      partial: Readonly<Record<string, unknown>>,
-                    ) => void
-                  }
-                  validate={scopedValidate}
-                />
-              );
-            }
-            if (!section.visible) return null;
-            // Section-Header unterdrücken wenn er den Form-Titel der
-            // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
-            // ActionForms, deren Section-Label = Screen-Titel ist).
-            const sectionTitle = section.title === formTitle ? undefined : section.title;
-            // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
-            const sectionKey = section.title ?? `section-${sectionIndex}`;
+        {filteredSections.map((section: EditSectionViewModel, sectionIndex: number) => {
+          // Wizard steps stay mounted while off-screen (native `hidden`, not
+          // unmounted) so an extension section's submit-registry entry
+          // (useExtensionFormSubmit → registry.remove on unmount) survives
+          // navigating past its step — otherwise Finish only ran the last
+          // mounted step's handler and silently dropped earlier steps' writes.
+          const stepHidden = isWizard && sectionIndex !== currentStep;
+          if (section.kind === "extension") {
             return (
-              <Section
-                key={sectionKey}
-                {...(sectionTitle !== undefined && { title: sectionTitle })}
-                {...(section.description !== undefined && { subtitle: section.description })}
-                testId={`section-${sectionKey}`}
-              >
-                <Grid columns={section.columns}>
-                  {section.fields.map((field: EditFieldViewModel) => (
-                    <GridCellForField
-                      key={field.field}
-                      field={disabled ? { ...field, readOnly: true } : field}
-                      columns={section.columns}
-                      issues={snapshot.errors[field.field]}
-                      onChange={(v) => {
-                        (controller.setField as (k: string, v: unknown) => void)(field.field, v);
-                      }}
-                      GridCell={GridCell}
-                      featureName={featureName}
-                      {...(labelAppendix !== undefined && {
-                        labelAppendix: labelAppendix(field.field),
-                      })}
-                      {...(fieldAppendix !== undefined && {
-                        fieldAppendix: fieldAppendix(field.field),
-                      })}
-                      allIssues={snapshot.errors}
-                    />
-                  ))}
-                </Grid>
-              </Section>
+              <ExtensionSectionMount
+                key={section.title}
+                section={section}
+                entityName={vm.entityName}
+                entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
+                initialValues={extensionInitialValues}
+                values={snapshot.values}
+                // @cast-boundary form-values: ExtensionSectionProps is not generic
+                // over TValues; controller is mount-lifetime-stable, see onControlsReady above.
+                patch={
+                  patchAndScheduleDraftSave as (partial: Readonly<Record<string, unknown>>) => void
+                }
+                validate={scopedValidate}
+                hidden={stepHidden}
+              />
             );
-          },
-        )}
+          }
+          if (!section.visible) return null;
+          // Section-Header unterdrücken wenn er den Form-Titel der
+          // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
+          // ActionForms, deren Section-Label = Screen-Titel ist).
+          const sectionTitle = section.title === formTitle ? undefined : section.title;
+          // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
+          const sectionKey = section.title ?? `section-${sectionIndex}`;
+          return (
+            <Section
+              key={sectionKey}
+              {...(sectionTitle !== undefined && { title: sectionTitle })}
+              {...(section.description !== undefined && { subtitle: section.description })}
+              testId={`section-${sectionKey}`}
+              hidden={stepHidden}
+            >
+              <Grid columns={section.columns}>
+                {section.fields.map((field: EditFieldViewModel) => (
+                  <GridCellForField
+                    key={field.field}
+                    field={disabled ? { ...field, readOnly: true } : field}
+                    columns={section.columns}
+                    issues={snapshot.errors[field.field]}
+                    onChange={(v) => {
+                      (controller.setField as (k: string, v: unknown) => void)(field.field, v);
+                    }}
+                    GridCell={GridCell}
+                    featureName={featureName}
+                    {...(labelAppendix !== undefined && {
+                      labelAppendix: labelAppendix(field.field),
+                    })}
+                    {...(fieldAppendix !== undefined && {
+                      fieldAppendix: fieldAppendix(field.field),
+                    })}
+                    allIssues={snapshot.errors}
+                  />
+                ))}
+              </Grid>
+            </Section>
+          );
+        })}
         {formError !== null && (
           <Banner
             variant="error"

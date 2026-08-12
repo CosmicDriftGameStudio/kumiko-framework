@@ -814,6 +814,28 @@ describe("createApp", () => {
     );
   });
 
+  // hasMoneyField used to only look at top-level fields, so an entity whose
+  // only money lives inside an embedded-list sub-schema (e.g. invoice lines
+  // with no top-level money field) slipped past this check — its cells and
+  // totals would then silently render in entity.defaultCurrency ?? "EUR"
+  // regardless of the app's actual currency.
+  test("rejects an entity whose only money field is nested in an embedded list", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: {
+            lines: createEmbeddedListField({ amount: { type: "money", required: true } }),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      "has money fields but no defaultCurrency",
+    );
+  });
+
   test("rejects unknown defaultCurrency", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(
@@ -955,6 +977,9 @@ describe("createApp", () => {
               qty: { type: "decimal", scale: 3 },
             }),
           },
+          // meta.amount is money nested in an embedded field — needs a
+          // defaultCurrency the same as a top-level money field would.
+          defaultCurrency: "EUR",
         }),
       );
     });
@@ -1073,6 +1098,7 @@ describe("createApp", () => {
               { totalsMatch: { amount: "title" } },
             ),
           },
+          defaultCurrency: "EUR",
         }),
       );
     });
@@ -1093,6 +1119,7 @@ describe("createApp", () => {
               { totalsMatch: { amount: "ghostTotal" } },
             ),
           },
+          defaultCurrency: "EUR",
         }),
       );
     });

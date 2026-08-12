@@ -815,6 +815,44 @@ describe("RenderEdit — controlled mode (#1887)", () => {
     expect(titleInput.value).toBe("Acme");
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
   });
+
+  // A caller like `schema={z.object({...})}` builds a fresh schema object on
+  // every render — unstable identity. If the effect depended on `schema`
+  // directly (not a ref), a parent that re-renders on every onChange call
+  // would refire the effect every time even though nothing in the form
+  // actually changed, risking an infinite update loop.
+  test("a parent re-rendering with a fresh schema object on every onChange does not loop", () => {
+    let calls = 0;
+    function Wrapper() {
+      const [, setTick] = useState(0);
+      const schema = z.object({ title: z.string().min(1) });
+      return (
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          schema={schema}
+          onChange={() => {
+            calls += 1;
+            // Cap so a still-broken implementation fails fast on a bounded
+            // count instead of hanging the test runner in an update loop.
+            if (calls < 15) setTick((t) => t + 1);
+          }}
+        />
+      );
+    }
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <Wrapper />
+      </DispatcherProvider>,
+    );
+
+    expect(calls).toBeGreaterThanOrEqual(1);
+    expect(calls).toBeLessThan(5);
+  });
 });
 
 // Issue #1916: proves FieldConditions (visible/readOnly/required) react to
@@ -1015,7 +1053,7 @@ describe("RenderEdit wizard mode", () => {
     );
 
     expect(screen.getByTestId("field-title")).toBeTruthy();
-    expect(screen.queryByTestId("field-count")).toBeNull();
+    expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("1");
   });
 
@@ -1045,7 +1083,7 @@ describe("RenderEdit wizard mode", () => {
 
     expect(screen.getByTestId("field-title-errors")).toBeTruthy();
     expect(screen.getByTestId("field-title")).toBeTruthy();
-    expect(screen.queryByTestId("field-count")).toBeNull();
+    expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
   });
 
   test("Weiter advances to the next step once the current step is valid; last step shows the submit button", async () => {
@@ -1077,7 +1115,7 @@ describe("RenderEdit wizard mode", () => {
       await Promise.resolve();
     });
 
-    expect(screen.queryByTestId("field-title")).toBeNull();
+    expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
     expect(screen.getByTestId("field-count")).toBeTruthy();
     expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
     expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
@@ -1120,6 +1158,170 @@ describe("RenderEdit wizard mode", () => {
       .querySelector("input") as HTMLInputElement;
     expect(titleInputAgain.value).toBe("Acme");
     expect(screen.queryByTestId("field-title-errors")).toBeNull();
+  });
+
+  // A server-side field error can land on a field belonging to a step the
+  // user isn't currently viewing — the old `setFormError(fieldIssues.length
+  // === 0 ? result.error : null)` rule suppressed the banner in that case
+  // (field issues exist) while the field itself was invisible on the
+  // current step, silently hiding the error entirely.
+  test("a server field error for a step that's not currently shown jumps the wizard there and shows the field error", async () => {
+    const write = mock(
+      async () =>
+        ({
+          isSuccess: false,
+          error: {
+            code: "validation_failed",
+            httpStatus: 422,
+            i18nKey: "kumiko.errors.validation",
+            message: "Validation failed",
+            details: {
+              fields: [{ path: "title", code: "too_small", i18nKey: "kumiko.errors.required" }],
+            },
+          },
+        }) as never,
+    );
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={makeWizardScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      await Promise.resolve();
+    });
+    const countInput = screen.getByTestId("field-count").querySelector("input") as HTMLInputElement;
+    fireEvent.change(countInput, { target: { value: "5" } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+    });
+
+    // Jumped back to the step that owns `title`, where the server error lives.
+    expect(screen.getByTestId("field-title")).toBeTruthy();
+    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+    expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
+    // The field itself shows the error — no redundant top-level banner.
+    expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
+  });
+
+  // A root-level issue (e.g. a cross-field `.refine()`) has no field to jump
+  // to — it must NOT be silently suppressed just because `details.fields`
+  // is non-empty.
+  test("a root-level server error with no matching field is not suppressed — the banner shows", async () => {
+    const write = mock(
+      async () =>
+        ({
+          isSuccess: false,
+          error: {
+            code: "validation_failed",
+            httpStatus: 422,
+            i18nKey: "kumiko.errors.validation",
+            message: "Validation failed",
+            details: {
+              fields: [{ path: "(root)", code: "custom", i18nKey: "kumiko.errors.cross-field" }],
+            },
+          },
+        }) as never,
+    );
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={makeWizardScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      await Promise.resolve();
+    });
+    const countInput = screen.getByTestId("field-count").querySelector("input") as HTMLInputElement;
+    fireEvent.change(countInput, { target: { value: "5" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("render-edit-form-error")).toBeTruthy();
+  });
+
+  // An extension section on an earlier wizard step used to unmount when the
+  // wizard advanced (only the current step's section was rendered), which
+  // tore down its useExtensionFormSubmit registration (registry.remove on
+  // unmount). Finish then only ran the last-mounted step's handler and
+  // silently dropped the earlier step's write. Steps must stay mounted
+  // (hidden, not unmounted) so every step's handler survives to Finish.
+  test("an extension section on an earlier wizard step still submits on Finish after navigating past it", async () => {
+    const submitSpy = mock();
+    const ComposedCF = (_: { entityName: string; entityId: string | null }) => {
+      useExtensionFormSubmit({
+        dirty: true,
+        onSubmit: async (ctx) => {
+          submitSpy(ctx);
+          return { isSuccess: true as const };
+        },
+      });
+      return <div data-testid="composed-cf" />;
+    };
+
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-wizard-extension",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        sections: [
+          {
+            kind: "extension",
+            title: "Custom Fields",
+            component: { react: { __component: "ComposedCF" } },
+          },
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+        ],
+      },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ ComposedCF }}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0 } as TestValues}
+            entityId="order-1"
+            writeCommand="order:update"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("composed-cf")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+    expect(screen.getByTestId("field-title")).toBeTruthy();
+    // Step 1's extension section stayed mounted (hidden), not unmounted.
+    expect(screen.getByTestId("composed-cf").closest("[hidden]")).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+    });
+
+    expect(submitSpy).toHaveBeenCalledWith({ entityId: "order-1" });
   });
 });
 
@@ -1231,7 +1433,7 @@ describe("RenderEdit wizard draft", () => {
     );
 
     await waitFor(() => expect(screen.getByTestId("field-count")).toBeTruthy());
-    expect(screen.queryByTestId("field-title")).toBeNull();
+    expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("2");
 
     fireEvent.click(screen.getByTestId("render-edit-wizard-back"));
@@ -1440,6 +1642,94 @@ describe("RenderEdit wizard draft", () => {
     await waitFor(() => expect(savesSoFar()).toBe(before + 1), { timeout: 3000 });
     expect(savesSoFar()).toBe(before + 1);
   });
+
+  // A rejected discard write (network error) must be best-effort: the entity
+  // write already succeeded by the time discardDraft() runs, so a failure
+  // here must not propagate out of handleSubmit and break onSubmit/
+  // navigation — that would risk a duplicate submit on retry. Orphaned draft
+  // rows are swept later by cleanup.job.ts.
+  test("a rejected discard write does not break an otherwise successful submit", async () => {
+    const seenResults: SubmitResult<unknown>[] = [];
+    const write = mock(async (type: string) => {
+      if (type === "form-draft:write:discard") throw new Error("network error");
+      return { isSuccess: true, data: { id: "1" } };
+    });
+    const dispatcher = makeDispatcher(write as unknown as Dispatcher["write"]);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={makeDraftWizardScreen(true)}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+            onSubmit={(r) => seenResults.push(r)}
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      await Promise.resolve();
+    });
+
+    const countInput = screen.getByTestId("field-count").querySelector("input") as HTMLInputElement;
+    fireEvent.change(countInput, { target: { value: "5" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // handleSubmit completed despite the rejected discard: onSubmit still
+    // fired with the successful entity-write result, not an unhandled
+    // rejection or an aborted handler.
+    expect(seenResults).toHaveLength(1);
+    expect(seenResults[0]?.isSuccess).toBe(true);
+  });
+
+  // `disabled` means "no input/no write", not "no navigation" (#1896). The
+  // old `if (disabled) return` guard sat BEFORE the wizard-next branch, and
+  // Next itself carried `disabled={disabled}` — together they made a
+  // disabled wizard unnavigable past step 0. Next must still step forward,
+  // but without running validate() (would block on an empty required field
+  // nobody can fill in) or saveDraft() (would mint a draftId / dispatch a
+  // write — exactly what `disabled` forbids).
+  test("disabled: clicking Next on step 0 navigates without validating or writing a draft", async () => {
+    const schema = z.object({ title: z.string().min(1), count: z.number().optional() });
+    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={makeDraftWizardScreen(true)}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+            schema={schema}
+            disabled
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("field-title")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+
+    // Navigated despite the empty required `title` field.
+    expect(screen.getByTestId("field-count")).toBeTruthy();
+    expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
+    // No validate() ran (no field error painted) and no write fired
+    // (neither a form-draft:write:save nor an order:create).
+    expect(write).not.toHaveBeenCalled();
+  });
 });
 
 describe("RenderEdit create-mode draftId (issue #1913)", () => {
@@ -1574,11 +1864,13 @@ describe("RenderEdit create-mode draftId (issue #1913)", () => {
     expect(titles).toEqual(["Session A", "Session B"]);
   });
 
-  test("cleared storage with exactly one open draft resumes it automatically via list", async () => {
+  test("cleared storage with exactly one open draft still shows the picker — no silent cross-tab adopt", async () => {
     const { dispatcher, drafts } = makeMultiDraftDispatcher();
     const screenDef = makeDraftWizardScreen();
     // Pre-seed one existing create-mode draft, as if minted by an earlier,
-    // now-storage-less session (new tab / cleared sessionStorage).
+    // now-storage-less session (new tab / cleared sessionStorage) — or a
+    // genuinely different parallel session on the same screen. Auto-adopting
+    // it would silently hand this tab someone else's in-progress draft.
     drafts.set(`${screenDef.id}:new:existing-id`, {
       values: { title: "Resumed", count: 0 },
       stepIndex: 0,
@@ -1599,13 +1891,54 @@ describe("RenderEdit create-mode draftId (issue #1913)", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => {
-      const titleInput = screen
-        .getByTestId("field-title")
-        .querySelector("input") as HTMLInputElement;
-      expect(titleInput.value).toBe("Resumed");
+    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    // No silent adopt: the form stays pristine until the user picks.
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    expect(titleInput.value).toBe("");
+  });
+
+  test("start-new on a one-candidate picker clears it without adopting, leaving the candidate untouched", async () => {
+    const { dispatcher, drafts } = makeMultiDraftDispatcher();
+    const screenDef = makeDraftWizardScreen();
+    drafts.set(`${screenDef.id}:new:existing-id`, {
+      values: { title: "Resumed", count: 0 },
+      stepIndex: 0,
+      savedAt: "2026-01-01T00:00:00Z",
     });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("render-edit-draft-start-new"));
     expect(screen.queryByTestId("render-edit-draft-picker")).toBeNull();
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Brand new" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      await Promise.resolve();
+    });
+
+    // Minted a genuinely different draftId — the ignored candidate is untouched.
+    expect(drafts.get(`${screenDef.id}:new:existing-id`)?.values["title"]).toBe("Resumed");
+    const prefix = `${screenDef.id}:new:`;
+    const mintedKeys = [...drafts.keys()].filter(
+      (k) => k.startsWith(prefix) && k !== `${prefix}existing-id`,
+    );
+    expect(mintedKeys).toHaveLength(1);
+    expect(drafts.get(mintedKeys[0] as string)?.values["title"]).toBe("Brand new");
   });
 
   test("cleared storage with multiple open drafts shows a picker; picking one resumes it", async () => {
@@ -1739,8 +2072,10 @@ describe("RenderEdit create-mode draftId (issue #1913)", () => {
       </DispatcherProvider>,
     );
 
-    // The lone open draft (`other-session`) auto-adopts on mount — the same
-    // path a cleared-storage tab takes. Wait for that to settle first.
+    // The lone open draft (`other-session`) shows in the picker on mount —
+    // the user explicitly picks it (no silent cross-tab auto-adopt).
+    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    fireEvent.click(screen.getByTestId(`render-edit-draft-pick-${screenDef.id}:new:other-session`));
     await waitFor(() => {
       const titleInput = screen
         .getByTestId("field-title")
@@ -1788,7 +2123,7 @@ describe("RenderEdit create-mode draftId (issue #1913)", () => {
     });
 
     expect(listCallCount).toBe(1);
-    expect(screen.queryByTestId("field-title")).toBeNull();
+    expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
     expect(screen.queryByTestId("render-edit-draft-picker")).toBeNull();
     const countAfterSubmit = screen
       .getByTestId("field-count")
