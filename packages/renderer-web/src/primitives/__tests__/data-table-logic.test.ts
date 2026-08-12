@@ -183,11 +183,23 @@ describe("defaultCellRender", () => {
     expect(result).not.toMatch(/[.,]\d\d$/);
   });
 
-  test("money → rehydrated { amount major, amountMinor } uses amountMinor (not major×100 wrong)", () => {
-    // rehydrateMoney (fw#1830): amount is major units, amountMinor is cents.
-    // formatMoney expects cents — using amount would show 100× too small.
+  test("money → rehydrated { amount major, amountMinor } derives minor units from amount + currencyDecimals", () => {
+    // rehydrateMoney (fw#1830): amount is major units, amountMinor is a flat
+    // ×100 scale that disagrees with currencyDecimals for non-2-decimal
+    // currencies — defaultCellRender ignores amountMinor and derives minor
+    // units from `amount` instead (see index.tsx).
     const result = defaultCellRender({ amount: 119, currency: "EUR", amountMinor: 11900 }, "money");
     expect(result.replace(/[^0-9]/g, "")).toBe("11900");
+  });
+
+  test("money → zero-decimal currency (JPY) ignores amountMinor's mismatched flat scale", () => {
+    const result = defaultCellRender({ amount: 500, currency: "JPY", amountMinor: 50000 }, "money");
+    expect(result.replace(/[^0-9]/g, "")).toBe("500");
+  });
+
+  test("money → three-decimal currency (BHD) ignores amountMinor's mismatched flat scale", () => {
+    const result = defaultCellRender({ amount: 1.5, currency: "BHD", amountMinor: 150 }, "money");
+    expect(result.replace(/[^0-9]/g, "")).toBe("1500");
   });
 
   test("money → unerwarteter Value-Shape fällt auf String zurück", () => {

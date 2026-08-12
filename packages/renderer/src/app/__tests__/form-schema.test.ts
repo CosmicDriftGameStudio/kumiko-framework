@@ -5,7 +5,7 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { createFormController } from "@cosmicdrift/kumiko-headless";
-import { buildFormSchema } from "../form-schema";
+import { buildFormSchema, REQUIRED_FIELD_I18N_KEY } from "../form-schema";
 
 function screenWith(fields: readonly EditFieldSpec[]): EntityEditScreenDefinition {
   return {
@@ -54,7 +54,7 @@ describe("buildFormSchema", () => {
     if (result.success) return;
     const issue = result.error.issues[0];
     if (issue?.code !== "custom") throw new Error("expected a custom issue");
-    expect(issue.params).toMatchObject({ i18nKey: "kumiko.validation.required" });
+    expect(issue.params).toMatchObject({ i18nKey: REQUIRED_FIELD_I18N_KEY });
   });
 
   // kumiko-framework#1927: the seam the bug actually lived in — a schema
@@ -73,7 +73,7 @@ describe("buildFormSchema", () => {
 
     expect(form.validate()).toBe(false);
     const fieldErrors = form.getSnapshot().errors["name"];
-    expect(fieldErrors?.[0]?.i18nKey).toBe("kumiko.validation.required");
+    expect(fieldErrors?.[0]?.i18nKey).toBe(REQUIRED_FIELD_I18N_KEY);
   });
 
   describe("required field present → no issue", () => {

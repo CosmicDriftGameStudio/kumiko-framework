@@ -1,6 +1,6 @@
-// Regression for fw#1751: the gallery custom-screen demo blocks and the
-// widget form-examples were static German content, never wired to i18n.
-// Locks in the English translation so it can't silently regress.
+// Render proof for fw#1751: the gallery custom-screen demo blocks and the
+// widget form-examples show English copy, not the static German content
+// they used to have.
 
 import { expect, test } from "@playwright/test";
 

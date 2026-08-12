@@ -13,7 +13,6 @@ import { discardDraftWrite } from "./handlers/discard.write";
 import { getDraftQuery } from "./handlers/get.query";
 import { listDraftsQuery } from "./handlers/list.query";
 import { saveDraftWrite } from "./handlers/save.write";
-import { FORM_DRAFT_FEATURE_I18N } from "./i18n";
 
 function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>): void {
   r.describe(
@@ -41,8 +40,6 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
 
   r.config({ keys: { retentionDays: formDraftRetentionDaysConfig } });
   r.job("cleanup", { trigger: { cron: "0 3 * * *" }, concurrency: "skip" }, cleanupDraftsJob);
-
-  r.translations({ keys: FORM_DRAFT_FEATURE_I18N });
 }
 
 export const formDraftFeature = defineFeature(FORM_DRAFT_FEATURE_NAME, registerFormDraft);

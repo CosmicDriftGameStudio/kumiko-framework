@@ -946,9 +946,9 @@ describe("RenderEdit — FieldConditions react to extension patch() (#1916)", ()
     );
   }
 
-  function renderVehicleForm(): void {
+  function renderVehicleForm(writeFn?: Dispatcher["write"], schema?: z.ZodType): void {
     render(
-      <DispatcherProvider dispatcher={makeDispatcher()}>
+      <DispatcherProvider dispatcher={makeDispatcher(writeFn)}>
         <ExtensionSectionsProvider value={{ VinDecodeSection }}>
           <RenderEdit<VehicleValues>
             screen={makeVehicleScreen()}
@@ -956,6 +956,7 @@ describe("RenderEdit — FieldConditions react to extension patch() (#1916)", ()
             featureName="vehicles"
             initial={{ title: "Listing", vin: "" }}
             writeCommand="vehicle:create"
+            {...(schema !== undefined && { schema })}
           />
         </ExtensionSectionsProvider>
       </DispatcherProvider>,
@@ -1020,6 +1021,44 @@ describe("RenderEdit — FieldConditions react to extension patch() (#1916)", ()
     expect(screen.getByTestId("decode-status").textContent).toBe("undefined");
     expect(screen.queryByTestId("field-trim")).toBeNull();
     expect(isDisabled("field-vin")).toBe(false);
+  });
+
+  // #1916's required condition must reach the validation record, not just
+  // the rendered asterisk — a regression where the extension patch() lands
+  // in the render model but not the values the schema validates against
+  // would stay green without this: the field would look required but submit
+  // would go through anyway. Mirrors buildFormSchema's conditional-required
+  // shape (form-schema.ts) with an inline schema, same as the other
+  // RenderEdit tests in this file — RenderEdit itself takes `schema` as a
+  // prop and does not derive one from the layout on its own.
+  test("clearing trim after a decode-hit blocks submit — the required condition is enforced, not just displayed", async () => {
+    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    const schema = z
+      .object({ title: z.string().min(1) })
+      .passthrough()
+      .superRefine((values, ctx) => {
+        const v = values as { decodeStatus?: string; trim?: string };
+        if (v.decodeStatus === "hit" && (v.trim === undefined || v.trim === "")) {
+          ctx.addIssue({ code: "custom", path: ["trim"], message: '"trim" is required.' });
+        }
+      });
+    renderVehicleForm(write as unknown as Dispatcher["write"], schema);
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("decode-hit"));
+    });
+    const trimInput = screen.getByTestId("field-trim").querySelector("input") as HTMLInputElement;
+    expect(isRequired("field-trim")).toBe(true);
+
+    fireEvent.change(trimInput, { target: { value: "" } });
+
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    expect(write).not.toHaveBeenCalled();
+    expect(screen.getByTestId("field-trim-errors")).toBeTruthy();
   });
 });
 
@@ -1326,6 +1365,10 @@ describe("RenderEdit wizard mode", () => {
 });
 
 describe("RenderEdit wizard draft", () => {
+  // Mirrors render-edit.tsx's own PATCH_DRAFT_SAVE_DEBOUNCE_MS (not
+  // exported) — tests below wait out a full window to catch stragglers.
+  const PATCH_DRAFT_SAVE_DEBOUNCE_MS = 500;
+
   function makeDraftWizardScreen(draft: boolean): EntityEditScreenDefinition {
     return {
       id: "orders:screen:order-wizard-draft",
@@ -1506,6 +1549,59 @@ describe("RenderEdit wizard draft", () => {
     expect(calls.some((c) => c.startsWith("form-draft:"))).toBe(false);
   });
 
+  // The restore effect's `if (controller.getSnapshot().isDirty) return;`
+  // guard (render-edit.tsx) — a user who starts typing before the
+  // form-draft:query:get round-trip resolves must not have their input
+  // clobbered by the stored draft landing afterwards.
+  test("typing while the restore query is in flight — the typed value wins over the stored draft", async () => {
+    let resolveRestore: (result: {
+      readonly isSuccess: true;
+      readonly data: { readonly draft: DraftBlob | null };
+    }) => void = () => {};
+    const restorePromise = new Promise<{
+      readonly isSuccess: true;
+      readonly data: { readonly draft: DraftBlob | null };
+    }>((resolve) => {
+      resolveRestore = resolve;
+    });
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string) => {
+        if (type === "form-draft:query:get") return restorePromise;
+        return { isSuccess: true, data: {} };
+      }) as Dispatcher["query"],
+      write: (async () => ({ isSuccess: true, data: { id: "1" } })) as Dispatcher["write"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeDraftWizardScreen(true)}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          entityId="order-1"
+          writeCommand="order:update"
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Typed while loading" } });
+
+    resolveRestore({
+      isSuccess: true,
+      data: { draft: { values: { title: "From storage", count: 9 }, stepIndex: 1 } },
+    });
+    // The step advancing to 2 only happens once setValues/setRawStep from
+    // the restore effect actually ran — waiting for it proves the restore
+    // fully landed before asserting the title was left untouched.
+    await waitFor(() =>
+      expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("2"),
+    );
+
+    expect(titleInput.value).toBe("Typed while loading");
+  });
+
   // Issue #1914: patch() (controlled mode / extension sections) previously
   // never triggered a draft save — only handleWizardNext/Back did. A patch()
   // on the last step (no further Next click coming) or on a step abandoned
@@ -1641,6 +1737,63 @@ describe("RenderEdit wizard draft", () => {
 
     await waitFor(() => expect(savesSoFar()).toBe(before + 1), { timeout: 3000 });
     expect(savesSoFar()).toBe(before + 1);
+
+    // The debounce collapses bursts into one save, but a save landing in a
+    // LATER window (the burst's tail re-arming the timer, or an unrelated
+    // second burst) would slip past an assertion taken right after the
+    // first save. Wait out a full extra debounce window to prove there is
+    // no straggler.
+    await new Promise((resolve) => setTimeout(resolve, PATCH_DRAFT_SAVE_DEBOUNCE_MS + 200));
+    expect(savesSoFar()).toBe(before + 1);
+  });
+
+  // #1914's debounce must not resurrect a draft after it was intentionally
+  // ended: discardDraft() clears the pending timer (render-edit.tsx:735-738)
+  // specifically so a patch() immediately followed by submit can't have its
+  // debounced save land AFTER the discard and leave an orphaned row behind.
+  test("a pending debounced patch-save is killed by submit's discard, not resurrected later", async () => {
+    const { dispatcher, store, calls } = makeDraftDispatcher();
+    let controls: RenderEditControls<TestValues> | undefined;
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeDraftWizardScreen(true)}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0 }}
+          writeCommand="order:create"
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+    expect(screen.getByTestId("field-count")).toBeTruthy();
+
+    // patch() arms a 500ms debounced draft save, then submit fires well
+    // inside that window — before the timer could ever run on its own.
+    act(() => {
+      controls?.patch({ count: 9 });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+    });
+
+    expect(calls).toContain("form-draft:write:discard");
+    const savesAtSubmit = calls.filter((c) => c === "form-draft:write:save").length;
+    expect(store.current).toBeNull();
+
+    // Wait past the debounce window the patch() call armed. If discard
+    // hadn't cleared the timer, a straggling save would land here and
+    // resurrect the just-discarded draft.
+    await new Promise((resolve) => setTimeout(resolve, PATCH_DRAFT_SAVE_DEBOUNCE_MS + 200));
+
+    expect(calls.filter((c) => c === "form-draft:write:save").length).toBe(savesAtSubmit);
+    expect(store.current).toBeNull();
   });
 
   // A rejected discard write (network error) must be best-effort: the entity
@@ -1826,6 +1979,71 @@ describe("RenderEdit create-mode draftId (issue #1913)", () => {
     const sessionB = render(
       <DispatcherProvider dispatcher={dispatcher}>
         <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    const titleA = within(sessionA.container)
+      .getByTestId("field-title")
+      .querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleA, { target: { value: "Session A" } });
+    await act(async () => {
+      fireEvent.submit(within(sessionA.container).getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    const titleB = within(sessionB.container)
+      .getByTestId("field-title")
+      .querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleB, { target: { value: "Session B" } });
+    await act(async () => {
+      fireEvent.submit(within(sessionB.container).getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    const prefix = `${screenDef.id}:new:`;
+    const createDraftKeys = [...drafts.keys()].filter((k) => k.startsWith(prefix));
+    expect(createDraftKeys).toHaveLength(2);
+    const [keyA, keyB] = createDraftKeys as [string, string];
+    expect(keyA).not.toBe(keyB);
+    const titles = createDraftKeys.map((k) => drafts.get(k)?.values["title"]).sort();
+    expect(titles).toEqual(["Session A", "Session B"]);
+  });
+
+  // Same-tab variant of the test above: two RenderEdit instances sharing
+  // ONE DraftStorage AND one dispatcher — the layout a single browser tab
+  // with two open create forms actually has (a fresh DraftStorage per
+  // session only happens across tabs). The mint keys off each component's
+  // own `draftId` React state, not a re-read of the shared storage slot, so
+  // this must isolate too.
+  test("two parallel create sessions sharing one DraftStorage still get different draftKeys (#1908)", async () => {
+    const { dispatcher, drafts } = makeMultiDraftDispatcher();
+    const screenDef = makeDraftWizardScreen();
+    const sharedDraftStorage = createFakeDraftStorage();
+
+    const sessionA = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={sharedDraftStorage}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+    const sessionB = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={sharedDraftStorage}>
           <RenderEdit<TestValues>
             screen={screenDef}
             entity={orderEntity}
@@ -2158,6 +2376,60 @@ describe("RenderEdit create-mode draftId (issue #1913)", () => {
     });
 
     expect([...drafts.keys()]).toEqual([`${screenDef.id}:order-77`]);
+  });
+
+  // draftKey is `${screen.id}:${entityId}` — opening a different entity on
+  // the same screen must not resume the previous entity's saved draft.
+  test("switching entityId does not load the previous entity's draft", async () => {
+    const { dispatcher, drafts } = makeMultiDraftDispatcher();
+    const screenDef = makeDraftWizardScreen();
+    drafts.set(`${screenDef.id}:order-A`, {
+      values: { title: "Draft for A", count: 1 },
+      stepIndex: 0,
+      savedAt: "2026-01-01T00:00:00Z",
+    });
+
+    const first = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            entityId="order-A"
+            writeCommand="order:update"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        (screen.getByTestId("field-title").querySelector("input") as HTMLInputElement).value,
+      ).toBe("Draft for A"),
+    );
+    first.unmount();
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0 }}
+            entityId="order-B"
+            writeCommand="order:update"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    const titleInputB = screen
+      .getByTestId("field-title")
+      .querySelector("input") as HTMLInputElement;
+    expect(titleInputB.value).toBe("");
   });
 });
 

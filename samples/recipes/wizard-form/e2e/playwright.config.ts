@@ -41,7 +41,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: ["**/fixtures/**", "build-server.ts", "wizard-mobile.spec.ts"],
+      testMatch: ["wizard.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
     },
     // iPhone SE/Mini class (375px) — acceptance criterion from #1917:

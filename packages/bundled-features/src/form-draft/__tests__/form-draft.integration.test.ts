@@ -209,6 +209,22 @@ describe("form-draft integration — list", () => {
     expect(drafts.map((d) => d.draftKey)).toEqual(["scr%en:a"]);
   });
 
+  test("a screenId containing an underscore is matched literally, not as a single-char wildcard", async () => {
+    await saveDraft("wizar_:a", {}, 0);
+    await saveDraft("wizardX:a", {}, 0);
+
+    const { drafts } = await listDrafts("wizar_");
+    expect(drafts.map((d) => d.draftKey)).toEqual(["wizar_:a"]);
+  });
+
+  test("a screenId containing a literal backslash is matched literally", async () => {
+    await saveDraft("wiz\\ard:a", {}, 0);
+    await saveDraft("wizard:a", {}, 0);
+
+    const { drafts } = await listDrafts("wiz\\ard");
+    expect(drafts.map((d) => d.draftKey)).toEqual(["wiz\\ard:a"]);
+  });
+
   test("list resolves an empty array when nothing was ever saved for the screenId", async () => {
     expect((await listDrafts("no-such-screen")).drafts).toEqual([]);
   });

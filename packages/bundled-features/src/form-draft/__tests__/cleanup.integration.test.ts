@@ -120,6 +120,20 @@ async function backdate(draftKey: string, daysAgo: number): Promise<void> {
   );
 }
 
+// applyEntityEvent only stamps modified_at on updated/deleted/restored, never
+// on created (framework/src/db/apply-entity-event.ts) — a draft saved exactly
+// once has modified_at IS NULL, which is the real-world case the cleanup
+// query's COALESCE(modified_at, inserted_at) fallback exists for.
+async function backdateInsertedOnly(draftKey: string, daysAgo: number): Promise<void> {
+  await asRawClient(stack.db).unsafe(
+    `UPDATE "read_form_drafts"
+     SET "inserted_at" = now() - ($1::int * interval '1 day'),
+         "modified_at" = NULL
+     WHERE "draft_key" = $2`,
+    [daysAgo, draftKey],
+  );
+}
+
 async function backdateFileRef(storageKey: string, daysAgo: number): Promise<void> {
   await asRawClient(stack.db).unsafe(
     `UPDATE "file_refs" SET "inserted_at" = now() - ($1::int * interval '1 day')
@@ -189,6 +203,19 @@ describe("form-draft cleanup job", () => {
       expect(await draftExists("wizard:sentinel")).toBe(false);
     });
     expect(await draftExists("wizard:three-days-old")).toBe(true);
+  });
+
+  test("deletes a draft saved exactly once (modified_at IS NULL), falling back to inserted_at", async () => {
+    await saveDraft("wizard:once-saved");
+    await backdateInsertedOnly("wizard:once-saved", 31);
+    await saveDraft("wizard:fresh-once-saved");
+    await backdateInsertedOnly("wizard:fresh-once-saved", 1);
+    await dispatchCleanup();
+
+    await waitFor(async () => {
+      expect(await draftExists("wizard:once-saved")).toBe(false);
+    });
+    expect(await draftExists("wizard:fresh-once-saved")).toBe(true);
   });
 });
 

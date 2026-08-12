@@ -1527,6 +1527,38 @@ describe("KumikoScreen", () => {
     expect(navigateCalls).toEqual([{ screenId: "task-list" }]);
   });
 
+  test("actionForm mit Cross-Feature-QN als cancelTarget: Abbrechen navigiert per Short-Id (#1946)", () => {
+    const navigateCalls: { screenId: string }[] = [];
+    const memoryNav = {
+      route: { screenId: "quick-add" },
+      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      cancelTarget: "statements:screen:statement-upload-list",
+    };
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [actionScreen, listScreen] }}
+            qn="tasks:screen:quick-add"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    fireEvent.click(screen.getByTestId("render-edit-cancel"));
+    expect(navigateCalls).toEqual([{ screenId: "statement-upload-list" }]);
+  });
+
   // Tier 2.7e-2: URL-Search-Params füllen die actionForm initial values.
   // Use-case: rowAction kind=navigate setzt `?taskId=r1`, das actionForm
   // sieht es beim Mount und pre-fillt das title-Feld.
@@ -1954,6 +1986,33 @@ describe("KumikoScreen: singleton entityEdit", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
     expect(screen.getByTestId("kumiko-screen-create-disabled")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-form")).toBeNull();
+  });
+
+  // The singleton wrapper fires its own list(limit:1) query up front — a
+  // screen whose `list` handler has stricter access.roles than its `edit`
+  // handler used to render fine (no query ran before this feature) and now
+  // flips to an error banner instead. No test caught that regression.
+  test("list-Query schlägt fehl → Fehler-Banner statt Create-Form", async () => {
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: false,
+        error: {
+          code: "access_denied",
+          httpStatus: 403,
+          i18nKey: "errors.access.denied",
+          message: "",
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={singletonSchema} qn="tasks:screen:task-edit" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    const bannerText = screen.getByTestId("kumiko-screen-error").textContent;
+    expect(bannerText).toBe(kumikoDefaultTranslations["en"]?.["errors.access.denied"] ?? "");
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 });

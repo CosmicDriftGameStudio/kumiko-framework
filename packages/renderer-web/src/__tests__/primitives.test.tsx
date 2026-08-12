@@ -893,6 +893,16 @@ describe("DataTable", () => {
       expect(screen.getByTestId("cell-r1-y2026").getAttribute("data-highlighted")).toBe("true");
       expect(screen.getByTestId("cell-r1-name").getAttribute("data-highlighted")).toBeNull();
     });
+
+    test("marks the header of a highlighted sortable column too", () => {
+      const sortableCols = [
+        { field: "name", label: "Name", type: "string", sortable: false },
+        { field: "y2026", label: "2026", type: "number", sortable: true, highlighted: true },
+      ] as const;
+      render(<DataTable columns={sortableCols} rows={oneRow} onSortChange={mock()} />);
+      expect(screen.getByTestId("column-y2026").getAttribute("data-highlighted")).toBe("true");
+      expect(screen.getByTestId("column-name").getAttribute("data-highlighted")).toBeNull();
+    });
   });
 
   describe("testId overrides", () => {
@@ -1052,7 +1062,10 @@ describe("Form", () => {
         <div>content</div>
       </Form>,
     );
-    expect(screen.getByTestId("form-actions").className).toContain("max-sm:fixed");
+    const actionsFooter = screen.getByTestId("form-actions");
+    expect(actionsFooter.className).toContain("max-sm:fixed");
+    const contentContainer = actionsFooter.previousElementSibling as HTMLElement;
+    expect(contentContainer.className).toContain("max-sm:pb-24");
   });
 
   test("ohne stickyActions: Footer bleibt im normalen Dokumentfluss", () => {
@@ -1061,7 +1074,10 @@ describe("Form", () => {
         <div>content</div>
       </Form>,
     );
-    expect(screen.getByTestId("form-actions").className).not.toContain("max-sm:fixed");
+    const actionsFooter = screen.getByTestId("form-actions");
+    expect(actionsFooter.className).not.toContain("max-sm:fixed");
+    const contentContainer = actionsFooter.previousElementSibling as HTMLElement;
+    expect(contentContainer.className).not.toContain("max-sm:pb-24");
   });
 });
 

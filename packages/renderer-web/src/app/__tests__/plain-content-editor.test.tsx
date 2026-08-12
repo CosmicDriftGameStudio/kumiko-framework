@@ -32,6 +32,10 @@ describe("PlainContentEditor", () => {
     textarea.setSelectionRange(6, 6);
     fireEvent.click(screen.getByText("{{name}}"));
     expect(textarea.value).toBe("Hello {{name}} world");
+    // Caret-restore effect: focus + selection must land right after the
+    // inserted placeholder, not wherever the DOM happened to leave it.
+    expect(textarea.selectionStart).toBe(14);
+    expect(textarea.selectionEnd).toBe(14);
   });
 
   test("chip click replaces a selection instead of inserting alongside it", () => {

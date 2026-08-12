@@ -60,6 +60,7 @@ row and the `read_fulfillments` row appear.
 bun test src/__tests__/feature.integration.test.ts
 ```
 
-Runs both entrypoints in-process against real Postgres + Redis and asserts
-the API-only read side stays empty before the worker picks up the job and
-writes the fulfillment back.
+Runs both entrypoints in-process against real Postgres + Redis, at the
+`createApiEntrypoint`/`createWorkerEntrypoint` level (not `bin/api.ts`/
+`bin/worker.ts` themselves), and asserts the API-only read side stays empty
+before the worker picks up the job and writes the fulfillment back.

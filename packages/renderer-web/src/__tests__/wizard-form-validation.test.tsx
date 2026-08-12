@@ -70,6 +70,40 @@ describe("entityEdit wizard — presence validation on Next (fw#1910)", () => {
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("2");
     expect(screen.queryByTestId("field-fullName-errors")).toBeNull();
   });
+
+  // handleWizardNext validates only the CURRENT step's fields
+  // (render-edit.tsx:679) — an unscoped controller.validate() regression
+  // would block Next on step 1 for a required field that only exists on
+  // step 2, permanently stuck on step 1. Submit must still enforce it.
+  test("a required field on a later step never blocks Next on an earlier step, but blocks submit", async () => {
+    const requiredEmailEntity = {
+      fields: {
+        fullName: { type: "text", required: true },
+        email: { type: "text", required: true },
+      },
+    } as unknown as EntityDefinition;
+    const requiredEmailSchema: FeatureSchema = {
+      featureName: "demo",
+      entities: { profile: requiredEmailEntity },
+      screens: [wizardScreen],
+    };
+    const { container } = render(
+      <DispatcherProvider dispatcher={createMockDispatcher()}>
+        <KumikoScreen schema={requiredEmailSchema} qn="demo:screen:profile-edit" />
+      </DispatcherProvider>,
+    );
+
+    const fullNameInput = container.querySelector("#kumiko-edit-fullName");
+    await userEvent.type(fullNameInput as Element, "Ada Lovelace");
+    await userEvent.click(screen.getByTestId("render-edit-wizard-next"));
+
+    expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("2");
+
+    await userEvent.click(screen.getByTestId("render-edit-submit"));
+
+    expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("2");
+    expect(screen.getByTestId("field-email-errors")).toBeTruthy();
+  });
 });
 
 // fw#1966: the wizard chrome used to only show a "Step X of Y" counter —

@@ -69,6 +69,23 @@ describe("prospect:accept", () => {
     expect(accepted.data["name"]).toBe("Corrected Name");
   });
 
+  test("client-sent provenance fields in changes are ignored, not adopted", async () => {
+    const suggestionId = await seedSuggestion();
+
+    const accepted = await stack.http.writeOk<SaveContext>(
+      "prospects:write:prospect:accept",
+      {
+        suggestionId,
+        changes: { name: "X", source: "evil", acceptedBy: "user:999" },
+      },
+      admin,
+    );
+
+    expect(accepted.data["name"]).toBe("X");
+    expect(accepted.data["source"]).toBe(`suggestion:${suggestionId}`);
+    expect(accepted.data["acceptedBy"]).toBe(`user:${admin.id}`);
+  });
+
   test("flips the suggestion to accepted", async () => {
     const suggestionId = await seedSuggestion();
 

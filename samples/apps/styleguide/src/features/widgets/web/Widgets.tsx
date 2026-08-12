@@ -79,7 +79,12 @@ export function Widgets(): ReactNode {
           trend={t("widgets:catalog:remaining-debt-trend")}
         />
         <MiniStat label={t("widgets:catalog:interest-rate")} value={percent(3.1, locale)} />
-        <MiniStat label={t("widgets:catalog:rate")} value="890 €" tone="positive" emphasize />
+        <MiniStat
+          label={t("widgets:catalog:rate")}
+          value={euro(890, locale)}
+          tone="positive"
+          emphasize
+        />
       </div>
 
       <SectionCard

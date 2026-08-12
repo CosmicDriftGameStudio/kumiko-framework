@@ -665,10 +665,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Step transitions only — never per keystroke. Deliberately not awaited: a
   // failed draft save must not block the step change.
   //
-  // Create-mode, first step change: mints the draftId here (issue #1913)
-  // rather than at mount, so a form abandoned on step 0 never claims a
-  // draftId or writes a row at all. `draftKey`/`draftId` state won't
-  // reflect the mint until the next render, so the just-minted key is
+  // Create-mode, first draft save (step change OR a debounced patch() from
+  // controlled mode / extension sections, see patchAndScheduleDraftSave
+  // above — both call this on step 0 too): mints the draftId here (issue
+  // #1913) rather than at mount, so a form nobody ever interacted with
+  // never claims a draftId or writes a row. `draftKey`/`draftId` state
+  // won't reflect the mint until the next render, so the just-minted key is
   // computed inline instead of read from the memoized `draftKey`.
   function saveDraft(stepIndex: number): void {
     // skip: this screen does not persist a draft.

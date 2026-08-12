@@ -50,7 +50,6 @@ export default defineConfig({
     // erspart aber die 30s-Trace-Dumps bei kaputten Locators.
     actionTimeout: 5_000,
     navigationTimeout: 10_000,
-    viewport: { width: 1920, height: 1080 },
   },
 
   projects: [

@@ -1,7 +1,10 @@
 // API/Worker-Split Sample — integration test
 //
-// Proves the split topology against real Postgres + Redis by running the
-// two entrypoints in-process (same wiring the binaries use):
+// Proves the split topology against real Postgres + Redis at the
+// entrypoint level: `createApiEntrypoint`/`createWorkerEntrypoint` directly,
+// not `bin/api.ts`/`bin/worker.ts` (`runProdApp`/`runWorkerApp`) themselves —
+// notably, the write-bridge below is wired before `worker.start()`, while
+// `bin/worker.ts`'s `wireComponents` runs after the entrypoint is up.
 //
 //   1. API-only: the write lands and read_orders has its row (entity rows
 //      are written synchronously by the executor), but read_order_activity

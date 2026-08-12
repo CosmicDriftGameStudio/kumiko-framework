@@ -12,6 +12,7 @@ import {
   ValidationError,
   VersionConflictError,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { REQUIRED_FIELD_I18N_KEY } from "../app/form-schema";
 import { kumikoDefaultTranslations } from "../i18n-defaults";
 
 // Keys are read off LIVE error instances, not a hardcoded list — a copied list
@@ -68,5 +69,13 @@ describe("kumikoDefaultTranslations covers every error i18nKey", () => {
   test("dispatcher.errors.aborted has de+en default", () => {
     expect(de?.["dispatcher.errors.aborted"]).toBeTruthy();
     expect(en?.["dispatcher.errors.aborted"]).toBeTruthy();
+  });
+
+  // Client-emitted (form-schema.ts required-field presence check) — not
+  // thrown by an error class, applied as a params.i18nKey override on a zod
+  // issue instead; still rendered through this last-resort bundle.
+  test("form-schema's required-field i18nKey has de+en default", () => {
+    expect(de?.[REQUIRED_FIELD_I18N_KEY]).toBeTruthy();
+    expect(en?.[REQUIRED_FIELD_I18N_KEY]).toBeTruthy();
   });
 });
