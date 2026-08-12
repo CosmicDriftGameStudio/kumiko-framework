@@ -12,6 +12,15 @@ export type ListDraftsResult = {
   }[];
 };
 
+type DraftListItem = ListDraftsResult["drafts"][number];
+
+// Two saves landing in the same millisecond tie on savedAt — there's no
+// knowable "true" order between them, so `id` only buys a deterministic,
+// repeatable result, not chronological accuracy.
+export function byNewestFirst(a: DraftListItem, b: DraftListItem): number {
+  return b.savedAt.localeCompare(a.savedAt) || b.id.localeCompare(a.id);
+}
+
 // list — the fallback path for resuming a draft whose draftId the client
 // lost (new tab, cleared storage, another device): returns just enough to
 // pick one (id, draftKey, stepIndex, savedAt), never the blob's `values`.
@@ -34,7 +43,7 @@ export const listDraftsQuery = defineQueryHandler({
         stepIndex: row.draft.stepIndex,
         savedAt: row.draft.savedAt,
       }))
-      .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+      .sort(byNewestFirst);
     return { drafts };
   },
 });
