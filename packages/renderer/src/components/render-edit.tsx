@@ -177,6 +177,12 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  no way to force-disable an arbitrary registered component. Omitting
    *  this prop keeps unchanged behavior. */
   readonly disabled?: boolean;
+  /** Renders the fields without RenderEdit's own action bar (save, cancel,
+   *  delete, copy-link). For hosts that put those controls into their own
+   *  chrome — a drawer footer, a wizard shell — and drive the write through
+   *  `onControlsReady`'s `submit`. Omitting this prop keeps unchanged
+   *  behavior. */
+  readonly hideActions?: boolean;
 };
 
 export type RenderEditChangeState<TValues extends FormValues> = {
@@ -190,6 +196,12 @@ export type RenderEditControls<TValues extends FormValues> = {
   readonly patch: (partial: Partial<TValues>) => void;
   readonly validate: () => boolean;
   readonly getValues: () => TValues;
+  /** Runs the same pipeline the built-in save button runs: validation,
+   *  `customSubmit`/`writeCommand`, extension-section persistence, draft
+   *  discard, state rebase. Unlike the button it carries no unchanged-form
+   *  guard — a host showing a pre-filled proposal must be able to accept it
+   *  untouched. */
+  readonly submit: () => Promise<void>;
 };
 
 function toConditionValue<TValues extends FormValues, TCtx>(
@@ -312,6 +324,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onControlsReady,
     fields: fieldsFilter,
     disabled = false,
+    hideActions,
   } = props;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -475,6 +488,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // is defined — kept fresh where `currentStep` is computed below.
   const saveDraftRef = useRef(saveDraft);
   saveDraftRef.current = saveDraft;
+  // `handleSubmit` (defined below) is a fresh closure over this render's
+  // snapshot/extensionDirty, while the onControlsReady effect fires once per
+  // mount — the ref lets controls.submit() always reach the current one.
+  const handleSubmitRef = useRef<() => Promise<void>>(async () => {});
   const currentStepRef = useRef(0);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -507,6 +524,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       patch: patchAndScheduleDraftSave,
       validate: scopedValidate,
       getValues: () => controller.getSnapshot().values,
+      submit: () => handleSubmitRef.current(),
     });
     // controller is mount-lifetime-stable (see useForm's comment on its own
     // useMemo), same for patchAndScheduleDraftSave/scopedValidate (both
@@ -866,6 +884,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       setIsSubmitting(false);
     }
   }
+  handleSubmitRef.current = handleSubmit;
 
   // Sticky-top Action-Bar: Delete (links, destructive) + Cancel +
   // Save. Delete sitzt links abgesetzt damit die Click-Distanz zu
@@ -963,7 +982,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         onSubmit={() => void handleSubmit()}
         title={formTitle}
         {...(formSubtitle !== undefined && { subtitle: formSubtitle })}
-        actions={formActions}
+        {...(hideActions !== true && { actions: formActions })}
         testId="render-edit-form"
         stickyActions={isWizard}
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
