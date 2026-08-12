@@ -593,4 +593,42 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
     const field = asFields(vm.sections[0]).fields[0];
     expect(field?.imageVariant).toBeUndefined();
   });
+
+  test("capture is forwarded for an image field that declares it", () => {
+    const entity = {
+      fields: {
+        avatar: { type: "image", capture: "environment" },
+      },
+    } as unknown as EntityDefinition;
+
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["avatar"] }] }),
+      entity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.capture).toBe("environment");
+  });
+
+  test("capture is undefined for an image field without it", () => {
+    const entity = {
+      fields: {
+        avatar: { type: "image" },
+      },
+    } as unknown as EntityDefinition;
+
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["avatar"] }] }),
+      entity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.capture).toBeUndefined();
+  });
 });
