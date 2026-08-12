@@ -35,6 +35,7 @@ export {
   reverseTransactionHandler,
 } from "./handlers/reverse-transaction.write";
 export {
+  findReversedIds,
   type LedgerTxRow,
   mergeScheduleActuals,
   type ProjectedPeriod,
