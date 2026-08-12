@@ -1,3 +1,4 @@
+import type { VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key";
 import { parseRefTarget } from "../parse-ref-target";
 import type { EmbeddedFieldDef, EntityDefinition, FeatureDefinition } from "../types";
@@ -692,6 +693,35 @@ function isPositiveInt(value: number): boolean {
   return Number.isInteger(value) && value > 0;
 }
 
+function assertValidVariantSpec(name: string, spec: VariantSpec, where: string): void {
+  if (!VARIANT_NAME_PATTERN.test(name)) {
+    throw new Error(
+      `Image variant "${name}" ${where} must match ${VARIANT_NAME_PATTERN.source} — the name becomes part of a storage key and a URL segment.`,
+    );
+  }
+  if (spec.size !== undefined && spec.maxEdge !== undefined) {
+    throw new Error(`Image variant "${name}" ${where} sets both "size" and "maxEdge" — pick one.`);
+  }
+  if (
+    spec.size !== undefined &&
+    !(isPositiveInt(spec.size.width) && isPositiveInt(spec.size.height))
+  ) {
+    throw new Error(
+      `Image variant "${name}" ${where} has a non-positive-integer "size" (${spec.size.width}x${spec.size.height}).`,
+    );
+  }
+  if (spec.maxEdge !== undefined && !isPositiveInt(spec.maxEdge)) {
+    throw new Error(
+      `Image variant "${name}" ${where} has a non-positive-integer "maxEdge" (${spec.maxEdge}).`,
+    );
+  }
+  if (spec.quality !== undefined && !(isPositiveInt(spec.quality) && spec.quality <= 100)) {
+    throw new Error(
+      `Image variant "${name}" ${where} has "quality" ${spec.quality} — must be an integer in 1..100.`,
+    );
+  }
+}
+
 // A bad spec is only visible when someone finally requests that variant —
 // possibly months later, in production. Catch it at boot instead.
 export function validateImageVariants(feature: FeatureDefinition): void {
@@ -701,34 +731,7 @@ export function validateImageVariants(feature: FeatureDefinition): void {
       if (field.variants === undefined) continue;
       const where = `on "${entityName}.${fieldName}" in feature "${feature.name}"`;
       for (const [name, spec] of Object.entries(field.variants)) {
-        if (!VARIANT_NAME_PATTERN.test(name)) {
-          throw new Error(
-            `Image variant "${name}" ${where} must match ${VARIANT_NAME_PATTERN.source} — the name becomes part of a storage key and a URL segment.`,
-          );
-        }
-        if (spec.size !== undefined && spec.maxEdge !== undefined) {
-          throw new Error(
-            `Image variant "${name}" ${where} sets both "size" and "maxEdge" — pick one.`,
-          );
-        }
-        if (
-          spec.size !== undefined &&
-          !(isPositiveInt(spec.size.width) && isPositiveInt(spec.size.height))
-        ) {
-          throw new Error(
-            `Image variant "${name}" ${where} has a non-positive-integer "size" (${spec.size.width}x${spec.size.height}).`,
-          );
-        }
-        if (spec.maxEdge !== undefined && !isPositiveInt(spec.maxEdge)) {
-          throw new Error(
-            `Image variant "${name}" ${where} has a non-positive-integer "maxEdge" (${spec.maxEdge}).`,
-          );
-        }
-        if (spec.quality !== undefined && !(isPositiveInt(spec.quality) && spec.quality <= 100)) {
-          throw new Error(
-            `Image variant "${name}" ${where} has "quality" ${spec.quality} — must be an integer in 1..100.`,
-          );
-        }
+        assertValidVariantSpec(name, spec, where);
       }
     }
   }
