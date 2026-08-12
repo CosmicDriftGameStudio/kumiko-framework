@@ -57,18 +57,15 @@ async function releaseRowFileRefs(
     return;
   }
 
+  // Only storageKeys with a real file_refs row owned by this row's draft
+  // owner are releasable — `draft.values` is free-form JSON the owning user
+  // controls, so an unverified key could target someone else's file (see
+  // db/queries/owned-file-refs.ts). Not wrapped in try/catch: a query
+  // failure here (pool exhaustion, missing table) is a real error, not the
+  // "no provider resolvable" case below — let it propagate so the job retries.
+  const ownedKeys = await filterOwnedStorageKeys(db, row.tenantId, row.ownerId, keys, row.insertedAt);
+
   try {
-    // Only storageKeys with a real file_refs row owned by this row's
-    // draft owner are releasable — `draft.values` is free-form JSON the
-    // owning user controls, so an unverified key could target someone
-    // else's file (see db/queries/owned-file-refs.ts).
-    const ownedKeys = await filterOwnedStorageKeys(
-      db,
-      row.tenantId,
-      row.ownerId,
-      keys,
-      row.insertedAt,
-    );
     const provider = await fileProviderResolver(row.tenantId);
     await releaseDraftFileRefs(ownedKeys, (key) => provider.delete(key), log);
   } catch (err) {

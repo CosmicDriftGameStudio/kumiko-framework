@@ -45,6 +45,32 @@ function toAcceptAttr(accept?: readonly string[]): string | undefined {
   return accept.map((a) => (a.startsWith(".") || a.includes("/") ? a : `.${a}`)).join(",");
 }
 
+// `accept` on the native <input> only filters the file-picker dialog — a
+// drag&drop drop is never routed through it, so any file type lands in
+// `onUpload` regardless of what `accept` promises. Same matching rules as
+// the native attribute: MIME type (with an optional "type/*" wildcard) or
+// file extension.
+function matchesAccept(file: File, accept?: readonly string[]): boolean {
+  if (accept === undefined || accept.length === 0) return true;
+  const name = file.name.toLowerCase();
+  const type = file.type.toLowerCase();
+  return accept.some((raw) => {
+    const a = raw.toLowerCase();
+    if (a.includes("/")) return a.endsWith("/*") ? type.startsWith(a.slice(0, -1)) : type === a;
+    return name.endsWith(a.startsWith(".") ? a : `.${a}`);
+  });
+}
+
+function partitionByAccept(
+  files: readonly File[],
+  accept: readonly string[] | undefined,
+): readonly [accepted: readonly File[], rejected: readonly File[]] {
+  const accepted: File[] = [];
+  const rejected: File[] = [];
+  for (const file of files) (matchesAccept(file, accept) ? accepted : rejected).push(file);
+  return [accepted, rejected];
+}
+
 /** Drop zone + multi-file picker with a per-file status row (uploading/done/
  *  error). For screens that accept several files and upload them
  *  independently — unlike `FileField` (single file, FileRef value inside a
@@ -72,7 +98,7 @@ export function UploadZone({
       await onUpload(await resizeImageBeforeUpload(file));
       setRows((prev) => prev.map((row) => (row.id === rowId ? { ...row, status: "done" } : row)));
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "upload_failed";
+      const message = cause instanceof Error ? cause.message : t("kumiko.widget.upload.error");
       setRows((prev) =>
         prev.map((row) => (row.id === rowId ? { ...row, status: "error", error: message } : row)),
       );
@@ -82,7 +108,19 @@ export function UploadZone({
   async function uploadFiles(files: FileList | null): Promise<void> {
     if (files === null || files.length === 0) return;
     const picked = multiple ? Array.from(files) : files[0] !== undefined ? [files[0]] : [];
-    await Promise.all(picked.map((file) => uploadOne(file)));
+    const [accepted, rejected] = partitionByAccept(picked, accept);
+    for (const file of rejected) {
+      setRows((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          fileName: file.name,
+          status: "error",
+          error: t("kumiko.widget.upload.rejected-type"),
+        },
+      ]);
+    }
+    await Promise.all(accepted.map((file) => uploadOne(file)));
     // Reset so re-picking the SAME file still fires change — the browser
     // suppresses the event otherwise.
     if (inputRef.current) inputRef.current.value = "";

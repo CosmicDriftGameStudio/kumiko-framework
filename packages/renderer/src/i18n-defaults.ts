@@ -57,6 +57,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.embedded-list.move-down": "Nach unten verschieben",
     "kumiko.field.embedded-list.empty": "Noch keine Zeilen.",
     "kumiko.field.embedded-list.empty-cta": "Erste Zeile hinzufügen",
+    "kumiko.field.embedded-list.paste-rows-truncated":
+      "{count} eingefügte Zeile(n) wurden verworfen (maximale Zeilenzahl erreicht).",
+    "kumiko.field.embedded-list.paste-cells-unmatched":
+      "{count} Zelle(n) hatten keine passende Option und wurden nicht geändert.",
 
     // List — DataTable Toolbar, Empty-State, Search.
     "kumiko.list.search-placeholder": "Suchen…",
@@ -83,6 +87,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.upload.uploading": "Wird hochgeladen…",
     "kumiko.widget.upload.done": "Hochgeladen",
     "kumiko.widget.upload.error": "Fehlgeschlagen",
+    "kumiko.widget.upload.rejected-type": "Dateityp nicht erlaubt",
 
     // Nav — Sidebar Tree (Toggle-aria-Labels).
     "kumiko.nav.expand": "Aufklappen",
@@ -234,6 +239,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.embedded-list.move-down": "Move down",
     "kumiko.field.embedded-list.empty": "No rows yet.",
     "kumiko.field.embedded-list.empty-cta": "Add first row",
+    "kumiko.field.embedded-list.paste-rows-truncated":
+      "{count} pasted row(s) were dropped (max row count reached).",
+    "kumiko.field.embedded-list.paste-cells-unmatched":
+      "{count} cell(s) had no matching option and were left unchanged.",
 
     "kumiko.list.search-placeholder": "Search…",
     "kumiko.list.empty.title": "No entries yet.",
@@ -254,6 +263,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.upload.uploading": "Uploading…",
     "kumiko.widget.upload.done": "Uploaded",
     "kumiko.widget.upload.error": "Failed",
+    "kumiko.widget.upload.rejected-type": "File type not allowed",
 
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",

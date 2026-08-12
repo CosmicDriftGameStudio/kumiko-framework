@@ -9,7 +9,7 @@ import {
   roundDerivedCellValue,
   sumEmbeddedListColumn,
 } from "@cosmicdrift/kumiko-headless";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { toKebab } from "../app/qn";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits";
 import { useQuery } from "../hooks/use-query";
@@ -104,6 +104,10 @@ export function EmbeddedListField({
 }: EmbeddedListFieldProps): ReactNode {
   const { EmbeddedListInput } = usePrimitives();
   const t = useTranslation();
+  const [pasteWarning, setPasteWarning] = useState<{
+    readonly droppedRows: number;
+    readonly unmatchedCells: number;
+  } | null>(null);
 
   const cells = field.embeddedListCells ?? [];
   const rows = Array.isArray(field.value) ? (field.value as readonly EmbeddedRow[]) : [];
@@ -163,6 +167,32 @@ export function EmbeddedListField({
   });
 
   const { listIssues, rowIssues, cellIssues } = groupEmbeddedListIssues(allIssues, field.field);
+  const combinedListIssues: readonly FieldIssue[] =
+    pasteWarning === null
+      ? listIssues
+      : [
+          ...listIssues,
+          ...(pasteWarning.droppedRows > 0
+            ? [
+                {
+                  path: field.field,
+                  code: "paste-rows-truncated",
+                  i18nKey: "kumiko.field.embedded-list.paste-rows-truncated",
+                  params: { count: pasteWarning.droppedRows },
+                },
+              ]
+            : []),
+          ...(pasteWarning.unmatchedCells > 0
+            ? [
+                {
+                  path: field.field,
+                  code: "paste-cells-unmatched",
+                  i18nKey: "kumiko.field.embedded-list.paste-cells-unmatched",
+                  params: { count: pasteWarning.unmatchedCells },
+                },
+              ]
+            : []),
+        ];
 
   function replaceRow(rowIndex: number, updater: (row: EmbeddedRow) => EmbeddedRow): void {
     const nextRows = rows.map((row, i) => (i === rowIndex ? updater(row) : row));
@@ -208,11 +238,16 @@ export function EmbeddedListField({
     const maxItems = field.embeddedListMaxItems;
     const nextRows = [...rows];
     const touchedIndices = new Set<number>();
+    let droppedRows = 0;
+    let unmatchedCells = 0;
 
     grid.forEach((gridRow, gridRowOffset) => {
       const targetRowIndex = rowIndex + gridRowOffset;
       if (targetRowIndex >= nextRows.length) {
-        if (maxItems !== undefined && nextRows.length >= maxItems) return;
+        if (maxItems !== undefined && nextRows.length >= maxItems) {
+          droppedRows += 1;
+          return;
+        }
         nextRows.push({});
       }
       const targetRow = nextRows[targetRowIndex];
@@ -221,11 +256,24 @@ export function EmbeddedListField({
       gridRow.forEach((text, gridColOffset) => {
         const column = columns[columnIndex + gridColOffset];
         if (column === undefined) return;
-        updatedRow = { ...updatedRow, [column.field]: coerceCellValue(column, text) };
+        const coerced = coerceCellValue(column, text);
+        const isUnmatchedChoice =
+          (column.type === "select" || column.type === "reference") &&
+          coerced === undefined &&
+          text.trim() !== "";
+        if (isUnmatchedChoice) {
+          unmatchedCells += 1;
+          return;
+        }
+        updatedRow = { ...updatedRow, [column.field]: coerced };
       });
       nextRows[targetRowIndex] = updatedRow;
       touchedIndices.add(targetRowIndex);
     });
+
+    setPasteWarning(
+      droppedRows > 0 || unmatchedCells > 0 ? { droppedRows, unmatchedCells } : null,
+    );
 
     const recomputed = nextRows.map((row, i) =>
       touchedIndices.has(i) ? withRecomputedDerived(row, derived, cells) : row,
@@ -243,7 +291,7 @@ export function EmbeddedListField({
       disabled={field.readOnly}
       minItems={field.embeddedListMinItems}
       maxItems={field.embeddedListMaxItems}
-      listIssues={listIssues}
+      listIssues={combinedListIssues}
       rowIssues={rowIssues}
       cellIssues={cellIssues}
       onCellChange={handleCellChange}

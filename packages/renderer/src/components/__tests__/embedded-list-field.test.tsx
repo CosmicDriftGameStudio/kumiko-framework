@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { Dispatcher, EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
@@ -324,6 +324,53 @@ describe("EmbeddedListField — paste coercion", () => {
     ]);
     const result = lastValue as readonly Record<string, unknown>[];
     expect(result.length).toBe(2);
+  });
+
+  test("paste beyond maxItems surfaces a listIssue with the dropped-row count", async () => {
+    const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
+    renderEmbeddedListField(invoiceLinesField({ value: rows, embeddedListMaxItems: 2 }), () => {});
+    act(() => {
+      captured?.onPasteCells?.(0, 2, [
+        ["1", "100"],
+        ["2", "200"],
+        ["3", "300"],
+      ]);
+    });
+    await waitFor(() => {
+      expect(captured?.listIssues).toEqual([
+        {
+          path: "lines",
+          code: "paste-rows-truncated",
+          i18nKey: "kumiko.field.embedded-list.paste-rows-truncated",
+          params: { count: 1 },
+        },
+      ]);
+    });
+  });
+
+  test("a select paste value with no matching option leaves the cell unchanged and surfaces a listIssue", async () => {
+    const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
+    let lastValue: unknown;
+    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+      lastValue = v;
+    });
+    // Columns in order: product, unit, quantity, unitPrice, amount. Column
+    // index 1 = "unit" (select, options ["pcs","hours","kg"]) — "not-a-unit"
+    // matches none of them.
+    act(() => {
+      captured?.onPasteCells?.(0, 1, [["not-a-unit"]]);
+    });
+    expect(lastValue).toEqual([rows[0]]);
+    await waitFor(() => {
+      expect(captured?.listIssues).toEqual([
+        {
+          path: "lines",
+          code: "paste-cells-unmatched",
+          i18nKey: "kumiko.field.embedded-list.paste-cells-unmatched",
+          params: { count: 1 },
+        },
+      ]);
+    });
   });
 });
 

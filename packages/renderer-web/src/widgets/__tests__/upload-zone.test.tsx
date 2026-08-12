@@ -70,6 +70,57 @@ describe("UploadZone", () => {
     expect(onUpload).toHaveBeenCalledWith(file);
   });
 
+  test("a dropped file that doesn't match `accept` is rejected, not passed to onUpload", async () => {
+    const onUpload = mock(async () => {});
+    render(
+      <UploadZone
+        title="Datei hochladen"
+        onUpload={onUpload}
+        accept={["image/*"]}
+        testId="zone"
+      />,
+    );
+    const file = new File(["hi"], "dropped.pdf", { type: "application/pdf" });
+    fireEvent.drop(screen.getByTestId("zone-dropzone"), { dataTransfer: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByText("dropped.pdf")).toBeTruthy());
+    expect(screen.getByText("File type not allowed")).toBeTruthy();
+    expect(onUpload).not.toHaveBeenCalled();
+  });
+
+  test("a dropped file that matches `accept` still uploads normally", async () => {
+    const onUpload = mock(async () => {});
+    render(
+      <UploadZone
+        title="Datei hochladen"
+        onUpload={onUpload}
+        accept={["image/*"]}
+        testId="zone"
+      />,
+    );
+    const file = new File(["hi"], "photo.png", { type: "image/png" });
+    fireEvent.drop(screen.getByTestId("zone-dropzone"), { dataTransfer: { files: [file] } });
+
+    await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(1));
+    expect(onUpload).toHaveBeenCalledWith(file);
+  });
+
+  test("a non-Error throw from onUpload shows the translated fallback, not the raw token", async () => {
+    const onUpload = mock(async () => {
+      // biome-ignore lint/style/useThrowOnlyError: proves the non-Error branch of the catch specifically.
+      throw "upload_failed";
+    });
+    render(<UploadZone title="Datei hochladen" onUpload={onUpload} testId="zone" />);
+    const file = new File(["hi"], "huge.pdf", { type: "application/pdf" });
+    pick(screen.getByTestId("zone-input"), [file]);
+
+    // Both the sr-only status label and the visible error line now read
+    // "Failed" (same i18n key) — assert at least one is present rather than
+    // requiring a single match.
+    await waitFor(() => expect(screen.getAllByText("Failed").length).toBeGreaterThan(0));
+    expect(screen.queryByText("upload_failed")).toBeNull();
+  });
+
   test("disabled unterdrückt den Drop", () => {
     const onUpload = mock(async () => {});
     render(<UploadZone title="Datei hochladen" onUpload={onUpload} disabled testId="zone" />);

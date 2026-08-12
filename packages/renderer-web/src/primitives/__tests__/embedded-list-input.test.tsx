@@ -645,6 +645,34 @@ describe("EmbeddedListInput — currency (#1839)", () => {
   });
 });
 
+describe("EmbeddedListInput — totals follow the app locale, not the browser locale", () => {
+  test("a de-DE app locale formats both the money total and a plain number total with '.' thousands / ',' decimal", () => {
+    const rows = [{ description: "A", quantity: 1234.5, amount: 150099 }];
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "de-DE" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <EmbeddedListInput
+          {...baseProps({
+            rows,
+            currency: "EUR",
+            totals: [
+              { field: "amount", label: "Sum", value: 150099 },
+              { field: "quantity", label: "Qty total", value: 1234.5 },
+            ],
+          })}
+        />
+      </LocaleProvider>,
+    );
+    const totals = within(screen.getByTestId("lines-desktop")).getByTestId("lines-totals");
+    // de-DE: money "1.500,99 €", plain number "1.234,5" — both use "." as
+    // the thousands separator and "," as the decimal separator.
+    expect(totals.textContent).toContain("1.500,99");
+    expect(totals.textContent).toContain("1.234,5");
+  });
+});
+
 describe("EmbeddedListInput — desktop table width (solon#107)", () => {
   test("the table keeps min-w-max so columns don't shrink below their width classes", () => {
     const rows = [{ description: "A", quantity: 1, amount: 100 }];
