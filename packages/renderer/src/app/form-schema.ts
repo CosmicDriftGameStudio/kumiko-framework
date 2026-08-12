@@ -3,7 +3,7 @@ import type {
   EntityEditScreenDefinition,
   FieldDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { evalFieldCondition, NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-framework/ui-types";
 import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
 import { z } from "zod";
 import { layoutEditFields } from "./layout-fields";
@@ -16,23 +16,13 @@ function isPresent(value: unknown): boolean {
   return true;
 }
 
-// Field types without a bound, editable widget on the auto-wired
-// entityEdit path (render-field.tsx renders a read-only banner instead) —
-// a presence error on one of them would be unresolvable by the user.
-// #1925 gave multiSelect/decimal/bigInt/tz/longText real widgets, so they
-// dropped out of this set; files/images stay out of scope (deferred, no
-// multi-upload widget yet) alongside jsonb/embedded (structural types with
-// no editor at all). A statically-`required: true` field of one of these
-// types is caught loudly at boot — validateNoWidgetRequiredField in
-// packages/framework/src/engine/boot-validator/screens.ts, which mirrors
-// this set (framework can't import renderer, so it can't import this
-// constant directly — keep both in sync).
-const FIELD_TYPES_WITHOUT_WIDGET: ReadonlySet<FieldDefinition["type"]> = new Set([
-  "jsonb",
-  "embedded",
-  "files",
-  "images",
-]);
+// A statically-`required: true` field with no bound widget is caught
+// loudly at boot — validateNoWidgetRequiredField in
+// packages/framework/src/engine/boot-validator/screens.ts, sharing
+// NO_WIDGET_FIELD_TYPES with the presence check below.
+function isEmbeddedListField(field: FieldDefinition): boolean {
+  return field.type === "embedded" && field.multiple === true;
+}
 
 // Renders raw to the user without a de+en default in i18n-defaults.ts.
 export const REQUIRED_FIELD_I18N_KEY = "kumiko.validation.required";
@@ -86,7 +76,10 @@ export function buildFormSchema(
         const isRequired =
           spec.required === undefined ? entityRequired : evalFieldCondition(spec.required, record);
         if (!isRequired) continue;
-        if (FIELD_TYPES_WITHOUT_WIDGET.has(field.type)) continue;
+        // Embedded LIST fields get their own EmbeddedListField grid widget
+        // (#1838) — they're fillable, so NO_WIDGET_FIELD_TYPES's "embedded"
+        // entry must not exempt them from the presence check below.
+        if (NO_WIDGET_FIELD_TYPES.includes(field.type) && !isEmbeddedListField(field)) continue;
         if (isPresent(record[spec.field])) continue;
         ctx.addIssue({
           code: "custom",

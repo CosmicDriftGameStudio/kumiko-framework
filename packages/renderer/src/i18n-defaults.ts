@@ -89,6 +89,11 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     // Widgets — StepBar screen-reader text for completed steps whose number is visually replaced by a checkmark.
     "kumiko.widget.step-bar.done": "Erledigt",
 
+    // Widgets — Drawer resize handle + maximize toggle aria-labels.
+    "kumiko.widget.drawer.restore": "Drawer-Breite zurücksetzen",
+    "kumiko.widget.drawer.maximize": "Drawer maximieren",
+    "kumiko.widget.drawer.resize": "Drawer-Größe ändern",
+
     // Nav — Sidebar Tree (Toggle-aria-Labels).
     "kumiko.nav.expand": "Aufklappen",
     "kumiko.nav.collapse": "Zuklappen",
@@ -268,6 +273,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.upload.rejected-type": "File type not allowed",
 
     "kumiko.widget.step-bar.done": "Done",
+
+    "kumiko.widget.drawer.restore": "Restore drawer width",
+    "kumiko.widget.drawer.maximize": "Maximize drawer width",
+    "kumiko.widget.drawer.resize": "Resize drawer",
 
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",

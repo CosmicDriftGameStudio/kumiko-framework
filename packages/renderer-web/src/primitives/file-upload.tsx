@@ -6,6 +6,7 @@
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
+import { toAcceptAttr } from "../lib/accept-attr";
 import { resizeImageBeforeUpload } from "../lib/resize-image";
 import { Button as UiButton } from "../ui/button";
 
@@ -21,12 +22,6 @@ export type FileUploadInputProps = {
   readonly imageVariant?: string;
   readonly capture?: "environment" | "user";
 };
-
-// "jpg" → ".jpg", "image/png" bleibt. Leere Liste → kein accept-Attribut.
-function toAcceptAttr(accept?: readonly string[]): string | undefined {
-  if (accept === undefined || accept.length === 0) return undefined;
-  return accept.map((a) => (a.startsWith(".") || a.includes("/") ? a : `.${a}`)).join(",");
-}
 
 export function FileUploadInput({
   kind,

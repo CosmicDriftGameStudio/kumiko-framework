@@ -9,11 +9,16 @@ describe("resizeImageBeforeUpload", () => {
   });
 
   test("fehlt OffscreenCanvas, bleibt das Bild unverändert", async () => {
+    const originalOffscreenCanvas = globalThis.OffscreenCanvas;
     // @ts-expect-error simulate a browser without OffscreenCanvas support
     globalThis.OffscreenCanvas = undefined;
-    const file = new File(["hi"], "photo.jpg", { type: "image/jpeg" });
-    const result = await resizeImageBeforeUpload(file);
-    expect(result).toBe(file);
+    try {
+      const file = new File(["hi"], "photo.jpg", { type: "image/jpeg" });
+      const result = await resizeImageBeforeUpload(file);
+      expect(result).toBe(file);
+    } finally {
+      globalThis.OffscreenCanvas = originalOffscreenCanvas;
+    }
   });
 
   test("lässt SVGs unverändert (Vektor würde beim Re-Encode zerstört)", async () => {

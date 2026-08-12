@@ -10,7 +10,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { qn, type TenantId, toKebab } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
@@ -30,7 +30,7 @@ import { ConfigHandlers } from "../../config/constants";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
-import { FormDraftHandlers } from "../constants";
+import { FORM_DRAFT_FEATURE_NAME, FormDraftHandlers } from "../constants";
 import { formDraftEntity } from "../entity";
 import { formDraftFeature } from "../feature";
 import { FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY } from "../handlers/cleanup.job";
@@ -164,6 +164,18 @@ async function dispatchCleanup(): Promise<void> {
 }
 
 describe("form-draft cleanup job", () => {
+  // FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY (cleanup.job.ts) is a hardcoded
+  // literal that must match the qualified name r.config({ keys: {
+  // retentionDays: ... } }) derives internally in feature.ts — nothing
+  // else ties the two together, so a rename of the `retentionDays` config
+  // key there would silently desync them. This recomputes the derivation
+  // and fails loudly if that ever happens.
+  test("FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY matches the qualified name feature.ts derives for retentionDays", () => {
+    expect(FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY).toBe(
+      qn(toKebab(FORM_DRAFT_FEATURE_NAME), "config", toKebab("retentionDays")),
+    );
+  });
+
   test("deletes a draft older than the default retention window, leaves a fresh one alone", async () => {
     await saveDraft("wizard:old");
     await backdate("wizard:old", 31);

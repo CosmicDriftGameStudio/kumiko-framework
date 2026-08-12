@@ -653,6 +653,23 @@ export type FieldDefinition =
 // `maxSize` and `accept`, which is what upload validation cares about.
 export type AnyFileFieldDef = FileFieldDef | ImageFieldDef | FilesFieldDef | ImagesFieldDef;
 
+// Field types with no bound, editable widget on the auto-wired entityEdit
+// path (render-field.tsx renders a read-only banner instead) — shared by
+// the boot validator (packages/framework/src/engine/boot-validator/screens.ts)
+// and the client-side required-field check (packages/renderer/src/app/form-schema.ts).
+// Embedded LIST fields (`multiple: true`) are the one exception — they get
+// their own EmbeddedListField grid widget (#1838) — callers must check that
+// separately, this array alone doesn't distinguish plain embedded from embedded lists.
+// A plain array, not a Set: kumiko-types stays free of module-scope runtime
+// identity (guard-types-class-free.test.ts) since a consumer may resolve two
+// copies of this package.
+export const NO_WIDGET_FIELD_TYPES: readonly FieldDefinition["type"][] = [
+  "jsonb",
+  "embedded",
+  "files",
+  "images",
+];
+
 // --- Derived (computed) fields ---
 //
 // A derived field is read-time only: its value is computed from the stored row
