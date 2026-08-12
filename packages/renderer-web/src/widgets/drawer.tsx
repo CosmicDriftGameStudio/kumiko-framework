@@ -20,10 +20,11 @@ export type DrawerProps = {
   readonly children: ReactNode;
   readonly testId?: string;
   /** Opt-in drag-to-resize + maximize toggle (left/right sides only). */
-  readonly resizable?: boolean;
-  readonly defaultWidthPx?: number;
-  readonly minWidthPx?: number;
-  readonly maxWidthPx?: number;
+  readonly resize?: {
+    readonly defaultWidthPx?: number;
+    readonly minWidthPx?: number;
+    readonly maxWidthPx?: number;
+  };
 };
 
 const DEFAULT_WIDTH_PX = 420;
@@ -65,12 +66,12 @@ export function Drawer({
   footer,
   children,
   testId,
-  resizable = false,
-  defaultWidthPx = DEFAULT_WIDTH_PX,
-  minWidthPx = MIN_WIDTH_PX,
-  maxWidthPx = MAX_WIDTH_PX,
+  resize,
 }: DrawerProps): ReactNode {
-  const canResize = resizable && (side === "left" || side === "right");
+  const canResize = resize !== undefined && (side === "left" || side === "right");
+  const defaultWidthPx = resize?.defaultWidthPx ?? DEFAULT_WIDTH_PX;
+  const minWidthPx = resize?.minWidthPx ?? MIN_WIDTH_PX;
+  const maxWidthPx = resize?.maxWidthPx ?? MAX_WIDTH_PX;
   const [width, setWidth] = useState(defaultWidthPx);
   const [maximized, setMaximized] = useState(false);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);

@@ -1,6 +1,66 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
+// mock.module replaces imports for all consumers — static imports before
+// mock.module still see the mocked version because Bun intercepts at the
+// loader level (same pattern as editor-read-only.test.tsx).
+import { useShellUser } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import type { TreeNode } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  CONTENT_EDITOR_ELEMENT_ID,
+  type ContentEditorComponent,
+  ContentEditorsProvider,
+  createStaticLocaleResolver,
+  LocaleProvider,
+  PrimitivesProvider,
+} from "@cosmicdrift/kumiko-renderer";
+import { defaultPrimitives, PlainContentEditor } from "@cosmicdrift/kumiko-renderer-web";
+import { render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { textBlocksClient } from "../client-plugin";
+import { defaultTranslations } from "../i18n";
+
+mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () => ({
+  useShellUser: mock(),
+}));
+
+const actual_renderer = await import("@cosmicdrift/kumiko-renderer");
+mock.module("@cosmicdrift/kumiko-renderer", () => ({
+  ...actual_renderer,
+  useDispatcher: mock(() => ({ write: mock(), query: mock() })),
+  useQuery: mock(() => ({
+    data: {
+      slug: "reminder",
+      locale: "de",
+      title: "Reminder",
+      content: "Hi",
+      contentFormat: "plain",
+      folder: null,
+    },
+    loading: false,
+    error: null,
+    refetch: mock(),
+  })),
+  useAppFeatures: mock(() => [
+    {
+      featureName: "mail",
+      contentCollections: [
+        {
+          id: "prompts",
+          kind: "ai-prompt",
+          contentFormat: "plain",
+          variableSchema: { customerName: "Jane" },
+          nav: { label: "mail:nav.prompts" },
+        },
+        {
+          id: "richDocs",
+          kind: "mail-html",
+          contentFormat: "rich",
+          variableSchema: {},
+          nav: { label: "mail:nav.richDocs" },
+        },
+      ],
+    },
+  ]),
+}));
 
 // Covers the three new migration paths (advisor gap): navId attach + SSE
 // entities, no-leak without navId (conditional spread), and the unwrap (the
@@ -190,5 +250,85 @@ describe("textBlocksClient — content collections", () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(sentType).toBe("template-resolver:query:by-tenant");
+  });
+});
+
+describe("textBlocksClient — plain contentFormat editor wiring", () => {
+  const localeResolver = createStaticLocaleResolver({ locale: "de" });
+
+  function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
+    return (
+      <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
+        <PrimitivesProvider value={defaultPrimitives}>
+          <ContentEditorsProvider value={textBlocksClient().contentEditors ?? {}}>
+            {children}
+          </ContentEditorsProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
+    );
+  }
+
+  test("contentEditors.plain is registered as PlainContentEditor", () => {
+    expect(textBlocksClient().contentEditors?.["plain"]).toBe(PlainContentEditor);
+  });
+
+  // Deleting the registry line would leave useContentEditor("markdown")
+  // silently falling back to TextareaContentEditor — chips gone, suite green.
+  test("contentEditors.markdown is registered as PlainContentEditor", () => {
+    expect(textBlocksClient().contentEditors?.["markdown"]).toBe(PlainContentEditor);
+  });
+
+  test("a collection's variableSchema renders as chip placeholders on its plain editor", () => {
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
+    const Editor = textBlocksClient().resolvers?.["template-resolver:edit"];
+    if (Editor === undefined) throw new Error("Editor not registered");
+
+    const target = {
+      featureId: "template-resolver",
+      action: "edit",
+      args: { slug: "reminder", locale: "de", collectionId: "prompts" },
+    } as const;
+    render(<Editor target={target} onClose={() => {}} />, { wrapper: Wrapper });
+
+    // A typo in the registry key or a field rename on contentCollections
+    // silently falls back to variables={[]} — no chip renders, no red test.
+    expect(screen.getByText("{{customerName}}")).toBeTruthy();
+  });
+});
+
+describe("textBlocksClient — findContentFormat resolves collectionId to the registered editor", () => {
+  const localeResolver = createStaticLocaleResolver({ locale: "de" });
+  const RichStub: ContentEditorComponent = () => <div data-testid="rich-stub-editor" />;
+
+  function RichStubWrapper({ children }: { readonly children: ReactNode }): ReactNode {
+    return (
+      <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
+        <PrimitivesProvider value={defaultPrimitives}>
+          <ContentEditorsProvider value={{ rich: RichStub }}>{children}</ContentEditorsProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
+    );
+  }
+
+  test("a collection declared with contentFormat 'rich' renders the registered rich editor, not the textarea fallback", () => {
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
+    const Editor = textBlocksClient().resolvers?.["template-resolver:edit"];
+    if (Editor === undefined) throw new Error("Editor not registered");
+
+    const target = {
+      featureId: "template-resolver",
+      action: "edit",
+      args: { slug: "reminder", locale: "de", collectionId: "richDocs" },
+    } as const;
+    render(<Editor target={target} onClose={() => {}} />, { wrapper: RichStubWrapper });
+
+    // A broken collectionId → contentFormat mapping (wrong field name,
+    // array-vs-record drift on the schema) resolves contentFormat to
+    // undefined, and useContentEditor's own fallback silently swaps in the
+    // plain textarea instead — no red test without this assertion.
+    expect(screen.getByTestId("rich-stub-editor")).toBeTruthy();
+    expect(document.getElementById(CONTENT_EDITOR_ELEMENT_ID)).toBeNull();
   });
 });

@@ -66,8 +66,13 @@ const workerWriteFeature = defineFeature("workerWrite", (r) => {
 // The job-runner is built BEFORE the server, so it used to capture the raw
 // caller context — without the per-tenant file-provider resolver buildServer
 // wires onto it. An event-triggered job reaching for ctx.files then died in
-// the worker while the identical code worked on the request path.
-const jobSawFileResolver: string[] = [];
+// the worker while the identical code worked on the request path. Recording
+// `typeof ctx.files?.ref` (not the private `_fileProviderResolver` wire
+// field) pins the observable symptom: a usable ctx.files handle. `ref()`
+// itself stays lazy (file-handle.ts) — it never calls the resolver, which
+// this feature's provider intentionally throws in, so the assertion below
+// doesn't need a working provider to be meaningful.
+const jobSawFilesRef: string[] = [];
 
 const fileJobFeature = defineFeature("fileJob", (r) => {
   const requested = r.defineEvent("bytes-requested", z.object({ storageKey: z.string() }), {
@@ -84,7 +89,7 @@ const fileJobFeature = defineFeature("fileJob", (r) => {
     "read-bytes",
     { trigger: { on: requested.name }, runIn: "worker" },
     async (_payload, ctx) => {
-      jobSawFileResolver.push(typeof ctx._fileProviderResolver);
+      jobSawFilesRef.push(typeof ctx.files?.ref);
     },
   );
   // Worker mode refuses to boot without a consumer to drain.
@@ -176,7 +181,7 @@ describe("entrypoint factories", () => {
       queueNamePrefix: uniquePrefix("split-filejob"),
     });
 
-    jobSawFileResolver.length = 0;
+    jobSawFilesRef.length = 0;
     await worker.start();
     try {
       await worker.jobRunner.handleEvent(
@@ -184,8 +189,8 @@ describe("entrypoint factories", () => {
         { storageKey: "some/key.pdf" },
         TestUsers.admin,
       );
-      await waitForCondition(() => jobSawFileResolver.length > 0);
-      expect(jobSawFileResolver[0]).toBe("function");
+      await waitForCondition(() => jobSawFilesRef.length > 0);
+      expect(jobSawFilesRef[0]).toBe("function");
     } finally {
       await worker.stop();
     }
@@ -231,6 +236,32 @@ describe("entrypoint factories", () => {
       await waitForCondition(() => consumedNotes.includes("written from the worker"));
     } finally {
       await worker.stop();
+    }
+  });
+
+  test("All-in-one job-context also carries ctx.files, same fixture as the worker", async () => {
+    const registry = createRegistry([fileJobFeature]);
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const entry = createAllInOneEntrypoint({
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl,
+      queueNamePrefix: uniquePrefix("all-filejob"),
+    });
+
+    jobSawFilesRef.length = 0;
+    await entry.start();
+    try {
+      await entry.jobRunner.handleEvent(
+        "file-job:event:bytes-requested",
+        { storageKey: "some/key.pdf" },
+        TestUsers.admin,
+      );
+      await waitForCondition(() => jobSawFilesRef.length > 0);
+      expect(jobSawFilesRef[0]).toBe("function");
+    } finally {
+      await entry.stop();
     }
   });
 

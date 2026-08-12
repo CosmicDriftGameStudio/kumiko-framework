@@ -14,6 +14,7 @@ import type {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { NavTarget } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
+import userEvent from "@testing-library/user-event";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
 
 const productEntity: EntityDefinition = {
@@ -162,5 +163,115 @@ describe("entityEdit redirect (#1942)", () => {
     fillNameAndSubmit();
 
     await waitFor(() => expect(navigated).toEqual([{ screenId: "product-detail" }]));
+  });
+
+  test("update: redirect as fully-qualified cross-feature QN navigates via its short id (#1946)", async () => {
+    // Mirrors the create-mode QN test above — EntityEditUpdateForm's
+    // handleSubmitted has its own lastSegment(screen.redirect) call
+    // (kumiko-screen.tsx), separate from the create path's.
+    const navigated: NavTarget[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "42", version: 1, name: "Existing" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "shop:screen:product-edit", entityId: "42" },
+            navigate: (target) => navigated.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen
+            schema={buildSchema("statements:screen:statement-upload-list")}
+            qn="shop:screen:product-edit"
+            entityId="42"
+          />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    fillNameAndSubmit();
+
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "statement-upload-list" }]));
+  });
+
+  test("update: no redirect set falls back to the entity's list screen", async () => {
+    const navigated: NavTarget[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "42", version: 1, name: "Existing" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "shop:screen:product-edit", entityId: "42" },
+            navigate: (target) => navigated.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen schema={buildSchema()} qn="shop:screen:product-edit" entityId="42" />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    fillNameAndSubmit();
+
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "product-list" }]));
+  });
+
+  test("update: delete navigates to the list even with redirect set", async () => {
+    const user = userEvent.setup();
+    const navigated: NavTarget[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "42", version: 1, name: "Existing" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "shop:screen:product-edit", entityId: "42" },
+            navigate: (target) => navigated.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen
+            schema={buildSchema("product-detail")}
+            qn="shop:screen:product-edit"
+            entityId="42"
+          />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    // userEvent instead of fireEvent: the Radix dialog fires async state updates.
+    await user.click(screen.getByTestId("render-edit-delete"));
+    await user.click(screen.getByTestId("render-edit-delete-dialog-confirm"));
+
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "product-list" }]));
   });
 });

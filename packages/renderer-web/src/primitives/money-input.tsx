@@ -72,8 +72,7 @@ export function MoneyInput({
   const major = value === "" ? null : value / factor;
   const formatted = value === "" ? "" : formatMoney(value, currency, resolvedLocale);
 
-  // Edit-Mode: Decimal-String ohne Tausender-Trenner. Konsistente Helper-
-  // Funktion damit Focus-Init und Render-Fallback nicht auseinanderdriften.
+  // Edit-Mode: Decimal-String ohne Tausender-Trenner.
   const toEditable = (m: number | null): string =>
     m === null
       ? ""
@@ -82,8 +81,6 @@ export function MoneyInput({
           maximumFractionDigits: decimals,
           useGrouping: false,
         });
-
-  const editable = focused ? draft : toEditable(major);
 
   const handleFocus = (): void => {
     setDraft(toEditable(major));
@@ -134,7 +131,7 @@ export function MoneyInput({
         disabled={disabled}
         aria-required={required}
         aria-invalid={hasError === true ? true : undefined}
-        value={focused ? editable : formatted}
+        value={focused ? draft : formatted}
         onFocus={handleFocus}
         onBlur={handleBlur}
         onChange={(e) => setDraft(e.target.value)}

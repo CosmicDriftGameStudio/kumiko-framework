@@ -21,6 +21,7 @@ import type {
 import { computeEditViewModel, type EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
+import { buildInitialValues } from "../../app/kumiko-screen";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
 import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives";
 import { RenderField } from "../render-field";
@@ -114,6 +115,19 @@ describe("RenderField money round-trip (kumiko-framework#1923)", () => {
     const initialPrice = { amount: 0, currency: "USD" };
     const result = buildInsertSchema(entity).safeParse({ price: initialPrice });
     expect(result.success).toBe(true);
+  });
+
+  test("create: buildInitialValues default renders as 0.00 in the widget, not empty", () => {
+    // Regression: the widget was tested with `values: {}` (no field.value at
+    // all), which produces "" — but the real entityEdit create path always
+    // feeds buildInitialValues(fields, defaultCurrency), which yields
+    // {amount: 0, currency} (kumiko-screen.tsx buildInitialValues).
+    const entity = buildEntity("USD");
+    const initialValues = buildInitialValues(entity.fields, "USD");
+    const field = renderMoneyField(entity, initialValues, () => {});
+    expect(field.kind).toBe("money");
+    if (field.kind !== "money") return;
+    expect(field.value).toBe(0);
   });
 
   test("create: user-entered amount becomes a payload that validates against buildInsertSchema", () => {

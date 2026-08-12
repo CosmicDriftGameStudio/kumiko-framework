@@ -58,7 +58,7 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     name: "widgets-forms",
     description:
-      "Formular-Vorlagen: CRM/Industrie/Medizin/Protokoll — SectionCard+Grid responsiv über Viewports",
+      "Form templates: CRM/maintenance/patient intake/incident log — SectionCard+Grid responsive across viewports",
     url: "/widgets-forms",
     waitFor: "[data-testid='form-examples-page']",
     settleMs: 400,

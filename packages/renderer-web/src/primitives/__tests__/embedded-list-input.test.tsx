@@ -11,7 +11,7 @@ import {
   LocaleProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { act, type ReactElement, useState } from "react";
 import { EmbeddedListInput } from "../embedded-list-input";
 
 function renderWithLocale(ui: ReactElement) {
@@ -124,6 +124,25 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
       renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
       expect(screen.getByTestId("lines-mobile")).toBeTruthy();
       expect(screen.queryByTestId("lines-desktop")).toBeNull();
+      expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
+    } finally {
+      window.innerWidth = originalWidth;
+    }
+  });
+
+  test("resizing past the breakpoint after mount swaps the table for the card layout", async () => {
+    const originalWidth = window.innerWidth;
+    try {
+      renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+      expect(screen.getByTestId("lines-desktop")).toBeTruthy();
+
+      await act(async () => {
+        window.innerWidth = 500;
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      expect(screen.queryByTestId("lines-desktop")).toBeNull();
+      expect(screen.getByTestId("lines-mobile")).toBeTruthy();
       expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
     } finally {
       window.innerWidth = originalWidth;

@@ -15,7 +15,10 @@ describe("RichContentEditor", () => {
     );
     // The textarea id proves #1794's "never an empty panel" fallback is the
     // Suspense boundary — a null fallback would leave nothing to find here.
-    expect(document.getElementById(CONTENT_EDITOR_ELEMENT_ID)).not.toBeNull();
-    expect(await screen.findByText("hello")).toBeTruthy();
+    // TiptapEditor puts the same id on its contenteditable, so asserting
+    // presence alone wouldn't distinguish the two; assert the tag instead.
+    expect(document.getElementById(CONTENT_EDITOR_ELEMENT_ID)?.tagName).toBe("TEXTAREA");
+    const editable = await screen.findByText("hello");
+    expect(editable.closest('[contenteditable="true"]')).not.toBeNull();
   });
 });

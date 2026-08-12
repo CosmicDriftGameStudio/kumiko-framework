@@ -396,11 +396,32 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
     // KMS + bidx MUST be configured before the executor write so the row
     // lands encrypted with a real blind index, matching the KMS-active
     // production shape (order matches anonymous-deletion-kms.integration.test.ts).
-    configurePiiSubjectKms(new InMemoryKmsAdapter());
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
     configureBlindIndexKey(BIDX_KEY);
 
     await seedUser(ALICE_ID, { email: INVITE_EMAIL, displayName: "Alice Invite" });
     await seedMembership(ALICE_ID, TENANT_A);
+
+    // seedUser/seedRow does not encrypt — encrypt the user row's email the
+    // same way an executor write would, so resolveUserEmail's decryptStoredPii
+    // branch runs over real ciphertext, not plaintext it happens to pass through.
+    const encryptedUser = await encryptPiiFieldValues(
+      { id: ALICE_ID, email: INVITE_EMAIL },
+      userEntity,
+      ["email"],
+      kms,
+      { requestId: "test" },
+    );
+    await asRawClient(stack.db).unsafe(`UPDATE read_users SET email = $1 WHERE id = $2`, [
+      String(encryptedUser["email"]),
+      ALICE_ID,
+    ]);
+    const userRow = await asRawClient(stack.db).unsafe<Record<string, unknown>>(
+      `SELECT email FROM read_users WHERE id = $1`,
+      [ALICE_ID],
+    );
+    expect(isPiiCiphertext(userRow[0]?.["email"])).toBe(true);
 
     // Real executor write path — the same one tenantInvitationExportHook's
     // sibling delete hook and the invite-create handler use — so the row
@@ -435,6 +456,38 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
     expect(isPiiCiphertext(rawRows[0]?.["email"])).toBe(true);
     expect(String(rawRows[0]?.["email_bidx"])).toStartWith("kumiko-bidx:v1:");
 
+    // Cross-user isolation: a foreign invitee's invite in the same tenant
+    // must not leak into Alice's export via the entity-wide selectMany.
+    const foreignInviteeResult = await invitationExecutor.create(
+      {
+        email: "bob.invite@example.com",
+        role: "Member",
+        status: "pending",
+        invitedBy: ALICE_ID,
+        expiresAt: NOW().add({ seconds: 7 * 24 * 60 * 60 }),
+      },
+      systemUser,
+      tenantDb,
+    );
+    expect(foreignInviteeResult.isSuccess).toBe(true);
+
+    // Cross-tenant isolation: Alice's own email invited in a different
+    // tenant must land in that tenant's section, not TENANT_A's.
+    const foreignTenantSystemUser = createSystemUser(TENANT_B);
+    const foreignTenantDb = createTenantDb(stack.db, TENANT_B, "system");
+    const foreignTenantResult = await invitationExecutor.create(
+      {
+        email: INVITE_EMAIL,
+        role: "Member",
+        status: "pending",
+        invitedBy: ALICE_ID,
+        expiresAt: NOW().add({ seconds: 7 * 24 * 60 * 60 }),
+      },
+      foreignTenantSystemUser,
+      foreignTenantDb,
+    );
+    expect(foreignTenantResult.isSuccess).toBe(true);
+
     // Pins the hook boundary directly: tenantInvitationExportHook itself must
     // hand back ciphertext, not plaintext — decryption is the central sweep's
     // job (decryptSnippetFields in run-user-export.ts), not the hook's. If the
@@ -463,7 +516,10 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
     // mean the hook found nothing and the bidx hypothesis is wrong.
     const invitationSnippet = tenantA?.entities.find((e) => e.entity === "tenant-invitation");
     expect(invitationSnippet).toBeDefined();
+    // Isolation: neither the foreign-email invite in the same tenant nor
+    // Alice's own email invited in TENANT_B leak into TENANT_A's snippet.
     expect(invitationSnippet?.rows).toHaveLength(1);
     expect(invitationSnippet?.rows[0]?.["email"]).toBe(INVITE_EMAIL);
+    expect(JSON.stringify(bundle)).not.toContain("bob.invite@example.com");
   });
 });

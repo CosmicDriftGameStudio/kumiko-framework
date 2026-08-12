@@ -20,11 +20,14 @@ function scriptSafeJsonHtml(json: string): string {
   return json.replace(/</g, "\\u003c");
 }
 
+const CLIENT_SCRIPT_TAG_RE = /<script\b[^>]*\ssrc="\/client\.js"/;
+
 export function injectSchema(html: string, schemaJson: string): string {
   if (html.includes("__KUMIKO_SCHEMA__")) return html;
   const tag = `<script>window.__KUMIKO_SCHEMA__=${scriptSafeJsonHtml(schemaJson)};</script>`;
-  if (html.includes('<script src="/client.js"')) {
-    return html.replace('<script src="/client.js"', `${tag}<script src="/client.js"`);
+  const clientScriptMatch = html.match(CLIENT_SCRIPT_TAG_RE);
+  if (clientScriptMatch) {
+    return html.replace(clientScriptMatch[0], `${tag}${clientScriptMatch[0]}`);
   }
   return html.includes("</body>") ? html.replace("</body>", `${tag}</body>`) : html + tag;
 }

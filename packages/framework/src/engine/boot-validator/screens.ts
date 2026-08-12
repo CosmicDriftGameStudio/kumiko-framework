@@ -276,6 +276,25 @@ function resolveScreenTargetQn(featureName: string, target: string): string {
   return isValidQn(target) ? target : qualifyEntityName(featureName, "screen", target);
 }
 
+function validateScreenNavTarget(
+  featureName: string,
+  screenId: string,
+  screenKind: string,
+  fieldName: string,
+  value: string,
+  allScreenQns: ReadonlySet<string>,
+  screens: FeatureDefinition["screens"],
+): void {
+  const candidateQn = resolveScreenTargetQn(featureName, value);
+  if (!allScreenQns.has(candidateQn)) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${fieldName} "${value}" ` +
+        `does not resolve to a registered screen (checked "${candidateQn}"). Known screens ` +
+        `in this feature: ${[...Object.keys(screens)].sort().join(", ") || "(none)"}.`,
+    );
+  }
+}
+
 export function validateScreens(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
@@ -554,26 +573,28 @@ export function validateScreens(
         // (`<feature>:screen:<id>`) — der Renderer strippt letztere beim
         // Navigieren auf die kurze ID (lastSegment), die der nav-Router
         // app-weit auflöst (#1946).
-        const candidateQn = resolveScreenTargetQn(feature.name, screen.redirect);
-        if (!allScreenQns.has(candidateQn)) {
-          throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) redirect "${screen.redirect}" ` +
-              `does not resolve to a registered screen (checked "${candidateQn}"). Known screens ` +
-              `in this feature: ${[...Object.keys(feature.screens)].sort().join(", ") || "(none)"}.`,
-          );
-        }
+        validateScreenNavTarget(
+          feature.name,
+          screenId,
+          "actionForm",
+          "redirect",
+          screen.redirect,
+          allScreenQns,
+          feature.screens,
+        );
       }
       if (typeof screen.cancelTarget === "string") {
         // Gleiche Regel wie redirect — `false` (kein Cancel-Button)
         // braucht keine Validierung.
-        const candidateQn = resolveScreenTargetQn(feature.name, screen.cancelTarget);
-        if (!allScreenQns.has(candidateQn)) {
-          throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) cancelTarget "${screen.cancelTarget}" ` +
-              `does not resolve to a registered screen (checked "${candidateQn}"). Known screens ` +
-              `in this feature: ${[...Object.keys(feature.screens)].sort().join(", ") || "(none)"}.`,
-          );
-        }
+        validateScreenNavTarget(
+          feature.name,
+          screenId,
+          "actionForm",
+          "cancelTarget",
+          screen.cancelTarget,
+          allScreenQns,
+          feature.screens,
+        );
       }
       continue;
     }
@@ -882,14 +903,15 @@ export function validateScreens(
       if (screen.redirect !== undefined) {
         // Same rule as actionForm's redirect: short screen-ID (same-feature)
         // or a fully-qualified cross-feature QN (#1946).
-        const candidateQn = resolveScreenTargetQn(feature.name, screen.redirect);
-        if (!allScreenQns.has(candidateQn)) {
-          throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) redirect "${screen.redirect}" ` +
-              `does not resolve to a registered screen (checked "${candidateQn}"). Known screens ` +
-              `in this feature: ${[...Object.keys(feature.screens)].sort().join(", ") || "(none)"}.`,
-          );
-        }
+        validateScreenNavTarget(
+          feature.name,
+          screenId,
+          "entityEdit",
+          "redirect",
+          screen.redirect,
+          allScreenQns,
+          feature.screens,
+        );
       }
     }
   }

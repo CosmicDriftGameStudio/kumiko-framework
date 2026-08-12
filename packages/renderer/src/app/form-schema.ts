@@ -27,6 +27,9 @@ function isPresent(value: unknown): boolean {
 // constant directly — keep both in sync).
 const FIELD_TYPES_WITHOUT_WIDGET = new Set(["jsonb", "embedded", "files", "images"]);
 
+// Renders raw to the user without a de+en default in i18n-defaults.ts.
+export const REQUIRED_FIELD_I18N_KEY = "kumiko.validation.required";
+
 // Client-side presence validation for the auto-wired entityEdit path —
 // checks that every rendered required field HAS a value, not that the
 // value has the right shape. Format/range/type validation stays server-
@@ -83,7 +86,7 @@ export function buildFormSchema(
           path: [spec.field],
           message: `"${spec.field}" is required.`,
           // `params.i18nKey` override, see packages/headless/src/form/zod-bridge.ts.
-          params: { i18nKey: "kumiko.validation.required" },
+          params: { i18nKey: REQUIRED_FIELD_I18N_KEY },
         });
       }
     });

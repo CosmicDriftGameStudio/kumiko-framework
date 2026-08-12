@@ -231,6 +231,44 @@ describe("createFormController — submit()", () => {
     });
   });
 
+  test("payloadMode: 'values' — strips a field that was touched and returned to \"\" (value-based, not touch-based)", async () => {
+    // stripUntouchedEmptyStrings only compares current vs. initial value —
+    // it has no concept of "touched". A field the user typed into and then
+    // cleared back to "" is dropped exactly like one nobody ever touched.
+    const disp = makeDispatcher();
+    const form = createFormController({
+      initial: { title: "hello", dueDate: "" },
+      submit: { dispatcher: disp, type: "app:write:task:create" },
+    });
+    form.setField("dueDate", "x");
+    form.setField("dueDate", "");
+
+    await form.submit();
+
+    const call = disp.writeSpy.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect("dueDate" in call).toBe(false);
+  });
+
+  test("second submit after a rebase diffs against the new baseline, not the stale original initial", async () => {
+    const disp = makeDispatcher();
+    const form = createFormController({
+      initial: { title: "hello" },
+      submit: { dispatcher: disp, type: "app:write:task:update", payloadMode: "changes" },
+    });
+
+    form.setField("title", "world");
+    await form.submit();
+    expect(form.getSnapshot().initial.title).toBe("world"); // baseline rebased
+
+    // Revert to the ORIGINAL initial value — clean against the stale
+    // baseline, but a real change against the rebased one.
+    form.setField("title", "hello");
+    await form.submit();
+
+    expect(disp.writeSpy).toHaveBeenCalledTimes(2);
+    expect(disp.writeSpy.mock.calls[1]).toEqual(["app:write:task:update", { title: "hello" }]);
+  });
+
   test("stale-submit race: edits during the in-flight write stay dirty after success", async () => {
     // User submits "hello", the network takes 50ms. During those 50ms the
     // user types "world" into the same field. The server sees "hello"

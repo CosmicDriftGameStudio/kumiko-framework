@@ -5,6 +5,7 @@
 // rejection.
 
 import { describe, expect, test } from "bun:test";
+import { kumikoDefaultTranslations } from "@cosmicdrift/kumiko-renderer";
 import { Temporal } from "temporal-polyfill";
 import {
   formatDateForInput,
@@ -14,8 +15,19 @@ import {
   toIso,
 } from "../date-parse";
 
-const dePlaceholderLetters = { year: "J", month: "M", day: "T" };
-const enPlaceholderLetters = { year: "Y", month: "M", day: "D" };
+// Derived from kumikoDefaultTranslations instead of hardcoded so a drift in
+// the i18n defaults (e.g. renaming "T" → "D") fails this test too.
+function placeholderLetters(locale: "de" | "en"): { year: string; month: string; day: string } {
+  const bundle = kumikoDefaultTranslations[locale];
+  return {
+    year: bundle?.["kumiko.field.dateField.placeholderYear"] ?? "",
+    month: bundle?.["kumiko.field.dateField.placeholderMonth"] ?? "",
+    day: bundle?.["kumiko.field.dateField.placeholderDay"] ?? "",
+  };
+}
+
+const dePlaceholderLetters = placeholderLetters("de");
+const enPlaceholderLetters = placeholderLetters("en");
 
 describe("parseIso", () => {
   test("valid yyyy-mm-dd → PlainDate (no TZ conversion)", () => {

@@ -35,15 +35,6 @@ const admin = (path: string) => async (page: Page) => {
   await page.goto(path);
 };
 
-// template-resolver — the text-block tree lives on the app-owned "content"
-// provider node; open it and select a leaf so the shot shows tree + editor.
-const contentEditor = () => async (page: Page) => {
-  await loginAsAdmin(page);
-  await page.goto("/platform/content");
-  await page.getByText("Landing hero").click();
-  await page.getByTestId("text-block-editor").waitFor();
-};
-
 // template-resolver collections — the mounted "reply-snippets" collection is a
 // nav node of its own, not part of the content tree. Open it and select an
 // entry so the shot shows what the mount actually produces: the collection in
@@ -134,12 +125,9 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "tags-section", flow: admin(`/tenant-admin/note-edit/${DEMO_NOTE_ID}`), settleMs: 1000 },
   // legal-pages — öffentliche, server-gerenderte Route (kein Login).
   { name: "legal-pages", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
-  // template-resolver — content tree (folders + stub state) with the text-block
-  // editor open on one leaf.
+  // template-resolver — the mounted "reply-snippets" collection: rich editor
+  // open on one entry, showing the variable chips its variableSchema declares.
   { name: "template-resolver", flow: collectionEditor(), settleMs: 1000 },
-  // template-resolver — the app-owned content tree with a text-block leaf open,
-  // the plain-format counterpart to the rich collection above.
-  { name: "template-resolver-content-tree", flow: contentEditor(), settleMs: 1000 },
   // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
   { name: "personal-access-tokens", flow: admin("/tenant-admin/api-tokens"), settleMs: 1000 },
   // config Settings-Hub — mask-derived configEdit under synthetic `settings` workspace.

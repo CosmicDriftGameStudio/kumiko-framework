@@ -84,7 +84,7 @@ function stripUntouchedEmptyStrings<TValues extends FormValues>(
   const ini = initial as Record<string, unknown>; // @cast-boundary form-values
   let out: Record<string, unknown> | undefined;
   for (const key of Object.keys(v)) {
-    if (v[key] === "" && Object.is(v[key], ini[key])) {
+    if (v[key] === "" && ini[key] === "") {
       out ??= { ...v };
       delete out[key];
     }

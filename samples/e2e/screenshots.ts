@@ -174,9 +174,7 @@ export function runMatrix<T extends string>(
     test.describe(locale, () => {
       // Browser-context locale for JS-side Intl/navigator.language — the
       // kumiko:locale seed below only drives the app's own i18n strings.
-      // ponytail: native <input type="number"> still formats per the host OS
-      // region, unreachable from Playwright (context.locale and --lang both
-      // no-op there). #1851
+      // ponytail: see the runScreenshots() locale comment above / #1851
       test.use({ locale: LOCALE_TAGS[locale] ?? locale });
 
       for (const s of scenarios) {

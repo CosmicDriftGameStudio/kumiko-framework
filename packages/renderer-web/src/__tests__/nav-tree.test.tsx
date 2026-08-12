@@ -138,6 +138,36 @@ describe("NavTree role-gating", () => {
   });
 });
 
+// Lucide tags every icon's <svg> with a `lucide-<slug>` class (see
+// createLucideIcon) — asserting on it distinguishes "icon X rendered" from
+// "some svg rendered", so a NAV_ICONS entry pointing at the wrong component
+// (or a duplicate) fails even when the total svg count still matches.
+const NAV_ICON_LUCIDE_CLASS: Readonly<Record<string, string>> = {
+  dashboard: "lucide-layout-dashboard",
+  layers: "lucide-layers",
+  building: "lucide-building",
+  tag: "lucide-tag",
+  key: "lucide-key-round",
+  server: "lucide-server",
+  mail: "lucide-mail",
+  download: "lucide-download",
+  upload: "lucide-upload",
+  rocket: "lucide-rocket",
+  palette: "lucide-palette",
+  link: "lucide-link",
+  share: "lucide-share-2",
+};
+
+function expectNavIcons(container: HTMLElement, iconKeys: readonly string[]): void {
+  const classes = Array.from(container.querySelectorAll("svg")).map(
+    (svg) => svg.getAttribute("class") ?? "",
+  );
+  expect(classes).toHaveLength(iconKeys.length);
+  iconKeys.forEach((key, i) => {
+    expect(classes[i]).toContain(NAV_ICON_LUCIDE_CLASS[key]);
+  });
+}
+
 describe("NavTree", () => {
   test("Section-Header (parent ohne screen) ist statisches Label, children sichtbar", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
@@ -204,7 +234,7 @@ describe("NavTree", () => {
     const { container } = render(<NavTree schema={schema} />);
     // Flache Navigation ohne Sections → keine Chevrons. Genau EIN svg:
     // das dashboard-Icon. Das icon-lose Item rendert den Dot (span, kein svg).
-    expect(container.querySelectorAll("svg").length).toBe(1);
+    expectNavIcons(container, ["dashboard"]);
   });
 
   test("layers + building (money-horse Kredit-Gruppen/Mandanten) lösen auf ein Icon auf", () => {
@@ -221,7 +251,7 @@ describe("NavTree", () => {
       ],
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
-    expect(container.querySelectorAll("svg").length).toBe(2);
+    expectNavIcons(container, ["layers", "building"]);
   });
 
   test("tag + key (custom-fields / api-tokens) lösen auf ein Icon auf", () => {
@@ -238,7 +268,7 @@ describe("NavTree", () => {
       ],
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
-    expect(container.querySelectorAll("svg").length).toBe(2);
+    expectNavIcons(container, ["tag", "key"]);
   });
 
   test("server, mail, download, upload, rocket lösen auf ein Icon auf (Config-/SMTP-Nav)", () => {
@@ -264,7 +294,7 @@ describe("NavTree", () => {
       ],
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
-    expect(container.querySelectorAll("svg").length).toBe(5);
+    expectNavIcons(container, ["server", "mail", "download", "upload", "rocket"]);
   });
 
   test("palette, link und share rendern Lucide-Icons (Share-/Branding-Nav)", () => {
@@ -283,7 +313,7 @@ describe("NavTree", () => {
       ],
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
-    expect(container.querySelectorAll("svg").length).toBe(3);
+    expectNavIcons(container, ["palette", "link", "share"]);
   });
 
   test("unbekannter icon-Key fällt sauber auf den Dot zurück (kein svg)", () => {

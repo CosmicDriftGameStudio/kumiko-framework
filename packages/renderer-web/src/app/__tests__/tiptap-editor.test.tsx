@@ -9,6 +9,18 @@ function Controlled({ initial }: { readonly initial: string }): ReactNode {
   return <TiptapEditor value={value} onChange={setValue} variables={["name"]} readOnly={false} />;
 }
 
+function ReadOnlyToggle({ initial }: { readonly initial: string }): ReactNode {
+  const [readOnly, setReadOnly] = useState(false);
+  return (
+    <div>
+      <button type="button" onClick={() => setReadOnly((r) => !r)}>
+        toggle readOnly
+      </button>
+      <TiptapEditor value={initial} onChange={() => {}} variables={[]} readOnly={readOnly} />
+    </div>
+  );
+}
+
 // Mirrors the real caller: TextBlockEditor mounts with value="" and only
 // gets the loaded content after its by-slug query resolves — value arrives
 // as a prop update, not at mount. A test that renders the final HTML
@@ -90,5 +102,24 @@ describe("TiptapEditor — jsdom smoke", () => {
     render(<Controlled initial="<p></p>" />);
     fireEvent.click(screen.getByText("{{name}}"));
     expect(await screen.findByText("{{name}}", { selector: "p" })).toBeTruthy();
+  });
+
+  test("toggling readOnly flips the surface's contenteditable and disables the toolbar", async () => {
+    // @tiptap/react re-applies `editable` from options on every options
+    // refresh, overriding what `editable: !readOnly` set at creation — so
+    // this only stays correct across a readOnly prop change via the
+    // `editor.setEditable` effect. A test that only mounts with a fixed
+    // readOnly value can't catch that effect being removed.
+    render(<ReadOnlyToggle initial="<p>hello</p>" />);
+    const editable = await screen.findByText("hello");
+    expect(editable.closest('[contenteditable="true"]')).not.toBeNull();
+    expect((screen.getByRole("button", { name: "Bold" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+
+    fireEvent.click(screen.getByText("toggle readOnly"));
+
+    expect(editable.closest('[contenteditable="false"]')).not.toBeNull();
+    expect((screen.getByRole("button", { name: "Bold" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

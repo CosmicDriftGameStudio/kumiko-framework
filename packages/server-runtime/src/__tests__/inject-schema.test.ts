@@ -20,6 +20,15 @@ describe("injectSchema", () => {
     expect(out.indexOf(TAG)).toBeLessThan(out.indexOf('<script src="/client.js"'));
   });
 
+  test("HTML mit module-form /client.js-Tag: Schema-Tag wird DAVOR eingefügt", () => {
+    const html = '<html><body><script type="module" src="/client.js"></script></body></html>';
+    const out = injectSchema(html, SCHEMA);
+    expect(out).toContain(TAG);
+    // Dev templates use `type="module"`, not the classic form — insertion
+    // must match this tag pattern too.
+    expect(out.indexOf(TAG)).toBeLessThan(out.indexOf('<script type="module" src="/client.js"'));
+  });
+
   test("HTML ohne /client.js-Tag: Schema-Tag wird vor </body> eingefügt", () => {
     const html = "<html><body><div id=root></div></body></html>";
     const out = injectSchema(html, SCHEMA);

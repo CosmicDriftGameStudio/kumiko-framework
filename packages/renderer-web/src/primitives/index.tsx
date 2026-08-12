@@ -650,6 +650,7 @@ function DefaultDataTable({
   // beide visuell zusammengehören. Toolbar ist NICHT sticky — Lists
   // scrollen typischerweise mit dem Page-Container, nicht intern.
   // Sticky würde mit der Topbar konkurrieren.
+  const hasTableActions = rowActions !== undefined && rowActions.length > 0;
   const tableContent =
     rows.length === 0 ? (
       <div
@@ -665,18 +666,86 @@ function DefaultDataTable({
       // Page-Background (z.B. Cream) matchen Listen sonst nicht die Cards.
       <div className="overflow-hidden rounded-lg border bg-card">
         <Table data-testid={testId}>
-          {tableInner(
-            columns,
-            rows,
-            onRowClick,
-            sort,
-            onSortChange,
-            rowActions,
-            rowActionMode,
-            onCellChange,
-            getRowTestId,
-            getCellTestId,
-          )}
+          <TableHeader className="bg-muted">
+            <TableRow className="hover:bg-transparent">
+              {columns.map((col) => (
+                <SortableHeader
+                  key={col.field}
+                  field={col.field}
+                  label={col.label}
+                  sortable={col.sortable === true}
+                  highlighted={col.highlighted === true}
+                  {...(sort !== undefined && sort !== null && { sort })}
+                  {...(onSortChange !== undefined && { onSortChange })}
+                />
+              ))}
+              {hasTableActions && (
+                <TableHead
+                  data-testid="column-actions"
+                  // sticky right-0 + bg-muted (= header tone) so the action
+                  // column stays at the right edge during horizontal scroll.
+                  // No border-l: a permanent divider looks heavy; the sticky
+                  // bg already sets the column apart during scroll anyway.
+                  className="sticky right-0 z-10 w-px bg-muted text-right text-muted-foreground"
+                  aria-label="Actions"
+                />
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow
+                key={row.id}
+                data-testid={getRowTestId?.(row) ?? `row-${row.id}`}
+                onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
+                className={cn(onRowClick !== undefined && "cursor-pointer")}
+              >
+                {columns.map((col) => (
+                  <TableCell
+                    key={col.field}
+                    data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
+                    data-highlighted={col.highlighted === true ? "true" : undefined}
+                    // Cells truncate long values with ellipsis instead of
+                    // wrapping — lists stay single-line + scannable (Linear
+                    // pattern). max-w-xs gives a sensible default upper
+                    // bound; the table container scrolls horizontally
+                    // if the sum of the columns gets too wide.
+                    className={cn("max-w-xs truncate", col.highlighted === true && "bg-accent/40")}
+                    title={cellTitle(row.values[col.field])}
+                  >
+                    <DataTableCell
+                      value={row.values[col.field]}
+                      row={row.values}
+                      field={col.field}
+                      type={col.type}
+                      renderer={col.renderer}
+                      {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
+                      {...(onCellChange !== undefined && {
+                        onChange: (value: unknown) => onCellChange(row.id, col.field, value),
+                      })}
+                    />
+                  </TableCell>
+                ))}
+                {hasTableActions && (
+                  <TableCell
+                    data-testid={`cell-${row.id}-actions`}
+                    // Sticky-right so the actions stay visible on the right
+                    // edge during horizontal scroll. bg-background sets the
+                    // column apart during scroll — no border-l (divider too heavy).
+                    className="sticky right-0 z-10 bg-background text-right"
+                    // Action-cell events must not trigger the row click/activation
+                    // (typically "Open Detail" — the user wanted the action,
+                    // not navigation). We stopPropagation for mouse and
+                    // keyboard so a11y stays consistent.
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
+                    <RowActionsCell row={row} actions={rowActions} mode={rowActionMode} />
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
         </Table>
       </div>
     );
@@ -764,105 +833,6 @@ function DefaultDataTable({
       )}
       {content}
     </div>
-  );
-}
-
-function tableInner(
-  columns: DataTableProps["columns"],
-  rows: DataTableProps["rows"],
-  onRowClick?: DataTableProps["onRowClick"],
-  sort?: DataTableProps["sort"],
-  onSortChange?: DataTableProps["onSortChange"],
-  rowActions?: DataTableProps["rowActions"],
-  rowActionMode?: DataTableProps["rowActionMode"],
-  onCellChange?: DataTableProps["onCellChange"],
-  getRowTestId?: DataTableProps["getRowTestId"],
-  getCellTestId?: DataTableProps["getCellTestId"],
-): ReactNode {
-  const hasActions = rowActions !== undefined && rowActions.length > 0;
-  return (
-    <>
-      <TableHeader className="bg-muted">
-        <TableRow className="hover:bg-transparent">
-          {columns.map((col) => (
-            <SortableHeader
-              key={col.field}
-              field={col.field}
-              label={col.label}
-              sortable={col.sortable === true}
-              highlighted={col.highlighted === true}
-              {...(sort !== undefined && sort !== null && { sort })}
-              {...(onSortChange !== undefined && { onSortChange })}
-            />
-          ))}
-          {hasActions && (
-            <TableHead
-              data-testid="column-actions"
-              // sticky right-0 + bg-muted (= Header-Ton) damit die Action-
-              // Spalte beim horizontalen Scroll am rechten Rand bleibt. Kein
-              // border-l: der ständige Trenner wirkt schwer; die sticky-bg
-              // grenzt die Spalte beim Scroll ohnehin ab.
-              className="sticky right-0 z-10 w-px bg-muted text-right text-muted-foreground"
-              aria-label="Actions"
-            />
-          )}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) => (
-          <TableRow
-            key={row.id}
-            data-testid={getRowTestId?.(row) ?? `row-${row.id}`}
-            onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
-            className={cn(onRowClick !== undefined && "cursor-pointer")}
-          >
-            {columns.map((col) => (
-              <TableCell
-                key={col.field}
-                data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
-                data-highlighted={col.highlighted === true ? "true" : undefined}
-                // Cells truncaten lange Werte mit ellipsis statt umzu-
-                // brechen — Lists bleiben einzeilig + scannbar (Linear-
-                // Pattern). max-w-xs gibt eine vernünftige Default-
-                // Obergrenze; der Table-Container scrollt horizontal
-                // falls die Summe der Spalten zu breit wird.
-                className={cn("max-w-xs truncate", col.highlighted === true && "bg-accent/40")}
-                title={cellTitle(row.values[col.field])}
-              >
-                <DataTableCell
-                  value={row.values[col.field]}
-                  row={row.values}
-                  field={col.field}
-                  type={col.type}
-                  renderer={col.renderer}
-                  {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
-                  {...(onCellChange !== undefined && {
-                    onChange: (value: unknown) => onCellChange(row.id, col.field, value),
-                  })}
-                />
-              </TableCell>
-            ))}
-            {hasActions && (
-              <TableCell
-                data-testid={`cell-${row.id}-actions`}
-                // Sticky-right damit beim horizontalen Scroll die Actions
-                // am rechten Rand sichtbar bleiben. bg-background grenzt die
-                // Spalte beim Scroll ab — kein border-l (Trenner zu schwer).
-                className="sticky right-0 z-10 bg-background text-right"
-                // Action-Cell-Events dürfen nicht den Row-Click/Activation
-                // triggern (typisch "Open Detail" — der User wollte ja die
-                // Action, nicht navigieren). Wir stopPropagation für Mouse
-                // UND Keyboard, damit a11y konsistent ist.
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-              >
-                <RowActionsCell row={row} actions={rowActions} mode={rowActionMode} />
-              </TableCell>
-            )}
-          </TableRow>
-        ))}
-      </TableBody>
-    </>
   );
 }
 
@@ -1666,7 +1636,7 @@ function DefaultForm({
                 // `overflow-hidden` (only transform/filter/contain ancestors trap
                 // it, confirmed against AppLayout/SidebarInset — neither sets those).
                 stickyActions === true &&
-                  "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)] max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]",
+                  "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)] max-sm:pb-4",
               )}
             >
               {actions}

@@ -80,7 +80,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     ).not.toThrow();
   });
 
-  test("form-draft mounted WITHOUT form-draft-user-data → V3 throws (userOwned draft field has no hook)", () => {
+  test("form-draft mounted WITHOUT form-draft-user-data → V3 throws (subjectRef ownerId has no EXT_USER_DATA hook)", () => {
     expect(() => validateBoot([...baseFeatures(), formDraftFeature])).toThrow(
       /EXT_USER_DATA hook.*Art\.17 gap/,
     );

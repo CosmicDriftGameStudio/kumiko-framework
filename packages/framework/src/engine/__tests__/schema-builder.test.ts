@@ -959,6 +959,58 @@ describe("embedded-list derived cell recomputation (kumiko-framework#1837)", () 
       expect(row?.["amount"]).toBe(3);
     }
   });
+
+  test("a sum of scale-3 sources on a scale-2 decimal target is rounded, not rejected as over-scale", () => {
+    const entity = createEntity({
+      table: "Orders",
+      fields: {
+        lines: createEmbeddedListField(
+          {
+            a: { type: "decimal", scale: 3, required: true },
+            b: { type: "decimal", scale: 3, required: true },
+            c: { type: "decimal", scale: 3, required: true },
+            total: { type: "decimal", scale: 2, required: false },
+          },
+          { derived: { total: { op: "sum", from: ["a", "b", "c"] } } },
+        ),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    // Each source is in-scale for its own scale-3 field, but the sum
+    // (0.333) has 3 decimal digits — over-scale for the scale-2 target
+    // without the rounding this PR added.
+    const result = schema.safeParse({ lines: [{ a: 0.111, b: 0.111, c: 0.111 }] });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const row = (result.data["lines"] as readonly Record<string, unknown>[])[0];
+      expect(row?.["total"]).toBe(0.33);
+    }
+  });
+
+  test("a subtract landing on a money target rounds to whole minor units", () => {
+    const entity = createEntity({
+      table: "Orders",
+      fields: {
+        lines: createEmbeddedListField(
+          {
+            gross: { type: "decimal", scale: 2, required: true },
+            refund: { type: "decimal", scale: 2, required: true },
+            total: { type: "money", required: false },
+          },
+          { derived: { total: { op: "subtract", from: ["gross", "refund"] } } },
+        ),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    // 2400.58 - 93 = 2307.58 minor units — not representable by money's
+    // integer constraint without rounding.
+    const result = schema.safeParse({ lines: [{ gross: 2400.58, refund: 93 }] });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const row = (result.data["lines"] as readonly Record<string, unknown>[])[0];
+      expect(row?.["total"]).toBe(2308);
+    }
+  });
 });
 
 // --- Update schema (all partial) ---
