@@ -545,7 +545,11 @@
     "samples/recipes/files-post-processing": {
       "name": "@cosmicdrift/kumiko-sample-files-post-processing",
       "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "sharp": "^0.35.3",
       },
     },
     "samples/recipes/i18n": {

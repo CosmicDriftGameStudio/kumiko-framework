@@ -1,51 +1,68 @@
 // Files Post-Processing Sample — Integration Test
 //
-// Proves the end-to-end flow a real app would rely on:
+// Proves each of the three variant entry points end-to-end, through real
+// HTTP calls and a real sharp render (no identity-transform, no mocks):
 //
-//   1. POST /api/files writes the binary + fileRef entity + event atomically.
-//   2. The event-dispatcher delivers `fileRef.created` to the MSP.
-//   3. The MSP resolves the binary via ctx.files.ref(key).read() — no
-//      binary ever rode through the event payload.
-//   4. The derivate is written under a keyed variant (.thumb) the
-//      original handle can reconstruct without any lookup table.
+//   1. declarative — GET /api/files/:id/variant/:name resolves a field's
+//      declared variant.
+//   2. imperative — the `set-cover` write-handler calls
+//      ctx.derivatives.variant() directly, with a region-blur.
+//   3. public route — GET /media/:fileRefId/:variant, default-deny until a
+//      photo is explicitly published.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { entityEventName } from "@cosmicdrift/kumiko-framework/db";
+import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import { derivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
+import { createFileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
+import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import {
+  createFilesFeature,
   createInMemoryFileProvider,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { derivateLog, filesPostProcessingFeature } from "../feature";
+import {
+  createTestUser,
+  setupTestStack,
+  type TestStack,
+  testTenantId,
+} from "@cosmicdrift/kumiko-framework/stack";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+} from "@cosmicdrift/kumiko-framework/testing";
+import sharp from "sharp";
+import { coverOrder, filesPostProcessingFeature, publishedPhotoIds } from "../feature";
 
-const FILE_REF_CREATED = entityEventName("fileRef", "created");
+const HOST = "photos.example.com";
 
 let stack: TestStack;
 let provider: InMemoryFileProvider;
 
-const admin = TestUsers.admin;
+const tenantId = testTenantId(1);
+const user = createTestUser({ id: 1, tenantId, roles: ["Admin"] });
 
-// PNG magic bytes + padding so validateFile's MIME/extension cross-check
-// accepts it as a real image/png.
-const pngBytes = new Uint8Array([
-  0x89,
-  0x50,
-  0x4e,
-  0x47,
-  0x0d,
-  0x0a,
-  0x1a,
-  0x0a,
-  ...Array(64).fill(0),
-]);
-
-const pdfBytes = new TextEncoder().encode("%PDF-1.4 minimal");
+async function jpegBytes(width: number, height: number): Promise<Uint8Array> {
+  return sharp({
+    create: { width, height, channels: 3, background: { r: 90, g: 140, b: 200 } },
+  })
+    .jpeg()
+    .toBuffer();
+}
 
 beforeAll(async () => {
+  patchFileInstanceofForBunTest();
   provider = createInMemoryFileProvider();
   stack = await setupTestStack({
-    features: [filesPostProcessingFeature],
+    features: [
+      createConfigFeature(),
+      fileFoundationFeature,
+      createFilesFeature(),
+      createFileDerivativesFeature({
+        resolveApexTenant: (host) => (host === HOST ? tenantId : null),
+      }),
+      derivativesSharpFeature,
+      filesPostProcessingFeature,
+    ],
     files: { storageProvider: provider },
   });
 });
@@ -54,96 +71,98 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-beforeEach(async () => {
+beforeEach(() => {
   provider.clear();
-  derivateLog.length = 0;
-  stack.events.reset();
-  // Truncate events + consumer cursors + file_refs so each case starts from
-  // a clean log and the dispatcher replays only the current upload.
-  await asRawClient(stack.db).unsafe(
-    `TRUNCATE kumiko_events, kumiko_event_consumers, file_refs RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  publishedPhotoIds.clear();
+  coverOrder.length = 0;
 });
 
-async function uploadFile(
-  fileName: string,
-  content: Uint8Array,
-  mimeType: string,
-): Promise<{ id: string; storageKey: string }> {
-  const token = await stack.jwt.sign(admin);
-  const formData = new FormData();
-  formData.append("file", new File([Buffer.from(content)], fileName, { type: mimeType }));
+async function uploadPhoto(
+  attach: { entityType: string; entityId: string; fieldName: string } | null,
+): Promise<string> {
+  const token = await stack.jwt.sign(user);
+  const bytes = await jpegBytes(400, 300);
+  const fd = new FormData();
+  fd.append("file", new File([Buffer.from(bytes)], "photo.jpg", { type: "image/jpeg" }));
+  if (attach) {
+    fd.append("entityType", attach.entityType);
+    fd.append("entityId", attach.entityId);
+    fd.append("fieldName", attach.fieldName);
+  }
+  const { body, contentType } = await buildMultipartBody(fd);
   const res = await stack.app.request("/api/files", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+    body,
   });
   expect(res.status).toBe(201);
-  const body = (await res.json()) as { id: string; storageKey: string };
-  return body;
+  const json = (await res.json()) as { id: string };
+  return json.id;
 }
 
-describe("image upload → MSP writes thumb under a derived key", () => {
-  test("image/png gets a .thumb variant in the same provider", async () => {
-    const { storageKey } = await uploadFile("logo.png", pngBytes, "image/png");
+describe("entry point 1 — declarative field variant", () => {
+  test("GET /api/files/:id/variant/:name renders a real resized webp", async () => {
+    const fileId = await uploadPhoto({
+      entityType: "photo",
+      entityId: "p1",
+      fieldName: "original",
+    });
+    const token = await stack.jwt.sign(user);
 
-    // Before the dispatcher runs: only the original exists. This proves
-    // the MSP hasn't fired yet — the event sits in the events table, the
-    // consumer cursor hasn't advanced.
-    expect(provider.keys()).toEqual([storageKey]);
+    const res = await stack.app.request(`/api/files/${fileId}/variant/thumb`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-    // Drain the dispatcher deterministically.
-    await stack.eventDispatcher?.runOnce();
-
-    expect(derivateLog).toHaveLength(1);
-    expect(derivateLog[0]?.originalKey).toBe(storageKey);
-
-    // derive("thumb") inserts the suffix before the last extension, so
-    // `foo.png` → `foo.thumb.png`. The sample's identity-transform writes
-    // the same bytes, so a roundtrip confirms the MSP read + write path.
-    const thumbKey = derivateLog[0]?.derivateKey as string;
-    expect(thumbKey).toMatch(/\.thumb\.png$/);
-    expect([...provider.keys()].sort()).toEqual([storageKey, thumbKey].sort());
-
-    const thumbBytes = await provider.read(thumbKey);
-    expect(Array.from(thumbBytes)).toEqual(Array.from(pngBytes));
-  });
-
-  test("non-image upload is skipped by the MSP", async () => {
-    // PDFs aren't images — the MSP's mimeType-check bails before the
-    // read/write. No derivate, no log entry.
-    // Note: we upload without specifying an entity/field, so the upload
-    // route doesn't look up field.accept constraints — it uses the
-    // global default (10mb, any type).
-    const { storageKey } = await uploadFile("doc.pdf", pdfBytes, "application/pdf");
-
-    await stack.eventDispatcher?.runOnce();
-
-    expect(derivateLog).toHaveLength(0);
-    expect(provider.keys()).toEqual([storageKey]);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("image/webp");
+    const meta = await sharp(Buffer.from(await res.arrayBuffer())).metadata();
+    expect(meta.format).toBe("webp");
+    expect(Math.max(meta.width ?? 0, meta.height ?? 0)).toBeLessThanOrEqual(200);
   });
 });
 
-describe("event emission contract", () => {
-  test("event payload carries storageKey, not the binary", async () => {
-    await uploadFile("logo.png", pngBytes, "image/png");
+describe("entry point 2 — imperative ctx.derivatives.variant() with region-blur", () => {
+  test("set-cover derives a variant with no field declaration involved, and tracks order", async () => {
+    const fileId = await uploadPhoto(null);
 
-    // Inspect the raw event row. The MSP path already proved the payload's
-    // pointer-shape by reading through it, but this test guards the
-    // contract directly: no one accidentally adds a binary field later
-    // and explodes the events table.
-    const rows = await asRawClient(stack.db).unsafe(
-      `SELECT type, payload FROM kumiko_events WHERE type = $1`,
-      [FILE_REF_CREATED],
+    const result = await stack.http.writeOk<{ fileRefId: string; storageKey: string }>(
+      "files-post-processing:write:set-cover",
+      { fileRefId: fileId, blurRegion: { x: 0, y: 0, width: 50, height: 50 } },
+      user,
     );
-    expect(rows.length).toBe(1);
-    const row = rows[0] as { payload: Record<string, unknown> };
-    const payload = row.payload;
-    expect(typeof payload["storageKey"]).toBe("string");
-    expect(payload["mimeType"]).toBe("image/png");
-    expect(payload["data"]).toBeUndefined();
-    expect(payload["binary"]).toBeUndefined();
-    expect(payload["bytes"]).toBeUndefined();
+
+    expect(coverOrder).toEqual([fileId]);
+    const bytes = await provider.read(result.storageKey);
+    const meta = await sharp(Buffer.from(bytes)).metadata();
+    expect(meta.format).toBe("webp");
+    expect(Math.max(meta.width ?? 0, meta.height ?? 0)).toBeLessThanOrEqual(800);
+  });
+});
+
+describe("entry point 3 — public route, default-deny", () => {
+  test("unpublished photo → 404", async () => {
+    const fileId = await uploadPhoto({
+      entityType: "photo",
+      entityId: "p2",
+      fieldName: "original",
+    });
+
+    const res = await stack.app.request(`http://${HOST}/media/${fileId}/thumb`);
+
+    expect(res.status).toBe(404);
+  });
+
+  test("photo published via the write-handler → 200 with rendered bytes", async () => {
+    const fileId = await uploadPhoto({
+      entityType: "photo",
+      entityId: "p3",
+      fieldName: "original",
+    });
+    await stack.http.writeOk("files-post-processing:write:publish", { entityId: "p3" }, user);
+
+    const res = await stack.app.request(`http://${HOST}/media/${fileId}/thumb`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("image/webp");
   });
 });

@@ -68,7 +68,7 @@ const DEFAULT_PRIVILEGED_ROLES = ["Admin", "SystemAdmin"] as const;
 
 // 15 minutes — long enough for a download to start, short enough that a
 // leaked URL (e.g. from a browser history screenshot) isn't a long-lived
-// credential. Matches the security-checklist in core-files.md.
+// credential (see "Signed-URL default expiry" in core-files.md).
 const SIGNED_URL_DEFAULT_EXPIRY_SECONDS = 15 * 60;
 
 // Default guard: on attached files, allow the uploader or a privileged role.

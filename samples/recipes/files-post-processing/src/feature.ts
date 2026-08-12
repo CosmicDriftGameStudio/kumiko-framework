@@ -1,75 +1,110 @@
 // Files Post-Processing Sample
 //
-// Shows the async handoff between an HTTP upload and a Kumiko-native
-// event handler — and proves the "storage-key is the pointer, binary
-// stays in storage" contract:
+// The three ways to get an image variant out of a FileRef — see
+// docs/reference/core-files.md for the full write-up of the contract and
+// security model behind each.
 //
-//   1. Client does POST /api/files with multipart body.
-//   2. file-routes.ts validates + writes the binary to the registered
-//      FileStorageProvider, then atomically inserts the fileRef entity +
-//      appends `fileRef.created` (Entity-Standard-Verb) into the
-//      event-store.
-//   3. The event-dispatcher picks up the committed event and invokes
-//      every matching r.multiStreamProjection at-least-once.
-//   4. Our MSP here reads the binary back via `ctx.files.ref(key).read()`
-//      (no binary ever travelled through the event payload), "processes"
-//      it (here: identity transform — in real life sharp-resize),
-//      and writes the result under a derived key via
-//      `handle.derive("thumb").write(...)`.
-//
-// This is how beammycar's Image-Feature should plug in resize / EXIF-strip /
-// virus-scan etc. — each as its own small feature with a single MSP.
+//   1. Declarative — `original`'s `variants` map on the `photo` entity. The
+//      normal case (profile picture, hero image, floor plan): the framework
+//      resolves + caches the variant behind the auth-gated
+//      `GET /api/files/:id/variant/:name` route, no handler code needed.
+//   2. Imperative — the `set-cover` write-handler calls
+//      `ctx.derivatives.variant()` directly. This is for apps that track
+//      images as their own records (ordering, a chosen cover image) and for
+//      region-blur, whose coordinates are runtime data that can't live in a
+//      static field declaration.
+//   3. The public route with a predicate — the part people get wrong. Only
+//      entityIds explicitly marked published resolve; everything else 404s,
+//      indistinguishable from "doesn't exist".
 
-import { entityEventName } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createImageField,
+  defineFeature,
+  EXT_DERIVATIVE_PUBLIC_PREDICATE,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { z } from "zod";
 
-const FILE_REF_CREATED = entityEventName("fileRef", "created");
+// The `variants` map IS the whitelist the auth-gated variant route resolves
+// against — no separate registration step. Named `thumb`/`hero` on purpose:
+// the public route's fixed presets (thumb/card/hero/full, entry point 3)
+// share the name `thumb` but are a completely separate spec — same label,
+// different whitelist, different actual pixels.
+const photoEntity = createEntity({
+  table: "files_post_processing_photos",
+  fields: {
+    original: createImageField({
+      variants: {
+        thumb: { maxEdge: 200, fit: "cover", format: "webp" },
+        hero: { maxEdge: 1200, fit: "inside", format: "webp" },
+      },
+    }),
+  },
+});
 
-type FileRefCreatedPayload = {
-  readonly storageKey: string;
-  readonly fileName: string;
-  readonly mimeType: string;
-  readonly size: number;
-};
+// A real app would check a `published` column via the entity's read model.
+// This recipe tracks it in memory to stay a single file — the predicate
+// below is what matters, not where the flag is stored.
+export const publishedPhotoIds = new Set<string>();
 
-// Exported so the integration test can assert which derivates got produced
-// and reset between cases. Real consumers would push to a queue, write a
-// row, or call out to an external service.
-export const derivateLog: { readonly originalKey: string; readonly derivateKey: string }[] = [];
+// Exported so the integration test can assert the imperative path ran.
+export const coverOrder: string[] = [];
 
 export const filesPostProcessingFeature = defineFeature("files-post-processing", (r) => {
-  r.multiStreamProjection({
-    name: "image-thumb",
-    apply: {
-      // MultiStreamApplyFn signature is (event, tx, ctx). The tx is the
-      // dispatcher's live transaction — useful for writing follow-up rows
-      // in the same commit. Here we only need ctx.files, so tx goes
-      // unused.
-      [FILE_REF_CREATED]: async (event, _tx, ctx) => {
-        // entity-event payloads sind generisch `Record<string, unknown>`.
-        // Mit der lokalen Shape oben narrowen wir an der MSP-Boundary,
-        // statt jeden Feld-Zugriff einzeln zu casten.
-        const payload = event.payload as FileRefCreatedPayload;
+  r.requires("file-derivatives");
+  r.entity("photo", photoEntity);
 
-        // Skip non-images. Keeping the check on content type (not the filename
-        // extension) matches what the upload route already validated.
-        if (!payload.mimeType.startsWith("image/")) return;
-
-        // ctx.files is populated by buildServer when a storageProvider is
-        // registered. Defensive early-return keeps the projection safe for
-        // test stacks that deliberately omit the provider.
-        if (!ctx.files) return;
-
-        const src = ctx.files.ref(payload.storageKey);
-        const original = await src.read();
-
-        // "Processing" — identity transform for the sample. Swap in
-        // sharp(original).resize(200, 200).toBuffer() etc. in real features.
-        const thumbHandle = src.derive("thumb");
-        await thumbHandle.write(original, payload.mimeType);
-
-        derivateLog.push({ originalKey: src.key, derivateKey: thumbHandle.key });
-      },
+  // Entry point 2 — imperative. A real app would gate this behind real
+  // roles; `openToAll` keeps the recipe's HTTP wiring to one line.
+  r.writeHandler(
+    "set-cover",
+    z.object({
+      fileRefId: z.string(),
+      // Relative to the ORIGINAL image's pixels, clamped before resize —
+      // runtime data (e.g. a detected face box), which is exactly why this
+      // can only be expressed imperatively, not in a static field def.
+      blurRegion: z
+        .object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
+        .optional(),
+    }),
+    async (event, ctx) => {
+      if (!ctx.derivatives) {
+        return writeFailure(
+          new InternalError({ message: "ctx.derivatives missing — is file-derivatives mounted?" }),
+        );
+      }
+      const { fileRefId, blurRegion } = event.payload;
+      const result = await ctx.derivatives.variant(
+        fileRefId,
+        {
+          maxEdge: 800,
+          fit: "cover",
+          format: "webp",
+          ...(blurRegion ? { blurRegions: [blurRegion] } : {}),
+        },
+        "cover",
+      );
+      coverOrder.push(fileRefId);
+      return { isSuccess: true as const, data: { fileRefId, storageKey: result.storageKey } };
     },
+    { access: { openToAll: true } },
+  );
+
+  r.writeHandler(
+    "publish",
+    z.object({ entityId: z.string() }),
+    async (event) => {
+      publishedPhotoIds.add(event.payload.entityId);
+      return { isSuccess: true as const, data: { entityId: event.payload.entityId } };
+    },
+    { access: { openToAll: true } },
+  );
+
+  // Entry point 3 — default-deny. No registration here means every entityId
+  // 404s; a registration that returns false does the same. Only an explicit
+  // `true` serves bytes.
+  r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "photo", {
+    isPublic: ({ entityId }: { entityId: string }) => publishedPhotoIds.has(entityId),
   });
 });
