@@ -54,13 +54,13 @@ function defaultWidthFromViewport(): number {
 function floatingSideClass(side: "left" | "right" | "top" | "bottom"): string {
   switch (side) {
     case "left":
-      return "inset-y-8 left-8 h-auto w-[max(520px,25vw)] max-w-[85vw] sm:max-w-[max(520px,25vw)] rounded-[2rem] border shadow-2xl";
+      return "inset-y-8 left-8 h-auto w-[max(520px,25vw)] max-w-[85vw] sm:max-w-[max(520px,25vw)] rounded-[2rem] border shadow-2xl overflow-hidden";
     case "top":
-      return "inset-x-8 top-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl";
+      return "inset-x-8 top-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl overflow-hidden";
     case "bottom":
-      return "inset-x-8 bottom-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl";
+      return "inset-x-8 bottom-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl overflow-hidden";
     default:
-      return "inset-y-8 right-8 h-auto w-[max(520px,25vw)] max-w-[85vw] sm:max-w-[max(520px,25vw)] rounded-[2rem] border shadow-2xl";
+      return "inset-y-8 right-8 h-auto w-[max(520px,25vw)] max-w-[85vw] sm:max-w-[max(520px,25vw)] rounded-[2rem] border shadow-2xl overflow-hidden";
   }
 }
 
