@@ -99,7 +99,8 @@ describe("ContentPreview", () => {
 
     const el = screen.getByTestId("cp-textarea") as HTMLTextAreaElement;
     expect(el.value).toBe("Hi A-1042");
-    expect(el.disabled).toBe(true);
+    expect(el.readOnly).toBe(true);
+    expect(el.disabled).toBe(false);
   });
 
   test("rich format: an example value with markup characters is escaped, not injected as HTML", () => {

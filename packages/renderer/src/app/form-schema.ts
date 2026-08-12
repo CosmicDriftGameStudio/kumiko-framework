@@ -1,6 +1,7 @@
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
+  FieldDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
@@ -26,7 +27,12 @@ function isPresent(value: unknown): boolean {
 // packages/framework/src/engine/boot-validator/screens.ts, which mirrors
 // this set (framework can't import renderer, so it can't import this
 // constant directly — keep both in sync).
-const FIELD_TYPES_WITHOUT_WIDGET = new Set(["jsonb", "embedded", "files", "images"]);
+const FIELD_TYPES_WITHOUT_WIDGET: ReadonlySet<FieldDefinition["type"]> = new Set([
+  "jsonb",
+  "embedded",
+  "files",
+  "images",
+]);
 
 // Renders raw to the user without a de+en default in i18n-defaults.ts.
 export const REQUIRED_FIELD_I18N_KEY = "kumiko.validation.required";

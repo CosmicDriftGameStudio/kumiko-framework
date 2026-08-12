@@ -125,11 +125,11 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     async (event, ctx) => {
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       await crud.create({ label: `${event.payload.label}-inside-tx` }, event.user, ctx.db);
-      await crud.create(
-        { label: `${event.payload.label}-outside-tx` },
-        event.user,
-        ctx.dbOutsideTransaction,
-      );
+      const outsideTx = ctx.dbOutsideTransaction;
+      if (!outsideTx) {
+        throw new Error("bag:create-outside-tx-then-fail requires ctx.dbOutsideTransaction");
+      }
+      await crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, outsideTx);
       return writeFailure(new UnprocessableError("intentional_failure"));
     },
     { access: { roles: ["Admin"] } },

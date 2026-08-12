@@ -4,7 +4,7 @@ import { getUser } from "../api/auth-middleware";
 import type { DbConnection } from "../db/connection";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { createTenantDb } from "../db/tenant-db";
-import { createDerivativesContext, resolveFieldVariant } from "../derivatives";
+import { createDerivativesContext, resolveFieldVariant, resolveRenderer } from "../derivatives";
 import { isFileField, type Registry, type SessionUser, type TenantId } from "../engine/types";
 import { generateId } from "../utils";
 import { buildContentDispositionHeader } from "./content-disposition";
@@ -252,14 +252,22 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     if (decision === "deny") return c.json({ error: "not_found" }, 404);
 
     // An unknown name and a denied file answer alike, so the route never
-    // confirms what exists. A missing renderer is NOT folded in here — that
-    // throws out of variant() as a 500, because a mount gap is a config
-    // error, not a missing variant.
+    // confirms what exists.
     const registry = options.registry;
     const spec = registry
       ? resolveFieldVariant(registry, fileRef.entityType, fileRef.fieldName, name)
       : undefined;
     if (!registry || !spec) return c.json({ error: "not_found" }, 404);
+
+    // The file's mimeType comes from the upload (`file.type`) — validateFile
+    // only checks it against the field's `accept` when the field declares
+    // one, so a field without `accept` lets a client upload anything and
+    // then request /variant/*. Without this check, derivatives.variant()
+    // throws for an unsupported source mimeType — an uncaught 500 whose
+    // message lists every registered renderer's extension name.
+    if (!resolveRenderer(registry, fileRef.mimeType)) {
+      return c.json({ error: "unsupported_media_type" }, 415);
+    }
 
     // Built per request: createFileContext caches the resolved provider, so
     // one shared across requests would serve tenant A's store to tenant B.

@@ -33,7 +33,7 @@ test("widget catalog renders and ModeSwitch toggles", async ({ page }) => {
   if (process.env["SCREENSHOT"] === "1") {
     await page.screenshot({ path: "/tmp/widgets-drawer-open.png", fullPage: true });
   }
-  await drawer.getByRole("button", { name: "Close" }).first().click();
+  await drawer.getByRole("button", { name: "Cancel" }).click();
   await expect(drawer).toBeHidden();
 
   // InfinityList: first page loads, unread filter refetches to a subset.

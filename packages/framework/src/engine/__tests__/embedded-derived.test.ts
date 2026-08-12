@@ -28,4 +28,8 @@ describe("roundDerivedCellValue — float-noise vs. genuine near-half values", (
   test("non-money/decimal targets pass through unchanged", () => {
     expect(roundDerivedCellValue(1.23456, { type: "number" })).toBe(1.23456);
   });
+
+  test("decimal with no scale: passes the value through unrounded instead of truncating to 0 decimals", () => {
+    expect(roundDerivedCellValue(1.2345, { type: "decimal", scale: undefined })).toBe(1.2345);
+  });
 });

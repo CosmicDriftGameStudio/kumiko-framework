@@ -62,7 +62,7 @@ export function TextareaContentEditor({
       name={CONTENT_EDITOR_ELEMENT_ID}
       value={value}
       onChange={onChange}
-      disabled={readOnly}
+      readOnly={readOnly}
       rows={14}
     />
   );

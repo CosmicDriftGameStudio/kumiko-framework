@@ -123,7 +123,13 @@ export function Drawer({
     event.preventDefault();
     setMaximized(false);
     const delta = event.key === grow ? step : -step;
-    setWidth((current) => clamp(current + delta, minWidthPx, effectiveMaxWidthPx()));
+    // Seed from the currently visible width, not the stale `width` state —
+    // while maximized, `width` still holds the pre-maximize value, so a key
+    // press would otherwise jump the drawer back to that old size instead
+    // of resizing relative to what's on screen.
+    setWidth((current) =>
+      clamp((maximized ? effectiveWidthPx : current) + delta, minWidthPx, effectiveMaxWidthPx()),
+    );
   };
 
   return (

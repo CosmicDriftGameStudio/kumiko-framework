@@ -18,7 +18,7 @@
 //
 // Usage: bun run scripts/gen-feature-manifest.ts
 
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -67,7 +67,18 @@ export const CREATE_APP_MANIFEST_PATH = resolve(
 if (import.meta.url === `file://${process.argv[1]}`) {
   const manifest = buildFeatureManifest();
   const serialized = serializeManifest(manifest);
-  for (const path of [MANIFEST_PATH, CREATE_APP_MANIFEST_PATH]) {
+  const targets = [MANIFEST_PATH];
+  // Monorepo-only target: a standalone copy of this sample (mirror, or a
+  // scaffolded app that kept this script) has no packages/create-kumiko-app
+  // sibling to write into.
+  if (existsSync(dirname(CREATE_APP_MANIFEST_PATH))) {
+    targets.push(CREATE_APP_MANIFEST_PATH);
+  } else {
+    console.log(
+      `feature-manifest.json: skipping create-kumiko-app copy — ${dirname(CREATE_APP_MANIFEST_PATH)} does not exist (monorepo-only target).`,
+    );
+  }
+  for (const path of targets) {
     writeFileSync(path, serialized, "utf-8");
     console.log(`feature-manifest.json: ${manifest.featureCount} features → ${path}`);
   }

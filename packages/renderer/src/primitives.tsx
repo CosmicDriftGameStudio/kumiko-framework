@@ -443,6 +443,9 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+      /** Read-only Textarea. Nicht `disabled` — bleibt fokussier-/
+       *  kopierbar (analog zu kind:"text"). */
+      readonly readOnly?: boolean;
     };
 
 // Sort-Wire-Format. `null`-State unterscheidet "User hat noch nichts

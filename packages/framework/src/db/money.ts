@@ -122,6 +122,15 @@ export function flattenMoney(
   return result;
 }
 
+/** Shape of a single rehydrated money field — {amount major, currency,
+ *  amountMinor exact integer cents}. Exported so consumers type their own
+ *  copy against this instead of re-declaring the shape by hand. */
+export type MoneyRead = {
+  readonly amount: number;
+  readonly currency: string;
+  readonly amountMinor: number;
+};
+
 /**
  * DB → API: zwei flache Spalten zu combined { amount, currency } rehydraten.
  *

@@ -699,7 +699,8 @@ function EntityEditSingletonBody({
       </Banner>
     );
   }
-  const existingId = listQuery.data?.rows[0]?.["id"] as string | undefined;
+  const rawExistingId = listQuery.data?.rows[0]?.["id"];
+  const existingId = typeof rawExistingId === "string" ? rawExistingId : undefined;
   if (existingId !== undefined) {
     return (
       <EntityEditUpdateBody

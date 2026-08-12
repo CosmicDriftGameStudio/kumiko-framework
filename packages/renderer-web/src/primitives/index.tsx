@@ -250,7 +250,11 @@ function DefaultField({
       )}
     >
       {label}
-      {required === true && <span className="ml-0.5 text-destructive">*</span>}
+      {required === true && (
+        <span data-required className="ml-0.5 text-destructive">
+          *
+        </span>
+      )}
     </UiLabel>
   );
   const errorsEl = hasError ? (
@@ -569,6 +573,7 @@ function DefaultInput(props: InputProps): ReactNode {
       return (
         <Textarea
           {...common}
+          readOnly={props.readOnly}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => props.onChange(e.target.value)}
           rows={props.rows ?? 4}
@@ -743,7 +748,7 @@ function DefaultDataTable({
                 ))}
                 {hasTableActions && (
                   <TableCell
-                    data-testid={`cell-${row.id}-actions`}
+                    data-testid={getCellTestId?.(row, "actions") ?? `cell-${row.id}-actions`}
                     // Sticky-right so the actions stay visible on the right
                     // edge during horizontal scroll. bg-background sets the
                     // column apart during scroll — no border-l (divider too heavy).

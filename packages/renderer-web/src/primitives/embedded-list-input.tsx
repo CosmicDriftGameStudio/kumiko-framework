@@ -11,6 +11,12 @@
 // viewport, so the `hidden md:block` / `md:hidden` classes stay on the
 // wrapper divs too: on a phone that first (wrong) render is desktop but
 // CSS-hidden, not a visible flash of the wrong layout.
+//
+// ponytail: crossing the mobile/desktop breakpoint unmounts the active
+// layout and mounts the other, so an in-progress cell draft (uncommitted
+// MoneyInput text, IME composition) and focus are lost — accepted trade-off
+// for the single-mount-per-side fix above. Upgrade: lift per-cell draft
+// state into a `draftsByCellId` map here that survives the layout swap.
 
 import type { FieldIssue } from "@cosmicdrift/kumiko-headless";
 import type {
@@ -421,6 +427,7 @@ export function EmbeddedListInput({
   const handlePaste = (rowIndex: number, columnIndex: number) => {
     return (event: ClipboardEvent<HTMLElement>): void => {
       if (onPasteCells === undefined) return;
+      if (disabled === true) return;
       const text = event.clipboardData?.getData("text") ?? "";
       const grid = parsePasteGrid(text);
       const isMultiCell = grid.length > 1 || (grid[0]?.length ?? 0) > 1;

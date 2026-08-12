@@ -313,10 +313,13 @@ function applyTotalsMatchRefinements(
     const totalsMatch = field.totalsMatch;
     result = result.superRefine((values, ctx) => {
       for (const [subFieldName, siblingFieldName] of Object.entries(totalsMatch)) {
-        const rows = values[fieldName] as ReadonlyArray<Record<string, unknown>> | undefined;
+        const rawRows = values[fieldName];
         const siblingRaw = values[siblingFieldName];
         // Not sent -> not checkable, not an error (partial update payloads).
-        if (rows === undefined || siblingRaw === undefined) continue;
+        if (rawRows === undefined || siblingRaw === undefined) continue;
+        // Not an array -> a different refinement already rejects the shape;
+        // this check isn't the right place to report it.
+        if (!Array.isArray(rawRows)) continue;
         const siblingMinor = moneyPayloadToMinorUnits(siblingRaw);
         if (siblingMinor === undefined) continue;
         const siblingCurrency =
@@ -332,11 +335,13 @@ function applyTotalsMatchRefinements(
           });
           continue;
         }
-        const sumMinor = rows.reduce(
-          (total, row) =>
-            total + (typeof row[subFieldName] === "number" ? (row[subFieldName] as number) : 0),
-          0,
-        );
+        const sumMinor = rawRows.reduce((total: number, row: unknown) => {
+          const value =
+            typeof row === "object" && row !== null
+              ? (row as Record<string, unknown>)[subFieldName]
+              : undefined;
+          return total + (typeof value === "number" ? value : 0);
+        }, 0);
         if (sumMinor !== siblingMinor) {
           ctx.addIssue({
             code: "custom",
