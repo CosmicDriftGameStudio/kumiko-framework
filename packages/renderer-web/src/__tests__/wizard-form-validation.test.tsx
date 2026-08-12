@@ -55,8 +55,8 @@ describe("entityEdit wizard — presence validation on Next (fw#1910)", () => {
 
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("1");
     expect(screen.getByTestId("field-fullName-errors")).toBeTruthy();
-    // Step 2's field never mounts — the transition was blocked.
-    expect(document.querySelector("#kumiko-edit-email")).toBeNull();
+    // Step 2's field stays mounted but hidden — the transition was blocked.
+    expect(screen.getByTestId("field-email").closest("[hidden]")).not.toBeNull();
   });
 
   test("filling the required field allows Next to advance to step 2", async () => {
