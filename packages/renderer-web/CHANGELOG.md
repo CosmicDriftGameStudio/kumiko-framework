@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.193.1
+
+### Patch Changes
+
+- dd4ce95: `UploadZone` and `FileUploadInput` downscale images to a 2560px max edge before upload (bandwidth), which also strips EXIF/GPS as a side effect of the canvas re-encode. SVG and GIF pass through unchanged (vector/animation would be destroyed); browsers without `OffscreenCanvas` fall back to uploading the original file unchanged.
+  - @cosmicdrift/kumiko-dispatcher-live@0.193.1
+  - @cosmicdrift/kumiko-headless@0.193.1
+  - @cosmicdrift/kumiko-renderer@0.193.1
+
 ## 0.193.0
 
 ### Minor Changes
