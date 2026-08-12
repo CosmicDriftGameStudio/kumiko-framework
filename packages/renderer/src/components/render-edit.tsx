@@ -250,7 +250,6 @@ function ExtensionSectionMount({
   values,
   patch,
   validate,
-  hidden,
 }: {
   readonly section: EditExtensionSectionViewModel;
   readonly entityName: string;
@@ -259,7 +258,6 @@ function ExtensionSectionMount({
   readonly values?: Readonly<Record<string, unknown>>;
   readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
   readonly validate?: () => boolean;
-  readonly hidden?: boolean;
 }): ReactNode {
   const { Banner, Section, Text } = usePrimitives();
   const name = extensionSectionName(section.component);
@@ -270,7 +268,6 @@ function ExtensionSectionMount({
         key={section.title}
         title={section.title}
         testId={`section-extension-${section.title}`}
-        hidden={hidden}
       >
         <Banner variant="info" testId={`section-extension-placeholder-${section.title}`}>
           <Text>
@@ -283,7 +280,7 @@ function ExtensionSectionMount({
     );
   }
   return (
-    <Section title={section.title} testId={`section-extension-${section.title}`} hidden={hidden}>
+    <Section title={section.title} testId={`section-extension-${section.title}`}>
       <Component
         entityName={entityName}
         entityId={entityId}
@@ -378,8 +375,19 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const [extensionErrorKey, setExtensionErrorKey] = useState<string | null>(null);
   const { registry: extensionFormRegistry, runAll: runExtensionSubmits } =
     useExtensionFormHost(setExtensionDirty);
-  const { Button, Banner, Dialog, Form, Section, Grid, GridCell, Text, Progress, StepBar } =
-    usePrimitives();
+  const {
+    Button,
+    Banner,
+    Dialog,
+    Form,
+    Section,
+    Grid,
+    GridCell,
+    Text,
+    Progress,
+    StepBar,
+    WizardStepGroup,
+  } = usePrimitives();
 
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
 
@@ -1060,8 +1068,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           // navigating past its step — otherwise Finish only ran the last
           // mounted step's handler and silently dropped earlier steps' writes.
           const stepHidden = isWizard && sectionIndex !== currentStep;
+          // Off-screen wizard steps stay mounted (see comment above) but must
+          // not participate in native constraint validation, or the Next
+          // button's `type="submit"` triggers the browser's full-form check
+          // — including required fields on unvisited steps, which are not
+          // focusable while hidden, so the wizard silently stops navigating
+          // (only a console warning, no visible error). A plain `hidden`
+          // attribute does NOT bar descendants from constraint validation on
+          // web — see WizardStepGroupProps for what implementations must
+          // guarantee.
           if (section.kind === "extension") {
-            return (
+            const mount = (
               <ExtensionSectionMount
                 key={section.title}
                 section={section}
@@ -1075,8 +1092,19 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   patchAndScheduleDraftSave as (partial: Readonly<Record<string, unknown>>) => void
                 }
                 validate={scopedValidate}
-                hidden={stepHidden}
               />
+            );
+            if (!isWizard) return mount;
+            if (WizardStepGroup === undefined) {
+              // Both silent fallbacks are unsafe here — render-visible-all-steps or unmount-drops-registry.
+              throw new Error(
+                "RenderEdit: wizard layout requires primitives.WizardStepGroup, but none is registered.",
+              );
+            }
+            return (
+              <WizardStepGroup key={section.title} hidden={stepHidden}>
+                {mount}
+              </WizardStepGroup>
             );
           }
           if (!section.visible) return null;
@@ -1086,13 +1114,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           const sectionTitle = section.title === formTitle ? undefined : section.title;
           // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
           const sectionKey = section.title ?? `section-${sectionIndex}`;
-          return (
+          const sectionEl = (
             <Section
               key={sectionKey}
               {...(sectionTitle !== undefined && { title: sectionTitle })}
               {...(section.description !== undefined && { subtitle: section.description })}
               testId={`section-${sectionKey}`}
-              hidden={stepHidden}
             >
               <Grid columns={section.columns}>
                 {section.fields.map((field: EditFieldViewModel) => (
@@ -1117,6 +1144,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 ))}
               </Grid>
             </Section>
+          );
+          if (!isWizard) return sectionEl;
+          if (WizardStepGroup === undefined) {
+            throw new Error(
+              "RenderEdit: wizard layout requires primitives.WizardStepGroup, but none is registered.",
+            );
+          }
+          return (
+            <WizardStepGroup key={sectionKey} hidden={stepHidden}>
+              {sectionEl}
+            </WizardStepGroup>
           );
         })}
         {formError !== null && (

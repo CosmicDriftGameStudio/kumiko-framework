@@ -8,6 +8,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
@@ -103,6 +104,50 @@ describe("entityEdit wizard — presence validation on Next (fw#1910)", () => {
 
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("2");
     expect(screen.getByTestId("field-email-errors")).toBeTruthy();
+  });
+
+  // `fieldset[disabled]` also excludes its descendants' controls from a real
+  // `new FormData(form)` / native form submission — if render-edit's submit
+  // path ever read values that way instead of from controller/React state,
+  // disabling step 1's fieldset after Next would silently drop fullName on
+  // submit. Assert on the value the dispatcher actually receives, not just
+  // that step 2 shows no error.
+  test("submitting from a later step still sends an earlier step's value to the dispatcher", async () => {
+    const calls: Array<[string, unknown]> = [];
+    const write = (async (type: string, payload: unknown) => {
+      calls.push([type, payload]);
+      return { isSuccess: true, data: {} };
+    }) as unknown as Dispatcher["write"];
+    const { container } = render(
+      <DispatcherProvider dispatcher={createMockDispatcher({ write })}>
+        <KumikoScreen schema={schema} qn="demo:screen:profile-edit" />
+      </DispatcherProvider>,
+    );
+
+    const fullNameInput = container.querySelector("#kumiko-edit-fullName");
+    await userEvent.type(fullNameInput as Element, "Ada Lovelace");
+    await userEvent.click(screen.getByTestId("render-edit-wizard-next"));
+    await userEvent.click(screen.getByTestId("render-edit-submit"));
+
+    expect(calls).toHaveLength(1);
+    const [, payload] = calls[0] as [string, Record<string, unknown>];
+    expect(payload["fullName"]).toBe("Ada Lovelace");
+  });
+
+  // fw high-severity finding: `hidden` alone does not bar a field from the
+  // browser's native constraint validation, so a required field on an
+  // off-screen step blocked the whole form's `type="submit"` Next button —
+  // jsdom doesn't implement constraint validation, so this only reproduces
+  // as a DOM-shape check (fieldset[disabled] ancestor), not the actual
+  // browser-blocks-navigation symptom.
+  test("an off-screen step's fields sit inside a disabled fieldset, the current step's don't", async () => {
+    renderWizard();
+
+    const hiddenStepField = screen.getByTestId("field-email").closest("fieldset");
+    expect(hiddenStepField?.disabled).toBe(true);
+
+    const currentStepField = screen.getByTestId("field-fullName").closest("fieldset");
+    expect(currentStepField?.disabled).toBe(false);
   });
 });
 

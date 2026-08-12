@@ -16,21 +16,23 @@ export function createMetricsHandle(
   opts: { skipUnregistered?: boolean } = {},
 ): MetricsHandle {
   const { skipUnregistered = false } = opts;
-  // skip: unregistered name is the documented no-op contract of the "safe" handle
   const isSkippable = (name: string): boolean => skipUnregistered && !meter.definitions().has(name);
   return {
     inc(shortName, labels, value) {
       const name = buildMetricName(featureName, shortName);
+      // skip: unregistered name is the documented no-op contract of the "safe" handle
       if (isSkippable(name)) return;
       meter.counter(name).inc(value, labels);
     },
     observe(shortName, value, labels) {
       const name = buildMetricName(featureName, shortName);
+      // skip: unregistered name is the documented no-op contract of the "safe" handle
       if (isSkippable(name)) return;
       meter.histogram(name).observe(value, labels);
     },
     set(shortName, value, labels) {
       const name = buildMetricName(featureName, shortName);
+      // skip: unregistered name is the documented no-op contract of the "safe" handle
       if (isSkippable(name)) return;
       meter.gauge(name).set(value, labels);
     },

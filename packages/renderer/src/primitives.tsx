@@ -273,6 +273,9 @@ export type InputProps =
       /** Only for kind:"image" — variant name for the preview
        *  (`/api/files/:id/variant/:name`). Absent → the original. */
       readonly imageVariant?: string;
+      /** Only for kind:"image" — forwarded to the file input's `capture`
+       *  attribute so a phone opens the camera instead of the file picker. */
+      readonly capture?: "environment" | "user";
     }
   | {
       readonly kind: "date";
@@ -726,11 +729,6 @@ export type SectionProps = {
    *  Default "default" (normal card border). */
   readonly variant?: "default" | "destructive";
   readonly testId?: string;
-  /** Keeps the section mounted while visually hiding it (native `hidden`
-   *  attribute where supported) — used by wizard mode to keep off-screen
-   *  steps mounted so their state (e.g. an extension section's submit
-   *  registration) survives step navigation instead of unmounting. */
-  readonly hidden?: boolean;
 };
 
 /** Columns-basiertes Layout. Web: CSS grid, Native: Flex-Wrap mit
@@ -912,6 +910,19 @@ export type StepBarProps = {
   readonly compactTestId?: string;
 };
 
+/** Wraps a single wizard step so it stays mounted but inert while off-
+ *  screen — `hidden` visually hides it, and implementations that have a
+ *  native constraint-validation concept (web: `<fieldset disabled>`, spec-
+ *  guaranteed to also bar descendants from participating) must bar it too,
+ *  or a `type="submit"` step-advance button triggers the browser's
+ *  full-form check against fields on unvisited, unfocusable steps
+ *  (kumiko-framework#1976). Implementations without that concept can gate
+ *  on `hidden` alone. */
+export type WizardStepGroupProps = {
+  readonly hidden: boolean;
+  readonly children: ReactNode;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -945,6 +956,10 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly StepBar?: ComponentType<StepBarProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly WizardStepGroup?: ComponentType<WizardStepGroupProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

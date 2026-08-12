@@ -5,6 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import {
   computeDerivedCellValue,
+  currencyDecimals,
   groupEmbeddedListIssues,
   roundDerivedCellValue,
   sumEmbeddedListColumn,
@@ -54,7 +55,7 @@ function withRecomputedDerived(
   return result;
 }
 
-function coerceCellValue(column: EmbeddedListColumn, text: string): unknown {
+function coerceCellValue(column: EmbeddedListColumn, text: string, currency: string): unknown {
   switch (column.type) {
     case "text":
       return text;
@@ -66,10 +67,15 @@ function coerceCellValue(column: EmbeddedListColumn, text: string): unknown {
     }
     case "money": {
       // Money cells are minor-unit integers (cents) in storage — paste
-      // arrives as a major-unit decimal string ("12,99"/"12.99"), so ×100.
+      // arrives as a major-unit decimal string ("12,99"/"12.99"), so scale
+      // by the currency's decimal places. Must agree with the typed-in path
+      // (renderCellControl's MoneyInput, which scales by the same
+      // currencyDecimals) — a hardcoded ×100 here diverged for zero-/three-
+      // decimal currencies (JPY, BHD, ...), landing a pasted value 100x off
+      // from the same value typed by hand (kumiko-framework#1972).
       if (text.trim() === "") return undefined;
       const n = Number(text.replace(",", "."));
-      return Number.isFinite(n) ? Math.round(n * 100) : undefined;
+      return Number.isFinite(n) ? Math.round(n * 10 ** currencyDecimals(currency)) : undefined;
     }
     case "boolean":
       return ["true", "1", "yes", "y", "ja"].includes(text.trim().toLowerCase());
@@ -221,7 +227,10 @@ export function EmbeddedListField({
       gridRow.forEach((text, gridColOffset) => {
         const column = columns[columnIndex + gridColOffset];
         if (column === undefined) return;
-        updatedRow = { ...updatedRow, [column.field]: coerceCellValue(column, text) };
+        updatedRow = {
+          ...updatedRow,
+          [column.field]: coerceCellValue(column, text, field.embeddedListCurrency ?? "EUR"),
+        };
       });
       nextRows[targetRowIndex] = updatedRow;
       touchedIndices.add(targetRowIndex);

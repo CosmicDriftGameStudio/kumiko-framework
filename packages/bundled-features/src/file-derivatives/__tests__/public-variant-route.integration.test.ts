@@ -1,13 +1,15 @@
 // Proves GET {basePath}/:fileRefId/:variant end-to-end: anonymous, no
 // Authorization header, tenant resolved ONLY from Host (never the payload),
 // default-deny when no `derivativePublicPredicate` is registered for the
-// FileRef's entityType (or it returns false), the fixed preset-name
-// pre-check running BEFORE any DB/systemQuery work, and the Step-1
-// requestContext fix that makes `rateLimit: {per: "ip"}` actually gate an
-// r.httpRoute handler invoked via systemQuery (#1951).
+// FileRef's entityType (or it returns false), the variant spec resolving
+// from the FileRef's field declaration (not a fixed preset map, #1985), and
+// the Step-1 requestContext fix that makes `rateLimit: {per: "ip"}` actually
+// gate an r.httpRoute handler invoked via systemQuery (#1951).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
+  createEntity,
+  createImageField,
   defineFeature,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
   EXT_DERIVATIVE_RENDERER,
@@ -26,7 +28,10 @@ import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-framework/testing";
-import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
+import type {
+  DerivativeRendererPlugin,
+  VariantSpec,
+} from "@cosmicdrift/kumiko-types/derivatives-types";
 import { createConfigFeature } from "../../config";
 import { fileFoundationFeature } from "../../file-foundation";
 import { createFileDerivativesFeature } from "../feature";
@@ -35,16 +40,43 @@ import type { DerivativePublicPredicateArgs } from "../handlers/public-variant.q
 const VARIANT_BYTES = new Uint8Array([7, 7, 7]);
 
 let renderCalls = 0;
-const fakeRender: DerivativeRendererPlugin["render"] = async () => {
+let lastRenderSpec: VariantSpec | null = null;
+const fakeRender: DerivativeRendererPlugin["render"] = async (_input, spec) => {
   renderCalls++;
+  lastRenderSpec = spec;
   return VARIANT_BYTES;
 };
 
 const PUBLIC_WIDGET_ID = "widget-public";
 const OTHER_WIDGET_ID = "widget-other";
 
+// `full` deliberately overrides the built-in preset's maxEdge (2560) — this
+// is what proves the route resolves the spec from the field declaration
+// (#1985), not from the frozen preset constants. `plan` is a name with no
+// preset counterpart at all — the exact motivating case from #1985 (an app
+// declaring its own variant name). `heroWide` uses characters (uppercase,
+// underscore-adjacent camelCase) outside a naive `[a-z0-9-]` guard — the
+// `variants` map has no runtime charset constraint, so the route's
+// syntactic pre-check must not narrow it. `plain` has no variants at all,
+// for the "field declares no variants" 404 case.
+const widgetEntity = createEntity({
+  table: "public_variant_widgets",
+  fields: {
+    img: createImageField({
+      variants: {
+        thumb: { maxEdge: 160, format: "webp" },
+        full: { maxEdge: 4096, format: "webp" },
+        plan: { maxEdge: 4096, format: "webp" },
+        heroWide: { maxEdge: 3200, format: "webp" },
+      },
+    }),
+    plain: createImageField(),
+  },
+});
+
 let predicateCalls = 0;
 const widgetPredicateFeature = defineFeature("publicvariantroutetest", (r) => {
+  r.entity("widget", widgetEntity);
   r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "widget", {
     isPublic: (args: DerivativePublicPredicateArgs) => {
       predicateCalls++;
@@ -91,6 +123,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   renderCalls = 0;
+  lastRenderSpec = null;
   predicateCalls = 0;
   // Fresh rate-limit bucket per test — no carry-over.
   await stack.redis.flushNamespace();
@@ -99,13 +132,14 @@ beforeEach(async () => {
 async function uploadFile(
   asUser: typeof userA,
   attach: { entityType: string; entityId: string },
+  fieldName = "img",
 ): Promise<string> {
   const token = await stack.jwt.sign(asUser);
   const fd = new FormData();
   fd.append("file", new File([Buffer.from([1, 2, 3])], "img.jpg", { type: "image/jpeg" }));
   fd.append("entityType", attach.entityType);
   fd.append("entityId", attach.entityId);
-  fd.append("fieldName", "img");
+  fd.append("fieldName", fieldName);
   const { body, contentType } = await buildMultipartBody(fd);
   const res = await stack.app.request("/api/files", {
     method: "POST",
@@ -174,26 +208,100 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
     expect(await revalidate.arrayBuffer()).toEqual(new ArrayBuffer(0));
   });
 
-  test("invalid variant name → 404, pre-check runs before any DB/systemQuery work", async () => {
+  test("syntactically malformed variant names → 404, pre-check runs before any DB/systemQuery work", async () => {
     const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    // Well-formed-looking but unregistered names (e.g. "not-a-preset") now
+    // reach the DB — the pre-check is purely syntactic since #1985, not a
+    // name list. Only pathological input is rejected here.
+    const malformedNames = [
+      "a".repeat(65), // over the 64-char cap
+      "foo%2Fbar", // decodes to a path separator
+      "foo..bar", // "." isn't in the allowed charset either
+      "foo%20bar", // decodes to a space
+    ];
 
-    const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/not-a-preset`);
-
-    expect(res.status).toBe(404);
+    for (const name of malformedNames) {
+      const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/${name}`);
+      expect(res.status).toBe(404);
+    }
     expect(predicateCalls).toBe(0);
     expect(renderCalls).toBe(0);
   });
 
+  test("the field's own spec is used, not the built-in preset — proves resolution comes from the field declaration (#1985)", async () => {
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+
+    const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/full`);
+
+    expect(res.status).toBe(200);
+    // widgetEntity's "img" field declares maxEdge:4096 for "full" — the
+    // built-in `full` preset (presets.ts) is maxEdge:2560. Getting 4096 here
+    // proves the spec came from the field, not the frozen preset constant.
+    expect(lastRenderSpec?.maxEdge).toBe(4096);
+  });
+
+  test("a field-declared name with no preset counterpart is served end-to-end — the exact case #1985 reported", async () => {
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+
+    const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/plan`);
+
+    expect(res.status).toBe(200);
+    expect(lastRenderSpec?.maxEdge).toBe(4096);
+  });
+
+  test("a declared name outside [a-z0-9-] (camelCase) is still reachable — the syntactic gate isn't a narrower name list", async () => {
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+
+    const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/heroWide`);
+
+    expect(res.status).toBe(200);
+    expect(lastRenderSpec?.maxEdge).toBe(3200);
+  });
+
+  test("a preset name the field doesn't declare in its variants → 404", async () => {
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+
+    // widgetEntity's "img" field declares only thumb/full — "card" and
+    // "hero" aren't in its variants map.
+    const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/card`);
+
+    expect(res.status).toBe(404);
+    expect(predicateCalls).toBeGreaterThan(0);
+    expect(renderCalls).toBe(0);
+  });
+
+  test("a FileRef whose field declares no variants at all → 404", async () => {
+    const fileId = await uploadFile(
+      userA,
+      { entityType: "widget", entityId: PUBLIC_WIDGET_ID },
+      "plain",
+    );
+
+    const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
+
+    expect(res.status).toBe(404);
+    expect(predicateCalls).toBeGreaterThan(0);
+    expect(renderCalls).toBe(0);
+  });
+
   test("unknown fileRefId → 404", async () => {
-    // Valid UUID shape (the id column's type) but no matching row — a
-    // malformed/non-UUID id is a separate concern shared with the
-    // already-merged #1950 route (same fetchOne-by-id pattern), out of
-    // scope here.
+    // Valid UUID shape (the id column's type) but no matching row.
     const res = await stack.app.request(
       `http://${HOST_A}/media/00000000-0000-4000-8000-000000000000/thumb`,
     );
 
     expect(res.status).toBe(404);
+  });
+
+  test("malformed fileRefId → 404, pre-check runs before any DB/systemQuery work", async () => {
+    // Unlike #1950 (auth-gated), this route is anonymous — a non-UUID id
+    // reaching fetchOne() would throw Postgres 22P02 on an unauthenticated
+    // request, an unauth DoS primitive. Must 404 at the httpRoute pre-check.
+    const res = await stack.app.request(`http://${HOST_A}/media/not-a-uuid/thumb`);
+
+    expect(res.status).toBe(404);
+    expect(predicateCalls).toBe(0);
+    expect(renderCalls).toBe(0);
   });
 
   test("cross-tenant: FileRef under tenant A, request resolves to tenant B → 404", async () => {

@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 39,
+  "featureCount": 40,
   "features": {
     "admin-shell": {
       "samples": [
@@ -141,6 +141,12 @@
       "whenToUse": "You need to notify users across email, in-app, and push from domain handlers without wiring each channel yourself — mount delivery plus the channel features and declare templates.",
       "sampleBlurb": "Declarative r.notification() after CRUD — fans out to InApp, email, and push with per-channel templates and delivery-log assertions.",
       "screenshot": null
+    },
+    "file-derivatives": {
+      "samples": [
+        "recipes-files-post-processing"
+      ],
+      "hasVisualOutput": true
     },
     "file-foundation": {
       "samples": [

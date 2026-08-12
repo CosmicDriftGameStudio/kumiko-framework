@@ -724,6 +724,35 @@ describe("totalsMatch (fw#1839)", () => {
     expect(schema.safeParse({ total: { amount: 30, currency: "EUR" } }).success).toBe(true);
   });
 
+  // kumiko-framework#1972: a round total (30 EUR = 3000 minor) still passes
+  // even if the major/minor conversion is silently skipped, because 30 and
+  // 3000 both "look" plausible under either interpretation. A crooked
+  // amount catches that a round-number fixture wouldn't.
+  test("accepts a crooked total (1234.56 EUR) whose minor-unit line sum matches exactly", () => {
+    const schema = buildInsertSchema(invoiceEntity());
+    const result = schema.safeParse({
+      total: { amount: 1234.56, currency: "EUR" },
+      lines: [{ amount: 100000 }, { amount: 23456 }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  // The exact shape of the reported solon incident: a genuinely wrong total
+  // (100.00 EUR entered as if it were already minor units, i.e. 1.00 EUR)
+  // must still be rejected — proves the refinement doesn't silently pass a
+  // mismatch through by accident.
+  test("rejects a total that was itself entered/scaled wrong (100x too small)", () => {
+    const schema = buildInsertSchema(invoiceEntity());
+    const result = schema.safeParse({
+      total: { amount: 1, currency: "EUR" }, // should have been 100
+      lines: [{ amount: 10000 }], // 100.00 EUR
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.path.join(".") === "lines")).toBe(true);
+    }
+  });
+
   test("update payload omitting the sibling total is not checked (nothing to compare against)", () => {
     const schema = buildUpdateSchema(invoiceEntity());
     expect(schema.safeParse({ lines: [{ amount: 1000 }, { amount: 1500 }] }).success).toBe(true);
