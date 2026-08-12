@@ -163,8 +163,16 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     const previousFirstPageIds = firstPageIdsRef.current;
     firstPageIdsRef.current = freshIds;
     setState((prev) => {
-      // skip: not showing an accumulated list yet, nothing to merge into
-      if (prev.kind !== "ready") return prev;
+      // skip: the initial load() is still in flight and owns the eventual
+      // state — a concurrent refresh landing here has nothing accumulated
+      // to merge into yet.
+      if (prev.kind === "loading") return prev;
+      if (prev.kind !== "ready") {
+        // prev.kind === "error": this refresh succeeded — promote straight
+        // to "ready" instead of leaving the list stuck on the earlier
+        // failure forever (a live event should be able to recover it).
+        return { kind: "ready", rows: freshRows, cursor: nextCursorRef.current(res.data) };
+      }
       const staleRows = prev.rows.filter((row, index) => {
         const id = rowIdRef.current(row, index);
         return !freshIds.has(id) && !previousFirstPageIds.has(id);

@@ -4,11 +4,12 @@
 // into validateColumnRendererForm, splitting them would create a
 // same-folder require cycle.
 
+import { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
 import { rowMetaFieldNames } from "../../db/table-builder";
 import { isValidQn, qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
-import type { EntityDefinition, FeatureDefinition, FieldDefinition } from "../types";
+import type { EntityDefinition, FeatureDefinition } from "../types";
 import type {
   DashboardCustomPanel,
   DashboardFilterDefinition,
@@ -24,16 +25,6 @@ import type {
   ToolbarAction,
 } from "../types/screen";
 
-// Mirrors FIELD_TYPES_WITHOUT_WIDGET in packages/renderer/src/app/form-schema.ts.
-// Can't import it directly — renderer depends on framework, not the reverse.
-// Keep both lists in sync when a field type gains or loses an auto-wired widget.
-const NO_WIDGET_FIELD_TYPES: ReadonlySet<FieldDefinition["type"]> = new Set([
-  "jsonb",
-  "embedded",
-  "files",
-  "images",
-]);
-
 // A field type in NO_WIDGET_FIELD_TYPES renders read-only on the auto-wired
 // entityEdit path (#1925) — a required field the user can never fill would
 // block every save. Only the statically-resolvable case is caught here: a
@@ -48,7 +39,7 @@ function validateNoWidgetRequiredField(
 ): void {
   const fieldDef = entityDef.fields[fieldSpec.field];
   // skip: field doesn't exist or its type already has a widget — nothing to validate.
-  if (fieldDef === undefined || !NO_WIDGET_FIELD_TYPES.has(fieldDef.type)) return;
+  if (fieldDef === undefined || !NO_WIDGET_FIELD_TYPES.includes(fieldDef.type)) return;
   // Embedded LIST fields (`multiple: true`) get their own EmbeddedListField
   // grid widget (#1838) — only plain (non-list) embedded has no widget.
   const isEmbeddedList = fieldDef.type === "embedded" && fieldDef.multiple === true;
@@ -124,7 +115,7 @@ function validateRowActionNavigateParams(
 function validateWizardLayout(
   featureName: string,
   screenId: string,
-  screenType: "entityEdit" | "actionForm",
+  screenType: "entityEdit" | "actionForm" | "configEdit",
   layout: EditLayout,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
@@ -458,6 +449,7 @@ export function validateScreens(
           }
         }
       }
+      validateWizardLayout(feature.name, screenId, "configEdit", screen.layout, featureMap);
       // configKeys: jeder fieldName muss einen Mapping-Eintrag haben,
       // jeder qualifizierte Key muss in der Registry existieren.
       for (const fname of fieldNames) {

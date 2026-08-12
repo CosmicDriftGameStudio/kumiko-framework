@@ -69,6 +69,7 @@ import {
   type ChangeEvent,
   type CSSProperties,
   createContext,
+  type MouseEvent,
   type ReactNode,
   useContext,
   useEffect,
@@ -732,6 +733,12 @@ function DefaultDataTable({
                     // if the sum of the columns gets too wide.
                     className={cn("max-w-xs truncate", col.highlighted === true && "bg-accent/40")}
                     title={cellTitle(row.values[col.field])}
+                    // A click into the editable cell's widget must not also
+                    // trigger the row's onClick (typically "Open Detail") —
+                    // same reasoning as the actions cell below.
+                    {...(onCellChange !== undefined && {
+                      onClick: (e: MouseEvent) => e.stopPropagation(),
+                    })}
                   >
                     <DataTableCell
                       value={row.values[col.field]}

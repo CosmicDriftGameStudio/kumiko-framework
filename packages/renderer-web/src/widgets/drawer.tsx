@@ -1,3 +1,4 @@
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { type ReactNode, useRef, useState } from "react";
 import { clamp } from "../lib/clamp";
@@ -79,6 +80,7 @@ export function Drawer({
   resize,
   backdrop,
 }: DrawerProps): ReactNode {
+  const t = useTranslation();
   const canResize = resize !== undefined && (side === "left" || side === "right");
   const minWidthPx = resize?.minWidthPx ?? MIN_WIDTH_PX;
   const maxWidthPx = resize?.maxWidthPx ?? MAX_WIDTH_PX;
@@ -152,7 +154,9 @@ export function Drawer({
             type="button"
             onClick={() => setMaximized((m) => !m)}
             aria-pressed={maximized}
-            aria-label={maximized ? "Restore drawer width" : "Maximize drawer width"}
+            aria-label={
+              maximized ? t("kumiko.widget.drawer.restore") : t("kumiko.widget.drawer.maximize")
+            }
             className="absolute top-4 right-14 z-10 rounded-xs p-1 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
           >
             {maximized ? (
@@ -175,7 +179,7 @@ export function Drawer({
           <div
             role="separator"
             aria-orientation="vertical"
-            aria-label="Resize drawer"
+            aria-label={t("kumiko.widget.drawer.resize")}
             aria-valuenow={effectiveWidthPx}
             aria-valuemin={minWidthPx}
             aria-valuemax={effectiveMaxWidthPx()}

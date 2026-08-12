@@ -142,8 +142,16 @@ export const cleanupDraftsJob: JobHandlerFn = async (_payload, ctx) => {
         db,
       )
     : undefined;
-  const retentionDays =
-    typeof resolved === "number" && resolved >= 1 ? resolved : FORM_DRAFT_DEFAULT_RETENTION_DAYS;
+  const isValidRetention = typeof resolved === "number" && resolved >= 1;
+  // configResolver missing is the legitimate no-config case (r.optionalRequires,
+  // see feature.ts) — nothing to warn about there. A resolver that IS wired but
+  // returns something unusable means an admin set an invalid value.
+  if (ctx.configResolver && !isValidRetention) {
+    ctx.log?.warn?.(
+      `[form-draft:cleanup] configResolver returned invalid retention-days value=${String(resolved)} — falling back to default=${FORM_DRAFT_DEFAULT_RETENTION_DAYS}`,
+    );
+  }
+  const retentionDays = isValidRetention ? resolved : FORM_DRAFT_DEFAULT_RETENTION_DAYS;
 
   const fileProviderResolver = ctx._fileProviderResolver;
 

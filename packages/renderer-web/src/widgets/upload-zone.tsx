@@ -1,6 +1,7 @@
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { CheckCircle2, FileUp, Loader2, TriangleAlert, Upload } from "lucide-react";
 import { type DragEvent, type ReactNode, useId, useRef, useState } from "react";
+import { toAcceptAttr } from "../lib/accept-attr";
 import { cn } from "../lib/cn";
 import { resizeImageBeforeUpload } from "../lib/resize-image";
 
@@ -38,12 +39,6 @@ export type UploadZoneProps = {
   readonly disabled?: boolean;
   readonly testId?: string;
 };
-
-// "jpg" → ".jpg", "image/png" stays as-is. Empty list → no accept attribute.
-function toAcceptAttr(accept?: readonly string[]): string | undefined {
-  if (accept === undefined || accept.length === 0) return undefined;
-  return accept.map((a) => (a.startsWith(".") || a.includes("/") ? a : `.${a}`)).join(",");
-}
 
 // `accept` on the native <input> only filters the file-picker dialog — a
 // drag&drop drop is never routed through it, so any file type lands in

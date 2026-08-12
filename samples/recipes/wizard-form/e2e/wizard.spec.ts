@@ -13,7 +13,7 @@
 // useMemo), so this spec matches on the `listing-wizard:new:` prefix
 // rather than a single literal key.
 
-import { mkdirSync, statSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { CREATED_LISTINGS_KEY, draftStorageKey } from "./fixtures/mock-dispatcher";
@@ -85,6 +85,8 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await expect(page.getByTestId("render-edit-wizard-back")).toHaveCount(0);
     await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
     await selectCombobox(page, "category", "furniture");
+    await expect(page.getByTestId("field-title").locator("input")).toHaveValue("Vintage desk lamp");
+    await expect(page.getByTestId("combobox-kumiko-edit-category")).toContainText("furniture");
     await page.screenshot({ path: resolve(SCREENSHOT_DIR, "step-1-basics.png") });
 
     await page.getByTestId("render-edit-wizard-next").click();
@@ -100,6 +102,8 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await expect(page.getByTestId("field-title")).toBeHidden();
     await page.getByTestId("field-price").locator("input").fill("42");
     await selectCombobox(page, "condition", "used");
+    await expect(page.getByTestId("field-price").locator("input")).toHaveValue("42");
+    await expect(page.getByTestId("combobox-kumiko-edit-condition")).toContainText("used");
     await page.screenshot({ path: resolve(SCREENSHOT_DIR, "step-2-pricing.png") });
 
     await page.getByTestId("render-edit-wizard-next").click();
@@ -122,10 +126,6 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
       "Step 1 of 3 · Basics",
     );
-
-    for (const name of ["step-1-basics.png", "step-2-pricing.png", "step-3-review.png"]) {
-      expect(statSync(resolve(SCREENSHOT_DIR, name)).size).toBeGreaterThan(1024);
-    }
   });
 
   test("the progress bar keeps its own 8px height inside the wizard's padded chrome", async ({

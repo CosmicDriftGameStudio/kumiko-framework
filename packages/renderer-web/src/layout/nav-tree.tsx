@@ -101,6 +101,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "../ui/sidebar";
 import { useDispatchTarget } from "./target-resolver-stub";
 import { parseTargetFromSearchParams } from "./target-url";
@@ -224,7 +225,14 @@ export function NavTree({
   }, []);
 
   const t = useTranslation();
+  const { state: sidebarState } = useSidebar();
   const [filter, setFilter] = useState("");
+  // The search box is only CSS-hidden (`group-data-[collapsible=icon]:hidden`)
+  // when the sidebar collapses to icon rail, not unmounted — without this,
+  // a stale filter re-applies invisibly on the next expand (fw#1816).
+  useEffect(() => {
+    if (sidebarState === "collapsed") setFilter("");
+  }, [sidebarState]);
   const q = filter.trim().toLowerCase();
   const matches = useCallback(
     (raw: string): boolean => {

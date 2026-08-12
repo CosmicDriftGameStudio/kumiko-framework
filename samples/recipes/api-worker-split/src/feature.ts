@@ -19,6 +19,7 @@ import {
   createNumberField,
   createTextField,
   defineFeature,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 const openAccess = { access: { openToAll: true } } as const;
@@ -66,7 +67,7 @@ type FulfillWrite = (args: {
   readonly handlerQn: string;
   readonly payload: Record<string, unknown>;
   readonly tenantId: string;
-}) => Promise<unknown>;
+}) => Promise<WriteResult>;
 
 let fulfillWrite: FulfillWrite | undefined;
 
@@ -105,7 +106,7 @@ export function createApiWorkerSplitFeature() {
           );
         }
         const customerName = payload["customerName"] as string;
-        await fulfillWrite({
+        const result = await fulfillWrite({
           handlerQn: "orders:write:fulfillment:create",
           payload: {
             orderKey: customerName,
@@ -114,6 +115,13 @@ export function createApiWorkerSplitFeature() {
           },
           tenantId,
         });
+        if (!result.isSuccess) {
+          // Throwing lets BullMQ retry the job — a silently dropped
+          // fulfillment would leave the order stuck "pending" forever.
+          throw new Error(
+            `process-order: fulfillment create failed for order "${customerName}": ${result.error?.code ?? "unknown"}`,
+          );
+        }
       },
     );
 
