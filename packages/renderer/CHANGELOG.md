@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.196.0
+
+### Minor Changes
+
+- 12ba677: `SectionProps.hidden` was documented as a released field (0.193.0 changelog), but no longer exists on the type: it was replaced by a dedicated `WizardStepGroup` primitive that owns the mount-but-hidden semantics for wizard steps (a hidden step stays mounted so its form state and any extension section's submit registration survive navigating away, instead of being lost on remount). This changeset only documents that migration; `WizardStepGroup` already shipped.
+
+  A consumer that set `hidden` directly on `Section` should move that usage to `WizardStepGroup`'s own `hidden` prop instead.
+
+### Patch Changes
+
+- c4161d8: `entityList` and projection-list row-actions and toolbar-actions with `kind: "writeHandler"` (default) now refetch the rows query after a successful `dispatcher.write()`. Previously, a row/toolbar action that writes successfully but stays on the page (no `navigate` target) left the list showing stale data — the write went through, the projection updated, but nothing re-ran the rows query. Actions with a `navigate` target hid the bug because the screen remount reloaded everything. A failed write still does not refetch.
+  - @cosmicdrift/kumiko-framework@0.196.0
+  - @cosmicdrift/kumiko-headless@0.196.0
+
 ## 0.195.0
 
 ### Minor Changes
