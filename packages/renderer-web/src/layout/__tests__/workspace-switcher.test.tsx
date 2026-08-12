@@ -82,6 +82,19 @@ describe("WorkspaceSwitcher — Render", () => {
     ).toBeTruthy();
   });
 
+  test("activeId zeigt auf keinen sichtbaren Workspace → Trigger zeigt Fallback-Label statt leerem span (fw#1816)", () => {
+    renderWithSidebar(
+      <WorkspaceSwitcher
+        workspaces={[ws("a", "Alpha"), ws("b", "Beta")]}
+        activeId="stale-id-not-in-list"
+        onSelect={() => {}}
+        testId="sw"
+      />,
+    );
+    expect(screen.getByTestId("sw").textContent).not.toBe("");
+    expect(screen.getByText("Select workspace")).toBeTruthy();
+  });
+
   test("Click auf einen Eintrag ruft onSelect mit der Workspace-id", async () => {
     const user = userEvent.setup();
     const onSelect = mock((_id: string) => {});

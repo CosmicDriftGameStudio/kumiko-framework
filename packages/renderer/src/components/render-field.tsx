@@ -23,6 +23,12 @@ import { ReferenceCreateDialog } from "./reference-create-dialog";
 // Der field.type → Input-kind Mapping bleibt hier, weil es
 // Domain-Logik ist (EntityDefinition-Feldtyp) und nicht Darstellung.
 
+// No `hideLabel` prop here (fw#1870/#1871#3, deliberately out of scope):
+// RenderField is driven entirely by EditFieldViewModel/EntityEditScreenDefinition,
+// which have no per-field hideLabel slot — wiring it through would need a
+// schema change, not just a prop. Declarative grid/table screens stay on
+// visible labels until that schema work happens; imperative *Field widgets
+// (form-fields.tsx, AiTextField) already support it.
 export type RenderFieldProps = {
   readonly field: EditFieldViewModel;
   readonly issues?: readonly FieldIssue[];

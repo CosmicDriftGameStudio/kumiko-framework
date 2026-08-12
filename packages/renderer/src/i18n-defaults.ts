@@ -30,9 +30,6 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.wizard.step": "Schritt {current} von {total}",
     "kumiko.wizard.step-with-title": "Schritt {current} von {total} · {title}",
 
-    // StepBar widget (renderer-web) — screen-reader text for completed steps whose number is visually replaced by a checkmark.
-    "kumiko.widget.stepBar.done": "Erledigt",
-
     // Version — Update-Awareness-Banner (UpdateChecker).
     "kumiko.version.update-available": "Eine neue Version ist verfügbar.",
 
@@ -57,6 +54,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.embedded-list.move-down": "Nach unten verschieben",
     "kumiko.field.embedded-list.empty": "Noch keine Zeilen.",
     "kumiko.field.embedded-list.empty-cta": "Erste Zeile hinzufügen",
+    "kumiko.field.embedded-list.paste-rows-truncated":
+      "{count} eingefügte Zeile(n) wurden verworfen (maximale Zeilenzahl erreicht).",
+    "kumiko.field.embedded-list.paste-cells-unmatched":
+      "{count} Zelle(n) hatten keine passende Option und wurden nicht geändert.",
 
     // List — DataTable Toolbar, Empty-State, Search.
     "kumiko.list.search-placeholder": "Suchen…",
@@ -83,6 +84,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.upload.uploading": "Wird hochgeladen…",
     "kumiko.widget.upload.done": "Hochgeladen",
     "kumiko.widget.upload.error": "Fehlgeschlagen",
+    "kumiko.widget.upload.rejected-type": "Dateityp nicht erlaubt",
+
+    // Widgets — StepBar screen-reader text for completed steps whose number is visually replaced by a checkmark.
+    "kumiko.widget.step-bar.done": "Erledigt",
 
     // Nav — Sidebar Tree (Toggle-aria-Labels).
     "kumiko.nav.expand": "Aufklappen",
@@ -91,6 +96,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     // Workspace — Switcher-Trigger aria-Label (renderer-web).
     "kumiko.workspace.switch": "Workspace wechseln",
+    "kumiko.workspace.select": "Workspace wählen",
 
     // Dialog — Confirm-Buttons + Close-aria-Label.
     "kumiko.dialog.confirm": "Bestätigen",
@@ -214,8 +220,6 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.wizard.step": "Step {current} of {total}",
     "kumiko.wizard.step-with-title": "Step {current} of {total} · {title}",
 
-    "kumiko.widget.stepBar.done": "Done",
-
     "kumiko.version.update-available": "A new version is available.",
 
     "kumiko.toast.learn-more": "Learn more",
@@ -237,6 +241,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.embedded-list.move-down": "Move down",
     "kumiko.field.embedded-list.empty": "No rows yet.",
     "kumiko.field.embedded-list.empty-cta": "Add first row",
+    "kumiko.field.embedded-list.paste-rows-truncated":
+      "{count} pasted row(s) were dropped (max row count reached).",
+    "kumiko.field.embedded-list.paste-cells-unmatched":
+      "{count} cell(s) had no matching option and were left unchanged.",
 
     "kumiko.list.search-placeholder": "Search…",
     "kumiko.list.empty.title": "No entries yet.",
@@ -257,12 +265,17 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.upload.uploading": "Uploading…",
     "kumiko.widget.upload.done": "Uploaded",
     "kumiko.widget.upload.error": "Failed",
+    "kumiko.widget.upload.rejected-type": "File type not allowed",
+
+    "kumiko.widget.step-bar.done": "Done",
 
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",
     "kumiko.nav.search": "Search navigation…",
 
     "kumiko.workspace.switch": "Switch workspace",
+    // Workspace-Switcher fallback label when activeId points at no visible workspace.
+    "kumiko.workspace.select": "Select workspace",
 
     "kumiko.dialog.confirm": "Confirm",
     "kumiko.dialog.cancel": "Cancel",

@@ -123,6 +123,44 @@ describe("InfinityList", () => {
     expect(calls).toBe(2);
   });
 
+  test("dedupliziert nach rowId beim Append — eine Row die auf Seite 2 erneut auftaucht wird nicht doppelt gerendert (fw#1829)", async () => {
+    let calls = 0;
+    const dispatcher = createMockDispatcher({
+      query: (async () => {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            isSuccess: true,
+            data: {
+              rows: [
+                { id: "m1", subject: "Erste" },
+                { id: "m2", subject: "Zweite" },
+              ],
+              nextCursor: "c1",
+            },
+          };
+        }
+        // Offset-based cursor re-serves m2 (already on page 1, e.g. after a
+        // live-merge shifted the offset) alongside a genuinely new row.
+        return {
+          isSuccess: true,
+          data: {
+            rows: [
+              { id: "m2", subject: "Zweite" },
+              { id: "m3", subject: "Dritte" },
+            ],
+            nextCursor: null,
+          },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+    renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
+    await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
+    fireIntersect();
+    await waitFor(() => expect(screen.getByText("Dritte")).toBeTruthy());
+    expect(screen.getAllByText("Zweite")).toHaveLength(1);
+  });
+
   test("Fehler → ErrorState, Retry lädt neu", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({

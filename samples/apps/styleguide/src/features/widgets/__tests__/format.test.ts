@@ -20,3 +20,13 @@ describe("percent", () => {
     expect(percent(3.1, "en")).toBe("3.1%");
   });
 });
+
+describe("invalid locale tags", () => {
+  it("euro falls back to en instead of throwing on a POSIX-style tag", () => {
+    expect(euro(92753, "de_DE")).toBe("92,753 €");
+  });
+
+  it("percent falls back to en instead of throwing on a POSIX-style tag", () => {
+    expect(percent(3.1, "de_DE")).toBe("3.1%");
+  });
+});

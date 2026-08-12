@@ -62,7 +62,9 @@ export function WorkspaceSwitcher({
               data-testid="workspace-switcher-trigger"
               aria-label={t("kumiko.workspace.switch")}
             >
-              <span className="truncate">{active !== undefined ? labelOf(active) : ""}</span>
+              <span className="truncate">
+                {active !== undefined ? labelOf(active) : t("kumiko.workspace.select")}
+              </span>
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>

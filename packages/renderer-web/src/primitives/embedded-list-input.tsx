@@ -19,7 +19,7 @@ import type {
   EmbeddedListInputProps,
   EmbeddedListTotal,
 } from "@cosmicdrift/kumiko-renderer";
-import { useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useLocale, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from "lucide-react";
 import {
   type ClipboardEvent,
@@ -94,10 +94,11 @@ function formatTotalValue(
   total: EmbeddedListTotal,
   columns: readonly EmbeddedListColumn[],
   currency: string,
+  locale: string,
 ): string {
   const column = columns.find((c) => c.field === total.field);
-  if (column?.type === "money") return formatMoney(total.value, currency);
-  return total.value.toLocaleString();
+  if (column?.type === "money") return formatMoney(total.value, currency, locale);
+  return total.value.toLocaleString(locale);
 }
 
 // Tab/newline-delimited clipboard text → 2D string grid. Not a regex
@@ -375,6 +376,7 @@ export function EmbeddedListInput({
   // callers/tests that predate #1839) keep getting the same "EUR" this
   // component always hardcoded.
   const effectiveCurrency = currency ?? "EUR";
+  const resolvedLocale = useLocale().locale();
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const [pendingFocusCellId, setPendingFocusCellId] = useState<string | undefined>(undefined);
@@ -596,7 +598,7 @@ export function EmbeddedListInput({
                   <div key={total.field} className="flex items-baseline gap-2">
                     <span className="text-muted-foreground">{total.label}</span>
                     <span className="font-medium tabular-nums">
-                      {formatTotalValue(total, columns, effectiveCurrency)}
+                      {formatTotalValue(total, columns, effectiveCurrency, resolvedLocale)}
                     </span>
                   </div>
                 ))}
@@ -699,7 +701,7 @@ export function EmbeddedListInput({
                 <div key={total.field} className="flex items-center justify-between">
                   <span className="text-muted-foreground">{total.label}</span>
                   <span className="font-medium tabular-nums">
-                    {formatTotalValue(total, columns, effectiveCurrency)}
+                    {formatTotalValue(total, columns, effectiveCurrency, resolvedLocale)}
                   </span>
                 </div>
               ))}

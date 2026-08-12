@@ -21,10 +21,6 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-// Single-tenant sample: one fixed tenant for the worker's system write.
-// Multi-tenant apps resolve this from the event/request instead.
-export const SAMPLE_TENANT_ID = "00000000-0000-4000-8000-000000000001" as const;
-
 const openAccess = { access: { openToAll: true } } as const;
 
 // --- Entities ------------------------------------------------------------
@@ -92,10 +88,20 @@ export function createApiWorkerSplitFeature() {
         trigger: { on: "orders:write:order:create" },
         runIn: "worker",
       },
-      async (payload) => {
+      async (payload, context) => {
         if (fulfillWrite === undefined) {
           throw new Error(
             "process-order: no fulfill-write bridge wired — bin/worker.ts must call setOrderFulfillWrite at boot",
+          );
+        }
+        // Every event-triggered job carries the tenant of the write that
+        // fired it (job-runner sets `_tenantId` from the triggering user)
+        // — reuse it instead of a fixed tenant, or a job triggered by one
+        // tenant's write silently fulfills into another tenant.
+        const tenantId = context.triggeredBy?.tenantId;
+        if (tenantId === undefined) {
+          throw new Error(
+            "process-order: job context has no triggeredBy.tenantId — expected an order.created-triggered job to always carry the triggering write's tenant",
           );
         }
         const customerName = payload["customerName"] as string;
@@ -106,7 +112,7 @@ export function createApiWorkerSplitFeature() {
             carrier: "DHL",
             label: `label-${customerName}`,
           },
-          tenantId: SAMPLE_TENANT_ID,
+          tenantId,
         });
       },
     );
