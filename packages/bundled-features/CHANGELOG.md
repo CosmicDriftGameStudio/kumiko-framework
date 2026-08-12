@@ -275,14 +275,14 @@
 
 ### Patch Changes
 
-- 28c03cd: template-resolver: Feature-Beschreibung in Absätze gegliedert und um den
-  Editor ergänzt.
+- 28c03cd: template-resolver: split the feature description into paragraphs
+  and documented the editor.
 
-  Die Beschreibung war ein Block von 1500 Zeichen ohne Absatz — auf der
-  generierten Doku-Seite eine Textwand. Sie ist jetzt in sechs Abschnitte
-  geteilt (Was liegt drin, Lesen, Collections, Editor, User-Ownership,
-  Herkunft) und beschreibt erstmals `contentFormat`, Variablen-Chips und
-  Preview, die mit Phase 3 dazugekommen sind.
+  The description was a single 1500-character block with no paragraph
+  breaks — a wall of text on the generated docs page. It's now split into
+  six sections (what lives here, reading, collections, editor, user
+  ownership, origin) and, for the first time, documents `contentFormat`,
+  variable chips and the preview added in Phase 3.
 
 - Updated dependencies [08c5c8c]
 - Updated dependencies [14853d9]
@@ -311,7 +311,7 @@
 ### Minor Changes
 
 - 8a3b0a9: `r.contentCollection()` accepts a new `contentFormat: "plain" | "rich"` field. `ClientFeatureDefinition` gets a sixth registry, `contentEditors` — a `contentFormat → EditorComponent` map merged with the same last-wins semantics as `columnRenderers`. `createKumikoApp` mounts a `ContentEditorsProvider`; `useContentEditor(contentFormat)` resolves the registered component or falls back to a plain textarea, so a missing editor is never an empty panel. `template-resolver`'s content-collection editor now renders through this registry instead of a hardcoded textarea.
-- 9c62bc8: `ContentCollectionDefinition` accepts a new `variableSchema` field — fixed variable names the app declares for a collection (e.g. an `ai-prompt` collection's `{customerName}`, `{orderId}`). The renderer gets `VariableChips`, an editor-agnostic chip bar that inserts `{{name}}` at the caret on click, and `renderer-web` gets `PlainContentEditor`, which pairs it with the existing textarea fallback. `template-resolver`'s client now registers `PlainContentEditor` under `contentEditors.plain` and passes the collection's variable names through, so AI-prompt and mail-html collections with `contentFormat: "plain"` get the chip bar without any app-side wiring.
+- 9c62bc8: `ContentCollectionDefinition` accepts a new `variableSchema` field — fixed variable names the app declares for a collection (e.g. an `ai-prompt` collection's `{{customerName}}`, `{{orderId}}`). The renderer gets `VariableChips`, an editor-agnostic chip bar that inserts `{{name}}` at the caret on click, and `renderer-web` gets `PlainContentEditor`, which pairs it with the existing textarea fallback. `template-resolver`'s client now registers `PlainContentEditor` under `contentEditors.plain` and passes the collection's variable names through, so AI-prompt and mail-html collections with `contentFormat: "plain"` get the chip bar without any app-side wiring.
 
 ### Patch Changes
 

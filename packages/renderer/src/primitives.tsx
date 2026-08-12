@@ -127,8 +127,11 @@ export type BannerProps = {
   readonly padded?: boolean;
   readonly testId?: string;
   /** Set when a `<Field>` wraps this Banner as its control (no actual
-   *  input exists to receive the label's `htmlFor` otherwise — see
-   *  render-field.tsx's unsupported-field-type fallback, #1834). */
+   *  input exists for the label to target — see render-field.tsx's
+   *  unsupported-field-type fallback, #1834). The web implementation uses
+   *  it to derive `role="group"` + `aria-labelledby`, not `htmlFor`: a
+   *  `<label for>` on a non-labelable element like a `<div>` is inert for
+   *  screen readers. */
   readonly id?: string;
 };
 

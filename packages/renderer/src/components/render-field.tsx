@@ -59,7 +59,7 @@ export function RenderField({
   fieldAppendix,
   allIssues,
 }: RenderFieldProps): ReactNode {
-  const { Field, Input, Banner } = usePrimitives();
+  const { Field, Input, Banner, Text } = usePrimitives();
   // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
   // navigator.language (Browser-Sprache) zurück statt der gewählten
   // App-Sprache. BEWUSSTE API-Verschärfung (seit 0.38): RenderField ist
@@ -94,7 +94,7 @@ export function RenderField({
         featureName={featureName ?? ""}
       />
     ) : (
-      renderInput({ field, id, hasError, onChange, Input, appLocale, Banner, t })
+      renderInput({ field, id, hasError, onChange, Input, appLocale, Banner, Text, t })
     );
 
   return (
@@ -309,6 +309,7 @@ function renderInput({
   Input,
   appLocale,
   Banner,
+  Text,
   t,
 }: {
   readonly field: EditFieldViewModel;
@@ -318,6 +319,7 @@ function renderInput({
   readonly Input: ReturnType<typeof usePrimitives>["Input"];
   readonly appLocale: string;
   readonly Banner: ReturnType<typeof usePrimitives>["Banner"];
+  readonly Text: ReturnType<typeof usePrimitives>["Text"];
   readonly t: ReturnType<typeof useTranslation>;
 }): ReactNode {
   const common = {
@@ -499,12 +501,15 @@ function renderInput({
     case "embedded":
     case "jsonb":
     case "files":
-    case "images":
+    case "images": {
+      const hasValue = field.value !== undefined && field.value !== null && field.value !== "";
       return (
         <Banner id={id} variant="info">
           {t("kumiko.field.unsupported")}
+          {hasValue && <Text variant="code">{JSON.stringify(field.value)}</Text>}
         </Banner>
       );
+    }
     default: {
       // text + unknown scalar type → text input. If TextFieldDef.multiline
       // is set (the view-model carries it), the renderer switches to

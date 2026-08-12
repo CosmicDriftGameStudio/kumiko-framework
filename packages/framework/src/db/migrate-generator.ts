@@ -295,9 +295,9 @@ function renderColumnChange(tableName: string, change: ColumnChange): readonly s
         `ALTER TABLE ${tbl} ALTER COLUMN ${col} TYPE ${to} USING (${col}::timestamp AT TIME ZONE 'UTC');`,
       );
     } else {
-      // pg ALTER TYPE braucht oft USING-clause für nicht-implicit-castable
-      // type-changes. Wir emittieren das als Reviewer-Kommentar + raw cast —
-      // App-Author muss prüfen ob das gewünscht ist.
+      // pg ALTER TYPE often needs a USING clause for non-implicitly-castable
+      // type changes. Emitted as a reviewer comment + raw cast — the app
+      // author has to confirm it's intended.
       out.push(`-- WARN: column-type-change ${from} → ${to}. Review USING-clause if needed.`);
       out.push(`ALTER TABLE ${tbl} ALTER COLUMN ${col} TYPE ${to};`);
     }

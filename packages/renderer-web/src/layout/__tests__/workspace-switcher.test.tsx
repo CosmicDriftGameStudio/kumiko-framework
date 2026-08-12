@@ -55,6 +55,33 @@ describe("WorkspaceSwitcher — Render", () => {
     expect(screen.getByTestId("workspace-tab-b").getAttribute("aria-checked")).toBe("true");
   });
 
+  test("entries carry role=menuitemradio (exclusive choice), not menuitemcheckbox", async () => {
+    const user = userEvent.setup();
+    renderWithSidebar(
+      <WorkspaceSwitcher
+        workspaces={[ws("a", "Alpha"), ws("b", "Beta")]}
+        activeId="a"
+        onSelect={() => {}}
+      />,
+    );
+    await user.click(screen.getByTestId("workspace-switcher-trigger"));
+    expect(screen.getByTestId("workspace-tab-a").getAttribute("role")).toBe("menuitemradio");
+    expect(screen.getByTestId("workspace-tab-b").getAttribute("role")).toBe("menuitemradio");
+  });
+
+  test("trigger has an accessible name beyond the active workspace label", () => {
+    renderWithSidebar(
+      <WorkspaceSwitcher
+        workspaces={[ws("a", "Alpha"), ws("b", "Beta")]}
+        activeId="a"
+        onSelect={() => {}}
+      />,
+    );
+    expect(
+      screen.getByTestId("workspace-switcher-trigger").getAttribute("aria-label"),
+    ).toBeTruthy();
+  });
+
   test("activeId zeigt auf keinen sichtbaren Workspace → Trigger zeigt Fallback-Label statt leerem span (fw#1816)", () => {
     renderWithSidebar(
       <WorkspaceSwitcher

@@ -118,13 +118,9 @@ function validateRowActionNavigateParams(
   }
 }
 
-// Wizard layouts (mode: "wizard") render one section per step — a single
-// step (or a step without a title, which would leave the progress
-// indicator blank) defeats the point, so both fail at boot rather than
-// as a broken step UI. Missing/blank titles are checked identically for
-// both section kinds — EditExtensionSection.title is required by type,
-// but that doesn't stop author code that circumvented the check from
-// passing an empty string.
+// Wizard layouts (mode: "wizard") need >= 2 titled sections — a single or
+// untitled step would leave the progress indicator blank, so both fail at
+// boot rather than as a broken step UI.
 function validateWizardLayout(
   featureName: string,
   screenId: string,

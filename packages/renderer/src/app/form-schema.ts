@@ -4,6 +4,7 @@ import type {
   FieldDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
 import { z } from "zod";
 import { layoutEditFields } from "./layout-fields";
 
@@ -91,8 +92,8 @@ export function buildFormSchema(
           code: "custom",
           path: [spec.field],
           message: `"${spec.field}" is required.`,
-          // `params.i18nKey` override, see packages/headless/src/form/zod-bridge.ts.
-          params: { i18nKey: REQUIRED_FIELD_I18N_KEY },
+          // I18N_KEY_PARAM override, see packages/headless/src/form/zod-bridge.ts.
+          params: { [I18N_KEY_PARAM]: REQUIRED_FIELD_I18N_KEY },
         });
       }
     });

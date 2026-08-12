@@ -189,11 +189,16 @@ function DefaultBanner({
   id,
 }: BannerProps): ReactNode {
   const isError = variant === "error";
+  // `id` is set when a <Field> wraps this Banner as its control (see
+  // BannerProps.id). A <div> isn't labelable, so a <label htmlFor> pointing
+  // at it is inert for screen readers — role="group" + aria-labelledby is
+  // the actual mechanism, pointed at the label id Field emits (fieldLabelId).
+  const bannerRole = id !== undefined ? "group" : isError ? "alert" : undefined;
   const banner = (
     <div
-      id={id}
+      role={bannerRole}
+      {...(id !== undefined && { "aria-labelledby": fieldLabelId(id) })}
       data-testid={testId}
-      role={isError ? "alert" : undefined}
       data-variant={variant}
       className={cn(
         "relative w-full rounded-lg border px-4 py-3 text-sm flex items-center gap-3",
@@ -214,6 +219,13 @@ function DefaultBanner({
 
 // ---- Field (Label + Error) ----
 
+// Matches DefaultBanner's aria-labelledby target: a non-labelable control
+// (e.g. Banner's <div>) can't take a real htmlFor, so Field always also
+// gives its label a stable id that such controls can point to.
+function fieldLabelId(id: string): string {
+  return `${id}-label`;
+}
+
 function DefaultField({
   id,
   label,
@@ -230,6 +242,7 @@ function DefaultField({
   const hasError = issues !== undefined && issues.length > 0;
   const labelEl = (
     <UiLabel
+      id={fieldLabelId(id)}
       htmlFor={id}
       className={cn(
         hasError ? "text-destructive" : "text-foreground",

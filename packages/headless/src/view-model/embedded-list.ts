@@ -1,6 +1,7 @@
+import type { EmbeddedDerivedCellDef } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FieldIssue } from "../dispatcher";
 
-export type EmbeddedDerivedOp = "multiply" | "sum" | "subtract";
+export type EmbeddedDerivedOp = EmbeddedDerivedCellDef["op"];
 
 export type { DerivedCellRoundingTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 // Canonical implementation moved to packages/framework/src/engine/embedded-derived.ts

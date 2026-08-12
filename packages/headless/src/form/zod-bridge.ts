@@ -49,19 +49,17 @@ export function zodErrorToFieldIssues(error: ZodError): FieldIssue[] {
   });
 }
 
-// Every zod code maps mechanically to `errors.validation.<code>` — except
-// `code: "custom"`, which is zod's one-size-fits-all bucket for every
-// `superRefine`/`refine` check in the codebase. Left mechanical, ALL of them
-// would collapse onto the same `errors.validation.custom` ("Invalid
-// value.") key, which is wrong for a check that has a more specific message
-// (e.g. form-schema.ts's presence check wants "Pflichtfeld." / "Required.").
-// A `superRefine` that needs its own key sets `params.i18nKey` on the issue;
-// this is the one place that honors it. Keep in sync with the server-side
-// mirror (packages/framework/src/errors/zod-bridge.ts) — a superRefine can
-// run on either side.
+// Same magic key both sides of a superRefine can set to opt out of the
+// generic `errors.validation.custom` message — see form-schema.ts.
+export const I18N_KEY_PARAM = "i18nKey";
+
+// `code: "custom"` is zod's catch-all for every superRefine/refine check;
+// left mechanical it'd collapse onto one generic key, so a superRefine can
+// set `params[I18N_KEY_PARAM]` to override it. Keep in sync with the server
+// mirror (packages/framework/src/errors/zod-bridge.ts).
 function resolveI18nKey(issue: ZodIssue): string {
   if (issue.code === "custom") {
-    const override = issue.params?.["i18nKey"];
+    const override = issue.params?.[I18N_KEY_PARAM];
     if (typeof override === "string") return override;
   }
   return `errors.validation.${issue.code}`;

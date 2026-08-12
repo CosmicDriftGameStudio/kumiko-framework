@@ -22,6 +22,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { clamp } from "../lib/clamp";
 import { cn } from "../lib/cn";
 
 type SlotElement = HTMLElement | null;
@@ -56,10 +57,6 @@ export type SidebarPanelProps = {
 const DEFAULT_WIDTH = 340;
 const DEFAULT_MIN = 260;
 const DEFAULT_MAX = 640;
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
 
 function readStoredWidth(key: string | undefined): number | null {
   if (key === undefined || typeof window === "undefined") return null;

@@ -757,6 +757,18 @@ describe("totalsMatch (fw#1839)", () => {
     const schema = buildUpdateSchema(invoiceEntity());
     expect(schema.safeParse({ lines: [{ amount: 1000 }, { amount: 1500 }] }).success).toBe(true);
   });
+
+  test("rejects a sibling total tagged with a currency other than the entity's default, even when the raw minor-unit amounts match", () => {
+    const schema = buildInsertSchema(invoiceEntity());
+    const result = schema.safeParse({
+      total: { amount: 30, currency: "USD" },
+      lines: [{ amount: 1000 }, { amount: 2000 }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.path.join(".") === "total")).toBe(true);
+    }
+  });
 });
 
 // --- kumiko-framework#1837: derived-cell server-side recomputation — the

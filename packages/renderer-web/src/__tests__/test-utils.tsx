@@ -112,6 +112,26 @@ export function renderWithSidebar(
   return _render(ui, { wrapper: SidebarProviders, ...options });
 }
 
+// Nested PrimitivesProvider overrides the outer DefaultProviders one for
+// this subtree — for tests exercising a fallback when a primitive isn't
+// registered (e.g. StepBar undefined on an older PrimitivesRegistry).
+export function renderWithPrimitivesOverride(
+  ui: ReactElement,
+  primitivesOverride: Partial<typeof defaultPrimitives>,
+  options?: Omit<RenderOptions, "wrapper">,
+): RenderResult {
+  function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
+    return (
+      <DefaultProviders>
+        <PrimitivesProvider value={{ ...defaultPrimitives, ...primitivesOverride }}>
+          {children}
+        </PrimitivesProvider>
+      </DefaultProviders>
+    );
+  }
+  return _render(ui, { wrapper: Wrapper, ...options });
+}
+
 // ---------------------------------------------------------------------------
 // Mock-Dispatcher-Helper
 // ---------------------------------------------------------------------------

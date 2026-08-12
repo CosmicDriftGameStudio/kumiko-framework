@@ -282,8 +282,14 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const data = await files.ref(result.storageKey).read();
     // No Content-Length/Content-Disposition: fileRef.size is the ORIGINAL's
     // size, and a variant is rendered for display, not for download.
+    // storageKey embeds specHash(spec), so the URL is content-stable until
+    // the spec changes — safe to cache. "private" because the response sits
+    // behind the tenant + guard gate above, not a shared CDN-cacheable asset.
     return new Response(Buffer.from(data), {
-      headers: { "Content-Type": result.mimeType },
+      headers: {
+        "Content-Type": result.mimeType,
+        "Cache-Control": "private, max-age=31536000, immutable",
+      },
     });
   });
 

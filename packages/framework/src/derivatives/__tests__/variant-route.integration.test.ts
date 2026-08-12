@@ -94,6 +94,7 @@ describe("GET /api/files/:id/variant/:name", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("image/webp");
+    expect(res.headers.get("Cache-Control")).toBe("private, max-age=31536000, immutable");
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(VARIANT_BYTES);
   });
 

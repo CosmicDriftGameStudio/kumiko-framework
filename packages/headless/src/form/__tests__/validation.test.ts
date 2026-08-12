@@ -46,10 +46,6 @@ describe("zodErrorToFieldIssues", () => {
     expect(issues[0]?.params?.["minimum"]).toBe(10);
   });
 
-  // kumiko-framework#1927: a bare `code:"custom"` issue (superRefine's only
-  // code) would otherwise always resolve to the generic "Invalid value."
-  // key — `params.i18nKey` lets a check like form-schema.ts's presence
-  // check point at its own key instead.
   test("custom issue with params.i18nKey overrides the mechanical errors.validation.custom key", () => {
     const schema = z.object({ name: z.string() }).superRefine((values, ctx) => {
       if (values.name === "") {

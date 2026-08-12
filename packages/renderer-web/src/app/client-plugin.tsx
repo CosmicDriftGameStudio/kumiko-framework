@@ -90,12 +90,12 @@ export type ClientFeatureDefinition = {
     collections: readonly QualifiedContentCollection[],
   ) => CollectionNavProviders;
 
-  /** Content-Editor-Components — Map `contentFormat` ("plain" | "rich" | "markdown") →
-   *  React-Component. `r.contentCollection()` declares which format an
+  /** Content editor components — map `contentFormat` ("plain" | "rich" | "markdown") →
+   *  React component. `r.contentCollection()` declares which format an
    *  editor edits; the collection's editor UI (template-resolver's
    *  TextBlockEditor et al.) looks the component up here and falls back to
    *  a plain textarea when no clientFeature registered one for that
-   *  format. Same Last-Wins-Semantik wie columnRenderers. Public component
+   *  format. Same last-wins semantics as columnRenderers. Public component
    *  contract: `{ value, onChange, variables, readOnly }`. */
   readonly contentEditors?: Readonly<Record<string, ContentEditorComponent>>;
 

@@ -38,6 +38,7 @@ export {
 export type {
   BooleanFieldDef,
   DateFieldDef,
+  EmbeddedDerivedCellDef,
   EntityDefinition,
   FieldDefinition,
   FileFieldDef,

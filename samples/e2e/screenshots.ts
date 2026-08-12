@@ -3,16 +3,16 @@ import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { pinEnglishLocale } from "./pin-english-locale";
 
-// Geteilte Screenshot-Runner für den samples-Cluster (workspace-lokal, nicht
-// published). Standalone-Apps (money-horse/publicstatus/show-pony) pinnen
-// publishtes kumiko → sie folgen nur der Konvention und kopieren die Vorlage.
+// Shared screenshot runner for the samples cluster (workspace-local, not
+// published). Standalone apps (money-horse/publicstatus/show-pony) pin
+// published kumiko → they just follow the convention and copy the template.
 //
-// runScreenshots: ein Bild pro Szenario → <outDir>/<name>.png.
-// runMatrix: jedes Szenario × Locale × Theme × Viewport in EINEM Lauf →
-//   <baseDir>/<name>/<locale>/<theme>/<viewport>.png (bedient den Preview-Switcher).
+// runScreenshots: one image per scenario → <outDir>/<name>.png.
+// runMatrix: every scenario × locale × theme × viewport in ONE run →
+//   <baseDir>/<name>/<locale>/<theme>/<viewport>.png (feeds the preview switcher).
 //
-// Beide sind Registrars: am Modul-Top der Spec aufrufen, NICHT awaiten — sonst
-// registrieren sie test() erst nach der Playwright-Collection (0 Tests).
+// Both are registrars: call at the spec's module top, do NOT await — otherwise
+// they register test() only after Playwright's collection pass (0 tests).
 
 const MIN_BYTES = 5 * 1024;
 
@@ -113,10 +113,10 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
 }
 
 const VIEWPORTS = {
-  // 1920×1080 statt der frueheren 1280×900: die Masken landen im Handbuch und
-  // in Doku-Seiten, wo ein 1280er-Bild auf einem HiDPI-Display sichtbar weich
-  // wird. Breiter zeigt ausserdem, was ein Zwei-Spalten-Layout wirklich tut —
-  // bei 1280 sieht jede Liste neben einem Lesebereich gequetscht aus.
+  // 1920×1080 instead of the earlier 1280×900: these shots land in the
+  // handbook and doc pages, where a 1280 image visibly softens on a HiDPI
+  // display. Wider also shows what a two-column layout actually does — at
+  // 1280 any list next to a reading pane looks cramped.
   desktop: { width: 1920, height: 1080 },
   // Landscape: portrait tablet shots collapsed two-column layouts into the mobile stack.
   tablet: { width: 1112, height: 834 },
@@ -124,18 +124,18 @@ const VIEWPORTS = {
 } as const;
 type ViewportId = keyof typeof VIEWPORTS;
 
-// Achse aus Env einengen (CSV) oder Default nehmen. Filtert statt zu casten:
-// ein Tippfehler in der Env-Var (z.B. SCREENSHOT_VIEWPORTS=typo) würde sonst
-// entweder zur Laufzeit crashen (page.setViewportSize(undefined)) oder,
-// schlimmer, lautlos falsche Screenshots erzeugen (applyTheme mit unbekanntem
-// Theme-Wert togglet einfach nichts).
+// Narrow the axis from env (CSV) or take the default. Filters instead of
+// casting: a typo in the env var (e.g. SCREENSHOT_VIEWPORTS=typo) would
+// otherwise either crash at runtime (page.setViewportSize(undefined)) or,
+// worse, silently produce wrong screenshots (applyTheme with an unknown
+// theme value just toggles nothing).
 function axis<T extends string>(env: string | undefined, all: readonly T[]): readonly T[] {
   const picked = env
     ?.split(",")
     .map((s) => s.trim())
     .filter(Boolean);
   if (!picked || picked.length === 0) return all;
-  // ponytail: filter-instead-of-cast — unbekannte Werte werden still ignoriert
+  // ponytail: filter-instead-of-cast — unknown values are silently ignored
   const matched = picked.filter((p): p is T => (all as readonly string[]).includes(p));
   if (matched.length === 0) {
     throw new Error(

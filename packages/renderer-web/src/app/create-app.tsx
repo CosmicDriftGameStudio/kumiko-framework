@@ -9,7 +9,6 @@ import type {
 import {
   AppFeaturesProvider,
   type AppSchema,
-  type ColumnRendererComponent,
   ColumnRenderersProvider,
   type ContentEditorComponent,
   ContentEditorsProvider,
@@ -18,7 +17,6 @@ import {
   DispatcherProvider,
   type DraftStorage,
   DraftStorageProvider,
-  type ExtensionSectionComponent,
   ExtensionSectionsProvider,
   type FeatureSchema,
   KumikoScreen,
@@ -99,7 +97,7 @@ export function buildNavProviderMaps(
     for (const [navId, provider] of Object.entries(f.navProviders ?? {})) {
       const qn = qualifyNavProviderKey(f.name, navId);
       if (navProviders.has(qn) && !derivedQns.delete(qn)) {
-        // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
+        // biome-ignore lint/suspicious/noConsole: dev warning for schema conflicts
         console.warn(
           `[kumiko] navProvider for "${qn}" defined by multiple clientFeatures — last wins.`,
         );
@@ -228,26 +226,39 @@ export function firstOpenScreenQn(features: readonly FeatureSchema[]): string | 
   return undefined;
 }
 
+// Last-wins merge for a clientFeature-contributed map (contentEditors,
+// columnRenderers, extensionSectionComponents, ...): later features in
+// `clientFeatures` override earlier ones on key collision, logging once
+// per collision so an accidental override isn't silent.
+function mergeByKey<T>(
+  clientFeatures: readonly ClientFeatureDefinition[],
+  pick: (f: ClientFeatureDefinition) => Record<string, T> | undefined,
+  label: string,
+): Record<string, T> {
+  const merged: Record<string, T> = {};
+  for (const f of clientFeatures) {
+    const entries = pick(f);
+    if (entries === undefined) continue;
+    for (const [key, value] of Object.entries(entries)) {
+      if (merged[key] !== undefined) {
+        // biome-ignore lint/suspicious/noConsole: dev warning for schema conflicts
+        console.warn(
+          `[kumiko] ${label} "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
+        );
+      }
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
 // Merges the content-editor map — same last-wins semantics as
 // columnRenderers. No entry for a contentFormat → useContentEditor falls
 // back to the textarea on its own, no warning needed.
 export function mergeContentEditors(
   clientFeatures: readonly ClientFeatureDefinition[],
 ): Record<string, ContentEditorComponent> {
-  const contentEditors: Record<string, ContentEditorComponent> = {};
-  for (const f of clientFeatures) {
-    if (f.contentEditors === undefined) continue;
-    for (const [key, value] of Object.entries(f.contentEditors)) {
-      if (contentEditors[key] !== undefined) {
-        // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
-        console.warn(
-          `[kumiko] contentEditor "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
-        );
-      }
-      contentEditors[key] = value;
-    }
-  }
-  return contentEditors;
+  return mergeByKey(clientFeatures, (f) => f.contentEditors, "contentEditor");
 }
 
 export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonly root: Root } {
@@ -321,39 +332,19 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   for (const f of clientFeatures) {
     if (f.components !== undefined) Object.assign(customScreens, f.components);
   }
-  // Column-Renderer-Map mergen — gleiche Last-Wins-Semantik wie bei
-  // customScreens. Doppelte Keys über Features sind selten gewollt;
-  // wir warnen einmalig pro Kollision damit das nicht stillschweigend
-  // den Renderer einer Library überschreibt.
-  const columnRenderers: Record<string, ColumnRendererComponent> = {};
-  for (const f of clientFeatures) {
-    if (f.columnRenderers === undefined) continue;
-    for (const [key, value] of Object.entries(f.columnRenderers)) {
-      if (columnRenderers[key] !== undefined) {
-        // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
-        console.warn(
-          `[kumiko] columnRenderer "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
-        );
-      }
-      columnRenderers[key] = value;
-    }
-  }
-  // Extension-Section-Components — same Last-Wins + Warn-Semantik wie
-  // columnRenderers. Mountet sich am ExtensionSectionsProvider; RenderEdit
-  // löst die Component aus dem `__component`-Marker der section.
-  const extensionSectionComponents: Record<string, ExtensionSectionComponent> = {};
-  for (const f of clientFeatures) {
-    if (f.extensionSectionComponents === undefined) continue;
-    for (const [key, value] of Object.entries(f.extensionSectionComponents)) {
-      if (extensionSectionComponents[key] !== undefined) {
-        // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
-        console.warn(
-          `[kumiko] extensionSectionComponent "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
-        );
-      }
-      extensionSectionComponents[key] = value;
-    }
-  }
+  // Column-renderer map, same last-wins semantics as customScreens —
+  // duplicate keys across features are rarely intentional, so a
+  // collision logs once instead of silently overriding a library's
+  // renderer.
+  const columnRenderers = mergeByKey(clientFeatures, (f) => f.columnRenderers, "columnRenderer");
+  // Extension-section components — same last-wins + warn semantics as
+  // columnRenderers. Mounted on ExtensionSectionsProvider; RenderEdit
+  // resolves the component from the section's `__component` marker.
+  const extensionSectionComponents = mergeByKey(
+    clientFeatures,
+    (f) => f.extensionSectionComponents,
+    "extensionSectionComponent",
+  );
 
   const contentEditors = mergeContentEditors(clientFeatures);
 

@@ -83,6 +83,29 @@ export function DropdownMenuCheckboxItem({
   );
 }
 
+export const DropdownMenuRadioGroup = Primitive.RadioGroup;
+
+// RadioItem with a dot indicator on the left — for exclusive single-choice
+// selection (e.g. WorkspaceSwitcher). Unlike CheckboxItem, Radix renders
+// role="menuitemradio" + aria-checked here instead of role="menuitemcheckbox",
+// which announces "one of several" to screen readers instead of "on/off".
+export function DropdownMenuRadioItem({
+  className,
+  children,
+  ...props
+}: ComponentPropsWithoutRef<typeof Primitive.RadioItem>): ReactNode {
+  return (
+    <Primitive.RadioItem className={cn(itemClass, "pl-8 pr-2", className)} {...props}>
+      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+        <Primitive.ItemIndicator>
+          <Check className="h-3.5 w-3.5" />
+        </Primitive.ItemIndicator>
+      </span>
+      {children}
+    </Primitive.RadioItem>
+  );
+}
+
 export function DropdownMenuLabel({
   className,
   ...props

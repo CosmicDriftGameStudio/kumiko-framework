@@ -71,6 +71,14 @@ describe("ProgressBar", () => {
     expect(fill.className).toContain("inset-y-0");
     expect(bar.className).toContain("relative");
   });
+
+  test("die testId sitzt auf der Track-Höhe, className erreicht den äußeren Wrapper", () => {
+    render(<ProgressBar value={0.5} testId="bar" className="mb-4" />);
+    const track = screen.getByTestId("bar");
+    const wrapper = track.parentElement as HTMLElement;
+    expect(wrapper.className).toContain("mb-4");
+    expect(track.className).toContain("h-2");
+  });
 });
 
 describe("StepBar", () => {

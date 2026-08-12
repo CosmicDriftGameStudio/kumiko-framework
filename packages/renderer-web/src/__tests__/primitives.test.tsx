@@ -87,6 +87,21 @@ describe("Banner", () => {
     const slot = screen.getByTestId("b").querySelector('[data-slot="actions"]');
     expect(slot?.textContent).toBe("undo");
   });
+
+  test("id prop (Field-as-control usage) sets role=group + aria-labelledby, not a bare id/htmlFor pairing", () => {
+    render(
+      <Field id="unsupported-field" label="Raw data">
+        <Banner id="unsupported-field" variant="info" testId="b">
+          No editor for this field type
+        </Banner>
+      </Field>,
+    );
+    const banner = screen.getByTestId("b");
+    expect(banner.getAttribute("role")).toBe("group");
+    const labelledBy = banner.getAttribute("aria-labelledby");
+    expect(labelledBy).not.toBeNull();
+    expect(document.getElementById(labelledBy ?? "")?.textContent).toContain("Raw data");
+  });
 });
 
 describe("Field", () => {

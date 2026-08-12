@@ -19,7 +19,7 @@ describe("mergeContentEditors", () => {
     expect(merged["rich"]).toBe(richEditor);
   });
 
-  test("Key-Kollision → warnt + last-wins gewinnt", () => {
+  test("key collision → warns + last-wins applies", () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     const first = editor();
     const second = editor();
@@ -37,7 +37,7 @@ describe("mergeContentEditors", () => {
     warnSpy.mockRestore();
   });
 
-  test("clientFeatures ohne contentEditors werden übersprungen", () => {
+  test("clientFeatures without contentEditors are skipped", () => {
     const features: ClientFeatureDefinition[] = [{ name: "a" }];
     expect(mergeContentEditors(features)).toEqual({});
   });

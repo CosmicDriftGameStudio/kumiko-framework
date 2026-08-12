@@ -1,18 +1,17 @@
 // Wizard Form Sample — 375px mobile chrome (CosmicDriftGameStudio/kumiko-framework#1917)
 //
-// Abnahme aus der Offlot-Gegenprobe (#1908): bei der schmalsten verbreiteten
-// Telefonbreite (iPhone SE/Mini-Klasse, 375px) müssen Fortschrittsanzeige,
-// Zurück/Weiter-Buttons und Schritttitel korrekt rendern (kein horizontaler
-// Overflow, keine Überlappung), und der Weiter-Knopf darf nach Fokus eines
-// Textfelds nicht unter der eingeblendeten virtuellen Tastatur verschwinden.
-// Reiner Test-Gap-Fix gegen bereits gemergtes Chrome aus #1886 — keine neue
-// Funktionalität.
+// Acceptance from the Offlot counter-check (#1908): at the narrowest common
+// phone width (iPhone SE/mini class, 375px), the progress indicator,
+// back/next buttons, and step title must render correctly (no horizontal
+// overflow, no overlap), and the next button must not disappear under the
+// virtual keyboard after a text field gains focus. Pure test-gap fix against
+// chrome already merged in #1886 — no new functionality.
 //
-// Läuft im eigenen "mobile-375"-Playwright-Project (siehe playwright.config.ts)
-// gegen denselben build-server wie wizard.spec.ts, jetzt aber mit ECHTEM
-// Tailwind-CSS statt des früheren leeren /styles.css-Stubs (siehe
-// build-server.ts-Kommentar) — ohne echtes CSS wären die Layout-Assertions
-// hier gegen unstyled Browser-Default-Flow reine Fake-Assertions.
+// Runs in its own "mobile-375" Playwright project (see playwright.config.ts)
+// against the same build-server as wizard.spec.ts, now with REAL Tailwind
+// CSS instead of the earlier empty /styles.css stub (see the build-server.ts
+// comment) — without real CSS, the layout assertions here would be fake
+// assertions against unstyled browser default flow.
 
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
@@ -43,11 +42,11 @@ async function assertNoOverlap(a: Locator, b: Locator): Promise<void> {
   expect(rectsOverlap(rectA, rectB)).toBe(false);
 }
 
-// Guard gegen einen vacuous-grünen Lauf: cardFooter (packages/renderer-web/
-// src/primitives/index.tsx) setzt "flex" auf den Actions-Footer. Ohne
-// kompiliertes Tailwind-CSS bliebe das der Browser-Default "block" — dann
-// würden die folgenden Layout-Assertions gegen unstyled Markup laufen statt
-// gegen das echte Chrome.
+// Guard against a vacuously-green run: cardFooter (packages/renderer-web/
+// src/primitives/index.tsx) sets "flex" on the actions footer. Without
+// compiled Tailwind CSS this would stay the browser default "block" — the
+// following layout assertions would then run against unstyled markup
+// instead of the real chrome.
 async function assertCssIsLive(page: Page): Promise<void> {
   const display = await page
     .getByTestId("render-edit-form-actions")

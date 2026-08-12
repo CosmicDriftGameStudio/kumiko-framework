@@ -94,6 +94,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.nav.collapse": "Zuklappen",
     "kumiko.nav.search": "Navigation durchsuchen…",
 
+    // Workspace — Switcher-Trigger aria-Label (renderer-web).
+    "kumiko.workspace.switch": "Workspace wechseln",
     "kumiko.workspace.select": "Workspace wählen",
 
     // Dialog — Confirm-Buttons + Close-aria-Label.
@@ -271,6 +273,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.nav.collapse": "Collapse",
     "kumiko.nav.search": "Search navigation…",
 
+    "kumiko.workspace.switch": "Switch workspace",
     // Workspace-Switcher fallback label when activeId points at no visible workspace.
     "kumiko.workspace.select": "Select workspace",
 
