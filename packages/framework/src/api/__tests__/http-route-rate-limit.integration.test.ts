@@ -6,7 +6,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
+import { createEntity, createTextField, defineFeature } from "../../engine";
 import type { TenantId } from "../../engine/types/identifiers";
 import { RateLimitError } from "../../errors";
 import { setupTestStack, type TestStack } from "../../stack";

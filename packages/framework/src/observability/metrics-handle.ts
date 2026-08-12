@@ -17,8 +17,7 @@ export function createMetricsHandle(
 ): MetricsHandle {
   const { skipUnregistered = false } = opts;
   // skip: unregistered name is the documented no-op contract of the "safe" handle
-  const isSkippable = (name: string): boolean =>
-    skipUnregistered && !meter.definitions().has(name);
+  const isSkippable = (name: string): boolean => skipUnregistered && !meter.definitions().has(name);
   return {
     inc(shortName, labels, value) {
       const name = buildMetricName(featureName, shortName);

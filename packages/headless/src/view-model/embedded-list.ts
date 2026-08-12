@@ -1,6 +1,5 @@
-import type { FieldIssue } from "../dispatcher";
-
 import type { EmbeddedDerivedCellDef } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { FieldIssue } from "../dispatcher";
 
 export type EmbeddedDerivedOp = EmbeddedDerivedCellDef["op"];
 

@@ -495,8 +495,7 @@ function renderInput({
     case "jsonb":
     case "files":
     case "images": {
-      const hasValue =
-        field.value !== undefined && field.value !== null && field.value !== "";
+      const hasValue = field.value !== undefined && field.value !== null && field.value !== "";
       return (
         <Banner id={id} variant="info">
           {t("kumiko.field.unsupported")}

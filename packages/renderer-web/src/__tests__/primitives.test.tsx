@@ -100,7 +100,7 @@ describe("Banner", () => {
     expect(banner.getAttribute("role")).toBe("group");
     const labelledBy = banner.getAttribute("aria-labelledby");
     expect(labelledBy).not.toBeNull();
-    expect(document.getElementById(labelledBy!)?.textContent).toContain("Raw data");
+    expect(document.getElementById(labelledBy ?? "")?.textContent).toContain("Raw data");
   });
 });
 
