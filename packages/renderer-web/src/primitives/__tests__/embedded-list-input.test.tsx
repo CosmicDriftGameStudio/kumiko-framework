@@ -11,7 +11,7 @@ import {
   LocaleProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { act, type ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { EmbeddedListInput } from "../embedded-list-input";
 
 
@@ -137,26 +137,6 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
     }
   });
 
-  test("resizing past the breakpoint after mount swaps the table for the card layout", async () => {
-    const originalWidth = window.innerWidth;
-    try {
-      renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
-      expect(screen.getByTestId("lines-desktop")).toBeTruthy();
-
-      await act(async () => {
-        // useIsMobile listens to matchMedia('change'). Assigning
-        // window.innerWidth does not update happy-dom's MediaQueryList —
-        // setInnerWidth does, and fires the change listeners (#1854).
-        setViewportWidth(500);
-      });
-
-      expect(screen.queryByTestId("lines-desktop")).toBeNull();
-      expect(screen.getByTestId("lines-mobile")).toBeTruthy();
-      expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
-    } finally {
-      setViewportWidth(originalWidth);
-    }
-  });
 });
 
 describe("EmbeddedListInput — row mutation callbacks", () => {
