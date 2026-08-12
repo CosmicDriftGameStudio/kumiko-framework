@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.193.0
+
+### Minor Changes
+
+- eb4da66: `SubmitConfig` gained an optional `stripEmptySeeds?: boolean` field. With `payloadMode: "values"`, the form controller strips untouched fields that are still `""` (the seed `buildInitialValues` gives controlled optional inputs) before dispatch, because `.optional()` server schemas accept `undefined` but not `""`. Some handlers legitimately expect `""` unchanged; set `stripEmptySeeds: false` on `SubmitConfig` to opt out of the stripping and send those fields as-is. Default is `true`, matching prior behavior.
+- 181003b: Image fields declare named derived versions: `createImageField({ variants: { profile: { fit: "cover", size: { width: 512, height: 512 }, format: "webp" } } })`. The specs are boot-validated, and `GET /api/files/:id/variant/:name` serves them behind the same tenant + access guard as the download — a request carries only a NAME, never a spec, so no caller can drive an arbitrary render. The edit-form preview loads the first declared variant instead of the original.
+
+  BREAKING: `ImageFieldDef.thumbnails` / `ImagesFieldDef.thumbnails` are removed. The flag was never read by anything; `variants` is what it pointed at.
+
+### Patch Changes
+
+- Updated dependencies [181003b]
+- Updated dependencies [9100e19]
+  - @cosmicdrift/kumiko-framework@0.193.0
+
 ## 0.192.0
 
 ### Patch Changes

@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.193.0
+
+### Minor Changes
+
+- 181003b: Image fields declare named derived versions: `createImageField({ variants: { profile: { fit: "cover", size: { width: 512, height: 512 }, format: "webp" } } })`. The specs are boot-validated, and `GET /api/files/:id/variant/:name` serves them behind the same tenant + access guard as the download — a request carries only a NAME, never a spec, so no caller can drive an arbitrary render. The edit-form preview loads the first declared variant instead of the original.
+
+  BREAKING: `ImageFieldDef.thumbnails` / `ImagesFieldDef.thumbnails` are removed. The flag was never read by anything; `variants` is what it pointed at.
+
+### Patch Changes
+
+- eb4da66: Fixed `defaultCellRender` formatting money table cells incorrectly for currencies with a decimal precision other than 2. It previously preferred `amountMinor` (scaled by a flat `MINOR_UNIT_SCALE=100`) over deriving minor units from `amount`, which disagreed with `currencyDecimals(currency)` — e.g. JPY (0 decimals) rendered 100x too high, BHD (3 decimals) 10x too low. Minor units are now always derived from `amount` and `currencyDecimals(currency)`, consistent with `render-field.tsx`'s `moneyMinorValue`.
+
+  Also: `DefaultSection` now supports the renderer's new `hidden` prop (keeps wizard steps mounted instead of unmounting them), and `DefaultInput` now forwards the renderer's new `step` prop for number inputs.
+
+- Updated dependencies [eb4da66]
+- Updated dependencies [181003b]
+- Updated dependencies [17d437d]
+- Updated dependencies [eb4da66]
+  - @cosmicdrift/kumiko-headless@0.193.0
+  - @cosmicdrift/kumiko-renderer@0.193.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.193.0
+
 ## 0.192.0
 
 ### Patch Changes

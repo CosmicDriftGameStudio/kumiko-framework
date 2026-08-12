@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.193.0
+
+### Minor Changes
+
+- 9100e19: New extension point `derivativePublicPredicate` (`file-derivatives`) lets an app declare, per entityType, whether a FileRef's derived variants are publicly readable: `r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "<entityType>", { isPublic: (args, ctx) => boolean | Promise<boolean> })`. No registration for an entityType is default-deny.
+
+  `createFileDerivativesFeature({ resolveApexTenant })` mounts an anonymous `GET /media/:fileRefId/:variant` route serving one of the 4 fixed presets (`thumb`/`card`/`hero`/`full`) — never the original, never an arbitrary spec, only after the registered predicate says yes. `tenantId` is resolved exclusively from the request's Host header via `resolveApexTenant`, never from the payload. An unknown FileRef, an unregistered/denying predicate, and an invalid variant name all answer identically (404) — no existence-leak via distinct status codes. Without `resolveApexTenant` the route stays unmounted, so existing `ctx.derivatives`-only consumers are unaffected.
+
+  Also fixes a latent bug affecting every feature-declared `r.httpRoute`: `rateLimit: {per: "ip"}` (and other IP-keyed limits) silently did nothing for handlers invoked through an `r.httpRoute`'s `systemQuery`, because those routes run outside `/api/*` and never passed through the middleware that populates the request's IP/requestId context. `r.httpRoute` handlers are now wrapped in the same request context, so IP-based rate limiting works for them too.
+
+### Patch Changes
+
+- eb4da66: `form-draft` no longer hard-requires the `config` feature (`r.requires("config")` → `r.optionalRequires("config")`). The retention-days config key only resolves when `config` is mounted; the cleanup job already falls back to `FORM_DRAFT_DEFAULT_RETENTION_DAYS` otherwise, so the hard dependency broke apps mounting `form-draft` without `config` for no reason.
+
+  Also fixed in this release:
+
+  - **GDPR/Art. 17**: `tenantInvitationDeleteHook` compared a plaintext `userId` against the encrypted `invitedBy` column, which never matched under active KMS — invitations a user sent were never anonymized on forget. It now loads the tenant's invitations and decrypts `invitedBy` per row for the comparison.
+  - `form-draft-user-data`'s delete hook now throws instead of silently swallowing a failed draft delete, so a failure rolls back the forget sub-transaction and gets retried instead of marking the user Deleted with PII still present.
+  - `form-draft` cleanup/discard no longer releases a storage file whose `file_refs` row predates the draft (e.g. a domain entity's pre-existing photo pulled into an edit-mode draft) — only files uploaded during the draft's own lifetime are release-eligible. The cleanup job also now deletes stale drafts through the event-sourced executor instead of a raw `DELETE`, so a projection rebuild can no longer resurrect a deleted draft.
+  - `template-resolver` collection entries now read and write `contentFormat` consistently instead of silently defaulting saves to `"markdown"`.
+
+- Updated dependencies [eb4da66]
+- Updated dependencies [181003b]
+- Updated dependencies [9100e19]
+- Updated dependencies [17d437d]
+- Updated dependencies [eb4da66]
+- Updated dependencies [eb4da66]
+  - @cosmicdrift/kumiko-headless@0.193.0
+  - @cosmicdrift/kumiko-types@0.193.0
+  - @cosmicdrift/kumiko-framework@0.193.0
+  - @cosmicdrift/kumiko-renderer@0.193.0
+  - @cosmicdrift/kumiko-renderer-web@0.193.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.193.0
+
 ## 0.192.0
 
 ### Minor Changes

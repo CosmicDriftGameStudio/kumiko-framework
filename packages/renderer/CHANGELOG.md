@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.193.0
+
+### Minor Changes
+
+- 181003b: Image fields declare named derived versions: `createImageField({ variants: { profile: { fit: "cover", size: { width: 512, height: 512 }, format: "webp" } } })`. The specs are boot-validated, and `GET /api/files/:id/variant/:name` serves them behind the same tenant + access guard as the download — a request carries only a NAME, never a spec, so no caller can drive an arbitrary render. The edit-form preview loads the first declared variant instead of the original.
+
+  BREAKING: `ImageFieldDef.thumbnails` / `ImagesFieldDef.thumbnails` are removed. The flag was never read by anything; `variants` is what it pointed at.
+
+- 17d437d: `RenderEdit` gained an optional `hideActions?: boolean` prop that renders the fields without its own action bar (save, cancel, delete, copy-link), for hosts that put those controls into their own chrome — a drawer footer, a wizard shell.
+
+  `RenderEditControls` (handed to `onControlsReady`) gained a `submit: () => Promise<void>` method that runs the same pipeline the built-in save button runs — validation, `customSubmit`/`writeCommand`, extension-section persistence, draft discard, state rebase — but without the button's unchanged-form guard, so a host can drive the write on a pre-filled, untouched form.
+
+### Patch Changes
+
+- eb4da66: `InputProps` (kind: "number") gained an optional `step?: number | "any"` field, forwarded to the native `<input step>` — set it to `"any"` to disable the browser's stepMismatch constraint on decimal fields (integer fields can leave it unset).
+
+  `SectionProps` gained an optional `hidden?: boolean` field. A hidden section stays mounted instead of being unmounted, so wizard steps that navigate away keep their form state (and any extension section's submit registration) intact instead of losing it on remount.
+
+- Updated dependencies [eb4da66]
+- Updated dependencies [181003b]
+- Updated dependencies [9100e19]
+  - @cosmicdrift/kumiko-headless@0.193.0
+  - @cosmicdrift/kumiko-framework@0.193.0
+
 ## 0.192.0
 
 ### Patch Changes
