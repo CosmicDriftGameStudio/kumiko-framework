@@ -14,6 +14,17 @@
 // file_refs row exists, a forged { storageKey: "<victim's key>" } would
 // reach the storage provider's delete() unchecked (see
 // db/queries/owned-file-refs.ts).
+//
+// Ordering matters for release-eligibility (fw-review #5): a storageKey is
+// only releasable if its file_refs row was inserted AFTER the draft row —
+// i.e. uploaded during THIS draft's own lifetime. Every "should release"
+// fixture below therefore creates the draft FIRST (an empty first save,
+// same as a wizard's initial autosave) and only then seeds the file_refs
+// row and saves the pointer into it — mirroring the real upload-during-an-
+// open-wizard order. A file_refs row seeded BEFORE the draft ever existed
+// models a domain entity's pre-existing photo pulled into an edit-mode
+// draft's initial values, which must NOT be releasable (see
+// db/queries/owned-file-refs.ts and handlers/cleanup.job.ts).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -91,9 +102,9 @@ async function seedFileRef(storageKey: string, ownerUser = owner): Promise<void>
 describe("form-draft discard — FileRef release", () => {
   test("discarding with releaseFiles: true and a single-file field releases its storage binary", async () => {
     const key = "tenant/vehicle/photo/one.jpg";
+    await saveDraft("wizard:one-photo", {}); // initial autosave, draft row created first
     await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
     await seedFileRef(key);
-
     await saveDraft("wizard:one-photo", { photo: fileRefPointer(key) });
     expect(provider.keys()).toContain(key);
 
@@ -106,6 +117,7 @@ describe("form-draft discard — FileRef release", () => {
   test("discarding with releaseFiles: true and a multi-file field releases every storage binary", async () => {
     const keyA = "tenant/vehicle/photos/a.jpg";
     const keyB = "tenant/vehicle/photos/b.jpg";
+    await saveDraft("wizard:many-photos", {}); // initial autosave, draft row created first
     await provider.write(keyA, new Uint8Array([1]), "image/jpeg");
     await provider.write(keyB, new Uint8Array([2]), "image/jpeg");
     await seedFileRef(keyA);
@@ -119,6 +131,19 @@ describe("form-draft discard — FileRef release", () => {
 
     expect(provider.keys()).not.toContain(keyA);
     expect(provider.keys()).not.toContain(keyB);
+  });
+
+  test("discarding with releaseFiles: true does NOT release a storageKey whose file_refs row predates the draft (entity-prefilled edit-mode value)", async () => {
+    const key = "tenant/vehicle/photo/prefilled.jpg";
+    await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
+    await seedFileRef(key); // uploaded long before this editing session's draft existed
+    await saveDraft("wizard:edit-prefilled", { photo: fileRefPointer(key) });
+
+    await discardDraft("wizard:edit-prefilled", true);
+
+    // The live domain entity this draft was editing still points at `key` —
+    // releasing it here would orphan the entity's photo.
+    expect(provider.keys()).toContain(key);
   });
 
   test("discarding without releaseFiles leaves the storage binary intact (successful-submit default)", async () => {

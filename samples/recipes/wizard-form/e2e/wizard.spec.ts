@@ -68,6 +68,11 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
       "Step 2 of 3 · Pricing",
     );
+    // Regression for the `hidden` prop fix in primitives/index.tsx's
+    // DefaultSection: the prop used to be accepted but never wired into the
+    // DOM at all, so an inactive step stayed fully visible/interactive.
+    // toBeHidden() checks computed CSS visibility, not just DOM attributes.
+    await expect(page.getByTestId("field-title")).toBeHidden();
     await page.getByTestId("field-price").locator("input").fill("42");
     await selectCombobox(page, "condition", "used");
     await page.screenshot({ path: resolve(SCREENSHOT_DIR, "step-2-pricing.png") });

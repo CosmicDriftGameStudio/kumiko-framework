@@ -325,6 +325,8 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
           };
         }
         payload = submittedSnapshot.changes;
+      } else if (submitCfg.stripEmptySeeds === false) {
+        payload = submittedValues;
       } else {
         payload = stripUntouchedEmptyStrings(submittedValues, submittedSnapshot.initial);
       }

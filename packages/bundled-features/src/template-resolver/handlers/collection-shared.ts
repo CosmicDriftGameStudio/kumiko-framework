@@ -34,6 +34,7 @@ export type CollectionEntryRow = {
   readonly locale: string;
   readonly title: string | null;
   readonly content: string | null;
+  readonly contentFormat: string;
   readonly folder: string | null;
   readonly updatedAt: Date;
 };
@@ -81,6 +82,7 @@ export function toCollectionEntry(row: CollectionEntryRow) {
     locale: row.locale,
     title: row.title,
     content: row.content,
+    contentFormat: row.contentFormat,
     folder: row.folder,
     updatedAt: row.updatedAt,
   };

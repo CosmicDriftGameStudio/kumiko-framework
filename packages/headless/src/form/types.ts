@@ -231,8 +231,14 @@ export type FormControllerOptions<TValues extends FormValues, TCtx = unknown> = 
 // objects — but that assumes an update flow. For creates, `changes ===
 // values` in practice because initial is empty.
 //
-//   - "values"  — send the full current `values` object. Right for create
+//   - "values"  — send the current `values` object. Right for create
 //                 handlers whose schema expects a full entity payload.
+//                 Untouched fields that are still "" (the seed
+//                 buildInitialValues gives controlled optional inputs)
+//                 are stripped from the payload before it's sent, because
+//                 `.optional()` server schemas accept `undefined` but not
+//                 `""`. Set `stripEmptySeeds: false` on SubmitConfig to
+//                 opt out and send those fields as `""` unchanged.
 //   - "changes" — send only the `changes` delta. Right for update
 //                 handlers; noop when the form is un-dirty (submit
 //                 short-circuits into a no-network success).
@@ -246,6 +252,12 @@ export type SubmitConfig<TValues extends FormValues = FormValues> = {
   // Qualified write-handler name (e.g. "orders:write:order:create").
   readonly type: string;
   readonly payloadMode?: SubmitPayloadMode;
+  /** Only applies to payloadMode "values". Controls whether untouched
+   *  empty-string fields (still equal to their initial "" seed) are
+   *  stripped from the payload before dispatch — see SubmitPayloadMode's
+   *  "values" doc for why the stripping exists. Default `true` (current
+   *  behavior). Set `false` to send those fields as `""` unchanged. */
+  readonly stripEmptySeeds?: boolean;
   // Optional payload transformer — overrides payloadMode. Used for
   // nested-writes: the submit path calls buildPayload(snapshot) once at
   // submit-time and sends the result. The snapshot is the one captured

@@ -256,9 +256,29 @@ type TextBlock = {
   readonly locale: string;
   readonly title: string | null;
   readonly content: string | null;
+  readonly contentFormat: string;
   readonly folder: string | null;
   readonly updatedAt: string;
 };
+
+// The collection's declared contentFormat ("plain" | "rich" | "markdown",
+// see ContentCollectionDefinition.contentFormat) uses a different vocabulary
+// than the stored entry's contentFormat ("plain" | "html" | "markdown" |
+// "mjml", see CONTENT_FORMATS) — "rich" always stores HTML. Without this,
+// handleSave omitting contentFormat let the write schema's
+// contentFormatSchema.default("markdown") silently stamp every save as
+// markdown, clobbering e.g. a "plain" entry. Undefined (no collection, or
+// the collection didn't declare a format) keeps whatever was already saved
+// instead of guessing.
+function resolveWriteContentFormat(
+  collectionContentFormat: string | undefined,
+  loadedContentFormat: string | undefined,
+): string | undefined {
+  if (collectionContentFormat === "plain") return "plain";
+  if (collectionContentFormat === "rich") return "html";
+  if (collectionContentFormat === "markdown") return "markdown";
+  return loadedContentFormat;
+}
 
 type SetResponse = { readonly slug: string; readonly locale: string; readonly isNew: boolean };
 
@@ -337,12 +357,14 @@ function TextBlockEditor({
     setSaveError(null);
     setSavedMsg(null);
     try {
+      const resolvedContentFormat = resolveWriteContentFormat(contentFormat, loaded?.contentFormat);
       const result = await dispatcher.write<SetResponse>(writeHandler, {
         slug,
         locale,
         title,
         content: content.length > 0 ? content : null,
         folder: loaded?.folder ?? null,
+        ...(resolvedContentFormat !== undefined && { contentFormat: resolvedContentFormat }),
         ...(tenantIdOverride !== undefined && { tenantIdOverride }),
       });
       if (result.isSuccess) {

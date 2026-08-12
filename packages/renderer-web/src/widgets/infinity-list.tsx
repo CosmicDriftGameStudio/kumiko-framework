@@ -80,6 +80,12 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   // overwrite it, leaving stale rows on screen (fw#1705).
   const requestSeq = useRef(0);
 
+  // IDs of the most recently loaded first page. refreshFirstPage() needs
+  // this to tell "row dropped from page 1 elsewhere" (must be pruned) apart
+  // from "row belongs to an already-accumulated later page" (must survive)
+  // — both are simply absent from the fresh page's id set.
+  const firstPageIdsRef = useRef<ReadonlySet<string>>(new Set());
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: payload goes through payloadKey
   const load = useCallback(
     async (cursor: string | null): Promise<void> => {
@@ -95,6 +101,11 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
         return;
       }
       const nextRows = rowsRef.current(res.data);
+      if (cursor === null) {
+        firstPageIdsRef.current = new Set(
+          nextRows.map((row, index) => rowIdRef.current(row, index)),
+        );
+      }
       setState((prev) => ({
         kind: "ready",
         rows: cursor === null || prev.kind !== "ready" ? nextRows : [...prev.rows, ...nextRows],
@@ -131,12 +142,20 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     if (!res.isSuccess) return;
     const freshRows = rowsRef.current(res.data);
     const freshIds = new Set(freshRows.map((row, index) => rowIdRef.current(row, index)));
+    // A row absent from freshIds is stale for one of two reasons: it was
+    // dropped from page 1 (deleted, or filtered out elsewhere) and must be
+    // pruned, or it belongs to an already-accumulated later page and must
+    // survive. previousFirstPageIds — captured before it's overwritten below
+    // — is what tells those two cases apart.
+    const previousFirstPageIds = firstPageIdsRef.current;
+    firstPageIdsRef.current = freshIds;
     setState((prev) => {
       // skip: not showing an accumulated list yet, nothing to merge into
       if (prev.kind !== "ready") return prev;
-      const staleRows = prev.rows.filter(
-        (row, index) => !freshIds.has(rowIdRef.current(row, index)),
-      );
+      const staleRows = prev.rows.filter((row, index) => {
+        const id = rowIdRef.current(row, index);
+        return !freshIds.has(id) && !previousFirstPageIds.has(id);
+      });
       return { kind: "ready", rows: [...freshRows, ...staleRows], cursor: prev.cursor };
     });
   }, [dispatcher, query, pageSize, payloadKey]);

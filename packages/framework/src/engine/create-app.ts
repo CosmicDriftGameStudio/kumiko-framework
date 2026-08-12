@@ -85,7 +85,17 @@ export function createApp(config: AppConfig): App {
   // Validate defaultCurrency on entities that have money fields
   for (const feature of config.features) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-      const hasMoneyField = Object.values(entity.fields).some((f) => f.type === "money");
+      // A top-level money field isn't the only way an entity can hold money —
+      // an embedded-list's sub-schema (e.g. invoice lines) can carry a money
+      // cell with no top-level money field at all. Without this, that entity
+      // slips past the defaultCurrency check and its cells/totals render in
+      // the entity.defaultCurrency ?? "EUR" fallback regardless of the app's
+      // actual currency.
+      const hasMoneyField = Object.values(entity.fields).some(
+        (f) =>
+          f.type === "money" ||
+          (f.type === "embedded" && Object.values(f.schema).some((s) => s.type === "money")),
+      );
       if (entity.defaultCurrency && !currencies.includes(entity.defaultCurrency)) {
         throw new Error(
           `Entity "${entityName}" in feature "${feature.name}" has defaultCurrency "${entity.defaultCurrency}" which is not in the currencies list. Available: ${currencies.join(", ")}`,

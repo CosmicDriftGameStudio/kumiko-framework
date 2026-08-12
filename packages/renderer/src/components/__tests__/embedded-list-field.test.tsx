@@ -166,6 +166,68 @@ describe("EmbeddedListField — cell change recomputes derived", () => {
       { product: "p1", unit: "pcs", quantity: 2.5, unitPrice: 923, amount: 2308 },
     ]);
   });
+
+  // Regression: withRecomputedDerived used to read source values from
+  // `result` (mutated in-place during the loop), so a chained derived cell
+  // (gross depends on net, net depends on raw qty/price) got the FRESH net
+  // when "net" happened to iterate before "gross" in embeddedListDerived's
+  // key order, but the STALE pre-edit net otherwise — the client preview
+  // drifted from the server (withDerivedCells always reads the untouched
+  // source row) purely based on object-key order. Fixed by reading from a
+  // frozen `source` snapshot, same as the server. Two field configs with
+  // "net"/"gross" declared in opposite key order must therefore produce the
+  // identical, order-independent result.
+  test("chained derived cells (gross depends on net) recompute the same value regardless of the derived-map's key order", () => {
+    const cells: EditFieldViewModel["embeddedListCells"] = [
+      { field: "qty", label: "Qty", type: "number", required: true },
+      { field: "price", label: "Price", type: "number", required: true },
+      { field: "tax", label: "Tax", type: "number", required: true },
+      { field: "net", label: "Net", type: "number", required: false },
+      { field: "gross", label: "Gross", type: "number", required: false },
+    ];
+    // Pre-edit, already-settled row: net = 2*3 = 6, gross = 6+1 = 7.
+    const rows = [{ qty: 2, price: 3, tax: 1, net: 6, gross: 7 }];
+    // A fixed reference calculation for "qty changes from 2 to 4": net
+    // recomputes from the fresh raw inputs (qty=4, price=3) to 12; gross
+    // reads net from the row as it was BEFORE this edit (still 6, same as
+    // the server would), giving 6+1=7 — not 12+1=13.
+    const expected = { qty: 4, price: 3, tax: 1, net: 12, gross: 7 };
+
+    let netFirstResult: unknown;
+    renderEmbeddedListField(
+      {
+        ...invoiceLinesField({ value: rows }),
+        embeddedListCells: cells,
+        embeddedListDerived: {
+          net: { op: "multiply", from: ["qty", "price"] },
+          gross: { op: "sum", from: ["net", "tax"] },
+        },
+      },
+      (v) => {
+        netFirstResult = v;
+      },
+    );
+    captured?.onCellChange(0, "qty", 4);
+
+    let grossFirstResult: unknown;
+    renderEmbeddedListField(
+      {
+        ...invoiceLinesField({ value: rows }),
+        embeddedListCells: cells,
+        embeddedListDerived: {
+          gross: { op: "sum", from: ["net", "tax"] },
+          net: { op: "multiply", from: ["qty", "price"] },
+        },
+      },
+      (v) => {
+        grossFirstResult = v;
+      },
+    );
+    captured?.onCellChange(0, "qty", 4);
+
+    expect(netFirstResult).toEqual([expected]);
+    expect(grossFirstResult).toEqual([expected]);
+  });
 });
 
 describe("EmbeddedListField — row operations", () => {

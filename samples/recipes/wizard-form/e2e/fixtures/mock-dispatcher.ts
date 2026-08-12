@@ -1,23 +1,23 @@
-// In-memory Dispatcher für wizard-form/e2e. Implementiert das
-// Dispatcher-Interface aus @cosmicdrift/kumiko-headless ohne HTTP-Layer,
-// eigene schlanke Variante (kein Import aus renderer-web/e2e — die
-// Fixtures dort sind package-intern, nicht exportiert).
+// In-memory dispatcher for wizard-form/e2e. Implements the dispatcher
+// interface from @cosmicdrift/kumiko-headless without the HTTP layer, its
+// own lean variant (no import from renderer-web/e2e — its fixtures are
+// package-internal, not exported).
 //
-// Bedient zwei QN-Formate:
-//   - 4-Segment CRUD (`<feature>:<write|query>:<entity>:<verb>`) — nur
-//     `listings:write:listing:create` wird gebraucht (kein list/detail/
-//     update/delete für diese Spec, YAGNI).
-//   - 3-Segment form-draft-QNs (FormDraftHandlers/FormDraftQueries) —
-//     save/discard/get, exakt wie packages/bundled-features/src/
-//     form-draft/constants.ts sie definiert.
+// Serves two QN formats:
+//   - 4-segment CRUD (`<feature>:<write|query>:<entity>:<verb>`) — only
+//     `listings:write:listing:create` is needed (no list/detail/
+//     update/delete for this spec, YAGNI).
+//   - 3-segment form-draft QNs (FormDraftHandlers/FormDraftQueries) —
+//     save/discard/get, exactly as packages/bundled-features/src/
+//     form-draft/constants.ts defines them.
 //
-// KRITISCH: der Draft-State lebt NICHT im In-Memory-Closure — ein echter
-// page.reload() wirft den JS-Heap komplett weg, ein In-Memory-Mock würde
-// nach Reload immer null liefern. Der Mock spielt den Server, Persistenz
-// gehört dort hin. Draft-Blobs landen in localStorage (Playwright gibt
-// pro Test einen frischen BrowserContext — automatisch test-isoliert).
-// Die Listing-CRUD-Tabelle bleibt bewusst in-memory: sie muss keinen
-// Reload überleben, nur der Draft muss es.
+// CRITICAL: the draft state does NOT live in the in-memory closure — a
+// real page.reload() throws away the whole JS heap, so an in-memory mock
+// would always return null after reload. The mock plays the server here,
+// and persistence belongs on the server. Draft blobs land in localStorage
+// (Playwright gives each test a fresh BrowserContext — automatically
+// test-isolated). The listing CRUD table stays in-memory on purpose: it
+// doesn't need to survive a reload, only the draft does.
 
 import type {
   BatchResult,

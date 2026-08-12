@@ -132,6 +132,10 @@ export type JobRunnerOptions = {
   // Tests set a unique prefix (e.g. `"test-${Date.now()}"`) for isolation —
   // two parallel test-runners never see each other's jobs.
   queueNamePrefix?: string | undefined;
+  // Override how long start() waits for the worker's Redis connection
+  // before failing boot. Defaults to BOOT_REDIS_TIMEOUT_MS; tests shrink it
+  // to keep an unreachable-Redis assertion fast.
+  bootRedisTimeoutMs?: number | undefined;
   getActiveTenantIds?: () => Promise<TenantId[]>;
   onJobStart?: (jobName: string, jobId: string, meta: JobMeta) => void;
   onJobComplete?: (jobName: string, jobId: string, duration: number, logs: JobLogEntry[]) => void;
@@ -192,9 +196,20 @@ function parseRedisOpts(url: string): { host: string; port: number; db?: number 
   return result;
 }
 
+// redisOpts carries no connectTimeout/retry cap, so an unreachable Redis
+// would otherwise hang start() forever with no health endpoint to notice.
+const BOOT_REDIS_TIMEOUT_MS = 10_000;
+
+function timeoutReject(ms: number, message: string): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(message)), ms);
+  });
+}
+
 export function createJobRunner(options: JobRunnerOptions): JobRunner {
   const { registry, context, redisUrl, consumerLane } = options;
   const queueNamePrefix = options.queueNamePrefix ?? DEFAULT_QUEUE_NAME_PREFIX;
+  const bootRedisTimeoutMs = options.bootRedisTimeoutMs ?? BOOT_REDIS_TIMEOUT_MS;
   const redisOpts = parseRedisOpts(redisUrl);
   // Use the context's tracer when present (observability-provider injected at
   // boot); otherwise noop so dispatch/handleJob stay zero-cost without config.
@@ -531,7 +546,15 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // worker's connections (main + blocking) are ready (fw#1805). This
       // mirrors the wait BullMQ already does internally for
       // upsertJobScheduler()/add() below when the lane has a cron/boot job.
-      await worker.waitUntilReady();
+      // Racing a timeout against it keeps an unreachable Redis from hanging
+      // start() forever — there's no worker health endpoint to notice.
+      await Promise.race([
+        worker.waitUntilReady(),
+        timeoutReject(
+          bootRedisTimeoutMs,
+          `job-runner: Redis not reachable within ${bootRedisTimeoutMs}ms (lane=${consumerLane})`,
+        ),
+      ]);
 
       // Only schedule cron + boot for jobs that belong to this lane. Jobs
       // assigned to the other lane get their cron/boot wiring from the

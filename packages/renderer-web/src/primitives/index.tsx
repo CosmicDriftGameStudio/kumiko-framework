@@ -99,7 +99,7 @@ import { FileUploadInput } from "./file-upload";
 import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
 import { DefaultModal } from "./modal";
-import { formatMoney, MoneyInput } from "./money-input";
+import { currencyDecimals, formatMoney, MoneyInput } from "./money-input";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
 import { TzInput } from "./tz-input";
@@ -386,6 +386,7 @@ function DefaultInput(props: InputProps): ReactNode {
           {...common}
           data-testid={props.testId}
           value={props.value}
+          step={props.step}
           onChange={(e: ChangeEvent<HTMLInputElement>) => {
             const v = e.target.value;
             props.onChange(v === "" ? undefined : Number(v));
@@ -1444,10 +1445,13 @@ export function defaultCellRender(
     // can render differently in a table vs. a form on the same screen.
     // Mid-term: pass the app locale down here too, analogous to render-field.
     //
-    // formatMoney expects minor units. rehydrateMoney returns amount in MAJOR
-    // units plus amountMinor (cents). Prefer amountMinor when present; legacy
-    // shapes without it still carry cents in `amount`.
-    const minor = typeof value.amountMinor === "number" ? value.amountMinor : value.amount;
+    // formatMoney expects minor units scaled by currencyDecimals(currency).
+    // rehydrateMoney's `amountMinor` is scaled by a flat MINOR_UNIT_SCALE=100
+    // instead, which disagrees with currencyDecimals for non-2-decimal
+    // currencies (JPY: 0 decimals → 100x too high; BHD: 3 decimals → 10x too
+    // low). Deriving minor units from `amount` keeps this consistent with
+    // render-field.tsx's moneyMinorValue.
+    const minor = Math.round(value.amount * 10 ** currencyDecimals(value.currency));
     return formatMoney(minor, value.currency);
   }
   if (type === "select") {
@@ -1718,6 +1722,7 @@ function DefaultSection({
   actions,
   variant = "default",
   testId,
+  hidden,
 }: SectionProps): ReactNode {
   const insideForm = useContext(InsideFormContext);
 
@@ -1753,9 +1758,11 @@ function DefaultSection({
     return (
       <section
         data-testid={testId}
+        hidden={hidden}
         className={cn(
           "flex flex-col gap-4 px-6 py-6",
           variant === "destructive" && "border-l-2 border-destructive/40",
+          hidden && "hidden",
         )}
       >
         {header}
@@ -1782,10 +1789,12 @@ function DefaultSection({
   return (
     <div
       data-testid={testId}
+      hidden={hidden}
       className={cn(
         cardSurface(),
         "overflow-hidden",
         variant === "destructive" && "border-destructive/40",
+        hidden && "hidden",
       )}
     >
       <div className="flex flex-col gap-4 px-6 py-6">

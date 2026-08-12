@@ -1,17 +1,17 @@
-// Playwright-Config für wizard-form/e2e. Bootet den minimalen build-server
-// (siehe e2e/build-server.ts) — echter Browser + echtes React-Bundle gegen
-// einen MockDispatcher, kein voller Kumiko-Stack. Pattern kopiert von
+// Playwright config for wizard-form/e2e. Boots the minimal build-server
+// (see e2e/build-server.ts) — a real browser + real React bundle against
+// a MockDispatcher, no full Kumiko stack. Pattern copied from
 // packages/renderer-web/playwright.config.ts.
 //
-// Port 4188: siehe build-server.ts-Kommentar für die Belegungs-Übersicht
-// der anderen samples/apps-Ports.
+// Port 4188: see the build-server.ts comment for the port allocation
+// overview of the other samples/apps ports.
 //
-// Anders als beim renderer-web-Vorbild (config sitzt am Package-Root, e2e/
-// ist nur testDir) liegt diese config IN e2e/ selbst — Playwright's
-// webServer.command läuft default-mäßig mit cwd = Verzeichnis der config,
-// also relativ zu e2e/ selbst (nicht zum Package-Root). testDir bleibt
-// deshalb "." statt "./e2e", und das webServer.command ruft build-server.ts
-// ohne "e2e/"-Präfix.
+// Unlike the renderer-web blueprint (config sits at the package root, e2e/
+// is only testDir), this config lives IN e2e/ itself — Playwright's
+// webServer.command runs by default with cwd = the config's directory,
+// i.e. relative to e2e/ itself (not to the package root). testDir
+// therefore stays "." instead of "./e2e", and webServer.command calls
+// build-server.ts without an "e2e/" prefix.
 
 import { defineConfig, devices } from "@playwright/test";
 
@@ -20,7 +20,7 @@ const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: ".",
-  // build-server.ts + fixtures/* sind kein Test — Playwright muss den Build-Pfad ignorieren.
+  // build-server.ts + fixtures/* are not a test — Playwright must ignore the build path.
   testIgnore: ["**/fixtures/**", "build-server.ts"],
   fullyParallel: false,
   forbidOnly: !!process.env["CI"],
@@ -44,13 +44,13 @@ export default defineConfig({
       testIgnore: ["**/fixtures/**", "build-server.ts", "wizard-mobile.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
     },
-    // iPhone SE/Mini-Klasse (375px) — Abnahmekriterium aus #1917: Chrome
-    // (Fortschritt/Zurück/Weiter/Schritttitel) rendert korrekt bei der
-    // schmalsten verbreiteten Telefonbreite, und der Weiter-Knopf bleibt
-    // erreichbar wenn die virtuelle Tastatur den Viewport verkleinert.
-    // Desktop-Chrome-Basis statt eines Mobile-Device-Descriptors — vermeidet
-    // isMobile/hasTouch-Nebenwirkungen (Touch-Events statt Click), die für
-    // reine Layout-Assertions nicht gebraucht werden.
+    // iPhone SE/Mini class (375px) — acceptance criterion from #1917:
+    // Chrome (progress/back/next/step title) renders correctly at the
+    // narrowest common phone width, and the Next button stays reachable
+    // when the virtual keyboard shrinks the viewport. Desktop Chrome base
+    // instead of a mobile device descriptor — avoids isMobile/hasTouch
+    // side effects (touch events instead of click) that pure layout
+    // assertions don't need.
     {
       name: "mobile-375",
       testMatch: ["wizard-mobile.spec.ts"],

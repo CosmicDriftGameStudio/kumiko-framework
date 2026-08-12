@@ -50,6 +50,7 @@ export const bySlugQuery = defineQueryHandler({
       locale: row.locale,
       title: row.title,
       content: row.content,
+      contentFormat: row.contentFormat,
       folder: row.folder,
       updatedAt: row.updatedAt,
     };

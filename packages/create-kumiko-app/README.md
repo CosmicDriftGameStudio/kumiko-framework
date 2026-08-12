@@ -40,5 +40,5 @@ bun run boot
 
 The picker reads a vendored copy of `feature-manifest.json` from the
 framework's `samples/apps/use-all-bundled` workspace. A CI drift-test
-fails if the vendored copy goes stale — run `bun run vendor:manifest`
-inside this package to refresh.
+fails if the vendored copy goes stale — run `bun run gen:manifest`
+inside `samples/apps/use-all-bundled` to refresh both copies.

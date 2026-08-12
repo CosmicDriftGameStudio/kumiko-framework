@@ -37,11 +37,16 @@ bun run api                 # terminal 1 — HTTP + enqueue
 bun run worker              # terminal 2 — consumes jobs, applies projections
 ```
 
-Prove the topology:
+Prove the topology. `orders:write:order:create` is `openToAll: true`, which
+still requires a valid JWT (any authenticated user, no specific role) — grab
+one the same way `src/__tests__/feature.integration.test.ts` does, via
+`api.jwt.sign(adminUser)` on the entrypoint returned by
+`createApiEntrypoint`:
 
 ```bash
 curl -X POST http://localhost:3000/api/write \
   -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"type":"orders:write:order:create","payload":{"customerName":"Acme GmbH","amount":499}}'
 ```
 

@@ -214,6 +214,23 @@ describe("createFormController — submit()", () => {
     expect(disp.writeSpy).toHaveBeenCalledWith("app:write:task:create", { note: "" });
   });
 
+  test("payloadMode: 'values' with stripEmptySeeds: false — keeps an untouched empty-string field", async () => {
+    // Same setup as the strip test above, but the caller opts out — the
+    // untouched "" seed must survive unchanged in the payload.
+    const disp = makeDispatcher();
+    const form = createFormController({
+      initial: { title: "hello", dueDate: "" },
+      submit: { dispatcher: disp, type: "app:write:task:create", stripEmptySeeds: false },
+    });
+
+    await form.submit();
+
+    expect(disp.writeSpy).toHaveBeenCalledWith("app:write:task:create", {
+      title: "hello",
+      dueDate: "",
+    });
+  });
+
   test("stale-submit race: edits during the in-flight write stay dirty after success", async () => {
     // User submits "hello", the network takes 50ms. During those 50ms the
     // user types "world" into the same field. The server sees "hello"

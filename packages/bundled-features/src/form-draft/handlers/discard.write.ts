@@ -47,6 +47,7 @@ export const discardDraftWrite = defineWriteHandler({
         event.user.tenantId,
         ownerId,
         candidateKeys,
+        existing.insertedAt,
       );
       await releaseDraftFileRefs(ownedKeys, (key) => files.ref(key).delete(), ctx.log);
     }

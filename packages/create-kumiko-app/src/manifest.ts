@@ -1,8 +1,9 @@
-// Loads the vendored feature-manifest.json (copied from
-// samples/apps/use-all-bundled by scripts/vendor-manifest.ts) at runtime.
-// The published package ships the JSON next to package.json so the picker
-// works without network access — the source-of-truth at build time is the
-// sample-app's manifest, kept in sync via a CI drift-test.
+// Loads the vendored feature-manifest.json (written alongside
+// samples/apps/use-all-bundled/feature-manifest.json by that package's
+// scripts/gen-feature-manifest.ts) at runtime. The published package
+// ships the JSON next to package.json so the picker works without
+// network access — the source-of-truth at build time is the sample-app's
+// manifest, kept in sync via a CI drift-test.
 
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";

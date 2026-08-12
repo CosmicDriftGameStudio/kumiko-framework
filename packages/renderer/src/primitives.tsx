@@ -223,6 +223,9 @@ export type InputProps =
       /** Symbolic icon key (FIELD_ICONS registry, renderer-web) — renders
        *  as a prefix on the input. Unknown key → no icon (no boot-fail). */
       readonly icon?: string;
+      /** `<input step>`. "any" disables the native stepMismatch constraint
+       *  (needed for decimal fields — integer fields leave this unset). */
+      readonly step?: number | "any";
     }
   | {
       readonly kind: "range";
@@ -720,6 +723,11 @@ export type SectionProps = {
    *  Default "default" (normal card border). */
   readonly variant?: "default" | "destructive";
   readonly testId?: string;
+  /** Keeps the section mounted while visually hiding it (native `hidden`
+   *  attribute where supported) — used by wizard mode to keep off-screen
+   *  steps mounted so their state (e.g. an extension section's submit
+   *  registration) survives step navigation instead of unmounting. */
+  readonly hidden?: boolean;
 };
 
 /** Columns-basiertes Layout. Web: CSS grid, Native: Flex-Wrap mit

@@ -43,7 +43,18 @@ export const formDraftDeleteHook: UserDataDeleteHook = async (ctx) => {
   });
   const systemUser = createSystemUser(ctx.tenantId);
   const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
+  const failures: string[] = [];
   for (const row of rows) {
-    await formDraftExecutor.delete({ id: row.id }, systemUser, tdb);
+    const result = await formDraftExecutor.delete({ id: row.id }, systemUser, tdb);
+    if (!result.isSuccess) {
+      failures.push(`${row.id}: ${result.error.message}`);
+    }
+  }
+  // A silently-ignored delete failure would let the forget pipeline flip the
+  // user to Deleted (Art. 17 "done") while the row — and its PII — is still
+  // there. Throwing rolls back this user's sub-tx (runForgetCleanup) so the
+  // status stays DeletionRequested and the next run retries.
+  if (failures.length > 0) {
+    throw new Error(`[form-draft-user-data] failed to delete draft(s): ${failures.join(", ")}`);
   }
 };

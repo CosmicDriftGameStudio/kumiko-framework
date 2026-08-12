@@ -295,6 +295,119 @@ describe("InfinityList", () => {
       expect(calls[2]).toEqual({ limit: 1 });
     });
 
+    // Regression for the "logic inversion" bug: staleRows used to keep
+    // exactly the rows MISSING from the fresh page-1 response, so a row
+    // deleted elsewhere never left the list.
+    test("Row aus Seite 1 gelöscht → verschwindet nach Refresh", async () => {
+      const calls: Array<Readonly<Record<string, unknown>>> = [];
+      const dispatcher = createMockDispatcher({
+        query: ((_type: string, payload: Readonly<Record<string, unknown>>) => {
+          calls.push(payload);
+          if (calls.length === 1) {
+            return Promise.resolve({
+              isSuccess: true,
+              data: {
+                rows: [
+                  { id: "m1", subject: "Erste" },
+                  { id: "m2", subject: "Zweite" },
+                ],
+                nextCursor: null,
+              },
+            });
+          }
+          // Live refresh: m1 was deleted elsewhere, only m2 remains on page 1.
+          return Promise.resolve({
+            isSuccess: true,
+            data: { rows: [{ id: "m2", subject: "Zweite" }], nextCursor: null },
+          });
+        }) as unknown as Dispatcher["query"],
+      });
+      const fake = makeFakeLiveEvents();
+
+      renderWithLive(list("inbox:query:message:list"), dispatcher, fake.subscriber);
+
+      await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
+      expect(screen.getByText("Zweite")).toBeTruthy();
+
+      act(() => {
+        fake.inject("message.deleted", {
+          id: "m1",
+          aggregateType: "message",
+          version: 1,
+          payload: {},
+          createdAt: "",
+        });
+      });
+
+      await waitFor(() => expect(screen.queryByText("Erste")).toBeNull());
+      expect(screen.getByText("Zweite")).toBeTruthy();
+    });
+
+    // A row that was never part of page 1 (it lives on an already-loaded
+    // page 2) must survive a page-1-only live refresh even when it isn't in
+    // the fresh response — the fix must not treat "not in freshIds" alone
+    // as reason to drop a row.
+    test("Row aus Seite 2 bleibt nach Seite-1-Refresh erhalten", async () => {
+      const calls: Array<Readonly<Record<string, unknown>>> = [];
+      const dispatcher = createMockDispatcher({
+        query: ((_type: string, payload: Readonly<Record<string, unknown>>) => {
+          calls.push(payload);
+          if (calls.length === 1) {
+            return Promise.resolve({
+              isSuccess: true,
+              data: { rows: [{ id: "m1", subject: "Erste" }], nextCursor: "c1" },
+            });
+          }
+          if (calls.length === 2) {
+            return Promise.resolve({
+              isSuccess: true,
+              data: { rows: [{ id: "m2", subject: "Zweite" }], nextCursor: null },
+            });
+          }
+          // Live refresh of page 1: m1 was deleted elsewhere, m3 arrives new.
+          // m2 lives on page 2 and is outside this fetch's scope.
+          return Promise.resolve({
+            isSuccess: true,
+            data: { rows: [{ id: "m3", subject: "Neu" }], nextCursor: null },
+          });
+        }) as unknown as Dispatcher["query"],
+      });
+      const fake = makeFakeLiveEvents();
+
+      renderWithLive(
+        <InfinityList<Page, Row>
+          query="inbox:query:message:list"
+          pageSize={1}
+          rows={(data) => data.rows}
+          nextCursor={(data) => data.nextCursor}
+          rowId={(row) => row.id}
+          renderRow={(row) => <span>{row.subject}</span>}
+          testId="inbox"
+        />,
+        dispatcher,
+        fake.subscriber,
+      );
+
+      await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
+      fireIntersect();
+      await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
+      expect(calls.length).toBe(2);
+
+      act(() => {
+        fake.inject("message.created", {
+          id: "m3",
+          aggregateType: "message",
+          version: 1,
+          payload: {},
+          createdAt: "",
+        });
+      });
+
+      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy());
+      expect(screen.queryByText("Erste")).toBeNull();
+      expect(screen.getByText("Zweite")).toBeTruthy();
+    });
+
     test("live=false: SSE-Event wird ignoriert, kein Refetch", async () => {
       let calls = 0;
       const dispatcher = createMockDispatcher({

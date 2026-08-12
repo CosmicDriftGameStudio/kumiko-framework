@@ -98,13 +98,28 @@ export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strate
     }
   }
 
-  const inviterRows = await selectMany<Record<string, unknown>>(ctx.db, tenantInvitationsTable, {
-    tenantId: ctx.tenantId,
-    invitedBy: ctx.userId,
-  });
-  for (const row of inviterRows) {
+  // `invitedBy` has no `lookupable`/blind-index column — it's ciphertext
+  // under an active KMS, so `{ invitedBy: ctx.userId }` would compare a
+  // plaintext userId against an encrypted column and always match zero
+  // rows. Load every invitation in the tenant instead (small per-tenant
+  // row count) and decrypt `invitedBy` per row to find this user's own
+  // invites-sent. See tenant/handlers/invitations.query.ts for the same
+  // decrypt-on-read pattern.
+  const tenantInvitations = await selectMany<Record<string, unknown>>(
+    ctx.db,
+    tenantInvitationsTable,
+    { tenantId: ctx.tenantId },
+  );
+  for (const row of tenantInvitations) {
     const id = row["id"]; // @cast-boundary db-row
-    if (typeof id !== "string") continue;
+    const invitedByRaw = row["invitedBy"];
+    if (typeof id !== "string" || typeof invitedByRaw !== "string") continue;
+    const invitedBy = await decryptStoredPii(
+      invitedByRaw,
+      "invitedBy",
+      "user-data-rights:invitation-hook",
+    );
+    if (invitedBy !== ctx.userId) continue;
     await crud.update({ id, changes: { invitedBy: INVITED_BY_ANONYMIZED } }, systemUser, tdb, {
       skipOptimisticLock: true,
     });

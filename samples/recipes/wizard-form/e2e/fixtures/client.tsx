@@ -1,17 +1,18 @@
-// Browser-Entry für wizard-form/e2e. Fetched das server-built AppSchema
-// (siehe build-server.ts — gebaut aus dem echten src/feature.ts, nicht
-// hier dupliziert) und mounted createKumikoApp mit dem MockDispatcher.
+// Browser entry for wizard-form/e2e. Fetches the server-built AppSchema
+// (see build-server.ts — built from the real src/feature.ts, not
+// duplicated here) and mounts createKumikoApp with the MockDispatcher.
 //
-// screenQn zeigt explizit auf den Wizard-Screen: die einzige Screen in
-// diesem Schema verlangt roles: ["Admin", "User"] (kein openToAll-Screen
-// existiert), createKumikoApp würde ohne expliziten screenQn beim Boot
-// werfen ("kein Screen ohne role-restriction erreichbar"). Der
-// DefaultAppShell `user`-Prop liefert die Rolle, die screenAccessAllows
-// client-seitig prüft.
+// screenQn points explicitly at the wizard screen: the only screen in
+// this schema requires roles: ["Admin", "User"] (no openToAll screen
+// exists), createKumikoApp would throw at boot without an explicit
+// screenQn ("no screen reachable without role restriction"). The
+// DefaultAppShell `user` prop supplies the role that screenAccessAllows
+// checks client-side.
 //
-// ListingReviewSection ist die ECHTE Review-Component aus src/web/ — nur
-// über clientFeatures.extensionSectionComponents registriert, nie direkt
-// von feature.ts importiert (die Server/Client-Trennung bleibt intakt).
+// ListingReviewSection is the REAL review component from src/web/ — only
+// registered via clientFeatures.extensionSectionComponents, never
+// imported directly from feature.ts (keeps the server/client split
+// intact).
 
 import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
 import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";
