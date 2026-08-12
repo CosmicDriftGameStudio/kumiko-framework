@@ -311,6 +311,26 @@ describe("EmbeddedListField — paste coercion", () => {
     ]);
   });
 
+  // kumiko-framework#1972: a hardcoded ×100 in the paste path diverged from
+  // the typed-in path's currencyDecimals-based scaling for any non-2-decimal
+  // currency — JPY (0 decimals) pasted "1234" would have landed on 123400
+  // (100x too large) instead of 1234.
+  test("pastes a money cell for a zero-decimal currency (JPY) without the paste-path ×100 bug", () => {
+    const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 0, amount: 0 }];
+    let lastValue: unknown;
+    renderEmbeddedListField(
+      invoiceLinesField({ value: rows, embeddedListCurrency: "JPY" }),
+      (v) => {
+        lastValue = v;
+      },
+    );
+    // Columns in order: product, unit, quantity, unitPrice, amount. Paste
+    // starting at "unitPrice" (index 3).
+    captured?.onPasteCells?.(0, 3, [["1234"]]);
+    const result = lastValue as readonly Record<string, unknown>[];
+    expect(result[0]?.["unitPrice"]).toBe(1234);
+  });
+
   test("paste beyond the current rows appends new rows but never past maxItems", () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
     let lastValue: unknown;

@@ -100,7 +100,7 @@ export {
   runMigrationsFromDir,
   splitSqlStatements,
 } from "./migrate-runner";
-export { flattenMoney, type MoneyRead, rehydrateMoney } from "./money";
+export { flattenMoney, moneyPayloadToMinorUnits, type MoneyRead, rehydrateMoney } from "./money";
 export {
   constraintOf,
   extractPgError,

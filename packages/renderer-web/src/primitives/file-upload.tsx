@@ -19,6 +19,7 @@ export type FileUploadInputProps = {
   readonly entityType?: string;
   readonly fieldName?: string;
   readonly imageVariant?: string;
+  readonly capture?: "environment" | "user";
 };
 
 // "jpg" → ".jpg", "image/png" bleibt. Leere Liste → kein accept-Attribut.
@@ -37,6 +38,7 @@ export function FileUploadInput({
   entityType,
   fieldName,
   imageVariant,
+  capture,
 }: FileUploadInputProps): ReactNode {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -105,6 +107,7 @@ export function FileUploadInput({
         type="file"
         className="hidden"
         {...(acceptAttr !== undefined && { accept: acceptAttr })}
+        {...(capture !== undefined && { capture })}
         onChange={(e) => void onPick(e)}
         disabled={disabled}
       />

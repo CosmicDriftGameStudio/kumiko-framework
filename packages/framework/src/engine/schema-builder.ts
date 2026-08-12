@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { toMinorUnits } from "../db/money";
+import { moneyPayloadToMinorUnits } from "../db/money";
 import { isValidIanaTimeZone } from "../time";
 import { assertUnreachable } from "../utils";
 import { withDerivedCells } from "./embedded-derived";
@@ -320,16 +320,8 @@ function applyTotalsMatchRefinements(
         // Not an array -> a different refinement already rejects the shape;
         // this check isn't the right place to report it.
         if (!Array.isArray(rawRows)) continue;
-        const siblingAmount =
-          typeof siblingRaw === "object" &&
-          siblingRaw !== null &&
-          "amount" in siblingRaw &&
-          typeof (siblingRaw as { amount: unknown }).amount === "number"
-            ? (siblingRaw as { amount: number }).amount
-            : typeof siblingRaw === "number"
-              ? siblingRaw
-              : undefined;
-        if (siblingAmount === undefined) continue;
+        const siblingMinor = moneyPayloadToMinorUnits(siblingRaw);
+        if (siblingMinor === undefined) continue;
         const sumMinor = rawRows.reduce((total: number, row: unknown) => {
           const value =
             typeof row === "object" && row !== null
@@ -337,11 +329,11 @@ function applyTotalsMatchRefinements(
               : undefined;
           return total + (typeof value === "number" ? value : 0);
         }, 0);
-        if (sumMinor !== toMinorUnits(siblingAmount)) {
+        if (sumMinor !== siblingMinor) {
           ctx.addIssue({
             code: "custom",
             path: [fieldName],
-            message: `Sum of "${subFieldName}" across "${fieldName}" (${sumMinor}) does not match "${siblingFieldName}" (${toMinorUnits(siblingAmount)})`,
+            message: `Sum of "${subFieldName}" across "${fieldName}" (${sumMinor}) does not match "${siblingFieldName}" (${siblingMinor})`,
           });
         }
       }

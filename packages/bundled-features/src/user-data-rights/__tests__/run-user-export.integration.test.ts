@@ -26,7 +26,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
   type TestStack,
@@ -48,6 +48,7 @@ import { createSessionsFeature, userSessionEntity } from "../../sessions";
 import { createTenantFeature, tenantInvitationEntity, tenantInvitationsTable } from "../../tenant";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
+import { fileRefExportHook } from "../../user-data-rights-defaults/hooks/file-ref.userdata-hook";
 import { tenantInvitationExportHook } from "../../user-data-rights-defaults/hooks/tenant-invitation.userdata-hook";
 import { createUserDataRightsFeature } from "../feature";
 import { runUserExport } from "../run-user-export";
@@ -521,5 +522,75 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
     expect(invitationSnippet?.rows).toHaveLength(1);
     expect(invitationSnippet?.rows[0]?.["email"]).toBe(INVITE_EMAIL);
     expect(JSON.stringify(bundle)).not.toContain("bob.invite@example.com");
+  });
+});
+
+describe("runUserExport :: fileRef PII export via the fileRefs side-channel (#1955)", () => {
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("bundle.fileRefs carries plaintext fileName + a readable zipPath, even though the hook returns ciphertext", async () => {
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+
+    await seedUser(ALICE_ID, { email: "alice.fileref@example.com" });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    const fileRefId = uuid(401);
+    const PLAINTEXT_NAME = "alice-cv.pdf";
+    // fileRefEntity.fileName is `pii: true` with no `userOwned` override, so
+    // resolveSubjectForField treats the row itself as the subject (its own
+    // `id`), not `insertedById`. Encrypting with that subject reproduces the
+    // real write-path ciphertext shape.
+    const encrypted = await encryptPiiFieldValues(
+      { id: fileRefId, fileName: PLAINTEXT_NAME },
+      fileRefEntity,
+      ["fileName"],
+      kms,
+      { requestId: "test" },
+    );
+    await asRawClient(stack.db).unsafe(
+      `
+      INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, inserted_by_id)
+      VALUES ($1, $2, $3, $4, 'application/pdf', 2048, $5)
+      ON CONFLICT (id) DO NOTHING
+    `,
+      [fileRefId, TENANT_A, `storage/${fileRefId}`, String(encrypted["fileName"]), ALICE_ID],
+    );
+
+    // Pins the hook boundary directly: fileRefExportHook must still hand
+    // back ciphertext in the fileRefs side-channel — decryption is the
+    // central sweep's job (decryptSnippetFields in run-user-export.ts), not
+    // the hook's. If the hook ever started decrypting fileRefs locally, this
+    // assertion would catch it even though the runUserExport() assertions
+    // below would stay green either way.
+    const hookCtx: UserDataHookCtx = {
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: TENANT_A,
+      userId: ALICE_ID,
+    };
+    const rawSnippet = await fileRefExportHook(hookCtx);
+    expect(isPiiCiphertext(rawSnippet?.fileRefs?.[0]?.fileName)).toBe(true);
+
+    const bundle = await runUserExport({
+      db: stack.db,
+      registry: stack.registry,
+      userId: ALICE_ID,
+      now: NOW(),
+    });
+
+    expect(bundle.fileRefs).toHaveLength(1);
+    const ref = bundle.fileRefs[0];
+    // Bug #1955: this used to be the raw `kumiko-pii:v2:...` ciphertext
+    // string instead of the person's actual file name.
+    expect(ref?.fileName).toBe(PLAINTEXT_NAME);
+    // Bug #1955 effect 2: buildFileRefZipPath sanitized the ciphertext into
+    // a garbled underscore-mangled path — the ZIP entry must carry the
+    // readable name instead.
+    expect(ref?.zipPath).toContain("alice-cv");
+    expect(ref?.zipPath).not.toContain("kumiko-pii");
+    expect(JSON.stringify(bundle)).not.toContain("kumiko-pii:");
   });
 });

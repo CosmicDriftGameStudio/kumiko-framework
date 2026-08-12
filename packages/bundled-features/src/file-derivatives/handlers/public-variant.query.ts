@@ -1,7 +1,9 @@
-// Public-Read of a derived FileRef variant (thumbnail/card/hero/full) — the
-// anonymous counterpart to GET /files/:id/variant/:name (#1950, auth-gated,
-// field-declared variants). This route never serves the original, never
-// accepts a free VariantSpec, and only serves one of the 4 fixed presets.
+// Public-Read of a derived FileRef variant — the anonymous counterpart to
+// GET /files/:id/variant/:name (#1950, auth-gated). Both routes resolve the
+// same way: the variant spec comes from the FileRef's field declaration
+// (`createImageField({ variants: {...} })`), not a fixed list — an app that
+// declares its own variant name gets it served here too. This route never
+// serves the original and never accepts a free VariantSpec, only a name.
 // Default-deny: an entityType with no `EXT_DERIVATIVE_PUBLIC_PREDICATE`
 // registration, or a predicate that returns false, both answer `null` —
 // the httpRoute wrapper in feature.ts turns that into a 404, same as a
@@ -11,6 +13,7 @@
 // httpRoute wrapper's `resolveApexTenant`), never from the payload.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { resolveFieldVariant } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   defineQueryHandler,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
@@ -18,20 +21,12 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import type { VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { z } from "zod";
-import { card, full, hero, PRESET_VARIANT_NAMES, thumb } from "../presets";
-
-// satisfies catches a preset added to PRESET_VARIANT_NAMES but not here (or
-// vice versa) at compile time instead of a runtime `undefined` spec lookup.
-const VARIANT_SPECS = { thumb, card, hero, full } as const satisfies Record<
-  (typeof PRESET_VARIANT_NAMES)[number],
-  VariantSpec
->;
 
 type FileRefRow = {
   readonly entityType: string | null;
   readonly entityId: string | null;
+  readonly fieldName: string | null;
 };
 
 export type DerivativePublicPredicateArgs = {
@@ -64,7 +59,7 @@ export const publicVariantQuery = defineQueryHandler({
   name: "public-variant",
   schema: z.object({
     fileRefId: z.string(),
-    variant: z.enum(PRESET_VARIANT_NAMES),
+    variant: z.string().min(1).max(64),
   }),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
   // ponytail: "ip" trusts the first x-forwarded-for hop (buildRequestContextData
@@ -82,8 +77,8 @@ export const publicVariantQuery = defineQueryHandler({
       isDeleted: false,
     });
     if (!row) return null;
-    const { entityType, entityId } = row;
-    if (entityType === null || entityId === null) return null;
+    const { entityType, entityId, fieldName } = row;
+    if (entityType === null || entityId === null || fieldName === null) return null;
 
     const usage = ctx.registry
       .getExtensionUsages(EXT_DERIVATIVE_PUBLIC_PREDICATE)
@@ -109,7 +104,8 @@ export const publicVariantQuery = defineQueryHandler({
       );
     }
 
-    const spec = VARIANT_SPECS[query.payload.variant];
+    const spec = resolveFieldVariant(ctx.registry, entityType, fieldName, query.payload.variant);
+    if (!spec) return null;
     const result = await derivatives.variant(query.payload.fileRefId, spec, query.payload.variant);
     const bytes = await files.ref(result.storageKey).read();
 

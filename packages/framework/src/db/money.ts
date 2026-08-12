@@ -44,6 +44,27 @@ function toMajorUnits(amountMinor: number): number {
   return amountMinor / MINOR_UNIT_SCALE;
 }
 
+// One money field's write payload — `{ amount, currency }` or a bare number
+// (both MAJOR units, see file header) — reduced to minor units. This is the
+// counterpart a write-handler needs when comparing a top-level money field
+// against an `embeddedSubFieldToZod` list-row sum: rows are minor-unit
+// integers by convention (currency lives on the head aggregate, not the
+// row), so the two can only be compared once the sibling amount has been
+// scaled the same way. `applyTotalsMatchRefinements` (schema-builder.ts)
+// uses this internally for `EmbeddedFieldDef.totalsMatch`; exported so a
+// custom write-handler doing its own total check doesn't have to re-derive
+// this unwrap-and-scale step by hand (kumiko-framework#1972 — a hand-rolled
+// comparison of a raw `{amount}` against a raw minor-unit row sum is exactly
+// what silently fails 100x off).
+export function moneyPayloadToMinorUnits(raw: unknown): number | undefined {
+  if (typeof raw === "number") return toMinorUnits(raw);
+  if (typeof raw === "object" && raw !== null && "amount" in raw) {
+    const amount = (raw as { amount: unknown }).amount;
+    if (typeof amount === "number") return toMinorUnits(amount);
+  }
+  return undefined;
+}
+
 /**
  * API → DB: money-Felder zu zwei flachen Spalten flatten.
  *

@@ -16,19 +16,27 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
 import { PUBLIC_VARIANT_QN, publicVariantQuery } from "./handlers/public-variant.query";
-import { PRESET_VARIANT_NAMES } from "./presets";
 
 const FEATURE_NAME = "file-derivatives";
-
-// Widened from the readonly-tuple type of PRESET_VARIANT_NAMES so
-// `.includes(variant)` accepts a plain `string` param without an `as` cast.
-const VALID_VARIANT_NAMES: readonly string[] = PRESET_VARIANT_NAMES;
 
 // fileRefsTable.id is a UUID column — a malformed id must fail here, not at
 // the DB. Without this, an anonymous, internet-facing caller can throw a
 // Postgres 22P02 on every request (Bun.SQL pools the failed connection),
 // a DoS primitive with no auth required.
 const FILE_REF_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Syntactic only, no registry/name-list lookup: a valid preset name plus a
+// random UUID reaches the same DB read anyway, so an allow-list of known
+// names defends nothing a determined caller can't route around — it only
+// blocks the cheaper of two equally-costly attacks. What a name actually
+// resolves to is decided by the field declaration in publicVariantQuery;
+// this just keeps pathological input (path separators, `..`, oversized
+// strings) out before that DB round-trip. `variants` keys have no runtime
+// charset constraint (`Readonly<Record<string, VariantSpec>>`), so this
+// stays permissive rather than guessing a convention — narrower than this
+// would silently 404 a legitimately declared name again. Do not reintroduce
+// a name list here "for safety" — see #1985.
+const VARIANT_NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 export type PublicVariantResolveApexTenant = (
   host: string,
@@ -52,21 +60,23 @@ type PublicVariantQueryResult = {
 } | null;
 
 // file-derivatives — derive-on-first-use file variants (thumbnails,
-// resized/reformatted images) plus an opt-in ANONYMOUS route that serves
-// one of 4 fixed presets (thumb/card/hero/full) for a FileRef whose
+// resized/reformatted images) plus an opt-in ANONYMOUS route that serves any
+// variant an app declared on the FileRef's field (`createImageField({
+// variants: {...} })`, including but not limited to the `thumb`/`card`/
+// `hero`/`full` presets exported from `./presets`), for a FileRef whose
 // entityType has a registered, default-deny `derivativePublicPredicate`.
 //
 // The route never serves the original and never accepts a free VariantSpec
-// — only a preset name from the fixed list, and only after the app's
-// registered `isPublic` predicate for the FileRef's entityType says yes.
-// tenantId is resolved from the request Host via `resolveApexTenant`, NEVER
-// read from the request payload.
+// — only a name, resolved against the field's own `variants` declaration —
+// and only after the app's registered `isPublic` predicate for the FileRef's
+// entityType says yes. tenantId is resolved from the request Host via
+// `resolveApexTenant`, NEVER read from the request payload.
 export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}): FeatureDefinition {
   const basePath = opts.basePath ?? "/media";
 
   return defineFeature(FEATURE_NAME, (r) => {
     r.describe(
-      "Declares the `derivativeRenderer` extension point. `ctx.derivatives.variant(fileRefId, spec, name)` derives a variant of a tracked FileRef the first time it's requested and reuses the stored result afterwards (derive-on-first-use, keyed by a hash of the spec). Mount at least one `derivatives-*` renderer feature alongside this one — without a registered renderer for the FileRef's MIME type, every `variant(...)` call throws. Also declares the `derivativePublicPredicate` extension point (`r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, '<entityType>', { isPublic })`) and, when `createFileDerivativesFeature({resolveApexTenant})` is passed a host-resolver, mounts an anonymous `GET {basePath}/:fileRefId/:variant` route that serves ONE of the 4 fixed presets (thumb/card/hero/full) for a FileRef whose entityType has a registered predicate returning true — default-deny (404) otherwise, same as an unknown FileRef.",
+      "Declares the `derivativeRenderer` extension point. `ctx.derivatives.variant(fileRefId, spec, name)` derives a variant of a tracked FileRef the first time it's requested and reuses the stored result afterwards (derive-on-first-use, keyed by a hash of the spec). Mount at least one `derivatives-*` renderer feature alongside this one — without a registered renderer for the FileRef's MIME type, every `variant(...)` call throws. Also declares the `derivativePublicPredicate` extension point (`r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, '<entityType>', { isPublic })`) and, when `createFileDerivativesFeature({resolveApexTenant})` is passed a host-resolver, mounts an anonymous `GET {basePath}/:fileRefId/:variant` route that serves any variant name the FileRef's field declared in its `variants` for a FileRef whose entityType has a registered predicate returning true — default-deny (404) otherwise, same as an unknown FileRef or an undeclared variant name.",
     );
     r.uiHints({
       displayLabel: "File Derivatives",
@@ -106,15 +116,12 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
           // template, so Hono can't infer the param type from a literal.
           const fileRefId = c.req.param("fileRefId");
           const variant = c.req.param("variant");
-          // Pre-check against the FIXED preset list before systemQuery runs
-          // at all — stops a caller from burning rate-limit budget/DB
-          // lookups on arbitrary variant names (thumb-a, thumb-b, ...).
-          // 404, not 400 — an invalid name and "doesn't exist" must answer
-          // identically, no name-oracle.
+          // 404, not 400 — a syntactically bad name and "doesn't exist" must
+          // answer identically, no name-oracle.
           if (
             !fileRefId ||
             !variant ||
-            !VALID_VARIANT_NAMES.includes(variant) ||
+            !VARIANT_NAME_RE.test(variant) ||
             !FILE_REF_ID_RE.test(fileRefId)
           ) {
             return c.text("not found", 404);

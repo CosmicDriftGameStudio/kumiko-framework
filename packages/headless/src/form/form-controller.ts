@@ -162,6 +162,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
   ): void {
     if (scopeSet === undefined) {
       errors = Object.freeze(grouped);
+      // skip: unscoped replace — wholesale overwrite, nothing left to merge
       return;
     }
     const merged: Record<string, readonly FieldIssue[]> = {};

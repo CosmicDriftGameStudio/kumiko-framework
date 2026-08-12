@@ -476,6 +476,7 @@ function renderInput({
           {...(field.entityType !== undefined && { entityType: field.entityType })}
           {...(field.fieldName !== undefined && { fieldName: field.fieldName })}
           {...(field.imageVariant !== undefined && { imageVariant: field.imageVariant })}
+          {...(field.capture !== undefined && { capture: field.capture })}
         />
       );
     }
