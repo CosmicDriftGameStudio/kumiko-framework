@@ -111,8 +111,8 @@ describe.each([
     const childArray = Array.isArray(children) ? children : [children];
     expect(childArray[0]).toBe("Dieser Feldtyp kann hier noch nicht bearbeitet werden.");
     const valuePreview = childArray[1] as { props: { children: unknown } } | false | undefined;
-    expect(valuePreview).toBeTruthy();
-    expect(valuePreview?.props.children).toBe(JSON.stringify(field.value));
+    if (!valuePreview) throw new Error("expected a value-preview element");
+    expect(valuePreview.props.children).toBe(JSON.stringify(field.value));
   });
 });
 
