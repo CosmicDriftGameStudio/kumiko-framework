@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { DispatcherProvider } from "@cosmicdrift/kumiko-renderer";
 import type { ReactElement } from "react";
 import { defaultPrimitives } from "../primitives";
+import { AiTextField } from "../widgets/ai-text-field";
 import {
   BooleanField,
   DateField,
@@ -11,7 +13,7 @@ import {
   TextareaField,
   TextField,
 } from "../widgets/form-fields";
-import { render } from "./test-utils";
+import { createMockDispatcher, render } from "./test-utils";
 
 const { Field } = defaultPrimitives;
 
@@ -179,4 +181,29 @@ describe("form-fields.tsx hideLabel pass-through (fw#1870/#1871)", () => {
       expect(view.getByLabelText(LABEL)).toBeTruthy();
     },
   );
+});
+
+// AiTextField builds its own <Field> instead of going through form-fields.tsx
+// (fw#1871#1) — a separate widget, so it needs its own pass-through check.
+describe("AiTextField hideLabel pass-through (fw#1871#1)", () => {
+  test("collapses its label to sr-only and keeps it htmlFor-linked", () => {
+    const dispatcher = createMockDispatcher({});
+    const view = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <AiTextField
+          id="f1"
+          name="f1"
+          label={LABEL}
+          value="hallo"
+          onChange={() => {}}
+          actions={[]}
+          completion={false}
+          hideLabel
+          testId="field"
+        />
+      </DispatcherProvider>,
+    );
+    expect(view.getByText(LABEL).className).toContain("sr-only");
+    expect(view.getByLabelText(LABEL)).toBeTruthy();
+  });
 });

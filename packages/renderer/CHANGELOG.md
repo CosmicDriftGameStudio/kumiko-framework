@@ -44,6 +44,8 @@
 
 - b156334: The wizard chrome (`RenderEdit` with `layout.mode: "wizard"`) now renders a step overview above the form instead of just "Step X of Y": numbered chips for every section, the current one highlighted, done ones showing a checkmark. Added the `StepBar` primitive (`CorePrimitives.StepBar`, optional like `Progress`) and its default web implementation (`@cosmicdrift/kumiko-renderer-web`'s `StepBar` widget). On narrow viewports the chip row hides in favor of the previous compact "Step X of Y · &lt;title&gt;" label — both the chrome and the widget stay backward compatible when a custom `PrimitivesRegistry` doesn't supply `StepBar`.
 
+  **Breaking for E2E tests against `render-edit-wizard-step-label`:** that testid is reused for the narrow-viewport compact label, but its text changed from `"Step X of Y"` to `"Step X of Y · <title>"` and it's now hidden above the `sm` breakpoint (the chip row takes over there). A consumer's own E2E suite asserting `toHaveText("Step 1 of 3")` or `toBeVisible()` on desktop against this testid needs to update — either match the new `· <title>` suffix and assert on a narrow viewport, or switch desktop assertions to `render-edit-wizard-steps-step-N`.
+
 ### Patch Changes
 
 - @cosmicdrift/kumiko-framework@0.191.0

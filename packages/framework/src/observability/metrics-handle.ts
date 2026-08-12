@@ -38,27 +38,39 @@ export function createMetricsHandle(meter: Meter, featureName: string): MetricsH
 // unregistered name here is a silent no-op, not a throw. This handle is
 // meant for error/catch-path counters in shared code — a missing
 // registration (consuming feature not mounted, metric not declared yet)
-// must not turn an already-swallowed error into a thrown one. Every other
-// failure (invalid featureName, wrong metric type for the call) still
-// throws — only the "not registered" case is swallowed.
+// must not turn an already-swallowed error into a thrown one.
+//
+// buildMetricName itself can also throw (invalid featureName) — also
+// swallowed to a no-op here, since it fires from the very catch block this
+// handle is meant to protect: a malformed featureName must not turn an
+// already-swallowed error into a thrown one either. Everything else (wrong
+// metric type for the call) still throws.
+function tryBuildMetricName(featureName: string, shortName: string): string | undefined {
+  try {
+    return buildMetricName(featureName, shortName);
+  } catch {
+    return undefined;
+  }
+}
+
 export function createSafeMetricsHandle(meter: Meter, featureName: string): MetricsHandle {
   return {
     inc(shortName, labels, value) {
-      const name = buildMetricName(featureName, shortName);
-      // skip: unregistered name is the documented no-op contract of this handle
-      if (!meter.definitions().has(name)) return;
+      const name = tryBuildMetricName(featureName, shortName);
+      // skip: invalid featureName or unregistered name are the documented no-op contract of this handle
+      if (name === undefined || !meter.definitions().has(name)) return;
       meter.counter(name).inc(value, labels);
     },
     observe(shortName, value, labels) {
-      const name = buildMetricName(featureName, shortName);
-      // skip: unregistered name is the documented no-op contract of this handle
-      if (!meter.definitions().has(name)) return;
+      const name = tryBuildMetricName(featureName, shortName);
+      // skip: invalid featureName or unregistered name are the documented no-op contract of this handle
+      if (name === undefined || !meter.definitions().has(name)) return;
       meter.histogram(name).observe(value, labels);
     },
     set(shortName, value, labels) {
-      const name = buildMetricName(featureName, shortName);
-      // skip: unregistered name is the documented no-op contract of this handle
-      if (!meter.definitions().has(name)) return;
+      const name = tryBuildMetricName(featureName, shortName);
+      // skip: invalid featureName or unregistered name are the documented no-op contract of this handle
+      if (name === undefined || !meter.definitions().has(name)) return;
       meter.gauge(name).set(value, labels);
     },
   };

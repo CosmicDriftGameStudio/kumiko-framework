@@ -178,7 +178,19 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
   test("korrupte string-amount (kein number) → loud throw, kein silent drop", () => {
     expect(() =>
       rehydrateMoney({ buyingPrice: "not-a-number", buyingPriceCurrency: "EUR" }, orderEntity),
-    ).toThrow(/not a number — DB corruption/);
+    ).toThrow(/not a safe integer — DB corruption/);
+  });
+
+  test("fractional string amount (fw#1833) → loud throw statt amountMinor mit Nachkommastelle", () => {
+    expect(() =>
+      rehydrateMoney({ buyingPrice: "45000.7", buyingPriceCurrency: "EUR" }, orderEntity),
+    ).toThrow(/not a safe integer — DB corruption/);
+  });
+
+  test("string amount jenseits von Number.MAX_SAFE_INTEGER → loud throw statt Präzisionsverlust", () => {
+    expect(() =>
+      rehydrateMoney({ buyingPrice: "9007199254740993", buyingPriceCurrency: "EUR" }, orderEntity),
+    ).toThrow(/not a safe integer — DB corruption/);
   });
 
   test("unerwarteter amount-Typ (boolean) → loud throw", () => {

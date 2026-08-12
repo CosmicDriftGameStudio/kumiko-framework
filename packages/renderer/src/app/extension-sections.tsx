@@ -55,8 +55,11 @@ export type ExtensionSectionProps = {
   readonly values?: Readonly<Record<string, unknown>>;
   /** Sets host RenderEdit form values from outside (e.g. a VIN-decode
    *  roundtrip that fills other fields) — same function as
-   *  `RenderEditControls.patch`, merges only the given keys. Undefined
-   *  outside entityEdit sections. */
+   *  `RenderEditControls.patch`, merges only the given keys. `patch` must
+   *  converge: `setValues` is a no-op only when the merged result is
+   *  reference-equal to the current values, so an unconditional
+   *  `patch(...)` from a `values`-dependent effect loops. Undefined outside
+   *  entityEdit sections. */
   readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
   /** Validates the host form without writing — same function as
    *  `RenderEditControls.validate`; field errors land in

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-11T10:36:25.720Z",
+  "generatedAt": "2026-08-12T11:39:14.101Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -912,7 +912,7 @@
         {
           "name": "owner_id",
           "pgType": "text",
-          "notNull": false
+          "notNull": true
         },
         {
           "name": "draft_key",

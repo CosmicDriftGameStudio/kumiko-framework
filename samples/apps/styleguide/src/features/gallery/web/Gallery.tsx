@@ -751,7 +751,7 @@ export function Gallery(): ReactNode {
               ]}
               value={["important", "project-x"]}
               onChange={() => {}}
-              placeholder="Tags auswählen…"
+              placeholder="Select tags…"
               emptyText="Keine Tags"
             />
           </Field>

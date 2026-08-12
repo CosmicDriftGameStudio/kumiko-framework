@@ -47,6 +47,9 @@ const FORM_DRAFT_GET = "form-draft:query:get";
 const FORM_DRAFT_SAVE = "form-draft:write:save";
 const FORM_DRAFT_DISCARD = "form-draft:write:discard";
 const FORM_DRAFT_LIST = "form-draft:query:list";
+// Mirrors bundled-features/src/form-draft/constants.ts's FORM_DRAFT_KEY_MAX_LENGTH
+// — same hardcoding rationale as the QNs above (no dependency on that package).
+const FORM_DRAFT_KEY_MAX_LENGTH = 256;
 
 // Trailing-edge debounce for patch()-triggered draft saves (#1914). A single
 // patch() call (VIN-decode, an extension section) should not save immediately
@@ -149,7 +152,10 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  reference on every call must not do so unconditionally: `setValues` is
    *  a no-op when the merged value is reference-equal to the current one,
    *  so only a converging patch settles instead of looping. Without this
-   *  prop, existing behavior is unchanged. */
+   *  prop, existing behavior is unchanged. `onControlsReady` is guaranteed
+   *  to have already fired by the time the mount-time `onChange` call
+   *  happens, so a caller patching dependent fields from inside `onChange`
+   *  never has to guard against `controls` being undefined. */
   readonly onChange?: (state: RenderEditChangeState<TValues>) => void;
   /** Controlled mode (issue #1887): called once after mount, hands the
    *  caller `patch`/`validate`/`getValues` bound to this RenderEdit
@@ -461,23 +467,6 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // on every parent render, not just on a snapshot change, risking a loop if
   // the caller's onChange triggers a parent re-render. Held in a ref like
   // onChangeRef so only a real snapshot mutation retriggers this effect.
-  const schemaRef = useRef(schema);
-  schemaRef.current = schema;
-  useEffect(() => {
-    const cb = onChangeRef.current;
-    if (cb === undefined) return;
-    // Dry-run parse against `schema` — NOT controller.validate(). Calling
-    // validate() here would write field-level errors into snapshot.errors
-    // on every keystroke, painting error messages while the user is still
-    // typing. `valid` can therefore legitimately diverge from what's
-    // currently rendered under the fields (the last *mutating* validate()
-    // call, e.g. from controls.validate() or submit()).
-    const currentSchema = schemaRef.current;
-    const valid =
-      currentSchema === undefined ? true : currentSchema.safeParse(snapshot.values).success;
-    cb({ values: snapshot.values, changes: snapshot.changes, dirty: snapshot.isDirty, valid });
-  }, [snapshot]);
-
   const onControlsReadyRef = useRef(onControlsReady);
   onControlsReadyRef.current = onControlsReady;
   const scopeFieldNamesRef = useRef(scopeFieldNames);
@@ -525,6 +514,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     [controller, draftEnabled],
   );
 
+  // Runs before the onChange effect below (declaration order = React
+  // execution order) so that an onChange fired on mount always sees
+  // `controls !== undefined` — both effects depend only on mount-stable
+  // values (controller/scopedValidate/patchAndScheduleDraftSave), so the
+  // swap is otherwise a no-op. See the #1888 VIN-decode test: an initial
+  // value that should derive dependent fields on mount needs controls.patch
+  // available on the very first onChange call, not just from the second
+  // keystroke onward.
   useEffect(() => {
     const cb = onControlsReadyRef.current;
     if (cb === undefined) return;
@@ -539,6 +536,25 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // useCallback over mount-stable deps) — this fires exactly once per
     // RenderEdit mount in practice.
   }, [controller, scopedValidate, patchAndScheduleDraftSave]);
+
+  const schemaRef = useRef(schema);
+  schemaRef.current = schema;
+  // Controls are guaranteed ready by the time this fires (see the
+  // onControlsReady effect above, which is declared first on purpose).
+  useEffect(() => {
+    const cb = onChangeRef.current;
+    if (cb === undefined) return;
+    // Dry-run parse against `schema` — NOT controller.validate(). Calling
+    // validate() here would write field-level errors into snapshot.errors
+    // on every keystroke, painting error messages while the user is still
+    // typing. `valid` can therefore legitimately diverge from what's
+    // currently rendered under the fields (the last *mutating* validate()
+    // call, e.g. from controls.validate() or submit()).
+    const currentSchema = schemaRef.current;
+    const valid =
+      currentSchema === undefined ? true : currentSchema.safeParse(snapshot.values).success;
+    cb({ values: snapshot.values, changes: snapshot.changes, dirty: snapshot.isDirty, valid });
+  }, [snapshot]);
 
   useEffect(() => {
     // skip: this screen does not persist a draft.
@@ -699,6 +715,16 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // in practice (mint above always produces one), kept as a type-level
     // guard against a stale `undefined` key ever reaching the write.
     if (key === undefined) return;
+    // draftKeySchema.max(FORM_DRAFT_KEY_MAX_LENGTH) rejects this server-side —
+    // catch it here instead of losing the save silently to the fire-and-forget
+    // write below (the user would only notice on resume, with nothing to resume).
+    if (key.length > FORM_DRAFT_KEY_MAX_LENGTH) {
+      // biome-ignore lint/suspicious/noConsole: no error-surfacing path exists for a fire-and-forget draft save.
+      console.warn(
+        `RenderEdit: draftKey "${key}" is ${key.length} chars, over the server's ${FORM_DRAFT_KEY_MAX_LENGTH}-char limit — skipping this draft save. Shorten screen.id or entity id.`,
+      );
+      return;
+    }
     void dispatcher.write(FORM_DRAFT_SAVE, {
       draftKey: key,
       values: controller.getSnapshot().values,
@@ -801,8 +827,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     setIsSubmitting(true);
     setExtensionErrorKey(null);
     try {
-      // Extension-only: nur eine Section ist dirty, das Haupt-Form unverändert.
-      // Kein Entity-Write (würde einen leeren changes-Payload schreiben) — nur
+      // Extension-only: only a section is dirty, the main form is unchanged.
+      // No entity write (would send an empty changes payload) — only
       // die Section-Handler laufen lassen.
       if (snapshot.isUnchanged && extensionDirty) {
         // Same discard as the main path: an extension-only save is still a
@@ -812,27 +838,27 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       }
       let result: SubmitResult<unknown>;
       if (customSubmit !== undefined) {
-        // customSubmit-Pfad (z.B. configEdit, das pro Field einen
-        // separaten Write feuert). Erst client-side Validation, dann
+        // customSubmit path (e.g. configEdit, which fires a separate write
+        // per field). Client-side validation first, then
         // an den Caller; on-success rebased der Form-State explizit
-        // weil controller.submit() das normalerweise selbst macht und
-        // ohne customSubmit's Hilfe weiß der Controller nichts vom
+        // because controller.submit() normally does this itself and
+        // without customSubmit's help the controller knows nothing about
         // erfolgreichen Submit (isUnchanged blieb sonst false).
         //
         // WICHTIG: snapshot direkt vom Controller holen statt aus
-        // React-State. Bei rapid fill→click kann React-Batching die
-        // Input-State-Updates noch nicht commited haben, wenn der
-        // submit-Click fire'd. handleSubmit's Closure würde dann mit
+        // React state. On rapid fill→click, React batching may not have
+        // committed input state updates yet when the submit click fires.
+        // handleSubmit's closure would then run with
         // stale snapshot.changes={} laufen, customSubmit fired keine
         // Writes, returnt success, Form rebase → User glaubt "saved"
         // aber gar nichts ist passiert. controller.getSnapshot() ist
         // immer aktuell — der Controller ist die Source-of-Truth, die
-        // React-State ist nur ein Mirror für's Rendering.
+        // React state is only a mirror for rendering.
         const valid = controller.validate(scopeFieldNames);
         if (!valid) {
-          // Field-Order matters: validationBlocked-true ist eine eigene
-          // Variante in der SubmitResult-Union (NICHT mit data/error
-          // gemixt), TS narrowt das nur ohne den Discriminator-Fight.
+          // Field order matters: validationBlocked:true is its own
+          // variant in the SubmitResult union (NOT mixed with data/error);
+          // TS only narrows cleanly without a discriminator fight.
           const blocked: SubmitResult<unknown> = {
             validationBlocked: true,
             isSuccess: false,
@@ -845,8 +871,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       } else {
         result = await controller.submit();
       }
-      // Form-level Errors (ohne field-level details) landen im Banner.
-      // Field-Errors fließen über snapshot.errors in die einzelnen Fields.
+      // Form-level errors (without field-level details) go to the banner.
+      // Field errors flow via snapshot.errors into the individual fields.
       let extensionsPersisted = true;
       if (result.isSuccess) {
         setFormError(null);
@@ -898,7 +924,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   // Sticky-top Action-Bar: Delete (links, destructive) + Cancel +
   // Save. Delete sitzt links abgesetzt damit die Click-Distanz zu
-  // Save groß ist; rot + Confirm-Dialog sind ausreichend Schutz
+  // Save is large; red styling + confirm dialog are enough protection
   // gegen Fehlklicks. Save bleibt rechts (primary affordance).
   const formActions = (
     <>
@@ -967,7 +993,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Title + Subtitle, create/edit-bewusst. i18n-Keys (mode = "create"|"edit"):
   //   screen:<id>.<mode>.title / .<mode>.subtitle
   // Fallback-Kette: mode-spezifisch → generisch (screen:<id>.title/.subtitle).
-  // title fällt zuletzt auf screenId, subtitle auf undefined (kein Untertitel).
+  // title falls back to screenId; subtitle to undefined (no subtitle).
   const isCreate = (() => {
     const id = resolveExtensionEntityId(entityIdProp, vm.id);
     return id == null || id === "";

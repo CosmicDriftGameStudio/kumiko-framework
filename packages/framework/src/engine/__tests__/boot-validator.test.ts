@@ -1487,6 +1487,146 @@ describe("boot-validator", () => {
       ];
       expect(() => validateBoot(features)).toThrow(/must match/);
     });
+
+    test("rejects size beyond the max variant edge", () => {
+      const features = [
+        defineFeature("profile", (r) => {
+          r.entity(
+            "person",
+            createEntity({
+              fields: {
+                avatar: createImageField({
+                  variants: { huge: { size: { width: 100000, height: 100000 } } },
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/size/);
+    });
+
+    test("rejects maxEdge beyond the max variant edge", () => {
+      const features = [
+        defineFeature("profile", (r) => {
+          r.entity(
+            "person",
+            createEntity({
+              fields: {
+                avatar: createImageField({ variants: { huge: { maxEdge: 100000 } } }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/maxEdge/);
+    });
+
+    test("rejects a negative blur", () => {
+      const features = [
+        defineFeature("profile", (r) => {
+          r.entity(
+            "person",
+            createEntity({
+              fields: {
+                avatar: createImageField({ variants: { thumb: { maxEdge: 200, blur: -5 } } }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/blur/);
+    });
+
+    test("rejects a blur far beyond the renderer's supported sigma", () => {
+      const features = [
+        defineFeature("profile", (r) => {
+          r.entity(
+            "person",
+            createEntity({
+              fields: {
+                avatar: createImageField({
+                  variants: { thumb: { maxEdge: 200, blur: 100000 } },
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/blur/);
+    });
+
+    test("accepts a valid blur", () => {
+      process.env["FILE_STORAGE_PROVIDER"] = "local";
+      try {
+        const features = [
+          defineFeature("profile", (r) => {
+            r.entity(
+              "person",
+              createEntity({
+                fields: {
+                  avatar: createImageField({ variants: { thumb: { maxEdge: 200, blur: 8 } } }),
+                },
+              }),
+            );
+          }),
+        ];
+        expect(() => validateBoot(features)).not.toThrow();
+      } finally {
+        delete process.env["FILE_STORAGE_PROVIDER"];
+      }
+    });
+
+    test("rejects a blurRegion that overflows the unit square", () => {
+      const features = [
+        defineFeature("profile", (r) => {
+          r.entity(
+            "person",
+            createEntity({
+              fields: {
+                avatar: createImageField({
+                  variants: {
+                    thumb: {
+                      maxEdge: 200,
+                      blurRegions: [{ x: -0.3, y: 0, width: 0.99, height: 0 }],
+                    },
+                  },
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/blurRegions/);
+    });
+
+    test("accepts a valid blurRegion", () => {
+      process.env["FILE_STORAGE_PROVIDER"] = "local";
+      try {
+        const features = [
+          defineFeature("profile", (r) => {
+            r.entity(
+              "person",
+              createEntity({
+                fields: {
+                  avatar: createImageField({
+                    variants: {
+                      thumb: {
+                        maxEdge: 200,
+                        blurRegions: [{ x: 0.1, y: 0.1, width: 0.2, height: 0.2 }],
+                      },
+                    },
+                  }),
+                },
+              }),
+            );
+          }),
+        ];
+        expect(() => validateBoot(features)).not.toThrow();
+      } finally {
+        delete process.env["FILE_STORAGE_PROVIDER"];
+      }
+    });
   });
 
   // --- entityList column-renderer form-check ---

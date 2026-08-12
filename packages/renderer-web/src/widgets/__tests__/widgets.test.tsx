@@ -44,6 +44,23 @@ describe("ProgressBar", () => {
     expect(screen.getByTestId("bar").getAttribute("aria-valuenow")).toBe("0");
   });
 
+  test("NaN (z.B. aus done/total mit total=0) wird 0 statt NaN durchzureichen", () => {
+    render(<ProgressBar value={Number.NaN} testId="bar" />);
+    const bar = screen.getByTestId("bar");
+    expect(bar.getAttribute("aria-valuenow")).toBe("0");
+    const fill = bar.firstElementChild as HTMLElement;
+    expect(fill.style.width).toBe("0%");
+  });
+
+  test("className landet auf dem Wrapper, h-2 bleibt auf dem Testid-/Track-Element (fw#1970)", () => {
+    render(<ProgressBar value={0.5} testId="bar" className="mt-4" />);
+    const bar = screen.getByTestId("bar");
+    expect(bar.parentElement?.className).toContain("mt-4");
+    expect(bar.parentElement?.className).toContain("w-full");
+    expect(bar.className).toContain("h-2");
+    expect(bar.className).not.toContain("mt-4");
+  });
+
   test("Füll-Element bildet den Wert über Breite ab und erbt die Höhe nicht vom Elternteil", () => {
     render(<ProgressBar value={0.5} testId="bar" />);
     const bar = screen.getByTestId("bar");

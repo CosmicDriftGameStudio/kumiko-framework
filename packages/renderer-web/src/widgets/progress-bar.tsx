@@ -18,7 +18,9 @@ export function ProgressBar({
   readonly className?: string;
   readonly testId?: string;
 }): ReactNode {
-  const pct = Math.max(0, Math.min(1, value));
+  // `value` is typically `done / total`; total:0 produces NaN, which would
+  // otherwise leak into `width: "NaN%"` and an invalid aria-valuenow.
+  const pct = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
   return (
     <div className={cn("w-full", className)}>
       <div

@@ -1023,6 +1023,26 @@ describe("createApp", () => {
     );
   });
 
+  test("rejects embedded-list required:true combined with minItems:0", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          table: "Docs",
+          fields: {
+            lines: createEmbeddedListField(
+              { accountId: { type: "text" } },
+              { required: true, minItems: 0 },
+            ),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      "required:true and minItems:0",
+    );
+  });
+
   test("rejects derived cell referencing an unknown sub-field", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(

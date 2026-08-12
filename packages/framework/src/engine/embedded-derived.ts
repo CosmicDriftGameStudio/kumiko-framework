@@ -45,6 +45,7 @@ function roundHalfAwayFromZero(value: number, decimals: number): number {
   // === 100.49999999999999) before rounding, so a value that's
   // mathematically exactly at the half-step doesn't fall to the wrong side.
   // ponytail: toPrecision(15) can shift by ±1 minor unit for values near Number.MAX_SAFE_INTEGER (2^53); fine for realistic money amounts.
+  // ponytail: also snaps values within ~1e-16 of a half-step up (e.g. roundHalfAwayFromZero(0.49999999999999994, 0) === 1) — deliberate, the float-noise case is far more common than a genuine near-half input.
   const scaled = Number((Math.abs(value) * factor).toPrecision(15));
   return (Math.sign(value) * Math.round(scaled)) / factor;
 }

@@ -156,7 +156,7 @@
 ### Patch Changes
 
 - 1445686: DateField's placeholder now shows the locale's date format pattern (e.g. "TT.MM.JJJJ" in de, "MM/DD/YYYY" in en-US, "DD/MM/YYYY" in en-GB) instead of a hardcoded example date ("31.12.2026"), which read as an already-filled-in value and caused editors to skip the field. Fixes #1865.
-- 7b7f62c: Fix `EmbeddedListInput` desktop table columns collapsing below their declared width (e.g. a typed digit clipped in a number cell) instead of triggering the existing horizontal scroll. `w-full` on the vendored `Table`'s `<table>` forced `table-layout: auto` to squeeze columns to fit the container; the table now keeps `min-w-max` so columns retain their `columnWidthClass` width and the wrapper scrolls instead. Fixes solon#107.
+- 7b7f62c: Fix `EmbeddedListInput` desktop table columns collapsing below their declared width (e.g. a typed digit clipped in a number cell) instead of triggering the existing horizontal scroll. `w-full` on the vendored `Table`'s `<table>` let the (already-active) auto table-layout algorithm squeeze columns below their `columnWidthClass` width to fit the container; the table now keeps `min-w-max` so columns retain that width and the wrapper scrolls instead. Fixes solon#107.
 - Updated dependencies [3e36735]
 - Updated dependencies [1445686]
   - @cosmicdrift/kumiko-renderer@0.187.0
