@@ -8,7 +8,7 @@ import { rowMetaFieldNames } from "../../db/table-builder";
 import { isValidQn, qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
-import type { EntityDefinition, FeatureDefinition } from "../types";
+import type { EntityDefinition, FeatureDefinition, FieldDefinition } from "../types";
 import type {
   DashboardCustomPanel,
   DashboardFilterDefinition,
@@ -27,7 +27,12 @@ import type {
 // Mirrors FIELD_TYPES_WITHOUT_WIDGET in packages/renderer/src/app/form-schema.ts.
 // Can't import it directly — renderer depends on framework, not the reverse.
 // Keep both lists in sync when a field type gains or loses an auto-wired widget.
-const NO_WIDGET_FIELD_TYPES = new Set(["jsonb", "embedded", "files", "images"]);
+const NO_WIDGET_FIELD_TYPES: ReadonlySet<FieldDefinition["type"]> = new Set([
+  "jsonb",
+  "embedded",
+  "files",
+  "images",
+]);
 
 // A field type in NO_WIDGET_FIELD_TYPES renders read-only on the auto-wired
 // entityEdit path (#1925) — a required field the user can never fill would
@@ -46,9 +51,7 @@ function validateNoWidgetRequiredField(
   if (fieldDef === undefined || !NO_WIDGET_FIELD_TYPES.has(fieldDef.type)) return;
   // Embedded LIST fields (`multiple: true`) get their own EmbeddedListField
   // grid widget (#1838) — only plain (non-list) embedded has no widget.
-  const isEmbeddedList =
-    fieldDef.type === "embedded" &&
-    (fieldDef as unknown as { multiple?: boolean }).multiple === true;
+  const isEmbeddedList = fieldDef.type === "embedded" && fieldDef.multiple === true;
   // skip: list variant has a widget — not the no-widget case this guard targets.
   if (isEmbeddedList) return;
   // skip: already read-only by spec — no fillable widget needed regardless of type.

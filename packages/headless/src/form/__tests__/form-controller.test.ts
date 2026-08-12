@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { z } from "zod";
 import { createFormController } from "../form-controller";
 
 describe("createFormController — core state machine", () => {
@@ -191,5 +192,40 @@ describe("createFormController — core state machine", () => {
     expect(snap.isDirty).toBe(true);
     expect("title" in snap.changes).toBe(true);
     expect(snap.changes["title"]).toBeUndefined();
+  });
+});
+
+describe("validate() scoping", () => {
+  const schema = z.object({ step1: z.string().min(1), step2: z.string().min(1) });
+
+  test("a clean scoped validate() doesn't wipe an out-of-scope field's existing errors", () => {
+    const form = createFormController({ initial: { step1: "", step2: "filled" }, schema });
+
+    // Unscoped run (e.g. submit) surfaces errors on both fields.
+    expect(form.validate()).toBe(false);
+    expect(form.getSnapshot().errors["step1"]).toBeDefined();
+
+    // step2 is now fixed; a scoped validate() for step2 alone must not
+    // clear step1's still-outstanding error.
+    form.setField("step2", "filled");
+    expect(form.validate(["step2"])).toBe(true);
+    const snap = form.getSnapshot();
+    expect(snap.errors["step2"]).toBeUndefined();
+    expect(snap.errors["step1"]).toBeDefined();
+  });
+
+  test("a failing scoped validate() doesn't overwrite an out-of-scope field's existing errors", () => {
+    const form = createFormController({ initial: { step1: "", step2: "" }, schema });
+
+    expect(form.validate()).toBe(false);
+    expect(form.getSnapshot().errors["step1"]).toBeDefined();
+    expect(form.getSnapshot().errors["step2"]).toBeDefined();
+
+    // Re-running validate scoped to step1 only (still empty) must refresh
+    // step1's error without touching step2's independently-set error.
+    expect(form.validate(["step1"])).toBe(false);
+    const snap = form.getSnapshot();
+    expect(snap.errors["step1"]).toBeDefined();
+    expect(snap.errors["step2"]).toBeDefined();
   });
 });

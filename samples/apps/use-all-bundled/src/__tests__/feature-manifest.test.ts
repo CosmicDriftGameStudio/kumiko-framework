@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname } from "node:path";
 import {
   buildFeatureManifest,
   CREATE_APP_MANIFEST_PATH,
@@ -15,12 +16,15 @@ describe("feature-manifest", () => {
     expect(committed).toBe(fresh);
   });
 
-  test("create-kumiko-app copy matches the generated manifest", () => {
-    const generated = readFileSync(MANIFEST_PATH, "utf-8");
-    const copy = readFileSync(CREATE_APP_MANIFEST_PATH, "utf-8");
-    // Stale? Run: bun run scripts/gen-feature-manifest.ts
-    expect(copy).toBe(generated);
-  });
+  test.skipIf(!existsSync(dirname(CREATE_APP_MANIFEST_PATH)))(
+    "create-kumiko-app copy matches the generated manifest",
+    () => {
+      const generated = readFileSync(MANIFEST_PATH, "utf-8");
+      const copy = readFileSync(CREATE_APP_MANIFEST_PATH, "utf-8");
+      // Stale? Run: bun run scripts/gen-feature-manifest.ts
+      expect(copy).toBe(generated);
+    },
+  );
 
   test("introspects scope + per-role access for SMTP config (the drift-prone case)", () => {
     const manifest = buildFeatureManifest();

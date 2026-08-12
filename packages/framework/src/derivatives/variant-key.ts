@@ -22,7 +22,7 @@ export function canonicalJson(value: unknown): string {
 // forever after a spec change; hashing the spec into the key means a
 // changed spec is automatically a new URL.
 export function specHash(spec: VariantSpec): string {
-  return createHash("sha256").update(canonicalJson(spec)).digest("hex").slice(0, 8);
+  return createHash("sha256").update(canonicalJson(spec)).digest("hex").slice(0, 16);
 }
 
 export const VARIANT_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/i;

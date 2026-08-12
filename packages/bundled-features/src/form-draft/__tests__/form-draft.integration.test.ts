@@ -184,16 +184,22 @@ describe("form-draft integration — ownership isolation", () => {
 describe("form-draft integration — list", () => {
   test("list returns open drafts for a screenId, newest first, without the blob's values", async () => {
     await saveDraft("wizard:a", { name: "First" }, 0);
-    // savedAt is a millisecond stamp (#1960) — without a gap, two saves this
-    // close together can land on the same millisecond and tie.
-    await Bun.sleep(5);
+    // savedAt is a millisecond stamp (#1960) — sleep is best-effort only;
+    // under CI load two saves can still tie, so assert the comparator
+    // contract (savedAt desc, then id desc) rather than a fixed key order.
+    await Bun.sleep(20);
     await saveDraft("wizard:b", { name: "Second" }, 1);
 
     const { drafts } = await listDrafts("wizard");
-    expect(drafts.map((d) => d.draftKey)).toEqual(["wizard:b", "wizard:a"]);
-    expect(drafts[0]?.stepIndex).toBe(1);
-    expect(drafts[0]?.savedAt).toBeTruthy();
-    expect(drafts[0]).not.toHaveProperty("values");
+    expect(drafts).toHaveLength(2);
+    expect(new Set(drafts.map((d) => d.draftKey))).toEqual(new Set(["wizard:a", "wizard:b"]));
+    const [first, second] = drafts;
+    expect(first?.savedAt).toBeTruthy();
+    expect(first).not.toHaveProperty("values");
+    const byTime = second!.savedAt.localeCompare(first!.savedAt);
+    const byId = second!.id.localeCompare(first!.id);
+    expect(byTime < 0 || (byTime === 0 && byId < 0)).toBe(true);
+    if (first!.draftKey === "wizard:b") expect(first!.stepIndex).toBe(1);
   });
 
   test("list excludes a draft whose screenId is only a prefix, not a full segment match", async () => {

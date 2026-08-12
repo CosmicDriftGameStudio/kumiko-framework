@@ -91,21 +91,25 @@ export function validateScenarios(scenarios: readonly Scenario[]): void {
 export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions): void {
   validateScenarios(scenarios);
   mkdirSync(opts.outDir, { recursive: true });
-  // Browser-context locale for JS-side Intl/navigator.language (e.g. money-input's
-  // resolvedLocale) — pinEnglishLocale() only seeds the app's own kumiko:locale.
-  // ponytail: native <input type="number"> still formats per the host OS region,
-  // unreachable from Playwright (context.locale and --lang both no-op there). #1851
-  if (opts.pinLocale) test.use({ locale: "en-US" });
-  for (const s of scenarios) {
-    test(s.description ? `${s.name} — ${s.description}` : s.name, async ({ page }) => {
-      if (opts.pinLocale) await pinEnglishLocale(page);
-      if (s.viewport) await page.setViewportSize(s.viewport);
-      await openScenario(page, s);
-      const path = `${opts.outDir}/${s.name}.png`;
-      await page.screenshot({ path, fullPage: s.fullPage ?? false });
-      expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
-    });
-  }
+  // Scoped in its own describe so `test.use` below can't leak the pinned
+  // locale into sibling test.describe blocks in the same spec file.
+  test.describe(() => {
+    // Browser-context locale for JS-side Intl/navigator.language (e.g. money-input's
+    // resolvedLocale) — pinEnglishLocale() only seeds the app's own kumiko:locale.
+    // ponytail: native <input type="number"> still formats per the host OS region,
+    // unreachable from Playwright (context.locale and --lang both no-op there). #1851
+    if (opts.pinLocale) test.use({ locale: "en-US" });
+    for (const s of scenarios) {
+      test(s.description ? `${s.name} — ${s.description}` : s.name, async ({ page }) => {
+        if (opts.pinLocale) await pinEnglishLocale(page);
+        if (s.viewport) await page.setViewportSize(s.viewport);
+        await openScenario(page, s);
+        const path = `${opts.outDir}/${s.name}.png`;
+        await page.screenshot({ path, fullPage: s.fullPage ?? false });
+        expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
+      });
+    }
+  });
 }
 
 const VIEWPORTS = {

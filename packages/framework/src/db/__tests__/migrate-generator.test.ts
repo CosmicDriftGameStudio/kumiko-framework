@@ -165,6 +165,23 @@ describe("renderMigrationSql — managed recreate vs unmanaged in-place", () => 
     expect(sql).not.toContain("WARN: column-type-change");
   });
 
+  test("unmanaged: date → timestamptz type change emits the symmetric UTC-anchored USING clause", () => {
+    const prev = snapshotFromMetas([
+      meta("store_invoices", { name: "period_from", pgType: "date", notNull: true }),
+    ]);
+    const next = snapshotFromMetas([
+      meta("store_invoices", { name: "period_from", pgType: "timestamptz", notNull: true }),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), {
+      name: "invoice-date-widen",
+      sequenceNumber: 8,
+    });
+    expect(sql).toContain(
+      'ALTER TABLE "store_invoices" ALTER COLUMN "period_from" TYPE timestamptz USING ("period_from"::timestamp AT TIME ZONE \'UTC\');',
+    );
+    expect(sql).not.toContain("WARN: column-type-change");
+  });
+
   test("managed: multiple recreate reasons at once → all named in the warning", () => {
     const prev = snapshotFromMetas([
       meta("read_b", { name: "old_col", pgType: "text", notNull: false }, "managed"),

@@ -18,7 +18,8 @@ const captureInput: ComponentType<InputProps> = (props) => {
       id={props.id}
       value={props.value}
       disabled={props.disabled}
-      readOnly
+      readOnly={props.readOnly}
+      onChange={() => {}}
     />
   );
 };
@@ -96,13 +97,17 @@ describe("useContentEditor", () => {
 });
 
 describe("TextareaContentEditor", () => {
-  test("passes value + disabled=readOnly through to the primitives Input", () => {
+  test("passes value + readOnly through to the primitives Input as real readOnly, not disabled", () => {
+    // A disabled textarea isn't focusable/selectable in most browsers — a
+    // non-admin viewing read-only content couldn't select/copy it. readOnly
+    // keeps the field focusable and selectable while blocking edits.
     render(
       <TextareaContentEditor value="draft" onChange={() => {}} variables={[]} readOnly={true} />,
       { wrapper: Wrapper },
     );
     const el = screen.getByTestId("ca-textarea") as HTMLTextAreaElement;
     expect(el.value).toBe("draft");
-    expect(el.disabled).toBe(true);
+    expect(el.readOnly).toBe(true);
+    expect(el.disabled).toBe(false);
   });
 });

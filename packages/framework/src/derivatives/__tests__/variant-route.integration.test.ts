@@ -166,4 +166,31 @@ describe("GET /api/files/:id/variant/:name", () => {
 
     expect(res.status).toBe(401);
   });
+
+  // createImageField has no `accept` restriction here, so validateFile
+  // never rejects a non-image upload against this field — the source
+  // mimeType a renderer has to handle is client-controlled, not just a
+  // deployment-time mount decision.
+  test("a source mimeType with no matching renderer (client uploaded a non-image) returns 415, not a 500", async () => {
+    const token = await stack.jwt.sign(user);
+    const fd = new FormData();
+    fd.append("file", new File([Buffer.from([1, 2, 3])], "doc.pdf", { type: "application/pdf" }));
+    fd.append("entityType", "photo");
+    fd.append("fieldName", "avatar");
+    const { body, contentType } = await buildMultipartBody(fd);
+    const uploadRes = await stack.app.request("/api/files", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      body,
+    });
+    expect(uploadRes.status).toBe(201);
+    const { id: fileId } = (await uploadRes.json()) as { id: string };
+
+    const res = await stack.app.request(`/api/files/${fileId}/variant/thumb`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.status).toBe(415);
+    expect(await res.json()).toEqual({ error: "unsupported_media_type" });
+  });
 });

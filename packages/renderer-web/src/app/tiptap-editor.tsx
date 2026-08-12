@@ -79,6 +79,10 @@ export default function TiptapEditor({
     // Same id the textarea fallback uses — the Field wrapping the editor
     // (TextBlockEditor) associates its label via this id; the editor
     // contract has no `id` prop of its own, see content-editors.tsx.
+    // ponytail: fixed id, not a prop — two simultaneously mounted rich
+    // editors (or a rich + a plain editor on one screen) collide on this
+    // DOM id, same ceiling plain-content-editor.tsx documents. Upgrade:
+    // thread `id` through ContentEditorProps as an optional override.
     editorProps: { attributes: { id: CONTENT_EDITOR_ELEMENT_ID } },
     onUpdate: ({ editor: e }) => onChange(e.getHTML()),
   });

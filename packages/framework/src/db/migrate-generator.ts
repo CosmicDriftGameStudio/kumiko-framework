@@ -284,6 +284,16 @@ function renderColumnChange(tableName: string, change: ColumnChange): readonly s
       out.push(
         `ALTER TABLE ${tbl} ALTER COLUMN ${col} TYPE date USING (${col} AT TIME ZONE 'UTC')::date;`,
       );
+    } else if (from === "date" && (to === "timestamptz" || to === "timestamptz(3)")) {
+      // Same non-determinism, reversed: a bare `date → timestamptz` cast
+      // interprets the calendar date at session-TimeZone midnight. Anchor
+      // explicitly at UTC midnight instead.
+      out.push(
+        `-- date → ${to}: explicit UTC anchor — a bare cast would use the session TimeZone (non-deterministic).`,
+      );
+      out.push(
+        `ALTER TABLE ${tbl} ALTER COLUMN ${col} TYPE ${to} USING (${col}::timestamp AT TIME ZONE 'UTC');`,
+      );
     } else {
       // pg ALTER TYPE braucht oft USING-clause für nicht-implicit-castable
       // type-changes. Wir emittieren das als Reviewer-Kommentar + raw cast —

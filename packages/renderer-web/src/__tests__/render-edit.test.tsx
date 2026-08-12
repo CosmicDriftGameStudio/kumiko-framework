@@ -997,15 +997,13 @@ describe("RenderEdit — FieldConditions react to extension patch() (#1916)", ()
   }
 
   function isRequired(testId: string): boolean {
-    const label = screen.getByTestId(testId).querySelector("label");
-    return (label?.textContent ?? "").includes("*");
+    return screen.getByTestId(testId).querySelector("[data-required]") !== null;
   }
 
   function isDisabled(testId: string): boolean {
-    return (
-      (screen.getByTestId(testId).querySelector("input") as HTMLInputElement | null)?.disabled ??
-      false
-    );
+    const input = screen.getByTestId(testId).querySelector("input");
+    if (!input) throw new Error(`${testId} has no input`);
+    return (input as HTMLInputElement).disabled;
   }
 
   test("provider delivers a value: the gated field becomes visible and required, the source field locks", () => {
