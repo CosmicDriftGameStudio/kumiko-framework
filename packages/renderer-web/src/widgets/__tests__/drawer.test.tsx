@@ -299,6 +299,28 @@ describe("Drawer", () => {
       expect(handle.getAttribute("aria-valuenow")).toBe("484");
     });
 
+    test("PointerDown on the handle locks text selection, PointerUp restores it (fw#1965)", () => {
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="right"
+          testId="drawer"
+          resize={{ defaultWidthPx: 400, minWidthPx: 300, maxWidthPx: 500 }}
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      const handle = screen.getByRole("separator");
+      expect(document.body.style.userSelect).toBe("");
+
+      fireEvent.pointerDown(handle, { pointerId: 1, clientX: 100 });
+      expect(document.body.style.userSelect).toBe("none");
+
+      fireEvent.pointerUp(handle, { pointerId: 1, clientX: 100 });
+      expect(document.body.style.userSelect).toBe("");
+    });
+
     test("side='top' with resize set: no resize handle, no maximize button (vertical drawers can't resize)", () => {
       render(
         <Drawer

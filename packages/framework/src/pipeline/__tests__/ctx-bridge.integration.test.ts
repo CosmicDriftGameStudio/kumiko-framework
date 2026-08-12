@@ -149,6 +149,39 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  // Records whether ctx.db threw (should, once the request signal is
+  // aborted) and whether the ctx.dbOutsideTransaction insert still landed
+  // (should — durability writes must survive a client disconnect).
+  //
+  // The throwing side reads via ctx.db.selectMany, not the event-store
+  // executor's create() — the latter writes through db.raw (bypassing
+  // TenantDb's withDbSpan/signal check entirely), so it wouldn't exercise
+  // the signal wiring this test is meant to prove. insertOne isn't an
+  // option either: bagTable is executor-managed (WritableTable rejects its
+  // EXECUTOR_ONLY brand) — direct writes would drift it past its event
+  // stream. selectMany has no such restriction (reads keep the plain
+  // SchemaTable param) and still goes through the same signal check.
+  r.writeHandler(
+    "bag:create-signal-probe",
+    z.object({ label: z.string() }),
+    async (event, ctx) => {
+      const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
+      let dbThrewAbortError = false;
+      try {
+        await ctx.db?.selectMany(bagTable, {});
+      } catch (err) {
+        dbThrewAbortError = err instanceof Error && err.name === "AbortError";
+      }
+      const outsideTx = ctx.dbOutsideTransaction;
+      if (!outsideTx) {
+        throw new Error("bag:create-signal-probe requires ctx.dbOutsideTransaction");
+      }
+      await crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, outsideTx);
+      return { isSuccess: true as const, data: { dbThrewAbortError } };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
   // afterCommit hook on bag — fires once per outer commit.
   r.hook("postSave", { allOf: bag }, async (result) => {
     afterCommitLog.push(`bag:${result.data["label"]}`);
@@ -265,5 +298,36 @@ describe("ctx.dbOutsideTransaction", () => {
     const bags = await selectMany(stack.db, bagTable);
     const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]);
     expect(labels).toEqual(["probe-outside-tx"]);
+  });
+
+  test("an already-aborted request signal fails ctx.db but not ctx.dbOutsideTransaction", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const token = await stack.jwt.sign(admin);
+
+    const res = await stack.app.request(
+      new Request("http://test.local/api/write", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: "ctxbridge:write:bag:create-signal-probe",
+          payload: { label: "signal-probe" },
+        }),
+        signal: controller.signal,
+      }),
+    );
+
+    const body = (await res.json()) as {
+      isSuccess: boolean;
+      data?: { dbThrewAbortError: boolean };
+    };
+    expect(body.isSuccess).toBe(true);
+    expect(body.data?.dbThrewAbortError).toBe(true);
+
+    // Only the outside-tx insert landed — ctx.db's insert threw before it
+    // could write, and there was nothing to roll back for it.
+    const bags = await selectMany(stack.db, bagTable);
+    const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]);
+    expect(labels).toEqual(["signal-probe-outside-tx"]);
   });
 });

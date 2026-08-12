@@ -26,6 +26,7 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import { fieldLabelKey } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { extractCreatedId } from "../components/reference-create-dialog";
 import { RenderEdit } from "../components/render-edit";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
@@ -461,7 +462,11 @@ function EntityEditCreateBody({
     (result: SubmitResult<unknown>) => {
       if (!result.isSuccess) return;
       if (screen.redirect !== undefined) {
-        nav.navigate({ screenId: lastSegment(screen.redirect) });
+        const entityId = extractCreatedId(result.data);
+        nav.navigate({
+          screenId: lastSegment(screen.redirect),
+          ...(entityId !== undefined && { entityId }),
+        });
         return;
       }
       navigateToList();

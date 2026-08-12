@@ -170,24 +170,27 @@ export async function buildHandlerContext(
   // but at this point we're the root of the pipeline — cast is safe.
   const dbSource = resolveDbSource(ctx, tx);
   const reqCtx = requestContext.get();
-  const buildTenantScopedDb = (source: DbConnection | DbTx) =>
+  const buildTenantScopedDb = (source: DbConnection | DbTx, signal: AbortSignal | undefined) =>
     createTenantDb(
       source,
       user.tenantId,
       isSystem ? "system" : "tenant",
       context.tracer,
       context.meter,
-      // Propagate the request's AbortSignal so every TenantDb query
-      // throws when the client has disconnected — handlers with many
-      // sequential queries skip the rest of the chain instead of
-      // burning DB-CPU for results no one reads.
-      reqCtx?.signal,
+      signal,
     );
-  const db = dbSource ? buildTenantScopedDb(dbSource) : undefined;
+  // Propagate the request's AbortSignal so every TenantDb query throws when
+  // the client has disconnected — handlers with many sequential queries skip
+  // the rest of the chain instead of burning DB-CPU for results no one reads.
+  const db = dbSource ? buildTenantScopedDb(dbSource, reqCtx?.signal) : undefined;
   // Unbound pool, tenant-scoped like `db` but never tx-bound — writes
-  // through it survive a rollback of the handler's own transaction.
+  // through it survive a rollback of the handler's own transaction. No
+  // AbortSignal here: a client disconnect must not abort a durability write
+  // that is meant to outlive the request.
   const outsideTxSource = resolveDbSource(ctx, undefined);
-  const dbOutsideTransaction = outsideTxSource ? buildTenantScopedDb(outsideTxSource) : undefined;
+  const dbOutsideTransaction = outsideTxSource
+    ? buildTenantScopedDb(outsideTxSource, undefined)
+    : undefined;
   const log = context.log?.child({
     handler: type,
     tenantId: user.tenantId,

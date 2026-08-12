@@ -54,7 +54,12 @@ export async function resizeImageBeforeUpload(
     const actualType = blob.type || file.type;
     const fileName =
       actualType === file.type ? file.name : withMatchingExtension(file.name, actualType);
-    return new File([blob], fileName, { type: actualType });
+    const resized = new File([blob], fileName, { type: actualType });
+    // Only takes the re-encode if it actually shrank the file — a
+    // palette-optimized PNG or a small in-spec photo can come back larger
+    // after a full RGBA canvas round-trip. EXIF/GPS stripping is then
+    // best-effort: an original that's kept as-is keeps its metadata too.
+    return resized.size < file.size ? resized : file;
   } catch {
     return file;
   }

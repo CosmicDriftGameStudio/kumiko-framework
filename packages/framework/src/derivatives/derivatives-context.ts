@@ -6,6 +6,7 @@ import type {
 import { type AnyDb, fetchOne } from "../bun-db/query";
 import { EXT_DERIVATIVE_RENDERER } from "../engine/extension-names";
 import type { Registry, TenantId } from "../engine/types";
+import { InternalError, NotFoundError } from "../errors";
 import type { FileContext } from "../files/file-handle";
 import { fileRefsTable } from "../files/file-ref-table";
 import { assertSafeStorageKey } from "../files/types";
@@ -94,12 +95,10 @@ export function createDerivativesContext(deps: DerivativesContextDeps): Derivati
         isDeleted: false,
       });
       if (!row) {
-        throw new Error(`derivatives.variant: no fileRef found for id "${fileRefId}"`);
+        throw new NotFoundError("fileRef", fileRefId);
       }
       if (!isFileRefRow(row)) {
-        throw new Error(
-          `derivatives.variant: fileRef "${fileRefId}" is missing storageKey/mimeType`,
-        );
+        throw new NotFoundError("fileRef", fileRefId);
       }
 
       const renderer = resolveRenderer(deps.registry, row.mimeType);
@@ -109,9 +108,10 @@ export function createDerivativesContext(deps: DerivativesContextDeps): Derivati
             .getExtensionUsages(EXT_DERIVATIVE_RENDERER)
             .map((u) => u.entityName)
             .join(", ") || "<none>";
-        throw new Error(
-          `derivatives.variant: no renderer registered for mimeType "${row.mimeType}". Known: ${known}.`,
-        );
+        throw new InternalError({
+          message: `derivatives.variant: no renderer registered for mimeType "${row.mimeType}".`,
+          details: { knownRenderers: known },
+        });
       }
 
       const src = deps.files.ref(row.storageKey);

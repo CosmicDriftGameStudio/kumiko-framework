@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
 import type { Registry } from "../../engine/types";
+import { InternalError } from "../../errors";
 import { createFileContext } from "../../files/file-handle";
 import { createInMemoryFileProvider } from "../../files/in-memory-provider";
 import { createDerivativesContext, resolveRenderer } from "../derivatives-context";
@@ -133,7 +134,7 @@ describe("createDerivativesContext — variant()", () => {
     expect(second.storageKey).not.toBe(first.storageKey);
   });
 
-  test("no renderer registered for the mimeType throws, naming the known patterns", async () => {
+  test("no renderer registered for the mimeType throws InternalError, naming the known patterns in details", async () => {
     const provider = createInMemoryFileProvider();
     await provider.write("tenant/doc.pdf", new Uint8Array([1]));
     const files = createFileContext(() => Promise.resolve(provider));
@@ -141,7 +142,13 @@ describe("createDerivativesContext — variant()", () => {
     const db = fakeDbWithFileRef({ storageKey: "tenant/doc.pdf", mimeType: "application/pdf" });
     const ctx = createDerivativesContext({ files, registry, db, tenantId: TENANT_ID });
 
-    await expect(ctx.variant(FILE_REF_ID, {}, "thumb")).rejects.toThrow(/image\/\*/);
+    // The renderer list moved out of the client-visible `message` into
+    // `details` — InternalError's serialize() drops `details` from the wire
+    // response, so it must not be the only place a caller can find it.
+    const err = await ctx.variant(FILE_REF_ID, {}, "thumb").catch((e) => e);
+    expect(err).toBeInstanceOf(InternalError);
+    expect((err as InternalError).httpStatus).toBe(500);
+    expect((err as InternalError).details).toEqual({ knownRenderers: "image/*" });
   });
 
   test("mimeType is consistent across a fresh render and a cache hit for the same spec", async () => {

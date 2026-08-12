@@ -7,6 +7,7 @@ describe("RichContentEditor", () => {
   test("falls back to the plain textarea while the tiptap chunk loads, then swaps in the editor", async () => {
     render(
       <RichContentEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
         value="<p>hello</p>"
         onChange={() => {}}
         variables={[]}

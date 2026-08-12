@@ -90,9 +90,13 @@ export function UploadZone({
   const inputRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<readonly UploadRow[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  // `crypto.randomUUID` only exists in a secure context — a plain-HTTP LAN
+  // preview leaves it undefined. These ids are React keys/row ids, not
+  // globally unique identifiers, so a per-instance counter is enough.
+  const nextRowId = useRef(0);
 
   async function uploadOne(file: File): Promise<void> {
-    const rowId = crypto.randomUUID();
+    const rowId = String(nextRowId.current++);
     setRows((prev) => [...prev, { id: rowId, fileName: file.name, status: "uploading" }]);
     try {
       await onUpload(await resizeImageBeforeUpload(file));
@@ -113,7 +117,7 @@ export function UploadZone({
       setRows((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: String(nextRowId.current++),
           fileName: file.name,
           status: "error",
           error: t("kumiko.widget.upload.rejected-type"),

@@ -23,7 +23,7 @@ function entityWriteCommand(featureName: string, entity: string): string {
 // The create handler's success payload is `{ kind: "save", id, ... }`
 // (see event-store-executor-write.ts) but RenderEdit's onSubmit only
 // types it as `unknown` — narrow defensively instead of casting through it.
-function extractCreatedId(data: unknown): string | undefined {
+export function extractCreatedId(data: unknown): string | undefined {
   if (typeof data !== "object" || data === null) return undefined;
   const id = (data as Record<string, unknown>)["id"];
   return typeof id === "string" ? id : undefined;

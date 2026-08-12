@@ -12,6 +12,12 @@ import { type ComponentType, createContext, type ReactNode, useContext } from "r
 import { usePrimitives } from "../primitives";
 
 export type ContentEditorProps = {
+  /** DOM id every registered editor must render onto its own focusable
+   *  root element. Callers that wrap an editor in a `Field` (label +
+   *  htmlFor) pass a stable id here so the label stays associated with
+   *  whatever element actually renders — a fixed constant would break as
+   *  soon as a registered editor swaps in for the textarea fallback. */
+  readonly id: string;
   readonly value: string;
   readonly onChange: (value: string) => void;
   /** Variable names insertable as chips (from the collection's
@@ -24,10 +30,10 @@ export type ContentEditorProps = {
 
 export type ContentEditorComponent = ComponentType<ContentEditorProps>;
 
-/** Fixed DOM id the fallback textarea renders under. Callers that wrap an
- *  editor in a `Field` (label + htmlFor) use this as the Field's `id` so the
- *  label stays associated — the editor contract has no `id` prop of its own,
- *  every registered editor owns its own focusable element's id. */
+/** Default id value for callers that don't generate their own (e.g. a
+ *  standalone TextareaContentEditor render outside a multi-editor page).
+ *  Registered editors don't apply this automatically — every caller passes
+ *  its own id via ContentEditorProps.id. */
 export const CONTENT_EDITOR_ELEMENT_ID = "content-editor-textarea";
 
 export type ContentEditorsMap = Readonly<Record<string, ContentEditorComponent>>;
@@ -50,6 +56,7 @@ export function ContentEditorsProvider({
  *  Uses the primitives Input like every other form field, so it renders on
  *  every platform without requiring the platform's DOM/native equivalent. */
 export function TextareaContentEditor({
+  id,
   value,
   onChange,
   readOnly,
@@ -58,7 +65,7 @@ export function TextareaContentEditor({
   return (
     <Input
       kind="textarea"
-      id={CONTENT_EDITOR_ELEMENT_ID}
+      id={id}
       name={CONTENT_EDITOR_ELEMENT_ID}
       value={value}
       onChange={onChange}

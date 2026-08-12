@@ -27,7 +27,7 @@ export function injectSchema(html: string, schemaJson: string): string {
   const tag = `<script>window.__KUMIKO_SCHEMA__=${scriptSafeJsonHtml(schemaJson)};</script>`;
   const clientScriptMatch = html.match(CLIENT_SCRIPT_TAG_RE);
   if (clientScriptMatch) {
-    return html.replace(clientScriptMatch[0], `${tag}${clientScriptMatch[0]}`);
+    return html.replace(CLIENT_SCRIPT_TAG_RE, (m) => `${tag}${m}`);
   }
-  return html.includes("</body>") ? html.replace("</body>", `${tag}</body>`) : html + tag;
+  return html.includes("</body>") ? html.replace("</body>", () => `${tag}</body>`) : html + tag;
 }

@@ -4,7 +4,7 @@
 // renders formatted HTML and "plain"/"markdown" render as text through the
 // exact same component, no separate render path per format.
 
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 import { useContentEditor } from "./content-editors";
 
 const VARIABLE_PATTERN = /\{\{\s*(\w+)\s*\}\}/g;
@@ -36,6 +36,7 @@ export function ContentPreview({
   contentFormat,
 }: ContentPreviewProps): ReactNode {
   const Editor = useContentEditor(contentFormat);
+  const id = useId();
   // "rich" content is HTML (see ContentCollectionDefinition.contentFormat) —
   // an example value substituted in raw could break the markup (`<`) or
   // render as an unescaped entity (`&`). "plain"/"markdown" content is text,
@@ -48,6 +49,7 @@ export function ContentPreview({
       : variables;
   return (
     <Editor
+      id={id}
       value={substituteVariables(content, safeVariables)}
       onChange={noop}
       variables={[]}

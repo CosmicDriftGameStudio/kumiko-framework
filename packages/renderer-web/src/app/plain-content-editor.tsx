@@ -5,14 +5,13 @@
 // variable-chip bar underneath. A chip click inserts `{{name}}` at the caret
 // instead of appending to the end.
 //
-// ponytail: looks the textarea up by CONTENT_EDITOR_ELEMENT_ID rather than a
-// ref threaded through the primitives Input contract — that contract is
-// cross-platform (RN has no DOM node), this file is `@runtime client`-only
-// and CONTENT_EDITOR_ELEMENT_ID exists exactly as this DOM hook. Upgrade to a
-// forwarded ref if a screen ever needs two plain editors mounted at once.
+// ponytail: looks the textarea up via document.getElementById(id) rather
+// than a ref threaded through the primitives Input contract — that contract
+// is cross-platform (RN has no DOM node), this file is `@runtime client`-
+// only. `id` is per-instance (caller passes a stable unique id via
+// ContentEditorProps.id), so two plain editors mounted at once don't collide.
 
 import {
-  CONTENT_EDITOR_ELEMENT_ID,
   type ContentEditorProps,
   TextareaContentEditor,
   VariableChips,
@@ -21,6 +20,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 export function PlainContentEditor({
+  id,
   value,
   onChange,
   variables,
@@ -31,7 +31,7 @@ export function PlainContentEditor({
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on value only — must fire once per committed insert, not on every caret write
   useEffect(() => {
     if (caret === null) return;
-    const el = document.getElementById(CONTENT_EDITOR_ELEMENT_ID);
+    const el = document.getElementById(id);
     if (el instanceof HTMLTextAreaElement) {
       el.focus();
       el.setSelectionRange(caret, caret);
@@ -40,7 +40,7 @@ export function PlainContentEditor({
   }, [value]);
 
   const insertAtCaret = (name: string): void => {
-    const el = document.getElementById(CONTENT_EDITOR_ELEMENT_ID);
+    const el = document.getElementById(id);
     const placeholder = `{{${name}}}`;
     if (!(el instanceof HTMLTextAreaElement)) {
       onChange(value + placeholder);
@@ -55,6 +55,7 @@ export function PlainContentEditor({
   return (
     <div>
       <TextareaContentEditor
+        id={id}
         value={value}
         onChange={onChange}
         variables={variables}
