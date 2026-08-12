@@ -83,6 +83,31 @@ describe("Drawer", () => {
   });
 
   describe("resize", () => {
+    // happy-dom exposes innerWidth as an accessor (get/set) on the window
+    // instance. Object.defineProperty(...) with a plain `value` replaces
+    // that accessor with a data property, permanently — later test files
+    // sharing this single-process happy-dom then read a frozen, stale
+    // width instead of happy-dom's real viewport state.
+    // Capturing and restoring the exact original descriptor keeps the
+    // accessor (or its absence) intact for every test that runs after.
+    function withViewportWidth(px: number, run: () => void): void {
+      const originalDescriptor = Object.getOwnPropertyDescriptor(window, "innerWidth");
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: px,
+      });
+      try {
+        run();
+      } finally {
+        if (originalDescriptor) {
+          Object.defineProperty(window, "innerWidth", originalDescriptor);
+        } else {
+          delete (window as unknown as { innerWidth?: number }).innerWidth;
+        }
+      }
+    }
+
     test("clamps an out-of-range defaultWidthPx on initial render, before any interaction (fw#1965)", () => {
       render(
         <Drawer
@@ -98,36 +123,18 @@ describe("Drawer", () => {
       expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("800");
     });
     test("Startbreite folgt max(520px, 25vw) wenn resize.defaultWidthPx fehlt", () => {
-      const originalInnerWidth = window.innerWidth;
-      Object.defineProperty(window, "innerWidth", {
-        configurable: true,
-        writable: true,
-        value: 3000,
-      });
-      try {
+      withViewportWidth(3000, () => {
         render(
           <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
             <div>Body</div>
           </Drawer>,
         );
         expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("750");
-      } finally {
-        Object.defineProperty(window, "innerWidth", {
-          configurable: true,
-          writable: true,
-          value: originalInnerWidth,
-        });
-      }
+      });
     });
 
     test("Startbreite clamped auf effectiveMaxWidthPx wenn 25vw ueber MAX_WIDTH_PX hinauslaeuft", () => {
-      const originalInnerWidth = window.innerWidth;
-      Object.defineProperty(window, "innerWidth", {
-        configurable: true,
-        writable: true,
-        value: 8000,
-      });
-      try {
+      withViewportWidth(8000, () => {
         render(
           <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
             <div>Body</div>
@@ -139,23 +146,11 @@ describe("Drawer", () => {
         expect(valueMax).toBe(1000);
         expect(valueNow).toBe(valueMax);
         expect(valueNow).toBeLessThanOrEqual(valueMax);
-      } finally {
-        Object.defineProperty(window, "innerWidth", {
-          configurable: true,
-          writable: true,
-          value: originalInnerWidth,
-        });
-      }
+      });
     });
 
     test("resize.defaultWidthPx wird ebenfalls gegen effectiveMaxWidthPx geclamped", () => {
-      const originalInnerWidth = window.innerWidth;
-      Object.defineProperty(window, "innerWidth", {
-        configurable: true,
-        writable: true,
-        value: 2000,
-      });
-      try {
+      withViewportWidth(2000, () => {
         render(
           <Drawer
             open={true}
@@ -168,46 +163,22 @@ describe("Drawer", () => {
           </Drawer>,
         );
         expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("1000");
-      } finally {
-        Object.defineProperty(window, "innerWidth", {
-          configurable: true,
-          writable: true,
-          value: originalInnerWidth,
-        });
-      }
+      });
     });
 
     test("Startbreite clamped auf 520px Minimum bei schmalem Viewport", () => {
-      const originalInnerWidth = window.innerWidth;
-      Object.defineProperty(window, "innerWidth", {
-        configurable: true,
-        writable: true,
-        value: 800,
-      });
-      try {
+      withViewportWidth(800, () => {
         render(
           <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
             <div>Body</div>
           </Drawer>,
         );
         expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("520");
-      } finally {
-        Object.defineProperty(window, "innerWidth", {
-          configurable: true,
-          writable: true,
-          value: originalInnerWidth,
-        });
-      }
+      });
     });
 
     test("resize.defaultWidthPx schlägt die Viewport-Formel", () => {
-      const originalInnerWidth = window.innerWidth;
-      Object.defineProperty(window, "innerWidth", {
-        configurable: true,
-        writable: true,
-        value: 3000,
-      });
-      try {
+      withViewportWidth(3000, () => {
         render(
           <Drawer
             open={true}
@@ -220,13 +191,7 @@ describe("Drawer", () => {
           </Drawer>,
         );
         expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("600");
-      } finally {
-        Object.defineProperty(window, "innerWidth", {
-          configurable: true,
-          writable: true,
-          value: originalInnerWidth,
-        });
-      }
+      });
     });
 
     test("side='right': ArrowLeft grows, ArrowRight shrinks", () => {
