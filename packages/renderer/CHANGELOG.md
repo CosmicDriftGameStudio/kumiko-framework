@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.195.0
+
+### Minor Changes
+
+- 49538eb: **Breaking:** `ContentEditorProps` gains a required `id: string` — every registered content editor (`TextareaContentEditor`, `PlainContentEditor`, `RichContentEditor`/`TiptapEditor`) now renders it onto its own focusable root element instead of the fallback textarea's fixed `CONTENT_EDITOR_ELEMENT_ID`. A custom-registered content editor component now needs to accept and use this `id` prop; consumers that don't touch the DOM id directly are unaffected. Previously, a `Field` wrapping a registered "rich"/"plain" editor pointed its `htmlFor` at that fixed id, which only the never-mounted textarea fallback actually used — the label was disconnected from the real input as soon as a collection declared `contentFormat: "rich"` or `"plain"`.
+
+  `template-resolver`'s `TextBlockEditor` now generates a per-instance id via `useId()` and passes it to both the `Field` and the `ContentEditor`, so the label stays correctly associated and two editors mounted on the same page no longer collide on a shared DOM id. `CONTENT_EDITOR_ELEMENT_ID` stays exported as a default value for callers that don't need their own generated id.
+
+### Patch Changes
+
+- 49538eb: `entityEdit` create screens with `redirect` set now carry the newly created record's id along as the target screen's `entityId`, instead of dropping it. Previously, a redirect to an entity-scoped screen (e.g. a detail/update view) landed there with no `entityId`, silently rendering an empty create form instead of the just-created record. `extractCreatedId` (already used by `ReferenceCreateDialog`) is now exported and reused here to read the id off the write handler's success payload.
+- 49538eb: Two `RenderEdit` fixes:
+
+  - `RenderEdit`'s wizard draft-save/restore feature (`layout.draft: true`) no longer assumes a dispatcher is present — it now reads the dispatcher via `useOptionalDispatcher()` instead of the throwing `useDispatcher()`, and simply stays off when no dispatcher is available instead of crashing. `RenderEdit` still requires a `DispatcherProvider` for submission itself (via the shared `useForm` hook), so mounting it in a fully provider-less tree — Storybook, consumer tests without a wrapper — is not yet supported; tracked separately in framework#1999.
+  - The wizard draft flow no longer calls bare `crypto.randomUUID()` to mint a draft id — that API is missing in non-secure contexts (`http://` on a LAN IP) and in React Native/Hermes without a polyfill, both of which `packages/renderer` must stay compatible with. A new local `mintDraftId()` helper guards for `crypto.randomUUID`'s availability and falls back to a `Math.random()`-based id, mirroring the existing `generateRequestId` guard in `packages/dispatcher-live`.
+
+- Updated dependencies [49538eb]
+  - @cosmicdrift/kumiko-framework@0.195.0
+  - @cosmicdrift/kumiko-headless@0.195.0
+
 ## 0.194.0
 
 ### Minor Changes
