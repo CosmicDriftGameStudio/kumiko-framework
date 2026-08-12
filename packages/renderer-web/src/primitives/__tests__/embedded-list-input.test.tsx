@@ -14,6 +14,13 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { act, type ReactElement, useState } from "react";
 import { EmbeddedListInput } from "../embedded-list-input";
 
+
+function setViewportWidth(width: number): void {
+  (
+    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
+  ).happyDOM.setInnerWidth(width);
+}
+
 function renderWithLocale(ui: ReactElement) {
   return render(
     <LocaleProvider
@@ -119,21 +126,18 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
 
   test("mobile viewport mounts only the card layout, not the table", () => {
     const originalWidth = window.innerWidth;
-    window.innerWidth = 500;
+    setViewportWidth(500);
     try {
       renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
       expect(screen.getByTestId("lines-mobile")).toBeTruthy();
       expect(screen.queryByTestId("lines-desktop")).toBeNull();
       expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
     } finally {
-      window.innerWidth = originalWidth;
+      setViewportWidth(originalWidth);
     }
   });
 
   test("resizing past the breakpoint after mount swaps the table for the card layout", async () => {
-    const happyDOM = (
-      window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
-    ).happyDOM;
     const originalWidth = window.innerWidth;
     try {
       renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
@@ -143,14 +147,14 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
         // useIsMobile listens to matchMedia('change'). Assigning
         // window.innerWidth does not update happy-dom's MediaQueryList —
         // setInnerWidth does, and fires the change listeners (#1854).
-        happyDOM.setInnerWidth(500);
+        setViewportWidth(500);
       });
 
       expect(screen.queryByTestId("lines-desktop")).toBeNull();
       expect(screen.getByTestId("lines-mobile")).toBeTruthy();
       expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
     } finally {
-      happyDOM.setInnerWidth(originalWidth);
+      setViewportWidth(originalWidth);
     }
   });
 });
