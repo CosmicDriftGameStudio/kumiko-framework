@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.195.0
+
+### Patch Changes
+
+- 49538eb: **Breaking:** `ContentEditorProps` gains a required `id: string` — every registered content editor (`TextareaContentEditor`, `PlainContentEditor`, `RichContentEditor`/`TiptapEditor`) now renders it onto its own focusable root element instead of the fallback textarea's fixed `CONTENT_EDITOR_ELEMENT_ID`. A custom-registered content editor component now needs to accept and use this `id` prop; consumers that don't touch the DOM id directly are unaffected. Previously, a `Field` wrapping a registered "rich"/"plain" editor pointed its `htmlFor` at that fixed id, which only the never-mounted textarea fallback actually used — the label was disconnected from the real input as soon as a collection declared `contentFormat: "rich"` or `"plain"`.
+
+  `template-resolver`'s `TextBlockEditor` now generates a per-instance id via `useId()` and passes it to both the `Field` and the `ContentEditor`, so the label stays correctly associated and two editors mounted on the same page no longer collide on a shared DOM id. `CONTENT_EDITOR_ELEMENT_ID` stays exported as a default value for callers that don't need their own generated id.
+
+- Updated dependencies [49538eb]
+- Updated dependencies [6757567]
+- Updated dependencies [49538eb]
+- Updated dependencies [49538eb]
+- Updated dependencies [49538eb]
+- Updated dependencies [49538eb]
+- Updated dependencies [49538eb]
+  - @cosmicdrift/kumiko-renderer@0.195.0
+  - @cosmicdrift/kumiko-renderer-web@0.195.0
+  - @cosmicdrift/kumiko-framework@0.195.0
+  - @cosmicdrift/kumiko-headless@0.195.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.195.0
+  - @cosmicdrift/kumiko-types@0.195.0
+
 ## 0.194.0
 
 ### Minor Changes

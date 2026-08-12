@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.195.0
+
+### Patch Changes
+
+- 49538eb: `injectSchema` no longer passes the injected schema JSON as the replacement-string argument to `String.prototype.replace()`. That argument interprets `$$`, `$&`, `` $` ``, and `$'` specially — a schema value containing one of those sequences (e.g. an i18n label with an apostrophe-prefixed pattern) could splice arbitrary parts of the surrounding HTML into the injected `<script>` tag, corrupting the page. Both insertion points (before `/client.js`, before `</body>`) now use a replacer function instead, which does not expand `$`-patterns.
+- Updated dependencies [49538eb]
+- Updated dependencies [49538eb]
+  - @cosmicdrift/kumiko-bundled-features@0.195.0
+  - @cosmicdrift/kumiko-framework@0.195.0
+
 ## 0.194.0
 
 ### Patch Changes

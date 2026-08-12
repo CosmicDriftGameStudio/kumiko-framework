@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.195.0
+
+### Patch Changes
+
+- 6757567: Drawer clips its content to the rounded corners so the footer background no longer bleeds into them.
+- 49538eb: - `formatMoney` (currency formatting used internally by `MoneyInput`) is now re-exported from the package barrel, so consumers no longer have to hand-roll their own currency formatter to get correct locale-aware symbol placement and decimals.
+  - `resizeImageBeforeUpload` now only swaps in the re-encoded image if it's actually smaller than the original — a palette-optimized PNG or an already small in-spec photo could previously come back larger after a full RGBA canvas round-trip (2-5x for PNGs), since the re-encode was always taken regardless of size. EXIF/GPS stripping is now best-effort: an original kept as-is keeps its metadata too.
+- 49538eb: Several bug fixes:
+
+  - **Breaking (docs only):** `WorkspaceSwitcher` now documents that it requires an ancestor `SidebarProvider` — it renders `SidebarMenuButton`, which calls `useSidebar()` internally and throws at runtime when rendered outside one. No behavior changed; a consumer rendering the switcher outside a sidebar was already crashing, this makes the requirement explicit instead of a surprise error.
+  - `UploadZone` no longer calls `crypto.randomUUID()` for its row keys — that API only exists in a secure context, so a plain-HTTP LAN preview left it `undefined` and threw. Row ids now come from a per-instance counter instead (they only need to be stable React keys, not globally unique).
+  - `EmbeddedListInput` swaps its desktop/mobile layout via a new `useIsNarrowViewport` hook (`useSyncExternalStore`-based) instead of the vendored `useIsMobile`, which only set its value in a `useEffect` — the mobile card layout previously mounted after the desktop table already built and discarded itself on every mount.
+  - `Drawer`'s resize handle now calls `preventDefault()` and locks `document.body`'s text selection on `PointerDown` (releasing it on `PointerUp`), matching `SidebarPanel`'s resize handle — a fast drag over the handle previously selected the drawer's text content instead of only resizing.
+  - `TiptapEditor`'s toolbar (bold/italic/heading/list buttons) now derives its active state via `useEditorState` instead of reading `editor.isActive(...)` directly in the render body — `@tiptap/react` v3 defaults `shouldRerenderOnTransaction` to `false`, so moving the cursor into already-bold text (without typing) previously left the toolbar frozen on the last state.
+
+- Updated dependencies [49538eb]
+- Updated dependencies [49538eb]
+- Updated dependencies [49538eb]
+  - @cosmicdrift/kumiko-renderer@0.195.0
+  - @cosmicdrift/kumiko-headless@0.195.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.195.0
+
 ## 0.194.0
 
 ### Minor Changes
