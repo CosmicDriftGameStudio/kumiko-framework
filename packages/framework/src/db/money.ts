@@ -134,15 +134,15 @@ export function rehydrateMoney(
       amountMinor = amountRaw;
     } else if (typeof amountRaw === "bigint") {
       amountMinor = Number(amountRaw);
-      if (Number.isNaN(amountMinor)) {
-        throw new Error(`rehydrateMoney: field "${name}" bigint amount is not a number`);
+      if (!Number.isSafeInteger(amountMinor)) {
+        throw new Error(`rehydrateMoney: field "${name}" bigint amount is not a safe integer`);
       }
     } else if (typeof amountRaw === "string" && amountRaw !== "") {
       // PG-driver liefert BIGINT manchmal als String (>2^53 sicher).
       amountMinor = Number(amountRaw);
-      if (Number.isNaN(amountMinor)) {
+      if (!Number.isSafeInteger(amountMinor)) {
         throw new Error(
-          `rehydrateMoney: field "${name}" amount string "${amountRaw}" is not a number — DB corruption?`,
+          `rehydrateMoney: field "${name}" amount string "${amountRaw}" is not a safe integer — DB corruption?`,
         );
       }
     } else {

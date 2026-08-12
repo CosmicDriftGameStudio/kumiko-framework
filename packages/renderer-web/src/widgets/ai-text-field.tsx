@@ -45,6 +45,7 @@ interface AiTextFieldBaseProps {
   readonly disabled?: boolean;
   readonly placeholder?: string;
   readonly testId?: string;
+  readonly hideLabel?: boolean;
   /** Ghost-text completion on/off. Default true. */
   readonly completion?: boolean;
   /** Debounce for ghost-text requests, ms. Default 500 — kept low in
@@ -88,6 +89,7 @@ function AiTextCore({
   disabled,
   placeholder,
   testId,
+  hideLabel,
   rows,
   completion = true,
   completionDebounceMs = 500,
@@ -183,7 +185,7 @@ function AiTextCore({
 
   return (
     <>
-      <Field id={id} label={label} required={required} testId={testId}>
+      <Field id={id} label={label} required={required} hideLabel={hideLabel} testId={testId}>
         <div className="relative w-full">
           {showGhost && (
             <div

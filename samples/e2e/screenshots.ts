@@ -175,7 +175,11 @@ export function runMatrix<T extends string>(
       // Browser-context locale for JS-side Intl/navigator.language — the
       // kumiko:locale seed below only drives the app's own i18n strings.
       // ponytail: see the runScreenshots() locale comment above / #1851
-      test.use({ locale: LOCALE_TAGS[locale] ?? locale });
+      const tag = LOCALE_TAGS[locale];
+      if (tag === undefined) {
+        throw new Error(`runMatrix(): no BCP47 tag mapped for locale "${locale}" — extend LOCALE_TAGS`);
+      }
+      test.use({ locale: tag });
 
       for (const s of scenarios) {
         if (only !== undefined && only !== s.name) continue;

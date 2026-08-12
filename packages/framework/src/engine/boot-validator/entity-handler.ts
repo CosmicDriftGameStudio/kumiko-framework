@@ -1,4 +1,4 @@
-import type { VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
+import type { BlurRegion, VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key";
 import { parseRefTarget } from "../parse-ref-target";
 import type { EmbeddedFieldDef, EntityDefinition, FeatureDefinition } from "../types";
@@ -557,6 +557,15 @@ function validateEmbeddedListBounds(
       `Embedded-list field "${fieldName}" on entity "${entityName}" has minItems ${field.minItems} greater than maxItems ${field.maxItems}.`,
     );
   }
+  // required:true means "at least one row" (schema-builder.ts falls back to
+  // minItems:1 for that); an explicit minItems:0 would silently win over
+  // that and let a required list submit empty — reject the contradiction
+  // instead of picking one side of it for the caller.
+  if (field.required === true && field.minItems === 0) {
+    throw new Error(
+      `Embedded-list field "${fieldName}" on entity "${entityName}" sets required:true and minItems:0 — these contradict each other. Drop minItems (defaults to 1) or set required:false.`,
+    );
+  }
 }
 
 function validateEmbeddedDerivedCells(
@@ -693,6 +702,30 @@ function isPositiveInt(value: number): boolean {
   return Number.isInteger(value) && value > 0;
 }
 
+// Renderers cap dimensions in practice (sharp refuses output above 0x1000000
+// pixels); 8192 per edge is generously above any real thumbnail/preview use
+// and keeps a boot-declared spec from becoming a memory-exhaustion vector.
+const MAX_VARIANT_EDGE_PX = 8192;
+// sharp's blur() accepts a sigma of 0.3..1000; anything above that throws at
+// render time, months after boot, on the first request for that variant.
+const MAX_BLUR_SIGMA = 1000;
+
+function isValidBlurRegion(region: BlurRegion): boolean {
+  const { x, y, width, height } = region;
+  return (
+    Number.isFinite(x) &&
+    Number.isFinite(y) &&
+    Number.isFinite(width) &&
+    Number.isFinite(height) &&
+    x >= 0 &&
+    y >= 0 &&
+    width >= 0 &&
+    height >= 0 &&
+    x + width <= 1 &&
+    y + height <= 1
+  );
+}
+
 function assertValidVariantSpec(name: string, spec: VariantSpec, where: string): void {
   if (!VARIANT_NAME_PATTERN.test(name)) {
     throw new Error(
@@ -704,21 +737,46 @@ function assertValidVariantSpec(name: string, spec: VariantSpec, where: string):
   }
   if (
     spec.size !== undefined &&
-    !(isPositiveInt(spec.size.width) && isPositiveInt(spec.size.height))
+    !(
+      isPositiveInt(spec.size.width) &&
+      isPositiveInt(spec.size.height) &&
+      spec.size.width <= MAX_VARIANT_EDGE_PX &&
+      spec.size.height <= MAX_VARIANT_EDGE_PX
+    )
   ) {
     throw new Error(
-      `Image variant "${name}" ${where} has a non-positive-integer "size" (${spec.size.width}x${spec.size.height}).`,
+      `Image variant "${name}" ${where} has an invalid "size" (${spec.size.width}x${spec.size.height}) — must be a positive integer up to ${MAX_VARIANT_EDGE_PX}px per edge.`,
     );
   }
-  if (spec.maxEdge !== undefined && !isPositiveInt(spec.maxEdge)) {
+  if (
+    spec.maxEdge !== undefined &&
+    !(isPositiveInt(spec.maxEdge) && spec.maxEdge <= MAX_VARIANT_EDGE_PX)
+  ) {
     throw new Error(
-      `Image variant "${name}" ${where} has a non-positive-integer "maxEdge" (${spec.maxEdge}).`,
+      `Image variant "${name}" ${where} has an invalid "maxEdge" (${spec.maxEdge}) — must be a positive integer up to ${MAX_VARIANT_EDGE_PX}px.`,
     );
   }
   if (spec.quality !== undefined && !(isPositiveInt(spec.quality) && spec.quality <= 100)) {
     throw new Error(
       `Image variant "${name}" ${where} has "quality" ${spec.quality} — must be an integer in 1..100.`,
     );
+  }
+  if (
+    spec.blur !== undefined &&
+    !(Number.isFinite(spec.blur) && spec.blur > 0 && spec.blur <= MAX_BLUR_SIGMA)
+  ) {
+    throw new Error(
+      `Image variant "${name}" ${where} has "blur" ${spec.blur} — must be a finite number in (0, ${MAX_BLUR_SIGMA}].`,
+    );
+  }
+  if (spec.blurRegions !== undefined) {
+    for (const region of spec.blurRegions) {
+      if (!isValidBlurRegion(region)) {
+        throw new Error(
+          `Image variant "${name}" ${where} has an invalid "blurRegions" entry ${JSON.stringify(region)} — x/y/width/height must be within 0..1 and x+width/y+height must not exceed 1.`,
+        );
+      }
+    }
   }
 }
 

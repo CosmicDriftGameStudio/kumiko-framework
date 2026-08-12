@@ -76,6 +76,11 @@ function valuesDiff<TValues extends FormValues>(
 
 // buildInitialValues seeds untouched optional fields with "" for controlled
 // inputs; a `.optional()` server schema accepts undefined but not "".
+// String-only: number/money seed to 0 and boolean seeds to false, and an
+// untouched optional field of those types still submits that seed instead
+// of being omitted — no validation error surfaces it, unlike the "" case.
+// Fixing that needs real per-field seed-tracking (which value was actually
+// user-set vs. defaulted), not just a wider strip predicate here.
 function stripUntouchedEmptyStrings<TValues extends FormValues>(
   values: TValues,
   initial: TValues,
