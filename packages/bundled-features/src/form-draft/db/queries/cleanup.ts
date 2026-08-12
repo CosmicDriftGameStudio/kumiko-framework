@@ -46,6 +46,6 @@ export async function selectStaleDraftsBatch(
     tenantId: row.tenant_id as TenantId, // @cast-boundary db-row
     ownerId: row.owner_id,
     draft: row.draft,
-    insertedAt: Temporal.Instant.fromEpochMilliseconds(row.inserted_at.getTime()), // @cast-boundary db-row
+    insertedAt: Temporal.Instant.fromEpochMilliseconds(+row.inserted_at), // @cast-boundary db-row
   }));
 }
