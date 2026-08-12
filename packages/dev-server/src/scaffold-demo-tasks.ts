@@ -224,6 +224,7 @@ export const seedDemoTasks: SeedFn = async (stack) => {
     {},
     admin,
   );
+  // skip: tenant already has tasks — dev DB persists across restarts, don't duplicate
   if (existing.rows.length > 0) return;
   for (const task of DEMO_TASKS) {
     await stack.http.write("tasks:write:task:create", task, admin);
