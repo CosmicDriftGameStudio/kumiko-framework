@@ -1,5 +1,53 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.194.0
+
+### Minor Changes
+
+- 43d39b8: `Drawer` gets a new optional `backdrop` prop (`{ blurPx?, dimPercent? }`) to control the overlay behind the panel. **Breaking:** the backdrop is no longer blurred by default (`blurPx` defaults to `0`, `dimPercent` to `20`) — a drawer exists so the content behind it stays readable, and the previous fixed `2px` blur worked against that. Consumers that want the old look can pass `backdrop={{ blurPx: 2 }}`.
+
+  Also: the panel's default width grows from a fixed `420px` to `max(520px, 25vw)` (capped at `85vw`), so two-column forms fit without cramping. `resize.maxWidthPx` now defaults to `1000` (was `800`) to match; `resize.defaultWidthPx` still overrides the viewport-based default when set.
+
+- 04f7a96: `ImageFieldDef` accepts `capture?: "environment" | "user"`, forwarded to the file input's `capture` attribute so a phone opens the camera instead of the file picker. Omitted by default, so existing image fields are unchanged.
+
+  Not added to `ImagesFieldDef`: multi-image fields still have no widget (they render an "unsupported" banner), and a flag no renderer reads is the dead-flag state `thumbnails` was just removed for.
+
+- 2b1b089: `Drawer`'s resize props are now grouped under one optional `resize` object instead of four separate props. **Breaking:** `resizable`/`defaultWidthPx`/`minWidthPx`/`maxWidthPx` are gone — pass `resize={{ defaultWidthPx, minWidthPx, maxWidthPx }}` (all fields optional) to opt in, or omit `resize` entirely for the old `resizable={false}` default. No app in this workspace passed these props, so no consumer migration was needed here.
+
+  Also fixed in this release:
+
+  - `DefaultDataTable`'s dead `env(safe-area-inset-bottom)` inline style (never had an effect in any supported browser) is replaced with the `max-sm:pb-4` utility class it was meant to express.
+  - `drawer.test.tsx` now covers the resize behavior added earlier: keyboard resize direction per `side`, clamping at `minWidthPx`/`maxWidthPx`, the maximize toggle, and that `side="top"`/`"bottom"` drawers never render a resize handle.
+  - `Form`'s sticky-actions test now also asserts the content container's `max-sm:pb-24` padding class, not just the footer's `max-sm:fixed`.
+
+- 52b0ba6: `WorkspaceSwitcher` is now a dropdown instead of a row of tab buttons — a row overflowed the sidebar width with 3+ workspaces (or even 2 longer names), truncating and hiding the last entry entirely.
+
+  Consumer apps with their own tests/e2e against the old tab-row markup need to update:
+
+  - Click `workspace-switcher-trigger` first to open the dropdown before selecting a `workspace-tab-*` entry.
+  - `aria-selected` on the active tab is now `aria-checked` on the active `DropdownMenuCheckboxItem`.
+
+  Also fixes the trigger showing an empty label when `activeId` points at a workspace that isn't in the visible list (stale URL param after a role change) — it now falls back to a "Select workspace" placeholder instead of a blank button.
+
+### Patch Changes
+
+- 52b0ba6: Several input/widget bug fixes:
+
+  - `MoneyInput` selects the input text on focus via `useLayoutEffect` instead of `useEffect` — fixes a race where a fast click-then-type could land the cursor mid-value instead of selecting it first.
+  - `EmbeddedListInput` totals now format with the resolved UI locale (`useLocale()`) instead of always the default locale.
+  - `UploadZone` now filters dropped files through `accept` the same way the file-picker dialog already did — a drag&drop drop previously bypassed the filter entirely and any file type reached `onUpload`. A non-`Error` upload failure now shows a translated fallback message instead of the raw internal token; new `kumiko.widget.upload.error`/`kumiko.widget.upload.rejected-type` i18n keys.
+  - `AiTextField` now propagates `hideLabel` to its underlying `Field`, matching the other form widgets.
+  - `ProgressBar` clamps a `NaN` `value` (e.g. `done / total` with `total: 0`) to 0 instead of rendering `width: "NaN%"` and an invalid `aria-valuenow`.
+  - `InfinityList` dedupes appended rows against already-loaded ones — a live-merge that re-sorts a row to the front of page 1 could otherwise have an offset-based cursor re-serve that same row on a later page, landing it twice under duplicate React keys.
+  - `Drawer`'s initial width now clamps `resize.defaultWidthPx` on the very first render instead of only once the user starts dragging (fw#1965).
+
+- Updated dependencies [52b0ba6]
+- Updated dependencies [04f7a96]
+- Updated dependencies [52b0ba6]
+  - @cosmicdrift/kumiko-renderer@0.194.0
+  - @cosmicdrift/kumiko-headless@0.194.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.194.0
+
 ## 0.193.1
 
 ### Patch Changes

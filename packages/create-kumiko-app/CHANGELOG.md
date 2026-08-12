@@ -1,5 +1,16 @@
 # create-kumiko-app
 
+## 0.4.199
+
+### Patch Changes
+
+- 2b1b089: The generated feature manifest's `template-resolver` description now mentions the `markdown` content format, matching the upstream fix in `@cosmicdrift/kumiko-bundled-features`.
+- Updated dependencies [52b0ba6]
+- Updated dependencies [2b1b089]
+  - @cosmicdrift/kumiko-framework@0.194.0
+  - @cosmicdrift/kumiko-server-runtime@0.194.0
+  - @cosmicdrift/kumiko-dev-server@0.194.0
+
 ## 0.4.198
 
 ### Patch Changes
