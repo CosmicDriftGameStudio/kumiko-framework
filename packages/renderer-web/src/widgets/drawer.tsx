@@ -89,7 +89,13 @@ export function Drawer({
   const canResize = resize !== undefined && (side === "left" || side === "right");
   const minWidthPx = resize?.minWidthPx ?? MIN_WIDTH_PX;
   const maxWidthPx = resize?.maxWidthPx ?? MAX_WIDTH_PX;
-  const [width, setWidth] = useState(() => resize?.defaultWidthPx ?? defaultWidthFromViewport());
+  const effectiveMaxWidthPx = () =>
+    typeof window === "undefined"
+      ? maxWidthPx
+      : Math.min(maxWidthPx, Math.round(window.innerWidth * 0.9));
+  const [width, setWidth] = useState(() =>
+    clamp(resize?.defaultWidthPx ?? defaultWidthFromViewport(), minWidthPx, effectiveMaxWidthPx()),
+  );
   const [maximized, setMaximized] = useState(false);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const blurPx = backdrop?.blurPx ?? DEFAULT_BLUR_PX;
@@ -99,10 +105,6 @@ export function Drawer({
     ...(blurPx > 0 ? { backdropFilter: `blur(${blurPx}px)` } : {}),
   };
 
-  const effectiveMaxWidthPx = () =>
-    typeof window === "undefined"
-      ? maxWidthPx
-      : Math.min(maxWidthPx, Math.round(window.innerWidth * 0.9));
   const effectiveWidthPx = maximized ? effectiveMaxWidthPx() : width;
 
   const onHandlePointerDown = (event: React.PointerEvent<HTMLDivElement>): void => {

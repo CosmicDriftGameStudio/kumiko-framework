@@ -106,6 +106,63 @@ describe("Drawer", () => {
       }
     });
 
+    test("Startbreite clamped auf effectiveMaxWidthPx wenn 25vw ueber MAX_WIDTH_PX hinauslaeuft", () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: 8000,
+      });
+      try {
+        render(
+          <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
+            <div>Body</div>
+          </Drawer>,
+        );
+        const handle = screen.getByRole("separator");
+        const valueNow = Number(handle.getAttribute("aria-valuenow"));
+        const valueMax = Number(handle.getAttribute("aria-valuemax"));
+        expect(valueMax).toBe(1000);
+        expect(valueNow).toBe(valueMax);
+        expect(valueNow).toBeLessThanOrEqual(valueMax);
+      } finally {
+        Object.defineProperty(window, "innerWidth", {
+          configurable: true,
+          writable: true,
+          value: originalInnerWidth,
+        });
+      }
+    });
+
+    test("resize.defaultWidthPx wird ebenfalls gegen effectiveMaxWidthPx geclamped", () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: 2000,
+      });
+      try {
+        render(
+          <Drawer
+            open={true}
+            onOpenChange={() => {}}
+            side="right"
+            testId="drawer"
+            resize={{ defaultWidthPx: 5000 }}
+          >
+            <div>Body</div>
+          </Drawer>,
+        );
+        expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("1000");
+      } finally {
+        Object.defineProperty(window, "innerWidth", {
+          configurable: true,
+          writable: true,
+          value: originalInnerWidth,
+        });
+      }
+    });
+
     test("Startbreite clamped auf 520px Minimum bei schmalem Viewport", () => {
       const originalInnerWidth = window.innerWidth;
       Object.defineProperty(window, "innerWidth", {
