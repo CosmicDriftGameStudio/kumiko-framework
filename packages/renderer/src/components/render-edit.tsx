@@ -1043,9 +1043,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               }
               return (
                 <StepBar
-                  steps={filteredSections.map(
-                    (section, sectionIndex) => section.title ?? String(sectionIndex + 1),
-                  )}
+                  steps={filteredSections.map((section) => section.title ?? "")}
                   currentIndex={currentStep}
                   compactLabel={compactLabel}
                   testId="render-edit-wizard-steps"

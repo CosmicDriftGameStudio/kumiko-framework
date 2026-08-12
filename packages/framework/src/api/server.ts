@@ -778,7 +778,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
             // systemQuery is silent dead-code: enforceRateLimit reads
             // requestContext.get()?.ip, which is undefined here, so
             // buildBucketKey always returns {kind: "skip"}.
-            requestContext.run(buildRequestContextData(c), () =>
+            requestContext.run(requestContext.get() ?? buildRequestContextData(c), () =>
               dispatcher.query(type, payload, createAnonymousUser(tenantId)),
             ),
         });

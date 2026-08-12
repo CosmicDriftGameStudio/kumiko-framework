@@ -11,7 +11,7 @@ import type {
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { createMockDispatcher, render, screen } from "./test-utils";
+import { createMockDispatcher, render, renderWithPrimitivesOverride, screen } from "./test-utils";
 
 const profileEntity = {
   fields: {
@@ -166,5 +166,54 @@ describe("entityEdit wizard — step bar (fw#1966)", () => {
 
     const steps = container.querySelectorAll('[data-testid^="render-edit-wizard-steps-step-"]');
     expect(steps.length).toBe(3);
+  });
+
+  // fw#1967: a PrimitivesRegistry without StepBar (older/custom registry)
+  // must stay on the plain "Step X of Y" label RenderEdit always had —
+  // this is the changeset's stated backward-compat guarantee.
+  test("falls back to the plain step label when the registry doesn't supply StepBar", () => {
+    renderWithPrimitivesOverride(
+      <DispatcherProvider dispatcher={createMockDispatcher()}>
+        <KumikoScreen schema={schema} qn="demo:screen:profile-edit" />
+      </DispatcherProvider>,
+      { StepBar: undefined },
+    );
+
+    expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toBe(
+      "Step 1 of 2 · Step 1",
+    );
+    expect(screen.queryByTestId("render-edit-wizard-steps-step-0")).toBeNull();
+  });
+
+  // fw#1967: a titleless section used to fall back to the stringified step
+  // number, duplicating the StepBar's own numbered badge ("3 3"). The
+  // fallback is now an empty label — only the badge shows.
+  test("a titleless section shows only the step number, not a duplicated digit", () => {
+    const untitledStepScreen: EntityEditScreenDefinition = {
+      id: "profile-edit-untitled",
+      type: "entityEdit",
+      entity: "profile",
+      layout: {
+        mode: "wizard",
+        sections: [
+          { title: "Basics", fields: ["fullName"] },
+          { title: "Contact", fields: ["email"] },
+          { fields: [] },
+        ],
+      },
+    };
+    const untitledStepSchema: FeatureSchema = {
+      featureName: "demo",
+      entities: { profile: profileEntity },
+      screens: [untitledStepScreen],
+    };
+
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher()}>
+        <KumikoScreen schema={untitledStepSchema} qn="demo:screen:profile-edit-untitled" />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("render-edit-wizard-steps-step-2").textContent).toBe("3");
   });
 });
