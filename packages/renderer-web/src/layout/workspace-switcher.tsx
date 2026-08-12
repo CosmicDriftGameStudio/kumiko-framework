@@ -20,8 +20,9 @@ import { ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "../primitives/dropdown-menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
@@ -57,22 +58,26 @@ export function WorkspaceSwitcher({
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton data-testid="workspace-switcher-trigger">
+            <SidebarMenuButton
+              data-testid="workspace-switcher-trigger"
+              aria-label={t("kumiko.workspace.switch")}
+            >
               <span className="truncate">{active !== undefined ? labelOf(active) : ""}</span>
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-[10rem]">
-            {workspaces.map((ws) => (
-              <DropdownMenuCheckboxItem
-                key={ws.definition.id}
-                checked={ws.definition.id === activeId}
-                data-testid={`workspace-tab-${ws.definition.id}`}
-                onSelect={() => onSelect(ws.definition.id)}
-              >
-                <span className="truncate">{labelOf(ws)}</span>
-              </DropdownMenuCheckboxItem>
-            ))}
+            <DropdownMenuRadioGroup value={activeId} onValueChange={onSelect}>
+              {workspaces.map((ws) => (
+                <DropdownMenuRadioItem
+                  key={ws.definition.id}
+                  value={ws.definition.id}
+                  data-testid={`workspace-tab-${ws.definition.id}`}
+                >
+                  <span className="truncate">{labelOf(ws)}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

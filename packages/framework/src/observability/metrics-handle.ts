@@ -10,18 +10,29 @@ import type { Meter, MetricLabels, MetricsHandle } from "./types";
 // metrics throw, so typos surface at first call rather than drifting into
 // dashboards. The feature name itself is validated via buildMetricName.
 
-export function createMetricsHandle(meter: Meter, featureName: string): MetricsHandle {
+export function createMetricsHandle(
+  meter: Meter,
+  featureName: string,
+  opts: { skipUnregistered?: boolean } = {},
+): MetricsHandle {
+  const { skipUnregistered = false } = opts;
+  // skip: unregistered name is the documented no-op contract of the "safe" handle
+  const isSkippable = (name: string): boolean =>
+    skipUnregistered && !meter.definitions().has(name);
   return {
     inc(shortName, labels, value) {
       const name = buildMetricName(featureName, shortName);
+      if (isSkippable(name)) return;
       meter.counter(name).inc(value, labels);
     },
     observe(shortName, value, labels) {
       const name = buildMetricName(featureName, shortName);
+      if (isSkippable(name)) return;
       meter.histogram(name).observe(value, labels);
     },
     set(shortName, value, labels) {
       const name = buildMetricName(featureName, shortName);
+      if (isSkippable(name)) return;
       meter.gauge(name).set(value, labels);
     },
   };
@@ -42,26 +53,7 @@ export function createMetricsHandle(meter: Meter, featureName: string): MetricsH
 // failure (invalid featureName, wrong metric type for the call) still
 // throws — only the "not registered" case is swallowed.
 export function createSafeMetricsHandle(meter: Meter, featureName: string): MetricsHandle {
-  return {
-    inc(shortName, labels, value) {
-      const name = buildMetricName(featureName, shortName);
-      // skip: unregistered name is the documented no-op contract of this handle
-      if (!meter.definitions().has(name)) return;
-      meter.counter(name).inc(value, labels);
-    },
-    observe(shortName, value, labels) {
-      const name = buildMetricName(featureName, shortName);
-      // skip: unregistered name is the documented no-op contract of this handle
-      if (!meter.definitions().has(name)) return;
-      meter.histogram(name).observe(value, labels);
-    },
-    set(shortName, value, labels) {
-      const name = buildMetricName(featureName, shortName);
-      // skip: unregistered name is the documented no-op contract of this handle
-      if (!meter.definitions().has(name)) return;
-      meter.gauge(name).set(value, labels);
-    },
-  };
+  return createMetricsHandle(meter, featureName, { skipUnregistered: true });
 }
 
 // Fallback for contexts where the feature is unknown (e.g. system-hooks,

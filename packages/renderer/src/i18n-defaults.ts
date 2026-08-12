@@ -89,6 +89,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.nav.collapse": "Zuklappen",
     "kumiko.nav.search": "Navigation durchsuchen…",
 
+    // Workspace — Switcher-Trigger aria-Label (renderer-web).
+    "kumiko.workspace.switch": "Workspace wechseln",
+
     // Dialog — Confirm-Buttons + Close-aria-Label.
     "kumiko.dialog.confirm": "Bestätigen",
     "kumiko.dialog.cancel": "Abbrechen",
@@ -258,6 +261,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",
     "kumiko.nav.search": "Search navigation…",
+
+    "kumiko.workspace.switch": "Switch workspace",
 
     "kumiko.dialog.confirm": "Confirm",
     "kumiko.dialog.cancel": "Cancel",

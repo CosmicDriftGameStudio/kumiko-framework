@@ -68,6 +68,12 @@ export default function TiptapEditor({
   readOnly,
 }: ContentEditorProps): ReactNode {
   const t = useTranslation();
+  // ponytail: rich = StarterKit's schema (bold/italic/lists/headings/links).
+  // Anything the schema doesn't model — <table>, <div>/<span>, style attrs,
+  // <img>, classes — is dropped on first parse (setContent below, and the
+  // initial `content: value` here). Upgrade if that ceiling is hit: add the
+  // matching tiptap extensions, or a raw-HTML mode for markup StarterKit
+  // can't represent.
   const editor = useEditor({
     extensions: [StarterKit],
     content: value,

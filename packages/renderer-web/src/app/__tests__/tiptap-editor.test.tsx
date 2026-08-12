@@ -122,4 +122,23 @@ describe("TiptapEditor — jsdom smoke", () => {
     expect(editable.closest('[contenteditable="false"]')).not.toBeNull();
     expect((screen.getByRole("button", { name: "Bold" }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  // Documents the ponytail-noted ceiling on useEditor: markup StarterKit's
+  // schema doesn't model (tables, raw divs/spans, style attrs) is dropped on
+  // first parse, invisible until the first onChange fires. Not a bug to fix
+  // here — a fixture for whoever hits the ceiling next.
+  test("markup outside StarterKit's schema (a <table>) is dropped on the first onChange", async () => {
+    const values: string[] = [];
+    render(
+      <TiptapEditor
+        value="<table><tbody><tr><td>cell</td></tr></tbody></table><p>hello</p>"
+        onChange={(html) => values.push(html)}
+        variables={[]}
+        readOnly={false}
+      />,
+    );
+    const editable = (await screen.findByText("hello")).closest('[contenteditable="true"]');
+    fireEvent.click(screen.getByRole("button", { name: "Bold" }));
+    expect(editable?.innerHTML).not.toContain("<table");
+  });
 });

@@ -98,10 +98,31 @@ describe.each([
     expect(capturedInput).toBeUndefined();
     expect(capturedBanner).toBeDefined();
     expect(capturedBanner?.variant).toBe("info");
-    expect(capturedBanner?.children).toBe("Dieser Feldtyp kann hier noch nicht bearbeitet werden.");
     // The surrounding <Field> always renders a <label htmlFor={id}> —
     // without an id on the Banner itself that label points at nothing (#1834 review).
     expect(capturedBanner?.id).toBe("kumiko-edit-positions");
+  });
+
+  // #1847#6: the Banner used to show only the generic hint, hiding the
+  // actual field value from the user entirely (not even read-only).
+  test("shows the underlying value read-only alongside the generic hint", () => {
+    renderField(field);
+    const children = capturedBanner?.children;
+    const childArray = Array.isArray(children) ? children : [children];
+    expect(childArray[0]).toBe("Dieser Feldtyp kann hier noch nicht bearbeitet werden.");
+    const valuePreview = childArray[1] as { props: { children: unknown } } | false | undefined;
+    expect(valuePreview).toBeTruthy();
+    expect(valuePreview && valuePreview.props.children).toBe(JSON.stringify(field.value));
+  });
+});
+
+describe("RenderField — unsupported-type Banner ohne Wert", () => {
+  test("kein Value-Preview-Element wenn field.value leer ist", () => {
+    renderField(baseField({ type: "jsonb", value: null }));
+    const children = capturedBanner?.children;
+    const childArray = Array.isArray(children) ? children : [children];
+    expect(childArray[0]).toBe("Dieser Feldtyp kann hier noch nicht bearbeitet werden.");
+    expect(childArray[1]).toBeFalsy();
   });
 });
 

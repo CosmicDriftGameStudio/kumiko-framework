@@ -295,10 +295,9 @@ export function fieldToZod(
 // Runs via the same z.object().safeParse() call on both the client
 // (form-controller's runValidate) and the server (write handler) — one
 // mechanism, no separate client/server validation path to keep in sync.
-// ponytail: compares raw minor-unit amounts only, not currencies — a row
-// sum in the entity's default currency against a sibling amount tagged with
-// a different currency string still passes. Add a currency-equality check
-// here if multi-currency siblings become a real case.
+// Row cells have no currency of their own (they're minor units in the
+// entity's default currency); a sibling tagged with a different currency
+// fails the check even if the raw minor-unit amounts happen to match.
 //
 // Known limitation: compares against rounded `derived` cells, i.e.
 // "sum-of-rounded" not "round-of-sum" (kumiko-framework#1866). Follow-up
@@ -327,6 +326,19 @@ function applyTotalsMatchRefinements(
               ? siblingRaw
               : undefined;
         if (siblingAmount === undefined) continue;
+        const siblingCurrency =
+          typeof siblingRaw === "object" && siblingRaw !== null && "currency" in siblingRaw
+            ? (siblingRaw as { currency: unknown }).currency
+            : undefined;
+        const entityCurrency = entity.defaultCurrency ?? DEFAULT_CURRENCIES[0];
+        if (typeof siblingCurrency === "string" && siblingCurrency !== entityCurrency) {
+          ctx.addIssue({
+            code: "custom",
+            path: [siblingFieldName],
+            message: `"${siblingFieldName}" currency (${siblingCurrency}) does not match the entity's default currency (${entityCurrency}) that "${fieldName}" rows are summed in`,
+          });
+          continue;
+        }
         const sumMinor = rows.reduce(
           (total, row) =>
             total + (typeof row[subFieldName] === "number" ? (row[subFieldName] as number) : 0),
