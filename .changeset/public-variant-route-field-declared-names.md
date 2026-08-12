@@ -1,0 +1,7 @@
+---
+"@cosmicdrift/kumiko-bundled-features": minor
+---
+
+The public `GET /media/:fileRefId/:variant` route (`file-derivatives`) resolves the variant spec from the FileRef's field declaration (`createImageField({ variants: {...} })`) instead of a fixed spec table. An app can now declare and publicly serve its own variant names (e.g. `plan`), and a field that overrides one of the built-in preset names (`thumb`/`card`/`hero`/`full`) with its own spec (e.g. a larger `maxEdge`) is served with that spec instead of the frozen preset size.
+
+`publicVariantQuery`'s schema now accepts any `variant` name (`z.string().min(1).max(64)`) instead of `z.enum(PRESET_VARIANT_NAMES)`; resolution requires an exact match against the field's declared `variants` keys (unresolvable names answer 404, same as an unknown FileRef). The route's pre-DB path-param gate is now purely syntactic (`[a-zA-Z0-9_-]{1,64}`, mirroring the existing UUID guard on `fileRefId`) instead of a name allow-list — a known-valid preset name plus a random `fileRefId` reaches the same DB read as any other name, so a list only blocked the cheaper of two equally-costly attacks; the actual defense is the existing per-IP rate limit and the UUID guard, both unchanged. **Breaking:** `PRESET_VARIANT_NAMES` is gone from the package's public exports. It only ever named the allow-list this release deletes, so there is nothing to migrate to — `thumb`/`card`/`hero`/`full` remain as ready-made specs to spread into a field's own `variants`. No app in this workspace imported it.
