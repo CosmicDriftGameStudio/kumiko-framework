@@ -3,7 +3,8 @@
 // Tracking-only for Phase 1: no hard limit, no upload gatekeeping. Apps read
 // the row to decide what to do (show a warning, soft-throttle, bill, …).
 // Enforcement is a conscious deferred call — we want production numbers
-// before picking thresholds (see core-files.md, Architektur-Entscheidung 3).
+// before picking thresholds (see "Storage tracking: counted now, enforced
+// later" in core-files.md).
 //
 // The MSP is packaged as its own opt-in feature so tests that don't care
 // about storage metrics don't pay for the projection-table push or the

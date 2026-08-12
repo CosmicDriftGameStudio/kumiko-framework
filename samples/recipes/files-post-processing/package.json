@@ -1,8 +1,12 @@
 {
   "name": "@cosmicdrift/kumiko-sample-files-post-processing",
-  "description": "Upload emits files:event:uploaded; a multiStreamProjection reacts async and writes a derivate — without ever passing the binary through an event payload.",
+  "description": "The three ways to generate an image variant: declarative field variants, imperative ctx.derivatives.variant() with region-blur, and the public route behind a default-deny predicate.",
   "private": true,
   "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.3"
   }
 }
