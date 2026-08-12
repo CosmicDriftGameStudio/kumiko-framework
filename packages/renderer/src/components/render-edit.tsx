@@ -25,7 +25,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { z } from "zod";
 import { ExtensionFormRegistryProvider, useExtensionFormHost } from "../app/extension-form-submit";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
-import { useDispatcher } from "../context/dispatcher-context";
+import { useOptionalDispatcher } from "../context/dispatcher-context";
 import { useDraftStorage } from "../context/draft-storage-context";
 import { formatWhen } from "../format-when";
 import { useForm } from "../hooks/use-form";
@@ -78,6 +78,14 @@ type DraftCandidate = {
 // `${screenId}:%` LIKE-prefix scan server-side).
 function newDraftPrefix(screenId: string): string {
   return `${screenId}:new:`;
+}
+
+// `crypto.randomUUID` is missing in non-secure contexts and React Native/Hermes
+// without a polyfill — guard like dispatcher-live.ts's generateRequestId.
+function mintDraftId(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (typeof c?.randomUUID === "function") return c.randomUUID();
+  return `draft-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
 }
 
 // End-to-end renderer für einen entityEdit screen. Rendert aus-
@@ -343,10 +351,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // ohnehin nur in einem mounted Kumiko-App-Tree läuft.
   const t = useTranslation();
   const translate = translateProp ?? t;
-  const dispatcher = useDispatcher();
+  const dispatcher = useOptionalDispatcher();
 
   const isWizard = screen.layout.mode === "wizard";
-  const draftEnabled = isWizard && screen.layout.draft === true;
+  const draftEnabled = isWizard && screen.layout.draft === true && dispatcher !== undefined;
   const isCreateMode = entityIdProp === undefined || entityIdProp === null || entityIdProp === "";
   const draftStorage = useDraftStorage();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -502,14 +510,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const patchAndScheduleDraftSave = useCallback(
     (partial: Partial<TValues>) => {
       controller.setValues(partial);
-      if (!draftEnabled) return;
+      if (!draftEnabled || dispatcher === undefined) return;
       if (draftSaveTimerRef.current !== null) clearTimeout(draftSaveTimerRef.current);
       draftSaveTimerRef.current = setTimeout(() => {
         draftSaveTimerRef.current = null;
         saveDraftRef.current(currentStepRef.current);
       }, PATCH_DRAFT_SAVE_DEBOUNCE_MS);
     },
-    [controller, draftEnabled],
+    [controller, draftEnabled, dispatcher],
   );
 
   // Runs before the onChange effect below (declaration order = React
@@ -556,7 +564,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   useEffect(() => {
     // skip: this screen does not persist a draft.
-    if (!draftEnabled) return;
+    if (!draftEnabled || dispatcher === undefined) return;
     // skip: create-mode with no draftId yet — nothing to restore, either
     // the list-fallback effect below finds one or the first step change
     // mints a fresh one.
@@ -603,7 +611,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // skip: this screen does not persist a draft, this is edit-mode, a
     // draftId is already known (from storage or an earlier adoption), or
     // this mount already ran the list lookup once (didListRef).
-    if (!draftEnabled || !isCreateMode || draftId !== null || didListRef.current) return;
+    if (
+      !draftEnabled ||
+      !isCreateMode ||
+      draftId !== null ||
+      didListRef.current ||
+      dispatcher === undefined
+    )
+      return;
     didListRef.current = true;
     let cancelled = false;
     void (async () => {
@@ -696,10 +711,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // computed inline instead of read from the memoized `draftKey`.
   function saveDraft(stepIndex: number): void {
     // skip: this screen does not persist a draft.
-    if (!draftEnabled) return;
+    if (!draftEnabled || dispatcher === undefined) return;
     let key = draftKey;
     if (isCreateMode && draftId === null) {
-      const mintedId = crypto.randomUUID();
+      const mintedId = mintDraftId();
       mintedDraftIdRef.current = mintedId;
       draftStorage.setDraftId(screen.id, mintedId);
       setDraftId(mintedId);
@@ -761,7 +776,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   async function discardDraft(): Promise<void> {
     // skip: this screen does not persist a draft.
-    if (!draftEnabled) return;
+    if (!draftEnabled || dispatcher === undefined) return;
     // A pending debounced patch-save must not fire after discard — it would
     // resurrect the draft it just deleted.
     if (draftSaveTimerRef.current !== null) {

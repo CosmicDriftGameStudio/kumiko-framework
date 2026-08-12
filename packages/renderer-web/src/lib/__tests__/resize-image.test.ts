@@ -49,7 +49,9 @@ describe("resizeImageBeforeUpload", () => {
     globalThis.createImageBitmap = mock(async () => bitmap);
 
     try {
-      const file = new File(["x"], "photo.jpg", { type: "image/jpeg" });
+      // Content sized well above the 1-byte re-encoded blob so the resize
+      // wins the size-guard and the assertions below observe its output.
+      const file = new File(["x".repeat(2000)], "photo.jpg", { type: "image/jpeg" });
       const result = await resizeImageBeforeUpload(file, 2560);
       expect(capturedWidth).toBe(2560);
       expect(capturedHeight).toBe(1280);
@@ -81,7 +83,9 @@ describe("resizeImageBeforeUpload", () => {
     }));
 
     try {
-      const file = new File(["x"], "photo.heic", { type: "image/heic" });
+      // Content sized well above the 1-byte re-encoded blob so the resize
+      // wins the size-guard and the assertions below observe its output.
+      const file = new File(["x".repeat(2000)], "photo.heic", { type: "image/heic" });
       const result = await resizeImageBeforeUpload(file);
       expect(result.name).toBe("photo.jpg");
       expect(result.type).toBe("image/jpeg");
@@ -114,10 +118,45 @@ describe("resizeImageBeforeUpload", () => {
     }));
 
     try {
-      const file = new File(["x"], "photo.webp", { type: "image/webp" });
+      // Content sized well above the 1-byte re-encoded blob so the resize
+      // wins the size-guard and the assertions below observe its output.
+      const file = new File(["x".repeat(2000)], "photo.webp", { type: "image/webp" });
       const result = await resizeImageBeforeUpload(file);
       expect(result.name).toBe("photo.png");
       expect(result.type).toBe("image/png");
+    } finally {
+      // @ts-expect-error restore missing-API baseline
+      globalThis.OffscreenCanvas = undefined;
+      // @ts-expect-error restore missing-API baseline
+      globalThis.createImageBitmap = undefined;
+    }
+  });
+
+  test("belässt ein bereits optimiertes Bild unverändert, wenn der Re-Encode es vergrößern würde", async () => {
+    // A small in-spec PNG (e.g. palette-optimized) round-tripped through a
+    // canvas can come back as a bigger full-RGBA blob — the size guard must
+    // then keep serving the original bytes instead of the larger re-encode.
+    class FakeOffscreenCanvas {
+      getContext() {
+        return { drawImage: mock(() => {}) };
+      }
+      convertToBlob() {
+        return Promise.resolve(new Blob(["x".repeat(2000)], { type: "image/png" }));
+      }
+    }
+    // @ts-expect-error test stub for a browser-only API missing in jsdom
+    globalThis.OffscreenCanvas = FakeOffscreenCanvas;
+    globalThis.createImageBitmap = mock(async () => ({
+      close: mock(() => {}),
+      height: 100,
+      width: 100,
+    }));
+
+    try {
+      const file = new File(["x"], "photo.png", { type: "image/png" });
+      const result = await resizeImageBeforeUpload(file);
+      expect(result).toBe(file);
+      expect(result.size).toBeLessThanOrEqual(file.size);
     } finally {
       // @ts-expect-error restore missing-API baseline
       globalThis.OffscreenCanvas = undefined;

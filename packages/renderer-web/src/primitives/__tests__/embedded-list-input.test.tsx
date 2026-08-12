@@ -2,7 +2,7 @@
 // test interacts with the rendered DOM (click/type/paste) and asserts on
 // the outcome; none merely check that the component mounts.
 
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import type { FieldIssue } from "@cosmicdrift/kumiko-headless";
 import type { EmbeddedListColumn, EmbeddedListInputProps } from "@cosmicdrift/kumiko-renderer";
 import {
@@ -11,7 +11,7 @@ import {
   LocaleProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { act, type ReactElement, useState } from "react";
 import { EmbeddedListInput } from "../embedded-list-input";
 
 function setViewportWidth(width: number): void {
@@ -133,6 +133,47 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
       expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
     } finally {
       setViewportWidth(originalWidth);
+    }
+  });
+
+  test("mobile viewport at mount never creates the desktop table — no mount-then-discard flicker (fw#1868)", () => {
+    // The old useIsMobile hook only set its value in a useEffect, so the
+    // very first render always mounted the desktop table (isMobile=false)
+    // before an effect swapped in the mobile cards — even on a phone. Since
+    // effects flush synchronously inside render()'s act(), a plain post-
+    // render DOM assertion can't tell the two implementations apart (both
+    // end up correct); spying on document.createElement across the whole
+    // render call is the only way to prove a <table> was never built at all.
+    const originalWidth = window.innerWidth;
+    window.innerWidth = 500;
+    const createElementSpy = spyOn(document, "createElement");
+    try {
+      renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+      expect(screen.getByTestId("lines-mobile")).toBeTruthy();
+      expect(screen.queryByTestId("lines-desktop")).toBeNull();
+      expect(createElementSpy.mock.calls.some(([tag]) => tag === "table")).toBe(false);
+    } finally {
+      window.innerWidth = originalWidth;
+      createElementSpy.mockRestore();
+    }
+  });
+
+  test("resizing past the breakpoint after mount swaps the table for the card layout", async () => {
+    const originalWidth = window.innerWidth;
+    try {
+      renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+      expect(screen.getByTestId("lines-desktop")).toBeTruthy();
+
+      await act(async () => {
+        window.innerWidth = 500;
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      expect(screen.queryByTestId("lines-desktop")).toBeNull();
+      expect(screen.getByTestId("lines-mobile")).toBeTruthy();
+      expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
+    } finally {
+      window.innerWidth = originalWidth;
     }
   });
 });

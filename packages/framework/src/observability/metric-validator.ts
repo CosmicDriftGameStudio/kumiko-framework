@@ -1,3 +1,4 @@
+import { toKebab } from "../engine/qualified-name";
 import { assertUnreachable } from "../utils";
 import type { MetricType } from "./types";
 
@@ -74,11 +75,11 @@ export function validateMetricName(name: string, type: MetricType): void {
 // path (registry-ingest.ts) and the read path (ctx.metrics / ctx.metricsFor),
 // instead of the kebab form being rejected outright (framework#1844).
 export function buildMetricName(featureName: string, shortName: string): string {
-  const normalizedFeatureName = featureName.replace(/-/g, "_");
+  const normalizedFeatureName = toKebab(featureName).replace(/-/g, "_");
   if (!SNAKE_CASE.test(normalizedFeatureName)) {
     throw new Error(
-      `[Kumiko Observability] Feature name "${featureName}" must be kebab-case or snake_case ` +
-        `(a-z, 0-9, "-" or "_").`,
+      `[Kumiko Observability] Feature name "${featureName}" must be kebab-case, camelCase, ` +
+        `or snake_case (a-z, 0-9, "-" or "_").`,
     );
   }
   return `kumiko_${normalizedFeatureName}_${shortName}`;

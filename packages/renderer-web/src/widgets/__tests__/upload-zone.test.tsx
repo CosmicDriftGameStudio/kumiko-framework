@@ -110,6 +110,30 @@ describe("UploadZone", () => {
     expect(screen.queryByText("upload_failed")).toBeNull();
   });
 
+  test("uploads multiple files with distinct, stable row keys even without crypto.randomUUID (insecure-context LAN preview)", async () => {
+    // `crypto.randomUUID` only exists in a secure context — an HTTP-over-LAN
+    // preview leaves it undefined, so calling it throws TypeError. Row ids
+    // must not depend on it.
+    const originalRandomUUID = crypto.randomUUID;
+    (crypto as unknown as { randomUUID?: () => string }).randomUUID = undefined;
+    try {
+      const onUpload = mock(async () => {});
+      render(<UploadZone title="Datei hochladen" onUpload={onUpload} testId="zone" />);
+      const a = new File(["a"], "a.pdf");
+      const b = new File(["b"], "b.pdf");
+      pick(screen.getByTestId("zone-input"), [a, b]);
+
+      await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(2));
+      expect(screen.getByText("a.pdf")).toBeTruthy();
+      expect(screen.getByText("b.pdf")).toBeTruthy();
+      // Two distinct rows in the DOM (not collapsed onto one shared/undefined
+      // React key) proves the ids stayed unique without crypto.randomUUID.
+      expect(screen.getAllByTestId("zone-row")).toHaveLength(2);
+    } finally {
+      crypto.randomUUID = originalRandomUUID;
+    }
+  });
+
   test("disabled unterdrückt den Drop", () => {
     const onUpload = mock(async () => {});
     render(<UploadZone title="Datei hochladen" onUpload={onUpload} disabled testId="zone" />);
@@ -164,7 +188,9 @@ describe("UploadZone", () => {
     try {
       const onUpload = mock(async (_uploaded: File) => {});
       render(<UploadZone title="Datei hochladen" onUpload={onUpload} testId="zone" />);
-      const file = new File(["x"], "photo.jpg", { type: "image/jpeg" });
+      // Content sized well above the fake resize's 13 bytes — resizeImageBeforeUpload
+      // (framework#1979) only takes the re-encode when it's actually smaller.
+      const file = new File(["x".repeat(2000)], "photo.jpg", { type: "image/jpeg" });
       pick(screen.getByTestId("zone-input"), [file]);
 
       await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(1));

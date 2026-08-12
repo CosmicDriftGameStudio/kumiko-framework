@@ -7,14 +7,13 @@
 // link button, so no URL-prompt UI to build or test.
 
 import {
-  CONTENT_EDITOR_ELEMENT_ID,
   type ContentEditorProps,
   TextareaContentEditor,
   usePrimitives,
   useTranslation,
   VariableChips,
 } from "@cosmicdrift/kumiko-renderer";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
   Bold as BoldIcon,
@@ -62,6 +61,7 @@ function Toolbar({
 }
 
 export default function TiptapEditor({
+  id,
   value,
   onChange,
   variables,
@@ -82,15 +82,32 @@ export default function TiptapEditor({
     // this component before committing it; immediate render would create
     // an editor instance during that throwaway pass.
     immediatelyRender: false,
-    // Same id the textarea fallback uses — the Field wrapping the editor
-    // (TextBlockEditor) associates its label via this id; the editor
-    // contract has no `id` prop of its own, see content-editors.tsx.
-    // ponytail: fixed id, not a prop — two simultaneously mounted rich
-    // editors (or a rich + a plain editor on one screen) collide on this
-    // DOM id, same ceiling plain-content-editor.tsx documents. Upgrade:
-    // thread `id` through ContentEditorProps as an optional override.
-    editorProps: { attributes: { id: CONTENT_EDITOR_ELEMENT_ID } },
+    // Caller-supplied id — the Field wrapping the editor (TextBlockEditor)
+    // associates its label via this id, see ContentEditorProps.id in
+    // content-editors.tsx.
+    editorProps: { attributes: { id } },
     onUpdate: ({ editor: e }) => onChange(e.getHTML()),
+  });
+
+  // `useEditor` alone leaves `editor.isActive(...)` reads in the render body
+  // frozen on the last prop-driven render — @tiptap/react v3 defaults
+  // `shouldRerenderOnTransaction` to false, so a selection-only change (e.g.
+  // moving the cursor into bold text without typing) never triggers a
+  // re-render on its own. `useEditorState` subscribes to transactions itself
+  // and only re-renders when the selected slice of state actually changes.
+  const activeState = useEditorState({
+    editor,
+    selector: ({ editor: e }) =>
+      e === null
+        ? null
+        : {
+            bold: e.isActive("bold"),
+            italic: e.isActive("italic"),
+            heading1: e.isActive("heading", { level: 1 }),
+            heading2: e.isActive("heading", { level: 2 }),
+            bulletList: e.isActive("bulletList"),
+            orderedList: e.isActive("orderedList"),
+          },
   });
 
   // TextBlockEditor loads the entry's content asynchronously (by-slug query
@@ -110,6 +127,7 @@ export default function TiptapEditor({
   if (!editor)
     return (
       <TextareaContentEditor
+        id={id}
         value={value}
         onChange={onChange}
         variables={variables}
@@ -121,37 +139,37 @@ export default function TiptapEditor({
     {
       label: t("kumiko.contentEditor.bold"),
       icon: BoldIcon,
-      isActive: editor.isActive("bold"),
+      isActive: activeState?.bold ?? false,
       onClick: () => editor.chain().focus().toggleBold().run(),
     },
     {
       label: t("kumiko.contentEditor.italic"),
       icon: ItalicIcon,
-      isActive: editor.isActive("italic"),
+      isActive: activeState?.italic ?? false,
       onClick: () => editor.chain().focus().toggleItalic().run(),
     },
     {
       label: t("kumiko.contentEditor.heading1"),
       icon: Heading1,
-      isActive: editor.isActive("heading", { level: 1 }),
+      isActive: activeState?.heading1 ?? false,
       onClick: () => editor.chain().focus().toggleHeading({ level: 1 }).run(),
     },
     {
       label: t("kumiko.contentEditor.heading2"),
       icon: Heading2,
-      isActive: editor.isActive("heading", { level: 2 }),
+      isActive: activeState?.heading2 ?? false,
       onClick: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
     },
     {
       label: t("kumiko.contentEditor.bulletList"),
       icon: List,
-      isActive: editor.isActive("bulletList"),
+      isActive: activeState?.bulletList ?? false,
       onClick: () => editor.chain().focus().toggleBulletList().run(),
     },
     {
       label: t("kumiko.contentEditor.orderedList"),
       icon: ListOrdered,
-      isActive: editor.isActive("orderedList"),
+      isActive: activeState?.orderedList ?? false,
       onClick: () => editor.chain().focus().toggleOrderedList().run(),
     },
   ];

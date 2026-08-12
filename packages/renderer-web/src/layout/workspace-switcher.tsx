@@ -34,6 +34,12 @@ export type WorkspaceSwitcherProps = {
   readonly testId?: string;
 };
 
+/**
+ * Requires an ancestor `SidebarProvider` (see `../ui/sidebar`) — this
+ * component renders `SidebarMenuButton`, which calls `useSidebar()`
+ * internally and throws ("useSidebar must be used within a
+ * SidebarProvider.") when rendered outside one.
+ */
 export function WorkspaceSwitcher({
   workspaces,
   activeId,

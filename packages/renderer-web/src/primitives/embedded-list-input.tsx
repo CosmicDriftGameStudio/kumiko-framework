@@ -5,12 +5,13 @@
 // paste).
 //
 // Only one of the two layouts (table for md+, cards below md) is mounted
-// at a time, picked via useIsMobile — mounting both and toggling with
-// `hidden`/`md:hidden` left two live inputs per cell sharing one DOM id
-// (#1854). useIsMobile reports `false` for the first render regardless of
-// viewport, so the `hidden md:block` / `md:hidden` classes stay on the
-// wrapper divs too: on a phone that first (wrong) render is desktop but
-// CSS-hidden, not a visible flash of the wrong layout.
+// at a time, picked via useIsNarrowViewport — mounting both and toggling
+// with `hidden`/`md:hidden` left two live inputs per cell sharing one DOM
+// id (#1854). The `hidden md:block` / `md:hidden` classes stay on the
+// wrapper divs as a defensive fallback (e.g. SSR/no-JS, where
+// getServerSnapshot forces the desktop layout) even though
+// useIsNarrowViewport — unlike the vendored useIsMobile it replaced —
+// already reports the correct value on the very first client render.
 //
 // ponytail: crossing the mobile/desktop breakpoint unmounts the active
 // layout and mounts the other, so an in-progress cell draft (uncommitted
@@ -41,11 +42,11 @@ import { Button as UiButton } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input as UiInput } from "../ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { useIsMobile } from "../ui/use-mobile";
 import { ComboboxInput } from "./combobox";
 import { DateInput } from "./date-input";
 import { formatMoney, MoneyInput } from "./money-input";
 import { TimestampInput } from "./timestamp-input";
+import { useIsNarrowViewport } from "./use-narrow-viewport";
 
 // `input[type=hidden]` excluded — ComboboxInput renders one as a plain
 // name-carrier before its focusable trigger button.
@@ -383,7 +384,7 @@ export function EmbeddedListInput({
   // component always hardcoded.
   const effectiveCurrency = currency ?? "EUR";
   const resolvedLocale = useLocale().locale();
-  const isMobile = useIsMobile();
+  const isMobile = useIsNarrowViewport();
   const containerRef = useRef<HTMLDivElement>(null);
   const [pendingFocusCellId, setPendingFocusCellId] = useState<string | undefined>(undefined);
 

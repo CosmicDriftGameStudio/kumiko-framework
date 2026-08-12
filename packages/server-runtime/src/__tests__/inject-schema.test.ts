@@ -68,4 +68,33 @@ describe("injectSchema", () => {
     // die Standard-Chars die wir hier nutzen sind unkritisch).
     expect(out).toContain(`window.__KUMIKO_SCHEMA__=${complex}`);
   });
+
+  test("Schema mit $-Replacement-Patterns bleibt byte-identisch (kein HTML-Splicing)", () => {
+    // String.prototype.replace() interpretiert $$, $&, $`, $' im
+    // REPLACEMENT-Argument speziell. Der injizierte Schema-JSON-String landet
+    // dort — ein i18n-Label mit "$'" o.ä. würde sonst Teile von `html` in den
+    // Script-Tag hineinspleißen. Ein Replacer-Function-Argument umgeht das.
+    const dollarSchema = '{"label":"$\' tail $$ amp $& end"}';
+    const dollarTag = `<script>window.__KUMIKO_SCHEMA__=${dollarSchema};</script>`;
+    const html = '<html><body><script src="/client.js"></script></body></html>';
+    const out = injectSchema(html, dollarSchema);
+    // Insertion point is right before the /client.js tag, not the start of
+    // the document — built via indexOf/slice, not .replace(), so the
+    // expected value doesn't itself run through the same $-pattern footgun.
+    const clientScriptIdx = html.indexOf('<script src="/client.js"');
+    const expected = html.slice(0, clientScriptIdx) + dollarTag + html.slice(clientScriptIdx);
+    expect(out).toBe(expected);
+  });
+
+  test("Schema mit $-Replacement-Patterns, Insertion vor </body>", () => {
+    const dollarSchema = '{"label":"$\' tail $$ amp $& end"}';
+    const dollarTag = `<script>window.__KUMIKO_SCHEMA__=${dollarSchema};</script>`;
+    const html = "<html><body><div id=root></div></body></html>";
+    const out = injectSchema(html, dollarSchema);
+    // Built via slice/concat, not .replace() — the expected value must not
+    // itself run through the same $-pattern footgun the fix removes.
+    const bodyIdx = html.indexOf("</body>");
+    const expected = html.slice(0, bodyIdx) + dollarTag + html.slice(bodyIdx);
+    expect(out).toBe(expected);
+  });
 });

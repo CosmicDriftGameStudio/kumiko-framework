@@ -18,7 +18,6 @@ import type {
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  CONTENT_EDITOR_ELEMENT_ID,
   ContentPreview,
   type FeatureSchema,
   useAppFeatures,
@@ -33,7 +32,7 @@ import {
   PlainContentEditor,
   RichContentEditor,
 } from "@cosmicdrift/kumiko-renderer-web";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useId, useState } from "react";
 import {
   collectionHandlerName,
   collectionQueryName,
@@ -303,6 +302,7 @@ function TextBlockEditor({
   const dispatcher = useDispatcher();
   const user = useShellUser();
   const t = useTranslation();
+  const contentEditorId = useId();
   const features = useAppFeatures();
   const contentFormat = findContentFormat(features, collectionId);
   const variableExamples = findVariableExamples(features, collectionId);
@@ -423,7 +423,7 @@ function TextBlockEditor({
         />
       </Field>
       <Field
-        id={CONTENT_EDITOR_ELEMENT_ID}
+        id={contentEditorId}
         label={t("template-resolver.editor.contentLabel")}
         labelAppendix={
           <Button
@@ -444,6 +444,7 @@ function TextBlockEditor({
           />
         ) : (
           <ContentEditor
+            id={contentEditorId}
             value={content}
             onChange={setContent}
             variables={variables}

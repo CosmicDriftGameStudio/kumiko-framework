@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { CONTENT_EDITOR_ELEMENT_ID } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { fireEvent, render, screen } from "../../__tests__/test-utils";
 import { PlainContentEditor } from "../plain-content-editor";
@@ -6,21 +7,41 @@ import { PlainContentEditor } from "../plain-content-editor";
 function Controlled({ initial }: { readonly initial: string }): ReactNode {
   const [value, setValue] = useState(initial);
   return (
-    <PlainContentEditor value={value} onChange={setValue} variables={["name"]} readOnly={false} />
+    <PlainContentEditor
+      id={CONTENT_EDITOR_ELEMENT_ID}
+      value={value}
+      onChange={setValue}
+      variables={["name"]}
+      readOnly={false}
+    />
   );
 }
 
 describe("PlainContentEditor", () => {
   test("renders the textarea plus one chip per variable", () => {
     render(
-      <PlainContentEditor value="" onChange={() => {}} variables={["name"]} readOnly={false} />,
+      <PlainContentEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value=""
+        onChange={() => {}}
+        variables={["name"]}
+        readOnly={false}
+      />,
     );
     expect(screen.getByRole("textbox")).toBeTruthy();
     expect(screen.getByText("{{name}}")).toBeTruthy();
   });
 
   test("no variables → no chips", () => {
-    render(<PlainContentEditor value="" onChange={() => {}} variables={[]} readOnly={false} />);
+    render(
+      <PlainContentEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value=""
+        onChange={() => {}}
+        variables={[]}
+        readOnly={false}
+      />,
+    );
     expect(screen.queryAllByRole("button")).toHaveLength(0);
   });
 

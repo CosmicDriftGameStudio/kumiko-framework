@@ -66,8 +66,16 @@ describe("buildMetricName", () => {
     expect(buildMetricName("orders", "created_total")).toBe("kumiko_orders_created_total");
   });
 
-  it("rejects non-snake_case feature name", () => {
-    expect(() => buildMetricName("Orders", "created_total")).toThrow(/snake_case/);
+  it("rejects a feature name that stays invalid after kebab-normalization", () => {
+    // A single leading capital ("Orders") now normalizes cleanly via toKebab
+    // — this must still reject a space, which toKebab doesn't touch.
+    expect(() => buildMetricName("orders team", "created_total")).toThrow(/snake_case/);
+  });
+
+  it("normalizes camelCase feature names the same as their kebab-case equivalent", () => {
+    expect(buildMetricName("aiFoundation", "created_total")).toBe(
+      buildMetricName("ai-foundation", "created_total"),
+    );
   });
 });
 

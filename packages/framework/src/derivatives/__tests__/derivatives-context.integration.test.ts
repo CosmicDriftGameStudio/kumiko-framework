@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { z } from "zod";
 import { defineFeature, EXT_DERIVATIVE_RENDERER } from "../../engine";
-import { InternalError, writeFailure } from "../../errors";
+import { InternalError, NotFoundError, writeFailure } from "../../errors";
 import { createFilesFeature } from "../../files/feature";
 import { createInMemoryFileProvider } from "../../files/in-memory-provider";
 import { createTestUser, setupTestStack, type TestStack, testTenantId } from "../../stack";
@@ -37,6 +37,37 @@ const derivativesTestFeature = defineFeature("derivativestest", (r) => {
         "thumb",
       );
       return { isSuccess: true as const, data: result };
+    },
+    { access: { openToAll: true } },
+  );
+
+  // Catches the error INSIDE the handler (not via HTTP serialization) so the
+  // test can assert `instanceof` on the concrete error class — the wire
+  // response only carries the serialized WireErrorInfo, which loses that.
+  r.writeHandler(
+    "probe-typed-error",
+    z.object({ fileRefId: z.string() }),
+    async (event, ctx) => {
+      if (!ctx.derivatives) {
+        return writeFailure(
+          new InternalError({ message: "no ctx.derivatives on write-handler ctx" }),
+        );
+      }
+      try {
+        await ctx.derivatives.variant(event.payload.fileRefId, { maxEdge: 100 }, "thumb");
+        return { isSuccess: true as const, data: { threw: false } };
+      } catch (err) {
+        return {
+          isSuccess: true as const,
+          data: {
+            threw: true,
+            isNotFoundError: err instanceof NotFoundError,
+            notFoundHttpStatus: err instanceof NotFoundError ? err.httpStatus : undefined,
+            isInternalError: err instanceof InternalError,
+            internalHttpStatus: err instanceof InternalError ? err.httpStatus : undefined,
+          },
+        };
+      }
     },
     { access: { openToAll: true } },
   );
@@ -70,10 +101,13 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-async function uploadFile(asUser = user): Promise<string> {
+async function uploadFile(
+  asUser = user,
+  file = new File([Buffer.from([1, 2, 3])], "photo.jpg", { type: "image/jpeg" }),
+): Promise<string> {
   const token = await stack.jwt.sign(asUser);
   const fd = new FormData();
-  fd.append("file", new File([Buffer.from([1, 2, 3])], "photo.jpg", { type: "image/jpeg" }));
+  fd.append("file", file);
   const { body, contentType } = await buildMultipartBody(fd);
   const res = await stack.app.request("/api/files", {
     method: "POST",
@@ -129,7 +163,7 @@ describe("ctx.derivatives — the mandatory id/tenant/isDeleted filters", () => 
       { fileRefId: "00000000-0000-4000-8000-999999999999" },
       user,
     );
-    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(err.httpStatus).toBe(404);
   });
 
   test("a soft-deleted fileRef throws", async () => {
@@ -146,7 +180,7 @@ describe("ctx.derivatives — the mandatory id/tenant/isDeleted filters", () => 
       { fileRefId: fileId },
       user,
     );
-    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(err.httpStatus).toBe(404);
   });
 
   test("a fileRef uploaded under a different tenant is not resolvable", async () => {
@@ -157,6 +191,39 @@ describe("ctx.derivatives — the mandatory id/tenant/isDeleted filters", () => 
       { fileRefId: foreignFileId },
       user,
     );
-    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(err.httpStatus).toBe(404);
+  });
+});
+
+describe("ctx.derivatives — typed errors from variant()", () => {
+  test("an unknown fileRefId throws NotFoundError with httpStatus 404", async () => {
+    const result = await stack.http.writeOk<{
+      threw: boolean;
+      isNotFoundError: boolean;
+      notFoundHttpStatus?: number;
+    }>(
+      "derivativestest:write:probe-typed-error",
+      { fileRefId: "00000000-0000-4000-8000-999999999999" },
+      user,
+    );
+    expect(result.threw).toBe(true);
+    expect(result.isNotFoundError).toBe(true);
+    expect(result.notFoundHttpStatus).toBe(404);
+  });
+
+  test("no renderer registered for the mimeType throws InternalError with httpStatus 500", async () => {
+    const fileId = await uploadFile(
+      user,
+      new File([Buffer.from([1, 2, 3])], "doc.pdf", { type: "application/pdf" }),
+    );
+
+    const result = await stack.http.writeOk<{
+      threw: boolean;
+      isInternalError: boolean;
+      internalHttpStatus?: number;
+    }>("derivativestest:write:probe-typed-error", { fileRefId: fileId }, user);
+    expect(result.threw).toBe(true);
+    expect(result.isInternalError).toBe(true);
+    expect(result.internalHttpStatus).toBe(500);
   });
 });

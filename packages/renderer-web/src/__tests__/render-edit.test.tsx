@@ -1517,6 +1517,59 @@ describe("RenderEdit wizard draft", () => {
     expect(titleInputAgain.value).toBe("Acme");
   });
 
+  // fw#1929: bare crypto.randomUUID() breaks in non-secure contexts and
+  // React Native/Hermes without a polyfill. With it deleted, minting a
+  // draftId must still work through the mintDraftId() fallback instead of
+  // throwing.
+  test("draft id still mints when crypto.randomUUID is unavailable (fw#1929)", async () => {
+    const cryptoRef = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+    const original = cryptoRef?.randomUUID;
+    // `randomUUID` lives on crypto's prototype (non-configurable) — `delete`
+    // is a silent no-op there, so shadow it with an own `undefined` instead.
+    if (cryptoRef) cryptoRef.randomUUID = undefined;
+
+    try {
+      const draftKeys: string[] = [];
+      const dispatcher = createMockDispatcher({
+        query: (async () => ({ isSuccess: true, data: {} })) as Dispatcher["query"],
+        write: (async (type: string, payload: unknown) => {
+          if (type === "form-draft:write:save") {
+            draftKeys.push((payload as { draftKey: string }).draftKey);
+          }
+          return { isSuccess: true, data: { id: "1" } };
+        }) as Dispatcher["write"],
+      });
+
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <DraftStorageProvider value={createFakeDraftStorage()}>
+            <RenderEdit<TestValues>
+              screen={makeDraftWizardScreen(true)}
+              entity={orderEntity}
+              featureName="orders"
+              initial={{ title: "", count: 0 }}
+              writeCommand="order:create"
+            />
+          </DraftStorageProvider>
+        </DispatcherProvider>,
+      );
+
+      fireEvent.change(
+        screen.getByTestId("field-title").querySelector("input") as HTMLInputElement,
+        { target: { value: "Acme" } },
+      );
+      await act(async () => {
+        fireEvent.submit(screen.getByTestId("render-edit-form"));
+        await Promise.resolve();
+      });
+
+      expect(draftKeys.length).toBeGreaterThan(0);
+      expect(draftKeys[0]).toContain(":new:draft-");
+    } finally {
+      if (cryptoRef && original) cryptoRef.randomUUID = original;
+    }
+  });
+
   test("a successful submit discards the draft", async () => {
     const { dispatcher, store, calls } = makeDraftDispatcher();
 

@@ -153,6 +153,7 @@ export {
   DropdownMenuTrigger,
 } from "./primitives/dropdown-menu";
 export { PageSection, Stack } from "./primitives/layout";
+export { formatMoney } from "./primitives/money-input";
 export type { ToastOptions, ToastProviderProps, ToastVariant } from "./primitives/toast";
 export { ToastProvider, useToast } from "./primitives/toast";
 export type { CreateEventSourceLiveEventsOptions } from "./sse/live-events";

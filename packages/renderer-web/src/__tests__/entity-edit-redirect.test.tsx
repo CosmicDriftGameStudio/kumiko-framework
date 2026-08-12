@@ -74,6 +74,38 @@ describe("entityEdit redirect (#1942)", () => {
     await waitFor(() => expect(navigated).toEqual([{ screenId: "product-detail" }]));
   });
 
+  test("create: successful save with redirect set carries the newly created entityId along (#1945)", async () => {
+    const navigated: NavTarget[] = [];
+    const dispatcher = createMockDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "new-99" },
+      })) as unknown as Dispatcher["write"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "shop:screen:product-edit" },
+            navigate: (target) => navigated.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen schema={buildSchema("product-detail")} qn="shop:screen:product-edit" />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    fillNameAndSubmit();
+
+    await waitFor(() =>
+      expect(navigated).toEqual([{ screenId: "product-detail", entityId: "new-99" }]),
+    );
+  });
+
   test("create: no redirect set falls back to the entity's list screen", async () => {
     const navigated: NavTarget[] = [];
     render(

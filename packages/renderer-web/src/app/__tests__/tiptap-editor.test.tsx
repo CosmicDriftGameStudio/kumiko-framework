@@ -6,7 +6,15 @@ import TiptapEditor from "../tiptap-editor";
 
 function Controlled({ initial }: { readonly initial: string }): ReactNode {
   const [value, setValue] = useState(initial);
-  return <TiptapEditor value={value} onChange={setValue} variables={["name"]} readOnly={false} />;
+  return (
+    <TiptapEditor
+      id={CONTENT_EDITOR_ELEMENT_ID}
+      value={value}
+      onChange={setValue}
+      variables={["name"]}
+      readOnly={false}
+    />
+  );
 }
 
 function ReadOnlyToggle({ initial }: { readonly initial: string }): ReactNode {
@@ -16,7 +24,13 @@ function ReadOnlyToggle({ initial }: { readonly initial: string }): ReactNode {
       <button type="button" onClick={() => setReadOnly((r) => !r)}>
         toggle readOnly
       </button>
-      <TiptapEditor value={initial} onChange={() => {}} variables={[]} readOnly={readOnly} />
+      <TiptapEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value={initial}
+        onChange={() => {}}
+        variables={[]}
+        readOnly={readOnly}
+      />
     </div>
   );
 }
@@ -32,7 +46,13 @@ function LateValue({ loaded }: { readonly loaded: string }): ReactNode {
       <button type="button" onClick={() => setValue(loaded)}>
         load
       </button>
-      <TiptapEditor value={value} onChange={setValue} variables={[]} readOnly={false} />
+      <TiptapEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value={value}
+        onChange={setValue}
+        variables={[]}
+        readOnly={false}
+      />
     </div>
   );
 }
@@ -40,22 +60,40 @@ function LateValue({ loaded }: { readonly loaded: string }): ReactNode {
 describe("TiptapEditor — jsdom smoke", () => {
   test("mounts a contenteditable surface for the given HTML", async () => {
     render(
-      <TiptapEditor value="<p>hello</p>" onChange={() => {}} variables={[]} readOnly={false} />,
+      <TiptapEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value="<p>hello</p>"
+        onChange={() => {}}
+        variables={[]}
+        readOnly={false}
+      />,
     );
     const editable = await screen.findByText("hello");
     expect(editable.closest('[contenteditable="true"]')).not.toBeNull();
   });
 
-  test("the contenteditable surface carries CONTENT_EDITOR_ELEMENT_ID so the wrapping Field's label stays associated", async () => {
+  test("the editor's id prop lands on the contenteditable surface so the wrapping Field's label stays associated", async () => {
     render(
-      <TiptapEditor value="<p>hello</p>" onChange={() => {}} variables={[]} readOnly={false} />,
+      <TiptapEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value="<p>hello</p>"
+        onChange={() => {}}
+        variables={[]}
+        readOnly={false}
+      />,
     );
     expect(document.getElementById(CONTENT_EDITOR_ELEMENT_ID)).not.toBeNull();
   });
 
   test("no variables → no chip bar", async () => {
     render(
-      <TiptapEditor value="<p>hello</p>" onChange={() => {}} variables={[]} readOnly={false} />,
+      <TiptapEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value="<p>hello</p>"
+        onChange={() => {}}
+        variables={[]}
+        readOnly={false}
+      />,
     );
     await screen.findByText("hello");
     expect(screen.queryAllByRole("button", { name: "Bold" })).toHaveLength(1);
@@ -64,7 +102,13 @@ describe("TiptapEditor — jsdom smoke", () => {
 
   test("every toolbar action resolves by its accessible name", async () => {
     render(
-      <TiptapEditor value="<p>hello</p>" onChange={() => {}} variables={[]} readOnly={false} />,
+      <TiptapEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value="<p>hello</p>"
+        onChange={() => {}}
+        variables={[]}
+        readOnly={false}
+      />,
     );
     await screen.findByText("hello");
     for (const name of [

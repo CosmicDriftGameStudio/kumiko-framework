@@ -6,14 +6,14 @@
 // callback. Radix opens on pointerdown → userEvent instead of
 // fireEvent.click, same as language-switcher.test.tsx.
 
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
   type WorkspaceSchema,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { renderWithSidebar, screen } from "../../__tests__/test-utils";
+import { render, renderWithSidebar, screen } from "../../__tests__/test-utils";
 import { WorkspaceSwitcher } from "../workspace-switcher";
 
 function ws(id: string, label = id): WorkspaceSchema {
@@ -93,6 +93,26 @@ describe("WorkspaceSwitcher — Render", () => {
     );
     expect(screen.getByTestId("sw").textContent).not.toBe("");
     expect(screen.getByText("Select workspace")).toBeTruthy();
+  });
+
+  test("rendering outside a SidebarProvider throws — the JSDoc requirement is a real crash, not just documentation (fw#1816)", () => {
+    // SidebarMenuButton calls useSidebar() internally; without a
+    // SidebarProvider ancestor that throws synchronously during render.
+    // Silence the expected console.error noise React logs alongside it.
+    const consoleError = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(() =>
+        render(
+          <WorkspaceSwitcher
+            workspaces={[ws("a", "Alpha"), ws("b", "Beta")]}
+            activeId="a"
+            onSelect={() => {}}
+          />,
+        ),
+      ).toThrow(/useSidebar must be used within a SidebarProvider/);
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   test("Click auf einen Eintrag ruft onSelect mit der Workspace-id", async () => {

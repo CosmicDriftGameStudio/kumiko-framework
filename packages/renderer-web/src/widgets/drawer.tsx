@@ -101,9 +101,14 @@ export function Drawer({
   const effectiveWidthPx = maximized ? effectiveMaxWidthPx() : width;
 
   const onHandlePointerDown = (event: React.PointerEvent<HTMLDivElement>): void => {
+    event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = { startX: event.clientX, startWidth: effectiveWidthPx };
     setMaximized(false);
+    // Handle already carries `cursor-col-resize`, so only the text-selection
+    // lock is needed here — without it, a fast drag over the drawer content
+    // selects the text underneath instead of just resizing.
+    document.body.style.setProperty("user-select", "none");
   };
   const onHandlePointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
     if (dragRef.current === null) return;
@@ -114,6 +119,7 @@ export function Drawer({
   const onHandlePointerUp = (event: React.PointerEvent<HTMLDivElement>): void => {
     event.currentTarget.releasePointerCapture(event.pointerId);
     dragRef.current = null;
+    document.body.style.removeProperty("user-select");
   };
   const onHandleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
     const step = event.shiftKey ? 40 : 16;

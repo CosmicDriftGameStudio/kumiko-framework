@@ -327,7 +327,15 @@ describe("createKumikoApp", () => {
     }
     function EditorProbe(): ReactNode {
       const Editor = useContentEditor("rich");
-      return <Editor value="hello" onChange={() => {}} variables={[]} readOnly={false} />;
+      return (
+        <Editor
+          id="ca-rich-editor-probe"
+          value="hello"
+          onChange={() => {}}
+          variables={[]}
+          readOnly={false}
+        />
+      );
     }
     const probeSchema: FeatureSchema = {
       featureName: "tasks",

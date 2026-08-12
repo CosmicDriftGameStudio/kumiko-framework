@@ -58,7 +58,15 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
 
 function Probe({ contentFormat }: { readonly contentFormat?: string }): ReactNode {
   const Editor = useContentEditor(contentFormat);
-  return <Editor value="hello" onChange={() => {}} variables={[]} readOnly={false} />;
+  return (
+    <Editor
+      id={CONTENT_EDITOR_ELEMENT_ID}
+      value="hello"
+      onChange={() => {}}
+      variables={[]}
+      readOnly={false}
+    />
+  );
 }
 
 describe("useContentEditor", () => {
@@ -102,7 +110,13 @@ describe("TextareaContentEditor", () => {
     // non-admin viewing read-only content couldn't select/copy it. readOnly
     // keeps the field focusable and selectable while blocking edits.
     render(
-      <TextareaContentEditor value="draft" onChange={() => {}} variables={[]} readOnly={true} />,
+      <TextareaContentEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value="draft"
+        onChange={() => {}}
+        variables={[]}
+        readOnly={true}
+      />,
       { wrapper: Wrapper },
     );
     const el = screen.getByTestId("ca-textarea") as HTMLTextAreaElement;
