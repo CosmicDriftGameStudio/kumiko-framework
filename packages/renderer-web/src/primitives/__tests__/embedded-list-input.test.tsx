@@ -131,21 +131,26 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
   });
 
   test("resizing past the breakpoint after mount swaps the table for the card layout", async () => {
+    const happyDOM = (
+      window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
+    ).happyDOM;
     const originalWidth = window.innerWidth;
     try {
       renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
       expect(screen.getByTestId("lines-desktop")).toBeTruthy();
 
       await act(async () => {
-        window.innerWidth = 500;
-        window.dispatchEvent(new Event("resize"));
+        // useIsMobile listens to matchMedia('change'). Assigning
+        // window.innerWidth does not update happy-dom's MediaQueryList —
+        // setInnerWidth does, and fires the change listeners (#1854).
+        happyDOM.setInnerWidth(500);
       });
 
       expect(screen.queryByTestId("lines-desktop")).toBeNull();
       expect(screen.getByTestId("lines-mobile")).toBeTruthy();
       expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
     } finally {
-      window.innerWidth = originalWidth;
+      happyDOM.setInnerWidth(originalWidth);
     }
   });
 });
