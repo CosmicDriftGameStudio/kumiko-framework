@@ -44,8 +44,10 @@ export type PublicVariantResolveApexTenant = (
 
 export type FileDerivativesOptions = {
   /** Host → tenantId for the anonymous `/media/:fileRefId/:variant` route.
-   *  Without this option the route is NOT mounted — existing consumers that
-   *  only need `ctx.derivatives` are unaffected. */
+   *  Without this option, neither the httpRoute NOR the `publicVariant`
+   *  query is registered — it is unreachable via the httpRoute path and via
+   *  the generic `/api` query dispatch. Existing consumers that only need
+   *  `ctx.derivatives` are unaffected. */
   readonly resolveApexTenant?: PublicVariantResolveApexTenant;
   /** Base path of the public variant route. Default "/media". */
   readonly basePath?: string;
@@ -102,10 +104,20 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
       },
     });
 
-    const queries = { publicVariant: r.queryHandler(publicVariantQuery) };
+    // Registered ONLY when resolveApexTenant is supplied — r.queryHandler
+    // registers publicVariantQuery into the feature's dispatch table as a
+    // side effect of being called, independent of what's done with its
+    // return value. Calling it unconditionally would make `publicVariant`
+    // (access: ["anonymous", ...]) reachable via the generic `/api` query
+    // dispatch even when the httpRoute below isn't mounted, bypassing the
+    // "tenantId comes from the host, never the payload" invariant that only
+    // `resolveApexTenant` enforces.
+    const queries: { publicVariant?: ReturnType<typeof r.queryHandler> } = {};
 
     if (opts.resolveApexTenant) {
       const resolveApexTenant = opts.resolveApexTenant;
+
+      queries.publicVariant = r.queryHandler(publicVariantQuery);
 
       r.httpRoute({
         method: "GET",
