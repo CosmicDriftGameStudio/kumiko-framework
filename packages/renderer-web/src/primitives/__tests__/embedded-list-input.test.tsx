@@ -14,7 +14,6 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { EmbeddedListInput } from "../embedded-list-input";
 
-
 function setViewportWidth(width: number): void {
   (
     window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
@@ -136,7 +135,6 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
       setViewportWidth(originalWidth);
     }
   });
-
 });
 
 describe("EmbeddedListInput — row mutation callbacks", () => {
