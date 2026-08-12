@@ -223,36 +223,35 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
 // base64-Blob als "Wert" auszuliefern (leak-by-confusion).
 const ENCRYPTED_UNAVAILABLE = "[encrypted:unavailable]";
 
-async function decryptSnippetFields(
-  registry: Registry,
-  hookEntityName: string,
-  snippet: UserDataExportSnippet,
-): Promise<UserDataExportSnippet> {
-  let rows = snippet.rows;
+// Shared decrypt sweep, used for both `snippet.rows` and `snippet.fileRefs`
+// (#1955) — `encryptedFields` is keyed by field NAME, so it stays a no-op
+// for today's `fileRef` entity but covers a future generically-encrypted
+// side-channel field too.
+async function decryptRecords(
+  records: ReadonlyArray<Record<string, unknown>>,
+  encryptedFields: ReadonlySet<string>,
+  kms: ReturnType<typeof configuredPiiSubjectKms>,
+): Promise<Record<string, unknown>[]> {
+  let rows: Record<string, unknown>[] = [...records];
 
-  const entity = registry.getEntity(snippet.entity) ?? registry.getEntity(hookEntityName);
-  if (entity) {
-    const encryptedFields = collectEncryptedFieldNames(entity);
-    if (encryptedFields.size > 0) {
-      const cipher = configuredEntityFieldEncryption();
-      rows = await Promise.all(
-        rows.map(async (row) => {
-          if (cipher) return decryptEntityFieldValues(row, encryptedFields, cipher);
-          const out = { ...row };
-          for (const name of encryptedFields) {
-            if (typeof out[name] === "string") out[name] = ENCRYPTED_UNAVAILABLE;
-          }
-          return out;
-        }),
-      );
-    }
+  if (encryptedFields.size > 0) {
+    const cipher = configuredEntityFieldEncryption();
+    rows = await Promise.all(
+      rows.map(async (row) => {
+        if (cipher) return decryptEntityFieldValues(row, encryptedFields, cipher);
+        const out = { ...row };
+        for (const name of encryptedFields) {
+          if (typeof out[name] === "string") out[name] = ENCRYPTED_UNAVAILABLE;
+        }
+        return out;
+      }),
+    );
   }
 
-  // PII-Subject-Ciphertexte (kumiko-pii:) sind self-describing — kein
-  // Entity-Kontext noetig, deckt jeden heutigen und kuenftigen Hook ab.
-  // Erased Subject → Sentinel (ehrlich: der Wert ist geshreddet).
-  const kms = configuredPiiSubjectKms();
-  rows = await Promise.all(
+  // PII-subject ciphertexts (kumiko-pii:) are self-describing — no entity
+  // context needed, covers every hook past and future. Erased subject →
+  // sentinel (honest: the value is shredded).
+  return Promise.all(
     rows.map(async (row) => {
       const piiKeys = Object.keys(row).filter((k) => isPiiCiphertext(row[k]));
       if (piiKeys.length === 0) return row;
@@ -266,7 +265,31 @@ async function decryptSnippetFields(
       });
     }),
   );
-  return { ...snippet, rows };
+}
+
+async function decryptSnippetFields(
+  registry: Registry,
+  hookEntityName: string,
+  snippet: UserDataExportSnippet,
+): Promise<UserDataExportSnippet> {
+  const entity = registry.getEntity(snippet.entity) ?? registry.getEntity(hookEntityName);
+  const encryptedFields = entity ? collectEncryptedFieldNames(entity) : new Set<string>();
+  const kms = configuredPiiSubjectKms();
+
+  const rows = await decryptRecords(snippet.rows, encryptedFields, kms);
+
+  if (!snippet.fileRefs || snippet.fileRefs.length === 0) {
+    return { ...snippet, rows };
+  }
+
+  const decryptedFileRefs = await decryptRecords(snippet.fileRefs, encryptedFields, kms);
+  const fileRefs = decryptedFileRefs.map((r) => ({
+    fileRefId: String(r["fileRefId"]),
+    storageKey: String(r["storageKey"]),
+    fileName: String(r["fileName"]),
+  }));
+
+  return { ...snippet, rows, fileRefs };
 }
 
 // Pseudo-Tenant fuer User ohne aktive Memberships. Identisch zum
