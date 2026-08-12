@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createMoneyField, createTextField } from "../../engine";
 import type { EntityDefinition } from "../../engine/types";
-import { flattenMoney, moneyPayloadToMinorUnits, type MoneyRead, rehydrateMoney } from "../money";
+import { flattenMoney, type MoneyRead, moneyPayloadToMinorUnits, rehydrateMoney } from "../money";
 
 const orderEntity: EntityDefinition = createEntity({
   defaultCurrency: "EUR",
