@@ -66,17 +66,21 @@ The bundled `file-derivatives` feature (only mounted when
 resolver) exposes an **anonymous** `GET {basePath}/:fileRefId/:variant` route.
 It is safe only because of three properties, all enforced together:
 
-- **Named variants only, from a fixed, bounded set.** The public route
-  recognizes exactly `thumb`, `card`, `hero`, `full`
-  (`packages/bundled-features/src/file-derivatives/presets.ts`). This is a
-  **separate whitelist** from the variant names a field declares via
-  `createImageField({ variants })` — the two are easy to conflate, but a field
-  can be sitting on a variant named `hero` while the public route's `hero`
-  preset is a distinct spec entirely.
+- **Named variants only, resolved against the field's own declaration.** The
+  spec behind a requested name comes from `resolveFieldVariant`, the same
+  helper the declarative path uses — the FileRef's `entityType`/`fieldName`
+  locate the field, and the name must be an exact `Object.hasOwn` match in
+  that field's `variants` map. There is no separate preset whitelist:
+  `thumb`/`card`/`hero`/`full` (`.../file-derivatives/presets.ts`) are just
+  ready-made specs an app can spread into its own `variants` declaration, not
+  an allow-list the route checks against. Before this DB lookup, the route
+  path param only passes a syntactic gate (`[a-z0-9-]{1,64}`, mirroring the
+  UUID guard on `fileRefId`) to keep pathological input off the DB/rate-limit
+  budget — it does not restrict which *declared* names are reachable.
 - **Never an externally-supplied spec.** The client sends a variant *name*
   only. The `VariantSpec` behind that name is always resolved server-side
-  from the fixed preset table — there is no request shape that lets a caller
-  hand the server an arbitrary crop/size/format to render.
+  from the field's own `variants` declaration — there is no request shape
+  that lets a caller hand the server an arbitrary crop/size/format to render.
 - **Default-deny.** Serving requires an `EXT_DERIVATIVE_PUBLIC_PREDICATE`
   registered for the file's `entityType` that explicitly returns `true`
   (`r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "<entityType>", { isPublic })`).
