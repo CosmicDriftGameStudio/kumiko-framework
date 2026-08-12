@@ -23,3 +23,27 @@ describe("FileUploadInput — image variant preview src (#1950)", () => {
     expect(container.querySelector("img")?.getAttribute("src")).toBe("/api/files/abc");
   });
 });
+
+describe("FileUploadInput — capture attribute (#1953)", () => {
+  test("with capture set, the native file input carries the capture attribute", () => {
+    const { container } = render(
+      <FileUploadInput
+        kind="image"
+        id="avatar"
+        value={null}
+        onChange={noop}
+        capture="environment"
+      />,
+    );
+    expect(container.querySelector("input[type=file]")?.getAttribute("capture")).toBe(
+      "environment",
+    );
+  });
+
+  test("without capture, the native file input has no capture attribute", () => {
+    const { container } = render(
+      <FileUploadInput kind="image" id="avatar" value={null} onChange={noop} />,
+    );
+    expect(container.querySelector("input[type=file]")?.hasAttribute("capture")).toBe(false);
+  });
+});

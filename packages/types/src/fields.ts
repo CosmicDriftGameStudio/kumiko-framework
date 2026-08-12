@@ -604,6 +604,9 @@ export type ImageFieldDef = {
    *  thing a caller may ask for — the spec lives here, never in a request,
    *  so nobody can drive arbitrary renders. Boot-validated. */
   readonly variants?: Readonly<Record<string, VariantSpec>>;
+  /** HTML `capture` attribute on the file input — opens the phone's camera
+   *  directly instead of a generic file picker. Unset keeps today's behavior. */
+  readonly capture?: "environment" | "user";
   readonly access?: FieldAccess;
 };
 
@@ -621,6 +624,10 @@ export type ImagesFieldDef = {
   readonly accept?: readonly string[];
   readonly maxCount?: number;
   readonly variants?: Readonly<Record<string, VariantSpec>>;
+  /** HTML `capture` attribute on the file input — opens the phone's camera
+   *  directly instead of a generic file picker. Unset keeps today's behavior.
+   *  Not yet wired to a renderer: `images` has no multi-upload widget yet (#1925). */
+  readonly capture?: "environment" | "user";
   readonly access?: FieldAccess;
 };
 

@@ -188,6 +188,9 @@ export type EditFieldViewModel = {
    *  is not a rule that always has an answer. Absent when the field declares
    *  no variants — the preview then loads the original. */
   readonly imageVariant?: string;
+  /** Only for `type: "image"` — mirrors `ImageFieldDef.capture`. Opens the
+   *  phone's camera directly instead of a generic file picker. */
+  readonly capture?: "environment" | "user";
   /** Prefix-icon key from `EditFieldSpec.icon`, passed through unchanged
    *  (no i18n — it's a symbolic key, not a display string). The renderer
    *  resolves it against the FIELD_ICONS registry; unknown keys silently

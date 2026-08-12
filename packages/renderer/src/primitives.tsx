@@ -270,6 +270,9 @@ export type InputProps =
       /** Only for kind:"image" — variant name for the preview
        *  (`/api/files/:id/variant/:name`). Absent → the original. */
       readonly imageVariant?: string;
+      /** Only for kind:"image" — opens the phone's camera directly instead
+       *  of a generic file picker. */
+      readonly capture?: "environment" | "user";
     }
   | {
       readonly kind: "date";

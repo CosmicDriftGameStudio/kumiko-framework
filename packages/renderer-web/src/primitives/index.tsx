@@ -436,6 +436,7 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.entityType !== undefined && { entityType: props.entityType })}
           {...(props.fieldName !== undefined && { fieldName: props.fieldName })}
           {...(props.imageVariant !== undefined && { imageVariant: props.imageVariant })}
+          {...(props.capture !== undefined && { capture: props.capture })}
         />
       );
     case "date":
