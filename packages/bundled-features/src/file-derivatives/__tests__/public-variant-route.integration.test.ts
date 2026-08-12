@@ -185,15 +185,23 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("unknown fileRefId → 404", async () => {
-    // Valid UUID shape (the id column's type) but no matching row — a
-    // malformed/non-UUID id is a separate concern shared with the
-    // already-merged #1950 route (same fetchOne-by-id pattern), out of
-    // scope here.
+    // Valid UUID shape (the id column's type) but no matching row.
     const res = await stack.app.request(
       `http://${HOST_A}/media/00000000-0000-4000-8000-000000000000/thumb`,
     );
 
     expect(res.status).toBe(404);
+  });
+
+  test("malformed fileRefId → 404, pre-check runs before any DB/systemQuery work", async () => {
+    // Unlike #1950 (auth-gated), this route is anonymous — a non-UUID id
+    // reaching fetchOne() would throw Postgres 22P02 on an unauthenticated
+    // request, an unauth DoS primitive. Must 404 at the httpRoute pre-check.
+    const res = await stack.app.request(`http://${HOST_A}/media/not-a-uuid/thumb`);
+
+    expect(res.status).toBe(404);
+    expect(predicateCalls).toBe(0);
+    expect(renderCalls).toBe(0);
   });
 
   test("cross-tenant: FileRef under tenant A, request resolves to tenant B → 404", async () => {

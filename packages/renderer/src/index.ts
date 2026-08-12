@@ -180,6 +180,7 @@ export type {
   SectionProps,
   StepBarProps,
   TextProps,
+  WizardStepGroupProps,
 } from "./primitives";
 export { PrimitivesProvider, usePrimitives } from "./primitives";
 export { sortByAccessor } from "./sort-by-accessor";

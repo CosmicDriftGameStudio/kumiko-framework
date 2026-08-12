@@ -37,6 +37,7 @@ import {
   type TextProps,
   useColumnRenderer,
   useTranslation,
+  type WizardStepGroupProps,
   WriteFailedError,
 } from "@cosmicdrift/kumiko-renderer";
 import { cva } from "class-variance-authority";
@@ -1692,7 +1693,6 @@ function DefaultSection({
   actions,
   variant = "default",
   testId,
-  hidden,
 }: SectionProps): ReactNode {
   const insideForm = useContext(InsideFormContext);
 
@@ -1728,11 +1728,9 @@ function DefaultSection({
     return (
       <section
         data-testid={testId}
-        hidden={hidden}
         className={cn(
           "flex flex-col gap-4 px-6 py-6",
           variant === "destructive" && "border-l-2 border-destructive/40",
-          hidden && "hidden",
         )}
       >
         {header}
@@ -1759,12 +1757,10 @@ function DefaultSection({
   return (
     <div
       data-testid={testId}
-      hidden={hidden}
       className={cn(
         cardSurface(),
         "overflow-hidden",
         variant === "destructive" && "border-destructive/40",
-        hidden && "hidden",
       )}
     >
       <div className="flex flex-col gap-4 px-6 py-6">
@@ -1899,6 +1895,14 @@ function DefaultStepBar({
   );
 }
 
+function DefaultWizardStepGroup({ hidden, children }: WizardStepGroupProps): ReactNode {
+  return (
+    <fieldset disabled={hidden} hidden={hidden} className={hidden ? undefined : "contents"}>
+      {children}
+    </fieldset>
+  );
+}
+
 function DefaultHeading({ variant = "page", children, testId }: HeadingProps): ReactNode {
   // Page-Heading = h1, sehr selten in einer App (max 1 pro Screen).
   // Section-Heading = h2 mit uppercase + muted-foreground — derselbe
@@ -1994,4 +1998,5 @@ export const defaultPrimitives: CorePrimitives = {
   Link: DefaultLink,
   Progress: DefaultProgress,
   StepBar: DefaultStepBar,
+  WizardStepGroup: DefaultWizardStepGroup,
 };
