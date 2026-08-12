@@ -6,6 +6,7 @@
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
+import { resizeImageBeforeUpload } from "../lib/resize-image";
 import { Button as UiButton } from "../ui/button";
 
 export type FileUploadInputProps = {
@@ -47,8 +48,9 @@ export function FileUploadInput({
     setUploading(true);
     setError(null);
     try {
+      const uploadFile = await resizeImageBeforeUpload(file);
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", uploadFile);
       if (entityType !== undefined) fd.append("entityType", entityType);
       if (fieldName !== undefined) fd.append("fieldName", fieldName);
       // Double-Submit-CSRF wie der Dispatcher: kumiko_csrf-Cookie → Header.

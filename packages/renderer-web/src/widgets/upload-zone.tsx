@@ -2,6 +2,7 @@ import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { CheckCircle2, FileUp, Loader2, TriangleAlert, Upload } from "lucide-react";
 import { type DragEvent, type ReactNode, useId, useRef, useState } from "react";
 import { cn } from "../lib/cn";
+import { resizeImageBeforeUpload } from "../lib/resize-image";
 
 type UploadRowStatus = "uploading" | "done" | "error";
 
@@ -68,7 +69,7 @@ export function UploadZone({
     const rowId = crypto.randomUUID();
     setRows((prev) => [...prev, { id: rowId, fileName: file.name, status: "uploading" }]);
     try {
-      await onUpload(file);
+      await onUpload(await resizeImageBeforeUpload(file));
       setRows((prev) => prev.map((row) => (row.id === rowId ? { ...row, status: "done" } : row)));
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "upload_failed";
