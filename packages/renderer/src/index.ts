@@ -9,6 +9,7 @@
 // eigenen Bootstrap schreiben will. Normale Samples gehen über
 // @cosmicdrift/kumiko-renderer-web/createKumikoApp, das alle Provider verdrahtet.
 
+export { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./app/action-form-shim";
 export type { AppFeaturesProviderProps } from "./app/app-features-context";
 export { AppFeaturesProvider, useAppFeatures } from "./app/app-features-context";
 export type {
