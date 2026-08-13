@@ -3,7 +3,7 @@ import type { SseBroker } from "../api/sse-broker";
 import type { DbConnection, DbRunner, DbTx } from "../db/connection";
 import { runInSavepoint, selectMany } from "../db/query";
 import type { buildEntityTable } from "../db/table-builder";
-import { createTenantDb } from "../db/tenant-db";
+import { createTenantDb, createUncheckedSystemDb } from "../db/tenant-db";
 import { createDerivativesContext } from "../derivatives/derivatives-context";
 import type { defineTransitions } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
@@ -183,6 +183,7 @@ export async function buildHandlerContext(
   // the client has disconnected — handlers with many sequential queries skip
   // the rest of the chain instead of burning DB-CPU for results no one reads.
   const db = dbSource ? buildTenantScopedDb(dbSource, reqCtx?.signal) : undefined;
+  const systemDb = isSystem && db ? createUncheckedSystemDb(db) : undefined;
   // Unbound pool, tenant-scoped like `db` but never tx-bound — writes
   // through it survive a rollback of the handler's own transaction. No
   // AbortSignal here: a client disconnect must not abort a durability write
@@ -573,6 +574,7 @@ export async function buildHandlerContext(
     registry,
     db,
     dbOutsideTransaction,
+    ...(systemDb && { systemDb }),
     log,
     notify,
     ...(config && { config }),

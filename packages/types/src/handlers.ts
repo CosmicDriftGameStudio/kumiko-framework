@@ -177,6 +177,7 @@ export type WriteResult<TData = unknown> =
 // Forward import: Registry is in feature.ts (circular type import — fine in TS)
 import type { Registry } from "./feature";
 import type { TenantId } from "./identifiers";
+import type { UncheckedSystemDb } from "./tenant-db-types";
 
 // Minimal interface for job event triggers (framework-owned, concrete type in jobs/)
 export type JobRunnerRef = {
@@ -358,6 +359,9 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // outside the DB. `undefined` when the pipeline has no outside-tx source
   // for this dispatch (see dispatch-shared.ts) — callers must check before use.
   readonly dbOutsideTransaction: TenantDb | undefined;
+  // Only present for r.systemScope() handlers, bound to the same `db` as above.
+  // Non-system handlers never receive this — reach for `db` instead.
+  readonly systemDb?: UncheckedSystemDb;
   readonly registry: Registry;
   /** Aktiver SessionUser des Handler-Aufrufs — Convenience-Alias zu
    *  `event.user`. Existiert weil Handler intuitiv `ctx.user.tenantId`
