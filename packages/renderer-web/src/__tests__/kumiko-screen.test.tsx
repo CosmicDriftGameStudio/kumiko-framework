@@ -1707,7 +1707,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls).toEqual([]);
   });
 
-  test("custom screen type → placeholder (M4 wires r.uiComponent)", () => {
+  test("custom screen type without a registered component → error placeholder naming feature + screen (kumiko-framework#2025)", () => {
     const customSchema: FeatureSchema = {
       featureName: "tasks",
       entities: { task: taskEntity },
@@ -1724,7 +1724,11 @@ describe("KumikoScreen", () => {
         <KumikoScreen schema={customSchema} qn="tasks:screen:dashboard" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-custom-placeholder")).toBeTruthy();
+    const placeholder = screen.getByTestId("kumiko-screen-custom-placeholder");
+    expect(placeholder.getAttribute("data-variant")).toBe("error");
+    expect(placeholder.textContent).toContain("dashboard");
+    expect(placeholder.textContent).toContain("tasks");
+    expect(placeholder.textContent).toContain("clientFeatures");
   });
 
   // ------------------------------------------------------------------
