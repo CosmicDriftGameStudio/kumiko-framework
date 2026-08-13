@@ -157,19 +157,23 @@ async function appendDomainEvent(
 
 // r.systemScope() handlers must go through ctx.systemDb's guarded methods
 // (assertTenantMatch / acknowledgeCrossTenant) instead of plain ctx.db —
-// "system" mode has no tenant filter at all, so silent ctx.db use there is a
-// cross-tenant leak. HandlerContext.db has no way to become optional per
-// handler (isSystem is a runtime-only registry lookup, not a type-level
-// discriminant), so instead of omitting the key we hand back a Proxy that
-// throws on first touch, naming the handler and pointing at ctx.systemDb.
-function createSystemScopedDbGuard(handlerType: string): TenantDb {
+// "system" mode has no tenant filter at all, so silent ctx.db or
+// ctx.dbOutsideTransaction use there is a cross-tenant leak. HandlerContext
+// has no way to make either field optional per handler (isSystem is a
+// runtime-only registry lookup, not a type-level discriminant), so instead
+// of omitting the key we hand back a Proxy that throws on first touch,
+// naming the handler and pointing at the matching ctx.systemDb escape hatch.
+function createSystemScopedDbGuard(
+  handlerType: string,
+  fieldName: "db" | "dbOutsideTransaction",
+  hint: string,
+): TenantDb {
   return new Proxy({} as TenantDb, {
     get(_target, prop) {
       throw new InternalError({
         message:
-          `Handler "${handlerType}" is r.systemScope()'d — ctx.db is unavailable ` +
-          `(it would be unfiltered across every tenant). Use ` +
-          `ctx.systemDb.assertTenantMatch(...) or ctx.systemDb.acknowledgeCrossTenant(...) ` +
+          `Handler "${handlerType}" is r.systemScope()'d — ctx.${fieldName} is unavailable ` +
+          `(it would be unfiltered across every tenant). Use ${hint} ` +
           `instead (attempted to read "${String(prop)}").`,
       });
     },
@@ -204,19 +208,41 @@ export async function buildHandlerContext(
   // the client has disconnected — handlers with many sequential queries skip
   // the rest of the chain instead of burning DB-CPU for results no one reads.
   const db = dbSource ? buildTenantScopedDb(dbSource, reqCtx?.signal) : undefined;
-  const systemDb = isSystem && db ? createUncheckedSystemDb(db) : undefined;
-  // Exposed as ctx.db below — the internal `db` above stays the real,
-  // working TenantDb for this function's own use (config/derivatives
-  // accessors, systemDb construction).
-  const exposedDb = isSystem && db ? createSystemScopedDbGuard(type) : db;
   // Unbound pool, tenant-scoped like `db` but never tx-bound — writes
   // through it survive a rollback of the handler's own transaction. No
   // AbortSignal here: a client disconnect must not abort a durability write
-  // that is meant to outlive the request.
+  // that is meant to outlive the request. Computed before `systemDb` below
+  // so its guarded escape hatch (ctx.systemDb.outsideTransaction) can wrap
+  // this same TenantDb instead of a second, independently-built one.
   const outsideTxSource = resolveDbSource(ctx, undefined);
-  const dbOutsideTransaction = outsideTxSource
+  const rawDbOutsideTransaction = outsideTxSource
     ? buildTenantScopedDb(outsideTxSource, undefined)
     : undefined;
+  const systemDb =
+    isSystem && db ? createUncheckedSystemDb(db, rawDbOutsideTransaction) : undefined;
+  // Exposed as ctx.db below — the internal `db` above stays the real,
+  // working TenantDb for this function's own use (config/derivatives
+  // accessors, systemDb construction).
+  const exposedDb =
+    isSystem && db
+      ? createSystemScopedDbGuard(
+          type,
+          "db",
+          "ctx.systemDb.assertTenantMatch(...) or ctx.systemDb.acknowledgeCrossTenant(...)",
+        )
+      : db;
+  // Same fail-closed treatment as `exposedDb` — a system handler reaching
+  // ctx.dbOutsideTransaction directly would be a second, unguarded door to
+  // the same cross-tenant access ctx.db closes off above.
+  const dbOutsideTransaction =
+    isSystem && rawDbOutsideTransaction
+      ? createSystemScopedDbGuard(
+          type,
+          "dbOutsideTransaction",
+          "ctx.systemDb.outsideTransaction.assertTenantMatch(...) or " +
+            "ctx.systemDb.outsideTransaction.acknowledgeCrossTenant(...)",
+        )
+      : rawDbOutsideTransaction;
   const log = context.log?.child({
     handler: type,
     tenantId: user.tenantId,

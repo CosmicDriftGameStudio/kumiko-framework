@@ -68,4 +68,14 @@ export type UncheckedSystemDb = {
   assertTenantMatch(tenantId: TenantId): TenantDb;
   assertRowsTenant<T>(rows: readonly T[], tenantField: keyof T): readonly T[];
   acknowledgeCrossTenant(reason: string): TenantDb;
+  // Same self-check pair as above, but hands back the caller's
+  // ctx.dbOutsideTransaction TenantDb instead of the in-tx one — for
+  // durability writes that must survive a rollback of the handler's own
+  // transaction. Throws if the dispatch has no outside-transaction source
+  // configured (e.g. a hand-built UncheckedSystemDb that only ever passed
+  // the in-tx db to createUncheckedSystemDb).
+  readonly outsideTransaction: {
+    assertTenantMatch(tenantId: TenantId): TenantDb;
+    acknowledgeCrossTenant(reason: string): TenantDb;
+  };
 };

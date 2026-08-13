@@ -39,7 +39,9 @@ Writes through it survive a rollback of the handler transaction. Use it only
 to record a fact whose external side effect has already happened and must not
 be forgotten when the business write fails — for example, a provider charge
 acknowledgement or a delivery-attempt record. It is not a replacement for
-`ctx.db` and does not make an otherwise atomic workflow atomic.
+`ctx.db` and does not make an otherwise atomic workflow atomic. On an
+`r.systemScope()` handler it is fail-closed exactly like `ctx.db` — reach for
+`ctx.systemDb.outsideTransaction` instead (see below).
 
 ## `r.systemScope()` handlers self-check through `ctx.systemDb`
 
@@ -74,6 +76,12 @@ so the query calls after them are unchanged:
   platform-wide job). `reason` must be non-empty; it throws otherwise. Treat
   the reason as documentation for the next reader, not decoration.
 
+`ctx.systemDb.outsideTransaction` mirrors `assertTenantMatch`/
+`acknowledgeCrossTenant` above with the same self-checks, but hands back
+`ctx.dbOutsideTransaction`'s unbound-pool `TenantDb` instead of the in-tx one
+— reach for it when a system-scoped handler needs a durability write that
+must survive its own rollback.
+
 `packages/bundled-features/src/tenant/handlers/update.write.ts` shows the
 two-branch shape: a `SystemAdmin` update is cross-tenant by design, while a
 tenant-scoped `Admin` must be checked against the row being edited.
@@ -107,14 +115,15 @@ buckets rows by tenant, then re-verifies each bucket right before writing it
 — see `packages/bundled-features/src/config/handlers/reencrypt.job.ts`
 (`config`'s KEK-rotation job) for the full pattern.
 
-This is convention today, not yet compiler-enforced: `ctx.db` stays reachable
-and unfiltered on a `"system"`-mode feature alongside `ctx.systemDb`, so
-nothing currently stops a new handler from bypassing the wrapper. Framework
-issue #2056 tracks migrating the bundled features to `ctx.systemDb`; the
-planned cutover (#2082) removes `ctx.db` from system-scoped handlers
-entirely, at which point a handler without an explicit check no longer
-compiles. Until then, treat `ctx.systemDb` as the required entry point for
-any new or touched `r.systemScope()` handler.
+Both `ctx.db` and `ctx.dbOutsideTransaction` are fail-closed on a
+`"system"`-mode **handler**: touching either directly throws, naming the
+guarded `ctx.systemDb` accessor to use instead. System-scoped **jobs** are
+narrower — `JobContext` has no `dbOutsideTransaction` at all, so
+`ctx.systemDb.outsideTransaction` there throws its own "not configured"
+error; jobs only get the top-level `ctx.systemDb` self-checks. Framework
+issue #2056 tracks migrating the bundled features onto `ctx.systemDb`
+throughout; treat it as the required entry point for any new or touched
+`r.systemScope()` handler.
 
 ## Model repeated structure as an embedded list
 
