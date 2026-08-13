@@ -52,6 +52,8 @@ const open = { access: { openToAll: true } } as const;
 const TASKS_I18N = {
   "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
   "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
+  "tasks:nav.tasks": { de: "Aufgaben", en: "Tasks" },
+  "tasks:nav.taskNew": { de: "Neue Aufgabe", en: "New task" },
   "tasks:entity:task:field:title": { de: "Titel", en: "Title" },
   "tasks:entity:task:field:status": { de: "Status", en: "Status" },
   "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority" },
@@ -70,10 +72,10 @@ export function createDemoTasksFeature(): FeatureDefinition {
     r.queryHandler(defineEntityDetailHandler("task", taskEntity, open));
     r.screen(listScreen);
     r.screen(editScreen);
-    r.nav({ id: "tasks", label: "Tasks", order: 10, screen: "tasks:screen:task-list" });
+    r.nav({ id: "tasks", label: "tasks:nav.tasks", order: 10, screen: "tasks:screen:task-list" });
     r.nav({
       id: "task-new",
-      label: "New task",
+      label: "tasks:nav.taskNew",
       parent: "tasks:nav:tasks",
       screen: "tasks:screen:task-edit",
       order: 10,
@@ -142,10 +144,10 @@ export const tasksFeature = defineFeature("tasks", (r) => {
   r.queryHandler(defineEntityDetailHandler("task", taskEntity, open));
   r.screen(listScreen);
   r.screen(editScreen);
-  r.nav({ id: "tasks", label: "Tasks", order: 10, screen: "tasks:screen:task-list" });
+  r.nav({ id: "tasks", label: "tasks:nav.tasks", order: 10, screen: "tasks:screen:task-list" });
   r.nav({
     id: "task-new",
-    label: "New task",
+    label: "tasks:nav.taskNew",
     parent: "tasks:nav:tasks",
     screen: "tasks:screen:task-edit",
     order: 10,
@@ -162,6 +164,8 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 export const tasksTranslationKeys = {
   "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
   "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
+  "tasks:nav.tasks": { de: "Aufgaben", en: "Tasks" },
+  "tasks:nav.taskNew": { de: "Neue Aufgabe", en: "New task" },
   "tasks:entity:task:field:title": { de: "Titel", en: "Title" },
   "tasks:entity:task:field:status": { de: "Status", en: "Status" },
   "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority" },
@@ -172,6 +176,8 @@ export const tasksTranslations: TranslationsByLocale = {
   de: {
     "screen:task-list.title": "Aufgaben",
     "screen:task-edit.title": "Aufgabe",
+    "tasks:nav.tasks": "Aufgaben",
+    "tasks:nav.taskNew": "Neue Aufgabe",
     "tasks:entity:task:field:title": "Titel",
     "tasks:entity:task:field:status": "Status",
     "tasks:entity:task:field:priority": "Priorität",
@@ -180,6 +186,8 @@ export const tasksTranslations: TranslationsByLocale = {
   en: {
     "screen:task-list.title": "Tasks",
     "screen:task-edit.title": "Task",
+    "tasks:nav.tasks": "Tasks",
+    "tasks:nav.taskNew": "New task",
     "tasks:entity:task:field:title": "Title",
     "tasks:entity:task:field:status": "Status",
     "tasks:entity:task:field:priority": "Priority",
