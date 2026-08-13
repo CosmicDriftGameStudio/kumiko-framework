@@ -182,6 +182,16 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(VARIANT_BYTES);
   });
 
+  // setupTestStack doesn't wrap with the app-wide security-headers default, so a pass proves the route sets its own.
+  test("sets X-Content-Type-Options: nosniff on the response itself", async () => {
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+
+    const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
   test("a second call on the same (fileRefId, variant) hits the cache — renderer runs once", async () => {
     const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
 
