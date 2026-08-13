@@ -171,4 +171,47 @@ describe("createDerivativesContext — variant()", () => {
     expect(provider.mimeTypeOf(result.storageKey)).toBe(result.mimeType);
     expect(result.mimeType).toBe("image/webp");
   });
+
+  // #2021 — a variant with no spec.format used to fall straight through to
+  // the source's mimeType, which is client-controlled (`file.type` off the
+  // upload). A field without `accept` plus a broad `image/*` renderer
+  // wildcard (like `setup()`'s here) let a client ride an active-content
+  // type like `image/svg+xml` all the way to the response Content-Type.
+  test("no spec.format + a non-allowlisted source mimeType does not take over that mimeType", async () => {
+    const { ctx, provider } = await setup("image/svg+xml");
+    const spec = {} as const;
+
+    const result = await ctx.variant(FILE_REF_ID, spec, "thumb");
+
+    expect(result.mimeType).not.toBe("image/svg+xml");
+    expect(result.mimeType).toBe("application/octet-stream");
+    expect(provider.mimeTypeOf(result.storageKey)).toBe("application/octet-stream");
+  });
+
+  test("no spec.format + a non-allowlisted source mimeType — a cache hit returns the same normalized value", async () => {
+    const { ctx } = await setup("image/svg+xml");
+    const spec = {} as const;
+
+    const first = await ctx.variant(FILE_REF_ID, spec, "thumb");
+    const second = await ctx.variant(FILE_REF_ID, spec, "thumb");
+
+    expect(first.mimeType).toBe("application/octet-stream");
+    expect(second.mimeType).toBe("application/octet-stream");
+  });
+
+  test("no spec.format keeps a known-safe source mimeType — resize-without-reformat stays intact", async () => {
+    const { ctx } = await setup("image/png");
+
+    const result = await ctx.variant(FILE_REF_ID, { maxEdge: 320 }, "thumb");
+
+    expect(result.mimeType).toBe("image/png");
+  });
+
+  test("no spec.format normalizes a `; charset=` suffix off the source mimeType instead of leaking it raw", async () => {
+    const { ctx } = await setup("image/jpeg; charset=binary");
+
+    const result = await ctx.variant(FILE_REF_ID, {}, "thumb");
+
+    expect(result.mimeType).toBe("image/jpeg");
+  });
 });
