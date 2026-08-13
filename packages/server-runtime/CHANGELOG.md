@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.199.0
+
+### Patch Changes
+
+- df2db70: The client `AppSchema` now carries `FeatureSchema.searchAdapterMissing`, set from the same `context.searchAdapter` presence check that already powers #2051's boot warning. `kumiko-screen.tsx`'s `entityList` search box is gated on it: when the server has no `SearchAdapter` wired, the box no longer renders at all, instead of rendering and then 422'ing on the first query (`search_adapter_not_wired`, #2032). Scoped to `entityList` screens only, matching #2051's own boot-check scope — `projectionList` screens are unaffected. Non-breaking: the flag defaults to "not missing" wherever a schema doesn't flow through `buildAppSchema()` (hand-authored fixtures, legacy `toAppSchema()`), preserving today's render behavior.
+- Updated dependencies [7dd7d05]
+- Updated dependencies [df2db70]
+- Updated dependencies [107f9bb]
+- Updated dependencies [8485e63]
+- Updated dependencies [059f2cb]
+- Updated dependencies [021c5df]
+- Updated dependencies [3389b20]
+- Updated dependencies [41eb28c]
+- Updated dependencies [7135b86]
+- Updated dependencies [5816935]
+- Updated dependencies [fb8cbb7]
+  - @cosmicdrift/kumiko-framework@0.199.0
+  - @cosmicdrift/kumiko-bundled-features@0.199.0
+
 ## 0.198.0
 
 ### Patch Changes

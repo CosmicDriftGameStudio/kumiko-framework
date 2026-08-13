@@ -1,5 +1,0 @@
----
-"@cosmicdrift/kumiko-bundled-features": patch
----
-
-`jobs:job:projection-rebuild`'s implicit `ctx.db as DbConnection` cast is now `ctx.systemDb.acknowledgeCrossTenant("global projection rebuild").raw`, the fw#2067/#2105 fail-closed primitive extended to `JobContext`. The rebuild streams every tenant's events by design, so `acknowledgeCrossTenant` (not `assertTenantMatch`, which needs a single tenantId to compare against and this job's payload has none) is the correct call. `.raw` resolves to the same `DbConnection` `ctx.db` carried before, so the rebuild itself behaves identically. The guard does change: the job now fails closed on missing `ctx.systemDb` instead of missing `ctx.db` — a no-op for the shipped `jobs` feature (it declares `r.systemScope()`, verified against both dispatch paths: `enqueueProjectionRebuild` and the registry-validated qualified-name trigger path) but a new hard requirement for any composed feature that registers this job without that scope. Pattern reference for the remaining `#2056` migration sub-issues.

@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.199.0
+
+### Minor Changes
+
+- 3252009: `synthesizeActionFormEntity` and `synthesizeActionFormScreen` are now public API, so apps can render an `actionForm` screen through `RenderEdit` in their own layout (e.g. embedded in a drawer) instead of duplicating the shim.
+
+### Patch Changes
+
+- a363820: A nav entry's `icon` key that isn't registered in `NAV_ICONS` (typo, or a dynamically/provider-resolved key the type system can't check) used to fall back to the dot indicator with no diagnostic at all — indistinguishable from an entry that never set an icon. `NavLeadingIcon` now emits a `console.warn` naming the nav entry's qualified name and the unknown key when this happens, while the dot fallback itself is unchanged.
+- Updated dependencies [df2db70]
+- Updated dependencies [3252009]
+  - @cosmicdrift/kumiko-renderer@0.199.0
+  - @cosmicdrift/kumiko-headless@0.199.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.199.0
+
 ## 0.198.0
 
 ### Minor Changes

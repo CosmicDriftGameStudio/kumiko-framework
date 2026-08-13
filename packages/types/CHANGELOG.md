@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-types
 
+## 0.199.0
+
+### Minor Changes
+
+- 8485e63: `HandlerContext` gains `systemDb?: UncheckedSystemDb` (fw#2067's fail-closed wrapper), populated for `r.systemScope()` handlers alongside the existing `ctx.db`. Non-system handlers don't receive it — `ctx.db` behavior is unchanged for everyone.
+
 ## 0.198.0
 
 ### Minor Changes

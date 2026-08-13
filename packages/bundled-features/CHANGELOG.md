@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.199.0
+
+### Patch Changes
+
+- 107f9bb: `config`'s `values`, `cascade`, and `readiness` query handlers now read through `ctx.systemDb.assertTenantMatch(...)` instead of raw `ctx.db` (fw#2071, part of the fw#2056 `systemScope()` migration). Pure pattern migration — `assertTenantMatch` is a self-check on the caller's own tenant (always the dispatching user's tenantId by construction), not a new query filter, so behavior and access are unchanged. `buildProviderSelectionGate` and `collectMissingRequiredConfig` (shared with the separate `readiness` feature's status handler) now take the already-scoped `db: TenantDb` as an explicit required parameter instead of resolving it internally, so each caller keeps its own scope decision self-contained.
+- 059f2cb: `delivery`'s `log` query handler now reads through `ctx.systemDb.assertTenantMatch(...)` instead of raw `ctx.db` (fw#2074, part of the fw#2056 `systemScope()` migration). Pure pattern migration — the explicit `where: { tenantId }` filter stays, since `assertTenantMatch` is a self-check on the caller's own tenant, not a query filter. Behavior and access are unchanged.
+- 021c5df: `feature-toggles`'s `set`/`list`/`registered` handlers now read and write `globalFeatureStateTable` through `ctx.systemDb.acknowledgeCrossTenant(...)` instead of `ctx.db` directly, matching the fw#2069 pattern for `r.systemScope()` handlers. The table has no tenant column and was never tenant-filtered — this is pattern consistency, not a behavior or security change.
+- 3389b20: The `jobs` feature's `list`, `details`, and `retry` handlers now read/write through `ctx.systemDb.acknowledgeCrossTenant("cross-tenant job monitoring")` instead of `ctx.db` directly (fw#2077, part of fw#2056's fail-closed `systemScope()` migration). Behavior is unchanged — these handlers are intentionally platform-wide, unscoped job monitoring by `runId` — the change makes that cross-tenant intent explicit and self-documenting instead of implicit in `ctx.db`'s already-unfiltered "system" mode.
+- 41eb28c: `jobs:job:projection-rebuild`'s implicit `ctx.db as DbConnection` cast is now `ctx.systemDb.acknowledgeCrossTenant("global projection rebuild").raw`, the fw#2067/#2105 fail-closed primitive extended to `JobContext`. The rebuild streams every tenant's events by design, so `acknowledgeCrossTenant` (not `assertTenantMatch`, which needs a single tenantId to compare against and this job's payload has none) is the correct call. `.raw` resolves to the same `DbConnection` `ctx.db` carried before, so the rebuild itself behaves identically. The guard does change: the job now fails closed on missing `ctx.systemDb` instead of missing `ctx.db` — a no-op for the shipped `jobs` feature (it declares `r.systemScope()`, verified against both dispatch paths: `enqueueProjectionRebuild` and the registry-validated qualified-name trigger path) but a new hard requirement for any composed feature that registers this job without that scope. Pattern reference for the remaining `#2056` migration sub-issues.
+- 7135b86: The `reindexEntity` job now reads through `ctx.systemDb.assertTenantMatch(ctx.systemUser.tenantId).raw` instead of raw `ctx.db` (fw#2079, part of the fw#2056 `systemScope()` migration). The per-tenant scoping still comes from the perTenant fan-out (one job-runner-enqueued child per active tenant); this only replaces the unchecked `ctx.db` read with the fail-closed self-check now that `JobContext.systemDb` is wired (fw#2105). Behavior is unchanged — `reindexEntity()` still filters `WHERE tenant_id = $1` with the same tenant.
+- 5816935: `compliance-profiles`'s `needs-profile` query used to tell a TenantAdmin they still need to pick a compliance profile even when the feature's `access` option (e.g. `access.systemAdmin`) had removed them from the profile-picker screen — a nag pointing at a screen they can no longer open. The query now checks whether the caller's roles actually intersect the picker's configured access before reporting `needsSelection: true`, returning `reason: "picker_not_accessible_for_role"` instead when they don't. Call access to the endpoint itself is unchanged (still TenantAdmin-only).
+- fb8cbb7: `tenant:write:update`'s manual cross-tenant self-check (`event.payload.id !== event.user.tenantId`) is now `ctx.systemDb.assertTenantMatch(...)`, the fw#2067 fail-closed primitive. Same predicate (bound to `event.user.tenantId` at dispatch), same externally observable behavior — a cross-tenant `Admin` write still gets `tenant_not_found`, `SystemAdmin` still updates any tenant. Pattern reference for the remaining `#2056` migration sub-issues.
+- Updated dependencies [7dd7d05]
+- Updated dependencies [df2db70]
+- Updated dependencies [8485e63]
+- Updated dependencies [3252009]
+- Updated dependencies [a363820]
+  - @cosmicdrift/kumiko-framework@0.199.0
+  - @cosmicdrift/kumiko-renderer@0.199.0
+  - @cosmicdrift/kumiko-types@0.199.0
+  - @cosmicdrift/kumiko-renderer-web@0.199.0
+  - @cosmicdrift/kumiko-headless@0.199.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.199.0
+
 ## 0.198.0
 
 ### Minor Changes
