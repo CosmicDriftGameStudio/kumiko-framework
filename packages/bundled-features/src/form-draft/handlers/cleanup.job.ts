@@ -63,12 +63,18 @@ async function releaseRowFileRefs(
   // db/queries/owned-file-refs.ts). Not wrapped in try/catch: a query
   // failure here (pool exhaustion, missing table) is a real error, not the
   // "no provider resolvable" case below — let it propagate so the job retries.
+  //
+  // Create-mode draftKey (`${screenId}:new:${draftId}`) mints its draftId
+  // lazily on the first step-change — a file uploaded before that exists
+  // predates the draft row, so the insertedAt filter must not apply.
+  const isCreateMode = row.draftKey.includes(":new:");
   const ownedKeys = await filterOwnedStorageKeys(
     db,
     row.tenantId,
     row.ownerId,
     keys,
     row.insertedAt,
+    isCreateMode,
   );
 
   try {

@@ -53,12 +53,18 @@ export const discardDraftWrite = defineWriteHandler({
       // releasable — `values` is free-form JSON the caller controls, so an
       // unverified key could target someone else's file (see
       // db/queries/owned-file-refs.ts).
+      //
+      // Create-mode draftKey (`${screenId}:new:${draftId}`) mints its draftId
+      // lazily on the first step-change — a file uploaded before that exists
+      // predates the draft row, so the insertedAt filter must not apply.
+      const isCreateMode = event.payload.draftKey.includes(":new:");
       const ownedRefs = await filterOwnedFileRefs(
         ctx.db.raw,
         event.user.tenantId,
         ownerId,
         candidateKeys,
         existing.insertedAt,
+        isCreateMode,
       );
       const refsByStorageKey = new Map(ownedRefs.map((ref) => [ref.storageKey, ref]));
       await releaseDraftFileRefs(

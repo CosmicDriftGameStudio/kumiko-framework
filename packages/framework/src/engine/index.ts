@@ -412,7 +412,7 @@ export type {
   WriteResult,
 } from "./types";
 export { DEFAULT_CURRENCIES, HookPhases } from "./types";
-export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
+export { isSystemTenant, isUuid, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
 export type {
   PipelineBuildCtx,
   PipelineCtx,

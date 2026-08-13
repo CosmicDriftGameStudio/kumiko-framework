@@ -18,14 +18,30 @@ import type { Temporal } from "temporal-polyfill";
 // entity) but must survive a discard/cleanup sweep because the live entity
 // still references them. Only uploads that happened during THIS draft's
 // lifetime (inserted after the draft row) are release-eligible.
+//
+// `isCreateMode` bypasses that timestamp filter entirely: a create-mode
+// draftKey (`${screenId}:new:${draftId}`) mints its draftId lazily on the
+// first step-change, so a file uploaded on step 0 gets a file_refs row
+// timestamped BEFORE the draft row exists. There is no pre-filled entity in
+// create-mode — every FileRef the draft references is draft-owned — so the
+// filter would otherwise permanently exclude that key from every future
+// discard/cleanup, leaking it as an unreleasable storage object.
 export async function filterOwnedStorageKeys(
   db: DbRunner,
   tenantId: TenantId,
   ownerId: string,
   candidateKeys: readonly string[],
   draftInsertedAt: Temporal.Instant,
+  isCreateMode: boolean,
 ): Promise<readonly string[]> {
-  const rows = await filterOwnedFileRefs(db, tenantId, ownerId, candidateKeys, draftInsertedAt);
+  const rows = await filterOwnedFileRefs(
+    db,
+    tenantId,
+    ownerId,
+    candidateKeys,
+    draftInsertedAt,
+    isCreateMode,
+  );
   return rows.map((row) => row.storageKey);
 }
 
@@ -43,14 +59,15 @@ export async function filterOwnedFileRefs(
   ownerId: string,
   candidateKeys: readonly string[],
   draftInsertedAt: Temporal.Instant,
+  isCreateMode: boolean,
 ): Promise<readonly OwnedFileRef[]> {
   if (candidateKeys.length === 0) return [];
   const rows = (await asRawClient(db).unsafe(
     `SELECT "id", "storage_key" FROM "file_refs"
      WHERE "tenant_id" = $1 AND "inserted_by_id" = $2
        AND "storage_key" = ANY($3::text[]) AND "is_deleted" = false
-       AND "inserted_at" > $4::timestamptz`,
-    [tenantId, ownerId, candidateKeys, draftInsertedAt.toString()],
+       AND ($5::boolean OR "inserted_at" > $4::timestamptz)`,
+    [tenantId, ownerId, candidateKeys, draftInsertedAt.toString(), isCreateMode],
   )) as readonly { id: string; storage_key: string }[];
   return rows.map((row) => ({ id: row.id, storageKey: row.storage_key }));
 }

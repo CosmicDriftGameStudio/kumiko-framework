@@ -19,6 +19,7 @@ function row(id: string, tenantId = TENANT_A): StaleDraftRow {
     id,
     tenantId,
     ownerId: "owner-1",
+    draftKey: "wizard:draft",
     draft: { values: {}, stepIndex: 0, savedAt: "" },
     insertedAt: Temporal.Instant.fromEpochMilliseconds(0),
   };

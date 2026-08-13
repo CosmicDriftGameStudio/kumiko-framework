@@ -42,7 +42,10 @@ import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
-import { tenantInvitationDeleteHook } from "../../user-data-rights-defaults";
+import {
+  tenantInvitationDeleteHook,
+  tenantInvitationExportHook,
+} from "../../user-data-rights-defaults";
 import { AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { seedUser } from "../seeding";
@@ -298,6 +301,33 @@ describe("auth flows with active KMS + blind index", () => {
     expect(list[0]?.email).toBe(CAROL_EMAIL);
     expect(isPiiCiphertext(list[0]?.invitedBy)).toBe(false);
     expect(list[0]?.invitedBy).toBe(aliceId);
+  });
+
+  // fw-review #8: the export hook returned the raw stored `email` column —
+  // under active KMS that's base64 ciphertext, not the address, so a GDPR
+  // export contained an unreadable blob instead of the invited email. The
+  // hook matches on the EXPORTING user's own (decrypted) email, i.e. the
+  // invitee side — Bob is the invitee here, Alice the inviter.
+  test("Art.15 export decrypts the invitation email under active KMS", async () => {
+    await inviteEmail(BOB_EMAIL, "Editor");
+
+    const [rawInvitation] = await asRawClient(stack.db).unsafe<Record<string, unknown>>(
+      `SELECT * FROM "${tenantInvitationsTable.tableName}" WHERE tenant_id = $1`,
+      [TENANT_A_ID],
+    );
+    if (!rawInvitation) throw new Error("no invitation row seeded");
+    expect(isPiiCiphertext(rawInvitation["email"])).toBe(true);
+
+    const result = await tenantInvitationExportHook({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: TENANT_A_ID,
+      userId: bobId,
+    });
+
+    expect(result?.entity).toBe("tenant-invitation");
+    expect(result?.rows).toHaveLength(1);
+    expect(result?.rows[0]?.["email"]).toBe(BOB_EMAIL);
   });
 
   // fw-review #7: the inviter-forget arm compared a plaintext userId against

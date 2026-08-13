@@ -86,6 +86,15 @@ function outputMimeType(spec: VariantSpec, sourceMimeType: string): string {
   }
 }
 
+// `deps.db` is whatever the caller passes through — in the write-handler
+// pipeline (dispatch-shared.ts) that's the handler's open DbTx. `variant()`
+// then holds that transaction open across a full render (decode/resize/
+// encode) plus the storage read+write, not just the fetchOne/exists checks.
+// On a later rollback in the same handler, a variant already written to
+// storage is orphaned there (row never committed, bytes never cleaned up).
+// Prefer this context from the job/MSP path, where `deps.db` isn't tied to
+// an in-flight write transaction; a synchronous write handler rendering a
+// large image should hand off to a job instead of calling `variant()` inline.
 export function createDerivativesContext(deps: DerivativesContextDeps): DerivativesContext {
   return {
     variant: async (fileRefId, spec, name) => {

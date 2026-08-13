@@ -8,6 +8,7 @@ export type StaleDraftRow = {
   readonly id: string;
   readonly tenantId: TenantId;
   readonly ownerId: string;
+  readonly draftKey: string;
   readonly draft: FormDraftBlob;
   readonly insertedAt: Temporal.Instant;
 };
@@ -29,7 +30,7 @@ export async function selectStaleDraftsBatch(
   batchSize: number,
 ): Promise<readonly StaleDraftRow[]> {
   const rows = (await asRawClient(db).unsafe(
-    `SELECT "id", "tenant_id", "owner_id", "draft", "inserted_at" FROM "read_form_drafts"
+    `SELECT "id", "tenant_id", "owner_id", "draft_key", "draft", "inserted_at" FROM "read_form_drafts"
      WHERE COALESCE("modified_at", "inserted_at") < now() - ($1::int * interval '1 day')
      ORDER BY COALESCE("modified_at", "inserted_at") ASC
      LIMIT $2`,
@@ -38,6 +39,7 @@ export async function selectStaleDraftsBatch(
     id: string;
     tenant_id: string;
     owner_id: string;
+    draft_key: string;
     draft: FormDraftBlob;
     inserted_at: Date;
   }[];
@@ -45,6 +47,7 @@ export async function selectStaleDraftsBatch(
     id: row.id,
     tenantId: row.tenant_id as TenantId, // @cast-boundary db-row
     ownerId: row.owner_id,
+    draftKey: row.draft_key,
     draft: row.draft,
     insertedAt: Temporal.Instant.fromEpochMilliseconds(+row.inserted_at), // @cast-boundary db-row
   }));

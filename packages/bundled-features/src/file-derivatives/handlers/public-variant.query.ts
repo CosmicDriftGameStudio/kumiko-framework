@@ -23,6 +23,7 @@ import {
   defineQueryHandler,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
   type HandlerContext,
+  isUuid,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
@@ -69,7 +70,10 @@ export const PUBLIC_VARIANT_QN = "file-derivatives:query:public-variant";
 export const publicVariantQuery = defineQueryHandler({
   name: "public-variant",
   schema: z.object({
-    fileRefId: z.string().uuid(),
+    // Loose, version-agnostic UUID shape (same as isUuid/TENANT_ID_REGEX in
+    // packages/types) — not zod's `.uuid()`, which is stricter than this
+    // repo's convention and would reject valid v7/nil ids the DB accepts.
+    fileRefId: z.string().refine(isUuid, "invalid fileRefId"),
     variant: z.string().min(1).max(64),
   }),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },

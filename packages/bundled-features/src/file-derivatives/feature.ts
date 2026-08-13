@@ -12,18 +12,13 @@ import {
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
   EXT_DERIVATIVE_RENDERER,
   type FeatureDefinition,
+  isUuid,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
 import { PUBLIC_VARIANT_QN, publicVariantQuery } from "./handlers/public-variant.query";
 
 const FEATURE_NAME = "file-derivatives";
-
-// fileRefsTable.id is a UUID column — a malformed id must fail here, not at
-// the DB. Without this, an anonymous, internet-facing caller can throw a
-// Postgres 22P02 on every request (Bun.SQL pools the failed connection),
-// a DoS primitive with no auth required.
-const FILE_REF_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Syntactic only, no registry/name-list lookup: a valid preset name plus a
 // random UUID reaches the same DB read anyway, so an allow-list of known
@@ -88,6 +83,11 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
     // Needs a storage provider to read the original + write the variant —
     // without file-foundation there's nothing to derive from or write to.
     r.requires("file-foundation");
+    // variant() reads fileRefsTable, which "files" (not file-foundation)
+    // owns — without this, mounting file-derivatives + file-foundation
+    // alone boots fine but fails at request-time with a SQL error the first
+    // time variant() runs.
+    r.requires("files");
 
     r.extendsRegistrar(EXT_DERIVATIVE_RENDERER, {
       onRegister: () => {
@@ -129,13 +129,12 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
           const fileRefId = c.req.param("fileRefId");
           const variant = c.req.param("variant");
           // 404, not 400 — a syntactically bad name and "doesn't exist" must
-          // answer identically, no name-oracle.
-          if (
-            !fileRefId ||
-            !variant ||
-            !VARIANT_NAME_RE.test(variant) ||
-            !FILE_REF_ID_RE.test(fileRefId)
-          ) {
+          // answer identically, no name-oracle. fileRefsTable.id is a UUID
+          // column — a malformed id must fail here, not at the DB. Without
+          // this, an anonymous, internet-facing caller can throw a Postgres
+          // 22P02 on every request (Bun.SQL pools the failed connection), a
+          // DoS primitive with no auth required.
+          if (!fileRefId || !variant || !VARIANT_NAME_RE.test(variant) || !isUuid(fileRefId)) {
             return c.text("not found", 404);
           }
 

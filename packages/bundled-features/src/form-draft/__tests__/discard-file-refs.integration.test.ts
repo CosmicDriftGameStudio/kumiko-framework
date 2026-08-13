@@ -146,6 +146,23 @@ describe("form-draft discard — FileRef release", () => {
     expect(provider.keys()).toContain(key);
   });
 
+  test("discarding a create-mode draft (draftKey contains :new:) releases a storageKey whose file_refs row predates the draft row", async () => {
+    // Create-mode mints draftId lazily on the first step-change (see
+    // form-draft/lookup.ts) — the very first save already carries the
+    // step-0 photo, so the file_refs row for that upload is always older
+    // than (or equal to) the draft row's own insertedAt. Unlike edit-mode,
+    // there is no pre-existing domain entity here — every FileRef the
+    // draft references is draft-owned and must remain releasable.
+    const key = "tenant/vehicle/photo/create-mode.jpg";
+    await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
+    await seedFileRef(key); // file_refs row inserted before the draft row below
+    await saveDraft("wizard:new:abc-123", { photo: fileRefPointer(key) });
+
+    await discardDraft("wizard:new:abc-123", true);
+
+    expect(provider.keys()).not.toContain(key);
+  });
+
   test("discarding without releaseFiles leaves the storage binary intact (successful-submit default)", async () => {
     const key = "tenant/vehicle/photo/kept.jpg";
     await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");

@@ -88,7 +88,12 @@ describe("event-store-executor — money column rehydration through raw SQL (fw#
     const res = await exec.list({ limit: 50 }, admin, tdb);
     expect(res.rows).toHaveLength(1);
     const row = res.rows[0] as Record<string, unknown>;
-    expect(row["grossTotal"]).toEqual({ amount: 136.85, currency: "EUR", amountMinor: 13685 });
+    expect(row["grossTotal"]).toEqual({
+      amount: 136.85,
+      currency: "EUR",
+      amountScaled: 13685,
+      amountMinor: 13685,
+    });
     expect("grossTotalCurrency" in row).toBe(false);
   });
 
@@ -111,7 +116,12 @@ describe("event-store-executor — money column rehydration through raw SQL (fw#
     > | null;
     expect(row).not.toBeNull();
     if (!row) return;
-    expect(row["grossTotal"]).toEqual({ amount: 42.5, currency: "USD", amountMinor: 4250 });
+    expect(row["grossTotal"]).toEqual({
+      amount: 42.5,
+      currency: "USD",
+      amountScaled: 4250,
+      amountMinor: 4250,
+    });
     expect("grossTotalCurrency" in row).toBe(false);
   });
 

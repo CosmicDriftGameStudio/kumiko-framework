@@ -5,7 +5,13 @@ import type { DbConnection } from "../db/connection";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { createTenantDb } from "../db/tenant-db";
 import { createDerivativesContext, resolveFieldVariant, resolveRenderer } from "../derivatives";
-import { isFileField, type Registry, type SessionUser, type TenantId } from "../engine/types";
+import {
+  isFileField,
+  isUuid,
+  type Registry,
+  type SessionUser,
+  type TenantId,
+} from "../engine/types";
 import { generateId } from "../utils";
 import { buildContentDispositionHeader } from "./content-disposition";
 import { createFileContext } from "./file-handle";
@@ -396,6 +402,11 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   });
 
   async function loadFileForTenant(id: string, tenantId: TenantId): Promise<FileRef | null> {
+    // fileRefsTable.id is a UUID column — a malformed id must fail here, not
+    // at Postgres (22P02 poisons the pooled Bun.SQL connection). 404, not
+    // 400: an authenticated caller sending a bad id must see the same
+    // response as a nonexistent one, no existence-oracle.
+    if (!isUuid(id)) return null;
     // isDeleted:false — soft-deleted (trashed) rows stay recoverable but must
     // never surface to reads/guards.
     const [row] = await selectMany(db, fileRefsTable, { id, tenantId, isDeleted: false });

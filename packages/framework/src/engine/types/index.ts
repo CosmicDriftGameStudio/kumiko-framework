@@ -204,6 +204,7 @@ export type {
 export type { EntityId, TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 export {
   isSystemTenant,
+  isUuid,
   parseTenantId,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-types/identifiers";

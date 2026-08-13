@@ -320,4 +320,26 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
     // The live domain entity this draft was editing still references `key`.
     expect(providerA.keys()).toContain(key);
   });
+
+  test("releases a storageKey whose file_refs row predates the draft when the draftKey is create-mode (:new:)", async () => {
+    // Create-mode mints draftId lazily on the first step-change — the very
+    // first save already carries the step-0 photo, so the file_refs row
+    // predates the draft row by construction. Unlike the edit-mode case
+    // above there is no pre-existing domain entity, so the file must still
+    // be releasable on cleanup, not leaked as an orphaned storage object.
+    const key = "tenant-a/vehicle/create-mode.jpg";
+    await providerA.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
+    await seedFileRef(key);
+    await backdateFileRef(key, 60);
+
+    await saveDraft("wizard:new:create-mode-stale", { photo: fileRefPointer(key) });
+    await backdate("wizard:new:create-mode-stale", 31);
+
+    await dispatchCleanup();
+
+    await waitFor(async () => {
+      expect(await draftExists("wizard:new:create-mode-stale")).toBe(false);
+    });
+    expect(providerA.keys()).not.toContain(key);
+  });
 });
