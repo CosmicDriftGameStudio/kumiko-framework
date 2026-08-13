@@ -9,6 +9,7 @@ import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import {
   FEATURE_TOGGLE_AGGREGATE_TYPE,
+  FEATURE_TOGGLE_CROSS_TENANT_REASON,
   FEATURE_TOGGLE_SET_EVENT_NAME,
   FeatureToggleErrors,
 } from "../constants";
@@ -53,6 +54,20 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
         );
       }
 
+      // Guard 0.5: feature-toggles is r.systemScope() (feature.ts), so
+      // ctx.systemDb is always populated by buildHandlerContext for this
+      // handler — the `?` on the type is a HandlerContext-wide optionality,
+      // not a real runtime possibility here. Guard anyway instead of a
+      // non-null assertion: an app that ever un-declares r.systemScope()
+      // gets an actionable error instead of a silent `undefined.acknowledgeCrossTenant`.
+      if (!ctx.systemDb) {
+        throw new Error(
+          "[feature-toggles] set-handler requires ctx.systemDb — the feature-toggles " +
+            "feature must stay r.systemScope() (see feature.ts).",
+        );
+      }
+      const db = ctx.systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
+
       // Guard 1: featureName must be a registered feature. Otherwise we'd
       // pile up orphan rows from typos that the gate would silently apply
       // (if someone ever added a feature with that name later).
@@ -90,7 +105,7 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
         updatedBy: string;
       };
       const [existing] = await selectMany<StateRow>(
-        ctx.db,
+        db,
         globalFeatureStateTable,
         { featureName },
         { limit: 1 },
@@ -100,7 +115,7 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
 
       if (!existing) {
         // First-time override: insert.
-        await insertOne(ctx.db, globalFeatureStateTable, {
+        await insertOne(db, globalFeatureStateTable, {
           featureName,
           enabled,
           version: 1,
@@ -111,7 +126,7 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
         // Upsert with optimistic lock. Two operators flipping the same
         // toggle simultaneously is rare but possible — the version-WHERE
         // ensures only one wins; the loser sees VersionConflictError.
-        const updated = await ctx.db.updateMany(
+        const updated = await db.updateMany(
           globalFeatureStateTable,
           {
             enabled,
