@@ -17,7 +17,7 @@ export type LocaleRouter<TPage extends string> = {
   detectLang(pathname: string): string;
   publicPath(page: TPage, locale: string): string;
   resolvePage(pathname: string): TPage | undefined;
-  altLocalePath(pathname: string): string;
+  altLocalePath(pathname: string, targetLocale?: string): string;
   sectionAnchor(page: TPage, locale: string, fragment: string): string;
 };
 
@@ -109,16 +109,16 @@ export function createLocaleRouter<TPage extends string>(
   function publicPath(page: TPage, locale: string): string {
     const localePaths = routes[page];
     const routePath = localePaths?.[locale];
-    if (routePath === undefined) {
+    if (
+      localePaths === undefined ||
+      !Object.hasOwn(localePaths, locale) ||
+      routePath === undefined
+    ) {
       throw new Error(`locale-routing: no path for page "${String(page)}" locale "${locale}"`);
     }
     return routePath;
   }
 
-  // Binary toggle (defaultLocale <-> prefixedLocales[0]) — altLocalePath has
-  // no way to target a specific alt locale beyond the first prefixed one.
-  // Fine for the current bilingual (de/en) setup; a third prefixed locale
-  // needs altLocalePath to take an explicit targetLocale param instead.
   function otherLocale(currentLocale: string): string {
     if (currentLocale === defaultLocale) {
       return prefixedLocales[0] ?? defaultLocale;
@@ -126,14 +126,14 @@ export function createLocaleRouter<TPage extends string>(
     return defaultLocale;
   }
 
-  function altLocalePath(pathname: string): string {
+  function altLocalePath(pathname: string, targetLocale?: string): string {
     const path = normalizePath(pathname);
     const resolved = pathIndex.get(path);
-    const targetLocale = otherLocale(detectLang(pathname));
+    const locale = targetLocale ?? otherLocale(detectLang(pathname));
     if (resolved !== undefined) {
-      return publicPath(resolved.page, targetLocale);
+      return publicPath(resolved.page, locale);
     }
-    return publicPath(homePage, targetLocale);
+    return publicPath(homePage, locale);
   }
 
   function sectionAnchor(page: TPage, locale: string, fragment: string): string {

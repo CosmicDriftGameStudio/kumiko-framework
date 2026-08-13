@@ -93,6 +93,47 @@ describe("createLocaleRouter inverted default (website-style)", () => {
   });
 });
 
+type OfflotPage = "home" | "features";
+
+const offlotRouter = createLocaleRouter<OfflotPage>({
+  defaultLocale: "es",
+  prefixedLocales: ["en", "de"],
+  routes: {
+    home: { es: "/", en: "/en", de: "/de" },
+    features: { es: "/funciones", en: "/en/features", de: "/de/funktionen" },
+  },
+});
+
+describe("createLocaleRouter with a third locale", () => {
+  test("altLocalePath with explicit targetLocale reaches any locale", () => {
+    expect(offlotRouter.altLocalePath("/", "de")).toBe("/de");
+    expect(offlotRouter.altLocalePath("/", "en")).toBe("/en");
+    expect(offlotRouter.altLocalePath("/en/features", "de")).toBe("/de/funktionen");
+    expect(offlotRouter.altLocalePath("/de/funktionen", "es")).toBe("/funciones");
+  });
+
+  test("altLocalePath with explicit targetLocale equal to current locale is identity", () => {
+    expect(offlotRouter.altLocalePath("/en/features", "en")).toBe("/en/features");
+    expect(offlotRouter.altLocalePath("/funciones", "es")).toBe("/funciones");
+  });
+
+  test("altLocalePath falls back to homePage for unknown path with explicit target", () => {
+    expect(offlotRouter.altLocalePath("/unknown", "de")).toBe("/de");
+  });
+
+  test("altLocalePath rejects a targetLocale that only resolves via the prototype chain", () => {
+    expect(() => offlotRouter.altLocalePath("/", "__proto__")).toThrow(/no path for page/);
+    expect(() => offlotRouter.altLocalePath("/", "constructor")).toThrow(/no path for page/);
+    expect(() => offlotRouter.altLocalePath("/", "toString")).toThrow(/no path for page/);
+  });
+
+  test("altLocalePath without targetLocale keeps binary toggle to prefixedLocales[0]", () => {
+    expect(offlotRouter.altLocalePath("/")).toBe("/en");
+    expect(offlotRouter.altLocalePath("/en")).toBe("/");
+    expect(offlotRouter.altLocalePath("/de")).toBe("/");
+  });
+});
+
 describe("createLocaleRouter homePage validation", () => {
   test("throws at construction when homePage has no routes entry", () => {
     expect(() =>
