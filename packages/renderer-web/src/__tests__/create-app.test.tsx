@@ -207,11 +207,11 @@ describe("createKumikoApp", () => {
   });
 
   test("custom screen without a registered clientFeatures component → console.error names feature + screen at boot (kumiko-framework#2025)", async () => {
-    // Ein Server-Feature kann einen `type: "custom"`-Screen deklarieren,
-    // ohne dass die App das zugehörige Client-Plugin mountet — der Screen
-    // ist trotzdem per URL erreichbar. createKumikoApp soll das beim Boot
-    // EINMAL sichtbar melden statt es nur beim Öffnen der URL als Banner
-    // zu zeigen (das würde niemand sehen, der die Route nie besucht).
+    // A server feature can declare a `type: "custom"` screen without the
+    // app mounting the corresponding client plugin — the screen is still
+    // reachable via URL. createKumikoApp should surface that visibly ONCE
+    // at boot instead of only showing it as a banner when the URL is
+    // opened (which nobody would see if they never visit the route).
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});
 
     const customScreenSchema: FeatureSchema = {
