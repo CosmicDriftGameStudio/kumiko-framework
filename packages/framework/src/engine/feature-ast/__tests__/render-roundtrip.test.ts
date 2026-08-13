@@ -413,7 +413,8 @@ describe("renderPattern — single-pattern shape", () => {
       extensionNameRaw: "EXT_TENANT_DATA",
       entityName: "document",
       options: {
-        description: "a fairly long description that pushes this object past eighty characters wide",
+        description:
+          "a fairly long description that pushes this object past eighty characters wide",
         scope: "tenant",
         exportable: true,
       },
