@@ -56,3 +56,16 @@ export type TenantDb = {
   ): Promise<readonly T[]>;
   deleteMany(table: WritableTable, where: WhereObject): Promise<void>;
 };
+
+// Symbol.for (global registry) so the brand identity matches even if kumiko-types
+// resolves to two independent copies (workspace symlink vs. published npm) — a plain
+// `Symbol()` per copy would make each resolution's `UncheckedSystemDb` structurally
+// incompatible with the other, per the kumiko.secret precedent in secrets-types.ts.
+export const SYSTEM_SCOPE_CHECK_BRAND: unique symbol = Symbol.for("kumiko.system-scope-check");
+
+export type UncheckedSystemDb = {
+  readonly [SYSTEM_SCOPE_CHECK_BRAND]: true;
+  assertTenantMatch(tenantId: TenantId): TenantDb;
+  assertRowsTenant<T>(rows: readonly T[], tenantField: keyof T): readonly T[];
+  acknowledgeCrossTenant(reason: string): TenantDb;
+};

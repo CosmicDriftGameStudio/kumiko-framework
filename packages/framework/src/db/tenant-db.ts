@@ -1,5 +1,10 @@
 import { KUMIKO_NAME_SYMBOL, type SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
-import type { TenantDb, TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
+import {
+  SYSTEM_SCOPE_CHECK_BRAND,
+  type TenantDb,
+  type TenantDbMode,
+  type UncheckedSystemDb,
+} from "@cosmicdrift/kumiko-types/tenant-db-types";
 import {
   asEntityTableMeta,
   asRawClient,
@@ -18,20 +23,12 @@ import type { DbRunner } from "./connection";
 
 type Table = SchemaTable;
 
-export type { TenantDb, TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
-
-// Unforgeable via JSON, same as SQL_EXPR_BRAND (dialect.ts) — a client-supplied
-// payload can fake the method names but never carry a Symbol.
-export const SYSTEM_SCOPE_CHECK_BRAND: unique symbol = Symbol("system-scope-check");
-
-// r.systemScope() drops the tenant filter on reads/updates/deletes; a handler
-// must explicitly clear one of these checks before touching the raw TenantDb.
-export type UncheckedSystemDb = {
-  readonly [SYSTEM_SCOPE_CHECK_BRAND]: true;
-  assertTenantMatch(tenantId: TenantId): TenantDb;
-  assertRowsTenant<T>(rows: readonly T[], tenantField: keyof T): readonly T[];
-  acknowledgeCrossTenant(reason: string): TenantDb;
-};
+export {
+  SYSTEM_SCOPE_CHECK_BRAND,
+  type TenantDb,
+  type TenantDbMode,
+  type UncheckedSystemDb,
+} from "@cosmicdrift/kumiko-types/tenant-db-types";
 
 // buildHandlerContext (pipeline/dispatch-shared.ts) always builds "system"
 // mode from the caller's own tenantId, never a foreign one.
