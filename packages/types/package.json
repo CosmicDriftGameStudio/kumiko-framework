@@ -162,6 +162,10 @@
       "types": "./src/nav.ts",
       "default": "./src/nav.ts"
     },
+    "./nav-icon": {
+      "types": "./src/nav-icon.ts",
+      "default": "./src/nav-icon.ts"
+    },
     "./ownership": {
       "types": "./src/ownership.ts",
       "default": "./src/ownership.ts"

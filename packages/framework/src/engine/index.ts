@@ -353,6 +353,7 @@ export type {
   MultiStreamProjectionDefinition,
   NameOrRef,
   NavDefinition,
+  NavIconKey,
   NotificationDataFn,
   NotificationDefinition,
   NotificationRecipientFn,

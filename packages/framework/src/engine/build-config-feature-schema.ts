@@ -28,7 +28,7 @@ import type { ConfigKeyDefinition } from "./types/config";
 import type { Registry } from "./types/feature";
 import type { FieldDefinition } from "./types/fields";
 import type { AccessRule } from "./types/handlers";
-import type { NavDefinition } from "./types/nav";
+import type { NavDefinition, NavIconKey } from "./types/nav";
 import type {
   ConfigEditScreenDefinition,
   EditFieldsSection,
@@ -57,7 +57,7 @@ export type ConfigFeatureSchema = {
 
 // Audience-Reihenfolge im Sidebar: Plattform vor Tenant vor Benutzer.
 const SCOPE_ORDER: Record<ConfigScope, number> = { system: 10, tenant: 20, user: 30 };
-const SCOPE_ICON: Record<ConfigScope, string> = {
+const SCOPE_ICON: Record<ConfigScope, NavIconKey> = {
   system: "shield",
   tenant: "building",
   user: "user",

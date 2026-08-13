@@ -51,7 +51,7 @@ export type {
   TextFieldDef,
 } from "../engine/types/fields";
 export type { AccessRule } from "../engine/types/handlers";
-export type { NavDefinition } from "../engine/types/nav";
+export type { NavDefinition, NavIconKey } from "../engine/types/nav";
 export type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
