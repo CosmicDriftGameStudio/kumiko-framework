@@ -10,6 +10,14 @@ describe("buildFilterWhere", () => {
     expect(buildFilterWhere("status", "ne", "active")).toEqual({ status: { ne: "active" } });
   });
 
+  test("eq with null: returns a direct null WhereObject (IS NULL downstream)", () => {
+    expect(buildFilterWhere("status", "eq", null)).toEqual({ status: null });
+  });
+
+  test("ne with null: wraps null in a { ne } clause (IS NOT NULL downstream, #2015)", () => {
+    expect(buildFilterWhere("status", "ne", null)).toEqual({ status: { ne: null } });
+  });
+
   test("lt: wraps the value in a { lt } clause", () => {
     expect(buildFilterWhere("createdAt", "lt", 100)).toEqual({ createdAt: { lt: 100 } });
   });

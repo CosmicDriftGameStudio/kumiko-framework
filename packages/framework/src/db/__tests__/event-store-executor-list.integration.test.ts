@@ -224,6 +224,38 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows).toHaveLength(0);
   });
 
+  test("filter ne mit value null: matcht rows mit gesetztem Feld (#2015)", async () => {
+    // #2015: rank is optional — pre-fix, `ne` compiled to `rank <> NULL`,
+    // which is never true in SQL and returned 0 rows.
+    await seed(3);
+    await exec.create({ title: "no-rank" }, admin, tdb);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filter: { field: "rank", op: "ne", value: null },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["rank"])).toEqual([0, 1, 2]);
+  });
+
+  test("filter eq mit value null: matcht rows mit ungesetztem Feld (#2015)", async () => {
+    await seed(3);
+    await exec.create({ title: "no-rank" }, admin, tdb);
+    const res = await exec.list(
+      {
+        limit: 50,
+        filter: { field: "rank", op: "eq", value: null },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["title"])).toEqual(["no-rank"]);
+  });
+
   test("filter unknown-field: silent skip — kein Crash, alle rows zurück", async () => {
     // Boot-Validator pinst das normalerweise; Runtime-Defense für den
     // Fall dass ein Test/Caller direkt am executor vorbei ein bogus-
