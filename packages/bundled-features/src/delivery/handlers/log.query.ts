@@ -1,5 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { decryptStoredPii } from "../../shared";
 import { deliveryAttemptsTable } from "../tables";
@@ -11,11 +12,16 @@ export const logQuery = defineQueryHandler({
   }),
   access: { roles: access.admin },
   handler: async (query, ctx) => {
-    // delivery runs in system-scope (feature.ts r.systemScope()), so ctx.db is
-    // NOT auto-tenant-filtered — filter explicitly or a tenant admin reads every
-    // tenant's attempts (with decrypted recipient PII below).
+    if (!ctx.systemDb) {
+      throw new InternalError({ message: "delivery log handler requires ctx.systemDb" });
+    }
+    // delivery is r.systemScope()'d, so the TenantDb is system-mode (reads
+    // unfiltered). assertTenantMatch is a self-check on the caller's own
+    // tenantId, not a query filter — it returns that same unfiltered db, so
+    // the explicit `where` below still does the actual tenant scoping.
+    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
     const rows = await selectMany(
-      ctx.db,
+      db,
       deliveryAttemptsTable,
       { tenantId: query.user.tenantId },
       {

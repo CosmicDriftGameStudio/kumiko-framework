@@ -1,6 +1,10 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler, hasAccess } from "@cosmicdrift/kumiko-framework/engine";
-import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  AccessDeniedError,
+  InternalError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { UserErrors } from "../constants";
@@ -51,6 +55,12 @@ export const updateWrite = defineWriteHandler({
         }),
       );
     }
-    return crud.update(event.payload, event.user, ctx.db);
+    if (!ctx.systemDb) {
+      throw new InternalError({ message: "user:update requires r.systemScope()" });
+    }
+    const db = ctx.systemDb.acknowledgeCrossTenant(
+      "user rows are tenant-agnostic identity records; self/admin update needs no tenant filter",
+    );
+    return crud.update(event.payload, event.user, db);
   },
 });

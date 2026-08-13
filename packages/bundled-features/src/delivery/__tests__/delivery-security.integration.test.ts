@@ -9,7 +9,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { DELIVERY_LOG_SCREEN_ID, DeliveryQueries } from "../constants";
+import { DELIVERY_LOG_SCREEN_ID, DeliveryHandlers, DeliveryQueries } from "../constants";
 import { createDeliveryFeature } from "../feature";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
 
@@ -102,5 +102,48 @@ describe("delivery log tenant isolation", () => {
     expect(res.rows.length).toBeGreaterThan(0);
     expect(res.rows.every((r) => r.tenantId === tenantA)).toBe(true);
     expect(res.rows.some((r) => r.tenantId === tenantB)).toBe(false);
+  });
+});
+
+describe("delivery preferences tenant isolation", () => {
+  // A userId is not tenant-unique — the same person can be a member of
+  // several tenants (tenant:write:add-member takes {userId, tenantId}).
+  // delivery runs in system-scope, so the preferences query handler must
+  // filter by tenantId too — otherwise setting a preference in tenant A
+  // leaks into (or gets read from) tenant B for the same userId.
+  test("user only sees their own tenant's preference for a shared userId", async () => {
+    const tenantA = testTenantId(31);
+    const tenantB = testTenantId(32);
+    const sharedUser = 41;
+    const userInTenantA = createTestUser({ id: sharedUser, roles: ["User"], tenantId: tenantA });
+    const userInTenantB = createTestUser({ id: sharedUser, roles: ["User"], tenantId: tenantB });
+    expect(userInTenantA.id).toBe(userInTenantB.id);
+
+    await stack.http.writeOk(
+      DeliveryHandlers.setPreference,
+      { notificationType: "welcome", channel: "email", enabled: false },
+      userInTenantA,
+    );
+    await stack.http.writeOk(
+      DeliveryHandlers.setPreference,
+      { notificationType: "welcome", channel: "push", enabled: false },
+      userInTenantB,
+    );
+
+    const resA = await stack.http.queryOk<{ rows: readonly { channel: string }[] }>(
+      DeliveryQueries.preferences,
+      {},
+      userInTenantA,
+    );
+    expect(resA.rows.length).toBeGreaterThan(0);
+    expect(resA.rows.every((r) => r.channel === "email")).toBe(true);
+
+    const resB = await stack.http.queryOk<{ rows: readonly { channel: string }[] }>(
+      DeliveryQueries.preferences,
+      {},
+      userInTenantB,
+    );
+    expect(resB.rows.length).toBeGreaterThan(0);
+    expect(resB.rows.every((r) => r.channel === "push")).toBe(true);
   });
 });

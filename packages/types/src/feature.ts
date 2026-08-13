@@ -932,6 +932,10 @@ export type Registry = {
   ): readonly SearchPayloadContributorFn[];
   getHandlerEntity(qualifiedHandler: string): string | undefined;
   isHandlerSystemScoped(qualifiedHandler: string): boolean;
+  // Job counterpart to isHandlerSystemScoped — a job's owning feature is
+  // tracked separately (jobFeatureMap) since jobs aren't write/query/stream
+  // handlers and don't populate handlerFeatureMap.
+  isJobSystemScoped(qualifiedJobName: string): boolean;
   getHandlerFeature(qualifiedHandler: string): string | undefined;
   // True iff at least one registered handler declares a `rateLimit`
   // option. Pre-computed at registry-build so the boot path can skip

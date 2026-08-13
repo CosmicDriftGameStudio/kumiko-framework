@@ -120,6 +120,34 @@ export function requireConfigResolver(ctx: HandlerContext, handlerName: string):
   return ctx.configResolver;
 }
 
+// Config declares r.systemScope() (raw ctx.db is unfiltered across tenants
+// in that mode), so config's own query handlers must go through ctx.systemDb's
+// explicit self-check instead of touching ctx.db directly. Only valid for
+// handlers dispatched as config:query:* — those always run under config's
+// own system-scoped context, so ctx.systemDb is never actually missing here;
+// the throw documents that invariant instead of silently degrading.
+// buildProviderSelectionGate / collectMissingRequiredConfig (readiness.query.ts)
+// are shared with the separate, plain tenant-scoped readiness feature, so they
+// take the already-scoped db as an explicit parameter instead of resolving it
+// themselves — each call site (config's own handler here, readiness's
+// status.query.ts) makes its own scope decision instead of this function
+// guessing from ctx.systemDb's presence.
+export function requireSystemDb(
+  ctx: HandlerContext,
+  handlerName: string,
+  tenantId: TenantId,
+): TenantDb {
+  if (!ctx.systemDb) {
+    throw new InternalError({
+      message:
+        `[${handlerName}] ctx.systemDb missing — only present for r.systemScope() handlers; ` +
+        `the config feature declares r.systemScope() in feature.ts, so this points at a ` +
+        `pipeline wiring bug rather than a missing feature declaration.`,
+    });
+  }
+  return ctx.systemDb.assertTenantMatch(tenantId);
+}
+
 // Mirror of requireConfigResolver for the encryption round-trip side.
 // Only keys declared `encrypted: true` need this — the setter calls it
 // lazily so apps that never wire encryption still boot (and only crash

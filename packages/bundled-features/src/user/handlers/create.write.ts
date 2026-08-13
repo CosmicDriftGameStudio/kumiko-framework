@@ -1,7 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { ConflictError, InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { UserErrors } from "../constants";
@@ -35,7 +35,14 @@ export const createWrite = defineWriteHandler({
   }),
   access: { roles: ["system", "SystemAdmin"] },
   handler: async (event, ctx) => {
-    const existing = await fetchOne<{ id: string }>(ctx.db, userTable, {
+    if (!ctx.systemDb) {
+      throw new InternalError({ message: "user:create requires r.systemScope()" });
+    }
+    const db = ctx.systemDb.acknowledgeCrossTenant(
+      "user rows are tenant-agnostic identity records; uniqueness check and create need no tenant filter",
+    );
+
+    const existing = await fetchOne<{ id: string }>(db, userTable, {
       email: event.payload.email,
     });
 
@@ -49,6 +56,6 @@ export const createWrite = defineWriteHandler({
       );
     }
 
-    return crud.create(event.payload, event.user, ctx.db);
+    return crud.create(event.payload, event.user, db);
   },
 });

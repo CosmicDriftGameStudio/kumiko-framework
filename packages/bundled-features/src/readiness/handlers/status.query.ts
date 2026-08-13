@@ -19,7 +19,7 @@ export const statusQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     // One gate for both halves: required keys/secrets of provider-features
     // count only while their provider is the selected one (r.extensionSelector).
-    const gate = await buildProviderSelectionGate(ctx, ReadinessQueries.status, query.user);
+    const gate = await buildProviderSelectionGate(ctx, ReadinessQueries.status, query.user, ctx.db);
     // skipAccessFilter: das Verdict muss ALLE required Keys zählen — der
     // Handler selbst ist TenantAdmin-gated, der Per-Key-Filter wäre hier
     // eine ready:true-Lüge für SystemAdmin-gated Keys (277/1).
@@ -27,6 +27,7 @@ export const statusQuery = defineQueryHandler({
       ctx,
       ReadinessQueries.status,
       query.user,
+      ctx.db,
       gate,
       { skipAccessFilter: true },
     );

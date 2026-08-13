@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
+  testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
@@ -150,6 +152,25 @@ describe("scenario 2b: find-for-auth is system-only", () => {
     const body = await res.text();
     expect(body).toContain("access_denied");
     expect(body).not.toContain("must-never-leave-the-server");
+  });
+
+  // The "system" role reaches find-for-auth from any tenant — user rows are
+  // tenant-agnostic identity records, not scoped to the caller's own tenant.
+  test("system caller from a different tenant still resolves the user", async () => {
+    const created = await seedUser({
+      email: "cross-tenant@example.com",
+      displayName: "CrossTenant",
+      passwordHash: "cross-tenant-hash",
+    });
+
+    const foreignSystemCaller = createSystemUser(testTenantId(99));
+    const result = await stack.http.queryOk<{ id: number } | null>(
+      UserQueries.findForAuth,
+      { email: "cross-tenant@example.com" },
+      foreignSystemCaller,
+    );
+
+    expect(result).toMatchObject({ id: created.id });
   });
 });
 
