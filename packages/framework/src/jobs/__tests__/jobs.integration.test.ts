@@ -201,6 +201,13 @@ const testFeature = defineFeature("test", (r) => {
     const value = await ctx.config!("test:config:probe-key");
     jobLog.push({ name: "test:job:config-probe", payload: { value }, timestamp: Date.now() });
   });
+
+  // ctx.write/queryAs throw until JobRunner.attachDispatcher() has run —
+  // regression guard for framework#2043. No test runner here ever calls
+  // attachDispatcher(), so this always hits the stub.
+  r.job("writeProbe", { trigger: { manual: true }, retries: 0 }, async (_payload, ctx) => {
+    await ctx.write("test:write:probe", {});
+  });
 });
 
 beforeAll(async () => {
@@ -798,6 +805,27 @@ describe("error handling", () => {
         },
         onJobFailed: (jobName, _id, error) => {
           if (jobName === "test:job:failing-job") failures.push({ jobName, error });
+        },
+      },
+    );
+  });
+
+  test("ctx.write throws before attachDispatcher() has run (framework#2043)", async () => {
+    clearLog();
+    const failures: string[] = [];
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:write-probe");
+        await waitFor(() => {
+          expect(failures.length).toBeGreaterThanOrEqual(1);
+        });
+        expect(failures[0]).toContain(
+          "JobContext.write called before dispatcher attached — call attachDispatcher() first",
+        );
+      },
+      {
+        onJobFailed: (jobName, _id, error) => {
+          if (jobName === "test:job:write-probe") failures.push(error);
         },
       },
     );

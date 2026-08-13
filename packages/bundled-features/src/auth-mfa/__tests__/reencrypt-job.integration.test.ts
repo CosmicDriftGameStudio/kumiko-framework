@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
-import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createEnvelopeCipher,
@@ -107,13 +107,13 @@ const noopLog = {
   child: () => noopLog,
 };
 
-function jobCtx(): AppContext {
+function jobCtx(): JobContext {
   return {
     db: stack.db,
     registry: stack.registry,
     masterKeyProvider: mutableProvider,
     log: noopLog,
-  } as AppContext; // @cast-boundary test-seam — job only reads db/registry/masterKeyProvider/log
+  } as unknown as JobContext; // @cast-boundary test-seam — job only reads db/registry/masterKeyProvider/log
 }
 
 describe("auth-mfa KEK-rotation job — kumiko-framework#266 Step 8", () => {
@@ -227,7 +227,7 @@ describe("auth-mfa KEK-rotation job — unrecognized values are not silently ski
       registry: stack.registry,
       masterKeyProvider: mutableProvider,
       log: capturingLog,
-    } as AppContext);
+    } as unknown as JobContext);
 
     const completeLine = captured.info.find((line) =>
       line.includes("[auth-mfa:reencrypt] complete:"),
@@ -301,7 +301,7 @@ describe("auth-mfa KEK-rotation job — unrecognized values are not silently ski
       registry: stack.registry,
       masterKeyProvider: mutableProvider,
       log: capturingLog,
-    } as AppContext);
+    } as unknown as JobContext);
 
     const completeLine = captured.info.find((line) =>
       line.includes("[auth-mfa:reencrypt] complete:"),
