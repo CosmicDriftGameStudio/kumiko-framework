@@ -10,6 +10,7 @@ import {
   ok,
   readDataLiteralNode,
   readNameLiteral,
+  readNameLiteralRef,
   readNameOrRef,
   readPropertyKey,
 } from "./shared";
@@ -147,8 +148,8 @@ export function extractDefineEvent(
     });
   }
 
-  const eventName = readNameLiteral(first);
-  if (eventName === undefined) {
+  const eventNameRef = readNameLiteralRef(first);
+  if (eventNameRef === undefined) {
     return fail(
       "defineEvent",
       sourceLocationFromNode(call, sourceFile),
@@ -187,7 +188,8 @@ export function extractDefineEvent(
   return ok({
     kind: "defineEvent",
     source: sourceLocationFromNode(call, sourceFile),
-    eventName,
+    eventName: eventNameRef.value,
+    ...(eventNameRef.raw !== undefined && { eventNameRaw: eventNameRef.raw }),
     schemaSource: sourceLocationFromNode(schemaArg, sourceFile),
     ...(version !== undefined && { version }),
     ...(migrations !== undefined && { migrations }),
