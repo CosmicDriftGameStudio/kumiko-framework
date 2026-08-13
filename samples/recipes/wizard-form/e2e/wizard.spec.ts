@@ -173,6 +173,36 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     );
   });
 
+  // Per-step JS validation (handleWizardNext -> controller.validate(currentStepFields))
+  // blocking a middle step, not just step 1 — a real-browser twin of the
+  // jsdom unit-test coverage for fw#1910.
+  test("a later step's own empty required field blocks Next from advancing past it", async ({
+    page,
+  }) => {
+    await gotoWizard(page);
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+
+    // price defaults to 0 (a valid value for a required number field) —
+    // must be actively cleared to exercise the empty-required-field path,
+    // not just left untouched.
+    await page.getByTestId("field-price").locator("input").fill("");
+    await selectCombobox(page, "condition", "new");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    // Still on step 2 — Review (step 3) stays mounted-but-hidden, same as
+    // an inactive step's fields elsewhere in this spec, not visible.
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+    await expect(page.getByTestId("listing-review")).toBeHidden();
+    await expect(page.getByTestId("field-price-errors")).toBeVisible();
+  });
+
   test("values survive navigating back to a previous step", async ({ page }) => {
     await gotoWizard(page);
     await page.getByTestId("field-title").locator("input").fill("Old bicycle");
