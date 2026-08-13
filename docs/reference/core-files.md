@@ -76,7 +76,10 @@ It is safe only because of three properties, all enforced together:
   an allow-list the route checks against. Before this DB lookup, the route
   path param only passes a syntactic gate (`[a-z0-9-]{1,64}`, mirroring the
   UUID guard on `fileRefId`) to keep pathological input off the DB/rate-limit
-  budget — it does not restrict which *declared* names are reachable.
+  budget — it does not restrict which *declared* names are reachable. A field
+  with no `variants` declared at all has nothing to serve here: every request
+  against it answers a silent 404, same as an unknown `fileRefId` — no error,
+  no log.
 - **Never an externally-supplied spec.** The client sends a variant *name*
   only. The `VariantSpec` behind that name is always resolved server-side
   from the field's own `variants` declaration — there is no request shape

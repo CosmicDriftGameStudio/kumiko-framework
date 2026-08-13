@@ -17,6 +17,7 @@
 //      entityIds explicitly marked published resolve; everything else 404s,
 //      indistinguishable from "doesn't exist".
 
+import type { DerivativePublicPredicateArgs } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
 import {
   createEntity,
   createImageField,
@@ -45,7 +46,10 @@ const photoEntity = createEntity({
 
 // A real app would check a `published` column via the entity's read model.
 // This recipe tracks it in memory to stay a single file — the predicate
-// below is what matters, not where the flag is stored.
+// below is what matters, not where the flag is stored. Keyed by
+// `${tenantId}:${entityId}`, not entityId alone — two tenants can each have
+// their own entityId "p3", and an entityId-only key would leak tenant A's
+// publish state onto tenant B's photo.
 export const publishedPhotoIds = new Set<string>();
 
 // Exported so the integration test can assert the imperative path ran.
@@ -95,7 +99,7 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
     "publish",
     z.object({ entityId: z.string() }),
     async (event) => {
-      publishedPhotoIds.add(event.payload.entityId);
+      publishedPhotoIds.add(`${event.user.tenantId}:${event.payload.entityId}`);
       return { isSuccess: true as const, data: { entityId: event.payload.entityId } };
     },
     { access: { openToAll: true } },
@@ -105,6 +109,7 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
   // 404s; a registration that returns false does the same. Only an explicit
   // `true` serves bytes.
   r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "photo", {
-    isPublic: ({ entityId }: { entityId: string }) => publishedPhotoIds.has(entityId),
+    isPublic: ({ entityId, tenantId }: DerivativePublicPredicateArgs) =>
+      publishedPhotoIds.has(`${tenantId}:${entityId}`),
   });
 });
