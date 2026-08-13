@@ -40,6 +40,11 @@ export type BuildAppSchemaOptions = {
   /** Dev-server authoring hints (Settings-Hub placement). Default off — only
    *  `createKumikoServer` opts in; prod boot + unit tests stay silent. */
   readonly authoringWarnings?: boolean;
+  /** Forwarded onto every FeatureSchema.searchAdapterMissing. Set by the boot
+   *  entrypoint (createKumikoServer, runProdApp) from its own
+   *  context.searchAdapter presence check — buildAppSchema itself has no
+   *  context, only the registry. Omit/false when a SearchAdapter is wired. */
+  readonly searchAdapterMissing?: boolean;
 };
 
 export function buildAppSchema(registry: Registry, options: BuildAppSchemaOptions = {}): AppSchema {
@@ -67,6 +72,7 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
       ...(Object.keys(feature.translations ?? {}).length > 0 && {
         translations: feature.translations,
       }),
+      ...(options.searchAdapterMissing === true && { searchAdapterMissing: true }),
     };
     features.push(featureSchema);
   }

@@ -532,6 +532,49 @@ describe("runProdApp", () => {
     const adminBody = await adminRes.text();
     expect(adminBody).toContain("ADMIN");
     expect(adminBody).toContain("__KUMIKO_SCHEMA__");
+
+    // #2062: this boot()'s widgetFeature never wires extraContext.searchAdapter,
+    // so run-prod-app's `searchAdapterMissing = !(extraContext).searchAdapter`
+    // must actually flip true and flow into the injected schema — proving
+    // the cast-boundary read isn't silently always-false.
+    const schemaMatch = adminBody.match(/window\.__KUMIKO_SCHEMA__=(\{.*?\});<\/script>/s);
+    expect(schemaMatch).not.toBeNull();
+    const injectedSchema = JSON.parse(schemaMatch?.[1] ?? "{}");
+    // Guards against a regex miss silently degrading to `?? "{}"` — an empty
+    // features array would make `.every(...)` below vacuously true too.
+    expect(injectedSchema.features.length).toBeGreaterThan(0);
+    const allFeaturesMissingAdapter = injectedSchema.features.every(
+      (f: { searchAdapterMissing?: boolean }) => f.searchAdapterMissing === true,
+    );
+    expect(allFeaturesMissingAdapter).toBe(true);
+  });
+
+  test("extraContext.searchAdapter wired → injected schema omits searchAdapterMissing (#2062)", async () => {
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html><body>ADMIN</body><script src=/client.js></script></html>",
+    });
+
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      // Presence-only probe — run-prod-app's cast-boundary read only checks
+      // truthiness, so a minimal stand-in is enough without pulling in the
+      // real SearchAdapter shape.
+      extraContext: { searchAdapter: { configure: async () => {}, search: async () => [] } },
+      hostDispatch: () => ({ kind: "html", file: "index.html", injectSchema: true }),
+    });
+
+    const res = await handle.fetch(new Request("http://demo.example.test/"));
+    const body = await res.text();
+    const schemaMatch = body.match(/window\.__KUMIKO_SCHEMA__=(\{.*?\});<\/script>/s);
+    expect(schemaMatch).not.toBeNull();
+    const injectedSchema = JSON.parse(schemaMatch?.[1] ?? "{}");
+    // Guards against a regex miss silently degrading to `?? "{}"` — an empty
+    // features array would make `.some(...)` below vacuously false too.
+    expect(injectedSchema.features.length).toBeGreaterThan(0);
+    const anyFeatureMissingAdapter = injectedSchema.features.some(
+      (f: { searchAdapterMissing?: boolean }) => f.searchAdapterMissing === true,
+    );
+    expect(anyFeatureMissingAdapter).toBe(false);
   });
 
   test("hostDispatch: redirect-Modus", async () => {

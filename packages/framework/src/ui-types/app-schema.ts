@@ -43,6 +43,16 @@ export type FeatureSchema = {
   // Fallback erhalten damit alte clientSchema-Files (vor AppSchema)
   // ohne Migration weiter laufen — toAppSchema() hebt die Liste hoch.
   readonly workspaces?: readonly WorkspaceSchema[];
+  // True only when the server confirmed at boot that no SearchAdapter is
+  // wired on context.searchAdapter — mirrors the global (not per-entity)
+  // check behind api/server.ts's boot warning (#2051). Duplicated
+  // identically across every feature purely so it threads through the
+  // existing per-feature prop chain into screen renderers (kumiko-screen.tsx)
+  // without a separate app-level plumbing path. Omitted for schemas that
+  // don't flow through buildAppSchema() (hand-authored fixtures, legacy
+  // toAppSchema()) — treated as "not missing" so search bars keep rendering
+  // exactly as before this flag existed (#2062).
+  readonly searchAdapterMissing?: boolean;
 };
 
 // A content collection as it reaches the client: the declaration plus the

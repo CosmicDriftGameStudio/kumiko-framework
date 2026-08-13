@@ -283,6 +283,22 @@ describe("createKumikoServer (Multi-Entry)", () => {
       )
     ).text();
     expect(adminHtml).toMatch(/__KUMIKO_SCHEMA__/);
+
+    // #2062: setupTestStack always wires an in-memory SearchAdapter
+    // (test-stack.ts), so the dev-server call site's
+    // `searchAdapterMissing: !stack.context.searchAdapter` must read false —
+    // proving the flag actually flows from stack.context through to the
+    // injected schema instead of silently staying at its own default.
+    const schemaMatch = adminHtml.match(/window\.__KUMIKO_SCHEMA__=(\{.*?\});<\/script>/s);
+    expect(schemaMatch).not.toBeNull();
+    const injectedSchema = JSON.parse(schemaMatch?.[1] ?? "{}");
+    // Guards against a regex miss silently degrading to `?? "{}"` — an empty
+    // features array would make `.some(...)` below vacuously false too.
+    expect(injectedSchema.features.length).toBeGreaterThan(0);
+    const anyFeatureMissingAdapter = injectedSchema.features.some(
+      (f: { searchAdapterMissing?: boolean }) => f.searchAdapterMissing === true,
+    );
+    expect(anyFeatureMissingAdapter).toBe(false);
   });
 
   test("hostDispatch redirect: liefert 302 mit Location-Header", async () => {

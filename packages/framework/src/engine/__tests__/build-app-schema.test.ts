@@ -99,6 +99,36 @@ describe("buildAppSchema", () => {
     expect(app.features[0]?.translations).toBeUndefined();
   });
 
+  // #2062: buildAppSchema itself has no context, so the boot entrypoint
+  // (createKumikoServer, runProdApp) forwards its own context.searchAdapter
+  // presence check in via options.searchAdapterMissing.
+  test("options.searchAdapterMissing: true landet auf jeder FeatureSchema", () => {
+    const orderFeature = defineFeature("orders", (r) => {
+      r.nav({ id: "list", label: "List" });
+    });
+    const fleetFeature = defineFeature("fleet", (r) => {
+      r.nav({ id: "list", label: "List" });
+    });
+    const app = buildAppSchema(createRegistry([orderFeature, fleetFeature]), {
+      searchAdapterMissing: true,
+    });
+
+    expect(app.features.length).toBeGreaterThan(0);
+    expect(app.features.every((f) => f.searchAdapterMissing === true)).toBe(true);
+  });
+
+  test("options.searchAdapterMissing ohne/false lässt das Feld weg (omit-undefined-Pattern)", () => {
+    const f = defineFeature("bare", (r) => {
+      r.nav({ id: "x", label: "X" });
+    });
+
+    expect(buildAppSchema(createRegistry([f])).features[0]?.searchAdapterMissing).toBeUndefined();
+    expect(
+      buildAppSchema(createRegistry([f]), { searchAdapterMissing: false }).features[0]
+        ?.searchAdapterMissing,
+    ).toBeUndefined();
+  });
+
   test("Workspaces — definition + aufgelöste navMembers landen auf AppSchema-Ebene", () => {
     const ordersFeature = defineFeature("orders", (r) => {
       r.nav({ id: "list", label: "List" });

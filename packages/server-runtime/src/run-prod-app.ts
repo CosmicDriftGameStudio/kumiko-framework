@@ -930,6 +930,11 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     { ...autoExtraContext, ...resolvedExtraContext },
     registry,
   );
+  // @cast-boundary engine-bridge — searchAdapter is an optional context-extension
+  // (SharedContextFields.searchAdapter), invisible to extraContext's loose
+  // Record<string, unknown>-based typing. Presence check only, no need to
+  // pull in the SearchAdapter type here.
+  const searchAdapterMissing = !(extraContext as { searchAdapter?: unknown }).searchAdapter;
   const baseAnonymousAccess =
     typeof options.anonymousAccess === "function"
       ? options.anonymousAccess(deps)
@@ -1148,7 +1153,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // pro Tenant, Auth-Rolle gated Screens), muss die Injection pro
   // Request rendern — staticDir-Fallback einen render(req)-Hook bekommen
   // statt eines fixed JSON-Strings. Heute: registry-static, also OK.
-  const appSchemaJson = JSON.stringify(buildAppSchema(registry));
+  const appSchemaJson = JSON.stringify(buildAppSchema(registry, { searchAdapterMissing }));
 
   // App-eigene HTTP-Routes mounten — VOR den Seeds (symmetrisch zum
   // dev-server, siehe create-kumiko-server.ts). Ein Seed, der über den

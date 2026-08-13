@@ -150,6 +150,84 @@ describe("KumikoScreen", () => {
     expect(seenTypes).toEqual(["tasks:query:task:list"]);
   });
 
+  // #2062: the search box is a dead toolbar slot (and a guaranteed 422,
+  // #2032) once the client knows the server has no SearchAdapter wired.
+  describe("entityList search box gated on schema.searchAdapterMissing (#2062)", () => {
+    const searchableWidgetEntity = {
+      fields: { title: { type: "text", required: true, searchable: true } },
+    } as unknown as EntityDefinition;
+    const autoSearchScreen: EntityListScreenDefinition = {
+      id: "widget-list",
+      type: "entityList",
+      entity: "widget",
+      columns: ["title"],
+    };
+    const explicitSearchScreen: EntityListScreenDefinition = {
+      id: "widget-list-explicit",
+      type: "entityList",
+      entity: "widget",
+      columns: ["title"],
+      searchable: true,
+    };
+    const explicitNoSearchScreen: EntityListScreenDefinition = {
+      id: "widget-list-no-search",
+      type: "entityList",
+      entity: "widget",
+      columns: ["title"],
+      searchable: false,
+    };
+
+    function buildWidgetSchema(
+      screenDef: EntityListScreenDefinition,
+      searchAdapterMissing?: boolean,
+    ): FeatureSchema {
+      return {
+        featureName: "widgets",
+        entities: { widget: searchableWidgetEntity },
+        screens: [screenDef],
+        ...(searchAdapterMissing !== undefined && { searchAdapterMissing }),
+      };
+    }
+
+    async function renderWidgetList(schemaDef: FeatureSchema, qn: string): Promise<void> {
+      render(
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <KumikoScreen schema={schemaDef} qn={qn} />
+        </DispatcherProvider>,
+      );
+      await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    }
+
+    test("auto-detected searchable field renders the search box when the flag is absent", async () => {
+      await renderWidgetList(buildWidgetSchema(autoSearchScreen), "widgets:screen:widget-list");
+      expect(document.querySelector("#render-list-search")).not.toBeNull();
+    });
+
+    test("searchAdapterMissing: true hides the search box despite an auto-detected searchable field", async () => {
+      await renderWidgetList(
+        buildWidgetSchema(autoSearchScreen, true),
+        "widgets:screen:widget-list",
+      );
+      expect(document.querySelector("#render-list-search")).toBeNull();
+    });
+
+    test("searchAdapterMissing: true hides the search box even when screen.searchable is explicitly true", async () => {
+      await renderWidgetList(
+        buildWidgetSchema(explicitSearchScreen, true),
+        "widgets:screen:widget-list-explicit",
+      );
+      expect(document.querySelector("#render-list-search")).toBeNull();
+    });
+
+    test("screen.searchable: false stays hidden regardless of searchAdapterMissing", async () => {
+      await renderWidgetList(
+        buildWidgetSchema(explicitNoSearchScreen, false),
+        "widgets:screen:widget-list-no-search",
+      );
+      expect(document.querySelector("#render-list-search")).toBeNull();
+    });
+  });
+
   test("entityEdit with unknown entity on the screen → entity-missing placeholder", () => {
     const brokenScreen: EntityEditScreenDefinition = {
       id: "broken",
