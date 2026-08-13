@@ -15,15 +15,28 @@
 // so each rotation appends a normal `.updated` event whose payload carries
 // the NEW envelope: after a full run even a from-scratch rebuild only
 // ever sees the current-KEK envelope.
+//
+// systemScope() fail-closed pattern (framework#2056): the initial scan is
+// intentionally cross-tenant (system-wide key rotation), acknowledged via
+// UncheckedSystemDb.acknowledgeCrossTenant(). Rows are bucketed by tenant,
+// and assertRowsTenant() re-verifies each row against its bucket's tenant
+// right before the write — both checks are built locally from the exported
+// createUncheckedSystemDb().
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
+  createUncheckedSystemDb,
   type DbConnection,
   type TenantDb,
+  type UncheckedSystemDb,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { JobHandlerFn, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type JobHandlerFn,
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -104,6 +117,22 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     return existing;
   }
 
+  const sdbCache = new Map<TenantId, UncheckedSystemDb>();
+  function sdbFor(tenantId: TenantId): UncheckedSystemDb {
+    let existing = sdbCache.get(tenantId);
+    if (!existing) {
+      existing = createUncheckedSystemDb(tdbFor(tenantId));
+      sdbCache.set(tenantId, existing);
+    }
+    return existing;
+  }
+
+  // Standalone from sdbCache/tdbCache on purpose: this one is only ever used
+  // to acknowledge the cross-tenant scan below, never bound to a real
+  // tenant's writes — sharing it with sdbFor(SYSTEM_TENANT_ID) would make a
+  // write-path cache entry double as the scan's ack gate.
+  const scanDb = createUncheckedSystemDb(createTenantDb(db, SYSTEM_TENANT_ID, "system"));
+
   type ConfigRow = {
     id: string;
     key: string;
@@ -115,27 +144,51 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
   let alreadyCurrent = 0;
   const targetVersion = provider.currentVersion();
 
+  type BucketedRow = { tenantId: TenantId; row: ConfigRow };
+
   // ponytail: one full candidate scan — config rows are operator-scale
   // (tenants × encrypted keys), cursor pagination when that ever changes.
-  // Served to the shared loop in slices so its deadline/signal/failure
-  // checks run between chunks, not only once.
-  let pending: ConfigRow[] | undefined;
-  async function nextBatch(): Promise<readonly ConfigRow[]> {
-    if (pending === undefined) {
-      pending =
-        encryptedKeys.length === 0
-          ? []
-          : [
-              ...(await selectMany<ConfigRow>(db, configValuesTable, {
-                key: { in: encryptedKeys },
-              })),
-            ];
+  // Bucketed by tenant so each row keeps its bucket's tenant attached
+  // (assertRowsTenant below re-checks that against the row's own field
+  // right before the write) and the shared loop's deadline/signal/failure
+  // checks still run between chunks, not only once.
+  let buckets: Map<TenantId, ConfigRow[]> | undefined;
+  async function loadBuckets(): Promise<Map<TenantId, ConfigRow[]>> {
+    if (buckets) return buckets;
+    const grouped = new Map<TenantId, ConfigRow[]>();
+    if (encryptedKeys.length > 0) {
+      const scanned = await scanDb
+        .acknowledgeCrossTenant("system-wide key rotation")
+        .selectMany<ConfigRow>(configValuesTable, { key: { in: encryptedKeys } });
+      for (const row of scanned) {
+        const tenantId = row.tenantId as TenantId; // @cast-boundary db-row
+        const bucket = grouped.get(tenantId);
+        if (bucket) bucket.push(row);
+        else grouped.set(tenantId, [row]);
+      }
     }
-    const slice = pending;
-    return slice.splice(0, SCAN_SLICE_SIZE);
+    buckets = grouped;
+    return buckets;
   }
 
-  async function migrateRow(row: ConfigRow): Promise<"migrated" | "skipped" | "failed"> {
+  async function nextBatch(): Promise<readonly BucketedRow[]> {
+    const grouped = await loadBuckets();
+    for (const [tenantId, rows] of grouped) {
+      if (rows.length === 0) {
+        grouped.delete(tenantId);
+        continue;
+      }
+      const slice = rows.splice(0, SCAN_SLICE_SIZE);
+      if (rows.length === 0) grouped.delete(tenantId);
+      return slice.map((row) => ({ tenantId, row }));
+    }
+    return [];
+  }
+
+  async function migrateRow({
+    tenantId,
+    row,
+  }: BucketedRow): Promise<"migrated" | "skipped" | "failed"> {
     if (row.value === null || row.value === undefined) return "skipped";
     const classification = classifyStoredEnvelope(row.value, targetVersion);
     if (classification === "current") {
@@ -154,7 +207,12 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
       return "failed";
     }
 
-    const tenantId = row.tenantId as TenantId; // @cast-boundary db-row
+    // Re-verify the row's own tenantId against the bucket it was scanned
+    // into, right before the write (framework#2072) — a mismatch here
+    // fails this row only (via onRowError below), it does not abort the
+    // whole job.
+    sdbFor(tenantId).assertRowsTenant([row], "tenantId");
+
     const plaintext = await cipher.decrypt(row.value, { tenantId });
     const reencrypted = await cipher.encrypt(plaintext, { tenantId });
 
@@ -177,13 +235,13 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     return "migrated";
   }
 
-  const outcome = await runChunkedMigration<ConfigRow>({
+  const outcome = await runChunkedMigration<BucketedRow>({
     nextBatch,
     migrateRow,
     maxFailures,
     deadlineAt: deadline,
     signal: ctx.signal,
-    onRowError: (row, err) => {
+    onRowError: ({ row }, err) => {
       ctx.log?.warn?.(`[config:reencrypt] failed to re-encrypt row ${row.id}`, { err });
     },
   });
