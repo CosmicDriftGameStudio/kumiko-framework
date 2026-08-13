@@ -364,7 +364,10 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // Same tenant scoping as `db`, but never bound to the handler's tx: writes
   // through it survive a rollback, for side effects that already happened
   // outside the DB. `undefined` when the pipeline has no outside-tx source
-  // for this dispatch (see dispatch-shared.ts) — callers must check before use.
+  // for this dispatch (see dispatch-shared.ts) — callers must check before
+  // use. For r.systemScope() handlers this is fail-closed instead, same as
+  // `db` above — a truthy Proxy that throws on first property read, so a
+  // system handler must reach for `systemDb.outsideTransaction` below.
   readonly dbOutsideTransaction: TenantDb | undefined;
   // Only present for r.systemScope() handlers. Non-system handlers never
   // receive this — reach for `db` instead, which is fail-closed for them.

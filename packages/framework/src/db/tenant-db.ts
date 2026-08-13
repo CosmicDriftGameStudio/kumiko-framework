@@ -17,7 +17,7 @@ import {
   type WhereObject,
 } from "../db/query";
 import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
-import { AccessDeniedError } from "../errors";
+import { AccessDeniedError, InternalError } from "../errors";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";
 
@@ -32,8 +32,34 @@ export {
 
 // buildHandlerContext (pipeline/dispatch-shared.ts) always builds "system"
 // mode from the caller's own tenantId, never a foreign one.
-export function createUncheckedSystemDb(db: TenantDb): UncheckedSystemDb {
+//
+// dbOutsideTransaction is optional so every existing single-arg call site
+// (jobs, tests, delivery-service.ts) keeps compiling — those callers have no
+// outside-tx source to hand in and never needed one. Only
+// buildHandlerContext passes it, which is also the only place `.outsideTransaction`
+// is reachable through `ctx.systemDb`.
+export function createUncheckedSystemDb(
+  db: TenantDb,
+  dbOutsideTransaction?: TenantDb,
+): UncheckedSystemDb {
   const allowedTenantIds: readonly TenantId[] = [db.tenantId, SYSTEM_TENANT_ID];
+
+  // Fails closed instead of falling back to the in-tx `db` — a silent
+  // fallback would defeat the point of a durability write that must survive
+  // a rollback of the handler's own transaction. InternalError (not
+  // AccessDeniedError) because this is a dispatch wiring fault, not a
+  // tenant-access denial — mirrors the "no database connection configured"
+  // case in dispatch-shared.ts's appendDomainEvent.
+  function requireOutsideTransactionDb(): TenantDb {
+    if (!dbOutsideTransaction) {
+      throw new InternalError({
+        message:
+          "systemScope() outsideTransaction check failed: no outside-transaction database " +
+          "source is configured for this dispatch.",
+      });
+    }
+    return dbOutsideTransaction;
+  }
 
   return {
     [SYSTEM_SCOPE_CHECK_BRAND]: true,
@@ -67,6 +93,24 @@ export function createUncheckedSystemDb(db: TenantDb): UncheckedSystemDb {
         throw new Error("acknowledgeCrossTenant requires a non-empty reason");
       }
       return db;
+    },
+
+    outsideTransaction: {
+      assertTenantMatch(tenantId) {
+        if (tenantId !== db.tenantId) {
+          throw new AccessDeniedError({
+            message: `systemScope() outsideTransaction tenant self-check failed: expected "${db.tenantId}", got "${tenantId}"`,
+          });
+        }
+        return requireOutsideTransactionDb();
+      },
+
+      acknowledgeCrossTenant(reason) {
+        if (reason.trim().length === 0) {
+          throw new Error("acknowledgeCrossTenant requires a non-empty reason");
+        }
+        return requireOutsideTransactionDb();
+      },
     },
   };
 }
