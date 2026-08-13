@@ -290,6 +290,14 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   } else {
     console.log("Feature-Changelog Guard skipped: infra/guards not in workspace (CI-standalone).");
   }
+  // App-Dockerfile Guard needs the app-repo siblings in the parent workspace,
+  // hence loud-skip in a standalone checkout (infra#514).
+  const appDockerfileGuard = join(REPO_ROOT, "infra/guards/guard-app-dockerfile.ts");
+  if (existsSync(appDockerfileGuard)) {
+    steps.push({ name: "App-Dockerfile Guard", cmd: `bun ${appDockerfileGuard}` });
+  } else {
+    console.log("App-Dockerfile Guard skipped: infra/guards not in workspace (CI-standalone).");
+  }
   // Baseline-Regression-Guard (infra#295): failt nur bei NEUEN DE-Kommentaren,
   // Altbestand ist via .kumiko-comment-lang-baseline.json eingefroren.
   steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guard-comment-lang" });
