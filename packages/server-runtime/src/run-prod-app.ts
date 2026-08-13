@@ -799,6 +799,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   assertSessionBootInvariants({
     hasAuth: Boolean(effectiveAuth),
     sessionStoreProviderMounted: registry.getExtensionUsages(EXT_SESSION_STORE).length > 0,
+    mode: "prod",
   });
 
   // C1 boot-mode exit: validators ran + registry built; no DB/Redis client

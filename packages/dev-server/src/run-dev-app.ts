@@ -78,6 +78,7 @@ import {
   composeFeatures,
 } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { assertPiiBootInvariants } from "@cosmicdrift/kumiko-server-runtime/pii-boot-gate";
+import { assertSessionBootInvariants } from "@cosmicdrift/kumiko-server-runtime/session-boot-gate";
 import { watchAndRegenerate } from "./codegen";
 import {
   type CreateKumikoServerOptions,
@@ -371,13 +372,21 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     blindIndexKey: options.blindIndexKey,
     mode: "dev",
   });
-  const cfgExtra = effectiveAuth
-    ? mergeConfigResolverDefault(
-        options.extraContext,
-        createRegistry(features),
-        envSource,
-        bootCrypto.configCipher,
-      )
+  // Throwaway registry, built once and reused below — mirrors runProdApp's
+  // `createRegistry(features)` right after validateBoot (#2027). Symmetric
+  // sessionStoreProviderMounted check to runProdApp's (registry.getExtension-
+  // Usages, not a raw features.some(...) scan) so dev and prod never ask the
+  // same question two different ways again.
+  const registry = effectiveAuth ? createRegistry(features) : undefined;
+  const sessionStoreProviderMounted =
+    registry !== undefined && registry.getExtensionUsages(EXT_SESSION_STORE).length > 0;
+  assertSessionBootInvariants({
+    hasAuth: Boolean(effectiveAuth),
+    sessionStoreProviderMounted,
+    mode: "dev",
+  });
+  const cfgExtra = registry
+    ? mergeConfigResolverDefault(options.extraContext, registry, envSource, bootCrypto.configCipher)
     : options.extraContext;
   // Auto-wire templateResolver (immer) + secrets (feature-gated), symmetrisch zu
   // runProdApp. Anders als prod existiert die db hier erst im Factory-deps
@@ -444,10 +453,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     : {};
 
   // Parity with runProdApp (#1372 review): gate on sessionStore provider, not
-  // the sessions feature name — a custom provider must also wire auth callbacks.
-  const sessionStoreProviderMounted = features.some((f) =>
-    f.extensionUsages.some((u) => u.extensionName === EXT_SESSION_STORE),
-  );
+  // the sessions feature name — a custom provider must also wire auth
+  // callbacks. sessionStoreProviderMounted computed above via the registry
+  // (same check as runProdApp, #2027) — not recomputed here.
   const sessionAuthFragment =
     effectiveAuth && sessionStoreProviderMounted
       ? {
