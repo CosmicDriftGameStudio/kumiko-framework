@@ -1,6 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  InternalError,
   NotFoundError,
   UnprocessableError,
   writeFailure,
@@ -24,7 +25,12 @@ export const retryWrite = defineWriteHandler({
   schema: z.object({ runId: z.uuid() }),
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
-    const db = ctx.db;
+    if (!ctx.systemDb) {
+      throw new InternalError({
+        message: "jobs:write:retry requires ctx.systemDb (feature must declare r.systemScope())",
+      });
+    }
+    const db = ctx.systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
     // @cast-boundary engine-payload — JobRunner attached by app-boot via ctx-extension
     const jobRunner = ctx["jobRunner"] as JobRunner;
 
