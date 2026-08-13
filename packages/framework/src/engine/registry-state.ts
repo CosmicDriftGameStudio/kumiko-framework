@@ -180,6 +180,7 @@ export type RegistryState = {
   searchPayloadExtensions: Map<string, OwnedFn<SearchPayloadContributorFn>[]>;
   configKeyMap: Map<string, ConfigKeyDefinition>;
   jobMap: Map<string, JobDefinition>;
+  jobFeatureMap: Map<string, string>;
   notificationMap: Map<string, NotificationDefinition>;
   notificationFeatureMap: Map<string, string>;
   eventMap: Map<string, EventDef>;
@@ -248,6 +249,7 @@ export function createInitialState(): RegistryState {
     searchPayloadExtensions: new Map(),
     configKeyMap: new Map(),
     jobMap: new Map(),
+    jobFeatureMap: new Map(),
     notificationMap: new Map(),
     notificationFeatureMap: new Map(),
     eventMap: new Map(),

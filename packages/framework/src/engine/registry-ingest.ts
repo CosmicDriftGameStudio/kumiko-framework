@@ -129,6 +129,7 @@ export function populateJobsAndNotifications(
       );
     }
     state.jobMap.set(qualifiedName, { ...jobDef, name: qualifiedName });
+    state.jobFeatureMap.set(qualifiedName, feature.name);
   }
 
   // Notifications: scope:notify:name
