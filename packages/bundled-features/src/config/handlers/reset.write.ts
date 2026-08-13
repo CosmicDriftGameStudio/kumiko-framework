@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+import { requireSystemDb } from "../feature";
 import { configValueEntity, configValuesTable } from "../table";
 import { findConfigRow, prepareConfigWrite } from "../write-helpers";
 
@@ -24,7 +25,7 @@ export const resetWrite = defineWriteHandler({
   // Per-key access enforcement lives inside the handler via checkWriteAccess.
   access: { openToAll: true },
   handler: async (event, ctx) => {
-    const db = ctx.db;
+    const db = requireSystemDb(ctx, "config:write:reset", event.user.tenantId);
 
     const prep = prepareConfigWrite({
       registry: ctx.registry,

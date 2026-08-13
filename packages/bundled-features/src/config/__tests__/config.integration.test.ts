@@ -451,6 +451,27 @@ describe("Settings-Hub system-scope write by a human SystemAdmin", () => {
     );
     expectErrorIncludes(error, "access_denied");
   });
+
+  // Regression for assertTenantMatch wiring in reset.write.ts: a scope=
+  // "system" reset writes/deletes a row whose tenantId is SYSTEM_TENANT_ID,
+  // not the caller's own tenantId. If the handler ever passed that row
+  // tenantId (instead of event.user.tenantId) into assertTenantMatch, this
+  // would throw "tenant self-check failed" for every SystemAdmin reset.
+  test("resets a system-scope key back to its declared default", async () => {
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "integration:config:billing-live", value: true, scope: "system" },
+      systemAdmin,
+    );
+    expect(await sysAccessor()("integration:config:billing-live")).toBe(true);
+
+    await stack.http.writeOk(
+      ConfigHandlers.reset,
+      { key: "integration:config:billing-live", scope: "system" },
+      systemAdmin,
+    );
+    expect(await sysAccessor()("integration:config:billing-live")).toBe(false);
+  });
 });
 
 // --- Scenario 2: Mail Server — system default + tenant override ---
