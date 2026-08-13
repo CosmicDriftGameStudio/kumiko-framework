@@ -35,10 +35,12 @@ export type VariantSpec = {
 //
 // The renderer must produce `spec.format` when set, and the source's own
 // format otherwise. It never reports back what it produced: the caller
-// derives the output mimeType from the spec alone (see outputMimeType in
-// derivatives-context.ts), because a cache hit has no renderer run to read
-// a mimeType off, and a spec-derived value is the only one both branches
-// can share.
+// derives the output mimeType from the spec plus the source FileRef's
+// mimeType (see outputMimeType in derivatives-context.ts), because a cache
+// hit has no renderer run to read a mimeType off. When `spec.format` is
+// unset, the source mimeType is client-controlled, so outputMimeType
+// allowlists it against known-safe raster types instead of passing it
+// through verbatim (#2021).
 export type DerivativeRendererPlugin = {
   readonly render: (
     input: Uint8Array,
