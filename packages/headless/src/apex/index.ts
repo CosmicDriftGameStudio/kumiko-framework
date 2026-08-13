@@ -81,6 +81,8 @@ export type ApexHeader = {
   /** Plain links and/or dropdown menus, in order. */
   readonly navLinks?: readonly ApexNavEntry[];
   readonly actions?: readonly ApexCta[];
+  /** aria-label for the mobile hamburger trigger (< 640px). Default "Menu". */
+  readonly menuLabel?: string;
 };
 
 export type ApexFooterColumn = { readonly heading: string; readonly links: readonly ApexLink[] };
@@ -398,7 +400,7 @@ function renderNavMenu(m: ApexNavMenu): string {
     m.footer !== undefined
       ? `<div class="nav-menu__sep"></div><a class="nav-menu__more" href="${escapeHtml(m.footer.href)}">${escapeHtml(m.footer.label)}</a>`
       : "";
-  return `<div class="nav-menu"><button type="button" class="nav-menu__trigger" aria-haspopup="true">${escapeHtml(m.label)}<span class="nav-menu__chev">${svgIcon('<path d="m6 9 6 6 6-6"/>')}</span></button><div class="nav-menu__panel">${itemsHtml}${footer}</div></div>`;
+  return `<details class="nav-menu"><summary class="nav-menu__trigger">${escapeHtml(m.label)}<span class="nav-menu__chev">${svgIcon('<path d="m6 9 6 6 6-6"/>')}</span></summary><div class="nav-menu__panel">${itemsHtml}${footer}</div></details>`;
 }
 
 function renderNavEntry(entry: ApexNavEntry): string {
@@ -418,7 +420,7 @@ export function renderApexHeader(h: ApexHeader): string {
   return `<header>
     <div class="container nav">
       <div class="brand"><a href="${escapeHtml(h.brand.href)}">${logo}${escapeHtml(h.brand.label)}</a></div>
-      ${navLinksHtml !== "" ? `<nav class="nav-links">${navLinksHtml}</nav>` : ""}
+      ${navLinksHtml !== "" ? `<nav class="nav-links">${navLinksHtml}</nav><details class="nav-toggle"><summary class="nav-toggle__trigger" aria-label="${escapeHtml(h.menuLabel ?? "Menu")}">${svgIcon('<path d="M4 6h16M4 12h16M4 18h16"/>')}</summary><nav class="nav-links">${navLinksHtml}</nav></details>` : ""}
       ${actionsHtml !== "" ? `<div class="nav-actions">${actionsHtml}</div>` : ""}
     </div>
   </header>`;
