@@ -7,11 +7,12 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type {
-  AppContext,
+  JobContext,
   JobHandlerFn,
   Registry,
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { z } from "zod";
 import { appendAttemptEvent } from "./attempt-log";
@@ -44,13 +45,22 @@ const sendJobPayloadSchema = renderJobPayloadSchema.extend({
 
 type RenderJobPayload = z.infer<typeof renderJobPayloadSchema>;
 
-function requireDeps(ctx: AppContext): { db: DbConnection; registry: Registry } {
+function requireTenantScopedDeps(
+  ctx: JobContext,
+  tenantId: TenantId,
+): { db: DbConnection; registry: Registry } {
   const registry = ctx.registry;
   if (!registry) throw new Error("delivery job: missing registry in job context");
-  // Job context provides the raw system connection (not tenant-scoped); the
-  // append + projection layer scopes per event payload.
-  const db = ctx.db as DbConnection; // @cast-boundary engine-bridge — job ctx db is the system connection
-  if (!db) throw new Error("delivery job: missing db in job context");
+  // delivery is r.systemScope()'d (feature.ts), so JobContext.systemDb is
+  // guaranteed here. assertTenantMatch(tenantId).raw hands appendAttemptEvent/
+  // buildChannelContext the underlying DbConnection — safe because both
+  // filter by the same tenantId themselves (see JobContext.systemDb doc).
+  if (!ctx.systemDb) {
+    throw new InternalError({
+      message: "delivery job: ctx.systemDb missing on a system-scoped job",
+    });
+  }
+  const db = ctx.systemDb.assertTenantMatch(tenantId).raw as DbConnection; // @cast-boundary db-operator — TenantDb.raw is DbRunner, jobs never run inside a DbTx
   return { db, registry };
 }
 
@@ -96,9 +106,9 @@ function messageOf(err: unknown): string {
 // the send step is never reached, so a stuck render can't half-send.
 export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
   const p = renderJobPayloadSchema.parse(payload);
-  const { db, registry } = requireDeps(ctx);
-  const channel = resolveChannel(registry, p.channelName);
   const tenantId = p.tenantId as TenantId; // @cast-boundary engine-payload — stream tenant
+  const { db, registry } = requireTenantScopedDeps(ctx, tenantId);
+  const channel = resolveChannel(registry, p.channelName);
   const channelCtx = buildChannelContext(db, registry, undefined, tenantId);
 
   try {
@@ -128,9 +138,9 @@ export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
 // the same already-rendered HTML — no re-render needed.
 export const deliverySendJob: JobHandlerFn = async (payload, ctx) => {
   const p = sendJobPayloadSchema.parse(payload);
-  const { db, registry } = requireDeps(ctx);
-  const channel = resolveChannel(registry, p.channelName);
   const tenantId = p.tenantId as TenantId; // @cast-boundary engine-payload — stream tenant
+  const { db, registry } = requireTenantScopedDeps(ctx, tenantId);
+  const channel = resolveChannel(registry, p.channelName);
   const channelCtx = buildChannelContext(db, registry, undefined, tenantId);
 
   try {

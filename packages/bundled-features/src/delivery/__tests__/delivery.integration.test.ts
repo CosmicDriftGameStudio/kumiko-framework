@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  createTenantDb,
+  createUncheckedSystemDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -10,6 +15,7 @@ import {
   type JobContext,
   type NotifyFn,
   qn,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
@@ -17,6 +23,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
+  testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { z } from "zod";
@@ -40,7 +47,7 @@ import { tenantEntity } from "../../tenant/schema/tenant";
 import { DeliveryHandlers, DeliveryJobs, DeliveryQueries } from "../constants";
 import { collectChannels, createDeliveryService } from "../delivery-service";
 import { createDeliveryFeature } from "../feature";
-import { deliveryRenderJob } from "../jobs";
+import { deliveryRenderJob, deliverySendJob } from "../jobs";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
 import { createDeliveryTestContext } from "../testing";
 import type { DeliveryService } from "../types";
@@ -1502,6 +1509,14 @@ describe("flow 17: async render→send pipeline", () => {
     expect(emailRows.some((r) => r["status"] === "sent")).toBe(true);
   });
 
+  // Mirrors what job-runner.ts's handleJob really builds for a
+  // r.systemScope()'d job (framework#2105) — a real TenantDb wrapped by
+  // createUncheckedSystemDb, not a mock, so requireTenantScopedDeps'
+  // assertTenantMatch() call exercises the actual production code path.
+  function makeSystemDb(tenantId: TenantId) {
+    return createUncheckedSystemDb(createTenantDb(db, tenantId, "system"));
+  }
+
   test("delivery.render on a channel without a render step records failed and does not dispatch send", async () => {
     const { runner, dispatched } = makeStubRunner();
     const attemptId = "00000000-0000-4000-8000-0000000000aa";
@@ -1518,7 +1533,12 @@ describe("flow 17: async render→send pipeline", () => {
           message: { notificationType: "app:notify:render-isolation", title: "X" },
         },
         // @cast-boundary test-seam — job throws before touching systemUser/log/write/queryAs
-        { db, registry: stack.registry, jobRunner: runner } as unknown as JobContext,
+        {
+          db,
+          registry: stack.registry,
+          jobRunner: runner,
+          systemDb: makeSystemDb(admin.tenantId),
+        } as unknown as JobContext,
       ),
     ).rejects.toThrow(/no render step/);
 
@@ -1528,6 +1548,77 @@ describe("flow 17: async render→send pipeline", () => {
       notificationType: "app:notify:render-isolation",
     });
     expect(rows.some((r) => r["status"] === "failed")).toBe(true);
+  });
+
+  // The regression this diff exists to prevent: a payload.tenantId that
+  // doesn't match the systemDb's own tenant must be rejected, not silently
+  // used to read/write another tenant's stream (what ctx.db without
+  // assertTenantMatch would have allowed).
+  test("job handlers throw when payload.tenantId doesn't match ctx.systemDb's tenant", async () => {
+    const { runner, dispatched } = makeStubRunner();
+    const foreignTenantId = testTenantId(999);
+    const attemptId = "00000000-0000-4000-8000-0000000000cc";
+    // @cast-boundary test-seam — mirrors job-runner.ts's real systemDb shape
+    const ctxWithMismatchedSystemDb = {
+      db,
+      registry: stack.registry,
+      jobRunner: runner,
+      systemDb: makeSystemDb(admin.tenantId),
+    } as unknown as JobContext;
+
+    await expect(
+      deliveryRenderJob(
+        {
+          channelName: "email",
+          address: testEmail(asyncRecipient),
+          tenantId: foreignTenantId,
+          recipientId: String(asyncRecipient),
+          notificationType: "app:notify:cross-tenant",
+          deliveryAttemptId: attemptId,
+          priority: "normal",
+          message: { notificationType: "app:notify:cross-tenant", title: "X" },
+        },
+        ctxWithMismatchedSystemDb,
+      ),
+    ).rejects.toThrow(/tenant self-check failed/);
+
+    expect(dispatched).toHaveLength(0);
+    const rows = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "app:notify:cross-tenant",
+    });
+    expect(rows).toHaveLength(0);
+  });
+
+  // Unreachable via real dispatch (job-runner.ts only omits systemDb for jobs
+  // whose feature is NOT r.systemScope()'d, and delivery always is) — this
+  // exercises requireTenantScopedDeps' own defensive guard directly, the
+  // same way the missing-render-step case above exercises resolveChannel's.
+  test("job handlers throw when ctx.systemDb is missing on a system-scoped job", async () => {
+    const { runner } = makeStubRunner();
+    const attemptId = "00000000-0000-4000-8000-0000000000bb";
+    const payload = {
+      channelName: "email",
+      address: testEmail(asyncRecipient),
+      tenantId: admin.tenantId,
+      recipientId: String(asyncRecipient),
+      notificationType: "app:notify:missing-systemdb",
+      deliveryAttemptId: attemptId,
+      priority: "normal" as const,
+      message: { notificationType: "app:notify:missing-systemdb", title: "X" },
+    };
+    // @cast-boundary test-seam — no systemDb, unlike what job-runner.ts actually wires
+    const ctxWithoutSystemDb = {
+      db,
+      registry: stack.registry,
+      jobRunner: runner,
+    } as unknown as JobContext;
+
+    await expect(deliveryRenderJob(payload, ctxWithoutSystemDb)).rejects.toThrow(
+      /ctx\.systemDb missing/,
+    );
+    await expect(deliverySendJob(payload, ctxWithoutSystemDb)).rejects.toThrow(
+      /ctx\.systemDb missing/,
+    );
   });
 });
 
