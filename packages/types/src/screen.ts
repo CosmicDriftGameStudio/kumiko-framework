@@ -1,5 +1,6 @@
 import type { FieldDefinition } from "./fields";
 import type { AccessRule } from "./handlers";
+import type { NavIconKey } from "./nav-icon";
 
 // Screen definitions describe how a feature surfaces data to the user.
 // Pure data — the engine stores these verbatim and ui-core / the renderer
@@ -800,7 +801,7 @@ export type ScreenSlots = {
 // declare a standalone `r.nav()` entry instead.
 export type ScreenNavSugar = {
   readonly label: string;
-  readonly icon?: string;
+  readonly icon?: NavIconKey;
   readonly parent?: string;
   readonly order?: number;
 };

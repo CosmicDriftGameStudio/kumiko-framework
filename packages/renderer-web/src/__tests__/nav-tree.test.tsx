@@ -7,6 +7,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import type {
+  NavIconKey,
   TargetRef,
   TreeChildrenSubscribe,
   TreeNode,
@@ -323,7 +324,17 @@ describe("NavTree", () => {
       featureName: "showcase",
       entities: {},
       screens: [{ id: "x", type: "entityList", entity: "x", columns: [] }],
-      navs: [{ id: "x", label: "X", screen: "x", order: 10, icon: "does-not-exist" }],
+      navs: [
+        {
+          id: "x",
+          label: "X",
+          screen: "x",
+          order: 10,
+          // Deliberately unregistered — asserts the runtime fallback, not the
+          // (now compile-time) NavIconKey vocabulary.
+          icon: "does-not-exist" as NavIconKey,
+        },
+      ],
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     expect(container.querySelectorAll("svg").length).toBe(0);

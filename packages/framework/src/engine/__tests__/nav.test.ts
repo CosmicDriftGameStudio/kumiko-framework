@@ -38,7 +38,7 @@ describe("r.nav() — registration", () => {
       r.nav({
         id: "products",
         label: "shop:nav.products",
-        icon: "box",
+        icon: "package",
         order: 10,
         parent: "shop:nav:catalog",
         screen: "shop:screen:products",
@@ -47,7 +47,7 @@ describe("r.nav() — registration", () => {
     });
     const nav = feature.navs["products"];
     expect(nav).toMatchObject({
-      icon: "box",
+      icon: "package",
       order: 10,
       parent: "shop:nav:catalog",
       screen: "shop:screen:products",
@@ -78,6 +78,14 @@ describe("r.nav() — registration", () => {
       }),
     ).not.toThrow();
   });
+
+  test("@ts-expect-error: icon must be a registered NavIconKey, not any string", () => {
+    const feature = defineFeature("shop", (r) => {
+      // @ts-expect-error — "seting" is a typo of "settings", not a NavIconKey
+      r.nav({ id: "catalog", label: "x", icon: "seting" });
+    });
+    expect(feature.navs["catalog"]).toBeDefined();
+  });
 });
 
 describe("r.screen({ nav }) — inline nav sugar", () => {
@@ -89,13 +97,13 @@ describe("r.screen({ nav }) — inline nav sugar", () => {
         type: "entityList",
         entity: "product",
         columns: ["name"],
-        nav: { label: "shop:nav.products", icon: "box", order: 5 },
+        nav: { label: "shop:nav.products", icon: "package", order: 5 },
       });
     });
     expect(feature.navs["products"]).toMatchObject({
       id: "products",
       label: "shop:nav.products",
-      icon: "box",
+      icon: "package",
       order: 5,
       screen: "shop:screen:products",
     });

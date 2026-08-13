@@ -12,6 +12,7 @@ import type {
   PreSaveHookFn,
 } from "./hooks";
 import type { TenantId } from "./identifiers";
+import type { NavIconKey } from "./nav-icon";
 import type { TenantDb } from "./tenant-db-types";
 
 // --- Config ---
@@ -154,12 +155,12 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly group?: string;
 };
 
-// Label-Träger für den Settings-Hub. `title` ist ein i18n-Key (kein Literal —
-// Guard), `icon` ein Icon-Registry-Key für den Nav-Eintrag, `order` die
-// Sortier-Gewichtung innerhalb seiner Audience-Gruppe.
+// Label carrier for the settings hub. `title` is an i18n key (no literal —
+// guarded), `icon` a NavIconKey for the nav entry, `order` the sort weight
+// within its audience group.
 export type ConfigMask = {
   readonly title: string;
-  readonly icon?: string;
+  readonly icon?: NavIconKey;
   readonly order?: number;
 };
 

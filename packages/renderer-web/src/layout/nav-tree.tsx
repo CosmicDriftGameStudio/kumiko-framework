@@ -17,7 +17,7 @@ import type {
   TreeAction,
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { NavDefinition, NavIconKey } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavNode, NavRegistrySlice } from "@cosmicdrift/kumiko-headless";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
@@ -48,6 +48,7 @@ import {
   Hash,
   Home,
   KeyRound,
+  Languages,
   Layers,
   LayoutDashboard,
   LayoutGrid,
@@ -106,12 +107,18 @@ import {
 import { useDispatchTarget } from "./target-resolver-stub";
 import { parseTargetFromSearchParams } from "./target-url";
 
-// Nav-Icon-Registry: ein Nav-Eintrag setzt `icon: "<key>"` (im r.nav-Decl),
-// der Renderer mappt den symbolischen Key auf ein lucide-Component. Unknown
-// Keys → kein Icon (sauberer Fallback auf den Dot, kein Boot-Fail). Spiegelt
-// das NODE_ICONS-Muster vom Visual-Tree. App-Authors referenzieren nur diese
-// Keys; Erweiterung = neuer Eintrag hier (eine Quelle, alle Apps).
-const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
+// Nav-icon registry: a nav entry sets `icon: "<key>"` (in the r.nav decl),
+// the renderer maps the symbolic key to a lucide component. `NavIconKey` is
+// the closed vocabulary a feature author can write (packages/types/src/
+// nav-icon.ts); `satisfies` below makes this map a compile-time drift
+// guard — a key added to one without the other fails the build.
+//
+// `node.icon`/`TreeAction.icon` stay plain `string` at the resolved-tree
+// layer (dynamic/provider-supplied data isn't statically known), so the
+// runtime `Object.hasOwn` lookups below still see an unknown key on
+// occasion — that's the defense-in-depth fallback to the dot, not the
+// primary guard anymore.
+const NAV_ICONS = {
   dashboard: LayoutDashboard,
   "layout-grid": LayoutGrid,
   "book-open": BookOpen,
@@ -158,7 +165,13 @@ const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
   rocket: Rocket,
   // Was imported but never registered — `icon: "plus"` silently fell back.
   plus: Plus,
-};
+  languages: Languages,
+} as const satisfies Readonly<Record<NavIconKey, typeof Folder>>;
+
+// Widened alias for the two lookup sites below, which index by the plain
+// `string` icon key of the resolved NavNode/TreeAction tree — not the
+// closed NavIconKey union NAV_ICONS itself is typed against.
+const NAV_ICON_LOOKUP: Readonly<Record<string, typeof Folder | undefined>> = NAV_ICONS;
 
 export type NavTreeProps = {
   // Akzeptiert beide Shapes — AppSchema (multi-feature) oder
@@ -337,7 +350,9 @@ function NavLeadingIcon({
 }): ReactNode {
   const iconKey = expanded && node.icon === "folder" ? "folder-open" : node.icon;
   const NavIcon =
-    iconKey !== undefined && Object.hasOwn(NAV_ICONS, iconKey) ? NAV_ICONS[iconKey] : undefined;
+    iconKey !== undefined && Object.hasOwn(NAV_ICONS, iconKey)
+      ? NAV_ICON_LOOKUP[iconKey]
+      : undefined;
   if (NavIcon !== undefined) return <NavIcon aria-hidden="true" className="shrink-0" />;
   const initial = label?.trim().charAt(0).toUpperCase();
   return (
@@ -526,10 +541,10 @@ function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNode
   };
 }
 
-// Action-Icon-Lookup: bekannter NAV_ICONS-Key → Lucide, sonst der rohe
-// String als Text (Provider-Konvention, kein Boot-Fail bei unknown).
+// Action icon lookup: registered NAV_ICONS key → Lucide icon, otherwise the
+// raw string as text (provider convention, no boot-fail on an unknown key).
 function ActionGlyph({ icon }: { readonly icon: string }): ReactNode {
-  const Icon = Object.hasOwn(NAV_ICONS, icon) ? NAV_ICONS[icon] : undefined;
+  const Icon = Object.hasOwn(NAV_ICONS, icon) ? NAV_ICON_LOOKUP[icon] : undefined;
   if (Icon !== undefined) return <Icon aria-hidden className="size-3.5" />;
   return (
     <span aria-hidden className="text-xs">
