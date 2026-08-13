@@ -21,6 +21,10 @@ export type DrawerProps = {
   readonly footer?: ReactNode;
   readonly children: ReactNode;
   readonly testId?: string;
+  /** Header close (X). Default `true`. Turn off when the caller's own
+   *  footer already has a dedicated close/cancel action, so there is only
+   *  one way to dismiss the drawer. */
+  readonly showCloseButton?: boolean;
   /** Opt-in drag-to-resize + maximize toggle (left/right sides only). */
   readonly resize?: {
     readonly defaultWidthPx?: number;
@@ -37,9 +41,12 @@ export type DrawerProps = {
 
 const MIN_WIDTH_PX = 320;
 const MAX_WIDTH_PX = 1000;
-// Must match the static `max(520px,25vw)` in floatingSideClass — Tailwind's
+// Must match the static `max(600px,25vw)` in floatingSideClass — Tailwind's
 // JIT can't read these at runtime, so the two are kept in sync by hand.
-const DEFAULT_WIDTH_MIN_PX = 520;
+// 600px (vs. the old 520px floor) gives a two-column field row (e.g.
+// street/number, zip/city) room to breathe, while staying well under half
+// of a 1280px viewport so a narrow window isn't dominated by the drawer.
+const DEFAULT_WIDTH_MIN_PX = 600;
 const DEFAULT_WIDTH_VIEWPORT_RATIO = 0.25;
 const DEFAULT_BLUR_PX = 0;
 const DEFAULT_DIM_PERCENT = 20;
@@ -55,13 +62,13 @@ function defaultWidthFromViewport(): number {
 function floatingSideClass(side: "left" | "right" | "top" | "bottom"): string {
   switch (side) {
     case "left":
-      return "inset-y-8 left-8 h-auto w-[max(520px,25vw)] max-w-[85vw] sm:max-w-[max(520px,25vw)] rounded-[2rem] border shadow-2xl overflow-hidden";
+      return "inset-y-8 left-8 h-auto w-[max(600px,25vw)] max-w-[85vw] sm:max-w-[max(600px,25vw)] rounded-[2rem] border shadow-2xl overflow-hidden";
     case "top":
       return "inset-x-8 top-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl overflow-hidden";
     case "bottom":
       return "inset-x-8 bottom-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl overflow-hidden";
     default:
-      return "inset-y-8 right-8 h-auto w-[max(520px,25vw)] max-w-[85vw] sm:max-w-[max(520px,25vw)] rounded-[2rem] border shadow-2xl overflow-hidden";
+      return "inset-y-8 right-8 h-auto w-[max(600px,25vw)] max-w-[85vw] sm:max-w-[max(600px,25vw)] rounded-[2rem] border shadow-2xl overflow-hidden";
   }
 }
 
@@ -77,6 +84,7 @@ export function Drawer({
   footer,
   children,
   testId,
+  showCloseButton = true,
   resize,
   backdrop,
 }: DrawerProps): ReactNode {
@@ -146,6 +154,7 @@ export function Drawer({
         side={side}
         data-testid={testId}
         overlayStyle={overlayStyle}
+        showCloseButton={showCloseButton}
         className={floatingSideClass(side)}
         style={canResize ? { width: effectiveWidthPx, maxWidth: "none" } : undefined}
       >
