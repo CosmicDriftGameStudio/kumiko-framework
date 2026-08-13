@@ -66,6 +66,12 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.no-entries": "Keine Einträge.",
     "kumiko.list.end-of-list": "— Ende der Liste —",
 
+    // Pager — Status-Zeile + Prev/Next/Page-aria-Labels (DataTable pagination="pages").
+    "kumiko.pager.status": "{from}–{to} von {total}",
+    "kumiko.pager.previousPage": "Vorherige Seite",
+    "kumiko.pager.nextPage": "Nächste Seite",
+    "kumiko.pager.page": "Seite {entry}",
+
     // Combobox — Tier 2.1c Searchable-Select.
     "kumiko.combobox.search-placeholder": "Suchen…",
     "kumiko.combobox.empty": "Keine Treffer.",
@@ -256,6 +262,11 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.empty.hint": "Create the first one to get started.",
     "kumiko.list.no-entries": "No entries.",
     "kumiko.list.end-of-list": "— End of list —",
+
+    "kumiko.pager.status": "{from}–{to} of {total}",
+    "kumiko.pager.previousPage": "Previous page",
+    "kumiko.pager.nextPage": "Next page",
+    "kumiko.pager.page": "Page {entry}",
 
     "kumiko.combobox.search-placeholder": "Search…",
     "kumiko.combobox.empty": "No matches.",
