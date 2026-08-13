@@ -98,6 +98,19 @@ describe("GET /api/files/:id/variant/:name", () => {
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(VARIANT_BYTES);
   });
 
+  // setupTestStack doesn't wrap with the app-wide security-headers default, so a pass proves the route sets its own.
+  test("sets X-Content-Type-Options: nosniff on the response itself", async () => {
+    const fileId = await uploadFile();
+    const token = await stack.jwt.sign(user);
+
+    const res = await stack.app.request(`/api/files/${fileId}/variant/thumb`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
   test("a second call hits the cache — the renderer runs only once", async () => {
     renderCalls = 0;
     const fileId = await uploadFile();

@@ -289,6 +289,8 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       headers: {
         "Content-Type": result.mimeType,
         "Cache-Control": "private, max-age=31536000, immutable",
+        // Explicit here, not left to the app-wide security-headers default, so the route stays safe standalone.
+        "X-Content-Type-Options": "nosniff",
       },
     });
   });

@@ -171,7 +171,12 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
             body: bytes,
             etag,
             cache: { kind: "revalidate", maxAgeSeconds: 60 },
-            headers: { "content-type": result.mimeType, vary: "Host" },
+            // Explicit here, not left to the app-wide security-headers default, so the route stays safe standalone.
+            headers: {
+              "content-type": result.mimeType,
+              vary: "Host",
+              "x-content-type-options": "nosniff",
+            },
           });
         },
       });
