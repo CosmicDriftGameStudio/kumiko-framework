@@ -315,4 +315,14 @@ describe("renderApexPage", () => {
     expect(html).toContain('{"@context":"https://schema.org","@type":"WebSite","name":"Acme"}');
     expect(html).toContain("</script>");
   });
+
+  test("header .nav rule doesn't reset the .container's horizontal padding (#2038)", () => {
+    const html = renderApexPage(page());
+    const navRule = html.match(/\.nav\s*\{[^}]*\}/)?.[0];
+    expect(navRule).toBeDefined();
+    // A `padding`/`padding-inline`/`padding-left`/`padding-right` shorthand or
+    // longhand here would win the cascade over .container's horizontal padding
+    // (same specificity, .nav declared later) and zero it out on <div class="container nav">.
+    expect(navRule).not.toMatch(/padding(-inline|-left|-right)?\s*:/);
+  });
 });
