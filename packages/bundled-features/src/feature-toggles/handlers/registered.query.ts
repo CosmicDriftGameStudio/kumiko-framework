@@ -1,6 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { FEATURE_TOGGLE_CROSS_TENANT_REASON } from "../constants";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 
 // Inventory of every registered feature, annotated with toggle metadata
@@ -16,8 +17,18 @@ export const registeredQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: ["SystemAdmin"] },
   handler: async (_event, ctx) => {
+    // ctx.systemDb is populated for r.systemScope() handlers only (feature.ts
+    // declares it) — guarded instead of asserted, see set.write.ts Guard 0.5.
+    if (!ctx.systemDb) {
+      throw new Error(
+        "[feature-toggles] registered-query requires ctx.systemDb — the feature-toggles " +
+          "feature must stay r.systemScope() (see feature.ts).",
+      );
+    }
+    const db = ctx.systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
+
     type OverrideRow = { featureName: string; enabled: boolean };
-    const overrideRows = await selectMany<OverrideRow>(ctx.db.raw, globalFeatureStateTable);
+    const overrideRows = await selectMany<OverrideRow>(db.raw, globalFeatureStateTable);
     const overrides = new Map(overrideRows.map((r) => [r.featureName, r.enabled]));
 
     // SystemAdmin operator-tooling: das listing soll die PLATTFORM-truth

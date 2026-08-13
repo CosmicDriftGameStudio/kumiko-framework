@@ -10,6 +10,12 @@ export const FEATURE_TOGGLE_SET_EVENT_NAME = "feature-toggles:event:toggle-set";
 // "feature-toggles" in its aggregate_type column.
 export const FEATURE_TOGGLE_AGGREGATE_TYPE = "feature-toggles";
 
+// Shared acknowledgeCrossTenant() reason across all three handlers that read
+// or write globalFeatureStateTable — one string so the three call sites
+// can't drift (framework#2076).
+export const FEATURE_TOGGLE_CROSS_TENANT_REASON =
+  "global feature-toggle state, no tenant scope by design";
+
 // Error reasons surfaced from feature-toggle handlers. Scoped to the
 // feature's namespace per the framework's reason-convention.
 export const FeatureToggleErrors = {
