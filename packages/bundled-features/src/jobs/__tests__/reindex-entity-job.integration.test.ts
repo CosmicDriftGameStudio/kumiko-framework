@@ -11,6 +11,7 @@ import {
   buildEntityTable,
   createEventStoreExecutor,
   createTenantDb,
+  createUncheckedSystemDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -18,6 +19,7 @@ import {
   defineFeature,
   type JobContext,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
@@ -97,6 +99,7 @@ describe("reindexEntityJob", () => {
       registry: stack.registry,
       searchAdapter: stack.search,
       systemUser: admin,
+      systemDb: createUncheckedSystemDb(createTenantDb(stack.db, admin.tenantId, "system")),
       log: noopLogger,
       triggeredBy: null,
       ...bridgeStub(),
@@ -137,6 +140,7 @@ describe("reindexEntityJob", () => {
       registry: stack.registry,
       searchAdapter: stack.search,
       systemUser: admin,
+      systemDb: createUncheckedSystemDb(createTenantDb(stack.db, admin.tenantId, "system")),
       log: noopLogger,
       triggeredBy: null,
       ...bridgeStub(),
@@ -171,5 +175,40 @@ describe("reindexEntityJob", () => {
         { db: stack.db, registry: stack.registry, systemUser: admin } as unknown as JobContext,
       ),
     ).rejects.toThrow(/searchAdapter/);
+  });
+
+  test("throws when ctx.systemDb is missing", async () => {
+    await expect(
+      reindexEntityJob(
+        { entity: "widget" },
+        // @cast-boundary test-seam — deliberately no systemDb: proves the missing-systemDb throw
+        {
+          db: stack.db,
+          registry: stack.registry,
+          searchAdapter: stack.search,
+          systemUser: admin,
+        } as unknown as JobContext,
+      ),
+    ).rejects.toThrow(/systemDb/);
+  });
+
+  // Honest scope: in production job-runner.ts derives both ctx.systemDb's
+  // tenantId and ctx.systemUser from the same per-dispatch value, so this
+  // mismatch can't occur live — it only proves the self-check is wired to
+  // the tenant that was actually resolved, catching future drift between
+  // the two, not a real cross-tenant hole.
+  test("fails closed when ctx.systemDb is scoped to a different tenant than ctx.systemUser", async () => {
+    const otherTenantId = TestUsers.otherTenant.tenantId;
+    const ctx: JobContext = {
+      db: stack.db,
+      registry: stack.registry,
+      searchAdapter: stack.search,
+      systemUser: admin,
+      systemDb: createUncheckedSystemDb(createTenantDb(stack.db, otherTenantId, "system")),
+      log: noopLogger,
+      triggeredBy: null,
+      ...bridgeStub(),
+    };
+    await expect(reindexEntityJob({ entity: "widget" }, ctx)).rejects.toThrow(AccessDeniedError);
   });
 });
