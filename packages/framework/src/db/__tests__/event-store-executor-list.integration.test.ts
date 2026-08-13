@@ -8,6 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient } from "../../db/query";
 import { createEntity, createNumberField, createTextField } from "../../engine";
+import { UnprocessableError } from "../../errors";
 import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
@@ -362,12 +363,21 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
   // der executor zur Definition-Time keinen ctx-Adapter kennt.
   const exec = createEventStoreExecutor(table, entity, { entityName: "pagerItem" });
 
-  test("ohne searchAdapter: search-Param ist no-op (alle rows zurück)", async () => {
+  test("ohne searchAdapter: search-Param wirft statt still zu verpuffen (#2032)", async () => {
     for (let i = 0; i < 3; i++) {
       await exec.create({ title: `item-${i}`, rank: i }, admin, tdb);
     }
-    const res = await exec.list({ limit: 50, search: "irgendwas" }, admin, tdb);
-    expect(res.rows.length).toBe(3);
+    const call = exec.list({ limit: 50, search: "irgendwas" }, admin, tdb);
+    await expect(call).rejects.toThrow(UnprocessableError);
+    await expect(call.catch((e: unknown) => e)).resolves.toMatchObject({
+      code: "unprocessable",
+      httpStatus: 422,
+      details: {
+        reason: "search_adapter_not_wired",
+        entity: "pagerItem",
+        hint: expect.stringContaining("SearchAdapter"),
+      },
+    });
   });
 
   test("mit runtimeOptions.searchAdapter: search filtert auf returned IDs", async () => {
