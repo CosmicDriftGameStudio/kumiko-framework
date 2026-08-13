@@ -8,7 +8,7 @@ import { escapeHtml } from "../format";
 import { APEX_STRUCTURAL_CSS } from "./css";
 import { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT } from "./lightbox";
 
-export { APEX_NAV_MENU_CSS, APEX_STRUCTURAL_CSS } from "./css";
+export { APEX_NAV_MENU_CSS, APEX_NAV_TOGGLE_RESPONSIVE_CSS, APEX_STRUCTURAL_CSS } from "./css";
 export {
   APEX_LIGHTBOX_HTML,
   APEX_LIGHTBOX_SCRIPT,

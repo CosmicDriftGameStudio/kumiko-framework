@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { APEX_STRUCTURAL_CSS } from "../css";
+import { APEX_NAV_MENU_CSS, APEX_NAV_TOGGLE_RESPONSIVE_CSS, APEX_STRUCTURAL_CSS } from "../css";
 import { type ApexPage, renderApexPage } from "../index";
 
 const brand = { tokensCss: ":root{--primary:#123;--primary-fg:#fff;--bg:#fff;--fg:#000;}" };
@@ -123,15 +123,46 @@ describe("renderApexPage", () => {
 
   test("mobile-open .nav-toggle rule wins the cascade over the desktop-hidden default", () => {
     // APEX_NAV_MENU_CSS sets `.nav-toggle { display: none; }` unconditionally;
-    // RESPONSIVE re-declares it `display: inline-flex` inside the 640px query and
-    // must concatenate AFTER it in APEX_STRUCTURAL_CSS to win the cascade. A
-    // markup-only assertion can't catch a reordering that silently restores
-    // fw#2047 (nav-links hidden on mobile with no way to reopen them).
+    // APEX_NAV_TOGGLE_RESPONSIVE_CSS re-declares it `.nav .nav-toggle { display:
+    // inline-flex; }` inside the 640px query. A markup-only assertion can't catch
+    // a reordering that silently restores fw#2047 (nav-links hidden on mobile
+    // with no way to reopen them).
     const hiddenDefault = APEX_STRUCTURAL_CSS.indexOf(".nav-toggle { display: none; }");
-    const mobileOpen = APEX_STRUCTURAL_CSS.indexOf(".nav-toggle { display: inline-flex; }");
+    const mobileOpen = APEX_STRUCTURAL_CSS.indexOf(".nav .nav-toggle { display: inline-flex; }");
     expect(hiddenDefault).toBeGreaterThan(-1);
     expect(mobileOpen).toBeGreaterThan(-1);
     expect(mobileOpen).toBeGreaterThan(hiddenDefault);
+  });
+
+  test("APEX_NAV_TOGGLE_RESPONSIVE_CSS's mobile-open rules outrank APEX_NAV_MENU_CSS's hidden default regardless of concatenation order (fw#2125)", () => {
+    // money-horse/show-pony/the docs sample call renderApexHeader() standalone and
+    // concatenate APEX_NAV_MENU_CSS with their own page CSS in whatever order they
+    // choose — they don't control ordering relative to APEX_STRUCTURAL_CSS's
+    // internal layout. The "show" rules are therefore specificity-hardened
+    // (`.nav .nav-toggle`, 2 classes) rather than relying on source order to beat
+    // APEX_NAV_MENU_CSS's bare `.nav-toggle` default (1 class) — verify both carry
+    // that extra `.nav ` prefix so the fix holds even when a consumer emits
+    // APEX_NAV_TOGGLE_RESPONSIVE_CSS BEFORE APEX_NAV_MENU_CSS.
+    expect(APEX_NAV_MENU_CSS).toContain(".nav-toggle { display: none; }");
+    expect(APEX_NAV_MENU_CSS).toContain(".nav-toggle__trigger { display: none;");
+    expect(APEX_NAV_MENU_CSS).not.toContain(".nav-toggle { display: inline-flex");
+    expect(APEX_NAV_MENU_CSS).not.toContain(".nav-toggle__trigger { display: inline-flex");
+
+    expect(APEX_NAV_TOGGLE_RESPONSIVE_CSS).toContain(".nav .nav-toggle { display: inline-flex; }");
+    expect(APEX_NAV_TOGGLE_RESPONSIVE_CSS).toContain(
+      ".nav .nav-toggle__trigger { display: inline-flex; }",
+    );
+  });
+
+  test("APEX_NAV_TOGGLE_RESPONSIVE_CSS declares .nav as the positioned ancestor for the open dropdown", () => {
+    // `.nav-toggle[open] > .nav-links` is `position: absolute; top: calc(100% +
+    // 0.5rem); left: 0; right: 0` — it needs `.nav { position: relative; }` as
+    // its containing block. renderApexPage gets that from CHROME_LIGHT, but a
+    // standalone renderApexHeader() consumer's own header CSS typically doesn't
+    // declare it, and without it the dropdown opens off-screen against the
+    // viewport instead of under the header (fw#2125 follow-up: verified none of
+    // money-horse/show-pony/the docs sample's HEADER_CSS set it).
+    expect(APEX_NAV_TOGGLE_RESPONSIVE_CSS).toContain(".nav { position: relative; }");
   });
 
   test("pricing: featured card gets badge + featured class, cap line precedes benefits", () => {

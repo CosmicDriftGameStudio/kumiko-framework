@@ -196,22 +196,6 @@ const RESPONSIVE = `
   @media (max-width: 640px) {
     section { padding: 3.5rem 0; }
     .feature-grid, .price-grid, .trust-grid, .footer-grid { grid-template-columns: 1fr; }
-    /* Overrides APEX_NAV_MENU_CSS's unconditional "display: none" default —
-       RESPONSIVE concatenates after it in APEX_STRUCTURAL_CSS, so this wins
-       the cascade at equal specificity without needing to fight the browser's
-       native closed-<details> hiding (that hiding is never overridden here,
-       only the OPEN state is styled below, which paints normally). */
-    .nav-toggle { display: inline-flex; }
-    .nav-toggle__trigger { display: inline-flex; }
-    .nav-toggle[open] > .nav-links { display: flex; flex-direction: column; align-items: stretch;
-      gap: 0.25rem; position: absolute; top: calc(100% + 0.5rem); left: 0; right: 0; z-index: 30;
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem;
-      box-shadow: var(--shadow); padding: 0.75rem; }
-    .nav-toggle[open] > .nav-links > a { color: var(--fg); padding: 0.4rem 0.25rem; }
-    .nav-toggle[open] > .nav-links > a:hover { color: var(--fg); }
-    .nav-toggle .nav-menu { display: block; }
-    .nav-toggle .nav-menu__panel { position: static; min-width: 0;
-      margin-top: 0.375rem; box-shadow: none; }
   }
 `;
 
@@ -220,7 +204,9 @@ const RESPONSIVE = `
 // <details> can't be forced "always open" on desktop via CSS (Chrome keeps
 // its content unpainted regardless of a child's own `display`), so two
 // copies sidestep that instead of fighting it. Exported standalone so a
-// consumer rendering its own header chrome can include just this.
+// consumer rendering its own header chrome can include just this. A
+// consumer using renderApexHeader() outside renderApexPage also needs
+// APEX_NAV_TOGGLE_RESPONSIVE_CSS below for the mobile toggle to open.
 export const APEX_NAV_MENU_CSS = `
   .nav-toggle { display: none; }
   .nav-toggle__trigger { display: none; align-items: center; justify-content: center;
@@ -271,6 +257,38 @@ export const APEX_NAV_MENU_CSS = `
   .nav-menu__panel a.nav-menu__more:hover { color: var(--primary-hover); }
 `;
 
+// Standalone mobile-open rules for .nav-toggle, split out of RESPONSIVE so a
+// consumer calling renderApexHeader() outside renderApexPage (money-horse,
+// show-pony, the docs sample) can include just this alongside
+// APEX_NAV_MENU_CSS, without pulling in the rest of RESPONSIVE's page-level
+// grid breakpoints. The two "show" rules use the `.nav ` prefix (matching
+// renderApexHeader's `<div class="container nav">` wrapper) to raise their
+// specificity above APEX_NAV_MENU_CSS's bare `.nav-toggle`/`.nav-toggle__trigger`
+// "display: none" defaults — that makes them win regardless of concatenation
+// order, since a standalone consumer controls the order, not this file.
+// Also declares `.nav { position: relative; }`: the open dropdown positions
+// itself against .nav (`top/left/right` below), and renderApexPage's own
+// CHROME_LIGHT already sets that, but a standalone consumer's own header CSS
+// generally doesn't — without it the dropdown would anchor to the viewport
+// instead of the header and open off-screen. Redeclaring it here is a no-op
+// inside APEX_STRUCTURAL_CSS (same value, harmless if repeated).
+export const APEX_NAV_TOGGLE_RESPONSIVE_CSS = `
+  @media (max-width: 640px) {
+    .nav { position: relative; }
+    .nav .nav-toggle { display: inline-flex; }
+    .nav .nav-toggle__trigger { display: inline-flex; }
+    .nav-toggle[open] > .nav-links { display: flex; flex-direction: column; align-items: stretch;
+      gap: 0.25rem; position: absolute; top: calc(100% + 0.5rem); left: 0; right: 0; z-index: 30;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem;
+      box-shadow: var(--shadow); padding: 0.75rem; }
+    .nav-toggle[open] > .nav-links > a { color: var(--fg); padding: 0.4rem 0.25rem; }
+    .nav-toggle[open] > .nav-links > a:hover { color: var(--fg); }
+    .nav-toggle .nav-menu { display: block; }
+    .nav-toggle .nav-menu__panel { position: static; min-width: 0;
+      margin-top: 0.375rem; box-shadow: none; }
+  }
+`;
+
 export const APEX_STRUCTURAL_CSS =
   BASE_LAYOUT +
   HERO +
@@ -281,4 +299,5 @@ export const APEX_STRUCTURAL_CSS =
   CHROME_LIGHT +
   CHROME_DARK +
   APEX_NAV_MENU_CSS +
+  APEX_NAV_TOGGLE_RESPONSIVE_CSS +
   RESPONSIVE;
