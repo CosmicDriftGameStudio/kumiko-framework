@@ -15,14 +15,25 @@ describe("compliance profile screen + handler access alignment", () => {
     const feature = createComplianceProfilesFeature();
     const screen = feature.screens[COMPLIANCE_PROFILE_SCREEN_ID];
     expect(screen?.type).toBe("custom");
-    if (screen && "access" in screen && screen.access && "roles" in screen.access) {
-      expect(screen.access.roles).toEqual(access.admin);
-    }
+    expect(rolesOf(screen?.access)).toEqual([...access.admin]);
   });
 
   test("set-profile handler shares access.admin", () => {
     const feature = createComplianceProfilesFeature();
     expect(rolesOf(feature.writeHandlers["set-profile"]?.access)).toEqual([...access.admin]);
     void ComplianceProfileHandlers;
+  });
+
+  test("access option narrows the profile-picker screen and its set-profile handler together (#2033)", () => {
+    const feature = createComplianceProfilesFeature({ access: access.systemAdmin });
+    const screen = feature.screens[COMPLIANCE_PROFILE_SCREEN_ID];
+    expect(rolesOf(screen?.access)).toEqual([...access.systemAdmin]);
+    expect(rolesOf(feature.writeHandlers["set-profile"]?.access)).toEqual([...access.systemAdmin]);
+  });
+
+  test("boot-validates with a narrowed access option", () => {
+    expect(() =>
+      validateBoot([createComplianceProfilesFeature({ access: access.systemAdmin })]),
+    ).not.toThrow();
   });
 });

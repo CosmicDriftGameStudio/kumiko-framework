@@ -31,7 +31,20 @@ export {
 // Architektur-Note: Profile-Selection lebt als separate Entity
 // (tenantComplianceProfile), nicht als config-key im tenant-Feature.
 // Begruendung in schema/profile-selection.ts.
-export function createComplianceProfilesFeature(): FeatureDefinition {
+export type ComplianceProfilesFeatureOptions = {
+  // Access gate for the profile-picker screen and the `set-profile` write it
+  // submits to — both move together so the nav entry a role sees always
+  // matches a callable handler (#2033). Default access.admin includes
+  // TenantAdmin, who in a line-of-business app is the operator, not the
+  // platform — pass access.systemAdmin to keep this platform-only and out
+  // of their nav.
+  readonly access?: readonly string[];
+};
+
+export function createComplianceProfilesFeature(
+  options?: ComplianceProfilesFeatureOptions,
+): FeatureDefinition {
+  const resolvedAccess = options?.access ?? access.admin;
   return defineFeature("compliance-profiles", (r) => {
     r.describe(
       "Lets each tenant select a compliance regime (e.g. `eu-dsgvo`, `swiss-dsg`, `de-hr-dsgvo-hgb`) that bundles user-rights grace periods, breach-disclosure deadlines, sub-processor requirements, and audit-retention rules into a single named profile. Tenant admins call `compliance-profiles:write:set-profile` to choose a profile (with optional JSON override for edge cases); other features resolve the effective profile via the `compliance.forTenant` cross-feature API. Required by `user-data-rights` \u2014 mount this feature before it.",
@@ -50,7 +63,7 @@ export function createComplianceProfilesFeature(): FeatureDefinition {
     r.exposesApi("compliance.forTenant");
 
     const handlers = {
-      setProfile: r.writeHandler(setProfileWrite),
+      setProfile: r.writeHandler({ ...setProfileWrite, access: { roles: resolvedAccess } }),
     };
 
     const queries = {
@@ -64,7 +77,7 @@ export function createComplianceProfilesFeature(): FeatureDefinition {
       id: COMPLIANCE_PROFILE_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "ComplianceProfileScreen" } },
-      access: { roles: access.admin },
+      access: { roles: resolvedAccess },
     });
     r.nav({
       id: "profile-picker",
