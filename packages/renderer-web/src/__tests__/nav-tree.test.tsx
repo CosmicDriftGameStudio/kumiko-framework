@@ -5,7 +5,16 @@
 //   2. Active-State greift auf node mit screen wenn nav.route's
 //      screenId matcht (Standard-Sidebar-Verhalten).
 
-import { afterAll, afterEach, beforeEach, describe, expect, type Mock, spyOn, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  type Mock,
+  spyOn,
+  test,
+} from "bun:test";
 import type {
   TargetRef,
   TreeChildrenSubscribe,
