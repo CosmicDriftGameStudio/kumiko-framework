@@ -240,7 +240,10 @@ export type FormControllerOptions<TValues extends FormValues, TCtx = unknown> = 
 export type SubmitPayloadMode = "values" | "changes";
 
 export type SubmitConfig<TValues extends FormValues = FormValues> = {
-  readonly dispatcher: Dispatcher;
+  // Optional so callers can default it from an ambient DispatcherProvider
+  // (see kumiko-renderer's useForm) instead of requiring it at every call
+  // site — submit() throws at write-time if it's still missing then.
+  readonly dispatcher?: Dispatcher;
   // Qualified write-handler name (e.g. "orders:write:order:create").
   readonly type: string;
   readonly payloadMode?: SubmitPayloadMode;
