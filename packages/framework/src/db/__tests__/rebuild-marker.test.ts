@@ -40,6 +40,14 @@ describe("rebuildTablesFromDiff", () => {
     expect(rebuildTablesFromDiff(diff)).toEqual(["read_b"]);
   });
 
+  test("managed new _bidx column → rebuild (blind index needs plaintext HMAC, SQL can't backfill)", () => {
+    const prev = snapshotFromMetas([meta("read_a")]);
+    const next = snapshotFromMetas([
+      meta("read_a", { name: "invited_by_bidx", pgType: "text", notNull: false }),
+    ]);
+    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
+  });
+
   test("no schema change → empty", () => {
     const snap = snapshotFromMetas([meta("read_a")]);
     expect(rebuildTablesFromDiff(diffSnapshots(snap, snap))).toEqual([]);
