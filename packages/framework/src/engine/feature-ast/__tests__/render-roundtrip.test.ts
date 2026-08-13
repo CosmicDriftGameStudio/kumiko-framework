@@ -380,6 +380,160 @@ describe("renderPattern — single-pattern shape", () => {
     });
     expect(out).toBe('r.metric({ name: "requests", type: "counter" });');
   });
+
+  // #2111 — a name-carrying pattern with a `*Raw` field re-emits the
+  // identifier verbatim; without it, the name flattens to its resolved
+  // literal same as before the fix.
+  test("useExtension pattern re-emits extensionNameRaw verbatim over the resolved literal", () => {
+    const out = renderPattern({
+      kind: "useExtension",
+      source: { file: "x", start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, raw: "" },
+      extensionName: "tenant-data",
+      extensionNameRaw: "EXT_TENANT_DATA",
+      entityName: "document",
+    });
+    expect(out).toBe('r.useExtension(EXT_TENANT_DATA, "document");');
+  });
+
+  test("useExtension pattern falls back to the resolved literal when extensionNameRaw is absent", () => {
+    const out = renderPattern({
+      kind: "useExtension",
+      source: { file: "x", start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, raw: "" },
+      extensionName: "tenant-data",
+      entityName: "document",
+    });
+    expect(out).toBe('r.useExtension({ name: "tenant-data", entity: "document" });');
+  });
+
+  test("useExtension pattern with extensionNameRaw indents a multi-line options object correctly", () => {
+    const out = renderPattern({
+      kind: "useExtension",
+      source: { file: "x", start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, raw: "" },
+      extensionName: "tenant-data",
+      extensionNameRaw: "EXT_TENANT_DATA",
+      entityName: "document",
+      options: {
+        description: "a fairly long description that pushes this object past eighty characters wide",
+        scope: "tenant",
+        exportable: true,
+      },
+    });
+    expect(out).toBe(
+      [
+        'r.useExtension(EXT_TENANT_DATA, "document", {',
+        '  description: "a fairly long description that pushes this object past eighty characters wide",',
+        '  scope: "tenant",',
+        "  exportable: true,",
+        "});",
+      ].join("\n"),
+    );
+  });
+
+  test("extendsRegistrar pattern re-emits extensionNameRaw verbatim over the resolved literal", () => {
+    const out = renderPattern({
+      kind: "extendsRegistrar",
+      source: { file: "x", start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, raw: "" },
+      extensionName: "tenant-data",
+      extensionNameRaw: "EXT_TENANT_DATA",
+      defBody: { file: "x", start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, raw: "{}" },
+    });
+    expect(out).toBe("r.extendsRegistrar(EXT_TENANT_DATA, {});");
+  });
+
+  test("defineEvent pattern re-emits eventNameRaw verbatim over the resolved literal", () => {
+    const out = renderPattern({
+      kind: "defineEvent",
+      source: { file: "x", start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, raw: "" },
+      eventName: "docIngested",
+      eventNameRaw: "DOC_INGESTED_EVENT",
+      schemaSource: {
+        file: "x",
+        start: { line: 1, column: 1 },
+        end: { line: 1, column: 1 },
+        raw: "z.object({})",
+      },
+    });
+    expect(out).toBe("r.defineEvent(DOC_INGESTED_EVENT, z.object({}));");
+  });
+});
+
+// #2111 — registrar-call names authored as an imported/local constant
+// (`r.useExtension(EXT_TENANT_DATA, ...)`, the style #1746 taught the
+// parser to resolve) must not get inlined into their resolved string
+// literal on a render → parse round-trip — the framework's own
+// bundled-features rely on the identifier reference surviving edits made
+// through the Designer to unrelated fields on the same pattern.
+const NAME_CONST_FEATURE = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+const EXT_TENANT_DATA = "tenant-data" as const;
+const DOC_INGESTED_EVENT = "docIngested" as const;
+
+defineFeature("user-data-rights", (r) => {
+  r.extendsRegistrar(EXT_TENANT_DATA, { onRegister: () => {} });
+  r.useExtension(EXT_TENANT_DATA, "document", { description: "org-scoped" });
+  r.defineEvent(DOC_INGESTED_EVENT, z.object({ id: z.string() }));
+});
+`;
+
+describe("render → parse roundtrip — imported-constant registrar-call names (#2111)", () => {
+  const initial = parse(NAME_CONST_FEATURE);
+
+  test("parses the identifier-authored names, keeping the source text alongside the resolved value", () => {
+    expect(initial.patterns).toMatchObject([
+      {
+        kind: "extendsRegistrar",
+        extensionName: "tenant-data",
+        extensionNameRaw: "EXT_TENANT_DATA",
+      },
+      {
+        kind: "useExtension",
+        extensionName: "tenant-data",
+        extensionNameRaw: "EXT_TENANT_DATA",
+      },
+      { kind: "defineEvent", eventName: "docIngested", eventNameRaw: "DOC_INGESTED_EVENT" },
+    ]);
+  });
+
+  test("rendering re-emits the identifier verbatim instead of the resolved literal", () => {
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: initial.patterns,
+    });
+    expect(rendered).toContain("r.extendsRegistrar(EXT_TENANT_DATA,");
+    expect(rendered).toContain("r.useExtension(EXT_TENANT_DATA,");
+    expect(rendered).toContain("r.defineEvent(DOC_INGESTED_EVENT,");
+    expect(rendered).not.toContain('"tenant-data"');
+    expect(rendered).not.toContain('"docIngested"');
+  });
+
+  test("editing an unrelated field on the useExtension pattern still preserves the identifier name", () => {
+    // Simulates a Designer save: only `options` changes; `extensionName` /
+    // `extensionNameRaw` pass through untouched, as replacePattern callers
+    // are expected to do (see UseExtensionPattern.extensionNameRaw doc).
+    const edited = initial.patterns.map((p) =>
+      p.kind === "useExtension"
+        ? { ...p, options: { ...p.options, description: "tenant-scoped" } }
+        : p,
+    );
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: edited,
+    });
+    expect(rendered).toContain("r.useExtension(EXT_TENANT_DATA,");
+    expect(rendered).toContain("tenant-scoped");
+  });
+
+  // No "reparse the full renderFeatureFile output" case here, unlike the
+  // other roundtrip blocks in this file: renderFeatureFile only emits the
+  // version header + imports + defineFeature body (see its doc comment),
+  // so it drops the top-level `const EXT_TENANT_DATA = ...` this fixture
+  // relies on — reparsing would ParseError for an unrelated, pre-existing
+  // reason (the const is gone), not because the raw-preservation broke.
+  // The real edit path (`replacePattern` patching a single call in place
+  // on the *original* SourceFile, which keeps the const) is covered by
+  // patch.test.ts.
 });
 
 // Regression guard for the class of bug the r.exposesApi/r.usesApi fold

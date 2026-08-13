@@ -6,7 +6,7 @@ import type {
   UsesApiPattern,
 } from "../patterns";
 import { sourceLocationFromNode } from "../source-location";
-import { type ExtractOutput, fail, ok, readNameLiteral } from "./shared";
+import { type ExtractOutput, fail, ok, readNameLiteral, readNameLiteralRef } from "./shared";
 
 export function extractEnvSchema(
   call: CallExpression,
@@ -33,8 +33,8 @@ export function extractExtendsRegistrar(
 ): ExtractOutput<ExtendsRegistrarPattern> {
   const args = call.getArguments();
   const first = args[0];
-  const extensionName = first && readNameLiteral(first);
-  if (!extensionName) {
+  const extensionNameRef = first && readNameLiteralRef(first);
+  if (!extensionNameRef) {
     return fail(
       "extendsRegistrar",
       sourceLocationFromNode(call, sourceFile),
@@ -52,7 +52,8 @@ export function extractExtendsRegistrar(
   return ok({
     kind: "extendsRegistrar",
     source: sourceLocationFromNode(call, sourceFile),
-    extensionName,
+    extensionName: extensionNameRef.value,
+    ...(extensionNameRef.raw !== undefined && { extensionNameRaw: extensionNameRef.raw }),
     defBody: sourceLocationFromNode(defArg, sourceFile),
   });
 }

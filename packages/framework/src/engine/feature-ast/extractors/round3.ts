@@ -21,6 +21,7 @@ import {
   ok,
   readDataLiteralNode,
   readNameLiteral,
+  readNameLiteralRef,
   readNameOrRef,
 } from "./shared";
 
@@ -425,8 +426,8 @@ export function extractUseExtension(
     });
   }
 
-  const extensionName = readNameLiteral(first);
-  if (extensionName === undefined) {
+  const extensionNameRef = readNameLiteralRef(first);
+  if (extensionNameRef === undefined) {
     return fail(
       "useExtension",
       sourceLocationFromNode(call, sourceFile),
@@ -465,7 +466,8 @@ export function extractUseExtension(
   return ok({
     kind: "useExtension",
     source: sourceLocationFromNode(call, sourceFile),
-    extensionName,
+    extensionName: extensionNameRef.value,
+    ...(extensionNameRef.raw !== undefined && { extensionNameRaw: extensionNameRef.raw }),
     entityName,
     ...(options !== undefined && { options }),
   });

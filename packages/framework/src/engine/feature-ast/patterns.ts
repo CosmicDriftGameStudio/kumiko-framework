@@ -283,6 +283,14 @@ export type UseExtensionPattern = {
   readonly kind: "useExtension";
   readonly source: SourceLocation;
   readonly extensionName: string;
+  // Set only when `extensionName` was authored as an identifier resolving
+  // to a string constant (`r.useExtension(EXT_TENANT_DATA, ...)`) rather
+  // than a literal — the renderer emits this verbatim instead of
+  // `JSON.stringify(extensionName)` so the round-trip doesn't inline the
+  // reference (#2111). A caller constructing an edited pattern must omit
+  // this field (or recompute it) whenever it changes `extensionName`,
+  // otherwise the stale identifier text wins over the new value.
+  readonly extensionNameRaw?: string;
   readonly entityName: string;
   readonly options?: Readonly<Record<string, unknown>>;
 };
@@ -516,6 +524,11 @@ export type DefineEventPattern = {
   readonly kind: "defineEvent";
   readonly source: SourceLocation;
   readonly eventName: string;
+  // Set only when `eventName` was authored as an identifier resolving to
+  // a string constant rather than a literal — see UseExtensionPattern's
+  // `extensionNameRaw` doc for the round-trip contract (#2111). A caller
+  // editing `eventName` must omit or recompute this field.
+  readonly eventNameRaw?: string;
   readonly schemaSource: SourceLocation;
   readonly version?: number;
   // Map fromVersion (as string, e.g. "1") → SourceLocation of the transform
@@ -532,6 +545,11 @@ export type ExtendsRegistrarPattern = {
   readonly kind: "extendsRegistrar";
   readonly source: SourceLocation;
   readonly extensionName: string;
+  // Set only when `extensionName` was authored as an identifier resolving
+  // to a string constant rather than a literal — see UseExtensionPattern's
+  // `extensionNameRaw` doc for the round-trip contract (#2111). A caller
+  // editing `extensionName` must omit or recompute this field.
+  readonly extensionNameRaw?: string;
   // Meta-programming surface — kept fully opaque in the MVP. The
   // Designer shows "Custom Registrar Extension"; AI leaves it alone.
   readonly defBody: SourceLocation;
