@@ -1,3 +1,4 @@
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigKeyType,
   type ConfigScope,
@@ -7,7 +8,7 @@ import {
   toKebab,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { requireConfigResolver } from "../feature";
+import { requireConfigResolver, requireSystemDb } from "../feature";
 import { hasConfigAccess } from "../write-helpers";
 
 export type ReadinessMissingKey = {
@@ -32,18 +33,23 @@ export type RequiredKeyGate = (qualifiedName: string) => boolean;
 // Builds the per-tenant gate from r.extensionSelector declarations: resolve
 // each selector through the config cascade, mark every provider-feature
 // registered under that point as counted/uncounted. Features without a
-// selector-gated registration always count.
+// selector-gated registration always count. `db` is the caller's own scoped
+// handle — config's own handlers pass requireSystemDb's result, the plain
+// tenant-scoped readiness feature passes its own ctx.db. This function makes
+// no scope decision itself; see readiness/handlers/status.query.ts and
+// config/handlers/readiness.query.ts's own handler for the two call sites.
 export async function buildProviderSelectionGate(
   ctx: HandlerContext,
   callerQn: string,
   user: SessionUser,
+  db: TenantDb,
 ): Promise<RequiredKeyGate> {
   const resolver = requireConfigResolver(ctx, callerQn);
   const countsByFeature = new Map<string, boolean>();
   for (const [extensionName, selectorKey] of ctx.registry.getAllExtensionSelectors()) {
     const keyDef = ctx.registry.getConfigKey(selectorKey);
     if (!keyDef) continue; // registry-build already failed this; defensive
-    const value = await resolver.get(selectorKey, keyDef, user.tenantId, user.id, ctx.db);
+    const value = await resolver.get(selectorKey, keyDef, user.tenantId, user.id, db);
     const selected = typeof value === "string" ? value.trim() : "";
     for (const usage of ctx.registry.getExtensionUsages(extensionName)) {
       if (usage.featureName === undefined) continue;
@@ -65,6 +71,7 @@ export async function collectMissingRequiredConfig(
   ctx: HandlerContext,
   callerQn: string,
   user: SessionUser,
+  db: TenantDb,
   gate?: RequiredKeyGate,
   options?: {
     /** Verdict-Pfade (Rollup, selbst role-gated) MÜSSEN ungefiltert zählen:
@@ -75,7 +82,7 @@ export async function collectMissingRequiredConfig(
   },
 ): Promise<ReadinessMissingKey[]> {
   const resolver = requireConfigResolver(ctx, callerQn);
-  const effectiveGate = gate ?? (await buildProviderSelectionGate(ctx, callerQn, user));
+  const effectiveGate = gate ?? (await buildProviderSelectionGate(ctx, callerQn, user, db));
   // Kandidaten erst sammeln, dann EIN Batch-Resolve — die sequentielle
   // resolver.get-Schleife war ein N+1 über alle required Keys (272/1).
   type KeyDef =
@@ -98,7 +105,7 @@ export async function collectMissingRequiredConfig(
     candidates,
     user.tenantId,
     user.id,
-    ctx.db,
+    db,
     ctx.secrets,
   );
   for (const [qualifiedKey, keyDef] of candidates) {
@@ -124,7 +131,13 @@ export const readinessQuery = defineQueryHandler({
   // Per-key read access enforced via hasConfigAccess inside the handler.
   access: { openToAll: true },
   handler: async (query, ctx) => {
-    const missing = await collectMissingRequiredConfig(ctx, "config:query:readiness", query.user);
+    const db = requireSystemDb(ctx, "config:query:readiness", query.user.tenantId);
+    const missing = await collectMissingRequiredConfig(
+      ctx,
+      "config:query:readiness",
+      query.user,
+      db,
+    );
     return { missing };
   },
 });

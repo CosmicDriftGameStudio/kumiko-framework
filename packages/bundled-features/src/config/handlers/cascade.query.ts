@@ -5,7 +5,7 @@ import {
   isEncryptedAtRest,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { requireConfigResolver } from "../feature";
+import { requireConfigResolver, requireSystemDb } from "../feature";
 import { MASKED, redactInheritedCascade, shouldRedactInherited } from "../read-redaction";
 import { hasConfigAccess } from "../write-helpers";
 
@@ -16,7 +16,7 @@ export const cascadeQuery = defineQueryHandler({
   }),
   access: { openToAll: true },
   handler: async (query, ctx) => {
-    const db = ctx.db;
+    const db = requireSystemDb(ctx, "config:query:cascade", query.user.tenantId);
     const registry = ctx.registry;
     const resolver = requireConfigResolver(ctx, "config:query:cascade");
 
