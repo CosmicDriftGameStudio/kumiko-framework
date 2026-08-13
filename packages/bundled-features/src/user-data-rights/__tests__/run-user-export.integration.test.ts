@@ -489,11 +489,10 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
     );
     expect(foreignTenantResult.isSuccess).toBe(true);
 
-    // Pins the hook boundary directly: tenantInvitationExportHook itself must
-    // hand back ciphertext, not plaintext — decryption is the central sweep's
-    // job (decryptSnippetFields in run-user-export.ts), not the hook's. If the
-    // hook ever started decrypting locally, this assertion would catch it even
-    // though the runUserExport() assertion below would stay green either way.
+    // Pins the hook boundary: invitation `email` is subject-KMS PII, not a
+    // field-encrypted column, so decryptSnippetFields would leave ciphertext
+    // in the GDPR bundle. The hook decrypts locally (same as invitations
+    // query) — assert plaintext here so a regression to raw ciphertext fails.
     const hookCtx: UserDataHookCtx = {
       db: stack.db,
       registry: stack.registry,
@@ -501,7 +500,8 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
       userId: ALICE_ID,
     };
     const rawSnippet = await tenantInvitationExportHook(hookCtx);
-    expect(isPiiCiphertext(rawSnippet?.rows[0]?.["email"])).toBe(true);
+    expect(isPiiCiphertext(rawSnippet?.rows[0]?.["email"])).toBe(false);
+    expect(rawSnippet?.rows[0]?.["email"]).toBe(INVITE_EMAIL);
 
     const bundle = await runUserExport({
       db: stack.db,
