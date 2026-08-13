@@ -175,9 +175,65 @@ export function readPropertyKey(propAssign: import("ts-morph").PropertyAssignmen
   return propAssign.getName();
 }
 
-export function readNameOrRef(node: Node): string | undefined {
+function unwrapLiteralInitializer(node: Node): string | undefined {
+  const literal =
+    node.asKind(SyntaxKind.StringLiteral) ?? node.asKind(SyntaxKind.NoSubstitutionTemplateLiteral);
+  if (literal) return literal.getLiteralValue();
+  const asExpr = node.asKind(SyntaxKind.AsExpression);
+  if (asExpr) return unwrapLiteralInitializer(asExpr.getExpression());
+  const satisfiesExpr = node.asKind(SyntaxKind.SatisfiesExpression);
+  if (satisfiesExpr) return unwrapLiteralInitializer(satisfiesExpr.getExpression());
+  const paren = node.asKind(SyntaxKind.ParenthesizedExpression);
+  if (paren) return unwrapLiteralInitializer(paren.getExpression());
+  return undefined;
+}
+
+/**
+ * Resolves a bare Identifier to the string value of its declaration's
+ * initializer (`export const EXT_TENANT_DATA = "tenant-data" as const`),
+ * following imports via ts-morph's definition lookup — works across files
+ * and packages against a real-filesystem Project (see #1008 precedent in
+ * parse.ts). Only descends into VariableDeclaration initializers; a
+ * function/class/type definition or an unresolvable import (external
+ * package, ambient declaration) yields undefined, never a throw.
+ */
+function resolveIdentifierToStringLiteral(identifier: Node): string | undefined {
+  const id = identifier.asKind(SyntaxKind.Identifier);
+  if (!id) return undefined;
+  let defs: readonly Node[];
+  try {
+    defs = id.getDefinitionNodes();
+  } catch {
+    return undefined;
+  }
+  for (const def of defs) {
+    const init = def.asKind(SyntaxKind.VariableDeclaration)?.getInitializer();
+    if (!init) continue;
+    const value = unwrapLiteralInitializer(init);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
+/**
+ * A node's string value when it's a string literal, or when it's a bare
+ * Identifier that resolves to one via a `const X = "..."` declaration
+ * (same-file or imported) — the pattern used throughout the framework's
+ * own bundled-features for registrar-call names (`EXT_TENANT_DATA`,
+ * `TENANT_SECRET_READ_EVENT`, ...) instead of repeating string literals.
+ * undefined for anything unresolvable (factory call, member access,
+ * external/ambient identifier) — callers keep their existing ParseError
+ * fallback, no crash.
+ */
+export function readNameLiteral(node: Node): string | undefined {
   const literal = node.asKind(SyntaxKind.StringLiteral);
   if (literal) return literal.getLiteralValue();
+  return resolveIdentifierToStringLiteral(node);
+}
+
+export function readNameOrRef(node: Node): string | undefined {
+  const literal = readNameLiteral(node);
+  if (literal !== undefined) return literal;
   const obj = readDataLiteralNode(node);
   if (isPlainObject(obj) && typeof obj["name"] === "string") return obj["name"];
   return undefined;

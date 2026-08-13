@@ -12,6 +12,7 @@ import {
   isPlainObject,
   ok,
   readDataLiteralNode,
+  readNameLiteral,
   readNameOrRef,
 } from "./shared";
 
@@ -60,12 +61,12 @@ export function extractEntity(
     });
   }
 
-  const nameArg = first.asKind(SyntaxKind.StringLiteral);
-  if (!nameArg) {
+  const entityName = readNameLiteral(first);
+  if (entityName === undefined) {
     return fail(
       "entity",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal name (or use the object form)",
+      "first argument must be a string literal name, or an identifier resolving to one (or use the object form)",
     );
   }
   const defArg = args[1];
@@ -87,7 +88,7 @@ export function extractEntity(
   return ok({
     kind: "entity",
     source: sourceLocationFromNode(call, sourceFile),
-    entityName: nameArg.getLiteralValue(),
+    entityName,
     definition: definition as EntityDefinition,
   });
 }
@@ -165,12 +166,13 @@ export function extractRelation(
       'first argument must be a string literal or an inline { name: "..." } object (or use the object form)',
     );
   }
-  const nameArg = args[1]?.asKind(SyntaxKind.StringLiteral);
-  if (!nameArg) {
+  const relationNameArg = args[1];
+  const relationName = relationNameArg && readNameLiteral(relationNameArg);
+  if (!relationName) {
     return fail(
       "relation",
       sourceLocationFromNode(call, sourceFile),
-      "second argument must be a string literal relation name",
+      "second argument must be a string literal relation name, or an identifier resolving to one",
     );
   }
   const defArg = args[2];
@@ -193,7 +195,7 @@ export function extractRelation(
     kind: "relation",
     source: sourceLocationFromNode(call, sourceFile),
     entityName,
-    relationName: nameArg.getLiteralValue(),
+    relationName,
     definition: definition as RelationDefinition,
   });
 }

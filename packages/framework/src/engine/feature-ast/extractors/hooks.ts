@@ -12,6 +12,7 @@ import {
   isPlainObject,
   ok,
   readDataLiteralNode,
+  readNameLiteral,
   readNameOrRef,
   readNameOrRefOrList,
 } from "./shared";
@@ -155,15 +156,14 @@ export function extractHook(
     });
   }
 
-  const typeArg = first.asKind(SyntaxKind.StringLiteral);
-  if (!typeArg) {
+  const hookType = readNameLiteral(first);
+  if (hookType === undefined) {
     return fail(
       "hook",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal hook type (or use the object form)",
+      "first argument must be a string literal hook type, or an identifier resolving to one (or use the object form)",
     );
   }
-  const hookType = typeArg.getLiteralValue();
   if (!isHookType(hookType)) {
     return fail(
       "hook",

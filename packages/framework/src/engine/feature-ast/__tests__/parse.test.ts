@@ -473,7 +473,7 @@ defineFeature("f", (r) => {
     expect(result.errors[0]?.methodName).toBe("entity");
   });
 
-  test("emits a ParseError when the name is not a string literal", () => {
+  test("resolves the name when it's an identifier initialized to a string literal", () => {
     const result = parseInline(`
 const ENTITY = "task";
 defineFeature("f", (r) => {
@@ -481,6 +481,22 @@ defineFeature("f", (r) => {
 });
 `);
 
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "entity",
+      entityName: "task",
+    });
+  });
+
+  test("emits a ParseError when the name identifier does not resolve to a string literal", () => {
+    const result = parseInline(`
+const ENTITY = computeEntityName();
+defineFeature("f", (r) => {
+  r.entity(ENTITY, { fields: {} });
+});
+`);
+
+    expect(result.patterns).toEqual([]);
     expect(result.errors[0]?.methodName).toBe("entity");
   });
 
@@ -2364,5 +2380,20 @@ describe("cross-file registrar-wrapper resolution against a real filesystem Proj
       resolve(__dirname, "fixtures/cross-file-registrar/screens.ts"),
     );
     expect(navPattern?.source.file).not.toBe(fixture);
+  });
+});
+
+// #1746 — registrar-call name args authored as an imported constant
+// (`r.useExtension(EXT_TENANT_DATA, ...)`) instead of a string literal.
+// This is the dominant real-world style across the framework's own
+// bundled-features (see extension-names.ts), and previously ParseErrored
+// on every such call.
+describe("cross-file imported-constant name resolution against a real filesystem Project (#1746)", () => {
+  const fixture = resolve(__dirname, "fixtures/cross-file-name-const/feature.ts");
+  const result = parseFeatureFile(fixture);
+
+  test("resolves the identifier to the imported const's string value", () => {
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toMatchObject([{ kind: "extendsRegistrar", extensionName: "audit" }]);
   });
 });

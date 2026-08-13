@@ -20,6 +20,7 @@ import {
   isPlainObject,
   ok,
   readDataLiteralNode,
+  readNameLiteral,
   readNameOrRef,
 } from "./shared";
 
@@ -68,12 +69,12 @@ export function readNamedOptions(
     return { kind: "ok", name: nameInit.getLiteralValue(), options: optionsWithoutName };
   }
 
-  const nameLiteral = first.asKind(SyntaxKind.StringLiteral);
-  if (!nameLiteral) {
+  const name = readNameLiteral(first);
+  if (name === undefined) {
     return fail(
       methodName,
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal name (or use the object form)",
+      "first argument must be a string literal name, or an identifier resolving to one (or use the object form)",
     );
   }
   const optionsArg = args[1];
@@ -92,7 +93,7 @@ export function readNamedOptions(
       "options could not be read as a plain object",
     );
   }
-  return { kind: "ok", name: nameLiteral.getLiteralValue(), options };
+  return { kind: "ok", name, options };
 }
 
 export function extractConfig(
@@ -424,12 +425,12 @@ export function extractUseExtension(
     });
   }
 
-  const nameArg = first.asKind(SyntaxKind.StringLiteral);
-  if (!nameArg) {
+  const extensionName = readNameLiteral(first);
+  if (extensionName === undefined) {
     return fail(
       "useExtension",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal extension name (or use the object form)",
+      "first argument must be a string literal extension name, or an identifier resolving to one (or use the object form)",
     );
   }
   const entityRefArg = args[1];
@@ -464,7 +465,7 @@ export function extractUseExtension(
   return ok({
     kind: "useExtension",
     source: sourceLocationFromNode(call, sourceFile),
-    extensionName: nameArg.getLiteralValue(),
+    extensionName,
     entityName,
     ...(options !== undefined && { options }),
   });

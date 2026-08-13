@@ -1,5 +1,4 @@
 import type { CallExpression, SourceFile } from "ts-morph";
-import { SyntaxKind } from "ts-morph";
 import type {
   EnvSchemaPattern,
   ExposesApiPattern,
@@ -7,7 +6,7 @@ import type {
   UsesApiPattern,
 } from "../patterns";
 import { sourceLocationFromNode } from "../source-location";
-import { type ExtractOutput, fail, ok } from "./shared";
+import { type ExtractOutput, fail, ok, readNameLiteral } from "./shared";
 
 export function extractEnvSchema(
   call: CallExpression,
@@ -33,12 +32,13 @@ export function extractExtendsRegistrar(
   sourceFile: SourceFile,
 ): ExtractOutput<ExtendsRegistrarPattern> {
   const args = call.getArguments();
-  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
-  if (!nameArg) {
+  const first = args[0];
+  const extensionName = first && readNameLiteral(first);
+  if (!extensionName) {
     return fail(
       "extendsRegistrar",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal extension name",
+      "first argument must be a string literal extension name, or an identifier resolving to one",
     );
   }
   const defArg = args[1];
@@ -52,7 +52,7 @@ export function extractExtendsRegistrar(
   return ok({
     kind: "extendsRegistrar",
     source: sourceLocationFromNode(call, sourceFile),
-    extensionName: nameArg.getLiteralValue(),
+    extensionName,
     defBody: sourceLocationFromNode(defArg, sourceFile),
   });
 }
@@ -61,18 +61,19 @@ export function extractUsesApi(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<UsesApiPattern> {
-  const arg = call.getArguments()[0]?.asKind(SyntaxKind.StringLiteral);
-  if (!arg) {
+  const arg = call.getArguments()[0];
+  const apiName = arg && readNameLiteral(arg);
+  if (!apiName) {
     return fail(
       "usesApi",
       sourceLocationFromNode(call, sourceFile),
-      'expected a single string-literal API name (e.g. "sessions.revokeAllForUser")',
+      'expected a single string-literal API name (e.g. "sessions.revokeAllForUser"), or an identifier resolving to one',
     );
   }
   return ok({
     kind: "usesApi",
     source: sourceLocationFromNode(call, sourceFile),
-    apiName: arg.getLiteralValue(),
+    apiName,
   });
 }
 
@@ -80,18 +81,19 @@ export function extractExposesApi(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<ExposesApiPattern> {
-  const arg = call.getArguments()[0]?.asKind(SyntaxKind.StringLiteral);
-  if (!arg) {
+  const arg = call.getArguments()[0];
+  const apiName = arg && readNameLiteral(arg);
+  if (!apiName) {
     return fail(
       "exposesApi",
       sourceLocationFromNode(call, sourceFile),
-      'expected a single string-literal API name (e.g. "sessions.revokeAllForUser")',
+      'expected a single string-literal API name (e.g. "sessions.revokeAllForUser"), or an identifier resolving to one',
     );
   }
   return ok({
     kind: "exposesApi",
     source: sourceLocationFromNode(call, sourceFile),
-    apiName: arg.getLiteralValue(),
+    apiName,
   });
 }
 
