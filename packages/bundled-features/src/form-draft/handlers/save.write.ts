@@ -1,7 +1,12 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { failUnprocessable, type WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { FORM_DRAFT_ACCESS, FORM_DRAFT_UNIQUE_KEY_CONSTRAINT } from "../constants";
+import {
+  FORM_DRAFT_ACCESS,
+  FORM_DRAFT_MAX_PER_OWNER,
+  FORM_DRAFT_UNIQUE_KEY_CONSTRAINT,
+} from "../constants";
+import { countDraftsByOwner } from "../db/queries/draft-count";
 import { formDraftExecutor } from "../executor";
 import { lookupDraft } from "../lookup";
 import { saveDraftPayloadSchema } from "../schemas";
@@ -43,6 +48,14 @@ export const saveDraftWrite = defineWriteHandler({
         event.user,
         ctx.db,
       );
+    }
+
+    // Cap check only on the create path — an update never grows the number
+    // of drafts this owner has, so a user already at the limit can still
+    // keep saving their existing drafts.
+    const draftCount = await countDraftsByOwner(ctx.db.raw, event.user.tenantId, ownerId);
+    if (draftCount >= FORM_DRAFT_MAX_PER_OWNER) {
+      return failUnprocessable("draft_limit_reached", { limit: FORM_DRAFT_MAX_PER_OWNER });
     }
 
     const result = await formDraftExecutor.create({ ownerId, draftKey, draft }, event.user, ctx.db);

@@ -392,6 +392,55 @@ describe("EmbeddedListField — paste coercion", () => {
       ]);
     });
   });
+
+  // kumiko-framework#1838: a naive `replace(",", ".")` on a DE-locale paste
+  // with a thousands separator turned "1.234,56" into "1.234.56" → NaN →
+  // the cell silently cleared instead of keeping the pasted amount.
+  test("pastes a DE-locale money value with a thousands separator (1.234,56)", () => {
+    const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
+    let lastValue: unknown;
+    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+      lastValue = v;
+    });
+    // Column index 3 = "unitPrice".
+    captured?.onPasteCells?.(0, 3, [["1.234,56"]]);
+    const result = lastValue as readonly Record<string, unknown>[];
+    expect(result[0]?.["unitPrice"]).toBe(123456);
+  });
+
+  test("pastes an en-US-locale money value with a thousands separator (1,234.56)", () => {
+    const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
+    let lastValue: unknown;
+    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+      lastValue = v;
+    });
+    captured?.onPasteCells?.(0, 3, [["1,234.56"]]);
+    const result = lastValue as readonly Record<string, unknown>[];
+    expect(result[0]?.["unitPrice"]).toBe(123456);
+  });
+
+  test("an unparseable money paste leaves the cell unchanged and surfaces a listIssue instead of clearing it", async () => {
+    const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
+    let lastValue: unknown;
+    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+      lastValue = v;
+    });
+    act(() => {
+      captured?.onPasteCells?.(0, 3, [["not-a-number"]]);
+    });
+    const result = lastValue as readonly Record<string, unknown>[];
+    expect(result[0]?.["unitPrice"]).toBe(100);
+    await waitFor(() => {
+      expect(captured?.listIssues).toEqual([
+        {
+          path: "lines",
+          code: "paste-cells-unmatched",
+          i18nKey: "kumiko.field.embedded-list.paste-cells-unmatched",
+          params: { count: 1 },
+        },
+      ]);
+    });
+  });
 });
 
 describe("EmbeddedListField — reference column populated via useQuery", () => {

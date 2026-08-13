@@ -2019,6 +2019,79 @@ describe("KumikoScreen: singleton entityEdit", () => {
     expect(bannerText).toBe(kumikoDefaultTranslations["en"]?.["errors.access.denied"] ?? "");
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
+
+  // kumiko-screen#1944: EntityEditSingletonBody runs without a wrapping
+  // entityList screen, so the create-body's default "navigate back to the
+  // list" success handler is a silent no-op — a successful create used to
+  // leave the form stuck on the just-submitted create values, and a second
+  // submit created a duplicate record ("exactly one record per tenant"
+  // broken). Create on an empty table must now switch straight to the
+  // update form of the newly created record.
+  test("erfolgreicher Create bei leerer Tabelle wechselt in Update-Form des neuen Records (kein zweiter Create möglich)", async () => {
+    let created = false;
+    const write = mock(async (type: string) => {
+      if (type === "tasks:write:task:create") {
+        created = true;
+        return { isSuccess: true, data: { id: "task-1" } };
+      }
+      return { isSuccess: true, data: {} };
+    });
+    const query = mock(async (type: string) => {
+      if (type === "tasks:query:task:list") {
+        return created
+          ? { isSuccess: true, data: { rows: [{ id: "task-1", title: "Created title" }] } }
+          : { isSuccess: true, data: { rows: [], nextCursor: null } };
+      }
+      if (type === "tasks:query:task:detail") {
+        return {
+          isSuccess: true,
+          data: { id: "task-1", version: 1, title: "Created title", count: 0, done: false },
+        };
+      }
+      return { isSuccess: true, data: { rows: [], nextCursor: null } };
+    });
+    const dispatcher = makeDispatcher({
+      write: write as unknown as Dispatcher["write"],
+      query: query as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={singletonSchema} qn="tasks:screen:task-edit" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Created title" } });
+    fireEvent.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    // The singleton wrapper refetches its list(limit:1) query after the
+    // create succeeds, sees the new row, and switches from the create body
+    // to the update body — which loads the record via its own detail
+    // query, landing on the same title through a different data path.
+    await waitFor(() => {
+      const input = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+      expect(input.value).toBe("Created title");
+    });
+    expect(query).toHaveBeenCalledWith(
+      "tasks:query:task:detail",
+      { id: "task-1" },
+      expect.anything(),
+    );
+
+    // A second submit on the (now update-mode) form must dispatch an
+    // update, never a second create.
+    fireEvent.change(screen.getByTestId("field-title").querySelector("input") as HTMLInputElement, {
+      target: { value: "Edited again" },
+    });
+    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    // Exactly one create (the first submit) followed by an update, never a
+    // second create — the singleton wrapper must have flipped branches.
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+    expect(write).toHaveBeenLastCalledWith("tasks:write:task:update", expect.anything());
+  });
 });
 
 // --- actionForm extension-section (Wave J: Incident-Update-Timeline) ---

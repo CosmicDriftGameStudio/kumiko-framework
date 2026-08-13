@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-12T11:39:14.101Z",
+  "generatedAt": "2026-08-13T08:32:59.648Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -2265,6 +2265,11 @@
           "notNull": true
         },
         {
+          "name": "invited_by_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "expires_at",
           "pgType": "timestamptz",
           "notNull": true
@@ -2278,6 +2283,10 @@
         {
           "name": "read_tenant_invitations_email_bidx_idx",
           "columns": ["email_bidx"]
+        },
+        {
+          "name": "read_tenant_invitations_invited_by_bidx_idx",
+          "columns": ["invited_by_bidx"]
         },
         {
           "name": "read_tenant_invitations_tenant_email_unique",

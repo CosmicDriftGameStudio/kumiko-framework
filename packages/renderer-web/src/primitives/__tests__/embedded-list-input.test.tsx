@@ -281,6 +281,32 @@ describe("EmbeddedListInput — issue rendering", () => {
     ).toBeTruthy();
   });
 
+  // #1876: a long validation message in a narrow cell must wrap instead of
+  // widening the whole `min-w-max` desktop table into horizontal scroll.
+  test("cellIssues in the desktop table are width-constrained and wrap", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          rows,
+          cellIssues: {
+            "0.description": [
+              issue(
+                "lines.0.description",
+                "This is a deliberately long validation message that must wrap instead of widening the table",
+              ),
+            ],
+          },
+        })}
+      />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const container = desktop.getByTestId("lines-cell-0-description-errors");
+    expect(container.className).toContain("max-w-[16rem]");
+    expect(container.className).toContain("whitespace-normal");
+    expect(container.className).toContain("break-words");
+  });
+
   test("rowIssues render under the matching row", () => {
     const rows = [{ description: "A", quantity: 1, amount: 100 }];
     renderWithLocale(

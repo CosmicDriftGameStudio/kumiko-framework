@@ -35,7 +35,18 @@ const acceptChangesSchema = z.object({
 });
 
 export const prospectsFeature = defineFeature("prospects", (r) => {
-  r.crud("suggestion", suggestionEntity, { write: adminWrite, read: openRead });
+  // No `update` verb: `suggestion.status` must only ever flip pending →
+  // accepted through `prospect:accept` below, which merges the caller's
+  // changes onto the suggestion server-side and stamps provenance the
+  // client can't set itself. A generic `suggestion:update` write would let
+  // an admin set `{ status: "accepted" }` directly, skipping that path
+  // entirely and leaving an "accepted" suggestion with no matching
+  // prospect (see entities/suggestion.ts).
+  r.crud("suggestion", suggestionEntity, {
+    write: adminWrite,
+    read: openRead,
+    verbs: { update: false },
+  });
   r.entity("prospect", prospectEntity);
 
   const { executor: suggestionExecutor } = createEntityExecutor("suggestion", suggestionEntity);

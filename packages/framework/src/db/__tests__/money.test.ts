@@ -99,23 +99,42 @@ describe("flattenMoney — Insert/Update Convert (major units → minor units)",
 });
 
 describe("rehydrateMoney — Read Convert (minor units → major units)", () => {
-  test("{ <name>: minorUnits, <name>Currency: string } → { <name>: { amount: majorUnits, currency, amountMinor } }", () => {
+  test("{ <name>: scaledUnits, <name>Currency: string } → { <name>: { amount: majorUnits, currency, amountScaled, amountMinor } }", () => {
     const out = rehydrateMoney({ buyingPrice: 45000, buyingPriceCurrency: "EUR" }, orderEntity);
-    expect(out).toEqual({ buyingPrice: { amount: 450, currency: "EUR", amountMinor: 45000 } });
+    expect(out).toEqual({
+      buyingPrice: { amount: 450, currency: "EUR", amountScaled: 45000, amountMinor: 45000 },
+    });
+  });
+
+  test("amountMinor is a deprecated alias of amountScaled, same value", () => {
+    const out = rehydrateMoney({ buyingPrice: 45000, buyingPriceCurrency: "EUR" }, orderEntity)[
+      "buyingPrice"
+    ] as MoneyRead;
+    expect(out.amountMinor).toBe(out.amountScaled);
   });
 
   test("PG-BIGINT als String wird zu number gecastet", () => {
     // Postgres-driver liefert BIGINT manchmal als String (>2^53 sicher).
     const out = rehydrateMoney({ buyingPrice: "45000", buyingPriceCurrency: "EUR" }, orderEntity);
-    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR", amountMinor: 45000 });
+    expect(out["buyingPrice"]).toEqual({
+      amount: 450,
+      currency: "EUR",
+      amountScaled: 45000,
+      amountMinor: 45000,
+    });
   });
 
   test("fehlende Currency-Spalte fällt auf entity.defaultCurrency", () => {
     const out = rehydrateMoney({ buyingPrice: 45000 }, orderEntity);
-    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR", amountMinor: 45000 });
+    expect(out["buyingPrice"]).toEqual({
+      amount: 450,
+      currency: "EUR",
+      amountScaled: 45000,
+      amountMinor: 45000,
+    });
   });
 
-  test("amountMinor bleibt exakter Integer über mehrere Additionen (fw#1830)", () => {
+  test("amountScaled bleibt exakter Integer über mehrere Additionen (fw#1830)", () => {
     const rows = [10, 20, 30].map(
       (minor) =>
         rehydrateMoney({ buyingPrice: minor, buyingPriceCurrency: "EUR" }, orderEntity)[
@@ -124,7 +143,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
     );
     const [a, b, c] = rows;
 
-    expect(a!.amountMinor + b!.amountMinor).toBe(c!.amountMinor);
+    expect(a!.amountScaled + b!.amountScaled).toBe(c!.amountScaled);
   });
 
   test("null/undefined amount → Field wird aus Output entfernt", () => {
@@ -143,12 +162,12 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
       orderEntity,
     );
     expect(out).toEqual({
-      buyingPrice: { amount: 450, currency: "EUR", amountMinor: 45000 },
-      sellingPrice: { amount: 600, currency: "USD", amountMinor: 60000 },
+      buyingPrice: { amount: 450, currency: "EUR", amountScaled: 45000, amountMinor: 45000 },
+      sellingPrice: { amount: 600, currency: "USD", amountScaled: 60000, amountMinor: 60000 },
     });
   });
 
-  test("Round-Trip: flatten dann rehydrate ergibt dasselbe amount/currency, plus amountMinor", () => {
+  test("Round-Trip: flatten dann rehydrate ergibt dasselbe amount/currency, plus amountScaled", () => {
     const original = {
       buyingPrice: { amount: 450.5, currency: "EUR" },
       sellingPrice: { amount: 56799.16, currency: "USD" },
@@ -156,15 +175,25 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
     const flat = flattenMoney(original, orderEntity);
     const rehydrated = rehydrateMoney(flat, orderEntity);
     expect(rehydrated).toEqual({
-      buyingPrice: { amount: 450.5, currency: "EUR", amountMinor: 45050 },
-      sellingPrice: { amount: 56799.16, currency: "USD", amountMinor: 5679916 },
+      buyingPrice: { amount: 450.5, currency: "EUR", amountScaled: 45050, amountMinor: 45050 },
+      sellingPrice: {
+        amount: 56799.16,
+        currency: "USD",
+        amountScaled: 5679916,
+        amountMinor: 5679916,
+      },
     });
   });
 
-  test("Round-Trip primitive-Insert: flatten(450) → rehydrate → { amount:450, currency:EUR, amountMinor:45000 }", () => {
+  test("Round-Trip primitive-Insert: flatten(450) → rehydrate → { amount:450, currency:EUR, amountScaled:45000 }", () => {
     const flat = flattenMoney({ buyingPrice: 450 }, orderEntity);
     const out = rehydrateMoney(flat, orderEntity);
-    expect(out["buyingPrice"]).toEqual({ amount: 450, currency: "EUR", amountMinor: 45000 });
+    expect(out["buyingPrice"]).toEqual({
+      amount: 450,
+      currency: "EUR",
+      amountScaled: 45000,
+      amountMinor: 45000,
+    });
   });
 
   test("ist pure — input wird nicht mutiert", () => {
@@ -180,7 +209,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
     ).toThrow(/not a safe integer — DB corruption/);
   });
 
-  test("fractional string amount (fw#1833) → loud throw statt amountMinor mit Nachkommastelle", () => {
+  test("fractional string amount (fw#1833) → loud throw statt amountScaled mit Nachkommastelle", () => {
     expect(() =>
       rehydrateMoney({ buyingPrice: "45000.7", buyingPriceCurrency: "EUR" }, orderEntity),
     ).toThrow(/not a safe integer — DB corruption/);
@@ -208,7 +237,9 @@ describe("Round-Trip im Update-Pfad (Helper-Verkettung wie im Executor)", () => 
 
     // DB liefert dieselben Spalten zurück
     const out = rehydrateMoney(flat, orderEntity);
-    expect(out).toEqual({ buyingPrice: { amount: 990, currency: "USD", amountMinor: 99_000 } });
+    expect(out).toEqual({
+      buyingPrice: { amount: 990, currency: "USD", amountScaled: 99_000, amountMinor: 99_000 },
+    });
   });
 
   test("List-Pfad: mehrere Rows hintereinander rehydraten", () => {
@@ -219,9 +250,9 @@ describe("Round-Trip im Update-Pfad (Helper-Verkettung wie im Executor)", () => 
     ];
     const apiRows = dbRows.map((r) => rehydrateMoney(r, orderEntity));
     expect(apiRows).toEqual([
-      { buyingPrice: { amount: 1, currency: "EUR", amountMinor: 100 } },
-      { buyingPrice: { amount: 2, currency: "USD", amountMinor: 200 } },
-      { buyingPrice: { amount: 3, currency: "GBP", amountMinor: 300 } },
+      { buyingPrice: { amount: 1, currency: "EUR", amountScaled: 100, amountMinor: 100 } },
+      { buyingPrice: { amount: 2, currency: "USD", amountScaled: 200, amountMinor: 200 } },
+      { buyingPrice: { amount: 3, currency: "GBP", amountScaled: 300, amountMinor: 300 } },
     ]);
   });
 });

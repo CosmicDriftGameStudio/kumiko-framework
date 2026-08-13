@@ -13,6 +13,23 @@ import sharp from "sharp";
 
 const MIN_SHARP_SIGMA = 0.3;
 const MAX_SHARP_SIGMA = 1000;
+// Above this, a decoded pixel buffer runs into hundreds of MB before any
+// resize even happens — sharp's own default (~268MP) is still large enough
+// to be an OOM primitive for a single request.
+const MAX_INPUT_PIXELS = 100_000_000;
+// Longest output edge a caller may request via `size`/`maxEdge`. Without a
+// cap, `{ maxEdge: 50000 }` allocates a multi-gigabyte buffer per encoder
+// step before any client sees a byte back.
+const MAX_OUTPUT_EDGE = 8192;
+// applyBlurRegions decodes the full image fresh for every region — an
+// unbounded region list is a CPU/RAM-multiplying DoS knob independent of
+// output size.
+const MAX_BLUR_REGIONS = 64;
+// sequentialRead trades random pixel access for lower peak memory on
+// streamed formats — applied at every decode entry point below since none
+// of them need non-sequential access to the *original* bytes (extract runs
+// against a single already-buffered region per call).
+const SHARP_INPUT_OPTIONS = { limitInputPixels: MAX_INPUT_PIXELS, sequentialRead: true } as const;
 
 function normalizeMimeType(mimeType: string): string {
   return mimeType.toLowerCase().split(";")[0]?.trim() ?? "";
@@ -58,7 +75,7 @@ async function applyBlurRegions(
     // input) — good enough until a caller needs to tune blur strength itself.
     const sigma = clampSigma(Math.max(4, Math.min(rectWidth, rectHeight) / 6));
 
-    const patch = await sharp(data)
+    const patch = await sharp(data, SHARP_INPUT_OPTIONS)
       .extract({ left, top, width: rectWidth, height: rectHeight })
       .blur(sigma)
       .toBuffer();
@@ -66,7 +83,7 @@ async function applyBlurRegions(
   }
 
   if (overlays.length === 0) return data;
-  return sharp(data).composite(overlays).toBuffer();
+  return sharp(data, SHARP_INPUT_OPTIONS).composite(overlays).toBuffer();
 }
 
 function buildResizeOptions(width: number, height: number, fit: VariantFit): ResizeOptions {
@@ -136,6 +153,36 @@ function applyEncoder(pipeline: Sharp, spec: VariantSpec, sourceMimeType: string
   return encode(pipeline, quality);
 }
 
+// Input-validation for the DoS caps above — kept out of renderImage so the
+// complexity hotspot stays under the AST-guard budget.
+function assertRenderSpecBounds(spec: VariantSpec): void {
+  if (spec.quality !== undefined && (spec.quality < 1 || spec.quality > 100)) {
+    throw new Error(`derivatives-sharp: quality ${spec.quality} is out of range (1–100).`);
+  }
+  if (spec.blur !== undefined && (spec.blur < MIN_SHARP_SIGMA || spec.blur > MAX_SHARP_SIGMA)) {
+    throw new Error(
+      `derivatives-sharp: blur sigma ${spec.blur} is out of sharp's supported range (${MIN_SHARP_SIGMA}–${MAX_SHARP_SIGMA}).`,
+    );
+  }
+  if (spec.blurRegions && spec.blurRegions.length > MAX_BLUR_REGIONS) {
+    throw new Error(
+      `derivatives-sharp: blurRegions has ${spec.blurRegions.length} entries, exceeding the limit of ${MAX_BLUR_REGIONS} — each region re-decodes the full image.`,
+    );
+  }
+  for (const [dimension, value] of [
+    ["size.width", spec.size?.width],
+    ["size.height", spec.size?.height],
+    ["maxEdge", spec.maxEdge],
+  ] as const) {
+    if (value === undefined) continue;
+    if (!Number.isInteger(value) || value < 1 || value > MAX_OUTPUT_EDGE) {
+      throw new Error(
+        `derivatives-sharp: ${dimension} ${value} is out of range — must be an integer between 1 and ${MAX_OUTPUT_EDGE}.`,
+      );
+    }
+  }
+}
+
 export const renderImage: DerivativeRendererPlugin["render"] = async (
   input,
   spec,
@@ -146,38 +193,31 @@ export const renderImage: DerivativeRendererPlugin["render"] = async (
   // sourceMimeType is a client-declared upload label, not sniffed — decide
   // the SVG rejection from the actual bytes so a mislabeled upload can't
   // reach libvips as SVG.
-  const sniffed = await sharp(input).metadata();
+  const sniffed = await sharp(input, SHARP_INPUT_OPTIONS).metadata();
   if (sniffed.format === "svg") {
     throw new Error(
       "derivatives-sharp: SVG is not supported — rendering untrusted SVG through libvips is a trust boundary this renderer doesn't need to cross.",
     );
   }
 
-  if (spec.quality !== undefined && (spec.quality < 1 || spec.quality > 100)) {
-    throw new Error(`derivatives-sharp: quality ${spec.quality} is out of range (1–100).`);
-  }
-  if (spec.blur !== undefined && (spec.blur < MIN_SHARP_SIGMA || spec.blur > MAX_SHARP_SIGMA)) {
-    throw new Error(
-      `derivatives-sharp: blur sigma ${spec.blur} is out of sharp's supported range (${MIN_SHARP_SIGMA}–${MAX_SHARP_SIGMA}).`,
-    );
-  }
+  assertRenderSpecBounds(spec);
 
   // rotate() with no argument applies the EXIF orientation and normalizes it
   // away. sharp drops all other metadata by default — we never call
   // .withMetadata()/.keepExif(), which is exactly what strips GPS/EXIF from
   // the output.
-  let pipeline = sharp(input).rotate();
+  let pipeline = sharp(input, SHARP_INPUT_OPTIONS).rotate();
 
   if (spec.blurRegions && spec.blurRegions.length > 0) {
     const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
     const blurred = await applyBlurRegions(data, info.width, info.height, spec.blurRegions);
-    pipeline = sharp(blurred);
+    pipeline = sharp(blurred, SHARP_INPUT_OPTIONS);
   }
 
   const fit = spec.fit ?? "inside";
   if (spec.size) {
     pipeline = pipeline.resize(buildResizeOptions(spec.size.width, spec.size.height, fit));
-  } else if (spec.maxEdge) {
+  } else if (spec.maxEdge !== undefined) {
     pipeline = pipeline.resize(buildResizeOptions(spec.maxEdge, spec.maxEdge, fit));
   }
 
@@ -194,7 +234,7 @@ export const renderImage: DerivativeRendererPlugin["render"] = async (
 export async function imageMetadata(
   input: Uint8Array,
 ): Promise<{ width: number; height: number; format: string }> {
-  const metadata = await sharp(input).metadata();
+  const metadata = await sharp(input, SHARP_INPUT_OPTIONS).metadata();
   const width = metadata.autoOrient.width;
   const height = metadata.autoOrient.height;
   if (!Number.isFinite(width) || !Number.isFinite(height) || !metadata.format) {

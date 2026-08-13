@@ -581,6 +581,22 @@ describe("error handling", () => {
     expect(res.status).toBe(404);
   });
 
+  // #1950: a malformed (non-UUID) id used to reach `selectMany` unchecked —
+  // Postgres rejects it with 22P02, which the pooled Bun.SQL connection
+  // treated as poisoned (see the NONEXISTENT_UUID comment above, added as a
+  // workaround before this guard existed). 404, same as a real-but-absent
+  // id, not the raw DB error.
+  test("download with a malformed (non-UUID) id returns 404, not a DB error", async () => {
+    const res = await getFile(adminUser, "not-a-uuid");
+    expect(res.status).toBe(404);
+  });
+
+  test("a malformed id doesn't poison the pooled connection for the next request", async () => {
+    await getFile(adminUser, "not-a-uuid");
+    const res = await getFile(adminUser, NONEXISTENT_UUID);
+    expect(res.status).toBe(404);
+  });
+
   test("upload wrong file type for entity field is rejected", async () => {
     const pdfContent = new TextEncoder().encode("fake-pdf-content");
     const res = await uploadFile(adminUser, "document.pdf", pdfContent, "application/pdf", {

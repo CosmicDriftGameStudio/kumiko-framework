@@ -1,7 +1,21 @@
 import { z } from "zod";
-import { FORM_DRAFT_KEY_MAX_LENGTH } from "./constants";
+import { FORM_DRAFT_KEY_MAX_LENGTH, FORM_DRAFT_VALUES_MAX_BYTES } from "./constants";
 
 const draftKeySchema = z.string().trim().min(1).max(FORM_DRAFT_KEY_MAX_LENGTH);
+
+// UTF-8 byte length, not string.length — `values` is arbitrary JSON that can
+// hold multi-byte characters, and the event-store row this ends up in is
+// bounded by bytes, not JS string units.
+function jsonByteLength(value: unknown): number {
+  return new TextEncoder().encode(JSON.stringify(value)).length;
+}
+
+const draftValuesSchema = z
+  .record(z.string(), z.unknown())
+  .refine(
+    (values) => jsonByteLength(values) <= FORM_DRAFT_VALUES_MAX_BYTES,
+    `values exceeds the ${FORM_DRAFT_VALUES_MAX_BYTES}-byte limit`,
+  );
 
 // The draft blob shape — fixed by issue #1889 here, not left for consumers
 // to invent per-app. `stepIndex` is in from the start so wizard-mode resume
@@ -17,7 +31,7 @@ export type FormDraftBlob = z.infer<typeof formDraftBlobSchema>;
 // accepted from the caller.
 export const saveDraftPayloadSchema = z.object({
   draftKey: draftKeySchema,
-  values: z.record(z.string(), z.unknown()),
+  values: draftValuesSchema,
   stepIndex: z.number().int().min(0),
 });
 export type SaveDraftPayload = z.infer<typeof saveDraftPayloadSchema>;

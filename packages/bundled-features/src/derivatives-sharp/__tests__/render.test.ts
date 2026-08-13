@@ -225,6 +225,54 @@ describe("renderImage — validation", () => {
     await expect(renderImage(input, {}, "constructor")).rejects.toThrow(/no output encoder/);
   });
 
+  test("blurRegions beyond the cap throws instead of re-decoding the image once per region", async () => {
+    const input = await jpegFixture(50, 50);
+    const tooManyRegions = Array.from({ length: 65 }, () => ({
+      x: 0.1,
+      y: 0.1,
+      width: 0.1,
+      height: 0.1,
+    }));
+    await expect(renderImage(input, { blurRegions: tooManyRegions }, "image/jpeg")).rejects.toThrow(
+      /blurRegions/,
+    );
+  });
+
+  test("64 blurRegions (at the cap) is accepted", async () => {
+    const input = await jpegFixture(200, 200);
+    const regions = Array.from({ length: 64 }, (_, i) => ({
+      x: 0.01 * i,
+      y: 0.01 * i,
+      width: 0.01,
+      height: 0.01,
+    }));
+    await expect(renderImage(input, { blurRegions: regions }, "image/jpeg")).resolves.toBeTruthy();
+  });
+
+  test("size.width/size.height beyond MAX_OUTPUT_EDGE throws instead of allocating an oversized buffer", async () => {
+    const input = await jpegFixture(50, 50);
+    await expect(
+      renderImage(input, { size: { width: 50000, height: 50000 } }, "image/jpeg"),
+    ).rejects.toThrow(/size\.width/);
+  });
+
+  test("maxEdge beyond MAX_OUTPUT_EDGE throws", async () => {
+    const input = await jpegFixture(50, 50);
+    await expect(renderImage(input, { maxEdge: 50000 }, "image/jpeg")).rejects.toThrow(/maxEdge/);
+  });
+
+  test("maxEdge: 0 is rejected, not silently ignored by the resize branch's truthiness check", async () => {
+    const input = await jpegFixture(50, 50);
+    await expect(renderImage(input, { maxEdge: 0 }, "image/jpeg")).rejects.toThrow(/maxEdge/);
+  });
+
+  test("a non-integer size.width throws", async () => {
+    const input = await jpegFixture(50, 50);
+    await expect(
+      renderImage(input, { size: { width: 100.5, height: 100 } }, "image/jpeg"),
+    ).rejects.toThrow(/size\.width/);
+  });
+
   test("image/png ignores spec.quality instead of switching into lossy palette quantization", async () => {
     const input = await pngFixture(50, 50);
     const withQuality = await renderImage(input, { quality: 10 }, "image/png");

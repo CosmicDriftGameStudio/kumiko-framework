@@ -63,10 +63,17 @@ draft persistence are overhead a short form doesn't need.
 ## Source
 
 The feature entry point is `src/feature.ts`; the review-step component is
-`src/web/listing-review-section.tsx`. The integration test under
+`src/web/listing-review-section.tsx`. `src/web/index.ts` exports
+`listingsClient`, a `ClientFeatureDefinition` that registers
+`ListingReviewSection` under the `__component` name `feature.ts`'s review
+section points at — an app mounting this recipe must include
+`listingsClient` in `createKumikoApp`'s `clientFeatures`, or the review
+step falls back to `RenderEdit`'s unregistered-extension placeholder
+instead of rendering the real component. The integration test under
 `src/__tests__/` covers the entity's CRUD create through the wizard's
 fields and the form-draft save/get/discard round-trip that backs
 `draft: true`. `e2e/wizard.spec.ts` is a Playwright spec against the real
-client bundle — step navigation, a blocked step on a validation error,
+client bundle (mounted via `listingsClient`, the same registration an app
+would use) — step navigation, a blocked step on a validation error,
 draft-resume after a page reload, and that a successful submit discards
 the draft (reopening the wizard starts fresh on step 1).

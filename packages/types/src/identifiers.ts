@@ -15,6 +15,14 @@ export type TenantId = string;
 // the system boundary.
 const TENANT_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
+// Shared shape check for any UUID-formatted identifier crossing an
+// untrusted boundary (fileRefId, entity ids, ...) — same loose,
+// version-agnostic regex as TENANT_ID_REGEX (v4/v7/nil all match), kept as
+// one predicate so call sites don't grow their own copy of the shape.
+export function isUuid(value: unknown): value is string {
+  return typeof value === "string" && TENANT_ID_REGEX.test(value);
+}
+
 // Validates a candidate string against the tenantId format and returns it
 // as a TenantId, or `null` when it doesn't match. Use at every system
 // boundary that admits untrusted input (HTTP headers, cookies, query
@@ -22,9 +30,7 @@ const TENANT_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
 // of the rejection shape — middleware returns 400, batch jobs may filter
 // + log, and unit tests don't need a try/catch.
 export function parseTenantId(value: unknown): TenantId | null {
-  if (typeof value !== "string") return null;
-  if (!TENANT_ID_REGEX.test(value)) return null;
-  return value;
+  return isUuid(value) ? value : null;
 }
 
 // "System-scope" tenant marker: handlers carry this tenantId when the event

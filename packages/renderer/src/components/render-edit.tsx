@@ -415,11 +415,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // freezes it on first render) — safe because a section's field-name set is
   // value-independent, so it matches filterEditSections(vm.sections, fieldsFilter).
   // undefined = unscoped, since scoping would silently drop root-level .refine() issues.
-  const scopeFieldNames = useMemo(
-    () =>
-      fieldsFilter === undefined ? undefined : fieldsFilter.filter((f) => Object.hasOwn(fields, f)),
-    [fieldsFilter, fields],
-  );
+  // A `fieldsFilter` that matches nothing in `fields` (typo, renamed field)
+  // must fall back to unscoped too — an empty scope array would filter out
+  // ALL validation issues (kumiko-framework#1907), letting submit() through
+  // unvalidated on a form that also renders no sections.
+  const scopeFieldNames = useMemo(() => {
+    if (fieldsFilter === undefined) return undefined;
+    const matched = fieldsFilter.filter((f) => Object.hasOwn(fields, f));
+    return matched.length === 0 ? undefined : matched;
+  }, [fieldsFilter, fields]);
 
   // Submit-Config nur wenn der Caller einen writeCommand mitgibt; bei
   // customSubmit-Pfad kommt der Form-Controller ohne Submit-Wiring,
@@ -1097,7 +1101,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               </Button>,
             ]}
           >
-            <Text>{translate("kumiko.form.draft.resume-multiple")}</Text>
+            <Text>
+              {translate(
+                draftCandidates.length === 1
+                  ? "kumiko.form.draft.resume-single"
+                  : "kumiko.form.draft.resume-multiple",
+              )}
+            </Text>
           </Banner>
         )}
         {isWizard && (

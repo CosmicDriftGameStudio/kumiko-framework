@@ -71,7 +71,14 @@ export const tenantInvitationEntity = createEntity({
     }),
     // userId des einladenden Admins (für Audit-Trail "wer hat eingeladen").
     // Self-referencing ownerField: the field's own value IS the owner userId.
-    invitedBy: createTextField({ required: true, userOwned: { ownerField: "invitedBy" } }),
+    // lookupable: the delete-hook filters "invitations sent by this user"
+    // via the generated blind-index column instead of a full-tenant
+    // decrypt-and-scan (see user-data-rights-defaults' invitation hook).
+    invitedBy: createTextField({
+      required: true,
+      userOwned: { ownerField: "invitedBy" },
+      lookupable: true,
+    }),
     // UI-Anzeige — Wahrheit liegt in Redis-TTL.
     expiresAt: createTimestampField({ required: true }),
   },

@@ -29,3 +29,16 @@ export const FORM_DRAFT_ACCESS: AccessRule = { openToAll: true };
 export const FORM_DRAFT_UNIQUE_KEY_CONSTRAINT = "read_form_drafts_tenant_owner_key_uniq";
 
 export const FORM_DRAFT_KEY_MAX_LENGTH = 256;
+
+// `values` is unbounded, caller-controlled JSON (wizard-form fields) — an
+// autosaving frontend or a malicious authenticated caller could otherwise
+// grow a single draft row without limit. Each save appends an event to the
+// append-only event store, so an oversized draft is also a permanent
+// storage cost, not just a transient one.
+export const FORM_DRAFT_VALUES_MAX_BYTES = 64 * 1024;
+
+// Cap on concurrent drafts per (tenant, ownerId) — without it, an
+// autosaving frontend generating a new create-mode draftId per abandoned
+// wizard session grows the event stream without bound (every save is an
+// append-only event).
+export const FORM_DRAFT_MAX_PER_OWNER = 50;

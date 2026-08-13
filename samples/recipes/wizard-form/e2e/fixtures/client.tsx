@@ -9,15 +9,14 @@
 // DefaultAppShell `user` prop supplies the role that screenAccessAllows
 // checks client-side.
 //
-// ListingReviewSection is the REAL review component from src/web/ — only
-// registered via clientFeatures.extensionSectionComponents, never
-// imported directly from feature.ts (keeps the server/client split
-// intact).
+// listingsClient is the REAL client registration from src/web/ — the
+// recipe's own wiring, not an e2e-only duplicate — so this fixture proves
+// the shipped registration actually resolves ListingReviewSection.
 
 import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
 import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
-import { ListingReviewSection } from "../../src/web/listing-review-section";
+import { listingsClient } from "../../src/web";
 import { createMockDispatcher } from "./mock-dispatcher";
 
 const WIZARD_SCREEN_QN = "listings:screen:listing-wizard";
@@ -56,12 +55,7 @@ async function boot(): Promise<void> {
     dispatcher: createMockDispatcher(),
     shell: AppShell,
     screenQn: WIZARD_SCREEN_QN,
-    clientFeatures: [
-      {
-        name: "wizard-form-e2e",
-        extensionSectionComponents: { ListingReviewSection },
-      },
-    ],
+    clientFeatures: [listingsClient],
   });
 }
 

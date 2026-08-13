@@ -55,6 +55,30 @@ function withRecomputedDerived(
   return result;
 }
 
+// Locale-aware decimal parse for pasted text: strips space/NBSP thousands
+// separators outright, then treats whichever of "," or "." appears LAST in
+// the string as the decimal separator and strips the other one — handles
+// both "1.234,56" (de) and "1,234.56" (en-US) pastes. Returns undefined for
+// anything that still doesn't parse as a finite number.
+function parseLocaleAwareDecimal(raw: string): number | undefined {
+  const stripped = raw.replace(/[\s ]/g, "");
+  if (stripped === "") return undefined;
+  const lastComma = stripped.lastIndexOf(",");
+  const lastDot = stripped.lastIndexOf(".");
+  const decimalIndex = Math.max(lastComma, lastDot);
+  if (decimalIndex === -1) {
+    const n = Number(stripped);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
+  const fractionPart = stripped.slice(decimalIndex + 1);
+  if (!/^\d*$/.test(integerPart) || !/^\d*$/.test(fractionPart)) return undefined;
+  const n = Number(
+    `${integerPart === "" ? "0" : integerPart}.${fractionPart === "" ? "0" : fractionPart}`,
+  );
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function coerceCellValue(column: EmbeddedListColumn, text: string, currency: string): unknown {
   switch (column.type) {
     case "text":
@@ -73,9 +97,13 @@ function coerceCellValue(column: EmbeddedListColumn, text: string, currency: str
       // currencyDecimals) — a hardcoded ×100 here diverged for zero-/three-
       // decimal currencies (JPY, BHD, ...), landing a pasted value 100x off
       // from the same value typed by hand (kumiko-framework#1972).
+      // parseLocaleAwareDecimal handles both "1.234,56" (de) and
+      // "1,234.56" (en-US) thousands/decimal conventions — a naive
+      // `replace(",", ".")` mangled DE-locale pastes with thousands
+      // separators into NaN (kumiko-framework#1838).
       if (text.trim() === "") return undefined;
-      const n = Number(text.replace(",", "."));
-      return Number.isFinite(n) ? Math.round(n * 10 ** currencyDecimals(currency)) : undefined;
+      const n = parseLocaleAwareDecimal(text);
+      return n === undefined ? undefined : Math.round(n * 10 ** currencyDecimals(currency));
     }
     case "boolean":
       return ["true", "1", "yes", "y", "ja"].includes(text.trim().toLowerCase());
@@ -263,11 +291,14 @@ export function EmbeddedListField({
         const column = columns[columnIndex + gridColOffset];
         if (column === undefined) return;
         const coerced = coerceCellValue(column, text, field.embeddedListCurrency ?? "EUR");
-        const isUnmatchedChoice =
-          (column.type === "select" || column.type === "reference") &&
+        // Also covers an unparseable money paste (e.g. mangled thousands
+        // separators) — the cell must stay unchanged instead of silently
+        // clearing to undefined (kumiko-framework#1838).
+        const isUnmatchedOrUnparseable =
+          (column.type === "select" || column.type === "reference" || column.type === "money") &&
           coerced === undefined &&
           text.trim() !== "";
-        if (isUnmatchedChoice) {
+        if (isUnmatchedOrUnparseable) {
           unmatchedCells += 1;
           return;
         }

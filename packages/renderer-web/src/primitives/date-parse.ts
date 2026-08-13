@@ -105,15 +105,22 @@ function localeDateOrder(locale: string): readonly DateSlot[] {
 // from formatToParts — nothing hardcoded per locale. `letters` is one
 // character per slot (from i18n); repeated to the slot's digit count
 // (day/month 2, year 4).
+// Clamps each slot letter to its first code point — `letters` normally comes
+// from i18n and can fall back to the raw, multi-character translation key
+// when a lookup misses, which would otherwise blow up the placeholder length.
+function firstCodePoint(s: string): string {
+  return [...s][0] ?? "?";
+}
+
 export function formatDatePlaceholder(
   locale: string,
   letters: { readonly year: string; readonly month: string; readonly day: string },
 ): string {
   return localeDateParts(locale)
     .map((part) => {
-      if (part.type === "year") return letters.year.repeat(4);
-      if (part.type === "month") return letters.month.repeat(2);
-      if (part.type === "day") return letters.day.repeat(2);
+      if (part.type === "year") return firstCodePoint(letters.year).repeat(4);
+      if (part.type === "month") return firstCodePoint(letters.month).repeat(2);
+      if (part.type === "day") return firstCodePoint(letters.day).repeat(2);
       return part.value;
     })
     .join("");

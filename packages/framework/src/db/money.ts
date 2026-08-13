@@ -3,10 +3,15 @@
 // Vertrag (siehe auch db/located-timestamp.ts — gleicher Compound-Type-Pattern):
 //   API-Form:    { amount, currency } | number — amount in MAJOR units (56799.16 EUR)
 //   DB-Form:     <name> BIGINT (minor units, e.g. cents) + <name>Currency TEXT
-//   Read-Form:   { amount, currency, amountMinor } — amount in MAJOR units again,
-//                amountMinor sits alongside as exact integer cents (fw#1830) for
-//                callers that need cent-exact comparisons (e.g. invoice sums)
-//                instead of round-tripping the float amount through /100·*100.
+//   Read-Form:   { amount, currency, amountScaled } — amount in MAJOR units again,
+//                amountScaled sits alongside as the exact integer value in
+//                MINOR_UNIT_SCALE units (fw#1830) for callers that need
+//                scale-exact comparisons (e.g. invoice sums) instead of
+//                round-tripping the float amount through /100·*100.
+//                `amountMinor` stays as a @deprecated alias of the same
+//                value until #1976/4 and #1976/5 migrate their remaining
+//                consumers (renderer-web/primitives/index.tsx,
+//                renderer/components/render-field.tsx) off the old name.
 //
 // table-builder.ts's moneyAmount column has always documented BIGINT as
 // "the integer minor unit" — this file used to just pass the API amount
@@ -40,8 +45,8 @@ export function toMinorUnits(amount: number): number {
   return Math.round(amount * MINOR_UNIT_SCALE);
 }
 
-function toMajorUnits(amountMinor: number): number {
-  return amountMinor / MINOR_UNIT_SCALE;
+function toMajorUnits(amountScaled: number): number {
+  return amountScaled / MINOR_UNIT_SCALE;
 }
 
 // One money field's write payload — `{ amount, currency }` or a bare number
@@ -123,11 +128,20 @@ export function flattenMoney(
 }
 
 /** Shape of a single rehydrated money field — {amount major, currency,
- *  amountMinor exact integer cents}. Exported so consumers type their own
- *  copy against this instead of re-declaring the shape by hand. */
+ *  amountScaled exact integer value in MINOR_UNIT_SCALE units}. Exported so
+ *  consumers type their own copy against this instead of re-declaring the
+ *  shape by hand. */
 export type MoneyRead = {
   readonly amount: number;
   readonly currency: string;
+  readonly amountScaled: number;
+  /**
+   * @deprecated Use `amountScaled` — this name implies ISO-4217 minor units
+   * (cents), which is wrong once a currency needing a different scale than
+   * the current flat MINOR_UNIT_SCALE=100 lands (e.g. JPY, 0 decimals).
+   * Alias of `amountScaled`, kept until #1976/4 and #1976/5 migrate their
+   * consumers off it.
+   */
   readonly amountMinor: number;
 };
 
@@ -159,18 +173,18 @@ export function rehydrateMoney(
       continue;
     }
 
-    let amountMinor: number;
+    let amountScaled: number;
     if (typeof amountRaw === "number") {
-      amountMinor = amountRaw;
+      amountScaled = amountRaw;
     } else if (typeof amountRaw === "bigint") {
-      amountMinor = Number(amountRaw);
-      if (!Number.isSafeInteger(amountMinor)) {
+      amountScaled = Number(amountRaw);
+      if (!Number.isSafeInteger(amountScaled)) {
         throw new Error(`rehydrateMoney: field "${name}" bigint amount is not a safe integer`);
       }
     } else if (typeof amountRaw === "string" && amountRaw !== "") {
       // PG-driver liefert BIGINT manchmal als String (>2^53 sicher).
-      amountMinor = Number(amountRaw);
-      if (!Number.isSafeInteger(amountMinor)) {
+      amountScaled = Number(amountRaw);
+      if (!Number.isSafeInteger(amountScaled)) {
         throw new Error(
           `rehydrateMoney: field "${name}" amount string "${amountRaw}" is not a safe integer — DB corruption?`,
         );
@@ -184,7 +198,13 @@ export function rehydrateMoney(
     const currency =
       typeof currencyRaw === "string" && currencyRaw !== "" ? currencyRaw : fallbackCurrency;
 
-    result[name] = { amount: toMajorUnits(amountMinor), currency, amountMinor };
+    // amountMinor: deprecated alias, same value as amountScaled — see MoneyRead.
+    result[name] = {
+      amount: toMajorUnits(amountScaled),
+      currency,
+      amountScaled,
+      amountMinor: amountScaled,
+    };
   }
 
   return result;

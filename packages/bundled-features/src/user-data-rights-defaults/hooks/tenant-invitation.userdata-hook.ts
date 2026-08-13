@@ -6,7 +6,7 @@ import {
   type UserDataExportHook,
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { decryptStoredPii } from "../../shared";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant";
 import { userTable } from "../../user";
 import { featureMounted } from "./feature-mounted";
@@ -34,6 +34,11 @@ const crud = createEventStoreExecutor(tenantInvitationsTable, tenantInvitationEn
 
 const INVITED_BY_ANONYMIZED = "anonymized";
 
+// Bounded, not Promise.all — each decrypt hits the KMS adapter's own small
+// dedicated pool (PgKmsAdapter default max: 4). Same reasoning as
+// tenant/handlers/invitations.query.ts's KMS_POOL_CONCURRENCY.
+const KMS_POOL_CONCURRENCY = 4;
+
 async function resolveUserEmail(ctx: UserDataHookCtx): Promise<string | null> {
   if (ctx.userEmailBeforeDelete) return ctx.userEmailBeforeDelete.toLowerCase();
   const row = (await fetchOne(ctx.db, userTable, { id: ctx.userId })) as {
@@ -59,12 +64,23 @@ export const tenantInvitationExportHook: UserDataExportHook = async (ctx) => {
   if (rows.length === 0) return null;
   return {
     entity: "tenant-invitation",
-    rows: rows.map((r) => ({
-      email: r["email"],
-      role: r["role"],
-      status: r["status"],
-      expiresAt: String(r["expiresAt"] ?? ""),
-    })),
+    // Stored `email` is subject-KMS ciphertext (pii:true, not field-encrypted).
+    // decryptSnippetFields only sweeps collectEncryptedFieldNames — it would
+    // leave this as a base64 blob in the GDPR export. Decrypt here, same as
+    // invitations.query.ts and resolveUserEmail above.
+    rows: await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, async (r) => {
+      const rawEmail = r["email"];
+      const decryptedEmail =
+        typeof rawEmail === "string"
+          ? await decryptStoredPii(rawEmail, "email", "user-data-rights:invitation-hook")
+          : rawEmail;
+      return {
+        email: decryptedEmail,
+        role: r["role"],
+        status: r["status"],
+        expiresAt: String(r["expiresAt"] ?? ""),
+      };
+    }),
   };
 };
 
@@ -98,28 +114,19 @@ export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strate
     }
   }
 
-  // `invitedBy` has no `lookupable`/blind-index column — it's ciphertext
-  // under an active KMS, so `{ invitedBy: ctx.userId }` would compare a
-  // plaintext userId against an encrypted column and always match zero
-  // rows. Load every invitation in the tenant instead (small per-tenant
-  // row count) and decrypt `invitedBy` per row to find this user's own
-  // invites-sent. See tenant/handlers/invitations.query.ts for the same
-  // decrypt-on-read pattern.
-  const tenantInvitations = await selectMany<Record<string, unknown>>(
-    ctx.db,
-    tenantInvitationsTable,
-    { tenantId: ctx.tenantId },
-  );
-  for (const row of tenantInvitations) {
+  // `invitedBy` is `lookupable` — the query compiler matches the plaintext
+  // filter value against the generated blind-index column
+  // (`invitedByBidx`), so this selects only this user's own invites-sent
+  // without loading + decrypting every invitation in the tenant. See
+  // tenant/handlers/invitations.query.ts for the same lookupable-filter
+  // pattern on `email`.
+  const inviterRows = await selectMany<Record<string, unknown>>(ctx.db, tenantInvitationsTable, {
+    tenantId: ctx.tenantId,
+    invitedBy: ctx.userId,
+  });
+  for (const row of inviterRows) {
     const id = row["id"]; // @cast-boundary db-row
-    const invitedByRaw = row["invitedBy"];
-    if (typeof id !== "string" || typeof invitedByRaw !== "string") continue;
-    const invitedBy = await decryptStoredPii(
-      invitedByRaw,
-      "invitedBy",
-      "user-data-rights:invitation-hook",
-    );
-    if (invitedBy !== ctx.userId) continue;
+    if (typeof id !== "string") continue;
     await crud.update({ id, changes: { invitedBy: INVITED_BY_ANONYMIZED } }, systemUser, tdb, {
       skipOptimisticLock: true,
     });

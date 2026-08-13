@@ -2512,6 +2512,13 @@ describe("RenderEdit create-mode draftId (issue #1913)", () => {
     // No silent adopt: the form stays pristine until the user picks.
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("");
+    // #1976: single-candidate is now the normal case (auto-adopt removed) —
+    // the banner text and the "start new" button must both resolve to real
+    // copy, not the raw i18n keys.
+    const picker = screen.getByTestId("render-edit-draft-picker");
+    expect(picker.textContent).toContain("Found an open draft for this form");
+    expect(picker.textContent).not.toContain("kumiko.form.draft.resume-single");
+    expect(screen.getByTestId("render-edit-draft-start-new").textContent).toBe("Start new");
   });
 
   test("start-new on a one-candidate picker clears it without adopting, leaving the candidate untouched", async () => {
@@ -2587,6 +2594,10 @@ describe("RenderEdit create-mode draftId (issue #1913)", () => {
     );
 
     await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    // Multiple candidates keep the plural banner copy.
+    expect(screen.getByTestId("render-edit-draft-picker").textContent).toContain(
+      "Found multiple open drafts",
+    );
     const pickSecond = screen.getByTestId(`render-edit-draft-pick-${screenDef.id}:new:draft-2`);
     fireEvent.click(pickSecond);
 
@@ -3196,5 +3207,38 @@ describe("RenderEdit fields filter", () => {
 
     expect(write).not.toHaveBeenCalled();
     expect(screen.getByTestId("field-notes-errors")).toBeTruthy();
+  });
+
+  // #1907: `fields` naming only unknown field names (typo, renamed field)
+  // must not collapse the validation scope to an empty array — an empty
+  // scope filters out ALL issues and lets submit through unvalidated.
+  test("fields naming only unknown field names falls back to unscoped and still blocks submit", async () => {
+    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    const schema = z.object({
+      title: z.string().min(1),
+      notes: z.string().min(1),
+    });
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<FilterValues>
+          screen={makeTwoSectionScreen()}
+          entity={filterEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, notes: "" }}
+          writeCommand="order:create"
+          schema={schema}
+          fields={["doesNotExist"]}
+        />
+      </DispatcherProvider>,
+    );
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+
+    expect(write).not.toHaveBeenCalled();
   });
 });
