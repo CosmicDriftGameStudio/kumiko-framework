@@ -12,6 +12,7 @@ import {
   ok,
   readBooleanProperty,
   readDataLiteralNode,
+  readNameLiteral,
   readPropertyKey,
 } from "./shared";
 
@@ -97,12 +98,12 @@ export function extractJob(
     });
   }
 
-  const nameArg = first.asKind(SyntaxKind.StringLiteral);
-  if (!nameArg) {
+  const jobName = readNameLiteral(first);
+  if (jobName === undefined) {
     return fail(
       "job",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal job name (or use the object form)",
+      "first argument must be a string literal job name, or an identifier resolving to one (or use the object form)",
     );
   }
   const optionsArg = args[1];
@@ -140,7 +141,7 @@ export function extractJob(
   return ok({
     kind: "job",
     source: sourceLocationFromNode(call, sourceFile),
-    jobName: nameArg.getLiteralValue(),
+    jobName,
     options: options as Omit<JobDefinition, "name" | "handler">,
     handlerBody: sourceLocationFromNode(fn, sourceFile),
   });

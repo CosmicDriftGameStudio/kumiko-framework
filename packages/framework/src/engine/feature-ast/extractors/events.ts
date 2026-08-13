@@ -9,6 +9,7 @@ import {
   findFunctionLiteral,
   ok,
   readDataLiteralNode,
+  readNameLiteral,
   readNameOrRef,
   readPropertyKey,
 } from "./shared";
@@ -146,12 +147,12 @@ export function extractDefineEvent(
     });
   }
 
-  const nameArg = first.asKind(SyntaxKind.StringLiteral);
-  if (!nameArg) {
+  const eventName = readNameLiteral(first);
+  if (eventName === undefined) {
     return fail(
       "defineEvent",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal event name (or use the object form)",
+      "first argument must be a string literal event name, or an identifier resolving to one (or use the object form)",
     );
   }
   const schemaArg = args[1];
@@ -186,7 +187,7 @@ export function extractDefineEvent(
   return ok({
     kind: "defineEvent",
     source: sourceLocationFromNode(call, sourceFile),
-    eventName: nameArg.getLiteralValue(),
+    eventName,
     schemaSource: sourceLocationFromNode(schemaArg, sourceFile),
     ...(version !== undefined && { version }),
     ...(migrations !== undefined && { migrations }),
@@ -207,31 +208,32 @@ export function extractNotification(
     );
   }
 
-  let nameLiteral: ReturnType<typeof first.asKind<SyntaxKind.StringLiteral>>;
+  let notificationName: string | undefined;
   let defObj: ReturnType<typeof first.asKind<SyntaxKind.ObjectLiteralExpression>>;
 
   const firstObj = first.asKind(SyntaxKind.ObjectLiteralExpression);
   if (firstObj && args.length === 1) {
-    nameLiteral = firstObj
+    const nameInit = firstObj
       .getProperty("name")
       ?.asKind(SyntaxKind.PropertyAssignment)
       ?.getInitializer()
       ?.asKind(SyntaxKind.StringLiteral);
-    if (!nameLiteral) {
+    if (!nameInit) {
       return fail(
         "notification",
         sourceLocationFromNode(call, sourceFile),
         "object form requires a string-literal `name` property",
       );
     }
+    notificationName = nameInit.getLiteralValue();
     defObj = firstObj;
   } else {
-    nameLiteral = first.asKind(SyntaxKind.StringLiteral);
-    if (!nameLiteral) {
+    notificationName = readNameLiteral(first);
+    if (notificationName === undefined) {
       return fail(
         "notification",
         sourceLocationFromNode(call, sourceFile),
-        "first argument must be a string literal notification name (or use the object form)",
+        "first argument must be a string literal notification name, or an identifier resolving to one (or use the object form)",
       );
     }
     defObj = args[1]?.asKind(SyntaxKind.ObjectLiteralExpression);
@@ -243,7 +245,6 @@ export function extractNotification(
       );
     }
   }
-  const nameArg = nameLiteral;
   const triggerObj = defObj
     .getProperty("trigger")
     ?.asKind(SyntaxKind.PropertyAssignment)
@@ -313,7 +314,7 @@ export function extractNotification(
   return ok({
     kind: "notification",
     source: sourceLocationFromNode(call, sourceFile),
-    notificationName: nameArg.getLiteralValue(),
+    notificationName,
     trigger: { on: onName },
     recipientBody: sourceLocationFromNode(recipientFn, sourceFile),
     dataBody: sourceLocationFromNode(dataFn, sourceFile),

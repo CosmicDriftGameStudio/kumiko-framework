@@ -14,6 +14,7 @@ import {
   ok,
   readBooleanProperty,
   readDataLiteralNode,
+  readNameLiteral,
 } from "./shared";
 
 export type ParsedHandlerCall = {
@@ -134,12 +135,12 @@ export function parseHandlerCall(
   if (args.length === 1 && isRawRefSentinel(readDataLiteralNode(first))) {
     return ok({ source: sourceLocationFromNode(call, sourceFile) });
   }
-  const nameLiteral = first.asKind(SyntaxKind.StringLiteral);
-  if (!nameLiteral) {
+  const handlerName = readNameLiteral(first);
+  if (handlerName === undefined) {
     return fail(
       methodName,
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal handler name (or use the object form)",
+      "first argument must be a string literal handler name, or an identifier resolving to one (or use the object form)",
     );
   }
   const schemaArg = args[1];
@@ -178,7 +179,7 @@ export function parseHandlerCall(
   }
   return ok({
     source: sourceLocationFromNode(call, sourceFile),
-    handlerName: nameLiteral.getLiteralValue(),
+    handlerName,
     schemaSource: sourceLocationFromNode(schemaArg, sourceFile),
     handlerBody: sourceLocationFromNode(fn, sourceFile),
     ...(access !== undefined && { access }),
