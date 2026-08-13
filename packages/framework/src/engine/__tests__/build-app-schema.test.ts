@@ -71,6 +71,26 @@ describe("buildAppSchema", () => {
     });
   });
 
+  // kumiko-framework#2034: createKumikoApp's boot diagnostic reads
+  // `screens[].dormant` from the CLIENT schema, not from the registry —
+  // this pins that the flag actually survives the server→client projection
+  // instead of only living in the registry's verbatim `feature.screens`.
+  test("custom screen's `dormant` flag survives the buildAppSchema projection verbatim (#2034)", () => {
+    const dormantScreenFeature = defineFeature("privacy", (r) => {
+      r.screen({
+        id: "privacy-center",
+        type: "custom",
+        renderer: { react: { __component: "PrivacyCenterScreen" } },
+        dormant: true,
+      });
+    });
+
+    const app = buildAppSchema(createRegistry([dormantScreenFeature]));
+    const screen = app.features.find((f) => f.featureName === "privacy")?.screens[0];
+
+    expect(screen).toMatchObject({ id: "privacy-center", dormant: true });
+  });
+
   test("Feature ohne r.translations lässt das Feld weg (omit-undefined-Pattern)", () => {
     const f = defineFeature("bare", (r) => {
       r.nav({ id: "x", label: "X" });

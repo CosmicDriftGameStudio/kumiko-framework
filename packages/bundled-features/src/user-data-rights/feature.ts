@@ -281,18 +281,21 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
 
     r.translations({ keys: USER_DATA_RIGHTS_I18N });
 
-    // Dormant Self-Service-Screen (Art. 15/17/18/20): Export, Aktivitäts-
-    // protokoll, Einschränkung, Löschung in einem Screen. Kein r.nav — die
-    // App platziert ihn im eingeloggten Bereich. Die React-Component kommt
-    // client-seitig aus userDataRightsClient() (web/). access openToAll, weil
-    // kein App-Rollenname portabel ist; die per-User-Handler erzwingen Auth
-    // server-seitig, und der Screen ist ohne r.nav nirgends sichtbar bis die
-    // App ihn aktiv im authed-Bereich verlinkt.
+    // Dormant self-service screen (Art. 15/17/18/20): export, activity log,
+    // restriction, deletion in one screen. No r.nav — the app places it in
+    // its logged-in area. The React component comes from userDataRightsClient()
+    // (web/) client-side. access is openToAll because no app role name is
+    // portable; the per-user handlers enforce auth server-side, and the
+    // screen is invisible without r.nav until the app actively links it in
+    // its authed area. dormant: true so createKumikoApp's boot diagnostic
+    // (#2025) doesn't flag apps that haven't (yet) navved the screen as
+    // having a missing client plugin (#2034).
     r.screen({
       id: PRIVACY_CENTER_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "PrivacyCenterScreen" } },
       access: { openToAll: true },
+      dormant: true,
     });
 
     // Magic-link path (anonymous): the email link carries the token as a

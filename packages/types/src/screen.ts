@@ -704,6 +704,16 @@ export type CustomScreenDefinition = {
   /** Parent list screen for breadcrumb when this detail is not in nav. */
   readonly listScreenId?: string;
   readonly access?: AccessRule;
+  /** This screen is registered without a self-owned `r.nav()` entry by
+   *  design — an app opts in by navving it explicitly (e.g. a settings-area
+   *  self-service screen). `createKumikoApp`'s boot diagnostic
+   *  (kumiko-framework#2025) skips dormant screens instead of flagging
+   *  every consumer that doesn't mount the client plugin as a false
+   *  positive (kumiko-framework#2034). Only set this on screens the
+   *  feature itself never navs — a screen the feature DOES nav still needs
+   *  its client plugin mounted by every consumer, and should keep
+   *  triggering the diagnostic if it's missing. */
+  readonly dormant?: boolean;
 };
 
 // --- configEdit ---

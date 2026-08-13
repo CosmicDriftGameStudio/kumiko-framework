@@ -83,12 +83,15 @@ export function createPersonalAccessTokensFeature(
     };
 
     // Dormant custom-screen — the client maps PAT_SCREEN_ID to PatTokensScreen;
-    // the app places it via r.nav in its logged-in settings area.
+    // the app places it via r.nav in its logged-in settings area. dormant:
+    // true skips createKumikoApp's missing-client-plugin boot diagnostic
+    // (#2025) for apps that don't nav this screen (#2034).
     r.screen({
       id: PAT_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "PatTokensScreen" } },
       access: { openToAll: true },
+      dormant: true,
     });
     r.translations({ keys: PAT_FEATURE_I18N });
 

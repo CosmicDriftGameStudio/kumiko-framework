@@ -270,6 +270,35 @@ describe("createKumikoApp", () => {
     errorSpy.mockRestore();
   });
 
+  test("dormant custom screen without a registered clientFeatures component → no boot diagnostic (kumiko-framework#2034)", async () => {
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+
+    const dormantScreenSchema: FeatureSchema = {
+      featureName: "user-data-rights",
+      entities: { task: taskEntity },
+      screens: [
+        {
+          id: "privacy-center",
+          type: "custom",
+          renderer: { react: { __component: "PrivacyCenterScreen" } },
+          access: { openToAll: true },
+          dormant: true,
+        },
+      ],
+    };
+
+    mountRoot();
+    await mountApp({
+      schema: dormantScreenSchema,
+      dispatcher: makeDispatcher(),
+      screenQn: "user-data-rights:screen:privacy-center",
+    });
+
+    expect(errorSpy).not.toHaveBeenCalledWith(expect.stringContaining("privacy-center"));
+
+    errorSpy.mockRestore();
+  });
+
   test("clientFeatures.columnRenderers → bei Key-Kollision warnt + last-wins gewinnt", async () => {
     // Zwei Features liefern denselben Renderer-Key — der Merge in
     // create-app warnt und behält den späteren Eintrag (Last-Wins).

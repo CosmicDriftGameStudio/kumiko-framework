@@ -91,11 +91,14 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     // Dormant custom-screen — the client maps MFA_ENABLE_SCREEN_ID to
     // MfaEnableScreen (see personal-access-tokens/feature.ts for the same
     // convention). App places it via r.nav in its logged-in settings area.
+    // dormant: true skips createKumikoApp's missing-client-plugin boot
+    // diagnostic (#2025) for apps that don't nav this screen (#2034).
     r.screen({
       id: MFA_ENABLE_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "MfaEnableScreen" } },
       access: { openToAll: true },
+      dormant: true,
     });
     r.translations({ keys: AUTH_MFA_FEATURE_I18N });
 
