@@ -12,12 +12,67 @@ import {
   type WhereObject,
 } from "../db/query";
 import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
+import { AccessDeniedError } from "../errors";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";
 
 type Table = SchemaTable;
 
 export type { TenantDb, TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
+
+// Unforgeable via JSON, same as SQL_EXPR_BRAND (dialect.ts) — a client-supplied
+// payload can fake the method names but never carry a Symbol.
+export const SYSTEM_SCOPE_CHECK_BRAND: unique symbol = Symbol("system-scope-check");
+
+// r.systemScope() drops the tenant filter on reads/updates/deletes; a handler
+// must explicitly clear one of these checks before touching the raw TenantDb.
+export type UncheckedSystemDb = {
+  readonly [SYSTEM_SCOPE_CHECK_BRAND]: true;
+  assertTenantMatch(tenantId: TenantId): TenantDb;
+  assertRowsTenant<T>(rows: readonly T[], tenantField: keyof T): readonly T[];
+  acknowledgeCrossTenant(reason: string): TenantDb;
+};
+
+// buildHandlerContext (pipeline/dispatch-shared.ts) always builds "system"
+// mode from the caller's own tenantId, never a foreign one.
+export function createUncheckedSystemDb(db: TenantDb): UncheckedSystemDb {
+  const allowedTenantIds: readonly TenantId[] = [db.tenantId, SYSTEM_TENANT_ID];
+
+  return {
+    [SYSTEM_SCOPE_CHECK_BRAND]: true,
+
+    assertTenantMatch(tenantId) {
+      if (tenantId !== db.tenantId) {
+        throw new AccessDeniedError({
+          message: `systemScope() tenant self-check failed: expected "${db.tenantId}", got "${tenantId}"`,
+        });
+      }
+      return db;
+    },
+
+    // Fails closed on any mismatch rather than silently dropping rows.
+    // Reference rows (tenantId === SYSTEM_TENANT_ID) are allowed, mirroring
+    // "tenant"-mode readWhere's own [tenantId, SYSTEM_TENANT_ID] allowlist.
+    assertRowsTenant<T>(rows: readonly T[], tenantField: keyof T): readonly T[] {
+      const hasOffender = rows.some(
+        (row) => !allowedTenantIds.includes(row[tenantField] as TenantId),
+      );
+      if (hasOffender) {
+        throw new AccessDeniedError({
+          message: `systemScope() row tenant self-check failed on field "${String(tenantField)}"`,
+        });
+      }
+      return rows;
+    },
+
+    acknowledgeCrossTenant(reason) {
+      if (reason.trim().length === 0) {
+        throw new Error("acknowledgeCrossTenant requires a non-empty reason");
+      }
+      return db;
+    },
+  };
+}
 
 // @cast-boundary tenant-db-row
 export function castTenantRows<T>(rows: readonly Record<string, unknown>[]): readonly T[] {
