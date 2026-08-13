@@ -318,6 +318,7 @@ describe("enqueueProjectionRebuild — inline fallback (jobRunner without the jo
         dispatchCalls++;
         return "should-not-happen";
       },
+      attachDispatcher: () => {},
     };
 
     const outcome = await enqueueProjectionRebuild("pendingtest:projection:pending-counts", {

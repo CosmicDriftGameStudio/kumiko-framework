@@ -138,6 +138,7 @@ export type {
   ClaimKeyJsType,
   ClaimKeyType,
   DeclarativeEventMigration,
+  DispatchWriteRef,
   EntityRef,
   EventDef,
   EventMigrationDef,

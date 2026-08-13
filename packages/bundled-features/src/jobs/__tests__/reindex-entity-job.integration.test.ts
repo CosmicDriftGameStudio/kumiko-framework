@@ -153,7 +153,12 @@ describe("reindexEntityJob", () => {
     await expect(
       reindexEntityJob(
         { entity: "widget" },
-        { db: stack.db, registry: stack.registry, searchAdapter: stack.search },
+        // @cast-boundary test-seam — deliberately no systemUser: proves the no-tenant fan-out-misfire path
+        {
+          db: stack.db,
+          registry: stack.registry,
+          searchAdapter: stack.search,
+        } as unknown as JobContext,
       ),
     ).resolves.toBeUndefined();
   });
@@ -162,7 +167,8 @@ describe("reindexEntityJob", () => {
     await expect(
       reindexEntityJob(
         { entity: "widget" },
-        { db: stack.db, registry: stack.registry, systemUser: admin },
+        // @cast-boundary test-seam — deliberately no searchAdapter: proves the missing-adapter throw
+        { db: stack.db, registry: stack.registry, systemUser: admin } as unknown as JobContext,
       ),
     ).rejects.toThrow(/searchAdapter/);
   });

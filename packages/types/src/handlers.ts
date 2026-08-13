@@ -187,6 +187,17 @@ export type JobRunnerRef = {
   ): Promise<void>;
 };
 
+// Minimal interface a JobRunner attaches via attachDispatcher() to reach the
+// write pipeline — framework-owned, concrete type wraps the dispatcher's
+// executeWrite/executeQuery. Unlike HandlerContext.write (identity implicit
+// via closure), both take an explicit user: a JobRunner is a boot-time
+// singleton, not bound to one caller's identity. Only write+queryAs — no
+// .query/.stream/.command/.batch/.resolveAuthClaims, that stays Dispatcher-only.
+export type DispatchWriteRef = {
+  readonly write: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
+  readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
+};
+
 // Priority levels for notifications
 export type NotifyPriority = "critical" | "normal" | "low";
 
@@ -544,13 +555,34 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   readonly resolveAuthClaims: (user: SessionUser) => Promise<Record<string, unknown>>;
 };
 
-// Job execution: db + registry + systemUser + logging guaranteed
+// Job execution: db + registry + systemUser + logging guaranteed, plus a
+// write path into the same dispatcher pipeline write-handlers use.
+//
+// write/queryAs throw until JobRunner.attachDispatcher() has run — a call
+// this early is a framework boot bug, not a job-author mistake.
+//
+// Identity is implicit: write runs as the job's own systemUser, tenant-
+// scoped via the job's _tenantId (falls back to SYSTEM_TENANT_ID for jobs
+// with no tenant context, e.g. plain cron jobs). A job that writes without
+// fanning out per-tenant (`_perTenant:` trigger) silently writes into the
+// system tenant instead of each tenant it may have meant to reach — no
+// guard against this, only this warning.
 export type JobContext = SharedContextFields & {
   readonly db: DbConnection;
   readonly registry: Registry;
   readonly systemUser: SessionUser;
   readonly log: Logger;
   readonly triggeredBy: { readonly id: string; readonly tenantId: TenantId } | null;
+  readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
+  readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
+  // Multi-trigger jobs (`on: [...]`) use this to tell which trigger fired —
+  // undefined for cron/manual jobs. Mirrors AppContext.triggerName.
+  readonly triggerName?: string;
+  // Fallback tenant/user when systemUser doesn't carry it (tenant-less cron
+  // jobs). Mirrors AppContext._tenantId/_userId — see the tenant-scoping
+  // footgun above.
+  readonly _tenantId?: TenantId;
+  readonly _userId?: string | undefined;
 };
 
 // --- Handler Functions ---

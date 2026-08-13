@@ -3,7 +3,7 @@ import type { ConcurrencyMode } from "./concurrency-mode";
 import type { ConfigScope } from "./config-scope";
 import type { DbConnection } from "./db-connection";
 import type { FieldDefinition } from "./fields";
-import type { AppContext } from "./handlers";
+import type { JobContext } from "./handlers";
 import type {
   PostDeleteHookFn,
   PostSaveHookFn,
@@ -335,7 +335,7 @@ export type JobRunIn = Exclude<RunIn, "both">;
 
 // --- Jobs ---
 
-export type JobHandlerFn = (payload: Record<string, unknown>, context: AppContext) => Promise<void>;
+export type JobHandlerFn = (payload: Record<string, unknown>, context: JobContext) => Promise<void>;
 
 export type JobTrigger =
   // `on` akzeptiert ein einzelnes Handler-Ref ODER eine Liste. Multi-

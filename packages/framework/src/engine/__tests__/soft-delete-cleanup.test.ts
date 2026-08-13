@@ -9,7 +9,7 @@ import {
   softDeleteCleanupJob,
   softDeleteCleanupSystemJob,
 } from "../soft-delete-cleanup";
-import type { AppContext } from "../types/handlers";
+import type { JobContext } from "../types/handlers";
 
 function featureWith(softDelete: boolean | undefined) {
   return defineFeature("probe-sd", (r) => {
@@ -53,7 +53,7 @@ describe("registry soft-delete auto-wiring", () => {
 
 type DeleteCall = { table: unknown; where: Record<string, unknown> };
 
-function makeCtx(opts: { graceDays?: number; calls: DeleteCall[] }): AppContext {
+function makeCtx(opts: { graceDays?: number; calls: DeleteCall[] }): JobContext {
   // Shaped to satisfy bun-db's tenantDbDelegate() probe so deleteMany() routes
   // to this recorder instead of trying to extract real table metadata.
   const fakeDb = {
@@ -96,7 +96,7 @@ function makeCtx(opts: { graceDays?: number; calls: DeleteCall[] }): AppContext 
     ...(opts.graceDays !== undefined && {
       configResolver: { get: async () => opts.graceDays },
     }),
-  } as unknown as AppContext;
+  } as unknown as JobContext;
 }
 
 describe("softDeleteCleanupJob handler", () => {
@@ -134,7 +134,7 @@ describe("softDeleteCleanupJob handler", () => {
   });
 
   test("throws when the job context is missing db/registry", async () => {
-    await expect(softDeleteCleanupJob({}, {} as AppContext)).rejects.toThrow(
+    await expect(softDeleteCleanupJob({}, {} as JobContext)).rejects.toThrow(
       /ctx.db \+ ctx.registry/,
     );
   });
@@ -161,7 +161,7 @@ describe("softDeleteCleanupSystemJob handler", () => {
   });
 
   test("throws when the job context is missing db/registry", async () => {
-    await expect(softDeleteCleanupSystemJob({}, {} as AppContext)).rejects.toThrow(
+    await expect(softDeleteCleanupSystemJob({}, {} as JobContext)).rejects.toThrow(
       /ctx.db \+ ctx.registry/,
     );
   });

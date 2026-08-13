@@ -7,6 +7,8 @@ import { createDerivativesContext } from "../derivatives/derivatives-context";
 import { createSystemUser } from "../engine/system-user";
 import {
   type AppContext,
+  type DispatchWriteRef,
+  type JobContext,
   type JobRunIn,
   type Registry,
   type SessionUser,
@@ -114,6 +116,10 @@ export type JobRunner = {
     payload: Record<string, unknown>,
     user?: SessionUser,
   ): Promise<void>;
+  // Wires JobContext.write/queryAs to the real dispatcher — called once at
+  // boot, after the dispatcher exists (job-runner construction happens
+  // before it). Before this runs, JobContext.write/queryAs throw.
+  attachDispatcher(ref: DispatchWriteRef): void;
 };
 
 export type JobRunnerOptions = {
@@ -285,6 +291,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // delivery.render → delivery.send). Assigned just before return; reads happen
   // at job-execution time (after start()), so it is always defined by then.
   let selfRunner: JobRunner | undefined;
+  // Set by attachDispatcher() once the boot-level dispatcher exists.
+  // JobContext.write/queryAs throw until this is set — see JobContext doc.
+  let dispatchWriteRef: DispatchWriteRef | undefined;
 
   // Counts active + waiting jobs with this name for this tenant across
   // BOTH lane queues. Jobs with the same name should only live in one
@@ -439,8 +448,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             tenantId,
           })
         : context.derivatives;
-    const jobContext: AppContext = {
+    const jobContext: JobContext = {
       ...context,
+      // Same union as configDb above — job runners are always constructed
+      // with a real DbConnection; JobContext requires it non-optional.
+      db: configDb as DbConnection, // @cast-boundary db-operator
       files,
       derivatives,
       ...(notify !== undefined && { notify }),
@@ -456,6 +468,22 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
       log: createJobLogger(logs),
       ...(triggerName !== undefined && { triggerName }),
+      write: (qn: string, payload: unknown) => {
+        if (!dispatchWriteRef) {
+          throw new Error(
+            "JobContext.write called before dispatcher attached — call attachDispatcher() first",
+          );
+        }
+        return dispatchWriteRef.write(jobSystemUser, qn, payload);
+      },
+      queryAs: (user: SessionUser, qn: string, payload: unknown) => {
+        if (!dispatchWriteRef) {
+          throw new Error(
+            "JobContext.queryAs called before dispatcher attached — call attachDispatcher() first",
+          );
+        }
+        return dispatchWriteRef.queryAs(user, qn, payload);
+      },
     };
 
     await options.onJobStart?.(jobName, jobId, meta);
@@ -768,6 +796,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // the whole reason both queues are held.
         await queues[laneForJob(jobDef)].add(name, data);
       }
+    },
+    attachDispatcher(ref: DispatchWriteRef): void {
+      dispatchWriteRef = ref;
     },
   };
 

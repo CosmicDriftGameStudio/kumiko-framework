@@ -7,6 +7,7 @@ import {
   createTextField,
   defineFeature,
   defineWriteHandler,
+  type JobContext,
   type NotifyFn,
   qn,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -1516,7 +1517,8 @@ describe("flow 17: async render→send pipeline", () => {
           priority: "normal",
           message: { notificationType: "app:notify:render-isolation", title: "X" },
         },
-        { db, registry: stack.registry, jobRunner: runner },
+        // @cast-boundary test-seam — job throws before touching systemUser/log/write/queryAs
+        { db, registry: stack.registry, jobRunner: runner } as unknown as JobContext,
       ),
     ).rejects.toThrow(/no render step/);
 
