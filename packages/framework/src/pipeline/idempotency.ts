@@ -2,8 +2,8 @@ import type Redis from "ioredis";
 import { RedisKeys } from "./redis-keys";
 
 export type IdempotencyGuard = {
-  check(requestId: string): Promise<string | null>;
-  store(requestId: string, result: unknown): Promise<void>;
+  check(tenantId: string, userId: string, requestId: string): Promise<string | null>;
+  store(tenantId: string, userId: string, requestId: string, result: unknown): Promise<void>;
 };
 
 // Sentinel stored under the key while the handler is running. A second
@@ -39,8 +39,8 @@ export function createIdempotencyGuard(
     // both see a cache miss, both execute side-effects, and only one persist
     // the result. This version uses a pending-marker lock so the second caller
     // waits for the first to finish and reuses its result.
-    async check(requestId) {
-      const key = `${prefix}${requestId}`;
+    async check(tenantId, userId, requestId) {
+      const key = `${prefix}${tenantId}:${userId}:${requestId}`;
 
       // Try to acquire the in-progress lock.
       const acquired = await redis.set(key, PENDING_MARKER, "EX", pendingTtl, "NX");
@@ -67,10 +67,15 @@ export function createIdempotencyGuard(
       return null;
     },
 
-    async store(requestId, result) {
+    async store(tenantId, userId, requestId, result) {
       // Overwrite the pending marker with the real result. Plain SET (no NX)
       // on purpose: we own the lock; writing the result is the final step.
-      await redis.set(`${prefix}${requestId}`, JSON.stringify(result), "EX", ttl);
+      await redis.set(
+        `${prefix}${tenantId}:${userId}:${requestId}`,
+        JSON.stringify(result),
+        "EX",
+        ttl,
+      );
     },
   };
 }

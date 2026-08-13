@@ -1,6 +1,9 @@
 import type { AccessRule } from "./handlers";
+import type { NavIconKey } from "./nav-icon";
 import type { TargetRef } from "./target-ref";
 import type { TreeAction } from "./tree-node";
+
+export type { NavIconKey } from "./nav-icon";
 
 // Nav entry declaration. Every feature that wants to appear in the app's
 // navigation tree registers one or more entries via r.nav(). The engine
@@ -22,10 +25,10 @@ export type NavDefinition = {
   // i18n translation key. Resolved at render time by the renderer's
   // useTranslation hook; engine keeps it opaque.
   readonly label: string;
-  // Icon key — whatever the icon registry of the active renderer understands.
-  // Engine doesn't validate; unknown icons surface as a missing icon on screen,
-  // not a boot failure.
-  readonly icon?: string;
+  // Icon key from the closed NavIconKey vocabulary (see nav-icon.ts). Every
+  // renderer's icon map is checked against the same union, so a typo'd key
+  // is a compile error here rather than a missing icon at runtime.
+  readonly icon?: NavIconKey;
   // Qualified name of a parent nav entry ("<feature>:nav:<id>"). Omit for
   // top-level entries. Boot-validator rejects cycles + dangling refs.
   readonly parent?: string;
@@ -113,7 +116,7 @@ export type ContentCollectionDefinition = {
   readonly variableSchema?: Readonly<Record<string, string>>;
   readonly nav: {
     readonly label: string;
-    readonly icon?: string;
+    readonly icon?: NavIconKey;
     readonly parent?: string;
     readonly order?: number;
     // Visibility of the nav node. Leave unset — it then follows the

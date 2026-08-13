@@ -38,7 +38,7 @@ import { buildServer, withFileProviderResolver } from "../api/server";
 import type { SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
-import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types";
+import type { AppContext, DispatchWriteRef, JobRunIn, Registry, RunIn } from "../engine/types";
 import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner";
 import { createJobRunner } from "../jobs/job-runner";
 import type { Lifecycle } from "../lifecycle";
@@ -142,8 +142,9 @@ export type WorkerEntrypoint = {
   readonly eventDispatcher: EventDispatcher;
   readonly jobRunner: JobRunner;
   readonly observability: ObservabilityProvider;
-  // Same dispatcher the API process exposes. Background components in the
-  // worker persist through the write-path — JobContext has no write/query.
+  // Same dispatcher the API process exposes. App-wired background
+  // components that need the dispatcher directly (not JobContext.write)
+  // still persist through it.
   readonly dispatcher: Dispatcher;
   readonly mode: "worker";
   // Starts event-dispatcher poll + BullMQ worker. SIGTERM triggers
@@ -202,6 +203,18 @@ function contextWithObservability(
     ...(effectiveFeatures && { effectiveFeatures }),
     tracer: observability.tracer,
     meter: observability.meter,
+  };
+}
+
+// Adapts the command-dispatcher's positional (type, payload, user) calls to
+// DispatchWriteRef's (user, qn, payload) shape — JobContext.write/queryAs
+// pass identity explicitly per call (boot-time singleton), while Dispatcher
+// takes it last (request-scoped closure caller). Same underlying pipeline,
+// different argument order.
+function dispatcherToWriteRef(dispatcher: Dispatcher): DispatchWriteRef {
+  return {
+    write: (user, qn, payload) => dispatcher.write(qn, payload, user),
+    queryAs: (user, qn, payload) => dispatcher.query(qn, payload, user),
   };
 }
 
@@ -381,6 +394,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
     apiJobRunner,
     runLocalDispatcher ? "both" : "api",
   );
+  apiJobRunner?.attachDispatcher(dispatcherToWriteRef(server.dispatcher));
 
   return {
     app: server.app,
@@ -422,6 +436,7 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
     "jobRunner",
   );
   const server = buildWorkerServer({ ...options, context }, lifecycle, jobRunner);
+  jobRunner.attachDispatcher(dispatcherToWriteRef(server.dispatcher));
   const eventDispatcher = requireDispatcher(server, "worker");
 
   return {
@@ -491,6 +506,8 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
     workerJobRunner,
     "both",
   );
+  workerJobRunner.attachDispatcher(dispatcherToWriteRef(server.dispatcher));
+  apiJobRunner.attachDispatcher(dispatcherToWriteRef(server.dispatcher));
   const eventDispatcher = requireDispatcher(server, "all-in-one");
 
   return {

@@ -126,7 +126,7 @@ const CHROME_LIGHT = `
     background: color-mix(in srgb, var(--bg) 85%, transparent);
     backdrop-filter: saturate(140%) blur(8px);
     border-bottom: 1px solid var(--border); }
-  .nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.85rem 0; }
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 0.85rem; }
   .brand { display: flex; align-items: center; gap: 0.55rem; font-weight: 700; font-size: 1.125rem; color: var(--fg); }
   .brand a { color: var(--fg); display: inline-flex; align-items: center; gap: 0.55rem; }
   .brand a:hover { color: var(--fg); }

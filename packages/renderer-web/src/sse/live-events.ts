@@ -3,14 +3,12 @@ import type { LiveEvent, LiveEventSubscriber } from "@cosmicdrift/kumiko-rendere
 // EventSource-backed Live-Events für den Web-Renderer. Der shared
 // Layer konsumiert nur das `LiveEventSubscriber`-Interface; diese Datei
 // liefert eine Factory die intern eine EventSource auf /api/sse aufbaut,
-// pro (entity, verb)-Kombi einen addEventListener verdrahtet und
-// subscriptions routet.
+// pro Entity EINEN addEventListener verdrahtet (Server benennt den Frame
+// nach dem aggregateType, siehe sse-route.ts) und subscriptions routet.
 //
 // Verbindungs-Lifecycle: lazy beim ersten subscribe, close wenn der
 // letzte unsubscribe feuert. Mehrere Consumer teilen sich dieselbe
 // EventSource, sparen CPU + Server-Load.
-
-const VERBS = ["created", "updated", "deleted", "restored"] as const;
 
 type EntitySubscriber = {
   readonly entityName: string;
@@ -34,18 +32,21 @@ export function createEventSourceLiveEvents(
 
   const subscribers = new Set<EntitySubscriber>();
   let source: EventSource | undefined;
-  const wiredTypes = new Set<string>();
+  const wiredEntities = new Set<string>();
 
-  const handleEvent = (type: string, raw: string): void => {
+  // `subscribers` is a flat Set across all entities — the browser-side
+  // addEventListener(entityName, ...) gate below only filters which frames
+  // arrive at all, not which subscriber a given frame is for. Without this
+  // filter, an `invoice` subscriber would also fire on every `user` frame.
+  const handleEvent = (raw: string): void => {
     let parsed: LiveEvent["data"];
     try {
       parsed = JSON.parse(raw) as LiveEvent["data"];
     } catch {
       // skip: malformed SSE payload, drop it rather than crash all subscribers
-      // zu crashen und alle anderen subscribers mitzureißen.
       return;
     }
-    const event: LiveEvent = { type, data: parsed };
+    const event: LiveEvent = { type: parsed.aggregateType, data: parsed };
     for (const sub of subscribers) {
       if (sub.entityName === parsed.aggregateType) sub.listener(event);
     }
@@ -62,14 +63,12 @@ export function createEventSourceLiveEvents(
   const ensureListenersForEntity = (entityName: string): void => {
     // skip: not connected yet, listeners get wired once ensureConnected runs
     if (source === undefined) return;
-    for (const verb of VERBS) {
-      const type = `${entityName}.${verb}`;
-      if (wiredTypes.has(type)) continue;
-      source.addEventListener(type, (e) => {
-        handleEvent(type, (e as MessageEvent).data);
-      });
-      wiredTypes.add(type);
-    }
+    // skip: already wired for this entity
+    if (wiredEntities.has(entityName)) return;
+    source.addEventListener(entityName, (e) => {
+      handleEvent((e as MessageEvent).data);
+    });
+    wiredEntities.add(entityName);
   };
 
   const closeIfEmpty = (): void => {
@@ -79,7 +78,7 @@ export function createEventSourceLiveEvents(
     if (source === undefined) return;
     source.close();
     source = undefined;
-    wiredTypes.clear();
+    wiredEntities.clear();
   };
 
   return (entityName, listener) => {

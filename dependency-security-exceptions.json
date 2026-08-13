@@ -1,5 +1,83 @@
 {
 	"$schema": "Exceptions file for guards/check-security.ts. Each exception needs reason, reviewer, and expiry (max ~30 days).",
 	"_reviewScope": "check-security auditiert resolveAuditRoots() = Parent-Root (falls vorhanden) UND cwd. Lokal ist das der cosmicdriftgamestudio-Workspace PLUS dieses Repo; in CI existiert kein Parent, also nur dieses Repo. Beim Review BEIDE Baeume pruefen und nicht nur die gehoistete Root-Kopie. `grep -oE '\"<pkg>@[0-9][^\"]*\"' bun.lock` je Root ist nur ein Vorfilter — bun.lock kann vom tatsaechlich installierten Baum abweichen (GHSA-RGW5: committetes Lock zeigte lokal brace-expansion@5.0.8, CI meldete den Fund trotzdem reproduzierbar). Verbindliche Pruefung bleibt `find node_modules -path '*/<pkg>/package.json'` je Root, dann die dort gefundene Version gegen `vulnerable_versions` aus `bun audit --json` halten.",
-	"exceptions": []
+	"exceptions": [
+		{
+			"advisory": "GHSA-MH99-V99M-4GVG",
+			"package": "brace-expansion",
+			"reason": "Upstream (parent workspace) bun.lock is stale since 2026-08-02; fix version is already pinned via overrides in the parent package.json. Refreshing the lockfile is blocked by an unrelated kumiko-studio version-range issue (9 packages pinned to pre-2026-08 ranges), tracked separately. Not a kumiko-framework code issue.",
+			"reviewedBy": "Marc",
+			"expires": "2026-09-12"
+		},
+		{
+			"advisory": "GHSA-RGW5-RVV9-X895",
+			"package": "brace-expansion",
+			"reason": "Upstream (parent workspace) bun.lock is stale since 2026-08-02; fix version is already pinned via overrides in the parent package.json. Refreshing the lockfile is blocked by an unrelated kumiko-studio version-range issue (9 packages pinned to pre-2026-08 ranges), tracked separately. Not a kumiko-framework code issue.",
+			"reviewedBy": "Marc",
+			"expires": "2026-09-12"
+		},
+		{
+			"advisory": "GHSA-3JXR-9VMJ-R5CP",
+			"package": "brace-expansion",
+			"reason": "Upstream (parent workspace) bun.lock is stale since 2026-08-02; fix version is already pinned via overrides in the parent package.json. Refreshing the lockfile is blocked by an unrelated kumiko-studio version-range issue (9 packages pinned to pre-2026-08 ranges), tracked separately. Not a kumiko-framework code issue.",
+			"reviewedBy": "Marc",
+			"expires": "2026-09-12"
+		},
+		{
+			"advisory": "GHSA-MWP4-54F8-5FHR",
+			"package": "ip-address",
+			"reason": "Upstream (parent workspace) bun.lock is stale since 2026-08-02; fix version is already pinned via overrides in the parent package.json. Refreshing the lockfile is blocked by an unrelated kumiko-studio version-range issue (9 packages pinned to pre-2026-08 ranges), tracked separately. Not a kumiko-framework code issue.",
+			"reviewedBy": "Marc",
+			"expires": "2026-09-12"
+		},
+		{
+			"advisory": "GHSA-5P4M-2WFM-XMQJ",
+			"package": "js-yaml",
+			"reason": "Upstream (parent workspace) bun.lock is stale since 2026-08-02; fix version is already pinned via overrides in the parent package.json. Refreshing the lockfile is blocked by an unrelated kumiko-studio version-range issue (9 packages pinned to pre-2026-08 ranges), tracked separately. Not a kumiko-framework code issue.",
+			"reviewedBy": "Marc",
+			"expires": "2026-09-12"
+		},
+		{
+			"advisory": "GHSA-28WG-GHJ8-5HJV",
+			"package": "nanoid",
+			"reason": "Upstream (parent workspace) bun.lock is stale since 2026-08-02; fix version is already pinned via overrides in the parent package.json. Refreshing the lockfile is blocked by an unrelated kumiko-studio version-range issue (9 packages pinned to pre-2026-08 ranges), tracked separately. Not a kumiko-framework code issue.",
+			"reviewedBy": "Marc",
+			"expires": "2026-09-12"
+		},
+		{
+			"advisory": "GHSA-2V37-7H3G-55P8",
+			"package": "nanoid",
+			"reason": "Upstream (parent workspace) bun.lock is stale since 2026-08-02; fix version is already pinned via overrides in the parent package.json. Refreshing the lockfile is blocked by an unrelated kumiko-studio version-range issue (9 packages pinned to pre-2026-08 ranges), tracked separately. Not a kumiko-framework code issue.",
+			"reviewedBy": "Marc",
+			"expires": "2026-09-12"
+		},
+		{
+			"advisory": "GHSA-R28C-9Q8G-F849",
+			"package": "postcss",
+			"reason": "Upstream (parent workspace) bun.lock is stale since 2026-08-02; fix version is already pinned via overrides in the parent package.json. Refreshing the lockfile is blocked by an unrelated kumiko-studio version-range issue (9 packages pinned to pre-2026-08 ranges), tracked separately. Not a kumiko-framework code issue.",
+			"reviewedBy": "Marc",
+			"expires": "2026-09-12"
+		},
+		{
+			"advisory": "GHSA-F88M-G3JW-G9CJ",
+			"package": "sharp",
+			"reason": "Upstream (parent workspace) bun.lock is stale since 2026-08-02; fix version is already pinned via overrides in the parent package.json. Refreshing the lockfile is blocked by an unrelated kumiko-studio version-range issue (9 packages pinned to pre-2026-08 ranges), tracked separately. Not a kumiko-framework code issue.",
+			"reviewedBy": "Marc",
+			"expires": "2026-09-12"
+		},
+		{
+			"advisory": "GHSA-2P49-HGCM-8545",
+			"package": "svgo",
+			"reason": "Upstream (parent workspace) bun.lock is stale since 2026-08-02; fix version is already pinned via overrides in the parent package.json. Refreshing the lockfile is blocked by an unrelated kumiko-studio version-range issue (9 packages pinned to pre-2026-08 ranges), tracked separately. Not a kumiko-framework code issue.",
+			"reviewedBy": "Marc",
+			"expires": "2026-09-12"
+		},
+		{
+			"advisory": "GHSA-4CWX-7WF7-3272",
+			"package": "undici",
+			"reason": "Upstream (parent workspace) bun.lock is stale since 2026-08-02; fix version is already pinned via overrides in the parent package.json. Refreshing the lockfile is blocked by an unrelated kumiko-studio version-range issue (9 packages pinned to pre-2026-08 ranges), tracked separately. Not a kumiko-framework code issue.",
+			"reviewedBy": "Marc",
+			"expires": "2026-09-12"
+		}
+	]
 }

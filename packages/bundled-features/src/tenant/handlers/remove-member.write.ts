@@ -1,6 +1,10 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, type DbRow } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler, withResponseData } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  defineWriteHandler,
+  withResponseData,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
@@ -8,6 +12,11 @@ import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-ta
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",
 });
+
+// Literal QN, not an import off the sessions feature — tenant is
+// foundational and must boot without sessions mounted (no r.requires/
+// r.usesApi here, unlike user-data-rights:restrict-account's hard dep).
+const REVOKE_ALL_SESSIONS_QN = "sessions:write:user-session:revoke-all-for-user";
 
 export const removeMemberWrite = defineWriteHandler({
   name: "removeMember",
@@ -33,6 +42,19 @@ export const removeMemberWrite = defineWriteHandler({
       event.user,
       db,
     );
+
+    // Revoke only this tenant's sessions — a multi-tenant user stays logged
+    // in to tenants they're still a member of. Best-effort cross-feature
+    // call: sessions may not be mounted (registry lookup, see above).
+    if (result.isSuccess) {
+      const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
+      if (revoker) {
+        await ctx.writeAs(createSystemUser(event.payload.tenantId), REVOKE_ALL_SESSIONS_QN, {
+          userId: event.payload.userId,
+          tenantId: event.payload.tenantId,
+        });
+      }
+    }
     return withResponseData(result, event.payload);
   },
 });

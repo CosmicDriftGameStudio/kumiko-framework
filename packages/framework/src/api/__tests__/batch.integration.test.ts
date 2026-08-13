@@ -407,7 +407,7 @@ describe("POST /api/batch", () => {
 
   test("idempotency: corrupted cache entry is treated as miss and re-runs", async () => {
     const requestId = "batch-rid-corrupt";
-    const cacheKey = `${RedisKeys.idempotency}${requestId}`;
+    const cacheKey = `${RedisKeys.idempotency}${admin.tenantId}:${admin.id}:${requestId}`;
 
     // Prove key-coupling first: seed a well-formed cached entry under the
     // exact manually-built key and confirm the batch short-circuits on it

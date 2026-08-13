@@ -1,6 +1,10 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, type DbRow } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler, withResponseData } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  defineWriteHandler,
+  withResponseData,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { findForbiddenMembershipRole, reservedMembershipRoleError } from "../membership-roles";
@@ -9,6 +13,11 @@ import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-ta
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",
 });
+
+// Literal QN, not an import off the sessions feature — tenant is
+// foundational and must boot without sessions mounted (no r.requires/
+// r.usesApi here, unlike user-data-rights:restrict-account's hard dep).
+const REVOKE_ALL_SESSIONS_QN = "sessions:write:user-session:revoke-all-for-user";
 
 export const updateMemberRolesWrite = defineWriteHandler({
   name: "updateMemberRoles",
@@ -54,6 +63,19 @@ export const updateMemberRolesWrite = defineWriteHandler({
       event.user,
       db,
     );
+
+    // A role change can be security-relevant (e.g. demoting an Admin) — the
+    // user must re-authenticate with the new roles, everywhere, not just in
+    // this tenant. Best-effort cross-feature call: sessions may not be
+    // mounted (registry lookup instead of a hard requires, see above).
+    if (result.isSuccess) {
+      const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
+      if (revoker) {
+        await ctx.writeAs(createSystemUser(event.user.tenantId), REVOKE_ALL_SESSIONS_QN, {
+          userId: event.payload.userId,
+        });
+      }
+    }
     return withResponseData(result, event.payload);
   },
 });

@@ -1195,12 +1195,27 @@ export function createAuthRoutes(
         const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500; // @cast-boundary engine-payload
         return c.json({ isSuccess: false, error: result.error }, status);
       }
-      const data = result.data as {
-        kind: "auth-session";
-        session: SessionUser;
-        tenantId: TenantId;
-        role: string;
-      }; // @cast-boundary engine-payload
+      // @cast-boundary engine-payload — same three-shape union as /auth/login
+      // (see gateEnforceMfa): a straight session, an MFA challenge, or a
+      // hard mfa-setup-required block. Only the auth-session branch also
+      // carries tenantId/role (invite-specific).
+      const data = result.data as
+        | { kind: "auth-session"; session: SessionUser; tenantId: TenantId; role: string }
+        | { kind: "mfa-challenge"; challengeToken: string }
+        | { kind: "mfa-setup-required"; preauthSetupToken: string };
+
+      if (data.kind === "mfa-setup-required") {
+        return c.json({
+          isSuccess: true,
+          mfaSetupRequired: true,
+          preauthSetupToken: data.preauthSetupToken,
+        });
+      }
+
+      if (data.kind === "mfa-challenge") {
+        return c.json({ isSuccess: true, mfaRequired: true, challengeToken: data.challengeToken });
+      }
+
       const token = await mintSessionAndRespond(c, data.session);
       return c.json({
         isSuccess: true,
