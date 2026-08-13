@@ -1,5 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared";
@@ -20,13 +21,20 @@ export const membersQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: access.admin },
   handler: async (query, ctx) => {
-    const rows = await selectMany(ctx.db, tenantMembershipsTable, {
+    if (!ctx.systemDb) {
+      throw new InternalError({
+        message:
+          "tenant:query:members requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
+      });
+    }
+    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+    const rows = await selectMany(db, tenantMembershipsTable, {
       tenantId: query.user.tenantId,
     });
 
     const userIds = [...new Set(rows.map((row) => row["userId"]))];
     const users =
-      userIds.length > 0 ? await selectMany<UserRow>(ctx.db, userTable, { id: userIds }) : [];
+      userIds.length > 0 ? await selectMany<UserRow>(db, userTable, { id: userIds }) : [];
     const userById = new Map(users.map((u) => [String(u.id), u]));
 
     const decrypted = await mapWithConcurrency(users, KMS_POOL_CONCURRENCY, async (user) => {

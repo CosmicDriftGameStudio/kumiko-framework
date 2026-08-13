@@ -1,7 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { ConflictError, InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { TenantErrors } from "../constants";
 import { findForbiddenMembershipRole, reservedMembershipRoleError } from "../membership-roles";
@@ -20,7 +20,15 @@ export const addMemberWrite = defineWriteHandler({
   }),
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
-    const db = ctx.db;
+    if (!ctx.systemDb) {
+      throw new InternalError({
+        message:
+          "tenant:write:addMember requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
+      });
+    }
+    const db = ctx.systemDb.acknowledgeCrossTenant(
+      "SystemAdmin manages memberships across tenants",
+    );
     const forbidden = findForbiddenMembershipRole(event.payload.roles);
     if (forbidden !== undefined) return writeFailure(reservedMembershipRoleError(forbidden));
     const existing = await fetchOne(db, tenantMembershipsTable, {

@@ -13,13 +13,25 @@ const systemScopedFeature = defineFeature("ctxsystemdb-system", (r) => {
     "check",
     z.object({}),
     async (query, ctx) => {
-      if (!ctx.systemDb) return { present: false as const };
-      // assertTenantMatch returns the underlying TenantDb — proves systemDb
-      // is bound to the SAME internally-built TenantDb as ctx.db, not a
-      // separate instance (dispatch-shared.ts builds `as HandlerContext`,
-      // so a mis-wired property wouldn't be caught by tsc).
+      if (!ctx.systemDb)
+        return { present: false as const, tenantIdMatches: false, dbThrows: false };
+      // ctx.db is fail-closed for r.systemScope() handlers — dispatch-shared.ts
+      // builds `as HandlerContext`, so a mis-wired property wouldn't be caught
+      // by tsc. Prove it at runtime: assertTenantMatch must hand back a
+      // working, correctly-scoped TenantDb, and touching ctx.db itself must
+      // throw instead of silently returning an unfiltered db.
       const checked = ctx.systemDb.assertTenantMatch(query.user.tenantId);
-      return { present: true as const, boundToDb: checked === ctx.db };
+      let dbThrows = false;
+      try {
+        void ctx.db.tenantId;
+      } catch {
+        dbThrows = true;
+      }
+      return {
+        present: true as const,
+        tenantIdMatches: checked.tenantId === query.user.tenantId,
+        dbThrows,
+      };
     },
     { access: { roles: ["Admin"] } },
   );
@@ -29,7 +41,10 @@ const tenantScopedFeature = defineFeature("ctxsystemdb-tenant", (r) => {
   r.queryHandler(
     "check",
     z.object({}),
-    async (_query, ctx) => ({ present: ctx.systemDb !== undefined }),
+    async (query, ctx) => ({
+      present: ctx.systemDb !== undefined,
+      dbWorks: ctx.db.tenantId === query.user.tenantId,
+    }),
     { access: { roles: ["Admin"] } },
   );
 });
@@ -46,22 +61,24 @@ afterAll(async () => {
 });
 
 describe("ctx.systemDb", () => {
-  test("is present and bound to ctx.db for r.systemScope() handlers", async () => {
-    const result = await stack.http.queryOk<{ present: boolean; boundToDb: boolean }>(
-      "ctxsystemdb-system:query:check",
-      {},
-      admin,
-    );
+  test("is present for r.systemScope() handlers; ctx.db is fail-closed there", async () => {
+    const result = await stack.http.queryOk<{
+      present: boolean;
+      tenantIdMatches: boolean;
+      dbThrows: boolean;
+    }>("ctxsystemdb-system:query:check", {}, admin);
     expect(result.present).toBe(true);
-    expect(result.boundToDb).toBe(true);
+    expect(result.tenantIdMatches).toBe(true);
+    expect(result.dbThrows).toBe(true);
   });
 
-  test("is absent for non-system-scoped handlers", async () => {
-    const result = await stack.http.queryOk<{ present: boolean }>(
+  test("is absent for non-system-scoped handlers; ctx.db works normally there", async () => {
+    const result = await stack.http.queryOk<{ present: boolean; dbWorks: boolean }>(
       "ctxsystemdb-tenant:query:check",
       {},
       admin,
     );
     expect(result.present).toBe(false);
+    expect(result.dbWorks).toBe(true);
   });
 });

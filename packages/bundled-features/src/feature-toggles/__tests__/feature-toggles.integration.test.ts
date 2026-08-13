@@ -16,6 +16,7 @@ import {
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEventDispatcher, type EventConsumer } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
@@ -63,7 +64,17 @@ function widgetFeature(): FeatureDefinition {
     r.writeHandler(
       "widget:create",
       z.object({ name: z.string().min(1).max(100), active: z.boolean().optional() }),
-      async (event, ctx) => widgetCrud.create(event.payload, event.user, ctx.db),
+      async (event, ctx) => {
+        if (!ctx.systemDb) {
+          throw new InternalError({
+            message: "widget:create requires ctx.systemDb — is r.systemScope() still set?",
+          });
+        }
+        const db = ctx.systemDb.acknowledgeCrossTenant(
+          "widget catalog is system-wide in this test",
+        );
+        return widgetCrud.create(event.payload, event.user, db);
+      },
       { access: { roles: ["SystemAdmin"] } },
     );
   });
@@ -89,10 +100,13 @@ function widgetAuditFeature(): FeatureDefinition {
 
     r.hook("postSave", { allOf: "widget" }, async (result, ctx) => {
       if (result.kind !== "save" || !result.isNew) return;
-      if (!ctx.db) return;
+      if (!ctx.systemDb) return;
       const name = result.changes!["name"] as string | undefined;
       if (!name) return;
-      await seedRow(ctx.db, widgetAuditTable, {
+      const db = ctx.systemDb.acknowledgeCrossTenant(
+        "widget audit sink is system-wide in this test",
+      );
+      await seedRow(db, widgetAuditTable, {
         id: generateId(),
         widgetName: name,
         version: 1,

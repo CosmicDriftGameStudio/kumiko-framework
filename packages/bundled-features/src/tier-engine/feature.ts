@@ -340,28 +340,28 @@ export function createTierEngineFeature<
           const newTenantId = data.id as TenantId; // @cast-boundary engine-payload
           const aggregateId = tierAssignmentAggregateId(newTenantId);
 
-          // skip: defensive — inTransaction phase hat ctx.db immer gesetzt,
-          // aber AppContext type macht's optional. Throw wäre overreach
-          // (lifecycle blocking), silent-skip ist defensive-soft.
-          if (!ctx.db) return;
+          // tenant is an r.systemScope() feature, so this cross-feature hook gets a
+          // fail-closed ctx.db — reach for ctx.systemDb instead (see entity-handlers.ts).
+          const db = ctx.systemDb
+            ? ctx.systemDb.acknowledgeCrossTenant(
+                `tier-engine auto-default-tier hook on r.systemScope() tenant write (${newTenantId})`,
+              )
+            : ctx.db;
+          // skip: defensive — inTransaction phase always sets db, but AppContext's
+          // type makes it optional. Throwing would be overreach (lifecycle
+          // blocking), silent-skip is defensive-soft.
+          if (!db) return;
 
-          // ctx.db ist im inTransaction-phase eine TenantDb (tenant-scoped
-          // proxy auf die echte TX). Für event-store-Pfade brauchen wir
-          // die rohe DbConnection — TenantDb exposes nur select/insert/
-          // update/delete, NICHT execute (event-store-append.ts:102 ruft
-          // db.execute(sql`SELECT pg_notify(...)`) → TypeError sonst).
-          // Pattern matched signup-confirm.write.ts:107 (.raw), nicht
-          // `as DbConnection` — das ist Type-Lie der erst beim ersten
-          // .execute()-Call crashed.
-          //
-          // AppContext.db ist union (DbConnection | TenantDb). Im
-          // inTransaction-phase garantiert TenantDb — der dispatcher
-          // wrapped vorher (siehe pipeline/dispatcher.ts createTenantDb-
-          // Aufruf). TypeGuard via `"raw" in ...` ist robuster als
-          // `as TenantDb` gegen future refactor.
-          // skip: defensive — sollte im inTransaction nie greifen.
-          if (!("raw" in ctx.db)) return;
-          const rawDb = ctx.db.raw as DbConnection; // @cast-boundary db-runner
+          // db is a TenantDb in the inTransaction phase (tenant-scoped proxy over
+          // the real tx). Event-store paths need the raw DbConnection — TenantDb
+          // only exposes select/insert/update/delete, not execute
+          // (event-store-append.ts:102 calls db.execute(sql`SELECT pg_notify(...)`)
+          // → TypeError otherwise). Pattern matches signup-confirm.write.ts:107
+          // (.raw), not `as DbConnection` — that's a type-lie that only crashes on
+          // the first .execute() call.
+          // skip: defensive — should never trip in the inTransaction phase.
+          if (!("raw" in db)) return;
+          const rawDb = db.raw as DbConnection; // @cast-boundary db-runner
 
           // Idempotency: stream-existence-check vor create. Pattern aus
           // seedTenant.ts. Bei re-replay (rebuild) nicht versionsbumpen.

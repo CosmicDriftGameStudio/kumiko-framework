@@ -1,5 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table";
@@ -23,7 +24,14 @@ export const invitationsQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: access.admin },
   handler: async (query, ctx) => {
-    const rows = await selectMany<Record<string, unknown>>(ctx.db, tenantInvitationsTable, {
+    if (!ctx.systemDb) {
+      throw new InternalError({
+        message:
+          "tenant:query:invitations requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
+      });
+    }
+    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+    const rows = await selectMany<Record<string, unknown>>(db, tenantInvitationsTable, {
       tenantId: query.user.tenantId,
       status: INVITATION_STATUS.pending,
     });

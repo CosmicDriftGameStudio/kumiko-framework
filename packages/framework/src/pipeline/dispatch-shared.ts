@@ -3,7 +3,7 @@ import type { SseBroker } from "../api/sse-broker";
 import type { DbConnection, DbRunner, DbTx } from "../db/connection";
 import { runInSavepoint, selectMany } from "../db/query";
 import type { buildEntityTable } from "../db/table-builder";
-import { createTenantDb, createUncheckedSystemDb } from "../db/tenant-db";
+import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db";
 import { createDerivativesContext } from "../derivatives/derivatives-context";
 import type { defineTransitions } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
@@ -155,6 +155,27 @@ async function appendDomainEvent(
   );
 }
 
+// r.systemScope() handlers must go through ctx.systemDb's guarded methods
+// (assertTenantMatch / acknowledgeCrossTenant) instead of plain ctx.db —
+// "system" mode has no tenant filter at all, so silent ctx.db use there is a
+// cross-tenant leak. HandlerContext.db has no way to become optional per
+// handler (isSystem is a runtime-only registry lookup, not a type-level
+// discriminant), so instead of omitting the key we hand back a Proxy that
+// throws on first touch, naming the handler and pointing at ctx.systemDb.
+function createSystemScopedDbGuard(handlerType: string): TenantDb {
+  return new Proxy({} as TenantDb, {
+    get(_target, prop) {
+      throw new InternalError({
+        message:
+          `Handler "${handlerType}" is r.systemScope()'d — ctx.db is unavailable ` +
+          `(it would be unfiltered across every tenant). Use ` +
+          `ctx.systemDb.assertTenantMatch(...) or ctx.systemDb.acknowledgeCrossTenant(...) ` +
+          `instead (attempted to read "${String(prop)}").`,
+      });
+    },
+  });
+}
+
 export async function buildHandlerContext(
   ctx: DispatchContext,
   type: string,
@@ -184,6 +205,10 @@ export async function buildHandlerContext(
   // the rest of the chain instead of burning DB-CPU for results no one reads.
   const db = dbSource ? buildTenantScopedDb(dbSource, reqCtx?.signal) : undefined;
   const systemDb = isSystem && db ? createUncheckedSystemDb(db) : undefined;
+  // Exposed as ctx.db below — the internal `db` above stays the real,
+  // working TenantDb for this function's own use (config/derivatives
+  // accessors, systemDb construction).
+  const exposedDb = isSystem && db ? createSystemScopedDbGuard(type) : db;
   // Unbound pool, tenant-scoped like `db` but never tx-bound — writes
   // through it survive a rollback of the handler's own transaction. No
   // AbortSignal here: a client disconnect must not abort a durability write
@@ -572,7 +597,7 @@ export async function buildHandlerContext(
   return {
     ...context,
     registry,
-    db,
+    db: exposedDb,
     dbOutsideTransaction,
     ...(systemDb && { systemDb }),
     log,

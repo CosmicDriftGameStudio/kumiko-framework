@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { APEX_STRUCTURAL_CSS } from "../css";
 import { type ApexPage, renderApexPage } from "../index";
 
 const brand = { tokensCss: ":root{--primary:#123;--primary-fg:#fff;--bg:#fff;--fg:#000;}" };
@@ -90,6 +91,47 @@ describe("renderApexPage", () => {
     expect(html).not.toContain("<b>Reports</b>");
     // The sibling plain link still renders as a normal anchor.
     expect(html).toContain('<a href="#pricing">Pricing</a>');
+  });
+
+  test("nav-links wrap in a mobile hamburger toggle; no navLinks omits it", () => {
+    const withNav = renderApexPage(
+      page({
+        header: {
+          brand: { href: "/", label: "Acme" },
+          navLinks: [{ label: "Pricing", href: "#pricing" }],
+        },
+      }),
+    );
+    expect(withNav).toContain('<details class="nav-toggle">');
+    expect(withNav).toContain('<summary class="nav-toggle__trigger" aria-label="Menu">');
+    expect(withNav).toContain('<nav class="nav-links">');
+
+    const customLabel = renderApexPage(
+      page({
+        header: {
+          brand: { href: "/", label: "Acme" },
+          navLinks: [{ label: "Pricing", href: "#pricing" }],
+          menuLabel: "Menü",
+        },
+      }),
+    );
+    expect(customLabel).toContain('aria-label="Menü"');
+
+    const withoutNav = renderApexPage(page());
+    expect(withoutNav).not.toContain('<details class="nav-toggle">');
+  });
+
+  test("mobile-open .nav-toggle rule wins the cascade over the desktop-hidden default", () => {
+    // APEX_NAV_MENU_CSS sets `.nav-toggle { display: none; }` unconditionally;
+    // RESPONSIVE re-declares it `display: inline-flex` inside the 640px query and
+    // must concatenate AFTER it in APEX_STRUCTURAL_CSS to win the cascade. A
+    // markup-only assertion can't catch a reordering that silently restores
+    // fw#2047 (nav-links hidden on mobile with no way to reopen them).
+    const hiddenDefault = APEX_STRUCTURAL_CSS.indexOf(".nav-toggle { display: none; }");
+    const mobileOpen = APEX_STRUCTURAL_CSS.indexOf(".nav-toggle { display: inline-flex; }");
+    expect(hiddenDefault).toBeGreaterThan(-1);
+    expect(mobileOpen).toBeGreaterThan(-1);
+    expect(mobileOpen).toBeGreaterThan(hiddenDefault);
   });
 
   test("pricing: featured card gets badge + featured class, cap line precedes benefits", () => {

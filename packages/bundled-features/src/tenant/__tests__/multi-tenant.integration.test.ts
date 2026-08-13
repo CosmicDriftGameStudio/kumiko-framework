@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildServer, type JwtHelper } from "@cosmicdrift/kumiko-framework/api";
-import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createTenantDb,
+  createUncheckedSystemDb,
+  type DbConnection,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
   defineFeature,
@@ -80,6 +84,9 @@ beforeAll(async () => {
     getActiveTenantIds: async () => {
       const handler = registry.getQueryHandler(TenantQueries.activeTenantIds);
       if (!handler) return [];
+      // Hand-built context, not routed through the dispatcher — active-tenant-ids
+      // is an r.systemScope() handler, fail-closed on ctx.db, needs ctx.systemDb too.
+      const systemModeDb = createTenantDb(db, "00000000-0000-4000-8000-000000000000", "system");
       const result = await handler.handler(
         {
           type: TenantQueries.activeTenantIds,
@@ -91,12 +98,9 @@ beforeAll(async () => {
           },
         },
         {
-          db: createTenantDb(db, "00000000-0000-4000-8000-000000000000", "system"),
-          dbOutsideTransaction: createTenantDb(
-            db,
-            "00000000-0000-4000-8000-000000000000",
-            "system",
-          ),
+          db: systemModeDb,
+          dbOutsideTransaction: systemModeDb,
+          systemDb: createUncheckedSystemDb(systemModeDb),
           registry,
           ...bridgeStub(),
         },

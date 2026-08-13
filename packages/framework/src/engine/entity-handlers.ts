@@ -176,6 +176,19 @@ export function defineEntityWriteHandler(
   const table = buildEntityTable(entityName, entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
 
+  // r.systemScope() features (tenant, config, secrets, ...) hand their
+  // entity-convention handlers a fail-closed ctx.db — this generic layer
+  // has no per-call business reason to give assertTenantMatch, so it
+  // acknowledges cross-tenant access on the feature's behalf. This is
+  // behavior-preserving: ctx.db was already an unfiltered "system"-mode
+  // TenantDb for these handlers before the ctx.db cutover.
+  const dbFor = (ctx: HandlerContext): TenantDb =>
+    ctx.systemDb
+      ? ctx.systemDb.acknowledgeCrossTenant(
+          `entity convention handler for r.systemScope() feature (${name})`,
+        )
+      : ctx.db;
+
   let schema: ZodType;
   let handler: WriteHandlerDef["handler"];
 
@@ -184,7 +197,7 @@ export function defineEntityWriteHandler(
       schema = buildInsertSchema(entity);
       handler = async (event, ctx) => {
         const { runPreSave } = ctx;
-        return executor.create(event.payload as DbRow, event.user, ctx.db, {
+        return executor.create(event.payload as DbRow, event.user, dbFor(ctx), {
           preSave:
             runPreSave &&
             ((changes, previous, isNew) => runPreSave(event.type, changes, previous, isNew)),
@@ -205,7 +218,7 @@ export function defineEntityWriteHandler(
         // KEK-rotation, the user-data-rights #494 backfill) don't go through
         // this handler and keep today's always-re-encrypt behavior, which
         // they rely on to intentionally force a fresh event/ciphertext.
-        return executor.update(event.payload as UpdatePayload, event.user, ctx.db, {
+        return executor.update(event.payload as UpdatePayload, event.user, dbFor(ctx), {
           skipUnchanged: true,
           preSave:
             runPreSave &&
@@ -216,12 +229,12 @@ export function defineEntityWriteHandler(
     case "delete":
       schema = idSchema;
       handler = async (event, ctx) =>
-        executor.delete(event.payload as IdPayload, event.user, ctx.db); // @cast-boundary engine-payload
+        executor.delete(event.payload as IdPayload, event.user, dbFor(ctx)); // @cast-boundary engine-payload
       break;
     case "restore":
       schema = idSchema;
       handler = async (event, ctx) =>
-        executor.restore(event.payload as IdPayload, event.user, ctx.db); // @cast-boundary engine-payload
+        executor.restore(event.payload as IdPayload, event.user, dbFor(ctx)); // @cast-boundary engine-payload
       break;
     default:
       assertUnreachable(verb, "write verb");
@@ -271,24 +284,36 @@ export function defineEntityQueryHandler(
   let schema: ZodType;
   let handler: QueryHandlerDef["handler"];
 
-  // Tier 2.7e Server-Eagerload: wenn die entity reference-Felder hat,
-  // resolved der handler nach dem Haupt-Query die UUIDs gegen die
-  // referenced entities. Das `_refs`-Property landet auf jeder Row;
-  // Renderer-Side useReferenceLookup bleibt als Fallback bestehen
-  // (für Apps die manuell Custom-Handler schreiben ohne diesen
-  // Wrapper zu nutzen).
+  // Tier 2.7e server-eagerload: when the entity has reference fields, the
+  // handler resolves the UUIDs against the referenced entities after the
+  // main query. The `_refs` property lands on every row; the renderer-side
+  // useReferenceLookup stays as a fallback (for apps that write custom
+  // handlers by hand without this wrapper).
   const hasRefFields = collectReferenceFields(entity).length > 0;
 
-  // crossTenant: this ONE handler reads across every tenant (e.g. a
-  // SystemAdmin-only operator inspector) without making the whole feature
-  // r.systemScope() — that would drop tenant isolation from every OTHER
-  // handler the feature registers too. The executor's list()/detail() only
-  // add a tenant filter when db.mode === "tenant" (see event-store-executor
-  // .ts), so handing them a "system"-mode TenantDb built from the same raw
-  // connection is enough to skip it — access-control (who may call this
-  // handler at all) is unaffected, still gated by `options.access`.
-  const dbFor = (ctx: HandlerContext): TenantDb =>
-    options?.crossTenant ? createTenantDb(ctx.db.raw, ctx.db.tenantId, "system") : ctx.db;
+  // Preference order:
+  //  1. ctx.systemDb — the feature declared r.systemScope() (whole-feature
+  //     cutover, dispatch-shared.ts), so ctx.db is fail-closed. This is
+  //     behavior-preserving: ctx.db was already an unfiltered "system"-mode
+  //     TenantDb for these handlers before that cutover.
+  //  2. options.crossTenant — this ONE handler reads across every tenant
+  //     (e.g. a SystemAdmin-only operator inspector) without making the
+  //     whole feature r.systemScope() — that would drop tenant isolation
+  //     from every OTHER handler the feature registers too. The executor's
+  //     list()/detail() only add a tenant filter when db.mode === "tenant"
+  //     (see event-store-executor.ts), so handing them a "system"-mode
+  //     TenantDb built from the same raw connection is enough to skip it —
+  //     access-control (who may call this handler at all) is unaffected,
+  //     still gated by `options.access`.
+  //  3. plain ctx.db — the common case, tenant-filtered.
+  const dbFor = (ctx: HandlerContext): TenantDb => {
+    if (ctx.systemDb) {
+      return ctx.systemDb.acknowledgeCrossTenant(
+        `entity convention handler for r.systemScope() feature (${entityName}:${verb})`,
+      );
+    }
+    return options?.crossTenant ? createTenantDb(ctx.db.raw, ctx.db.tenantId, "system") : ctx.db;
+  };
 
   switch (verb) {
     case "list":

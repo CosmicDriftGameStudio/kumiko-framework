@@ -1,21 +1,21 @@
-// Cancel-Handler für pending Invitations.
+// Cancel handler for pending invitations.
 //
-// Admin sieht eine pending Invitation und entscheidet sie zurückzu-
-// nehmen (User soll doch nicht beitreten, falsche Email getippt etc.).
-// Effekt:
-//   - DB-row.status → "cancelled"
-//   - Token aus Redis gelöscht (gemerkt im invite-token-store)
+// Admin sees a pending invitation and decides to withdraw it (user
+// shouldn't join after all, wrong email typed, etc.).
+// Effect:
+//   - DB row.status → "cancelled"
+//   - Token deleted from Redis (tracked in invite-token-store)
 //
-// Idempotent: cancellen einer schon-cancelled / accepted / expired
-// invitation = no-op + 200. Cancellen einer non-existent invitation
+// Idempotent: cancelling an already-cancelled / accepted / expired
+// invitation = no-op + 200. Cancelling a non-existent invitation
 // = invitation_not_found.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-// kumiko-lint-ignore cross-feature-import cancel needs invite-token-store für Redis-cleanup
+// kumiko-lint-ignore cross-feature-import cancel needs invite-token-store for Redis cleanup
 import {
   deleteInviteToken,
   getTokenForInvitation,
@@ -39,9 +39,20 @@ export const cancelInvitationWrite = defineWriteHandler({
   schema: CancelInvitationSchema,
   access: { roles: access.admin },
   handler: async (event, ctx) => {
-    const invitation = await fetchOne(ctx.db.raw, tenantInvitationsTable, {
+    if (!ctx.systemDb) {
+      throw new InternalError({
+        message:
+          "tenant:write:cancel-invitation requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
+      });
+    }
+    const db = ctx.systemDb.assertTenantMatch(event.user.tenantId);
+    const invitation = await fetchOne(db, tenantInvitationsTable, {
       id: event.payload.invitationId,
+      tenantId: event.user.tenantId,
     });
+    // The tenantId check below is redundant with the where-clause above but
+    // kept as defense in depth — this is a security-cutover diff, not the
+    // place to also drop an existing check.
     if (!invitation || invitation["tenantId"] !== event.user.tenantId) {
       return writeFailure(
         new NotFoundError("tenantInvitation", event.payload.invitationId, {
@@ -50,7 +61,7 @@ export const cancelInvitationWrite = defineWriteHandler({
       );
     }
 
-    // Idempotent: schon !pending → no-op success.
+    // Idempotent: already !pending → no-op success.
     if (invitation["status"] !== INVITATION_STATUS.pending) {
       return { isSuccess: true, data: { id: event.payload.invitationId, alreadyDone: true } };
     }
@@ -63,13 +74,13 @@ export const cancelInvitationWrite = defineWriteHandler({
         changes: { status: INVITATION_STATUS.cancelled },
       },
       event.user,
-      ctx.db,
+      db,
     );
     if (!updateResult.isSuccess) return updateResult;
 
-    // Token aus Redis löschen (falls noch da). Wenn Redis nicht
-    // verfügbar oder Token schon expired: kein Problem, DB-row ist
-    // die Single-Source für UI.
+    // Delete the token from Redis (if still there). If Redis is
+    // unavailable or the token already expired: not a problem, the DB
+    // row is the single source of truth for the UI.
     if (ctx.redis) {
       const token = await getTokenForInvitation(ctx.redis, event.payload.invitationId);
       if (token) {

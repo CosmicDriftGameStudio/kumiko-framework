@@ -350,10 +350,19 @@ async function executeWriteInner(
 
   const handlerContext = await buildHandlerContext(ctx, type, user, tx, afterCommitHooks);
 
-  // Auto transition guard: if entity has transitions and handler doesn't skip it
+  // Auto transition guard: if entity has transitions and handler doesn't skip it.
+  // Reads via the guard's own db handle — for r.systemScope() handlers
+  // handlerContext.db is fail-closed, so this reaches for
+  // systemDb.acknowledgeCrossTenant like any other framework-internal
+  // mechanism that touches a system-scoped handler's data.
+  const transitionGuardDb = handlerContext.systemDb
+    ? handlerContext.systemDb.acknowledgeCrossTenant(
+        `auto transition guard for r.systemScope() write handler (${type})`,
+      )
+    : handlerContext.db;
   if (entityName && !handler.unsafeSkipTransitionGuard) {
     const entity = registry.getEntity(entityName);
-    if (entity?.transitions && handlerContext.db) {
+    if (entity?.transitions && transitionGuardDb) {
       const parsedData = parsed.data as DbRow; // @cast-boundary engine-payload
       const changes = (parsedData["changes"] as DbRow) ?? parsedData; // @cast-boundary engine-payload
       const id = (parsedData["id"] as number) ?? undefined; // @cast-boundary engine-payload
@@ -373,8 +382,8 @@ async function executeWriteInner(
         // active (tests without a DB connection).
         const tableName = asEntityTableMeta(table)?.tableName ?? "";
         const rows = tx
-          ? await selectRowForUpdateById(handlerContext.db, tableName, id)
-          : await selectMany(handlerContext.db, table, { id });
+          ? await selectRowForUpdateById(transitionGuardDb, tableName, id)
+          : await selectMany(transitionGuardDb, table, { id });
         const row = rows[0];
 
         if (!row) continue;
