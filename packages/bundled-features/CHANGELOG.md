@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.196.1
+
+### Patch Changes
+
+- 110e770: Export `findReversedIds` from `ledger`. It was already exported from `./ledger/recurring`, but that module is not a public entry point of the package, so consumers could not deep-import it and had to reimplement reversal detection themselves.
+  - @cosmicdrift/kumiko-framework@0.196.1
+  - @cosmicdrift/kumiko-types@0.196.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.196.1
+  - @cosmicdrift/kumiko-headless@0.196.1
+  - @cosmicdrift/kumiko-renderer@0.196.1
+  - @cosmicdrift/kumiko-renderer-web@0.196.1
+
 ## 0.196.0
 
 ### Minor Changes
