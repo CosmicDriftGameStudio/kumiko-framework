@@ -27,6 +27,15 @@ import type { SseBroker } from "./sse-broker";
  */
 export const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
 
+// Entity events carry aggregateType in data (system-hooks.ts's SSE-broadcast
+// consumer) — the wire frame is named after the entity so the client can
+// wire a single listener per entity instead of one per verb. Non-entity
+// events (e.g. channel-in-app:event:delivered) have no aggregateType and
+// keep their event.type as the frame name.
+function isEntityEventData(data: Record<string, unknown>): data is { aggregateType: string } {
+  return typeof data["aggregateType"] === "string";
+}
+
 export function createSseRoute(broker: SseBroker) {
   const route = new Hono();
 
@@ -40,7 +49,10 @@ export function createSseRoute(broker: SseBroker) {
       const clientId = broker.addClient(
         channel,
         (event) => {
-          stream.writeSSE({ event: event.type, data: JSON.stringify(event.data) });
+          const wireEventName = isEntityEventData(event.data)
+            ? event.data.aggregateType
+            : event.type;
+          stream.writeSSE({ event: wireEventName, data: JSON.stringify(event.data) });
         },
         () => stream.close(),
       );

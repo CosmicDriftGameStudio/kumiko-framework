@@ -46,6 +46,66 @@ async function buildSseApp(broker: SseBroker): Promise<{ app: Hono; token: strin
   return { app, token };
 }
 
+// createTrackingBroker's addClient discards the `send` callback — fine for
+// the channel-scoping tests above, but frame-naming tests need to capture
+// it and actually push an event through.
+function createSendCapturingBroker(): {
+  broker: SseBroker;
+  send: Promise<(event: SseEvent) => void>;
+} {
+  let resolveSend!: (send: (event: SseEvent) => void) => void;
+  const send = new Promise<(event: SseEvent) => void>((resolve) => {
+    resolveSend = resolve;
+  });
+
+  const broker: SseBroker = {
+    addClient(_channel, sendFn) {
+      resolveSend(sendFn);
+      return "test-client-id";
+    },
+    removeClient() {},
+    pushToChannel() {},
+    getClientCount() {
+      return 0;
+    },
+    getTotalClientCount() {
+      return 0;
+    },
+    subscribeAccessInvalidation() {
+      return () => {};
+    },
+    publishAccessInvalidation() {},
+  };
+
+  return { broker, send };
+}
+
+// The stream's first frame is always the immediate heartbeat `ping` (see
+// SSE_HEARTBEAT_INTERVAL_MS's while-loop in sse-route.ts) — skip it and
+// return the first real frame.
+async function readNextEntityFrame(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+): Promise<{ event: string; data: string }> {
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) throw new Error("SSE stream ended before a non-ping frame arrived");
+    buffer += decoder.decode(value, { stream: true });
+    let separatorIndex = buffer.indexOf("\n\n");
+    while (separatorIndex !== -1) {
+      const frame = buffer.slice(0, separatorIndex);
+      buffer = buffer.slice(separatorIndex + 2);
+      const eventName = frame.match(/^event: (.*)$/m)?.[1];
+      if (eventName !== undefined && eventName !== "ping") {
+        const data = frame.match(/^data: (.*)$/m)?.[1] ?? "";
+        return { event: eventName, data };
+      }
+      separatorIndex = buffer.indexOf("\n\n");
+    }
+  }
+}
+
 describe("sse-route security", () => {
   test("subscribes to authenticated tenant channel, ignores client query-param", async () => {
     const { broker, subscribedChannel } = createTrackingBroker();
@@ -112,5 +172,74 @@ describe("sse-route security", () => {
     controller.abort();
 
     expect(channel).toBe("tenant:00000000-0000-4000-8000-000000000001");
+  });
+});
+
+describe("sse-route frame naming", () => {
+  test("entity events broadcast under the entity-name frame, not the verb", async () => {
+    const { broker, send } = createSendCapturingBroker();
+    const { app, token } = await buildSseApp(broker);
+
+    const controller = new AbortController();
+    const responsePromise = Promise.resolve(
+      app.request("/api/sse", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      }),
+    );
+
+    const sendEvent = await send;
+    const response = await responsePromise;
+    const reader = response.body!.getReader();
+
+    sendEvent({
+      type: "user.created",
+      data: {
+        id: "u1",
+        aggregateType: "user",
+        version: 1,
+        payload: {},
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    const frame = await readNextEntityFrame(reader);
+    controller.abort();
+
+    expect(frame.event).toBe("user");
+    expect(JSON.parse(frame.data)).toEqual({
+      id: "u1",
+      aggregateType: "user",
+      version: 1,
+      payload: {},
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+  });
+
+  test("non-entity events (no aggregateType) keep event.type as the frame name", async () => {
+    const { broker, send } = createSendCapturingBroker();
+    const { app, token } = await buildSseApp(broker);
+
+    const controller = new AbortController();
+    const responsePromise = Promise.resolve(
+      app.request("/api/sse", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      }),
+    );
+
+    const sendEvent = await send;
+    const response = await responsePromise;
+    const reader = response.body!.getReader();
+
+    sendEvent({
+      type: "channel-in-app:event:delivered",
+      data: { id: "m1", userId: "u1", notificationType: "info", title: "Hi" },
+    });
+
+    const frame = await readNextEntityFrame(reader);
+    controller.abort();
+
+    expect(frame.event).toBe("channel-in-app:event:delivered");
   });
 });
