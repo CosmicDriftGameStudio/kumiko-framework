@@ -5,6 +5,7 @@ export {
   ComplianceProfileQueries,
 } from "./constants";
 export {
+  type ComplianceProfilesFeatureOptions,
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,

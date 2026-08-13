@@ -19,7 +19,17 @@ import {
   notificationPreferencesTable,
 } from "./tables";
 
-export function createDeliveryFeature(): FeatureDefinition {
+export type DeliveryFeatureOptions = {
+  // Access gate for the delivery-log screen and the `log` query it reads —
+  // both move together so the nav entry a role sees always matches a
+  // callable handler (#2033). Default access.admin includes TenantAdmin,
+  // who in a line-of-business app is the operator, not the platform — pass
+  // access.systemAdmin to keep this platform-only and out of their nav.
+  readonly access?: readonly string[];
+};
+
+export function createDeliveryFeature(options?: DeliveryFeatureOptions): FeatureDefinition {
+  const resolvedAccess = options?.access ?? access.admin;
   return defineFeature("delivery", (r) => {
     r.describe(
       "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
@@ -118,7 +128,7 @@ export function createDeliveryFeature(): FeatureDefinition {
     };
 
     const queries = {
-      log: r.queryHandler(logQuery),
+      log: r.queryHandler({ ...logQuery, access: { roles: resolvedAccess } }),
       preferences: r.queryHandler(preferencesQuery),
     };
 
@@ -126,7 +136,7 @@ export function createDeliveryFeature(): FeatureDefinition {
       id: DELIVERY_LOG_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "DeliveryLogScreen" } },
-      access: { roles: access.admin },
+      access: { roles: resolvedAccess },
     });
     r.nav({
       id: "delivery-log",

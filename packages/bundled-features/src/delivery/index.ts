@@ -15,7 +15,7 @@ export {
   type KillSwitchResolver,
   type RateLimitConfig,
 } from "./delivery-service";
-export { createDeliveryFeature } from "./feature";
+export { createDeliveryFeature, type DeliveryFeatureOptions } from "./feature";
 export {
   deliveryAttemptsTable,
   notificationPreferenceEntity,

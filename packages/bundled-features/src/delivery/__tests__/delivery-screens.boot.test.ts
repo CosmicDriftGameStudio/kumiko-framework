@@ -15,13 +15,30 @@ describe("delivery screens + handler access alignment", () => {
     const delivery = createDeliveryFeature();
     const screen = delivery.screens[DELIVERY_LOG_SCREEN_ID];
     expect(screen?.type).toBe("custom");
-    if (screen && "access" in screen && screen.access && "roles" in screen.access) {
-      expect(screen.access.roles).toEqual(access.admin);
-    }
+    expect(rolesOf(screen?.access)).toEqual([...access.admin]);
   });
 
   test("delivery log handler shares access.admin", () => {
     const delivery = createDeliveryFeature();
     expect(rolesOf(delivery.queryHandlers["log"]?.access)).toEqual([...access.admin]);
+  });
+
+  test("access option narrows the delivery-log screen and its log handler together (#2033)", () => {
+    const delivery = createDeliveryFeature({ access: access.systemAdmin });
+    const screen = delivery.screens[DELIVERY_LOG_SCREEN_ID];
+    expect(rolesOf(screen?.access)).toEqual([...access.systemAdmin]);
+    expect(rolesOf(delivery.queryHandlers["log"]?.access)).toEqual([...access.systemAdmin]);
+  });
+
+  test("access option leaves the preferences handler openToAll — that's per-user, not an admin surface", () => {
+    const delivery = createDeliveryFeature({ access: access.systemAdmin });
+    const preferencesAccess = delivery.queryHandlers["preferences"]?.access;
+    expect(preferencesAccess && "openToAll" in preferencesAccess && preferencesAccess.openToAll).toBe(
+      true,
+    );
+  });
+
+  test("boot-validates with a narrowed access option", () => {
+    expect(() => validateBoot([createDeliveryFeature({ access: access.systemAdmin })])).not.toThrow();
   });
 });
