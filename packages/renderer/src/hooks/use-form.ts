@@ -6,7 +6,7 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import { createFormController } from "@cosmicdrift/kumiko-headless";
 import { useMemo, useSyncExternalStore } from "react";
-import { useDispatcher } from "../context/dispatcher-context";
+import { useOptionalDispatcher } from "../context/dispatcher-context";
 
 // Thin React wrapper around createFormController. Returns both the
 // controller (imperative — setField, submit, reset) and the current
@@ -46,7 +46,10 @@ export type UseFormResult<TValues extends FormValues> = {
 export function useForm<TValues extends FormValues, TCtx = unknown>(
   options: UseFormOptions<TValues, TCtx>,
 ): UseFormResult<TValues> {
-  const contextDispatcher = useDispatcher();
+  // Optional: a form with no `submit` config (or one with an explicit
+  // dispatcher) never needs the ambient one, and mounting without a
+  // DispatcherProvider must not crash just because useForm was called.
+  const contextDispatcher = useOptionalDispatcher();
 
   // The controller is created once per mount. `options` mutates across
   // renders in normal React usage (closures get new references), but

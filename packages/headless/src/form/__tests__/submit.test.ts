@@ -35,6 +35,15 @@ describe("createFormController — submit()", () => {
     await expect(form.submit()).rejects.toThrow(/submit\(\) called without a `submit` config/);
   });
 
+  test("throws when submit-config has no dispatcher — forgot the provider", async () => {
+    const form = createFormController({
+      initial: { title: "hello" },
+      submit: { type: "app:write:task:create" },
+    });
+
+    await expect(form.submit()).rejects.toThrow(/submit\(\) called without a dispatcher/);
+  });
+
   test("happy path: dispatches values, returns success, rebases form", async () => {
     const disp = makeDispatcher();
     const form = createFormController({

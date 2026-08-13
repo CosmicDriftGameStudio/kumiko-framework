@@ -358,8 +358,19 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
         payload = stripUntouchedEmptyStrings(submittedValues, submittedSnapshot.initial);
       }
 
+      // Only enforced here, right before the write actually happens — a
+      // form that never reaches this point (blocked by validation, or a
+      // clean payloadMode "changes" no-op) must not throw just because no
+      // dispatcher was ever wired up.
+      const dispatcher = submitCfg.dispatcher;
+      if (!dispatcher) {
+        throw new Error(
+          "createFormController: submit() called without a dispatcher. Pass `submit.dispatcher` explicitly, or mount a <DispatcherProvider> above this form.",
+        );
+      }
+
       const runWrite = async (): Promise<SubmitResult<TData>> => {
-        const result = await submitCfg.dispatcher.write<TData>(submitCfg.type, payload);
+        const result = await dispatcher.write<TData>(submitCfg.type, payload);
 
         if (result.isSuccess) {
           // Rebase to the SNAPSHOT, not to the current values — see
