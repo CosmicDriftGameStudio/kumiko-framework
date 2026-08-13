@@ -25,10 +25,7 @@ export const resetWrite = defineWriteHandler({
   // Per-key access enforcement lives inside the handler via checkWriteAccess.
   access: { openToAll: true },
   handler: async (event, ctx) => {
-    // Fail-closed tenant self-check: the config feature runs system-scoped
-    // (unfiltered ctx.db), so assertTenantMatch guards against a handler
-    // ever running a query with a tenantId other than the caller's own.
-    const db = requireSystemDb(ctx, "config:write:reset").assertTenantMatch(event.user.tenantId);
+    const db = requireSystemDb(ctx, "config:write:reset", event.user.tenantId);
 
     const prep = prepareConfigWrite({
       registry: ctx.registry,

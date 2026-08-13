@@ -1,4 +1,4 @@
-import type { DbConnection, TenantDb, UncheckedSystemDb } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigAccessor,
   type ConfigAccessorFactory,
@@ -164,20 +164,4 @@ export function requireConfigEncryption(ctx: HandlerContext, handlerName: string
     });
   }
   return ctx.configEncryption;
-}
-
-// Mirror of requireConfigResolver for the tenant-self-check side. The config
-// feature always calls r.systemScope() above, so ctx.systemDb is always
-// bound in practice — this guard exists so a future refactor that drops
-// r.systemScope() fails loudly instead of set/reset silently reading through
-// the raw (unfiltered) ctx.db without the tenant-match assertion.
-export function requireSystemDb(ctx: HandlerContext, handlerName: string): UncheckedSystemDb {
-  if (!ctx.systemDb) {
-    throw new InternalError({
-      message:
-        `[${handlerName}] ctx.systemDb missing — this handler requires r.systemScope() ` +
-        `on the config feature (see createConfigFeature in feature.ts).`,
-    });
-  }
-  return ctx.systemDb;
 }
