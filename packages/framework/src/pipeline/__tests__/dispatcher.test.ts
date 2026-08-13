@@ -1021,11 +1021,11 @@ describe("dispatcher context.geoTzProvider (680/1)", () => {
 function createMockIdempotencyGuard() {
   const cache = new Map<string, string>();
   return {
-    async check(requestId: string) {
-      return cache.get(requestId) ?? null;
+    async check(tenantId: string, userId: string, requestId: string) {
+      return cache.get(`${tenantId}:${userId}:${requestId}`) ?? null;
     },
-    async store(requestId: string, result: unknown) {
-      cache.set(requestId, JSON.stringify(result));
+    async store(tenantId: string, userId: string, requestId: string, result: unknown) {
+      cache.set(`${tenantId}:${userId}:${requestId}`, JSON.stringify(result));
     },
   };
 }
