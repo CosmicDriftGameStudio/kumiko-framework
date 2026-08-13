@@ -1313,6 +1313,9 @@ function GridCellForField({
   fieldAppendix,
   allIssues,
 }: GridCellForFieldProps): ReactNode {
+  // RenderField renders nothing for a hidden field, but the GridCell around it still claims the row.
+  if (!field.visible) return null;
+
   const effectiveSpan = field.span !== undefined ? Math.min(field.span, columns) : 1;
   return (
     <GridCell span={effectiveSpan}>

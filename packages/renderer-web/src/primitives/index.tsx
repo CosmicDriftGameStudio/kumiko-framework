@@ -1596,7 +1596,12 @@ function DefaultForm({
           onSubmit(e);
         }}
         data-testid={testId}
-        className="flex flex-col gap-4"
+        className={cn(
+          "flex flex-col gap-4",
+          // Bare forms stack sections without a card; without a divider a
+          // section boundary reads as a layout gap, not structure.
+          "[&>section:not(:first-child)]:border-t",
+        )}
       >
         <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
         {actions !== undefined && (

@@ -85,6 +85,44 @@ describe("Form = eine Card, Sections als innere Abschnitte", () => {
     expect(form.className).toContain("gap-4");
   });
 
+  test("BareFormProvider: sections get the divider rule between them", () => {
+    render(
+      <BareFormProvider>
+        <Form onSubmit={() => {}} testId="bare-sections">
+          <Section testId="s1">
+            <div>a</div>
+          </Section>
+          <Section testId="s2">
+            <div>b</div>
+          </Section>
+        </Form>
+      </BareFormProvider>,
+    );
+    const form = screen.getByTestId("bare-sections");
+    // jsdom doesn't run Tailwind's JIT, so `:not(:first-child)` can't be
+    // asserted via computed style — check the structural precondition the
+    // selector relies on (both sections are direct <form> children, in
+    // order) plus the divider utility class carrying it.
+    const sectionChildren = Array.from(form.children).filter((el) => el.tagName === "SECTION");
+    expect(sectionChildren.length).toBe(2);
+    expect(sectionChildren[0]).toBe(screen.getByTestId("s1"));
+    expect(sectionChildren[1]).toBe(screen.getByTestId("s2"));
+    expect(form.className).toContain("[&>section:not(:first-child)]:border-t");
+  });
+
+  test("BareFormProvider: flat AuthCard-shaped fields render no <section> — the divider rule stays inert", () => {
+    render(
+      <BareFormProvider>
+        <Form onSubmit={() => {}} testId="bare-flat">
+          <div>field one</div>
+          <div>field two</div>
+        </Form>
+      </BareFormProvider>,
+    );
+    const form = screen.getByTestId("bare-flat");
+    expect(form.querySelectorAll("section").length).toBe(0);
+  });
+
   test("Section standalone (außerhalb Form) bleibt eine eigene Card", () => {
     render(
       <Section testId="solo" title="Solo">
