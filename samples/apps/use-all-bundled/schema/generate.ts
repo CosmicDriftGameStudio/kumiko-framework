@@ -283,6 +283,13 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/admin-shell",
     factory: "createAdminShellFeature",
   },
+  // compliance-profiles-ops: just a cross-tenant read on tenant/
+  // compliance-profiles, no own r.entity → generate.ts skips silently.
+  "compliance-profiles-ops": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops",
+    exportName: "complianceProfilesOpsFeature",
+  },
   "crypto-shredding": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/crypto-shredding",

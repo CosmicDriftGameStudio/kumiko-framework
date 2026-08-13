@@ -25,6 +25,7 @@
     "./admin-shell/web": "./src/admin-shell/web/index.ts",
     "./compliance-profiles": "./src/compliance-profiles/index.ts",
     "./compliance-profiles/web": "./src/compliance-profiles/web/index.ts",
+    "./compliance-profiles-ops": "./src/compliance-profiles-ops/index.ts",
     "./config": "./src/config/index.ts",
     "./crypto-shredding": "./src/crypto-shredding/index.ts",
     "./config/web": "./src/config/web/index.ts",

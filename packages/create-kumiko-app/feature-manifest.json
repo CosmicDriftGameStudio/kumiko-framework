@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 66,
+  "featureCount": 67,
   "features": [
     {
       "name": "admin-shell",
@@ -387,6 +387,28 @@
       ],
       "uiHints": {
         "displayLabel": "Compliance Profiles",
+        "category": "compliance",
+        "recommended": false
+      }
+    },
+    {
+      "name": "compliance-profiles-ops",
+      "description": "Platform-wide SystemAdmin counterpart to `compliance-profiles`' `needs-profile` query (#2089): `tenants-missing-profile` lists every enabled tenant with no row in `tenantComplianceProfile` at all, tenant-wide instead of scoped to the caller's own tenant. Mount alongside `compliance-profiles` and `tenant` when an operator UI needs to see which tenants still silently run on `minimal-no-region`.",
+      "toggleableDefault": null,
+      "requires": [
+        "compliance-profiles",
+        "tenant"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Compliance Profiles · Operator Visibility",
         "category": "compliance",
         "recommended": false
       }
