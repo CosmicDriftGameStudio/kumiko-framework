@@ -301,26 +301,28 @@ r.hook("postSave", "post.create", async (ctx) => {
     tsType: "SystemScopePattern",
     editability: "static",
     de: {
-      description: "Feature läuft im System-Scope — \`ctx.db\` ist nicht tenant-gefiltert.",
-      body: `Markiert ein Feature als System-weit. Aufhebt die Default-Tenant-Filterung von \`ctx.db\`. Nutze sparsam — meist nur für Admin-Tools, Migrations, Cross-Tenant-Reports.
+      description: "Feature läuft im System-Scope — \`ctx.db\` ist gesperrt, \`ctx.systemDb\` erlaubt explizites Cross-Tenant-Access.",
+      body: `Markiert ein Feature als System-weit. \`ctx.db\` wirft dann bei jedem Zugriff (verhindert versehentlichen unfilterten Zugriff); Handler nutzen stattdessen \`ctx.systemDb.assertTenantMatch(tenantId)\` für selbst-skopierte Zugriffe oder \`ctx.systemDb.acknowledgeCrossTenant(reason)\` für bewusst tenant-übergreifende. Nutze sparsam — meist nur für Admin-Tools, Migrations, Cross-Tenant-Reports.
 
 \`\`\`typescript
 export default defineFeature("admin-tools", (r) => {
   r.systemScope();
-  // ctx.db.list("tenant") gibt jetzt ALLE Tenants zurück
+  // ctx.db wirft hier — stattdessen:
+  // ctx.systemDb.acknowledgeCrossTenant("admin tool lists all tenants")
 });
 \`\`\`
 
 **Siehe auch:** [Multi-Tenant](/de/framework/#multi-tenant)`,
     },
     en: {
-      description: "Feature runs in system scope — \`ctx.db\` is not tenant-filtered.",
-      body: `Marks a feature as system-wide. Removes the default tenant filter from \`ctx.db\`. Use sparingly — typically only for admin tools, migrations, cross-tenant reports.
+      description: "Feature runs in system scope — \`ctx.db\` is locked, \`ctx.systemDb\` allows explicit cross-tenant access.",
+      body: `Marks a feature as system-wide. \`ctx.db\` throws on any access (prevents accidental unfiltered access); handlers instead use \`ctx.systemDb.assertTenantMatch(tenantId)\` for self-scoped access or \`ctx.systemDb.acknowledgeCrossTenant(reason)\` for deliberately cross-tenant reads/writes. Use sparingly — typically only for admin tools, migrations, cross-tenant reports.
 
 \`\`\`typescript
 export default defineFeature("admin-tools", (r) => {
   r.systemScope();
-  // ctx.db.list("tenant") now returns ALL tenants
+  // ctx.db throws here — use instead:
+  // ctx.systemDb.acknowledgeCrossTenant("admin tool lists all tenants")
 });
 \`\`\`
 

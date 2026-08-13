@@ -1,6 +1,6 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, createUncheckedSystemDb } from "@cosmicdrift/kumiko-framework/db";
 import type { NotifyPriority, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
@@ -158,10 +158,18 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     }
     const systemUser = createSystemUser(tenantId);
     const tenantDb = createTenantDb(db, tenantId, "system");
+    // Hand-built context, not routed through the dispatcher — tenantUserIdsQuery is
+    // typically an r.systemScope() handler, fail-closed on ctx.db, so this needs both.
     // @cast-boundary engine-payload — generic query-handler return for typed convention
     return (await handler.handler(
       { type: tenantUserIdsQuery, payload: { tenantId }, user: systemUser },
-      { db: tenantDb, dbOutsideTransaction: tenantDb, registry, ...bridgeStub() },
+      {
+        db: tenantDb,
+        dbOutsideTransaction: tenantDb,
+        systemDb: createUncheckedSystemDb(tenantDb),
+        registry,
+        ...bridgeStub(),
+      },
     )) as readonly string[];
   }
 

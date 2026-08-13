@@ -5,7 +5,7 @@ import {
   defineWriteHandler,
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
 
@@ -23,7 +23,15 @@ export const removeMemberWrite = defineWriteHandler({
   schema: z.object({ userId: z.string(), tenantId: z.string() }),
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
-    const db = ctx.db;
+    if (!ctx.systemDb) {
+      throw new InternalError({
+        message:
+          "tenant:write:removeMember requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
+      });
+    }
+    const db = ctx.systemDb.acknowledgeCrossTenant(
+      "SystemAdmin manages memberships across tenants",
+    );
     const existing = await fetchOne(db, tenantMembershipsTable, {
       userId: event.payload.userId,
       tenantId: event.payload.tenantId,

@@ -1,5 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { tenantMembershipsTable } from "../membership-table";
@@ -12,14 +13,24 @@ export const membershipsQuery = defineQueryHandler({
   // directly by tenant admins managing memberships in the admin UI.
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
   handler: async (query, ctx) => {
-    const rows = await selectMany(ctx.db, tenantMembershipsTable, { userId: query.payload.userId });
+    if (!ctx.systemDb) {
+      throw new InternalError({
+        message:
+          "tenant:query:memberships requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
+      });
+    }
+    const db = ctx.systemDb.acknowledgeCrossTenant(
+      "resolves memberships for an arbitrary userId across all tenants",
+    );
+    const rows = await selectMany(db, tenantMembershipsTable, { userId: query.payload.userId });
     if (rows.length === 0) return [];
 
-    // tenantName/tenantKey machen Memberships im UI unterscheidbar (sonst nur
-    // das UUID-Präfix — Seed-Tenants mit 00000000-…-Präfix wären ununterscheidbar).
-    // Ein einzelner IN-Batch über alle tenantIds statt fetchOne pro Membership (#324).
+    // tenantName/tenantKey make memberships distinguishable in the UI
+    // (otherwise just the UUID prefix — seed tenants with a 00000000-…
+    // prefix would be indistinguishable). A single IN-batch over all
+    // tenantIds instead of fetchOne per membership (#324).
     type TenantRow = { id: unknown; name?: unknown; key?: unknown; isEnabled?: unknown };
-    const tenants = await selectMany<TenantRow>(ctx.db, tenantTable, {
+    const tenants = await selectMany<TenantRow>(db, tenantTable, {
       id: rows.map((row) => row["tenantId"]),
     });
     const tenantById = new Map<unknown, TenantRow>(tenants.map((t) => [t.id, t]));
@@ -27,11 +38,11 @@ export const membershipsQuery = defineQueryHandler({
     return rows
       .map((row) => {
         const tenant = tenantById.get(row["tenantId"]);
-        // Disabled Tenants (tenant:write:disable) zählen nicht als Membership:
-        // Login wählt sie nicht, /auth/tenants listet sie nicht, switch-tenant
-        // antwortet not_a_member. Nur das explizite false filtert — eine
-        // fehlende tenant-Row (Projektions-Drift) soll keinen Login-Lockout
-        // aller Member auslösen.
+        // Disabled tenants (tenant:write:disable) don't count as a
+        // membership: login doesn't pick them, /auth/tenants doesn't list
+        // them, switch-tenant answers not_a_member. Only the explicit
+        // false filters — a missing tenant row (projection drift) should
+        // not lock out every member's login.
         if (tenant !== undefined && tenant.isEnabled === false) return null;
         return {
           ...row,

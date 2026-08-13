@@ -5,7 +5,7 @@ import {
   defineWriteHandler,
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { findForbiddenMembershipRole, reservedMembershipRoleError } from "../membership-roles";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
@@ -26,13 +26,21 @@ export const updateMemberRolesWrite = defineWriteHandler({
     tenantId: z.string(),
     roles: z.array(z.string()).min(1),
   }),
-  // "system" + "SystemAdmin" — symmetrisch zu tenant:write:create. System-
-  // User (createSystemUser, roles=["system"]) braucht den Access für seed-
-  // migrations + andere ops-tooling-Pfade. SystemAdmin ist der echte
-  // human-Operator-Pfad über die UI.
+  // "system" + "SystemAdmin" — symmetric to tenant:write:create. The
+  // system user (createSystemUser, roles=["system"]) needs access for
+  // seed migrations and other ops-tooling paths. SystemAdmin is the real
+  // human-operator path via the UI.
   access: { roles: ["system", "SystemAdmin"] },
   handler: async (event, ctx) => {
-    const db = ctx.db;
+    if (!ctx.systemDb) {
+      throw new InternalError({
+        message:
+          "tenant:write:updateMemberRoles requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
+      });
+    }
+    const db = ctx.systemDb.acknowledgeCrossTenant(
+      "SystemAdmin manages memberships across tenants",
+    );
     const forbidden = findForbiddenMembershipRole(event.payload.roles);
     if (forbidden !== undefined) return writeFailure(reservedMembershipRoleError(forbidden));
     const existing = await fetchOne(db, tenantMembershipsTable, {

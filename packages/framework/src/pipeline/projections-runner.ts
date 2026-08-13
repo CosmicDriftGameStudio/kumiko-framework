@@ -26,7 +26,16 @@ import type { StoredEvent } from "../event-store";
 export async function runProjections(result: LifecycleResult, ctx: HandlerContext): Promise<void> {
   // skip: hand-crafted result with no event — nothing to project
   if (!result.event) return;
-  await runProjectionsForEvent(result.event, ctx.registry, ctx.db.raw);
+  // r.systemScope() handlers: ctx.db is fail-closed (framework#2082) —
+  // custom projections are framework-wired, not per-handler opt-in, so this
+  // reaches for systemDb itself rather than pushing the concern onto every
+  // r.projection() author.
+  const tx = ctx.systemDb
+    ? ctx.systemDb.acknowledgeCrossTenant(
+        `inline projection apply for r.systemScope() write (${result.event.aggregateType})`,
+      ).raw
+    : ctx.db.raw;
+  await runProjectionsForEvent(result.event, ctx.registry, tx);
 }
 
 // Fire every projection whose source matches the event's aggregate type AND
