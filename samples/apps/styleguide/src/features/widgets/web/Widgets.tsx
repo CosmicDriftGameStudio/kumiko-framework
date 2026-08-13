@@ -196,6 +196,9 @@ export function Widgets(): ReactNode {
             <Button onClick={() => setDrawerOpen(false)}>{t("widgets:catalog:save")}</Button>
           </>
         }
+        // The footer's Cancel button already closes the drawer, so the
+        // header X would be a second way to do the same thing.
+        showCloseButton={false}
         testId="drawer-demo"
       >
         <p className="text-sm">Hi team, just a reminder about our meeting tomorrow at 10 AM.</p>

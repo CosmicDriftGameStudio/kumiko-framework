@@ -1755,7 +1755,11 @@ function DefaultSection({
       <section
         data-testid={testId}
         className={cn(
-          "flex flex-col gap-4 px-6 py-6",
+          // py-4 (not the standalone card's py-6): the border-t between
+          // sections already carries the section break, so the vertical
+          // gap only needs to read as roughly double the gap-4 field row
+          // spacing, not triple it.
+          "flex flex-col gap-4 px-6 py-4",
           variant === "destructive" && "border-l-2 border-destructive/40",
         )}
       >

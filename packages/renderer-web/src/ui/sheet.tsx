@@ -105,10 +105,13 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-footer"
       // Matches the card footer convention (primitives/index.tsx cardFooter
-      // + cardFooterBorder) — same padding/border/button-row shape as
-      // SectionCard/DefaultCard so a drawer footer reads like a card footer.
+      // + cardFooterBorder) for padding/border/button-row shape, but keeps
+      // the panel's own `bg-background` instead of the card footer's
+      // `bg-muted/30` — the sheet panel isn't a card, so its footer reads
+      // as the same surface as the body above it. The border-t alone marks
+      // the footer boundary.
       className={cn(
-        "mt-auto flex items-center justify-end gap-2 border-t bg-muted/30 px-[var(--card-padding)] py-4",
+        "mt-auto flex items-center justify-end gap-2 border-t bg-background px-[var(--card-padding)] py-4",
         className,
       )}
       {...props}

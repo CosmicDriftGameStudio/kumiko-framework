@@ -33,6 +33,35 @@ describe("Drawer", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  describe("showCloseButton", () => {
+    test("default true: Close-Button im Header vorhanden", () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} title="Mail" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
+    });
+
+    test("false: kein Close-Button, Titel und Maximieren bleiben", () => {
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          title="Mail"
+          testId="drawer"
+          showCloseButton={false}
+          resize={{}}
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+      expect(screen.getByText("Mail")).toBeTruthy();
+      expect(screen.getByRole("button", { name: /maximize drawer width/i })).toBeTruthy();
+    });
+  });
+
   describe("backdrop", () => {
     function getOverlay(): HTMLElement {
       const overlay = document.querySelector('[data-slot="sheet-overlay"]');
@@ -122,18 +151,18 @@ describe("Drawer", () => {
       );
       expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("800");
     });
-    test("Startbreite folgt max(520px, 25vw) wenn resize.defaultWidthPx fehlt", () => {
-      withViewportWidth(3000, () => {
+    test("Startbreite folgt max(600px, 37.5vw) wenn resize.defaultWidthPx fehlt", () => {
+      withViewportWidth(1920, () => {
         render(
           <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
             <div>Body</div>
           </Drawer>,
         );
-        expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("750");
+        expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("720");
       });
     });
 
-    test("Startbreite clamped auf effectiveMaxWidthPx wenn 25vw ueber MAX_WIDTH_PX hinauslaeuft", () => {
+    test("Startbreite clamped auf effectiveMaxWidthPx wenn 37.5vw ueber MAX_WIDTH_PX hinauslaeuft", () => {
       withViewportWidth(8000, () => {
         render(
           <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
@@ -166,14 +195,14 @@ describe("Drawer", () => {
       });
     });
 
-    test("Startbreite clamped auf 520px Minimum bei schmalem Viewport", () => {
+    test("Startbreite clamped auf 600px Minimum bei schmalem Viewport", () => {
       withViewportWidth(800, () => {
         render(
           <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
             <div>Body</div>
           </Drawer>,
         );
-        expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("520");
+        expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("600");
       });
     });
 
