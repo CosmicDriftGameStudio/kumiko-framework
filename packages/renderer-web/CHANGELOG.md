@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.197.1
+
+### Patch Changes
+
+- e8f87fe: Two form-rendering rhythm fixes, both measured in a live DOM:
+
+  - `RenderEdit`'s field grid claimed a full grid row for every field, including fields hidden via `visible: false` (whose `RenderField` renders `null`). A form with several hidden fields in a row left visible empty gaps in the grid. `GridCellForField` now bails out before rendering the `GridCell` when the field isn't visible.
+  - `DefaultForm`'s bare branch (`BareFormProvider`, used by `AuthCard` and any consumer embedding a form without its own card) stacked `<section>`s with no divider between them, so a section boundary looked like a layout gap rather than structure. It now carries the same `[&>section:not(:first-child)]:border-t` rule as the carded branch. Flat-field forms (e.g. the auth screens, which render `Field`/`Banner`/`Button` directly with no `<section>`) are unaffected — verified across all `AuthCard` consumers in this repo.
+
+- d35b183: `Pager` (used by every `DataTable` with `pagination="pages"`) rendered its status line ("X – Y of Z") and its Previous/Next/Page aria-labels as hardcoded English literals instead of going through `t(...)`. Non-English apps now saw untranslated pagination text and screen readers announced it in English regardless of locale. All four now resolve through the renderer's translation layer (`kumiko.pager.status`, `kumiko.pager.previousPage`, `kumiko.pager.nextPage`, `kumiko.pager.page`), with the existing English text kept as the framework default so consumers without overrides are unaffected.
+- Updated dependencies [e8f87fe]
+- Updated dependencies [d35b183]
+  - @cosmicdrift/kumiko-renderer@0.197.1
+  - @cosmicdrift/kumiko-headless@0.197.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.197.1
+
 ## 0.197.0
 
 ### Minor Changes
