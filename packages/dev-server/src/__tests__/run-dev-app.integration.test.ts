@@ -5,7 +5,10 @@
 // run-prod-app forwarding pair. Without it a typo or wrong spread-key on the dev
 // path would silently drop the fail-closed guard and dev/prod would diverge.
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   requireTemplateResolver,
   TEXT_BLOCK_KIND,
@@ -16,8 +19,10 @@ import {
   createTextField,
   defineFeature,
   defineQueryHandler,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import * as jose from "jose";
 import { z } from "zod";
 import type { KumikoServerHandle } from "../create-kumiko-server";
 import { runDevApp } from "../run-dev-app";
@@ -172,5 +177,68 @@ describe("runDevApp — extraContext merge order: app values win over boot defau
     );
 
     expect(res?.title).toBe("from caller extraContext");
+  });
+});
+
+// runDevApp had no equivalent of runProdApp's session boot gate (#1262/#1275):
+// a forgotten sessions mount left session-list silently empty instead of
+// saying anything (#2027). Unlike prod, dev warns rather than aborts —
+// mirrors assertPiiBootInvariants' dev/prod split.
+describe("runDevApp — session boot gate (#2027)", () => {
+  const ADMIN = {
+    email: "session-gate-dev@example.eu",
+    password: "test-pw-strong-1234",
+    displayName: "Admin",
+    emailVerified: true,
+    memberships: [
+      {
+        tenantId: "00000000-0000-4000-8000-000000000002" as TenantId,
+        tenantKey: "session-gate-dev",
+        tenantName: "Session Gate Dev",
+        roles: ["Admin"],
+      },
+    ],
+  };
+
+  test("auth mounted, sessions feature missing → warns but still boots (dev doesn't abort)", async () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      handle = await runDevApp({
+        features: [validFeature()],
+        port: 0,
+        auth: { admin: ADMIN },
+      });
+      expect(handle).toBeDefined();
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("sessionStore"));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("[runDevApp]"));
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  test("auth mounted, sessions feature mounted → login actually creates a session (sid on the JWT)", async () => {
+    // The bug this issue reports: a mounted sessions feature whose sessionCreator
+    // never reached the auth config, so login never got a `sid` and
+    // store_user_sessions never got a row — session-list stayed empty with no
+    // error anywhere. A boot that doesn't throw proves nothing about that; only
+    // a real login + decoded JWT does.
+    handle = await runDevApp({
+      features: [
+        authFoundationFeature,
+        createPersonalAccessTokensFeature({ scopes: {} }),
+        createSessionsFeature(),
+      ],
+      port: 0,
+      auth: { admin: ADMIN },
+    });
+
+    const login = await handle.stack.http.raw("POST", "/api/auth/login", {
+      email: ADMIN.email,
+      password: ADMIN.password,
+    });
+    expect(login.status).toBe(200);
+    const body = (await login.json()) as { token?: string };
+    expect(body.token).toBeTypeOf("string");
+    expect(typeof jose.decodeJwt(body.token!).jti).toBe("string");
   });
 });

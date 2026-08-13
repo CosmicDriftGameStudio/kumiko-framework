@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.197.1
+
+### Patch Changes
+
+- a8e33c8: Fixes a silent 404: passing an already-qualified string (e.g. `"ai-orchestration:query:duplicate-candidates"`) as a handler/job/notification/event/config-key short name produced a doubly-qualified QN (`ai-orchestration:query:ai-orchestration:query:duplicate-candidates`) instead of failing at boot. Every call to the target never matched the real route and 404'd silently. `qn()` now rejects a short name that starts with `"<feature-name>:<qn-type>:"` (e.g. `"ai-orchestration:query:..."` on the `ai-orchestration` feature) — that specific prefix only ever arises from passing the full QN as the short name, never from legitimate sub-structure — and suggests the corrected short name.
+- 66c1283: Fixes a defense-in-depth gap in `ctx.derivatives.variant()`: a variant spec with no `format` fell back to the source FileRef's mimeType verbatim — client-controlled (`file.type` off the upload) on any field without an `accept` restriction. An app with a broad enough `derivativeRenderer` wildcard (e.g. `image/*`) could let a client's declared `image/svg+xml` (or similar active-content type) reach the variant response's `Content-Type` and stored provider metadata unchanged. `outputMimeType` now normalizes and allowlists the fallback against the framework's known-safe raster types (`image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/gif`) and returns `application/octet-stream` for anything outside that set.
+
+  This narrows behavior for a format-less variant whose source mimeType is outside that allowlist (e.g. `image/tiff`, `image/heic`): it now serves as `application/octet-stream` instead of that mimeType. If a deployment relies on such a type staying inline-renderable, set `spec.format` explicitly on the variant.
+
+  - @cosmicdrift/kumiko-types@0.197.1
+
 ## 0.197.0
 
 ### Patch Changes

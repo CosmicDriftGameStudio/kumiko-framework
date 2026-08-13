@@ -68,6 +68,9 @@ const widgetEntity = createEntity({
         full: { maxEdge: 4096, format: "webp" },
         plan: { maxEdge: 4096, format: "webp" },
         heroWide: { maxEdge: 3200, format: "webp" },
+        // No format — resize-without-reformat, the legitimate reason
+        // spec.format can be omitted (see #2021).
+        raw: { maxEdge: 160 },
       },
     }),
     plain: createImageField(),
@@ -133,10 +136,15 @@ async function uploadFile(
   asUser: typeof userA,
   attach: { entityType: string; entityId: string },
   fieldName = "img",
+  mimeType = "image/jpeg",
 ): Promise<string> {
   const token = await stack.jwt.sign(asUser);
   const fd = new FormData();
-  fd.append("file", new File([Buffer.from([1, 2, 3])], "img.jpg", { type: "image/jpeg" }));
+  // Bun's server-side multipart parser derives File.type from the filename
+  // extension, not the declared part Content-Type — so the extension must
+  // match `mimeType` for the upload to actually carry it through.
+  const extension = mimeType.split("/")[1]?.split("+")[0] ?? "bin";
+  fd.append("file", new File([Buffer.from([1, 2, 3])], `img.${extension}`, { type: mimeType }));
   fd.append("entityType", attach.entityType);
   fd.append("entityId", attach.entityId);
   fd.append("fieldName", fieldName);
@@ -328,6 +336,25 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
     const res = await stack.app.request(`http://unknown.example.com/media/${fileId}/thumb`);
 
     expect(res.status).toBe(404);
+  });
+
+  // #2021 — the "raw" variant has no `format`, so its mimeType comes from
+  // outputMimeType's fallback branch. `img` has no `accept`, so the source
+  // mimeType is exactly the client-controlled `file.type` from the upload —
+  // this proves the anonymous route no longer echoes it verbatim.
+  test("a variant with no spec.format never echoes a non-safe, client-controlled source mimeType", async () => {
+    const fileId = await uploadFile(
+      userA,
+      { entityType: "widget", entityId: PUBLIC_WIDGET_ID },
+      "img",
+      "image/svg+xml",
+    );
+
+    const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/raw`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).not.toBe("image/svg+xml");
+    expect(res.headers.get("Content-Type")).toBe("application/octet-stream");
   });
 
   test("more than `limit` requests from the same IP within the window → 429 (Step-1 regression)", async () => {

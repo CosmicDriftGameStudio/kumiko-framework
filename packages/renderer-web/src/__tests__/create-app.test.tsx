@@ -206,6 +206,70 @@ describe("createKumikoApp", () => {
     );
   });
 
+  test("custom screen without a registered clientFeatures component → console.error names feature + screen at boot (kumiko-framework#2025)", async () => {
+    // A server feature can declare a `type: "custom"` screen without the
+    // app mounting the corresponding client plugin — the screen is still
+    // reachable via URL. createKumikoApp should surface that visibly ONCE
+    // at boot instead of only showing it as a banner when the URL is
+    // opened (which nobody would see if they never visit the route).
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+
+    const customScreenSchema: FeatureSchema = {
+      featureName: "delivery",
+      entities: { task: taskEntity },
+      screens: [
+        {
+          id: "delivery-log",
+          type: "custom",
+          renderer: { react: { __component: "DeliveryLog" } },
+        },
+      ],
+    };
+
+    mountRoot();
+    await mountApp({
+      schema: customScreenSchema,
+      dispatcher: makeDispatcher(),
+      screenQn: "delivery:screen:delivery-log",
+    });
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("delivery:delivery-log"));
+
+    errorSpy.mockRestore();
+  });
+
+  test("custom screen WITH a registered clientFeatures component → no boot diagnostic", async () => {
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+
+    function DeliveryLog(): ReactNode {
+      return <span data-testid="delivery-log-mounted" />;
+    }
+    const customScreenSchema: FeatureSchema = {
+      featureName: "delivery",
+      entities: { task: taskEntity },
+      screens: [
+        {
+          id: "delivery-log",
+          type: "custom",
+          renderer: { react: { __component: "DeliveryLog" } },
+        },
+      ],
+    };
+
+    mountRoot();
+    await mountApp({
+      schema: customScreenSchema,
+      dispatcher: makeDispatcher(),
+      screenQn: "delivery:screen:delivery-log",
+      clientFeatures: [{ name: "delivery", components: { "delivery-log": DeliveryLog } }],
+    });
+
+    expect(await screen.findByTestId("delivery-log-mounted")).toBeTruthy();
+    expect(errorSpy).not.toHaveBeenCalledWith(expect.stringContaining("delivery:delivery-log"));
+
+    errorSpy.mockRestore();
+  });
+
   test("clientFeatures.columnRenderers → bei Key-Kollision warnt + last-wins gewinnt", async () => {
     // Zwei Features liefern denselben Renderer-Key — der Merge in
     // create-app warnt und behält den späteren Eintrag (Last-Wins).

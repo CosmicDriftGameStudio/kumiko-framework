@@ -198,7 +198,7 @@ export function KumikoScreen({
     case "configEdit":
       return <ConfigEditBody schema={schema} screen={screen} translate={translate} />;
     case "custom":
-      return <CustomScreenBody screenId={screen.id} />;
+      return <CustomScreenBody screenId={screen.id} featureName={schema.featureName} />;
   }
 }
 
@@ -228,16 +228,27 @@ function DashboardScreenBody({
 // Lookup-Body für custom-screens: schaut die Component aus dem
 // CustomScreens-Context (gefüttert von clientFeatures.components in
 // createKumikoApp). Wenn weder Provider gemounted noch screenId
-// registriert ist, fällt es auf einen Banner zurück — Apps die das
-// sehen wissen sofort: "Component fehlt im clientFeatures.components".
-function CustomScreenBody({ screenId }: { readonly screenId: string }): ReactNode {
+// registriert ist, fällt es auf einen error-Banner zurück statt leer zu
+// rendern — der Screen ist per URL erreichbar sobald das Server-Feature
+// gemountet ist, unabhängig davon ob ein Client-Plugin existiert
+// (kumiko-framework#2025).
+function CustomScreenBody({
+  screenId,
+  featureName,
+}: {
+  readonly screenId: string;
+  readonly featureName: string;
+}): ReactNode {
   const { Banner, Text } = usePrimitives();
   const Component = useCustomScreenComponent(screenId);
   if (Component === undefined) {
     return (
-      <Banner padded variant="info" testId="kumiko-screen-custom-placeholder">
-        Custom screen <Text variant="code">{screenId}</Text> hat keine Component im{" "}
-        <Text variant="code">clientFeatures.components</Text>.
+      <Banner padded variant="error" testId="kumiko-screen-custom-placeholder">
+        Custom screen <Text variant="code">{screenId}</Text> (Feature{" "}
+        <Text variant="code">{featureName}</Text>) hat keine Component in{" "}
+        <Text variant="code">clientFeatures.components</Text> — das Web-Client-Plugin des Features
+        (siehe <Text variant="code">{featureName}/web/client-plugin.tsx</Text>) fehlt in{" "}
+        <Text variant="code">clientFeatures</Text>.
       </Banner>
     );
   }

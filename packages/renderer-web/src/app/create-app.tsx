@@ -332,6 +332,28 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   for (const f of clientFeatures) {
     if (f.components !== undefined) Object.assign(customScreens, f.components);
   }
+  // Fail loud at boot instead of per-URL: a mounted server feature can
+  // declare a `type: "custom"` screen that's reachable directly by URL
+  // even without nav placement — without this check, a missing client
+  // plugin only surfaces as an error placeholder to whoever happens to
+  // open that URL (kumiko-framework#2025). Dev-only: some bundled screens
+  // (e.g. user-data-rights privacy-center) are intentionally dormant with
+  // no opt-out mechanism yet (kumiko-framework#2034), so this would be a
+  // permanent false positive in production for consumers that don't mount
+  // every dormant screen's client plugin.
+  if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+    const missingCustomScreens = app.features.flatMap((f) =>
+      f.screens
+        .filter((s) => s.type === "custom" && customScreens[s.id] === undefined)
+        .map((s) => `${f.featureName}:${s.id}`),
+    );
+    if (missingCustomScreens.length > 0) {
+      // biome-ignore lint/suspicious/noConsole: dev-only diagnostic for missing client plugins
+      console.error(
+        `[kumiko] ${missingCustomScreens.length} custom screen(s) have no registered component in clientFeatures.components — they render an error placeholder instead of the intended UI: ${missingCustomScreens.join(", ")}. Add the feature's web client plugin to clientFeatures.`,
+      );
+    }
+  }
   // Column-renderer map, same last-wins semantics as customScreens —
   // duplicate keys across features are rarely intentional, so a
   // collision logs once instead of silently overriding a library's
@@ -353,8 +375,8 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
     app.features.flatMap((f) => f.contentCollections ?? []),
   );
 
-  // Editor-Resolver aggregieren — keyed by "featureId:action". Gleiche
-  // Last-Wins-Semantik wie columnRenderers. Warnung bei Kollision.
+  // Aggregate editor resolvers — keyed by "featureId:action". Same
+  // last-wins semantics as columnRenderers. Warns on collision.
   const resolvers = new Map<string, ResolverComponent>();
   for (const f of clientFeatures) {
     if (f.resolvers === undefined) continue;
@@ -425,10 +447,10 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   return { root };
 }
 
-// TokensBoot nutzt den browser-backed TokensApi-Hook (class-based
-// dark-toggle) und reicht den Wert an den shared TokensProvider
-// durch. Keine eigene State-Haltung — die class auf <html> ist die
-// SSoT, useSyncExternalStore im Hook synced das in React.
+// TokensBoot uses the browser-backed TokensApi hook (class-based
+// dark-toggle) and passes the value through to the shared
+// TokensProvider. No own state — the class on <html> is the
+// SSoT, useSyncExternalStore in the hook syncs that into React.
 function TokensBoot({ children }: { readonly children: ReactNode }): ReactNode {
   const api = useBrowserTokensApi();
   return <TokensProvider value={api}>{children}</TokensProvider>;
@@ -471,9 +493,9 @@ function BrowserNavBoot({
   );
 }
 
-// Sucht das Feature, dem ein vollständig qualifizierter ScreenQn gehört.
-// Returns undefined wenn der Screen in keinem Feature-Schema deklariert
-// ist — KumikoScreen rendert dann den "Screen not found"-Banner.
+// Finds the feature that owns a fully qualified ScreenQn.
+// Returns undefined if the screen isn't declared in any feature schema —
+// KumikoScreen then renders the "Screen not found" banner.
 function findOwnerFeature(app: AppSchema, qn: string): FeatureSchema | undefined {
   for (const feature of app.features) {
     for (const s of feature.screens) {
@@ -496,11 +518,11 @@ function RoutedScreen({
 }): ReactNode {
   const nav = useNav();
 
-  // ScreenId aus dem Route ist NICHT qualified — nav.route.screenId
-  // kommt aus dem URL-Path und ist die kurze Form ("order-list"). Wir
-  // müssen das ans richtige Feature heften. Strategie: durch alle
-  // Features iterieren bis das passende Screen-Decl auftaucht. Ohne
-  // Match → Fallback-Feature (das vom fallbackQn).
+  // ScreenId from the route is NOT qualified — nav.route.screenId
+  // comes from the URL path and is the short form ("order-list"). We
+  // need to pin it to the right feature. Strategy: iterate through all
+  // features until the matching screen decl turns up. No match →
+  // fallback feature (the one from fallbackQn).
   const { feature, qn, entityId } = useMemo(() => {
     if (nav.route === undefined) {
       return {
@@ -532,17 +554,17 @@ function RoutedScreen({
   >(() => {
     if (onRowClick !== undefined) return onRowClick;
     return (row, entityName) => {
-      // Edit-Screen für die Entity über alle Features suchen — im
-      // Single-Feature-Setup ist das das gleiche Feature wie das aktive,
-      // im Multi-Feature kann der Edit theoretisch in einem anderen
-      // Feature liegen (eines, das die Entity teilt).
+      // Search for the edit screen for the entity across all features —
+      // in a single-feature setup that's the same feature as the active
+      // one, in multi-feature the edit could theoretically live in a
+      // different feature (one that shares the entity).
       for (const f of app.features) {
         const editScreen = f.screens.find(
           (s) => s.type === "entityEdit" && s.entity === entityName,
         );
         if (editScreen) {
-          // editScreen.id ist QN-Form (registry-stamped); nav.navigate
-          // erwartet Short-Form. Sonst wird die URL doppelt-qualifiziert.
+          // editScreen.id is QN form (registry-stamped); nav.navigate
+          // expects the short form. Otherwise the URL gets double-qualified.
           nav.navigate({ screenId: lastSegment(editScreen.id), entityId: row.id });
           return;
         }
@@ -550,12 +572,12 @@ function RoutedScreen({
     };
   }, [onRowClick, app.features, nav]);
 
-  // Copy-Link-Action (Issue #912) für entityEdit-Update-Screens. Baut die
-  // absolute Permalink-URL aus der aktuellen Route + kopiert sie —
-  // `navigator`/`window` sind hier erlaubt (renderer-web, kein
-  // platform-neutrales Package). Kein Button ohne entityId (create-mode).
-  // Silent-catch bei Clipboard-Fehler (non-secure context) mirrort das
-  // bestehende Muster in pat-tokens-screen.tsx.
+  // Copy-link action (Issue #912) for entityEdit update screens. Builds
+  // the absolute permalink URL from the current route + copies it —
+  // `navigator`/`window` are allowed here (renderer-web, not a
+  // platform-neutral package). No button without entityId (create-mode).
+  // Silent-catch on clipboard error (non-secure context) mirrors the
+  // existing pattern in pat-tokens-screen.tsx.
   const effectiveOnCopyLink = useMemo<(() => Promise<void> | void) | undefined>(() => {
     const route = nav.route;
     if (route?.entityId === undefined) return undefined;

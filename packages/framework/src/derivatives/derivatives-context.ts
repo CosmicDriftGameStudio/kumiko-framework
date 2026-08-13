@@ -69,6 +69,23 @@ function isFileRefRow(row: Record<string, unknown>): row is FileRefRow {
   return typeof row["storageKey"] === "string" && typeof row["mimeType"] === "string";
 }
 
+// sourceMimeType is client-controlled (it's `file.type` off the upload — see
+// file-routes.ts's "a field without `accept` lets a client upload anything")
+// and, when spec.format is unset, a renderer is documented to preserve the
+// source's own format (DerivativeRendererPlugin's doc comment) — so the
+// bytes really are in this format, but the STRING itself must still be
+// allowlisted before it becomes a response Content-Type or storage-provider
+// metadata. Otherwise an app whose renderer wildcard is broad enough (e.g.
+// `image/*`) would let a client-declared `image/svg+xml` ride straight
+// through as an honestly-declared (non-sniffed) active-content type (#2021).
+const KNOWN_SAFE_VARIANT_MIME_TYPES: ReadonlySet<string> = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/gif",
+]);
+
 // The spec — not the renderer — determines the output mimeType, so it's the
 // single source of truth for both what gets written to storage and what the
 // caller receives; a cache hit never runs the renderer, so there's nothing
@@ -81,8 +98,12 @@ function outputMimeType(spec: VariantSpec, sourceMimeType: string): string {
       return "image/avif";
     case "jpeg":
       return "image/jpeg";
-    default:
-      return sourceMimeType;
+    default: {
+      const normalized = normalizeMimeType(sourceMimeType);
+      return KNOWN_SAFE_VARIANT_MIME_TYPES.has(normalized)
+        ? normalized
+        : "application/octet-stream";
+    }
   }
 }
 

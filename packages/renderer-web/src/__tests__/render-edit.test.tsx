@@ -98,6 +98,33 @@ describe("RenderEdit", () => {
     expect(screen.queryByTestId("field-notes")).toBeNull();
   });
 
+  // A hidden field must not leave an empty grid cell behind — the cell count
+  // has to track the visible field count exactly, in both directions.
+  test("a hidden field claims no grid cell; toggling visibility adds/removes exactly one cell", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const grid = screen.getByTestId("section-Basics").querySelector(".grid");
+    expect(grid).toBeTruthy();
+    // notes is hidden (isUrgent=false): title, count, isUrgent → 3 cells.
+    expect(grid?.children.length).toBe(3);
+
+    const urgentCheckbox = screen.getByTestId("field-isUrgent").querySelector('[role="checkbox"]');
+    fireEvent.click(urgentCheckbox as HTMLElement);
+
+    // notes becomes visible → 4 cells, no leftover empty cell from before.
+    expect(grid?.children.length).toBe(4);
+  });
+
   // Issue #1677: a section's optional `description` renders as the
   // Section's subtitle slot underneath the block heading, and a field's
   // `icon` reaches the DOM as a prefix icon on its input.

@@ -27,7 +27,14 @@ const fakeRender: DerivativeRendererPlugin["render"] = async () => {
 const photoEntity = createEntity({
   table: "variant_route_photos",
   fields: {
-    avatar: createImageField({ variants: { thumb: { maxEdge: 100, format: "webp" } } }),
+    avatar: createImageField({
+      variants: {
+        thumb: { maxEdge: 100, format: "webp" },
+        // No format — resize-without-reformat, the legitimate reason
+        // spec.format can be omitted (see #2021).
+        raw: { maxEdge: 100 },
+      },
+    }),
   },
 });
 
@@ -206,5 +213,45 @@ describe("GET /api/files/:id/variant/:name", () => {
 
     expect(res.status).toBe(415);
     expect(await res.json()).toEqual({ error: "unsupported_media_type" });
+  });
+
+  // #2021 — the "raw" variant has no `format`, so its mimeType comes from
+  // outputMimeType's fallback branch. `avatar` has no `accept`, so the
+  // source mimeType is exactly the client-controlled `file.type` from the
+  // upload — this proves the route no longer echoes it verbatim.
+  test("a variant with no spec.format never echoes a non-safe, client-controlled source mimeType", async () => {
+    const token = await stack.jwt.sign(user);
+    const fd = new FormData();
+    fd.append("file", new File([Buffer.from([1, 2, 3])], "avatar.svg", { type: "image/svg+xml" }));
+    fd.append("entityType", "photo");
+    fd.append("fieldName", "avatar");
+    const { body, contentType } = await buildMultipartBody(fd);
+    const uploadRes = await stack.app.request("/api/files", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      body,
+    });
+    expect(uploadRes.status).toBe(201);
+    const { id: fileId } = (await uploadRes.json()) as { id: string };
+
+    const res = await stack.app.request(`/api/files/${fileId}/variant/raw`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).not.toBe("image/svg+xml");
+    expect(res.headers.get("Content-Type")).toBe("application/octet-stream");
+  });
+
+  test("a variant with no spec.format keeps a known-safe source mimeType through the full route (resize without reformat)", async () => {
+    const fileId = await uploadFile();
+    const token = await stack.jwt.sign(user);
+
+    const res = await stack.app.request(`/api/files/${fileId}/variant/raw`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("image/jpeg");
   });
 });
