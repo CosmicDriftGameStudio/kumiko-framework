@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.2.293
+
+### Patch Changes
+
+- Updated dependencies [df2db70]
+  - @cosmicdrift/kumiko-dev-server@0.199.0
+
 ## 0.2.292
 
 ### Patch Changes
