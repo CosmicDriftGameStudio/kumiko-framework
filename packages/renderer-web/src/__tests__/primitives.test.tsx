@@ -492,6 +492,48 @@ describe("DataTable", () => {
       expect(screen.queryByTestId("dt-pager-page-60")).not.toBeNull();
       expect(screen.queryByTestId("dt-pager-page-30")).not.toBeNull();
     });
+
+    test("Default-Locale (en): Status-Text + aria-Labels aus i18n-Fallback statt hartcodiert", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          testId="dt"
+          pager={{ page: 1, limit: 50, total: 3000, onPageChange: mock() }}
+        />,
+      );
+      expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–50 of 3,000");
+      expect(screen.getByTestId("dt-pager-prev").getAttribute("aria-label")).toBe("Previous page");
+      expect(screen.getByTestId("dt-pager-next").getAttribute("aria-label")).toBe("Next page");
+      expect(screen.getByTestId("dt-pager-page-2").getAttribute("aria-label")).toBe("Page 2");
+    });
+
+    test("de-Locale: Status-Text + aria-Labels kommen aus i18n statt hartcodiertem Englisch (issue #2007)", async () => {
+      const { LocaleProvider, createStaticLocaleResolver, kumikoDefaultTranslations } =
+        await import("@cosmicdrift/kumiko-renderer");
+      render(
+        <LocaleProvider
+          resolver={createStaticLocaleResolver({ locale: "de" })}
+          fallbackBundles={[kumikoDefaultTranslations]}
+        >
+          <DataTable
+            columns={cols}
+            rows={oneRow}
+            testId="dt"
+            pager={{ page: 1, limit: 50, total: 3000, onPageChange: mock() }}
+          />
+        </LocaleProvider>,
+      );
+      // toLocaleString() without a locale arg stays runtime-default (not the
+      // resolver locale) — out of scope for #2007, which only addresses the
+      // untranslated word/aria-labels.
+      expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–50 von 3,000");
+      expect(screen.getByTestId("dt-pager-prev").getAttribute("aria-label")).toBe(
+        "Vorherige Seite",
+      );
+      expect(screen.getByTestId("dt-pager-next").getAttribute("aria-label")).toBe("Nächste Seite");
+      expect(screen.getByTestId("dt-pager-page-2").getAttribute("aria-label")).toBe("Seite 2");
+    });
   });
 
   // Infinite-scroll sentinel: renders a sentinel div, shows a spinner when

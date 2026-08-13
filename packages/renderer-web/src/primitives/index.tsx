@@ -1153,11 +1153,15 @@ function InfiniteSentinel({
   );
 }
 
-// Pager — klassischer Page-Pager (← 1 … N →) für DataTables mit
-// pagination="pages". Layout: Status-Text links ("X – Y of Z"),
-// Page-Buttons mittig, Prev/Next pfeile außen. Window-of-7 zeigt nicht
-// alle Pages bei großen Listen — der User sieht den aktuellen Bereich
-// + first/last als Anchor.
+// Pager — classic page pager (← 1 … N →) for DataTables with
+// pagination="pages". Layout: status text on the left ("X – Y of Z"),
+// page buttons in the middle, prev/next arrows on the outside. The
+// window-of-7 doesn't show all pages for large lists — the user sees
+// the current range plus first/last as anchors.
+//
+// Status text and prev/next/page aria-labels go through t(...), which
+// requires a LocaleProvider in the tree — same requirement as
+// InfiniteSentinel above, already established for DataTable consumers.
 function Pager({
   page,
   limit,
@@ -1171,6 +1175,7 @@ function Pager({
   readonly onPageChange: (next: number) => void;
   readonly testId?: string;
 }): ReactNode {
+  const t = useTranslation();
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const safePage = Math.max(1, Math.min(page, totalPages));
   const from = (safePage - 1) * limit + 1;
@@ -1183,11 +1188,15 @@ function Pager({
       className="flex items-center justify-between mt-3 gap-3 text-sm text-muted-foreground"
     >
       <div data-testid={testId !== undefined ? `${testId}-status` : undefined}>
-        {from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()}
+        {t("kumiko.pager.status", {
+          from: from.toLocaleString(),
+          to: to.toLocaleString(),
+          total: total.toLocaleString(),
+        })}
       </div>
       <div className="flex items-center gap-1">
         <PagerButton
-          ariaLabel="Previous page"
+          ariaLabel={t("kumiko.pager.previousPage")}
           disabled={safePage <= 1}
           onClick={() => onPageChange(safePage - 1)}
           testId={testId !== undefined ? `${testId}-prev` : undefined}
@@ -1206,7 +1215,7 @@ function Pager({
           ) : (
             <PagerButton
               key={entry}
-              ariaLabel={`Page ${entry}`}
+              ariaLabel={t("kumiko.pager.page", { entry })}
               ariaCurrent={entry === safePage ? "page" : undefined}
               active={entry === safePage}
               onClick={() => onPageChange(entry)}
@@ -1217,7 +1226,7 @@ function Pager({
           ),
         )}
         <PagerButton
-          ariaLabel="Next page"
+          ariaLabel={t("kumiko.pager.nextPage")}
           disabled={safePage >= totalPages}
           onClick={() => onPageChange(safePage + 1)}
           testId={testId !== undefined ? `${testId}-next` : undefined}
