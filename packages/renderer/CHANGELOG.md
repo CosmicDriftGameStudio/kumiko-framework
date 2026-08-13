@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.198.0
+
+### Patch Changes
+
+- b925dea: Fixes four bugs surfaced in code review. `RenderEdit`'s `scopeFieldNames` now falls back to unscoped (`undefined`) validation instead of an empty array when a `fields` filter matches no known schema field, closing a path where validation was silently bypassed. The single-draft-candidate resume banner now uses its own `kumiko.form.draft.resume-single` copy (and the "start new" action its own `kumiko.form.draft.start-new` key) instead of falling back to raw i18n keys. `embedded-list-field`'s money-cell paste parser is now locale-aware (treats the last `,`/`.` as the decimal separator, strips thousands separators) and leaves a cell unchanged instead of silently clearing it when pasted text isn't parseable. Singleton `entityEdit` screens (`EntityEditSingletonBody`) now refetch/refresh their underlying query after a successful create, update, or delete, instead of leaving the form stuck because `navigateToList()` is a no-op without a wrapping `entityList` screen.
+- Updated dependencies [f2ebb71]
+- Updated dependencies [b925dea]
+- Updated dependencies [89ebe92]
+- Updated dependencies [e3504b5]
+- Updated dependencies [72eae1d]
+  - @cosmicdrift/kumiko-headless@0.198.0
+  - @cosmicdrift/kumiko-framework@0.198.0
+
 ## 0.197.1
 
 ### Patch Changes

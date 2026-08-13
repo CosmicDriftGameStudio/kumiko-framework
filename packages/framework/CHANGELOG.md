@@ -1,5 +1,35 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.198.0
+
+### Minor Changes
+
+- b925dea: `rehydrateMoney`'s Read-form gains `amountScaled` — the exact integer value in `MINOR_UNIT_SCALE` units, replacing the misleadingly-named `amountMinor` (which implied ISO-4217 minor units/cents, but is actually `amount × MINOR_UNIT_SCALE` with a hardcoded 100 for every currency, including zero-decimal ones like JPY). `amountMinor` stays as a `@deprecated` alias with the same value until the renderer-side consumers (`renderer-web/primitives/index.tsx`, `renderer/components/render-field.tsx`) migrate off it in a follow-up.
+- 89ebe92: `NavDefinition.icon`, `ContentCollectionDefinition.nav.icon`, `ScreenNavSugar.icon` and `ConfigMask.icon` were all `icon?: string` — any typo (`icon: "seting"`) compiled fine and silently fell back to a dot in the sidebar. New `NavIconKey` union (`@cosmicdrift/kumiko-types/nav-icon`, re-exported from `@cosmicdrift/kumiko-framework/{engine,ui-types}`) types all four against the closed set of keys the web renderer actually registers, so an unregistered icon key is now a compile error at the `r.nav()`/`r.screen({ nav })`/config-mask call site instead of a missing icon at runtime.
+
+  `packages/renderer-web`'s `NAV_ICONS` map is checked against the same union via `as const satisfies Record<NavIconKey, …>`, so the type and the map can no longer drift — adding a key requires updating both in the same change. This also surfaced a real pre-existing gap: `tenant-settings` declared `icon: "languages"`, which had never been a registered key (silently rendered as a dot); `languages` (lucide `Languages`) is now registered.
+
+  This is a breaking type change for any app that passes an icon key outside the vocabulary in `packages/types/src/nav-icon.ts` — such a call site will fail to compile after this bump.
+
+- e3504b5: `event-store-executor.list()` silently dropped `payload.search` when no `SearchAdapter` was wired (neither at build time via `options.searchAdapter` nor at runtime via `runtimeOptions.searchAdapter`) — the list came back unfiltered, indistinguishable from a real search result. Now throws `UnprocessableError` (`code: "unprocessable"`, `details.reason: "search_adapter_not_wired"`, `details.entity`) instead.
+
+  **Breaking for consumers whose entities are `searchable` but have no `SearchAdapter` wired**: a search request that used to silently no-op now returns a 422. Wire a `SearchAdapter` (e.g. Meilisearch) for the entity, or stop marking the field/screen `searchable`.
+
+- 72eae1d: Security hardening (audit "Welle 2"): closes a request-supplied-JSON-can-forge-raw-SQL path, a stale/blocked-principal token bypass, a cross-tenant idempotency-cache collision, a cross-tenant `tenant:update` hole, and adds session revocation on tenant-membership role change/removal. Two of these are breaking API changes (bumped as `minor` per the 0.x convention — see `guard-no-major-gt-zero`):
+
+  - **`SqlExpression` is now branded.** Only the `sql` template tag and `sql.raw(...)` produce a value the query layer recognizes as raw SQL. If your app or schema file builds a `SqlExpression` via an object literal (e.g. `{ kind: "sql-expr", sql: ..., params: ... }`) instead of those two helpers, that literal is no longer treated as raw SQL — it now gets bound as an ordinary JSON parameter, which will surface as a broken query (not a silent vulnerability) at the call site. Migration: replace the object literal with the `sql` tag or `sql.raw(...)`.
+  - **`IdempotencyGuard.check`/`.store` signature changed** from `(requestId)` to `(tenantId, userId, requestId)`, so the idempotency cache can no longer be hit across tenants/users by an attacker who guesses or replays a `requestId`. Any custom `IdempotencyGuard` implementation, or code calling `.check`/`.store` directly (outside the dispatcher's own `runBatch`, which already updated), needs the new signature. The Redis key format also changed (`${prefix}${requestId}` → `${prefix}${tenantId}:${userId}:${requestId}`) with no compatibility shim — on deploy, in-flight idempotent retries older than the request's own retry window may execute a second time (same as a first-ever request; not a correctness issue, just not a cache hit).
+
+  Checked against every consumer in this workspace (kumiko-studio, kumiko-enterprise, kumiko-platform, publicstatus, solon, money-horse, show-pony): none construct a `SqlExpression` via object literal or call `IdempotencyGuard.check`/`.store` directly — no consumer code changes needed in this workspace. The note above is for external consumers outside this workspace.
+
+  The remaining fixes (PAT/invite-login gates, `tenant:write:update` cross-tenant self-check, session revocation on role change/removal) are behavior-only and need no consumer code changes.
+
+### Patch Changes
+
+- Updated dependencies [9b2c94a]
+- Updated dependencies [89ebe92]
+  - @cosmicdrift/kumiko-types@0.198.0
+
 ## 0.197.1
 
 ### Patch Changes
