@@ -862,12 +862,15 @@ function registryDeclaresFileFields(registry: Registry): boolean {
   return false;
 }
 
-// Entities whose entityList screen renders a search box per the same rule
-// kumiko-screen.tsx applies at render time: `screen.searchable` wins when
-// set, otherwise the box shows iff the entity has ≥1 searchable field.
-// `screen.searchable === false` is excluded — the boot-validator
-// (entity-list-screens.ts) only allows that on the whitelisted download-
-// attempt-list-style screens, which never render the box.
+// Entities whose entityList screen WOULD render a search box based on
+// screen/field config alone: `screen.searchable` wins when set, otherwise
+// the box shows iff the entity has ≥1 searchable field. `screen.searchable
+// === false` is excluded — the boot-validator (entity-list-screens.ts) only
+// allows that on the whitelisted download-attempt-list-style screens, which
+// never render the box. This is the config-only half of the rule; the
+// client additionally gates on FeatureSchema.searchAdapterMissing (#2062,
+// set from the same `!options.context.searchAdapter` check below) so the
+// box is actually suppressed once this function finds a hit.
 function entitiesWithSearchableScreen(registry: Registry): readonly string[] {
   const entities = new Set<string>();
   for (const feature of registry.features.values()) {

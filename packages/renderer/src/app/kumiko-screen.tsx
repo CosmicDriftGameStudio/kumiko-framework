@@ -1282,12 +1282,16 @@ function EntityListBody({
       ? (row: ListRowViewModel) => onRowClick(row, screen.entity)
       : undefined;
 
-  // Searchable-Default: explizite Author-Wahl gewinnt, sonst auto-on
-  // wenn die Entity searchable Felder hat (sonst wäre die Toolbar-Bar
-  // ein toter Slot — Server-Search-Index hat eh nichts zum Filtern).
+  // Searchable default: explicit author choice wins, otherwise auto-on when
+  // the entity has searchable fields (dead toolbar slot otherwise — the
+  // server search index has nothing to filter). Gated on
+  // schema.searchAdapterMissing !== true regardless of source (explicit or
+  // auto) — a search bar the server can't serve would 422 at request-time
+  // (#2032); matches the boot-time check in api/server.ts (#2051).
   const searchable =
-    screen.searchable ??
-    Object.values(entity.fields).some((f) => "searchable" in f && f.searchable === true);
+    schema.searchAdapterMissing !== true &&
+    (screen.searchable ??
+      Object.values(entity.fields).some((f) => "searchable" in f && f.searchable === true));
 
   // Pager-Props nur bei pagination="pages" zusammenstellen. Server-
   // total kommt async — bis es da ist, rendert RenderList die Tabelle
