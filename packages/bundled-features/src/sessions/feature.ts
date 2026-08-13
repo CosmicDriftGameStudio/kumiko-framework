@@ -27,13 +27,11 @@ import {
 import { SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema } from "./session-revoked-event";
 
 export type SessionsFeatureOptions = {
-  // A successful update on the `user` entity that changes `passwordHash` or
-  // `status` triggers a mass-revoke of every live session for that user.
+  // A successful update on the `user` entity that changes `passwordHash`
+  // triggers a mass-revoke of every live session for that user.
   // Industry-standard "password-change signs you out everywhere" flow,
   // including the session that did the change itself — the client has
-  // to re-login after a password change. `status` (Restricted/Deleted)
-  // gets the same treatment so a locked-out account can't ride out its
-  // existing sessions until TTL.
+  // to re-login after a password change.
   //
   // Runs as an afterCommit postSave hook: the password-change commits first,
   // then the sessions are revoked. Best-effort — if the mass-revoker throws,
@@ -184,13 +182,13 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // want to skip on. Works for both direct user:update calls and any
     // other handler that happens to write the column.
     //
-    // `status` is in the set (not just `passwordHash`): a user flipped to
-    // Restricted/Deleted must lose every live session, not just wait out
-    // sessionChecker's isPrincipalBlocked on their next request. `roles` is
-    // deliberately NOT here — tenant-membership role changes revoke via
-    // tenant's own update-member-roles handler; global user.roles has no
-    // dispatcher write path today.
-    const REVOKE_TRIGGERING_FIELDS = ["passwordHash", "status"] as const;
+    // Only `passwordHash` here: `status` changes go through
+    // updateUserLifecycle(), which writes via the event-store executor
+    // directly and never runs this postSave hook. restrict-account.write.ts
+    // already revokes sessions explicitly for that transition, and
+    // sessionChecker blocks a status-locked principal on its next request
+    // regardless.
+    const REVOKE_TRIGGERING_FIELDS = ["passwordHash"] as const;
     let autoRevoke = options?.autoRevokeOnPasswordChange;
     r.hook("postSave", { allOf: "user" }, async (ctx) => {
       // skip: nothing bound — stateless-JWT deployments without a runtime
