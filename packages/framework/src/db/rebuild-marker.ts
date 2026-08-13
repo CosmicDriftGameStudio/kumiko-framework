@@ -49,11 +49,19 @@ function markerPathFor(migrationsDir: string, migrationId: string): string {
 // If a NEW additive column genuinely needs value-backfill from historical events
 // (a column DERIVED from existing event fields), opt in explicitly by hand-adding
 // a `NNNN_<name>.rebuild.json` next to the migration (readRebuildMarker reads it).
+//
+// One built-in exception to the additive-column rule: a new `_bidx` column
+// (blind-index for a field that just became `lookupable: true`, naming
+// convention `${snake}_bidx` from entity-table-meta.ts:111) is always
+// additive SQL-wise but still needs a rebuild — the index is an HMAC over
+// the decrypted value, which SQL cannot backfill.
 export function rebuildTablesFromDiff(diff: SchemaDiff): readonly string[] {
   const names = new Set<string>();
   for (const t of diff.changedTables) {
     if (t.nextMeta.source !== "managed") continue;
-    if (managedChangeRequiresRecreate(t)) names.add(t.tableName);
+    if (managedChangeRequiresRecreate(t) || t.newColumns.some((c) => c.name.endsWith("_bidx"))) {
+      names.add(t.tableName);
+    }
   }
   for (const t of diff.newTables) {
     if (t.source === "managed") names.add(t.tableName);
