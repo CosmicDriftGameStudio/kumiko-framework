@@ -121,14 +121,27 @@ function parsePasteGrid(text: string): readonly (readonly string[])[] {
 function IssueMessages({
   issues,
   testId,
+  constrainWidth,
 }: {
   readonly issues: readonly FieldIssue[] | undefined;
   readonly testId?: string;
+  // Table cells sit inside a `min-w-max` table (see EmbeddedListInput below):
+  // a long, unbounded message there widens the whole table instead of
+  // wrapping, forcing horizontal scroll. Only the desktop table-cell path
+  // needs this — mobile cards and full-width row/list issues wrap naturally.
+  readonly constrainWidth?: boolean;
 }): ReactNode {
   const t = useTranslation();
   if (issues === undefined || issues.length === 0) return null;
   return (
-    <div role="alert" data-testid={testId} className="text-xs text-destructive">
+    <div
+      role="alert"
+      data-testid={testId}
+      className={cn(
+        "text-xs text-destructive",
+        constrainWidth === true && "max-w-[16rem] whitespace-normal break-words",
+      )}
+    >
       {issues.map((issue) => (
         <div key={`${issue.path}:${issue.code}`}>{t(issue.i18nKey, issue.params)}</div>
       ))}
@@ -554,6 +567,7 @@ export function EmbeddedListInput({
                               <IssueMessages
                                 issues={issues}
                                 testId={testIdFor(`cell-${rowIndex}-${column.field}-errors`)}
+                                constrainWidth
                               />
                             </TableCell>
                           );

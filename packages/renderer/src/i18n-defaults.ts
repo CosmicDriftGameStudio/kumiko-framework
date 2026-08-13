@@ -162,6 +162,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.form.extension.save-failed": "Ein Zusatzfeld konnte nicht gespeichert werden.",
     "kumiko.form.draft.resume-multiple":
       "Mehrere offene Entwürfe für dieses Formular gefunden. Welchen möchtest du fortsetzen?",
+    "kumiko.form.draft.resume-single":
+      "Ein offener Entwurf für dieses Formular gefunden. Möchtest du ihn fortsetzen?",
+    "kumiko.form.draft.start-new": "Neu beginnen",
 
     // Validation — Default-Reason-Codes aus dem Framework. App-Code
     // kann eigene Codes via Validation-Hooks reinwerfen; die hier sind
@@ -343,6 +346,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.form.extension.save-failed": "A custom field could not be saved.",
     "kumiko.form.draft.resume-multiple":
       "Found multiple open drafts for this form. Which one do you want to resume?",
+    "kumiko.form.draft.resume-single":
+      "Found an open draft for this form. Do you want to resume it?",
+    "kumiko.form.draft.start-new": "Start new",
 
     "kumiko.validation.required": "Required.",
     "kumiko.validation.invalid": "Invalid value.",

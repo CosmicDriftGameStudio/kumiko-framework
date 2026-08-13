@@ -15,6 +15,8 @@ import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config
 import { derivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
 import { createFileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
 import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { entityEventName } from "@cosmicdrift/kumiko-framework/db";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -35,6 +37,7 @@ import { coverOrder, filesPostProcessingFeature, publishedPhotoIds } from "../fe
 
 const HOST = "photos.example.com";
 const HOST_B = "photos-b.example.com";
+const FILE_REF_CREATED = entityEventName("fileRef", "created");
 
 let stack: TestStack;
 let provider: InMemoryFileProvider;
@@ -191,5 +194,32 @@ describe("entry point 3 — public route, default-deny", () => {
 
     expect(resA.status).toBe(200);
     expect(resB.status).toBe(404);
+  });
+});
+
+describe("event emission contract", () => {
+  test("fileRef.created event payload carries storageKey, not the binary", async () => {
+    const fileId = await uploadPhoto({
+      entityType: "photo",
+      entityId: "p4",
+      fieldName: "original",
+    });
+
+    // Inspect the raw event row. The derivatives path already proves the
+    // payload's pointer-shape by reading through it, but this test guards
+    // the contract directly: no one accidentally adds a binary field later
+    // and explodes the events table.
+    const rows = await asRawClient(stack.db).unsafe(
+      `SELECT payload FROM kumiko_events WHERE aggregate_id = $1 AND type = $2`,
+      [fileId, FILE_REF_CREATED],
+    );
+    expect(rows.length).toBe(1);
+    const row = rows[0] as { payload: Record<string, unknown> };
+    const payload = row.payload;
+    expect(typeof payload["storageKey"]).toBe("string");
+    expect(payload["mimeType"]).toBe("image/jpeg");
+    expect(payload["data"]).toBeUndefined();
+    expect(payload["binary"]).toBeUndefined();
+    expect(payload["bytes"]).toBeUndefined();
   });
 });

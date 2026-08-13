@@ -153,6 +153,26 @@ describe("prospect:accept", () => {
   });
 });
 
+// kumiko-framework#1905: `suggestion.status` must only ever flip
+// pending → accepted through prospect:accept, which stamps provenance the
+// client can't set itself. A generic suggestion:update write would let an
+// admin set `{ status: "accepted" }` directly, bypassing that path — the
+// CRUD registration now omits the `update` verb, so the handler doesn't
+// exist at all.
+describe("suggestion:update", () => {
+  test("does not exist — an admin cannot flip status directly, bypassing prospect:accept", async () => {
+    const suggestionId = await seedSuggestion();
+
+    const error = await stack.http.writeErr(
+      "prospects:write:suggestion:update",
+      { id: suggestionId, version: 1, changes: { status: "accepted" } },
+      admin,
+    );
+
+    expect(error.code).toBe("not_found");
+  });
+});
+
 describe("prospect:detail", () => {
   test("reads back the created prospect", async () => {
     const suggestionId = await seedSuggestion();

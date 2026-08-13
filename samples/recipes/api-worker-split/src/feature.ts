@@ -21,6 +21,7 @@ import {
   defineFeature,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
 
 const openAccess = { access: { openToAll: true } } as const;
 
@@ -76,6 +77,15 @@ export function setOrderFulfillWrite(fn: FulfillWrite): void {
   fulfillWrite = fn;
 }
 
+// Job payloads arrive as `Record<string, unknown>` (JobHandlerFn) — an
+// unchecked `as string` cast here would let a missing/non-string field
+// through silently, writing `orderKey: undefined` / `label: "label-
+// undefined"` instead of failing loudly. This recipe is a copy-paste
+// template, so the cast would get copied along with it.
+const processOrderPayloadSchema = z.object({
+  customerName: z.string().min(1),
+});
+
 export function createApiWorkerSplitFeature() {
   return defineFeature("orders", (r) => {
     r.crud("order", orderEntity, { write: openAccess, read: openAccess });
@@ -105,7 +115,7 @@ export function createApiWorkerSplitFeature() {
             "process-order: job context has no triggeredBy.tenantId — expected an order.created-triggered job to always carry the triggering write's tenant",
           );
         }
-        const customerName = payload["customerName"] as string;
+        const { customerName } = processOrderPayloadSchema.parse(payload);
         const result = await fulfillWrite({
           handlerQn: "orders:write:fulfillment:create",
           payload: {

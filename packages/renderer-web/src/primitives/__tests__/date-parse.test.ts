@@ -171,4 +171,16 @@ describe("formatDatePlaceholder", () => {
   test("en-GB → day/month/year pattern with slash separator", () => {
     expect(formatDatePlaceholder("en-GB", enPlaceholderLetters)).toBe("DD/MM/YYYY");
   });
+
+  // #1879: a missing i18n key falls back to the raw, multi-character key
+  // string (see i18n.tsx) — the placeholder must clamp to one char per slot
+  // instead of repeating the whole fallback key.
+  test("multi-character letters (e.g. raw i18n fallback key) clamp to first code point", () => {
+    const rawKeyLetters = {
+      year: "kumiko.field.dateField.placeholderYear",
+      month: "kumiko.field.dateField.placeholderMonth",
+      day: "kumiko.field.dateField.placeholderDay",
+    };
+    expect(formatDatePlaceholder("de-DE", rawKeyLetters)).toBe("kk.kk.kkkk");
+  });
 });

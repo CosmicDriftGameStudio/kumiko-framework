@@ -438,11 +438,20 @@ function EntityEditCreateBody({
   screen,
   entity,
   translate,
+  onSaved,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: EntityEditScreenDefinition;
   readonly entity: EntityDefinition;
   readonly translate?: Translate;
+  // Singleton screens (kumiko-screen#1944) run without a wrapping
+  // entityList screen, so `navigateToList` below is a silent no-op there —
+  // without this callback, a successful create left the form stuck showing
+  // the just-submitted values, and a second submit created a duplicate
+  // record. Wired by EntityEditSingletonBody to re-run its list(limit:1)
+  // query, which flips the branch to EntityEditUpdateBody once it sees the
+  // new row.
+  readonly onSaved?: () => void;
 }): ReactNode {
   const nav = useNav();
   const initial = useMemo(
@@ -470,8 +479,9 @@ function EntityEditCreateBody({
         return;
       }
       navigateToList();
+      onSaved?.();
     },
-    [nav, screen.redirect, navigateToList],
+    [nav, screen.redirect, navigateToList, onSaved],
   );
   return (
     <RenderEdit
@@ -500,6 +510,8 @@ function EntityEditUpdateBody({
   entityId,
   translate,
   onCopyLink,
+  autoReloadOnSave,
+  onDeleted,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: EntityEditScreenDefinition;
@@ -507,6 +519,18 @@ function EntityEditUpdateBody({
   readonly entityId: string;
   readonly translate?: Translate;
   readonly onCopyLink?: () => Promise<void> | void;
+  // Singleton screens (kumiko-screen#1944): `navigateToList` below is a
+  // no-op there (no wrapping entityList screen), so a successful update
+  // left the form holding the now-stale `recordVersion` it captured at
+  // mount — the next submit hit a version conflict. Set by
+  // EntityEditSingletonBody to re-fetch this body's own detail query after
+  // a successful save, remounting the form (via the version-keyed `key`
+  // below) with the fresh version.
+  readonly autoReloadOnSave?: boolean;
+  // Wired by EntityEditSingletonBody to re-run its list(limit:1) query
+  // after a successful delete, so the branch flips back to the create form
+  // instead of the update form continuing to display the deleted record.
+  readonly onDeleted?: () => void;
 }): ReactNode {
   const { Banner, Text } = usePrimitives();
   const t = useTranslation();
@@ -554,6 +578,8 @@ function EntityEditUpdateBody({
       onReload={detailQuery.refetch}
       {...(translate !== undefined && { translate })}
       {...(onCopyLink !== undefined && { onCopyLink })}
+      {...(autoReloadOnSave === true && { onSaved: () => void detailQuery.refetch() })}
+      {...(onDeleted !== undefined && { onDeleted })}
     />
   );
 }
@@ -567,6 +593,8 @@ function EntityEditUpdateForm({
   onReload,
   translate,
   onCopyLink,
+  onSaved,
+  onDeleted,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: EntityEditScreenDefinition;
@@ -576,6 +604,10 @@ function EntityEditUpdateForm({
   readonly onReload: () => Promise<void> | void;
   readonly translate?: Translate;
   readonly onCopyLink?: () => Promise<void> | void;
+  // See EntityEditUpdateBody's autoReloadOnSave/onDeleted docs — both are
+  // no-ops unless the caller (singleton screens) wires them.
+  readonly onSaved?: () => void;
+  readonly onDeleted?: () => void;
 }): ReactNode {
   // Seed the form with the server values for the entity's declared
   // fields; anything else (id, tenant_id, created_at…) stays out of
@@ -628,13 +660,17 @@ function EntityEditUpdateForm({
         return;
       }
       navigateToList();
+      onSaved?.();
     },
-    [nav, screen.redirect, navigateToList],
+    [nav, screen.redirect, navigateToList, onSaved],
   );
   const handleDelete = useCallback(async () => {
     const res = await dispatcher.write(deleteCommand, { id: entityId });
-    if (res.isSuccess) navigateToList();
-  }, [dispatcher, deleteCommand, entityId, navigateToList]);
+    if (res.isSuccess) {
+      navigateToList();
+      onDeleted?.();
+    }
+  }, [dispatcher, deleteCommand, entityId, navigateToList, onDeleted]);
 
   return (
     <RenderEdit
@@ -715,6 +751,8 @@ function EntityEditSingletonBody({
         entityId={existingId}
         {...(translate !== undefined && { translate })}
         {...(onCopyLink !== undefined && { onCopyLink })}
+        autoReloadOnSave
+        onDeleted={() => void listQuery.refetch()}
       />
     );
   }
@@ -724,6 +762,7 @@ function EntityEditSingletonBody({
       screen={screen}
       entity={entity}
       {...(translate !== undefined && { translate })}
+      onSaved={() => void listQuery.refetch()}
     />
   );
 }
@@ -737,11 +776,13 @@ function EntityEditCreateOrDisabled({
   screen,
   entity,
   translate,
+  onSaved,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: EntityEditScreenDefinition;
   readonly entity: EntityDefinition;
   readonly translate?: Translate;
+  readonly onSaved?: () => void;
 }): ReactNode {
   const { Banner, Text } = usePrimitives();
   if (screen.allowCreate === false) {
@@ -758,6 +799,7 @@ function EntityEditCreateOrDisabled({
       screen={screen}
       entity={entity}
       {...(translate !== undefined && { translate })}
+      {...(onSaved !== undefined && { onSaved })}
     />
   );
 }
