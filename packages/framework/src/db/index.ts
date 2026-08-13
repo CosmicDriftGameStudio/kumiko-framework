@@ -143,5 +143,10 @@ export {
   toSnakeCase,
   toTableName,
 } from "./table-builder";
-export type { TenantDb, TenantDbMode } from "./tenant-db";
-export { castTenantRows, createTenantDb } from "./tenant-db";
+export type { TenantDb, TenantDbMode, UncheckedSystemDb } from "./tenant-db";
+export {
+  castTenantRows,
+  createTenantDb,
+  createUncheckedSystemDb,
+  SYSTEM_SCOPE_CHECK_BRAND,
+} from "./tenant-db";
