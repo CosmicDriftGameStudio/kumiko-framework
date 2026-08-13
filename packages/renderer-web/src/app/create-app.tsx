@@ -332,6 +332,28 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   for (const f of clientFeatures) {
     if (f.components !== undefined) Object.assign(customScreens, f.components);
   }
+  // Fail loud at boot instead of per-URL: a mounted server feature can
+  // declare a `type: "custom"` screen that's reachable directly by URL
+  // even without nav placement — without this check, a missing client
+  // plugin only surfaces as an error placeholder to whoever happens to
+  // open that URL (kumiko-framework#2025). Dev-only: some bundled screens
+  // (e.g. user-data-rights privacy-center) are intentionally dormant with
+  // no opt-out mechanism yet (kumiko-framework#2034), so this would be a
+  // permanent false positive in production for consumers that don't mount
+  // every dormant screen's client plugin.
+  if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+    const missingCustomScreens = app.features.flatMap((f) =>
+      f.screens
+        .filter((s) => s.type === "custom" && customScreens[s.id] === undefined)
+        .map((s) => `${f.featureName}:${s.id}`),
+    );
+    if (missingCustomScreens.length > 0) {
+      // biome-ignore lint/suspicious/noConsole: dev-only diagnostic for missing client plugins
+      console.error(
+        `[kumiko] ${missingCustomScreens.length} custom screen(s) have no registered component in clientFeatures.components — they render an error placeholder instead of the intended UI: ${missingCustomScreens.join(", ")}. Add the feature's web client plugin to clientFeatures.`,
+      );
+    }
+  }
   // Column-renderer map, same last-wins semantics as customScreens —
   // duplicate keys across features are rarely intentional, so a
   // collision logs once instead of silently overriding a library's
