@@ -15,12 +15,11 @@ const systemScopedFeature = defineFeature("ctxsystemdb-system", (r) => {
     async (query, ctx) => {
       if (!ctx.systemDb)
         return { present: false as const, tenantIdMatches: false, dbThrows: false };
-      // The cutover (framework#2082) makes ctx.db fail-closed for
-      // r.systemScope() handlers — dispatch-shared.ts builds `as
-      // HandlerContext`, so a mis-wired property wouldn't be caught by
-      // tsc. Prove it at runtime: assertTenantMatch must hand back a
-      // working, correctly-scoped TenantDb, and touching ctx.db itself
-      // must throw instead of silently returning an unfiltered db.
+      // ctx.db is fail-closed for r.systemScope() handlers — dispatch-shared.ts
+      // builds `as HandlerContext`, so a mis-wired property wouldn't be caught
+      // by tsc. Prove it at runtime: assertTenantMatch must hand back a
+      // working, correctly-scoped TenantDb, and touching ctx.db itself must
+      // throw instead of silently returning an unfiltered db.
       const checked = ctx.systemDb.assertTenantMatch(query.user.tenantId);
       let dbThrows = false;
       try {

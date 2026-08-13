@@ -352,9 +352,9 @@ async function executeWriteInner(
 
   // Auto transition guard: if entity has transitions and handler doesn't skip it.
   // Reads via the guard's own db handle — for r.systemScope() handlers
-  // handlerContext.db is fail-closed (framework#2082), so this reaches for
-  // systemDb.acknowledgeCrossTenant like any other cross-feature framework
-  // internal that touches a system-scoped handler's data.
+  // handlerContext.db is fail-closed, so this reaches for
+  // systemDb.acknowledgeCrossTenant like any other framework-internal
+  // mechanism that touches a system-scoped handler's data.
   const transitionGuardDb = handlerContext.systemDb
     ? handlerContext.systemDb.acknowledgeCrossTenant(
         `auto transition guard for r.systemScope() write handler (${type})`,
