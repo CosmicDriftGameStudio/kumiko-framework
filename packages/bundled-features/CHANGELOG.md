@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.197.0
+
+### Minor Changes
+
+- 3446b2b: `DerivativePublicPredicateArgs` (the argument passed to a `file-derivatives` entityType's `isPublic` predicate) now additionally carries `fieldName` and `variant`, so an app can opt individual fields/variants out of public serving instead of every declared variant becoming implicitly public once the entityType-level check returns `true` — additive, non-breaking: existing `({entityId, tenantId}) => boolean` predicates stay assignable. `DerivativePublicPredicateArgs`/`DerivativePublicPredicatePlugin` are now also re-exported from the `file-derivatives` package entrypoint. Separately, `publicVariantQuery`'s `fileRefId` is now UUID-validated by the handler's own schema (not only by the httpRoute wrapper's pre-check), closing a path where a malformed id reached the DB via the generic `/api/query` dispatch.
+
+### Patch Changes
+
+- Updated dependencies [dbcca27]
+- Updated dependencies [5eb959a]
+- Updated dependencies [28adff7]
+  - @cosmicdrift/kumiko-renderer-web@0.197.0
+  - @cosmicdrift/kumiko-headless@0.197.0
+  - @cosmicdrift/kumiko-renderer@0.197.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.197.0
+  - @cosmicdrift/kumiko-framework@0.197.0
+  - @cosmicdrift/kumiko-types@0.197.0
+
 ## 0.196.1
 
 ### Patch Changes

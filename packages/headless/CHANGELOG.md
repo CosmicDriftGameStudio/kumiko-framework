@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.197.0
+
+### Patch Changes
+
+- 5eb959a: `altLocalePath(pathname)` toggled only between `defaultLocale` and `prefixedLocales[0]`, so a router configured with a third prefixed locale (e.g. `es`/`en`/`de`) had no way to link directly to it. `altLocalePath` now takes an optional `targetLocale` param — `altLocalePath(pathname, targetLocale)` resolves the current page's path in that locale; omitting the argument keeps the existing binary-toggle behaviour unchanged.
+
+  `publicPath` also now rejects locale keys that only resolve via the prototype chain (e.g. `"__proto__"`, `"constructor"`) instead of returning a non-string value, hardening it for the now-broader range of caller-suppliable `locale` strings.
+
+- 28adff7: Fixes a crash: `useForm()` (used by `RenderEdit` and every other form consumer) called `useDispatcher()` unconditionally on every mount, throwing if no `<DispatcherProvider>` was mounted above it — even for forms that never write, or that pass an explicit `submit.dispatcher`. It now uses the optional variant; `SubmitConfig.dispatcher` is optional and `submit()` throws only when it's actually about to dispatch a write with no dispatcher available.
+  - @cosmicdrift/kumiko-framework@0.197.0
+
 ## 0.196.1
 
 ### Patch Changes
