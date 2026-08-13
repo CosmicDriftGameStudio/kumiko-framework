@@ -6,7 +6,7 @@ import {
   type UserDataExportHook,
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared";
+import { decryptStoredPii } from "../../shared";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant";
 import { userTable } from "../../user";
 import { featureMounted } from "./feature-mounted";
@@ -34,11 +34,6 @@ const crud = createEventStoreExecutor(tenantInvitationsTable, tenantInvitationEn
 
 const INVITED_BY_ANONYMIZED = "anonymized";
 
-// Bounded, not Promise.all — each decrypt hits the KMS adapter's own small
-// dedicated pool (PgKmsAdapter default max: 4). Same reasoning as
-// tenant/handlers/invitations.query.ts's KMS_POOL_CONCURRENCY.
-const KMS_POOL_CONCURRENCY = 4;
-
 async function resolveUserEmail(ctx: UserDataHookCtx): Promise<string | null> {
   if (ctx.userEmailBeforeDelete) return ctx.userEmailBeforeDelete.toLowerCase();
   const row = (await fetchOne(ctx.db, userTable, { id: ctx.userId })) as {
@@ -64,23 +59,17 @@ export const tenantInvitationExportHook: UserDataExportHook = async (ctx) => {
   if (rows.length === 0) return null;
   return {
     entity: "tenant-invitation",
-    // Stored `email` is ciphertext under an active KMS — decrypt-on-read,
-    // same as resolveUserEmail above and invitations.query.ts. Returning it
-    // raw would put base64 ciphertext in the GDPR export instead of the
-    // address.
-    rows: await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, async (r) => {
-      const rawEmail = r["email"];
-      const decryptedEmail =
-        typeof rawEmail === "string"
-          ? await decryptStoredPii(rawEmail, "email", "user-data-rights:invitation-hook")
-          : rawEmail;
-      return {
-        email: decryptedEmail,
-        role: r["role"],
-        status: r["status"],
-        expiresAt: String(r["expiresAt"] ?? ""),
-      };
-    }),
+    // Hand back ciphertext as stored — decryptSnippetFields in
+    // run-user-export.ts is the central sweep that turns PII columns into
+    // plaintext for the GDPR bundle. Decrypting here would double-decrypt
+    // (or race the sweep) and break the hook-boundary contract the
+    // integration test pins.
+    rows: rows.map((r) => ({
+      email: r["email"],
+      role: r["role"],
+      status: r["status"],
+      expiresAt: String(r["expiresAt"] ?? ""),
+    })),
   };
 };
 

@@ -153,23 +153,9 @@ function applyEncoder(pipeline: Sharp, spec: VariantSpec, sourceMimeType: string
   return encode(pipeline, quality);
 }
 
-export const renderImage: DerivativeRendererPlugin["render"] = async (
-  input,
-  spec,
-  sourceMimeType,
-) => {
-  const normalizedSource = normalizeMimeType(sourceMimeType);
-
-  // sourceMimeType is a client-declared upload label, not sniffed — decide
-  // the SVG rejection from the actual bytes so a mislabeled upload can't
-  // reach libvips as SVG.
-  const sniffed = await sharp(input, SHARP_INPUT_OPTIONS).metadata();
-  if (sniffed.format === "svg") {
-    throw new Error(
-      "derivatives-sharp: SVG is not supported — rendering untrusted SVG through libvips is a trust boundary this renderer doesn't need to cross.",
-    );
-  }
-
+// Input-validation for the DoS caps above — kept out of renderImage so the
+// complexity hotspot stays under the AST-guard budget.
+function assertRenderSpecBounds(spec: VariantSpec): void {
   if (spec.quality !== undefined && (spec.quality < 1 || spec.quality > 100)) {
     throw new Error(`derivatives-sharp: quality ${spec.quality} is out of range (1–100).`);
   }
@@ -195,6 +181,26 @@ export const renderImage: DerivativeRendererPlugin["render"] = async (
       );
     }
   }
+}
+
+export const renderImage: DerivativeRendererPlugin["render"] = async (
+  input,
+  spec,
+  sourceMimeType,
+) => {
+  const normalizedSource = normalizeMimeType(sourceMimeType);
+
+  // sourceMimeType is a client-declared upload label, not sniffed — decide
+  // the SVG rejection from the actual bytes so a mislabeled upload can't
+  // reach libvips as SVG.
+  const sniffed = await sharp(input, SHARP_INPUT_OPTIONS).metadata();
+  if (sniffed.format === "svg") {
+    throw new Error(
+      "derivatives-sharp: SVG is not supported — rendering untrusted SVG through libvips is a trust boundary this renderer doesn't need to cross.",
+    );
+  }
+
+  assertRenderSpecBounds(spec);
 
   // rotate() with no argument applies the EXIF orientation and normalizes it
   // away. sharp drops all other metadata by default — we never call
