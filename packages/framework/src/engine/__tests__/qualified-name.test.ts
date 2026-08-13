@@ -45,6 +45,48 @@ describe("qn()", () => {
     expect(qn("feature2", QnTypes.job, "sync-v2")).toBe("feature2:job:sync-v2");
     expect(qn("my-app", QnTypes.event, "user:created")).toBe("my-app:event:user:created");
   });
+
+  test("rejects a name that starts with '<scope>:<reserved-type>:' (#1991)", () => {
+    // The exact shape from the issue: an already-qualified string
+    // ("ai-orchestration:query:duplicate-candidates") passed in as the short
+    // name for a handler on the "ai-orchestration" feature.
+    expect(() =>
+      qn("ai-orchestration", "query", "ai-orchestration:query:duplicate-candidates"),
+    ).toThrow(/double-qualification/);
+  });
+
+  test("error suggests the corrected short name (#1991)", () => {
+    expect(() =>
+      qn("ai-orchestration", "query", "ai-orchestration:query:duplicate-candidates"),
+    ).toThrow(/Did you mean "duplicate-candidates"\?/);
+  });
+
+  test("omits the suggestion when stripping the prefix leaves nothing", () => {
+    expect(() => qn("billing", "write", "billing:write")).toThrow(/double-qualification/);
+    expect(() => qn("billing", "write", "billing:write")).not.toThrow(/Did you mean/);
+  });
+
+  // Both signals — scope repeating in segment 0 AND a reserved type in
+  // segment 1 — must hold together. Either alone is common, legitimate
+  // sub-structure across the real codebase; these are the exact shapes that
+  // regressed when the check first fired on either signal independently.
+  test("allows the scope repeating as an entity prefix without a reserved type next (#1991)", () => {
+    expect(qn("user", "write", "user:create")).toBe("user:write:user:create");
+    expect(qn("accounts", "write", "accounts:create")).toBe("accounts:write:accounts:create");
+    expect(qn("profile", "query", "profile:me")).toBe("profile:query:profile:me");
+  });
+
+  test("allows a reserved type appearing mid-name without the scope repeating first (#1991)", () => {
+    expect(qn("events", "write", "event:create")).toBe("events:write:event:create");
+    expect(qn("compliance-profiles", "query", "compliance:query:for-tenant")).toBe(
+      "compliance-profiles:query:compliance:query:for-tenant",
+    );
+  });
+
+  test("allows a sub-structured name whose first segment merely resembles the scope", () => {
+    // "invoice" != "invoices" — no false positive from a near-miss prefix.
+    expect(qn("invoices", "query", "invoice:mark-paid")).toBe("invoices:query:invoice:mark-paid");
+  });
 });
 
 describe("parseQn()", () => {

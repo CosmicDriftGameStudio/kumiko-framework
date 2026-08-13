@@ -45,13 +45,46 @@ function validateSegment(value: string, label: string, context?: string): void {
   }
 }
 
+// registry-ingest.ts also qualifies handlers/projections with these two —
+// not in the public QnTypes enum, but reachable as a type segment the same
+// way (#1991).
+const NON_ENUM_QN_TYPES = ["stream", "projection", "workspace"] as const;
+
+// Every segment word that a fully-qualified QN can carry as its type.
+const RESERVED_QN_SEGMENTS: ReadonlySet<string> = new Set<string>([
+  ...Object.values(QnTypes),
+  ...NON_ENUM_QN_TYPES,
+]);
+
+// A double-qualified `name` looks like "<scope>:<type>:<realName>" — the
+// caller accidentally passed the full QN as the short name instead of just
+// the trailing part. Both signals must hold together: the scope alone
+// repeating (e.g. entity "user:create" on feature "user") or a reserved word
+// alone appearing (e.g. "compliance:query:for-tenant") are both common,
+// legitimate sub-structure on their own (#1991).
+function isDoubleQualified(scope: string, segments: readonly string[]): boolean {
+  const [first, second] = segments;
+  return first === scope && second !== undefined && RESERVED_QN_SEGMENTS.has(second);
+}
+
 // Build a qualified name from parts. Validates all segments.
 // The name can contain colons for sub-structure (e.g. "task:create").
 export function qn(scope: string, type: QnType, name: string): string {
   validateSegment(scope, "scope");
   validateSegment(type, "type");
-  for (const part of name.split(":")) {
+  const nameSegments = name.split(":");
+  for (const part of nameSegments) {
     validateSegment(part, "name");
+  }
+  if (isDoubleQualified(scope, nameSegments)) {
+    const suggestion = nameSegments.slice(2).join(":");
+    const suggestionText = suggestion.length > 0 ? ` Did you mean "${suggestion}"?` : "";
+    throw new Error(
+      `Invalid QN name "${name}" for scope "${scope}": starts with "${scope}:${nameSegments[1]}:" — this looks ` +
+        `like an already-qualified name passed in as the short name (double-qualification), not legitimate ` +
+        `sub-structure.${suggestionText} Pass only the short name; qn()/qualifyEntityName already add the ` +
+        `"${scope}:${type}:" prefix.`,
+    );
   }
   return `${scope}:${type}:${name}`;
 }

@@ -177,6 +177,28 @@ describe("getAllStreamHandlers", () => {
   });
 });
 
+describe("double-qualified handler names (#1991)", () => {
+  test("createRegistry throws at boot when a query handler's short name is already fully-qualified", () => {
+    const feature = defineFeature("registry-test-ai-orch", (r) => {
+      r.queryHandler(
+        "registry-test-ai-orch:query:duplicate-candidates",
+        z.object({}),
+        async () => ({}),
+      );
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/double-qualification/);
+  });
+
+  test("createRegistry allows a sub-structured short name whose entity prefix merely resembles the feature name", () => {
+    const feature = defineFeature("registry-test-invoices", (r) => {
+      r.queryHandler("invoice:mark-paid", z.object({}), async () => ({}));
+    });
+
+    expect(() => createRegistry([feature])).not.toThrow();
+  });
+});
+
 describe("extensionSelector boot-validation", () => {
   function foundationFeature() {
     return defineFeature("probe-foundation", (r) => {
