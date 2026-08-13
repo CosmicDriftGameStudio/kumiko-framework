@@ -1,5 +1,6 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { userTable } from "../schema/user";
 
@@ -33,6 +34,13 @@ export const findForAuthQuery = defineQueryHandler({
         ? { email: query.payload.email }
         : { id: query.payload.id as string }; // @cast-boundary engine-payload
 
-    return (await fetchOne(ctx.db, userTable, where)) ?? null;
+    if (!ctx.systemDb) {
+      throw new InternalError({ message: "user:find-for-auth requires r.systemScope()" });
+    }
+    const db = ctx.systemDb.acknowledgeCrossTenant(
+      "identity resolution for auth is intentionally cross-tenant",
+    );
+
+    return (await fetchOne(db, userTable, where)) ?? null;
   },
 });
