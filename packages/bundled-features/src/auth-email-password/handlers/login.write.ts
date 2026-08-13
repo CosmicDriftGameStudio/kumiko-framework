@@ -7,6 +7,7 @@ import {
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { verifyDummyPassword, verifyPassword } from "../../shared";
@@ -67,18 +68,21 @@ const SYSTEM_USER_ID = "00000000-0000-4000-8000-000000000000";
 // Two possible success shapes: a straight login mints a session; a login
 // gated by MFA hands back a challenge instead — auth-routes.ts branches on
 // `kind` to decide whether to mint a JWT now or wait for /auth/mfa/verify.
-type LoginResult =
+export type LoginResult =
   | { readonly kind: "auth-session"; readonly session: SessionUser }
   | { readonly kind: "mfa-challenge"; readonly challengeToken: string }
   | { readonly kind: "mfa-setup-required"; readonly preauthSetupToken: string };
 
 type Membership = { readonly tenantId: TenantId; readonly roles: readonly string[] };
 
-type GateReject = { readonly ok: false; readonly result: WriteResult<LoginResult> };
+// result is always a WriteFailure at construction (every reject() call site
+// passes one) — typing it that way, not WriteResult<LoginResult>, lets other
+// handlers with a different success-data type reuse these gates unchanged.
+type GateReject = { readonly ok: false; readonly result: WriteFailure };
 type GateOk<T> = { readonly ok: true; readonly value: T };
 type GateOutcome<T> = GateReject | GateOk<T>;
 
-function reject(result: WriteResult<LoginResult>): GateReject {
+function reject(result: WriteFailure): GateReject {
   return { ok: false, result };
 }
 
@@ -199,14 +203,15 @@ export async function gateResolveMembership(
   return ok({ chosen, mergedRoles });
 }
 
-/** MFA challenge / setup-required / proceed. */
+// MFA challenge / setup-required / proceed. Excludes "auth-session" (this
+// gate never builds one) so callers with their own session shape reuse it as-is.
 export async function gateEnforceMfa(
   ctx: HandlerContext,
   opts: LoginHandlerOptions,
   userId: string,
   tenantId: TenantId,
   mergedRoles: readonly string[],
-): Promise<LoginResult | undefined> {
+): Promise<Exclude<LoginResult, { readonly kind: "auth-session" }> | undefined> {
   if (!opts.mfaStatusChecker) return undefined;
   const mfaStatus = await opts.mfaStatusChecker(ctx, userId, tenantId, mergedRoles);
   if ("challengeToken" in mfaStatus) {

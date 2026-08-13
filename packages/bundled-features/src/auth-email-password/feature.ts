@@ -238,7 +238,15 @@ export function createAuthEmailPasswordFeature(
     if (opts.invite) {
       r.writeHandler(createInviteCreateHandler(opts.invite));
       r.writeHandler(createInviteAcceptHandler());
-      r.writeHandler(createInviteAcceptWithLoginHandler());
+      // Same gates as the `login` handler above (lockout, password,
+      // email-verified, account-status, MFA) — see invite-accept-with-login.write.ts.
+      r.writeHandler(
+        createInviteAcceptWithLoginHandler({
+          mfaStatusChecker: opts.mfaStatusChecker,
+          accountLockout: opts.accountLockout,
+          strictEmailVerification: strictVerification,
+        }),
+      );
       r.writeHandler(createInviteSignupCompleteHandler());
     }
 
