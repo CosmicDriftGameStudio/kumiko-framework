@@ -116,13 +116,21 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           return;
         }
         for (const [field, value] of Object.entries(screen)) {
-          if (Array.isArray(value)) {
+          // #2015: `x <> NULL` is never true — mirror buildWhereClause's IS [NOT] NULL handling in bun-db/query.ts.
+          if (value === null) {
+            whereSql.push(`${colSql(field)} IS NULL`);
+          } else if (Array.isArray(value)) {
             const placeholders = value.map((v) => {
               params.push(v);
               return `$${params.length}`;
             });
             whereSql.push(`${colSql(field)} IN (${placeholders.join(", ")})`);
-          } else if (typeof value === "object" && value !== null) {
+          } else if (typeof value === "object") {
+            const valueObj = value as Record<string, unknown>;
+            if (valueObj["ne"] === null && Object.keys(valueObj).length === 1) {
+              whereSql.push(`${colSql(field)} IS NOT NULL`);
+              continue;
+            }
             const opMap: Record<string, string> = {
               gt: ">",
               gte: ">=",
