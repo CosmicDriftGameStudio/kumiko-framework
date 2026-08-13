@@ -111,6 +111,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
     name: "invite-accept-with-login",
     schema: InviteAcceptWithLoginSchema,
     access: { roles: ["all"] },
+    // kumiko-lint-ignore complexity-budget sequential security gates (lockout/password/email/status/membership/mfa), mirrors login.write.ts's handler shape
     handler: async (event, ctx) => {
       if (!ctx.redis) {
         return writeFailure(
