@@ -19,9 +19,12 @@ afterAll(async () => {
 // --- Idempotency ---
 
 describe("idempotency guard", () => {
+  const tenantA = "00000000-0000-4000-8000-00000000000a";
+  const userA = "00000000-0000-4000-8000-0000000000a1";
+
   test("returns null for new request", async () => {
     const guard = createIdempotencyGuard(testRedis.redis);
-    const result = await guard.check("req-new-123");
+    const result = await guard.check(tenantA, userA, "req-new-123");
     expect(result).toBeNull();
   });
 
@@ -29,8 +32,8 @@ describe("idempotency guard", () => {
     const guard = createIdempotencyGuard(testRedis.redis);
     const requestId = "req-dup-456";
 
-    await guard.store(requestId, { isSuccess: true, data: { id: 1 } });
-    const cached = await guard.check(requestId);
+    await guard.store(tenantA, userA, requestId, { isSuccess: true, data: { id: 1 } });
+    const cached = await guard.check(tenantA, userA, requestId);
 
     expect(cached).not.toBeNull();
     if (!cached) throw new Error("expected cached value");
@@ -41,15 +44,15 @@ describe("idempotency guard", () => {
     const guard = createIdempotencyGuard(testRedis.redis, { ttlSeconds: 1 });
     const requestId = "req-ttl-789";
 
-    await guard.store(requestId, { done: true });
+    await guard.store(tenantA, userA, requestId, { done: true });
 
     // Should exist immediately
-    expect(await guard.check(requestId)).not.toBeNull();
+    expect(await guard.check(tenantA, userA, requestId)).not.toBeNull();
 
     // Wait for expiry
     await new Promise((r) => setTimeout(r, 1100));
 
-    expect(await guard.check(requestId)).toBeNull();
+    expect(await guard.check(tenantA, userA, requestId)).toBeNull();
   });
 
   test("parallel check(): second caller waits for the first's store() instead of racing", async () => {
@@ -61,11 +64,11 @@ describe("idempotency guard", () => {
     const requestId = "req-race-1";
 
     // Request #1 starts — claims the in-progress lock.
-    const first = await guard.check(requestId);
+    const first = await guard.check(tenantA, userA, requestId);
     expect(first).toBeNull(); // got the lock
 
     // Request #2 runs concurrently — must block until #1 stores a result.
-    const secondPromise = guard.check(requestId);
+    const secondPromise = guard.check(tenantA, userA, requestId);
 
     // After a tick the second must still be pending: no result yet.
     await new Promise((r) => setTimeout(r, 80));
@@ -77,7 +80,7 @@ describe("idempotency guard", () => {
     expect(quickResult.done).toBe(false);
 
     // Request #1 finishes.
-    await guard.store(requestId, { isSuccess: true, data: { id: 99 } });
+    await guard.store(tenantA, userA, requestId, { isSuccess: true, data: { id: 99 } });
 
     // Request #2 should now see the stored result, not null — no duplicate work.
     const second = await secondPromise;
@@ -93,12 +96,38 @@ describe("idempotency guard", () => {
     });
     const requestId = "req-crashed";
 
-    const first = await guard.check(requestId);
+    const first = await guard.check(tenantA, userA, requestId);
     expect(first).toBeNull(); // we acquired the lock, then "crash" — never call store()
 
     // After the pending-TTL lapses, a retry should be allowed to take over.
-    const second = await guard.check(requestId);
+    const second = await guard.check(tenantA, userA, requestId);
     expect(second).toBeNull(); // reclaimed
+  });
+
+  test("same requestId from different tenant/user does not hit the same cache entry", async () => {
+    const guard = createIdempotencyGuard(testRedis.redis);
+    const requestId = "req-shared-across-tenants";
+    const tenantB = "00000000-0000-4000-8000-00000000000b";
+    const userB = "00000000-0000-4000-8000-0000000000b1";
+
+    // Tenant A / user A owns the request and stores its result.
+    const firstCheck = await guard.check(tenantA, userA, requestId);
+    expect(firstCheck).toBeNull();
+    await guard.store(tenantA, userA, requestId, { isSuccess: true, data: { tenant: "A" } });
+
+    // Same requestId, different tenant+user: must be treated as a fresh
+    // request, not see tenant A's cached/pending state.
+    const otherTenantCheck = await guard.check(tenantB, userB, requestId);
+    expect(otherTenantCheck).toBeNull();
+
+    // Different user, same tenant: also isolated.
+    const otherUserCheck = await guard.check(tenantA, userB, requestId);
+    expect(otherUserCheck).toBeNull();
+
+    // Tenant A's own result is still retrievable and unaffected.
+    const ownResult = await guard.check(tenantA, userA, requestId);
+    expect(ownResult).not.toBeNull();
+    expect(JSON.parse(ownResult as string)).toEqual({ isSuccess: true, data: { tenant: "A" } });
   });
 });
 

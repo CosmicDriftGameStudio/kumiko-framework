@@ -30,7 +30,7 @@ export async function runBatch(
   // Idempotency: if the same requestId has already been processed, return the
   // cached result without re-executing. The cache holds the full BatchResult.
   if (requestId && idempotency) {
-    const cached = await idempotency.check(requestId);
+    const cached = await idempotency.check(user.tenantId, user.id, requestId);
     if (cached) {
       const parsed = parseJsonSafe<BatchResult | null>(cached, null);
       if (parsed) return parsed;
@@ -42,7 +42,7 @@ export async function runBatch(
   // the same answer (both success and failure results are cached).
   const finalize = async (result: BatchResult): Promise<BatchResult> => {
     if (requestId && idempotency) {
-      await idempotency.store(requestId, result);
+      await idempotency.store(user.tenantId, user.id, requestId, result);
     }
     return result;
   };

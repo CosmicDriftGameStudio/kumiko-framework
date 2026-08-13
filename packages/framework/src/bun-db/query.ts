@@ -29,6 +29,7 @@ import type {
 // globalThis, so instantFromDriver crashed on timestamptz reads (#1480).
 import { Temporal } from "temporal-polyfill";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index";
+import { SQL_EXPR_BRAND } from "../db/dialect";
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { extractPgError } from "../db/pg-error";
 import { type NotExecutorOnly, toSnakeCase } from "../db/table-builder";
@@ -501,8 +502,11 @@ type PreparedValue =
   | { readonly kind: "param"; readonly sql: string; readonly bound: unknown }
   | { readonly kind: "literal"; readonly literal: string };
 
+// Checks the brand Symbol, not the `kind` string — a client-supplied jsonb
+// value can fake `kind: "sql-expr"` over JSON but can never carry a Symbol,
+// so request data can't be smuggled in as a raw SQL literal.
 function isSqlExpression(v: unknown): v is { kind: "sql-expr"; text: string } {
-  return typeof v === "object" && v !== null && (v as { kind?: unknown }).kind === "sql-expr";
+  return typeof v === "object" && v !== null && SQL_EXPR_BRAND in v;
 }
 
 // A `date` column takes a plain "yyyy-mm-dd" string (or PlainDate.toString())

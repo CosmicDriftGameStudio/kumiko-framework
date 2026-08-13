@@ -21,6 +21,7 @@ import {
   deleteRows,
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
+  updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
 import { AuthHandlers } from "../../auth-email-password/constants";
@@ -36,8 +37,9 @@ import { userSessionEntity } from "../../sessions/schema/user-session";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
+import { USER_STATUS } from "../../user";
 import { createUserFeature } from "../../user/feature";
-import { userEntity } from "../../user/schema/user";
+import { userEntity, userTable } from "../../user/schema/user";
 import { PatHandlers, PatQueries } from "../constants";
 import { createPersonalAccessTokensFeature } from "../feature";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token";
@@ -206,6 +208,17 @@ describe("PAT auth", () => {
     // tenantMembershipsTable is ES-managed (executor-only branded); deleteRows
     // is the test-side escape for out-of-band row removal.
     await deleteRows(stack.db, tenantMembershipsTable, { userId: actor.id });
+    const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
+    expect(res.status).toBe(401);
+  });
+
+  test("user status Deleted → 401 (blocked principal, same as an unknown token)", async () => {
+    const actor = await actorFor("deleted-status@example.com");
+    const token = await mintToken(actor);
+    const ok = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
+    expect(ok.status).toBe(200);
+
+    await updateRows(stack.db, userTable, { status: USER_STATUS.Deleted }, { id: actor.id });
     const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(res.status).toBe(401);
   });

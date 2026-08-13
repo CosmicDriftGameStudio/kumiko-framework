@@ -21,14 +21,17 @@ import {
 // not the end-user themselves.
 //
 // Tenant-scope: the userSession schema persists tenantId per row (a user
-// can have sessions in multiple tenants). We revoke cross-tenant because
-// "account restriction" is a global user-level statement (the forget path
-// is global too, see the User-Entity special doc). The UPDATE filters
-// only on userId.
+// can have sessions in multiple tenants). Omitting `tenantId` revokes
+// cross-tenant because "account restriction" is a global user-level
+// statement (the forget path is global too, see the User-Entity special
+// doc). Passing `tenantId` narrows the UPDATE to that tenant's rows only —
+// used by tenant-membership removal, where a multi-tenant user must stay
+// logged in to tenants they're still a member of.
 export const revokeAllForUserWrite = defineWriteHandler({
   name: "user-session:revoke-all-for-user",
   schema: z.object({
     userId: z.string().min(1),
+    tenantId: z.string().min(1).optional(),
   }),
   access: { roles: access.privileged },
   handler: async (event, ctx) => {
@@ -36,7 +39,11 @@ export const revokeAllForUserWrite = defineWriteHandler({
       ctx.db.raw,
       userSessionTable,
       { revokedAt: Temporal.Now.instant() },
-      { userId: event.payload.userId, revokedAt: null },
+      {
+        userId: event.payload.userId,
+        revokedAt: null,
+        ...(event.payload.tenantId !== undefined && { tenantId: event.payload.tenantId }),
+      },
     );
 
     // Lightweight append alongside the direct-write above (#1559) — see

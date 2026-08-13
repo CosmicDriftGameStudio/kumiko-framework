@@ -27,8 +27,8 @@ import {
 import { SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema } from "./session-revoked-event";
 
 export type SessionsFeatureOptions = {
-  // A successful update on the `user` entity that changes the `passwordHash`
-  // column triggers a mass-revoke of every live session for that user.
+  // A successful update on the `user` entity that changes `passwordHash`
+  // triggers a mass-revoke of every live session for that user.
   // Industry-standard "password-change signs you out everywhere" flow,
   // including the session that did the change itself — the client has
   // to re-login after a password change.
@@ -173,14 +173,22 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // Cross-feature entity hook on "user". `r.entityHook` (NOT `r.hook`) is
     // the supported cross-feature path: entity-keyed, not prefixed by the
     // registering feature. Fires after every successful write on any
-    // user-entity handler; we only act when passwordHash is part of the
-    // changes-delta the handler was given.
+    // user-entity handler; we only act when one of REVOKE_TRIGGERING_FIELDS
+    // is part of the changes-delta the handler was given.
     //
-    // Checking `changes["passwordHash"] !== undefined` is cheaper and more
-    // correct than diffing data vs previous — "undefined in changes" means
-    // "the handler didn't touch this column", which is exactly the signal
-    // we want to skip on. Works for both direct user:update calls and any
+    // Checking `changes[field] !== undefined` is cheaper and more correct
+    // than diffing data vs previous — "undefined in changes" means "the
+    // handler didn't touch this column", which is exactly the signal we
+    // want to skip on. Works for both direct user:update calls and any
     // other handler that happens to write the column.
+    //
+    // Only `passwordHash` here: `status` changes go through
+    // updateUserLifecycle(), which writes via the event-store executor
+    // directly and never runs this postSave hook. restrict-account.write.ts
+    // already revokes sessions explicitly for that transition, and
+    // sessionChecker blocks a status-locked principal on its next request
+    // regardless.
+    const REVOKE_TRIGGERING_FIELDS = ["passwordHash"] as const;
     let autoRevoke = options?.autoRevokeOnPasswordChange;
     r.hook("postSave", { allOf: "user" }, async (ctx) => {
       // skip: nothing bound — stateless-JWT deployments without a runtime
@@ -191,8 +199,8 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // otherwise — every registration would do a mass-revoke roundtrip
       // for a user who literally has no rows in user_sessions.
       if (ctx.isNew) return;
-      // skip: handler didn't touch passwordHash, nothing to revoke
-      if (ctx.changes["passwordHash"] === undefined) return;
+      // skip: handler didn't touch any revoke-triggering field
+      if (!REVOKE_TRIGGERING_FIELDS.some((field) => ctx.changes[field] !== undefined)) return;
       await autoRevoke(String(ctx.id));
     });
 

@@ -34,6 +34,12 @@ const BLOCKED_STATUSES: ReadonlySet<UserStatus> = new Set([
   USER_STATUS.Deleted,
 ]);
 
+// Shared with personal-access-tokens' resolver — a PAT belonging to a
+// locked-out principal must be refused the same way a live session is.
+export function isPrincipalBlocked(status: UserStatus): boolean {
+  return BLOCKED_STATUSES.has(status);
+}
+
 // Why the callbacks live at the raw-DB level rather than going through the
 // dispatcher: session-create/revoke/check run on the hot path of every
 // login and every request. The (createdAt/revokedAt/ip/userAgent) columns
@@ -137,7 +143,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       const user = await fetchOne<{ status: UserStatus }>(db, userTable, {
         id: expectedUserId,
       }).catch(() => null);
-      if (user && BLOCKED_STATUSES.has(user.status)) return "blocked";
+      if (user && isPrincipalBlocked(user.status)) return "blocked";
       return "live";
     },
 
