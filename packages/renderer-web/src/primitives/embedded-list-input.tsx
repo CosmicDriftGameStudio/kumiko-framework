@@ -54,15 +54,24 @@ const FOCUSABLE_SELECTOR = "input:not([type=hidden]), button, [tabindex]";
 
 function columnWidthClass(type: EmbeddedListCellType): string {
   switch (type) {
+    // A fixed `w-*` caps the cell at exactly that width — the calendar
+    // button and money's stepper padding then eat into the space a
+    // locale value needs, clipping a digit or the currency sign. `min-w`
+    // sets a floor sized for each control's chrome instead, and still
+    // lets the column grow past it like text/select/reference below.
     case "number":
     case "decimal":
+      return "min-w-[9rem]";
+    // A locale-formatted date + calendar-trigger button + gap.
     case "date":
-      return "w-36";
-    // Wider than a bare number: MoneyInput appends stepper buttons, timestamp
-    // carries a date field plus a time input.
+      return "min-w-[11rem]";
+    // Currency text (thousands separator, decimals, symbol) + the
+    // pr-20 MoneyInput reserves for its +/- stepper buttons.
     case "money":
+      return "min-w-[13rem]";
+    // DateField (see "date" above) plus a separate fixed-width time input.
     case "timestamp":
-      return "w-44";
+      return "min-w-[19rem]";
     case "boolean":
       return "w-16";
     case "text":

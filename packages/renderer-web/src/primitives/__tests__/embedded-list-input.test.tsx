@@ -738,8 +738,8 @@ describe("EmbeddedListInput — desktop table width (solon#107)", () => {
 
     const headers = desktop.querySelectorAll("th");
     expect(headers[0]?.className).toContain("min-w-[10rem]");
-    expect(headers[1]?.className).toContain("w-36");
-    expect(headers[2]?.className).toContain("w-44");
+    expect(headers[1]?.className).toContain("min-w-[9rem]");
+    expect(headers[2]?.className).toContain("min-w-[13rem]");
   });
 
   test("a money column is wider than a decimal/number column (framework#1880)", () => {
@@ -751,7 +751,7 @@ describe("EmbeddedListInput — desktop table width (solon#107)", () => {
     renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows })} />);
     const desktop = screen.getByTestId("lines-desktop");
     const headers = desktop.querySelectorAll("th");
-    expect(headers[0]?.className).toContain("w-36");
-    expect(headers[1]?.className).toContain("w-44");
+    expect(headers[0]?.className).toContain("min-w-[9rem]");
+    expect(headers[1]?.className).toContain("min-w-[13rem]");
   });
 });
