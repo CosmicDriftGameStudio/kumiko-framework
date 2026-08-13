@@ -6,7 +6,7 @@ import {
 import { COMPLIANCE_PROFILE_SCREEN_ID } from "./constants";
 import { forTenantQuery } from "./handlers/for-tenant.query";
 import { listProfilesQuery } from "./handlers/list-profiles.query";
-import { needsProfileQuery } from "./handlers/needs-profile.query";
+import { createNeedsProfileQuery } from "./handlers/needs-profile.query";
 import { setProfileWrite } from "./handlers/set-profile.write";
 import { subProcessorsQuery } from "./handlers/sub-processors.query";
 import { COMPLIANCE_PROFILES_I18N } from "./i18n";
@@ -70,7 +70,7 @@ export function createComplianceProfilesFeature(
       forTenant: r.queryHandler(forTenantQuery),
       listProfiles: r.queryHandler(listProfilesQuery),
       subProcessors: r.queryHandler(subProcessorsQuery),
-      needsProfile: r.queryHandler(needsProfileQuery),
+      needsProfile: r.queryHandler(createNeedsProfileQuery(resolvedAccess)),
     };
 
     r.screen({

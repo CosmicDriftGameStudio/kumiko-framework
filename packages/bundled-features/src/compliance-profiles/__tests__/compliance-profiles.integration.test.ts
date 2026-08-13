@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { access } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -304,5 +305,91 @@ describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", ()
   test("Member-Rolle bekommt 403 (Banner ist Admin-only)", async () => {
     const result = await stack.http.query(NEEDS_PROFILE, {}, normalUser);
     expect(result.status).toBe(403);
+  });
+});
+
+describe("compliance-profiles :: needs-profile mit access.systemAdmin-Narrowing (#2063)", () => {
+  let narrowedStack: TestStack;
+  let narrowedDb: DbConnection;
+
+  beforeAll(async () => {
+    const narrowedFeature = createComplianceProfilesFeature({ access: access.systemAdmin });
+    narrowedStack = await setupTestStack({ features: [narrowedFeature] });
+    narrowedDb = narrowedStack.db;
+    await unsafeCreateEntityTable(narrowedDb, tenantComplianceProfileEntity);
+    await createEventsTable(narrowedDb);
+  });
+
+  afterAll(async () => {
+    await narrowedStack.cleanup();
+  });
+
+  // TenantAdmin can no longer reach the picker screen (access.systemAdmin
+  // excludes TenantAdmin) — needsSelection must stop pointing them at a
+  // screen they can't open.
+  test("TenantAdmin ohne Picker-Zugriff → needsSelection bleibt false, reason=picker_not_accessible_for_role", async () => {
+    const excludedTenantAdmin = createIsolatedTenantAdmin(200);
+    const result = await narrowedStack.http.queryOk<{
+      needsSelection: boolean;
+      currentProfile: string | null;
+      reason?: string;
+    }>(NEEDS_PROFILE, {}, excludedTenantAdmin);
+    expect(result.needsSelection).toBe(false);
+    expect(result.currentProfile).toBeNull();
+    expect(result.reason).toBe("picker_not_accessible_for_role");
+  });
+
+  // A user holding both roles can still reach the picker via SystemAdmin —
+  // the gate must intersect the caller's actual roles, not just check
+  // whether TenantAdmin (the query's fixed call-access role) is among the
+  // feature's configured picker roles.
+  test("TenantAdmin+SystemAdmin dual-role → needsSelection bleibt true (Picker via SystemAdmin erreichbar)", async () => {
+    const dualRoleUser = createTestUser({
+      id: 204,
+      tenantId: testTenantId(204),
+      roles: ["TenantAdmin", "SystemAdmin"],
+    });
+    const result = await narrowedStack.http.queryOk<{
+      needsSelection: boolean;
+      currentProfile: string | null;
+      reason?: string;
+    }>(NEEDS_PROFILE, {}, dualRoleUser);
+    expect(result.needsSelection).toBe(true);
+    expect(result.reason).toBe("no_profile_selected");
+  });
+
+  // The needs-profile call access itself stays TenantAdmin-only — the
+  // `access` option is not passed 1:1 to the query dispatcher (otherwise
+  // SystemAdmin could now call an endpoint only TenantAdmin used to be
+  // allowed to call — a widening #2063 does not ask for).
+  test("SystemAdmin darf needs-profile weiterhin nicht aufrufen (Call-Access unveraendert)", async () => {
+    const systemAdmin = createTestUser({
+      id: 201,
+      tenantId: testTenantId(201),
+      roles: ["SystemAdmin"],
+    });
+    const result = await narrowedStack.http.query(NEEDS_PROFILE, {}, systemAdmin);
+    expect(result.status).toBe(403);
+  });
+
+  test("TenantAdmin mit bereits gesetztem Profile → needsSelection bleibt false, kein reason-Sonderfall", async () => {
+    const setupAdmin = createIsolatedTenantAdmin(202);
+    // set-profile is also narrowed to access.systemAdmin — set up via
+    // SystemAdmin to create the profile row for the read test.
+    const systemAdminSetup = createTestUser({
+      id: 203,
+      tenantId: setupAdmin.tenantId,
+      roles: ["SystemAdmin"],
+    });
+    await narrowedStack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, systemAdminSetup);
+
+    const result = await narrowedStack.http.queryOk<{
+      needsSelection: boolean;
+      currentProfile: string | null;
+      reason?: string;
+    }>(NEEDS_PROFILE, {}, setupAdmin);
+    expect(result.needsSelection).toBe(false);
+    expect(result.currentProfile).toBe("eu-dsgvo");
+    expect(result.reason).toBeUndefined();
   });
 });
