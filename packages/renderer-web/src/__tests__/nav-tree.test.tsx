@@ -5,7 +5,16 @@
 //   2. Active-State greift auf node mit screen wenn nav.route's
 //      screenId matcht (Standard-Sidebar-Verhalten).
 
-import { afterEach, describe, expect, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  type Mock,
+  spyOn,
+  test,
+} from "bun:test";
 import type {
   NavIconKey,
   TargetRef,
@@ -170,6 +179,18 @@ function expectNavIcons(container: HTMLElement, iconKeys: readonly string[]): vo
 }
 
 describe("NavTree", () => {
+  let warnSpy: Mock<typeof console.warn>;
+  beforeEach(() => {
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    // spyOn reuses the same underlying mock across calls on the same target
+    // within a process — without an explicit clear, call history from a
+    // PRIOR test in this describe block leaks into the next test's spy.
+    warnSpy.mockClear();
+  });
+  afterAll(() => {
+    warnSpy.mockRestore();
+  });
+
   test("Section-Header (parent ohne screen) ist statisches Label, children sichtbar", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
@@ -319,7 +340,7 @@ describe("NavTree", () => {
     expectNavIcons(container, ["palette", "link", "share"]);
   });
 
-  test("unbekannter icon-Key fällt sauber auf den Dot zurück (kein svg)", () => {
+  test("unbekannter icon-Key fällt sauber auf den Dot zurück (kein svg), aber warnt sichtbar", () => {
     const schema = {
       featureName: "showcase",
       entities: {},
@@ -338,6 +359,31 @@ describe("NavTree", () => {
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     expect(container.querySelectorAll("svg").length).toBe(0);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Nav entry "showcase:nav:x" references icon "does-not-exist"'),
+    );
+  });
+
+  test("bekannter icon-Key warnt NICHT", () => {
+    const schema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [{ id: "dash", type: "entityList", entity: "x", columns: [] }],
+      navs: [{ id: "dash", label: "Dash", screen: "dash", order: 10, icon: "dashboard" }],
+    } as FeatureSchema;
+    render(<NavTree schema={schema} />);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test("kein icon gesetzt warnt NICHT (Bundled Features ohne Icon sind kein Fehler)", () => {
+    const schema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [{ id: "plain", type: "entityList", entity: "x", columns: [] }],
+      navs: [{ id: "plain", label: "Plain", screen: "plain", order: 10 }],
+    } as FeatureSchema;
+    render(<NavTree schema={schema} />);
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 });
 

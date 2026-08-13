@@ -349,10 +349,17 @@ function NavLeadingIcon({
   label?: string;
 }): ReactNode {
   const iconKey = expanded && node.icon === "folder" ? "folder-open" : node.icon;
-  const NavIcon =
-    iconKey !== undefined && Object.hasOwn(NAV_ICONS, iconKey)
-      ? NAV_ICON_LOOKUP[iconKey]
-      : undefined;
+  const isKnownIcon = iconKey !== undefined && Object.hasOwn(NAV_ICONS, iconKey);
+  const NavIcon = iconKey !== undefined && isKnownIcon ? NAV_ICON_LOOKUP[iconKey] : undefined;
+  useEffect(() => {
+    if (iconKey !== undefined && !isKnownIcon) {
+      // biome-ignore lint/suspicious/noConsole: diagnostic for unregistered nav icon keys
+      console.warn(
+        `[kumiko] Nav entry "${node.qualifiedName}" references icon "${iconKey}", which is not ` +
+          `registered in NAV_ICONS — falling back to the dot indicator. Check the icon key spelling.`,
+      );
+    }
+  }, [iconKey, isKnownIcon, node.qualifiedName]);
   if (NavIcon !== undefined) return <NavIcon aria-hidden="true" className="shrink-0" />;
   const initial = label?.trim().charAt(0).toUpperCase();
   return (
