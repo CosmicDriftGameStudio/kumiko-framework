@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-06-24
+verified: 2026-08-13
 ---
 
 # RBAC & Tenant-Isolation: role origins and the membership-role invariant
@@ -89,6 +89,11 @@ One helper means the next override handler cannot quietly ship a weaker check.
 Write-isolation itself is already strong: the executor derives `tenantId` from
 the session, not the payload — so even with a forged role, writes stay scoped
 unless the handler explicitly opts into an override.
+
+The `tenantIdOverride` chokepoint above governs handlers on a tenant-scoped
+feature. A feature that declares `r.systemScope()` instead loses the
+automatic tenant filter entirely; [`ctx.systemDb`](../guides/handler-context-and-embedded-fields.md)
+is that pattern's equivalent self-check requirement.
 
 ## Enforcement
 
