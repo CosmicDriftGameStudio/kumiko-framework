@@ -71,6 +71,8 @@ export {
   RenderEdit,
   RenderField,
   RenderList,
+  synthesizeActionFormEntity,
+  synthesizeActionFormScreen,
   TokensProvider,
   UserRolesProvider,
   useDispatcher,
