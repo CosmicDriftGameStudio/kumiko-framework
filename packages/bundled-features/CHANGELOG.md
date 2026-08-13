@@ -1,5 +1,37 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.198.0
+
+### Minor Changes
+
+- 72eae1d: Security hardening (audit "Welle 2"): closes a request-supplied-JSON-can-forge-raw-SQL path, a stale/blocked-principal token bypass, a cross-tenant idempotency-cache collision, a cross-tenant `tenant:update` hole, and adds session revocation on tenant-membership role change/removal. Two of these are breaking API changes (bumped as `minor` per the 0.x convention — see `guard-no-major-gt-zero`):
+
+  - **`SqlExpression` is now branded.** Only the `sql` template tag and `sql.raw(...)` produce a value the query layer recognizes as raw SQL. If your app or schema file builds a `SqlExpression` via an object literal (e.g. `{ kind: "sql-expr", sql: ..., params: ... }`) instead of those two helpers, that literal is no longer treated as raw SQL — it now gets bound as an ordinary JSON parameter, which will surface as a broken query (not a silent vulnerability) at the call site. Migration: replace the object literal with the `sql` tag or `sql.raw(...)`.
+  - **`IdempotencyGuard.check`/`.store` signature changed** from `(requestId)` to `(tenantId, userId, requestId)`, so the idempotency cache can no longer be hit across tenants/users by an attacker who guesses or replays a `requestId`. Any custom `IdempotencyGuard` implementation, or code calling `.check`/`.store` directly (outside the dispatcher's own `runBatch`, which already updated), needs the new signature. The Redis key format also changed (`${prefix}${requestId}` → `${prefix}${tenantId}:${userId}:${requestId}`) with no compatibility shim — on deploy, in-flight idempotent retries older than the request's own retry window may execute a second time (same as a first-ever request; not a correctness issue, just not a cache hit).
+
+  Checked against every consumer in this workspace (kumiko-studio, kumiko-enterprise, kumiko-platform, publicstatus, solon, money-horse, show-pony): none construct a `SqlExpression` via object literal or call `IdempotencyGuard.check`/`.store` directly — no consumer code changes needed in this workspace. The note above is for external consumers outside this workspace.
+
+  The remaining fixes (PAT/invite-login gates, `tenant:write:update` cross-tenant self-check, session revocation on role change/removal) are behavior-only and need no consumer code changes.
+
+### Patch Changes
+
+- 3be0d60: `createDeliveryFeature` and `createComplianceProfilesFeature` accept a new optional `access` option (defaults to `access.admin`, unchanged from before). It narrows the feature's screen and the handler it reads/writes together, so a role that can't see the nav entry never had a callable handler underneath it either — previously the two could drift apart, leaving no way to opt a role out of the nav entry without also losing handler access, or vice versa.
+- 9b2c94a: `createKumikoApp`'s boot diagnostic (#2025) flagged every `type: "custom"` screen without a registered `clientFeatures` component as a missing client plugin — including screens that are dormant by design (registered without a self-owned `r.nav()`, meant to be navved by the consuming app itself, e.g. `user-data-rights`'s privacy center, `auth-mfa`'s enable screen, `personal-access-tokens`'s token screen). Added an optional `dormant?: boolean` field to `CustomScreenDefinition`; the diagnostic now skips screens flagged `dormant: true` instead of false-positiving on every app that hasn't wired the client plugin yet. Screens a feature self-navs (e.g. compliance-profiles' profile-picker) are unaffected and still trigger the diagnostic when their client plugin is missing — that stays a real bug (infra#503).
+- Updated dependencies [f2ebb71]
+- Updated dependencies [9b2c94a]
+- Updated dependencies [b925dea]
+- Updated dependencies [89ebe92]
+- Updated dependencies [b925dea]
+- Updated dependencies [b925dea]
+- Updated dependencies [e3504b5]
+- Updated dependencies [72eae1d]
+  - @cosmicdrift/kumiko-headless@0.198.0
+  - @cosmicdrift/kumiko-types@0.198.0
+  - @cosmicdrift/kumiko-renderer-web@0.198.0
+  - @cosmicdrift/kumiko-framework@0.198.0
+  - @cosmicdrift/kumiko-renderer@0.198.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.198.0
+
 ## 0.197.1
 
 ### Patch Changes

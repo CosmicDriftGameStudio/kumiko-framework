@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.198.0
+
+### Patch Changes
+
+- f2ebb71: `renderApexHeader` renders `<div class="container nav">`. `.container` sets horizontal padding via the `padding` shorthand, and `.nav` (same specificity, declared later) also used a `padding` shorthand — its `0` horizontal value won the cascade and clobbered the container's, so below the 1120px `.container` breakpoint the header lost its side padding (wordmark against the edge, CTA clipped). `.nav` now uses `padding-block` instead of `padding`, leaving `.container`'s horizontal padding untouched.
+- Updated dependencies [b925dea]
+- Updated dependencies [89ebe92]
+- Updated dependencies [e3504b5]
+- Updated dependencies [72eae1d]
+  - @cosmicdrift/kumiko-framework@0.198.0
+
 ## 0.197.1
 
 ### Patch Changes

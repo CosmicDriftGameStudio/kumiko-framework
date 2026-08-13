@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.198.0
+
+### Patch Changes
+
+- 80d03ba: `runDevApp` checked for a mounted sessions provider with a raw pre-registry scan (`features.some(f => f.extensionUsages...)`) instead of `registry.getExtensionUsages(EXT_SESSION_STORE)` like `runProdApp` — two different ways of asking the same question. Unified onto the registry-based check, and gave dev the same boot gate prod already had (`assertSessionBootInvariants`, now `mode: "prod" | "dev"`): prod still aborts boot when auth is mounted without a sessionStore provider, dev now warns instead of staying silent. New `@cosmicdrift/kumiko-server-runtime/session-boot-gate` export.
+
+  Note: the two extensionUsages predicates read the same underlying array, so this did not reproduce a proven false negative — it removes a divergent mechanism and adds the missing dev-time signal. If a real app's sessions feature is mounted and its session-list is still empty, the new warn will not fire (no sessionStore is "missing" there) and that needs separate investigation.
+
+- Updated dependencies [3be0d60]
+- Updated dependencies [9b2c94a]
+- Updated dependencies [b925dea]
+- Updated dependencies [89ebe92]
+- Updated dependencies [e3504b5]
+- Updated dependencies [72eae1d]
+- Updated dependencies [80d03ba]
+  - @cosmicdrift/kumiko-bundled-features@0.198.0
+  - @cosmicdrift/kumiko-framework@0.198.0
+  - @cosmicdrift/kumiko-server-runtime@0.198.0
+
 ## 0.197.1
 
 ### Patch Changes
