@@ -10,7 +10,12 @@
 // FileRef that doesn't exist (no existence-leak via distinct status codes).
 //
 // tenantId comes from `query.user.tenantId` ONLY (host-resolved by the
-// httpRoute wrapper's `resolveApexTenant`), never from the payload.
+// httpRoute wrapper's `resolveApexTenant`), never from the payload — true
+// for the httpRoute-wrapper path. Over the generic `/api/query` dispatch
+// (only reachable when this feature is mounted WITH resolveApexTenant, see
+// feature.ts), `ctx.user.tenantId` instead comes from that dispatcher's own
+// `anonymousAccess` resolution — tenant provenance there depends on the
+// consumer's `resolverTrust`/anonymousAccess setup, not the host.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { resolveFieldVariant } from "@cosmicdrift/kumiko-framework/derivatives";
@@ -29,9 +34,15 @@ type FileRefRow = {
   readonly fieldName: string | null;
 };
 
+// A declared variant with no explicit gate in `isPublic` is implicitly
+// public as soon as the entityType-level check returns `true` — `fieldName`
+// and `variant` let a predicate opt individual fields/variants out (e.g. a
+// cheap `thumb` served publicly while an expensive `full` stays gated).
 export type DerivativePublicPredicateArgs = {
   readonly entityId: string;
   readonly tenantId: TenantId;
+  readonly fieldName: string;
+  readonly variant: string;
 };
 
 export type DerivativePublicPredicatePlugin = {
@@ -58,7 +69,7 @@ export const PUBLIC_VARIANT_QN = "file-derivatives:query:public-variant";
 export const publicVariantQuery = defineQueryHandler({
   name: "public-variant",
   schema: z.object({
-    fileRefId: z.string(),
+    fileRefId: z.string().uuid(),
     variant: z.string().min(1).max(64),
   }),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
@@ -90,7 +101,10 @@ export const publicVariantQuery = defineQueryHandler({
       );
     }
 
-    const isPublic = await usage.options.isPublic({ entityId, tenantId: ctx.user.tenantId }, ctx);
+    const isPublic = await usage.options.isPublic(
+      { entityId, tenantId: ctx.user.tenantId, fieldName, variant: query.payload.variant },
+      ctx,
+    );
     if (!isPublic) return null;
 
     // ctx.files/ctx.derivatives are optional on HandlerContext (only wired

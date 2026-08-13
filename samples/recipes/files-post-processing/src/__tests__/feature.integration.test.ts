@@ -34,12 +34,15 @@ import sharp from "sharp";
 import { coverOrder, filesPostProcessingFeature, publishedPhotoIds } from "../feature";
 
 const HOST = "photos.example.com";
+const HOST_B = "photos-b.example.com";
 
 let stack: TestStack;
 let provider: InMemoryFileProvider;
 
 const tenantId = testTenantId(1);
+const tenantIdB = testTenantId(2);
 const user = createTestUser({ id: 1, tenantId, roles: ["Admin"] });
+const userB = createTestUser({ id: 2, tenantId: tenantIdB, roles: ["Admin"] });
 
 async function jpegBytes(width: number, height: number): Promise<Uint8Array> {
   return sharp({
@@ -58,7 +61,11 @@ beforeAll(async () => {
       fileFoundationFeature,
       createFilesFeature(),
       createFileDerivativesFeature({
-        resolveApexTenant: (host) => (host === HOST ? tenantId : null),
+        resolveApexTenant: (host) => {
+          if (host === HOST) return tenantId;
+          if (host === HOST_B) return tenantIdB;
+          return null;
+        },
       }),
       derivativesSharpFeature,
       filesPostProcessingFeature,
@@ -79,8 +86,9 @@ beforeEach(() => {
 
 async function uploadPhoto(
   attach: { entityType: string; entityId: string; fieldName: string } | null,
+  asUser: typeof user = user,
 ): Promise<string> {
-  const token = await stack.jwt.sign(user);
+  const token = await stack.jwt.sign(asUser);
   const bytes = await jpegBytes(400, 300);
   const fd = new FormData();
   fd.append("file", new File([Buffer.from(bytes)], "photo.jpg", { type: "image/jpeg" }));
@@ -164,5 +172,24 @@ describe("entry point 3 — public route, default-deny", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("image/webp");
+  });
+
+  test("publishing entityId p3 under tenant A does not publish tenant B's own entityId p3 (#1983/1)", async () => {
+    const fileIdA = await uploadPhoto(
+      { entityType: "photo", entityId: "p3", fieldName: "original" },
+      user,
+    );
+    const fileIdB = await uploadPhoto(
+      { entityType: "photo", entityId: "p3", fieldName: "original" },
+      userB,
+    );
+
+    await stack.http.writeOk("files-post-processing:write:publish", { entityId: "p3" }, user);
+
+    const resA = await stack.app.request(`http://${HOST}/media/${fileIdA}/thumb`);
+    const resB = await stack.app.request(`http://${HOST_B}/media/${fileIdB}/thumb`);
+
+    expect(resA.status).toBe(200);
+    expect(resB.status).toBe(404);
   });
 });
