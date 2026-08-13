@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
@@ -51,6 +52,10 @@ export interface Scenario {
   readonly settleMs?: number;
   readonly fullPage?: boolean;
   readonly viewport?: { readonly width: number; readonly height: number };
+  // runMatrix only: opt out of the identical-theme-screenshot check for
+  // scenarios that legitimately render the same pixels across themes — e.g.
+  // a plain server-rendered content page with no client-side theme wiring.
+  readonly themeInvariant?: boolean;
 }
 
 async function openScenario(page: Page, s: Scenario): Promise<void> {
@@ -158,6 +163,39 @@ export interface MatrixOptions<T extends string> {
 // in the host's Intl-driven formatting regardless of SCREENSHOT_LOCALES.
 const LOCALE_TAGS: Readonly<Record<string, string>> = { en: "en-US", de: "de-DE" };
 
+export interface ThemeScreenshotDigest<T extends string> {
+  readonly viewport: string;
+  readonly theme: T;
+  readonly hash: string;
+}
+
+// Catches a renamed CSS class or an overridden theme provider that leaves every
+// theme rendering identically — MIN_BYTES alone can't (a valid PNG is a valid
+// PNG regardless of which theme produced it). Keyed by viewport so a failure
+// names the exact viewport and colliding theme pair, not just the scenario.
+export function findIdenticalThemeScreenshots<T extends string>(
+  digests: readonly ThemeScreenshotDigest<T>[],
+): string[] {
+  const seenByViewport = new Map<string, Map<string, T>>();
+  const violations: string[] = [];
+  for (const { viewport, theme, hash } of digests) {
+    let seenHashes = seenByViewport.get(viewport);
+    if (seenHashes === undefined) {
+      seenHashes = new Map();
+      seenByViewport.set(viewport, seenHashes);
+    }
+    const collidingTheme = seenHashes.get(hash);
+    if (collidingTheme !== undefined) {
+      violations.push(
+        `viewport "${viewport}": themes "${collidingTheme}" and "${theme}" produced byte-identical screenshots`,
+      );
+    } else {
+      seenHashes.set(hash, theme);
+    }
+  }
+  return violations;
+}
+
 export function runMatrix<T extends string>(
   scenarios: readonly Scenario[],
   opts: MatrixOptions<T>,
@@ -198,6 +236,8 @@ export function runMatrix<T extends string>(
           }, locale);
           await openScenario(page, s);
 
+          const digests: ThemeScreenshotDigest<T>[] = [];
+
           for (const theme of themes) {
             await opts.applyTheme(page, theme);
             for (const vp of viewports) {
@@ -207,13 +247,29 @@ export function runMatrix<T extends string>(
               mkdirSync(dir, { recursive: true });
               const path = `${dir}/${vp}.png`;
               // animations: "disabled" jumps to end-state at the engine level — immune to CSS specificity, unlike an addStyleTag injection.
-              await page.screenshot({
+              // screenshot() returns the same bytes it writes to `path` — reuse
+              // them for both checks instead of a statSync/read-back roundtrip.
+              const buffer = await page.screenshot({
                 path,
                 fullPage: s.fullPage ?? false,
                 animations: "disabled",
               });
-              expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
+              expect.soft(buffer.length).toBeGreaterThan(MIN_BYTES);
+              digests.push({
+                viewport: vp,
+                theme,
+                hash: createHash("sha256").update(buffer).digest("hex"),
+              });
             }
+          }
+
+          if (!s.themeInvariant) {
+            expect
+              .soft(
+                findIdenticalThemeScreenshots(digests),
+                `scenario "${s.name}" (${locale}): theme switch produced no visual difference`,
+              )
+              .toEqual([]);
           }
         });
       }
