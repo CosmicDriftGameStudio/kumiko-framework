@@ -42,6 +42,10 @@
       "types": "./src/pii-boot-gate.ts",
       "default": "./src/pii-boot-gate.ts"
     },
+    "./session-boot-gate": {
+      "types": "./src/session-boot-gate.ts",
+      "default": "./src/session-boot-gate.ts"
+    },
     "./boot/apply-boot-seeds": {
       "types": "./src/boot/apply-boot-seeds.ts",
       "default": "./src/boot/apply-boot-seeds.ts"
