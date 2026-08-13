@@ -33,12 +33,14 @@ describe("delivery screens + handler access alignment", () => {
   test("access option leaves the preferences handler openToAll — that's per-user, not an admin surface", () => {
     const delivery = createDeliveryFeature({ access: access.systemAdmin });
     const preferencesAccess = delivery.queryHandlers["preferences"]?.access;
-    expect(preferencesAccess && "openToAll" in preferencesAccess && preferencesAccess.openToAll).toBe(
-      true,
-    );
+    expect(
+      preferencesAccess && "openToAll" in preferencesAccess && preferencesAccess.openToAll,
+    ).toBe(true);
   });
 
   test("boot-validates with a narrowed access option", () => {
-    expect(() => validateBoot([createDeliveryFeature({ access: access.systemAdmin })])).not.toThrow();
+    expect(() =>
+      validateBoot([createDeliveryFeature({ access: access.systemAdmin })]),
+    ).not.toThrow();
   });
 });
