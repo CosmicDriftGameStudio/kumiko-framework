@@ -336,15 +336,22 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   // declare a `type: "custom"` screen that's reachable directly by URL
   // even without nav placement — without this check, a missing client
   // plugin only surfaces as an error placeholder to whoever happens to
-  // open that URL (kumiko-framework#2025). Dev-only: some bundled screens
-  // (e.g. user-data-rights privacy-center) are intentionally dormant with
-  // no opt-out mechanism yet (kumiko-framework#2034), so this would be a
-  // permanent false positive in production for consumers that don't mount
-  // every dormant screen's client plugin.
+  // open that URL (kumiko-framework#2025). Screens flagged `dormant`
+  // (e.g. user-data-rights privacy-center, auth-mfa's enable screen) are
+  // registered without a self-owned r.nav on purpose — an app opts in by
+  // navving them explicitly, so a consumer that hasn't done that yet isn't
+  // missing anything (kumiko-framework#2034). Still dev-only: several
+  // bundled screens that ARE self-navved (e.g. compliance-profiles'
+  // profile-picker) have real unmounted-client-plugin bugs in existing
+  // consumer apps today (kumiko-framework#2025) — running this in
+  // production before those are fixed (tracked via infra#503) would just
+  // spam every affected app's console.
   if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
     const missingCustomScreens = app.features.flatMap((f) =>
       f.screens
-        .filter((s) => s.type === "custom" && customScreens[s.id] === undefined)
+        .filter(
+          (s) => s.type === "custom" && s.dormant !== true && customScreens[s.id] === undefined,
+        )
         .map((s) => `${f.featureName}:${s.id}`),
     );
     if (missingCustomScreens.length > 0) {
