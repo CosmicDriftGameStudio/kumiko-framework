@@ -1,5 +1,6 @@
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { decryptStoredPii } from "../../shared";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
@@ -13,7 +14,12 @@ export const detailQuery = defineQueryHandler({
   schema: z.object({ runId: z.uuid() }),
   access: { roles: ["SystemAdmin"] },
   handler: async (query, ctx) => {
-    const db = ctx.db;
+    if (!ctx.systemDb) {
+      throw new InternalError({
+        message: "jobs:query:details requires ctx.systemDb (feature must declare r.systemScope())",
+      });
+    }
+    const db = ctx.systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
 
     const row = await fetchOne(db, jobRunsTable, { id: query.payload.runId });
 

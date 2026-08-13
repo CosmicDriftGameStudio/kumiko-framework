@@ -1,5 +1,6 @@
 import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { decryptStoredPii } from "../../shared";
 import { jobRunsTable } from "../job-run-table";
@@ -18,10 +19,16 @@ export const listQuery = defineQueryHandler({
   }),
   access: { roles: ["SystemAdmin"] },
   handler: async (query, ctx) => {
+    if (!ctx.systemDb) {
+      throw new InternalError({
+        message: "jobs:query:list requires ctx.systemDb (feature must declare r.systemScope())",
+      });
+    }
+    const db = ctx.systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
     const where: WhereObject = {};
     if (query.payload.jobName) where["jobName"] = query.payload.jobName;
     if (query.payload.status) where["status"] = query.payload.status;
-    const rows = await selectMany(ctx.db, jobRunsTable, where, {
+    const rows = await selectMany(db, jobRunsTable, where, {
       orderBy: { col: "id", direction: "desc" },
       limit: query.payload.limit ?? 50,
     });

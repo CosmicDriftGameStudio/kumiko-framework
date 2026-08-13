@@ -15,6 +15,7 @@ import {
   type TestDb,
   type TestRedis,
   TestUsers,
+  testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { sleep } from "@cosmicdrift/kumiko-framework/testing";
@@ -35,6 +36,14 @@ let jobRunner: JobRunner;
 
 const systemAdmin = TestUsers.systemAdmin;
 const normalUser = createTestUser({ id: 2, roles: ["User"] });
+// jobs is platform-wide, cross-tenant-by-design monitoring (fw#2077) — this
+// SystemAdmin lives under a different tenant than `systemAdmin` above, so
+// scenario 6 can prove list/details/retry see runs across tenant boundaries.
+const otherTenantSystemAdmin = createTestUser({
+  id: 20,
+  tenantId: testTenantId(2),
+  roles: ["SystemAdmin"],
+});
 const JWT_SECRET = "jobs-feature-test-secret-minimum-32-chars!!";
 
 // Track job executions
@@ -318,6 +327,54 @@ describe("scenario 5: retry failed job", () => {
       expect(result.error.code).toBe("unprocessable");
       expect(result.error.details).toMatchObject({ reason: "only_failed_jobs_can_be_retried" });
     }
+  });
+});
+
+// --- Scenario 6: cross-tenant visibility (ctx.systemDb.acknowledgeCrossTenant) ---
+
+describe("scenario 6: cross-tenant job monitoring", () => {
+  test("SystemAdmin from a different tenant sees runs triggered under another tenant", async () => {
+    const triggerResult = await write(systemAdmin, JobHandlers.trigger, {
+      jobName: "app:job:sync-data",
+      payload: { source: "cross-tenant-check" },
+    });
+    expect(triggerResult.isSuccess).toBe(true);
+    const bullJobId = triggerResult.data.bullJobId;
+    await sleep(1000);
+
+    const listResult = await query(otherTenantSystemAdmin, JobQueries.list, {
+      jobName: "app:job:sync-data",
+    });
+    const run = listResult.data.rows.find(
+      (r: Record<string, unknown>) => r["bullJobId"] === bullJobId,
+    );
+    expect(run).toBeDefined();
+
+    const detailResult = await query(otherTenantSystemAdmin, JobQueries.details, {
+      runId: run.id,
+    });
+    expect(detailResult.data).not.toBeNull();
+    expect(detailResult.data.id).toBe(run.id);
+  });
+
+  test("SystemAdmin from a different tenant can retry a failed run triggered under another tenant", async () => {
+    const triggerResult = await write(systemAdmin, JobHandlers.trigger, {
+      jobName: "app:job:failing-import",
+    });
+    expect(triggerResult.isSuccess).toBe(true);
+    await sleep(1500);
+
+    const listResult = await query(otherTenantSystemAdmin, JobQueries.list, {
+      jobName: "app:job:failing-import",
+      status: "failed",
+    });
+    const failedRunId = listResult.data.rows[0].id;
+
+    const retryResult = await write(otherTenantSystemAdmin, JobHandlers.retry, {
+      runId: failedRunId,
+    });
+    expect(retryResult.isSuccess).toBe(true);
+    expect(retryResult.data.retriedFromRunId).toBe(failedRunId);
   });
 });
 
