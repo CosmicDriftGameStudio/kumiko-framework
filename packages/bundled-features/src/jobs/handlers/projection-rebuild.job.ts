@@ -15,10 +15,10 @@ export const projectionRebuildPayloadSchema = z.object({
 
 export const projectionRebuildJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
   const { projection, skipApplyErrors } = projectionRebuildPayloadSchema.parse(rawPayload);
-  if (!ctx.db) {
+  if (!ctx.systemDb) {
     throw new InternalError({
       message:
-        "[jobs:projection-rebuild] ctx.db missing — job context requires a database connection.",
+        "[jobs:projection-rebuild] ctx.systemDb missing — is r.systemScope() still set on the jobs feature?",
     });
   }
   if (!ctx.registry) {
@@ -27,7 +27,10 @@ export const projectionRebuildJob: JobHandlerFn = async (rawPayload, ctx): Promi
         "[jobs:projection-rebuild] ctx.registry missing — job context requires the registry.",
     });
   }
-  const db = ctx.db as DbConnection; // @cast-boundary db-operator
+  // Global rebuild by design (streams every tenant's events, not just one) —
+  // acknowledgeCrossTenant documents that instead of the previous implicit
+  // ctx.db cast. .raw is the same DbConnection ctx.db carried before.
+  const db = ctx.systemDb.acknowledgeCrossTenant("global projection rebuild").raw as DbConnection; // @cast-boundary db-operator
   const result = await rebuildProjection(projection, {
     db,
     registry: ctx.registry,

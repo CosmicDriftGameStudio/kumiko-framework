@@ -153,9 +153,18 @@ describe("projection-rebuild job (jobs feature composed)", () => {
     for (let i = 0; i < 40 && (await getCount()) !== 2; i++) await sleep(200);
     expect(await getCount()).toBe(2);
 
-    const runs = await selectMany<{ jobName: string; status: string }>(db, jobRunsTable, {
-      jobName: PROJECTION_REBUILD_JOB,
-    });
+    // getCount()==2 only proves rebuildProjection's own writes landed — the
+    // run-completed event (job-run-logger's onJobComplete) is a separate
+    // async append that starts only after the handler returns, so it can
+    // still be in flight here. Poll status too instead of racing it.
+    let runs: readonly { jobName: string; status: string }[] = [];
+    for (let i = 0; i < 40; i++) {
+      runs = await selectMany<{ jobName: string; status: string }>(db, jobRunsTable, {
+        jobName: PROJECTION_REBUILD_JOB,
+      });
+      if (runs.some((r) => r.status === "completed")) break;
+      await sleep(200);
+    }
     expect(runs.length).toBeGreaterThanOrEqual(1);
     expect(runs.some((r) => r.status === "completed")).toBe(true);
   }, 30000);
