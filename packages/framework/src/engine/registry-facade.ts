@@ -203,6 +203,12 @@ export function buildRegistryFacade(state: RegistryState): Registry {
       return state.featureMap.get(featureName)?.systemScope ?? false;
     },
 
+    isJobSystemScoped(qualifiedJobName: string): boolean {
+      const featureName = state.jobFeatureMap.get(qualifiedJobName);
+      if (!featureName) return false;
+      return state.featureMap.get(featureName)?.systemScope ?? false;
+    },
+
     getHandlerFeature(qualifiedHandler: string): string | undefined {
       return state.handlerFeatureMap.get(qualifiedHandler);
     },
