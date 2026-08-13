@@ -377,10 +377,16 @@ export function primaryKey(opts: {
 // Limits: no nested SqlExpression composition (drizzle's recursive
 // `sql\`${other}\``) — schema-files use single-level expressions only.
 
+// Unforgeable via JSON — a client-supplied jsonb value can fake `kind:
+// "sql-expr"` but can never carry a Symbol, so isSqlExpression() (bun-db/query.ts)
+// can't be tricked into treating request data as a raw SQL literal.
+export const SQL_EXPR_BRAND: unique symbol = Symbol("sql-expr");
+
 export type SqlExpression = {
   readonly kind: "sql-expr";
   readonly text: string;
   readonly params: readonly unknown[];
+  readonly [SQL_EXPR_BRAND]: true;
 };
 
 export function sql(strings: TemplateStringsArray, ...values: readonly unknown[]): SqlExpression {
@@ -397,10 +403,15 @@ export function sql(strings: TemplateStringsArray, ...values: readonly unknown[]
       }
     }
   }
-  return { kind: "sql-expr", text: parts.join(""), params };
+  return { kind: "sql-expr", text: parts.join(""), params, [SQL_EXPR_BRAND]: true };
 }
 
-sql.raw = (text: string): SqlExpression => ({ kind: "sql-expr", text, params: [] });
+sql.raw = (text: string): SqlExpression => ({
+  kind: "sql-expr",
+  text,
+  params: [],
+  [SQL_EXPR_BRAND]: true,
+});
 
 // ---- table() — the schema-table factory ----
 //

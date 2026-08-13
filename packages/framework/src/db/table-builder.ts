@@ -25,6 +25,7 @@ import {
   moneyAmount,
   table as pgTable,
   plainDate,
+  SQL_EXPR_BRAND,
   type SqlExpression,
   serial,
   sql,
@@ -586,7 +587,12 @@ export function buildEntityTable<E extends EntityDefinition>(
                 .filter((c, i) => c !== def.columns[i])
                 .map((c) => `"${toSnakeCase(c)}" IS NOT NULL`)
                 .join(" AND ");
-              const partialWhere: SqlExpression = { kind: "sql-expr", text: whereText, params: [] };
+              const partialWhere: SqlExpression = {
+                kind: "sql-expr",
+                text: whereText,
+                params: [],
+                [SQL_EXPR_BRAND]: true,
+              };
               indexes[`${indexName}_bidx`] = uniqueIndex(`${indexName}_bidx`)
                 .on(...bidxCols)
                 .where(partialWhere);
