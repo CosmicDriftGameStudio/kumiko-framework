@@ -19,6 +19,7 @@ import {
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
 // product — toggleable, default on. Owns the `product` entity and a
@@ -45,7 +46,17 @@ export function createProductFeature(): FeatureDefinition {
     r.writeHandler(
       "product:create",
       z.object({ name: z.string().min(1).max(100) }),
-      async (event, ctx) => productCrud.create(event.payload, event.user, ctx.db),
+      async (event, ctx) => {
+        if (!ctx.systemDb) {
+          throw new InternalError({
+            message: "product:create requires ctx.systemDb — is r.systemScope() still set?",
+          });
+        }
+        const db = ctx.systemDb.acknowledgeCrossTenant(
+          "product catalog is system-wide, not tenant-scoped",
+        );
+        return productCrud.create(event.payload, event.user, db);
+      },
       { access: { roles: ["SystemAdmin"] } },
     );
   });
@@ -75,17 +86,16 @@ export function createProductAuditFeature(): FeatureDefinition {
 
     r.hook("postSave", { allOf: "product" }, async (result, ctx) => {
       if (result.kind !== "save" || !result.isNew) return;
-      if (!ctx.db || !("raw" in ctx.db)) return;
+      if (!ctx.systemDb) return;
       const name = (result.changes as Record<string, unknown>)["name"] as string | undefined;
       if (!name) return;
+      const db = ctx.systemDb.acknowledgeCrossTenant(
+        "audit sink is system-wide, mirrors the system-wide product catalog",
+      );
       // Cross-feature audit sink is itself an r.entity projection — write it via
       // the executor (system actor, no human caller) so the row is event-backed
       // and survives a rebuild, not a direct method-form insert.
-      await productAuditCrud.create(
-        { productName: name },
-        createSystemUser(SYSTEM_TENANT_ID),
-        ctx.db,
-      );
+      await productAuditCrud.create({ productName: name }, createSystemUser(SYSTEM_TENANT_ID), db);
     });
   });
 }

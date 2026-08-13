@@ -17,13 +17,17 @@ export function createCascadeDeleteHook(
     priority: SystemHookPriorities.cascadeDelete,
     fn: async (payload, ctx) => {
       const entityName = payload.entityName;
-      if (!entityName || !ctx.db) {
+      const db = ctx.systemDb
+        ? ctx.systemDb.acknowledgeCrossTenant(
+            `cascade delete for r.systemScope() write handler (${entityName ?? "unknown"})`,
+          )
+        : ctx.db;
+      if (!entityName || !db) {
         ctx.log?.debug(
           `cascadeDelete: skipping — ${!entityName ? "no entityName" : "no db"} on payload ${payload.id}`,
         );
         return;
       }
-      const db = ctx.db;
 
       // Cascade applies to outgoing hasMany / manyToMany relations only —
       // the parent side of the link is where `onDelete` lives (see

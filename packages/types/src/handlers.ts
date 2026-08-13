@@ -311,6 +311,8 @@ type SharedContextFields = {
 // AppContext, so the union keeps that assignment straightforward.
 export type AppContext = SharedContextFields & {
   readonly db?: DbConnection | TenantDb;
+  // Hooks receive the same HandlerContext as their AppContext, so `db` is fail-closed here too.
+  readonly systemDb?: UncheckedSystemDb;
   readonly registry?: Registry;
   readonly systemUser?: SessionUser;
   readonly log?: Logger;
@@ -353,14 +355,19 @@ export type AppContext = SharedContextFields & {
 // `declare module "@cosmicdrift/kumiko-framework/engine"`). Code that bypasses the
 // type-map (runtime-pluggable events) uses `unsafeAppendEvent`.
 export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedContextFields & {
+  // Tenant-filtered for ordinary handlers. For r.systemScope() handlers this
+  // is fail-closed instead (dispatch-shared.ts hands back a guard that
+  // throws on first touch) — there's no type-level way to make `db` optional
+  // only for system handlers (isSystem is a runtime-only registry lookup),
+  // so a system handler must reach for `systemDb` below.
   readonly db: TenantDb;
   // Same tenant scoping as `db`, but never bound to the handler's tx: writes
   // through it survive a rollback, for side effects that already happened
   // outside the DB. `undefined` when the pipeline has no outside-tx source
   // for this dispatch (see dispatch-shared.ts) — callers must check before use.
   readonly dbOutsideTransaction: TenantDb | undefined;
-  // Only present for r.systemScope() handlers, bound to the same `db` as above.
-  // Non-system handlers never receive this — reach for `db` instead.
+  // Only present for r.systemScope() handlers. Non-system handlers never
+  // receive this — reach for `db` instead, which is fail-closed for them.
   readonly systemDb?: UncheckedSystemDb;
   readonly registry: Registry;
   /** Aktiver SessionUser des Handler-Aufrufs — Convenience-Alias zu
