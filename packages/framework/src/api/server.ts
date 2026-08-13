@@ -286,6 +286,27 @@ export function buildServer(options: ServerOptions): KumikoServer {
     );
   }
 
+  // #2051 — a screen whose search box renders (kumiko-screen.tsx gates it on
+  // `screen.searchable ?? entity-has-searchable-field`, the same condition
+  // used below) sends `payload.search` on every query. Without a
+  // context.searchAdapter that throws UnprocessableError at request time
+  // (#2032) — surface the misconfig at boot instead of on the first search.
+  // Warn, not throw: unlike missing file-storage (uploads always fail),
+  // list screens still work without search: only the search box is broken.
+  // Several deployed apps (offlot-app, publicstatus, kumiko-studio,
+  // kumiko-enterprise) currently run in exactly this state.
+  if (!options.context.searchAdapter) {
+    const unwiredEntities = entitiesWithSearchableScreen(options.registry);
+    if (unwiredEntities.length > 0) {
+      console.warn(
+        `[kumiko:boot] ${unwiredEntities.length} entit${unwiredEntities.length === 1 ? "y" : "ies"} ` +
+          `have a searchable list screen but no SearchAdapter is wired on context.searchAdapter: ` +
+          `${unwiredEntities.join(", ")}. Search requests against ${unwiredEntities.length === 1 ? "it" : "them"} will fail with a 422 (search_adapter_not_wired) at runtime. ` +
+          "Wire a SearchAdapter (e.g. createMeilisearchAdapter) on context.searchAdapter, or remove `searchable: true` from the affected fields.",
+      );
+    }
+  }
+
   // Stateless JWTs (no sessionChecker → no revocation) default to a shorter
   // TTL than session-backed ones, since a leaked stateless token can't be
   // revoked and stays valid until it expires. Explicit jwtTtl always wins.
@@ -839,6 +860,26 @@ function registryDeclaresFileFields(registry: Registry): boolean {
     }
   }
   return false;
+}
+
+// Entities whose entityList screen renders a search box per the same rule
+// kumiko-screen.tsx applies at render time: `screen.searchable` wins when
+// set, otherwise the box shows iff the entity has ≥1 searchable field.
+// `screen.searchable === false` is excluded — the boot-validator
+// (entity-list-screens.ts) only allows that on the whitelisted download-
+// attempt-list-style screens, which never render the box.
+function entitiesWithSearchableScreen(registry: Registry): readonly string[] {
+  const entities = new Set<string>();
+  for (const feature of registry.features.values()) {
+    for (const screen of Object.values(feature.screens)) {
+      if (screen.type !== "entityList") continue;
+      const isSearchable =
+        screen.searchable === true ||
+        (screen.searchable === undefined && registry.getSearchableFields(screen.entity).length > 0);
+      if (isSearchable) entities.add(screen.entity);
+    }
+  }
+  return [...entities];
 }
 
 // Upload-route policy carried by createFilesFeature(opts?) — read from the
