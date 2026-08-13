@@ -151,18 +151,18 @@ describe("Drawer", () => {
       );
       expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("800");
     });
-    test("Startbreite folgt max(600px, 25vw) wenn resize.defaultWidthPx fehlt", () => {
-      withViewportWidth(3000, () => {
+    test("Startbreite folgt max(600px, 37.5vw) wenn resize.defaultWidthPx fehlt", () => {
+      withViewportWidth(1920, () => {
         render(
           <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
             <div>Body</div>
           </Drawer>,
         );
-        expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("750");
+        expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("720");
       });
     });
 
-    test("Startbreite clamped auf effectiveMaxWidthPx wenn 25vw ueber MAX_WIDTH_PX hinauslaeuft", () => {
+    test("Startbreite clamped auf effectiveMaxWidthPx wenn 37.5vw ueber MAX_WIDTH_PX hinauslaeuft", () => {
       withViewportWidth(8000, () => {
         render(
           <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
