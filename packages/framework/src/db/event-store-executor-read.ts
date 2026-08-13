@@ -5,6 +5,7 @@ import { coerceRow, extractTableInfo } from "../db/query";
 import { buildOwnershipClause, shiftParams } from "../engine/ownership";
 import type { EntityId } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
+import { UnprocessableError } from "../errors";
 import { getStreamVersion } from "../event-store";
 import { rehydrateCompoundTypes } from "./compound-types";
 import { decodeCursor, encodeCursor } from "./cursor";
@@ -54,7 +55,17 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // ctx.searchAdapter erst zur Laufzeit weil createEventStoreExecutor
       // beim Definition-Time noch keinen Server-Context hat).
       const effectiveSearchAdapter = searchAdapter ?? runtimeOptions?.searchAdapter;
-      if (payload.search && effectiveSearchAdapter && entityName) {
+      if (payload.search) {
+        // #2032 — a search term with no adapter wired must fail loud, not
+        // silently return the unfiltered list dressed up as a search result.
+        if (!effectiveSearchAdapter) {
+          throw new UnprocessableError("search_adapter_not_wired", {
+            details: {
+              entity: entityName,
+              hint: "Wire a SearchAdapter for this entity, or remove `searchable` from the field/screen.",
+            },
+          });
+        }
         const results = await effectiveSearchAdapter.search(user.tenantId, payload.search, {
           filterType: entityName,
         });
