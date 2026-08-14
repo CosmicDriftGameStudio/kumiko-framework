@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.201.0
+
+### Patch Changes
+
+- 5c53db1: `user-data-rights`'s `tenantModel` system config now declares `env: "TENANT_MODEL"`, so a consuming app can bridge `process.env.TENANT_MODEL` into `appOverrides` via `buildEnvConfigOverrides` at boot instead of only via a hand-written `appOverrides` map. Purely additive: the default (`"multi-user"`) and every existing resolution path are unchanged, and nothing bridges automatically — an app must still call `buildEnvConfigOverrides(registry, process.env)` and pass the result into its `appOverrides` for the var to take effect.
+- Updated dependencies [4783532]
+- Updated dependencies [eb660d4]
+- Updated dependencies [0904138]
+- Updated dependencies [eb660d4]
+- Updated dependencies [aa3f669]
+- Updated dependencies [7d75f1b]
+  - @cosmicdrift/kumiko-headless@0.201.0
+  - @cosmicdrift/kumiko-renderer-web@0.201.0
+  - @cosmicdrift/kumiko-framework@0.201.0
+  - @cosmicdrift/kumiko-renderer@0.201.0
+  - @cosmicdrift/kumiko-types@0.201.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.201.0
+
 ## 0.200.1
 
 ### Patch Changes

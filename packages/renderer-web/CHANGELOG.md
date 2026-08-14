@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.201.0
+
+### Patch Changes
+
+- eb660d4: `Drawer` now goes full-screen below the 768px narrow-viewport breakpoint instead of rendering a cramped floating panel with a fixed resize width, and drops its resize handle on that layout.
+- Updated dependencies [4783532]
+- Updated dependencies [eb660d4]
+  - @cosmicdrift/kumiko-headless@0.201.0
+  - @cosmicdrift/kumiko-renderer@0.201.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.201.0
+
 ## 0.200.1
 
 ### Patch Changes
