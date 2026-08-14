@@ -12,7 +12,7 @@ import {
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher";
 import { createTestUser, TestUsers } from "../../stack";
 import { waitFor } from "../../testing";
-import { createApiRoutes, pumpStream, StreamFrame } from "../routes";
+import { createApiRoutes, MAX_PAYLOAD_DEPTH, pumpStream, StreamFrame } from "../routes";
 import { buildServer } from "../server";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
@@ -233,6 +233,121 @@ describe("POST /api/command", () => {
       headers,
     );
     expect(res.status).toBe(403);
+  });
+});
+
+// --- Payload depth cap (security, 2026-08-13 audit Finding 1) ---
+//
+// A byte-limit on the body doesn't stop an attacker from nesting deeply
+// enough to blow the stack during recursive Zod validation — a minified
+// payload with thousands of nested wrappers stays well under 1MB. The
+// depth-cap in routes.ts walks the parsed object BEFORE it reaches any
+// handler's Zod schema, so it applies independently of what that schema
+// actually expects.
+
+function nestedPayload(depth: number): unknown {
+  let value: unknown = "leaf";
+  for (let i = 0; i < depth; i++) value = { nested: value };
+  return value;
+}
+
+describe("payload depth cap", () => {
+  test("rejects /api/write payload nested past MAX_PAYLOAD_DEPTH with 400 payload_too_deep", async () => {
+    const headers = await authHeader(adminUser);
+    const res = await req(
+      "POST",
+      "/api/write",
+      { type: "test:write:item:create", payload: nestedPayload(MAX_PAYLOAD_DEPTH + 1) },
+      headers,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("validation_error");
+    expect(body.error.details.fields[0]).toMatchObject({
+      path: "payload",
+      code: "too_deep",
+      i18nKey: "errors.validation.payload_too_deep",
+    });
+  });
+
+  test("a payload nested exactly at MAX_PAYLOAD_DEPTH clears the cap (fails ordinary schema validation instead)", async () => {
+    const headers = await authHeader(adminUser);
+    const res = await req(
+      "POST",
+      "/api/write",
+      { type: "test:write:item:create", payload: nestedPayload(MAX_PAYLOAD_DEPTH) },
+      headers,
+    );
+
+    // Still 400 — "name" is missing from this payload — but NOT via the
+    // depth cap. Proves the cap's boundary is exactly MAX_PAYLOAD_DEPTH.
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.details.fields.some((f: { code: string }) => f.code === "too_deep")).toBe(
+      false,
+    );
+  });
+
+  test("rejects /api/query payload nested past MAX_PAYLOAD_DEPTH with 400", async () => {
+    const headers = await authHeader(adminUser);
+    const res = await req(
+      "POST",
+      "/api/query",
+      { type: "test:query:item:list", payload: nestedPayload(MAX_PAYLOAD_DEPTH + 1) },
+      headers,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.details.fields[0]).toMatchObject({ code: "too_deep" });
+  });
+
+  test("rejects /api/command payload nested past MAX_PAYLOAD_DEPTH with 400", async () => {
+    const headers = await authHeader(adminUser);
+    const res = await req(
+      "POST",
+      "/api/command",
+      { type: "test:write:item:create", payload: nestedPayload(MAX_PAYLOAD_DEPTH + 1) },
+      headers,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.details.fields[0]).toMatchObject({ code: "too_deep" });
+  });
+
+  test("rejects an /api/batch command payload nested past MAX_PAYLOAD_DEPTH with 400", async () => {
+    const headers = await authHeader(adminUser);
+    const res = await req(
+      "POST",
+      "/api/batch",
+      {
+        commands: [
+          { type: "test:write:item:create", payload: nestedPayload(MAX_PAYLOAD_DEPTH + 1) },
+        ],
+      },
+      headers,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.details.fields[0]).toMatchObject({ code: "too_deep" });
+  });
+
+  test("rejects /api/stream payload nested past MAX_PAYLOAD_DEPTH with 400, not an SSE error frame", async () => {
+    const headers = await authHeader(adminUser);
+    const res = await req(
+      "POST",
+      "/api/stream",
+      { type: "test:stream:item:tail", payload: nestedPayload(MAX_PAYLOAD_DEPTH + 1) },
+      headers,
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.headers.get("content-type")).not.toContain("text/event-stream");
+    const body = await res.json();
+    expect(body.error.details.fields[0]).toMatchObject({ code: "too_deep" });
   });
 });
 

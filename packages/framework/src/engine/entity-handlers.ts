@@ -102,9 +102,16 @@ type ListPayload = {
 };
 
 const idSchema = z.object({ id: z.uuid() });
+
+// Upper bound on entity-list `limit`: unbounded/fractional values ran
+// straight into the raw `LIMIT ${limit}` SQL string (event-store-executor-
+// read.ts), letting a client demand a full-table materialisation or trip a
+// Postgres syntax error on a non-integer literal.
+export const MAX_LIST_LIMIT = 200;
+
 export const entityListSchema = z.object({
   cursor: z.string().optional(),
-  limit: z.number().optional(),
+  limit: z.number().int().nonnegative().max(MAX_LIST_LIMIT).optional(),
   search: z.string().optional(),
   sort: z.string().optional(),
   sortDirection: z.enum(["asc", "desc"]).optional(),

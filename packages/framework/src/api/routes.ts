@@ -45,6 +45,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
     const body = await c.req.json<{ type: string; payload: unknown; requestId?: string }>();
 
     try {
+      assertPayloadDepthAllowed(body.payload);
       assertPatAllowed(user, body.type);
       const result = await dispatcher.write(body.type, body.payload, user, body.requestId);
       if (!result.isSuccess) {
@@ -83,6 +84,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
     }
 
     try {
+      for (const cmd of body.commands) assertPayloadDepthAllowed(cmd.payload);
       if (user.pat) {
         for (const cmd of body.commands) assertPatAllowed(user, cmd.type);
       }
@@ -120,6 +122,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
     const body = await c.req.json<{ type: string; payload: unknown }>();
 
     try {
+      assertPayloadDepthAllowed(body.payload);
       assertPatAllowed(user, body.type);
       const result = await dispatcher.query(body.type, body.payload, user);
       return jsonResponse(c, { data: result });
@@ -133,6 +136,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
     const body = await c.req.json<{ type: string; payload: unknown }>();
 
     try {
+      assertPayloadDepthAllowed(body.payload);
       assertPatAllowed(user, body.type);
       await dispatcher.command(body.type, body.payload, user);
       return c.json({ ok: true }, 202);
@@ -156,9 +160,11 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
     const body = await c.req.json<{ type: string; payload: unknown }>();
     const requestId = requestContext.get()?.requestId;
 
-    const generator = dispatcher.stream(body.type, body.payload, user);
+    let generator: AsyncGenerator<unknown>;
     try {
+      assertPayloadDepthAllowed(body.payload);
       assertPatAllowed(user, body.type);
+      generator = dispatcher.stream(body.type, body.payload, user);
     } catch (e) {
       return queryErrorResponse(c, toKumiko(e), body.type);
     }
@@ -273,6 +279,46 @@ function jsonResponse(c: Context, body: unknown, status: ContentfulStatusCode = 
 }
 
 const toKumiko = toKumikoError;
+
+// Nesting cap for request payloads — an object-walk, not a string/byte
+// check, since an attacker fully controls whitespace/formatting and a
+// minified deeply-nested payload can stay well under the byte limit while
+// still blowing the stack on recursive Zod parsing / jsonb serialization.
+export const MAX_PAYLOAD_DEPTH = 20;
+
+function payloadDepth(value: unknown, depth: number): number {
+  if (depth > MAX_PAYLOAD_DEPTH || value === null || typeof value !== "object") {
+    return depth;
+  }
+  const children = Array.isArray(value) ? value : Object.values(value);
+  let max = depth;
+  for (const child of children) {
+    const childDepth = payloadDepth(child, depth + 1);
+    if (childDepth > max) max = childDepth;
+    if (max > MAX_PAYLOAD_DEPTH) break;
+  }
+  return max;
+}
+
+// Rejects payloads nested deeper than MAX_PAYLOAD_DEPTH before they reach
+// per-handler Zod validation — recursive Zod parsing (and any downstream
+// jsonb serialization of custom-fields payloads) walks the same object
+// graph an attacker controls, so an uncapped depth is a stack-overflow /
+// CPU-DoS vector even under the 1MB body-byte limit.
+function assertPayloadDepthAllowed(payload: unknown): void {
+  if (payloadDepth(payload, 0) > MAX_PAYLOAD_DEPTH) {
+    throw new ValidationError({
+      fields: [
+        {
+          path: "payload",
+          code: "too_deep",
+          i18nKey: "errors.validation.payload_too_deep",
+          params: { maxDepth: MAX_PAYLOAD_DEPTH },
+        },
+      ],
+    });
+  }
+}
 
 // PAT scope enforcement at the API boundary. No-op for cookie/JWT users
 // (user.pat undefined → unrestricted). For a PAT-authenticated request the
