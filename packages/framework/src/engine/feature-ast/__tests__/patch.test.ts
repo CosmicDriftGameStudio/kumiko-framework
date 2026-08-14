@@ -6,6 +6,7 @@
 // here narrows the cause to patch.ts itself.
 
 import { describe, expect, test } from "bun:test";
+import { resolve } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 import { parseSourceFile } from "../parse";
 import { addPattern, applyChanges, type PatternId, removePattern, replacePattern } from "../patch";
@@ -550,5 +551,102 @@ defineFeature("object", (r) => {
     const sf = makeSourceFile(OBJECT_FORM);
     removePattern(sf, { kind: "notification", notificationName: "taskCreated" });
     expect(parseSourceFile(sf).patterns.find((p) => p.kind === "notification")).toBeUndefined();
+  });
+});
+
+// #2121 — findCallForId only accepted a StringLiteral first argument, so
+// it couldn't locate calls authored with an imported/local constant name
+// (the dominant style in the framework's own bundled-features, per #1746
+// on the parser side). Covers both the single-arg case (matchFirstArgString)
+// and the two-arg case (relation/hook/useExtension's second positional arg),
+// same-file and genuinely cross-file via a real filesystem Project.
+describe("findCallForId resolves identifier-authored names (#2121)", () => {
+  function loadFixture(relPath: string): SourceFile {
+    const project = new Project({
+      skipAddingFilesFromTsConfig: true,
+      skipFileDependencyResolution: true,
+    });
+    return project.addSourceFileAtPath(resolve(__dirname, relPath));
+  }
+
+  const SAME_FILE_CONST = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+const ENTITY = "task";
+
+defineFeature("inventory", (r) => {
+  r.entity(ENTITY, { fields: { name: { type: "text", required: true } } });
+});
+`;
+
+  test("removePattern finds a call whose name arg is a same-file const identifier", () => {
+    const sf = makeSourceFile(SAME_FILE_CONST);
+    removePattern(sf, { kind: "entity", entityName: "task" });
+    const reparsed = parseSourceFile(sf);
+    expect(reparsed.errors).toEqual([]);
+    expect(reparsed.patterns).toEqual([]);
+  });
+
+  test("replacePattern finds a call whose name arg is a same-file const identifier", () => {
+    const sf = makeSourceFile(SAME_FILE_CONST);
+    const replacement: FeaturePattern = {
+      kind: "entity",
+      source: SAMPLE_LOC,
+      entityName: "task",
+      definition: {
+        fields: { name: { type: "text", required: true }, sku: { type: "text" } },
+      } as never,
+    };
+    replacePattern(sf, { kind: "entity", entityName: "task" }, replacement);
+    const reparsed = parseSourceFile(sf);
+    expect(reparsed.errors).toEqual([]);
+    const entity = reparsed.patterns.find((p) => p.kind === "entity");
+    if (entity?.kind === "entity") {
+      const fields = (entity.definition as { fields: Record<string, unknown> }).fields;
+      expect(Object.keys(fields)).toEqual(["name", "sku"]);
+    } else {
+      throw new Error("expected an entity pattern");
+    }
+  });
+
+  test("does not match when the identifier resolves to a different string", () => {
+    const sf = makeSourceFile(SAME_FILE_CONST);
+    expect(() => removePattern(sf, { kind: "entity", entityName: "other" })).toThrow(
+      /no call found/,
+    );
+  });
+
+  test("removePattern finds an extendsRegistrar call authored with a cross-file imported constant (#1746 fixture)", () => {
+    const sf = loadFixture("fixtures/cross-file-name-const/feature.ts");
+    removePattern(sf, { kind: "extendsRegistrar", extensionName: "audit" });
+    const reparsed = parseSourceFile(sf);
+    expect(reparsed.errors).toEqual([]);
+    expect(reparsed.patterns).toEqual([]);
+  });
+
+  test("removePattern resolves both positional args when authored as cross-file imported constants", () => {
+    const sf = loadFixture("fixtures/cross-file-patch-const/feature.ts");
+    removePattern(sf, {
+      kind: "useExtension",
+      extensionName: "tenant-data",
+      entityName: "item",
+    });
+    const reparsed = parseSourceFile(sf);
+    expect(reparsed.errors).toEqual([]);
+    expect(reparsed.patterns).toEqual([]);
+  });
+
+  test("removePattern finds an object-form useExtension whose entity is an inline { name } ref", () => {
+    const sf = makeSourceFile(`
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("inventory", (r) => {
+  r.useExtension({ name: "audit", entity: { name: "item" } });
+});
+`);
+    removePattern(sf, { kind: "useExtension", extensionName: "audit", entityName: "item" });
+    const reparsed = parseSourceFile(sf);
+    expect(reparsed.errors).toEqual([]);
+    expect(reparsed.patterns).toEqual([]);
   });
 });
