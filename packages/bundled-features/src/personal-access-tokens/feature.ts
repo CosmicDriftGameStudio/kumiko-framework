@@ -7,13 +7,43 @@ import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, PAT_SCREEN_ID, type PatRateLimit } from "./constants";
 import { buildAvailableScopesQuery } from "./handlers/available-scopes.query";
-import { createPatWrite } from "./handlers/create.write";
+import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create.write";
 import { listPatQuery } from "./handlers/list.query";
 import { revokePatWrite } from "./handlers/revoke.write";
 import { PAT_FEATURE_I18N } from "./i18n";
 import { createPatResolver } from "./resolver";
 import { apiTokenEntity } from "./schema/api-token";
 import type { PatScopeConfig } from "./scopes";
+
+// Password-change is the only field-level trigger — see the postSave hook
+// below. MFA-enable/disable is wired separately (auth-mfa's
+// revokeAllPatTokens callback, late-bound at app-composition time) since
+// that's a different entity ("user-mfa") this feature doesn't own or
+// require.
+const PAT_REVOKE_TRIGGERING_FIELDS = ["passwordHash"] as const;
+
+export type BindPatAutoRevokeOnPasswordChange = (
+  revoker: (userId: string) => Promise<number>,
+) => void;
+
+// Reads the late-bind setter off a mounted personal-access-tokens feature's
+// exports — run{Prod,Dev}App call this once a concrete db is available,
+// mirrors sessions' own bindAutoRevokeFromFeature/bindAutoRevokeOnPasswordChange.
+export function bindPatAutoRevokeOnPasswordChangeFromFeature(
+  feature: FeatureDefinition,
+): BindPatAutoRevokeOnPasswordChange | undefined {
+  const exports = feature.exports;
+  if (exports && typeof exports === "object" && "bindAutoRevokeOnPasswordChange" in exports) {
+    const { bindAutoRevokeOnPasswordChange } = exports as {
+      bindAutoRevokeOnPasswordChange: unknown;
+    };
+    if (typeof bindAutoRevokeOnPasswordChange === "function") {
+      // @cast-boundary exports-walk — feature.exports is untyped by design
+      return bindAutoRevokeOnPasswordChange as BindPatAutoRevokeOnPasswordChange;
+    }
+  }
+  return undefined;
+}
 
 export type PersonalAccessTokensOptions = {
   // The scopes this deployment offers. Each is a named bundle of QN globs a PAT
@@ -28,10 +58,20 @@ export type PersonalAccessTokensOptions = {
    *  { default: false } for fail-closed gating (feature off until a tier grants
    *  it). Omit to keep PAT always-on (default). */
   readonly toggleable?: { readonly default: boolean };
+  // Opt-in MFA re-auth gate for minting a token — wired via
+  // mfaVerifierFromFeature (auth-mfa/feature.ts) at app-composition time. No
+  // hard dependency on the optional auth-mfa feature.
+  readonly mfaVerifier?: CreatePatOptions["mfaVerifier"];
+  // Password-change revoker — same constructor-option-or-late-bind duality as
+  // sessions' own autoRevokeOnPasswordChange (bindAutoRevokeOnPasswordChange
+  // below wins only if this is unset). Lets tests pass a revoker directly
+  // instead of needing a post-setupTestStack bind call.
+  readonly autoRevokeOnPasswordChange?: (userId: string) => Promise<number>;
 };
 
 export type PatFeatureExports = {
   readonly rateLimit: PatRateLimit;
+  readonly bindAutoRevokeOnPasswordChange: BindPatAutoRevokeOnPasswordChange;
 };
 
 // Personal Access Tokens — long-lived, revocable bearer credentials for the
@@ -73,8 +113,28 @@ export function createPersonalAccessTokensFeature(
       piiEncryptedOnWrite: true,
     });
 
+    // Password-change auto-revoke — mirrors sessions' own
+    // autoRevokeOnPasswordChange postSave hook, including WHY it's a
+    // late-bind callback rather than direct ctx.db use: user:write:user:update
+    // is r.systemScope()'d (the user aggregate is a systemStream, framework
+    // #497), so a postSave hook on "user" gets a poisoned ctx.db here. The
+    // concrete revoker is bound once run{Prod,Dev}App has a real db handle.
+    let autoRevokeOnPasswordChange = options.autoRevokeOnPasswordChange;
+    r.hook("postSave", { allOf: "user" }, async (result) => {
+      if (!autoRevokeOnPasswordChange) return;
+      if (result.isNew) return;
+      if (!PAT_REVOKE_TRIGGERING_FIELDS.some((field) => result.changes[field] !== undefined)) {
+        return;
+      }
+      await autoRevokeOnPasswordChange(String(result.id));
+    });
+    const bindAutoRevokeOnPasswordChange: BindPatAutoRevokeOnPasswordChange = (revoker) => {
+      // explicit constructor option wins over the runtime binding
+      autoRevokeOnPasswordChange ??= revoker;
+    };
+
     const handlers = {
-      create: r.writeHandler(createPatWrite),
+      create: r.writeHandler(createPatCreateHandler({ mfaVerifier: options.mfaVerifier })),
       revoke: r.writeHandler(revokePatWrite),
     };
     const queries = {
@@ -102,6 +162,7 @@ export function createPersonalAccessTokensFeature(
     return {
       handlers,
       queries,
+      bindAutoRevokeOnPasswordChange,
       rateLimit: options.rateLimit ?? PAT_DEFAULT_RATE_LIMIT,
     } satisfies { handlers: unknown; queries: unknown } & PatFeatureExports;
   });

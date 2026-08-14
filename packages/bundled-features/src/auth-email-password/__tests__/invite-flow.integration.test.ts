@@ -669,4 +669,131 @@ describe("privilege escalation via invite role", () => {
     )) as { role: string };
     expect(result.role).toBe("Editor");
   });
+
+  // Regression guard for the opt-in canAssignRole hook (#security): this
+  // stack's invite feature was mounted WITHOUT canAssignRole, so any
+  // non-reserved app-defined role must still go through unchanged — the
+  // hierarchy gate below is a separate, opt-in stack, not a default.
+  test("without canAssignRole configured, any non-reserved app-defined role is still assignable", async () => {
+    const result = (await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "dpo-candidate@example.com", role: "DPO" },
+      aliceSession(),
+    )) as { role: string };
+    expect(result.role).toBe("DPO");
+  });
+});
+
+// canAssignRole is a role-hierarchy gate that must live in the app (roles are
+// app-defined strings, not a framework concept) — a separate stack mounts the
+// invite feature WITH the hook to prove it's actually enforced, distinct from
+// the framework-reserved-role check covered above.
+describe("invite-create role-hierarchy gate (opt-in canAssignRole)", () => {
+  let gateStack: TestStack;
+  let gateAliceId: string;
+  let gateTenantId: TenantId;
+  const gateTransport = createInMemoryTransport();
+
+  function gateAliceSession(): SessionUser {
+    return { id: gateAliceId, tenantId: gateTenantId, roles: ["Admin"] };
+  }
+
+  beforeAll(async () => {
+    gateStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createTemplateResolverFeature(),
+        createRendererFoundationFeature(),
+        createDeliveryFeature(),
+        createRendererSimpleFeature(),
+        createChannelEmailFeature({
+          transport: gateTransport,
+          renderer: simpleRenderer,
+          resolveEmail: async () => "unused@test.local",
+        }),
+        createAuthEmailPasswordFeature({
+          invite: {
+            tokenTtlMinutes: 60,
+            appUrl: APP_ACCEPT_URL,
+            // Only "Admin" may grant "DPO" — everything else may only grant
+            // non-DPO roles. A minimal, deliberately app-shaped hierarchy;
+            // the framework itself knows nothing about "DPO".
+            canAssignRole: (inviterRoles, targetRole) =>
+              targetRole !== "DPO" || inviterRoles.includes("Admin"),
+          },
+        }),
+      ],
+      extraContext: (deps) => ({
+        ...createDeliveryTestContext(deps),
+        configResolver: createConfigResolver(),
+      }),
+      authConfig: {
+        membershipQuery: "tenant:query:memberships",
+        loginHandler: AuthHandlers.login,
+        invite: {
+          acceptHandler: AuthHandlers.inviteAccept,
+          acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
+          signupCompleteHandler: AuthHandlers.inviteSignupComplete,
+        },
+      },
+    });
+
+    await unsafeCreateEntityTable(gateStack.db, userEntity);
+    await unsafeCreateEntityTable(gateStack.db, tenantEntity);
+    await unsafeCreateEntityTable(gateStack.db, tenantInvitationEntity);
+    await unsafePushTables(gateStack.db, {
+      configValuesTable,
+      tenantMembershipsTable,
+      notificationPreferencesTable,
+    });
+
+    gateTenantId = newTenantId("gate");
+    await seedTenant(gateStack.db, {
+      id: gateTenantId,
+      key: `tenant-gate-${gateTenantId.slice(0, 8)}`,
+      name: "Tenant Gate",
+    });
+    ({ id: gateAliceId } = await seedUser(gateStack.db, {
+      email: "gate-alice@example.com",
+      displayName: "Gate Alice",
+      passwordHash: await hashPassword("gate-alice-pw-1234"),
+      emailVerified: true,
+    }));
+    await seedTenantMembership(gateStack.db, {
+      userId: gateAliceId,
+      tenantId: gateTenantId,
+      roles: ["Admin"],
+    });
+  });
+
+  afterAll(async () => {
+    await gateStack.cleanup();
+  });
+
+  test("canAssignRole → false blocks invite-create with a role-hierarchy error, no invitation persisted", async () => {
+    // TenantAdmin clears the handler's own access.admin gate but canAssignRole
+    // above only lets literal "Admin" grant "DPO" — the case this hook exists for.
+    const err = await gateStack.http.writeErr(
+      AuthHandlers.inviteCreate,
+      { email: "blocked-target@example.com", role: "DPO" },
+      { id: gateAliceId, tenantId: gateTenantId, roles: ["TenantAdmin"] },
+    );
+    expect(err.details).toMatchObject({ reason: "unassignable_membership_role", role: "DPO" });
+    const rows = await selectMany(gateStack.db, tenantInvitationsTable, {
+      email: "blocked-target@example.com",
+    });
+    expect(rows).toHaveLength(0);
+    expect(gateTransport.sent).toHaveLength(0);
+  });
+
+  test("canAssignRole → true allows invite-create through", async () => {
+    const result = (await gateStack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "allowed-target@example.com", role: "DPO" },
+      gateAliceSession(),
+    )) as { role: string };
+    expect(result.role).toBe("DPO");
+  });
 });

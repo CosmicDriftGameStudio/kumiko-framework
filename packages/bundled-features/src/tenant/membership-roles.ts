@@ -18,6 +18,13 @@ export function reservedMembershipRoleError(role: string): AccessDeniedError {
   });
 }
 
+export function unassignableMembershipRoleError(role: string): AccessDeniedError {
+  return new AccessDeniedError({
+    message: `role "${role}" cannot be assigned by this inviter`,
+    details: { reason: "unassignable_membership_role", role },
+  });
+}
+
 export function assertAssignableMembershipRoles(roles: readonly string[]): void {
   const forbidden = findForbiddenMembershipRole(roles);
   if (forbidden !== undefined) throw reservedMembershipRoleError(forbidden);

@@ -36,6 +36,10 @@ export type EnableConfirmPreauthOptions = {
     userId: string,
     currentSid: string | undefined,
   ) => Promise<number>;
+  // Wired late by run-prod-app once the personal-access-tokens feature (if
+  // mounted) is concrete. Absent when PAT isn't mounted: enabling MFA just
+  // doesn't revoke PAT tokens.
+  readonly revokeAllPatTokens?: (userId: string) => Promise<number>;
 };
 
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
@@ -201,6 +205,9 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // login, not a follow-up on an already-running one.
       if (opts.revokeAllOtherSessions) {
         await opts.revokeAllOtherSessions(userId, undefined);
+      }
+      if (opts.revokeAllPatTokens) {
+        await opts.revokeAllPatTokens(userId);
       }
 
       return { isSuccess: true, data: { kind: "mfa-preauth-confirm-success", session } };

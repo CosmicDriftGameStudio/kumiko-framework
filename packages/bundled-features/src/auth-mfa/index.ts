@@ -9,12 +9,16 @@ export {
 export type {
   AuthMfaFeatureOptions,
   BindMfaRevokeAllOtherSessions,
+  BindRevokeAllPatTokens,
 } from "./feature";
 export {
   bindMfaRevokeAllOtherSessionsFromFeature,
+  bindRevokeAllPatTokensFromFeature,
   createAuthMfaFeature,
   mfaStatusCheckerFromFeature,
+  mfaVerifierFromFeature,
 } from "./feature";
+export type { MfaCodeVerifier, MfaCodeVerifyResult } from "./mfa-code-verifier";
 export type { MfaStatusChecker, MfaStatusCheckResult } from "./mfa-status-checker";
 export { userMfaEntity, userMfaTable } from "./schema/user-mfa";
 export {

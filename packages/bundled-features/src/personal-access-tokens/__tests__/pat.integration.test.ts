@@ -37,11 +37,12 @@ import { userSessionEntity } from "../../sessions/schema/user-session";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
-import { USER_STATUS } from "../../user";
+import { USER_STATUS, UserHandlers, UserQueries } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
-import { PatHandlers, PatQueries } from "../constants";
+import { PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors, PatHandlers, PatQueries } from "../constants";
 import { createPersonalAccessTokensFeature } from "../feature";
+import { revokeAllPatTokensForUser } from "../revoke-for-user";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token";
 import type { PatScopeConfig } from "../scopes";
 
@@ -66,14 +67,21 @@ const SCOPES: PatScopeConfig = {
 
 async function mintToken(
   actor: SessionUser,
-  opts?: { scopes?: string[]; expiresInDays?: number },
+  opts?: {
+    scopes?: string[];
+    expiresInDays?: number;
+    currentPassword?: string;
+    mfaCode?: string;
+  },
 ): Promise<string> {
   const res = await stack.http.writeOk<{ id: string; token: string }>(
     PatHandlers.create,
     {
       name: "test",
       scopes: opts?.scopes ?? ["tokens:read"],
+      currentPassword: opts?.currentPassword ?? "pw",
       ...(opts?.expiresInDays ? { expiresInDays: opts.expiresInDays } : {}),
+      ...(opts?.mfaCode ? { mfaCode: opts.mfaCode } : {}),
     },
     actor,
   );
@@ -91,7 +99,12 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
       createSessionsFeature(),
-      createPersonalAccessTokensFeature({ scopes: SCOPES }),
+      createPersonalAccessTokensFeature({
+        scopes: SCOPES,
+        // Closure over `stack` is fine here: the hook only invokes this at
+        // fire-time, well after setupTestStack below has assigned it.
+        autoRevokeOnPasswordChange: (userId) => revokeAllPatTokensForUser(stack.db, userId),
+      }),
       authFoundationFeature,
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
@@ -251,5 +264,159 @@ describe("PAT with active KMS (#820): token name is userOwned PII", () => {
       resetPiiSubjectKmsForTests();
       resetBlindIndexKeyForTests();
     }
+  });
+});
+
+describe("PAT create: re-auth (#security)", () => {
+  test("missing currentPassword → rejected, no token minted", async () => {
+    const actor = await actorFor("reauth-missing@example.com");
+    const err = await stack.http.writeErr(
+      PatHandlers.create,
+      { name: "test", scopes: ["tokens:read"] },
+      actor,
+    );
+    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    const rows = await stack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor);
+    expect(rows).toHaveLength(0);
+  });
+
+  test("wrong currentPassword → rejected, no token minted", async () => {
+    const actor = await actorFor("reauth-wrong@example.com");
+    const err = await stack.http.writeErr(
+      PatHandlers.create,
+      { name: "test", scopes: ["tokens:read"], currentPassword: "not-the-password" },
+      actor,
+    );
+    expect(err.details).toMatchObject({ reason: PatErrors.reauthRequired });
+    const rows = await stack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor);
+    expect(rows).toHaveLength(0);
+  });
+
+  test("expiresInDays omitted → defaults to ~90 days, not never-expiring", async () => {
+    const actor = await actorFor("reauth-expiry@example.com");
+    await mintToken(actor);
+    const rows = await stack.http.queryOk<Array<{ id: string; expiresAt: string | null }>>(
+      PatQueries.mine,
+      {},
+      actor,
+    );
+    expect(rows[0]?.expiresAt).not.toBeNull();
+    const expiresAt = Temporal.Instant.from(rows[0]?.expiresAt as string);
+    const expected = Temporal.Now.instant().add({ hours: 24 * PAT_DEFAULT_EXPIRES_IN_DAYS });
+    const driftHours = Math.abs(expiresAt.since(expected).total({ unit: "hours" }));
+    expect(driftHours).toBeLessThan(1);
+  });
+});
+
+describe("PAT create: MFA re-auth gate", () => {
+  let mfaStack: TestStack;
+  let mfaH: ReturnType<typeof makeSessionHelpers>;
+
+  beforeAll(async () => {
+    const encryption = createTestEnvelopeCipher(encryptionKey);
+    const resolver = createConfigResolver({ cipher: encryption });
+    mfaStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createAuthEmailPasswordFeature(),
+        createSessionsFeature(),
+        createPersonalAccessTokensFeature({
+          scopes: SCOPES,
+          // Stub verifier: always enrolled, code never accepted — exercises
+          // the real gate over HTTP without depending on auth-mfa's TOTP
+          // machinery (same shape as sessions' massRevokeSpy tests).
+          mfaVerifier: async () => ({ enrolled: true, ok: false }),
+        }),
+        authFoundationFeature,
+      ],
+      extraContext: { configResolver: resolver, configEncryption: encryption },
+      authConfig: {
+        membershipQuery: "tenant:query:memberships",
+        loginHandler: AuthHandlers.login,
+        tokenVerifier: (raw: string) =>
+          resolveTokenVerifier({ db: mfaStack.db, registry: mfaStack.registry }, raw),
+        patRateLimiter: createInMemoryLoginRateLimiter(10, 60_000),
+      },
+    });
+    mfaH = makeSessionHelpers(mfaStack, TENANT);
+    await unsafeCreateEntityTable(mfaStack.db, userEntity);
+    await unsafeCreateEntityTable(mfaStack.db, tenantEntity);
+    await unsafeCreateEntityTable(mfaStack.db, userSessionEntity);
+    await unsafeCreateEntityTable(mfaStack.db, apiTokenEntity);
+    await unsafePushTables(mfaStack.db, { configValuesTable, tenantMembershipsTable });
+  });
+
+  afterAll(async () => {
+    await mfaStack.cleanup();
+  });
+
+  test("MFA-enrolled user without mfaCode → rejected, no token minted", async () => {
+    const { userId } = await mfaH.seedUser("mfa-missing-code@example.com", "pw");
+    const actor: SessionUser = { id: userId, tenantId: TENANT, roles: ["User"] };
+    const err = await mfaStack.http.writeErr(
+      PatHandlers.create,
+      { name: "test", scopes: ["tokens:read"], currentPassword: "pw" },
+      actor,
+    );
+    expect(err.details).toMatchObject({ reason: PatErrors.reauthRequired });
+    const rows = await mfaStack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor);
+    expect(rows).toHaveLength(0);
+  });
+
+  test("MFA-enrolled user with wrong mfaCode → rejected, no token minted", async () => {
+    const { userId } = await mfaH.seedUser("mfa-wrong-code@example.com", "pw");
+    const actor: SessionUser = { id: userId, tenantId: TENANT, roles: ["User"] };
+    const err = await mfaStack.http.writeErr(
+      PatHandlers.create,
+      { name: "test", scopes: ["tokens:read"], currentPassword: "pw", mfaCode: "000000" },
+      actor,
+    );
+    expect(err.details).toMatchObject({ reason: PatErrors.reauthRequired });
+    const rows = await mfaStack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor);
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("PAT revoke on password change (#security)", () => {
+  test("changing password revokes all of the user's live PAT tokens", async () => {
+    const actor = await actorFor("pat-revoke-pwchange@example.com");
+    const token = await mintToken(actor);
+    const preCheck = await h.authedPost("/api/query", token, {
+      type: PatQueries.mine,
+      payload: {},
+    });
+    expect(preCheck.status).toBe(200);
+
+    await stack.http.writeOk(
+      AuthHandlers.changePassword,
+      { oldPassword: "pw", newPassword: "NewPassw0rd!42" },
+      actor,
+    );
+
+    const rows = await selectMany<{ revokedAt: string | null }>(stack.db, apiTokenTable, {
+      userId: actor.id,
+    });
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.revokedAt !== null)).toBe(true);
+
+    const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
+    expect(res.status).toBe(401);
+  });
+
+  test("editing a non-password field does NOT revoke PAT tokens", async () => {
+    const actor = await actorFor("pat-no-revoke-other-field@example.com");
+    const token = await mintToken(actor);
+
+    const me = await stack.http.queryOk<{ version: number }>(UserQueries.me, {}, actor);
+    await stack.http.writeOk(
+      UserHandlers.update,
+      { id: actor.id, version: me.version, changes: { displayName: "New Name" } },
+      actor,
+    );
+
+    const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
+    expect(res.status).toBe(200);
   });
 });

@@ -6,7 +6,15 @@ export const PAT_FEATURE = "personal-access-tokens";
 // Snake_case reason strings (Error-Reasons guard: no colons/dashes).
 export const PatErrors = {
   ownershipDenied: "ownership_denied",
+  // Uniform for wrong-password AND missing/wrong MFA code — a distinct
+  // reason per case would leak whether the account has MFA enrolled.
+  reauthRequired: "reauth_required",
 } as const;
+
+// expiresInDays default when omitted at mint time. A silent "never expires"
+// default is a standing-credential risk; the existing 3650-day cap still
+// lets callers who genuinely want a long-lived token pass it explicitly.
+export const PAT_DEFAULT_EXPIRES_IN_DAYS = 90;
 
 // Dormant custom-screen id (r.screen) — the app places it via r.nav. The client
 // maps it to the PatTokensScreen component.
