@@ -25,7 +25,11 @@ export function createIdempotencyGuard(
   // handler doesn't permanently block retries, long enough to cover normal
   // batch durations.
   const pendingTtl = options.pendingTtlSeconds ?? 30;
-  const waitTimeoutMs = options.waitTimeoutMs ?? 25_000;
+  // Wait must OUTLAST the lock (waitTimeoutMs > pendingTtl), otherwise the
+  // wait is useless: a retry gives up at 25s and re-executes while the first
+  // handler is still running for up to 30s — the exact double-execute this
+  // guard exists to prevent. 5s buffer covers poll drift.
+  const waitTimeoutMs = options.waitTimeoutMs ?? pendingTtl * 1000 + 5_000;
   const pollIntervalMs = options.pollIntervalMs ?? 50;
   const prefix = RedisKeys.idempotency;
 

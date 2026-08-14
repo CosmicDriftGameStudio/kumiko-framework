@@ -39,6 +39,20 @@ export function setWebhookFetch(fn: typeof fetch): void {
 }
 
 export async function performWebhookDispatch(spec: WebhookSpec): Promise<WebhookDispatchResult> {
+  // SSRF guard at the primitive boundary: only http(s), and never follow
+  // redirects — a 3xx could point at an internal/metadata target and the
+  // spec carries secrets (auth) that would be forwarded there. A webhook
+  // destination that redirects now surfaces as a delivery error instead.
+  let url: URL;
+  try {
+    url = new URL(spec.url);
+  } catch {
+    return { ok: false, error: `invalid url "${spec.url}"` };
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return { ok: false, error: `unsupported url scheme "${url.protocol}"` };
+  }
+
   const headers: Record<string, string> = { "content-type": "application/json", ...spec.headers };
   if (spec.auth) {
     const secret = secretResolver(spec.auth.secretRef);
@@ -55,6 +69,7 @@ export async function performWebhookDispatch(spec: WebhookSpec): Promise<Webhook
     const res = await fetchImpl(spec.url, {
       method: spec.method,
       headers,
+      redirect: "manual",
       body: spec.body !== undefined ? JSON.stringify(spec.body) : undefined,
     });
     if (!res.ok) {
