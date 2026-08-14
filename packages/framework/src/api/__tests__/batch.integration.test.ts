@@ -50,6 +50,9 @@ const afterCommitHookLog: Array<{ id: EntityId; name: string }> = [];
 let afterCommitShouldThrow = false;
 const afterCommitThirdHookRan: string[] = [];
 
+// Delay injected into item:create-slow — reset per test.
+let slowHandlerDelayMs = 0;
+
 const itemFeature = defineFeature("batch", (r) => {
   const item = r.entity("item", itemEntity);
 
@@ -77,6 +80,21 @@ const itemFeature = defineFeature("batch", (r) => {
     z.object({ name: z.string().min(1) }),
     async () => {
       throw new Error("handler_crashed");
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // Handler with a controllable delay — used to simulate a slow in-flight
+  // handler for the parallel-idempotency race test.
+  r.writeHandler(
+    "item:create-slow",
+    z.object({ name: z.string().min(1) }),
+    async (event, ctx) => {
+      if (slowHandlerDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, slowHandlerDelayMs));
+      }
+      const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
+      return crud.create(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },
   );
@@ -403,6 +421,41 @@ describe("POST /api/batch", () => {
     expect(inTxHookLog).toHaveLength(0);
     expect(afterCommitHookLog).toHaveLength(0);
     expect(await selectMany(stack.db, itemTable)).toHaveLength(0);
+  });
+
+  test("idempotency: parallel writes with the same requestId — second waits for the first instead of re-executing", async () => {
+    slowHandlerDelayMs = 250;
+    const requestId = "batch-rid-parallel-slow";
+    const commands = [{ type: "batch:write:item:create-slow", payload: { name: "parallel-once" } }];
+
+    try {
+      const [first, second] = await Promise.all([
+        stack.http.batch(commands, admin, requestId),
+        (async () => {
+          // Give request #1 a head start so it wins the lock acquisition —
+          // the race being tested is "#2 waits", not "who acquires first".
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return stack.http.batch(commands, admin, requestId);
+        })(),
+      ]);
+
+      const firstBody = await first.json();
+      const secondBody = await second.json();
+
+      expect(firstBody.isSuccess).toBe(true);
+      expect(secondBody.isSuccess).toBe(true);
+      // Same cached response, not a fresh execution.
+      expect(secondBody.results).toEqual(firstBody.results);
+
+      // Exactly one row and one hook run — the second call did not re-run
+      // the handler and create a duplicate side effect.
+      const rows = await selectMany(stack.db, itemTable);
+      expect(rows).toHaveLength(1);
+      expect(inTxHookLog).toHaveLength(1);
+      expect(afterCommitHookLog).toHaveLength(1);
+    } finally {
+      slowHandlerDelayMs = 0;
+    }
   });
 
   test("idempotency: corrupted cache entry is treated as miss and re-runs", async () => {
