@@ -33,7 +33,7 @@ import type { FileRoutesOptions } from "../file-routes";
 import { createInMemoryFileProvider } from "../in-memory-provider";
 import { createLocalProvider } from "../local-provider";
 import type { FileStorageProvider } from "../types";
-import { parseMaxSize, validateFile } from "../types";
+import { parseMaxSize, sniffMimeType, validateFile } from "../types";
 
 // UUID for "this row doesn't exist" assertions. Valid v4 format so PG accepts
 // the query — the row just isn't there. Pre-v1 files-feature tests used
@@ -199,6 +199,28 @@ describe("file validation", () => {
       validateFile({ fileName: "a.jpg", mimeType: "image/jpg", size: 100 }, { accept: ["jpg"] }),
     ).toBeNull();
   });
+
+  test("sniffMimeType recognizes gif, webp and pdf signatures", () => {
+    expect(sniffMimeType(new TextEncoder().encode("GIF89a" + "x".repeat(20)))).toBe("image/gif");
+    const webp = new Uint8Array([
+      ...new TextEncoder().encode("RIFF"),
+      0,
+      0,
+      0,
+      0,
+      ...new TextEncoder().encode("WEBP"),
+      ...Array(20).fill(0),
+    ]);
+    expect(sniffMimeType(webp)).toBe("image/webp");
+    expect(sniffMimeType(new TextEncoder().encode("%PDF-1.4" + "x".repeat(20)))).toBe(
+      "application/pdf",
+    );
+  });
+
+  test("sniffMimeType returns null for unrecognized or too-short byte sequences", () => {
+    expect(sniffMimeType(new Uint8Array([0x00, 0x01, 0x02]))).toBeNull();
+    expect(sniffMimeType(new TextEncoder().encode("hello world"))).toBeNull();
+  });
 });
 
 // --- Integration: Upload → Download → Delete via real HTTP API ---
@@ -309,6 +331,80 @@ describe("file upload flow via API", () => {
     // File is gone
     const getRes = await getFile(adminUser, uploadedFileId);
     expect(getRes.status).toBe(404);
+  });
+});
+
+// --- Serving hardens Content-Type against a spoofed/mismatched declared MIME ---
+
+describe("download Content-Type is sniffed from bytes, not trusted from the declared MIME", () => {
+  const testPngContent = new Uint8Array([
+    0x89,
+    0x50,
+    0x4e,
+    0x47,
+    0x0d,
+    0x0a,
+    0x1a,
+    0x0a,
+    ...Array(50).fill(0),
+  ]);
+  const testJpegContent = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(50).fill(0)]);
+
+  test("real PNG bytes declared as text/html are served as octet-stream, never text/html", async () => {
+    // Bun's own Request#formData() derives File#type from the *filename*
+    // extension, not from the multipart part's declared Content-Type header
+    // — so the fileName here (.html) is what actually lands as the stored
+    // mimeType; the mismatch this test needs is against the real PNG bytes.
+    const uploadRes = await uploadFile(adminUser, "sneaky.html", testPngContent, "text/html");
+    // Upload itself is not rejected — mismatch enforcement stays at the
+    // serving side, existing uploads with an off mimeType keep working.
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+
+    const res = await getFile(adminUser, id);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("application/octet-stream");
+    expect(res.headers.get("Content-Disposition")).toContain("attachment");
+  });
+
+  test("actual HTML bytes are never served as text/html or image/svg+xml", async () => {
+    const htmlBytes = new TextEncoder().encode(
+      "<html><body><script>alert(document.domain)</script></body></html>",
+    );
+    const uploadRes = await uploadFile(adminUser, "evil.html", htmlBytes, "text/html");
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+
+    const res = await getFile(adminUser, id);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).not.toBe("text/html");
+    expect(res.headers.get("Content-Type")).not.toBe("image/svg+xml");
+    expect(res.headers.get("Content-Type")).toBe("application/octet-stream");
+    expect(res.headers.get("Content-Disposition")).toContain("attachment");
+  });
+
+  test("an SVG upload — bytes and declared MIME both image/svg+xml — is still downgraded to octet-stream, never served inline", async () => {
+    const svgBytes = new TextEncoder().encode(
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+    );
+    const uploadRes = await uploadFile(adminUser, "logo.svg", svgBytes, "image/svg+xml");
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+
+    const res = await getFile(adminUser, id);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).not.toBe("image/svg+xml");
+    expect(res.headers.get("Content-Type")).toBe("application/octet-stream");
+  });
+
+  test("regression: a real allowed image type with a correctly declared MIME still serves with the matching sniffed Content-Type", async () => {
+    const uploadRes = await uploadFile(adminUser, "photo.jpg", testJpegContent, "image/jpeg");
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+
+    const res = await getFile(adminUser, id);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("image/jpeg");
   });
 });
 
