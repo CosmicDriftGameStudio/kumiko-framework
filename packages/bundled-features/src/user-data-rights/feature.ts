@@ -179,6 +179,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       createSystemConfig("select", {
         default: "multi-user",
         options: ["single-user", "multi-user"],
+        env: "TENANT_MODEL",
       }),
     );
 
