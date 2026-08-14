@@ -87,6 +87,10 @@
       "types": "./src/i18n/index.ts",
       "default": "./src/i18n/index.ts"
     },
+    "./http": {
+      "types": "./src/http/index.ts",
+      "default": "./src/http/index.ts"
+    },
     "./auth": {
       "types": "./src/auth/index.ts",
       "default": "./src/auth/index.ts"
