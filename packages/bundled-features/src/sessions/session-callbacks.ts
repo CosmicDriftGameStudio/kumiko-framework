@@ -17,7 +17,7 @@ import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { encryptForDirectWrite } from "../shared";
-import { tenantMembershipsTable } from "../tenant/membership-table";
+import { tenantMembershipsTable } from "../tenant";
 import { USER_STATUS, type UserStatus, userTable } from "../user";
 import { DEFAULT_SESSION_EXPIRY_MS } from "./constants";
 import { userSessionEntity, userSessionTable } from "./schema/user-session";
