@@ -3076,6 +3076,68 @@ describe("RenderEdit hideActions (host-driven action bar)", () => {
       data: { id: "42" },
     });
   });
+
+  test("onChange's submitting is false on mount", () => {
+    const seen: RenderEditChangeState<TestValues>[] = [];
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1, isUrgent: false }}
+          writeCommand="order:create"
+          onChange={(state) => seen.push(state)}
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(seen.at(-1)?.submitting).toBe(false);
+  });
+
+  test("onChange's submitting is true while a customSubmit is in flight and false again after", async () => {
+    let resolveSubmit: (() => void) | undefined;
+    const customSubmit = mock(
+      (_snapshot: FormSnapshot<TestValues>): Promise<SubmitResult<unknown>> =>
+        new Promise((resolve) => {
+          resolveSubmit = () =>
+            resolve({ validationBlocked: false, isSuccess: true, data: { id: "42" } });
+        }),
+    );
+    const seen: RenderEditChangeState<TestValues>[] = [];
+    let controls: RenderEditControls<TestValues> | undefined;
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1, isUrgent: false }}
+          customSubmit={customSubmit}
+          onChange={(state) => seen.push(state)}
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(seen.at(-1)?.submitting).toBe(false);
+
+    let submitPromise: Promise<void> | undefined;
+    act(() => {
+      submitPromise = controls?.submit();
+    });
+
+    expect(seen.at(-1)?.submitting).toBe(true);
+
+    await act(async () => {
+      resolveSubmit?.();
+      await submitPromise;
+    });
+
+    expect(seen.at(-1)?.submitting).toBe(false);
+  });
 });
 
 describe("RenderEdit fields filter", () => {

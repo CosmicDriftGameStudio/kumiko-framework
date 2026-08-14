@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "../../__tests__/test-utils";
 import { Drawer } from "../drawer";
 
@@ -374,6 +374,101 @@ describe("Drawer", () => {
       );
       expect(screen.queryByRole("separator")).toBeNull();
       expect(screen.queryByRole("button", { name: /maximize drawer width/i })).toBeNull();
+    });
+  });
+
+  describe("narrow viewport", () => {
+    // matchMedia is set via Object.defineProperty on window, same leak trap
+    // as innerWidth above (resize describe): without restoring the original
+    // descriptor in afterEach, the mock survives into the next test file's
+    // happy-dom instance and corrupts unrelated tests there.
+    let originalDescriptor: PropertyDescriptor | undefined;
+
+    function mockMatchMedia(matches: boolean): void {
+      Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        writable: true,
+        value: (query: string) => ({
+          matches,
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        }),
+      });
+    }
+
+    beforeEach(() => {
+      originalDescriptor = Object.getOwnPropertyDescriptor(window, "matchMedia");
+    });
+
+    afterEach(() => {
+      if (originalDescriptor) {
+        Object.defineProperty(window, "matchMedia", originalDescriptor);
+      } else {
+        delete (window as unknown as { matchMedia?: unknown }).matchMedia;
+      }
+    });
+
+    test("narrow: full-screen classes replace the floating panel treatment", () => {
+      mockMatchMedia(true);
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.className).toContain("inset-0");
+      expect(content.className).toContain("w-full");
+      expect(content.className).not.toContain("rounded-[2rem]");
+      expect(content.className).not.toContain("inset-y-8");
+    });
+
+    test("narrow with resize set: no inline width style", () => {
+      mockMatchMedia(true);
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.getByTestId("drawer").style.width).toBe("");
+    });
+
+    test("narrow: resize handle is not rendered", () => {
+      mockMatchMedia(true);
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.queryByRole("separator")).toBeNull();
+    });
+
+    test("narrow: maximize button is not rendered", () => {
+      mockMatchMedia(true);
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.queryByRole("button", { name: /maximize drawer width/i })).toBeNull();
+    });
+
+    test("wide (regression clamp): inline width and handle still present with resize set", () => {
+      mockMatchMedia(false);
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="right"
+          testId="drawer"
+          resize={{ defaultWidthPx: 400, minWidthPx: 300, maxWidthPx: 500 }}
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.style.width).toBe("400px");
+      expect(screen.getByRole("separator")).toBeTruthy();
     });
   });
 });

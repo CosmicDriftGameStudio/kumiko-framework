@@ -210,6 +210,7 @@ export type RenderEditChangeState<TValues extends FormValues> = {
   readonly changes: Partial<TValues>;
   readonly dirty: boolean;
   readonly valid: boolean;
+  readonly submitting: boolean;
 };
 
 export type RenderEditControls<TValues extends FormValues> = {
@@ -578,8 +579,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     const currentSchema = schemaRef.current;
     const valid =
       currentSchema === undefined ? true : currentSchema.safeParse(snapshot.values).success;
-    cb({ values: snapshot.values, changes: snapshot.changes, dirty: snapshot.isDirty, valid });
-  }, [snapshot]);
+    cb({
+      values: snapshot.values,
+      changes: snapshot.changes,
+      dirty: snapshot.isDirty,
+      valid,
+      submitting: isSubmitting,
+    });
+  }, [snapshot, isSubmitting]);
 
   useEffect(() => {
     // skip: this screen does not persist a draft.
