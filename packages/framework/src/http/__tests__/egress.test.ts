@@ -44,6 +44,20 @@ beforeAll(() => {
             }),
         );
       }
+      if (url.pathname === "/cross-host-redirect") {
+        // Redirects to a *different* allowlisted host (not just a
+        // disallowed one) — this must still be rejected even though both
+        // hosts individually pass assertAllowedHost, because init.headers
+        // are replayed on every hop and must not leak across hosts.
+        return countedResponse(
+          "/cross-host-redirect",
+          () =>
+            new Response(null, {
+              status: 302,
+              headers: { location: `http://localhost:${port}/final` },
+            }),
+        );
+      }
       if (url.pathname === "/redirect-loop") {
         return countedResponse(
           "/redirect-loop",
@@ -103,6 +117,15 @@ describe("egress internal", () => {
     await expect(
       fetchIt(`http://127.0.0.1:${port}/blocked-redirect`, { redirect: "follow" }),
     ).rejects.toThrow();
+  });
+
+  test("rejects a redirect to a different host even when both hosts are allowlisted", async () => {
+    const before = requestCounts.get("/final") ?? 0;
+    const fetchIt = egress({ kind: "internal", allowHosts: ["127.0.0.1", "localhost"] });
+    await expect(fetchIt(`http://127.0.0.1:${port}/cross-host-redirect`)).rejects.toThrow(
+      /crosses host/,
+    );
+    expect(requestCounts.get("/final") ?? 0).toBe(before); // never dialed the second host
   });
 
   test("throws once the redirect hop cap is exceeded", async () => {

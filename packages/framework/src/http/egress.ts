@@ -42,13 +42,16 @@ export function withManualRedirect(init: RequestInit | undefined): RequestInit {
 
 // `internal` is the only kind that permits redirects (it is the only kind
 // with a host allowlist to re-validate them against). Each hop's Location
-// header is resolved and checked against the same allowlist before it is
-// followed, capped at MAX_INTERNAL_REDIRECTS to avoid an infinite loop.
+// header is resolved and checked against the same allowlist AND restricted
+// to the current hop's host before it is followed, capped at
+// MAX_INTERNAL_REDIRECTS to avoid an infinite loop.
 // `init` (method, body, headers) is replayed verbatim on every hop — unlike
 // a browser, this does not downgrade POST to GET on a 301/302/303. That is
 // deliberate for an allowlisted internal target: a silent method change is
 // its own class of surprise, and a streamed body would fail on the second
-// hop either way.
+// hop either way. Replaying headers verbatim is also why redirects may not
+// cross hosts (see below): a second allowlisted host must not receive the
+// first host's Authorization/Cookie headers.
 async function fetchWithAllowlistedRedirects(
   url: URL,
   allowHosts: readonly string[],
@@ -70,6 +73,17 @@ async function fetchWithAllowlistedRedirects(
       );
     }
     assertHttpScheme(next);
+    // `init.headers` (e.g. Authorization, Cookie) is replayed verbatim on
+    // every hop above. Without this check, one allowlisted host redirecting
+    // to a second, different allowlisted host would forward the caller's
+    // credentials to it — a classic redirect-credential-leak. Restricting
+    // hops to the same host keeps the realistic internal case (path
+    // rewrite, trailing slash) working while closing that leak.
+    if (next.hostname.toLowerCase() !== current.hostname.toLowerCase()) {
+      throw new Error(
+        `egress(internal): redirect crosses host (${current.hostname} -> ${next.hostname}), not followed`,
+      );
+    }
     assertAllowedHost(next, allowHosts);
     current = next;
   }
