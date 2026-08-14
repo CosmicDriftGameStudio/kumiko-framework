@@ -29,20 +29,26 @@ export async function runBatch(
 
   // Idempotency: if the same requestId has already been processed, return the
   // cached result without re-executing. The cache holds the full BatchResult.
+  // idempotencyToken is only set when we actually acquired the lock — the
+  // corrupted-cache fallthrough below leaves it unset, so finalize() skips
+  // store() rather than writing over an entry it never owned.
+  let idempotencyToken: string | undefined;
   if (requestId && idempotency) {
-    const cached = await idempotency.check(user.tenantId, user.id, requestId);
-    if (cached) {
-      const parsed = parseJsonSafe<BatchResult | null>(cached, null);
+    const checked = await idempotency.check(user.tenantId, user.id, requestId);
+    if (checked.status === "cached") {
+      const parsed = parseJsonSafe<BatchResult | null>(checked.result, null);
       if (parsed) return parsed;
       // corrupted cache entry — treat as miss, let the request re-run
+    } else {
+      idempotencyToken = checked.token;
     }
   }
 
   // Wrap return paths: cache the final result under requestId so retries get
   // the same answer (both success and failure results are cached).
   const finalize = async (result: BatchResult): Promise<BatchResult> => {
-    if (requestId && idempotency) {
-      await idempotency.store(user.tenantId, user.id, requestId, result);
+    if (requestId && idempotency && idempotencyToken) {
+      await idempotency.store(user.tenantId, user.id, requestId, idempotencyToken, result);
     }
     return result;
   };

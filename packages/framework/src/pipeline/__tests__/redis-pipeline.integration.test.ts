@@ -22,37 +22,44 @@ describe("idempotency guard", () => {
   const tenantA = "00000000-0000-4000-8000-00000000000a";
   const userA = "00000000-0000-4000-8000-0000000000a1";
 
-  test("returns null for new request", async () => {
+  test("returns acquired for new request", async () => {
     const guard = createIdempotencyGuard(testRedis.redis);
     const result = await guard.check(tenantA, userA, "req-new-123");
-    expect(result).toBeNull();
+    expect(result.status).toBe("acquired");
   });
 
   test("returns cached result for duplicate request", async () => {
     const guard = createIdempotencyGuard(testRedis.redis);
     const requestId = "req-dup-456";
 
-    await guard.store(tenantA, userA, requestId, { isSuccess: true, data: { id: 1 } });
+    const acquired = await guard.check(tenantA, userA, requestId);
+    if (acquired.status !== "acquired") throw new Error("expected to acquire the lock");
+    await guard.store(tenantA, userA, requestId, acquired.token, {
+      isSuccess: true,
+      data: { id: 1 },
+    });
     const cached = await guard.check(tenantA, userA, requestId);
 
-    expect(cached).not.toBeNull();
-    if (!cached) throw new Error("expected cached value");
-    expect(JSON.parse(cached)).toEqual({ isSuccess: true, data: { id: 1 } });
+    expect(cached.status).toBe("cached");
+    if (cached.status !== "cached") throw new Error("expected cached value");
+    expect(JSON.parse(cached.result)).toEqual({ isSuccess: true, data: { id: 1 } });
   });
 
   test("expires after TTL", async () => {
     const guard = createIdempotencyGuard(testRedis.redis, { ttlSeconds: 1 });
     const requestId = "req-ttl-789";
 
-    await guard.store(tenantA, userA, requestId, { done: true });
+    const acquired = await guard.check(tenantA, userA, requestId);
+    if (acquired.status !== "acquired") throw new Error("expected to acquire the lock");
+    await guard.store(tenantA, userA, requestId, acquired.token, { done: true });
 
     // Should exist immediately
-    expect(await guard.check(tenantA, userA, requestId)).not.toBeNull();
+    expect((await guard.check(tenantA, userA, requestId)).status).toBe("cached");
 
     // Wait for expiry
     await new Promise((r) => setTimeout(r, 1100));
 
-    expect(await guard.check(tenantA, userA, requestId)).toBeNull();
+    expect((await guard.check(tenantA, userA, requestId)).status).toBe("acquired");
   });
 
   test("parallel check(): second caller waits for the first's store() instead of racing", async () => {
@@ -65,7 +72,8 @@ describe("idempotency guard", () => {
 
     // Request #1 starts — claims the in-progress lock.
     const first = await guard.check(tenantA, userA, requestId);
-    expect(first).toBeNull(); // got the lock
+    expect(first.status).toBe("acquired");
+    if (first.status !== "acquired") throw new Error("expected to acquire the lock");
 
     // Request #2 runs concurrently — must block until #1 stores a result.
     const secondPromise = guard.check(tenantA, userA, requestId);
@@ -80,12 +88,17 @@ describe("idempotency guard", () => {
     expect(quickResult.done).toBe(false);
 
     // Request #1 finishes.
-    await guard.store(tenantA, userA, requestId, { isSuccess: true, data: { id: 99 } });
+    await guard.store(tenantA, userA, requestId, first.token, {
+      isSuccess: true,
+      data: { id: 99 },
+    });
 
-    // Request #2 should now see the stored result, not null — no duplicate work.
+    // Request #2 should now see the stored result, not a fresh acquisition —
+    // no duplicate work.
     const second = await secondPromise;
-    expect(second).not.toBeNull();
-    expect(JSON.parse(second as string)).toEqual({ isSuccess: true, data: { id: 99 } });
+    expect(second.status).toBe("cached");
+    if (second.status !== "cached") throw new Error("expected cached value");
+    expect(JSON.parse(second.result)).toEqual({ isSuccess: true, data: { id: 99 } });
   });
 
   test("crashed handler: pending marker expires, next caller reclaims the lock", async () => {
@@ -97,11 +110,11 @@ describe("idempotency guard", () => {
     const requestId = "req-crashed";
 
     const first = await guard.check(tenantA, userA, requestId);
-    expect(first).toBeNull(); // we acquired the lock, then "crash" — never call store()
+    expect(first.status).toBe("acquired"); // we acquired the lock, then "crash" — never call store()
 
     // After the pending-TTL lapses, a retry should be allowed to take over.
     const second = await guard.check(tenantA, userA, requestId);
-    expect(second).toBeNull(); // reclaimed
+    expect(second.status).toBe("acquired"); // reclaimed
   });
 
   test("same requestId from different tenant/user does not hit the same cache entry", async () => {
@@ -112,22 +125,103 @@ describe("idempotency guard", () => {
 
     // Tenant A / user A owns the request and stores its result.
     const firstCheck = await guard.check(tenantA, userA, requestId);
-    expect(firstCheck).toBeNull();
-    await guard.store(tenantA, userA, requestId, { isSuccess: true, data: { tenant: "A" } });
+    expect(firstCheck.status).toBe("acquired");
+    if (firstCheck.status !== "acquired") throw new Error("expected to acquire the lock");
+    await guard.store(tenantA, userA, requestId, firstCheck.token, {
+      isSuccess: true,
+      data: { tenant: "A" },
+    });
 
     // Same requestId, different tenant+user: must be treated as a fresh
     // request, not see tenant A's cached/pending state.
     const otherTenantCheck = await guard.check(tenantB, userB, requestId);
-    expect(otherTenantCheck).toBeNull();
+    expect(otherTenantCheck.status).toBe("acquired");
 
     // Different user, same tenant: also isolated.
     const otherUserCheck = await guard.check(tenantA, userB, requestId);
-    expect(otherUserCheck).toBeNull();
+    expect(otherUserCheck.status).toBe("acquired");
 
     // Tenant A's own result is still retrievable and unaffected.
     const ownResult = await guard.check(tenantA, userA, requestId);
-    expect(ownResult).not.toBeNull();
-    expect(JSON.parse(ownResult as string)).toEqual({ isSuccess: true, data: { tenant: "A" } });
+    expect(ownResult.status).toBe("cached");
+    if (ownResult.status !== "cached") throw new Error("expected cached value");
+    expect(JSON.parse(ownResult.result)).toEqual({ isSuccess: true, data: { tenant: "A" } });
+  });
+
+  test("bug 1 — wait shorter than the pending lock no longer forces a duplicate re-run", async () => {
+    // Same inverted ratio as the pre-fix defaults (waitTimeoutMs < pendingTtl),
+    // scaled to sub-second so the test stays fast. Pre-fix, the internal
+    // waitTimeoutMs was trusted as-is: the waiter gives up at 100ms and
+    // reports "acquired" even though request #1 is still legitimately
+    // running and stores its result 200ms later — the double-execute bug.
+    // Post-fix, waitTimeoutMs is clamped to stay above pendingTtl, so the
+    // waiter keeps polling and observes the real result instead.
+    const guard = createIdempotencyGuard(testRedis.redis, {
+      pendingTtlSeconds: 1,
+      waitTimeoutMs: 100,
+      pollIntervalMs: 20,
+    });
+    const requestId = "req-bug1-inverted-timeout";
+
+    const first = await guard.check(tenantA, userA, requestId);
+    expect(first.status).toBe("acquired");
+    if (first.status !== "acquired") throw new Error("expected to acquire the lock");
+
+    // Request #1 is "slow" — stores well after the old 100ms wait window,
+    // but well within pendingTtl (1s).
+    const storeAfterDelay = (async () => {
+      await new Promise((r) => setTimeout(r, 300));
+      await guard.store(tenantA, userA, requestId, first.token, {
+        isSuccess: true,
+        data: { id: "slow-handler" },
+      });
+    })();
+
+    const second = await guard.check(tenantA, userA, requestId);
+    await storeAfterDelay;
+
+    // Must observe request #1's real result — never a second "acquired".
+    expect(second.status).toBe("cached");
+    if (second.status !== "cached") throw new Error("expected cached value, not a re-run");
+    expect(JSON.parse(second.result)).toEqual({ isSuccess: true, data: { id: "slow-handler" } });
+  });
+
+  test("bug 2 (window B) — a reclaimed lock's fresh result survives the original owner's stale store()", async () => {
+    const guard = createIdempotencyGuard(testRedis.redis, {
+      pendingTtlSeconds: 1, // expire fast so we can force a reclaim quickly
+      waitTimeoutMs: 6_000,
+      pollIntervalMs: 20,
+    });
+    const requestId = "req-bug2-window-b";
+
+    // Original owner acquires, then "hangs" (never stores) past pendingTtl.
+    const original = await guard.check(tenantA, userA, requestId);
+    expect(original.status).toBe("acquired");
+    if (original.status !== "acquired") throw new Error("expected to acquire the lock");
+
+    // Let the lock expire, then a second run reclaims it and finishes fast.
+    await new Promise((r) => setTimeout(r, 1100));
+    const reclaimer = await guard.check(tenantA, userA, requestId);
+    expect(reclaimer.status).toBe("acquired");
+    if (reclaimer.status !== "acquired") throw new Error("expected to reclaim the lock");
+    await guard.store(tenantA, userA, requestId, reclaimer.token, {
+      isSuccess: true,
+      data: { owner: "reclaimer" },
+    });
+
+    // The original (now-stale) run finally "finishes" and tries to store its
+    // own, outdated result using its original token.
+    await guard.store(tenantA, userA, requestId, original.token, {
+      isSuccess: true,
+      data: { owner: "original-stale" },
+    });
+
+    // The reclaimer's fresh result must survive — the stale store() must be
+    // a no-op, not a silent overwrite.
+    const final = await guard.check(tenantA, userA, requestId);
+    expect(final.status).toBe("cached");
+    if (final.status !== "cached") throw new Error("expected cached value");
+    expect(JSON.parse(final.result)).toEqual({ isSuccess: true, data: { owner: "reclaimer" } });
   });
 });
 

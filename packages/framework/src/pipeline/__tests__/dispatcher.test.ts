@@ -1019,13 +1019,32 @@ describe("dispatcher context.geoTzProvider (680/1)", () => {
 // --- Mock helpers ---
 
 function createMockIdempotencyGuard() {
-  const cache = new Map<string, string>();
+  const results = new Map<string, string>();
+  const pendingTokens = new Map<string, string>();
+  let nextToken = 0;
+
   return {
     async check(tenantId: string, userId: string, requestId: string) {
-      return cache.get(`${tenantId}:${userId}:${requestId}`) ?? null;
+      const key = `${tenantId}:${userId}:${requestId}`;
+      const cached = results.get(key);
+      if (cached !== undefined) return { status: "cached" as const, result: cached };
+      const token = `token-${nextToken++}`;
+      pendingTokens.set(key, token);
+      return { status: "acquired" as const, token };
     },
-    async store(tenantId: string, userId: string, requestId: string, result: unknown) {
-      cache.set(`${tenantId}:${userId}:${requestId}`, JSON.stringify(result));
+    async store(
+      tenantId: string,
+      userId: string,
+      requestId: string,
+      token: string,
+      result: unknown,
+    ) {
+      const key = `${tenantId}:${userId}:${requestId}`;
+      // Mirrors the real guard's CAS: only persist if we still hold the token
+      // this run acquired.
+      if (pendingTokens.get(key) !== token) return;
+      pendingTokens.delete(key);
+      results.set(key, JSON.stringify(result));
     },
   };
 }
