@@ -374,7 +374,7 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
         );
       }
       if (matchFirstArgString(call, id.hookType)) {
-        return matchArgString(call, 1, id.target);
+        return matchArgNameOrRef(call, 1, id.target);
       }
       return (
         matchObjectProperty(call, "type", id.hookType) &&
@@ -394,7 +394,7 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
     case "useExtension":
       // Positional: r.useExtension(name, entity) | Object: { name, entity }
       if (matchFirstArgString(call, id.extensionName)) {
-        return matchArgString(call, 1, id.entityName);
+        return matchArgNameOrRef(call, 1, id.entityName);
       }
       return (
         matchObjectProperty(call, "name", id.extensionName) &&
@@ -433,6 +433,14 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
 // declaration (same-file or imported) to a string-literal initializer —
 // the dominant naming style in the framework's own bundled-features
 // (`r.entity(ENTITY, ...)`, `r.useExtension(EXT_X, ...)`, see #1746).
+//
+// Narrow on purpose: every kind's arg-0 (and relation's arg-1) is parsed
+// via readNameLiteral, never readNameOrRef (see round2.ts/round3.ts) —
+// widening this shared helper to readNameOrRef would let an object-form
+// call's first argument (an ObjectLiteralExpression) match here too,
+// short-circuiting the object-form branch in callMatchesId. Positions
+// where the parser itself accepts an inline `{ name: "..." }` ref use
+// `matchArgNameOrRef` below instead.
 function matchArgString(call: CallExpression, index: number, expected: string): boolean {
   const arg = call.getArguments()[index];
   if (!arg) return false;
@@ -441,6 +449,18 @@ function matchArgString(call: CallExpression, index: number, expected: string): 
 
 function matchFirstArgString(call: CallExpression, expected: string): boolean {
   return matchArgString(call, 0, expected);
+}
+
+// Like matchArgString, but via readNameOrRef — for the specific positional
+// slots where the parser accepts an inline `{ name: "..." }` object ref in
+// addition to a literal/identifier (useExtension's entity arg, hook's
+// target arg; see round3.ts:445 / hooks.ts:75). Not a drop-in replacement
+// for matchArgString: applying it to an arg-0 position would match an
+// object-form call's first (and only) argument, see the comment above.
+function matchArgNameOrRef(call: CallExpression, index: number, expected: string): boolean {
+  const arg = call.getArguments()[index];
+  if (!arg) return false;
+  return readNameOrRef(arg) === expected;
 }
 
 // Object-form property values are resolved via readNameOrRef, not the
