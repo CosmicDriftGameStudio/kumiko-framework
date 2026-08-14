@@ -650,3 +650,61 @@ defineFeature("inventory", (r) => {
     expect(reparsed.patterns).toEqual([]);
   });
 });
+
+// #2133 — matchArgString (shared by relation's second positional arg,
+// hook's target, and useExtension's entity) only accepted a string literal
+// or a name-resolving identifier. The parser itself is more permissive at
+// two of those positions: useExtension's entity (round3.ts:445) and hook's
+// target (hooks.ts:75) both additionally accept an inline `{ name: "..." }`
+// object ref, same as the object-form fix in #2121 — so findCallForId
+// couldn't locate a call authored that way. relation's second positional
+// arg stays narrow on purpose: round2.ts:170 parses it via readNameLiteral,
+// not readNameOrRef, so widening it would exceed what the parser accepts.
+describe("callMatchesId — positional inline-ref args (#2133)", () => {
+  test("removePattern finds a positional useExtension whose entity is an inline { name } ref", () => {
+    const sf = makeSourceFile(`
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("inventory", (r) => {
+  r.useExtension("audit", { name: "item" });
+});
+`);
+    removePattern(sf, { kind: "useExtension", extensionName: "audit", entityName: "item" });
+    const reparsed = parseSourceFile(sf);
+    expect(reparsed.errors).toEqual([]);
+    expect(reparsed.patterns).toEqual([]);
+  });
+
+  test("removePattern finds a positional hook whose target is an inline { name } ref", () => {
+    const sf = makeSourceFile(`
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("hooks", (r) => {
+  r.hook("postSave", { name: "task" }, () => {});
+});
+`);
+    removePattern(sf, { kind: "hook", hookType: "postSave", target: "task" });
+    const reparsed = parseSourceFile(sf);
+    expect(reparsed.errors).toEqual([]);
+    expect(reparsed.patterns).toEqual([]);
+  });
+
+  // Boundary, not a gap left open by this fix: readDataLiteralNode (used by
+  // readNameOrRef's object-literal branch) keeps a nested Identifier as a
+  // RawRefSentinel instead of resolving it — same as the parser side, which
+  // is why this call fails to extract too (not just to patch-match).
+  test("does not resolve an identifier nested inside an inline-ref positional arg", () => {
+    const sf = makeSourceFile(`
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+const ENTITY_NAME = "item";
+
+defineFeature("inventory", (r) => {
+  r.useExtension("audit", { name: ENTITY_NAME });
+});
+`);
+    expect(() =>
+      removePattern(sf, { kind: "useExtension", extensionName: "audit", entityName: "item" }),
+    ).toThrow(/no call found/);
+  });
+});

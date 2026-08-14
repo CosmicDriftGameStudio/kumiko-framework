@@ -1,0 +1,5 @@
+---
+"@cosmicdrift/kumiko-framework": patch
+---
+
+`removePattern`/`findCallForId` (the feature-file AST patcher used by Designer/AI-Builder tooling to locate and remove a specific `r.hook(...)` or `r.useExtension(...)` call) failed to find calls whose `target`/`entityName` argument was written as an inline `{ name: "..." }` object ref instead of a string literal or identifier — even though the parser (`hooks.ts`, `round3.ts`) already accepts that form when reading the feature file. A hook or extension registered with an inline ref could be parsed but not matched for removal, so patch callers would report "no call found" against code that plainly contained the call. The two affected positional slots (hook's `target`, arg 1; useExtension's `entityName`, arg 1) now match via the same `readNameOrRef` resolution the parser itself uses there. The shared `matchArgString` helper and every other call-matching slot are unchanged — this only widens the two positions where the parser was already more permissive than the patcher's matcher.
