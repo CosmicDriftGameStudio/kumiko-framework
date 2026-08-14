@@ -169,7 +169,7 @@ export function Drawer({
         className={floatingSideClass(side, narrow)}
         style={canResize && !narrow ? { width: effectiveWidthPx, maxWidth: "none" } : undefined}
       >
-        {canResize && (
+        {canResize && !narrow && (
           <button
             type="button"
             onClick={() => setMaximized((m) => !m)}

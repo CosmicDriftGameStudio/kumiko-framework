@@ -443,6 +443,16 @@ describe("Drawer", () => {
       expect(screen.queryByRole("separator")).toBeNull();
     });
 
+    test("narrow: maximize button is not rendered", () => {
+      mockMatchMedia(true);
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.queryByRole("button", { name: /maximize drawer width/i })).toBeNull();
+    });
+
     test("wide (regression clamp): inline width and handle still present with resize set", () => {
       mockMatchMedia(false);
       render(
