@@ -45,24 +45,25 @@ export const removeMemberWrite = defineWriteHandler({
       );
     }
 
+    // Revoke THIS tenant's sessions BEFORE the delete — a removed member must
+    // not keep a valid session for the window between the delete and a
+    // post-delete revoke. Best-effort cross-feature call: sessions may not be
+    // mounted (registry lookup, see above). If the delete then fails, the
+    // member is logged out but the membership is intact — safe direction.
+    const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
+    if (revoker) {
+      await ctx.writeAs(createSystemUser(event.payload.tenantId), REVOKE_ALL_SESSIONS_QN, {
+        userId: event.payload.userId,
+        tenantId: event.payload.tenantId,
+      });
+    }
+
     const result = await executor.delete(
       { id: (existing as DbRow)["id"] as string }, // @cast-boundary db-row
       event.user,
       db,
     );
 
-    // Revoke only this tenant's sessions — a multi-tenant user stays logged
-    // in to tenants they're still a member of. Best-effort cross-feature
-    // call: sessions may not be mounted (registry lookup, see above).
-    if (result.isSuccess) {
-      const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
-      if (revoker) {
-        await ctx.writeAs(createSystemUser(event.payload.tenantId), REVOKE_ALL_SESSIONS_QN, {
-          userId: event.payload.userId,
-          tenantId: event.payload.tenantId,
-        });
-      }
-    }
     return withResponseData(result, event.payload);
   },
 });

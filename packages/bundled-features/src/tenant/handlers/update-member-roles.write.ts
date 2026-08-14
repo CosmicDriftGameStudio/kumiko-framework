@@ -62,6 +62,19 @@ export const updateMemberRolesWrite = defineWriteHandler({
     // silent overwrite. Per-membership parallelism is rare; if it happens,
     // the client retries on the error.
     const row = existing as DbRow; // @cast-boundary generic-record
+    // A role change can be security-relevant (e.g. demoting an Admin) — the
+    // user must re-authenticate with the new roles, everywhere. Revoke BEFORE
+    // the update closes the window where the demoted user keeps a valid
+    // session until the revoke write lands. Best-effort cross-feature call:
+    // sessions may not be mounted (registry lookup instead of a hard
+    // requires, see above).
+    const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
+    if (revoker) {
+      await ctx.writeAs(createSystemUser(event.user.tenantId), REVOKE_ALL_SESSIONS_QN, {
+        userId: event.payload.userId,
+      });
+    }
+
     const result = await executor.update(
       {
         id: row["id"] as string, // @cast-boundary db-row
@@ -72,18 +85,6 @@ export const updateMemberRolesWrite = defineWriteHandler({
       db,
     );
 
-    // A role change can be security-relevant (e.g. demoting an Admin) — the
-    // user must re-authenticate with the new roles, everywhere, not just in
-    // this tenant. Best-effort cross-feature call: sessions may not be
-    // mounted (registry lookup instead of a hard requires, see above).
-    if (result.isSuccess) {
-      const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
-      if (revoker) {
-        await ctx.writeAs(createSystemUser(event.user.tenantId), REVOKE_ALL_SESSIONS_QN, {
-          userId: event.payload.userId,
-        });
-      }
-    }
     return withResponseData(result, event.payload);
   },
 });
