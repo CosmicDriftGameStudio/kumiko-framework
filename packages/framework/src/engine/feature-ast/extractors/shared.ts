@@ -216,6 +216,32 @@ function resolveIdentifierToStringLiteral(identifier: Node): string | undefined 
 }
 
 /**
+ * Resolved name plus, when the source node was an identifier rather than
+ * a string literal, the identifier's exact source text. Mirrors
+ * `RawRefSentinel`'s round-trip contract: extractors that need to re-emit
+ * the original reference (not its resolved value) keep `raw` alongside
+ * `value`; extractors that only need the string keep using
+ * `readNameLiteral`, which discards it.
+ */
+export type NameLiteralRef = { readonly value: string; readonly raw?: string };
+
+/**
+ * Like `readNameLiteral`, but for callers that must preserve an
+ * identifier-authored name across a render → parse round-trip (see #2111).
+ * `raw` is populated only when the node resolved via an identifier — a
+ * string-literal node has nothing worth preserving beyond its value, and
+ * setting `raw` for it too would make `JSON.stringify(value)` and
+ * `node.getText()` diverge on quote style.
+ */
+export function readNameLiteralRef(node: Node): NameLiteralRef | undefined {
+  const literal = node.asKind(SyntaxKind.StringLiteral);
+  if (literal) return { value: literal.getLiteralValue() };
+  const resolved = resolveIdentifierToStringLiteral(node);
+  if (resolved === undefined) return undefined;
+  return { value: resolved, raw: node.getText() };
+}
+
+/**
  * A node's string value when it's a string literal, or when it's a bare
  * Identifier that resolves to one via a `const X = "..."` declaration
  * (same-file or imported) — the pattern used throughout the framework's
@@ -223,12 +249,11 @@ function resolveIdentifierToStringLiteral(identifier: Node): string | undefined 
  * `TENANT_SECRET_READ_EVENT`, ...) instead of repeating string literals.
  * undefined for anything unresolvable (factory call, member access,
  * external/ambient identifier) — callers keep their existing ParseError
- * fallback, no crash.
+ * fallback, no crash. Discards the original identifier text; use
+ * `readNameLiteralRef` when the caller must preserve it for rendering.
  */
 export function readNameLiteral(node: Node): string | undefined {
-  const literal = node.asKind(SyntaxKind.StringLiteral);
-  if (literal) return literal.getLiteralValue();
-  return resolveIdentifierToStringLiteral(node);
+  return readNameLiteralRef(node)?.value;
 }
 
 export function readNameOrRef(node: Node): string | undefined {

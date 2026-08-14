@@ -18,7 +18,7 @@ import { createFileContext } from "./file-handle";
 import { fileRefEntity } from "./file-ref-entity";
 import { fileRefsTable } from "./file-ref-table";
 import type { FileProviderResolver } from "./provider-resolver";
-import { buildStorageKey, validateFile } from "./types";
+import { buildStorageKey, resolveServedContentType, validateFile } from "./types";
 
 // Decision returned by a FileAccessGuard — distinct from boolean so callers
 // can't accidentally negate or default it.
@@ -234,11 +234,19 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
     const storageProvider = await options.resolveProvider(user.tenantId);
     const data = await storageProvider.read(fileRef.storageKey);
+    // The stored mimeType is client-declared (file.type off the upload) and
+    // never verified against the bytes — serving it as-is would let a
+    // client label real HTML/SVG as e.g. image/png to slip active content
+    // out under a trusted-looking Content-Type. Sniff the actual bytes
+    // instead; anything that isn't a known-safe binary signature (including
+    // svg/html, which have none) goes out as application/octet-stream.
+    const contentType = resolveServedContentType(data, fileRef.mimeType);
     return new Response(Buffer.from(data), {
       headers: {
-        "Content-Type": fileRef.mimeType,
+        "Content-Type": contentType,
         "Content-Disposition": buildContentDispositionHeader(fileRef.fileName),
         "Content-Length": String(fileRef.size),
+        "X-Content-Type-Options": "nosniff",
       },
     });
   });

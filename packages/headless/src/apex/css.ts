@@ -126,7 +126,7 @@ const CHROME_LIGHT = `
     background: color-mix(in srgb, var(--bg) 85%, transparent);
     backdrop-filter: saturate(140%) blur(8px);
     border-bottom: 1px solid var(--border); }
-  .nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 0.85rem; }
+  .nav { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 0.85rem; }
   .brand { display: flex; align-items: center; gap: 0.55rem; font-weight: 700; font-size: 1.125rem; color: var(--fg); }
   .brand a { color: var(--fg); display: inline-flex; align-items: center; gap: 0.55rem; }
   .brand a:hover { color: var(--fg); }
@@ -199,29 +199,39 @@ const RESPONSIVE = `
   }
 `;
 
-// Dropdown nav entry (kind:"menu"): CSS-only, reveals on hover AND keyboard
-// focus-within (the trigger is a real <button>, panel items are <a>). The panel
-// is a light popover in BOTH themes — only the trigger color tracks the
-// surrounding nav. Nav is hidden < 640px (CHROME_*), so this is desktop-only.
-// Exported standalone so a consumer rendering its own header chrome (not the
-// full apex page) can include just this, without duplicating the rules.
+// header renders navLinks TWICE (renderApexHeader): a plain always-visible
+// .nav-links row, plus a copy nested in .nav-toggle for < 640px — a closed
+// <details> can't be forced "always open" on desktop via CSS (Chrome keeps
+// its content unpainted regardless of a child's own `display`), so two
+// copies sidestep that instead of fighting it. Exported standalone so a
+// consumer rendering its own header chrome can include just this. A
+// consumer using renderApexHeader() outside renderApexPage also needs
+// APEX_NAV_TOGGLE_RESPONSIVE_CSS below for the mobile toggle to open.
 export const APEX_NAV_MENU_CSS = `
+  .nav-toggle { display: none; }
+  .nav-toggle__trigger { display: none; align-items: center; justify-content: center;
+    width: 2.25rem; height: 2.25rem; border-radius: 0.5rem; cursor: pointer;
+    color: var(--fg-muted); list-style: none; }
+  .nav-toggle__trigger::-webkit-details-marker { display: none; }
+  .nav-toggle__trigger:hover { color: var(--fg); background: var(--bg-muted); }
+  .nav-toggle__trigger svg { width: 1.35rem; height: 1.35rem; }
+  .apex-dark .nav-toggle__trigger { color: var(--on-dark-muted); }
+  .apex-dark .nav-toggle__trigger:hover { color: var(--on-dark); background: rgba(255,255,255,0.08); }
+
   .nav-menu { position: relative; display: inline-flex; }
   .nav-menu__trigger { display: inline-flex; align-items: center; gap: 0.3rem;
     font: inherit; font-size: 0.9375rem; color: var(--fg-muted);
-    background: none; border: 0; padding: 0; cursor: pointer; }
+    cursor: pointer; list-style: none; }
+  .nav-menu__trigger::-webkit-details-marker { display: none; }
   .nav-menu__trigger:hover { color: var(--fg); }
   .nav-menu__chev { display: inline-flex; transition: transform 0.15s; opacity: 0.7; }
   .nav-menu__chev svg { width: 0.95em; height: 0.95em; }
-  .nav-menu:hover .nav-menu__chev, .nav-menu:focus-within .nav-menu__chev { transform: rotate(180deg); }
+  .nav-menu[open] .nav-menu__chev { transform: rotate(180deg); }
   .nav-menu__panel { position: absolute; top: calc(100% + 0.5rem); left: 0; z-index: 20;
     min-width: 21rem; padding: 0.5rem; background: var(--bg-card); color: var(--fg);
     border: 1px solid var(--border); border-radius: 0.75rem; box-shadow: var(--shadow);
-    display: flex; flex-direction: column; gap: 0.125rem;
-    opacity: 0; visibility: hidden; transform: translateY(0.375rem);
-    transition: opacity 0.15s, transform 0.15s, visibility 0.15s; }
-  .nav-menu:hover .nav-menu__panel, .nav-menu:focus-within .nav-menu__panel {
-    opacity: 1; visibility: visible; transform: translateY(0); }
+    flex-direction: column; gap: 0.125rem; }
+  .nav-menu[open] .nav-menu__panel { display: flex; }
   .nav-menu__item { display: flex; gap: 0.75rem; align-items: flex-start;
     padding: 0.6rem 0.7rem; border-radius: 0.5rem; color: var(--fg); }
   .nav-menu__item:hover { background: var(--bg-muted); color: var(--fg); }
@@ -247,6 +257,38 @@ export const APEX_NAV_MENU_CSS = `
   .nav-menu__panel a.nav-menu__more:hover { color: var(--primary-hover); }
 `;
 
+// Standalone mobile-open rules for .nav-toggle, split out of RESPONSIVE so a
+// consumer calling renderApexHeader() outside renderApexPage (money-horse,
+// show-pony, the docs sample) can include just this alongside
+// APEX_NAV_MENU_CSS, without pulling in the rest of RESPONSIVE's page-level
+// grid breakpoints. The two "show" rules use the `.nav ` prefix (matching
+// renderApexHeader's `<div class="container nav">` wrapper) to raise their
+// specificity above APEX_NAV_MENU_CSS's bare `.nav-toggle`/`.nav-toggle__trigger`
+// "display: none" defaults — that makes them win regardless of concatenation
+// order, since a standalone consumer controls the order, not this file.
+// Also declares `.nav { position: relative; }`: the open dropdown positions
+// itself against .nav (`top/left/right` below), and renderApexPage's own
+// CHROME_LIGHT already sets that, but a standalone consumer's own header CSS
+// generally doesn't — without it the dropdown would anchor to the viewport
+// instead of the header and open off-screen. Redeclaring it here is a no-op
+// inside APEX_STRUCTURAL_CSS (same value, harmless if repeated).
+export const APEX_NAV_TOGGLE_RESPONSIVE_CSS = `
+  @media (max-width: 640px) {
+    .nav { position: relative; }
+    .nav .nav-toggle { display: inline-flex; }
+    .nav .nav-toggle__trigger { display: inline-flex; }
+    .nav-toggle[open] > .nav-links { display: flex; flex-direction: column; align-items: stretch;
+      gap: 0.25rem; position: absolute; top: calc(100% + 0.5rem); left: 0; right: 0; z-index: 30;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem;
+      box-shadow: var(--shadow); padding: 0.75rem; }
+    .nav-toggle[open] > .nav-links > a { color: var(--fg); padding: 0.4rem 0.25rem; }
+    .nav-toggle[open] > .nav-links > a:hover { color: var(--fg); }
+    .nav-toggle .nav-menu { display: block; }
+    .nav-toggle .nav-menu__panel { position: static; min-width: 0;
+      margin-top: 0.375rem; box-shadow: none; }
+  }
+`;
+
 export const APEX_STRUCTURAL_CSS =
   BASE_LAYOUT +
   HERO +
@@ -257,4 +299,5 @@ export const APEX_STRUCTURAL_CSS =
   CHROME_LIGHT +
   CHROME_DARK +
   APEX_NAV_MENU_CSS +
+  APEX_NAV_TOGGLE_RESPONSIVE_CSS +
   RESPONSIVE;

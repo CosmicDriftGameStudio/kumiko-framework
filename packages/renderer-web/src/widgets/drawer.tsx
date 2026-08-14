@@ -3,6 +3,7 @@ import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { type ReactNode, useRef, useState } from "react";
 import { clamp } from "../lib/clamp";
 import { cn } from "../lib/cn";
+import { useIsNarrowViewport } from "../primitives/use-narrow-viewport";
 import {
   Sheet,
   SheetContent,
@@ -63,8 +64,12 @@ function defaultWidthFromViewport(): number {
 }
 
 // 32px margin + 32px radius so the panel reads as detached from the
-// viewport edge, unlike the sheet primitive's flush-edge default.
-function floatingSideClass(side: "left" | "right" | "top" | "bottom"): string {
+// viewport edge, unlike the sheet primitive's flush-edge default. Below the
+// narrow-viewport breakpoint the floating treatment doesn't fit — the JS
+// hook decides, not a `sm:` Tailwind prefix, since the resize width below
+// already comes from JS and two decision sources is the bug this avoids.
+function floatingSideClass(side: "left" | "right" | "top" | "bottom", narrow: boolean): string {
+  if (narrow) return "inset-0 h-full w-full max-w-none rounded-none border-0 overflow-hidden";
   switch (side) {
     case "left":
       return "inset-y-8 left-8 h-auto w-[max(600px,37.5vw)] max-w-[85vw] sm:max-w-[max(600px,37.5vw)] rounded-[2rem] border shadow-2xl overflow-hidden";
@@ -94,6 +99,7 @@ export function Drawer({
   backdrop,
 }: DrawerProps): ReactNode {
   const t = useTranslation();
+  const narrow = useIsNarrowViewport();
   const canResize = resize !== undefined && (side === "left" || side === "right");
   const minWidthPx = resize?.minWidthPx ?? MIN_WIDTH_PX;
   const maxWidthPx = resize?.maxWidthPx ?? MAX_WIDTH_PX;
@@ -160,10 +166,10 @@ export function Drawer({
         data-testid={testId}
         overlayStyle={overlayStyle}
         showCloseButton={showCloseButton}
-        className={floatingSideClass(side)}
-        style={canResize ? { width: effectiveWidthPx, maxWidth: "none" } : undefined}
+        className={floatingSideClass(side, narrow)}
+        style={canResize && !narrow ? { width: effectiveWidthPx, maxWidth: "none" } : undefined}
       >
-        {canResize && (
+        {canResize && !narrow && (
           <button
             type="button"
             onClick={() => setMaximized((m) => !m)}
@@ -188,7 +194,7 @@ export function Drawer({
         )}
         <div className="flex-1 overflow-y-auto px-4">{children}</div>
         {footer !== undefined && <SheetFooter>{footer}</SheetFooter>}
-        {canResize && (
+        {canResize && !narrow && (
           // biome-ignore lint/a11y/useSemanticElements: <hr> can't carry pointer/keyboard drag interaction or a live width value — a draggable separator needs a div with the ARIA role.
           <div
             role="separator"

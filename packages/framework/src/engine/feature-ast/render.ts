@@ -9,6 +9,11 @@
 //   - Mixed patterns (writeHandler, hook, screen) embed the original
 //     source-text of opaque bodies (handler/fn/closure) verbatim via
 //     SourceLocation.raw — the renderer doesn't re-print closure code.
+//   - Patterns carrying a RawRefSentinel value (e.g. entity/metric/secret
+//     `definition`/`options`) or a `*NameRaw` identifier reference
+//     (useExtension/defineEvent/extendsRegistrar) fall back to positional-arg
+//     form instead of Object-Form, since the raw source text can't be spread
+//     into a merged object literal without losing its verbatim-ness.
 //   - Comments inside an existing pattern are NOT preserved (Designer
 //     edits via forms; for AI generation the output is fresh anyway).
 //
@@ -306,8 +311,16 @@ function renderReferenceData(p: ReferenceDataPattern): string {
 }
 
 function renderUseExtension(p: UseExtensionPattern): string {
+  const nameLiteral = p.extensionNameRaw ?? JSON.stringify(p.extensionName);
   if (isRawRefSentinel(p.options)) {
-    return `r.useExtension(${JSON.stringify(p.extensionName)}, ${JSON.stringify(p.entityName)}, ${p.options.__raw});`;
+    return `r.useExtension(${nameLiteral}, ${JSON.stringify(p.entityName)}, ${p.options.__raw});`;
+  }
+  if (p.extensionNameRaw !== undefined) {
+    // A raw-ref name can't be spread into the merged Object-Form without
+    // losing it to renderValue's plain-string serialization — fall back
+    // to positional form, which keeps the reference verbatim (#2111).
+    const optionsArg = p.options !== undefined ? `, ${renderValue(p.options)}` : "";
+    return `r.useExtension(${nameLiteral}, ${JSON.stringify(p.entityName)}${optionsArg});`;
   }
   const merged: Record<string, unknown> = {
     name: p.extensionName,
@@ -506,14 +519,13 @@ function renderMultiStreamProjection(p: MultiStreamProjectionPattern): string {
 }
 
 function renderDefineEvent(p: DefineEventPattern): string {
+  const nameLiteral = p.eventNameRaw ?? JSON.stringify(p.eventName);
   const migrationEntries = p.migrations !== undefined ? Object.entries(p.migrations) : [];
   const hasOptions = p.version !== undefined || migrationEntries.length > 0;
   if (!hasOptions) {
-    return `r.defineEvent(${JSON.stringify(p.eventName)}, ${p.schemaSource.raw});`;
+    return `r.defineEvent(${nameLiteral}, ${p.schemaSource.raw});`;
   }
-  const lines: string[] = [
-    `r.defineEvent(${JSON.stringify(p.eventName)}, ${p.schemaSource.raw}, {`,
-  ];
+  const lines: string[] = [`r.defineEvent(${nameLiteral}, ${p.schemaSource.raw}, {`];
   if (p.version !== undefined) lines.push(`  version: ${p.version},`);
   if (migrationEntries.length > 0) {
     lines.push("  migrations: [");
@@ -530,7 +542,8 @@ function renderDefineEvent(p: DefineEventPattern): string {
 }
 
 function renderExtendsRegistrar(p: ExtendsRegistrarPattern): string {
-  return `r.extendsRegistrar(${JSON.stringify(p.extensionName)}, ${p.defBody.raw});`;
+  const nameLiteral = p.extensionNameRaw ?? JSON.stringify(p.extensionName);
+  return `r.extendsRegistrar(${nameLiteral}, ${p.defBody.raw});`;
 }
 
 function renderEnvSchema(p: EnvSchemaPattern): string {

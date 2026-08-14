@@ -28,14 +28,17 @@ import {
   AUTH_MFA_FEATURE,
   AuthMfaHandlers,
   bindMfaRevokeAllOtherSessionsFromFeature,
+  bindRevokeAllPatTokensFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import {
   buildEnvConfigOverrides,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
+  bindPatAutoRevokeOnPasswordChangeFromFeature,
   PAT_FEATURE,
   patRateLimitFromFeature,
+  revokeAllPatTokensForUser,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
   bindAutoRevokeFromFeature,
@@ -573,11 +576,21 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         if (mfaFeature) {
           bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(store.revokeAllOthers);
         }
+        if (mfaFeature && patFeature) {
+          bindRevokeAllPatTokensFromFeature(mfaFeature)?.((userId) =>
+            revokeAllPatTokensForUser(stack.db, userId),
+          );
+        }
         sessionStore = store;
       }
       if (patFeature) {
         tokenVerifier = (rawToken) =>
           resolveTokenVerifier({ db: stack.db, registry: stack.registry }, rawToken);
+        // Password-change → PAT-revoke: independent of sessions/MFA being
+        // mounted, so wired unconditionally here whenever PAT itself is.
+        bindPatAutoRevokeOnPasswordChangeFromFeature(patFeature)?.((userId) =>
+          revokeAllPatTokensForUser(stack.db, userId),
+        );
       }
       if (effectiveAuth) {
         await seedAdmin(stack.db, effectiveAuth.admin);

@@ -37,7 +37,6 @@ export function createStepDispatcherFeature(): FeatureDefinition {
       category: "infrastructure",
       recommended: false,
     });
-    r.systemScope();
 
     r.multiStreamProjection({
       name: "step-dispatcher",

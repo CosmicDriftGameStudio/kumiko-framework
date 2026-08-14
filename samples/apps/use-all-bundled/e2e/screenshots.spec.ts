@@ -123,8 +123,16 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "tags-filter", flow: admin("/tenant-admin/note-list"), settleMs: 1000 },
   // tags — a note's edit screen with the drop-in TagSection (assigned colored chips).
   { name: "tags-section", flow: admin(`/tenant-admin/note-edit/${DEMO_NOTE_ID}`), settleMs: 1000 },
-  // legal-pages — öffentliche, server-gerenderte Route (kein Login).
-  { name: "legal-pages", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
+  // legal-pages — public, server-rendered route (no login). Plain
+  // server-rendered legal text, not wired to the client-side theme system —
+  // .dark on <html> has no effect here, so it's exempt from the theme-diff
+  // check (issue 1730) rather than a broken theme switch.
+  {
+    name: "legal-pages",
+    url: "/legal/privacy",
+    waitFor: "[data-tenant-content]",
+    themeInvariant: true,
+  },
   // template-resolver — the mounted "reply-snippets" collection: rich editor
   // open on one entry, showing the variable chips its variableSchema declares.
   { name: "template-resolver", flow: collectionEditor(), settleMs: 1000 },

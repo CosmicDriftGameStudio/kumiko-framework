@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.201.0
+
+### Minor Changes
+
+- eb660d4: `RenderEdit`'s `onChange` now reports a `submitting` flag alongside `values`/`changes`/`dirty`/`valid`, so a host driving its own action bar via `hideActions` can mirror the in-flight submit state.
+
+### Patch Changes
+
+- Updated dependencies [4783532]
+- Updated dependencies [0904138]
+- Updated dependencies [aa3f669]
+- Updated dependencies [7d75f1b]
+  - @cosmicdrift/kumiko-headless@0.201.0
+  - @cosmicdrift/kumiko-framework@0.201.0
+
+## 0.200.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.200.1
+- @cosmicdrift/kumiko-headless@0.200.1
+
 ## 0.200.0
 
 ### Patch Changes

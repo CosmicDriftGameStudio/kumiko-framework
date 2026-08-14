@@ -114,4 +114,70 @@ describe("createUncheckedSystemDb", () => {
       expect(() => unchecked.acknowledgeCrossTenant("   ")).toThrow(/non-empty reason/);
     });
   });
+
+  describe("outsideTransaction", () => {
+    describe("assertTenantMatch", () => {
+      test("returns the outside-transaction TenantDb, not the in-tx one, when the tenantId matches", () => {
+        const systemDb = createTenantDb(unusedRunner(), own, "system");
+        const outsideTxDb = createTenantDb(unusedRunner(), own, "system");
+        const unchecked = createUncheckedSystemDb(systemDb, outsideTxDb);
+
+        const result = unchecked.outsideTransaction.assertTenantMatch(own);
+        expect(result).toBe(outsideTxDb);
+        expect(result).not.toBe(systemDb);
+      });
+
+      test("throws AccessDeniedError when the tenantId doesn't match", () => {
+        const systemDb = createTenantDb(unusedRunner(), own, "system");
+        const outsideTxDb = createTenantDb(unusedRunner(), own, "system");
+        const unchecked = createUncheckedSystemDb(systemDb, outsideTxDb);
+
+        expect(() => unchecked.outsideTransaction.assertTenantMatch(foreign)).toThrow(
+          /outsideTransaction tenant self-check failed/,
+        );
+      });
+
+      test("throws when no outside-transaction db was configured, even for a matching tenantId", () => {
+        const systemDb = createTenantDb(unusedRunner(), own, "system");
+        const unchecked = createUncheckedSystemDb(systemDb);
+
+        expect(() => unchecked.outsideTransaction.assertTenantMatch(own)).toThrow(
+          /no outside-transaction database source is configured/,
+        );
+      });
+    });
+
+    describe("acknowledgeCrossTenant", () => {
+      test("returns the outside-transaction TenantDb without comparing tenants when given a reason", () => {
+        const systemDb = createTenantDb(unusedRunner(), own, "system");
+        const outsideTxDb = createTenantDb(unusedRunner(), own, "system");
+        const unchecked = createUncheckedSystemDb(systemDb, outsideTxDb);
+
+        const result = unchecked.outsideTransaction.acknowledgeCrossTenant(
+          "durability write is cross-tenant by design",
+        );
+        expect(result).toBe(outsideTxDb);
+        expect(result).not.toBe(systemDb);
+      });
+
+      test("throws on an empty reason", () => {
+        const systemDb = createTenantDb(unusedRunner(), own, "system");
+        const outsideTxDb = createTenantDb(unusedRunner(), own, "system");
+        const unchecked = createUncheckedSystemDb(systemDb, outsideTxDb);
+
+        expect(() => unchecked.outsideTransaction.acknowledgeCrossTenant("")).toThrow(
+          /non-empty reason/,
+        );
+      });
+
+      test("throws when no outside-transaction db was configured, even with a valid reason", () => {
+        const systemDb = createTenantDb(unusedRunner(), own, "system");
+        const unchecked = createUncheckedSystemDb(systemDb);
+
+        expect(() => unchecked.outsideTransaction.acknowledgeCrossTenant("valid reason")).toThrow(
+          /no outside-transaction database source is configured/,
+        );
+      });
+    });
+  });
 });
