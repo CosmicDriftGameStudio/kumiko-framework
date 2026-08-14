@@ -5,6 +5,7 @@ export type {
   AnonymousAccessResolved,
   AuthMiddlewareOptions,
   AuthSessionChecker,
+  AuthSessionCheckResult,
   AuthSessionStatus,
   TenantExists,
   TenantLifecycleStatusResolver,

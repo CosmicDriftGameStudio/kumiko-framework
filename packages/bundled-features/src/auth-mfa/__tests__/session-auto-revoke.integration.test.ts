@@ -30,6 +30,18 @@ import { currentTotpCode } from "../totp";
 // account — every OTHER live session must be signed out (stolen-session
 // defense), but the session that performed the change must survive.
 
+// sessionChecker's "live" outcome can now carry re-derived roles as
+// `{status: "live", roles: [...]}` instead of the bare string — these tests
+// only care about liveness, not the exact role set, so unwrap the status.
+async function checkerStatus(
+  callbacks: ReturnType<typeof createSessionCallbacks>,
+  sid: string,
+  userId: string,
+): Promise<string> {
+  const result = await callbacks.sessionChecker(sid, userId);
+  return typeof result === "string" ? result : result.status;
+}
+
 let stack: TestStack;
 let sessionCallbacks: ReturnType<typeof createSessionCallbacks>;
 
@@ -94,8 +106,8 @@ describe("session auto-revoke on MFA state changes", () => {
       user,
     );
 
-    expect(await sessionCallbacks.sessionChecker(currentSid, userId)).toBe("live");
-    expect(await sessionCallbacks.sessionChecker(otherSid, userId)).toBe("revoked");
+    expect(await checkerStatus(sessionCallbacks, currentSid, userId)).toBe("live");
+    expect(await checkerStatus(sessionCallbacks, otherSid, userId)).toBe("revoked");
   });
 
   test("disable revokes every OTHER session but keeps the caller's", async () => {
@@ -130,8 +142,8 @@ describe("session auto-revoke on MFA state changes", () => {
       caller,
     );
 
-    expect(await sessionCallbacks.sessionChecker(currentSid, userId)).toBe("live");
-    expect(await sessionCallbacks.sessionChecker(otherSid, userId)).toBe("revoked");
+    expect(await checkerStatus(sessionCallbacks, currentSid, userId)).toBe("live");
+    expect(await checkerStatus(sessionCallbacks, otherSid, userId)).toBe("revoked");
   });
 
   test("a failed disable attempt does NOT revoke any session", async () => {
@@ -163,7 +175,7 @@ describe("session auto-revoke on MFA state changes", () => {
     const err = await stack.http.writeErr(AuthMfaHandlers.disable, { code: "000000" }, caller);
     expectErrorIncludes(err, "invalid_totp_code");
 
-    expect(await sessionCallbacks.sessionChecker(currentSid, userId)).toBe("live");
-    expect(await sessionCallbacks.sessionChecker(otherSid, userId)).toBe("live");
+    expect(await checkerStatus(sessionCallbacks, currentSid, userId)).toBe("live");
+    expect(await checkerStatus(sessionCallbacks, otherSid, userId)).toBe("live");
   });
 });

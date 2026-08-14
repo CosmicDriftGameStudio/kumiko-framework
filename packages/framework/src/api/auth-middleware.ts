@@ -35,6 +35,17 @@ export type AuthTransport = "cookie" | "bearer";
 // can't keep a locked account authenticated.
 export type AuthSessionStatus = "live" | "revoked" | "expired" | "missing" | "blocked";
 
+// A "live" result may additionally carry roles re-derived fresh from the DB
+// (global user roles + tenant-membership roles, composed via
+// buildSessionRoles) instead of trusting the JWT's roles claim, which was
+// frozen at login/mint time. Bare "live" (no roles) is the fail-open path —
+// a DB throw during role derivation must not turn into a lockout — and the
+// case where no sessionChecker is wired at all; the middleware falls back to
+// payload.roles in both.
+export type AuthSessionCheckResult =
+  | AuthSessionStatus
+  | { readonly status: "live"; readonly roles: readonly string[] };
+
 // Called by the middleware after JWT-verify. Gets the sid AND the expected
 // userId from the JWT's `sub` — the checker MUST confirm the session row
 // both exists + is live AND belongs to expectedUserId. Without the userId
@@ -45,7 +56,7 @@ export type AuthSessionStatus = "live" | "revoked" | "expired" | "missing" | "bl
 export type AuthSessionChecker = (
   sid: string,
   expectedUserId: string,
-) => Promise<AuthSessionStatus>;
+) => Promise<AuthSessionCheckResult>;
 
 // Resolves a raw bearer token into a SessionUser, or null when no registered
 // provider claims it (or the claiming provider rejects it as unknown/revoked/
@@ -276,11 +287,16 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     // token carries a sid.
     // A checker wired without a sid on the token means the token predates
     // session tracking (or the JWT was forged) — reject.
+    let derivedRoles: readonly string[] | undefined;
     if (sessionChecker) {
       if (payload.jti) {
-        const status = await sessionChecker(payload.jti, payload.sub);
+        const result = await sessionChecker(payload.jti, payload.sub);
+        const status = typeof result === "string" ? result : result.status;
         if (status !== "live") {
           return sessionInvalid(c, status);
+        }
+        if (typeof result === "object") {
+          derivedRoles = result.roles;
         }
       } else {
         return sessionInvalid(c, "no_sid");
@@ -306,7 +322,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     const user: SessionUser = {
       id: payload.sub,
       tenantId: payload.tenantId,
-      roles: payload.roles,
+      roles: derivedRoles ?? payload.roles,
       ...(payload.timezone ? { timezone: payload.timezone } : {}),
       ...(payload.claims ? { claims: payload.claims } : {}),
       ...(payload.jti ? { sid: payload.jti } : {}),

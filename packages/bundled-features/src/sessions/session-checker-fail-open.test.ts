@@ -2,6 +2,7 @@ import { describe, expect, spyOn, test } from "bun:test";
 import * as bunDb from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { Temporal } from "temporal-polyfill";
+import { tenantMembershipsTable } from "../tenant/membership-table";
 import { USER_STATUS, userTable } from "../user/schema/user";
 import { userSessionTable } from "./schema/user-session";
 import { createSessionCallbacks } from "./session-callbacks";
@@ -70,6 +71,79 @@ describe("sessionChecker fail-open on user-lookup throw", () => {
 
     try {
       expect(await cbs.sessionChecker(sid, userId)).toBe("blocked");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test("membership lookup THROW → live (not 500)", async () => {
+    const db = {} as DbConnection;
+    const cbs = createSessionCallbacks({ db });
+    const sid = "00000000-0000-4000-8000-00000000sid3";
+    const userId = "00000000-0000-4000-8000-00000000usr3";
+    const tenantId = "00000000-0000-4000-8000-000000tenant";
+    const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
+
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+      if (table === userSessionTable) {
+        return {
+          userId,
+          tenantId,
+          revokedAt: null,
+          expiresAt: { epochMilliseconds: farFutureMs },
+        };
+      }
+      if (table === userTable) {
+        return { status: USER_STATUS.Active, roles: null };
+      }
+      if (table === tenantMembershipsTable) {
+        throw new Error("simulated pool exhaustion");
+      }
+      throw new Error("unexpected table in sessionChecker spy");
+    }) as FetchOne);
+
+    try {
+      expect(await cbs.sessionChecker(sid, userId)).toBe("live");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("sessionChecker role re-derivation", () => {
+  test("live session composes global + tenant-membership roles fresh from the DB", async () => {
+    const db = {} as DbConnection;
+    const cbs = createSessionCallbacks({ db });
+    const sid = "00000000-0000-4000-8000-00000000sid4";
+    const userId = "00000000-0000-4000-8000-00000000usr4";
+    const tenantId = "00000000-0000-4000-8000-000000tenan2";
+    const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
+
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+      if (table === userSessionTable) {
+        return {
+          userId,
+          tenantId,
+          revokedAt: null,
+          expiresAt: { epochMilliseconds: farFutureMs },
+        };
+      }
+      if (table === userTable) {
+        return { status: USER_STATUS.Active, roles: JSON.stringify(["Support"]) };
+      }
+      if (table === tenantMembershipsTable) {
+        return { roles: JSON.stringify(["User"]) };
+      }
+      throw new Error("unexpected table in sessionChecker spy");
+    }) as FetchOne);
+
+    try {
+      const result = await cbs.sessionChecker(sid, userId);
+      if (typeof result === "string") {
+        throw new Error(`expected object result, got bare string "${result}"`);
+      }
+      expect(result.status).toBe("live");
+      expect([...result.roles].sort()).toEqual(["Support", "User"]);
     } finally {
       spy.mockRestore();
     }

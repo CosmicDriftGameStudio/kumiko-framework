@@ -21,7 +21,7 @@ describe("buildServer — jwtTtl default depends on sessionChecker wiring", () =
     expect(jwt.ttlSeconds).toBe(60 * 60);
   });
 
-  test("auth with sessionChecker → session-backed default (24h)", () => {
+  test("auth with sessionChecker → session-backed default (8h)", () => {
     const { jwt } = buildServer({
       registry,
       context: {},
@@ -31,7 +31,7 @@ describe("buildServer — jwtTtl default depends on sessionChecker wiring", () =
         sessionChecker: async () => "live",
       },
     });
-    expect(jwt.ttlSeconds).toBe(24 * 60 * 60);
+    expect(jwt.ttlSeconds).toBe(8 * 60 * 60);
   });
 
   test("explicit jwtTtl wins regardless of sessionChecker wiring", () => {
