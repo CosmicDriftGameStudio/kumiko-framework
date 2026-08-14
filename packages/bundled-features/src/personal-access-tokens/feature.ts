@@ -121,8 +121,11 @@ export function createPersonalAccessTokensFeature(
     // concrete revoker is bound once run{Prod,Dev}App has a real db handle.
     let autoRevokeOnPasswordChange = options.autoRevokeOnPasswordChange;
     r.hook("postSave", { allOf: "user" }, async (result) => {
+      // skip: nothing bound — same late-bind pattern as sessions/feature.ts
       if (!autoRevokeOnPasswordChange) return;
+      // skip: brand-new user, no PATs can exist yet
       if (result.isNew) return;
+      // skip: handler didn't touch any revoke-triggering field
       if (!PAT_REVOKE_TRIGGERING_FIELDS.some((field) => result.changes[field] !== undefined)) {
         return;
       }
