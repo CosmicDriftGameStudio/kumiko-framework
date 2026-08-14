@@ -1,5 +1,5 @@
 import type {
-  AuthSessionStatus,
+  AuthSessionCheckResult,
   SessionChecker,
   SessionCreator,
   SessionMassRevoker,
@@ -11,12 +11,13 @@ export type { SessionMassRevoker } from "@cosmicdrift/kumiko-framework/api";
 
 import { fetchOne, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { buildSessionRoles, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { generateId, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { encryptForDirectWrite } from "../shared";
+import { tenantMembershipsTable } from "../tenant/membership-table";
 import { USER_STATUS, type UserStatus, userTable } from "../user";
 import { DEFAULT_SESSION_EXPIRY_MS } from "./constants";
 import { userSessionEntity, userSessionTable } from "./schema/user-session";
@@ -113,9 +114,10 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       );
     },
 
-    async sessionChecker(sid: string, expectedUserId: string): Promise<AuthSessionStatus> {
+    async sessionChecker(sid: string, expectedUserId: string): Promise<AuthSessionCheckResult> {
       const row = await fetchOne<{
         userId: string;
+        tenantId: TenantId;
         revokedAt: unknown;
         expiresAt: { epochMilliseconds: number };
       }>(db, userSessionTable, { id: sid });
@@ -137,14 +139,43 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       // revocation is primary; never turn a user-row miss into a global
       // lockout. (+1 PK read on read_users per authenticated request.)
       //
-      // Fail-open covers a THROW too, not just a null-miss: this read sits on
-      // the hot path of every authenticated request, so a DB timeout / lock
-      // contention / pool exhaustion here must not turn into a global lockout.
-      const user = await fetchOne<{ status: UserStatus }>(db, userTable, {
-        id: expectedUserId,
-      }).catch(() => null);
-      if (user && isPrincipalBlocked(user.status)) return "blocked";
-      return "live";
+      // Fail-open covers a THROW *and* a null-miss, not just a throw: this
+      // read sits on the hot path of every authenticated request, and a
+      // missing row here means we have no DB-confirmed roles to derive from
+      // (e.g. a bootstrap/system actor with no persisted user row) — that is
+      // a different situation from tenantMembershipsTable below, where a
+      // missing row is a legitimate "no tenant roles" outcome. Both branches
+      // return the bare "live" string (no re-derived roles) — the middleware
+      // falls back to the JWT's frozen roles claim.
+      let user: { status: UserStatus; roles: string | null } | undefined;
+      try {
+        user = await fetchOne<{ status: UserStatus; roles: string | null }>(db, userTable, {
+          id: expectedUserId,
+        });
+      } catch {
+        return "live";
+      }
+      if (!user) return "live";
+      if (isPrincipalBlocked(user.status)) return "blocked";
+
+      // Same fail-open reasoning as the userTable lookup above — a transient
+      // DB error on the membership read must not lock the user out. A
+      // missing row (not a throw) is a valid outcome: the user genuinely has
+      // no tenant-scoped roles for row.tenantId, so membershipRoles is [].
+      let membershipRoles: readonly string[];
+      try {
+        const membership = await fetchOne<{ roles: string | null }>(db, tenantMembershipsTable, {
+          userId: expectedUserId,
+          tenantId: row.tenantId,
+        });
+        membershipRoles = membership ? parseRoles(membership.roles) : [];
+      } catch {
+        return "live";
+      }
+
+      const globalRoles = parseRoles(user.roles);
+      const roles = buildSessionRoles(globalRoles, membershipRoles);
+      return { status: "live", roles } as const;
     },
 
     async sessionMassRevoker(userId: string): Promise<number> {
