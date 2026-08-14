@@ -26,12 +26,6 @@ function buildApp(maxRequestBytes?: number) {
   }).app;
 }
 
-const ROOT_MOUNTED_ROUTES: ReadonlySet<string> = new Set([
-  Routes.health,
-  Routes.healthReady,
-  Routes.version,
-]);
-
 function postJson(app: ReturnType<typeof buildApp>, path: string, bytes: number) {
   const body = JSON.stringify({ body: "x".repeat(bytes) });
   return app.request(path, {
@@ -134,15 +128,19 @@ describe("body-limit opt-out completeness", () => {
 describe("default coverage sweep — proves the default, not a hand-maintained list", () => {
   const OVERSIZED_BYTES = 2_000_000; // exceeds the default 1 MiB cap
 
-  // Derived from Routes itself (minus root-mounted, minus opt-out) rather than
-  // a hand-picked list — a route added to Routes tomorrow lands in this sweep
+  // Derived from Routes itself (minus opt-out) rather than a hand-picked
+  // list — a route added to Routes tomorrow lands in this sweep
   // automatically, with no test file to remember to update. Includes routes
   // this test app never mounts (e.g. authLogin, no `auth` option passed to
-  // buildServer) — the middleware runs before routing, so an unmounted route
-  // still 413s on an oversized body. That's the point: coverage doesn't
-  // depend on the route existing yet.
+  // buildServer) and routes whose GET handler is mounted outside /api/*
+  // (health, healthReady, version — registerHealthRoutes/registerVersionRoute
+  // mount at the bare path, not under /api). Both still 413 on an oversized
+  // POST here: the /api/* body-limit middleware matches on path prefix
+  // before Hono resolves a handler, so it runs whether or not a route
+  // answers underneath. Verified directly: `POST /api/health` 413s even
+  // though the only real handler lives at `GET /health`.
   const defaultLimitedRoutes = Object.values(Routes).filter(
-    (route) => !ROOT_MOUNTED_ROUTES.has(route) && !BODY_LIMIT_OPT_OUT_PATHS.has(`/api${route}`),
+    (route) => !BODY_LIMIT_OPT_OUT_PATHS.has(`/api${route}`),
   );
 
   for (const route of defaultLimitedRoutes) {
