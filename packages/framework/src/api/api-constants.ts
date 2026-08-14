@@ -27,10 +27,10 @@ export const Routes = {
   authConfirmAccountUnlock: "/auth/confirm-account-unlock",
   authSignupRequest: "/auth/signup-request",
   authSignupConfirm: "/auth/signup-confirm",
-  // Tenant-Invite (Magic-Link): 3 separate accept-Endpoints für klare
-  // Branch-Separation. Plus invite-info als public-readable details
-  // damit das Frontend "Du wirst eingeladen zu Tenant X als Role Y"
-  // anzeigen kann bevor der User submitted.
+  // Tenant invite (magic link): 3 separate accept endpoints for clear
+  // branch separation. Plus invite-info as public-readable details so
+  // the frontend can show "You're invited to tenant X as role Y" before
+  // the user submits.
   authInviteAccept: "/auth/invite-accept",
   authInviteAcceptWithLogin: "/auth/invite-accept-with-login",
   authInviteSignupComplete: "/auth/invite-signup-complete",
@@ -53,15 +53,40 @@ export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.authConfirmAccountUnlock}`,
   `/api${Routes.authSignupRequest}`,
   `/api${Routes.authSignupConfirm}`,
-  // invite-accept braucht JWT (logged-in User, Branch 1) — NICHT public.
-  // invite-accept-with-login (Branch 2) und invite-signup-complete
-  // (Branch 3) sind anonymous, brauchen public-skip.
+  // invite-accept requires a JWT (logged-in user, branch 1) — NOT public.
+  // invite-accept-with-login (branch 2) and invite-signup-complete
+  // (branch 3) are anonymous and need the public skip.
   `/api${Routes.authInviteAcceptWithLogin}`,
   `/api${Routes.authInviteSignupComplete}`,
   `/api${Routes.authInviteInfo}`,
   `/api${Routes.health}`,
   `/api${Routes.healthReady}`,
   `/api${Routes.version}`,
+]);
+
+// Every other route in `Routes` — explicit, so a route can never fall
+// through to "public" by simply being absent from PUBLIC_API_PATHS. A
+// completeness test checks every `Routes` entry against the union of this
+// set and PUBLIC_API_PATHS, so a new route with neither entry fails CI
+// instead of shipping open.
+export const NON_PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
+  `/api${Routes.write}`,
+  `/api${Routes.batch}`,
+  `/api${Routes.query}`,
+  `/api${Routes.command}`,
+  `/api${Routes.sse}`,
+  `/api${Routes.stream}`,
+  // Namespace prefix used only for body-limit registration
+  // (`/api/auth/*` in route-registrars.ts) — never dispatched as its own
+  // route, so it carries no auth bypass either way. Classified non-public
+  // to keep the completeness check total.
+  `/api${Routes.auth}`,
+  `/api${Routes.authLogout}`,
+  `/api${Routes.authTenants}`,
+  `/api${Routes.authSwitchTenant}`,
+  // invite-accept requires a JWT (Branch 1, see PUBLIC_API_PATHS above).
+  `/api${Routes.authInviteAccept}`,
+  `/api${Routes.files}`,
 ]);
 
 // Methods that can mutate server state. GET/HEAD/OPTIONS are safe under
