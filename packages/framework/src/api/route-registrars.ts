@@ -11,7 +11,7 @@ import type { Lifecycle } from "../lifecycle";
 import type { Meter, PrometheusMeter } from "../observability";
 import { serializeOpenMetrics } from "../observability";
 import type { EventConsumer } from "../pipeline/event-dispatcher";
-import { Routes } from "./api-constants";
+import { BODY_LIMIT_OPT_OUT_PATHS, Routes } from "./api-constants";
 import {
   createReadinessProbe,
   dbPingCheck,
@@ -22,28 +22,26 @@ import {
 
 // --- Body size limit ------------------------------------------------------
 
-const BODY_LIMIT_PATHS = [
-  `/api${Routes.write}`,
-  `/api${Routes.batch}`,
-  `/api${Routes.query}`,
-  `/api${Routes.command}`,
-  `/api${Routes.stream}`,
-  `/api${Routes.auth}/*`,
-] as const;
-
 export const DEFAULT_MAX_REQUEST_BYTES = 1_048_576;
 
-// Cap JSON bodies on /api/write + /api/batch + /api/query + /api/command
-// + /api/stream + /api/auth/*. File uploads keep their own per-field
-// maxSize. `0` disables the limit entirely — only useful when a
-// reverse-proxy caps upstream or tests want raw passthrough.
+// Cap every /api/* request body by default — a new route needs no entry
+// anywhere to be covered, it inherits the limit from being registered under
+// /api at all. Routes with their own size contract (currently just uploads)
+// opt out explicitly via BODY_LIMIT_OPT_OUT_PATHS in api-constants.ts;
+// forgetting an opt-out entry only over-limits a route, forgetting to add a
+// new route to an allowlist used to leave it unlimited — that inversion is
+// the point. `maxBytes <= 0` disables the limit entirely — only useful when
+// a reverse-proxy caps upstream or tests want raw passthrough.
 export function registerBodyLimit(app: Hono, maxBytes: number): void {
   // skip: opt-out path — caller passed `maxBytes: 0`, so no middleware
   // is attached (upstream cap via reverse-proxy is expected). Not a bug
   // suppression, an intentional disable.
   if (maxBytes <= 0) return;
   const limit = bodyLimit({ maxSize: maxBytes });
-  for (const path of BODY_LIMIT_PATHS) app.use(path, limit);
+  app.use("/api/*", async (c, next) => {
+    if (BODY_LIMIT_OPT_OUT_PATHS.has(c.req.path)) return next();
+    return limit(c, next);
+  });
 }
 
 // --- /metrics (Prometheus scrape) -----------------------------------------

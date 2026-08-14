@@ -1,0 +1,7 @@
+---
+"@cosmicdrift/kumiko-framework": patch
+---
+
+`registerBodyLimit` no longer enforces the request-body cap via a hand-maintained allowlist (`BODY_LIMIT_PATHS`) — it now applies `DEFAULT_MAX_REQUEST_BYTES` (1 MiB by default) to every `/api/*` request by construction, and only the routes listed in `BODY_LIMIT_OPT_OUT_PATHS` (`api-constants.ts`, currently just `/api/files`, which validates upload size against `maxUploadSize`/field `maxSize` after Hono's multipart parse) are exempt. A route that forgets to opt out is now over-limited instead of silently unlimited.
+
+No shipped framework route changes behavior — `/api/write`, `/api/batch`, `/api/query`, `/api/command`, `/api/stream` and every `/api/auth/*` route were already capped under the old allowlist, and `/api/files` keeps its exemption. The one place this does change behavior: any app-owner route mounted directly on the shared Hono app under `/api/*` (e.g. `billing-foundation`'s `createSubscriptionWebhookHandler`, wired via `runProdApp`/`createKumikoServer`'s `extraRoutes` callback) is now also capped at 1 MiB by default, whereas before it was unlimited. An app that needs a larger body on such a route today has to raise `maxRequestBytes` for the whole server (there's no per-route override yet) since the framework doesn't expose one for `extraRoutes`-mounted paths — check any webhook/import routes wired via `extraRoutes` against the 1 MiB default before upgrading.

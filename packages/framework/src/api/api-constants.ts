@@ -89,6 +89,18 @@ export const NON_PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.files}`,
 ]);
 
+// Opt-out from the default request-body-size cap (registerBodyLimit applies
+// it to all of /api/* by construction — a new route needs no entry here to
+// be covered). Only routes with their own, deliberately different size
+// contract belong on this list; forgetting an entry is safe (over-limited,
+// not unlimited), so keep it as short as the actual exceptions.
+export const BODY_LIMIT_OPT_OUT_PATHS: ReadonlySet<string> = new Set([
+  // Multipart uploads validate size against `maxUploadSize`/field `maxSize`
+  // (often >1 MiB) after Hono's multipart parse, not before — the generic
+  // JSON cap would reject legitimate uploads before that check ever runs.
+  `/api${Routes.files}`,
+]);
+
 // Methods that can mutate server state. GET/HEAD/OPTIONS are safe under
 // CORS + SameSite-cookie semantics and skip the CSRF / Origin guards entirely.
 export const STATE_CHANGING_METHODS: ReadonlySet<string> = new Set([
