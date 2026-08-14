@@ -52,6 +52,78 @@ const EXTENSION_MIME_WHITELIST: Record<string, readonly string[]> = {
   md: ["text/markdown", "text/plain"],
 } satisfies Record<string, readonly string[]>;
 
+// Magic-byte signatures for the subset of EXTENSION_MIME_WHITELIST that has
+// a reliable binary signature. Used at SERVE time — never trust the stored/
+// client-declared mimeType for Content-Type on its own, sniff the actual
+// bytes instead. Types without a stable signature (svg, txt, csv, json, md)
+// and anything that matches none of these fall back to
+// application/octet-stream in resolveServedContentType below — this also
+// guarantees text/html and image/svg+xml are never served inline, even for
+// an honestly-declared upload.
+const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
+  readonly mimeType: string;
+  readonly matches: (bytes: Uint8Array) => boolean;
+}> = [
+  {
+    mimeType: "image/png",
+    matches: (bytes) => startsWithBytes(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  },
+  { mimeType: "image/jpeg", matches: (bytes) => startsWithBytes(bytes, [0xff, 0xd8, 0xff]) },
+  {
+    mimeType: "image/gif",
+    matches: (bytes) => startsWithAscii(bytes, "GIF87a") || startsWithAscii(bytes, "GIF89a"),
+  },
+  {
+    mimeType: "image/webp",
+    matches: (bytes) => startsWithAscii(bytes, "RIFF") && startsWithAscii(bytes, "WEBP", 8),
+  },
+  { mimeType: "application/pdf", matches: (bytes) => startsWithAscii(bytes, "%PDF-") },
+];
+
+function startsWithBytes(bytes: Uint8Array, signature: readonly number[]): boolean {
+  if (bytes.length < signature.length) return false;
+  return signature.every((byte, i) => bytes[i] === byte);
+}
+
+function startsWithAscii(bytes: Uint8Array, ascii: string, offset = 0): boolean {
+  if (bytes.length < offset + ascii.length) return false;
+  for (let i = 0; i < ascii.length; i++) {
+    if (bytes[offset + i] !== ascii.charCodeAt(i)) return false;
+  }
+  return true;
+}
+
+export function sniffMimeType(bytes: Uint8Array): string | null {
+  for (const signature of MAGIC_BYTE_SIGNATURES) {
+    if (signature.matches(bytes)) return signature.mimeType;
+  }
+  return null;
+}
+
+// image/jpg is not a registered IANA type but EXTENSION_MIME_WHITELIST above
+// accepts it as a jpg alias — sniffMimeType only ever returns the canonical
+// image/jpeg, so without this a legitimately-declared "image/jpg" upload
+// would mismatch its own sniffed type and get needlessly downgraded.
+const DECLARED_MIME_ALIASES: Readonly<Record<string, string>> = {
+  "image/jpg": "image/jpeg",
+};
+
+// The Content-Type a served file's bytes are safe to go out with. Bytes that
+// don't sniff as one of the known-safe binary signatures (including
+// svg/html/text formats, which have no reliable magic bytes) always
+// downgrade to application/octet-stream. Bytes that DO sniff safely still
+// downgrade unless the sniffed type matches what was declared at upload —
+// a mismatch (e.g. real PNG bytes uploaded as "text/html") is itself a
+// spoofing signal and is never trusted enough to pick a Content-Type from,
+// even one that would otherwise be harmless.
+export function resolveServedContentType(bytes: Uint8Array, declaredMimeType: string): string {
+  const sniffed = sniffMimeType(bytes);
+  if (!sniffed) return "application/octet-stream";
+  const normalizedDeclared = declaredMimeType.toLowerCase().split(";")[0]?.trim() ?? "";
+  const declared = DECLARED_MIME_ALIASES[normalizedDeclared] ?? normalizedDeclared;
+  return sniffed === declared ? sniffed : "application/octet-stream";
+}
+
 export function validateFile(
   metadata: FileMetadata,
   options: FileValidationOptions,
