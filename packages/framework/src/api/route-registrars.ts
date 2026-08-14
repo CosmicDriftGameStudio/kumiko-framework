@@ -27,15 +27,16 @@ const BODY_LIMIT_PATHS = [
   `/api${Routes.batch}`,
   `/api${Routes.query}`,
   `/api${Routes.command}`,
+  `/api${Routes.stream}`,
   `/api${Routes.auth}/*`,
 ] as const;
 
 export const DEFAULT_MAX_REQUEST_BYTES = 1_048_576;
 
 // Cap JSON bodies on /api/write + /api/batch + /api/query + /api/command
-// + /api/auth/*. File uploads keep their own per-field maxSize. `0`
-// disables the limit entirely — only useful when a reverse-proxy caps
-// upstream or tests want raw passthrough.
+// + /api/stream + /api/auth/*. File uploads keep their own per-field
+// maxSize. `0` disables the limit entirely — only useful when a
+// reverse-proxy caps upstream or tests want raw passthrough.
 export function registerBodyLimit(app: Hono, maxBytes: number): void {
   // skip: opt-out path — caller passed `maxBytes: 0`, so no middleware
   // is attached (upstream cap via reverse-proxy is expected). Not a bug
