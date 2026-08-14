@@ -34,7 +34,7 @@ import {
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
+import { buildEnvConfigOverrides, createConfigResolver } from "../../config/resolver";
 import { configValueEntity } from "../../config/table";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { createSessionsFeature } from "../../sessions";
@@ -146,6 +146,28 @@ describe("tenant-model config resolution (seam)", () => {
       userId: SYSTEM_USER_ID,
     });
     expect(model).toBe("multi-user");
+  });
+
+  test("TENANT_MODEL env var bridges through the real registry to resolveAppTenantModel", async () => {
+    // Mirrors the cascade.integration.test.ts env seam test, but pins it at
+    // the real tenantModel key: registry → buildEnvConfigOverrides →
+    // resolveAppTenantModel, so a key-qualification mismatch between the
+    // feature's `env` declaration and the bridge would fail here, not just
+    // on a stub registry.
+    const keyDef = stack.registry.getConfigKey(TENANT_MODEL_CONFIG_KEY);
+    expect(keyDef).toBeDefined();
+    expect(keyDef?.env).toBe("TENANT_MODEL");
+
+    const overrides = buildEnvConfigOverrides(stack.registry, { TENANT_MODEL: "single-user" });
+    expect(overrides.get(TENANT_MODEL_CONFIG_KEY)).toBe("single-user");
+
+    const model = await resolveAppTenantModel({
+      registry: stack.registry,
+      configResolver: createConfigResolver({ appOverrides: overrides }),
+      db: stack.db,
+      userId: SYSTEM_USER_ID,
+    });
+    expect(model).toBe("single-user");
   });
 });
 
