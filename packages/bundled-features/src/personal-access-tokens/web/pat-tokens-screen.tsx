@@ -57,6 +57,8 @@ export function PatTokensScreen({
   const [name, setName] = useState("");
   const [levels, setLevels] = useState<Readonly<Record<string, Level>>>({});
   const [expiry, setExpiry] = useState<ExpiryKey>("90d");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
   const [minted, setMinted] = useState<{ token: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,15 +82,21 @@ export function PatTokensScreen({
     if (name.trim() === "") return setError(t("pat.create.needName"));
     const scopes = grants();
     if (scopes.length === 0) return setError(t("pat.create.needScope"));
+    if (currentPassword === "") return setError(t("pat.create.needPassword"));
     setBusy(true);
     setError(null);
     const days = EXPIRY_DAYS[expiry];
     const res = await dispatcher.write(PatHandlers.create, {
       name: name.trim(),
       scopes,
+      currentPassword,
       ...(days !== undefined ? { expiresInDays: days } : {}),
+      ...(mfaCode.trim() !== "" ? { mfaCode: mfaCode.trim() } : {}),
     });
     setBusy(false);
+    // Never leave a submitted password/MFA code sitting in state, success or not.
+    setCurrentPassword("");
+    setMfaCode("");
     if (!res.isSuccess) return setError(t("pat.error.generic"));
     setMinted({ token: (res.data as { token: string }).token });
     setCopied(false);
@@ -216,6 +224,29 @@ export function PatTokensScreen({
               { value: "1y", label: t("pat.expiry.1y") },
               { value: "never", label: t("pat.expiry.never") },
             ]}
+            disabled={busy}
+          />
+        </Field>
+
+        <Field id="pat-current-password" label={t("pat.create.currentPassword")} required>
+          <Input
+            kind="password"
+            id="pat-current-password"
+            name="currentPassword"
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            disabled={busy}
+          />
+        </Field>
+
+        <Field id="pat-mfa-code" label={t("pat.create.mfaCode")}>
+          <Input
+            kind="text"
+            id="pat-mfa-code"
+            name="mfaCode"
+            value={mfaCode}
+            onChange={setMfaCode}
+            placeholder={t("pat.create.mfaCodePlaceholder")}
             disabled={busy}
           />
         </Field>

@@ -3,10 +3,15 @@ import { PAT_DEFAULT_RATE_LIMIT, type PatRateLimit } from "./constants";
 
 export type { PatRateLimit } from "./constants";
 export { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, PatHandlers, PatQueries } from "./constants";
-export type { PersonalAccessTokensOptions } from "./feature";
-export { createPersonalAccessTokensFeature } from "./feature";
+export type { BindPatAutoRevokeOnPasswordChange, PersonalAccessTokensOptions } from "./feature";
+export {
+  bindPatAutoRevokeOnPasswordChangeFromFeature,
+  createPersonalAccessTokensFeature,
+} from "./feature";
+export type { CreatePatOptions, PatMfaVerifyResult } from "./handlers/create.write";
 export { hashPatToken, mintPatToken } from "./hash";
 export { createPatResolver } from "./resolver";
+export { revokeAllPatTokensForUser } from "./revoke-for-user";
 export { apiTokenEntity, apiTokenTable } from "./schema/api-token";
 export type { PatScopeConfig, PatScopeDef } from "./scopes";
 export { expandScopes } from "./scopes";
