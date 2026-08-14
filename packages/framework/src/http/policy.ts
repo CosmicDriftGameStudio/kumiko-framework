@@ -135,6 +135,7 @@ export async function assertPublicHost(url: URL): Promise<void> {
   const host = stripBrackets(url.hostname);
   if (isIP(host) !== 0) {
     if (isBlockedIp(host)) throw new Error(`egress: host is not a public address: ${host}`);
+    // skip: literal IP already passed the block-list check above, no DNS lookup needed
     return;
   }
   let addresses: readonly { readonly address: string }[];
