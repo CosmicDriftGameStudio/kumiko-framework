@@ -31,6 +31,7 @@
 // preserve prefixed `// kumiko-comment:` markers across roundtrips.
 
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { readNameLiteral, readNameOrRef } from "./extractors/shared";
 import type { FeaturePattern, FeaturePatternKind } from "./patterns";
 import { indent, PATTERN_INDENT, renderPattern } from "./render";
 
@@ -341,8 +342,7 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
     case "relation":
       // Positional: r.relation(entity, name, def) | Object: { entity, name, ... }
       if (matchFirstArgString(call, id.entityName)) {
-        const second = call.getArguments()[1]?.asKind(SyntaxKind.StringLiteral)?.getLiteralValue();
-        return second === id.relationName;
+        return matchArgString(call, 1, id.relationName);
       }
       return (
         matchObjectProperty(call, "entity", id.entityName) &&
@@ -374,8 +374,7 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
         );
       }
       if (matchFirstArgString(call, id.hookType)) {
-        const target = call.getArguments()[1]?.asKind(SyntaxKind.StringLiteral)?.getLiteralValue();
-        return target === id.target;
+        return matchArgString(call, 1, id.target);
       }
       return (
         matchObjectProperty(call, "type", id.hookType) &&
@@ -395,8 +394,7 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
     case "useExtension":
       // Positional: r.useExtension(name, entity) | Object: { name, entity }
       if (matchFirstArgString(call, id.extensionName)) {
-        const ent = call.getArguments()[1]?.asKind(SyntaxKind.StringLiteral)?.getLiteralValue();
-        return ent === id.entityName;
+        return matchArgString(call, 1, id.entityName);
       }
       return (
         matchObjectProperty(call, "name", id.extensionName) &&
@@ -430,33 +428,42 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
   }
 }
 
-function matchFirstArgString(call: CallExpression, expected: string): boolean {
-  const first = call.getArguments()[0];
-  const lit = first?.asKind(SyntaxKind.StringLiteral);
-  return lit?.getLiteralValue() === expected;
+// Resolves an argument the same way the extractors do (readNameLiteral):
+// a string literal directly, or a bare identifier following its
+// declaration (same-file or imported) to a string-literal initializer —
+// the dominant naming style in the framework's own bundled-features
+// (`r.entity(ENTITY, ...)`, `r.useExtension(EXT_X, ...)`, see #1746).
+function matchArgString(call: CallExpression, index: number, expected: string): boolean {
+  const arg = call.getArguments()[index];
+  if (!arg) return false;
+  return readNameLiteral(arg) === expected;
 }
 
+function matchFirstArgString(call: CallExpression, expected: string): boolean {
+  return matchArgString(call, 0, expected);
+}
+
+// Object-form property values are resolved via readNameOrRef, not the
+// narrower readNameLiteral — some properties (useExtension's `entity`,
+// hook's `target`/`allOf`) accept an inline `{ name: "..." }` ref in the
+// parser (see extractors/round3.ts, extractors/hooks.ts), not just a
+// literal or identifier. readNameOrRef is a superset of readNameLiteral,
+// so this is safe for every other property too.
 function matchObjectProperty(call: CallExpression, propName: string, expected: string): boolean {
   const obj = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
   if (!obj) return false;
-  const init = obj
-    .getProperty(propName)
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer()
-    ?.asKind(SyntaxKind.StringLiteral);
-  return init?.getLiteralValue() === expected;
+  const init = obj.getProperty(propName)?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
+  if (!init) return false;
+  return readNameOrRef(init) === expected;
 }
 
 // Matches an r.hook `{ allOf: entity }` target — as the arg node directly
 // (positional call form) or as a nested object property (object call form).
 function matchAllOfArg(node: Node | undefined, expectedEntity: string): boolean {
   const obj = node?.asKind(SyntaxKind.ObjectLiteralExpression);
-  const init = obj
-    ?.getProperty("allOf")
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer()
-    ?.asKind(SyntaxKind.StringLiteral);
-  return init?.getLiteralValue() === expectedEntity;
+  const init = obj?.getProperty("allOf")?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
+  if (!init) return false;
+  return readNameOrRef(init) === expectedEntity;
 }
 
 function matchObjectAllOfProperty(
