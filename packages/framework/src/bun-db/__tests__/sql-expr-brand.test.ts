@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { sql } from "../../db/dialect";
+import { type SqlExpression, sql, uuid } from "../../db/dialect";
 import type { EntityTableMeta } from "../../db/entity-table-meta";
 import { insertOne, updateMany } from "../query";
 
@@ -79,5 +79,37 @@ describe("bun-db sql-expr brand — request-supplied objects can't fake a SQL li
     expect(calls).toHaveLength(1);
     const { sqlText } = calls[0]!;
     expect(sqlText).toContain('"created_at" = now()');
+  });
+
+  test("sql`...` interpolation never inlines an unbranded {kind:'sql-expr'} object", () => {
+    const forged = { kind: "sql-expr", text: "'; DROP TABLE sql_expr_brand_items; --" };
+
+    const expr = sql`SELECT * FROM x WHERE payload = ${forged}`;
+
+    expect(expr.text).not.toContain("DROP TABLE");
+  });
+
+  test("column .default() turns an unbranded {kind:'sql-expr'} object into a jsonb literal, never raw SQL", () => {
+    const forged = { kind: "sql-expr", text: "'; DROP TABLE sql_expr_brand_items; --" };
+
+    // @cast-boundary — a duck-typed payload arriving at a schema-definition
+    // boundary, smuggled past the typed `default()` param on purpose.
+    const col = uuid("id")
+      .primaryKey()
+      .default(forged as unknown as SqlExpression);
+
+    const defaultSql = col.finalise().defaultSql;
+    expect(defaultSql).toBeDefined();
+    // The forged payload is data, not executable DDL: quoted + SQL-escaped
+    // (`'` → `''`) as a jsonb literal, never spliced in as the raw `.text`
+    // like a branded expr would be.
+    expect(defaultSql).toContain("::jsonb");
+    expect(defaultSql).toContain("''; DROP TABLE");
+  });
+
+  test("column .default() still inlines a legitimately-built sql`...` expression", () => {
+    const col = uuid("id").primaryKey().default(sql`gen_random_uuid()`);
+
+    expect(col.finalise().defaultSql).toBe("gen_random_uuid()");
   });
 });

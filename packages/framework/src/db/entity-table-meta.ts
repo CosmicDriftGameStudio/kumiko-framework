@@ -18,6 +18,7 @@
 
 import { collectPiiSubjectFields } from "../crypto";
 import type { EntityDefinition, EntityIndexDef, FieldDefinition } from "../engine/types";
+import { SQL_EXPR_BRAND } from "./dialect";
 import type {
   BuildEntityTableMetaOptions,
   ColumnMeta,
@@ -382,10 +383,10 @@ function sqlExpressionText(where: unknown): string | undefined {
   if (
     typeof where === "object" &&
     where !== null &&
-    (where as { kind?: unknown }).kind === "sql-expr" &&
-    typeof (where as { text?: unknown }).text === "string"
+    SQL_EXPR_BRAND in where &&
+    typeof (where as unknown as { text?: unknown }).text === "string"
   ) {
-    return (where as { text: string }).text;
+    return (where as unknown as { text: string }).text;
   }
   return undefined;
 }
