@@ -103,11 +103,8 @@ export type KumikoScreenProps = {
 
 export { qualifyScreenId };
 
-/** Symmetrisch zu qualifyScreenId für Nav-QNs. NavDefinition-IDs in der
- *  Registry haben die Form `<feature>:nav:<short-id>`; Code der QNs
- *  baut (z.B. WorkspaceShell-Resolver) sollte das hier durchreichen statt
- *  String-Concat damit ein zukünftiger QN-Schema-Wechsel an einer Stelle
- *  greift. */
+/** Mirrors qualifyScreenId for nav QNs (registry form `<feature>:nav:<short-id>`).
+ *  Callers building QNs (e.g. the WorkspaceShell resolver) should use this instead of string-concat, so a QN-schema change only touches one place. */
 export function qualifyNavId(featureName: string, navId: string): string {
   return `${featureName}:nav:${navId}`;
 }
