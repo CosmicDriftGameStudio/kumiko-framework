@@ -99,14 +99,13 @@ export function registerMetricsRoute(app: Hono, meter: Meter, options: MetricsRo
 
 // --- /version ---------------------------------------------------------------
 
-// Anonymous endpoint that returns build-identity. Used by ops-tooling
-// (prod-version.sh) und Telegram-deploy-Notification damit man nicht
-// kubectl + crictl auf den Master braucht um die deployed-Version zu
-// sehen.
+// Anonymous endpoint that returns build-identity. Used by ops tooling
+// (prod-version.sh) and the Telegram deploy notification so nobody needs
+// kubectl + crictl on the master to see the deployed version.
 //
-// BUILD_VERSION + BUILD_TIME werden vom Dockerfile (ARG → ENV)
-// durchgereicht — fallen zurück auf "dev" / "unknown" wenn lokal ohne
-// Build-args gebaut.
+// BUILD_VERSION + BUILD_TIME are passed through from the Dockerfile
+// (ARG → ENV) — fall back to "dev" / "unknown" when built locally
+// without build-args.
 export function registerVersionRoute(app: Hono): void {
   const version = process.env["BUILD_VERSION"] ?? "dev";
   const buildTime = process.env["BUILD_TIME"] ?? "unknown";
