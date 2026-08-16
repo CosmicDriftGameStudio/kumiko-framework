@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { assertAllowedHost, assertHttpScheme, assertPublicHost, isBlockedIp } from "../policy";
+import type { lookup } from "node:dns/promises";
+import { assertAllowedHost, assertHttpScheme, isBlockedIp, resolvePublicHost } from "../policy";
 
 describe("isBlockedIp", () => {
   test.each([
@@ -50,19 +51,62 @@ describe("assertHttpScheme", () => {
   });
 });
 
-describe("assertPublicHost", () => {
+describe("resolvePublicHost", () => {
   test("rejects a literal private-IP host without any DNS lookup", async () => {
     await expect(
-      assertPublicHost(new URL("http://169.254.169.254/latest/meta-data/")),
+      resolvePublicHost(new URL("http://169.254.169.254/latest/meta-data/")),
     ).rejects.toThrow();
   });
 
   test("rejects the hex IPv4-mapped form new URL() normalizes ::ffff:169.254.169.254 into", async () => {
-    await expect(assertPublicHost(new URL("http://[::ffff:169.254.169.254]/"))).rejects.toThrow();
+    await expect(resolvePublicHost(new URL("http://[::ffff:169.254.169.254]/"))).rejects.toThrow();
   });
 
-  test("allows a public IP-literal host", async () => {
-    await expect(assertPublicHost(new URL("http://93.184.216.34/"))).resolves.toBeUndefined();
+  test("allows a public IP-literal host and pins that exact address", async () => {
+    await expect(resolvePublicHost(new URL("http://93.184.216.34/"))).resolves.toEqual({
+      address: "93.184.216.34",
+      family: 4,
+    });
+  });
+
+  test("rejects a URL with embedded credentials", async () => {
+    await expect(resolvePublicHost(new URL("http://user:pass@93.184.216.34/"))).rejects.toThrow(
+      /credentials/,
+    );
+  });
+
+  // DNS-rebinding simulation: a naive "resolve, check, then let fetch()
+  // resolve again to connect" implementation would call the resolver twice
+  // and could get a different (private) answer the second time. This pins
+  // the actual mechanism that closes that window: resolvePublicHost only
+  // ever resolves once and returns the single address from that resolution
+  // for the caller to connect to — there is no second call left for a
+  // rebinding DNS server to answer differently.
+  test("resolves the host exactly once and pins the address from that resolution", async () => {
+    const calls: string[] = [];
+    // Test double only needs the `(host, { all: true }) => LookupAddress[]`
+    // shape resolvePublicHost actually calls, not `lookup`'s full overload
+    // set — double-cast through `unknown` at this test-only boundary.
+    const fakeLookup = (async (hostname: string) => {
+      calls.push(hostname);
+      return [{ address: "203.0.113.5", family: 4 }];
+    }) as unknown as typeof lookup;
+
+    const resolved = await resolvePublicHost(new URL("http://rebinding.example/"), fakeLookup);
+
+    expect(resolved).toEqual({ address: "203.0.113.5", family: 4 });
+    expect(calls).toEqual(["rebinding.example"]); // exactly one resolution
+  });
+
+  test("rejects when any address in the resolution is private, even if another is public", async () => {
+    const fakeLookup = (async () => [
+      { address: "203.0.113.5", family: 4 },
+      { address: "10.0.0.1", family: 4 },
+    ]) as unknown as typeof lookup;
+
+    await expect(
+      resolvePublicHost(new URL("http://rebinding.example/"), fakeLookup),
+    ).rejects.toThrow(/non-public/);
   });
 });
 
