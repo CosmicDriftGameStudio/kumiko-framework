@@ -5,6 +5,12 @@ verified: 2026-08-14
 
 # Body-Limit-Inventar: welche Routes sind heute effektiv unlimitiert
 
+> Stand vor fw#2145. `BODY_LIMIT_PATHS` ist inzwischen invertiert zu
+> `BODY_LIMIT_OPT_OUT_PATHS` (`api-constants.ts`) — der Default deckt jetzt
+> `/api/*` by construction ab, nur `/api/files` opted aus. `sse` bleibt bewusst
+> ohne Opt-out unter dem Default, weil die Route den Request-Body nie liest
+> (siehe Analyse unten) — das Limit ist dort harmlos, nicht falsch.
+
 `registerBodyLimit` (`src/api/route-registrars.ts`) ist default-on mit 1 MiB
 (`DEFAULT_MAX_REQUEST_BYTES`), hängt aber an `BODY_LIMIT_PATHS` — einer
 handgepflegten Liste mit 5 Einträgen. `Routes` (`src/api/api-constants.ts`)
