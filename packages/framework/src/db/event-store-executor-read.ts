@@ -18,6 +18,31 @@ import { toSnakeCase } from "./table-builder";
 // relocation, not a redesign: unchanged from the original, now behind an
 // explicit ExecutorContext instead of the factory's local scope.
 
+// Defense-in-depth pagination guard. The handler boundary (entityListSchema)
+// already validates limit/offset, but the executor is public API for custom
+// handlers that pass their payload straight through — a non-integer limit
+// would otherwise be interpolated raw into `LIMIT ${limit}` SQL text.
+const MAX_LIST_LIMIT = 200; // keep in sync with engine/entity-handlers.ts MAX_LIST_LIMIT
+
+export function resolveListPagination(payload: {
+  readonly limit?: unknown;
+  readonly offset?: unknown;
+}): { readonly limit: number; readonly offset: number } {
+  const limit = payload.limit ?? 50;
+  const offset = payload.offset ?? 0;
+  if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 0) {
+    throw new UnprocessableError("invalid_list_limit", {
+      details: { hint: "limit must be a non-negative integer" },
+    });
+  }
+  if (typeof offset !== "number" || !Number.isInteger(offset) || offset < 0) {
+    throw new UnprocessableError("invalid_list_offset", {
+      details: { hint: "offset must be a non-negative integer" },
+    });
+  }
+  return { limit: Math.min(limit, MAX_LIST_LIMIT), offset };
+}
+
 export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, "list" | "detail"> {
   const {
     table,
@@ -37,8 +62,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
     // list + detail are unchanged from crud-executor — projections are the
     // read-model and serve these queries directly.
     async list(payload, user, db, runtimeOptions) {
-      const limit = payload.limit ?? 50;
-      const offset = payload.offset ?? 0;
+      const { limit, offset } = resolveListPagination(payload);
       const totalCount = payload.totalCount === true;
 
       // H.2 — entity-level read ownership. Decide before touching search or

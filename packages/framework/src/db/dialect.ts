@@ -136,12 +136,7 @@ function buildColumn(
     if (typeof value === "number") return String(value);
     if (typeof value === "boolean") return value ? "true" : "false";
     if (typeof value === "bigint") return value.toString();
-    if (
-      value &&
-      typeof value === "object" &&
-      "kind" in value &&
-      (value as { kind: string }).kind === "sql-expr"
-    ) {
+    if (value && typeof value === "object" && SQL_EXPR_BRAND in value) {
       return (value as SqlExpression).text;
     }
     if (typeof value === "function") return null; // function-defaults stay JS-side
@@ -379,7 +374,11 @@ export function primaryKey(opts: {
 
 // Unforgeable via JSON — a client-supplied jsonb value can fake `kind:
 // "sql-expr"` but can never carry a Symbol, so isSqlExpression() (bun-db/query.ts)
-// can't be tricked into treating request data as a raw SQL literal.
+// can't be tricked into treating request data as a raw SQL literal. The same
+// brand gate is enforced here in the schema DSL (sql`...` interpolation +
+// literalDefault) and in entity-table-meta's sqlExpressionText — a duck-typed
+// `{ kind: "sql-expr" }` from a client-controlled schema definition is never
+// spliced into SQL text anywhere.
 export const SQL_EXPR_BRAND: unique symbol = Symbol("sql-expr");
 
 export type SqlExpression = {
@@ -396,7 +395,7 @@ export function sql(strings: TemplateStringsArray, ...values: readonly unknown[]
     parts.push(strings[i] ?? "");
     if (i < values.length) {
       const v = values[i];
-      if (v && typeof v === "object" && "kind" in v && v.kind === "sql-expr") {
+      if (v && typeof v === "object" && SQL_EXPR_BRAND in v) {
         parts.push((v as SqlExpression).text);
       } else {
         parts.push(String(v));
