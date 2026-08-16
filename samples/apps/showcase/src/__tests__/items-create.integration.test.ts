@@ -195,7 +195,7 @@ test("filter undefined (HTTP): default-Pfad, alle Items zurück (keine Regressio
   );
   const all = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
     "showcase:query:item:list",
-    { limit: 500 },
+    { limit: 200 },
     TestUsers.admin,
   );
   expect(all.rows.find((r) => r["title"] === "no-filter-marker")).toBeDefined();
@@ -217,7 +217,7 @@ test("actionForm Tier 2.7d (HTTP): submit mit nur title+priority erstellt item v
 
   const list = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
     "showcase:query:item:list",
-    { limit: 500 },
+    { limit: 200 },
     TestUsers.admin,
   );
   const found = list.rows.find((r) => r["id"] === created.id);
@@ -409,7 +409,7 @@ test("Tier 2.7e Audit-Fix #8: list mit single-reference liefert _refs.parentId r
   };
   const list = await stack.http.queryOk<{ rows: ItemRow[] }>(
     "showcase:query:item:list",
-    { limit: 500 },
+    { limit: 200 },
     TestUsers.admin,
   );
   const found = list.rows.find((r) => r.id === child.id);
@@ -463,7 +463,7 @@ test("Tier 2.7e Server-Eagerload: list liefert _refs für relatedIds (multi-refe
 
   const list = await stack.http.queryOk<{
     rows: Array<Record<string, unknown> & { _refs?: Record<string, unknown> }>;
-  }>("showcase:query:item:list", { limit: 500 }, TestUsers.admin);
+  }>("showcase:query:item:list", { limit: 200 }, TestUsers.admin);
   const found = list.rows.find((r) => r["id"] === main.id);
   expect(found).toBeDefined();
   const relatedRefs = found?._refs?.["relatedIds"] as Array<Record<string, unknown>> | undefined;

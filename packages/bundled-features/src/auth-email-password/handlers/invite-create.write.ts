@@ -33,6 +33,7 @@ import {
 import {
   findForbiddenMembershipRole,
   reservedMembershipRoleError,
+  unassignableMembershipRoleError,
 } from "../../tenant/membership-roles";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants";
 import type { AuthMailLocale } from "../email-templates";
@@ -64,6 +65,10 @@ export type InviteCreateOptions = {
   readonly appUrl: string;
   readonly appName?: string;
   readonly locale?: AuthMailLocale;
+  // Opt-in role-hierarchy gate. Roles are app-defined strings, not a framework
+  // concept, so the hierarchy itself must live in the app — this hook lets it
+  // plug in without the framework hardcoding any role names.
+  readonly canAssignRole?: (inviterRoles: readonly string[], targetRole: string) => boolean;
 };
 
 const executor = createEventStoreExecutor(tenantInvitationsTable, tenantInvitationEntity, {
@@ -88,6 +93,10 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
       const forbiddenRole = findForbiddenMembershipRole([event.payload.role]);
       if (forbiddenRole !== undefined) {
         return writeFailure(reservedMembershipRoleError(forbiddenRole));
+      }
+
+      if (opts.canAssignRole && !opts.canAssignRole(event.user.roles, event.payload.role)) {
+        return writeFailure(unassignableMembershipRoleError(event.payload.role));
       }
 
       const email = event.payload.email.toLowerCase();

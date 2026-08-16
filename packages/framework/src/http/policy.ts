@@ -34,17 +34,32 @@ export function isBlockedIp(ip: string): boolean {
   return true; // not parseable as an IP -> fail closed
 }
 
+function inRange(n: number, [min, max]: readonly [number, number]): boolean {
+  return n >= min && n <= max;
+}
+
+// Each entry: first-octet range, and an optional second-octet range for
+// ranges narrower than a full /8. Table form keeps the range list scannable
+// as data rather than as a chain of near-identical `if`s.
+const BLOCKED_V4_RANGES: readonly {
+  readonly a: readonly [number, number];
+  readonly b?: readonly [number, number];
+}[] = [
+  { a: [0, 0] }, // 0.0.0.0/8 "this host"
+  { a: [10, 10] }, // 10/8 private
+  { a: [127, 127] }, // loopback
+  { a: [169, 169], b: [254, 254] }, // link-local + cloud metadata (169.254.169.254)
+  { a: [172, 172], b: [16, 31] }, // 172.16/12 private
+  { a: [192, 192], b: [168, 168] }, // 192.168/16 private
+  { a: [100, 100], b: [64, 127] }, // 100.64/10 CGNAT
+  { a: [224, 255] }, // multicast/reserved
+];
+
 function isBlockedV4(ip: string): boolean {
   const [a = 0, b = 0] = ip.split(".").map(Number);
-  if (a === 0) return true; // 0.0.0.0/8 "this host"
-  if (a === 10) return true; // 10/8 private
-  if (a === 127) return true; // loopback
-  if (a === 169 && b === 254) return true; // link-local + cloud metadata (169.254.169.254)
-  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16/12 private
-  if (a === 192 && b === 168) return true; // 192.168/16 private
-  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64/10 CGNAT
-  if (a >= 224) return true; // multicast/reserved
-  return false;
+  return BLOCKED_V4_RANGES.some(
+    (range) => inRange(a, range.a) && (range.b === undefined || inRange(b, range.b)),
+  );
 }
 
 // WHATWG URL host-parsing always serializes IPv6 into the canonical
@@ -68,9 +83,24 @@ function isBlockedHexPair(hi: string | undefined, lo: string | undefined): boole
   return isBlockedV4(`${hiNum >>> 8}.${hiNum & 0xff}.${loNum >>> 8}.${loNum & 0xff}`);
 }
 
+const BLOCKED_V6_EXACT = new Set(["::1", "::"]); // loopback / unspecified
+
+// All three ranges expressed on the first 16-bit group ("head"), so they
+// share one table instead of three near-identical `if`s:
+//   fc00::/7   unique-local           -> head 0xfc00-0xfdff
+//   fe80::/10  link-local             -> head 0xfe80-0xfebf
+//   fec0::/10  deprecated site-local (RFC 3879, 2004) — no DNS server hands
+//              this out today, but this is an exported security boundary,
+//              so block it rather than lean on the deprecation.
+const BLOCKED_V6_HEAD_RANGES: readonly (readonly [number, number])[] = [
+  [0xfc00, 0xfdff],
+  [0xfe80, 0xfebf],
+  [0xfec0, 0xfeff],
+];
+
 function isBlockedV6(ip: string): boolean {
   const lower = canonicalIPv6(ip.toLowerCase());
-  if (lower === "::1" || lower === "::") return true; // loopback / unspecified
+  if (BLOCKED_V6_EXACT.has(lower)) return true;
   const mappedDotted = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (mappedDotted) return isBlockedV4(mappedDotted[1] ?? "0.0.0.0"); // IPv4-mapped -> v4 rules
   const mappedHex = lower.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
@@ -84,14 +114,7 @@ function isBlockedV6(ip: string): boolean {
   const sixToFour = lower.match(/^2002:([0-9a-f]{1,4}):([0-9a-f]{1,4})(?::|$)/);
   if (sixToFour) return isBlockedHexPair(sixToFour[1], sixToFour[2]);
   const head = Number.parseInt(lower.split(":")[0] || "0", 16);
-  const highByte = head >>> 8;
-  if (highByte === 0xfc || highByte === 0xfd) return true; // fc00::/7 unique-local
-  if (head >= 0xfe80 && head <= 0xfebf) return true; // fe80::/10 link-local
-  // fec0::/10 is deprecated IPv6 site-local (RFC 3879, 2004) — no DNS server
-  // hands this out today, but this is an exported security boundary, so block
-  // it rather than lean on the deprecation.
-  if (head >= 0xfec0 && head <= 0xfeff) return true;
-  return false;
+  return BLOCKED_V6_HEAD_RANGES.some((range) => inRange(head, range));
 }
 
 function stripBrackets(host: string): string {

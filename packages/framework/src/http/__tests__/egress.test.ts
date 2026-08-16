@@ -182,7 +182,11 @@ describe("egress external / tenant-supplied", () => {
 
 describe("withOriginalUrl", () => {
   test("overwrites Response.url to the original request URL, not the pinned IP", async () => {
-    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response("ok") });
+    const echoServer = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => new Response("ok"),
+    });
     try {
       const originalUrl = new URL("http://vhost.example/some/path");
       const pinned = buildPinnedRequest(
@@ -190,14 +194,14 @@ describe("withOriginalUrl", () => {
         { address: "127.0.0.1", family: 4 },
         undefined,
       );
-      pinned.url.port = String(server.port);
+      pinned.url.port = String(echoServer.port);
 
       const res = await fetch(pinned.url, pinned.init);
       expect(res.url).not.toBe(originalUrl.toString()); // sanity: fetch itself reports the pinned IP
 
       expect(withOriginalUrl(res, originalUrl).url).toBe(originalUrl.toString());
     } finally {
-      server.stop(true);
+      echoServer.stop(true);
     }
   });
 
@@ -208,7 +212,7 @@ describe("withOriginalUrl", () => {
   // instead of a real hostname — this pins that it resolves against the
   // original host instead.
   test("a relative redirect Location resolves against the original host, not the pinned IP", async () => {
-    const server = Bun.serve({
+    const redirectServer = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
       fetch: () => new Response(null, { status: 302, headers: { location: "/next" } }),
@@ -220,7 +224,7 @@ describe("withOriginalUrl", () => {
         { address: "127.0.0.1", family: 4 },
         undefined,
       );
-      pinned.url.port = String(server.port);
+      pinned.url.port = String(redirectServer.port);
 
       const res = withOriginalUrl(
         await fetch(pinned.url, withManualRedirect(pinned.init)),
@@ -233,7 +237,7 @@ describe("withOriginalUrl", () => {
       expect(next.hostname).toBe("vhost.example"); // not the pinned 127.0.0.1
       expect(next.pathname).toBe("/next");
     } finally {
-      server.stop(true);
+      redirectServer.stop(true);
     }
   });
 });

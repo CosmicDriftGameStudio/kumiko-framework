@@ -494,7 +494,9 @@ describe("sessions feature — login → check → revoke → rejected", () => {
 
     // Direct invariant: Bob's sid + Alice's userId → missing (not live/revoked).
     expect(await callbacks.get().sessionChecker(bobLogin.sid, alice.userId)).toBe("missing");
-    expect(await callbacks.get().sessionChecker(bobLogin.sid, bob.userId)).toBe("live");
+    const bobResult = await callbacks.get().sessionChecker(bobLogin.sid, bob.userId);
+    const bobStatus = typeof bobResult === "string" ? bobResult : bobResult.status;
+    expect(bobStatus).toBe("live");
 
     // HTTP path: mint Alice's identity onto Bob's sid (stolen-sid scenario).
     const forged = await stack.jwt.sign({

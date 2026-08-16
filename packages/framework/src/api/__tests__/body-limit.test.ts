@@ -85,4 +85,20 @@ describe("request body limit", () => {
     const res = await postJson(app, "/api/write", 50_000);
     expect(res.status).toBe(401); // passes body-limit, reaches auth
   });
+
+  // Security regression (2026-08-13 audit, Finding 2): /api/stream was
+  // missing from BODY_LIMIT_PATHS, so it dispatched to the dispatcher
+  // without ever hitting the same 1MB cap /api/write enforces. Mirrors the
+  // /api/write cases above.
+  test("rejects POST /api/stream with body larger than maxRequestBytes with 413 (mirrors /api/write)", async () => {
+    const app = buildApp(1024);
+    const res = await postJson(app, "/api/stream", 2048);
+    expect(res.status).toBe(413);
+  });
+
+  test("accepts POST /api/stream with body within the limit (reaches auth layer, not 413)", async () => {
+    const app = buildApp(10_000);
+    const res = await postJson(app, "/api/stream", 100);
+    expect(res.status).toBe(401); // no JWT → 401, but size is fine
+  });
 });

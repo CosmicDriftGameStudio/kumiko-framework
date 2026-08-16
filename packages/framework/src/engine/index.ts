@@ -70,6 +70,7 @@ export {
   defineProjectionQueryHandler,
   type EntityCrudRegistrar,
   entityListSchema,
+  MAX_LIST_LIMIT,
   type RegisterEntityCrudOptions,
   registerEntityCrud,
 } from "./entity-handlers";

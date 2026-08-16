@@ -310,7 +310,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // Stateless JWTs (no sessionChecker → no revocation) default to a shorter
   // TTL than session-backed ones, since a leaked stateless token can't be
   // revoked and stays valid until it expires. Explicit jwtTtl always wins.
-  const defaultJwtTtl = options.auth?.sessionChecker ? 24 * 60 * 60 : 60 * 60;
+  const defaultJwtTtl = options.auth?.sessionChecker ? 8 * 60 * 60 : 60 * 60;
   const jwt = createJwtHelper(
     options.jwtSecret,
     options.jwtIssuer,

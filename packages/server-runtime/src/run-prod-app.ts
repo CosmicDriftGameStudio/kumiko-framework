@@ -148,6 +148,7 @@ import {
   buildBootExtraContext,
   buildProdSessionAuth,
   resolveAuthMail,
+  wireProdPatAutoRevoke,
 } from "./run-prod-app-boot-context";
 import { buildStaticFallback } from "./run-prod-app-static-files";
 import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers";
@@ -955,12 +956,23 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // über die auth-routes.
   // Secure-by-default (#1372): sessionStore provider → resolveSessionStore.
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
+  // Hoisted above buildProdSessionAuth: that call also wires MFA-enable/
+  // disable → PAT-revoke (bindRevokeAllPatTokensFromFeature), so it needs
+  // patFeature too.
+  const patFeature = features.find((f) => f.name === PAT_FEATURE);
   const sessionAuthFragment = shouldWireProdSessions(
     Boolean(effectiveAuth),
     registry.getExtensionUsages(EXT_SESSION_STORE).length > 0,
   )
-    ? await buildProdSessionAuth(db, registry, sessionsFeature, mfaFeature)
+    ? await buildProdSessionAuth(db, registry, sessionsFeature, mfaFeature, patFeature)
     : undefined;
+
+  // Password-change → PAT-revoke: independent of sessions/MFA being mounted
+  // (buildProdSessionAuth only runs when a sessionStore provider is
+  // registered), so wired unconditionally here whenever PAT itself is.
+  if (patFeature) {
+    wireProdPatAutoRevoke(db, patFeature);
+  }
 
   // Token-verifier opt-in: any provider feature (personal-access-tokens, a
   // future auth-provider-jwt, ...) self-registers via
@@ -968,7 +980,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // whenever at least one is mounted, resolved by shape at request-time.
   // PAT keeps its own per-token rate limiter (patRateLimiter), unrelated to
   // verification.
-  const patFeature = features.find((f) => f.name === PAT_FEATURE);
   const hasTokenVerifierProviders = registry.getExtensionUsages(EXT_TOKEN_VERIFIER).length > 0;
   let patAuthFragment:
     | {

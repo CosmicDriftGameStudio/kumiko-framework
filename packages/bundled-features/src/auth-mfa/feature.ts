@@ -11,6 +11,7 @@ import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.
 import { mfaStatusQuery } from "./handlers/status.query";
 import { createMfaVerifyHandler } from "./handlers/verify.write";
 import { AUTH_MFA_FEATURE_I18N } from "./i18n";
+import { createMfaCodeVerifier, type MfaCodeVerifier } from "./mfa-code-verifier";
 import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-checker";
 import { userMfaEntity } from "./schema/user-mfa";
 
@@ -70,6 +71,42 @@ export function mfaStatusCheckerFromFeature(
   return undefined;
 }
 
+// Reads the eagerly-built `verifyMfaCode` off a mounted auth-mfa feature's
+// exports — personal-access-tokens wires this in as its optional
+// mfaVerifier (re-auth gate for minting a token). Same no-bind-setter
+// reasoning as checkMfaStatus above.
+export function mfaVerifierFromFeature(feature: FeatureDefinition): MfaCodeVerifier | undefined {
+  const exports = feature.exports;
+  if (exports && typeof exports === "object" && "verifyMfaCode" in exports) {
+    const { verifyMfaCode } = exports as { verifyMfaCode: unknown };
+    if (typeof verifyMfaCode === "function") {
+      // @cast-boundary exports-walk — feature.exports is untyped by design
+      return verifyMfaCode as MfaCodeVerifier;
+    }
+  }
+  return undefined;
+}
+
+export type BindRevokeAllPatTokens = (revoker: (userId: string) => Promise<number>) => void;
+
+// Reads the late-bind setter off a mounted auth-mfa feature's exports —
+// run{Prod,Dev}App call this once the personal-access-tokens feature (if
+// mounted) has produced a concrete revoker, same wiring shape as
+// bindMfaRevokeAllOtherSessionsFromFeature.
+export function bindRevokeAllPatTokensFromFeature(
+  feature: FeatureDefinition,
+): BindRevokeAllPatTokens | undefined {
+  const exports = feature.exports;
+  if (exports && typeof exports === "object" && "bindRevokeAllPatTokens" in exports) {
+    const { bindRevokeAllPatTokens } = exports as { bindRevokeAllPatTokens: unknown };
+    if (typeof bindRevokeAllPatTokens === "function") {
+      // @cast-boundary exports-walk — feature.exports is untyped by design
+      return bindRevokeAllPatTokens as BindRevokeAllPatTokens;
+    }
+  }
+  return undefined;
+}
+
 export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefinition {
   return defineFeature("auth-mfa", (r) => {
     r.describe(
@@ -120,6 +157,14 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     const sharedRevoker = (userId: string, currentSid: string | undefined): Promise<number> =>
       revokeAllOtherSessions?.(userId, currentSid) ?? Promise.resolve(0);
 
+    // Same late-bind shape as sharedRevoker above, for the personal-access-
+    // tokens feature (if mounted). Wired to enable-confirm(-preauth)/disable
+    // only — regenerate-recovery doesn't change enrollment state, so it's
+    // out of scope for the "MFA-enable/disable" finding this mirrors.
+    let revokeAllPatTokens: ((userId: string) => Promise<number>) | undefined;
+    const sharedPatRevoker = (userId: string): Promise<number> =>
+      revokeAllPatTokens?.(userId) ?? Promise.resolve(0);
+
     const handlers = {
       enableStart: r.writeHandler(
         createEnableStartHandler({ setupTokenSecret: opts.setupTokenSecret, issuer: opts.issuer }),
@@ -135,15 +180,22 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
         createEnableConfirmHandler({
           setupTokenSecret: opts.setupTokenSecret,
           revokeAllOtherSessions: sharedRevoker,
+          revokeAllPatTokens: sharedPatRevoker,
         }),
       ),
       enableConfirmPreauth: r.writeHandler(
         createEnableConfirmPreauthHandler({
           setupTokenSecret: opts.setupTokenSecret,
           revokeAllOtherSessions: sharedRevoker,
+          revokeAllPatTokens: sharedPatRevoker,
         }),
       ),
-      disable: r.writeHandler(createDisableHandler({ revokeAllOtherSessions: sharedRevoker })),
+      disable: r.writeHandler(
+        createDisableHandler({
+          revokeAllOtherSessions: sharedRevoker,
+          revokeAllPatTokens: sharedPatRevoker,
+        }),
+      ),
       regenerateRecovery: r.writeHandler(
         createRegenerateRecoveryHandler({ revokeAllOtherSessions: sharedRevoker }),
       ),
@@ -164,10 +216,25 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       challengeTokenSecret: opts.challengeTokenSecret,
     });
 
+    // No late-bind needed — same reasoning as checkMfaStatus: only needs the
+    // HandlerContext the caller already has.
+    const verifyMfaCode = createMfaCodeVerifier();
+
     const bindRevokeAllOtherSessions: BindMfaRevokeAllOtherSessions = (revoker) => {
       revokeAllOtherSessions = revoker;
     };
 
-    return { handlers, queries, bindRevokeAllOtherSessions, checkMfaStatus };
+    const bindRevokeAllPatTokens: BindRevokeAllPatTokens = (revoker) => {
+      revokeAllPatTokens = revoker;
+    };
+
+    return {
+      handlers,
+      queries,
+      bindRevokeAllOtherSessions,
+      checkMfaStatus,
+      verifyMfaCode,
+      bindRevokeAllPatTokens,
+    };
   });
 }
