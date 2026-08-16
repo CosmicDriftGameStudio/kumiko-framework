@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.202.0
+
+### Patch Changes
+
+- e91d4cb: `personal-access-tokens:write:create` now requires `currentPassword` (verified against the caller's password hash) before minting a token, and rejects when the caller has MFA enrolled and `mfaCode` is missing or wrong — a session cookie alone is no longer enough to stand up a durable API credential. `expiresInDays` now defaults to 90 days instead of never-expiring when omitted (the existing 3650-day cap is unchanged, so a genuinely long-lived token is still possible if requested explicitly). Changing a user's password, or enabling/disabling MFA, now revokes all of that user's live PAT tokens — mirrors the existing session auto-revoke-on-password-change behavior. `run-prod-app`/`run-dev-app` wire the new MFA↔PAT revoke callback automatically when both `auth-mfa` and `personal-access-tokens` are mounted; no app-level change needed for that part. Apps that already mint PATs (their own client code, scripts, or tests) need to add `currentPassword` to the request payload — this is a breaking change to the `create` request shape despite the minor bump (bundled-features doesn't follow strict semver across its handler schemas yet).
+
+  `auth-email-password`'s `invite-create` handler gained an opt-in `canAssignRole?: (inviterRoles, targetRole) => boolean` option on `InviteCreateOptions` — when set, an invite whose target role fails the check is rejected before the invitation is created or the mail is sent. Framework-reserved roles (SystemAdmin, etc.) were already blocked; this closes the gap for app-defined role hierarchies (e.g. only some Admins may grant a "DPO" role) that the framework has no way to know about on its own. Omitting the option keeps the previous behavior unchanged — any non-reserved role remains assignable by any Admin.
+
+- Updated dependencies [b1e2e56]
+- Updated dependencies [e984211]
+- Updated dependencies [9d350a6]
+- Updated dependencies [e91d4cb]
+- Updated dependencies [d41d75c]
+- Updated dependencies [40f9cfd]
+  - @cosmicdrift/kumiko-framework@0.202.0
+  - @cosmicdrift/kumiko-bundled-features@0.202.0
+  - @cosmicdrift/kumiko-server-runtime@0.202.0
+
 ## 0.201.0
 
 ### Patch Changes
