@@ -4,20 +4,20 @@
 // call sites bind a policy once via `egress(policy)` and never see the range
 // table or the allowlist check directly.
 //
-// `external` and `tenant-supplied` currently resolve to the identical set of
-// checks below (deny private/reserved/link-local + no redirects). They stay
+// `external` and `tenant-supplied` resolve to the identical set of checks
+// below (deny private/reserved/link-local + no redirects). They stay
 // separate policy kinds because they carry different trust semantics — a
 // tenant-controlled URL is adversary-input in a way a hardcoded external
-// endpoint is not — and future hardening (e.g. DNS-rebinding protection) is
-// expected to land on `tenant-supplied` first without touching `external`.
+// endpoint is not.
 //
-// Out of scope for this module: DNS-rebinding protection (resolve-then-
-// connect-by-IP). The DNS lookup below and the actual `fetch()` in ./egress.ts
-// resolve the hostname twice — an attacker controlling DNS could swap the
-// answer between the two. Closing that gap means fetching against the
-// resolved IP directly while still presenting the original hostname for TLS
-// SNI and cert validation, which is nontrivial to get right and is tracked as
-// a separate follow-up, not a precondition for this policy boundary.
+// DNS-rebinding protection: `resolvePublicHost` resolves the hostname
+// exactly once, validates every returned address, and hands back the one
+// address ./egress.ts connects to directly (fetch-by-IP, with the original
+// hostname preserved for the Host header and TLS SNI/cert validation).
+// There is no second resolution for an attacker-controlled DNS answer to
+// swap in between check and connect — see `resolvePublicHost` below for the
+// mechanism and ../__tests__/egress.test.ts / policy.test.ts for the tests
+// pinning it.
 
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
@@ -104,19 +104,39 @@ export function assertHttpScheme(url: URL): void {
   }
 }
 
+export interface ResolvedHost {
+  readonly address: string;
+  readonly family: 4 | 6;
+}
+
 // Denies private/reserved/link-local ranges for `external` and
-// `tenant-supplied`. Resolves the hostname's A/AAAA records (or reads the
-// literal IP directly) and rejects if ANY resolved address falls in a denied
-// range — a host with one public and one private record must not pass.
-export async function assertPublicHost(url: URL): Promise<void> {
-  const host = stripBrackets(url.hostname);
-  if (isIP(host) !== 0) {
-    if (isBlockedIp(host)) throw new Error(`egress: host is not a public address: ${host}`);
-    return;
+// `tenant-supplied`, and pins the exact address ./egress.ts must connect to.
+// Resolves the hostname's A/AAAA records (or reads the literal IP directly),
+// rejects if ANY resolved address falls in a denied range — a host with one
+// public and one private record must not pass — and returns ONE validated
+// address from that same resolution. Reusing that address for the connect,
+// instead of letting `fetch()` resolve the hostname again, is what closes
+// the DNS-rebinding window: there is no second lookup left for an
+// attacker-controlled DNS server to answer differently.
+//
+// `lookupFn` defaults to the real resolver and exists only so tests can pin
+// deterministic, network-free answers — production call sites never pass it.
+export async function resolvePublicHost(
+  url: URL,
+  lookupFn: typeof lookup = lookup,
+): Promise<ResolvedHost> {
+  if (url.username || url.password) {
+    throw new Error("egress: URLs with embedded credentials are not supported");
   }
-  let addresses: readonly { readonly address: string }[];
+  const host = stripBrackets(url.hostname);
+  const ipVersion = isIP(host);
+  if (ipVersion !== 0) {
+    if (isBlockedIp(host)) throw new Error(`egress: host is not a public address: ${host}`);
+    return { address: host, family: ipVersion === 6 ? 6 : 4 };
+  }
+  let addresses: readonly { readonly address: string; readonly family: number }[];
   try {
-    addresses = await lookup(host, { all: true });
+    addresses = await lookupFn(host, { all: true });
   } catch {
     throw new Error(`egress: DNS resolution failed for host: ${host}`);
   }
@@ -127,6 +147,11 @@ export async function assertPublicHost(url: URL): Promise<void> {
   if (blocked) {
     throw new Error(`egress: host resolves to a non-public address: ${host} -> ${blocked.address}`);
   }
+  const [chosen] = addresses;
+  if (!chosen) {
+    throw new Error(`egress: DNS resolution returned no records for host: ${host}`);
+  }
+  return { address: chosen.address, family: chosen.family === 6 ? 6 : 4 };
 }
 
 // Explicit allowlist check for `internal` — the hostname (not the resolved
