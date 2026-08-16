@@ -1,4 +1,6 @@
 import { createContext, type ReactNode, useContext } from "react";
+import type { FeatureSchema } from "./feature-schema";
+import { qualifyScreenId } from "./qualify-screen-id";
 
 // Navigation-Contract, plattform-neutral. Types + Context + Hook leben
 // hier; die konkrete Implementation (window.history im Web,
@@ -20,7 +22,7 @@ export type NavRoute = {
   readonly entityId?: string;
 };
 
-export type NavTarget = {
+export type ScreenTarget = {
   // Optional in workspace-aware navigate calls. Omit for cross-workspace
   // navigation (current workspace stays); set to switch workspaces in the
   // same call as picking a screen — e.g. WorkspaceSwitcher does this.
@@ -28,6 +30,23 @@ export type NavTarget = {
   readonly screenId: string;
   readonly entityId?: string;
 };
+
+// Object-based nav target — callers name WHAT they want to see (an entity's
+// row) instead of WHICH screen shows it. resolveTarget() below turns this
+// into a ScreenTarget by looking up the screen with matching `detailFor`.
+// No edit-form resolution here: an entity can have several entityEdit
+// screens (e.g. solon's "property" has three), so "the" edit screen isn't
+// well-defined — callers that want a form still name its screenId directly.
+export type ObjectTarget = {
+  readonly workspaceId?: string;
+  readonly entity: string;
+  readonly id: string;
+};
+
+// No `kind` tag: `"screenId" in target` narrows cleanly, and a tag would
+// force every existing NavTarget literal (every navigate/hrefFor call in
+// every app) to add one for an additive ticket. See resolveTarget().
+export type NavTarget = ScreenTarget | ObjectTarget;
 
 export type NavApi = {
   /** Current route — `undefined` when the URL is at the root / there's
@@ -89,7 +108,7 @@ export function parsePath(pathname: string, hasWorkspaces?: boolean): NavRoute |
   return { screenId, ...(entityId !== undefined && { entityId }) };
 }
 
-export function formatPath(target: NavTarget): string {
+export function formatPath(target: ScreenTarget): string {
   // Workspace-Mode: prefix the workspace short id. Order matters —
   // workspace before screen mirrors parsePath's segment order.
   const segments: string[] = [];
@@ -97,6 +116,28 @@ export function formatPath(target: NavTarget): string {
   segments.push(target.screenId);
   if (target.entityId !== undefined) segments.push(target.entityId);
   return `/${segments.join("/")}`;
+}
+
+// Resolves a NavTarget to the ScreenTarget form navigate/replace/hrefFor
+// operate on. Pure — no context, no I/O — so callers can use it outside
+// React too (see resolve-at-NavApi-build alternative in renderer-web).
+export function resolveTarget(features: readonly FeatureSchema[], target: NavTarget): ScreenTarget {
+  if ("screenId" in target) return target;
+
+  for (const feature of features) {
+    for (const screen of feature.screens) {
+      if (screen.detailFor !== target.entity) continue;
+      return {
+        ...(target.workspaceId !== undefined && { workspaceId: target.workspaceId }),
+        screenId: qualifyScreenId(feature.featureName, screen.id),
+        entityId: target.id,
+      };
+    }
+  }
+
+  throw new Error(
+    `resolveTarget: no detail screen for entity "${target.entity}". Add detailFor: "${target.entity}" to the screen that shows it.`,
+  );
 }
 
 // Context + Hook. Default ist `undefined` damit fehlender Provider

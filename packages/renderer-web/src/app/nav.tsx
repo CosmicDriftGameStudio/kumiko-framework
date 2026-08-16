@@ -11,10 +11,13 @@
 // Notify-Trigger (eigenes pushPath, popstate-Event), nicht generalisierbar.
 
 import {
+  type FeatureSchema,
   formatPath,
   type NavApi,
   type NavTarget,
   parsePath,
+  resolveTarget,
+  type ScreenTarget,
   useNav,
 } from "@cosmicdrift/kumiko-renderer";
 import {
@@ -65,6 +68,11 @@ function prependBasePath(path: string, basePath: string): string {
 // läuft über einen window-Listener, den wir einmalig verdrahten.
 const listeners = new Set<() => void>();
 let popstateWired = false;
+
+// Stable identity for the omitted-features case — `?? []` would create a
+// fresh array every render, busting the useMemo below on every render for
+// every existing useBrowserNavApi() call site (none of which pass features).
+const NO_FEATURES: readonly FeatureSchema[] = [];
 
 function ensurePopstateWired(): void {
   if (popstateWired) return;
@@ -174,6 +182,10 @@ function replacePath(path: string): void {
 export function useBrowserNavApi(options?: {
   readonly hasWorkspaces?: boolean;
   readonly basePath?: string;
+  /** Feature list ObjectTarget resolution needs (resolveTarget). Omit when
+   *  the caller never passes an ObjectTarget — a ScreenTarget resolves
+   *  without looking at the feature list at all. */
+  readonly features?: readonly FeatureSchema[];
 }): NavApi {
   const path = useSyncExternalStore(subscribe, readPath, () => "/");
   // Search wird über denselben Listener-Set notifiziert (popstate +
@@ -185,6 +197,7 @@ export function useBrowserNavApi(options?: {
   const basePath = useMemo(() => normalizeBasePath(options?.basePath), [options?.basePath]);
   const searchParams = useMemo(() => parseSearchParams(search), [search]);
   const inAppPath = useMemo(() => stripBasePath(path, basePath), [path, basePath]);
+  const features = options?.features ?? NO_FEATURES;
   return useMemo<NavApi>(() => {
     const route = inAppPath === undefined ? undefined : parsePath(inAppPath, hasWorkspaces);
     // NavTarget-Contract: workspaceId weglassen = aktueller Workspace
@@ -192,21 +205,24 @@ export function useBrowserNavApi(options?: {
     // landet `/screen-id` in parsePath(hasWorkspaces) als workspaceId,
     // WorkspaceShell sieht einen unbekannten Workspace und revertet
     // sofort auf den Default-Screen ("Klick tut nichts"-Prod-Bug).
-    const inCurrentWorkspace = (target: NavTarget): NavTarget =>
+    const inCurrentWorkspace = (target: ScreenTarget): ScreenTarget =>
       hasWorkspaces && target.workspaceId === undefined && route?.workspaceId !== undefined
         ? { ...target, workspaceId: route.workspaceId }
         : target;
+    // resolveTarget runs first so an ObjectTarget never reaches formatPath —
+    // everything downstream (workspace-injection, path-building) only ever
+    // sees the ScreenTarget shape it already knew about.
+    const toPath = (target: NavTarget): string =>
+      prependBasePath(formatPath(inCurrentWorkspace(resolveTarget(features, target))), basePath);
     return {
       route,
-      navigate: (target) =>
-        pushPath(prependBasePath(formatPath(inCurrentWorkspace(target)), basePath)),
-      replace: (target) =>
-        replacePath(prependBasePath(formatPath(inCurrentWorkspace(target)), basePath)),
-      hrefFor: (target) => prependBasePath(formatPath(inCurrentWorkspace(target)), basePath),
+      navigate: (target) => pushPath(toPath(target)),
+      replace: (target) => replacePath(toPath(target)),
+      hrefFor: (target) => toPath(target),
       searchParams,
       setSearchParams: applySearchParamUpdates,
     };
-  }, [inAppPath, hasWorkspaces, basePath, searchParams]);
+  }, [inAppPath, hasWorkspaces, basePath, searchParams, features]);
 }
 
 // ---- KumikoLink (Anchor-basiert, nur Web) ----

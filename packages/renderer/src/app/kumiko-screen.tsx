@@ -49,6 +49,7 @@ import {
 } from "./projection-detail-shim";
 import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim";
 import { lastSegment, toKebab } from "./qn";
+import { qualifyScreenId } from "./qualify-screen-id";
 import { screenAccessAllows } from "./screen-access";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
 
@@ -100,19 +101,10 @@ export type KumikoScreenProps = {
   readonly onCopyLink?: () => Promise<void> | void;
 };
 
-// Build the qualified name the registry would stamp on screen ingest:
-// <feature>:screen:<short-id>. Matches the rule in
-// packages/framework/src/engine/qualified-name.ts so client lookups
-// line up with server-side registry state.
-export function qualifyScreenId(featureName: string, screenId: string): string {
-  return `${featureName}:screen:${screenId}`;
-}
+export { qualifyScreenId };
 
-/** Symmetrisch zu qualifyScreenId für Nav-QNs. NavDefinition-IDs in der
- *  Registry haben die Form `<feature>:nav:<short-id>`; Code der QNs
- *  baut (z.B. WorkspaceShell-Resolver) sollte das hier durchreichen statt
- *  String-Concat damit ein zukünftiger QN-Schema-Wechsel an einer Stelle
- *  greift. */
+/** Mirrors qualifyScreenId for nav QNs (registry form `<feature>:nav:<short-id>`).
+ *  Callers building QNs (e.g. the WorkspaceShell resolver) should use this instead of string-concat, so a QN-schema change only touches one place. */
 export function qualifyNavId(featureName: string, navId: string): string {
   return `${featureName}:nav:${navId}`;
 }

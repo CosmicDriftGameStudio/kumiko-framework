@@ -16,6 +16,7 @@ import {
   validateConfigReads,
   warnOnToggleableDependencies,
 } from "./config-deps";
+import { validateDetailForScreens } from "./detail-screens";
 import {
   validateDerivedFieldCollisions,
   validateEmbeddedFields,
@@ -208,6 +209,7 @@ export function validateBoot(
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
   validateI18nSurfaceKeys(features);
   validateEntityListScreens(features);
+  validateDetailForScreens(features, featureMap);
   validateExtensionPreSaveWiring(features);
   validateGdprStoragePersistence(features);
   validateFeatureBootChecks(features);

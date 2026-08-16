@@ -177,8 +177,14 @@ export type CreateKumikoAppOptions = {
    *  `{ hasWorkspaces: true }` aufgerufen — der Default-Hook nutzt das
    *  um das URL-Pattern auf `/<workspace>/<screen>[/<entityId>]`
    *  umzustellen. Eigene Adapter dürfen die Option ignorieren wenn ihr
-   *  Router das anders löst. */
-  readonly navAdapter?: (options?: { readonly hasWorkspaces?: boolean }) => NavApi;
+   *  Router das anders löst. `features` ist `app.features` — der
+   *  Default-Hook braucht sie für resolveTarget() (ObjectTarget →
+   *  ScreenTarget); eigene Adapter die nie ein ObjectTarget bekommen,
+   *  dürfen sie ignorieren. */
+  readonly navAdapter?: (options?: {
+    readonly hasWorkspaces?: boolean;
+    readonly features?: readonly FeatureSchema[];
+  }) => NavApi;
 };
 
 // Reads the dev-server-injected schema from the global. Guarded for
@@ -474,7 +480,10 @@ function BrowserNavBoot({
 }: {
   readonly app: AppSchema;
   readonly fallbackQn: string;
-  readonly useNavApi: (options?: { readonly hasWorkspaces?: boolean }) => NavApi;
+  readonly useNavApi: (options?: {
+    readonly hasWorkspaces?: boolean;
+    readonly features?: readonly FeatureSchema[];
+  }) => NavApi;
   readonly hasWorkspaces: boolean;
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
@@ -483,7 +492,7 @@ function BrowserNavBoot({
     readonly schema: AppSchema;
   }) => ReactNode;
 }): ReactNode {
-  const navApi = useNavApi({ hasWorkspaces });
+  const navApi = useNavApi({ hasWorkspaces, features: app.features });
   const Shell = shell;
   const screen = (
     <RoutedScreen

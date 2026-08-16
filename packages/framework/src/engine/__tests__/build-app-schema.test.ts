@@ -91,6 +91,31 @@ describe("buildAppSchema", () => {
     expect(screen).toMatchObject({ id: "privacy-center", dormant: true });
   });
 
+  // fw#2163: resolveTarget (renderer) reads screen.detailFor + screen.id
+  // (short, unqualified) off the client FeatureSchema — this pins that both
+  // survive the server→client projection verbatim, on a real registry-built
+  // schema rather than a hand-rolled FeatureSchema literal.
+  test("custom screen's `detailFor` survives the buildAppSchema projection, screen id stays unqualified (#2163)", () => {
+    const propertyFeature = defineFeature("property", (r) => {
+      r.entity("lease", {
+        table: "leases",
+        fields: { name: { type: "text" } },
+      } as unknown as EntityDefinition);
+      r.screen({
+        id: "lease-detail",
+        type: "custom",
+        renderer: { react: { __component: "LeaseDetailScreen" } },
+        detailFor: "lease",
+      });
+      r.translations({ keys: { "screen:lease-detail.title": { de: "Detail", en: "Detail" } } });
+    });
+
+    const app = buildAppSchema(createRegistry([propertyFeature]));
+    const screen = app.features.find((f) => f.featureName === "property")?.screens[0];
+
+    expect(screen).toMatchObject({ id: "lease-detail", detailFor: "lease" });
+  });
+
   test("Feature ohne r.translations lässt das Feld weg (omit-undefined-Pattern)", () => {
     const f = defineFeature("bare", (r) => {
       r.nav({ id: "x", label: "X" });

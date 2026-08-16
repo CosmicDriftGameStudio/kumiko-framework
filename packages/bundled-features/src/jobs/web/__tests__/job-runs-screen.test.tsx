@@ -49,10 +49,12 @@ const stubNav: NavApi = {
   route: undefined,
   navigate: () => {},
   replace: () => {},
-  hrefFor: (target) =>
-    target.entityId !== undefined
+  hrefFor: (target) => {
+    if (!("screenId" in target)) return "";
+    return target.entityId !== undefined
       ? `/${target.screenId}/${target.entityId}`
-      : `/${target.screenId}`,
+      : `/${target.screenId}`;
+  },
   searchParams: {},
   setSearchParams: () => {},
 };

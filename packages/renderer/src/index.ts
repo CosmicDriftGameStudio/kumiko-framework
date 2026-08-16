@@ -64,8 +64,15 @@ export type {
 export { isAppSchema, toAppSchema } from "./app/feature-schema";
 export type { KumikoScreenProps } from "./app/kumiko-screen";
 export { KumikoScreen, qualifyNavId, qualifyScreenId } from "./app/kumiko-screen";
-export type { NavApi, NavProviderProps, NavRoute, NavTarget } from "./app/nav";
-export { formatPath, NavProvider, parsePath, useNav } from "./app/nav";
+export type {
+  NavApi,
+  NavProviderProps,
+  NavRoute,
+  NavTarget,
+  ObjectTarget,
+  ScreenTarget,
+} from "./app/nav";
+export { formatPath, NavProvider, parsePath, resolveTarget, useNav } from "./app/nav";
 export { lastSegment } from "./app/qn";
 export type { VariableChipsProps } from "./app/variable-chips";
 export { VariableChips } from "./app/variable-chips";

@@ -806,6 +806,13 @@ export type ScreenNavSugar = {
   readonly order?: number;
 };
 
+// `detailFor` sits on the intersection, not on one variant, because any
+// screen kind can be the detail view for an entity — including `custom`:
+// in app repos, detail screens are overwhelmingly custom screens today
+// (projectionDetail doesn't carry entity semantics). Value is an entity
+// name in the same (unqualified, globally-unique) form as `entity` on
+// `EntityListScreenDefinition` (screen.ts:259-262) — entities are never
+// feature-prefixed, so there's no separate qualification step.
 export type ScreenDefinition = (
   | EntityListScreenDefinition
   | ProjectionListScreenDefinition
@@ -815,4 +822,4 @@ export type ScreenDefinition = (
   | ActionFormScreenDefinition
   | ConfigEditScreenDefinition
   | CustomScreenDefinition
-) & { readonly nav?: ScreenNavSugar };
+) & { readonly nav?: ScreenNavSugar; readonly detailFor?: string };
