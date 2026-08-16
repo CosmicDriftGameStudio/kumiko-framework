@@ -10,6 +10,9 @@ import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
 import { z } from "zod";
+import { revokeAllPatTokensForUser } from "../../personal-access-tokens/revoke-for-user";
+import { USER_STATUS } from "../../user";
+import { updateUserLifecycle } from "../../user-data-rights/lib/update-user-lifecycle";
 import { CRYPTO_SHREDDING_AGGREGATE_TYPE, SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
 
 export const subjectIdSchema = z.discriminatedUnion("kind", [
@@ -86,6 +89,28 @@ export const forgetSubjectWrite = defineWriteHandler({
         subjectKey,
         subject,
       );
+    }
+
+    // User subject: close the login door. DEK-Erase macht den passwordHash-
+    // Ciphertext unlesbar, aber Status + PATs sind eigenstaendige Credentials —
+    // der PAT-Resolver prueft nur revokedAt/expiresAt, KEINEN user.status
+    // (resolver.ts). Ohne diese Blockade bleibt ein vergessener User mit
+    // bestehendem PAT anrufbar. Spiegel des automatisierten Art.-17-Pfads
+    // (userDeleteHook: status=Deleted; apiTokenDeleteHook: revoke):
+    //   - user.updated als Lifecycle-Event (updateUserLifecycle), damit ein
+    //     read_users-Rebuild den Flip nicht wegwischt (#494)
+    //   - sessions muessen nicht aktiv revokt werden — session-callbacks
+    //     re-validiert user.status bei jeder Request (isPrincipalBlocked
+    //     blocked Deleted).
+    // Beides idempotent (status gesetzt / revokedAt IS NULL-Filter), Retry nach
+    // Crash-Recovery ist safe. User-Feature-Guard: ohne user-Feature existiert
+    // read_users nicht (krypto-only Stack). Tenant-Subjects haben keine
+    // Credentials.
+    if (raw.kind === "user" && ctx.registry.features.has("user")) {
+      await updateUserLifecycle(ctx.db.raw, raw.userId, { status: USER_STATUS.Deleted });
+      if (ctx.registry.features.has("personal-access-tokens")) {
+        await revokeAllPatTokensForUser(ctx.db.raw, raw.userId);
+      }
     }
 
     await ctx.unsafeAppendEvent({
