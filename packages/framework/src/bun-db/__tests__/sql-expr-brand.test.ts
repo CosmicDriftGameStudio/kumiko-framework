@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { sql, uuid, type SqlExpression } from "../../db/dialect";
+import { type SqlExpression, sql, uuid } from "../../db/dialect";
 import type { EntityTableMeta } from "../../db/entity-table-meta";
 import { insertOne, updateMany } from "../query";
 
@@ -94,7 +94,9 @@ describe("bun-db sql-expr brand — request-supplied objects can't fake a SQL li
 
     // @cast-boundary — a duck-typed payload arriving at a schema-definition
     // boundary, smuggled past the typed `default()` param on purpose.
-    const col = uuid("id").primaryKey().default(forged as unknown as SqlExpression);
+    const col = uuid("id")
+      .primaryKey()
+      .default(forged as unknown as SqlExpression);
 
     const defaultSql = col.finalise().defaultSql;
     expect(defaultSql).toBeDefined();
