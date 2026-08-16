@@ -1,5 +1,35 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.202.0
+
+### Minor Changes
+
+- 9d350a6: New `@cosmicdrift/kumiko-framework/http` subpath export: `egress(policy)`, a single bound fetcher that is the only sanctioned way for framework consumers to make outbound HTTP requests. The SSRF guard for this previously existed only inside `publicstatus`, duplicated by hand at every call site; this gives it one shared home.
+
+  `egress(policy)` takes an `EgressPolicy` once, at bind time, and returns `(raw, init?) => Promise<Response>`:
+
+  - `{ kind: "external" }` — denies private/reserved/link-local IP ranges (resolved via DNS or read directly off an IP-literal host), never follows redirects.
+  - `{ kind: "internal", allowHosts }` — checks the hostname against an explicit allowlist; follows redirects, but re-validates every hop's host against the same allowlist (capped at 5 hops).
+  - `{ kind: "tenant-supplied" }` — same checks as `external` today; kept as a separate policy kind because tenant-controlled URLs are adversary input in a way a hardcoded external endpoint is not, and stricter hardening is expected to land here first.
+
+  DNS-rebinding protection (resolve-then-connect-by-IP) is explicitly out of scope for this package — see the header comment in `src/http/policy.ts` — and tracked as a separate follow-up.
+
+### Patch Changes
+
+- b1e2e56: `registerBodyLimit` no longer enforces the request-body cap via a hand-maintained allowlist (`BODY_LIMIT_PATHS`) — it now applies `DEFAULT_MAX_REQUEST_BYTES` (1 MiB by default) to every `/api/*` request by construction, and only the routes listed in `BODY_LIMIT_OPT_OUT_PATHS` (`api-constants.ts`, currently just `/api/files`, which validates upload size against `maxUploadSize`/field `maxSize` after Hono's multipart parse) are exempt. A route that forgets to opt out is now over-limited instead of silently unlimited.
+
+  No shipped framework route changes behavior — `/api/write`, `/api/batch`, `/api/query`, `/api/command`, `/api/stream` and every `/api/auth/*` route were already capped under the old allowlist, and `/api/files` keeps its exemption. The one place this does change behavior: any app-owner route mounted directly on the shared Hono app under `/api/*` (e.g. `billing-foundation`'s `createSubscriptionWebhookHandler`, wired via `runProdApp`/`createKumikoServer`'s `extraRoutes` callback) is now also capped at 1 MiB by default, whereas before it was unlimited. An app that needs a larger body on such a route today has to raise `maxRequestBytes` for the whole server (there's no per-route override yet) since the framework doesn't expose one for `extraRoutes`-mounted paths — check any webhook/import routes wired via `extraRoutes` against the 1 MiB default before upgrading.
+
+- e984211: `egress({ kind: "external" | "tenant-supplied" })` now closes the DNS-rebinding TOCTOU window that `src/http/policy.ts` previously documented as out of scope: the host is resolved via DNS exactly once, every returned address is checked against the private/reserved/link-local ranges, and the actual connection is then pinned to that validated IP address instead of letting `fetch()` resolve the hostname a second time (which a rebinding DNS server could answer differently). The original hostname is preserved in the `Host` header and in TLS SNI (`tls.servername`), so certificate validation still checks the real hostname rather than the IP dialed. `kind: "internal"` is unaffected.
+- d41d75c: `removePattern`/`findCallForId` (the feature-file AST patcher used by Designer/AI-Builder tooling to locate and remove a specific `r.hook(...)` or `r.useExtension(...)` call) failed to find calls whose `target`/`entityName` argument was written as an inline `{ name: "..." }` object ref instead of a string literal or identifier — even though the parser (`hooks.ts`, `round3.ts`) already accepts that form when reading the feature file. A hook or extension registered with an inline ref could be parsed but not matched for removal, so patch callers would report "no call found" against code that plainly contained the call. The two affected positional slots (hook's `target`, arg 1; useExtension's `entityName`, arg 1) now match via the same `readNameOrRef` resolution the parser itself uses there. The shared `matchArgString` helper and every other call-matching slot are unchanged — this only widens the two positions where the parser was already more permissive than the patcher's matcher.
+- 40f9cfd: `authMiddleware` used to set `user.roles` straight from the JWT's `roles` claim once `sessionChecker` confirmed the session was still live — a role change made after login (promote to admin, revoke a tenant role) had no effect until the token expired. `sessionChecker` (`createSessionCallbacks`) now re-derives roles from the DB on every authenticated request, composing global (`userTable.roles`) and tenant-scoped (`tenantMembershipsTable.roles`) roles via the same `buildSessionRoles` primitive login already uses, so a DB-side role change now takes effect on the very next request made with the same still-live token — no re-login, no waiting for JWT expiry.
+
+  `sessionChecker`'s return type widens from `AuthSessionStatus` to a backward-compatible `AuthSessionCheckResult` union: the existing bare status strings (`"live" | "missing" | "revoked" | "expired" | "blocked"`) still cover every non-live outcome, and a live session now returns `{ status: "live", roles }` when roles could be derived. A DB throw on either lookup, or a user row that legitimately doesn't exist (e.g. a bootstrap actor with no persisted `userTable` row), fails open to the bare `"live"` string, and the middleware falls back to the JWT's frozen `roles` claim in that case — the same fail-open posture the session-liveness check already had. A missing tenant-membership row is not a fail-open case: it means the user genuinely has no tenant-scoped roles.
+
+  Because roles can now change mid-session, the default session-backed JWT TTL (used when `sessionChecker` is wired and no explicit `jwtTtl` is set) drops from 24h to 8h — the token itself carries less trust now that the DB is re-checked on every request, so a shorter window bounds how long a _fully offline_ verifier (no `sessionChecker` wired, if one ever bypasses it) would honor a stale roles claim. The stateless 1h default (no `sessionChecker`) is unchanged.
+
+  - @cosmicdrift/kumiko-types@0.202.0
+
 ## 0.201.0
 
 ### Patch Changes

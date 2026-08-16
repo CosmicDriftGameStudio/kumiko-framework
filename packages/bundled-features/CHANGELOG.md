@@ -1,5 +1,33 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.202.0
+
+### Minor Changes
+
+- e91d4cb: `personal-access-tokens:write:create` now requires `currentPassword` (verified against the caller's password hash) before minting a token, and rejects when the caller has MFA enrolled and `mfaCode` is missing or wrong — a session cookie alone is no longer enough to stand up a durable API credential. `expiresInDays` now defaults to 90 days instead of never-expiring when omitted (the existing 3650-day cap is unchanged, so a genuinely long-lived token is still possible if requested explicitly). Changing a user's password, or enabling/disabling MFA, now revokes all of that user's live PAT tokens — mirrors the existing session auto-revoke-on-password-change behavior. `run-prod-app`/`run-dev-app` wire the new MFA↔PAT revoke callback automatically when both `auth-mfa` and `personal-access-tokens` are mounted; no app-level change needed for that part. Apps that already mint PATs (their own client code, scripts, or tests) need to add `currentPassword` to the request payload — this is a breaking change to the `create` request shape despite the minor bump (bundled-features doesn't follow strict semver across its handler schemas yet).
+
+  `auth-email-password`'s `invite-create` handler gained an opt-in `canAssignRole?: (inviterRoles, targetRole) => boolean` option on `InviteCreateOptions` — when set, an invite whose target role fails the check is rejected before the invitation is created or the mail is sent. Framework-reserved roles (SystemAdmin, etc.) were already blocked; this closes the gap for app-defined role hierarchies (e.g. only some Admins may grant a "DPO" role) that the framework has no way to know about on its own. Omitting the option keeps the previous behavior unchanged — any non-reserved role remains assignable by any Admin.
+
+### Patch Changes
+
+- 40f9cfd: `authMiddleware` used to set `user.roles` straight from the JWT's `roles` claim once `sessionChecker` confirmed the session was still live — a role change made after login (promote to admin, revoke a tenant role) had no effect until the token expired. `sessionChecker` (`createSessionCallbacks`) now re-derives roles from the DB on every authenticated request, composing global (`userTable.roles`) and tenant-scoped (`tenantMembershipsTable.roles`) roles via the same `buildSessionRoles` primitive login already uses, so a DB-side role change now takes effect on the very next request made with the same still-live token — no re-login, no waiting for JWT expiry.
+
+  `sessionChecker`'s return type widens from `AuthSessionStatus` to a backward-compatible `AuthSessionCheckResult` union: the existing bare status strings (`"live" | "missing" | "revoked" | "expired" | "blocked"`) still cover every non-live outcome, and a live session now returns `{ status: "live", roles }` when roles could be derived. A DB throw on either lookup, or a user row that legitimately doesn't exist (e.g. a bootstrap actor with no persisted `userTable` row), fails open to the bare `"live"` string, and the middleware falls back to the JWT's frozen `roles` claim in that case — the same fail-open posture the session-liveness check already had. A missing tenant-membership row is not a fail-open case: it means the user genuinely has no tenant-scoped roles.
+
+  Because roles can now change mid-session, the default session-backed JWT TTL (used when `sessionChecker` is wired and no explicit `jwtTtl` is set) drops from 24h to 8h — the token itself carries less trust now that the DB is re-checked on every request, so a shorter window bounds how long a _fully offline_ verifier (no `sessionChecker` wired, if one ever bypasses it) would honor a stale roles claim. The stateless 1h default (no `sessionChecker`) is unchanged.
+
+- Updated dependencies [b1e2e56]
+- Updated dependencies [e984211]
+- Updated dependencies [9d350a6]
+- Updated dependencies [d41d75c]
+- Updated dependencies [40f9cfd]
+  - @cosmicdrift/kumiko-framework@0.202.0
+  - @cosmicdrift/kumiko-headless@0.202.0
+  - @cosmicdrift/kumiko-renderer@0.202.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.202.0
+  - @cosmicdrift/kumiko-renderer-web@0.202.0
+  - @cosmicdrift/kumiko-types@0.202.0
+
 ## 0.201.0
 
 ### Patch Changes
