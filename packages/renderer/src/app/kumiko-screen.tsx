@@ -31,7 +31,7 @@ import { RenderEdit } from "../components/render-edit";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
 import { useUserRoles } from "../context/user-roles-context";
-import { useListUrlState } from "../hooks/use-list-url-state";
+import { type ListSort, useListUrlState } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
 import { type DataTableFacet, type DataTableRowAction, usePrimitives } from "../primitives";
@@ -823,6 +823,40 @@ type PagedRows = {
   readonly total?: number;
 };
 
+// Payload for the server-side list query handler (LIST_PAYLOAD_SCHEMA):
+// search/sort/sortDirection/limit + offset/totalCount for pager mode OR
+// cursor for infinite scroll. Shared by EntityListBody and
+// ProjectionListBody so the two branches can't drift on this shape
+// (fw#2165) — entity-only additions (screen.filter, faceted filters) are
+// layered on top by the caller instead of living in here.
+export function buildListQueryPayload(state: {
+  readonly limit: number;
+  readonly search: string;
+  readonly sort: ListSort | null;
+  readonly usePager: boolean;
+  readonly page: number;
+  readonly useInfinite: boolean;
+  readonly cursor: string | undefined;
+}): Record<string, unknown> {
+  const payload: Record<string, unknown> = { limit: state.limit };
+  if (state.search !== "") payload["search"] = state.search;
+  if (state.sort !== null) {
+    payload["sort"] = state.sort.field;
+    payload["sortDirection"] = state.sort.dir;
+  }
+  if (state.usePager) {
+    // page=1 → offset=0, page=2 → offset=limit, etc. Server clamps itself
+    // when offset >= total.
+    const offset = (state.page - 1) * state.limit;
+    if (offset > 0) payload["offset"] = offset;
+    // totalCount: extra COUNT(*) so the pager can render "Page X of Y".
+    payload["totalCount"] = true;
+  } else if (state.useInfinite && state.cursor !== undefined) {
+    payload["cursor"] = state.cursor;
+  }
+  return payload;
+}
+
 function EntityListScreen({
   schema,
   screen,
@@ -935,16 +969,18 @@ function EntityListBody({
     return out;
   }, [urlState.filters, entity.fields]);
 
-  // Payload für den Server-Query-Handler (LIST_PAYLOAD_SCHEMA):
-  // search/sort/sortDirection/limit + offset/totalCount für Pager-Mode
-  // ODER cursor für Infinite-Scroll.
+  // Entity-only additions (screen.filter, faceted filters) layer on top of
+  // the shared buildListQueryPayload — projectionList has neither.
   const queryPayload = useMemo(() => {
-    const payload: Record<string, unknown> = { limit };
-    if (urlState.q !== "") payload["search"] = urlState.q;
-    if (effectiveSort !== null) {
-      payload["sort"] = effectiveSort.field;
-      payload["sortDirection"] = effectiveSort.dir;
-    }
+    const payload = buildListQueryPayload({
+      limit,
+      search: urlState.q,
+      sort: effectiveSort,
+      usePager,
+      page: urlState.page,
+      useInfinite,
+      cursor,
+    });
     // Screen-Filter (Tier 2.7c) — vom Author am Schema deklariert,
     // unabhängig vom User-q-Search. Mehrere Buckets derselben Entity
     // ("Upcoming" / "Active" / "Past") nutzen unterschiedliche filter
@@ -954,18 +990,6 @@ function EntityListBody({
     }
     if (filterPayload.length > 0) {
       payload["filters"] = filterPayload;
-    }
-    if (usePager) {
-      // page=1 → offset=0, page=2 → offset=limit, etc. Server
-      // clampt selbst wenn offset >= total.
-      const offset = (urlState.page - 1) * limit;
-      if (offset > 0) payload["offset"] = offset;
-      // totalCount: extra COUNT(*) damit der Pager "Page X of Y"
-      // rendern kann. Bei pagination=false oder "infinite" sparen wir
-      // den Roundtrip.
-      payload["totalCount"] = true;
-    } else if (useInfinite && cursor !== undefined) {
-      payload["cursor"] = cursor;
     }
     return payload;
   }, [
@@ -1337,11 +1361,13 @@ function EntityListBody({
 
 // ---- projection-list ----
 
-// Wie entityList, aber die List-Query kommt DIREKT aus `screen.query` (statt aus
-// der Entity abgeleitet) — dadurch cross-feature-fähig. v1 bewusst schlank:
-// rendert die Query-Rows mit den (explizit gelabelten) Columns + navigate-
-// RowActions/Row-Klick. Kein Server-Sort/-Pagination/-Facetten (eine Projection-
-// Query hat dafür keinen garantierten Contract) — die kommen bei Bedarf später.
+// Like entityList, but the list query comes DIRECTLY from `screen.query`
+// (instead of being derived from an entity) — cross-feature capable.
+// search/sort/pagination reuse the same URL-state + buildListQueryPayload
+// wiring as EntityListBody; which of them are actually offered is derived
+// from the query handler's Zod schema at buildAppSchema time (fw#2165), not
+// declared here. Pages-mode pagination only — infinite-scroll accumulation
+// isn't wired for projectionList.
 function ProjectionListBody({
   schema,
   screen,
@@ -1358,9 +1384,44 @@ function ProjectionListBody({
   const nav = useNav();
   const dispatcher = useOptionalDispatcher();
   const effectiveTranslate = translate ?? t;
-  const entity = useMemo(() => synthesizeProjectionEntity(screen.columns), [screen.columns]);
+
+  // searchable/sortable/paginated are derived at buildAppSchema time from the
+  // query handler's Zod schema (fw#2165) — not authored on the screen.
+  const searchable = screen.searchable ?? false;
+  const sortable = screen.sortable ?? false;
+  const paginated = screen.paginated ?? false;
+  const entity = useMemo(
+    () => synthesizeProjectionEntity(screen.columns, sortable),
+    [screen.columns, sortable],
+  );
   const listScreen = useMemo(() => synthesizeProjectionScreen(screen), [screen]);
-  const rowsQuery = useQuery<PagedRows>(screen.query, {}, { live: true });
+
+  const urlState = useListUrlState(screen.id);
+  // Gated on the derived capability, not just on whether URL-state happens to
+  // carry a value — a stale/hand-crafted URL (?…q=x on a non-searchable
+  // screen) must not smuggle a param the query's Zod schema doesn't accept.
+  const activeSearch = searchable ? urlState.q : "";
+  const activeSort = sortable ? (urlState.sort ?? screen.defaultSort ?? null) : null;
+  const limit = screen.pageSize ?? 50;
+  // Pages-mode only (see header comment) — an author-set pagination:
+  // "infinite" on a paginated projectionList is silently a no-op today.
+  const usePager = paginated && (screen.pagination ?? "pages") === "pages";
+
+  const queryPayload = useMemo(
+    () =>
+      buildListQueryPayload({
+        limit,
+        search: activeSearch,
+        sort: activeSort,
+        usePager,
+        page: urlState.page,
+        useInfinite: false,
+        cursor: undefined,
+      }),
+    [limit, activeSearch, activeSort, usePager, urlState.page],
+  );
+
+  const rowsQuery = useQuery<PagedRows>(screen.query, queryPayload, { live: true });
 
   const runNavigate = useCallback(
     (action: RowActionNavigate, row: ListRowViewModel) => {
@@ -1507,14 +1568,27 @@ function ProjectionListBody({
       ? (row: ListRowViewModel) => onRowClick(row, listScreen.entity)
       : undefined;
 
+  // Same pager-construction as EntityListBody: no Pager UI until the
+  // server-provided `total` arrives (guards pagination="pages" without
+  // totalCount support, see fw#2165 report on solon's leaseOverviewHandler).
+  const total = rowsQuery.data?.total;
+  const pager =
+    usePager && total !== undefined
+      ? { page: urlState.page, limit, total, onPageChange: urlState.setPage }
+      : undefined;
+
   return (
     <RenderList
       screen={listScreen}
       entity={entity}
       rows={rowsQuery.data?.rows ?? []}
       featureName={schema.featureName}
-      searchable={screen.searchable ?? false}
-      sort={screen.defaultSort ?? null}
+      searchable={searchable}
+      searchValue={urlState.q}
+      onSearchChange={urlState.setQ}
+      sort={activeSort}
+      onSortChange={urlState.setSort}
+      {...(pager !== undefined && { pager })}
       {...(rowActions !== undefined && { rowActions })}
       {...(toolbarActions !== undefined && { toolbarActions })}
       {...(translate !== undefined && { translate })}

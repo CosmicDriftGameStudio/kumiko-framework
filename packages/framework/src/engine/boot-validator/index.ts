@@ -45,6 +45,7 @@ import {
 } from "./nav";
 import { validateOwnershipRules } from "./ownership";
 import { validatePiiAndRetention } from "./pii-retention";
+import { validateProjectionListScreens } from "./projection-list-screens";
 import {
   collectScreenQns,
   collectScreensByShortId,
@@ -210,6 +211,7 @@ export function validateBoot(
   validateI18nSurfaceKeys(features);
   validateEntityListScreens(features);
   validateDetailForScreens(features, featureMap);
+  validateProjectionListScreens(features);
   validateExtensionPreSaveWiring(features);
   validateGdprStoragePersistence(features);
   validateFeatureBootChecks(features);
