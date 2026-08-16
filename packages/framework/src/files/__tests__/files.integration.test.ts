@@ -201,7 +201,7 @@ describe("file validation", () => {
   });
 
   test("sniffMimeType recognizes gif, webp and pdf signatures", () => {
-    expect(sniffMimeType(new TextEncoder().encode("GIF89a" + "x".repeat(20)))).toBe("image/gif");
+    expect(sniffMimeType(new TextEncoder().encode(`GIF89a${"x".repeat(20)}`))).toBe("image/gif");
     const webp = new Uint8Array([
       ...new TextEncoder().encode("RIFF"),
       0,
@@ -212,7 +212,7 @@ describe("file validation", () => {
       ...Array(20).fill(0),
     ]);
     expect(sniffMimeType(webp)).toBe("image/webp");
-    expect(sniffMimeType(new TextEncoder().encode("%PDF-1.4" + "x".repeat(20)))).toBe(
+    expect(sniffMimeType(new TextEncoder().encode(`%PDF-1.4${"x".repeat(20)}`))).toBe(
       "application/pdf",
     );
   });
