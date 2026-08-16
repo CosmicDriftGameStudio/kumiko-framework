@@ -6,7 +6,7 @@ import type {
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import type { FeatureSchema, NavApi } from "@cosmicdrift/kumiko-renderer";
+import type { FeatureSchema, NavApi, NavTarget } from "@cosmicdrift/kumiko-renderer";
 import {
   DispatcherProvider,
   ExtensionSectionsProvider,
@@ -812,12 +812,12 @@ describe("KumikoScreen", () => {
     const searchParamUpdates: Record<string, string | null>[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
-      navigate: (target: { screenId: string }) => {
+      navigate: (target: NavTarget) => {
         calls.push({ kind: "navigate", value: target });
-        navigateCalls.push(target);
+        if ("screenId" in target) navigateCalls.push(target);
       },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: (u: Record<string, string | null>) => {
         calls.push({ kind: "setSearchParams", value: u });
@@ -941,9 +941,11 @@ describe("KumikoScreen", () => {
     const searchParamUpdates: Record<string, string | null>[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
-      navigate: (target: { screenId: string; entityId?: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: (u: Record<string, string | null>) => searchParamUpdates.push(u),
     };
@@ -1000,9 +1002,11 @@ describe("KumikoScreen", () => {
     const navigateCalls: { screenId: string; entityId?: string }[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
-      navigate: (target: { screenId: string; entityId?: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: () => undefined,
     };
@@ -1055,9 +1059,11 @@ describe("KumikoScreen", () => {
     const navigateCalls: { screenId: string; entityId?: string }[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
-      navigate: (target: { screenId: string; entityId?: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: () => undefined,
     };
@@ -1114,9 +1120,11 @@ describe("KumikoScreen", () => {
     const searchParamUpdates: Record<string, string | null>[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
-      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: (u: Record<string, string | null>) => searchParamUpdates.push(u),
     };
@@ -1170,9 +1178,11 @@ describe("KumikoScreen", () => {
     });
     const memoryNav = {
       route: { screenId: "task-list" },
-      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: () => undefined,
     };
@@ -1306,7 +1316,7 @@ describe("KumikoScreen", () => {
       route: undefined,
       navigate: () => {},
       replace: () => {},
-      hrefFor: (t) => `/${t.screenId}`,
+      hrefFor: (t) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: { "task-list.f.id": "r1,r2" },
       setSearchParams: () => {},
     };
@@ -1448,9 +1458,11 @@ describe("KumikoScreen", () => {
     });
     const memoryNav = {
       route: { screenId: "quick-add" },
-      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: () => undefined,
     };
@@ -1492,9 +1504,11 @@ describe("KumikoScreen", () => {
     });
     const memoryNav = {
       route: { screenId: "quick-add" },
-      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: () => undefined,
     };
@@ -1576,9 +1590,11 @@ describe("KumikoScreen", () => {
     const navigateCalls: { screenId: string }[] = [];
     const memoryNav = {
       route: { screenId: "quick-add" },
-      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: () => undefined,
     };
@@ -1609,9 +1625,11 @@ describe("KumikoScreen", () => {
     const navigateCalls: { screenId: string }[] = [];
     const memoryNav = {
       route: { screenId: "quick-add" },
-      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: () => undefined,
     };
@@ -1747,9 +1765,11 @@ describe("KumikoScreen", () => {
     });
     const memoryNav = {
       route: { screenId: "quick-add" },
-      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: () => undefined,
     };
@@ -1825,9 +1845,11 @@ describe("KumikoScreen", () => {
     const navigateCalls: { screenId: string }[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
-      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: () => undefined,
     };
@@ -1864,9 +1886,11 @@ describe("KumikoScreen", () => {
     const navigateCalls: { screenId: string }[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
-      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: {},
       setSearchParams: () => undefined,
     };
@@ -2209,7 +2233,7 @@ describe("KumikoScreen: actionForm extension-section", () => {
       route: { screenId: "post-update" },
       navigate: () => undefined,
       replace: () => undefined,
-      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
       searchParams: { incidentId: "inc-7" },
       setSearchParams: () => undefined,
     };
