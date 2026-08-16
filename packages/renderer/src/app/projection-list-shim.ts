@@ -24,14 +24,19 @@ import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 
 const PROJECTION_PSEUDO_ENTITY = "__projection__";
 
-/** Minimale EntityDefinition aus den Column-Feldern: jedes Feld ein Text-Feld,
- *  nicht sortierbar (eine Projection-Query hat keinen garantierten Server-Sort).
- *  computeListViewModel liest nur `fields[<col>].type` → Text reicht; die
- *  Präsentation kommt aus dem Column-Renderer + explizitem Label. */
-export function synthesizeProjectionEntity(columns: readonly ListColumnSpec[]): EntityDefinition {
-  const fields: Record<string, { type: "text"; sortable: false }> = {};
+/** Minimal EntityDefinition from the column list: every field is a text
+ *  field. `sortable` applies uniformly to all columns — buildAppSchema
+ *  derives it from the query's Zod schema (`screen.sortable`, fw#2165); the
+ *  query itself has no per-field server-sort guarantee.
+ *  computeListViewModel only reads `fields[<col>].type` — text is enough,
+ *  presentation comes from the column renderer + explicit label. */
+export function synthesizeProjectionEntity(
+  columns: readonly ListColumnSpec[],
+  sortable: boolean,
+): EntityDefinition {
+  const fields: Record<string, { type: "text"; sortable: boolean }> = {};
   for (const col of columns) {
-    fields[normalizeListColumn(col).field] = { type: "text", sortable: false };
+    fields[normalizeListColumn(col).field] = { type: "text", sortable };
   }
   return { fields } as unknown as EntityDefinition;
 }

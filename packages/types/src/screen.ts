@@ -323,6 +323,16 @@ export type ProjectionListScreenDefinition = {
   readonly pageSize?: number;
   readonly defaultSort?: ListSortSpec;
   readonly searchable?: boolean;
+  /** Derived by buildAppSchema from the query handler's Zod schema (`sort`
+   *  param present). Same type serves author and wire schema (no separate
+   *  client-facing screen type exists), so this stays structurally
+   *  writable — validateProjectionListScreens rejects any hand-authored
+   *  value at boot (fw#2165). */
+  readonly sortable?: boolean;
+  /** Derived by buildAppSchema from the query handler's Zod schema (`cursor`
+   *  or `offset` param present). See `sortable` doc for why this is
+   *  boot-enforced rather than type-enforced. */
+  readonly paginated?: boolean;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

@@ -8,10 +8,12 @@
 //      im Browser-Bundle.
 
 import { describe, expect, test } from "bun:test";
+import { z } from "zod";
 import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
 import type { EntityDefinition } from "../types/fields";
+import type { ProjectionListScreenDefinition } from "../types/screen";
 
 describe("buildAppSchema", () => {
   test("Multi-Feature: jedes Feature wird mit eigenem featureName projiziert", () => {
@@ -454,6 +456,98 @@ describe("buildAppSchema", () => {
     // im Browser-Bundle, den die JSON-Safety-Guard fängt).
     expect(entity?.derivedFields?.["phase"]).not.toHaveProperty("derive");
     expect(findNonJsonSafePath(app, "schema")).toBeNull();
+  });
+
+  // fw#2165: projectionList's searchable/sortable/paginated are derived from
+  // the bound query handler's Zod schema, not authored — see
+  // deriveProjectionListCapabilities in build-app-schema.ts.
+  test("projectionList: search/sort/cursor in the query schema become derived capabilities (fw#2165)", () => {
+    const f = defineFeature("ledger", (r) => {
+      r.queryHandler(
+        "schedule:list",
+        z.object({
+          search: z.string().optional(),
+          sort: z.string().optional(),
+          cursor: z.string().optional(),
+        }),
+        async () => ({ rows: [], nextCursor: null }),
+      );
+      r.screen({
+        id: "schedule-list",
+        type: "projectionList",
+        query: "ledger:query:schedule:list",
+        columns: ["description"],
+      });
+    });
+
+    const app = buildAppSchema(createRegistry([f]));
+    const screen = app.features[0]?.screens[0] as ProjectionListScreenDefinition;
+    expect(screen.searchable).toBe(true);
+    expect(screen.sortable).toBe(true);
+    expect(screen.paginated).toBe(true);
+  });
+
+  test("projectionList: a query schema without search/sort/cursor derives no capability", () => {
+    const f = defineFeature("ledger", (r) => {
+      r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }));
+      r.screen({
+        id: "schedule-list",
+        type: "projectionList",
+        query: "ledger:query:schedule:list",
+        columns: ["description"],
+      });
+    });
+
+    const app = buildAppSchema(createRegistry([f]));
+    const screen = app.features[0]?.screens[0] as ProjectionListScreenDefinition;
+    expect(screen.searchable).toBe(false);
+    expect(screen.sortable).toBe(false);
+    expect(screen.paginated).toBe(false);
+  });
+
+  test("projectionList: a non-ZodObject query schema (z.union) derives no capability and doesn't throw", () => {
+    const f = defineFeature("ledger", (r) => {
+      r.queryHandler(
+        "schedule:list",
+        z.union([z.object({ a: z.string() }), z.object({ b: z.string() })]),
+        async () => ({ rows: [], nextCursor: null }),
+      );
+      r.screen({
+        id: "schedule-list",
+        type: "projectionList",
+        query: "ledger:query:schedule:list",
+        columns: ["description"],
+      });
+    });
+
+    let app: ReturnType<typeof buildAppSchema> | undefined;
+    expect(() => {
+      app = buildAppSchema(createRegistry([f]));
+    }).not.toThrow();
+    const screen = app?.features[0]?.screens[0] as ProjectionListScreenDefinition;
+    expect(screen.searchable).toBe(false);
+    expect(screen.sortable).toBe(false);
+    expect(screen.paginated).toBe(false);
+  });
+
+  test("projectionList: author-written searchable:false survives even when the schema accepts search", () => {
+    const f = defineFeature("ledger", (r) => {
+      r.queryHandler("schedule:list", z.object({ search: z.string().optional() }), async () => ({
+        rows: [],
+        nextCursor: null,
+      }));
+      r.screen({
+        id: "schedule-list",
+        type: "projectionList",
+        query: "ledger:query:schedule:list",
+        columns: ["description"],
+        searchable: false,
+      });
+    });
+
+    const app = buildAppSchema(createRegistry([f]));
+    const screen = app.features[0]?.screens[0] as ProjectionListScreenDefinition;
+    expect(screen.searchable).toBe(false);
   });
 });
 

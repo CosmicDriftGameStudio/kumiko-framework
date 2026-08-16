@@ -27,7 +27,15 @@
 // Kontext um sie zu lesen. TODO wenn das ein realer Use-Case wird:
 // `effectiveFeatures` Argument annehmen und über alle iterations filtern.
 
-import type { AppSchema, EntityDefinition, FeatureSchema, WorkspaceSchema } from "../ui-types";
+import { ZodObject, type ZodType } from "zod";
+import type {
+  AppSchema,
+  EntityDefinition,
+  FeatureSchema,
+  ProjectionListScreenDefinition,
+  ScreenDefinition,
+  WorkspaceSchema,
+} from "../ui-types";
 import {
   buildConfigFeatureSchema,
   type ConfigFeatureSchema,
@@ -63,7 +71,7 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
     const featureSchema: FeatureSchema = {
       featureName,
       entities: projectEntities(feature.entities ?? {}),
-      screens: Object.values(feature.screens),
+      screens: projectScreens(feature.screens, registry),
       ...(navs.length > 0 && { navs }),
       ...(contentCollections.length > 0 && { contentCollections }),
       // #1059: verbatim r.translations({keys}) — see FeatureSchema.translations
@@ -287,6 +295,51 @@ export function findNonJsonSafePath(value: unknown, path: string): string | null
   }
   // function, symbol, bigint, undefined
   return path;
+}
+
+// projectionList screens don't declare searchable/sortable/paginated as
+// authoring intent — they're derived here from the bound query handler's
+// Zod schema, the source of truth for what parameters it actually accepts
+// (fw#2165). A hand-written `searchable: true` still wins over the derived
+// default (screen.searchable ?? derived); the boot-validator (3a) rejects
+// one that contradicts the schema.
+function projectScreens(
+  screens: Readonly<Record<string, ScreenDefinition>>,
+  registry: Registry,
+): ScreenDefinition[] {
+  return Object.values(screens).map((screen) =>
+    screen.type === "projectionList" ? projectProjectionListScreen(screen, registry) : screen,
+  );
+}
+
+function projectProjectionListScreen(
+  screen: ProjectionListScreenDefinition,
+  registry: Registry,
+): ProjectionListScreenDefinition {
+  const schema = registry.getQueryHandler(screen.query)?.schema;
+  const capabilities = deriveProjectionListCapabilities(schema);
+  return {
+    ...screen,
+    searchable: screen.searchable ?? capabilities.searchable,
+    sortable: capabilities.sortable,
+    paginated: capabilities.paginated,
+  };
+}
+
+// Zod v4: a ZodObject's param names live on `.shape`. A schema that isn't a
+// ZodObject (e.g. a z.union across payload shapes) yields no capability
+// instead of throwing — same as a missing/unresolved query handler.
+function deriveProjectionListCapabilities(schema: ZodType | undefined): {
+  searchable: boolean;
+  sortable: boolean;
+  paginated: boolean;
+} {
+  const shape = schema instanceof ZodObject ? schema.shape : undefined;
+  return {
+    searchable: shape !== undefined && "search" in shape,
+    sortable: shape !== undefined && "sort" in shape,
+    paginated: shape !== undefined && ("cursor" in shape || "offset" in shape),
+  };
 }
 
 function projectEntities(
