@@ -67,7 +67,7 @@ function validateNoWidgetRequiredField(
 function validateRowActionNavigateParams(
   featureName: string,
   screenId: string,
-  screenType: "entityList" | "projectionList",
+  screenType: "entityList" | "projectionList" | "projectionDetail",
   screenEntity: string | undefined,
   action: RowAction,
   target: { readonly featureName: string; readonly screen: ScreenDefinition } | undefined,
@@ -386,6 +386,47 @@ export function validateScreens(
             `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has a section "${section.title}" ` +
               `with zero fields — drop the section or add fields to it.`,
           );
+        }
+      }
+      // Header actions reuse RowAction (the displayed record stands in for
+      // the row), so the same navigate/writeHandler existence checks as
+      // entityList/projectionList apply. `rowClick` is rejected outright —
+      // a detail screen has no row to click.
+      if (screen.actions !== undefined) {
+        for (const action of screen.actions) {
+          if (action.kind === "navigate" && action.rowClick === true) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${qualifyEntityName(feature.name, "screen", screenId)}" ` +
+                `(projectionDetail) action "${action.id}" sets rowClick: true — there is no row to ` +
+                `click on a detail screen. Remove rowClick.`,
+            );
+          }
+          if (action.kind === "navigate") {
+            const candidateQn = qualifyEntityName(feature.name, "screen", action.screen);
+            if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) action "${action.id}" ` +
+                  `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
+              );
+            }
+            const target = screensByShortId.get(action.screen)?.[0];
+            validateRowActionNavigateParams(
+              feature.name,
+              screenId,
+              "projectionDetail",
+              screen.detailFor,
+              action,
+              target,
+            );
+          } else {
+            if (!allWriteHandlerQns.has(action.handler)) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) action "${action.id}" ` +
+                  `handler "${action.handler}" is not a registered write-handler. Check the QN spelling ` +
+                  `(expected "<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+              );
+            }
+          }
         }
       }
       continue;

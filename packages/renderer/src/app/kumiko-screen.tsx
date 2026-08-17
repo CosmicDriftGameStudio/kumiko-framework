@@ -27,7 +27,7 @@ import type {
 import { fieldLabelKey } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractCreatedId } from "../components/reference-create-dialog";
-import { RenderEdit } from "../components/render-edit";
+import { RenderEdit, type RenderEditAction } from "../components/render-edit";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
 import { useUserRoles } from "../context/user-roles-context";
@@ -36,6 +36,7 @@ import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
 import { type DataTableFacet, type DataTableRowAction, usePrimitives } from "../primitives";
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
+import { useAppFeatures } from "./app-features-context";
 import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim";
 import { useCustomScreenComponent } from "./custom-screens";
 import { useDashboardBody } from "./dashboard-body";
@@ -1614,7 +1615,10 @@ function ProjectionDetailBody({
   entityId,
 }: {
   readonly schema: FeatureSchema;
-  readonly screen: ProjectionDetailScreenDefinition;
+  // detailFor sits on the ScreenDefinition intersection, not on the
+  // projectionDetail variant itself (screen.ts:832) — widen the prop type
+  // to keep reading it here instead of re-deriving it from schema.screens.
+  readonly screen: ProjectionDetailScreenDefinition & { readonly detailFor?: string };
   readonly translate?: Translate;
   readonly entityId?: string;
 }): ReactNode {
@@ -1634,6 +1638,144 @@ function ProjectionDetailBody({
     if (screen.listScreenId === undefined) return;
     nav.navigate({ screenId: screen.listScreenId });
   }, [nav, screen.listScreenId]);
+
+  // Default edit action (fw#2166): resolved cross-feature over ALL mounted
+  // features, not just this feature's own schema — detailFor itself is
+  // resolved cross-feature by the boot-validator (detail-screens.ts), and
+  // the motivating case is a projectionDetail whose query belongs to one
+  // feature while the entity's entityEdit screen lives in another. Unlike
+  // useNavigateToCreateFor this must NOT filter on allowCreate/singleton —
+  // those gate create-targets, we're resolving an update-target by a
+  // known id.
+  const appFeatures = useAppFeatures();
+  const userRoles = useUserRoles();
+  const dispatcher = useOptionalDispatcher();
+  const editScreen = useMemo(() => {
+    const detailFor = screen.detailFor;
+    if (detailFor === undefined) return undefined;
+    for (const feature of appFeatures) {
+      // Access-check is part of the find predicate, not a filter applied
+      // after the first match — two entityEdit screens for the same entity
+      // where the first is role-gated must not hide an accessible second one.
+      const match = feature.screens.find(
+        (s): s is EntityEditScreenDefinition =>
+          s.type === "entityEdit" &&
+          s.entity === detailFor &&
+          screenAccessAllows(s.access, userRoles),
+      );
+      if (match !== undefined) return match;
+    }
+    return undefined;
+  }, [appFeatures, screen.detailFor, userRoles]);
+  const defaultEditAction = useMemo((): RenderEditAction | undefined => {
+    if (editScreen === undefined) return undefined;
+    // editScreen.id is registry-qualified ("feature:screen:contact-edit");
+    // nav.navigate expects the short form (see useNavigateToCreateFor above).
+    const targetScreenId = lastSegment(editScreen.id);
+    return {
+      id: "edit",
+      label: effectiveTranslate("kumiko.actions.edit"),
+      onPress: () =>
+        nav.navigate({ screenId: targetScreenId, ...(entityId !== undefined && { entityId }) }),
+    };
+  }, [editScreen, effectiveTranslate, nav, entityId]);
+
+  const headerActions = useMemo((): readonly RenderEditAction[] | undefined => {
+    const record = detailQuery.data ?? {};
+    const declaredHasEdit = screen.actions?.some((a) => a.id === "edit") === true;
+    const out: RenderEditAction[] = [];
+    if (defaultEditAction !== undefined && !declaredHasEdit) {
+      out.push(defaultEditAction);
+    }
+    for (const action of screen.actions ?? []) {
+      if (action.visible !== undefined && !evalFieldCondition(action.visible, record)) {
+        continue;
+      }
+      if (action.kind === "navigate") {
+        // Default entityId for an entityEdit target of the SAME entity
+        // (screen.detailFor plays entity's role here, like screen.entity
+        // does for entityList's runNavigate) — without this fallback the
+        // target opens an empty create-form instead of the shown record,
+        // silently. Searched cross-feature, consistent with editScreen above.
+        const explicit =
+          action.entityId !== undefined ? String(record[action.entityId] ?? "") : undefined;
+        const targetIsEntityEditSameEntity =
+          screen.detailFor !== undefined &&
+          appFeatures.some((feature) =>
+            feature.screens.some(
+              (s) =>
+                s.type === "entityEdit" &&
+                s.entity === screen.detailFor &&
+                lastSegment(s.id) === action.screen,
+            ),
+          );
+        const fallback = targetIsEntityEditSameEntity ? String(record["id"] ?? "") : undefined;
+        const navEntityId = explicit ?? fallback;
+        const targetScreen = action.screen;
+        out.push({
+          id: action.id,
+          label: effectiveTranslate(action.label),
+          ...(action.style !== undefined && { style: action.style }),
+          onPress: () => {
+            nav.navigate({
+              screenId: targetScreen,
+              ...(navEntityId !== undefined && navEntityId !== "" && { entityId: navEntityId }),
+            });
+            const params =
+              action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
+            if (params !== undefined) {
+              const stringified: Record<string, string | null> = {};
+              for (const [k, v] of Object.entries(params)) {
+                stringified[k] = v === null || v === undefined ? null : String(v);
+              }
+              nav.setSearchParams(stringified);
+            }
+          },
+        });
+        continue;
+      }
+      // writeHandler — same dispatch/refetch/failure-surfacing pattern as
+      // ProjectionListBody's rowActions/toolbarActions above.
+      if (dispatcher === undefined) continue;
+      const writeAction = action;
+      out.push({
+        id: writeAction.id,
+        label: effectiveTranslate(writeAction.label),
+        ...(writeAction.style !== undefined && { style: writeAction.style }),
+        ...(writeAction.confirm !== undefined && {
+          confirm: effectiveTranslate(writeAction.confirm),
+        }),
+        ...(writeAction.confirmLabel !== undefined && {
+          confirmLabel: effectiveTranslate(writeAction.confirmLabel),
+        }),
+        onPress: async () => {
+          const payload =
+            writeAction.payload !== undefined
+              ? evalRowExtractor(writeAction.payload, record)
+              : { id: record["id"] };
+          const result = await dispatcher.write(writeAction.handler, payload);
+          if (!result.isSuccess) {
+            throw new WriteFailedError(
+              result.error,
+              dispatcherErrorText(result.error, effectiveTranslate),
+            );
+          }
+          await detailQuery.refetch();
+        },
+      });
+    }
+    return out.length > 0 ? out : undefined;
+  }, [
+    screen.actions,
+    screen.detailFor,
+    appFeatures,
+    defaultEditAction,
+    effectiveTranslate,
+    nav,
+    dispatcher,
+    detailQuery.data,
+    detailQuery.refetch,
+  ]);
 
   if (entityId === undefined) {
     return (
@@ -1674,6 +1816,7 @@ function ProjectionDetailBody({
       entityId={entityId}
       customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
       onCancel={screen.listScreenId !== undefined ? navigateToList : undefined}
+      {...(headerActions !== undefined && { actions: headerActions })}
       {...(translate !== undefined && { translate })}
     />
   );

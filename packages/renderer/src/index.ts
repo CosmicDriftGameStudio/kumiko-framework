@@ -78,6 +78,7 @@ export type { VariableChipsProps } from "./app/variable-chips";
 export { VariableChips } from "./app/variable-chips";
 export { dispatcherErrorText, WriteFailedError } from "./app/write-failed-error";
 export type {
+  RenderEditAction,
   RenderEditChangeState,
   RenderEditControls,
   RenderEditProps,

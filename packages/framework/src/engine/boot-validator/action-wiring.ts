@@ -29,7 +29,7 @@ const ACTION_FUNCTION_FIELDS = ["payload", "params", "entityId", "visible"] as c
 function validateActionNoFunctions(
   featureName: string,
   screenId: string,
-  actionKind: "rowAction" | "toolbarAction",
+  actionKind: "rowAction" | "toolbarAction" | "action",
   action: RowAction | ToolbarAction,
 ): void {
   const record = action as unknown as Record<string, unknown>;
@@ -45,6 +45,12 @@ function validateActionNoFunctions(
 
 export function validateActionWiring(feature: FeatureDefinition): void {
   for (const screen of Object.values(feature.screens)) {
+    if (screen.type === "projectionDetail") {
+      for (const action of screen.actions ?? []) {
+        validateActionNoFunctions(feature.name, screen.id, "action", action);
+      }
+      continue;
+    }
     if (screen.type !== "entityList" && screen.type !== "projectionList") continue;
     for (const action of screen.rowActions ?? []) {
       validateActionNoFunctions(feature.name, screen.id, "rowAction", action);

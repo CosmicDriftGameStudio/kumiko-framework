@@ -136,6 +136,12 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  platform-neutrale Package darf kein `navigator`/`window` anfassen,
    *  siehe guard-renderer-boundaries). undefined = kein Button. */
   readonly onCopyLink?: () => Promise<void> | void;
+  /** Header action buttons, rendered before the built-in copy-link/
+   *  delete/cancel/save controls. Each callback is already fully
+   *  bound (screen-type/nav/dispatcher resolution happens in the caller,
+   *  same split as `onCopyLink`) — RenderEdit only wires the button, its
+   *  busy state and its confirm dialog. */
+  readonly actions?: readonly RenderEditAction[];
   /** i18n-key für den Submit-Button. Default: "kumiko.actions.save".
    *  Action-Forms (Tier 2.7d) übergeben hier ihren screen.submitLabel,
    *  damit "Speichern" durch domain-spezifischere Strings ersetzt
@@ -203,6 +209,15 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  `onControlsReady`'s `submit`. Omitting this prop keeps unchanged
    *  behavior. */
   readonly hideActions?: boolean;
+};
+
+export type RenderEditAction = {
+  readonly id: string;
+  readonly label: string;
+  readonly onPress: () => void | Promise<void>;
+  readonly style?: "primary" | "secondary" | "danger";
+  readonly confirm?: string;
+  readonly confirmLabel?: string;
 };
 
 export type RenderEditChangeState<TValues extends FormValues> = {
@@ -314,6 +329,72 @@ function ExtensionSectionMount({
   );
 }
 
+// One header action + its own busy/confirm state — same pattern as
+// render-list.tsx's ToolbarActionView (each RenderEditAction is
+// independently bound by the caller, there is no shared trigger pipeline
+// to hook into like the built-in onDelete/onSubmit paths have).
+function RenderEditActionButton({
+  action,
+  Button,
+  Dialog,
+  onError,
+}: {
+  readonly action: RenderEditAction;
+  readonly Button: ReturnType<typeof usePrimitives>["Button"];
+  readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
+  readonly onError: (text: string | null) => void;
+}): ReactNode {
+  const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const trigger = async (): Promise<void> => {
+    setBusy(true);
+    onError(null);
+    try {
+      await action.onPress();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const variant = action.style ?? "secondary";
+  // Same rule as RowActionWriteHandler: "danger" forces a confirm even
+  // without an explicit confirm key.
+  const needsConfirm = action.confirm !== undefined || action.style === "danger";
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant={variant}
+        loading={busy}
+        onClick={() => {
+          if (needsConfirm) {
+            setConfirmOpen(true);
+          } else {
+            void trigger();
+          }
+        }}
+        testId={`render-edit-action-${action.id}`}
+      >
+        {action.label}
+      </Button>
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={action.label}
+        {...(action.confirm !== undefined && { description: action.confirm })}
+        confirmLabel={action.confirmLabel ?? action.label}
+        {...(action.style === "danger" && { variant: "danger" as const })}
+        onConfirm={trigger}
+        testId={`render-edit-action-${action.id}-dialog`}
+      />
+    </>
+  );
+}
+
 export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   props: RenderEditProps<TValues, TCtx>,
 ): ReactNode {
@@ -333,6 +414,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onCancel,
     onReload,
     onCopyLink,
+    actions,
     submitLabel,
     labelAppendix,
     fieldAppendix,
@@ -362,6 +444,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const [linkCopied, setLinkCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<DispatcherError | null>(null);
+  // One state for all header actions (actions?), not per-button — only one
+  // action can be in flight at a time, and this keeps the error surfaced in
+  // the shared formError-adjacent banner region instead of inside the
+  // button row (fw#2166 review: a full-width Banner there breaks the
+  // flex justify-end action bar).
+  const [actionError, setActionError] = useState<string | null>(null);
   const [rawStep, setRawStep] = useState(0);
   // Create-mode draftId (issue #1913) — resumed from `sessionStorage` (web)
   // on mount so a same-tab reload finds the right one of several parallel
@@ -985,6 +1073,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // gegen Fehlklicks. Save bleibt rechts (primary affordance).
   const formActions = (
     <>
+      {actions?.map((action) => (
+        <RenderEditActionButton
+          key={action.id}
+          action={action}
+          Button={Button}
+          Dialog={Dialog}
+          onError={setActionError}
+        />
+      ))}
       {onCopyLink !== undefined && (
         <Button
           type="button"
@@ -1280,6 +1377,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {extensionErrorKey !== null && (
           <Banner variant="error" testId="render-edit-extension-error">
             <Text testId="render-edit-extension-error-key">{translate(extensionErrorKey)}</Text>
+          </Banner>
+        )}
+        {actionError !== null && (
+          <Banner variant="error" testId="render-edit-action-error">
+            {actionError}
           </Banner>
         )}
         {onDelete !== undefined && (
