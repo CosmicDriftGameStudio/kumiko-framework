@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.206.0
+
+### Minor Changes
+
+- d60cb15: A row click on an `entityList` now defaults to the entity's declared detail screen (`detailFor`, fw#2163) when one exists — no `rowClick: true` rowAction needed. Precedence: an explicit `rowClick: true` navigate action still wins first, then the `detailFor` screen, then the app-wide `onRowClick` option (`createKumikoApp`), then the previous entityEdit-search fallback. Apps that never declare `detailFor` see no change. `projectionList` is unaffected (it has no resolvable entity).
+
+  Also fixes `resolveTarget`'s `{ entity, id }` navigation target (used by this default and by `relatedList` row clicks): it produced a fully-qualified `screenId` instead of the short form the router expects, so a resolved detail-screen navigation silently landed on the app's fallback screen instead. Screen short ids are boot-validated unique app-wide, so the short form alone is unambiguous.
+
+  `projectionList`'s "at most one `rowClick: true` rowAction" boot check (previously `entityList`-only) now also runs for `projectionList` screens.
+
+### Patch Changes
+
+- 43855ad: `EmbeddedListInput`'s desktop table is now horizontally scrollable when it has more columns than its container is wide, with a visible edge shadow while there's more to scroll. Previously the table wrapper clipped overflowing columns outright (`overflow-hidden`) — the browser could still nudge the hidden scroll position when a descendant received focus, so tabbing through a row could silently shift the table left (fw#2159, follow-up to #2092: reachability of the table as a whole, not just cell-content clipping within a column). A fresh table (or one crossing the mobile/desktop breakpoint) always mounts scrolled fully left.
+- Updated dependencies [d60cb15]
+  - @cosmicdrift/kumiko-renderer@0.206.0
+  - @cosmicdrift/kumiko-headless@0.206.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.206.0
+
 ## 0.205.0
 
 ### Patch Changes

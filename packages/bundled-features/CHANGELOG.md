@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.206.0
+
+### Patch Changes
+
+- 8c1c3d9: inbound-mail-foundation's ingest-message thread-rollup now serializes step 5 (live `messageCount`/`lastMessageAt` snapshot + append) per thread via `pg_advisory_xact_lock`. Closes a TOCTOU gap left open by #1229: a concurrent thread-rollup commit landing between the `countWhere` and `tryAppendEvent`'s own fresh version-read could make the append succeed with a stale count instead of surfacing a `VersionConflictError`, so the bounded retry loop never saw it as a conflict to retry — permanently undercounting `messageCount` within a single burst of concurrent ingests on the same thread (#2155).
+- 20d127c: fw#2134: `user:create`'s duplicate-email check was a pure pre-flight `fetchOne` — two concurrent creates with the same email could both pass the check and both insert (TOCTOU). `userEntity` now declares `indexes: [{ columns: ["email"], unique: true, name: "read_users_email_unique" }]`; since `email` is `lookupable: true`, this makes the framework generate a real partial unique index over the deterministic `email_bidx` column, which the DB itself enforces. A losing concurrent create now hits that constraint and surfaces as a clean 409 `unique_violation` (via the existing F8 pg-23505 mapping), remapped in the handler to the same `emailAlreadyExists` error shape the pre-flight already returns.
+
+  **Consumer migration note:** apps that bump past this version and run `kumiko migrate generate` will get a new unique-index migration. If a consumer's `read_users` table already holds duplicate emails (from before this fix), that migration will fail to apply until the duplicates are resolved. A soft-deleted-but-not-yet-forgotten user still holds its email slot until `forget` runs and nulls its `email_bidx`.
+
+- Updated dependencies [43855ad]
+- Updated dependencies [d60cb15]
+  - @cosmicdrift/kumiko-renderer-web@0.206.0
+  - @cosmicdrift/kumiko-framework@0.206.0
+  - @cosmicdrift/kumiko-renderer@0.206.0
+  - @cosmicdrift/kumiko-headless@0.206.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.206.0
+  - @cosmicdrift/kumiko-types@0.206.0
+
 ## 0.205.0
 
 ### Minor Changes
