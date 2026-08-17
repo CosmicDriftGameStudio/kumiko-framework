@@ -20,10 +20,9 @@ function checkQueryRef(
   query: string,
   buildPrefix: () => string,
 ): void {
-  // skip: empty/non-string queries are rejected with their own message in
-  // screens.ts — nothing to add here.
-  if (!isNonEmptyQueryString(query)) return;
-  if (queryHandlers.has(query)) return;
+  // skip: empty/non-string queries get their own message in screens.ts;
+  // a registered query has nothing left to check.
+  if (!isNonEmptyQueryString(query) || queryHandlers.has(query)) return;
   throw new Error(`${buildPrefix()} query "${query}" ${NOT_REGISTERED_SUFFIX}`);
 }
 
@@ -96,9 +95,7 @@ function checkScreenQueryRefs(
       screen.query,
       () => `[Feature ${featureName}] Screen "${screenId}" (projectionList)`,
     );
-    return;
-  }
-  if (screen.type === "projectionDetail") {
+  } else if (screen.type === "projectionDetail") {
     checkQueryRef(
       queryHandlers,
       screen.query,
@@ -111,17 +108,13 @@ function checkScreenQueryRefs(
       "projectionDetail",
       screen.layout,
     );
-    return;
-  }
-  if (
+  } else if (
     screen.type === "entityEdit" ||
     screen.type === "actionForm" ||
     screen.type === "configEdit"
   ) {
     checkEditLayoutQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.layout);
-    return;
-  }
-  if (screen.type === "dashboard") {
+  } else if (screen.type === "dashboard") {
     checkDashboardQueryRefs(queryHandlers, featureName, screenId, screen);
   }
 }
