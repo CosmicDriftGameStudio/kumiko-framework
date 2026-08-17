@@ -10,6 +10,9 @@ import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
 import { z } from "zod";
+import { revokeAllPatTokensForUser } from "../../personal-access-tokens";
+import { USER_STATUS } from "../../user";
+import { updateUserLifecycle } from "../../user-data-rights";
 import { CRYPTO_SHREDDING_AGGREGATE_TYPE, SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
 
 export const subjectIdSchema = z.discriminatedUnion("kind", [
@@ -70,10 +73,10 @@ export const forgetSubjectWrite = defineWriteHandler({
       eraseReason: event.payload.reason,
     });
 
-    // Blind-Index-Sweep (#818): bidx-Spalten des erased Subjects sofort
-    // nullen — sonst bliebe der deterministische HMAC bis zum nächsten
-    // Rebuild equality-matchbar. Bewusst ctx.db.raw: der Ciphertext-Prefix
-    // adressiert das Subject tenant-übergreifend.
+    // Blind-index sweep (#818): null the erased subject's bidx columns now —
+    // otherwise the deterministic HMAC stays equality-matchable until the next
+    // rebuild. Deliberately ctx.db.raw: the ciphertext prefix addresses the
+    // subject across tenants.
     await nullBlindIndexesForSubject(ctx.db.raw, ctx.registry.features, subjectKey);
 
     // Derived search index still holds plaintext (#1610) — purge next to the
@@ -86,6 +89,28 @@ export const forgetSubjectWrite = defineWriteHandler({
         subjectKey,
         subject,
       );
+    }
+
+    // User subject: close the login door. DEK-erase makes the passwordHash
+    // ciphertext unreadable, but status + PATs are standalone credentials —
+    // the PAT resolver only checks revokedAt/expiresAt, NOT user.status
+    // (resolver.ts). Without this block a forgotten user with a live PAT stays
+    // callable. Mirror of the automated Art.-17 path (userDeleteHook:
+    // status=Deleted; apiTokenDeleteHook: revoke):
+    //   - user.updated as lifecycle event (updateUserLifecycle), so a
+    //     read_users rebuild doesn't wipe the flip (#494)
+    //   - sessions don't need active revocation — session-callbacks
+    //     re-validate user.status on every request (isPrincipalBlocked
+    //     blocks Deleted).
+    // Both idempotent (status set / revokedAt IS NULL filter), retry after
+    // crash recovery is safe. User-feature guard: without the user feature
+    // read_users doesn't exist (crypto-only stack). Tenant subjects have no
+    // credentials.
+    if (raw.kind === "user" && ctx.registry.features.has("user")) {
+      await updateUserLifecycle(ctx.db.raw, raw.userId, { status: USER_STATUS.Deleted });
+      if (ctx.registry.features.has("personal-access-tokens")) {
+        await revokeAllPatTokensForUser(ctx.db.raw, raw.userId);
+      }
     }
 
     await ctx.unsafeAppendEvent({

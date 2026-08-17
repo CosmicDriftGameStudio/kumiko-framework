@@ -8,7 +8,7 @@
 //   - Member role → 403 (DPO/SystemAdmin only)
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   buildEntityTable,
@@ -28,8 +28,21 @@ import {
   TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { Temporal } from "temporal-polyfill";
+import { authFoundationFeature } from "../../auth-foundation";
+import { createConfigFeature } from "../../config";
+import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature";
+import { apiTokenEntity, apiTokenTable } from "../../personal-access-tokens/schema/api-token";
+import { createTenantFeature } from "../../tenant";
+import { tenantInvitationEntity } from "../../tenant/invitation-table";
+import { tenantMembershipsTable } from "../../tenant/membership-table";
+import { USER_STATUS, userEntity, userTable } from "../../user";
+import { createUserFeature } from "../../user/feature";
+import { seedUser } from "../../user/seeding";
 import { SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
 import { createCryptoShreddingFeature } from "../feature";
 
@@ -281,5 +294,88 @@ describe("crypto-shredding :: forget-subject purges the derived search index (#1
       filterType: "probe",
     });
     expect(after.some((h) => String(h.entityId) === id)).toBe(false);
+  });
+});
+
+// The P2 audit finding: forget-subject shredded the DEK but left status +
+// PATs untouched — a forgotten user's credentials stayed live (PAT resolver
+// checks revokedAt/expiresAt, never user.status). Own stack with user +
+// personal-access-tokens mounted (the handler's user-lifecycle + PAT-revoke
+// branches guard on those features).
+describe("crypto-shredding :: forget-subject closes the login door (user feature mounted)", () => {
+  let stack: TestStack;
+  let kms: InMemoryKmsAdapter;
+  const TENANT_B = testTenantId(3);
+
+  beforeAll(async () => {
+    stack = await setupTestStack({
+      features: [
+        createCryptoShreddingFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createConfigFeature(),
+        authFoundationFeature,
+        createPersonalAccessTokensFeature({ scopes: {} }),
+      ],
+    });
+    await unsafeCreateEntityTable(stack.db, userEntity);
+    await unsafeCreateEntityTable(stack.db, apiTokenEntity);
+    // tenant feature's only lookupable entity — the blind-index sweep
+    // touches it; without the table the handler 500s on `read_tenant_invitations`.
+    await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
+    await unsafePushTables(stack.db, { tenantMembershipsTable });
+    await createEventsTable(stack.db);
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+  });
+
+  beforeEach(async () => {
+    await resetTestTables(stack.db, [
+      userTable,
+      apiTokenTable,
+      tenantMembershipsTable,
+      eventsTable,
+    ]);
+    kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("user forget flips status to Deleted and revokes existing PATs", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "forgotten@example.com",
+      displayName: "Forgotten User",
+      emailVerified: true,
+    });
+    // No explicit createKey: seedUser's PII-encrypt (email) already created
+    // the subject key implicitly via getOrCreateDek.
+    await insertOne(stack.db, apiTokenTable, {
+      id: generateId(),
+      userId,
+      tenantId: TENANT_B,
+      name: "legacy-pat",
+      tokenHash: "a".repeat(64),
+      prefix: "ktest",
+      scopes: "[]",
+      createdAt: Temporal.Now.instant(),
+    });
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      dpoUser,
+    );
+
+    const userRow = await fetchOne<Record<string, unknown>>(stack.db, userTable, { id: userId });
+    expect(userRow?.["status"]).toBe(USER_STATUS.Deleted);
+
+    const tokens = await selectMany(stack.db, apiTokenTable, { userId });
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0]?.["revokedAt"]).not.toBeNull();
   });
 });
