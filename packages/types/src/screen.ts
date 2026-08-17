@@ -368,6 +368,12 @@ export type ProjectionDetailScreenDefinition = {
   readonly listScreenId?: string;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
+  /** Header action buttons. Reuses `RowAction` — the screen's single
+   *  displayed record stands in for the "row", so `pick`/`map`, `visible`,
+   *  `confirm`/`confirmLabel` and `style` keep their meaning unchanged.
+   *  `rowClick` has no target here (there is no row to click) and is
+   *  rejected by the boot-validator. */
+  readonly actions?: readonly RowAction[];
 };
 
 // --- dashboard ---

@@ -112,6 +112,28 @@ describe("validateBoot — action wiring (no function values)", () => {
     expect(() => validateBoot([feature])).toThrow(/toolbarAction "sync" payload is a function/);
   });
 
+  test("projectionDetail action payload as function → Throw (fw#2166)", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.screen({
+        id: "order-detail",
+        type: "projectionDetail",
+        query: "shop:query:order:detail",
+        layout: { sections: [{ title: "s", fields: ["total"] }] },
+        actions: [
+          {
+            kind: "writeHandler",
+            id: "archive",
+            label: "actions.archive",
+            handler: "shop:write:archive",
+            // biome-ignore lint/suspicious/noExplicitAny: intentional type violation under test
+            payload: ((row: unknown) => ({ id: row })) as any,
+          },
+        ],
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/action "archive" payload is a function/);
+  });
+
   test("entityList column renderer as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity("product", createEntity({ fields: { name: createTextField() } }));
