@@ -1,7 +1,12 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { ConflictError, InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  ConflictError,
+  InternalError,
+  type WriteErrorInfo,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { UserErrors } from "../constants";
@@ -11,12 +16,16 @@ const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user
 
 // Only the Auth features (running as SYSTEM) or a SystemAdmin may create users.
 //
-// Email uniqueness is checked via a pre-flight query — the framework has no
-// `unique:` field flag yet. This check is race-prone: two concurrent requests
-// can both see "no duplicate" and both insert. Acceptable MVP behavior since
-// user creation is low-frequency and gated by privileged roles; the DB will
-// still surface a pg unique violation once we add the constraint.
-// TODO: replace with a real `unique:` field flag + DB constraint.
+// Email uniqueness has two layers (fw#2134):
+//  1. A pre-flight fetchOne — fast-fails with a friendly error on the
+//     common case, but is race-prone on its own: two concurrent requests
+//     can both see "no duplicate" and both proceed to crud.create.
+//  2. The real guard is the unique index over email's blind-index column
+//     (schema/user.ts). A losing concurrent create hits that constraint
+//     and crud.create returns a UniqueViolationError (framework's F8
+//     pg-23505 mapping) instead of throwing — remapped below to the same
+//     emailAlreadyExists shape the pre-flight path returns, so callers see
+//     one consistent error regardless of which layer caught the race.
 export const createWrite = defineWriteHandler({
   name: "user:create",
   schema: z.object({
@@ -56,6 +65,43 @@ export const createWrite = defineWriteHandler({
       );
     }
 
-    return crud.create(event.payload, event.user, db);
+    const result = await crud.create(event.payload, event.user, db);
+    if (!result.isSuccess && isEmailUniqueViolation(result.error)) {
+      return writeFailure(
+        new ConflictError({
+          message: "email already exists",
+          i18nKey: "user.errors.emailAlreadyExists",
+          details: {
+            reason: UserErrors.emailAlreadyExists,
+            field: "email",
+            constraintName: constraintNameOf(result.error),
+          },
+        }),
+      );
+    }
+    return result;
   },
 });
+
+// schema/user.ts's `read_users_email_unique` (+ its generated `_bidx`
+// pendant) is the actual race-safety net behind the pre-flight check
+// above — a losing concurrent create surfaces here as a generic
+// UniqueViolationError (framework F8 pg-23505 mapping). Only the email
+// constraint gets remapped; any other unique_violation on this entity
+// passes through unchanged.
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function constraintNameOf(error: WriteErrorInfo): string | undefined {
+  if (!isRecord(error.details)) return undefined;
+  const constraintName = error.details["constraintName"];
+  return typeof constraintName === "string" ? constraintName : undefined;
+}
+
+function isEmailUniqueViolation(error: WriteErrorInfo): boolean {
+  return (
+    error.code === "unique_violation" &&
+    (constraintNameOf(error)?.startsWith("read_users_email_unique") ?? false)
+  );
+}
