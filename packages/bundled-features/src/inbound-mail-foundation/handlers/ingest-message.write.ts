@@ -20,7 +20,12 @@
 // SystemAdmin-only: Aufrufer ist der Watch/Sync-Supervisor bzw. der
 // Poll-Cron mit programmatic SystemUser — nie ein Tenant-Request.
 
-import { countWhere, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  asRawClient,
+  countWhere,
+  insertOne,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
@@ -101,6 +106,10 @@ function buildThreadKey(p: IngestMessagePayload, effectiveMessageIdHeader: strin
 }
 
 const THREAD_ROLLUP_MAX_ATTEMPTS = 5;
+// pg_advisory_xact_lock namespace (int4) for the step-5 thread-rollup lock
+// — 'inbm' as ASCII, keeps it disjoint from the framework's other fixed
+// single-int advisory-lock keys (schema bootstrap, es-ops boot).
+const THREAD_ROLLUP_LOCK_NAMESPACE = 0x696e626d;
 export const ingestMessageHandler: WriteHandlerDef = {
   name: "ingest-message",
   schema: ingestMessageSchema,
@@ -230,35 +239,23 @@ export const ingestMessageHandler: WriteHandlerDef = {
     //    encrypted once up front (constant across retries, doesn't
     //    depend on the thread's prior state).
     //
-    //    messageCount deliberately does NOT come from a previously loaded
-    //    threadEvents snapshot (previousCount+1): two concurrent ingests
-    //    on the same thread (Watch-Push vs. Poll-Reconciliation overlap,
-    //    or two different messages of the same thread arriving at once)
-    //    can both read the same stream version before either commits.
-    //    tryAppendEvent's fresh version-read at append time makes the
-    //    loser's append fail with a VersionConflictError ONLY when the
-    //    other TX's commit lands between this reload and the append's own
-    //    version check — so we retry: reload the thread stream, recompute
-    //    the live row-count and lastMessageAt, and append again. If the
-    //    other TX instead commits in the gap between the countWhere below
-    //    and the append's version-read, the version check sees the
-    //    already-bumped stream and appends without conflict — but with the
-    //    stale row-count this countWhere captured before the concurrent
-    //    insert. That write still lands (messageCount can undercount by
-    //    one round), it is not eliminated by this retry loop; the next
-    //    ingest on the thread re-counts and self-corrects. Unlike step 4,
-    //    a lost version-conflict race here must NOT be treated as a no-op
+    //    messageCount is a live COUNT, not previousCount+1, so two
+    //    concurrent ingests on the same thread (Watch-Push vs.
+    //    Poll-Reconciliation overlap, or two different messages of the
+    //    same thread arriving at once) converge on the true count. The
+    //    pg_advisory_xact_lock below (issue #2155) serializes this whole
+    //    countWhere+append section per threadAggId — transaction-scoped,
+    //    so it survives tryAppendEvent's inner SAVEPOINT and releases at
+    //    the enclosing TX's commit/rollback. Without it, a concurrent
+    //    commit landing between countWhere and tryAppendEvent's own fresh
+    //    version-read makes the append succeed with a stale count instead
+    //    of a VersionConflictError, so the retry loop below never sees it
+    //    as a conflict to retry (#1229's original gap). Unlike step 4, a
+    //    lost version-conflict race here must NOT be treated as a no-op
     //    duplicate — skipping would leave this message's contribution to
     //    messageCount/lastMessageAt out of the thread forever. Exhausting
     //    all attempts throws, rolling back the whole TX (including the
-    //    step-4 message append) for a clean re-ingest on the next poll —
-    //    never return success with a stale snapshot.
-    //
-    //    A true race-free read+append (e.g. SELECT ... FOR UPDATE or an
-    //    advisory lock on threadAggId) would close the countWhere→append
-    //    gap above and is deliberately not part of this fix — two writers
-    //    (watch + poll) make self-correcting drift an acceptable trade for
-    //    now.
+    //    step-4 message append) for a clean re-ingest.
     // ---------------------------------------------------------------
     const threadPlainPii = { tenantId, subject: payload.subject };
     const encryptedThreadFields = piiKms
@@ -273,6 +270,14 @@ export const ingestMessageHandler: WriteHandlerDef = {
           },
         )
       : threadPlainPii;
+
+    // Namespaced two-int form keeps this per-thread key space disjoint from
+    // the framework's other fixed-key advisory locks (schema bootstrap,
+    // es-ops boot) that live in the default single-int space.
+    await asRawClient(ctx.db.raw).unsafe("SELECT pg_advisory_xact_lock($1, hashtext($2))", [
+      THREAD_ROLLUP_LOCK_NAMESPACE,
+      threadAggId,
+    ]);
 
     let threadAppendOk = false;
     for (let attempt = 1; attempt <= THREAD_ROLLUP_MAX_ATTEMPTS && !threadAppendOk; attempt++) {
