@@ -107,6 +107,37 @@ describe("scenario 1: create + me", () => {
     );
     expectErrorIncludes(error, UserErrors.emailAlreadyExists);
   });
+
+  // fw#2134 — the pre-flight fetchOne alone can't decide a genuine race
+  // (both requests can see "no duplicate" before either commits); this
+  // fires two real concurrent HTTP creates and checks the loser still
+  // gets a clean 4xx, never an unhandled 500. The DB-constraint-level
+  // proof (which layer actually catches the race, and that it's the
+  // blind-index column doing it) lives in
+  // email-unique-blind-index.integration.test.ts — this test's job is
+  // narrower: no request may 500 no matter who wins.
+  test("two concurrent creates with the same email: loser gets a clean 4xx, not a 500", async () => {
+    const email = "concurrent@example.com";
+    const [resA, resB] = await Promise.all([
+      stack.http.write(UserHandlers.create, { email, displayName: "Racer A" }, systemAdmin),
+      stack.http.write(UserHandlers.create, { email, displayName: "Racer B" }, systemAdmin),
+    ]);
+
+    const bodyA = (await resA.json()) as { isSuccess: boolean };
+    const bodyB = (await resB.json()) as { isSuccess: boolean };
+    const successes = [bodyA, bodyB].filter((b) => b.isSuccess === true);
+    const failures = [
+      { status: resA.status, body: bodyA },
+      { status: resB.status, body: bodyB },
+    ].filter((r) => r.body.isSuccess === false);
+
+    expect(successes).toHaveLength(1);
+    expect(failures).toHaveLength(1);
+    const loser = failures[0];
+    if (!loser) throw new Error("expected exactly one failing response");
+    expect(loser.status).toBeGreaterThanOrEqual(400);
+    expect(loser.status).toBeLessThan(500);
+  });
 });
 
 // --- Scenario 2: field-level read access hides passwordHash ---

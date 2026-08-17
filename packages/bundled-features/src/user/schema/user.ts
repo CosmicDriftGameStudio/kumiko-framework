@@ -169,6 +169,17 @@ export const userEntity = createEntity({
       access: { write: access.privileged },
     }),
   },
+  // fw#2134 — email is `pii: true, lookupable: true`, so the column holds
+  // per-row ciphertext: a plain unique index on it can't catch duplicates.
+  // `unique: true` over a lookupable column makes buildEntityTable /
+  // deriveEntityTableMeta emit a second, partial unique index over the
+  // deterministic `emailBidx` companion column (WHERE email_bidx IS NOT
+  // NULL — erased/key-less rows stay excluded), which is what actually
+  // closes the TOCTOU race between two concurrent user:create calls.
+  // Global (not tenant-scoped): user is a tenant-agnostic identity
+  // aggregate (systemStream: true) — a composite (tenantId, email) would
+  // leave the same email resolvable twice.
+  indexes: [{ columns: ["email"], unique: true, name: "read_users_email_unique" }],
 });
 
 export const userTable = buildEntityTable("user", userEntity);
