@@ -108,6 +108,7 @@ export {
   isUniqueViolation,
   type PgErrorInfo,
 } from "./pg-error";
+export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock";
 export type { SelectOptions, WhereObject, WhereValue } from "./query-api";
 export {
   asRawClient,

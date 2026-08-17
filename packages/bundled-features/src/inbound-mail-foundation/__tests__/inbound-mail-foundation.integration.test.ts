@@ -323,11 +323,11 @@ describe("scenario 2b: ingest-message — Thread-Rollup selbstkorrigierend statt
   });
 });
 
-describe("scenario 2c: ingest-message — concurrent thread-rollup race (issue #1229)", () => {
+describe("scenario 2c: ingest-message — concurrent thread-rollup race (issue #1229, closed by #2155)", () => {
   // Probabilistic — looped per house convention (mehrere Durchläufe, z.B.
-  // 20x): the version-conflict race between two step-5 thread-rollup
-  // appends only fires on genuine transaction-timing interleaving, which
-  // a single run can't force deterministically.
+  // 20x): whether a concurrent thread-rollup commit lands inside the
+  // step-5 critical section depends on real transaction-timing
+  // interleaving, which a single run can't force deterministically.
   const ITERATIONS = 20;
   const CONCURRENCY = 3;
 
@@ -352,10 +352,10 @@ describe("scenario 2c: ingest-message — concurrent thread-rollup race (issue #
         ),
       );
 
-      // No writer's transaction fails with a 500 from the thread-rollup
-      // version conflict — each of the CONCURRENCY distinct messages is
-      // its own aggregate, so step 4 never races; only step 5 (shared
-      // threadAggId) does, and the bounded retry loop must absorb it.
+      // No writer's transaction fails with a 500 — each of the CONCURRENCY
+      // distinct messages is its own aggregate, so step 4 never races; step
+      // 5 (shared threadAggId) is serialized by the pg_advisory_xact_lock,
+      // so there's nothing here for the bounded retry loop to absorb.
       for (const res of responses) {
         expect(res.status).toBe(200);
         const body = (await res.json()) as { isSuccess: boolean; data: { duplicate: boolean } };
@@ -366,8 +366,9 @@ describe("scenario 2c: ingest-message — concurrent thread-rollup race (issue #
       const threadAggId = mailThreadAggregateId(admin.tenantId, `mid:${rootMessageIdHeader}`);
       const threadRows = await selectMany(db, mailThreadsProjectionTable, { id: threadAggId });
       expect(threadRows).toHaveLength(1);
-      // Every message's contribution landed — no drift from a silently
-      // stale-read-and-succeed append (the bug the retry loop replaces).
+      // Every message's contribution landed — the advisory lock closes the
+      // TOCTOU gap between countWhere and append that used to let a stale
+      // messageCount succeed without ever surfacing as a version conflict.
       expect(threadRows[0]?.["messageCount"]).toBe(CONCURRENCY);
     }
   });
