@@ -25,12 +25,12 @@ import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { acquireNamespacedAdvisoryLock } from "@cosmicdrift/kumiko-framework/db";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id";
-import { acquireThreadRollupLock } from "../db/queries/thread-rollup-lock";
 import {
   INBOUND_MESSAGE_PII_FIELDS,
   inboundMessageEntity,
@@ -102,6 +102,10 @@ function buildThreadKey(p: IngestMessagePayload, effectiveMessageIdHeader: strin
 }
 
 const THREAD_ROLLUP_MAX_ATTEMPTS = 5;
+// pg_advisory_xact_lock namespace (int4) for the step-5 thread-rollup lock
+// — 'inbm' as ASCII, keeps it disjoint from the framework's other fixed
+// single-int advisory-lock keys (schema bootstrap, es-ops boot).
+const THREAD_ROLLUP_LOCK_NAMESPACE = 0x696e626d;
 export const ingestMessageHandler: WriteHandlerDef = {
   name: "ingest-message",
   schema: ingestMessageSchema,
@@ -235,7 +239,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
     //    concurrent ingests on the same thread (Watch-Push vs.
     //    Poll-Reconciliation overlap, or two different messages of the
     //    same thread arriving at once) converge on the true count.
-    //    acquireThreadRollupLock below (issue #2155) serializes this whole
+    //    acquireNamespacedAdvisoryLock below (issue #2155) serializes this whole
     //    countWhere+append section per threadAggId — transaction-scoped,
     //    so it survives tryAppendEvent's inner SAVEPOINT and releases at
     //    the enclosing TX's commit/rollback. Without it, a concurrent
@@ -263,7 +267,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
         )
       : threadPlainPii;
 
-    await acquireThreadRollupLock(ctx.db.raw, threadAggId);
+    await acquireNamespacedAdvisoryLock(ctx.db.raw, THREAD_ROLLUP_LOCK_NAMESPACE, threadAggId);
 
     let threadAppendOk = false;
     for (let attempt = 1; attempt <= THREAD_ROLLUP_MAX_ATTEMPTS && !threadAppendOk; attempt++) {
