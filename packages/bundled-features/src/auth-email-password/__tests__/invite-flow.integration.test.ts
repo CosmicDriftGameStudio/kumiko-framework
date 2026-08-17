@@ -250,22 +250,42 @@ describe("invite-create", () => {
     expect(rows[0]?.["tenantId"]).toBe(TENANT_A_ID);
   });
 
-  test("Resend: zweiter invite für selbe email → existing row updated, gleicher token", async () => {
+  test("Resend: second invite for the same email reuses the row but mints a new token and invalidates the previous one (#2174)", async () => {
     const firstToken = await inviteEmail(BOB_EMAIL, "Admin");
     const secondToken = await inviteEmail(BOB_EMAIL, "Editor");
 
-    expect(secondToken).toBe(firstToken);
+    expect(secondToken).not.toBe(firstToken);
 
-    // Eine Row, role updated
+    // Same row, role updated
     const rows = await selectMany(stack.db, tenantInvitationsTable, { email: BOB_EMAIL });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["role"]).toBe("Editor");
 
     // inviteEmail() only reads emailTransport.sent.at(-1) — a silent second-
-    // dispatch failure would still leave sent.length===1 and .at(-1) pointing
-    // at the FIRST mail, making secondToken===firstToken pass for the wrong
-    // reason. Assert an actual second dispatch happened.
+    // dispatch failure would still leave sent.length===1, making the
+    // not-equal check above pass for the wrong reason. Assert an actual
+    // second dispatch happened.
     expect(emailTransport.sent).toHaveLength(2);
+
+    // The first mail's link must actually stop working (not just look
+    // different) — this is what catches a double-hash bug in invalidation.
+    const firstRes = await authedRaw(
+      "POST",
+      "/api/auth/invite-accept",
+      { token: firstToken },
+      bobSession(),
+    );
+    expect(firstRes.status).toBe(422);
+    const firstBody = (await firstRes.json()) as { error?: { details?: { reason?: string } } };
+    expect(firstBody.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+
+    const secondRes = await authedRaw(
+      "POST",
+      "/api/auth/invite-accept",
+      { token: secondToken },
+      bobSession(),
+    );
+    expect(secondRes.status).toBe(200);
   });
 });
 

@@ -1,53 +1,80 @@
-// Redis-backed Token-Store für Tenant-Invite-Magic-Link-Flow.
+// Redis-backed token store for the tenant-invite magic-link flow.
 //
-// Subject ist die Invitation-Row-ID (DB-row owner: tenant-feature). Wir
-// mappen Token → invitationId in Redis und nutzen den Token als opaque
-// random string aus generateToken (256 bit base64url, randomBytes).
+// Subject is the invitation row ID (DB-row owner: tenant-feature). We
+// map token → invitationId in Redis, using the token as an opaque
+// random string from generateToken (256-bit base64url, randomBytes).
 //
-// Anders als signup-token-store mappen wir hier NICHT bidirektional
-// — Resend-Idempotenz lebt auf der Invitation-Row-Ebene (Admin invitet
-// dieselbe email zweimal → existing row + token wird re-genutzt; das
-// invite-create-handler holt den existing token aus Redis via
-// invitationId-Lookup auf einem zweiten Key).
+// Unlike signup-token-store we don't map bidirectionally for reuse —
+// resend-idempotency lives at the invitation-row level (an admin
+// inviting the same email twice reuses the existing row and mints a
+// fresh token; invite-create looks up the *previous* token's hash via
+// a second key to invalidate it before storing the new one).
 //
-// Bidirektional ist trotzdem nützlich für Cancel: Admin cancelt → row.id
-// bekannt, ich brauche den token um Redis-Key zu löschen. Daher: zweiter
-// Key invite:by-id:<invitationId> → token. Cancel löscht beide.
+// Bidirectional is still useful for cancel: the admin knows row.id and
+// needs the forward key to delete. Hence a second key,
+// invite:by-id:<invitationId>, holding the hash of the live token.
+// Cancel deletes both.
 //
-// Bug-Pattern: TTL liegt nur in Redis. DB-row.expiresAt ist UI-Anzeige.
-// Bei expired-token: invite-accept findet den Token nicht → invalid-
-// invite-token. DB-row bleibt mit status="pending" — Cleanup-Job
-// markiert sie zu "expired" (separater Concern, kommt im U.3-Cleanup).
+// Every key is derived from sha256(token), never the raw token —
+// Redis key names, MONITOR output, replica traffic, and memory/backup
+// dumps never carry the bearer secret in the clear (#2174). The
+// by-id entry stores the *hash* of the live token, not the token
+// itself, so it can only be used to invalidate — never to recover or
+// resend the original token. A resend therefore always mints a fresh
+// token and invalidates the previous one, rather than reusing the
+// same link.
 //
-// Keine Kollision mit signup/reset/verify-Tokens: alle Invite-Keys haben
-// `invite:`-Prefix.
+// Bug pattern: TTL lives only in Redis. DB-row.expiresAt is UI display
+// only. On an expired token, invite-accept doesn't find it → invalid-
+// invite-token. The DB row stays status="pending" — a cleanup job
+// marks it "expired" (separate concern, tracked in U.3-cleanup).
+//
+// No collision with signup/reset/verify tokens: all invite keys carry
+// the `invite:`-prefix.
 
+import { createHash } from "node:crypto";
 import type Redis from "ioredis";
 
 const TOKEN_KEY_PREFIX = "invite:by-token:";
 const ID_KEY_PREFIX = "invite:by-id:";
 const BURN_KEY_PREFIX = "invite:burn:";
 
+// Same sha256-hex pattern as hashPatToken (personal-access-tokens/hash.ts)
+// and preauthTokenKeyOf (framework/api/auth-routes.ts): the token is
+// high-entropy, so a single fast hash is enough — no brute-force surface
+// that would justify a slow password-hash.
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
 function tokenKey(token: string): string {
-  return `${TOKEN_KEY_PREFIX}${token}`;
+  return `${TOKEN_KEY_PREFIX}${hashToken(token)}`;
+}
+// Builds the forward key from an already-hashed value (e.g. read back from
+// the by-id entry) — does NOT hash again. Keeping this separate from
+// tokenKey() (which hashes a raw token) makes a double-hash mistake visible
+// at the call site instead of silently no-op'ing a delete.
+function forwardKeyForHash(tokenHash: string): string {
+  return `${TOKEN_KEY_PREFIX}${tokenHash}`;
 }
 function idKey(invitationId: string): string {
   return `${ID_KEY_PREFIX}${invitationId}`;
 }
 function burnKey(token: string): string {
-  return `${BURN_KEY_PREFIX}${token}`;
+  return `${BURN_KEY_PREFIX}${hashToken(token)}`;
 }
 
 /** Speichert das Pair bidirektional und setzt TTL auf beiden Keys.
  *  Idempotent — re-write derselben Token-Invitation-Kombi ist OK
- *  (refresh TTL für Resend). */
+ *  (refresh TTL für Resend). The by-id value is the token's hash, not
+ *  the token — see file header. */
 export async function storeInviteToken(
   redis: Redis,
   args: { invitationId: string; token: string; ttlSeconds: number },
 ): Promise<void> {
   await Promise.all([
     redis.set(tokenKey(args.token), args.invitationId, "EX", args.ttlSeconds),
-    redis.set(idKey(args.invitationId), args.token, "EX", args.ttlSeconds),
+    redis.set(idKey(args.invitationId), hashToken(args.token), "EX", args.ttlSeconds),
   ]);
 }
 
@@ -57,13 +84,21 @@ export async function getInvitationIdForToken(redis: Redis, token: string): Prom
   return redis.get(tokenKey(token));
 }
 
-/** Lookup: Existierender Token für eine invitationId — für Resend-
- *  Idempotenz (Admin invitet dieselbe email zweimal → re-use token). */
-export async function getTokenForInvitation(
+/** Deletes a still-live invite token for this invitation, if one exists —
+ *  both the forward entry (built from the hash stored in the by-id entry,
+ *  never the raw token) and the by-id entry itself. Returns whether a live
+ *  token existed. Two callers: invite-create on every resend (a fresh
+ *  token + by-id entry follows right after, so this is "at most one live
+ *  token per invitation"), and cancel-invitation (no replacement follows,
+ *  so this is full cleanup). */
+export async function invalidateExistingInviteToken(
   redis: Redis,
   invitationId: string,
-): Promise<string | null> {
-  return redis.get(idKey(invitationId));
+): Promise<boolean> {
+  const existingHash = await redis.get(idKey(invitationId));
+  if (existingHash === null) return false;
+  await Promise.all([redis.del(forwardKeyForHash(existingHash)), redis.del(idKey(invitationId))]);
+  return true;
 }
 
 /** Single-Use-Burn. Wenn zwei Tabs gleichzeitig den Accept-Link klicken,

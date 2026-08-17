@@ -6,8 +6,9 @@
 // Pinst:
 //   1. POST signup-request mit valid email → 200, Activation-Mail via
 //      delivery (channel-email in-memory transport) mit Token-URL.
-//   2. Resend-Idempotenz: zweiter Request für selbe email → gleicher
-//      Token in Mail (existing token in Redis wird re-genutzt).
+//   2. Resend: second request for the same email → a NEW token, and
+//      the previous token is invalidated (#2174 — Redis never stores
+//      the raw token as a value, so it can't be recovered/reused).
 //   3. POST signup-confirm mit captured Token + Password → 200, Cookies
 //      gesetzt (kumiko_auth + kumiko_csrf), Body mit user + tenantKey,
 //      DB hat user (emailVerified=true) + tenant + Admin-membership.
@@ -206,14 +207,26 @@ describe("POST /api/auth/signup-request", () => {
     expect(sent.html).toContain(`${APP_ACTIVATION_URL}?token=`);
   });
 
-  test("Resend: zweiter Request für selbe email → gleicher token in Mail", async () => {
+  test("Resend: second request for the same email mints a new token and invalidates the previous one", async () => {
     await postSignupRequest("resend@example.com");
     await postSignupRequest("resend@example.com");
 
     expect(emailTransport.sent).toHaveLength(2);
     const [first, second] = emailTransport.sent;
     if (!first || !second) throw new Error("missing mails");
-    expect(extractTokenFromMail(second.html)).toBe(extractTokenFromMail(first.html));
+    const firstToken = extractTokenFromMail(first.html);
+    const secondToken = extractTokenFromMail(second.html);
+    expect(secondToken).not.toBe(firstToken);
+
+    // The first mail's link must actually stop working (not just look
+    // different) — this is what catches a double-hash bug in invalidation.
+    const firstConfirm = await postSignupConfirm(firstToken, "irrelevant-pw-1234");
+    expect(firstConfirm.status).toBe(422);
+    const firstBody = (await firstConfirm.json()) as { error?: { details?: { reason?: string } } };
+    expect(firstBody.error?.details?.reason).toBe(AuthErrors.invalidSignupToken);
+
+    const secondConfirm = await postSignupConfirm(secondToken, "fresh-secure-pw-1234");
+    expect(secondConfirm.status).toBe(200);
   });
 
   test("malformed body → 200 (silent success, anti-enumeration)", async () => {
