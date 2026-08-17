@@ -106,6 +106,29 @@ function columnAlignClass(type: EmbeddedListCellType): string {
   }
 }
 
+type ScrollAffordance = {
+  readonly canScrollLeft: boolean;
+  readonly canScrollRight: boolean;
+};
+
+// Exported (unlike columnWidthClass/columnAlignClass above) because
+// happy-dom performs no layout — scrollWidth/clientWidth/getBoundingClientRect
+// always read 0 in tests, so the only way to cover this decision at all is
+// as a pure function of the three scroll metrics, tested directly.
+// The 1px slack absorbs sub-pixel rounding from browser zoom/fractional
+// scaling, which would otherwise report a spurious sliver of "still
+// scrollable" at a fully-scrolled edge.
+export function computeScrollAffordance(
+  scrollLeft: number,
+  scrollWidth: number,
+  clientWidth: number,
+): ScrollAffordance {
+  return {
+    canScrollLeft: scrollLeft > 1,
+    canScrollRight: scrollLeft + clientWidth < scrollWidth - 1,
+  };
+}
+
 function formatTotalValue(
   total: EmbeddedListTotal,
   columns: readonly EmbeddedListColumn[],
@@ -409,6 +432,37 @@ export function EmbeddedListInput({
   const isMobile = useIsNarrowViewport();
   const containerRef = useRef<HTMLDivElement>(null);
   const [pendingFocusCellId, setPendingFocusCellId] = useState<string | undefined>(undefined);
+  const [scrollAffordance, setScrollAffordance] = useState<ScrollAffordance>({
+    canScrollLeft: false,
+    canScrollRight: false,
+  });
+  // A callback ref (not useRef) so the setup effect below re-runs exactly
+  // when the scroll container itself is attached/detached — isMobile flips
+  // the whole subtree between mobile cards and this table (see the
+  // ponytail note at the top of the file), so a plain useRef wouldn't
+  // notice the desktop table remounting with a fresh DOM node.
+  const [scrollContainerEl, setScrollContainerEl] = useState<HTMLDivElement | null>(null);
+
+  // Resetting scrollLeft here is what guarantees the table always opens
+  // scrolled fully left (fw#2159): browsers still auto-scroll a focused
+  // descendant into view even inside an overflow-x-auto container, but
+  // that's now a real, user-drivable scroll instead of an invisible one.
+  useEffect(() => {
+    if (scrollContainerEl === null) return;
+    const el = scrollContainerEl;
+    el.scrollLeft = 0;
+    const updateAffordance = (): void => {
+      setScrollAffordance(computeScrollAffordance(el.scrollLeft, el.scrollWidth, el.clientWidth));
+    };
+    updateAffordance();
+    el.addEventListener("scroll", updateAffordance);
+    const resizeObserver = new ResizeObserver(updateAffordance);
+    resizeObserver.observe(el);
+    return () => {
+      el.removeEventListener("scroll", updateAffordance);
+      resizeObserver.disconnect();
+    };
+  }, [scrollContainerEl]);
 
   // React 19 batches the setPendingFocusCellId + onAddRow calls from the
   // same keydown handler into one commit, so the new row already exists
@@ -520,118 +574,153 @@ export function EmbeddedListInput({
   const hasTotals = totals !== undefined && totals.length > 0;
 
   return (
-    <div ref={containerRef} data-testid={testId}>
+    <div ref={containerRef} data-testid={testId} className="min-w-0">
       {/* ---- Desktop: table ---- */}
       {!isMobile && (
-        <div data-testid={testIdFor("desktop")} className="hidden md:block">
-          <div className="overflow-hidden rounded-lg border bg-card">
-            {/* w-full on Table's <table> would shrink columns below columnWidthClass; min-w-max keeps declared widths and lets the wrapper scroll instead */}
-            <Table className="min-w-max">
-              <TableHeader className="bg-muted">
-                <TableRow className="hover:bg-transparent">
-                  {columns.map((column) => (
-                    <TableHead
-                      key={column.field}
-                      className={cn(columnWidthClass(column.type), columnAlignClass(column.type))}
-                    >
-                      {column.label}
-                    </TableHead>
-                  ))}
-                  {showControls && <TableHead className="w-px text-right" aria-label="Actions" />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row, rowIndex) => {
-                  const isLastRow = rowIndex === rows.length - 1;
-                  const rowIssuesForRow = rowIssues?.[rowIndex];
-                  return (
-                    <Fragment
-                      // biome-ignore lint/suspicious/noArrayIndexKey: rows have no caller-guaranteed stable id; every cell is fully controlled (value+onChange), so reordering doesn't rely on DOM node identity surviving between renders.
-                      key={rowIndex}
-                    >
-                      <TableRow data-testid={testIdFor(`row-${rowIndex}`)}>
-                        {columns.map((column, columnIndex) => {
-                          const isLastCell = isLastRow && columnIndex === lastEditableIndex;
-                          const issues = cellIssues?.[`${rowIndex}.${column.field}`];
-                          return (
-                            <TableCell
-                              key={column.field}
-                              data-testid={testIdFor(`cell-${rowIndex}-${column.field}`)}
-                              className={columnWidthClass(column.type)}
-                              onPaste={
-                                onPasteCells !== undefined
-                                  ? handlePaste(rowIndex, columnIndex)
-                                  : undefined
-                              }
-                              onKeyDown={isLastCell ? handleLastCellKeyDown : undefined}
-                            >
-                              {renderCellControl({
-                                cellId: cellId(rowIndex, column.field),
-                                column,
-                                value: row[column.field],
-                                disabled: disabled === true,
-                                onChange: (value) => onCellChange(rowIndex, column.field, value),
-                                currency: effectiveCurrency,
-                              })}
-                              <IssueMessages
-                                issues={issues}
-                                testId={testIdFor(`cell-${rowIndex}-${column.field}-errors`)}
-                                constrainWidth
-                              />
-                            </TableCell>
-                          );
-                        })}
-                        {showControls && (
-                          <TableCell className="text-right">
-                            <RowActions
-                              rowIndex={rowIndex}
-                              rowsLength={rows.length}
-                              minItems={minItems}
-                              maxItems={maxItems}
-                              onDuplicateRow={onDuplicateRow}
-                              onMoveRow={onMoveRow}
-                              onRemoveRow={onRemoveRow}
-                              duplicateLabel={duplicateLabel}
-                              moveUpLabel={moveUpLabel}
-                              moveDownLabel={moveDownLabel}
-                              removeLabel={removeLabel}
-                              testIdPrefix={testIdFor(`row-${rowIndex}`)}
-                            />
-                          </TableCell>
-                        )}
-                      </TableRow>
-                      {rowIssuesForRow !== undefined && rowIssuesForRow.length > 0 && (
-                        <TableRow>
-                          <TableCell colSpan={columns.length + (showControls ? 1 : 0)}>
-                            <IssueMessages
-                              issues={rowIssuesForRow}
-                              testId={testIdFor(`row-${rowIndex}-issues`)}
-                            />
-                          </TableCell>
-                        </TableRow>
+        <div data-testid={testIdFor("desktop")} className="hidden min-w-0 md:block">
+          <div className="min-w-0 overflow-hidden rounded-lg border bg-card">
+            <div className="relative min-w-0">
+              {/* This div — not ui/table.tsx's own `data-slot=table-container`
+                  wrapper — is the single source of truth for horizontal
+                  scroll (fw#2159): a table wider than its container must
+                  become reachable via a real, visible scrollbar instead of
+                  silently clipping columns. The nested selector below
+                  neutralizes the vendored wrapper's own overflow-x-auto so
+                  scrollLeft/scrollWidth/canScroll* all read from one place —
+                  two nested auto-scroll containers would otherwise let the
+                  inner one absorb the scroll and leave this ref/effect
+                  permanently reading scrollLeft=0. */}
+              <div
+                ref={setScrollContainerEl}
+                data-testid={testIdFor("desktop-scroll")}
+                className="overflow-x-auto [&_[data-slot=table-container]]:overflow-x-visible"
+              >
+                <Table className="min-w-max">
+                  <TableHeader className="bg-muted">
+                    <TableRow className="hover:bg-transparent">
+                      {columns.map((column) => (
+                        <TableHead
+                          key={column.field}
+                          className={cn(
+                            columnWidthClass(column.type),
+                            columnAlignClass(column.type),
+                          )}
+                        >
+                          {column.label}
+                        </TableHead>
+                      ))}
+                      {showControls && (
+                        <TableHead className="w-px text-right" aria-label="Actions" />
                       )}
-                    </Fragment>
-                  );
-                })}
-                {showControls && (
-                  <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={columns.length + 1} className="p-2">
-                      <UiButton
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={onAddRow}
-                        disabled={addDisabled}
-                        data-testid={testIdFor("add")}
-                      >
-                        <Plus className="size-4" aria-hidden="true" />
-                        {addLabel}
-                      </UiButton>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((row, rowIndex) => {
+                      const isLastRow = rowIndex === rows.length - 1;
+                      const rowIssuesForRow = rowIssues?.[rowIndex];
+                      return (
+                        <Fragment
+                          // biome-ignore lint/suspicious/noArrayIndexKey: rows have no caller-guaranteed stable id; every cell is fully controlled (value+onChange), so reordering doesn't rely on DOM node identity surviving between renders.
+                          key={rowIndex}
+                        >
+                          <TableRow data-testid={testIdFor(`row-${rowIndex}`)}>
+                            {columns.map((column, columnIndex) => {
+                              const isLastCell = isLastRow && columnIndex === lastEditableIndex;
+                              const issues = cellIssues?.[`${rowIndex}.${column.field}`];
+                              return (
+                                <TableCell
+                                  key={column.field}
+                                  data-testid={testIdFor(`cell-${rowIndex}-${column.field}`)}
+                                  className={columnWidthClass(column.type)}
+                                  onPaste={
+                                    onPasteCells !== undefined
+                                      ? handlePaste(rowIndex, columnIndex)
+                                      : undefined
+                                  }
+                                  onKeyDown={isLastCell ? handleLastCellKeyDown : undefined}
+                                >
+                                  {renderCellControl({
+                                    cellId: cellId(rowIndex, column.field),
+                                    column,
+                                    value: row[column.field],
+                                    disabled: disabled === true,
+                                    onChange: (value) =>
+                                      onCellChange(rowIndex, column.field, value),
+                                    currency: effectiveCurrency,
+                                  })}
+                                  <IssueMessages
+                                    issues={issues}
+                                    testId={testIdFor(`cell-${rowIndex}-${column.field}-errors`)}
+                                    constrainWidth
+                                  />
+                                </TableCell>
+                              );
+                            })}
+                            {showControls && (
+                              <TableCell className="text-right">
+                                <RowActions
+                                  rowIndex={rowIndex}
+                                  rowsLength={rows.length}
+                                  minItems={minItems}
+                                  maxItems={maxItems}
+                                  onDuplicateRow={onDuplicateRow}
+                                  onMoveRow={onMoveRow}
+                                  onRemoveRow={onRemoveRow}
+                                  duplicateLabel={duplicateLabel}
+                                  moveUpLabel={moveUpLabel}
+                                  moveDownLabel={moveDownLabel}
+                                  removeLabel={removeLabel}
+                                  testIdPrefix={testIdFor(`row-${rowIndex}`)}
+                                />
+                              </TableCell>
+                            )}
+                          </TableRow>
+                          {rowIssuesForRow !== undefined && rowIssuesForRow.length > 0 && (
+                            <TableRow>
+                              <TableCell colSpan={columns.length + (showControls ? 1 : 0)}>
+                                <IssueMessages
+                                  issues={rowIssuesForRow}
+                                  testId={testIdFor(`row-${rowIndex}-issues`)}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                    {showControls && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={columns.length + 1} className="p-2">
+                          <UiButton
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={onAddRow}
+                            disabled={addDisabled}
+                            data-testid={testIdFor("add")}
+                          >
+                            <Plus className="size-4" aria-hidden="true" />
+                            {addLabel}
+                          </UiButton>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              {scrollAffordance.canScrollLeft && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-card to-transparent"
+                />
+              )}
+              {scrollAffordance.canScrollRight && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-card to-transparent"
+                />
+              )}
+            </div>
             {hasTotals && (
               <div
                 data-testid={testIdFor("totals")}
