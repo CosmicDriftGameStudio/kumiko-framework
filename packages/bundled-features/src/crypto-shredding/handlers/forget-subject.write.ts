@@ -12,7 +12,7 @@ import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/se
 import { z } from "zod";
 import { revokeAllPatTokensForUser } from "../../personal-access-tokens/revoke-for-user";
 import { USER_STATUS } from "../../user";
-import { updateUserLifecycle } from "../../user-data-rights/lib/update-user-lifecycle";
+import { updateUserLifecycle } from "../../user-data-rights";
 import { CRYPTO_SHREDDING_AGGREGATE_TYPE, SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
 
 export const subjectIdSchema = z.discriminatedUnion("kind", [
@@ -73,10 +73,10 @@ export const forgetSubjectWrite = defineWriteHandler({
       eraseReason: event.payload.reason,
     });
 
-    // Blind-Index-Sweep (#818): bidx-Spalten des erased Subjects sofort
-    // nullen — sonst bliebe der deterministische HMAC bis zum nächsten
-    // Rebuild equality-matchbar. Bewusst ctx.db.raw: der Ciphertext-Prefix
-    // adressiert das Subject tenant-übergreifend.
+    // Blind-index sweep (#818): null the erased subject's bidx columns now —
+    // otherwise the deterministic HMAC stays equality-matchable until the next
+    // rebuild. Deliberately ctx.db.raw: the ciphertext prefix addresses the
+    // subject across tenants.
     await nullBlindIndexesForSubject(ctx.db.raw, ctx.registry.features, subjectKey);
 
     // Derived search index still holds plaintext (#1610) — purge next to the
@@ -91,21 +91,21 @@ export const forgetSubjectWrite = defineWriteHandler({
       );
     }
 
-    // User subject: close the login door. DEK-Erase macht den passwordHash-
-    // Ciphertext unlesbar, aber Status + PATs sind eigenstaendige Credentials —
-    // der PAT-Resolver prueft nur revokedAt/expiresAt, KEINEN user.status
-    // (resolver.ts). Ohne diese Blockade bleibt ein vergessener User mit
-    // bestehendem PAT anrufbar. Spiegel des automatisierten Art.-17-Pfads
-    // (userDeleteHook: status=Deleted; apiTokenDeleteHook: revoke):
-    //   - user.updated als Lifecycle-Event (updateUserLifecycle), damit ein
-    //     read_users-Rebuild den Flip nicht wegwischt (#494)
-    //   - sessions muessen nicht aktiv revokt werden — session-callbacks
-    //     re-validiert user.status bei jeder Request (isPrincipalBlocked
-    //     blocked Deleted).
-    // Beides idempotent (status gesetzt / revokedAt IS NULL-Filter), Retry nach
-    // Crash-Recovery ist safe. User-Feature-Guard: ohne user-Feature existiert
-    // read_users nicht (krypto-only Stack). Tenant-Subjects haben keine
-    // Credentials.
+    // User subject: close the login door. DEK-erase makes the passwordHash
+    // ciphertext unreadable, but status + PATs are standalone credentials —
+    // the PAT resolver only checks revokedAt/expiresAt, NOT user.status
+    // (resolver.ts). Without this block a forgotten user with a live PAT stays
+    // callable. Mirror of the automated Art.-17 path (userDeleteHook:
+    // status=Deleted; apiTokenDeleteHook: revoke):
+    //   - user.updated as lifecycle event (updateUserLifecycle), so a
+    //     read_users rebuild doesn't wipe the flip (#494)
+    //   - sessions don't need active revocation — session-callbacks
+    //     re-validate user.status on every request (isPrincipalBlocked
+    //     blocks Deleted).
+    // Both idempotent (status set / revokedAt IS NULL filter), retry after
+    // crash recovery is safe. User-feature guard: without the user feature
+    // read_users doesn't exist (crypto-only stack). Tenant subjects have no
+    // credentials.
     if (raw.kind === "user" && ctx.registry.features.has("user")) {
       await updateUserLifecycle(ctx.db.raw, raw.userId, { status: USER_STATUS.Deleted });
       if (ctx.registry.features.has("personal-access-tokens")) {
