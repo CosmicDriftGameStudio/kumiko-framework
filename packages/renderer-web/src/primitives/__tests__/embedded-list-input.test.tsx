@@ -12,7 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { act, type ReactElement, useState } from "react";
-import { EmbeddedListInput } from "../embedded-list-input";
+import { computeScrollAffordance, EmbeddedListInput } from "../embedded-list-input";
 
 function setViewportWidth(width: number): void {
   (
@@ -753,5 +753,90 @@ describe("EmbeddedListInput — desktop table width (solon#107)", () => {
     const headers = desktop.querySelectorAll("th");
     expect(headers[0]?.className).toContain("min-w-[9rem]");
     expect(headers[1]?.className).toContain("min-w-[13rem]");
+  });
+});
+
+// happy-dom performs no layout — scrollWidth/clientWidth/getBoundingClientRect
+// always read 0, so the affordance decision itself (computeScrollAffordance)
+// is the only piece of fw#2159 a unit test can actually exercise; the rest
+// of this describe block covers what's left: that the DOM only exposes one
+// real scroll container, and that a fresh table always opens scrolled left.
+describe("EmbeddedListInput — horizontal scroll (fw#2159)", () => {
+  describe("computeScrollAffordance", () => {
+    test("no affordance when content fits (scrollWidth <= clientWidth)", () => {
+      expect(computeScrollAffordance(0, 500, 500)).toEqual({
+        canScrollLeft: false,
+        canScrollRight: false,
+      });
+    });
+
+    test("scrolled fully left: only the right affordance shows", () => {
+      expect(computeScrollAffordance(0, 1200, 700)).toEqual({
+        canScrollLeft: false,
+        canScrollRight: true,
+      });
+    });
+
+    test("scrolled to the middle: both affordances show", () => {
+      expect(computeScrollAffordance(250, 1200, 700)).toEqual({
+        canScrollLeft: true,
+        canScrollRight: true,
+      });
+    });
+
+    test("scrolled fully right: only the left affordance shows", () => {
+      expect(computeScrollAffordance(500, 1200, 700)).toEqual({
+        canScrollLeft: true,
+        canScrollRight: false,
+      });
+    });
+
+    test("sub-pixel rounding at the right edge (499.7px) does not falsely report more to scroll", () => {
+      expect(computeScrollAffordance(499.7, 1200, 700)).toEqual({
+        canScrollLeft: true,
+        canScrollRight: false,
+      });
+    });
+  });
+
+  test("the desktop table has exactly one horizontally-scrollable container, and it neutralizes the vendored table wrapper's own overflow", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    const desktop = screen.getByTestId("lines-desktop");
+
+    const scrollContainers = desktop.querySelectorAll('[data-testid="lines-desktop-scroll"]');
+    expect(scrollContainers.length).toBe(1);
+    const scrollContainer = scrollContainers[0] as HTMLElement;
+    expect(scrollContainer.className).toContain("overflow-x-auto");
+    // Guards the fw#2159 trap: without this, ui/table.tsx's own
+    // `data-slot=table-container` wrapper (also overflow-x-auto) would
+    // absorb the actual scrolling, leaving our ref permanently at
+    // scrollLeft=0 and the affordance/reset logic silently dead.
+    expect(scrollContainer.className).toContain(
+      "[&_[data-slot=table-container]]:overflow-x-visible",
+    );
+
+    const nestedTableContainers = scrollContainer.querySelectorAll('[data-slot="table-container"]');
+    expect(nestedTableContainers.length).toBe(1);
+  });
+
+  test("a fresh desktop table always mounts scrolled fully left", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    const scrollContainer = screen.getByTestId("lines-desktop-scroll");
+    expect(scrollContainer.scrollLeft).toBe(0);
+  });
+
+  test("a scrolled-right container never carries its position into the next mount (e.g. a reopened dialog)", () => {
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    const { unmount } = renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    const firstContainer = screen.getByTestId("lines-desktop-scroll");
+    firstContainer.scrollLeft = 200;
+    expect(firstContainer.scrollLeft).toBe(200);
+    unmount();
+
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
+    const secondContainer = screen.getByTestId("lines-desktop-scroll");
+    expect(secondContainer.scrollLeft).toBe(0);
   });
 });
