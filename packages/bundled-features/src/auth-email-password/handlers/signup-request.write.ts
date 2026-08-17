@@ -7,11 +7,10 @@
 // existiert der User noch nicht). Ob die Email bereits ein Konto hat,
 // entscheidet bewusst der Confirm-Schritt, nicht dieser.
 //
-// Resend-Idempotenz: wenn für die Email bereits ein lebender Token in
-// Redis liegt, geben wir denselben Token zurück (und refreshen TTL auf
-// beiden Keys). Der User bekommt dann eine zweite Mail mit dem GLEICHEN
-// Activation-Link. Erste Mail bleibt gültig — kein "old link broken"-
-// annoyance.
+// Resend: if a token is still live for this email, we invalidate it and
+// mint a fresh one — the user gets a second mail with a NEW activation
+// link, and the first link stops working. Deliberate: at most one live
+// signup token per email at any time (see signup-token-store.ts).
 //
 // Always-200 (enumeration-safe): das Response sieht für jede Email gleich
 // aus, egal ob sie schon registriert ist oder nicht. Eine Email KANN bereits
@@ -32,7 +31,11 @@ import type { AuthMailLocale } from "../email-templates";
 import { renderActivationEmail } from "../email-templates";
 import { dispatchMagicLinkMail } from "../magic-link-mail";
 import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle";
-import { getTokenForSignupEmail, normalizeEmail, storeSignupToken } from "../signup-token-store";
+import {
+  invalidateExistingSignupToken,
+  normalizeEmail,
+  storeSignupToken,
+} from "../signup-token-store";
 
 const SIGNUP_NOTIFICATION_TYPE = "auth-email-password:signup-activation";
 
@@ -104,10 +107,9 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       // lowercased haben.
       const email = event.payload.email;
 
-      // Resend-Idempotenz: wenn ein Token für diese Email noch lebt,
-      // re-use ihn und refreshe beide Keys. Der User kriegt eine zweite
-      // Mail mit dem GLEICHEN Link.
-      const existingToken = await getTokenForSignupEmail(ctx.redis, email);
+      // At most one live signup token per email: invalidate whatever's
+      // there before minting the new one (see signup-token-store.ts).
+      await invalidateExistingSignupToken(ctx.redis, email);
       // 32 random bytes = 256 bits unguessable randomness, base64url
       // encoded zu 43 chars. Math.random war früher ein Bug:
       // xorshift128+ hat ~128 Bit State der nach ~5 beobachteten
@@ -115,7 +117,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       // signup-requests triggern und die Tokens fremder User
       // vorhersagen. generateToken nutzt randomBytes aus node:crypto,
       // dieselbe Quelle wie CSRF/Session-Tokens.
-      const token = existingToken ?? generateToken();
+      const token = generateToken();
 
       const expiresAt = Temporal.Now.instant().add({ seconds: ttlSeconds });
       const expiresAtIso = expiresAt.toString();

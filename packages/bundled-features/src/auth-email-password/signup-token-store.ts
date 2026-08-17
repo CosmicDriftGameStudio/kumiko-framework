@@ -1,31 +1,33 @@
-// Redis-backed Pre-Activation-Token-Store für Magic-Link-Signup.
+// Redis-backed pre-activation token store for magic-link signup.
 //
-// Token-Material: opaque random 256-bit aus crypto.randomBytes
-// (siehe signup-request.write.ts → generateToken() aus framework/api).
-// Base64url-codiert zu 43 chars. NICHT no-confusable und NICHT für
-// menschliches Tippen — der User klickt den Mail-Link, niemand tippt
-// den Token ab.
+// Token material: opaque random 256-bit from crypto.randomBytes (see
+// signup-request.write.ts → generateToken() from framework/api),
+// base64url-encoded to 43 chars. Not designed for human typing — the
+// user clicks the mail link, nobody types the token.
 //
-// Anders als reset/verify-Tokens (HMAC-signed, stateless verifizierbar)
-// brauchen Signup-Tokens einen serverside Lookup: der User existiert
-// noch nicht, also gibt's keinen userId-claim den der HMAC binden
-// könnte. Wir mappen daher Token ↔ Email bidirektional in Redis und
-// löschen das Pair beim Confirm. Bidirektional weil:
-//   - by-token: confirm-handler braucht Token → Email
-//   - by-email: signup-request muss bei Resend einen existierenden
-//     Token wiederverwenden statt einen zweiten parallel laufen zu
-//     lassen (sonst hätte der User zwei Mails mit zwei verschiedenen
-//     Tokens, beide gültig, beide könnten zu zwei separaten Tenants
-//     führen wenn er beide klickt — unnötiges Risiko)
+// Unlike reset/verify tokens (HMAC-signed, statelessly verifiable),
+// signup tokens need a server-side lookup: the user doesn't exist yet,
+// so there's no userId claim for the HMAC to bind to. We map token ↔
+// email bidirectionally in Redis and delete the pair on confirm.
+// Bidirectional because:
+//   - by-token: confirm-handler needs token → email
+//   - by-email: signup-request needs to know whether a token is still
+//     live for this email, so a resend can invalidate it instead of
+//     leaving two valid tokens for the same signup around
 //
-// TTL-Refresh bei Resend: wenn der Token noch lebt, refreshen wir
-// einfach beide Keys auf die volle TTL — der User bekommt eine neue
-// Mail mit dem GLEICHEN Token, alte Mail bleibt gültig (idempotent
-// für den User).
+// Every key is derived from sha256(token), never the raw token —
+// Redis key names, MONITOR output, replica traffic, and memory/backup
+// dumps never carry the bearer secret in the clear (#2174). The
+// by-email entry stores the *hash* of the live token, not the token
+// itself, so it can only be used to invalidate (delete the matching
+// forward entry) — never to recover or resend the original token. A
+// resend therefore always mints a fresh token and invalidates the
+// previous one, rather than reusing the same link.
 //
-// Keine Kollision mit reset/verify-Tokens: alle Signup-Keys haben
-// `signup:`-Prefix.
+// No collision with reset/verify tokens: all signup keys carry the
+// `signup:`-prefix.
 
+import { createHash } from "node:crypto";
 import type Redis from "ioredis";
 
 const TOKEN_KEY_PREFIX = "signup:by-token:";
@@ -40,26 +42,42 @@ export function normalizeEmail(email: string): string {
   return email.toLowerCase();
 }
 
+// Same sha256-hex pattern as hashPatToken (personal-access-tokens/hash.ts)
+// and preauthTokenKeyOf (framework/api/auth-routes.ts): the token is
+// high-entropy, so a single fast hash is enough — no brute-force surface
+// that would justify a slow password-hash.
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
 function tokenKey(token: string): string {
-  return `${TOKEN_KEY_PREFIX}${token}`;
+  return `${TOKEN_KEY_PREFIX}${hashToken(token)}`;
+}
+// Builds the forward key from an already-hashed value (e.g. read back from
+// the by-email entry) — does NOT hash again. Keeping this separate from
+// tokenKey() (which hashes a raw token) makes a double-hash mistake visible
+// at the call site instead of silently no-op'ing a delete.
+function forwardKeyForHash(tokenHash: string): string {
+  return `${TOKEN_KEY_PREFIX}${tokenHash}`;
 }
 // @wrapper-known semantic-alias
 function emailKey(email: string): string {
   return `${EMAIL_KEY_PREFIX}${normalizeEmail(email)}`;
 }
 function burnKey(token: string): string {
-  return `${BURN_KEY_PREFIX}${token}`;
+  return `${BURN_KEY_PREFIX}${hashToken(token)}`;
 }
 
 /** Speichert das Pair bidirektional und setzt TTL auf beiden Keys.
- *  Idempotent — re-write derselben Token-Email-Kombi ist OK. */
+ *  Idempotent — re-write derselben Token-Email-Kombi ist OK. The
+ *  by-email value is the token's hash, not the token — see file header. */
 export async function storeSignupToken(
   redis: Redis,
   args: { email: string; token: string; ttlSeconds: number },
 ): Promise<void> {
   await Promise.all([
     redis.set(tokenKey(args.token), normalizeEmail(args.email), "EX", args.ttlSeconds),
-    redis.set(emailKey(args.email), args.token, "EX", args.ttlSeconds),
+    redis.set(emailKey(args.email), hashToken(args.token), "EX", args.ttlSeconds),
   ]);
 }
 
@@ -69,10 +87,19 @@ export async function getEmailForSignupToken(redis: Redis, token: string): Promi
   return redis.get(tokenKey(token));
 }
 
-/** Lookup: Existierenden Token für eine Email — falls noch valid und
- *  noch nicht konsumiert. Für Resend-Idempotenz im signup-request-Handler. */
-export async function getTokenForSignupEmail(redis: Redis, email: string): Promise<string | null> {
-  return redis.get(emailKey(email));
+/** Deletes a still-live signup token for this email, if one exists — both
+ *  the forward entry (built from the hash already stored in the by-email
+ *  entry, never recovers the raw token) and the by-email entry itself.
+ *  Returns whether a live token existed. Used by signup-request on every
+ *  request; a fresh token + by-email entry follows right after, so this
+ *  is "at most one live token per email." Deleting the by-email entry
+ *  here too (not just the forward key) avoids leaving a dangling hash
+ *  pointing at nothing if the request crashes before storeSignupToken. */
+export async function invalidateExistingSignupToken(redis: Redis, email: string): Promise<boolean> {
+  const existingHash = await redis.get(emailKey(email));
+  if (existingHash === null) return false;
+  await Promise.all([redis.del(forwardKeyForHash(existingHash)), redis.del(emailKey(email))]);
+  return true;
 }
 
 /** Single-Use-Burn: wenn zwei Tabs gleichzeitig den Confirm-Link klicken,

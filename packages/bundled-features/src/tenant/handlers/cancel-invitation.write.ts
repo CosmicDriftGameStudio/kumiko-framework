@@ -16,10 +16,7 @@ import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine
 import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import cancel needs invite-token-store for Redis cleanup
-import {
-  deleteInviteToken,
-  getTokenForInvitation,
-} from "../../auth-email-password/invite-token-store";
+import { invalidateExistingInviteToken } from "../../auth-email-password/invite-token-store";
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
@@ -82,13 +79,7 @@ export const cancelInvitationWrite = defineWriteHandler({
     // unavailable or the token already expired: not a problem, the DB
     // row is the single source of truth for the UI.
     if (ctx.redis) {
-      const token = await getTokenForInvitation(ctx.redis, event.payload.invitationId);
-      if (token) {
-        await deleteInviteToken(ctx.redis, {
-          invitationId: event.payload.invitationId,
-          token,
-        });
-      }
+      await invalidateExistingInviteToken(ctx.redis, event.payload.invitationId);
     }
 
     return { isSuccess: true, data: { id: event.payload.invitationId, alreadyDone: false } };

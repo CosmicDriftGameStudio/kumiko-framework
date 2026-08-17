@@ -6,10 +6,11 @@
 // wie reset/verify/signup. Der Token geht NICHT an den Admin zurück (er soll
 // die Annahme nicht impersonieren können).
 //
-// Resend-Idempotenz: Re-Invite für gleiche (tenantId, email) während
-// pending → existing row + token re-genutzt + TTL refresh + zweite Mail
-// mit GLEICHEM Link. Bei status="cancelled" oder "accepted": existing
-// row updated zurück auf status=pending + neuer token.
+// Re-invite for the same (tenantId, email): the existing row is reused
+// regardless of its prior status (pending/cancelled/accepted), reset to
+// status=pending, and a fresh token is minted every time — any token
+// still live for that invitation is invalidated first, so the previous
+// mail's link stops working (see invite-token-store.ts).
 //
 // Always-200 für unbekannten User: bei invitee-Email die nicht in users
 // existiert wird trotzdem ein Invite erstellt — Branch-3-Accept-Flow
@@ -38,7 +39,7 @@ import {
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants";
 import type { AuthMailLocale } from "../email-templates";
 import { renderInviteEmail } from "../email-templates";
-import { getTokenForInvitation, storeInviteToken } from "../invite-token-store";
+import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store";
 import { dispatchMagicLinkMail } from "../magic-link-mail";
 
 const INVITE_NOTIFICATION_TYPE = "auth-email-password:invite";
@@ -114,10 +115,10 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
       if (existing) {
         invitationId = existing["id"] as string; // @cast-boundary db-row
         const existingVersion = existing["version"] as number; // @cast-boundary db-row
-        // Resend-Idempotenz: Token aus Redis re-use wenn noch lebend.
-        // Sonst neuen mintinen (alter ist abgelaufen).
-        const existingToken = await getTokenForInvitation(ctx.redis, invitationId);
-        token = existingToken ?? generateToken();
+        // At most one live invite token per invitation: invalidate
+        // whatever's there before minting the new one.
+        await invalidateExistingInviteToken(ctx.redis, invitationId);
+        token = generateToken();
 
         const updateResult = await executor.update(
           {
