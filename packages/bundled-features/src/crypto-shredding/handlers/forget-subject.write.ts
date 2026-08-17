@@ -10,7 +10,7 @@ import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
 import { z } from "zod";
-import { revokeAllPatTokensForUser } from "../../personal-access-tokens/revoke-for-user";
+import { revokeAllPatTokensForUser } from "../../personal-access-tokens";
 import { USER_STATUS } from "../../user";
 import { updateUserLifecycle } from "../../user-data-rights";
 import { CRYPTO_SHREDDING_AGGREGATE_TYPE, SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
