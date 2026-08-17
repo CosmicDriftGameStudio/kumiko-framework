@@ -9,7 +9,9 @@ import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens";
 // entity, so sharing the function would mean threading a discriminated
 // union through every entity-bound helper it calls.
 
-function buildQueryHandlerMap(
+// Exported for query-refs.ts (fw#2178) — one source for the QN-derivation
+// logic instead of duplicating it in both boot-validators.
+export function buildQueryHandlerMap(
   features: readonly FeatureDefinition[],
 ): ReadonlyMap<string, QueryHandlerDef> {
   const out = new Map<string, QueryHandlerDef>();

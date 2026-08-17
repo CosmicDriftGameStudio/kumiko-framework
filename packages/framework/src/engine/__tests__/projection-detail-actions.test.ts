@@ -41,6 +41,9 @@ describe("validateBoot — projectionDetail actions (fw#2166)", () => {
 
   test("valid navigate + writeHandler actions boot cleanly", () => {
     const feature = defineFeature("app", (r) => {
+      r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
+        access: { openToAll: true },
+      });
       r.writeHandler(
         "archive",
         z.object({ id: z.string() }),
