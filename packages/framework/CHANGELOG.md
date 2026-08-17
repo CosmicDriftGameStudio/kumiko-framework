@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.205.0
+
+### Patch Changes
+
+- 6e7f20b: The boot-validator now checks that every screen-level query QN (`projectionList.query`, `projectionDetail.query`, `relatedList.query`, dashboard panel/stat-group-child `query`, and dashboard `filter.optionsQuery`) resolves to a query-handler actually registered via `r.queryHandler(...)` — mirroring the existing write-handler existence check on row/toolbar actions. A typo in a query QN now fails at boot instead of surfacing only when the screen is opened.
+- Updated dependencies [0aeb168]
+  - @cosmicdrift/kumiko-types@0.205.0
+
 ## 0.204.1
 
 ### Patch Changes

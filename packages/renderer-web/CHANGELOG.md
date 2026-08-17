@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.205.0
+
+### Patch Changes
+
+- 0aeb168: DataTable list columns of type `number`/`decimal`/`bigInt` now render locale-formatted via `Intl.NumberFormat`, matching how `timestamp`/`date`/`money` cells already behave. Previously they fell through to a raw `String(value)`, showing e.g. `245.5` with a dot even on a German-locale app while every other numeric column type used the locale's separator.
+- Updated dependencies [0aeb168]
+  - @cosmicdrift/kumiko-headless@0.205.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.205.0
+  - @cosmicdrift/kumiko-renderer@0.205.0
+
 ## 0.204.1
 
 ### Patch Changes
