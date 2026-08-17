@@ -188,4 +188,54 @@ describe("validateBoot — projectionList screens", () => {
     });
     expect(() => validateBoot([feature])).toThrow(/paginated is derived/);
   });
+
+  // fw#2164 Nebenbefund: the "at most one rowClick:true" cap (already
+  // enforced for entityList) didn't run for projectionList — a boot-time
+  // gap, not a rendering one (the renderer only wires the first match, see
+  // ProjectionListBody), but two conflicting rowClick actions on the same
+  // screen should still fail loud instead of silently picking one.
+  describe("projectionList rowAction rowClick", () => {
+    function makeFeature(rowClickCount: number) {
+      return defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({}),
+          async () => ({ rows: [], nextCursor: null }),
+          {
+            access: { openToAll: true },
+          },
+        );
+        r.screen({ id: "schedule-detail", type: "custom", renderer: { react: "stub" } });
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["description"],
+          rowActions: Array.from({ length: rowClickCount }, (_, i) => ({
+            kind: "navigate" as const,
+            id: `open-${i}`,
+            label: "actions.open",
+            screen: "schedule-detail",
+            rowClick: true,
+          })),
+        });
+        r.translations({
+          keys: {
+            "screen:schedule-list.title": { de: "Liste", en: "List" },
+            "screen:schedule-detail.title": { de: "Detail", en: "Detail" },
+          },
+        });
+      });
+    }
+
+    test("one rowClick navigate action passes boot", () => {
+      expect(() => validateBoot([makeFeature(1)])).not.toThrow();
+    });
+
+    test("more than one rowClick action per list is rejected", () => {
+      expect(() => validateBoot([makeFeature(2)])).toThrow(
+        /at most one may fire on a row-body click/i,
+      );
+    });
+  });
 });

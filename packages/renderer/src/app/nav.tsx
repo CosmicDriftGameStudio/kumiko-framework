@@ -1,6 +1,5 @@
 import { createContext, type ReactNode, useContext } from "react";
 import type { FeatureSchema } from "./feature-schema";
-import { qualifyScreenId } from "./qualify-screen-id";
 
 // Navigation-Contract, plattform-neutral. Types + Context + Hook leben
 // hier; die konkrete Implementation (window.history im Web,
@@ -118,21 +117,45 @@ export function formatPath(target: ScreenTarget): string {
   return `/${segments.join("/")}`;
 }
 
+// Shared entity→detailFor-screen lookup — resolveTarget's ObjectTarget
+// branch and hasDetailScreen (create-app's row-click default, fw#2164) both
+// need "is there a detail screen for this entity", one to resolve it, the
+// other to just check before falling back to a different default.
+function findDetailForScreen(
+  features: readonly FeatureSchema[],
+  entity: string,
+): { readonly featureName: string; readonly screenId: string } | undefined {
+  for (const feature of features) {
+    for (const screen of feature.screens) {
+      if (screen.detailFor === entity)
+        return { featureName: feature.featureName, screenId: screen.id };
+    }
+  }
+  return undefined;
+}
+
+/** Non-throwing existence check for findDetailForScreen — lets a caller pick
+ *  a different default (fw#2164's row-click fallback) instead of resolving. */
+export function hasDetailScreen(features: readonly FeatureSchema[], entity: string): boolean {
+  return findDetailForScreen(features, entity) !== undefined;
+}
+
 // Resolves a NavTarget to the ScreenTarget form navigate/replace/hrefFor
 // operate on. Pure — no context, no I/O — so callers can use it outside
 // React too (see resolve-at-NavApi-build alternative in renderer-web).
 export function resolveTarget(features: readonly FeatureSchema[], target: NavTarget): ScreenTarget {
   if ("screenId" in target) return target;
 
-  for (const feature of features) {
-    for (const screen of feature.screens) {
-      if (screen.detailFor !== target.entity) continue;
-      return {
-        ...(target.workspaceId !== undefined && { workspaceId: target.workspaceId }),
-        screenId: qualifyScreenId(feature.featureName, screen.id),
-        entityId: target.id,
-      };
-    }
+  const found = findDetailForScreen(features, target.entity);
+  if (found !== undefined) {
+    // Short form (globally unique per validateScreenShortIdCollisions) —
+    // ScreenTarget.screenId round-trips through formatPath/parsePath as a
+    // short id; qualifying it here double-qualifies at RoutedScreen.
+    return {
+      ...(target.workspaceId !== undefined && { workspaceId: target.workspaceId }),
+      screenId: found.screenId,
+      entityId: target.id,
+    };
   }
 
   throw new Error(

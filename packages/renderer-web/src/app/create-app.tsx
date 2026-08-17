@@ -19,6 +19,7 @@ import {
   DraftStorageProvider,
   ExtensionSectionsProvider,
   type FeatureSchema,
+  hasDetailScreen,
   KumikoScreen,
   kumikoDefaultTranslations,
   LiveEventsProvider,
@@ -143,6 +144,8 @@ export type CreateKumikoAppOptions = {
   readonly draftStorage?: DraftStorage;
   readonly screenQn?: string;
   readonly translate?: Translate;
+  /** Row-click fallback for entities with no declared `detailFor` screen
+   *  (fw#2164) — a `detailFor` screen always wins over this option. */
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
   /** App-Shell. Bekommt das resolved `schema` als Prop — so können
    *  AppShell-Komponenten an WorkspaceShell/DefaultAppShell durchreichen
@@ -568,19 +571,31 @@ function RoutedScreen({
   const effectiveOnRowClick = useMemo<
     ((row: ListRowViewModel, entityName: string) => void) | undefined
   >(() => {
-    if (onRowClick !== undefined) return onRowClick;
     return (row, entityName) => {
-      // Search for the edit screen for the entity across all features —
-      // in a single-feature setup that's the same feature as the active
-      // one, in multi-feature the edit could theoretically live in a
-      // different feature (one that shares the entity).
+      // Precedence (fw#2164): detailFor screen, then onRowClick, then the
+      // entityEdit-search fallback below. An explicit rowActions
+      // rowClick:true already wins over all of this — kumiko-screen.tsx
+      // handles it before onRowClick is ever called.
+      if (hasDetailScreen(app.features, entityName)) {
+        nav.navigate({ entity: entityName, id: row.id });
+        return;
+      }
+      if (onRowClick !== undefined) {
+        onRowClick(row, entityName);
+        return;
+      }
+      // No declared detail screen and no app-wide onRowClick — search for
+      // the edit screen for the entity across all features — in a
+      // single-feature setup that's the same feature as the active one, in
+      // multi-feature the edit could theoretically live in a different
+      // feature (one that shares the entity).
       for (const f of app.features) {
         const editScreen = f.screens.find(
           (s) => s.type === "entityEdit" && s.entity === entityName,
         );
         if (editScreen) {
-          // editScreen.id is QN form (registry-stamped); nav.navigate
-          // expects the short form. Otherwise the URL gets double-qualified.
+          // editScreen.id is already short form; lastSegment is a no-op
+          // safety net here, kept for symmetry with the other call sites.
           nav.navigate({ screenId: lastSegment(editScreen.id), entityId: row.id });
           return;
         }

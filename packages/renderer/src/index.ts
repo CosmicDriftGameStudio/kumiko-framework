@@ -72,7 +72,14 @@ export type {
   ObjectTarget,
   ScreenTarget,
 } from "./app/nav";
-export { formatPath, NavProvider, parsePath, resolveTarget, useNav } from "./app/nav";
+export {
+  formatPath,
+  hasDetailScreen,
+  NavProvider,
+  parsePath,
+  resolveTarget,
+  useNav,
+} from "./app/nav";
 export { lastSegment } from "./app/qn";
 export type { VariableChipsProps } from "./app/variable-chips";
 export { VariableChips } from "./app/variable-chips";
