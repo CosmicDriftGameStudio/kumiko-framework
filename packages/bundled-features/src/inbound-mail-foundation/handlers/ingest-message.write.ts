@@ -20,12 +20,7 @@
 // SystemAdmin-only: Aufrufer ist der Watch/Sync-Supervisor bzw. der
 // Poll-Cron mit programmatic SystemUser — nie ein Tenant-Request.
 
-import {
-  asRawClient,
-  countWhere,
-  insertOne,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/bun-db";
+import { countWhere, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
@@ -35,6 +30,7 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id";
+import { acquireThreadRollupLock } from "../db/queries/thread-rollup-lock";
 import {
   INBOUND_MESSAGE_PII_FIELDS,
   inboundMessageEntity,
@@ -106,10 +102,6 @@ function buildThreadKey(p: IngestMessagePayload, effectiveMessageIdHeader: strin
 }
 
 const THREAD_ROLLUP_MAX_ATTEMPTS = 5;
-// pg_advisory_xact_lock namespace (int4) for the step-5 thread-rollup lock
-// — 'inbm' as ASCII, keeps it disjoint from the framework's other fixed
-// single-int advisory-lock keys (schema bootstrap, es-ops boot).
-const THREAD_ROLLUP_LOCK_NAMESPACE = 0x696e626d;
 export const ingestMessageHandler: WriteHandlerDef = {
   name: "ingest-message",
   schema: ingestMessageSchema,
@@ -242,8 +234,8 @@ export const ingestMessageHandler: WriteHandlerDef = {
     //    messageCount is a live COUNT, not previousCount+1, so two
     //    concurrent ingests on the same thread (Watch-Push vs.
     //    Poll-Reconciliation overlap, or two different messages of the
-    //    same thread arriving at once) converge on the true count. The
-    //    pg_advisory_xact_lock below (issue #2155) serializes this whole
+    //    same thread arriving at once) converge on the true count.
+    //    acquireThreadRollupLock below (issue #2155) serializes this whole
     //    countWhere+append section per threadAggId — transaction-scoped,
     //    so it survives tryAppendEvent's inner SAVEPOINT and releases at
     //    the enclosing TX's commit/rollback. Without it, a concurrent
@@ -271,13 +263,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
         )
       : threadPlainPii;
 
-    // Namespaced two-int form keeps this per-thread key space disjoint from
-    // the framework's other fixed-key advisory locks (schema bootstrap,
-    // es-ops boot) that live in the default single-int space.
-    await asRawClient(ctx.db.raw).unsafe("SELECT pg_advisory_xact_lock($1, hashtext($2))", [
-      THREAD_ROLLUP_LOCK_NAMESPACE,
-      threadAggId,
-    ]);
+    await acquireThreadRollupLock(ctx.db.raw, threadAggId);
 
     let threadAppendOk = false;
     for (let attempt = 1; attempt <= THREAD_ROLLUP_MAX_ATTEMPTS && !threadAppendOk; attempt++) {
