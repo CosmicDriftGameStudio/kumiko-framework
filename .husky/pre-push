@@ -23,11 +23,25 @@ if [ "${PRE_PUSH_SKIP:-0}" = "1" ]; then
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-REPO_NAME="$(basename "$REPO_ROOT")"
-PARENT_DIR="$(cd "$REPO_ROOT/.." && pwd)"
+# --git-common-dir resolves to the main checkout's .git dir even when
+# REPO_ROOT is a `.wt/<name>` worktree, so REPO_NAME stays the repo's
+# own name instead of the worktree directory name.
+REPO_NAME="$(basename "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")")"
 
-if [ -f "$PARENT_DIR/package.json" ] \
-   && grep -q '"name": *"cosmicdriftgamestudio"' "$PARENT_DIR/package.json" 2>/dev/null; then
+# Walk up from REPO_ROOT looking for the parent workspace's package.json —
+# a `.wt/<name>` worktree sits one level deeper than a regular checkout.
+PARENT_DIR=""
+DIR="$(dirname "$REPO_ROOT")"
+while [ "$DIR" != "/" ]; do
+  if [ -f "$DIR/package.json" ] \
+     && grep -q '"name": *"cosmicdriftgamestudio"' "$DIR/package.json" 2>/dev/null; then
+    PARENT_DIR="$DIR"
+    break
+  fi
+  DIR="$(dirname "$DIR")"
+done
+
+if [ -n "$PARENT_DIR" ]; then
   echo "[pre-push] bun check (scoped: $REPO_NAME)…"
   cd "$PARENT_DIR" && KUMIKO_CLI_SCOPE="$REPO_NAME" bun kumiko-framework/bin/kumiko.ts check
 else
