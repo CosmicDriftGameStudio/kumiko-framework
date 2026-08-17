@@ -214,6 +214,12 @@ describe("r.screen() — registration", () => {
   test("validateBoot accepts a relatedList rowClick with a detailFor screen in another feature (fw#2166)", () => {
     const features = [
       defineFeature("app", (r) => {
+        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          access: { openToAll: true },
+        });
+        r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          access: { openToAll: true },
+        });
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -269,6 +275,12 @@ describe("r.screen() — registration", () => {
   test("validateBoot accepts a valid relatedList section without rowClick (fw#2166)", () => {
     const features = [
       defineFeature("app", (r) => {
+        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          access: { openToAll: true },
+        });
+        r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          access: { openToAll: true },
+        });
         r.screen({
           id: "x",
           type: "projectionDetail",

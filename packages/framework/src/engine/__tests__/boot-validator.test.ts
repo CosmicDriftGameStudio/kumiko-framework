@@ -3838,6 +3838,9 @@ describe("boot-validator — config key backing × scope", () => {
   test("projectionList rowAction: navigate with params to an entityEdit-create target (no entityId) → no throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        access: { openToAll: true },
+      });
       r.screen({
         id: "product-projection",
         type: "projectionList",

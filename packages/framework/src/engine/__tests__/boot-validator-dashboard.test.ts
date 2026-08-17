@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { z } from "zod";
 import { requiredKeysFromScreen } from "../../i18n/required-surface-keys";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
@@ -17,6 +18,12 @@ function dashboardFeature(
   filter?: DashboardScreenDefinition["filter"],
 ) {
   return defineFeature("demo", (r) => {
+    r.queryHandler("incident:open-count", z.object({}), async () => ({ count: 3 }), {
+      access: { openToAll: true },
+    });
+    r.queryHandler("incident:latest", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      access: { openToAll: true },
+    });
     r.screen({
       id: "overview",
       type: "dashboard",

@@ -46,6 +46,7 @@ import {
 import { validateOwnershipRules } from "./ownership";
 import { validatePiiAndRetention } from "./pii-retention";
 import { validateProjectionListScreens } from "./projection-list-screens";
+import { validateQueryRefs } from "./query-refs";
 import {
   collectScreenQns,
   collectScreensByShortId,
@@ -211,6 +212,11 @@ export function validateBoot(
   validateI18nSurfaceKeys(features);
   validateEntityListScreens(features);
   validateDetailForScreens(features, featureMap);
+  // Must run before validateProjectionListScreens: an unresolvable query
+  // there is silently treated as "capability absent" and surfaces as a
+  // misleading "no search parameter in its Zod schema" error instead of
+  // the clear typo message below.
+  validateQueryRefs(features);
   validateProjectionListScreens(features);
   validateExtensionPreSaveWiring(features);
   validateGdprStoragePersistence(features);
