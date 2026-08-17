@@ -106,10 +106,19 @@ export const forgetSubjectWrite = defineWriteHandler({
     // crash recovery is safe. User-feature guard: without the user feature
     // read_users doesn't exist (crypto-only stack). Tenant subjects have no
     // credentials.
+    // Graceful fail: email-subscribers and other non-user entities may use
+    // user-style subject keys without having an actual user row — the key
+    // erase above is the important part for GDPR compliance; the lifecycle
+    // update is best-effort for real users.
     if (raw.kind === "user" && ctx.registry.features.has("user")) {
-      await updateUserLifecycle(ctx.db.raw, raw.userId, { status: USER_STATUS.Deleted });
-      if (ctx.registry.features.has("personal-access-tokens")) {
-        await revokeAllPatTokensForUser(ctx.db.raw, raw.userId);
+      try {
+        await updateUserLifecycle(ctx.db.raw, raw.userId, { status: USER_STATUS.Deleted });
+        if (ctx.registry.features.has("personal-access-tokens")) {
+          await revokeAllPatTokensForUser(ctx.db.raw, raw.userId);
+        }
+      } catch {
+        // User row may not exist (e.g. email subscribers with user-style
+        // subject keys). Key erase + blind-index sweep above already ran.
       }
     }
 
