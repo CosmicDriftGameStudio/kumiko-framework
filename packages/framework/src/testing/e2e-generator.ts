@@ -30,7 +30,7 @@ import {
   type EntityEditScreenDefinition,
   type EntityListScreenDefinition,
   type FieldDefinition,
-  isExtensionEditSection,
+  isFieldsEditSection,
   normalizeEditField,
   normalizeListColumn,
   parseQn,
@@ -243,7 +243,7 @@ function collectRequiredEditFields(
 ): string[] {
   const out: string[] = [];
   for (const section of screen.layout.sections) {
-    if (isExtensionEditSection(section)) continue;
+    if (!isFieldsEditSection(section)) continue;
     for (const rawField of section.fields) {
       const { field } = normalizeEditField(rawField);
       const def = entity.fields[field];
@@ -281,7 +281,7 @@ function buildEditFillOps(
   // form; Felder ohne Fixture-Wert (file/image/…) werden übersprungen.
   const ops: EditFillOp[] = [];
   for (const section of screen.layout.sections) {
-    if (isExtensionEditSection(section)) continue;
+    if (!isFieldsEditSection(section)) continue;
     for (const raw of section.fields) {
       const { field } = normalizeEditField(raw);
       const def = entity.fields[field];
@@ -329,7 +329,7 @@ function pickIdentifyingForEdit(
     : undefined;
 
   for (const section of editScreen.layout.sections) {
-    if (isExtensionEditSection(section)) continue;
+    if (!isFieldsEditSection(section)) continue;
     for (const rawField of section.fields) {
       const { field } = normalizeEditField(rawField);
       if (entity.fields[field]?.type !== "text") continue;

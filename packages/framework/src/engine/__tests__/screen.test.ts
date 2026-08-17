@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { z } from "zod";
 import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
 import { validateBoot as validateBootRaw } from "../boot-validator";
+import { createTenantConfig } from "../config-helpers";
 import { defineFeature } from "../define-feature";
 import { createDerivedField, createEntity, createTextField } from "../factories";
 import { createRegistry } from "../registry";
@@ -163,6 +165,196 @@ describe("r.screen() — registration", () => {
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/extension section/i);
+  });
+
+  test("validateBoot rejects a projectionDetail relatedList section with an empty query (fw#2166)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [{ kind: "relatedList", title: "s", query: "", columns: ["name"] }],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /Screen "x".*relatedList.*empty or non-string query/,
+    );
+  });
+
+  test("validateBoot rejects a relatedList rowClick with no matching detailFor screen (fw#2166)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "relatedList",
+                title: "s",
+                query: "app:query:foo:list",
+                columns: ["name"],
+                rowClick: { entity: "invoice" },
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /Add detailFor: "invoice" to the screen that shows it\./,
+    );
+  });
+
+  test("validateBoot accepts a relatedList rowClick with a detailFor screen in another feature (fw#2166)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "relatedList",
+                title: "s",
+                query: "app:query:foo:list",
+                columns: ["name"],
+                rowClick: { entity: "invoice" },
+              },
+            ],
+          },
+        });
+      }),
+      defineFeature("billing", (r) => {
+        r.entity(
+          "invoice",
+          createEntity({ table: "invoices", fields: { name: createTextField() } }),
+        );
+        r.screen({
+          id: "invoice-detail",
+          type: "custom",
+          renderer: { react: { __component: "stub" } },
+          detailFor: "invoice",
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("validateBoot rejects a relatedList section in a wizard layout (fw#2166)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            mode: "wizard",
+            sections: [
+              { kind: "relatedList", title: "s", query: "app:query:foo:list", columns: ["name"] },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/relatedList.*wizard layout/);
+  });
+
+  test("validateBoot accepts a valid relatedList section without rowClick (fw#2166)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              { kind: "relatedList", title: "s", query: "app:query:foo:list", columns: ["name"] },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("validateBoot rejects a relatedList section on entityEdit (fw#2166)", () => {
+    const features = [
+      defineFeature("shop", (r) => {
+        r.entity("product", productEntity());
+        r.screen({
+          id: "product-edit",
+          type: "entityEdit",
+          entity: "product",
+          layout: {
+            sections: [
+              { kind: "relatedList", title: "s", query: "shop:query:foo:list", columns: ["name"] },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /\(entityEdit\) relatedList section "s".*projectionDetail-only/,
+    );
+  });
+
+  test("validateBoot rejects a relatedList section on configEdit (fw#2166)", () => {
+    const features = [
+      defineFeature("shop", (r) => {
+        r.config({
+          keys: { "site-name": createTenantConfig("text", { default: "" }) },
+        });
+        r.screen({
+          id: "settings",
+          type: "configEdit",
+          scope: "tenant",
+          configKeys: { siteName: "shop:config:site-name" },
+          fields: { siteName: { type: "text" } } as never,
+          layout: {
+            sections: [
+              { kind: "relatedList", title: "s", query: "shop:query:foo:list", columns: ["name"] },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /\(configEdit\) relatedList section "s".*projectionDetail-only/,
+    );
+  });
+
+  test("validateBoot rejects a relatedList section on actionForm (fw#2166)", () => {
+    const features = [
+      defineFeature("shop", (r) => {
+        r.writeHandler(
+          "restock",
+          z.object({}),
+          async () => ({ isSuccess: true as const, data: null }),
+          { access: { roles: ["Admin"] } },
+        );
+        r.screen({
+          id: "restock",
+          type: "actionForm",
+          handler: "shop:write:restock",
+          fields: { qty: { type: "number" } } as never,
+          layout: {
+            sections: [
+              { kind: "relatedList", title: "s", query: "shop:query:foo:list", columns: ["name"] },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /\(actionForm\) relatedList section "s".*projectionDetail-only/,
+    );
   });
 
   test("stores an entityEdit screen with sections + conditional fields", () => {

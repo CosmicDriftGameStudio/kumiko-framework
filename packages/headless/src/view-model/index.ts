@@ -23,6 +23,7 @@ export type {
   EditFieldSpec,
   EditFieldsSectionViewModel,
   EditFieldViewModel,
+  EditRelatedListSectionViewModel,
   EditSectionSpec,
   EditSectionViewModel,
   EditViewModel,

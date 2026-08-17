@@ -381,6 +381,35 @@ export function validateScreens(
               `section to persist against.`,
           );
         }
+        if (section.kind === "relatedList") {
+          if (!section.query || typeof section.query !== "string") {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                `(relatedList) has empty or non-string query.`,
+            );
+          }
+          if (screen.layout.mode === "wizard") {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                `is kind "relatedList" in a wizard layout — a read-only list is not supported in a ` +
+                `stepped form. Remove mode: "wizard" or drop the relatedList section.`,
+            );
+          }
+          if (section.rowClick !== undefined) {
+            const targetEntity = section.rowClick.entity;
+            const hasDetailScreen = [...featureMap.values()].some((f) =>
+              Object.values(f.screens).some((s) => s.detailFor === targetEntity),
+            );
+            if (!hasDetailScreen) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                  `(relatedList) rowClick targets entity "${targetEntity}", but no screen declares ` +
+                  `detailFor: "${targetEntity}". Add detailFor: "${targetEntity}" to the screen that shows it.`,
+              );
+            }
+          }
+          continue;
+        }
         if (section.fields.length === 0) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has a section "${section.title}" ` +
@@ -473,6 +502,13 @@ export function validateScreens(
             );
           }
           continue;
+        }
+        if (section.kind === "relatedList") {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) relatedList section ` +
+              `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
+              `primitive (fw#2166).`,
+          );
         }
         if (section.fields.length === 0) {
           throw new Error(
@@ -581,6 +617,13 @@ export function validateScreens(
             );
           }
           continue;
+        }
+        if (section.kind === "relatedList") {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) relatedList section ` +
+              `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
+              `primitive (fw#2166).`,
+          );
         }
         if (section.fields.length === 0) {
           throw new Error(
@@ -908,6 +951,13 @@ export function validateScreens(
             );
           }
           continue;
+        }
+        if (section.kind === "relatedList") {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) relatedList section ` +
+              `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
+              `primitive (fw#2166).`,
+          );
         }
         if (section.fields.length === 0) {
           throw new Error(

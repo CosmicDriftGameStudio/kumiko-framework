@@ -240,6 +240,30 @@ describe("validateBoot — action wiring (no function values)", () => {
     expect(() => validateBoot([feature])).toThrow(/column "amount" renderer is a function/);
   });
 
+  test("projectionDetail relatedList column renderer as function → Throw (fw#2166)", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.screen({
+        id: "order-detail",
+        type: "projectionDetail",
+        query: "shop:query:order:detail",
+        layout: {
+          sections: [
+            {
+              kind: "relatedList",
+              title: "Payments",
+              query: "shop:query:order:payments",
+              columns: [
+                // biome-ignore lint/suspicious/noExplicitAny: intentional type violation under test
+                { field: "amount", renderer: ((v: unknown) => String(v)) as any },
+              ],
+            },
+          ],
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/column "amount" renderer is a function/);
+  });
+
   test("projectionList rowAction payload as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.screen({

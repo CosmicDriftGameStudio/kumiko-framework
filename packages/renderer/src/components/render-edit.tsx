@@ -5,7 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   evalFieldCondition,
-  isExtensionEditSection,
+  isFieldsEditSection,
   normalizeEditField,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
@@ -31,6 +31,7 @@ import { formatWhen } from "../format-when";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
+import { RelatedListSection } from "./related-list-section";
 import {
   filterEditSections,
   hasEditableSection,
@@ -253,7 +254,8 @@ function deriveFormFields<TValues extends FormValues, TCtx>(
 ): Record<string, FieldConditions<TValues, TCtx>> {
   const out: Record<string, FieldConditions<TValues, TCtx>> = {};
   for (const section of screen.layout.sections) {
-    if (isExtensionEditSection(section)) continue;
+    // relatedList carries no `fields` for the form-condition map either.
+    if (!isFieldsEditSection(section)) continue;
     for (const spec of section.fields) {
       const normalized = normalizeEditField(spec);
       out[normalized.field] = {
@@ -786,14 +788,19 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const filteredSections = useMemo(
     // A fully-hidden "fields" section (every field in it currently
     // condition-hidden) must not occupy a wizard step; it would render
-    // empty and block Back/Next on nothing. Extension sections carry no
-    // `visible` (they own their own dirty/save lifecycle), so they always
-    // pass through. A section with no fields at all (e.g. a review-only
-    // step) has `visible: fields.some(...)` = false vacuously; that's "no
-    // fields to hide", not "hidden", so it stays too (fw#1901).
+    // empty and block Back/Next on nothing. Extension and relatedList
+    // sections carry no `visible` (they own their own lifecycle / run
+    // their own query), so they always pass through. A section with no
+    // fields at all (e.g. a review-only step) has `visible: fields.some(...)`
+    // = false vacuously; that's "no fields to hide", not "hidden", so it
+    // stays too (fw#1901).
     () =>
       filterEditSections(vm.sections, fieldsFilter).filter(
-        (section) => section.kind === "extension" || section.fields.length === 0 || section.visible,
+        (section) =>
+          section.kind === "extension" ||
+          section.kind === "relatedList" ||
+          section.fields.length === 0 ||
+          section.visible,
       ),
     [vm.sections, fieldsFilter],
   );
@@ -1300,6 +1307,22 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               <WizardStepGroup key={section.title} hidden={stepHidden}>
                 {mount}
               </WizardStepGroup>
+            );
+          }
+          if (section.kind === "relatedList") {
+            // parentId is the displayed record's id — without it there's no
+            // parent row whose related rows could be queried (fw#2166).
+            // Rejected at boot in wizard layouts, so no WizardStepGroup here.
+            const parentId = resolveExtensionEntityId(entityIdProp, vm.id);
+            if (parentId === null) return null;
+            return (
+              <RelatedListSection
+                key={section.title}
+                section={section}
+                parentId={parentId}
+                featureName={featureName}
+                translate={translate}
+              />
             );
           }
           if (!section.visible) return null;

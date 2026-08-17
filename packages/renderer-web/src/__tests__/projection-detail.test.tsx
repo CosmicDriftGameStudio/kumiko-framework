@@ -8,9 +8,9 @@
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
-import { act, createMockDispatcher, render, screen, waitFor } from "./test-utils";
+import type { FeatureSchema, NavApi, NavTarget } from "@cosmicdrift/kumiko-renderer";
+import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
+import { act, createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
 
 const detailScreen: ProjectionDetailScreenDefinition = {
   id: "session-detail",
@@ -127,5 +127,189 @@ describe("KumikoScreen / projectionDetail", () => {
     );
 
     await waitFor(() => screen.getByTestId("kumiko-screen-record-missing"));
+  });
+});
+
+// fw#2166: `relatedList` sections run their own query against the shown
+// record's id, independent of the detail query above.
+describe("KumikoScreen / projectionDetail relatedList section (fw#2166)", () => {
+  const relatedListSection = {
+    kind: "relatedList" as const,
+    title: "Payments",
+    query: "sessions:query:user-session:payments",
+    columns: [{ field: "amount", label: "Amount" }],
+    rowClick: { entity: "payment" },
+  };
+
+  const detailScreenWithRelatedList: ProjectionDetailScreenDefinition = {
+    ...detailScreen,
+    layout: { sections: [...detailScreen.layout.sections, relatedListSection] },
+  };
+
+  const relatedListSchema: FeatureSchema = {
+    featureName: "sessions",
+    entities: {},
+    screens: [detailScreenWithRelatedList],
+  };
+
+  function makeRelatedListDispatcher(paymentsRows: readonly Readonly<Record<string, unknown>>[]): {
+    readonly dispatcher: Dispatcher;
+    readonly calls: { readonly type: string; readonly payload: unknown }[];
+  } {
+    const calls: { type: string; payload: unknown }[] = [];
+    const query = (async (type: string, payload: unknown) => {
+      calls.push({ type, payload });
+      if (type === "sessions:query:user-session:detail") {
+        return {
+          isSuccess: true,
+          data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+        };
+      }
+      return { isSuccess: true, data: { rows: paymentsRows, nextCursor: null } };
+    }) as unknown as Dispatcher["query"];
+    return { dispatcher: createMockDispatcher({ query }), calls };
+  }
+
+  test("runs its own query with the route entityId under the default `id` parentParam, renders its rows, and leaves the parent's own fields read-only", async () => {
+    const { dispatcher, calls } = makeRelatedListDispatcher([{ id: "pay-1", amount: "42" }]);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={relatedListSchema}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("row-pay-1"));
+
+    // The shim's isFieldsEditSection flip must not regress the structural
+    // readOnly proof from the first test above.
+    const userIdInput = screen.getByTestId("field-userId").querySelector("input");
+    expect(userIdInput?.disabled).toBe(true);
+    expect(screen.queryByTestId("render-edit-submit")).toBeNull();
+
+    const relatedCall = calls.find((c) => c.type === "sessions:query:user-session:payments");
+    expect(relatedCall?.payload).toEqual({ id: "sess-1" });
+    expect(screen.getByTestId("cell-pay-1-amount").textContent).toBe("42");
+  });
+
+  test("a custom parentParam sends the route entityId under that key instead of `id`", async () => {
+    const customParamScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        sections: [
+          ...detailScreen.layout.sections,
+          { ...relatedListSection, parentParam: "sessionId" },
+        ],
+      },
+    };
+    const customParamSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [customParamScreen],
+    };
+    const { dispatcher, calls } = makeRelatedListDispatcher([]);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={customParamSchema}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.type === "sessions:query:user-session:payments")).toBe(true),
+    );
+    const relatedCall = calls.find((c) => c.type === "sessions:query:user-session:payments");
+    expect(relatedCall?.payload).toEqual({ sessionId: "sess-1" });
+  });
+
+  test("clicking a row with rowClick set navigates with the exact ObjectTarget", async () => {
+    const { dispatcher } = makeRelatedListDispatcher([{ id: "pay-1", amount: "42" }]);
+    let navigated: NavTarget | undefined;
+    const navApi: NavApi = {
+      route: undefined,
+      navigate: (target) => {
+        navigated = target;
+      },
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {},
+    };
+
+    render(
+      <NavProvider value={navApi}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={relatedListSchema}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const row = await waitFor(() => screen.getByTestId("row-pay-1"));
+    fireEvent.click(row);
+
+    expect(navigated).toEqual({ entity: "payment", id: "pay-1" });
+  });
+
+  test("without rowClick, clicking a row does not navigate", async () => {
+    const noRowClickScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        sections: [
+          ...detailScreen.layout.sections,
+          {
+            kind: "relatedList",
+            title: "Payments",
+            query: "sessions:query:user-session:payments",
+            columns: [{ field: "amount", label: "Amount" }],
+          },
+        ],
+      },
+    };
+    const noRowClickSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [noRowClickScreen],
+    };
+    const { dispatcher } = makeRelatedListDispatcher([{ id: "pay-1", amount: "42" }]);
+    let navigated: NavTarget | undefined;
+    const navApi: NavApi = {
+      route: undefined,
+      navigate: (target) => {
+        navigated = target;
+      },
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {},
+    };
+
+    render(
+      <NavProvider value={navApi}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={noRowClickSchema}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const row = await waitFor(() => screen.getByTestId("row-pay-1"));
+    fireEvent.click(row);
+
+    expect(navigated).toBeUndefined();
   });
 });
