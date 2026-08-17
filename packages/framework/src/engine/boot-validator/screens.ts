@@ -25,6 +25,24 @@ import type {
   ToolbarAction,
 } from "../types/screen";
 
+// entityList and projectionList both allow a rowAction to double as the
+// row-body click target (rowClick: true, fw#1708/#2164) — at most one per
+// screen, or the renderer can't tell which one should fire.
+function validateAtMostOneRowClick(
+  featureName: string,
+  screenId: string,
+  screenType: "entityList" | "projectionList",
+  rowActions: readonly RowAction[],
+): void {
+  const rowClickActions = rowActions.filter((a) => a.kind === "navigate" && a.rowClick === true);
+  if (rowClickActions.length > 1) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has ${rowClickActions.length} ` +
+        "rowActions marked rowClick:true — at most one may fire on a row-body click.",
+    );
+  }
+}
+
 // A field type in NO_WIDGET_FIELD_TYPES renders read-only on the auto-wired
 // entityEdit path (#1925) — a required field the user can never fill would
 // block every save. Only the statically-resolvable case is caught here: a
@@ -354,6 +372,7 @@ export function validateScreens(
             );
           }
         }
+        validateAtMostOneRowClick(feature.name, screenId, "projectionList", screen.rowActions);
       }
       continue;
     }
@@ -889,15 +908,7 @@ export function validateScreens(
             rowMeta,
           );
         }
-        const rowClickActions = screen.rowActions.filter(
-          (a) => a.kind === "navigate" && a.rowClick === true,
-        );
-        if (rowClickActions.length > 1) {
-          throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (entityList) has ${rowClickActions.length} ` +
-              "rowActions marked rowClick:true — at most one may fire on a row-body click.",
-          );
-        }
+        validateAtMostOneRowClick(feature.name, screenId, "entityList", screen.rowActions);
       }
       // Tier 2.7e-2: toolbarActions — analog zu rowActions, aber bisher
       // ohne Validator. Typo'd navigate-targets und unregistrierte

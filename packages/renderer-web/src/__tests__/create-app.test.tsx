@@ -4,6 +4,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type {
@@ -14,7 +15,7 @@ import type {
   NavApi,
 } from "@cosmicdrift/kumiko-renderer";
 import { createStaticLocaleResolver, useContentEditor } from "@cosmicdrift/kumiko-renderer";
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { ClientFeatureDefinition } from "../app/client-plugin";
 import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app";
@@ -593,5 +594,93 @@ describe("createKumikoApp", () => {
     expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
     // Und definitiv NICHT der Edit-Screen (der wäre die Default-Landing).
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
+  });
+
+  // fw#2164: default row-click target. A screen declaring `detailFor` for the
+  // entity is the "Akte" — the click should land there without anyone
+  // wiring rowActions/onRowClick, and it should win over both of the old
+  // defaults (entityEdit-search, app-wide onRowClick).
+  describe("default row click (fw#2164)", () => {
+    const taskDetailScreen: ScreenDefinition = {
+      id: "task-detail",
+      type: "custom",
+      detailFor: "task",
+      renderer: { react: { __component: "TaskDetail" } },
+    };
+
+    function TaskDetailStub(): ReactNode {
+      return <span data-testid="task-detail-mounted" />;
+    }
+
+    function makeRowDispatcher(): Dispatcher {
+      return createMockDispatcher({
+        query: (async () => ({
+          isSuccess: true,
+          data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
+        })) as unknown as Dispatcher["query"],
+      });
+    }
+
+    test("declared detailFor screen wins over the entityEdit-search fallback", async () => {
+      window.history.replaceState(null, "", "/task-list");
+      mountRoot();
+      const schema: FeatureSchema = {
+        featureName: "tasks",
+        entities: { task: taskEntity },
+        screens: [editScreen, listScreen, taskDetailScreen],
+      };
+      await mountApp({
+        schema,
+        dispatcher: makeRowDispatcher(),
+        screenQn: "tasks:screen:task-list",
+        clientFeatures: [{ name: "tasks", components: { "task-detail": TaskDetailStub } }],
+      });
+      await waitFor(() => expect(screen.getByTestId("row-r1")).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId("row-r1"));
+
+      await waitFor(() => expect(window.location.pathname).toBe("/task-detail/r1"));
+      expect(await screen.findByTestId("task-detail-mounted")).toBeTruthy();
+    });
+
+    test("no detailFor screen → unchanged fallback to the entity's entityEdit screen", async () => {
+      window.history.replaceState(null, "", "/task-list");
+      mountRoot();
+      await mountApp({
+        schema: baseSchema,
+        dispatcher: makeRowDispatcher(),
+        screenQn: "tasks:screen:task-list",
+      });
+      await waitFor(() => expect(screen.getByTestId("row-r1")).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId("row-r1"));
+
+      await waitFor(() => expect(window.location.pathname).toBe("/task-edit/r1"));
+    });
+
+    test("declared detailFor screen wins even over an app-wide onRowClick option", async () => {
+      window.history.replaceState(null, "", "/task-list");
+      mountRoot();
+      const schema: FeatureSchema = {
+        featureName: "tasks",
+        entities: { task: taskEntity },
+        screens: [listScreen, taskDetailScreen],
+      };
+      const onRowClick = () => {
+        throw new Error("onRowClick must not fire when a detailFor screen resolves");
+      };
+      await mountApp({
+        schema,
+        dispatcher: makeRowDispatcher(),
+        screenQn: "tasks:screen:task-list",
+        onRowClick,
+        clientFeatures: [{ name: "tasks", components: { "task-detail": TaskDetailStub } }],
+      });
+      await waitFor(() => expect(screen.getByTestId("row-r1")).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId("row-r1"));
+
+      await waitFor(() => expect(window.location.pathname).toBe("/task-detail/r1"));
+    });
   });
 });

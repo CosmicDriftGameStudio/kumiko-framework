@@ -6,7 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FeatureSchema } from "../feature-schema";
-import { formatPath, parsePath, resolveTarget } from "../nav";
+import { formatPath, hasDetailScreen, parsePath, resolveTarget } from "../nav";
 
 describe("parsePath — ohne Workspaces", () => {
   test("/<screenId>", () => {
@@ -126,10 +126,14 @@ describe("resolveTarget", () => {
     expect(resolveTarget([], target)).toBe(target);
   });
 
+  // Short screenId, not the qualified "property:screen:lease-detail" —
+  // ScreenTarget.screenId round-trips through formatPath/parsePath as a
+  // short id; RoutedScreen re-qualifies it itself (fw#2164 fix, previously
+  // double-qualified and silently fell back to the app's default screen).
   test("ObjectTarget resolves via the matching custom detailFor screen", () => {
     const schema = schemaWith("property", [leaseDetailScreen]);
     expect(resolveTarget([schema], { entity: "lease", id: "l-1" })).toEqual({
-      screenId: "property:screen:lease-detail",
+      screenId: "lease-detail",
       entityId: "l-1",
     });
   });
@@ -146,7 +150,7 @@ describe("resolveTarget", () => {
       leaseDetailScreen,
     ]);
     expect(resolveTarget([schema], { entity: "lease", id: "l-1" })).toEqual({
-      screenId: "property:screen:lease-detail",
+      screenId: "lease-detail",
       entityId: "l-1",
     });
   });
@@ -156,7 +160,7 @@ describe("resolveTarget", () => {
     const resolved = resolveTarget([schema], { entity: "lease", id: "l-1", workspaceId: "admin" });
     expect(resolved).toEqual({
       workspaceId: "admin",
-      screenId: "property:screen:lease-detail",
+      screenId: "lease-detail",
       entityId: "l-1",
     });
   });
@@ -170,5 +174,25 @@ describe("resolveTarget", () => {
   test("unknown entity throws with the entity name in the message", () => {
     const schema = schemaWith("property", [leaseDetailScreen]);
     expect(() => resolveTarget([schema], { entity: "boat", id: "b-1" })).toThrow(/"boat"/);
+  });
+});
+
+// hasDetailScreen: non-throwing existence check create-app's row-click
+// default (fw#2164) uses to pick between a detailFor screen and its other
+// fallbacks — resolveTarget's throw isn't usable there since not resolving
+// is the expected, non-error case for most entities.
+describe("hasDetailScreen", () => {
+  test("true when a screen declares detailFor for the entity", () => {
+    const schema = schemaWith("property", [leaseDetailScreen]);
+    expect(hasDetailScreen([schema], "lease")).toBe(true);
+  });
+
+  test("false when no screen declares detailFor for the entity", () => {
+    const schema = schemaWith("property", [leaseListScreen, leaseEditScreen]);
+    expect(hasDetailScreen([schema], "lease")).toBe(false);
+  });
+
+  test("false for an empty feature list", () => {
+    expect(hasDetailScreen([], "lease")).toBe(false);
   });
 });
