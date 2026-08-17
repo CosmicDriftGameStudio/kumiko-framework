@@ -228,7 +228,10 @@ export type EditFieldViewModel = {
 // Discriminated by `kind` — mirrors EditSectionSpec on the engine side.
 // The builder always emits `kind` explicitly (no defaulting), so the
 // renderer narrows with a strict equality check.
-export type EditSectionViewModel = EditFieldsSectionViewModel | EditExtensionSectionViewModel;
+export type EditSectionViewModel =
+  | EditFieldsSectionViewModel
+  | EditExtensionSectionViewModel
+  | EditRelatedListSectionViewModel;
 
 export type EditFieldsSectionViewModel = {
   readonly kind: "fields";
@@ -249,6 +252,19 @@ export type EditExtensionSectionViewModel = {
   readonly kind: "extension";
   readonly title: string;
   readonly component: PlatformComponent;
+};
+
+// Mirrors EditRelatedListSection verbatim — no per-row/query resolution
+// happens in the view-model builder, the renderer's RelatedListSection
+// runs the query itself (fw#2166).
+export type EditRelatedListSectionViewModel = {
+  readonly kind: "relatedList";
+  readonly title: string;
+  readonly query: string;
+  readonly parentParam?: string;
+  readonly columns: readonly ListColumnSpec[];
+  readonly pageSize?: number;
+  readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
 };
 
 export type EditViewModel = {

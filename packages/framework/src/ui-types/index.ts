@@ -28,6 +28,7 @@ export { parseRefTarget } from "../engine/parse-ref-target";
 export {
   evalFieldCondition,
   isExtensionEditSection,
+  isFieldsEditSection,
   isFormatSpec,
   normalizeEditField,
   normalizeListColumn,
@@ -71,6 +72,7 @@ export type {
   EditFieldSpec,
   EditFieldsSection,
   EditLayout,
+  EditRelatedListSection,
   EditSectionSpec,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,

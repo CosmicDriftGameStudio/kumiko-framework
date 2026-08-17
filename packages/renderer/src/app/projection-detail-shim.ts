@@ -27,7 +27,7 @@ import type {
   ProjectionDetailScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
-  isExtensionEditSection,
+  isFieldsEditSection,
   normalizeEditField,
   PROJECTION_DETAIL_ENTITY as PROJECTION_DETAIL_PSEUDO_ENTITY,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -38,7 +38,8 @@ import {
 export function synthesizeProjectionDetailEntity(layout: EditLayout): EntityDefinition {
   const fields: Record<string, { type: "text" }> = {};
   for (const section of layout.sections) {
-    if (isExtensionEditSection(section)) continue; // rejected at boot, defensive here
+    // relatedList and extension sections carry no `fields` to synthesize.
+    if (!isFieldsEditSection(section)) continue;
     for (const spec of section.fields) {
       fields[normalizeEditField(spec).field] = { type: "text" };
     }
@@ -52,7 +53,8 @@ export function synthesizeProjectionDetailScreen(
   screen: ProjectionDetailScreenDefinition,
 ): EntityEditScreenDefinition {
   const sections = screen.layout.sections.map((section) => {
-    if (isExtensionEditSection(section)) return section; // rejected at boot, defensive here
+    // relatedList and extension sections pass through unchanged.
+    if (!isFieldsEditSection(section)) return section;
     return {
       ...section,
       fields: section.fields.map((spec) => ({ ...normalizeEditField(spec), readOnly: true })),

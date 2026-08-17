@@ -6,6 +6,7 @@ import type {
 import {
   evalFieldCondition,
   isExtensionEditSection,
+  isFieldsEditSection,
   normalizeEditField,
   parseRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -71,6 +72,19 @@ export function computeEditViewModel<
         kind: "extension" as const,
         title: translate(sectionSpec.title),
         component: sectionSpec.component,
+      };
+    }
+    if (!isFieldsEditSection(sectionSpec)) {
+      // relatedList runs its own query — nothing here to resolve against
+      // entity/values, the spec passes through verbatim (fw#2166).
+      return {
+        kind: "relatedList" as const,
+        title: translate(sectionSpec.title),
+        query: sectionSpec.query,
+        ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
+        columns: sectionSpec.columns,
+        ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
+        ...(sectionSpec.rowClick !== undefined && { rowClick: sectionSpec.rowClick }),
       };
     }
     const fields: EditFieldViewModel[] = sectionSpec.fields.map((fieldSpec) => {

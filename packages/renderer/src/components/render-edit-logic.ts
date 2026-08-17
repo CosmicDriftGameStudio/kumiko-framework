@@ -40,9 +40,9 @@ export function shouldNotifyCaller(
   return !(result.isSuccess && !extensionsPersisted);
 }
 
-// Extension sections skip the `fields` filter (their own field set, unrelated
-// to `field`-name filtering); a `fields` section left with zero fields after
-// filtering is dropped, not rendered empty.
+// Extension and relatedList sections skip the `fields` filter (neither has a
+// `field`-name set that filtering applies to); a `fields` section left with
+// zero fields after filtering is dropped, not rendered empty.
 export function filterEditSections(
   sections: readonly EditSectionViewModel[],
   fieldsFilter: readonly string[] | undefined,
@@ -51,7 +51,7 @@ export function filterEditSections(
   const filterSet = new Set(fieldsFilter);
   const result: EditSectionViewModel[] = [];
   for (const section of sections) {
-    if (section.kind === "extension") {
+    if (section.kind === "extension" || section.kind === "relatedList") {
       result.push(section);
       continue;
     }

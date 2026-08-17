@@ -351,7 +351,9 @@ export type ProjectionListScreenDefinition = {
 // (e.g. jobs' `detailQuery` expects `runId`) — this lets the primitive bind
 // to it without forcing a handler rename. Extension sections aren't
 // supported (no entity for them to persist against); the boot-validator
-// rejects them.
+// rejects them. `relatedList` sections ARE supported — they run their own
+// query against the displayed record's id, independent of the entity gap
+// above (fw#2166).
 export type ProjectionDetailScreenDefinition = {
   readonly id: string;
   readonly type: "projectionDetail";
@@ -542,13 +544,15 @@ export type EditFieldSpec =
       readonly icon?: string;
     };
 
-// A section is either a normal field-grid (default — `kind` omitted keeps
-// every existing screen-def working) or an extension slot that mounts a
-// feature-provided component. The extension component is resolved client-
-// side by name (same `__component` marker as custom screens / column
-// renderers) and receives the host entity name + id, so a bundled feature
-// (e.g. custom-fields) can load and persist its own data inside the form.
-export type EditSectionSpec = EditFieldsSection | EditExtensionSection;
+// A section is a normal field-grid (default — `kind` omitted keeps every
+// existing screen-def working), an extension slot that mounts a feature-
+// provided component, or a related-list of other records. The extension
+// component is resolved client-side by name (same `__component` marker as
+// custom screens / column renderers) and receives the host entity name +
+// id, so a bundled feature (e.g. custom-fields) can load and persist its
+// own data inside the form. `relatedList` runs its own query instead —
+// see `EditRelatedListSection`.
+export type EditSectionSpec = EditFieldsSection | EditExtensionSection | EditRelatedListSection;
 
 export type EditFieldsSection = {
   readonly kind?: "fields";
@@ -570,6 +574,27 @@ export type EditExtensionSection = {
   readonly kind: "extension";
   readonly title: string;
   readonly component: PlatformComponent;
+};
+
+// Read-only list of related records, driven by its own query — for a
+// projectionDetail screen showing e.g. a tenant's payments below the
+// tenant's own fields. Only supported on projectionDetail (fw#2166); the
+// boot-validator rejects it on entityEdit/configEdit/actionForm.
+export type EditRelatedListSection = {
+  readonly kind: "relatedList";
+  readonly title: string;
+  /** Fully qualified query QN. Same paged envelope as projectionList.query:
+   *  `{ rows, nextCursor, total? }`. */
+  readonly query: string;
+  /** Query-payload key the parent record's id is passed under. Default "id". */
+  readonly parentParam?: string;
+  readonly columns: readonly ListColumnSpec[];
+  readonly pageSize?: number;
+  /** Row click opens the target entity's detail screen via ObjectTarget —
+   *  the `detailFor` lookup owns the entity→screen mapping, so no screenId
+   *  is named here. `idColumn` names the row key holding that id (default
+   *  "id"). Omit `rowClick` for a non-interactive list. */
+  readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
 };
 
 // Max width of the form container (see FormScreenShell in renderer-web).

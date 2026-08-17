@@ -227,7 +227,12 @@ export { runsInLane } from "./run-in";
 export type { StepListOutcome } from "./run-pipeline";
 export { runPipeline, runStepList } from "./run-pipeline";
 export { buildInsertSchema, buildUpdateSchema, fieldToZod } from "./schema-builder";
-export { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "./screen-helpers";
+export {
+  isExtensionEditSection,
+  isFieldsEditSection,
+  normalizeEditField,
+  normalizeListColumn,
+} from "./screen-helpers";
 export type { TransitionGraph } from "./state-machine";
 export { defineTransitions, guardTransition } from "./state-machine";
 export {

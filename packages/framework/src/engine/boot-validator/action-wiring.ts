@@ -1,4 +1,4 @@
-import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
+import { isFieldsEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
 import type {
   EditFieldSpec,
   EditLayout,
@@ -112,7 +112,13 @@ function validateEditLayoutNoFunctions(
   layout: EditLayout,
 ): void {
   for (const section of layout.sections) {
-    if (isExtensionEditSection(section)) continue;
+    // relatedList carries `columns` instead of `fields` — route it through
+    // the same column check entityList/projectionList top-level columns use.
+    if (section.kind === "relatedList") {
+      validateColumnsNoFunctions(featureName, screenId, screenType, section.columns);
+      continue;
+    }
+    if (!isFieldsEditSection(section)) continue;
     for (const fieldSpec of section.fields) {
       validateEditFieldNoFunctions(featureName, screenId, screenType, fieldSpec);
     }

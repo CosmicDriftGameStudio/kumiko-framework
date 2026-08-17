@@ -13,6 +13,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createRegistry,
   defineFeature,
+  isFieldsEditSection,
   normalizeEditField,
   normalizeListColumn,
   validateBoot as validateBootRaw,
@@ -120,10 +121,10 @@ describe("screens-nav showcase — field specs", () => {
     if (screen?.type !== "entityEdit") throw new Error("expected entityEdit");
     const basicsSection = screen.layout.sections[0];
     const publishingSection = screen.layout.sections[1];
-    if (!basicsSection || basicsSection.kind === "extension") {
+    if (!basicsSection || !isFieldsEditSection(basicsSection)) {
       throw new Error("expected fields section");
     }
-    if (!publishingSection || publishingSection.kind === "extension") {
+    if (!publishingSection || !isFieldsEditSection(publishingSection)) {
       throw new Error("expected fields section");
     }
     const priceField = normalizeEditField(publishingSection.fields[0]!);

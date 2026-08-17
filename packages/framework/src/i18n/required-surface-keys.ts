@@ -153,6 +153,7 @@ export function requiredKeysFromScreen(
           pushKey(out, section.title);
           continue;
         }
+        if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
         pushKey(out, section.title);
         for (const f of section.fields) {
           const fieldName = editFieldName(f);
@@ -174,6 +175,7 @@ export function requiredKeysFromScreen(
           pushKey(out, section.title);
           continue;
         }
+        if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
         pushKey(out, section.title);
         for (const f of section.fields) {
           const fieldName = editFieldName(f);
@@ -195,6 +197,7 @@ export function requiredKeysFromScreen(
           pushKey(out, section.title);
           continue;
         }
+        if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
         pushKey(out, section.title);
         for (const f of section.fields) {
           const fieldName = editFieldName(f);
@@ -209,6 +212,14 @@ export function requiredKeysFromScreen(
       const detail = screen as ProjectionDetailScreenDefinition;
       for (const section of detail.layout.sections) {
         if (isExtensionEditSection(section)) continue; // rejected at boot, unreachable here
+        if (section.kind === "relatedList") {
+          pushKey(out, section.title);
+          for (const col of section.columns) {
+            const normalized = normalizeListColumn(col);
+            if (normalized.label !== undefined) pushKey(out, normalized.label);
+          }
+          continue;
+        }
         pushKey(out, section.title);
         for (const f of section.fields) {
           const fieldName = editFieldName(f);
