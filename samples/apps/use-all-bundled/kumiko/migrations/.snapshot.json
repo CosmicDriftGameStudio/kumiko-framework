@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-13T08:32:59.648Z",
+  "generatedAt": "2026-08-17T15:38:08.641Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -2992,6 +2992,17 @@
         {
           "name": "read_users_email_bidx_idx",
           "columns": ["email_bidx"]
+        },
+        {
+          "name": "read_users_email_unique",
+          "columns": ["email"],
+          "unique": true
+        },
+        {
+          "name": "read_users_email_unique_bidx",
+          "columns": ["email_bidx"],
+          "unique": true,
+          "whereSql": "\"email_bidx\" IS NOT NULL"
         }
       ],
       "source": "managed",
