@@ -108,6 +108,42 @@ describe("applyFormatSpec", () => {
     expect(applyFormatSpec({ format: "currency" }, 42)).toBe("42");
   });
 
+  test("number/decimal: locale-formatiert via Intl.NumberFormat (fw#2160)", () => {
+    for (const format of ["number", "decimal"] as const) {
+      expect(applyFormatSpec({ format }, 245.5)).toBe(
+        new Intl.NumberFormat(undefined).format(245.5),
+      );
+      expect(applyFormatSpec({ format, locale: "de-DE" }, 245.5)).toBe(
+        new Intl.NumberFormat("de-DE").format(245.5),
+      );
+    }
+  });
+
+  test("bigInt: locale-formatiert (immer Integer auf der Wire — z.number().int().safe())", () => {
+    // schema-builder.ts case "bigInt": mode:"number" round-trip, safe up to
+    // 2^53 — bigInt fields are a plain JS number on the wire, never a bigint
+    // primitive or string, so the same formatNumberCell path applies.
+    expect(applyFormatSpec({ format: "bigInt" }, 1234567)).toBe(
+      new Intl.NumberFormat(undefined).format(1234567),
+    );
+    expect(applyFormatSpec({ format: "bigInt", locale: "de-DE" }, 1234567)).toBe(
+      new Intl.NumberFormat("de-DE").format(1234567),
+    );
+  });
+
+  test("number: nicht-numerischer/NaN/Infinity Value fällt auf String zurück", () => {
+    expect(applyFormatSpec({ format: "number" }, "not-a-number")).toBe("not-a-number");
+    expect(applyFormatSpec({ format: "number" }, Number.NaN)).toBe("NaN");
+    expect(applyFormatSpec({ format: "number" }, Number.POSITIVE_INFINITY)).toBe("Infinity");
+  });
+
+  test("number: ungültiges BCP-47 locale wirft nicht, fällt auf String zurück", () => {
+    expect(() =>
+      applyFormatSpec({ format: "number", locale: "not-a-locale!!" }, 245.5),
+    ).not.toThrow();
+    expect(applyFormatSpec({ format: "number", locale: "not-a-locale!!" }, 245.5)).toBe("245.5");
+  });
+
   test("priority: 0 → Standard-Dash, Zahl → prefix+value", () => {
     expect(applyFormatSpec({ format: "priority", prefix: "P" }, 0)).toBe("—");
     expect(applyFormatSpec({ format: "priority", prefix: "P" }, 3)).toBe("P3");
@@ -160,9 +196,17 @@ describe("defaultCellRender", () => {
     expect(defaultCellRender("op-x", "select", { "op-x": "Operativ X" })).toBe("Operativ X");
   });
 
-  test("text/number → String-Repräsentation", () => {
+  test("text → String-Repräsentation", () => {
     expect(defaultCellRender("hallo", "text")).toBe("hallo");
-    expect(defaultCellRender(42, "number")).toBe("42");
+  });
+
+  test("number/decimal → locale-formatiert, kein roher Dezimalpunkt (fw#2160)", () => {
+    expect(defaultCellRender(42, "number")).toBe(new Intl.NumberFormat(undefined).format(42));
+    expect(defaultCellRender(245.5, "decimal")).toBe(
+      new Intl.NumberFormat(undefined).format(245.5),
+    );
+    // de-DE reference to make the fix concrete: "," instead of "." as the separator.
+    expect(new Intl.NumberFormat("de-DE").format(245.5)).toBe("245,5");
   });
 
   test("money → { amount, currency } formatiert, kein [object Object]", () => {

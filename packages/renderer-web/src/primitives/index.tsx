@@ -1431,9 +1431,10 @@ function isMoneyValue(value: unknown): value is MoneyCellValue {
 //
 //   - boolean → ✓ / leer
 //   - timestamp/date → locale-formatiert (kein roher ISO-String)
+//   - number/decimal/bigInt → locale-formatted via Intl.NumberFormat (fw#2160)
 //   - select → human-lesbar (kebab-case → Title Case)
 //   - money → { amount, currency } formatted via Intl (not "[object Object]")
-//   - text/number/sonst → toString
+//   - text/else → toString
 export function defaultCellRender(
   value: unknown,
   type: string,
@@ -1442,6 +1443,12 @@ export function defaultCellRender(
   if (value === null || value === undefined || value === "") return "";
   if (type === "boolean") return value === true ? "✓" : "";
   if (type === "timestamp" || type === "date") return applyFormatSpec({ format: type }, value);
+  if (type === "number" || type === "decimal" || type === "bigInt") {
+    // No `locale` param here for the same reason as the money branch below:
+    // DataTableCell has no app-locale context to thread through yet.
+    // Intl.NumberFormat(undefined) resolves the runtime's default locale.
+    return applyFormatSpec({ format: type }, value);
+  }
   if (type === "money") {
     if (!isMoneyValue(value)) return String(value);
     // No `locale` param here: DataTableCell has no app-locale context to

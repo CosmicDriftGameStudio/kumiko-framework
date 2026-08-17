@@ -67,6 +67,19 @@ function formatDateCell(
   }
 }
 
+// No `locale` fallback to a browser API here (headless has none) — passing
+// `undefined` to Intl.NumberFormat resolves the runtime's default locale,
+// the same value a browser's navigator.language-based guess would produce.
+function formatNumberCell(value: unknown, locale?: string): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
+  try {
+    return new Intl.NumberFormat(locale).format(value);
+  } catch {
+    // Malformed BCP-47 locale tag — mirrors formatDateCell's fallback above.
+    return String(value);
+  }
+}
+
 export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape";
 export { type HtmlValue, html, RawHtml, raw } from "./html-template";
 export { currencyDecimals } from "./money";
@@ -98,6 +111,10 @@ export function applyFormatSpec(
       const sym = (spec["symbol"] as string | undefined) ?? "";
       return sym.length > 0 ? `${value} ${sym}` : String(value);
     }
+    case "number":
+    case "decimal":
+    case "bigInt":
+      return formatNumberCell(value, spec["locale"] as string | undefined);
     case "priority": {
       const emptyLabel = (spec["emptyLabel"] as string | undefined) ?? "—";
       const prefix = (spec["prefix"] as string | undefined) ?? "";

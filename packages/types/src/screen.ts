@@ -44,6 +44,9 @@ export interface FieldFormatRegistry {
   boolean: { readonly trueLabel?: string; readonly falseLabel?: string };
   currency: { readonly symbol?: string };
   priority: { readonly emptyLabel?: string; readonly prefix?: string };
+  number: { readonly locale?: string };
+  decimal: { readonly locale?: string };
+  bigInt: { readonly locale?: string };
 }
 
 // Discriminated union derived from the registry — one variant per key.
