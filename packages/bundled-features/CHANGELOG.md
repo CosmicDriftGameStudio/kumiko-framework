@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.208.0
+
+### Minor Changes
+
+- 025c5b9: Framework UI copy is English-only. German and Spanish live in `@cosmicdrift/kumiko-locale-de` / `-es`. Apps that want those languages mount `localeDe()` + `localeDeClient()` (or the es equivalents). Without a locale package, framework screens and auth/GDPR mails render in English.
+
+### Patch Changes
+
+- Updated dependencies [eff2d71]
+- Updated dependencies [025c5b9]
+  - @cosmicdrift/kumiko-renderer@0.208.0
+  - @cosmicdrift/kumiko-renderer-web@0.208.0
+  - @cosmicdrift/kumiko-framework@0.208.0
+  - @cosmicdrift/kumiko-headless@0.208.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.208.0
+  - @cosmicdrift/kumiko-types@0.208.0
+
 ## 0.207.0
 
 ### Minor Changes

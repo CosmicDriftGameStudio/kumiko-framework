@@ -10,7 +10,7 @@
     "react-dom": "^19.2.6",
     "@cosmicdrift/kumiko-locale-de": "workspace:*"
   },
-  "description": "Styleguide-Gallery: rendert die Auto-UI-Bausteine, Screenshot-Runner schie\u00dft sie in 3 Themes f\u00fcr die Doku",
+  "description": "Styleguide-Gallery: rendert die Auto-UI-Bausteine, Screenshot-Runner schießt sie in 3 Themes für die Doku",
   "private": true,
   "scripts": {
     "dev": "PORT=4180 bun --env-file=../../../.env run kumiko-dev src/app/server.ts",

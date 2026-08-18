@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-sample-use-all-bundled",
-  "description": "Canonical smoke-sample \u2014 mounts every bundled-feature so framework-CI catches feature-coverage gaps that real apps (which mount only what they use) miss.",
+  "description": "Canonical smoke-sample — mounts every bundled-feature so framework-CI catches feature-coverage gaps that real apps (which mount only what they use) miss.",
   "private": true,
   "type": "module",
   "scripts": {
