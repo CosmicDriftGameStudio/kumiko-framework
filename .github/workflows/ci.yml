@@ -629,10 +629,13 @@ jobs:
         with:
           bun-version: "1.3.14"
 
+      # No registry-url: setup-node would write
+      # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN} into ~/.npmrc,
+      # which skips the OIDC trusted-publisher exchange and 404s the PUT when
+      # the classic token can no longer publish (0.208.0, 2026-08-18).
       - uses: actions/setup-node@v7
         with:
           node-version: "24.17.0"
-          registry-url: "https://registry.npmjs.org"
 
       - name: Cache Bun
         uses: actions/cache@v6
@@ -670,8 +673,6 @@ jobs:
           # Version-PR bliebe so dauerhaft BLOCKED, weil der required `test`-
           # Check nie läuft. Der PAT-Actor triggert die pull_request-Workflows.
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish versions skipped by concurrent changesets
         # changesets/action only reaches `publish` when main carries no
@@ -687,8 +688,6 @@ jobs:
         # path) but no GitHub Release.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           git checkout -f ${{ github.sha }}
           git clean -fd

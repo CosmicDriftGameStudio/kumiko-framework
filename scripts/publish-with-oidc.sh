@@ -15,8 +15,8 @@
 #      npm-CLI erkennt GH-Actions-Env, holt OIDC-Token, tauscht gegen
 #      kurzlebigen npm-Auth-Token, published mit Provenance-Statement.
 #
-# Fallback ohne Trusted-Publisher-Config: wenn NPM_TOKEN gesetzt ist nutzt
-# npm den als Auth — funktioniert mit oder ohne OIDC-Setup.
+# OIDC-only: NODE_AUTH_TOKEN / NPM_TOKEN skip npm's registry exchange
+# (npm/cli#9088). A dead classic token then 404s every PUT. Unset below.
 #
 # Fail-fast: pipefail + termination-log, sonst maskieren publish-failures
 # in nachfolgenden packages den root-cause.
@@ -34,6 +34,9 @@
 # Fix-Versuch nur die JSON-Summary emitted hat, was die Action nicht parst).
 
 set -euo pipefail
+
+# Job env or a leftover ~/.npmrc must not force token auth over OIDC.
+unset NODE_AUTH_TOKEN NPM_TOKEN
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
@@ -121,8 +124,8 @@ for pkg_json in packages/*/package.json; do
   # throwaway tag never trips that guard; we then force `latest` to this release
   # via dist-tag (a manual dist-tag moves latest to ANY published version, unlike
   # the implicit path). For a normal monotonic release the end state is identical:
-  # latest = the just-published version, throwaway tag removed. dist-tag auths via
-  # NODE_AUTH_TOKEN (set in the release job).
+  # latest = the just-published version, throwaway tag removed. dist-tag auths
+  # via the same OIDC session as `npm publish --provenance`.
   elif npm publish "$pkg_dir/$TARBALL" --provenance --access public --tag kumiko-tmp >&2 \
        && npm dist-tag add "$name@$version" latest >&2; then
     npm dist-tag rm "$name" kumiko-tmp >&2 2>/dev/null || true
