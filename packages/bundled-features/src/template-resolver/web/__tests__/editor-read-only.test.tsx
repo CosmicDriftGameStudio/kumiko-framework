@@ -52,7 +52,7 @@ function getEditor() {
   return Editor;
 }
 
-const localeResolver = createStaticLocaleResolver({ locale: "de" });
+const localeResolver = createStaticLocaleResolver({ locale: "en" });
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
@@ -80,7 +80,7 @@ describe("TextContentEditor — role-based write-access", () => {
     const Editor = getEditor();
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 
-    const saveButton = screen.getByRole("button", { name: /speichern/i });
+    const saveButton = screen.getByRole("button", { name: /save/i });
     expect(saveButton).toBeTruthy();
     expect(saveButton.hasAttribute("disabled")).toBe(false);
 
@@ -93,7 +93,7 @@ describe("TextContentEditor — role-based write-access", () => {
     const Editor = getEditor();
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 
-    expect(screen.getByRole("button", { name: /speichern/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /save/i })).toBeTruthy();
     expect(screen.queryByText(/Read-only/)).toBeNull();
   });
 
@@ -153,7 +153,7 @@ describe("TextContentEditor — handleSave", () => {
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /speichern/i }));
+      fireEvent.click(screen.getByRole("button", { name: /save/i }));
       await Promise.resolve();
     });
 
@@ -177,7 +177,7 @@ describe("TextContentEditor — handleSave", () => {
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /speichern/i }));
+      fireEvent.click(screen.getByRole("button", { name: /save/i }));
       await Promise.resolve();
     });
 

@@ -28,9 +28,11 @@ import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { todosFeature } from "./feature";
 
 export const APP_FEATURES = [
+  localeDe(),
   createDataRetentionFeature(),
   createComplianceProfilesFeature(),
   fileFoundationFeature,

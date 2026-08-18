@@ -34,6 +34,7 @@ import {
   userProfileClient,
 } from "@cosmicdrift/kumiko-bundled-features/user-profile/web";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine/types";
+import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import { type ClientFeatureDefinition, createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
 import { AppShell } from "./shell";
@@ -97,6 +98,7 @@ const appScreens: ClientFeatureDefinition = {
 createKumikoApp({
   shell: AppShell,
   clientFeatures: [
+    localeDeClient(),
     emailPasswordClient({ mfaVerifyScreen: MfaVerifyScreen }),
     authMfaClient(),
     adminShellClient(),

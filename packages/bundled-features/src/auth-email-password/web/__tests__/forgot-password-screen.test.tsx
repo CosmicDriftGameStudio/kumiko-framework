@@ -9,9 +9,9 @@ installFetchMock();
 describe("ForgotPasswordScreen", () => {
   test("rendert title + email-input + submit-button (de)", () => {
     renderWithProviders(<ForgotPasswordScreen />);
-    expect(screen.getByText("Passwort zurücksetzen")).toBeTruthy();
-    expect(screen.getByLabelText(/^E-Mail/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Link anfordern" })).toBeTruthy();
+    expect(screen.getByText("Reset password")).toBeTruthy();
+    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Request link" })).toBeTruthy();
   });
 
   test("submit ruft /api/auth/request-password-reset mit der Email", async () => {
@@ -19,10 +19,10 @@ describe("ForgotPasswordScreen", () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     renderWithProviders(<ForgotPasswordScreen />);
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "user@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request link" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -35,17 +35,17 @@ describe("ForgotPasswordScreen", () => {
     });
   });
 
-  test("nach erfolgreichem Submit: success-Banner + 'Zurück zum Login'-Link", async () => {
+  test("nach erfolgreichem Submit: success-Banner + 'Back to login'-Link", async () => {
     renderWithProviders(<ForgotPasswordScreen />);
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "user@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request link" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Mail gesendet")).toBeTruthy();
+      expect(screen.getByText("Email sent")).toBeTruthy();
     });
-    expect(screen.getByRole("link", { name: /Zurück zum Login/i })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Back to sign in/i })).toBeTruthy();
   });
 
   test("server 5xx → error-banner statt Success-State", async () => {
@@ -54,14 +54,14 @@ describe("ForgotPasswordScreen", () => {
     ) as unknown as typeof fetch;
 
     renderWithProviders(<ForgotPasswordScreen />);
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "user@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request link" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("schief");
+      expect(screen.getByRole("alert").textContent).toContain("wrong");
     });
-    expect(screen.queryByText("Mail gesendet")).toBeNull();
+    expect(screen.queryByText("Email sent")).toBeNull();
   });
 });

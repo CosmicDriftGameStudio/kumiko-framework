@@ -16,8 +16,10 @@ import { configDemoFeature } from "../features/demo/feature";
 
 const resolver = createConfigResolver();
 
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+
 await runDevApp({
-  features: [createConfigFeature(), createSecretsFeature(), configDemoFeature],
+  features: [localeDe(), createConfigFeature(), createSecretsFeature(), configDemoFeature],
   port: Number.parseInt(process.env["PORT"] ?? "4172", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",

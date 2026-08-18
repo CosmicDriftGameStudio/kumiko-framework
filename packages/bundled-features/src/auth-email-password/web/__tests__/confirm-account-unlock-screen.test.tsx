@@ -9,8 +9,8 @@ installFetchMock();
 describe("ConfirmAccountUnlockScreen", () => {
   test("ohne Token → missing-token page", () => {
     renderWithProviders(<ConfirmAccountUnlockScreen />);
-    expect(screen.getByText(/enthält keinen Token/i)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Zum Login" }).getAttribute("href")).toBe("/login");
+    expect(screen.getByText(/missing a token/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Go to sign in" }).getAttribute("href")).toBe("/login");
   });
 
   test("mit Token + 200 → success after auto-submit", async () => {
@@ -29,9 +29,9 @@ describe("ConfirmAccountUnlockScreen", () => {
           body: JSON.stringify({ token: "unlock-tok" }),
         }),
       );
-      expect(screen.getByText("Konto entsperrt")).toBeTruthy();
+      expect(screen.getByText("Account unlocked")).toBeTruthy();
     });
-    expect(screen.getByRole("link", { name: "Zum Login" }).getAttribute("href")).toBe("/home");
+    expect(screen.getByRole("link", { name: "Go to sign in" }).getAttribute("href")).toBe("/home");
   });
 
   test("mit Token + 422 → error state", async () => {
@@ -43,14 +43,14 @@ describe("ConfirmAccountUnlockScreen", () => {
     renderWithProviders(<ConfirmAccountUnlockScreen token="bad" />);
 
     await waitFor(() => {
-      expect(screen.getByText("Entsperren fehlgeschlagen")).toBeTruthy();
+      expect(screen.getByText("Unlock failed")).toBeTruthy();
     });
-    expect(screen.getByRole("link", { name: "Zum Login" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Go to sign in" })).toBeTruthy();
   });
 
   test("custom title on missing-token uses errorTitle slot only when set", () => {
     renderWithProviders(<ConfirmAccountUnlockScreen title="Unlock kaputt" />);
     expect(screen.getByText("Unlock kaputt")).toBeTruthy();
-    expect(screen.queryByText("Entsperren fehlgeschlagen")).toBeNull();
+    expect(screen.queryByText("Unlock failed")).toBeNull();
   });
 });

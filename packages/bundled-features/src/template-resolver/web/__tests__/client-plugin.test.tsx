@@ -254,7 +254,7 @@ describe("textBlocksClient — content collections", () => {
 });
 
 describe("textBlocksClient — plain contentFormat editor wiring", () => {
-  const localeResolver = createStaticLocaleResolver({ locale: "de" });
+  const localeResolver = createStaticLocaleResolver({ locale: "en" });
 
   function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
     return (
@@ -298,7 +298,7 @@ describe("textBlocksClient — plain contentFormat editor wiring", () => {
 });
 
 describe("textBlocksClient — findContentFormat resolves collectionId to the registered editor", () => {
-  const localeResolver = createStaticLocaleResolver({ locale: "de" });
+  const localeResolver = createStaticLocaleResolver({ locale: "en" });
   const RichStub: ContentEditorComponent = () => <div data-testid="rich-stub-editor" />;
 
   function RichStubWrapper({ children }: { readonly children: ReactNode }): ReactNode {

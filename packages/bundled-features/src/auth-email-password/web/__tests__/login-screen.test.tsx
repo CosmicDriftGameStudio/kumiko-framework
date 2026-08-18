@@ -19,23 +19,23 @@ describe("LoginScreen", () => {
 
   test("renders translated title + email + password labels (de)", () => {
     renderWithProviders(<LoginScreen />);
-    expect(screen.getByText("Anmelden")).toBeTruthy();
-    expect(screen.getByLabelText(/^E-Mail/)).toBeTruthy();
-    expect(screen.getByLabelText(/^Passwort/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Einloggen" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy();
+    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Password/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
   });
 
   test("submit calls session.login with form values", async () => {
     const session = makeSessionApi({ status: "unauthenticated", user: null });
     renderWithProviders(<LoginScreen />, { session });
 
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "demo@example.com" },
     });
-    fireEvent.change(screen.getByLabelText(/^Passwort/), {
+    fireEvent.change(screen.getByLabelText(/^Password/), {
       target: { value: "secret" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
     await waitFor(() => {
       expect(session.login).toHaveBeenCalledWith({
@@ -56,17 +56,17 @@ describe("LoginScreen", () => {
     });
     renderWithProviders(<LoginScreen />, { session });
 
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "wrong@example.com" },
     });
-    fireEvent.change(screen.getByLabelText(/^Passwort/), {
+    fireEvent.change(screen.getByLabelText(/^Password/), {
       target: { value: "x" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toBeTruthy();
-      expect(screen.getByRole("alert").textContent).toBe("E-Mail oder Passwort falsch.");
+      expect(screen.getByRole("alert").textContent).toBe("Invalid email or password.");
     });
   });
 
@@ -81,30 +81,30 @@ describe("LoginScreen", () => {
     });
     renderWithProviders(<LoginScreen />, { session });
 
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "x@example.com" },
     });
-    fireEvent.change(screen.getByLabelText(/^Passwort/), {
+    fireEvent.change(screen.getByLabelText(/^Password/), {
       target: { value: "x" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
     await waitFor(() => {
-      // 540s → 9 Minuten (Math.ceil)
-      expect(screen.getByRole("alert").textContent).toMatch(/9 Minuten/);
+      // 540s → 9 minutes (Math.ceil)
+      expect(screen.getByRole("alert").textContent).toMatch(/9 minutes/);
     });
   });
 
   test("forgotPasswordHref-prop → Link rendert mit korrektem href", () => {
     renderWithProviders(<LoginScreen forgotPasswordHref="/forgot-password" />);
-    const link = screen.getByRole("link", { name: /Passwort vergessen/i });
+    const link = screen.getByRole("link", { name: /Forgot password/i });
     expect(link).toBeTruthy();
     expect(link.getAttribute("href")).toBe("/forgot-password");
   });
 
   test("ohne forgotPasswordHref → KEIN Link (Login bleibt minimalistisch)", () => {
     renderWithProviders(<LoginScreen />);
-    expect(screen.queryByRole("link", { name: /Passwort vergessen/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Forgot password/i })).toBeNull();
   });
 
   // Bug-Bash 2026-06-07 (Bug 1): Login-Screen ist oft die einzige
@@ -133,16 +133,16 @@ describe("LoginScreen", () => {
   });
 
   // Resend-Flow: bei email_not_verified bietet der LoginScreen einen
-  // "Bestätigungs-Mail erneut senden"-Link im Fehler-Banner an.
+  // "Send verification email again"-Link im Fehler-Banner an.
   describe("resend verification on email_not_verified", () => {
     async function loginUntilEmailNotVerified(): Promise<void> {
-      fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+      fireEvent.change(screen.getByLabelText(/^Email/), {
         target: { value: "demo@example.com" },
       });
-      fireEvent.change(screen.getByLabelText(/^Passwort/), {
+      fireEvent.change(screen.getByLabelText(/^Password/), {
         target: { value: "secret" },
       });
-      fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+      fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
       await waitFor(() => {
         expect(screen.getByRole("alert")).toBeTruthy();
       });
@@ -164,7 +164,7 @@ describe("LoginScreen", () => {
       // Vor Submit gibt es keinen Resend-Trigger
       expect(screen.queryByRole("button", { name: /erneut senden/i })).toBeNull();
       await loginUntilEmailNotVerified();
-      expect(screen.getByRole("button", { name: "Bestätigungs-Mail erneut senden" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Send verification email again" })).toBeTruthy();
     });
 
     test("click → calls requestEmailVerification with form email and shows success banner", async () => {
@@ -172,16 +172,14 @@ describe("LoginScreen", () => {
       renderWithProviders(<LoginScreen />, { session: unverifiedSession() });
       await loginUntilEmailNotVerified();
 
-      fireEvent.click(screen.getByRole("button", { name: "Bestätigungs-Mail erneut senden" }));
+      fireEvent.click(screen.getByRole("button", { name: "Send verification email again" }));
 
       await waitFor(() => {
         expect(requestEmailVerificationMock).toHaveBeenCalledWith("demo@example.com");
       });
       // Banner variant="info" setzt kein role — wir suchen per Text
       await waitFor(() => {
-        expect(
-          screen.getByText("Wir haben dir eine neue Bestätigungs-Mail geschickt."),
-        ).toBeTruthy();
+        expect(screen.getByText("We've sent you a new verification email.")).toBeTruthy();
       });
       // Fehler-Banner (role=alert) ist weg, Success-Banner ist da
       expect(screen.queryByRole("alert")).toBeNull();
@@ -195,15 +193,13 @@ describe("LoginScreen", () => {
       renderWithProviders(<LoginScreen />, { session: unverifiedSession() });
       await loginUntilEmailNotVerified();
 
-      fireEvent.click(screen.getByRole("button", { name: "Bestätigungs-Mail erneut senden" }));
+      fireEvent.click(screen.getByRole("button", { name: "Send verification email again" }));
 
       await waitFor(() => {
-        expect(screen.getByRole("alert").textContent).toMatch(
-          /Bitte warte kurz und versuche es erneut/,
-        );
+        expect(screen.getByRole("alert").textContent).toMatch(/Please wait a moment and try again/);
       });
       // Original-Fehler bleibt sichtbar
-      expect(screen.getByRole("alert").textContent).toMatch(/E-Mail-Adresse noch nicht bestätigt/);
+      expect(screen.getByRole("alert").textContent).toMatch(/Email address not yet verified/);
     });
 
     test("network/unknown error → generischer inline hint", async () => {
@@ -211,23 +207,21 @@ describe("LoginScreen", () => {
       renderWithProviders(<LoginScreen />, { session: unverifiedSession() });
       await loginUntilEmailNotVerified();
 
-      fireEvent.click(screen.getByRole("button", { name: "Bestätigungs-Mail erneut senden" }));
+      fireEvent.click(screen.getByRole("button", { name: "Send verification email again" }));
 
       await waitFor(() => {
-        expect(screen.getByRole("alert").textContent).toMatch(
-          /Konnte nicht senden. Bitte erneut versuchen/,
-        );
+        expect(screen.getByRole("alert").textContent).toMatch(/Could not send. Please try again/);
       });
     });
 
     test("Email-Änderung nach Failure → Resend-Button verschwindet (anti-typo-Falle)", async () => {
       renderWithProviders(<LoginScreen />, { session: unverifiedSession() });
       await loginUntilEmailNotVerified();
-      expect(screen.getByRole("button", { name: "Bestätigungs-Mail erneut senden" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Send verification email again" })).toBeTruthy();
 
       // User korrigiert die Email-Eingabe — Resend-Button darf nicht mehr
       // sichtbar sein, damit kein silent-send an typo-Adresse passiert
-      fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+      fireEvent.change(screen.getByLabelText(/^Email/), {
         target: { value: "typo@example.com" },
       });
       expect(screen.queryByRole("button", { name: /erneut senden/i })).toBeNull();
@@ -258,24 +252,24 @@ describe("LoginScreen", () => {
       })),
     });
     renderWithProviders(<LoginScreen unlockAccountHref="/unlock" />, { session });
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
-    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
-    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("vorübergehend gesperrt");
+      expect(screen.getByRole("alert").textContent).toContain("temporarily locked");
     });
-    expect(screen.getByRole("link", { name: /Konto entsperren/i }).getAttribute("href")).toBe(
+    expect(screen.getByRole("link", { name: /Unlock account/i }).getAttribute("href")).toBe(
       "/unlock",
     );
   });
 
   test("reasonToKey covers no_membership, rate_limited, invalid_body, default", async () => {
     const cases: Array<{ reason: string; needle: string }> = [
-      { reason: "no_membership", needle: "keinen Tenant-Zugang" },
-      { reason: "rate_limited", needle: "Zu viele Login-Versuche" },
-      { reason: "invalid_body", needle: "Ungültige Eingabe" },
-      { reason: "weird_unknown", needle: "Login fehlgeschlagen" },
-      { reason: "mfa_setup_required", needle: "Zwei-Faktor-Authentifizierung erforderlich" },
+      { reason: "no_membership", needle: "no tenant access" },
+      { reason: "rate_limited", needle: "Too many login attempts" },
+      { reason: "invalid_body", needle: "Invalid input" },
+      { reason: "weird_unknown", needle: "Login failed" },
+      { reason: "mfa_setup_required", needle: "Two-factor authentication required" },
     ];
     for (const { reason, needle } of cases) {
       const session = makeSessionApi({
@@ -287,9 +281,9 @@ describe("LoginScreen", () => {
         })),
       });
       const { unmount } = renderWithProviders(<LoginScreen />, { session });
-      fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
-      fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
-      fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+      fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@b.c" } });
+      fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "x" } });
+      fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
       await waitFor(() => {
         expect(screen.getByRole("alert").textContent).toContain(needle);
       });
@@ -308,9 +302,9 @@ describe("LoginScreen", () => {
       })),
     });
     renderWithProviders(<LoginScreen onMfaChallenge={onMfaChallenge} />, { session });
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
-    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
-    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => {
       expect(onMfaChallenge).toHaveBeenCalledWith("chal-1");
     });
@@ -327,11 +321,11 @@ describe("LoginScreen", () => {
       })),
     });
     renderWithProviders(<LoginScreen />, { session });
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
-    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
-    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("unterstützt keine Zwei-Faktor");
+      expect(screen.getByRole("alert").textContent).toContain("doesn't support two-factor");
     });
   });
 
@@ -349,9 +343,9 @@ describe("LoginScreen", () => {
       <LoginScreen onMfaSetupRequired={onMfaSetupRequired} />,
       { session: sessionOk },
     );
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
-    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
-    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => {
       expect(onMfaSetupRequired).toHaveBeenCalledWith("setup-token-value", "a@b.c");
     });
@@ -366,19 +360,17 @@ describe("LoginScreen", () => {
       })),
     });
     renderWithProviders(<LoginScreen />, { session: sessionBare });
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@b.c" } });
-    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "x" } });
-    fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain(
-        "Zwei-Faktor-Authentifizierung erforderlich",
-      );
+      expect(screen.getByRole("alert").textContent).toContain("Two-factor authentication required");
     });
   });
 
   test("signupHref renders signup link", () => {
     renderWithProviders(<LoginScreen signupHref="/signup" />);
-    const link = screen.getByRole("link", { name: "Account erstellen" });
+    const link = screen.getByRole("link", { name: "Create account" });
     expect(link.getAttribute("href")).toBe("/signup");
   });
 });

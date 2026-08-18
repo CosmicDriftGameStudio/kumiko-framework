@@ -11,96 +11,52 @@
 // registriert. Die zwei customCss-Keys werden unconditional geliefert (schaden
 // bei allowCustomCss:false nicht, sind aber Pflicht für Consumer die es aktivieren).
 
-type LocalizedString = { readonly de: string; readonly en: string; readonly es: string };
+type LocalizedString = { readonly en: string };
 
 export const MANAGED_PAGES_I18N: Readonly<Record<string, LocalizedString>> = {
   // Screen-Titel (global/unpräfixiert — screenTitleKey = screen:<id>.title)
-  "screen:page-list.title": { de: "Seiten", en: "Pages", es: "Páginas" },
-  "screen:page-edit.title": { de: "Seite bearbeiten", en: "Edit page", es: "Editar página" },
-  "screen:branding-settings.title": { de: "Branding", en: "Branding", es: "Marca" },
+  "screen:page-list.title": { en: "Pages" },
+  "screen:page-edit.title": { en: "Edit page" },
+  "screen:branding-settings.title": { en: "Branding" },
 
   // Page-Entity Feld-Labels (managed-pages:entity:page:field:*)
-  "managed-pages:entity:page:field:slug": { de: "Slug", en: "Slug", es: "Slug" },
-  "managed-pages:entity:page:field:lang": { de: "Sprache", en: "Language", es: "Idioma" },
-  "managed-pages:entity:page:field:title": { de: "Titel", en: "Title", es: "Título" },
-  "managed-pages:entity:page:field:published": {
-    de: "Veröffentlicht",
-    en: "Published",
-    es: "Publicado",
-  },
+  "managed-pages:entity:page:field:slug": { en: "Slug" },
+  "managed-pages:entity:page:field:lang": { en: "Language" },
+  "managed-pages:entity:page:field:title": { en: "Title" },
+  "managed-pages:entity:page:field:published": { en: "Published" },
   "managed-pages:entity:page:field:published:option:true": {
-    de: "Veröffentlicht",
     en: "Published",
-    es: "Publicado",
   },
-  "managed-pages:entity:page:field:published:option:false": {
-    de: "Entwurf",
-    en: "Draft",
-    es: "Borrador",
-  },
-  "managed-pages:entity:page:field:description": {
-    de: "Beschreibung",
-    en: "Description",
-    es: "Descripción",
-  },
-  "managed-pages:entity:page:field:ogImage": { de: "OG-Bild", en: "OG image", es: "Imagen OG" },
-  "managed-pages:entity:page:field:body": { de: "Inhalt", en: "Content", es: "Contenido" },
+  "managed-pages:entity:page:field:published:option:false": { en: "Draft" },
+  "managed-pages:entity:page:field:description": { en: "Description" },
+  "managed-pages:entity:page:field:ogImage": { en: "OG image" },
+  "managed-pages:entity:page:field:body": { en: "Content" },
 
   // Config-Edit Feld-Labels (managed-pages:entity:__config-edit__:field:*, camelCase Form-Keys)
-  "managed-pages:entity:__config-edit__:field:title": {
-    de: "Website-Titel",
-    en: "Site title",
-    es: "Título del sitio",
-  },
+  "managed-pages:entity:__config-edit__:field:title": { en: "Site title" },
   "managed-pages:entity:__config-edit__:field:description": {
-    de: "Beschreibung",
     en: "Description",
-    es: "Descripción",
   },
-  "managed-pages:entity:__config-edit__:field:siteUrl": {
-    de: "Website-URL",
-    en: "Site URL",
-    es: "URL del sitio",
-  },
+  "managed-pages:entity:__config-edit__:field:siteUrl": { en: "Site URL" },
   "managed-pages:entity:__config-edit__:field:accentColor": {
-    de: "Akzentfarbe",
     en: "Accent color",
-    es: "Color de acento",
   },
-  "managed-pages:entity:__config-edit__:field:logoUrl": {
-    de: "Logo-URL",
-    en: "Logo URL",
-    es: "URL del logo",
-  },
-  "managed-pages:entity:__config-edit__:field:layoutPreset": {
-    de: "Layout",
-    en: "Layout",
-    es: "Diseño",
-  },
+  "managed-pages:entity:__config-edit__:field:logoUrl": { en: "Logo URL" },
+  "managed-pages:entity:__config-edit__:field:layoutPreset": { en: "Layout" },
 
   // Section-Header
-  "managed-pages:section.meta": { de: "Metadaten", en: "Metadata", es: "Metadatos" },
-  "managed-pages:section.body": { de: "Inhalt", en: "Content", es: "Contenido" },
-  "managed-pages:branding.section.identity": { de: "Identität", en: "Identity", es: "Identidad" },
+  "managed-pages:section.meta": { en: "Metadata" },
+  "managed-pages:section.body": { en: "Content" },
+  "managed-pages:branding.section.identity": { en: "Identity" },
 
   // Row-Actions + Confirm (pageListScreen)
-  "managed-pages:actions.edit": { de: "Bearbeiten", en: "Edit", es: "Editar" },
-  "managed-pages:actions.delete": { de: "Löschen", en: "Delete", es: "Eliminar" },
+  "managed-pages:actions.edit": { en: "Edit" },
+  "managed-pages:actions.delete": { en: "Delete" },
   "managed-pages:confirms.page-delete": {
-    de: "Diese Seite wirklich löschen?",
     en: "Delete this page?",
-    es: "¿Seguro que quieres eliminar esta página?",
   },
 
   // Nur bei allowCustomCss:true im Screen — unconditional geliefert
-  "managed-pages:entity:__config-edit__:field:customCss": {
-    de: "Eigenes CSS",
-    en: "Custom CSS",
-    es: "CSS personalizado",
-  },
-  "managed-pages:branding.section.custom-css": {
-    de: "Eigenes CSS",
-    en: "Custom CSS",
-    es: "CSS personalizado",
-  },
+  "managed-pages:entity:__config-edit__:field:customCss": { en: "Custom CSS" },
+  "managed-pages:branding.section.custom-css": { en: "Custom CSS" },
 };

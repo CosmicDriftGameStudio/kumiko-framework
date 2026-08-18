@@ -5,6 +5,7 @@
 // rejection.
 
 import { describe, expect, test } from "bun:test";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { kumikoDefaultTranslations } from "@cosmicdrift/kumiko-renderer";
 import { Temporal } from "temporal-polyfill";
 import {
@@ -18,7 +19,7 @@ import {
 // Derived from kumikoDefaultTranslations instead of hardcoded so a drift in
 // the i18n defaults (e.g. renaming "T" → "D") fails this test too.
 function placeholderLetters(locale: "de" | "en"): { year: string; month: string; day: string } {
-  const bundle = kumikoDefaultTranslations[locale];
+  const bundle = locale === "de" ? localeDeBundle : kumikoDefaultTranslations[locale];
   return {
     year: bundle?.["kumiko.field.dateField.placeholderYear"] ?? "",
     month: bundle?.["kumiko.field.dateField.placeholderMonth"] ?? "",

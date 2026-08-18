@@ -51,7 +51,7 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
     <PrimitivesProvider value={defaultPrimitives}>
       <LocaleProvider
-        resolver={createStaticLocaleResolver({ locale: "de" })}
+        resolver={createStaticLocaleResolver({ locale: "en" })}
         fallbackBundles={[defaultTranslations]}
       >
         <SessionContext.Provider value={session}>{children}</SessionContext.Provider>
@@ -71,8 +71,8 @@ describe("MfaEnableScreen", () => {
         <MfaEnableScreen />
       </Wrapper>,
     );
-    expect(screen.getByText("Zwei-Faktor-Authentifizierung")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Einrichtung starten" })).toBeTruthy();
+    expect(screen.getByText("Two-factor authentication")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start setup" })).toBeTruthy();
     expect(screen.queryByLabelText("Code aus der Authenticator-App")).toBeNull();
   });
 
@@ -83,7 +83,7 @@ describe("MfaEnableScreen", () => {
       </Wrapper>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
 
     await waitFor(() => {
       expect(dispatchSpy).toHaveBeenCalledWith(
@@ -104,18 +104,18 @@ describe("MfaEnableScreen", () => {
         <MfaEnableScreen />
       </Wrapper>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
       expect(screen.getByText("ABCD1234")).toBeTruthy();
     });
 
-    const confirm = screen.getByRole("button", { name: "Aktivieren" }) as HTMLButtonElement;
+    const confirm = screen.getByRole("button", { name: "Enable" }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
 
-    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
+    fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
     expect(confirm.disabled).toBe(true);
 
-    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+    fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "123456" },
     });
     expect(confirm.disabled).toBe(false);
@@ -138,16 +138,16 @@ describe("MfaEnableScreen", () => {
         <MfaEnableScreen onEnabled={onEnabled} />
       </Wrapper>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
       expect(screen.getByText("ABCD1234")).toBeTruthy();
     });
-    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
-    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+    fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
+    fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "123456" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Aktivieren" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enable" }));
 
     await waitFor(() => {
       expect(dispatchSpy).toHaveBeenCalledWith(
@@ -156,7 +156,7 @@ describe("MfaEnableScreen", () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getByText("Zwei-Faktor-Authentifizierung ist jetzt aktiv.")).toBeTruthy();
+      expect(screen.getByText("Two-factor authentication is now enabled.")).toBeTruthy();
       expect(onEnabled).toHaveBeenCalled();
     });
   });
@@ -172,10 +172,10 @@ describe("MfaEnableScreen", () => {
       </Wrapper>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Zwei-Faktor-Authentifizierung ist bereits aktiv.")).toBeTruthy();
+      expect(screen.getByText("Two-factor authentication is already enabled.")).toBeTruthy();
     });
     expect(screen.queryByText("ABCD1234")).toBeNull();
   });

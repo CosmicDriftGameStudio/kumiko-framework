@@ -9,9 +9,9 @@ installFetchMock();
 describe("RequestAccountUnlockScreen", () => {
   test("renders title + email input + submit (de)", () => {
     renderWithProviders(<RequestAccountUnlockScreen />);
-    expect(screen.getByText("Konto entsperren")).toBeTruthy();
-    expect(screen.getByLabelText(/^E-Mail/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Link anfordern" })).toBeTruthy();
+    expect(screen.getByText("Unlock account")).toBeTruthy();
+    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Request link" })).toBeTruthy();
   });
 
   test("submit posts /api/auth/request-account-unlock with email", async () => {
@@ -19,10 +19,10 @@ describe("RequestAccountUnlockScreen", () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     renderWithProviders(<RequestAccountUnlockScreen />);
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "user@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request link" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -39,15 +39,15 @@ describe("RequestAccountUnlockScreen", () => {
 
   test("success → silent-success banner + back-to-login link", async () => {
     renderWithProviders(<RequestAccountUnlockScreen loginHref="/signin" />);
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "user@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request link" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Mail gesendet")).toBeTruthy();
+      expect(screen.getByText("Email sent")).toBeTruthy();
     });
-    expect(screen.getByRole("link", { name: /Zurück zum Login/i }).getAttribute("href")).toBe(
+    expect(screen.getByRole("link", { name: /Back to sign in/i }).getAttribute("href")).toBe(
       "/signin",
     );
   });
@@ -61,15 +61,15 @@ describe("RequestAccountUnlockScreen", () => {
     ) as unknown as typeof fetch;
 
     renderWithProviders(<RequestAccountUnlockScreen />);
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "user@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request link" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("3 Minuten");
+      expect(screen.getByRole("alert").textContent).toContain("3 minutes");
     });
-    expect(screen.queryByText("Mail gesendet")).toBeNull();
+    expect(screen.queryByText("Email sent")).toBeNull();
   });
 
   test("429 without retryAfterSeconds → generic rateLimited banner", async () => {
@@ -78,13 +78,13 @@ describe("RequestAccountUnlockScreen", () => {
     ) as unknown as typeof fetch;
 
     renderWithProviders(<RequestAccountUnlockScreen />);
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "user@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request link" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("Zu viele Login-Versuche");
+      expect(screen.getByRole("alert").textContent).toContain("Too many login attempts");
     });
   });
 
@@ -94,16 +94,16 @@ describe("RequestAccountUnlockScreen", () => {
     ) as unknown as typeof fetch;
 
     renderWithProviders(<RequestAccountUnlockScreen />);
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "user@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request link" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("schief");
+      expect(screen.getByRole("alert").textContent).toContain("wrong");
     });
-    expect(screen.queryByText("Mail gesendet")).toBeNull();
-    expect(screen.getByLabelText(/^E-Mail/)).toBeTruthy();
+    expect(screen.queryByText("Email sent")).toBeNull();
+    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
   });
 
   test("fetch throw → unknownError banner", async () => {
@@ -112,13 +112,13 @@ describe("RequestAccountUnlockScreen", () => {
     }) as unknown as typeof fetch;
 
     renderWithProviders(<RequestAccountUnlockScreen />);
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
+    fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "user@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request link" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("schief");
+      expect(screen.getByRole("alert").textContent).toContain("wrong");
     });
   });
 

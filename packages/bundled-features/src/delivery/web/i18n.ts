@@ -2,16 +2,6 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "delivery.log.title": "Delivery-Log",
-    "delivery.log.loading": "Lade Zustellversuche…",
-    "delivery.log.empty": "Keine Zustellversuche.",
-    "delivery.log.col.type": "Typ",
-    "delivery.log.col.channel": "Kanal",
-    "delivery.log.col.recipient": "Empfänger",
-    "delivery.log.col.status": "Status",
-    "delivery:nav.deliveryLog": "Zustellungen",
-  },
   en: {
     "delivery.log.title": "Delivery log",
     "delivery.log.loading": "Loading delivery attempts…",
@@ -21,15 +11,5 @@ export const defaultTranslations: TranslationsByLocale = {
     "delivery.log.col.recipient": "Recipient",
     "delivery.log.col.status": "Status",
     "delivery:nav.deliveryLog": "Delivery",
-  },
-  es: {
-    "delivery.log.title": "Registro de entregas",
-    "delivery.log.loading": "Cargando intentos de entrega…",
-    "delivery.log.empty": "No hay intentos de entrega.",
-    "delivery.log.col.type": "Tipo",
-    "delivery.log.col.channel": "Canal",
-    "delivery.log.col.recipient": "Destinatario",
-    "delivery.log.col.status": "Estado",
-    "delivery:nav.deliveryLog": "Entregas",
   },
 };

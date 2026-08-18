@@ -6,6 +6,7 @@
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { contentFeature } from "../features/content/feature";
 import { demoFeature } from "../features/demo/feature";
 import { examplesFeature } from "../features/examples/feature";
@@ -16,6 +17,7 @@ import { seedStyleguideItems } from "./seed";
 
 await runDevApp({
   features: [
+    localeDe(),
     demoFeature,
     galleryFeature,
     widgetsFeature,

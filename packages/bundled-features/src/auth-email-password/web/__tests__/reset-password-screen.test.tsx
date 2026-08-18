@@ -10,14 +10,14 @@ describe("ResetPasswordScreen", () => {
   test("ohne Token in URL UND ohne token-Prop → missing-token-Page", () => {
     // jsdom default location is "about:blank" → search = ""
     renderWithProviders(<ResetPasswordScreen />);
-    expect(screen.getByText(/enthält keinen Token/i)).toBeTruthy();
+    expect(screen.getByText(/missing a token/i)).toBeTruthy();
   });
 
   test("mit token-Prop → Form rendert", () => {
     renderWithProviders(<ResetPasswordScreen token="abc-token" />);
-    expect(screen.getByLabelText(/^Neues Passwort/)).toBeTruthy();
-    expect(screen.getByLabelText(/^Passwort bestätigen/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Passwort speichern" })).toBeTruthy();
+    expect(screen.getByLabelText(/^New password/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Confirm password/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save password" })).toBeTruthy();
   });
 
   test("Passwort < 8 Zeichen → client-side error, kein fetch-Call", async () => {
@@ -25,28 +25,28 @@ describe("ResetPasswordScreen", () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     renderWithProviders(<ResetPasswordScreen token="abc" />);
-    fireEvent.change(screen.getByLabelText(/^Neues Passwort/), { target: { value: "short" } });
-    fireEvent.change(screen.getByLabelText(/^Passwort bestätigen/), { target: { value: "short" } });
-    fireEvent.click(screen.getByRole("button", { name: "Passwort speichern" }));
+    fireEvent.change(screen.getByLabelText(/^New password/), { target: { value: "short" } });
+    fireEvent.change(screen.getByLabelText(/^Confirm password/), { target: { value: "short" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save password" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("8 Zeichen");
+      expect(screen.getByRole("alert").textContent).toContain("8 characters");
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   test("mismatch zwischen Passwort und Confirm → client-side error", async () => {
     renderWithProviders(<ResetPasswordScreen token="abc" />);
-    fireEvent.change(screen.getByLabelText(/^Neues Passwort/), {
+    fireEvent.change(screen.getByLabelText(/^New password/), {
       target: { value: "validpass1" },
     });
-    fireEvent.change(screen.getByLabelText(/^Passwort bestätigen/), {
+    fireEvent.change(screen.getByLabelText(/^Confirm password/), {
       target: { value: "differentpass" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Passwort speichern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save password" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("nicht überein");
+      expect(screen.getByRole("alert").textContent).toContain("do not match");
     });
   });
 
@@ -55,13 +55,13 @@ describe("ResetPasswordScreen", () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     renderWithProviders(<ResetPasswordScreen token="abc-token" />);
-    fireEvent.change(screen.getByLabelText(/^Neues Passwort/), {
+    fireEvent.change(screen.getByLabelText(/^New password/), {
       target: { value: "validpass1" },
     });
-    fireEvent.change(screen.getByLabelText(/^Passwort bestätigen/), {
+    fireEvent.change(screen.getByLabelText(/^Confirm password/), {
       target: { value: "validpass1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Passwort speichern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save password" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -71,7 +71,7 @@ describe("ResetPasswordScreen", () => {
           body: JSON.stringify({ token: "abc-token", newPassword: "validpass1" }),
         }),
       );
-      expect(screen.getByText("Passwort gesetzt")).toBeTruthy();
+      expect(screen.getByText("Password set")).toBeTruthy();
     });
   });
 
@@ -84,16 +84,16 @@ describe("ResetPasswordScreen", () => {
     ) as unknown as typeof fetch;
 
     renderWithProviders(<ResetPasswordScreen token="bad" />);
-    fireEvent.change(screen.getByLabelText(/^Neues Passwort/), {
+    fireEvent.change(screen.getByLabelText(/^New password/), {
       target: { value: "validpass1" },
     });
-    fireEvent.change(screen.getByLabelText(/^Passwort bestätigen/), {
+    fireEvent.change(screen.getByLabelText(/^Confirm password/), {
       target: { value: "validpass1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Passwort speichern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save password" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("ungültig");
+      expect(screen.getByRole("alert").textContent).toContain("invalid");
     });
   });
 });

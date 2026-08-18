@@ -20,7 +20,7 @@ import type { ReactNode } from "react";
 import { defaultTranslations } from "../i18n";
 import { makePublicDeletionGate } from "../public-deletion-gate";
 
-const resolver = createStaticLocaleResolver({ locale: "de" });
+const resolver = createStaticLocaleResolver({ locale: "en" });
 const stubDispatcher = {
   write: async () => ({ isSuccess: true, data: {} }),
 } as unknown as Dispatcher;
@@ -57,7 +57,7 @@ describe("makePublicDeletionGate", () => {
         <div data-testid="app">APP</div>
       </Gate>,
     );
-    expect(ui.getByText(/beantragen/)).toBeTruthy();
+    expect(ui.getByText(/Request account deletion/)).toBeTruthy();
     expect(ui.queryByTestId("app")).toBeNull();
   });
 
@@ -69,7 +69,7 @@ describe("makePublicDeletionGate", () => {
         <div data-testid="app">APP</div>
       </Gate>,
     );
-    expect(ui.getByText(/bestätigen/)).toBeTruthy();
+    expect(ui.getByText(/Confirm account deletion/)).toBeTruthy();
     expect(ui.queryByTestId("app")).toBeNull();
   });
 
@@ -82,7 +82,7 @@ describe("makePublicDeletionGate", () => {
       </Gate>,
     );
     expect(ui.getByTestId("app")).toBeTruthy();
-    expect(ui.queryByText(/beantragen/)).toBeNull();
+    expect(ui.queryByText(/Request account deletion/)).toBeNull();
   });
 
   test("custom shell wraps the matched screen", () => {
@@ -97,6 +97,6 @@ describe("makePublicDeletionGate", () => {
       </Gate>,
     );
     const shell = ui.getByTestId("shell");
-    expect(within(shell).getByText(/beantragen/)).toBeTruthy();
+    expect(within(shell).getByText(/Request account deletion/)).toBeTruthy();
   });
 });

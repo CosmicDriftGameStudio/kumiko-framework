@@ -12,7 +12,7 @@ import { DateInput } from "../../src/primitives/date-input";
 
 // "de" — DateInput below is mounted with locale="de-DE" (German calendar
 // labels are what the specs assert against).
-const localeResolver = createStaticLocaleResolver({ locale: "de" });
+const localeResolver = createStaticLocaleResolver({ locale: "en" });
 
 function DateTestPageInner(): ReactNode {
   const [value, setValue] = useState("2021-01-01");

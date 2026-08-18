@@ -5,7 +5,6 @@ import { AuthHandlers } from "../../auth-email-password/constants";
 import { createConfigFeature } from "../../config/feature";
 import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../constants";
 import { createTenantFeature } from "../feature";
-import { defaultTranslations } from "../web/i18n";
 
 describe("tenant members screen + handler access alignment", () => {
   const features = [createConfigFeature(), createTenantFeature()];
@@ -38,7 +37,6 @@ describe("tenant members screen + handler access alignment", () => {
   test("members nav label uses tenantClient i18n key (not feature:nav.* alias)", () => {
     const nav = createTenantFeature().navs["members"];
     expect(nav?.label).toBe("tenant.nav.members");
-    expect(defaultTranslations["de"]?.["tenant.nav.members"]).toBe("Team");
   });
 
   test("updateMemberRoles stays SystemAdmin/system-only (not on members screen)", () => {

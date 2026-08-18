@@ -1,33 +1,45 @@
-// Default-HTML-Renderer fuer die GDPR-Notification-Mails (Export-bereit,
-// Export-fehlgeschlagen, Loeschung-angefordert, Loeschung-ausgefuehrt).
-// Damit eine App keine eigenen send*Email-Callbacks schreiben muss: sie
-// mountet mail-foundation + einen mail-transport-* und user-data-rights
-// rendert + versendet ueber diese Templates (siehe lib/default-mailers.ts).
-//
-// Apps die ihr eigenes Branding wollen, uebergeben eigene send*Email-Opts —
-// dann greifen diese Defaults nicht. Pattern + plain-inline-HTML gespiegelt
-// von auth-email-password/email-templates.ts (kein CSS-Framework, kein
-// Bild-Asset; Mail-Clients rendern table-layout + inline-CSS verlaesslich).
-//
-// Locale: de + en. Apps mit anderen Sprachen uebergeben eigene Callbacks.
+// Default HTML renderers for GDPR notification mails. English ships here;
+// other languages register via @cosmicdrift/kumiko-locale-* (localeDe() /
+// localeEs() call registerMailTranslations). Apps that want their own
+// branding pass send*Email callbacks and these defaults do not run.
 
+import { mailT, registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "temporal-polyfill";
 
-export type GdprMailLocale = "de" | "en";
+export type GdprMailLocale = string;
 
-// user.locale ist Freitext ("de", "en", "de-DE", "fr", null). Die Templates
-// koennen nur de/en — alles andere (inkl. unbekannte Sprachen) faellt auf
-// undefined zurueck, sodass der Caller auf mailDefaults.locale bzw. "en" geht.
 export function normalizeGdprMailLocale(
   raw: string | null | undefined,
 ): GdprMailLocale | undefined {
   if (!raw) return undefined;
-  const lower = raw.toLowerCase();
-  if (lower.startsWith("de")) return "de";
-  if (lower.startsWith("en")) return "en";
-  return undefined;
+  const root = raw.toLowerCase().split("-")[0];
+  return root && root.length > 0 ? root : undefined;
 }
+
+const GDPR_MAIL_EN: Readonly<Record<string, string>> = {
+  "gdpr.mail.appNameDefault": "Account",
+  "gdpr.mail.greeting": "Hi,",
+  "gdpr.mail.exportReady.subject": "{app} — Your data export is ready",
+  "gdpr.mail.exportReady.intro":
+    "your requested data export for {app} is ready. Download it using the link below:",
+  "gdpr.mail.exportReady.button": "Download data export",
+  "gdpr.mail.exportReady.expiry": "The download link expires on {when}.",
+  "gdpr.mail.exportFailed.subject": "{app} — Your data export failed",
+  "gdpr.mail.exportFailed.intro":
+    "your requested data export for {app} could not be created. Please request the export again.",
+  "gdpr.mail.deletionRequested.subject": "{app} — Account deletion requested",
+  "gdpr.mail.deletionRequested.intro":
+    "we received your request to delete your {app} account. Your account and associated data will be permanently deleted on {when}.",
+  "gdpr.mail.deletionRequested.cancel":
+    "If you didn't request this, sign in and cancel the deletion in your account settings before the deadline.",
+  "gdpr.mail.deletionExecuted.subject": "{app} — Your account has been deleted",
+  "gdpr.mail.deletionExecuted.intro":
+    "your {app} account and the associated personal data were deleted on {when}. This action is permanent.",
+  "gdpr.mail.fallbackUrl": "If the button doesn't work, copy this link into your browser:",
+};
+
+registerMailTranslations("en", GDPR_MAIL_EN);
 
 export type RenderedEmail = {
   readonly subject: string;
@@ -58,76 +70,35 @@ export type RenderDeletionExecutedEmailArgs = {
   readonly appName?: string;
 };
 
-const STRINGS = {
-  de: {
-    greeting: "Hallo,",
-    exportReadySubject: (app: string) => `${app} — Dein Datenexport ist bereit`,
-    exportReadyIntro: (app: string) =>
-      `dein angeforderter Datenexport fuer ${app} ist fertig. Lade ihn ueber den folgenden Link herunter:`,
-    exportReadyButton: "Datenexport herunterladen",
-    exportReadyExpiry: (when: string) => `Der Download-Link laeuft am ${when} ab.`,
-    exportFailedSubject: (app: string) => `${app} — Dein Datenexport ist fehlgeschlagen`,
-    exportFailedIntro: (app: string) =>
-      `dein angeforderter Datenexport fuer ${app} konnte leider nicht erstellt werden. Bitte fordere den Export erneut an.`,
-    deletionRequestedSubject: (app: string) => `${app} — Loeschung deines Kontos angefordert`,
-    deletionRequestedIntro: (app: string, when: string) =>
-      `wir haben deinen Antrag zur Loeschung deines ${app}-Kontos erhalten. Dein Konto und die zugehoerigen Daten werden am ${when} endgueltig geloescht.`,
-    deletionRequestedCancel:
-      "Falls du das nicht angefordert hast, melde dich an und brich die Loeschung in den Kontoeinstellungen ab, bevor die Frist ablaeuft.",
-    deletionExecutedSubject: (app: string) => `${app} — Dein Konto wurde geloescht`,
-    deletionExecutedIntro: (app: string, when: string) =>
-      `dein ${app}-Konto und die zugehoerigen personenbezogenen Daten wurden am ${when} geloescht. Diese Aktion ist endgueltig.`,
-    fallbackUrl: "Falls der Button nicht funktioniert, kopiere diesen Link in den Browser:",
-  },
-  en: {
-    greeting: "Hi,",
-    exportReadySubject: (app: string) => `${app} — Your data export is ready`,
-    exportReadyIntro: (app: string) =>
-      `your requested data export for ${app} is ready. Download it using the link below:`,
-    exportReadyButton: "Download data export",
-    exportReadyExpiry: (when: string) => `The download link expires on ${when}.`,
-    exportFailedSubject: (app: string) => `${app} — Your data export failed`,
-    exportFailedIntro: (app: string) =>
-      `your requested data export for ${app} could not be created. Please request the export again.`,
-    deletionRequestedSubject: (app: string) => `${app} — Account deletion requested`,
-    deletionRequestedIntro: (app: string, when: string) =>
-      `we received your request to delete your ${app} account. Your account and associated data will be permanently deleted on ${when}.`,
-    deletionRequestedCancel:
-      "If you didn't request this, sign in and cancel the deletion in your account settings before the deadline.",
-    deletionExecutedSubject: (app: string) => `${app} — Your account has been deleted`,
-    deletionExecutedIntro: (app: string, when: string) =>
-      `your ${app} account and the associated personal data were deleted on ${when}. This action is permanent.`,
-    fallbackUrl: "If the button doesn't work, copy this link into your browser:",
-  },
-} as const;
+function t(locale: string, key: string, params?: Readonly<Record<string, string>>): string {
+  return mailT(locale, key, params);
+}
 
 function appNameFor(args: { locale?: GdprMailLocale; appName?: string }): string {
   const locale = args.locale ?? "en";
-  return args.appName ?? (locale === "de" ? "Konto" : "Account");
+  return args.appName ?? t(locale, "gdpr.mail.appNameDefault");
 }
 
 export function renderExportReadyEmail(args: RenderExportReadyEmailArgs): RenderedEmail {
   const locale = args.locale ?? "en";
   const app = appNameFor(args);
-  const t = STRINGS[locale];
-  const subject = t.exportReadySubject(app);
+  const subject = t(locale, "gdpr.mail.exportReady.subject", { app });
   const body = `
-    <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t.greeting)}</p>
-    <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.5;">${escapeHtml(t.exportReadyIntro(app))}</p>
-    <p style="margin: 0 0 24px;">${renderButton({ url: args.downloadUrl, label: t.exportReadyButton })}</p>
-    <p style="margin: 0 0 8px; font-size: 13px; color: #555;">${escapeHtml(t.exportReadyExpiry(formatTimestamp(args.expiresAt)))}</p>
-    ${renderFallbackUrl({ url: args.downloadUrl, label: t.fallbackUrl })}`;
+    <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t(locale, "gdpr.mail.greeting"))}</p>
+    <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.5;">${escapeHtml(t(locale, "gdpr.mail.exportReady.intro", { app }))}</p>
+    <p style="margin: 0 0 24px;">${renderButton({ url: args.downloadUrl, label: t(locale, "gdpr.mail.exportReady.button") })}</p>
+    <p style="margin: 0 0 8px; font-size: 13px; color: #555;">${escapeHtml(t(locale, "gdpr.mail.exportReady.expiry", { when: formatTimestamp(args.expiresAt) }))}</p>
+    ${renderFallbackUrl({ url: args.downloadUrl, label: t(locale, "gdpr.mail.fallbackUrl") })}`;
   return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
 }
 
 export function renderExportFailedEmail(args: RenderExportFailedEmailArgs): RenderedEmail {
   const locale = args.locale ?? "en";
   const app = appNameFor(args);
-  const t = STRINGS[locale];
-  const subject = t.exportFailedSubject(app);
+  const subject = t(locale, "gdpr.mail.exportFailed.subject", { app });
   const body = `
-    <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t.greeting)}</p>
-    <p style="margin: 0; font-size: 14px; line-height: 1.5;">${escapeHtml(t.exportFailedIntro(app))}</p>`;
+    <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t(locale, "gdpr.mail.greeting"))}</p>
+    <p style="margin: 0; font-size: 14px; line-height: 1.5;">${escapeHtml(t(locale, "gdpr.mail.exportFailed.intro", { app }))}</p>`;
   return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
 }
 
@@ -136,23 +107,23 @@ export function renderDeletionRequestedEmail(
 ): RenderedEmail {
   const locale = args.locale ?? "en";
   const app = appNameFor(args);
-  const t = STRINGS[locale];
-  const subject = t.deletionRequestedSubject(app);
+  const when = formatTimestamp(args.gracePeriodEnd);
+  const subject = t(locale, "gdpr.mail.deletionRequested.subject", { app });
   const body = `
-    <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t.greeting)}</p>
-    <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.5;">${escapeHtml(t.deletionRequestedIntro(app, formatTimestamp(args.gracePeriodEnd)))}</p>
-    <p style="margin: 0; font-size: 13px; color: #555;">${escapeHtml(t.deletionRequestedCancel)}</p>`;
+    <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t(locale, "gdpr.mail.greeting"))}</p>
+    <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.5;">${escapeHtml(t(locale, "gdpr.mail.deletionRequested.intro", { app, when }))}</p>
+    <p style="margin: 0; font-size: 13px; color: #555;">${escapeHtml(t(locale, "gdpr.mail.deletionRequested.cancel"))}</p>`;
   return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
 }
 
 export function renderDeletionExecutedEmail(args: RenderDeletionExecutedEmailArgs): RenderedEmail {
   const locale = args.locale ?? "en";
   const app = appNameFor(args);
-  const t = STRINGS[locale];
-  const subject = t.deletionExecutedSubject(app);
+  const when = formatTimestamp(args.executedAt);
+  const subject = t(locale, "gdpr.mail.deletionExecuted.subject", { app });
   const body = `
-    <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t.greeting)}</p>
-    <p style="margin: 0; font-size: 14px; line-height: 1.5;">${escapeHtml(t.deletionExecutedIntro(app, formatTimestamp(args.executedAt)))}</p>`;
+    <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t(locale, "gdpr.mail.greeting"))}</p>
+    <p style="margin: 0; font-size: 14px; line-height: 1.5;">${escapeHtml(t(locale, "gdpr.mail.deletionExecuted.intro", { app, when }))}</p>`;
   return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
 }
 
@@ -160,11 +131,9 @@ function wrapCell(bodyHtml: string): string {
   return `<tr><td>${bodyHtml}</td></tr>`;
 }
 
-// Plain inline-styled HTML — gespiegelt von auth-email-password.
-// guard:dup-ok — Email-HTML (table-layout, inline CSS) ≠ Web-HTML (legal-pages/markdown.ts)
 function renderShell(args: { title: string; bodyHtml: string; locale: GdprMailLocale }): string {
   return `<!DOCTYPE html>
-<html lang="${args.locale}">
+<html lang="${escapeHtmlAttr(args.locale)}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -184,19 +153,14 @@ function renderShell(args: { title: string; bodyHtml: string; locale: GdprMailLo
 </html>`;
 }
 
-// guard:dup-ok — Email-HTML-Helper; selbe normalisierte AST-Form wie auth-email-password, verschiedene Semantik
 function renderButton(args: { url: string; label: string }): string {
   return `<a href="${escapeHtmlAttr(args.url)}" style="display: inline-block; background: #1a1a1a; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">${escapeHtml(args.label)}</a>`;
 }
 
-// guard:dup-ok — Email-HTML-Helper; selbe normalisierte AST-Form wie auth-email-password, verschiedene Semantik
 function renderFallbackUrl(args: { url: string; label: string }): string {
   return `<p style="margin: 24px 0 0; font-size: 12px; color: #666;">${escapeHtml(args.label)}<br /><a href="${escapeHtmlAttr(args.url)}" style="color: #1a1a1a; word-break: break-all;">${escapeHtml(args.url)}</a></p>`;
 }
 
-// ISO-Timestamp → "2026-05-04 13:45 UTC". Locale-unabhaengig + UTC-Suffix
-// damit der User unabhaengig von seiner Tz sieht wann etwas passiert; bei
-// un-parsbarem Input faellt's auf den raw-string zurueck.
 function formatTimestamp(iso: string): string {
   try {
     const z = Temporal.Instant.from(iso).toZonedDateTimeISO("UTC");

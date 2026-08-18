@@ -17,7 +17,7 @@ function renderScreen(ui: ReactElement, session = makeSessionApi()): RenderResul
   return render(
     <PrimitivesProvider value={defaultPrimitives}>
       <LocaleProvider
-        resolver={createStaticLocaleResolver({ locale: "de" })}
+        resolver={createStaticLocaleResolver({ locale: "en" })}
         fallbackBundles={[defaultTranslations]}
       >
         <SessionContext.Provider value={session}>{ui}</SessionContext.Provider>
@@ -31,9 +31,9 @@ installFetchMock();
 describe("MfaVerifyScreen", () => {
   test("rendert Titel + Code-Feld + Submit-Button (de)", () => {
     void renderScreen(<MfaVerifyScreen challengeToken="challenge-1" />);
-    expect(screen.getByText("Zwei-Faktor-Bestätigung")).toBeTruthy();
+    expect(screen.getByText("Two-factor verification")).toBeTruthy();
     expect(screen.getByLabelText(/^Code/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Bestätigen" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Verify" })).toBeTruthy();
   });
 
   test("richtiger Code → ruft session.refresh() + onSuccess()", async () => {
@@ -56,7 +56,7 @@ describe("MfaVerifyScreen", () => {
     );
 
     fireEvent.change(screen.getByLabelText(/^Code/), { target: { value: "123456" } });
-    fireEvent.click(screen.getByRole("button", { name: "Bestätigen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
 
     await waitFor(() => {
       expect(session.refresh).toHaveBeenCalled();
@@ -74,23 +74,23 @@ describe("MfaVerifyScreen", () => {
     void renderScreen(<MfaVerifyScreen challengeToken="challenge-1" />);
 
     fireEvent.change(screen.getByLabelText(/^Code/), { target: { value: "000000" } });
-    fireEvent.click(screen.getByRole("button", { name: "Bestätigen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Ungültiger Code. Bitte erneut versuchen.")).toBeTruthy();
+      expect(screen.getByText("Invalid code. Please try again.")).toBeTruthy();
     });
   });
 
-  test("onCancel gesetzt → 'Zurück zum Login'-Button vorhanden, klick ruft onCancel", () => {
+  test("onCancel gesetzt → 'Back to login'-Button vorhanden, klick ruft onCancel", () => {
     const onCancel = mock(() => {});
     void renderScreen(<MfaVerifyScreen challengeToken="challenge-1" onCancel={onCancel} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Zurück zum Login" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to login" }));
     expect(onCancel).toHaveBeenCalled();
   });
 
-  test("ohne onCancel → kein 'Zurück zum Login'-Button", () => {
+  test("ohne onCancel → kein 'Back to login'-Button", () => {
     void renderScreen(<MfaVerifyScreen challengeToken="challenge-1" />);
-    expect(screen.queryByRole("button", { name: "Zurück zum Login" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Back to login" })).toBeNull();
   });
 });

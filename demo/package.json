@@ -18,6 +18,7 @@
     "@cosmicdrift/kumiko-bundled-features": "*",
     "@cosmicdrift/kumiko-dev-server": "*",
     "@cosmicdrift/kumiko-framework": "*",
+    "@cosmicdrift/kumiko-locale-de": "*",
     "@cosmicdrift/kumiko-renderer-web": "*",
     "@cosmicdrift/kumiko-server-runtime": "*",
     "react": "^19.2.6",

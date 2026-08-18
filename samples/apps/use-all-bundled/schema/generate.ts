@@ -93,6 +93,12 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/auth-email-password",
     factory: "createAuthSelfRegistrationToggleFeature",
   },
+  // Opt-in German copy. No r.entity — listed for schema-check ↔ mounted-set.
+  "locale-de": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-locale-de",
+    factory: "localeDe",
+  },
   "auth-mfa": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/auth-mfa",

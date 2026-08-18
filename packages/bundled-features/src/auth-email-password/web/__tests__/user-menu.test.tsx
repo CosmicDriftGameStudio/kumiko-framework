@@ -49,7 +49,7 @@ describe("UserMenu", () => {
     const session = makeSessionApi();
     renderWithProviders(<UserMenu />, { session });
     await user.click(screen.getByRole("button", { name: /Test User/ }));
-    expect(screen.getByText("Abmelden")).toBeTruthy();
+    expect(screen.getByText("Sign out")).toBeTruthy();
     expect(screen.getByText("user@example.com")).toBeTruthy();
   });
   test("logout-click triggers session.logout", async () => {
@@ -57,7 +57,7 @@ describe("UserMenu", () => {
     const session = makeSessionApi();
     renderWithProviders(<UserMenu />, { session });
     await user.click(screen.getByRole("button", { name: /Test User/ }));
-    await user.click(screen.getByText("Abmelden"));
+    await user.click(screen.getByText("Sign out"));
     expect(session.logout).toHaveBeenCalledTimes(1);
   });
   test("sidebar variant: NavUser-Row zeigt Name + Email, Dropdown trägt Logout", async () => {
@@ -75,6 +75,6 @@ describe("UserMenu", () => {
     expect(screen.getByText("Alice Wonder")).toBeTruthy();
     expect(screen.getByText("alice@example.com")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: /Alice Wonder/ }));
-    expect(screen.getByText("Abmelden")).toBeTruthy();
+    expect(screen.getByText("Sign out")).toBeTruthy();
   });
 });

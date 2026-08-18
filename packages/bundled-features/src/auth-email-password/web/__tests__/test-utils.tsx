@@ -21,7 +21,7 @@ import { SessionContext } from "../session";
 // ihn pro Mount sonst neu konstruiert (~0.5ms × N Tests). Tests die
 // einen *anderen* Locale brauchen, übergeben ihren eigenen Resolver
 // über options.resolver.
-const sharedDeResolver = createStaticLocaleResolver({ locale: "de" });
+const sharedEnResolver = createStaticLocaleResolver({ locale: "en" });
 export type MakeSessionApiOptions = Partial<SessionState> & {
   readonly login?: SessionApi["login"];
   readonly logout?: SessionApi["logout"];
@@ -66,7 +66,7 @@ export function renderWithProviders(
     readonly session?: SessionApi;
   } = {},
 ): RenderResult & { readonly session: SessionApi } {
-  const resolver = options.resolver ?? sharedDeResolver;
+  const resolver = options.resolver ?? sharedEnResolver;
   const session = options.session ?? makeSessionApi();
   const result = _render(
     <PrimitivesProvider value={defaultPrimitives}>

@@ -1,12 +1,8 @@
 // @runtime client
-import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
+import {
+  type TranslationsByLocale,
+  translationsByLocaleFromKeys,
+} from "@cosmicdrift/kumiko-renderer";
 import { AUDIT_I18N } from "../i18n";
 
-const LOCALES = ["de", "en", "es"] as const;
-
-export const defaultTranslations: TranslationsByLocale = Object.fromEntries(
-  LOCALES.map((locale) => [
-    locale,
-    Object.fromEntries(Object.entries(AUDIT_I18N).map(([key, value]) => [key, value[locale]])),
-  ]),
-);
+export const defaultTranslations: TranslationsByLocale = translationsByLocaleFromKeys(AUDIT_I18N);

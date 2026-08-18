@@ -9,16 +9,11 @@
 // Server-Form) in die locale-first TranslationsByLocale-Form die der Client
 // erwartet — kein Key-Duplikat, kein Drift.
 
-import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
+import {
+  type TranslationsByLocale,
+  translationsByLocaleFromKeys,
+} from "@cosmicdrift/kumiko-renderer";
 import { MANAGED_PAGES_I18N } from "../i18n";
 
-const LOCALES = ["de", "en", "es"] as const;
-
-export const defaultTranslations: TranslationsByLocale = Object.fromEntries(
-  LOCALES.map((locale) => [
-    locale,
-    Object.fromEntries(
-      Object.entries(MANAGED_PAGES_I18N).map(([key, value]) => [key, value[locale]]),
-    ),
-  ]),
-);
+export const defaultTranslations: TranslationsByLocale =
+  translationsByLocaleFromKeys(MANAGED_PAGES_I18N);

@@ -511,10 +511,11 @@ describe("DataTable", () => {
     test("de-Locale: Status-Text + aria-Labels kommen aus i18n statt hartcodiertem Englisch (issue #2007)", async () => {
       const { LocaleProvider, createStaticLocaleResolver, kumikoDefaultTranslations } =
         await import("@cosmicdrift/kumiko-renderer");
+      const { localeDeBundle } = await import("@cosmicdrift/kumiko-locale-de");
       render(
         <LocaleProvider
           resolver={createStaticLocaleResolver({ locale: "de" })}
-          fallbackBundles={[kumikoDefaultTranslations]}
+          fallbackBundles={[{ de: localeDeBundle }, kumikoDefaultTranslations]}
         >
           <DataTable
             columns={cols}
@@ -655,10 +656,11 @@ describe("DataTable", () => {
     test("hasMore=false + de-Locale: Marker kommt aus i18n statt hartcodiert", async () => {
       const { LocaleProvider, createStaticLocaleResolver, kumikoDefaultTranslations } =
         await import("@cosmicdrift/kumiko-renderer");
+      const { localeDeBundle } = await import("@cosmicdrift/kumiko-locale-de");
       render(
         <LocaleProvider
           resolver={createStaticLocaleResolver({ locale: "de" })}
-          fallbackBundles={[kumikoDefaultTranslations]}
+          fallbackBundles={[{ de: localeDeBundle }, kumikoDefaultTranslations]}
         >
           <DataTable
             columns={cols}

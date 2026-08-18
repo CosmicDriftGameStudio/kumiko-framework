@@ -24,7 +24,7 @@ test.describe("DateInput calendar (#369) im echten Browser", () => {
   test("Header nicht doppelt: genau 2 Selects, kein aria-hidden Jahres-Label daneben", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "Kalender öffnen" }).click();
+    await page.getByRole("button", { name: "Open calendar" }).click();
     await expect(page.getByRole("grid")).toBeVisible();
 
     // captionLayout="dropdown" → ein Monats- + ein Jahres-<select>.
@@ -46,7 +46,7 @@ test.describe("DateInput calendar (#369) im echten Browser", () => {
   });
 
   test("Jahres-Dropdown: Sprung auf 2030 ohne Monats-Klicken", async ({ page }) => {
-    await page.getByRole("button", { name: "Kalender öffnen" }).click();
+    await page.getByRole("button", { name: "Open calendar" }).click();
     await expect(page.getByRole("grid")).toBeVisible();
 
     // Das Jahres-Select ist das mit der 2030-Option (defaultRange reicht

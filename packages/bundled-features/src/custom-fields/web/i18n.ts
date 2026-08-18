@@ -1,7 +1,7 @@
 // @runtime client
 // Default translation bundle for the custom-fields UI. customFieldsClient()
 // hangs it into the LocaleProvider as a fallback bundle — apps override
-// individual keys via `customFieldsClient({ translations: { de: { ... } } })`.
+// individual keys via `customFieldsClient({ translations })`.
 //
 // Keys follow `custom-fields.<area>.<slug>`. `custom-fields.errors.saveFailed`
 // is a LOCAL fallback only — server handlers emit generic error i18nKeys
@@ -11,14 +11,6 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "custom-fields.form.createMode": "Speichere zuerst den Eintrag, um Custom-Felder zu setzen.",
-    "custom-fields.form.loading": "Lädt…",
-    "custom-fields.form.empty": 'Keine Custom-Felder für "{entityName}" definiert.',
-    "custom-fields.form.save": "Custom-Felder speichern",
-    "custom-fields.form.saving": "Speichert…",
-    "custom-fields.errors.saveFailed": "Speichern fehlgeschlagen.",
-  },
   en: {
     "custom-fields.form.createMode": "Save the entity first to add custom field values.",
     "custom-fields.form.loading": "Loading…",
@@ -26,14 +18,5 @@ export const defaultTranslations: TranslationsByLocale = {
     "custom-fields.form.save": "Save custom fields",
     "custom-fields.form.saving": "Saving…",
     "custom-fields.errors.saveFailed": "Save failed.",
-  },
-  es: {
-    "custom-fields.form.createMode":
-      "Guarda primero la entrada para poder definir los campos personalizados.",
-    "custom-fields.form.loading": "Cargando…",
-    "custom-fields.form.empty": 'No hay campos personalizados definidos para "{entityName}".',
-    "custom-fields.form.save": "Guardar campos personalizados",
-    "custom-fields.form.saving": "Guardando…",
-    "custom-fields.errors.saveFailed": "Error al guardar.",
   },
 };

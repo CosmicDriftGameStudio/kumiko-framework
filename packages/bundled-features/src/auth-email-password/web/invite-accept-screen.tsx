@@ -157,7 +157,9 @@ export function InviteAcceptScreen({
 
         {mode === "loggedin" ? (
           <Form onSubmit={onSubmit}>
-            <p className="text-sm">{t("auth.inviteAccept.loggedInAs")}</p>
+            <p className="text-sm">
+              {t("auth.inviteAccept.loggedInAs", { email: session.user?.email ?? "" })}
+            </p>
             {error !== null && <Banner variant="error">{error}</Banner>}
             <Button type="submit" loading={submitting} disabled={submitting}>
               {submitting ? t("auth.inviteAccept.submitting") : t("auth.inviteAccept.acceptButton")}

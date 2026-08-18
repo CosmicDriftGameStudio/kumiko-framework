@@ -1,36 +1,11 @@
 // @runtime client
 // Default translation bundle for the folders UI. foldersClient() hangs it into
 // the LocaleProvider as a fallback bundle — apps override individual keys via
-// foldersClient({ translations: { de: { ... } } }). Keys follow `folders.<area>.<slug>`.
+// foldersClient({ translations }). Keys follow `folders.<area>.<slug>`.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "folders.section.createMode": "Speichere zuerst den Eintrag, um einen Ordner zu wählen.",
-    "folders.section.loading": "Lädt…",
-    "folders.section.label": "Ordner",
-    "folders.section.placeholder": "Ordner auswählen…",
-    "folders.section.empty": "Keine Ordner gefunden.",
-    "folders.section.none": "— Kein Ordner —",
-    "folders.section.newLabel": "Neuer Ordner",
-    "folders.section.create": "Ordner anlegen & ablegen",
-    "folders.section.working": "Speichert…",
-
-    "folders.manager.loading": "Lädt…",
-    "folders.manager.newRoot": "Neuer Ordner",
-    "folders.manager.add": "Anlegen",
-    "folders.manager.addChild": "Unterordner",
-    "folders.manager.rename": "Umbenennen",
-    "folders.manager.delete": "Löschen",
-    "folders.manager.save": "Speichern",
-    "folders.manager.cancel": "Abbrechen",
-    "folders.manager.working": "Speichert…",
-    "folders.manager.deleteBlocked": "Erst Unterordner entfernen.",
-    "folders.manager.deleteConfirmTitle": "Ordner löschen?",
-    "folders.manager.deleteConfirmBody":
-      "Der Ordner wird entfernt. Abgelegte Einträge wandern zurück zu „Ohne Ordner“.",
-  },
   en: {
     "folders.section.createMode": "Save the entity first to pick a folder.",
     "folders.section.loading": "Loading…",
@@ -55,30 +30,5 @@ export const defaultTranslations: TranslationsByLocale = {
     "folders.manager.deleteConfirmTitle": "Delete folder?",
     "folders.manager.deleteConfirmBody":
       "The folder will be removed. Filed entries move back to Unfiled.",
-  },
-  es: {
-    "folders.section.createMode": "Guarda primero la entrada para elegir una carpeta.",
-    "folders.section.loading": "Cargando…",
-    "folders.section.label": "Carpeta",
-    "folders.section.placeholder": "Selecciona una carpeta…",
-    "folders.section.empty": "No se encontraron carpetas.",
-    "folders.section.none": "— Sin carpeta —",
-    "folders.section.newLabel": "Nueva carpeta",
-    "folders.section.create": "Crear carpeta y archivar",
-    "folders.section.working": "Guardando…",
-
-    "folders.manager.loading": "Cargando…",
-    "folders.manager.newRoot": "Nueva carpeta",
-    "folders.manager.add": "Crear",
-    "folders.manager.addChild": "Subcarpeta",
-    "folders.manager.rename": "Renombrar",
-    "folders.manager.delete": "Eliminar",
-    "folders.manager.save": "Guardar",
-    "folders.manager.cancel": "Cancelar",
-    "folders.manager.working": "Guardando…",
-    "folders.manager.deleteBlocked": "Elimina antes las subcarpetas.",
-    "folders.manager.deleteConfirmTitle": "¿Eliminar la carpeta?",
-    "folders.manager.deleteConfirmBody":
-      "La carpeta se eliminará. Las entradas archivadas volverán a Sin archivar.",
   },
 };

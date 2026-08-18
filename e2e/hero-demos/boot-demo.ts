@@ -42,6 +42,8 @@ const PACKAGE_DIRS: Readonly<Record<string, string>> = {
   "@cosmicdrift/kumiko-dispatcher-live": "packages/dispatcher-live",
   "@cosmicdrift/kumiko-framework": "packages/framework",
   "@cosmicdrift/kumiko-headless": "packages/headless",
+  "@cosmicdrift/kumiko-locale-de": "packages/locale-de",
+  "@cosmicdrift/kumiko-locale-es": "packages/locale-es",
   "@cosmicdrift/kumiko-renderer": "packages/renderer",
   "@cosmicdrift/kumiko-renderer-web": "packages/renderer-web",
   "@cosmicdrift/kumiko-server-runtime": "packages/server-runtime",

@@ -59,11 +59,10 @@ describe("DefaultField / errors.validation.* i18n", () => {
       "invalid_option",
       "failed",
     ];
-    for (const locale of ["de", "en"] as const) {
-      const bundle = kumikoDefaultTranslations[locale];
-      for (const code of codes) {
-        expect(bundle?.[`errors.validation.${code}`]).toBeString();
-      }
+    const { localeDeBundle } = await import("@cosmicdrift/kumiko-locale-de");
+    for (const code of codes) {
+      expect(kumikoDefaultTranslations["en"]?.[`errors.validation.${code}`]).toBeString();
+      expect(localeDeBundle[`errors.validation.${code}`]).toBeString();
     }
   });
 });

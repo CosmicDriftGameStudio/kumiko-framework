@@ -19,7 +19,7 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
     <PrimitivesProvider value={defaultPrimitives}>
       <LocaleProvider
-        resolver={createStaticLocaleResolver({ locale: "de" })}
+        resolver={createStaticLocaleResolver({ locale: "en" })}
         fallbackBundles={[defaultTranslations]}
       >
         {children}
@@ -60,9 +60,9 @@ describe("MfaSetupPreauthScreen", () => {
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
       </Wrapper>,
     );
-    expect(screen.getByText("Zwei-Faktor-Authentifizierung erforderlich")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Einrichtung starten" })).toBeTruthy();
-    expect(screen.queryByLabelText(/^Code aus der Authenticator-App/)).toBeNull();
+    expect(screen.getByText("Two-factor authentication required")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start setup" })).toBeTruthy();
+    expect(screen.queryByLabelText(/^Code from your authenticator app/)).toBeNull();
   });
 
   test("Start-Klick → postet preauthSetupToken+accountLabel, danach QR + Recovery-Codes", async () => {
@@ -74,7 +74,7 @@ describe("MfaSetupPreauthScreen", () => {
       </Wrapper>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -101,20 +101,20 @@ describe("MfaSetupPreauthScreen", () => {
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
       </Wrapper>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
       expect(screen.getByText("ABCD1234")).toBeTruthy();
     });
 
     const confirm = screen.getByRole("button", {
-      name: "Einrichtung abschließen",
+      name: "Complete setup",
     }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
 
-    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
+    fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
     expect(confirm.disabled).toBe(true);
 
-    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+    fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "123456" },
     });
     expect(confirm.disabled).toBe(false);
@@ -131,17 +131,17 @@ describe("MfaSetupPreauthScreen", () => {
         />
       </Wrapper>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
       expect(screen.getByText("ABCD1234")).toBeTruthy();
     });
-    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
-    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+    fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
+    fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "123456" },
     });
 
     const fetchMock = globalThis.fetch as unknown as ReturnType<typeof mock>;
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung abschließen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Complete setup" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -167,15 +167,15 @@ describe("MfaSetupPreauthScreen", () => {
       </Wrapper>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Zwei-Faktor-Authentifizierung ist bereits aktiv.")).toBeTruthy();
+      expect(screen.getByText("Two-factor authentication is already enabled.")).toBeTruthy();
     });
     expect(screen.queryByText("ABCD1234")).toBeNull();
   });
 
-  test("onCancel gesetzt → 'Zurück zum Login'-Button vorhanden, klick ruft onCancel", () => {
+  test("onCancel gesetzt → 'Back to login'-Button vorhanden, klick ruft onCancel", () => {
     const onCancel = mock(() => {});
     render(
       <Wrapper>
@@ -187,17 +187,17 @@ describe("MfaSetupPreauthScreen", () => {
       </Wrapper>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Zurück zum Login" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to login" }));
     expect(onCancel).toHaveBeenCalled();
   });
 
-  test("ohne onCancel → kein 'Zurück zum Login'-Button", () => {
+  test("ohne onCancel → kein 'Back to login'-Button", () => {
     render(
       <Wrapper>
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
       </Wrapper>,
     );
-    expect(screen.queryByRole("button", { name: "Zurück zum Login" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Back to login" })).toBeNull();
   });
 
   test("confirm schlägt mit invalid_totp_code fehl → übersetztes Banner, onSuccess NICHT gefeuert, Formular weiter bedienbar", async () => {
@@ -220,24 +220,24 @@ describe("MfaSetupPreauthScreen", () => {
         />
       </Wrapper>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
       expect(screen.getByText("ABCD1234")).toBeTruthy();
     });
-    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
-    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+    fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
+    fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "000000" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung abschließen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Complete setup" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Ungültiger Code. Bitte erneut versuchen.")).toBeTruthy();
+      expect(screen.getByText("Invalid code. Please try again.")).toBeTruthy();
     });
     expect(onSuccess).not.toHaveBeenCalled();
     // Form stays usable — QR/recovery section is still there, a retry is possible.
     expect(screen.getByText("ABCD1234")).toBeTruthy();
     const confirm = screen.getByRole("button", {
-      name: "Einrichtung abschließen",
+      name: "Complete setup",
     }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(false);
   });
@@ -261,24 +261,22 @@ describe("MfaSetupPreauthScreen", () => {
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
       </Wrapper>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
       expect(screen.getByText("ABCD1234")).toBeTruthy();
     });
-    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
-    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+    fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
+    fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "123456" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung abschließen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Complete setup" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Die Einrichtung ist abgelaufen. Bitte erneut starten."),
-      ).toBeTruthy();
+      expect(screen.getByText("Setup expired. Please start again.")).toBeTruthy();
     });
     // The actual fix: intro re-appears with a working start button, the QR/
     // recovery-codes section from the dead setup is gone.
-    expect(screen.getByRole("button", { name: "Einrichtung starten" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start setup" })).toBeTruthy();
     expect(screen.queryByText("ABCD1234")).toBeNull();
   });
 
@@ -297,18 +295,18 @@ describe("MfaSetupPreauthScreen", () => {
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
       </Wrapper>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
       expect(screen.getByText("ABCD1234")).toBeTruthy();
     });
-    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
-    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+    fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
+    fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "123456" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung abschließen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Complete setup" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Einrichtung starten" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Start setup" })).toBeTruthy();
     });
   });
 
@@ -334,21 +332,19 @@ describe("MfaSetupPreauthScreen", () => {
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
       </Wrapper>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
       expect(screen.getByText("ABCD1234")).toBeTruthy();
     });
-    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
-    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+    fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
+    fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "123456" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung abschließen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Complete setup" }));
 
     await waitFor(() => {
       expect(
-        screen.getByText(
-          "Zu viele Fehlversuche. Bitte in 42 Sekunden erneut versuchen oder neu einloggen.",
-        ),
+        screen.getByText("Too many failed attempts. Try again in 42 seconds, or sign in again."),
       ).toBeTruthy();
     });
   });
@@ -362,17 +358,17 @@ describe("MfaSetupPreauthScreen", () => {
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
       </Wrapper>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Einrichtung starten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
       expect(screen.getByText("ABCD1234")).toBeTruthy();
     });
-    fireEvent.click(screen.getByLabelText("Ich habe die Recovery-Codes gespeichert."));
-    fireEvent.change(screen.getByLabelText(/^Code aus der Authenticator-App/), {
+    fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
+    fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "1234567" },
     });
 
     const confirm = screen.getByRole("button", {
-      name: "Einrichtung abschließen",
+      name: "Complete setup",
     }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
   });

@@ -13,7 +13,7 @@ import { createStaticLocaleResolver } from "@cosmicdrift/kumiko-renderer";
 import { createPublicSurface } from "@cosmicdrift/kumiko-renderer-web";
 
 createPublicSurface({
-  locale: createStaticLocaleResolver({ locale: "de" }),
+  locale: createStaticLocaleResolver({ locale: "en" }),
   clientFeatures: [emailPasswordClient()],
   routes: [{ path: "/signup", component: <SignupScreen loginHref="/login" /> }],
   fallback: <SignupScreen loginHref="/login" />,

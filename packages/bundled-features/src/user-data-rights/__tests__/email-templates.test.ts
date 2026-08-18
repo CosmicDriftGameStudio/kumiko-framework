@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   renderDeletionExecutedEmail,
   renderDeletionRequestedEmail,
   renderExportFailedEmail,
   renderExportReadyEmail,
 } from "../email-templates";
+
+registerMailTranslations("de", localeDeBundle);
 
 describe("gdpr email-templates", () => {
   test("export-ready: subject + download-button + formatted expiry, de/en differ", () => {

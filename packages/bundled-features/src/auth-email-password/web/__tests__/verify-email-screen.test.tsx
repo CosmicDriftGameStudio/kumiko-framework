@@ -9,7 +9,7 @@ installFetchMock();
 describe("VerifyEmailScreen", () => {
   test("ohne Token → missing-token-Page", () => {
     renderWithProviders(<VerifyEmailScreen />);
-    expect(screen.getByText(/enthält keinen Token/i)).toBeTruthy();
+    expect(screen.getByText(/missing a token/i)).toBeTruthy();
   });
 
   test("mit Token + 200 → success-state nach auto-submit", async () => {
@@ -26,7 +26,7 @@ describe("VerifyEmailScreen", () => {
           body: JSON.stringify({ token: "t-abc" }),
         }),
       );
-      expect(screen.getByText("E-Mail bestätigt")).toBeTruthy();
+      expect(screen.getByText("Email verified")).toBeTruthy();
     });
   });
 
@@ -44,7 +44,7 @@ describe("VerifyEmailScreen", () => {
     renderWithProviders(<VerifyEmailScreen token="bad" />);
 
     await waitFor(() => {
-      expect(screen.getByText("Bestätigung fehlgeschlagen")).toBeTruthy();
+      expect(screen.getByText("Verification failed")).toBeTruthy();
     });
   });
 });

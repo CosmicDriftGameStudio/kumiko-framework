@@ -12,7 +12,9 @@
       "@cosmicdrift/kumiko-dispatcher-live",
       "@cosmicdrift/kumiko-headless",
       "@cosmicdrift/kumiko-renderer",
-      "@cosmicdrift/kumiko-renderer-web"
+      "@cosmicdrift/kumiko-renderer-web",
+      "@cosmicdrift/kumiko-locale-de",
+      "@cosmicdrift/kumiko-locale-es"
     ]
   ],
   "linked": [],

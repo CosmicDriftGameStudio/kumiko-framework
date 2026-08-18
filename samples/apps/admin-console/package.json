@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-sample-admin-console",
-  "description": "Bundled admin-shell sample — tenant vs platform workspaces with owner-feature screens.",
+  "description": "Bundled admin-shell sample \u2014 tenant vs platform workspaces with owner-feature screens.",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,6 +16,7 @@
     "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "lucide-react": "^1.14.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "@cosmicdrift/kumiko-locale-de": "workspace:*"
   }
 }

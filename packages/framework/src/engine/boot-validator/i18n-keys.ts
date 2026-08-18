@@ -1,7 +1,6 @@
 import {
   buildEffectiveTranslationKeys,
   featureHasI18nSurface,
-  findTranslationLocaleGaps,
   requiredKeysFromFeature,
   requiredKeysFromNav,
   requiredKeysFromScreen,
@@ -74,11 +73,5 @@ export function validateI18nSurfaceKeys(features: readonly FeatureDefinition[]):
     if (!hasDefinedTranslation(defined, key)) {
       throw new Error(`[i18n] Settings-Hub: required translation key missing: "${key}"`);
     }
-  }
-
-  for (const gap of findTranslationLocaleGaps(features)) {
-    throw new Error(
-      `[i18n] Feature "${gap.featureName}": key "${gap.key}" missing locale(s): ${gap.missingLocales.join(", ")}`,
-    );
   }
 }

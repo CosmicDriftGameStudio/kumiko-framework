@@ -1,3 +1,4 @@
+import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
 import { contentClient } from "../features/content/web";
 import { styleguideClient } from "../features/demo/web";
@@ -12,5 +13,12 @@ import { AppShell } from "./shell";
 // Screens (Shipping etc.).
 createKumikoApp({
   shell: AppShell,
-  clientFeatures: [styleguideClient, galleryClient, widgetsClient, examplesClient, contentClient()],
+  clientFeatures: [
+    localeDeClient(),
+    styleguideClient,
+    galleryClient,
+    widgetsClient,
+    examplesClient,
+    contentClient(),
+  ],
 });

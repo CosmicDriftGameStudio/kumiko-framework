@@ -14,9 +14,11 @@ import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secre
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { tasksFeature } from "./features/tasks";
 
 export const APP_FEATURES = [
+  localeDe(),
   createUserProfileFeature(),
   createUserDataRightsFeature(),
   createDataRetentionFeature(),

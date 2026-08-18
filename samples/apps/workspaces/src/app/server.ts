@@ -21,8 +21,10 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./auth-constants";
 // ui-walkthrough-Sample.
 const DEV_TENANT_ID = "00000000-0000-4000-8000-000000000010" as TenantId;
 
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+
 await runDevApp({
-  features: [demoFeature, driverFeature],
+  features: [localeDe(), demoFeature, driverFeature],
   // PORT env-var override für Playwright-e2e-Runs (config zeigt auf 4175);
   // sonst lokal-Default 4174.
   port: Number.parseInt(process.env["PORT"] ?? "4174", 10),

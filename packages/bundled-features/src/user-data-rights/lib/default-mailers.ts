@@ -11,6 +11,7 @@
 
 import type { EmailTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
+import { hasMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import {
   type GdprMailLocale,
   normalizeGdprMailLocale,
@@ -44,7 +45,9 @@ function localeFor(
   userLocale: string | null,
   defaults: GdprMailDefaults,
 ): GdprMailLocale | undefined {
-  return normalizeGdprMailLocale(userLocale) ?? defaults.locale;
+  const user = normalizeGdprMailLocale(userLocale);
+  if (user !== undefined && hasMailTranslations(user)) return user;
+  return defaults.locale;
 }
 
 export function makeDefaultExportReadyEmail(

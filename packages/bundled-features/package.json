@@ -159,6 +159,7 @@
   ],
   "devDependencies": {
     "@testing-library/user-event": "^14.6.1",
-    "@types/qrcode": "^1.5.5"
+    "@types/qrcode": "^1.5.5",
+    "@cosmicdrift/kumiko-locale-de": "workspace:*"
   }
 }

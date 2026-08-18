@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 67,
+  "featureCount": 68,
   "features": [
     {
       "name": "admin-shell",
@@ -1200,6 +1200,20 @@
         "category": "content",
         "recommended": false
       }
+    },
+    {
+      "name": "locale-de",
+      "description": "German UI and mail copy for framework screens. Opt-in; not included by includeBundled.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "mail-foundation",

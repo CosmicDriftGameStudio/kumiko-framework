@@ -1,16 +1,11 @@
 // @runtime client
 // Client pivot of ADMIN_SHELL_I18N — same keys as server r.translations bundle.
 
-import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
+import {
+  type TranslationsByLocale,
+  translationsByLocaleFromKeys,
+} from "@cosmicdrift/kumiko-renderer";
 import { ADMIN_SHELL_I18N } from "../i18n";
 
-const LOCALES = ["de", "en", "es"] as const;
-
-export const defaultTranslations: TranslationsByLocale = Object.fromEntries(
-  LOCALES.map((locale) => [
-    locale,
-    Object.fromEntries(
-      Object.entries(ADMIN_SHELL_I18N).map(([key, value]) => [key, value[locale]]),
-    ),
-  ]),
-);
+export const defaultTranslations: TranslationsByLocale =
+  translationsByLocaleFromKeys(ADMIN_SHELL_I18N);

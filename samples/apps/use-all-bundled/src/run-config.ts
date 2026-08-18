@@ -82,6 +82,7 @@ import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-eng
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { collectionLabelsFeature } from "./app/collection-labels-feature";
 
 // Smoke-only stubs. Boot-mode skipt jede operative Methode — diese werden
@@ -102,6 +103,7 @@ const stubRenderer: NotificationRenderer = {
 };
 
 export const APP_FEATURES = [
+  localeDe(),
   // foundations not in the auto-mounted bundled-set
   createSecretsFeature(),
   createSessionsFeature(),
