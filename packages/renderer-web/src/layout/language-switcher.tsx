@@ -1,17 +1,17 @@
-// LanguageSwitcher — Dropdown der die App-Locale via
-// LocaleResolver.setLocale umschaltet. Auf Radix-DropdownMenu, gleicher
-// Stack wie UserMenu/TenantSwitcher.
+// LanguageSwitcher — dropdown that switches the app locale via
+// LocaleResolver.setLocale. Built on Radix DropdownMenu, same stack
+// as UserMenu/TenantSwitcher.
 //
-// Rendert gar nix wenn der Resolver keine setLocale-Methode anbietet
-// (statischer Resolver) — App-Dev sieht dann sofort dass er einen
-// stateful Resolver verdrahten muss, bevor der Switcher UI-sichtbar
-// wird.
+// Renders nothing if the resolver doesn't offer a setLocale method
+// (static resolver) — the app dev then immediately sees they need to
+// wire up a stateful resolver before the switcher becomes visible in
+// the UI.
 //
-// Icon-Slot optional: das Framework zieht lucide-react nicht selbst
-// rein; eine App die keinen Icon-Import will, kriegt den Globe-
-// Unicode-Glyph (🌐) als Default.
+// Icon slot is optional: the framework doesn't pull in lucide-react
+// itself; an app that doesn't want an icon import gets the globe
+// unicode glyph (🌐) as default.
 
-import { useLocale } from "@cosmicdrift/kumiko-renderer";
+import { useLocale, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useMemo } from "react";
 import { cn } from "../lib/cn";
 import {
@@ -22,19 +22,19 @@ import {
 } from "../primitives/dropdown-menu";
 
 export type LocaleOption = {
-  /** BCP-47-Code, z.B. "de", "en-US", "fr-CA". Wird 1:1 an
-   *  resolver.setLocale() weitergereicht. */
+  /** BCP-47 code, e.g. "de", "en-US", "fr-CA". Passed through 1:1 to
+   *  resolver.setLocale(). */
   readonly code: string;
-  /** Menschenlesbare Anzeige im Dropdown. */
+  /** Human-readable label shown in the dropdown. */
   readonly label: string;
 };
 
 export type LanguageSwitcherProps = {
-  /** Auswählbare Locales. Reihenfolge = Anzeige-Reihenfolge im Menü. */
+  /** Selectable locales. Order = display order in the menu. */
   readonly locales: readonly LocaleOption[];
-  /** Icon-Slot links neben dem Button-Label. Default: 🌐. */
+  /** Icon slot left of the button label. Default: 🌐. */
   readonly icon?: ReactNode;
-  /** aria-label + title des Triggers. Default: "Sprache". */
+  /** aria-label + title of the trigger. Default: translated "kumiko.nav.language". */
   readonly label?: string;
   readonly testId?: string;
 };
@@ -42,15 +42,17 @@ export type LanguageSwitcherProps = {
 export function LanguageSwitcher({
   locales,
   icon = "🌐",
-  label = "Sprache",
+  label,
   testId,
 }: LanguageSwitcherProps): ReactNode {
   const resolver = useLocale();
+  const t = useTranslation();
+  const resolvedLabel = label ?? t("kumiko.nav.language");
 
   const activeLocale = resolver.locale();
-  // Match entweder exact ("de-DE") oder Language-Root ("de") gegen die
-  // verfügbaren Optionen. So zeigt der Switcher "Deutsch" aktiv wenn
-  // der Browser "de-AT" liefert und die Option nur "de" heißt.
+  // Matches either exact ("de-DE") or the language root ("de") against
+  // the available options. So the switcher shows "German" active when
+  // the browser reports "de-AT" but the option is just "de".
   const activeOption = useMemo(() => {
     const exact = locales.find((o) => o.code === activeLocale);
     if (exact) return exact;
@@ -59,7 +61,7 @@ export function LanguageSwitcher({
   }, [locales, activeLocale]);
 
   if (resolver.setLocale === undefined) {
-    // Stateless-Resolver → kein Wechsel möglich. Kein Noise im Topbar.
+    // Stateless resolver → no switching possible. No noise in the topbar.
     return null;
   }
 
@@ -70,8 +72,8 @@ export function LanguageSwitcher({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={label}
-          title={label}
+          aria-label={resolvedLabel}
+          title={resolvedLabel}
           data-testid={testId}
           className={cn(
             "inline-flex h-8 items-center gap-1.5 rounded-md border bg-background px-2 text-sm",
@@ -85,7 +87,7 @@ export function LanguageSwitcher({
           </span>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[10rem]" aria-label={label}>
+      <DropdownMenuContent align="end" className="min-w-[10rem]" aria-label={resolvedLabel}>
         {locales.map((opt) => (
           <DropdownMenuCheckboxItem
             key={opt.code}

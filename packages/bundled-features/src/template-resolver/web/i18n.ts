@@ -36,4 +36,18 @@ export const defaultTranslations: TranslationsByLocale = {
     "template-resolver.editor.readOnly":
       "Read-only — TenantAdmin or SystemAdmin role required to make changes.",
   },
+  es: {
+    "template-resolver.editor.titleLabel": "Título",
+    "template-resolver.editor.contentLabel": "Contenido",
+    "template-resolver.editor.save": "Guardar",
+    "template-resolver.editor.saving": "Guardando…",
+    "template-resolver.editor.created": "Creado.",
+    "template-resolver.editor.saved": "Guardado.",
+    "template-resolver.editor.saveFailed": "Error al guardar.",
+    "template-resolver.editor.networkError": "Error de red al guardar.",
+    "template-resolver.editor.loading": "Cargando versión actual…",
+    "template-resolver.editor.loadFailed": "No se pudo cargar el bloque",
+    "template-resolver.editor.readOnly":
+      "Solo lectura — se requiere el rol TenantAdmin o SystemAdmin para hacer cambios.",
+  },
 };

@@ -7,7 +7,7 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import { USER_DATA_RIGHTS_I18N } from "../i18n";
 
-const LOCALES = ["de", "en"] as const;
+const LOCALES = ["de", "en", "es"] as const;
 
 // Operator keys (export-job list/detail titles + entity field labels + nav)
 // live in the server i18n; the SystemAdmin entityList screens render them
@@ -167,9 +167,78 @@ const apexTranslations: TranslationsByLocale = {
     "userDataRights.errors.download.signedUrlNotSupported":
       "The download is currently unavailable due to a server configuration issue. The operator has been notified.",
   },
+  es: {
+    "userDataRights.deletion.request.title": "Solicitar la eliminación de la cuenta",
+    "userDataRights.deletion.request.intro":
+      "Introduce la dirección de correo de tu cuenta. Si existe una cuenta, te enviaremos un enlace de confirmación para eliminarla.",
+    "userDataRights.deletion.request.email": "Correo electrónico",
+    "userDataRights.deletion.request.submit": "Solicitar enlace de confirmación",
+    "userDataRights.deletion.request.submitting": "…",
+    "userDataRights.deletion.request.successTitle": "Correo enviado",
+    "userDataRights.deletion.request.successBody":
+      "Si el correo existe en nuestro sistema, te hemos enviado un mensaje con un enlace de confirmación. Revisa tu bandeja de entrada.",
+    "userDataRights.deletion.request.error": "Algo salió mal. Inténtalo de nuevo.",
+    "userDataRights.deletion.confirm.title": "Confirmar la eliminación de la cuenta",
+    "userDataRights.deletion.confirm.intro":
+      "Al confirmar se inicia el plazo de eliminación. Hasta que termine, puedes cancelarla iniciando sesión en tu cuenta.",
+    "userDataRights.deletion.confirm.submit": "Confirmar eliminación",
+    "userDataRights.deletion.confirm.submitting": "…",
+    "userDataRights.deletion.confirm.successTitle": "Eliminación programada",
+    "userDataRights.deletion.confirm.successBody":
+      "Tu cuenta se eliminará cuando finalice el plazo. Hasta entonces, puedes cancelar la eliminación iniciando sesión en tu cuenta.",
+    "userDataRights.deletion.confirm.invalidToken":
+      "El enlace no es válido o ha caducado. Solicita uno nuevo.",
+    "userDataRights.deletion.confirm.missingToken":
+      "No se encontró ningún token en el enlace. Abre de nuevo el enlace del correo.",
+    "userDataRights.deletion.confirm.error": "Algo salió mal. Inténtalo de nuevo.",
+
+    "userDataRights.privacyCenter.title": "Privacidad",
+    "userDataRights.privacyCenter.intro":
+      "Gestiona tus derechos según el RGPD: acceso a tus datos, exportación, limitación y eliminación de tu cuenta.",
+    "userDataRights.privacyCenter.loading": "Cargando…",
+    "userDataRights.privacyCenter.loadError": "No se pudieron cargar tus datos.",
+    "userDataRights.privacyCenter.errors.generic": "Algo salió mal. Inténtalo de nuevo.",
+
+    "userDataRights.privacyCenter.export.title": "Exportar datos (art. 20)",
+    "userDataRights.privacyCenter.export.intro":
+      "Solicita una copia de tus datos. Se genera en segundo plano; en cuanto esté lista, podrás descargarla aquí.",
+    "userDataRights.privacyCenter.export.request": "Solicitar exportación de datos",
+    "userDataRights.privacyCenter.export.requesting": "Solicitando…",
+    "userDataRights.privacyCenter.export.pending":
+      "Tu exportación se está generando. Vuelve a comprobarlo más tarde.",
+    "userDataRights.privacyCenter.export.failed":
+      "La última exportación falló. Puedes intentarlo de nuevo.",
+    "userDataRights.privacyCenter.export.ready": "Tu exportación está lista.",
+    "userDataRights.privacyCenter.export.download": "Descargar exportación",
+    "userDataRights.privacyCenter.export.availableUntil": "Disponible hasta {date}",
+    "userDataRights.privacyCenter.export.requestNew": "Solicitar una nueva exportación",
+
+    "userDataRights.privacyCenter.restriction.title": "Limitar el tratamiento (art. 18)",
+    "userDataRights.privacyCenter.restriction.explainer":
+      "Congela tu cuenta: el tratamiento de tus datos se pausa y se cierra tu sesión. Después, solo el soporte puede levantar la limitación.",
+    "userDataRights.privacyCenter.restriction.restrict": "Limitar cuenta",
+    "userDataRights.privacyCenter.restriction.dialogTitle":
+      "¿Seguro que quieres limitar tu cuenta?",
+    "userDataRights.privacyCenter.restriction.dialogDescription":
+      "Se cerrará tu sesión de inmediato y no podrás volver a iniciarla hasta que el soporte levante la limitación.",
+    "userDataRights.privacyCenter.restriction.restricted":
+      "Tu cuenta está limitada. Ponte en contacto con el soporte para levantar la limitación.",
+
+    "userDataRights.privacyCenter.deletion.title": "Eliminar cuenta (art. 17)",
+    "userDataRights.privacyCenter.deletion.explainer":
+      "Solicita la eliminación de tu cuenta. Hasta que finalice el plazo, puedes cancelar la eliminación.",
+    "userDataRights.privacyCenter.deletion.delete": "Eliminar cuenta",
+    "userDataRights.privacyCenter.deletion.requested": "Tu cuenta se eliminará el {date}.",
+    "userDataRights.privacyCenter.deletion.cancel": "Cancelar eliminación",
+    "userDataRights.privacyCenter.deletion.cancelSuccess": "Se ha cancelado la eliminación.",
+    "userDataRights.privacyCenter.deletion.dialogTitle": "¿Seguro que quieres eliminar tu cuenta?",
+    "userDataRights.privacyCenter.deletion.dialogDescription":
+      "Al confirmar se inicia el plazo de eliminación. Puedes cancelarla hasta que finalice.",
+  },
 };
 
 export const defaultTranslations: TranslationsByLocale = {
   de: { ...apexTranslations["de"], ...operatorTranslations["de"] },
   en: { ...apexTranslations["en"], ...operatorTranslations["en"] },
+  es: { ...apexTranslations["es"], ...operatorTranslations["es"] },
 };

@@ -56,4 +56,29 @@ export const defaultTranslations: TranslationsByLocale = {
     "folders.manager.deleteConfirmBody":
       "The folder will be removed. Filed entries move back to Unfiled.",
   },
+  es: {
+    "folders.section.createMode": "Guarda primero la entrada para elegir una carpeta.",
+    "folders.section.loading": "Cargando…",
+    "folders.section.label": "Carpeta",
+    "folders.section.placeholder": "Selecciona una carpeta…",
+    "folders.section.empty": "No se encontraron carpetas.",
+    "folders.section.none": "— Sin carpeta —",
+    "folders.section.newLabel": "Nueva carpeta",
+    "folders.section.create": "Crear carpeta y archivar",
+    "folders.section.working": "Guardando…",
+
+    "folders.manager.loading": "Cargando…",
+    "folders.manager.newRoot": "Nueva carpeta",
+    "folders.manager.add": "Crear",
+    "folders.manager.addChild": "Subcarpeta",
+    "folders.manager.rename": "Renombrar",
+    "folders.manager.delete": "Eliminar",
+    "folders.manager.save": "Guardar",
+    "folders.manager.cancel": "Cancelar",
+    "folders.manager.working": "Guardando…",
+    "folders.manager.deleteBlocked": "Elimina antes las subcarpetas.",
+    "folders.manager.deleteConfirmTitle": "¿Eliminar la carpeta?",
+    "folders.manager.deleteConfirmBody":
+      "La carpeta se eliminará. Las entradas archivadas volverán a Sin archivar.",
+  },
 };

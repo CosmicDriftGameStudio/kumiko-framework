@@ -79,4 +79,39 @@ export const defaultTranslations: TranslationsByLocale = {
     "user.errors.emailAlreadyExists": "This email address is already in use.",
     "auth.errors.invalidCredentials": "Email or password incorrect.",
   },
+  es: {
+    "profile.title": "Perfil",
+
+    "profile.email.title": "Dirección de correo",
+    "profile.email.current": "Correo actual",
+    "profile.email.new": "Correo nuevo",
+    "profile.email.currentPassword": "Contraseña actual",
+    "profile.email.submit": "Cambiar correo",
+    "profile.email.success": "Correo cambiado. Confirma tu nueva dirección.",
+
+    "profile.password.title": "Contraseña",
+    "profile.password.old": "Contraseña actual",
+    "profile.password.new": "Contraseña nueva",
+    "profile.password.confirm": "Confirmar contraseña nueva",
+    "profile.password.submit": "Cambiar contraseña",
+    "profile.password.success": "Contraseña cambiada.",
+    "profile.password.mismatch": "Las contraseñas no coinciden.",
+
+    "profile.danger.title": "Eliminar cuenta",
+    "profile.danger.explainer":
+      "Tu cuenta se eliminará definitivamente tras un plazo de gracia. Hasta entonces puedes cancelar la eliminación en cualquier momento.",
+    "profile.danger.delete": "Eliminar cuenta",
+    "profile.danger.dialogTitle": "¿Eliminar tu cuenta de verdad?",
+    "profile.danger.dialogDescription":
+      "Cuando termine el plazo, tus datos se eliminarán definitivamente. Hasta entonces puedes cancelarlo.",
+    "profile.danger.requested":
+      "Eliminación solicitada — tu cuenta se eliminará definitivamente el {date}.",
+    "profile.danger.cancelDeletion": "Cancelar eliminación",
+    "profile.danger.cancelSuccess": "Eliminación cancelada. Tu cuenta se mantiene.",
+
+    "profile.errors.generic": "Algo ha salido mal.",
+    "profile.errors.emailUnchanged": "Ese ya es tu correo actual.",
+    "user.errors.emailAlreadyExists": "Esta dirección de correo ya está en uso.",
+    "auth.errors.invalidCredentials": "Correo o contraseña incorrectos.",
+  },
 };

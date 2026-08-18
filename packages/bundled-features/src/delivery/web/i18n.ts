@@ -22,4 +22,14 @@ export const defaultTranslations: TranslationsByLocale = {
     "delivery.log.col.status": "Status",
     "delivery:nav.deliveryLog": "Delivery",
   },
+  es: {
+    "delivery.log.title": "Registro de entregas",
+    "delivery.log.loading": "Cargando intentos de entrega…",
+    "delivery.log.empty": "No hay intentos de entrega.",
+    "delivery.log.col.type": "Tipo",
+    "delivery.log.col.channel": "Canal",
+    "delivery.log.col.recipient": "Destinatario",
+    "delivery.log.col.status": "Estado",
+    "delivery:nav.deliveryLog": "Entregas",
+  },
 };
