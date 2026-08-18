@@ -10,10 +10,10 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { LanguageSwitcher } from "../layout/language-switcher";
 
-// Tests greifen den LanguageSwitcher mit einem stateful Stub-Resolver
-// (setLocale + subscribe) UND einem stateless Resolver, um die zwei
-// Verzweigungen abzudecken: Switcher rendert nur wenn setLocale da ist.
-// Radix-DropdownMenu öffnet auf pointerdown, daher userEvent statt
+// Tests exercise the LanguageSwitcher with both a stateful stub resolver
+// (setLocale + subscribe) and a stateless resolver, covering the two
+// branches: the switcher only renders when setLocale is present.
+// Radix DropdownMenu opens on pointerdown, so userEvent is used instead of
 // fireEvent.click.
 
 function makeStatefulResolver(initial: string): LocaleResolver {
@@ -62,9 +62,9 @@ describe("LanguageSwitcher", () => {
   test("active locale shown via shorthand", () => {
     const resolver = makeStatefulResolver("de");
     renderWithResolver(resolver, <LanguageSwitcher locales={locales} testId="lang" />);
-    // Trigger zeigt den Locale-Code im DOM (Tailwind uppercased ihn nur
-    // visuell via CSS — der Text-Knoten bleibt lowercase). Das passt:
-    // getByText sieht den DOM-Text.
+    // The trigger shows the locale code in the DOM. Tailwind only
+    // uppercases it visually via CSS, the text node stays lowercase.
+    // That is fine, getByText sees the DOM text.
     expect(screen.getByText("de")).toBeTruthy();
   });
 
@@ -96,14 +96,13 @@ describe("LanguageSwitcher", () => {
     const user = userEvent.setup();
     const resolver = makeStatefulResolver("de-AT");
     renderWithResolver(resolver, <LanguageSwitcher locales={locales} testId="lang" />);
-    // Trigger zeigt "DE" (aus de-AT abgeleitet) — der active marker im
-    // Dropdown muss bei "Deutsch" sitzen, nicht bei "English".
+    // The trigger shows "DE", derived from de-AT. The active marker in the
+    // dropdown must sit on "Deutsch", not "English".
     await user.click(screen.getByRole("button", { name: "Sprache" }));
     await waitFor(() => {
-      // Radix-CheckboxItem markiert active via aria-checked="true". Der
-      // Check-Icon (lucide) sitzt im ItemIndicator und ist nur sichtbar
-      // wenn checked — die ARIA-Variante ist robust gegen Rendering-
-      // Tricks.
+      // Radix CheckboxItem marks active via aria-checked="true". The check
+      // icon (lucide) lives in the ItemIndicator and is only visible when
+      // checked, so the ARIA variant is robust against rendering quirks.
       const deItem = screen.getByText("Deutsch").closest('[role="menuitemcheckbox"]');
       expect(deItem?.getAttribute("aria-checked")).toBe("true");
       const enItem = screen.getByText("English").closest('[role="menuitemcheckbox"]');
