@@ -12,7 +12,7 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import { MANAGED_PAGES_I18N } from "../i18n";
 
-const LOCALES = ["de", "en", "es"] as const;
+const LOCALES = ["de", "en"] as const;
 
 export const defaultTranslations: TranslationsByLocale = Object.fromEntries(
   LOCALES.map((locale) => [

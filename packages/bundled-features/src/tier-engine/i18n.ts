@@ -5,14 +5,10 @@
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
-type LocalizedString = { readonly de: string; readonly en: string; readonly es: string };
+type LocalizedString = { readonly de: string; readonly en: string };
 
 export const TIER_ENGINE_I18N: Readonly<Record<string, LocalizedString>> = {
-  "screen:tier-admin.title": {
-    de: "Tier manuell zuweisen",
-    en: "Assign tier manually",
-    es: "Asignar tier manualmente",
-  },
+  "screen:tier-admin.title": { de: "Tier manuell zuweisen", en: "Assign tier manually" },
 };
 
 export const defaultTranslations: TranslationsByLocale = {
@@ -47,21 +43,5 @@ export const defaultTranslations: TranslationsByLocale = {
     "tier-admin.error.load": "Failed to load tenants.",
     "tier-admin.error.noTiers":
       "This app has no TierMap configured — there are no assignable tiers.",
-  },
-  es: {
-    "screen:tier-admin.title": "Asignar tier manualmente",
-    "tier-admin.title": "Asignar tier manualmente",
-    "tier-admin.explainer":
-      "Asigna un tier a un tenant sin necesidad de compra. La asignación se marca como «manual» y no será sobrescrita por una sincronización de facturación posterior.",
-    "tier-admin.tenant.label": "Tenant",
-    "tier-admin.current.label": "Tier actual",
-    "tier-admin.current.none": "— aún ninguno —",
-    "tier-admin.tier.label": "Nuevo tier",
-    "tier-admin.submit": "Asignar tier",
-    "tier-admin.success": "Tier «{tier}» asignado.",
-    "tier-admin.error.generic": "No se pudo asignar el tier.",
-    "tier-admin.error.load": "No se pudieron cargar los tenants.",
-    "tier-admin.error.noTiers":
-      "Esta aplicación no tiene una TierMap configurada — no hay tiers asignables.",
   },
 };

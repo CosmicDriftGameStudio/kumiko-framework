@@ -23,12 +23,4 @@ export const defaultTranslations: TranslationsByLocale = {
     "notesHistory.section.add": "Add note",
     "notesHistory.section.meta": "{author} · {date}",
   },
-  es: {
-    "notesHistory.section.createMode": "Guarda primero la entrada para poder añadir notas.",
-    "notesHistory.section.loading": "Cargando…",
-    "notesHistory.section.empty": "Aún no hay notas.",
-    "notesHistory.section.working": "Guardando…",
-    "notesHistory.section.add": "Añadir nota",
-    "notesHistory.section.meta": "{author} · {date}",
-  },
 };

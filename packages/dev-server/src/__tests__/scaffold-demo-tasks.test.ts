@@ -20,15 +20,10 @@ describe("demo tasks feature nav labels are i18n keys (#2065)", () => {
     const feature = createDemoTasksFeature();
     expect(feature.navs["tasks"]?.label).toBe("tasks:nav.tasks");
     expect(feature.navs["task-new"]?.label).toBe("tasks:nav.taskNew");
-    expect(feature.translations?.["tasks:nav.tasks"]).toEqual({
-      de: "Aufgaben",
-      en: "Tasks",
-      es: "Tareas",
-    });
+    expect(feature.translations?.["tasks:nav.tasks"]).toEqual({ de: "Aufgaben", en: "Tasks" });
     expect(feature.translations?.["tasks:nav.taskNew"]).toEqual({
       de: "Neue Aufgabe",
       en: "New task",
-      es: "Nueva tarea",
     });
   });
 
@@ -42,10 +37,8 @@ describe("demo tasks feature nav labels are i18n keys (#2065)", () => {
 
   test("renderDemoTasksI18n() bundles both nav-label keys for server + client", () => {
     const rendered = renderDemoTasksI18n();
-    expect(rendered).toContain('"tasks:nav.tasks": { de: "Aufgaben", en: "Tasks", es: "Tareas" }');
-    expect(rendered).toContain(
-      '"tasks:nav.taskNew": { de: "Neue Aufgabe", en: "New task", es: "Nueva tarea" }',
-    );
+    expect(rendered).toContain('"tasks:nav.tasks": { de: "Aufgaben", en: "Tasks" }');
+    expect(rendered).toContain('"tasks:nav.taskNew": { de: "Neue Aufgabe", en: "New task" }');
     expect(rendered).toContain('"tasks:nav.tasks": "Aufgaben"');
     expect(rendered).toContain('"tasks:nav.taskNew": "Neue Aufgabe"');
     expect(rendered).toContain('"tasks:nav.tasks": "Tasks"');
