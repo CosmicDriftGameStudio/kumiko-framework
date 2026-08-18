@@ -28,4 +28,13 @@ export const defaultTranslations: TranslationsByLocale = {
     "config.errors.invalidScope": "This scope is not allowed for this key.",
     "config.errors.unknownKey": "Unknown configuration key.",
   },
+  es: {
+    "config.settings.title": "Ajustes",
+    "config.settings.system": "Plataforma",
+    "config.settings.tenant": "Organización",
+    "config.settings.user": "Personal",
+    "config.errors.systemOnly": "Este valor solo puede establecerlo el sistema.",
+    "config.errors.invalidScope": "Este nivel no está permitido para esta clave.",
+    "config.errors.unknownKey": "Clave de configuración desconocida.",
+  },
 };

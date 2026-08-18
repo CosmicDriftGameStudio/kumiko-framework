@@ -22,4 +22,14 @@ export const defaultTranslations: TranslationsByLocale = {
     "compliance.profile.catalog": "Available profiles",
     "compliance-profiles:nav.profilePicker": "Compliance",
   },
+  es: {
+    "compliance.profile.title": "Perfil de cumplimiento",
+    "compliance.profile.loading": "Cargando perfiles de cumplimiento…",
+    "compliance.profile.current": "Actual",
+    "compliance.profile.select": "Perfil",
+    "compliance.profile.save": "Guardar perfil",
+    "compliance.profile.saving": "Guardando…",
+    "compliance.profile.catalog": "Perfiles disponibles",
+    "compliance-profiles:nav.profilePicker": "Cumplimiento",
+  },
 };

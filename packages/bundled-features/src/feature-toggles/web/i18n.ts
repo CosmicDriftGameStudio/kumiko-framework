@@ -26,4 +26,16 @@ export const defaultTranslations: TranslationsByLocale = {
     "feature-toggles.admin.alwaysOn": "always on",
     "feature-toggles:nav.toggleAdmin": "Feature toggles",
   },
+  es: {
+    "feature-toggles.admin.title": "Interruptores de funciones",
+    "feature-toggles.admin.loading": "Cargando interruptores de funciones…",
+    "feature-toggles.admin.col.feature": "Función",
+    "feature-toggles.admin.col.default": "Default",
+    "feature-toggles.admin.col.override": "Override",
+    "feature-toggles.admin.col.effective": "Efectivo",
+    "feature-toggles.admin.toggle": "Alternar",
+    "feature-toggles.admin.saving": "Guardando…",
+    "feature-toggles.admin.alwaysOn": "siempre activado",
+    "feature-toggles:nav.toggleAdmin": "Interruptores de funciones",
+  },
 };

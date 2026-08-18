@@ -131,6 +131,69 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.regenerate.acknowledge": "I've saved my new recovery codes.",
     "auth.mfa.regenerate.done": "Done",
   },
+  es: {
+    "screen:auth-mfa-enable.title": "Verificación en dos pasos",
+    "auth.mfa.verify.title": "Verificación en dos pasos",
+    "auth.mfa.verify.subtitle": "Introduce el código de 6 dígitos de tu app de autenticación.",
+    "auth.mfa.verify.code": "Código",
+    "auth.mfa.verify.submit": "Confirmar",
+    "auth.mfa.verify.submitting": "…",
+    "auth.mfa.verify.backToLogin": "Volver al inicio de sesión",
+    "auth.mfa.errors.invalidCode": "Código no válido. Inténtalo de nuevo.",
+    "auth.mfa.errors.invalidTotpCode": "Código no válido. Inténtalo de nuevo.",
+    "auth.mfa.errors.invalidChallengeToken":
+      "Tu inicio de sesión ha caducado. Vuelve a iniciar sesión.",
+    "auth.mfa.errors.challengeExpired": "Tu inicio de sesión ha caducado. Vuelve a iniciar sesión.",
+    "auth.mfa.errors.tooManyAttempts": "Demasiados intentos fallidos. Vuelve a iniciar sesión.",
+    "auth.mfa.errors.tooManyAttemptsWithSeconds":
+      "Demasiados intentos fallidos. Inténtalo de nuevo en {seconds} segundos o vuelve a iniciar sesión.",
+    "auth.mfa.errors.verifyFailed": "Error al confirmar.",
+    "auth.mfa.errors.mfaAlreadyEnabled": "La verificación en dos pasos ya está activada.",
+    "auth.mfa.errors.mfaNotEnabled": "La verificación en dos pasos no está activada.",
+    "auth.mfa.errors.invalidSetupToken": "La configuración ha caducado. Vuelve a empezar.",
+    "auth.mfa.errors.setupFailed": "Error al configurar. Inténtalo de nuevo.",
+    "auth.mfa.errors.invalidRecoveryCode": "Código de recuperación no válido.",
+    "auth.mfa.enable.title": "Verificación en dos pasos",
+    "auth.mfa.enable.intro":
+      "Protege tu cuenta con una capa adicional usando una app de autenticación (p. ej. Google Authenticator, 1Password).",
+    "auth.mfa.enable.start": "Iniciar configuración",
+    "auth.mfa.enable.scanTitle": "Escanea el código QR",
+    "auth.mfa.enable.manualEntry": "O introdúcelo manualmente:",
+    "auth.mfa.enable.recoveryTitle": "Códigos de recuperación",
+    "auth.mfa.enable.recoveryHint":
+      "Guarda estos códigos en un lugar seguro. Solo se muestran esta vez y te permiten entrar si pierdes tu dispositivo.",
+    "auth.mfa.enable.acknowledge": "He guardado mis códigos de recuperación.",
+    "auth.mfa.enable.code": "Código de la app de autenticación",
+    "auth.mfa.enable.cancel": "Cancelar",
+    "auth.mfa.enable.confirm": "Activar",
+    "auth.mfa.enable.success": "Ya tienes activada la verificación en dos pasos.",
+    "auth.mfa.setup.title": "Se requiere verificación en dos pasos",
+    "auth.mfa.setup.subtitle":
+      "Tu cuenta requiere verificación en dos pasos. Configúrala ahora para iniciar sesión.",
+    "auth.mfa.setup.intro":
+      "Escanea el código QR con una app de autenticación (p. ej. Google Authenticator, 1Password).",
+    "auth.mfa.setup.start": "Iniciar configuración",
+    "auth.mfa.setup.confirm": "Completar configuración",
+    "auth.mfa.disable.title": "Desactivar la verificación en dos pasos",
+    "auth.mfa.disable.description":
+      "Confirma con un código de tu app de autenticación o un código de recuperación. Después, tu cuenta solo estará protegida por tu contraseña.",
+    "auth.mfa.disable.code": "Código de la app de autenticación o código de recuperación",
+    "auth.mfa.disable.confirm": "Desactivar",
+    "auth.mfa.disable.cancel": "Cancelar",
+    "auth.mfa.disable.trigger": "Desactivar la verificación en dos pasos",
+    "auth.mfa.regenerate.title": "Generar nuevos códigos de recuperación",
+    "auth.mfa.regenerate.description":
+      "Confirma con un código de tu app de autenticación. Todos los códigos de recuperación anteriores dejarán de funcionar de inmediato.",
+    "auth.mfa.regenerate.code": "Código de la app de autenticación",
+    "auth.mfa.regenerate.confirm": "Generar de nuevo",
+    "auth.mfa.regenerate.cancel": "Cancelar",
+    "auth.mfa.regenerate.trigger": "Generar nuevos códigos de recuperación",
+    "auth.mfa.regenerate.newCodesTitle": "Tus nuevos códigos de recuperación",
+    "auth.mfa.regenerate.newCodesHint":
+      "Guarda estos códigos en un lugar seguro. Los códigos antiguos dejan de funcionar de inmediato.",
+    "auth.mfa.regenerate.acknowledge": "He guardado mis nuevos códigos de recuperación.",
+    "auth.mfa.regenerate.done": "Listo",
+  },
 };
 
 export { mergeTranslations } from "@cosmicdrift/kumiko-renderer";

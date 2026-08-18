@@ -50,14 +50,14 @@ const editScreen: EntityEditScreenDefinition = {
 const open = { access: { openToAll: true } } as const;
 
 const TASKS_I18N = {
-  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
-  "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
-  "tasks:nav.tasks": { de: "Aufgaben", en: "Tasks" },
-  "tasks:nav.taskNew": { de: "Neue Aufgabe", en: "New task" },
-  "tasks:entity:task:field:title": { de: "Titel", en: "Title" },
-  "tasks:entity:task:field:status": { de: "Status", en: "Status" },
-  "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority" },
-  "tasks:entity:task:field:isUrgent": { de: "Dringend", en: "Urgent" },
+  "screen:task-list.title": { de: "Aufgaben", en: "Tasks", es: "Tareas" },
+  "screen:task-edit.title": { de: "Aufgabe", en: "Task", es: "Tarea" },
+  "tasks:nav.tasks": { de: "Aufgaben", en: "Tasks", es: "Tareas" },
+  "tasks:nav.taskNew": { de: "Neue Aufgabe", en: "New task", es: "Nueva tarea" },
+  "tasks:entity:task:field:title": { de: "Titel", en: "Title", es: "Título" },
+  "tasks:entity:task:field:status": { de: "Status", en: "Status", es: "Estado" },
+  "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority", es: "Prioridad" },
+  "tasks:entity:task:field:isUrgent": { de: "Dringend", en: "Urgent", es: "Urgente" },
 } as const;
 
 /** Canonical demo feature — keep in sync with `renderDemoTasksFeatureFile()`. */
@@ -162,14 +162,14 @@ export function renderDemoTasksI18n(): string {
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const tasksTranslationKeys = {
-  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
-  "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
-  "tasks:nav.tasks": { de: "Aufgaben", en: "Tasks" },
-  "tasks:nav.taskNew": { de: "Neue Aufgabe", en: "New task" },
-  "tasks:entity:task:field:title": { de: "Titel", en: "Title" },
-  "tasks:entity:task:field:status": { de: "Status", en: "Status" },
-  "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority" },
-  "tasks:entity:task:field:isUrgent": { de: "Dringend", en: "Urgent" },
+  "screen:task-list.title": { de: "Aufgaben", en: "Tasks", es: "Tareas" },
+  "screen:task-edit.title": { de: "Aufgabe", en: "Task", es: "Tarea" },
+  "tasks:nav.tasks": { de: "Aufgaben", en: "Tasks", es: "Tareas" },
+  "tasks:nav.taskNew": { de: "Neue Aufgabe", en: "New task", es: "Nueva tarea" },
+  "tasks:entity:task:field:title": { de: "Titel", en: "Title", es: "Título" },
+  "tasks:entity:task:field:status": { de: "Status", en: "Status", es: "Estado" },
+  "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority", es: "Prioridad" },
+  "tasks:entity:task:field:isUrgent": { de: "Dringend", en: "Urgent", es: "Urgente" },
 } as const;
 
 export const tasksTranslations: TranslationsByLocale = {
@@ -192,6 +192,16 @@ export const tasksTranslations: TranslationsByLocale = {
     "tasks:entity:task:field:status": "Status",
     "tasks:entity:task:field:priority": "Priority",
     "tasks:entity:task:field:isUrgent": "Urgent",
+  },
+  es: {
+    "screen:task-list.title": "Tareas",
+    "screen:task-edit.title": "Tarea",
+    "tasks:nav.tasks": "Tareas",
+    "tasks:nav.taskNew": "Nueva tarea",
+    "tasks:entity:task:field:title": "Título",
+    "tasks:entity:task:field:status": "Estado",
+    "tasks:entity:task:field:priority": "Prioridad",
+    "tasks:entity:task:field:isUrgent": "Urgente",
   },
 };
 `;

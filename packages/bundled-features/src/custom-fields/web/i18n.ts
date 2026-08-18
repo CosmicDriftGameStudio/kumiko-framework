@@ -27,4 +27,13 @@ export const defaultTranslations: TranslationsByLocale = {
     "custom-fields.form.saving": "Saving…",
     "custom-fields.errors.saveFailed": "Save failed.",
   },
+  es: {
+    "custom-fields.form.createMode":
+      "Guarda primero la entrada para poder definir los campos personalizados.",
+    "custom-fields.form.loading": "Cargando…",
+    "custom-fields.form.empty": 'No hay campos personalizados definidos para "{entityName}".',
+    "custom-fields.form.save": "Guardar campos personalizados",
+    "custom-fields.form.saving": "Guardando…",
+    "custom-fields.errors.saveFailed": "Error al guardar.",
+  },
 };

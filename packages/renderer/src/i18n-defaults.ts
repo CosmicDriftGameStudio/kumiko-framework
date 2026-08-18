@@ -1,18 +1,18 @@
-// Framework-Default-Bundle. Strings die die Renderer-Components hart
-// brauchen (Save/Cancel/Delete-Buttons, Empty-States, Search-Placeholder,
-// Nav-Toggle-aria-Labels, Validation-Reasons). createKumikoApp hängt das
-// als ALLERLETZTEN Fallback in den LocaleProvider — Apps können
-// einzelne Keys via clientFeatures.translations überschreiben.
+// Framework default bundle. Strings the renderer components hard-require
+// (save/cancel/delete buttons, empty states, search placeholder,
+// nav-toggle aria-labels, validation reasons). createKumikoApp appends
+// this as the very last fallback into the LocaleProvider — apps can
+// override individual keys via clientFeatures.translations.
 //
-// Convention: alle Keys mit `kumiko.`-Prefix damit sie nicht mit
-// App-Keys kollidieren. Sub-Pfade gruppieren nach Bereich (actions /
-// list / nav / form / validation).
+// Convention: all keys use the `kumiko.` prefix so they don't collide
+// with app keys. Sub-paths group by area (actions / list / nav / form /
+// validation).
 
 import type { TranslationsByLocale } from "./i18n";
 
 export const kumikoDefaultTranslations: TranslationsByLocale = {
   de: {
-    // Actions — Buttons in RenderEdit, RenderList, Confirm-Dialogen.
+    // Actions — buttons in RenderEdit, RenderList, confirm dialogs.
     "kumiko.actions.save": "Speichern",
     "kumiko.actions.cancel": "Abbrechen",
     "kumiko.actions.delete": "Löschen",
@@ -36,7 +36,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     // Toast — Self-service Docs-Link-Default (useToast docsLinkLabel).
     "kumiko.toast.learn-more": "Mehr erfahren",
 
-    // Field — aria-Labels der Date/Timestamp-Primitives.
+    // Field — aria-labels for the Date/Timestamp primitives.
     "kumiko.field.open-calendar": "Kalender öffnen",
     "kumiko.field.dateField.placeholderYear": "J",
     "kumiko.field.dateField.placeholderMonth": "M",
@@ -66,7 +66,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.no-entries": "Keine Einträge.",
     "kumiko.list.end-of-list": "— Ende der Liste —",
 
-    // Pager — Status-Zeile + Prev/Next/Page-aria-Labels (DataTable pagination="pages").
+    // Pager — status line + prev/next/page aria-labels (DataTable pagination="pages").
     "kumiko.pager.status": "{from}–{to} von {total}",
     "kumiko.pager.previousPage": "Vorherige Seite",
     "kumiko.pager.nextPage": "Nächste Seite",
@@ -77,8 +77,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.combobox.empty": "Keine Treffer.",
     "kumiko.combobox.loading": "Lade…",
 
-    // Dashboard — Default-Label für den "(alle)"-Eintrag im Screen-Filter,
-    // wenn DashboardFilterDefinition.allLabel nicht gesetzt ist.
+    // Dashboard — default label for the "(all)" entry in the screen filter,
+    // when DashboardFilterDefinition.allLabel isn't set.
     "kumiko.dashboard.filter.all": "Alle",
     "kumiko.combobox.placeholder": "—",
 
@@ -86,7 +86,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.loading": "Lade…",
     "kumiko.widget.error.title": "Konnte nicht geladen werden.",
 
-    // Widgets — UploadZone Status-Zeile pro Datei.
+    // Widgets — UploadZone status line per file.
     "kumiko.widget.upload.uploading": "Wird hochgeladen…",
     "kumiko.widget.upload.done": "Hochgeladen",
     "kumiko.widget.upload.error": "Fehlgeschlagen",
@@ -104,6 +104,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.nav.expand": "Aufklappen",
     "kumiko.nav.collapse": "Zuklappen",
     "kumiko.nav.search": "Navigation durchsuchen…",
+    "kumiko.nav.language": "Sprache",
 
     // Workspace — Switcher-Trigger aria-Label (renderer-web).
     "kumiko.workspace.switch": "Workspace wechseln",
@@ -128,10 +129,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.aiText.style.expand": "Ausführlicher",
     "kumiko.aiText.capExceeded": "Monatliches AI-Limit erreicht.",
 
-    // Row-Actions — Fehler-Toast wenn ein Action-Write fehlschlägt.
+    // Row-Actions — error toast when an action write fails.
     "kumiko.rowAction.failed": "Aktion fehlgeschlagen",
 
-    // ContentEditor — Variablen-Chip-Leiste (VariableChips).
+    // ContentEditor — variable chip bar (VariableChips).
     "kumiko.contentEditor.insertVariable": "{name} einfügen",
     "kumiko.contentEditor.preview": "Vorschau",
     "kumiko.contentEditor.editMode": "Bearbeiten",
@@ -154,8 +155,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.config.cascade.activeMarker": "aktiv",
     "kumiko.config.cascade.resetTo": "Überschreibung zurücksetzen ({scope})",
 
-    // Form — Standard-Errors (App-Code kann eigene zod-Reasons nutzen,
-    // diese sind die letzte Sicherheitsschicht).
+    // Form — standard errors (app code can supply its own zod reasons,
+    // these are the last safety layer).
     "kumiko.form.error.generic": "Etwas ist schiefgegangen.",
     "kumiko.form.error.version-conflict":
       "Datensatz wurde zwischenzeitlich geändert. Lade neu und versuche es erneut.",
@@ -166,18 +167,17 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
       "Ein offener Entwurf für dieses Formular gefunden. Möchtest du ihn fortsetzen?",
     "kumiko.form.draft.start-new": "Neu beginnen",
 
-    // Validation — Default-Reason-Codes aus dem Framework. App-Code
-    // kann eigene Codes via Validation-Hooks reinwerfen; die hier sind
-    // die generischen.
+    // Validation — default reason codes from the framework. App code can
+    // inject its own via validation hooks; these are the generic ones.
     "kumiko.validation.required": "Pflichtfeld.",
     "kumiko.validation.invalid": "Ungültiger Wert.",
     "kumiko.validation.too-short": "Zu kurz (mindestens {min} Zeichen).",
     "kumiko.validation.too-long": "Zu lang (höchstens {max} Zeichen).",
     "kumiko.validation.out-of-range": "Wert außerhalb des erlaubten Bereichs.",
 
-    // errors.validation.* — der kanonische Key-Namespace den Server
-    // (ValidationError) und Client (zod-bridge) für Field-Issues
-    // erzeugen. Codes = Zod-4-Issue-Codes + Framework-eigene.
+    // errors.validation.* — the canonical key namespace that server
+    // (ValidationError) and client (zod-bridge) produce for field issues.
+    // Codes = Zod 4 issue codes + framework-specific ones.
     "errors.validation.invalid_type": "Ungültiger Wert.",
     "errors.validation.too_small": "Zu klein oder zu kurz (Minimum: {minimum}).",
     "errors.validation.too_big": "Zu groß oder zu lang (Maximum: {maximum}).",
@@ -194,10 +194,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.validation.invalid_option": "Ungültige Auswahl.",
     "errors.validation.failed": "Validierung fehlgeschlagen.",
 
-    // errors.* — Top-Level-Error-Codes (eine pro httpStatus-Klasse). Letzter
-    // Fallback wenn eine App keine eigene Übersetzung liefert; bewusst
-    // generisch (keine technischen Entity-/Feature-/Key-Namen an End-User —
-    // die stecken in `details` für Devs). Apps überschreiben pro Key.
+    // errors.* — top-level error codes (one per httpStatus class). Last
+    // fallback when an app doesn't supply its own translation; deliberately
+    // generic (no technical entity/feature/key names shown to end users —
+    // those live in `details` for devs). Apps override per key.
     "errors.feature.disabled": "Diese Funktion ist derzeit nicht verfügbar.",
     "errors.access.denied": "Dazu hast du keine Berechtigung.",
     "errors.notFound": "Nicht gefunden.",
@@ -295,6 +295,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",
     "kumiko.nav.search": "Search navigation…",
+    "kumiko.nav.language": "Language",
 
     "kumiko.workspace.switch": "Switch workspace",
     // Workspace-Switcher fallback label when activeId points at no visible workspace.
@@ -387,5 +388,209 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "auth.errors.originNotAllowed": "Requests from this origin are not allowed.",
     "dispatcher.errors.network": "Network error. Please check your connection and try again.",
     "dispatcher.errors.aborted": "Request was cancelled.",
+  },
+  es: {
+    // Actions — buttons in RenderEdit, RenderList, confirm dialogs.
+    "kumiko.actions.save": "Guardar",
+    "kumiko.actions.cancel": "Cancelar",
+    "kumiko.actions.delete": "Eliminar",
+    "kumiko.actions.delete-confirm": "¿Seguro que quieres eliminar?",
+    "kumiko.actions.reload": "Recargar",
+    "kumiko.actions.create": "Nuevo",
+    "kumiko.actions.edit": "Editar",
+    "kumiko.actions.copyLink": "Copiar enlace",
+    "kumiko.actions.copyLinkCopied": "¡Copiado!",
+    "kumiko.actions.next": "Siguiente",
+    "kumiko.actions.back": "Atrás",
+    "kumiko.actions.finish": "Finalizar",
+
+    // Wizard step chrome (RenderEdit layout.mode="wizard").
+    "kumiko.wizard.step": "Paso {current} de {total}",
+    "kumiko.wizard.step-with-title": "Paso {current} de {total} · {title}",
+
+    // Version — Update-Awareness-Banner (UpdateChecker).
+    "kumiko.version.update-available": "Hay una nueva versión disponible.",
+
+    // Toast — Self-service Docs-Link-Default (useToast docsLinkLabel).
+    "kumiko.toast.learn-more": "Más información",
+
+    // Field — aria-labels for the Date/Timestamp primitives.
+    "kumiko.field.open-calendar": "Abrir calendario",
+    "kumiko.field.dateField.placeholderYear": "A",
+    "kumiko.field.dateField.placeholderMonth": "M",
+    "kumiko.field.dateField.placeholderDay": "D",
+    "kumiko.field.time": "Hora",
+    "kumiko.field.timezone": "Zona horaria",
+    "kumiko.field.locatedTzHint": "Hora local del lugar indicado",
+    "kumiko.field.reference-created-no-id":
+      "El registro se creó pero no se pudo seleccionar automáticamente. Selecciónalo manualmente.",
+    "kumiko.field.unsupported": "Este tipo de campo todavía no se puede editar aquí.",
+    "kumiko.field.embedded-list.add-row": "Añadir fila",
+    "kumiko.field.embedded-list.remove-row": "Quitar fila",
+    "kumiko.field.embedded-list.duplicate-row": "Duplicar fila",
+    "kumiko.field.embedded-list.move-up": "Mover arriba",
+    "kumiko.field.embedded-list.move-down": "Mover abajo",
+    "kumiko.field.embedded-list.empty": "Todavía no hay filas.",
+    "kumiko.field.embedded-list.empty-cta": "Añadir la primera fila",
+    "kumiko.field.embedded-list.paste-rows-truncated":
+      "Se descartaron {count} fila(s) pegadas (se alcanzó el número máximo de filas).",
+    "kumiko.field.embedded-list.paste-cells-unmatched":
+      "{count} celda(s) no tenían una opción coincidente y no se modificaron.",
+
+    // List — DataTable Toolbar, Empty-State, Search.
+    "kumiko.list.search-placeholder": "Buscar…",
+    "kumiko.list.empty.title": "Todavía no hay entradas.",
+    "kumiko.list.empty.hint": "Crea la primera para empezar.",
+    "kumiko.list.no-entries": "Sin entradas.",
+    "kumiko.list.end-of-list": "— Fin de la lista —",
+
+    // Pager — status line + prev/next/page aria-labels (DataTable pagination="pages").
+    "kumiko.pager.status": "{from}–{to} de {total}",
+    "kumiko.pager.previousPage": "Página anterior",
+    "kumiko.pager.nextPage": "Página siguiente",
+    "kumiko.pager.page": "Página {entry}",
+
+    // Combobox — Tier 2.1c Searchable-Select.
+    "kumiko.combobox.search-placeholder": "Buscar…",
+    "kumiko.combobox.empty": "Sin resultados.",
+    "kumiko.combobox.loading": "Cargando…",
+
+    // Dashboard — default label for the "(all)" entry in the screen filter,
+    // when DashboardFilterDefinition.allLabel isn't set.
+    "kumiko.dashboard.filter.all": "Todos",
+    "kumiko.combobox.placeholder": "—",
+
+    // Widgets — Query-States (QueryTable, LoadingState, ErrorState).
+    "kumiko.widget.loading": "Cargando…",
+    "kumiko.widget.error.title": "No se pudo cargar.",
+
+    // Widgets — UploadZone status line per file.
+    "kumiko.widget.upload.uploading": "Subiendo…",
+    "kumiko.widget.upload.done": "Subido",
+    "kumiko.widget.upload.error": "Fallido",
+    "kumiko.widget.upload.rejected-type": "Tipo de archivo no permitido",
+
+    // Widgets — StepBar screen-reader text for completed steps whose number is visually replaced by a checkmark.
+    "kumiko.widget.step-bar.done": "Hecho",
+
+    // Widgets — Drawer resize handle + maximize toggle aria-labels.
+    "kumiko.widget.drawer.restore": "Restablecer ancho del panel",
+    "kumiko.widget.drawer.maximize": "Maximizar panel",
+    "kumiko.widget.drawer.resize": "Cambiar tamaño del panel",
+
+    // Nav — Sidebar Tree (Toggle-aria-Labels).
+    "kumiko.nav.expand": "Expandir",
+    "kumiko.nav.collapse": "Contraer",
+    "kumiko.nav.search": "Buscar en la navegación…",
+    "kumiko.nav.language": "Idioma",
+
+    // Workspace — Switcher-Trigger aria-Label (renderer-web).
+    "kumiko.workspace.switch": "Cambiar de espacio de trabajo",
+    "kumiko.workspace.select": "Selecciona un espacio de trabajo",
+
+    // Dialog — Confirm-Buttons + Close-aria-Label.
+    "kumiko.dialog.confirm": "Confirmar",
+    "kumiko.dialog.cancel": "Cancelar",
+    "kumiko.dialog.close": "Cerrar",
+
+    // AiTextField/AiTextArea — Ghost-Text-Hint, Toolbar-Aria-Labels, Diff-Dialog.
+    "kumiko.aiText.acceptHint": "Tab = aceptar, Esc = descartar",
+    "kumiko.aiText.correct": "Corregir",
+    "kumiko.aiText.translate": "Traducir",
+    "kumiko.aiText.rewrite": "Reescribir",
+    "kumiko.aiText.diff.before": "Antes",
+    "kumiko.aiText.diff.after": "Después",
+    "kumiko.aiText.diff.generating": "Generando…",
+    "kumiko.aiText.style.formal": "Formal",
+    "kumiko.aiText.style.casual": "Informal",
+    "kumiko.aiText.style.concise": "Conciso",
+    "kumiko.aiText.style.expand": "Ampliar",
+    "kumiko.aiText.capExceeded": "Se alcanzó el límite mensual de IA.",
+
+    // Row-Actions — error toast when an action write fails.
+    "kumiko.rowAction.failed": "La acción falló",
+
+    // ContentEditor — variable chip bar (VariableChips).
+    "kumiko.contentEditor.insertVariable": "Insertar {name}",
+    "kumiko.contentEditor.preview": "Vista previa",
+    "kumiko.contentEditor.editMode": "Editar",
+    "kumiko.contentEditor.bold": "Negrita",
+    "kumiko.contentEditor.italic": "Cursiva",
+    "kumiko.contentEditor.heading1": "Encabezado 1",
+    "kumiko.contentEditor.heading2": "Encabezado 2",
+    "kumiko.contentEditor.bulletList": "Lista con viñetas",
+    "kumiko.contentEditor.orderedList": "Lista numerada",
+
+    // Config-Cascade — Source-Badges + Cascade-Panel (ConfigCascadeView).
+    "kumiko.config.source.user": "Mi valor",
+    "kumiko.config.source.tenant": "Tenant",
+    "kumiko.config.source.system": "Sistema",
+    "kumiko.config.source.appOverride": "Anulación de la app",
+    "kumiko.config.source.computed": "Calculado",
+    "kumiko.config.source.default": "Predeterminado",
+    "kumiko.config.source.missing": "Falta",
+    "kumiko.config.cascade.noValue": "Sin valor establecido",
+    "kumiko.config.cascade.activeMarker": "activo",
+    "kumiko.config.cascade.resetTo": "Restablecer anulación ({scope})",
+
+    // Form — standard errors (app code can supply its own zod reasons,
+    // these are the last safety layer).
+    "kumiko.form.error.generic": "Algo salió mal.",
+    "kumiko.form.error.version-conflict":
+      "El registro se modificó mientras tanto. Recarga e inténtalo de nuevo.",
+    "kumiko.form.extension.save-failed": "No se pudo guardar un campo adicional.",
+    "kumiko.form.draft.resume-multiple":
+      "Se encontraron varios borradores abiertos para este formulario. ¿Cuál quieres continuar?",
+    "kumiko.form.draft.resume-single":
+      "Se encontró un borrador abierto para este formulario. ¿Quieres continuarlo?",
+    "kumiko.form.draft.start-new": "Empezar de nuevo",
+
+    // Validation — default reason codes from the framework. App code can
+    // inject its own via validation hooks; these are the generic ones.
+    "kumiko.validation.required": "Campo obligatorio.",
+    "kumiko.validation.invalid": "Valor no válido.",
+    "kumiko.validation.too-short": "Demasiado corto (mínimo {min} caracteres).",
+    "kumiko.validation.too-long": "Demasiado largo (máximo {max} caracteres).",
+    "kumiko.validation.out-of-range": "Valor fuera del rango permitido.",
+
+    // errors.validation.* — the canonical key namespace that server
+    // (ValidationError) and client (zod-bridge) produce for field issues.
+    // Codes = Zod 4 issue codes + framework-specific ones.
+    "errors.validation.invalid_type": "Valor no válido.",
+    "errors.validation.too_small": "Demasiado pequeño o demasiado corto (mínimo: {minimum}).",
+    "errors.validation.too_big": "Demasiado grande o demasiado largo (máximo: {maximum}).",
+    "errors.validation.invalid_format": "Formato no válido.",
+    "errors.validation.not_multiple_of": "Debe ser un múltiplo de {divisor}.",
+    "errors.validation.unrecognized_keys": "Campos desconocidos.",
+    "errors.validation.invalid_union": "Valor no válido.",
+    "errors.validation.invalid_key": "Clave no válida.",
+    "errors.validation.invalid_element": "Entrada no válida.",
+    "errors.validation.invalid_value": "Selección no válida.",
+    "errors.validation.custom": "Valor no válido.",
+    "errors.validation.unexpected_field": "Campo desconocido.",
+    "errors.validation.out_of_bounds": "Valor fuera del rango permitido.",
+    "errors.validation.invalid_option": "Selección no válida.",
+    "errors.validation.failed": "Validación fallida.",
+
+    // errors.* — top-level error codes (one per httpStatus class). Last
+    // fallback when an app doesn't supply its own translation; deliberately
+    // generic (no technical entity/feature/key names shown to end users —
+    // those live in `details` for devs). Apps override per key.
+    "errors.feature.disabled": "Esta función no está disponible actualmente.",
+    "errors.access.denied": "No tienes permiso para hacer esto.",
+    "errors.notFound": "No encontrado.",
+    "errors.conflict": "Conflicto — no se pudo completar la operación.",
+    "errors.versionConflict":
+      "El registro se modificó mientras tanto. Recarga e inténtalo de nuevo.",
+    "errors.uniqueViolation": "Esta entrada ya existe.",
+    "errors.unprocessable": "No se pudo procesar la solicitud.",
+    "errors.unconfigured": "Esta función todavía no está configurada.",
+    "errors.internal": "Algo salió mal. Inténtalo de nuevo más tarde.",
+    "errors.rate_limited": "Demasiadas solicitudes. Inténtalo de nuevo en breve.",
+    "errors.cap.exceeded": "Límite alcanzado. Mejora tu plan o espera al siguiente período.",
+    "errors.download.urlMissing": "Descarga no disponible — inténtalo de nuevo.",
+    "auth.errors.originNotAllowed": "No se permiten solicitudes desde este origen.",
+    "dispatcher.errors.network": "Error de red. Comprueba tu conexión e inténtalo de nuevo.",
+    "dispatcher.errors.aborted": "Solicitud cancelada.",
   },
 };
