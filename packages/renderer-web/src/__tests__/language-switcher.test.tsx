@@ -1,6 +1,10 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
-import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer";
+import {
+  createStaticLocaleResolver,
+  kumikoDefaultTranslations,
+  LocaleProvider,
+} from "@cosmicdrift/kumiko-renderer";
 import { render as _render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
@@ -33,7 +37,11 @@ function makeStatefulResolver(initial: string): LocaleResolver {
 }
 
 function renderWithResolver(resolver: LocaleResolver, ui: ReactNode) {
-  return _render(<LocaleProvider resolver={resolver}>{ui}</LocaleProvider>);
+  return _render(
+    <LocaleProvider resolver={resolver} fallbackBundles={[kumikoDefaultTranslations]}>
+      {ui}
+    </LocaleProvider>,
+  );
 }
 
 const locales = [
@@ -76,6 +84,12 @@ describe("LanguageSwitcher", () => {
     await user.click(screen.getByRole("button", { name: "Sprache" }));
     await user.click(screen.getByText("English"));
     expect(resolver.setLocale).toHaveBeenCalledWith("en");
+  });
+
+  test("trigger accessible name follows the active locale (en → Language)", () => {
+    const resolver = makeStatefulResolver("en");
+    renderWithResolver(resolver, <LanguageSwitcher locales={locales} testId="lang" />);
+    expect(screen.getByRole("button", { name: "Language" })).toBeTruthy();
   });
 
   test("matches active locale via language-root (de-AT → de)", async () => {
