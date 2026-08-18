@@ -1,0 +1,30 @@
+name: cache-cleanup
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Delete caches unused for 3+ days
+        # Actions cache is branch-scoped: every PR branch writes its own copy
+        # even with an identical key, and GitHub only auto-evicts on the
+        # per-repo 10GB cap or 7-day-unused rule. This keeps repos well under
+        # that cap instead of relying on eviction churn.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          cutoff=$(date -u -d '3 days ago' +%s)
+          gh api --paginate "repos/$REPO/actions/caches?per_page=100" --jq '.actions_caches[] | "\(.id) \(.last_accessed_at)"' |
+          while read -r id ts; do
+            age=$(date -u -d "$ts" +%s)
+            if [ "$age" -lt "$cutoff" ]; then
+              gh api -X DELETE "repos/$REPO/actions/caches/$id" && echo "deleted $id"
+            fi
+          done
