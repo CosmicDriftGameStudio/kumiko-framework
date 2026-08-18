@@ -74,10 +74,23 @@ for pkg_json in packages/*/package.json; do
     continue
   fi
 
+  # `npm view "$name" version` resolves the `latest` dist-tag, which can lag
+  # the registry CDN by seconds-to-minutes right after a package's first-ever
+  # publish. Using it as the skip check produces a false negative on a fresh
+  # package (empty registry_version), re-triggering `npm publish` and failing
+  # with E403 (cannot republish an already-existing version). Check the exact
+  # version instead of the tag.
   registry_version="$(npm view "$name" version 2>/dev/null || echo "")"
+  exact_version="$(npm view "$name@$version" version 2>/dev/null || echo "")"
 
-  if [ "$version" = "$registry_version" ]; then
+  if [ "$version" = "$exact_version" ]; then
     echo "[skip] $name@$version (already on registry)" >&2
+    # A prior run may have published this version but died before moving
+    # `latest` below — repair it here so a skip never leaves consumers
+    # pinned to an older `latest`.
+    if [ "$registry_version" != "$version" ]; then
+      npm dist-tag add "$name@$version" latest >&2
+    fi
     skipped=$((skipped + 1))
     continue
   fi
