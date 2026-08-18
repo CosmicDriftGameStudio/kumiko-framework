@@ -5,33 +5,71 @@
 // renderer; these templates are deliberately plain so the renderer (and the
 // operator reading the mailer log) can rely on them.
 //
-// Locale: de + en. Apps with other languages render themselves.
+// English ships here. Other languages register via @cosmicdrift/kumiko-locale-*
+// (localeDe() / localeEs() call registerMailTranslations).
 
+import { mailT, registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { Temporal } from "temporal-polyfill";
 
-export type AuthMailLocale = "de" | "en";
+export type AuthMailLocale = string;
 
-// Unified args for the structured token-mail renderers (reset + verify).
-// `url` is the fully-built magic-link — the handler already appended ?token=.
+const AUTH_MAIL_EN: Readonly<Record<string, string>> = {
+  "auth.mail.appNameDefault": "Account",
+  "auth.mail.reset.subject": "{app} — Reset your password",
+  "auth.mail.reset.greeting": "Hi,",
+  "auth.mail.reset.intro":
+    "you requested a password reset for {app}. Click the link below to set a new password:",
+  "auth.mail.reset.button": "Reset password",
+  "auth.mail.reset.expiry": "The link expires on {when}.",
+  "auth.mail.reset.ignore":
+    "If you didn't request a reset, you can safely ignore this email — your password won't change.",
+  "auth.mail.verify.subject": "{app} — Verify your email",
+  "auth.mail.verify.greeting": "Welcome,",
+  "auth.mail.verify.intro": "please verify your email address for {app} to activate your account:",
+  "auth.mail.verify.button": "Verify email",
+  "auth.mail.verify.expiry": "The link expires on {when}.",
+  "auth.mail.verify.ignore": "If you didn't create this account, you can ignore this email.",
+  "auth.mail.activation.subject": "{app} — Activate your account",
+  "auth.mail.activation.greeting": "Welcome,",
+  "auth.mail.activation.intro":
+    "click the link below to activate your {app} account. The next step is choosing your password:",
+  "auth.mail.activation.button": "Activate account",
+  "auth.mail.activation.expiry": "The link expires on {when}.",
+  "auth.mail.activation.ignore":
+    "If you didn't sign up, you can ignore this email — no account is created until you open the link.",
+  "auth.mail.invite.subject": "{app} — Workspace invitation",
+  "auth.mail.invite.greeting": "Hi,",
+  "auth.mail.invite.intro":
+    "you've been invited to a {app} workspace as {role}. Click the link below to accept:",
+  "auth.mail.invite.button": "Accept invitation",
+  "auth.mail.invite.expiry": "The link expires on {when}.",
+  "auth.mail.invite.ignore": "If you weren't expecting this invitation, you can ignore this email.",
+  "auth.mail.unlock.subject": "{app} — Unlock your account",
+  "auth.mail.unlock.greeting": "Hi,",
+  "auth.mail.unlock.intro":
+    "your {app} account was temporarily locked after several failed sign-in attempts. Click the link below to unlock it immediately:",
+  "auth.mail.unlock.button": "Unlock account",
+  "auth.mail.unlock.expiry": "The link expires on {when}.",
+  "auth.mail.unlock.ignore":
+    "If you didn't trigger this lock, you can ignore this email — the lock expires on its own.",
+};
+
+registerMailTranslations("en", AUTH_MAIL_EN);
+
 export type RenderTokenContentArgs = {
   readonly url: string;
   readonly expiresAt: string;
   readonly locale?: AuthMailLocale;
-  /** Optional: App-Name fürs Subject + Header. Default "Account". */
+  /** Optional app name for subject + intro. Default from auth.mail.appNameDefault. */
   readonly appName?: string;
 };
 
-// Invite adds the role to the unified token-content args; `url` is the fully-
-// built magic-link (the handler already appended ?token=).
 export type RenderInviteEmailArgs = RenderTokenContentArgs & { readonly role: string };
 
 export type AuthMailSection =
   | { readonly text: string }
   | { readonly button: { readonly label: string; readonly url: string } };
 
-// Structured content the magic-link handlers pass as the delivery `data`
-// payload: renderer-simple turns header/sections/footer into HTML, the
-// email-channel reads `subject`. No pre-rendered HTML — the renderer owns layout.
 export type AuthMailContent = {
   readonly subject: string;
   readonly header: string;
@@ -39,95 +77,6 @@ export type AuthMailContent = {
   readonly footer: string;
 };
 
-const STRINGS = {
-  de: {
-    resetSubject: (app: string) => `${app} — Passwort zurücksetzen`,
-    resetGreeting: "Hallo,",
-    // guard:dup-ok — false positive: i18n-String-Template, gleiche Arrow-Struktur wie anonymous fn in collect-table-metas
-    resetIntro: (app: string) =>
-      `du hast den Reset deines Passworts für ${app} angefordert. Klicke auf den folgenden Link, um ein neues Passwort zu setzen:`,
-    resetButton: "Passwort zurücksetzen",
-    resetExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
-    resetIgnore:
-      "Falls du keinen Reset angefordert hast, kannst du diese E-Mail einfach ignorieren — dein Passwort bleibt unverändert.",
-    verifySubject: (app: string) => `${app} — E-Mail bestätigen`,
-    verifyGreeting: "Willkommen,",
-    verifyIntro: (app: string) =>
-      `bitte bestätige deine E-Mail-Adresse für ${app}, um dein Konto zu aktivieren:`,
-    verifyButton: "E-Mail bestätigen",
-    verifyExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
-    verifyIgnore: "Falls du dieses Konto nicht angelegt hast, kannst du diese E-Mail ignorieren.",
-    activationSubject: (app: string) => `${app} — Account aktivieren`,
-    activationGreeting: "Willkommen,",
-    activationIntro: (app: string) =>
-      `klicke auf den folgenden Link, um deinen ${app}-Account zu aktivieren. Im nächsten Schritt setzt du dein Passwort:`,
-    activationButton: "Account aktivieren",
-    activationExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
-    activationIgnore:
-      "Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren — es wird kein Account erstellt, solange du den Link nicht öffnest.",
-    inviteSubject: (app: string) => `${app} — Einladung zum Workspace`,
-    inviteGreeting: "Hallo,",
-    inviteIntro: (app: string, role: string) =>
-      `du wurdest zu einem ${app}-Workspace als ${role} eingeladen. Klicke auf den folgenden Link, um die Einladung anzunehmen:`,
-    inviteButton: "Einladung annehmen",
-    inviteExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
-    inviteIgnore:
-      "Falls du diese Einladung nicht erwartet hast, kannst du diese E-Mail ignorieren.",
-    unlockSubject: (app: string) => `${app} — Konto entsperren`,
-    unlockGreeting: "Hallo,",
-    unlockIntro: (app: string) =>
-      `dein ${app}-Konto wurde nach mehreren fehlgeschlagenen Anmeldeversuchen vorübergehend gesperrt. Klicke auf den folgenden Link, um es sofort zu entsperren:`,
-    unlockButton: "Konto entsperren",
-    unlockExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
-    unlockIgnore:
-      "Falls du diese Sperre nicht ausgelöst hast, kannst du diese E-Mail ignorieren — die Sperre läuft von selbst ab.",
-  },
-  en: {
-    resetSubject: (app: string) => `${app} — Reset your password`,
-    resetGreeting: "Hi,",
-    resetIntro: (app: string) =>
-      `you requested a password reset for ${app}. Click the link below to set a new password:`,
-    resetButton: "Reset password",
-    resetExpiry: (when: string) => `The link expires on ${when}.`,
-    resetIgnore:
-      "If you didn't request a reset, you can safely ignore this email — your password won't change.",
-    verifySubject: (app: string) => `${app} — Verify your email`,
-    verifyGreeting: "Welcome,",
-    verifyIntro: (app: string) =>
-      `please verify your email address for ${app} to activate your account:`,
-    verifyButton: "Verify email",
-    verifyExpiry: (when: string) => `The link expires on ${when}.`,
-    verifyIgnore: "If you didn't create this account, you can ignore this email.",
-    activationSubject: (app: string) => `${app} — Activate your account`,
-    activationGreeting: "Welcome,",
-    activationIntro: (app: string) =>
-      `click the link below to activate your ${app} account. The next step is choosing your password:`,
-    activationButton: "Activate account",
-    activationExpiry: (when: string) => `The link expires on ${when}.`,
-    activationIgnore:
-      "If you didn't sign up, you can ignore this email — no account is created until you open the link.",
-    inviteSubject: (app: string) => `${app} — Workspace invitation`,
-    inviteGreeting: "Hi,",
-    inviteIntro: (app: string, role: string) =>
-      `you've been invited to a ${app} workspace as ${role}. Click the link below to accept:`,
-    inviteButton: "Accept invitation",
-    inviteExpiry: (when: string) => `The link expires on ${when}.`,
-    inviteIgnore: "If you weren't expecting this invitation, you can ignore this email.",
-    unlockSubject: (app: string) => `${app} — Unlock your account`,
-    unlockGreeting: "Hi,",
-    unlockIntro: (app: string) =>
-      `your ${app} account was temporarily locked after several failed sign-in attempts. Click the link below to unlock it immediately:`,
-    unlockButton: "Unlock account",
-    unlockExpiry: (when: string) => `The link expires on ${when}.`,
-    unlockIgnore:
-      "If you didn't trigger this lock, you can ignore this email — the lock expires on its own.",
-  },
-} as const;
-
-// Structured content for the delivery path. header = action title (CTA label),
-// sections = greeting/intro/button/expiry, footer = the "ignore if not you"
-// reassurance. The old plain-text fallback-URL link drops out — renderer-simple
-// has no link-text section and the button carries the URL.
 function tokenMailContent(spec: {
   readonly subject: string;
   readonly header: string;
@@ -151,91 +100,90 @@ function tokenMailContent(spec: {
   };
 }
 
+function t(locale: string, key: string, params?: Readonly<Record<string, string>>): string {
+  return mailT(locale, key, params);
+}
+
+function appNameFor(args: RenderTokenContentArgs): string {
+  const locale = args.locale ?? "en";
+  return args.appName ?? t(locale, "auth.mail.appNameDefault");
+}
+
 export function renderResetPasswordEmail(args: RenderTokenContentArgs): AuthMailContent {
   const locale = args.locale ?? "en";
-  const appName = args.appName ?? (locale === "de" ? "Konto" : "Account");
-  const t = STRINGS[locale];
+  const app = appNameFor(args);
   return tokenMailContent({
-    subject: t.resetSubject(appName),
-    header: t.resetButton,
-    greeting: t.resetGreeting,
-    intro: t.resetIntro(appName),
-    buttonLabel: t.resetButton,
+    subject: t(locale, "auth.mail.reset.subject", { app }),
+    header: t(locale, "auth.mail.reset.button"),
+    greeting: t(locale, "auth.mail.reset.greeting"),
+    intro: t(locale, "auth.mail.reset.intro", { app }),
+    buttonLabel: t(locale, "auth.mail.reset.button"),
     buttonUrl: args.url,
-    expiry: t.resetExpiry(formatExpiry(args.expiresAt)),
-    ignore: t.resetIgnore,
+    expiry: t(locale, "auth.mail.reset.expiry", { when: formatExpiry(args.expiresAt) }),
+    ignore: t(locale, "auth.mail.reset.ignore"),
   });
 }
 
 export function renderUnlockAccountEmail(args: RenderTokenContentArgs): AuthMailContent {
   const locale = args.locale ?? "en";
-  const appName = args.appName ?? (locale === "de" ? "Konto" : "Account");
-  const t = STRINGS[locale];
+  const app = appNameFor(args);
   return tokenMailContent({
-    subject: t.unlockSubject(appName),
-    header: t.unlockButton,
-    greeting: t.unlockGreeting,
-    intro: t.unlockIntro(appName),
-    buttonLabel: t.unlockButton,
+    subject: t(locale, "auth.mail.unlock.subject", { app }),
+    header: t(locale, "auth.mail.unlock.button"),
+    greeting: t(locale, "auth.mail.unlock.greeting"),
+    intro: t(locale, "auth.mail.unlock.intro", { app }),
+    buttonLabel: t(locale, "auth.mail.unlock.button"),
     buttonUrl: args.url,
-    expiry: t.unlockExpiry(formatExpiry(args.expiresAt)),
-    ignore: t.unlockIgnore,
+    expiry: t(locale, "auth.mail.unlock.expiry", { when: formatExpiry(args.expiresAt) }),
+    ignore: t(locale, "auth.mail.unlock.ignore"),
   });
 }
 
 export function renderVerifyEmail(args: RenderTokenContentArgs): AuthMailContent {
   const locale = args.locale ?? "en";
-  const appName = args.appName ?? (locale === "de" ? "Konto" : "Account");
-  const t = STRINGS[locale];
+  const app = appNameFor(args);
   return tokenMailContent({
-    subject: t.verifySubject(appName),
-    header: t.verifyButton,
-    greeting: t.verifyGreeting,
-    intro: t.verifyIntro(appName),
-    buttonLabel: t.verifyButton,
+    subject: t(locale, "auth.mail.verify.subject", { app }),
+    header: t(locale, "auth.mail.verify.button"),
+    greeting: t(locale, "auth.mail.verify.greeting"),
+    intro: t(locale, "auth.mail.verify.intro", { app }),
+    buttonLabel: t(locale, "auth.mail.verify.button"),
     buttonUrl: args.url,
-    expiry: t.verifyExpiry(formatExpiry(args.expiresAt)),
-    ignore: t.verifyIgnore,
+    expiry: t(locale, "auth.mail.verify.expiry", { when: formatExpiry(args.expiresAt) }),
+    ignore: t(locale, "auth.mail.verify.ignore"),
   });
 }
 
 export function renderActivationEmail(args: RenderTokenContentArgs): AuthMailContent {
   const locale = args.locale ?? "en";
-  const appName = args.appName ?? (locale === "de" ? "Konto" : "Account");
-  const t = STRINGS[locale];
+  const app = appNameFor(args);
   return tokenMailContent({
-    subject: t.activationSubject(appName),
-    header: t.activationButton,
-    greeting: t.activationGreeting,
-    intro: t.activationIntro(appName),
-    buttonLabel: t.activationButton,
+    subject: t(locale, "auth.mail.activation.subject", { app }),
+    header: t(locale, "auth.mail.activation.button"),
+    greeting: t(locale, "auth.mail.activation.greeting"),
+    intro: t(locale, "auth.mail.activation.intro", { app }),
+    buttonLabel: t(locale, "auth.mail.activation.button"),
     buttonUrl: args.url,
-    expiry: t.activationExpiry(formatExpiry(args.expiresAt)),
-    ignore: t.activationIgnore,
+    expiry: t(locale, "auth.mail.activation.expiry", { when: formatExpiry(args.expiresAt) }),
+    ignore: t(locale, "auth.mail.activation.ignore"),
   });
 }
 
 export function renderInviteEmail(args: RenderInviteEmailArgs): AuthMailContent {
   const locale = args.locale ?? "en";
-  const appName = args.appName ?? "Workspace";
-  const t = STRINGS[locale];
+  const app = args.appName ?? "Workspace";
   return tokenMailContent({
-    subject: t.inviteSubject(appName),
-    header: t.inviteButton,
-    greeting: t.inviteGreeting,
-    intro: t.inviteIntro(appName, args.role),
-    buttonLabel: t.inviteButton,
+    subject: t(locale, "auth.mail.invite.subject", { app }),
+    header: t(locale, "auth.mail.invite.button"),
+    greeting: t(locale, "auth.mail.invite.greeting"),
+    intro: t(locale, "auth.mail.invite.intro", { app, role: args.role }),
+    buttonLabel: t(locale, "auth.mail.invite.button"),
     buttonUrl: args.url,
-    expiry: t.inviteExpiry(formatExpiry(args.expiresAt)),
-    ignore: t.inviteIgnore,
+    expiry: t(locale, "auth.mail.invite.expiry", { when: formatExpiry(args.expiresAt) }),
+    ignore: t(locale, "auth.mail.invite.ignore"),
   });
 }
 
-// ISO-Timestamp aus dem Token-Handler ("2026-05-04T13:45:00.000Z") in
-// "2026-05-04 13:45 UTC" rendern. Locale-unabhängig damit der Mail-
-// Renderer keine locale-spezifischen Number-Formatter mitschleppt; UTC-
-// Suffix damit der User unabhängig von seiner Tz sieht wann der Link
-// abläuft. Bei un-parsbarem Input fällt's auf den raw-string zurück.
 function formatExpiry(iso: string): string {
   try {
     const z = Temporal.Instant.from(iso).toZonedDateTimeISO("UTC");

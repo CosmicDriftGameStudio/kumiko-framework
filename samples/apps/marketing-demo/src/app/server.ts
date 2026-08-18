@@ -8,12 +8,13 @@
 // Marketing-Story „mehrere kleine Apps, eine Plattform".
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { assetsFeature } from "../features/assets/feature";
 import { helpdeskFeature } from "../features/helpdesk/feature";
 import { seedMarketingDemo } from "./seed";
 
 await runDevApp({
-  features: [assetsFeature, helpdeskFeature],
+  features: [localeDe(), assetsFeature, helpdeskFeature],
   // PORT-env überschreibbar — Playwright e2e nutzt eigenen Port (4179)
   // damit dev-mode (4178) parallel laufen kann.
   port: Number.parseInt(process.env["PORT"] ?? "4178", 10),

@@ -4,6 +4,8 @@
 // dort. Diese Tests prüfen daher die strukturierte Content, nicht HTML.
 
 import { describe, expect, test } from "bun:test";
+import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import type { AuthMailContent } from "../email-templates";
 import { renderResetPasswordEmail, renderVerifyEmail } from "../email-templates";
 
@@ -17,6 +19,8 @@ function buttonUrl(content: AuthMailContent): string | undefined {
 function textOf(content: AuthMailContent): string {
   return content.sections.map((section) => ("text" in section ? section.text : "")).join(" ");
 }
+
+registerMailTranslations("de", localeDeBundle);
 
 describe("renderResetPasswordEmail", () => {
   const baseArgs = {

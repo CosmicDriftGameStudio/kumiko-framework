@@ -9,41 +9,6 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "profile.title": "Profil",
-
-    "profile.email.title": "E-Mail-Adresse",
-    "profile.email.current": "Aktuelle E-Mail",
-    "profile.email.new": "Neue E-Mail",
-    "profile.email.currentPassword": "Aktuelles Passwort",
-    "profile.email.submit": "E-Mail ändern",
-    "profile.email.success": "E-Mail geändert. Bitte bestätige deine neue Adresse.",
-
-    "profile.password.title": "Passwort",
-    "profile.password.old": "Aktuelles Passwort",
-    "profile.password.new": "Neues Passwort",
-    "profile.password.confirm": "Neues Passwort bestätigen",
-    "profile.password.submit": "Passwort ändern",
-    "profile.password.success": "Passwort geändert.",
-    "profile.password.mismatch": "Die Passwörter stimmen nicht überein.",
-
-    "profile.danger.title": "Konto löschen",
-    "profile.danger.explainer":
-      "Dein Konto wird nach einer Frist endgültig gelöscht. Bis dahin kannst du die Löschung jederzeit abbrechen.",
-    "profile.danger.delete": "Konto löschen",
-    "profile.danger.dialogTitle": "Konto wirklich löschen?",
-    "profile.danger.dialogDescription":
-      "Nach Ablauf der Frist werden deine Daten endgültig gelöscht. Bis dahin kannst du die Löschung abbrechen.",
-    "profile.danger.requested":
-      "Löschung beantragt — dein Konto wird am {date} endgültig gelöscht.",
-    "profile.danger.cancelDeletion": "Löschung abbrechen",
-    "profile.danger.cancelSuccess": "Löschung abgebrochen. Dein Konto bleibt bestehen.",
-
-    "profile.errors.generic": "Etwas ist schiefgegangen.",
-    "profile.errors.emailUnchanged": "Das ist bereits deine E-Mail-Adresse.",
-    "user.errors.emailAlreadyExists": "Diese E-Mail-Adresse wird bereits verwendet.",
-    "auth.errors.invalidCredentials": "E-Mail oder Passwort falsch.",
-  },
   en: {
     "profile.title": "Profile",
 

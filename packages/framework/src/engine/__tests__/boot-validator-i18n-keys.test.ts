@@ -77,15 +77,15 @@ describe("validateBoot — i18n surface keys", () => {
     expect(() => validateBoot([feature])).toThrow(/required translation key missing/);
   });
 
-  test("throws when de/en locale is missing", () => {
+  test("does not require every locale on every key", () => {
     const feature = defineFeature("demo", (r) => {
       r.nav({ id: "home", label: "demo:nav.home" });
       r.translations({
         keys: {
-          "demo:nav.home": { de: "Start", en: "" },
+          "demo:nav.home": { de: "Start" },
         },
       });
     });
-    expect(() => validateBoot([feature])).toThrow(/missing locale\(s\): en/);
+    expect(() => validateBoot([feature])).not.toThrow();
   });
 });

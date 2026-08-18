@@ -1,0 +1,42 @@
+{
+  "name": "@cosmicdrift/kumiko-locale-de",
+  "version": "0.206.0",
+  "description": "German UI and mail copy for Kumiko framework screens. Opt in by mounting localeDe() + localeDeClient().",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
+    "directory": "packages/locale-de"
+  },
+  "bugs": {
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
+  },
+  "homepage": "https://kumiko.rocks",
+  "type": "module",
+  "kumiko": {
+    "runtime": "runtime"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./web": {
+      "types": "./src/web.ts",
+      "default": "./src/web.ts"
+    }
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ]
+}

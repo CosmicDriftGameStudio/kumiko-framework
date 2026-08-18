@@ -2,25 +2,6 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "tenant.members.title": "Mitglieder",
-    "tenant.members.loading": "Lade Mitglieder…",
-    "tenant.members.active": "Aktive Mitglieder",
-    "tenant.members.invite.title": "Neue Einladung",
-    "tenant.members.invite.email": "E-Mail",
-    "tenant.members.invite.role": "Rolle",
-    "tenant.members.invite.submit": "Einladung senden",
-    "tenant.members.invite.submitting": "Einladung wird gesendet…",
-    "tenant.members.invite.success": "Einladung an {email} gesendet",
-    "tenant.members.pending": "Ausstehende Einladungen",
-    "tenant.members.pending.empty": "Keine ausstehenden Einladungen.",
-    "tenant.members.cancel": "Zurückziehen",
-    "tenant.members.col.userId": "User-ID",
-    "tenant.members.col.roles": "Rollen",
-    "tenant.members.col.email": "E-Mail",
-    "tenant.members.col.expires": "Gültig bis",
-    "tenant.nav.members": "Team",
-  },
   en: {
     "tenant.members.title": "Members",
     "tenant.members.loading": "Loading members…",

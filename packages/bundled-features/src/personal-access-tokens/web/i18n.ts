@@ -2,43 +2,6 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "pat.title": "Personal Access Tokens",
-    "pat.create.title": "Neuen Token erstellen",
-    "pat.create.subtitle":
-      "Wähle Berechtigungen und eine Gültigkeit. Der Token wird nur einmal angezeigt.",
-    "pat.create.name": "Name",
-    "pat.create.namePlaceholder": "z. B. CLI-Automatisierung",
-    "pat.create.scopes": "Zugriff pro Bereich",
-    "pat.level.none": "Kein Zugriff",
-    "pat.level.read": "Lesen",
-    "pat.level.write": "Lesen & Schreiben",
-    "pat.create.expiry": "Gültig bis",
-    "pat.create.submit": "Token erstellen",
-    "pat.create.needName": "Bitte einen Namen vergeben.",
-    "pat.create.needScope": "Bitte mindestens eine Berechtigung wählen.",
-    "pat.create.needPassword": "Bitte dein Passwort zur Bestätigung eingeben.",
-    "pat.create.currentPassword": "Passwort (zur Bestätigung)",
-    "pat.create.mfaCode": "2FA-Code (falls aktiviert)",
-    "pat.create.mfaCodePlaceholder": "6-stelliger Code",
-    "pat.expiry.30d": "30 Tage",
-    "pat.expiry.90d": "90 Tage",
-    "pat.expiry.1y": "1 Jahr",
-    "pat.expiry.never": "Unbegrenzt",
-    "pat.created.hint":
-      "Kopiere diesen Token jetzt — er wird aus Sicherheitsgründen nur dieses eine Mal angezeigt.",
-    "pat.created.copy": "Kopieren",
-    "pat.created.copied": "Kopiert ✓",
-    "pat.created.dismiss": "Fertig",
-    "pat.list.title": "Deine Tokens",
-    "pat.list.empty": "Noch keine Tokens.",
-    "pat.list.revoke": "Widerrufen",
-    "pat.list.revoked": "Widerrufen",
-    "pat.list.validUntil": "Gültig bis {date}",
-    "pat.list.neverExpires": "Unbegrenzt gültig",
-    "pat.list.created": "Erstellt {date}",
-    "pat.error.generic": "Aktion fehlgeschlagen.",
-  },
   en: {
     "pat.title": "Personal Access Tokens",
     "pat.create.title": "Create a new token",

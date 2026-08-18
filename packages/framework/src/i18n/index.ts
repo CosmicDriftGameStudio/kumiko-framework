@@ -1,5 +1,7 @@
 import type { Registry, TranslationKeys } from "../engine/types";
 
+export { hasMailTranslations, mailT, registerMailTranslations } from "./mail-registry";
+
 export type I18nOptions = {
   defaultLocale: string;
 };

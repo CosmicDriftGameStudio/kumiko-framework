@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   kumikoDefaultTranslations,
@@ -38,7 +39,10 @@ function makeStatefulResolver(initial: string): LocaleResolver {
 
 function renderWithResolver(resolver: LocaleResolver, ui: ReactNode) {
   return _render(
-    <LocaleProvider resolver={resolver} fallbackBundles={[kumikoDefaultTranslations]}>
+    <LocaleProvider
+      resolver={resolver}
+      fallbackBundles={[{ de: localeDeBundle }, kumikoDefaultTranslations]}
+    >
       {ui}
     </LocaleProvider>,
   );

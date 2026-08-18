@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-marketing-demo",
-  "description": "Marketing-Showcase — zwei kleine Demo-Apps (Asset-Tracker + Helpdesk) auf einer Kumiko-Instanz. Liefert die Screenshots für kumiko.rocks. Cream/Light-Branding wie die echte Marketing-Site.",
+  "description": "Marketing-Showcase \u2014 zwei kleine Demo-Apps (Asset-Tracker + Helpdesk) auf einer Kumiko-Instanz. Liefert die Screenshots f\u00fcr kumiko.rocks. Cream/Light-Branding wie die echte Marketing-Site.",
   "private": true,
   "type": "module",
   "scripts": {
@@ -17,6 +17,7 @@
     "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "@cosmicdrift/kumiko-locale-de": "workspace:*"
   }
 }

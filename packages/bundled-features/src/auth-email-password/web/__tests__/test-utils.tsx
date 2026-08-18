@@ -5,6 +5,7 @@
 
 import { mock } from "bun:test";
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -70,7 +71,10 @@ export function renderWithProviders(
   const session = options.session ?? makeSessionApi();
   const result = _render(
     <PrimitivesProvider value={defaultPrimitives}>
-      <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>
+      <LocaleProvider
+        resolver={resolver}
+        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations]}
+      >
         <SessionContext.Provider value={session}>{ui}</SessionContext.Provider>
       </LocaleProvider>
     </PrimitivesProvider>,

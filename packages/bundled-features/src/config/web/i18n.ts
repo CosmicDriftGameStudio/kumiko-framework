@@ -10,15 +10,6 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "config.settings.title": "Einstellungen",
-    "config.settings.system": "Plattform",
-    "config.settings.tenant": "Organisation",
-    "config.settings.user": "Persönlich",
-    "config.errors.systemOnly": "Dieser Wert kann nur vom System gesetzt werden.",
-    "config.errors.invalidScope": "Diese Ebene ist für diesen Schlüssel nicht zulässig.",
-    "config.errors.unknownKey": "Unbekannter Konfigurationsschlüssel.",
-  },
   en: {
     "config.settings.title": "Settings",
     "config.settings.system": "Platform",

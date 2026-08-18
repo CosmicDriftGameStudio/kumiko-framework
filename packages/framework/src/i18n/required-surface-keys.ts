@@ -322,23 +322,9 @@ export type TranslationLocaleGap = {
   readonly missingLocales: readonly string[];
 };
 
-const REQUIRED_LOCALES = ["de", "en"] as const;
-
+/** Locale completeness is opt-in via @cosmicdrift/kumiko-locale-* packages. */
 export function findTranslationLocaleGaps(
-  features: readonly FeatureDefinition[],
+  _features: readonly FeatureDefinition[],
 ): readonly TranslationLocaleGap[] {
-  const gaps: TranslationLocaleGap[] = [];
-  for (const feature of features) {
-    for (const [localKey, entry] of Object.entries(feature.translations ?? {})) {
-      const missing = REQUIRED_LOCALES.filter((locale) => (entry[locale] ?? "").length === 0);
-      if (missing.length > 0) {
-        gaps.push({
-          featureName: feature.name,
-          key: localKey,
-          missingLocales: missing,
-        });
-      }
-    }
-  }
-  return gaps;
+  return [];
 }

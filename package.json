@@ -40,6 +40,8 @@
     "packages/dispatcher-live",
     "packages/renderer",
     "packages/renderer-web",
+    "packages/locale-es",
+    "packages/locale-de",
     "samples/recipes/*",
     "samples/apps/*"
   ],

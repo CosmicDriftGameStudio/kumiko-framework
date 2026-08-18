@@ -6,31 +6,6 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "folders.section.createMode": "Speichere zuerst den Eintrag, um einen Ordner zu wählen.",
-    "folders.section.loading": "Lädt…",
-    "folders.section.label": "Ordner",
-    "folders.section.placeholder": "Ordner auswählen…",
-    "folders.section.empty": "Keine Ordner gefunden.",
-    "folders.section.none": "— Kein Ordner —",
-    "folders.section.newLabel": "Neuer Ordner",
-    "folders.section.create": "Ordner anlegen & ablegen",
-    "folders.section.working": "Speichert…",
-
-    "folders.manager.loading": "Lädt…",
-    "folders.manager.newRoot": "Neuer Ordner",
-    "folders.manager.add": "Anlegen",
-    "folders.manager.addChild": "Unterordner",
-    "folders.manager.rename": "Umbenennen",
-    "folders.manager.delete": "Löschen",
-    "folders.manager.save": "Speichern",
-    "folders.manager.cancel": "Abbrechen",
-    "folders.manager.working": "Speichert…",
-    "folders.manager.deleteBlocked": "Erst Unterordner entfernen.",
-    "folders.manager.deleteConfirmTitle": "Ordner löschen?",
-    "folders.manager.deleteConfirmBody":
-      "Der Ordner wird entfernt. Abgelegte Einträge wandern zurück zu „Ohne Ordner“.",
-  },
   en: {
     "folders.section.createMode": "Save the entity first to pick a folder.",
     "folders.section.loading": "Loading…",

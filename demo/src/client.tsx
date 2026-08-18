@@ -12,9 +12,10 @@
 // hinzu — symmetrisch zu APP_FEATURES auf der Server-Seite.
 
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
+import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";
 
 createKumikoApp({
   shell: DefaultAppShell,
-  clientFeatures: [emailPasswordClient()],
+  clientFeatures: [localeDeClient(), emailPasswordClient()],
 });

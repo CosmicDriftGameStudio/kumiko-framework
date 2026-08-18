@@ -10,6 +10,8 @@ import type {
   EmailTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   makeDefaultDeletionExecutedEmail,
   makeDefaultExportReadyEmail,
@@ -26,6 +28,8 @@ function capturingTransport(): { transport: EmailTransport; sent: EmailMessage[]
 }
 
 const TENANT_A = "00000000-0000-4000-8000-00000000000a" as TenantId;
+
+registerMailTranslations("de", localeDeBundle);
 
 describe("default-mailers dispatch", () => {
   test("export-ready: rendert Template + sendet an userEmail ueber tenant-transport", async () => {

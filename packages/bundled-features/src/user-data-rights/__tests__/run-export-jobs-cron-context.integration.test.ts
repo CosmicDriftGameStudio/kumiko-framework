@@ -14,6 +14,7 @@ import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import {
   setupTestStack,
   type TestStack,
@@ -22,6 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -133,6 +135,8 @@ async function seedPendingJob(): Promise<string> {
   );
   return res.jobId;
 }
+
+registerMailTranslations("de", localeDeBundle);
 
 describe("run-export-jobs cron-context", () => {
   test("Cron-Job-Kontext (configResolver, KEIN config) → Export läuft durch, bytesWritten > 0", async () => {

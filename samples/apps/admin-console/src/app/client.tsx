@@ -4,6 +4,7 @@ import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-e
 import { jobsClient } from "@cosmicdrift/kumiko-bundled-features/jobs/web";
 import { tenantClient } from "@cosmicdrift/kumiko-bundled-features/tenant/web";
 import { tierEngineClient } from "@cosmicdrift/kumiko-bundled-features/tier-engine/web";
+import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
 import { HomeScreen } from "./home-screen";
 import { AppShell } from "./shell";
@@ -16,6 +17,7 @@ createKumikoApp({
   // WorkspaceShell immediately overrides it with the role-appropriate default screen.
   screenQn: "home:screen:home",
   clientFeatures: [
+    localeDeClient(),
     emailPasswordClient(),
     { name: "home", components: { "admin-console-home": HomeScreen } },
     adminShellClient(),

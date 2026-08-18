@@ -7,14 +7,6 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "notesHistory.section.createMode": "Speichere zuerst den Eintrag, um Notizen anzulegen.",
-    "notesHistory.section.loading": "Lädt…",
-    "notesHistory.section.empty": "Noch keine Notizen.",
-    "notesHistory.section.working": "Speichert…",
-    "notesHistory.section.add": "Notiz hinzufügen",
-    "notesHistory.section.meta": "{author} · {date}",
-  },
   en: {
     "notesHistory.section.createMode": "Save the entity first to add notes.",
     "notesHistory.section.loading": "Loading…",

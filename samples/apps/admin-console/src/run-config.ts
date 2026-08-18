@@ -4,6 +4,7 @@ import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 
 // Only screen without access.roles in this app - admin-console otherwise
 // consists solely of role-gated admin-shell screens, but createKumikoApp
@@ -20,6 +21,7 @@ const homeFeature = defineFeature("home", (r) => {
 });
 
 export const APP_FEATURES = [
+  localeDe(),
   createSecretsFeature(),
   createAuditFeature(),
   createJobsFeature(),

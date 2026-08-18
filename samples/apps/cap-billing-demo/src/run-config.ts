@@ -25,6 +25,7 @@ import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail
 import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { newsletterFeature } from "./feature";
 
 /**
@@ -36,6 +37,7 @@ import { newsletterFeature } from "./feature";
  * dasselbe Feature-Objekt zurück.
  */
 export const APP_FEATURES = [
+  localeDe(),
   createSecretsFeature(),
   capCounterFeature,
   mailFoundationFeature,

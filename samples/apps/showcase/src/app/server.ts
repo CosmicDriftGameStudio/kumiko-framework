@@ -6,13 +6,14 @@
 // Wer Auth-Pfade testen will: ui-walkthrough oder workspaces.
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { demosFeature } from "../features/demos";
 import { itemsFeature } from "../features/items";
 import { mountPublicScreenshots } from "./mount-public-screenshots";
 import { seedShowcaseItems } from "./seed-items";
 
 await runDevApp({
-  features: [itemsFeature, demosFeature],
+  features: [localeDe(), itemsFeature, demosFeature],
   // PORT-env überschreibbar — konsistent zu publicstatus / ui-walkthrough.
   port: Number.parseInt(process.env["PORT"] ?? "4175", 10),
   clientEntry: "./src/app/client.tsx",

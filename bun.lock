@@ -53,6 +53,7 @@
         "tailwind-merge": "^3.6.0",
       },
       "devDependencies": {
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@testing-library/user-event": "^14.6.1",
         "@types/qrcode": "^1.5.5",
       },
@@ -138,6 +139,20 @@
         "zod": "^4.4.3",
       },
     },
+    "packages/locale-de": {
+      "name": "@cosmicdrift/kumiko-locale-de",
+      "version": "0.206.0",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
+    "packages/locale-es": {
+      "name": "@cosmicdrift/kumiko-locale-es",
+      "version": "0.206.0",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "packages/renderer": {
       "name": "@cosmicdrift/kumiko-renderer",
       "version": "0.206.0",
@@ -149,6 +164,7 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@testing-library/react": "^16.3.2",
         "@types/react": "^19.2.14",
         "jsdom": "^29.1.1",
@@ -187,6 +203,7 @@
         "temporal-polyfill": "^0.3.2",
       },
       "devDependencies": {
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@tailwindcss/cli": "^4.3.0",
         "@testing-library/react": "^16.3.2",
         "@testing-library/user-event": "^14.6.1",
@@ -231,6 +248,7 @@
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-renderer": "workspace:*",
         "@cosmicdrift/kumiko-renderer-web": "workspace:*",
         "lucide-react": "^1.14.0",
@@ -244,6 +262,7 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-dev-server": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "zod": "^4.4.3",
       },
     },
@@ -255,6 +274,7 @@
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-renderer-web": "workspace:*",
         "react": "^19.2.6",
         "react-dom": "^19.2.6",
@@ -268,6 +288,7 @@
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-renderer-web": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "react": "^19.2.6",
@@ -282,6 +303,7 @@
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-renderer-web": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "lucide-react": "^1.14.0",
@@ -296,6 +318,7 @@
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-renderer-web": "workspace:*",
         "react": "^19.2.6",
         "react-dom": "^19.2.6",
@@ -309,6 +332,7 @@
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-renderer-web": "workspace:*",
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
         "react": "^19.2.6",
@@ -324,6 +348,7 @@
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-renderer-web": "workspace:*",
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
         "react": "^19.2.6",
@@ -337,6 +362,7 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-dev-server": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "zod": "^4.4.3",
       },
     },
@@ -347,6 +373,7 @@
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-renderer-web": "workspace:*",
         "react": "^19.2.6",
         "react-dom": "^19.2.6",
@@ -878,6 +905,10 @@
     "@cosmicdrift/kumiko-framework": ["@cosmicdrift/kumiko-framework@workspace:packages/framework"],
 
     "@cosmicdrift/kumiko-headless": ["@cosmicdrift/kumiko-headless@workspace:packages/headless"],
+
+    "@cosmicdrift/kumiko-locale-de": ["@cosmicdrift/kumiko-locale-de@workspace:packages/locale-de"],
+
+    "@cosmicdrift/kumiko-locale-es": ["@cosmicdrift/kumiko-locale-es@workspace:packages/locale-es"],
 
     "@cosmicdrift/kumiko-marketing-demo": ["@cosmicdrift/kumiko-marketing-demo@workspace:samples/apps/marketing-demo"],
 

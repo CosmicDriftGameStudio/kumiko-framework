@@ -12,6 +12,7 @@ import {
   ValidationError,
   VersionConflictError,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { REQUIRED_FIELD_I18N_KEY } from "../app/form-schema";
 import { kumikoDefaultTranslations } from "../i18n-defaults";
 
@@ -40,13 +41,13 @@ const errorInstances = [
   new ValidationError({ fields: [] }),
 ];
 
-const de = kumikoDefaultTranslations["de"];
+const de = localeDeBundle;
 const en = kumikoDefaultTranslations["en"];
 
 describe("kumikoDefaultTranslations covers every error i18nKey", () => {
   for (const e of errorInstances) {
-    test(`${e.code} → ${e.i18nKey} has de+en default`, () => {
-      expect(de?.[e.i18nKey]).toBeTruthy();
+    test(`${e.code} → ${e.i18nKey} has en default and de locale-package copy`, () => {
+      expect(de[e.i18nKey]).toBeTruthy();
       expect(en?.[e.i18nKey]).toBeTruthy();
     });
   }
@@ -75,7 +76,7 @@ describe("kumikoDefaultTranslations covers every error i18nKey", () => {
   // thrown by an error class, applied as a params.i18nKey override on a zod
   // issue instead; still rendered through this last-resort bundle.
   test("form-schema's required-field i18nKey has de+en default", () => {
-    expect(de?.[REQUIRED_FIELD_I18N_KEY]).toBeTruthy();
+    expect(de[REQUIRED_FIELD_I18N_KEY]).toBeTruthy();
     expect(en?.[REQUIRED_FIELD_I18N_KEY]).toBeTruthy();
   });
 });

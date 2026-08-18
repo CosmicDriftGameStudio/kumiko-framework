@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-sample-workspaces",
-  "description": "r.workspace() — persona-/role-scoped UI surfaces. Live demo with 3 workspaces and the WorkspaceShell switcher.",
+  "description": "r.workspace() \u2014 persona-/role-scoped UI surfaces. Live demo with 3 workspaces and the WorkspaceShell switcher.",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,7 @@
     "@cosmicdrift/kumiko-headless": "workspace:*",
     "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "@cosmicdrift/kumiko-locale-de": "workspace:*"
   }
 }

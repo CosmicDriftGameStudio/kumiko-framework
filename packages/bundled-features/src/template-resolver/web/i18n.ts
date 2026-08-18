@@ -8,20 +8,6 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "template-resolver.editor.titleLabel": "Titel",
-    "template-resolver.editor.contentLabel": "Inhalt",
-    "template-resolver.editor.save": "Speichern",
-    "template-resolver.editor.saving": "Speichern…",
-    "template-resolver.editor.created": "Neu angelegt.",
-    "template-resolver.editor.saved": "Gespeichert.",
-    "template-resolver.editor.saveFailed": "Speichern fehlgeschlagen.",
-    "template-resolver.editor.networkError": "Netzwerkfehler beim Speichern.",
-    "template-resolver.editor.loading": "Lädt aktuellen Stand…",
-    "template-resolver.editor.loadFailed": "Konnte Block nicht laden",
-    "template-resolver.editor.readOnly":
-      "Read-only — TenantAdmin- oder SystemAdmin-Rolle für Änderungen erforderlich.",
-  },
   en: {
     "template-resolver.editor.titleLabel": "Title",
     "template-resolver.editor.contentLabel": "Content",

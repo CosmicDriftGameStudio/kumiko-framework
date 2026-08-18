@@ -2,16 +2,6 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "compliance.profile.title": "Compliance-Profil",
-    "compliance.profile.loading": "Lade Compliance-Profile…",
-    "compliance.profile.current": "Aktuell",
-    "compliance.profile.select": "Profil",
-    "compliance.profile.save": "Profil speichern",
-    "compliance.profile.saving": "Speichert…",
-    "compliance.profile.catalog": "Verfügbare Profile",
-    "compliance-profiles:nav.profilePicker": "Compliance",
-  },
   en: {
     "compliance.profile.title": "Compliance profile",
     "compliance.profile.loading": "Loading compliance profiles…",
