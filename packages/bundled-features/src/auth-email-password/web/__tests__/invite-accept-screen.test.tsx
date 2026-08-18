@@ -4,6 +4,7 @@
 // screen on a public route outside SessionAuthGate crashed at runtime.
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -20,7 +21,10 @@ const resolver = createStaticLocaleResolver({ locale: "de" });
 function renderWithoutSessionProvider(token: string) {
   return render(
     <PrimitivesProvider value={defaultPrimitives}>
-      <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>
+      <LocaleProvider
+        resolver={resolver}
+        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations]}
+      >
         <InviteAcceptScreen token={token} />
       </LocaleProvider>
     </PrimitivesProvider>,
@@ -71,7 +75,7 @@ describe("InviteAcceptScreen — logged-in branch", () => {
     renderWithProviders(<InviteAcceptScreen token="tok-123" />, {
       session: makeSessionApi({ status: "authenticated" }),
     });
-    expect(screen.getByText(/Du bist eingeloggt/)).toBeTruthy();
+    expect(screen.getByText(/user@example.com/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Annehmen" })).toBeTruthy();
     expect(screen.queryByLabelText(/^E-Mail/)).toBeNull();
   });

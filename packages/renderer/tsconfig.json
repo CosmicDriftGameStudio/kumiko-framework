@@ -7,6 +7,10 @@
     "jsx": "react-jsx",
     "composite": true
   },
-  "references": [{ "path": "../framework" }, { "path": "../headless" }],
+  "references": [
+    { "path": "../framework" },
+    { "path": "../headless" },
+    { "path": "../locale-de" }
+  ],
   "include": ["./src/**/*"]
 }

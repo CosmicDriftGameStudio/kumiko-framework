@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -42,7 +43,7 @@ function renderWith(ui: ReactElement, dispatcher: Dispatcher): ReturnType<typeof
     <PrimitivesProvider value={defaultPrimitives}>
       <LocaleProvider
         resolver={resolver}
-        fallbackBundles={[defaultTranslations, kumikoDefaultTranslations]}
+        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations, kumikoDefaultTranslations]}
       >
         <DispatcherProvider dispatcher={dispatcher}>{ui}</DispatcherProvider>
       </LocaleProvider>

@@ -133,7 +133,7 @@ function wrapCell(bodyHtml: string): string {
 
 function renderShell(args: { title: string; bodyHtml: string; locale: GdprMailLocale }): string {
   return `<!DOCTYPE html>
-<html lang="${args.locale}">
+<html lang="${escapeHtmlAttr(args.locale)}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

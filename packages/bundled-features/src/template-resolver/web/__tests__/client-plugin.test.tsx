@@ -4,6 +4,7 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 // loader level (same pattern as editor-read-only.test.tsx).
 import { useShellUser } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import type { TreeNode } from "@cosmicdrift/kumiko-framework/engine";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   CONTENT_EDITOR_ELEMENT_ID,
   type ContentEditorComponent,
@@ -258,7 +259,10 @@ describe("textBlocksClient — plain contentFormat editor wiring", () => {
 
   function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
     return (
-      <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
+      <LocaleProvider
+        resolver={localeResolver}
+        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations]}
+      >
         <PrimitivesProvider value={defaultPrimitives}>
           <ContentEditorsProvider value={textBlocksClient().contentEditors ?? {}}>
             {children}
@@ -303,7 +307,10 @@ describe("textBlocksClient — findContentFormat resolves collectionId to the re
 
   function RichStubWrapper({ children }: { readonly children: ReactNode }): ReactNode {
     return (
-      <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
+      <LocaleProvider
+        resolver={localeResolver}
+        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations]}
+      >
         <PrimitivesProvider value={defaultPrimitives}>
           <ContentEditorsProvider value={{ rich: RichStub }}>{children}</ContentEditorsProvider>
         </PrimitivesProvider>

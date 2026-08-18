@@ -141,7 +141,7 @@ describe("admin-shell boot + workspace composition", () => {
 
   test("admin-shell registers server translations bundle", () => {
     const shell = createAdminShellFeature();
-    expect(shell.translations?.["admin-shell:nav.tenantOverview"]?.["de"]).toBe("Übersicht");
+    expect(shell.translations?.["admin-shell:nav.tenantOverview"]?.["en"]).toBe("Overview");
     expect(shell.translations?.["screen:tenant-overview.title"]?.["en"]).toBe("Overview");
   });
 });

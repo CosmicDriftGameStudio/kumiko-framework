@@ -7,6 +7,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -39,7 +40,7 @@ function renderGate(path: string, gate: ReactNode): ReturnType<typeof within> {
     <PrimitivesProvider value={defaultPrimitives}>
       <LocaleProvider
         resolver={resolver}
-        fallbackBundles={[defaultTranslations, kumikoDefaultTranslations]}
+        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations, kumikoDefaultTranslations]}
       >
         <DispatcherProvider dispatcher={stubDispatcher}>{gate}</DispatcherProvider>
       </LocaleProvider>

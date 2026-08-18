@@ -3,6 +3,7 @@ import { describe, expect, mock, test } from "bun:test";
 // before mock.module still see the mocked version because Bun
 // intercepts at the loader level. useShellUser is a mock object here.
 import { useShellUser } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -56,7 +57,10 @@ const localeResolver = createStaticLocaleResolver({ locale: "de" });
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
-    <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
+    <LocaleProvider
+      resolver={localeResolver}
+      fallbackBundles={[{ de: localeDeBundle }, defaultTranslations]}
+    >
       <PrimitivesProvider value={defaultPrimitives}>{children}</PrimitivesProvider>
     </LocaleProvider>
   );

@@ -10,7 +10,8 @@
   "references": [
     { "path": "../renderer" },
     { "path": "../headless" },
-    { "path": "../dispatcher-live" }
+    { "path": "../dispatcher-live" },
+    { "path": "../locale-de" }
   ],
   "include": ["./src/**/*"]
 }

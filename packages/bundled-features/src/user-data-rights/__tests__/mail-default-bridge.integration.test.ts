@@ -21,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { configValuesTable, createConfigFeature, createConfigResolver } from "../../config";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
@@ -63,6 +64,7 @@ beforeAll(async () => {
       mailTransportInMemoryFeature,
       // KEINE send*Email-Opts — die mail-foundation-Defaults muessen greifen.
       createUserDataRightsFeature(),
+      localeDe(),
       createUserDataRightsDefaultsFeature(),
     ],
   });

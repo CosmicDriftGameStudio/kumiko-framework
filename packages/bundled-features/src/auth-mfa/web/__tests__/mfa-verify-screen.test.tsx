@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -18,7 +19,7 @@ function renderScreen(ui: ReactElement, session = makeSessionApi()): RenderResul
     <PrimitivesProvider value={defaultPrimitives}>
       <LocaleProvider
         resolver={createStaticLocaleResolver({ locale: "de" })}
-        fallbackBundles={[defaultTranslations]}
+        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations]}
       >
         <SessionContext.Provider value={session}>{ui}</SessionContext.Provider>
       </LocaleProvider>

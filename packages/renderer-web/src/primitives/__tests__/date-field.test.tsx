@@ -5,6 +5,7 @@
 // green there).
 
 import { describe, expect, test } from "bun:test";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   kumikoDefaultTranslations,
@@ -17,7 +18,7 @@ function renderWithLocale(locale: string) {
   return render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale })}
-      fallbackBundles={[kumikoDefaultTranslations]}
+      fallbackBundles={[{ de: localeDeBundle }, kumikoDefaultTranslations]}
     >
       <DateField id="date" name="date" value="" onChange={() => {}} locale={locale} />
     </LocaleProvider>,

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   invalidChallengeToken,
   invalidRecoveryCode,
@@ -25,7 +26,7 @@ describe("auth-mfa errors.ts i18nKey / client-bundle parity", () => {
     test(`${name}'s i18nKey is registered in en/de translations`, () => {
       const key = failure.error.i18nKey;
       expect(defaultTranslations["en"]?.[key]).toBeDefined();
-      expect(defaultTranslations["de"]?.[key]).toBeDefined();
+      expect(localeDeBundle[key]).toBeDefined();
     });
   }
 
@@ -34,6 +35,6 @@ describe("auth-mfa errors.ts i18nKey / client-bundle parity", () => {
   test("client-only auth.mfa.errors.setupFailed is registered in en/de translations", () => {
     const key = "auth.mfa.errors.setupFailed";
     expect(defaultTranslations["en"]?.[key]).toBeDefined();
-    expect(defaultTranslations["de"]?.[key]).toBeDefined();
+    expect(localeDeBundle[key]).toBeDefined();
   });
 });

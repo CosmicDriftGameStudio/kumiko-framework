@@ -6,6 +6,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { createStore, type Dispatcher, type DispatcherStatus } from "@cosmicdrift/kumiko-headless";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -91,7 +92,7 @@ function renderCenter(
     <TokensProvider value={stubTokens}>
       <LocaleProvider
         resolver={stubResolver}
-        fallbackBundles={[defaultTranslations, kumikoDefaultTranslations]}
+        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations, kumikoDefaultTranslations]}
       >
         <PrimitivesProvider value={defaultPrimitives}>
           <LiveEventsProvider value={stubLiveEvents}>

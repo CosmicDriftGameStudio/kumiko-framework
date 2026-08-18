@@ -1,3 +1,4 @@
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 // Standalone-Mount-Page für DateInput (kind:"date") ohne createKumikoApp.
 // Reproduziert den #369-Folgebug (doppelter Kalender-Header) im echten
 // Browser: jsdom rendert kein CSS und das Duplikat-Label ist ein
@@ -38,7 +39,10 @@ function DateTestPageInner(): ReactNode {
 
 export function DateTestPage(): ReactNode {
   return (
-    <LocaleProvider resolver={localeResolver} fallbackBundles={[kumikoDefaultTranslations]}>
+    <LocaleProvider
+      resolver={localeResolver}
+      fallbackBundles={[{ de: localeDeBundle }, kumikoDefaultTranslations]}
+    >
       <DateTestPageInner />
     </LocaleProvider>
   );

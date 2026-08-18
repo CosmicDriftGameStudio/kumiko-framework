@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -20,7 +21,7 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
     <PrimitivesProvider value={defaultPrimitives}>
       <LocaleProvider
         resolver={createStaticLocaleResolver({ locale: "de" })}
-        fallbackBundles={[defaultTranslations]}
+        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations]}
       >
         {children}
       </LocaleProvider>
