@@ -1,7 +1,7 @@
 // @runtime client
 // Default translation bundle for the notes-history UI. notesHistoryClient()
 // hangs it into the LocaleProvider as a fallback bundle — apps override
-// individual keys via notesHistoryClient({ translations: { de: { ... } } }).
+// individual keys via notesHistoryClient({ translations }).
 // Keys follow `notesHistory.<area>.<slug>`.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";

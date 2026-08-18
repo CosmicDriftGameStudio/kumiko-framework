@@ -1,4 +1,3 @@
-import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 // Test-Utilities für renderer-web-Tests. Wrappt `render()` mit den
 // Providern die Consumer-Komponenten (RenderEdit, RenderList,
 // KumikoScreen) zur Laufzeit erwarten: PrimitivesProvider mit den
@@ -80,10 +79,7 @@ const stubResolver = createStaticLocaleResolver();
 function DefaultProviders({ children }: { readonly children: ReactNode }): ReactNode {
   return (
     <TokensProvider value={stubTokens}>
-      <LocaleProvider
-        resolver={stubResolver}
-        fallbackBundles={[{ de: localeDeBundle }, kumikoDefaultTranslations]}
-      >
+      <LocaleProvider resolver={stubResolver} fallbackBundles={[kumikoDefaultTranslations]}>
         <PrimitivesProvider value={defaultPrimitives}>
           <NavProvider value={stubNav}>
             <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>

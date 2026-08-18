@@ -38,7 +38,7 @@ function renderRL(props: {
   readonly onSearchChange?: (next: string) => void;
 }) {
   return render(
-    <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de" })}>
+    <LocaleProvider resolver={createStaticLocaleResolver({ locale: "en" })}>
       <PrimitivesProvider value={defaultPrimitives}>
         <RenderList
           screen={screenDef}
@@ -96,7 +96,7 @@ describe("RenderList — Search-Debounce", () => {
     // Externe Quelle (Browser-Back, Cross-Component-Reset) ändert
     // searchValue → RenderList soll den Input-Wert spiegeln.
     rerender(
-      <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de" })}>
+      <LocaleProvider resolver={createStaticLocaleResolver({ locale: "en" })}>
         <PrimitivesProvider value={defaultPrimitives}>
           <RenderList
             screen={screenDef}

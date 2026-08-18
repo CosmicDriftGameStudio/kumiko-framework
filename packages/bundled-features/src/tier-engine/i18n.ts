@@ -1,7 +1,7 @@
 // @runtime client
 // Default-Bundles für den TierAdminScreen. Werden vom tierEngineClient()
 // als Fallback-Bundle in den LocaleProvider gehängt — Apps überschreiben
-// einzelne Keys via `tierEngineClient({ translations: { de: { … } } })`.
+// einzelne Keys via `tierEngineClient({ translations })`.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 

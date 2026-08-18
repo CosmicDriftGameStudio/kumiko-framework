@@ -6,7 +6,6 @@
 //   /signup    → SignupScreen via createPublicSurface (auth e2e)
 //   sonst      → createKumikoApp mit MockDispatcher (Standard-Smoke-Suite)
 
-import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -73,7 +72,6 @@ async function boot(): Promise<void> {
     schema: e2eSchema,
     dispatcher,
     shell: AppShell,
-    clientFeatures: [localeDeClient()],
   });
 }
 

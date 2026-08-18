@@ -4,7 +4,7 @@
 // groups and `config.settings.title` for the synthetic workspace — generic
 // across every app, so they ship here. configClient() hangs them into the
 // LocaleProvider as a fallback; an app overrides individual keys via
-// configClient({ translations: { de: { ... } } }). The app only adds labels
+// configClient({ translations }). The app only adds labels
 // for ITS keys (mask.title) and the per-feature group key `<feature>.settings`.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";

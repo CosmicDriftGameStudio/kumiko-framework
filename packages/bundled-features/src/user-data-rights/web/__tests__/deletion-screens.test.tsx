@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -15,7 +14,7 @@ import { ConfirmAccountDeletionScreen } from "../confirm-deletion-screen";
 import { defaultTranslations } from "../i18n";
 import { RequestAccountDeletionScreen } from "../request-deletion-screen";
 
-const resolver = createStaticLocaleResolver({ locale: "de" });
+const resolver = createStaticLocaleResolver({ locale: "en" });
 
 type WriteCall = { readonly type: string; readonly payload: unknown };
 
@@ -43,7 +42,7 @@ function renderWith(ui: ReactElement, dispatcher: Dispatcher): ReturnType<typeof
     <PrimitivesProvider value={defaultPrimitives}>
       <LocaleProvider
         resolver={resolver}
-        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations, kumikoDefaultTranslations]}
+        fallbackBundles={[defaultTranslations, kumikoDefaultTranslations]}
       >
         <DispatcherProvider dispatcher={dispatcher}>{ui}</DispatcherProvider>
       </LocaleProvider>
@@ -63,7 +62,7 @@ describe("RequestAccountDeletionScreen", () => {
     const ui = renderWith(<RequestAccountDeletionScreen />, makeDispatcher(true, calls));
     fireEvent.change(ui.getByRole("textbox"), { target: { value: "a@b.com" } });
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/Mail gesendet/)).toBeTruthy());
+    await waitFor(() => expect(ui.getByText(/Email sent/)).toBeTruthy());
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]?.type).toBe("user-data-rights:write:request-deletion-by-email");
     expect(calls[0]?.payload).toEqual({ email: "a@b.com" });
@@ -74,8 +73,8 @@ describe("RequestAccountDeletionScreen", () => {
     const ui = renderWith(<RequestAccountDeletionScreen />, makeDispatcher(false, calls));
     fireEvent.change(ui.getByRole("textbox"), { target: { value: "a@b.com" } });
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/schief gegangen/)).toBeTruthy());
-    expect(ui.queryByText(/Mail gesendet/)).toBeNull();
+    await waitFor(() => expect(ui.getByText(/went wrong/)).toBeTruthy());
+    expect(ui.queryByText(/Email sent/)).toBeNull();
   });
 });
 
@@ -102,7 +101,7 @@ describe("ConfirmAccountDeletionScreen", () => {
     window.history.replaceState({}, "", "/delete-account/confirm#token=bad");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(false, []));
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/ungültig oder abgelaufen/)).toBeTruthy());
+    await waitFor(() => expect(ui.getByText(/invalid or expired/)).toBeTruthy());
     expect(ui.queryByText(/vorgemerkt/)).toBeNull();
   });
 
@@ -110,8 +109,8 @@ describe("ConfirmAccountDeletionScreen", () => {
     window.history.replaceState({}, "", "/delete-account/confirm#token=tok-123");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeThrowingDispatcher());
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/schief gegangen/)).toBeTruthy());
-    expect(ui.queryByText(/ungültig oder abgelaufen/)).toBeNull();
+    await waitFor(() => expect(ui.getByText(/went wrong/)).toBeTruthy());
+    expect(ui.queryByText(/invalid or expired/)).toBeNull();
     expect(ui.queryByText(/vorgemerkt/)).toBeNull();
   });
 });

@@ -9,13 +9,12 @@ import {
   emailPasswordClient,
   SignupScreen,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
-import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import { createStaticLocaleResolver } from "@cosmicdrift/kumiko-renderer";
 import { createPublicSurface } from "@cosmicdrift/kumiko-renderer-web";
 
 createPublicSurface({
-  locale: createStaticLocaleResolver({ locale: "de" }),
-  clientFeatures: [localeDeClient(), emailPasswordClient()],
+  locale: createStaticLocaleResolver({ locale: "en" }),
+  clientFeatures: [emailPasswordClient()],
   routes: [{ path: "/signup", component: <SignupScreen loginHref="/login" /> }],
   fallback: <SignupScreen loginHref="/login" />,
 });

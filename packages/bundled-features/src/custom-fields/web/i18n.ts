@@ -1,7 +1,7 @@
 // @runtime client
 // Default translation bundle for the custom-fields UI. customFieldsClient()
 // hangs it into the LocaleProvider as a fallback bundle — apps override
-// individual keys via `customFieldsClient({ translations: { de: { ... } } })`.
+// individual keys via `customFieldsClient({ translations })`.
 //
 // Keys follow `custom-fields.<area>.<slug>`. `custom-fields.errors.saveFailed`
 // is a LOCAL fallback only — server handlers emit generic error i18nKeys

@@ -13,11 +13,11 @@ test("signup happy-path: email submit → success banner", async ({ page }) => {
   });
 
   await page.goto("/signup");
-  await expect(page.getByText("Account erstellen")).toBeVisible();
+  await expect(page.getByText("Create account")).toBeVisible();
 
-  await page.getByLabel(/^E-Mail/).fill("new@example.com");
-  await page.getByRole("button", { name: "Aktivierungs-Link senden" }).click();
+  await page.getByLabel(/^Email/).fill("new@example.com");
+  await page.getByRole("button", { name: "Send activation link" }).click();
 
-  await expect(page.getByText("Mail gesendet")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Mail erneut senden" })).toBeVisible();
+  await expect(page.getByText("Email sent")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send email again" })).toBeVisible();
 });

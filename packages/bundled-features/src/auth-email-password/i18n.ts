@@ -1,12 +1,11 @@
 // @runtime client
-// Default-Bundles für die Feature-UI. Werden vom emailPasswordClient()
-// als Fallback-Bundle in den LocaleProvider gehängt — Apps können
-// einzelne Keys via `emailPasswordClient({ translations: { de: { ... } } })`
-// überschreiben, ohne das ganze Bundle kopieren zu müssen.
+// English UI copy for this feature. emailPasswordClient() mounts it as a
+// LocaleProvider fallback. Apps override keys via
+// `emailPasswordClient({ translations })`. German/Spanish ship in
+// localeDeClient() / localeEsClient(), not in this bundle.
 //
-// Keys folgen dem Schema `auth.<area>.<slug>` — `auth.login.*` für die
-// Formular-UI, `auth.errors.*` für Reason-Codes aus dem Login-Handler
-// (1:1 gespiegelt zu AuthErrors im server-side Feature).
+// Keys: `auth.<area>.<slug>` — `auth.login.*` for the form,
+// `auth.errors.*` for login-handler reason codes (mirrors AuthErrors).
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 

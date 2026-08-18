@@ -5,7 +5,6 @@
 
 import { mock } from "bun:test";
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
-import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -22,7 +21,7 @@ import { SessionContext } from "../session";
 // ihn pro Mount sonst neu konstruiert (~0.5ms × N Tests). Tests die
 // einen *anderen* Locale brauchen, übergeben ihren eigenen Resolver
 // über options.resolver.
-const sharedDeResolver = createStaticLocaleResolver({ locale: "de" });
+const sharedEnResolver = createStaticLocaleResolver({ locale: "en" });
 export type MakeSessionApiOptions = Partial<SessionState> & {
   readonly login?: SessionApi["login"];
   readonly logout?: SessionApi["logout"];
@@ -67,14 +66,11 @@ export function renderWithProviders(
     readonly session?: SessionApi;
   } = {},
 ): RenderResult & { readonly session: SessionApi } {
-  const resolver = options.resolver ?? sharedDeResolver;
+  const resolver = options.resolver ?? sharedEnResolver;
   const session = options.session ?? makeSessionApi();
   const result = _render(
     <PrimitivesProvider value={defaultPrimitives}>
-      <LocaleProvider
-        resolver={resolver}
-        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations]}
-      >
+      <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>
         <SessionContext.Provider value={session}>{ui}</SessionContext.Provider>
       </LocaleProvider>
     </PrimitivesProvider>,

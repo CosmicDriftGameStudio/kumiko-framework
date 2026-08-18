@@ -4,7 +4,6 @@
 // screen on a public route outside SessionAuthGate crashed at runtime.
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -16,15 +15,12 @@ import { defaultTranslations } from "../../i18n";
 import { InviteAcceptScreen } from "../invite-accept-screen";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
 
-const resolver = createStaticLocaleResolver({ locale: "de" });
+const resolver = createStaticLocaleResolver({ locale: "en" });
 
 function renderWithoutSessionProvider(token: string) {
   return render(
     <PrimitivesProvider value={defaultPrimitives}>
-      <LocaleProvider
-        resolver={resolver}
-        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations]}
-      >
+      <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>
         <InviteAcceptScreen token={token} />
       </LocaleProvider>
     </PrimitivesProvider>,
@@ -55,18 +51,16 @@ afterEach(() => {
 describe("InviteAcceptScreen — no <SessionProvider> ancestor (632/1)", () => {
   test("renders the anonymous accept-form instead of throwing", () => {
     renderWithoutSessionProvider("tok-123");
-    expect(screen.getByText("Einladung annehmen")).toBeTruthy();
-    expect(screen.getByLabelText(/^Passwort/)).toBeTruthy();
+    expect(screen.getByText("Accept invitation")).toBeTruthy();
+    expect(screen.getByLabelText(/^Password/)).toBeTruthy();
     // Anon default mode is "anon-existing" — email field is shown too.
-    expect(screen.getByLabelText(/^E-Mail/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
   });
 
   test("missing token still renders (no session access needed for that branch)", () => {
     renderWithoutSessionProvider("");
-    expect(
-      screen.getByText("Der Einladungs-Link enthält keinen Token oder ist ungültig."),
-    ).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Zum Login" }).getAttribute("href")).toBe("/login");
+    expect(screen.getByText("The invitation link is missing or invalid.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Go to sign in" }).getAttribute("href")).toBe("/login");
   });
 });
 
@@ -76,8 +70,8 @@ describe("InviteAcceptScreen — logged-in branch", () => {
       session: makeSessionApi({ status: "authenticated" }),
     });
     expect(screen.getByText(/user@example.com/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Annehmen" })).toBeTruthy();
-    expect(screen.queryByLabelText(/^E-Mail/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Accept" })).toBeTruthy();
+    expect(screen.queryByLabelText(/^Email/)).toBeNull();
   });
 
   test("accept logged-in success redirects via loggedInHref function", async () => {
@@ -91,7 +85,7 @@ describe("InviteAcceptScreen — logged-in branch", () => {
       <InviteAcceptScreen token="tok-123" loggedInHref={({ tenantId }) => `/${tenantId}/home`} />,
       { session: makeSessionApi({ status: "authenticated" }) },
     );
-    fireEvent.click(screen.getByRole("button", { name: "Annehmen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
     await waitFor(() => {
       expect(assign).toHaveBeenCalledWith("/tenant-new/home");
     });
@@ -104,7 +98,7 @@ describe("InviteAcceptScreen — logged-in branch", () => {
     renderWithProviders(<InviteAcceptScreen token="bad" />, {
       session: makeSessionApi({ status: "authenticated" }),
     });
-    fireEvent.click(screen.getByRole("button", { name: "Annehmen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
     await waitFor(() => {
       expect(screen.getByRole("alert").textContent).toContain("auth.errors.invalidInviteToken");
     });
@@ -114,8 +108,8 @@ describe("InviteAcceptScreen — logged-in branch", () => {
     renderWithProviders(<InviteAcceptScreen token="tok-123" />, {
       session: makeSessionApi({ status: "authenticated" }),
     });
-    fireEvent.click(screen.getByRole("button", { name: "Mit anderem Account anmelden" }));
-    expect(screen.getByLabelText(/^E-Mail/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Sign in with a different account" }));
+    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
   });
 });
 
@@ -126,9 +120,9 @@ describe("InviteAcceptScreen — anonymous branches", () => {
     );
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     renderWithoutSessionProvider("tok-123");
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@example.com" } });
-    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "secret123" } });
-    fireEvent.click(screen.getByRole("button", { name: "Annehmen + Anmelden" }));
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@example.com" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "secret123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Accept + sign in" }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/auth/invite-accept-with-login",
@@ -146,10 +140,10 @@ describe("InviteAcceptScreen — anonymous branches", () => {
     );
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     renderWithoutSessionProvider("tok-123");
-    fireEvent.click(screen.getByRole("button", { name: "Ich habe noch keinen Account" }));
-    expect(screen.queryByLabelText(/^E-Mail/)).toBeNull();
-    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "newpass123" } });
-    fireEvent.click(screen.getByRole("button", { name: "Annehmen + Anmelden" }));
+    fireEvent.click(screen.getByRole("button", { name: "I don't have an account yet" }));
+    expect(screen.queryByLabelText(/^Email/)).toBeNull();
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "newpass123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Accept + sign in" }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/auth/invite-signup-complete",
@@ -165,9 +159,9 @@ describe("InviteAcceptScreen — anonymous branches", () => {
       async () => new Response(null, { status: 422 }),
     ) as unknown as typeof fetch;
     renderWithoutSessionProvider("tok-123");
-    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "a@example.com" } });
-    fireEvent.change(screen.getByLabelText(/^Passwort/), { target: { value: "wrong" } });
-    fireEvent.click(screen.getByRole("button", { name: "Annehmen + Anmelden" }));
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@example.com" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "wrong" } });
+    fireEvent.click(screen.getByRole("button", { name: "Accept + sign in" }));
     await waitFor(() => {
       expect(screen.getByRole("alert").textContent).toContain("auth.errors.invalidInviteToken");
     });

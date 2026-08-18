@@ -18,7 +18,11 @@ function renderWithLocale(locale: string) {
   return render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale })}
-      fallbackBundles={[{ de: localeDeBundle }, kumikoDefaultTranslations]}
+      fallbackBundles={
+        locale.split("-")[0] === "de"
+          ? [{ de: localeDeBundle }, kumikoDefaultTranslations]
+          : [kumikoDefaultTranslations]
+      }
     >
       <DateField id="date" name="date" value="" onChange={() => {}} locale={locale} />
     </LocaleProvider>,

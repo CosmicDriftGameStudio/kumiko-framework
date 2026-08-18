@@ -1,7 +1,7 @@
 // @runtime client
 // Default translation bundle for the tags UI. tagsClient() hangs it into the
 // LocaleProvider as a fallback bundle — apps override individual keys via
-// tagsClient({ translations: { de: { ... } } }). Keys follow `tags.<area>.<slug>`.
+// tagsClient({ translations }). Keys follow `tags.<area>.<slug>`.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 

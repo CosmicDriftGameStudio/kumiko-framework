@@ -1,7 +1,7 @@
 // @runtime client
 // Default-Bundles für den ProfileScreen. Werden vom userProfileClient()
 // als Fallback-Bundle in den LocaleProvider gehängt — Apps überschreiben
-// einzelne Keys via `userProfileClient({ translations: { de: { … } } })`.
+// einzelne Keys via `userProfileClient({ translations })`.
 // `auth.errors.invalidCredentials` + `user.errors.emailAlreadyExists`
 // sind hier gedoppelt, damit der Screen auch ohne die jeweiligen
 // Feature-Bundles vollständig übersetzt.

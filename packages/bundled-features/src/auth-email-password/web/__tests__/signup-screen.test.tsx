@@ -23,9 +23,9 @@ function fillEmail(value: string): void {
 describe("SignupScreen", () => {
   test("rendert title + email-input + submit-button (de)", () => {
     renderWithProviders(<SignupScreen />);
-    expect(screen.getByText("Account erstellen")).toBeTruthy();
+    expect(screen.getByText("Create account")).toBeTruthy();
     expect(document.getElementById("signup-email")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Aktivierungs-Link senden" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Send activation link" })).toBeTruthy();
   });
 
   test("submit ruft /api/auth/signup-request mit der Email", async () => {
@@ -34,7 +34,7 @@ describe("SignupScreen", () => {
 
     renderWithProviders(<SignupScreen />);
     fillEmail("new@example.com");
-    fireEvent.click(screen.getByRole("button", { name: "Aktivierungs-Link senden" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send activation link" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -50,12 +50,12 @@ describe("SignupScreen", () => {
   test("nach erfolgreichem Submit: success-Banner + Resend", async () => {
     renderWithProviders(<SignupScreen />);
     fillEmail("new@example.com");
-    fireEvent.click(screen.getByRole("button", { name: "Aktivierungs-Link senden" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send activation link" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Mail gesendet")).toBeTruthy();
+      expect(screen.getByText("Email sent")).toBeTruthy();
     });
-    expect(screen.getByRole("button", { name: /Mail erneut senden/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Send email again/i })).toBeTruthy();
   });
 
   test("rate_limited mit retryAfterSeconds → interpolated minutes", async () => {
@@ -68,12 +68,12 @@ describe("SignupScreen", () => {
 
     renderWithProviders(<SignupScreen />);
     fillEmail("new@example.com");
-    fireEvent.click(screen.getByRole("button", { name: "Aktivierungs-Link senden" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send activation link" }));
 
     await waitFor(() => {
       expect(screen.getByRole("alert").textContent).toMatch(/2/);
     });
-    expect(screen.queryByText("Mail gesendet")).toBeNull();
+    expect(screen.queryByText("Email sent")).toBeNull();
   });
 
   test("server 5xx → error-banner statt Success-State", async () => {
@@ -83,11 +83,11 @@ describe("SignupScreen", () => {
 
     renderWithProviders(<SignupScreen />);
     fillEmail("new@example.com");
-    fireEvent.click(screen.getByRole("button", { name: "Aktivierungs-Link senden" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send activation link" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("schief");
+      expect(screen.getByRole("alert").textContent).toContain("wrong");
     });
-    expect(screen.queryByText("Mail gesendet")).toBeNull();
+    expect(screen.queryByText("Email sent")).toBeNull();
   });
 });

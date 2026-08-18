@@ -33,14 +33,14 @@ function fillPasswords(password: string, confirm: string): void {
 describe("SignupCompleteScreen", () => {
   test("ohne Token in URL UND ohne token-Prop → missing-token-Page", () => {
     renderWithProviders(<SignupCompleteScreen />);
-    expect(screen.getByText(/enthält keinen Token/i)).toBeTruthy();
+    expect(screen.getByText(/missing a token/i)).toBeTruthy();
   });
 
   test("mit token-Prop → Form rendert", () => {
     renderWithProviders(<SignupCompleteScreen token="abc-token" />);
     expect(document.getElementById("signup-password")).toBeTruthy();
     expect(document.getElementById("signup-confirm-password")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Account aktivieren" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Activate account" })).toBeTruthy();
   });
 
   test("Passwort < 8 Zeichen → client-side error, kein fetch-Call", async () => {
@@ -49,10 +49,10 @@ describe("SignupCompleteScreen", () => {
 
     renderWithProviders(<SignupCompleteScreen token="abc" />);
     fillPasswords("short", "short");
-    fireEvent.click(screen.getByRole("button", { name: "Account aktivieren" }));
+    fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("8 Zeichen");
+      expect(screen.getByRole("alert").textContent).toContain("8 characters");
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -84,7 +84,7 @@ describe("SignupCompleteScreen", () => {
         />,
       );
       fillPasswords("validpass1", "validpass1");
-      fireEvent.click(screen.getByRole("button", { name: "Account aktivieren" }));
+      fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
 
       await waitFor(() => {
         expect(fetchMock).toHaveBeenCalledWith(
@@ -107,10 +107,10 @@ describe("SignupCompleteScreen", () => {
 
     renderWithProviders(<SignupCompleteScreen token="abc" />);
     fillPasswords("validpass1", "differentpass");
-    fireEvent.click(screen.getByRole("button", { name: "Account aktivieren" }));
+    fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("nicht überein");
+      expect(screen.getByRole("alert").textContent).toContain("do not match");
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -125,10 +125,10 @@ describe("SignupCompleteScreen", () => {
 
     renderWithProviders(<SignupCompleteScreen token="bad" />);
     fillPasswords("validpass1", "validpass1");
-    fireEvent.click(screen.getByRole("button", { name: "Account aktivieren" }));
+    fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toMatch(/ungültig|abgelaufen/i);
+      expect(screen.getByRole("alert").textContent).toMatch(/invalid|expired/i);
     });
   });
 });

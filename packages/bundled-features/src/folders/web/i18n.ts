@@ -1,7 +1,7 @@
 // @runtime client
 // Default translation bundle for the folders UI. foldersClient() hangs it into
 // the LocaleProvider as a fallback bundle — apps override individual keys via
-// foldersClient({ translations: { de: { ... } } }). Keys follow `folders.<area>.<slug>`.
+// foldersClient({ translations }). Keys follow `folders.<area>.<slug>`.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 

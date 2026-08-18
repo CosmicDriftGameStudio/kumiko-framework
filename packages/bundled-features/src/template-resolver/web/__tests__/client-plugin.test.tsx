@@ -4,7 +4,6 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 // loader level (same pattern as editor-read-only.test.tsx).
 import { useShellUser } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import type { TreeNode } from "@cosmicdrift/kumiko-framework/engine";
-import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   CONTENT_EDITOR_ELEMENT_ID,
   type ContentEditorComponent,
@@ -255,14 +254,11 @@ describe("textBlocksClient — content collections", () => {
 });
 
 describe("textBlocksClient — plain contentFormat editor wiring", () => {
-  const localeResolver = createStaticLocaleResolver({ locale: "de" });
+  const localeResolver = createStaticLocaleResolver({ locale: "en" });
 
   function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
     return (
-      <LocaleProvider
-        resolver={localeResolver}
-        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations]}
-      >
+      <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
         <PrimitivesProvider value={defaultPrimitives}>
           <ContentEditorsProvider value={textBlocksClient().contentEditors ?? {}}>
             {children}
@@ -302,15 +298,12 @@ describe("textBlocksClient — plain contentFormat editor wiring", () => {
 });
 
 describe("textBlocksClient — findContentFormat resolves collectionId to the registered editor", () => {
-  const localeResolver = createStaticLocaleResolver({ locale: "de" });
+  const localeResolver = createStaticLocaleResolver({ locale: "en" });
   const RichStub: ContentEditorComponent = () => <div data-testid="rich-stub-editor" />;
 
   function RichStubWrapper({ children }: { readonly children: ReactNode }): ReactNode {
     return (
-      <LocaleProvider
-        resolver={localeResolver}
-        fallbackBundles={[{ de: localeDeBundle }, defaultTranslations]}
-      >
+      <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
         <PrimitivesProvider value={defaultPrimitives}>
           <ContentEditorsProvider value={{ rich: RichStub }}>{children}</ContentEditorsProvider>
         </PrimitivesProvider>
