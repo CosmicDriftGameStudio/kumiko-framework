@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.208.0
+
+### Minor Changes
+
+- 025c5b9: Framework UI copy is English-only. German and Spanish live in `@cosmicdrift/kumiko-locale-de` / `-es`. Apps that want those languages mount `localeDe()` + `localeDeClient()` (or the es equivalents). Without a locale package, framework screens and auth/GDPR mails render in English.
+
+### Patch Changes
+
+- eff2d71: `LanguageSwitcher` now resolves its `aria-label` and `title` from the `kumiko.nav.language` translation key instead of hardcoding the German string "Sprache", so the trigger's accessible name follows the active locale; this only works because `createKumikoApp` mounts `kumikoDefaultTranslations` as the last fallback into `LocaleProvider`, which the switcher relies on to resolve the key.
+- Updated dependencies [025c5b9]
+  - @cosmicdrift/kumiko-framework@0.208.0
+  - @cosmicdrift/kumiko-headless@0.208.0
+
 ## 0.207.0
 
 ### Minor Changes

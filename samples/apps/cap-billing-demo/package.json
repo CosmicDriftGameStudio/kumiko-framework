@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-sample-cap-billing-demo",
-  "description": "Sample-App: tier-engine + cap-counter + Plugin-API in einem laufenden Beispiel. Newsletter-send mit per-Tier-Cap und in-memory mail-Inbox \u2014 demonstriert wie eine Kumiko-App tier-bedingtes billing + soft-hit-Notification + hard-block verdrahtet.",
+  "description": "Sample-App: tier-engine + cap-counter + Plugin-API in einem laufenden Beispiel. Newsletter-send mit per-Tier-Cap und in-memory mail-Inbox — demonstriert wie eine Kumiko-App tier-bedingtes billing + soft-hit-Notification + hard-block verdrahtet.",
   "private": true,
   "type": "module",
   "scripts": {

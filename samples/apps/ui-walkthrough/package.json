@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-sample-ui-walkthrough",
-  "description": "Browser live-viewer for the ui-core logic layer. No renderer \u2014 raw inputs + a <pre> panel that shows form-state + view-model updating in real time as you type.",
+  "description": "Browser live-viewer for the ui-core logic layer. No renderer — raw inputs + a <pre> panel that shows form-state + view-model updating in real time as you type.",
   "private": true,
   "type": "module",
   "scripts": {
