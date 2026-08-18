@@ -16,7 +16,7 @@ export const ADMIN_SHELL_I18N: Readonly<Record<string, LocalizedString>> = {
   "admin-shell:nav.tenantOverview": { de: "Übersicht", en: "Overview", es: "Resumen" },
   "admin-shell:nav.platformOverview": { de: "Übersicht", en: "Overview", es: "Resumen" },
   "admin-shell:nav.tenants": { de: "Mandanten", en: "Tenants", es: "Organizaciones" },
-  "admin-shell:nav.tierAdmin": { de: "Tier zuweisen", en: "Assign tier", es: "Asignar nivel" },
+  "admin-shell:nav.tierAdmin": { de: "Tier zuweisen", en: "Assign tier", es: "Asignar tier" },
   "admin-shell:overview.tenantTitle": {
     de: "Administration",
     en: "Administration",
