@@ -82,7 +82,7 @@ describe("ConfirmAccountDeletionScreen", () => {
   test("ohne #token → missingToken, kein Confirm-Button", () => {
     window.history.replaceState({}, "", "/delete-account/confirm");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, []));
-    expect(ui.getByText(/Kein Token/)).toBeTruthy();
+    expect(ui.getByText(/No token/)).toBeTruthy();
     expect(ui.queryByRole("button")).toBeNull();
   });
 
@@ -91,7 +91,7 @@ describe("ConfirmAccountDeletionScreen", () => {
     const calls: WriteCall[] = [];
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, calls));
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/vorgemerkt/)).toBeTruthy());
+    await waitFor(() => expect(ui.getByText(/Deletion scheduled/)).toBeTruthy());
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]?.type).toBe("user-data-rights:write:confirm-deletion-by-token");
     expect(calls[0]?.payload).toEqual({ token: "tok-123" });
@@ -102,7 +102,7 @@ describe("ConfirmAccountDeletionScreen", () => {
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(false, []));
     fireEvent.click(ui.getByRole("button"));
     await waitFor(() => expect(ui.getByText(/invalid or expired/)).toBeTruthy());
-    expect(ui.queryByText(/vorgemerkt/)).toBeNull();
+    expect(ui.queryByText(/Deletion scheduled/)).toBeNull();
   });
 
   test("write wirft → generischer Error-Banner, NICHT invalidToken", async () => {
@@ -111,6 +111,6 @@ describe("ConfirmAccountDeletionScreen", () => {
     fireEvent.click(ui.getByRole("button"));
     await waitFor(() => expect(ui.getByText(/went wrong/)).toBeTruthy());
     expect(ui.queryByText(/invalid or expired/)).toBeNull();
-    expect(ui.queryByText(/vorgemerkt/)).toBeNull();
+    expect(ui.queryByText(/Deletion scheduled/)).toBeNull();
   });
 });

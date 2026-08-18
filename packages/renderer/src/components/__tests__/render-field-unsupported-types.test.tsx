@@ -77,7 +77,7 @@ function renderField(field: EditFieldViewModel): void {
   capturedBanner = undefined;
   render(
     <LocaleProvider
-      resolver={createStaticLocaleResolver({ locale: "de-DE" })}
+      resolver={createStaticLocaleResolver({ locale: "en" })}
       fallbackBundles={[kumikoDefaultTranslations]}
     >
       <PrimitivesProvider value={testPrimitives}>
@@ -109,7 +109,7 @@ describe.each([
     renderField(field);
     const children = capturedBanner?.children;
     const childArray = Array.isArray(children) ? children : [children];
-    expect(childArray[0]).toBe("Dieser Feldtyp kann hier noch nicht bearbeitet werden.");
+    expect(childArray[0]).toBe("This field type can't be edited here yet.");
     const valuePreview = childArray[1] as { props: { children: unknown } } | false | undefined;
     if (!valuePreview) throw new Error("expected a value-preview element");
     expect(valuePreview.props.children).toBe(JSON.stringify(field.value));
@@ -121,7 +121,7 @@ describe("RenderField — unsupported-type Banner ohne Wert", () => {
     renderField(baseField({ type: "jsonb", value: null }));
     const children = capturedBanner?.children;
     const childArray = Array.isArray(children) ? children : [children];
-    expect(childArray[0]).toBe("Dieser Feldtyp kann hier noch nicht bearbeitet werden.");
+    expect(childArray[0]).toBe("This field type can't be edited here yet.");
     expect(childArray[1]).toBeFalsy();
   });
 });
