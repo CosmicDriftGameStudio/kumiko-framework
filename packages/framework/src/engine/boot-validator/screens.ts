@@ -351,10 +351,10 @@ export function validateScreens(
       for (const col of screen.columns) {
         validateColumnRendererForm(feature.name, screenId, normalizeListColumn(col));
       }
-      // Screen-Filter (fw#2224) — ohne Entity ist Field-Existenz nicht
-      // prüfbar (Columns sind kein vollständiges Feld-Inventar der
-      // zugrundeliegenden Query), also nur die Struktur pinnen: "in"
-      // verlangt ein Array. Field-Gültigkeit dokumentiert der PR-Body.
+      // Screen filter (fw#2224) — field existence can't be checked without
+      // an entity (columns aren't a complete field inventory of the
+      // underlying query), so only pin the structure: "in" requires an
+      // array. Field validity is documented in the PR body.
       if (
         screen.filter !== undefined &&
         screen.filter.op === "in" &&
@@ -365,10 +365,10 @@ export function validateScreens(
             `filter.value to be a readonly array.`,
         );
       }
-      // Facets (fw#2224) — anders als filter IST hier ein Field-Inventar
-      // greifbar: die deklarierten columns. Ein Facet auf einem Feld ohne
-      // Spalte ist so gut wie immer ein Tippfehler (der User sieht das
-      // Feld nirgends), also hart geprüft statt nur dokumentiert.
+      // Facets (fw#2224) — unlike filter, a field inventory IS available
+      // here: the declared columns. A facet on a field with no column is
+      // almost always a typo (the user never sees the field anywhere), so
+      // this is hard-checked rather than just documented.
       if (screen.facets !== undefined) {
         const columnFieldNames = new Set(
           screen.columns.map((col) => normalizeListColumn(col).field),

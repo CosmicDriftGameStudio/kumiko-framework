@@ -357,13 +357,13 @@ export type ProjectionListScreenDefinition = {
    *  or `offset` param present). See `sortable` doc for why this is
    *  boot-enforced rather than type-enforced. */
   readonly paginated?: boolean;
-  /** Server-side Filter, fest am Screen — siehe `ScreenFilter`-Doc oben
-   *  (entityList). Field-Existenz ist ohne Entity nicht prüfbar; der
-   *  Boot-Validator prüft nur die Struktur (`op:"in"` ⇒ Array-Value). */
+  /** Server-side filter, fixed on the screen — see `ScreenFilter` doc above
+   *  (entityList). Field existence can't be checked without an entity; the
+   *  boot-validator only checks structure (`op:"in"` ⇒ array value). */
   readonly filter?: ScreenFilter;
-  /** User-toggleable Facet-Dropdowns — siehe `ListFacetSpec`-Doc. `field`
-   *  muss eine deklarierte Spalte sein; der gebundene Query-Handler muss
-   *  `filters` im Zod-Schema akzeptieren — beides prüft der Boot-Validator. */
+  /** User-toggleable facet dropdowns — see `ListFacetSpec` doc. `field`
+   *  must be a declared column; the bound query handler must accept
+   *  `filters` in its Zod schema — the boot-validator checks both. */
   readonly facets?: readonly ListFacetSpec[];
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
