@@ -12,8 +12,8 @@ export type {
   DbTx,
 } from "./connection";
 export { createDbConnection, dbConnectionOptionsFromEnv } from "./connection";
-export type { CursorQueryOptions, CursorResult } from "./cursor";
-export { decodeCursor, encodeCursor } from "./cursor";
+export type { CursorQueryOptions, CursorResult, DecodedKeysetCursor } from "./cursor";
+export { decodeCursor, decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor";
 export type { SchemaTable, SelectQuery, TableColumns } from "./dialect";
 export {
   bigint,
