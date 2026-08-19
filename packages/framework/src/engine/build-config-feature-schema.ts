@@ -139,9 +139,17 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
       const shortId = `${feature}-${scope}`;
 
       screens.push(buildScreen(shortId, scope, feature, ordered, access, declaredTranslationKeys));
+      // A tenant/user-home key with an elevated write role (SystemAdmin on a
+      // tenant key, see ELEVATED_ROLES) surfaces the SAME feature under two
+      // audience navs (cascade-default screen + home screen) — both would
+      // otherwise carry the identical `${feature}.settings` label. Opt-in
+      // scoped override (`${feature}.settings.${scope}`) disambiguates only
+      // where a feature actually declares one; every single-scope feature
+      // keeps the plain key unchanged.
+      const scopedLabel = `${feature}.settings.${scope}`;
       navs.push({
         id: shortId,
-        label: `${feature}.settings`,
+        label: declaredTranslationKeys.has(scopedLabel) ? scopedLabel : `${feature}.settings`,
         parent: audienceNavShortId(scope),
         screen: shortId,
         icon: ordered[0]?.def.mask?.icon ?? "settings",

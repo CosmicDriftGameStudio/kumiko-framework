@@ -443,6 +443,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.actions.next": "Weiter",
   "kumiko.actions.reload": "Neu laden",
   "kumiko.actions.save": "Speichern",
+  "kumiko.actions.view": "Anzeigen",
   "kumiko.aiText.acceptHint": "Tab = übernehmen, Esc = verwerfen",
   "kumiko.aiText.capExceeded": "Monatliches AI-Limit erreicht.",
   "kumiko.aiText.correct": "Korrigieren",
