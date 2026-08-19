@@ -3,6 +3,7 @@
 
 import "./add";
 import "./build";
+import "./changes";
 import "./check";
 import "./check-fast";
 import "./ci-guards";

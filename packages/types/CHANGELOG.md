@@ -1,5 +1,49 @@
 # @cosmicdrift/kumiko-types
 
+## 0.210.0
+
+### Minor Changes
+
+- 8b4467d: `projectionDetail`'s `hideActions: true` (0.209.0) hid RenderEdit's entire footer, including the screen's own declared `actions` — a screen that set `hideActions` to lose its Cancel button silently lost its header actions along with it (e.g. `RowActionNavigate` buttons opening related records).
+
+  `projectionDetail` has no write path, so there's nothing for a Cancel button to discard: RenderEdit's `onCancel` is no longer wired up for this screen type at all, regardless of `listScreenId`. Back-navigation continues to work via the breadcrumb, which already resolved `listScreenId` independently. Declared `actions` now always render.
+
+  **If you're on 0.209.0 and this affects you:**
+
+  - Every existing `projectionDetail` screen with `listScreenId` set now renders without a Cancel button by default — that button used to show unless you opted out.
+  - `hideActions` is removed from `ProjectionDetailScreenDefinition` entirely (it only ever shipped in 0.209.0, with the bundled sessions feature as its only consumer). Delete it from any screen definition that still sets it — it no longer exists on the type. `RenderEdit`'s own `hideActions` prop (for hosts driving their own action bar directly) is unrelated and unchanged.
+
+- d85987c: PII field annotations collapse from twelve low-level flags (`pii`, `userOwned`, `tenantOwned`, `subjectRef`, `allowPlaintext`, `lookupable`, `searchable`, `sensitive`, `piiEncrypted`, ...) to two author-facing options: `personal` (whose data it is) and `find` (how it stays findable). No backward compatibility — the old flags are a type error now and every field definition must migrate.
+
+  Before:
+
+  ```ts
+  email: createTextField({ required: true, pii: true, lookupable: true }),
+  body: createLongTextField({ userOwned: { ownerField: "authorId" } }),
+  ```
+
+  After:
+
+  ```ts
+  email: createTextField({ required: true, personal: "self", find: "exact" }),
+  body: createLongTextField({ personal: { of: "authorId" }, find: "none" }),
+  ```
+
+  `personal` picks the erasure subject, and with it the key whose destruction shreds the value: `"self"` (the row's own subject), `{ of: "<fieldName>" }` (someone else's data, keyed by that field), `"tenant"`, `"ref"` for a plain foreign key to a subject stored elsewhere, or `false` with a required `reason` for a field that looks sensitive but deliberately is not PII.
+
+  `find` picks findability, and is mandatory on text fields once `personal` names a subject — forgetting it is what produced the drift this change removes:
+
+  - `"exact"` — equality lookup over an HMAC blind index (`<column>_bidx`)
+  - `"fuzzy"` — full-text search over the derived index, and equality on top
+  - `"none"` — encrypted, not queryable
+  - `"secret"` — never indexed, and stripped from the write-response echo. It is not a read gate: a detail query still returns the value, and who may see it remains `access: { read: [...] }`.
+
+  `longtext` takes only `"none" | "secret"` — it has no field-level search index.
+
+  `encrypted: true` is unchanged and orthogonal: an app-wide master key that stacks _on top of_ a subject key (as `userMfa.totpSecret` does), not an alternative to it. `piiEncrypted` is gone from entity fields; config keys keep their own.
+
+  Fields that gain `"fuzzy"` where they previously had only `searchable` need a `_bidx` column — run `kumiko-schema generate` and let the projection rebuild backfill it. `scripts/codemod/pii-personal-migration.ts` migrates existing field definitions and reports anything it cannot map mechanically.
+
 ## 0.209.1
 
 ## 0.209.0

@@ -88,7 +88,7 @@ function collectChangelogs(featuresDir: string): ChangelogEntry[] {
 
 // Framework core changes belong to no feature — they live in a single
 // changes.json next to the framework sources.
-function findCoreChangelogFile(cwd: string): string | null {
+export function findCoreChangelogFile(cwd: string): string | null {
   const repoPath = join(cwd, "packages/framework/src/changes.json");
   if (existsSync(repoPath)) return repoPath;
 
@@ -104,7 +104,7 @@ function findCoreChangelogFile(cwd: string): string | null {
   return null;
 }
 
-function findFeaturesDirs(cwd: string): string[] {
+export function findFeaturesDirs(cwd: string): string[] {
   const dirs: string[] = [];
 
   // Framework repo: packages/bundled-features/src
