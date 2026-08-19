@@ -24,13 +24,16 @@ export const formDraftEntity = createEntity({
     // feeds the GDPR-hook-coverage boot guard (it's a plain FK into `user`,
     // not content of its own) — see ../form-draft-user-data for the
     // required export/delete hook coverage.
-    ownerId: createTextField({ subjectRef: true, required: true }),
+    ownerId: createTextField({
+      personal: "ref",
+      required: true,
+    }),
     draftKey: createTextField({ required: true, maxLength: FORM_DRAFT_KEY_MAX_LENGTH }),
     // The blob shape is fixed by issue #1889, not left to the caller:
     // { values: Record<string, unknown>, stepIndex: number, savedAt: string }.
     // Free-form because `values` mirrors whatever fields the in-progress
-    // form has, so it can carry arbitrary user-entered PII. NOT annotated
-    // `userOwned` — the framework's PII field-encryption engine only
+    // form has, so it can carry arbitrary user-entered PII. NOT given a
+    // `personal` annotation — the framework's PII field-encryption engine only
     // accepts string values (pii-field-encryption.ts throws on a non-string
     // field), and this is a jsonb object. Erasure instead runs as a real
     // physical row-delete on forget (see form-draft-user-data/hooks.ts),

@@ -20,7 +20,7 @@ describe("event-store-executor-context — encryptForStorage/decryptForRead laye
       // Both markers at once — the auth-mfa.totpSecret/recoveryCodes shape
       // that first surfaced the ordering bug (pii-subject-encryption
       // integration test).
-      secretNote: createTextField({ encrypted: true, userOwned: { ownerField: "userId" } }),
+      secretNote: createTextField({ encrypted: true, personal: { of: "userId" }, find: "none" }),
     },
   });
   const encryption = createTestEnvelopeCipher(TEST_KEY);

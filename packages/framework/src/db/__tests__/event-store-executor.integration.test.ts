@@ -693,8 +693,11 @@ describe("event-store-executor — entity cache + encrypted fields", () => {
 const piiEntity = createEntity({
   table: "read_es_exec_pii",
   fields: {
-    email: createTextField({ required: true, pii: true }),
-    note: createTextField({ userOwned: { ownerField: "authorId" } }),
+    email: createTextField({ required: true, personal: "self", find: "none" }),
+    note: createTextField({
+      personal: { of: "authorId" },
+      find: "none",
+    }),
     authorId: createTextField(),
     plain: createTextField(),
   },

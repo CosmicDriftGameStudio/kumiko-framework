@@ -30,7 +30,10 @@ export const templateResourceEntity = createEntity({
     folder: createTextField({}),
     // Template-body is authored by TenantAdmin/Operator (email-templates etc.),
     // business data — kein end-user UGC.
-    content: createLongTextField({ allowPlaintext: "is-business-data" }),
+    content: createLongTextField({
+      personal: false,
+      reason: "is_business_data",
+    }),
     contentFormat: createSelectField({ required: true, options: [...CONTENT_FORMATS] }),
     variableSchema: createLongTextField({}),
     linkedResources: createLongTextField({}),

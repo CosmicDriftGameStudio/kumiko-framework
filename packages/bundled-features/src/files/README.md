@@ -28,19 +28,19 @@ bewirtschaftet. Das öffnet die Tür für Cross-Feature-Hooks:
 ## PII-Annotations (Sprint 0.1+0.7)
 
 ```ts
-fileName    → pii: true                  (Originalname enthält oft Personen-Bezug)
-storageKey  → allowPlaintext: "is-business-data"  (interner UUID-Key)
-mimeType    → allowPlaintext: "is-business-data"
-size        → allowPlaintext: "is-business-data"
-entityType  → allowPlaintext: "is-business-data"
-entityId    → allowPlaintext: "is-business-data"
-fieldName   → allowPlaintext: "is-business-data"
-insertedAt  → kein PII-Marker (Audit-Timestamp, Framework-managed)
-insertedById → allowPlaintext: "is-business-data"  (User-Reference, kein Eigen-PII)
+fileName     → personal: "self", find: "none"  (Originalname enthält oft Personen-Bezug)
+storageKey   → kein PII-Marker (interner UUID-Key, trifft die Heuristik nicht)
+mimeType     → kein PII-Marker
+size         → kein PII-Marker
+entityType   → kein PII-Marker
+entityId     → kein PII-Marker
+fieldName    → kein PII-Marker
+insertedAt   → kein PII-Marker (Audit-Timestamp, Framework-managed Base-Column)
+insertedById → kein PII-Marker (User-Reference, Framework-managed Base-Column, kein Eigen-PII)
 ```
 
-`fileName: pii: true` heißt: Sprint 3 Crypto-Shredding wird den Wert
-mit dem Author-Subject-Key encrypten (für File-INHALTE: separates
+`fileName: personal: "self"` heißt: Sprint 3 Crypto-Shredding verschlüsselt den
+Wert mit dem Author-Subject-Key (für File-INHALTE: separates
 Subject-Resolver-Pattern via `subjectField` — siehe storage-encryption.md
 Sprint 4).
 

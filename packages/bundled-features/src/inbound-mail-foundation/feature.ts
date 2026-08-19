@@ -35,11 +35,11 @@
 //     Supervisor-storeBody-Hook, Event trägt nur bodyRef.
 //   - Kein IMAP-Flag-Write-back (V1) — Inbox-Status lebt beim Consumer.
 //
-// **PII/DSGVO:** address/from/to/cc/subject/snippet sind tenantOwned —
-// encrypted VOR jedem Event-Append (einziger Write-Pfad), Event-Log UND
-// Projections tragen Ciphertext; tenant-destroy shreddet den Subject-Key
-// (crypto-shredding, Muster billing-foundation #800). Der Destroy-Hook
-// archiviert zusätzlich alle Streams + löscht die Rows.
+// **PII/GDPR:** address/from/to/cc/subject/snippet are `personal: "tenant"`
+// — encrypted BEFORE every event append (the only write path), event log AND
+// projections carry ciphertext; tenant-destroy shreds the subject key
+// (crypto-shredding, same pattern as billing-foundation #800). The destroy
+// hook additionally archives all streams + deletes the rows.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";

@@ -42,7 +42,8 @@ export function createBrandingSettingsScreen(opts: {
       description: createTextField({
         maxLength: 500,
         multiline: { rows: 3 },
-        allowPlaintext: "is-business-data",
+        personal: false,
+        reason: "is_business_data",
       }),
       siteUrl: createTextField({ maxLength: 2000, format: "url" }),
       accentColor: createTextField({ maxLength: 9 }),

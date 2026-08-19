@@ -8,7 +8,7 @@ import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
 import { UnprocessableError } from "../errors";
 import { getStreamVersion } from "../event-store";
 import { rehydrateCompoundTypes } from "./compound-types";
-import { decodeCursor, encodeCursor } from "./cursor";
+import { decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor";
 import type { EventStoreExecutor } from "./event-store-executor";
 import { buildFilterWhere, type ExecutorContext } from "./event-store-executor-context";
 import { toSnakeCase } from "./table-builder";
@@ -41,6 +41,54 @@ export function resolveListPagination(payload: {
     });
   }
   return { limit: Math.min(limit, MAX_LIST_LIMIT), offset };
+}
+
+// Cursor sort values travel as text and bind as plain string params — Postgres
+// infers the parameter type from the column they are compared against, the same
+// way prepareValue binds a timestamptz as an ISO string. undefined means the
+// driver value has no faithful text form, which downgrades the page to the
+// legacy id-only boundary instead of emitting a wrong one.
+function toCursorSortText(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "bigint" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "object") {
+    const tag = (value as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag];
+    if (typeof tag === "string" && tag.startsWith("Temporal.")) return String(value);
+    return JSON.stringify(value);
+  }
+  return undefined;
+}
+
+// Keyset boundary for `ORDER BY <sort> <dir>, id ASC` under Postgres' DEFAULT
+// null ordering (ASC → NULLS LAST, DESC → NULLS FIRST). An explicit NULLS clause
+// would change the visible order and cost the sort its index.
+function keysetBoundarySql(
+  sortCol: string,
+  idCol: string,
+  cursor: { readonly id: string; readonly sortValue: string | null },
+  descending: boolean,
+  params: unknown[],
+): string {
+  params.push(cursor.id);
+  const afterId = `${idCol} > $${params.length}`;
+  const nullsComeFirst = descending;
+  if (cursor.sortValue === null) {
+    return nullsComeFirst
+      ? `(${sortCol} IS NOT NULL OR ${afterId})`
+      : `(${sortCol} IS NULL AND ${afterId})`;
+  }
+  params.push(cursor.sortValue);
+  const sortParam = `$${params.length}`;
+  const beyond = `${sortCol} ${descending ? "<" : ">"} ${sortParam}`;
+  const tie = `(${sortCol} = ${sortParam} AND ${afterId})`;
+  return nullsComeFirst
+    ? `(${sortCol} IS NOT NULL AND (${beyond} OR ${tie}))`
+    : `(${sortCol} IS NULL OR ${beyond} OR ${tie})`;
 }
 
 export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, "list" | "detail"> {
@@ -105,8 +153,11 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
       const whereSql: string[] = [];
       const params: unknown[] = [];
-      const colSql = (field: string): string =>
-        `"${(table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field)}"`;
+      const physicalCol = (field: string): string =>
+        (table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field);
+      const colSql = (field: string): string => `"${physicalCol(field)}"`;
+      const sortField = payload.sort && table[payload.sort] ? payload.sort : undefined;
+      const sortDescending = payload.sortDirection === "desc";
 
       // Tenant-Filter (replicates TenantDb's readWhere semantics).
       if (table["tenantId"] !== undefined && db.mode === "tenant") {
@@ -117,8 +168,21 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         whereSql.push(`${colSql("isDeleted")} = FALSE`);
       }
       if (payload.cursor) {
-        params.push(decodeCursor(payload.cursor));
-        whereSql.push(`${colSql("id")} > $${params.length}`);
+        const cursor = decodeKeysetCursor(payload.cursor);
+        if (sortField === undefined || cursor.sortValue === undefined) {
+          params.push(cursor.id);
+          whereSql.push(`${colSql("id")} > $${params.length}`);
+        } else {
+          whereSql.push(
+            keysetBoundarySql(
+              colSql(sortField),
+              colSql("id"),
+              { id: cursor.id, sortValue: cursor.sortValue },
+              sortDescending,
+              params,
+            ),
+          );
+        }
       }
       if (filterIds) {
         const placeholders = filterIds.map((id) => {
@@ -199,8 +263,8 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       if (payload.filters !== undefined) for (const f of payload.filters) applyFilter(f);
 
       const orderByClause =
-        payload.sort && table[payload.sort]
-          ? ` ORDER BY ${colSql(payload.sort)} ${payload.sortDirection === "desc" ? "DESC" : "ASC"}, ${colSql("id")} ASC`
+        sortField !== undefined
+          ? ` ORDER BY ${colSql(sortField)} ${sortDescending ? "DESC" : "ASC"}, ${colSql("id")} ASC`
           : ` ORDER BY ${colSql("id")} ASC`;
       const useOffset = !payload.cursor && offset > 0;
       const offsetClause = useOffset ? ` OFFSET ${offset}` : "";
@@ -234,8 +298,15 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       }
 
       const lastRow = rows[rows.length - 1];
-      const nextCursor =
-        rows.length === limit && lastRow ? encodeCursor(lastRow["id"] as string) : null; // @cast-boundary engine-payload
+      const lastRaw = rawRows[rawRows.length - 1];
+      let nextCursor: string | null = null;
+      if (rows.length === limit && lastRow && lastRaw) {
+        const cursorId = lastRow["id"] as string; // @cast-boundary engine-payload
+        const sortText =
+          sortField === undefined ? undefined : toCursorSortText(lastRaw[physicalCol(sortField)]);
+        nextCursor =
+          sortText === undefined ? encodeCursor(cursorId) : encodeKeysetCursor(sortText, cursorId);
+      }
 
       // total: extra COUNT(*) — nur wenn explizit angefordert (Pager-UI).
       // Postgres-Cost ist O(table-scan) ohne Filter, mit Filter so teuer

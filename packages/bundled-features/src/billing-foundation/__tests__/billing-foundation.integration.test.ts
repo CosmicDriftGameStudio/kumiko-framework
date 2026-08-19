@@ -119,8 +119,8 @@ beforeAll(async () => {
   // gepusht (r.projection mit `table`-Property → auto-push).
   await createEventsTable(db);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
-  // providerCustomerId/providerSubscriptionId are `tenantOwned` PII-subject
-  // fields — no executor wires the KMS automatically here (raw r.projection,
+  // providerCustomerId/providerSubscriptionId are `personal: "tenant"`
+  // PII-subject fields — no executor wires the KMS automatically here (raw r.projection,
   // see feature.ts), so process-event.write.ts calls configuredPiiSubjectKms()
   // directly and needs one configured, same as run{Prod,Dev}App do at boot.
   configurePiiSubjectKms(new InMemoryKmsAdapter());

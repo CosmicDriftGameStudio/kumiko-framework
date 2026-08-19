@@ -26,16 +26,19 @@ export const tenantRetentionOverrideEntity = createEntity({
     entityName: createTextField({
       required: true,
       maxLength: 100,
-      allowPlaintext: "is-business-data",
+      personal: false,
+      reason: "is_business_data",
     }),
     config: createLongTextField({
       required: true,
-      allowPlaintext: "is-business-data",
+      personal: false,
+      reason: "is_business_data",
     }),
     reason: createTextField({
       required: true,
       maxLength: 500,
-      allowPlaintext: "is-business-data",
+      personal: false,
+      reason: "is_business_data",
     }),
   },
   indexes: [{ unique: true, columns: ["tenantId", "entityName"] }],

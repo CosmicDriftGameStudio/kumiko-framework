@@ -8,7 +8,12 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 // was mounted without its required companion feature, and nothing caught
 // it at boot. r.requires("user-data-hook") can't express this — it would
 // fail even for a prompt-store variant with no PII fields at all.
-const promptFields = { text: createTextField({ pii: true }) };
+const promptFields = {
+  text: createTextField({
+    personal: "self",
+    find: "none",
+  }),
+};
 
 export const promptStoreFeature = defineFeature("prompt-store", (r) => {
   r.entity("prompt", createEntity({ fields: promptFields }));

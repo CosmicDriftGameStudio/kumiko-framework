@@ -34,7 +34,8 @@ export const tenantComplianceProfileEntity = createEntity({
     // bedeutet "Default-Profile, keine Override". Validiert beim
     // set-profile-Handler via Zod.
     override: createLongTextField({
-      allowPlaintext: "is-business-data",
+      personal: false,
+      reason: "is_business_data",
     }),
   },
   indexes: [

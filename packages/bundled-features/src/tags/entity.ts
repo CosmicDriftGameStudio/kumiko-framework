@@ -7,11 +7,17 @@ export const tagEntity = createEntity({
   table: "read_tags",
   fields: {
     // Catalog labels ("urgent", "billing"), not user-identifying content —
-    // allowPlaintext silences the user-content heuristic (456/5). A tenant
-    // COULD name a tag after a person; if that becomes a real requirement,
-    // this needs a userOwned annotation + forget/export hooks in the
-    // user-data-rights pipeline (none exist for tags today).
-    name: createTextField({ required: true, maxLength: 64, allowPlaintext: "catalog-label" }),
+    // `personal: false` silences the user-content heuristic (456/5). A
+    // tenant COULD name a tag after a person; if that becomes a real
+    // requirement, this needs a `personal: { of: "<f>" }` annotation +
+    // forget/export hooks in the user-data-rights pipeline (none exist for
+    // tags today).
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "catalog_label",
+    }),
     // Optional UI hint (hex or token). No enforcement — purely for rendering.
     color: createTextField({ maxLength: 32 }),
     // Optional entity-type scope (GitLab project-vs-group labels): empty = global

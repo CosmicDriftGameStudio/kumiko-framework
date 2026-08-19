@@ -75,21 +75,23 @@ export const exportDownloadTokenEntity = createEntity({
     // (z.B. broken Sync-Tool).
     useCount: createBigIntField({}),
 
-    // Audit: Source-IP des letzten Downloads. Hilft DPO bei Untersuchung
-    // ungewoehnlicher Aktivitaeten ("Token wurde von 5 verschiedenen
-    // IPs genutzt"). Plain-IP-V4/IPv6, kein hash — DPO braucht direkt
-    // lesbar. is-business-data weil Token-Audit kein User-PII ist
-    // (gehoert dem Tenant-Operator).
+    // Audit: source IP of the last download. Helps the DPO investigate
+    // unusual activity ("token was used from 5 different IPs"). Plain
+    // IPv4/IPv6, no hash — DPO needs it directly readable.
+    // `reason: "is_business_data"` because token-audit data isn't user
+    // PII (it belongs to the tenant operator).
     lastUsedFromIp: createTextField({
-      maxLength: 45, // IPv6 max
-      allowPlaintext: "is-business-data",
+      maxLength: 45,
+      personal: false,
+      reason: "is_business_data",
     }),
 
-    // Audit: User-Agent des letzten Downloads. Audit-Wert (Email-Client
-    // vs Browser vs CLI-Tool unterscheidbar). is-business-data analog.
+    // Audit: user agent of the last download (distinguishes email
+    // client vs browser vs CLI tool). Same `reason` as above.
     lastUsedUserAgent: createTextField({
       maxLength: 500,
-      allowPlaintext: "is-business-data",
+      personal: false,
+      reason: "is_business_data",
     }),
   },
 

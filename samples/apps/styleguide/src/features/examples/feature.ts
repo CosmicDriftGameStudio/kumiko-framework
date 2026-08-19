@@ -44,7 +44,7 @@ export const profileEntity = createEntity({
     avatar: createImageField({ maxSize: "5mb", accept: ["jpg", "jpeg", "png"] }),
     fullName: createTextField({ required: true }),
     // Demo-Daten, kein echtes PII-Encryption-Setup → Plaintext bewusst erlaubt.
-    email: createTextField({ required: true, allowPlaintext: "is-business-data" }),
+    email: createTextField({ required: true, personal: false, reason: "is_business_data" }),
     bio: createTextField({ multiline: { rows: 3 } }),
   },
 });

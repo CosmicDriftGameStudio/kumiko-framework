@@ -204,7 +204,10 @@ describe("createRegistry — store tables with PII-annotated fields (#820)", () 
     table: "rt_pii_probe",
     fields: {
       userId: createTextField({ required: true }),
-      ip: createTextField({ userOwned: { ownerField: "userId" } }),
+      ip: createTextField({
+        personal: { of: "userId" },
+        find: "none",
+      }),
     },
   });
   const piiMeta = deriveEntityTableMeta("rt-pii-probe", piiEntity, { source: "unmanaged" });
