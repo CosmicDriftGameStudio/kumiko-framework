@@ -1,5 +1,67 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.210.0
+
+### Minor Changes
+
+- 8b4467d: `projectionDetail`'s `hideActions: true` (0.209.0) hid RenderEdit's entire footer, including the screen's own declared `actions` — a screen that set `hideActions` to lose its Cancel button silently lost its header actions along with it (e.g. `RowActionNavigate` buttons opening related records).
+
+  `projectionDetail` has no write path, so there's nothing for a Cancel button to discard: RenderEdit's `onCancel` is no longer wired up for this screen type at all, regardless of `listScreenId`. Back-navigation continues to work via the breadcrumb, which already resolved `listScreenId` independently. Declared `actions` now always render.
+
+  **If you're on 0.209.0 and this affects you:**
+
+  - Every existing `projectionDetail` screen with `listScreenId` set now renders without a Cancel button by default — that button used to show unless you opted out.
+  - `hideActions` is removed from `ProjectionDetailScreenDefinition` entirely (it only ever shipped in 0.209.0, with the bundled sessions feature as its only consumer). Delete it from any screen definition that still sets it — it no longer exists on the type. `RenderEdit`'s own `hideActions` prop (for hosts driving their own action bar directly) is unrelated and unchanged.
+
+- d85987c: PII field annotations collapse from twelve low-level flags (`pii`, `userOwned`, `tenantOwned`, `subjectRef`, `allowPlaintext`, `lookupable`, `searchable`, `sensitive`, `piiEncrypted`, ...) to two author-facing options: `personal` (whose data it is) and `find` (how it stays findable). No backward compatibility — the old flags are a type error now and every field definition must migrate.
+
+  Before:
+
+  ```ts
+  email: createTextField({ required: true, pii: true, lookupable: true }),
+  body: createLongTextField({ userOwned: { ownerField: "authorId" } }),
+  ```
+
+  After:
+
+  ```ts
+  email: createTextField({ required: true, personal: "self", find: "exact" }),
+  body: createLongTextField({ personal: { of: "authorId" }, find: "none" }),
+  ```
+
+  `personal` picks the erasure subject, and with it the key whose destruction shreds the value: `"self"` (the row's own subject), `{ of: "<fieldName>" }` (someone else's data, keyed by that field), `"tenant"`, `"ref"` for a plain foreign key to a subject stored elsewhere, or `false` with a required `reason` for a field that looks sensitive but deliberately is not PII.
+
+  `find` picks findability, and is mandatory on text fields once `personal` names a subject — forgetting it is what produced the drift this change removes:
+
+  - `"exact"` — equality lookup over an HMAC blind index (`<column>_bidx`)
+  - `"fuzzy"` — full-text search over the derived index, and equality on top
+  - `"none"` — encrypted, not queryable
+  - `"secret"` — never indexed, and stripped from the write-response echo. It is not a read gate: a detail query still returns the value, and who may see it remains `access: { read: [...] }`.
+
+  `longtext` takes only `"none" | "secret"` — it has no field-level search index.
+
+  `encrypted: true` is unchanged and orthogonal: an app-wide master key that stacks _on top of_ a subject key (as `userMfa.totpSecret` does), not an alternative to it. `piiEncrypted` is gone from entity fields; config keys keep their own.
+
+  Fields that gain `"fuzzy"` where they previously had only `searchable` need a `_bidx` column — run `kumiko-schema generate` and let the projection rebuild backfill it. `scripts/codemod/pii-personal-migration.ts` migrates existing field definitions and reports anything it cannot map mechanically.
+
+### Patch Changes
+
+- f2e6862: `backfillEventPiiEncryption`'s new owner-resolution chain (payload → projection row → erase, fw#2266) now pins the payload-wins-over-projection precedence and the value-guard skip for pii fields absent from an event section, both with dedicated integration tests.
+- 1ba89fb: Fix `event-store-executor.list()` keyset pagination against a custom `sort` field. The cursor boundary was always `id > cursor`, but rows are ordered by `<sort> <dir>, id ASC` — pages after the first duplicated and permanently skipped rows whenever a caller passed `sort`/`sortDirection`. The cursor now encodes both the sort value and the id, and the WHERE boundary follows the same direction and Postgres NULLS-default ordering as the `ORDER BY` clause. Old id-only cursors already in flight from clients are still accepted and fall back to the previous id-only boundary.
+- db14e69: Fixes three raw-i18n-key regressions found during a visual QA pass over the `use-all-bundled` sample app.
+
+  **Settings-Hub double label:** `tenant-settings` declares an admin-write config key at tenant scope, which the Settings-Hub generator (`buildConfigFeatureSchema`) cascades into a second, system-scope screen for `SystemAdmin` alongside the tenant-home screen. Both screens used to share the exact same `${feature}.settings` nav label and section title, and neither key was ever declared in `tenant-settings`'s translations — so the sidebar rendered the raw key `tenant-settings.settings` twice, once under "Platform" and once under "Organization". Fixed by declaring `tenant-settings.settings` (en/de) and adding an opt-in scoped override `tenant-settings.settings.system`, following the same declare-if-present gate the generator already uses for section descriptions. `subscription-stripe` is the only other bundled feature with a masked config key; it's system-scope-only (no cross-scope cascade) and already declared its `.settings` key, so no change was needed there.
+
+  **`ComplianceProfileCatalog` not registered:** `samples/apps/use-all-bundled`'s `client.tsx` mounted `compliance-profiles` and `feature-toggles` server-side but never called their client plugins, so `/profile-picker`'s extension section and the feature-toggles admin screen both failed to render. Added the missing `complianceProfilesClient()` and `featureTogglesClient()` calls. A new coverage test cross-references every bundled feature the app mounts server-side (`run-config.ts`) against `client.tsx`'s client-feature list, so a future gap fails CI instead of shipping silently.
+
+  **Raw `kumiko.actions.view` key:** `user-data-rights`'s export-job-list screen follows the established `kumiko.actions.*` row-action convention (same as `tenant`/`user` screens), but `kumiko.actions.view` was never declared in the framework's own default translation bundle (`renderer/src/i18n-defaults.ts`) — every mounting app rendered the raw key. Added `kumiko.actions.view` to the English default bundle and to `locale-de`/`locale-es`.
+
+  Also surfaced but deliberately out of scope for this PR: the boot-time i18n validator (`isI18nKey` in `framework/src/i18n/required-surface-keys.ts`) only recognizes colon-containing keys, so dot-form keys like `${feature}.settings` are silently excluded from required-translation checks — this is why the missing `tenant-settings.settings` key was never caught at boot. Filed as #2260.
+
+- Updated dependencies [8b4467d]
+- Updated dependencies [d85987c]
+  - @cosmicdrift/kumiko-types@0.210.0
+
 ## 0.209.1
 
 ### Patch Changes
