@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.208.3
+
+### Patch Changes
+
+- e595330: fw#2218: the generated Settings-Hub `configEdit` screen rendered narrow and centered, and had no room for a section description. `buildConfigFeatureSchema` now sets `layout.width: "full"` on every generated screen, and adds a section `description` (`<feature>.settings.description`) whenever the feature actually declares that translation key — features that don't declare it keep the section without a `description` prop, so `translate()` never leaks a raw undeclared key onto the screen.
+- 8087d17: Tenant-settings `locale` is now a select field backed by `DEFAULT_LOCALES` (`de`, `en`), matching how `currency` already works. Apps that need more locales pass `locales` to `createTenantSettingsFeature`. The freeform-text `pattern` validation is gone since the select constrains input already.
+  - @cosmicdrift/kumiko-types@0.208.3
+
 ## 0.208.2
 
 ### Patch Changes

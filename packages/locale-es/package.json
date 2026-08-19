@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-locale-es",
-  "version": "0.208.2",
+  "version": "0.208.3",
   "description": "Spanish UI and mail copy for Kumiko framework screens. Opt in by mounting localeEs() + localeEsClient().",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
