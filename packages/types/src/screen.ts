@@ -426,12 +426,6 @@ export type ProjectionDetailScreenDefinition = {
    *  readOnly anyway (there is no write path, see the shim doc above).
    *  Set "form" to opt back into the disabled-Input look (fw#2245). */
   readonly valueDisplay?: "form" | "text";
-  /** Unused: a read-only screen has nothing to cancel, so RenderEdit's
-   *  Cancel button is never wired up here regardless of this flag —
-   *  `resolveDetailBreadcrumb` (renderer-web) reads `listScreenId` directly
-   *  for back-navigation. Kept on the type for existing callers; setting it
-   *  has no effect. */
-  readonly hideActions?: boolean;
 };
 
 // --- dashboard ---

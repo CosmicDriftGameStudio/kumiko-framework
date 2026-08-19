@@ -213,14 +213,12 @@ describe("KumikoScreen / projectionDetail", () => {
   });
 
   // Regression: declared `actions` used to disappear along with Cancel
-  // whenever a screen set `hideActions: true` to get rid of the latter —
-  // `hideActions` is now unused for this screen type (see the field's doc
-  // comment), so it must have no bearing on the declared actions either.
-  test("declared actions render, and hideActions has no effect", async () => {
+  // whenever a screen hid its RenderEdit footer to get rid of the latter —
+  // both now render independently of each other.
+  test("declared actions render alongside no Cancel button", async () => {
     const withActionsScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       listScreenId: "session-list",
-      hideActions: true,
       actions: [
         {
           kind: "navigate",
