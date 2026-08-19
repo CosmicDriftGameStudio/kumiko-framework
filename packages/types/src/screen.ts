@@ -232,9 +232,10 @@ export type RowActionNavigate = {
   readonly rowClick?: boolean;
 };
 
-// ToolbarAction — Button im List-Header. Zwei Varianten: navigate auf
-// einen anderen Screen (z.B. zu einem actionForm) oder direkt einen
-// Handler dispatchen (z.B. "Sync All" ohne Form).
+// ToolbarAction — button in the list header. Three variants: navigate to
+// another screen (e.g. a full-page actionForm), dispatch a handler directly
+// (e.g. "Sync All" without a form), or mount an actionForm in a Drawer
+// without leaving the list (fw#2225).
 export type ToolbarAction =
   | {
       readonly kind: "navigate";
@@ -257,6 +258,18 @@ export type ToolbarAction =
       /** i18n-Key für Confirm-Button-Text im Dialog. Default = `label`. */
       readonly confirmLabel?: string;
       readonly style?: "primary" | "secondary" | "danger";
+    }
+  | {
+      readonly kind: "drawer";
+      readonly id: string;
+      readonly label: string;
+      /** Short, unqualified id of an `actionForm` screen in the same
+       *  feature. Boot validator rejects a missing screen and a screen
+       *  whose `type` isn't `actionForm` — the caller decides full-page
+       *  vs. drawer, not the form (see docs/plans/bundled-features-screen-
+       *  standardisierung.md §2.6c). */
+      readonly screen: string;
+      readonly style?: "primary" | "secondary";
     };
 
 export type EntityListScreenDefinition = {

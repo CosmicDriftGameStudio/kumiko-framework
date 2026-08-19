@@ -1258,6 +1258,128 @@ describe("KumikoScreen", () => {
     expect(writeCalls[0]).toEqual({ type: "tasks:write:task:sync", payload: { all: true } });
   });
 
+  // toolbarActions kind:"drawer" (fw#2225): mounts the referenced actionForm
+  // in the Drawer primitive instead of navigating — reuses ActionFormBody
+  // (no second form renderer), so submit/cancel/field-rendering all go
+  // through the same RenderEdit path entityEdit/actionForm already use.
+  describe("entityList toolbarActions drawer-kind (fw#2225)", () => {
+    const noteForm: ActionFormScreenDefinition = {
+      id: "task-note",
+      type: "actionForm",
+      handler: "tasks:write:task:note",
+      fields: { note: { type: "text", required: true } },
+      layout: { sections: [{ fields: ["note"] }] },
+    };
+    const screenWithDrawer: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      toolbarActions: [
+        { kind: "drawer", id: "add-note", label: "actions.addNote", screen: "task-note" },
+      ],
+    };
+
+    test("Click opens the Drawer with the referenced actionForm's fields", async () => {
+      const dispatcher = makeDispatcher({
+        query: (async () => ({
+          isSuccess: true,
+          data: { rows: [{ id: "r1", title: "x", count: 0, done: false }], nextCursor: null },
+        })) as unknown as Dispatcher["query"],
+      });
+      const user = userEvent.setup();
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [screenWithDrawer, noteForm] }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>,
+      );
+      await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+      expect(screen.queryByTestId("field-note")).toBeNull();
+
+      await user.click(screen.getByTestId("render-list-toolbar-action-add-note"));
+      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      expect(screen.getByTestId("field-note")).toBeTruthy();
+    });
+
+    test("Successful submit calls the actionForm's handler, closes the Drawer, and reloads the list", async () => {
+      const writeCalls: { type: string; payload: unknown }[] = [];
+      let queryCallCount = 0;
+      const dispatcher = makeDispatcher({
+        query: (async () => {
+          queryCallCount += 1;
+          return { isSuccess: true, data: { rows: [], nextCursor: null } };
+        }) as unknown as Dispatcher["query"],
+        write: (async (type: string, payload: unknown) => {
+          writeCalls.push({ type, payload });
+          return { isSuccess: true, data: {} };
+        }) as unknown as Dispatcher["write"],
+      });
+      const user = userEvent.setup();
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [screenWithDrawer, noteForm] }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>,
+      );
+      await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+      await user.click(screen.getByTestId("render-list-toolbar-action-add-note"));
+      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      const queryCallsBeforeSubmit = queryCallCount;
+
+      // field-note's testId sits on the Field wrapper (label + errors +
+      // control), not the <input> itself — grab the actual control to type
+      // into it, same DOM-level approach as other RenderEdit field tests.
+      const noteInput = screen.getByTestId("field-note").querySelector("input");
+      if (noteInput === null) throw new Error("expected an <input> inside field-note");
+      fireEvent.change(noteInput, { target: { value: "hello" } });
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+
+      await waitFor(() => expect(writeCalls.length).toBe(1));
+      expect(writeCalls[0]?.type).toBe("tasks:write:task:note");
+      await waitFor(() => expect(screen.queryByTestId("render-edit-form")).toBeNull());
+      await waitFor(() => expect(queryCallCount).toBeGreaterThan(queryCallsBeforeSubmit));
+    });
+
+    // Mirrors kind:"navigate": access is enforced when the target renders,
+    // not by hiding the toolbar button — same as a role-gated navigate
+    // target still shows its button but denies the destination.
+    test("User without access to the target screen: button still triggers, but sees Access denied instead of the form", async () => {
+      const restrictedNoteForm: ActionFormScreenDefinition = {
+        ...noteForm,
+        access: { roles: ["Admin"] },
+      };
+      const dispatcher = makeDispatcher({
+        query: (async () => ({
+          isSuccess: true,
+          data: { rows: [{ id: "r1", title: "x", count: 0, done: false }], nextCursor: null },
+        })) as unknown as Dispatcher["query"],
+      });
+      const user = userEvent.setup();
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <UserRolesProvider roles={["Viewer"]}>
+            <KumikoScreen
+              schema={{ ...schema, screens: [screenWithDrawer, restrictedNoteForm] }}
+              qn="tasks:screen:task-list"
+            />
+          </UserRolesProvider>
+        </DispatcherProvider>,
+      );
+      await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+      const button = screen.getByTestId("render-list-toolbar-action-add-note");
+      await user.click(button);
+
+      expect(screen.getByTestId("kumiko-toolbar-drawer-access-denied")).toBeTruthy();
+      expect(screen.queryByTestId("field-note")).toBeNull();
+    });
+  });
+
   // Tier 2.7c: Screen-Level filter wird vom Schema in den Query-
   // Payload propagiert. Drei Buckets ("scheduled" / "active" / "done")
   // teilen sich denselben Query-Handler — der Filter unterscheidet

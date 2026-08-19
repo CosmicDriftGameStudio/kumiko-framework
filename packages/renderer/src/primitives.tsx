@@ -817,6 +817,20 @@ export type ModalProps = {
   readonly testId?: string;
 };
 
+/** Side panel for hosting an existing self-contained form/widget (own
+ *  submit/cancel buttons) without leaving the underlying screen — e.g. a
+ *  toolbar action's `kind: "drawer"` mounts an actionForm here instead of
+ *  navigating to a full page (fw#2225). Same "bare content shell, no
+ *  footer buttons of its own" contract as `Modal`, slide-in instead of
+ *  centered overlay. */
+export type DrawerProps = {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly title?: string;
+  readonly children: ReactNode;
+  readonly testId?: string;
+};
+
 /** Image lightbox — full-size preview on click. Web renders Radix overlay;
  *  trigger (thumbnail) and open state live in the app. */
 export type LightboxProps = {
@@ -947,6 +961,10 @@ export type CorePrimitives = {
   readonly Heading: ComponentType<HeadingProps>;
   readonly Dialog: ComponentType<DialogProps>;
   readonly Modal: ComponentType<ModalProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly Drawer?: ComponentType<DrawerProps>;
   readonly Lightbox: ComponentType<LightboxProps>;
   readonly ConfigSourceBadge: ComponentType<ConfigSourceBadgeProps>;
   readonly ConfigCascadeView: ComponentType<ConfigCascadeViewProps>;

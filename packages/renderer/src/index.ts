@@ -176,6 +176,7 @@ export type {
   DataTableSort,
   DataTableSortDir,
   DialogProps,
+  DrawerProps,
   EmbeddedListCellType,
   EmbeddedListColumn,
   EmbeddedListInputProps,
