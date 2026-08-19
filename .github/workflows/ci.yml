@@ -651,6 +651,7 @@ jobs:
       # kein OIDC). scripts/publish-with-oidc.sh iteriert publishable
       # workspaces, ruft `npm publish --provenance --access public`.
       - uses: changesets/action@v1
+        id: changesets
         with:
           # changesets/action runs `version:` as a split argv (no shell), so an
           # inline `&& bun install` is passed as extra args to changeset and
@@ -695,3 +696,50 @@ jobs:
           bun install --frozen-lockfile
           bash scripts/publish-with-oidc.sh
           git push origin --tags
+
+      # infra#540 (B2.8): Renovate soll per repository_dispatch statt Cron
+      # auf ein erfolgreiches Release reagieren. RENOVATE_DISPATCH_TOKEN als
+      # geteiltes Secret gibt es nicht — der Publisher-Job erzeugt sich
+      # stattdessen selbst ein App-Token. `repositories: infra` scoped dieses
+      # Token exakt auf `POST /repos/CosmicDriftGameStudio/infra/dispatches`:
+      # der Publisher-Job bekommt damit bewusst KEIN Schreibrecht auf die
+      # Consumer-Repos, das ist der eigentliche Zweck der Umstellung. Die
+      # App-Secrets (RENOVATE_APP_ID/RENOVATE_APP_PRIVATE_KEY) existieren
+      # evtl. noch nicht (Marc setzt sie separat, siehe
+      # infra/renovate/README.md) — deshalb auf BEIDEN Steps
+      # `continue-on-error: true`: ein fehlendes Secret oder ein
+      # fehlgeschlagener Dispatch-Call darf den Release-Job NIEMALS rot
+      # machen, ein ausgebliebener Renovate-Lauf ist harmlos (infra faengt es
+      # per 4h-Cron ohnehin auf), ein roter Release-Job blockiert den
+      # naechsten Publish. Deckt nur den regulaeren changesets/action-Publish
+      # ab, nicht den Rescue-Pfad im Schritt oben (#1781, konkurrierende
+      # Changesets) — der ist selten genug, dass der 4h-Cron als Netz reicht.
+      # Der Secret-Guard im `run`-Block des Dispatch-Steps bleibt bestehen
+      # (nicht im `if`: Step-level `env` ist im `if` desselben Steps noch
+      # nicht gesetzt, Auswertungsreihenfolge) — er faengt jetzt zusaetzlich
+      # den Fall ab, dass der App-Token-Step wegen fehlender Secrets
+      # uebersprungen wurde oder fehlschlug (dann ist
+      # `steps.renovate-dispatch-token.outputs.token` leer).
+      - name: Create Renovate dispatch token
+        id: renovate-dispatch-token
+        if: steps.changesets.outputs.published == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          owner: CosmicDriftGameStudio
+          repositories: infra
+
+      - name: Trigger Renovate in consumers
+        if: steps.changesets.outputs.published == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.renovate-dispatch-token.outputs.token }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Renovate dispatch token nicht verfuegbar — Dispatch uebersprungen."
+            exit 0
+          fi
+          gh api repos/CosmicDriftGameStudio/infra/dispatches \
+            -f event_type=publisher-released
