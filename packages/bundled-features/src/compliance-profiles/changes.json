@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "version": "0.208.2",
+    "type": "improvement",
+    "title": "profile-picker screen switched from custom TSX to a declarative actionForm (fw#2222).",
+    "detail": "The 152-line custom compliance-profile-screen.tsx is gone. The picker is now an actionForm (select field submitting to the existing `compliance-profiles:write:set-profile` handler) plus an extension section for the read-only profile catalog (region + supervisory authority), now ~40 lines. Nav gained a `shield-check` icon."
+  }
+]
