@@ -55,12 +55,12 @@ const mailerFeature = defineFeature("mailer", (r) => {
   );
 });
 
-// userOwned (not pii-self) — its ownerField can legitimately be absent from
-// an old event's payload, unlike contact.email (self-subject via row id).
+// personal: { of } (not "self") — the named owner field can legitimately be
+// absent from an old event's payload, unlike contact.email (self-subject via row id).
 const noteEntity = createEntity({
   fields: {
     authorId: createTextField(),
-    body: createTextField({ userOwned: { ownerField: "authorId" } }),
+    body: createTextField({ personal: { of: "authorId" }, find: "none" }),
   },
 });
 const noteTable = buildEntityTable("note", noteEntity);
