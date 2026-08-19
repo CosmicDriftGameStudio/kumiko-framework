@@ -46,7 +46,7 @@ const widgetFeature = defineFeature("reindex-test", (r) => {
 const contactEntity = createEntity({
   table: "read_reindex_contacts",
   fields: {
-    label: createTextField({ required: true, maxLength: 100, pii: true, searchable: true }),
+    label: createTextField({ required: true, maxLength: 100, personal: "self", find: "fuzzy" }),
   },
 });
 const contactTable = buildEntityTable("contact", contactEntity);

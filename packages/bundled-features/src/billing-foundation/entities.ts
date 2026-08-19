@@ -40,7 +40,7 @@ export const subscriptionEntity = createEntity({
   table: "read_subscriptions",
   fields: {
     providerName: createTextField({ required: true, maxLength: 50 }),
-    // tenantOwned (not `encrypted`): the field must crypto-shred when
+    // `personal: "tenant"` (not `encrypted`): the field must crypto-shred when
     // eraseSubjectKeys erases the tenant's subject key on tenant-destroy
     // (#800). `encrypted: true` uses the app-wide master key instead — that
     // key is never erased per-tenant, so it would only add encryption-at-
@@ -52,12 +52,14 @@ export const subscriptionEntity = createEntity({
     providerCustomerId: createTextField({
       required: true,
       maxLength: 1000,
-      tenantOwned: true,
+      personal: "tenant",
+      find: "none",
     }),
     providerSubscriptionId: createTextField({
       required: true,
       maxLength: 1000,
-      tenantOwned: true,
+      personal: "tenant",
+      find: "none",
     }),
     status: createTextField({ required: true, maxLength: 30 }),
     tier: createTextField({ required: true, maxLength: 50 }),

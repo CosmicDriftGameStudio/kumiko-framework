@@ -63,9 +63,17 @@ describe("S0 Integration — full surface stack", () => {
         "user",
         createEntity({
           fields: {
-            email: createTextField({ pii: true }),
-            displayName: createTextField({ pii: true }),
-            lastLoginAt: createTimestampField({ pii: true }),
+            email: createTextField({
+              personal: "self",
+              find: "none",
+            }),
+            displayName: createTextField({
+              personal: "self",
+              find: "none",
+            }),
+            lastLoginAt: createTimestampField({
+              personal: "self",
+            }),
           },
           retention: {
             keepFor: "10y",
@@ -80,7 +88,8 @@ describe("S0 Integration — full surface stack", () => {
         createEntity({
           fields: {
             body: createLongTextField({
-              userOwned: { ownerField: "authorId" },
+              personal: { of: "authorId" },
+              find: "none",
               anonymize: () => "[ANONYMIZED]",
             }),
             authorId: { type: "reference", entity: "user" },
@@ -130,7 +139,10 @@ describe("S0 Integration — full surface stack", () => {
         "user",
         createEntity({
           fields: {
-            email: createTextField({ pii: true }),
+            email: createTextField({
+              personal: "self",
+              find: "none",
+            }),
           },
           retention: {
             keepFor: "30d",

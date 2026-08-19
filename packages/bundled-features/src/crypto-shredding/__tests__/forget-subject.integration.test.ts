@@ -185,14 +185,14 @@ describe("crypto-shredding :: forget-subject purges the derived search index (#1
       userNote: createTextField({
         required: true,
         maxLength: 100,
-        userOwned: { ownerField: "ownerId" },
-        searchable: true,
+        personal: { of: "ownerId" },
+        find: "fuzzy",
       }),
       tenantNote: createTextField({
         required: true,
         maxLength: 100,
-        tenantOwned: true,
-        searchable: true,
+        personal: "tenant",
+        find: "fuzzy",
       }),
     },
   });

@@ -1,7 +1,7 @@
 import {
   EXT_TENANT_DATA,
   type FeatureDefinition,
-  type PiiAnnotations,
+  type ResolvedPiiFlags,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { entitiesOf } from "../shared";
 
@@ -13,7 +13,7 @@ import { entitiesOf } from "../shared";
 // original guard's "tenant-lifecycle mounted" gate exactly (unlike gating on
 // a sibling feature, which would silently narrow coverage).
 
-function hasTenantOwned(field: unknown): field is PiiAnnotations {
+function hasTenantOwned(field: unknown): field is ResolvedPiiFlags {
   return (
     typeof field === "object" &&
     field !== null &&

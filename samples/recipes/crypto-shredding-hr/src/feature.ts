@@ -3,8 +3,8 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 export const employeeEntity = createEntity({
   table: "read_hr_employees",
   fields: {
-    displayName: createTextField({ required: true, pii: true }),
-    email: createTextField({ required: true, format: "email", pii: true, lookupable: true }),
+    displayName: createTextField({ required: true, personal: "self", find: "none" }),
+    email: createTextField({ required: true, format: "email", personal: "self", find: "exact" }),
     department: createTextField({ sortable: true }),
   },
   softDelete: true,
@@ -14,7 +14,7 @@ export const hrCommentEntity = createEntity({
   table: "read_hr_comments",
   fields: {
     employeeId: createTextField({ required: true }),
-    body: createTextField({ required: true, userOwned: { ownerField: "employeeId" } }),
+    body: createTextField({ required: true, personal: { of: "employeeId" }, find: "none" }),
     authorName: createTextField(),
   },
   softDelete: true,

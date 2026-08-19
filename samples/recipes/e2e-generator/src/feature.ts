@@ -13,7 +13,7 @@ export const productEntity = createEntity({
   table: "read_products",
   fields: {
     name: createTextField({ required: true, maxLength: 200 }),
-    description: createTextField({ maxLength: 2000, allowPlaintext: "is-business-data" }),
+    description: createTextField({ maxLength: 2000, personal: false, reason: "is_business_data" }),
     price: createNumberField({ required: true }),
     status: createSelectField({ options: ["draft", "published", "archived"] as const }),
     featured: createBooleanField({ default: false }),

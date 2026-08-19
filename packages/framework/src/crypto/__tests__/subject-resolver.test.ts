@@ -8,7 +8,7 @@ import {
 
 const userLikeEntity = createEntity({
   fields: {
-    email: createTextField({ required: true, pii: true }),
+    email: createTextField({ required: true, personal: "self", find: "none" }),
     role: createTextField(),
   },
   table: "resolver_users",
@@ -17,7 +17,10 @@ const userLikeEntity = createEntity({
 
 const commentEntity = createEntity({
   fields: {
-    body: createTextField({ userOwned: { ownerField: "authorId" } }),
+    body: createTextField({
+      personal: { of: "authorId" },
+      find: "none",
+    }),
     authorId: createTextField({ required: true }),
   },
   table: "resolver_comments",
@@ -25,7 +28,10 @@ const commentEntity = createEntity({
 
 const brandingEntity = createEntity({
   fields: {
-    brandColor: createTextField({ tenantOwned: true }),
+    brandColor: createTextField({
+      personal: "tenant",
+      find: "none",
+    }),
   },
   table: "resolver_branding",
 });

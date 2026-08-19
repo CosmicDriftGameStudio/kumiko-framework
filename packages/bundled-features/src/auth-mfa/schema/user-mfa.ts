@@ -16,15 +16,17 @@ export const userMfaEntity = createEntity({
     // FK to the user row, not content — PII-naming heuristic would flag
     // "userId" as content; it's a pseudonymous reference, matching the same
     // annotation `config`'s userId column uses.
-    userId: createTextField({ required: true, allowPlaintext: "pseudonymous-fk" }),
+    userId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
     // Envelope-encrypted via the same MasterKeyProvider as secrets/config
     // (entity-field-encryption.ts) — no manual wrapDek/unwrapDek needed.
-    // userOwned: crypto-shredding this field is exactly "revoke this
-    // user's 2FA on GDPR forget", which is the correct behavior anyway.
+    // `personal: { of: "userId" }`: crypto-shredding this field is exactly
+    // "revoke this user's 2FA on GDPR forget", which is the correct
+    // behavior anyway.
     totpSecret: createTextField({
       required: true,
       encrypted: true,
-      userOwned: { ownerField: "userId" },
+      personal: { of: "userId" },
+      find: "none",
     }),
     // JSON-stringified `{ hashes: string[] }` (argon2id hashes of unredeemed
     // recovery codes) — both encryption layers (entity-field envelope +
@@ -39,7 +41,8 @@ export const userMfaEntity = createEntity({
     recoveryCodes: createTextField({
       required: true,
       encrypted: true,
-      userOwned: { ownerField: "userId" },
+      personal: { of: "userId" },
+      find: "none",
     }),
     enabledAt: createTimestampField({ required: true }),
     lastUsedAt: createTimestampField(),

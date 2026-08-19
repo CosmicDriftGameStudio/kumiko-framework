@@ -24,13 +24,16 @@ import { CONTENT_FORMATS, TEMPLATE_KINDS } from "./constants";
 export const userContentEntryEntity = createEntity({
   table: "read_user_content_entries",
   fields: {
-    ownerId: createTextField({ required: true, subjectRef: true }),
+    ownerId: createTextField({ required: true, personal: "ref" }),
     slug: createTextField({ required: true }),
     kind: createSelectField({ required: true, options: [...TEMPLATE_KINDS] }),
     locale: createTextField({ required: true }),
     title: createTextField({}),
     folder: createTextField({}),
-    content: createLongTextField({ userOwned: { ownerField: "ownerId" } }),
+    content: createLongTextField({
+      personal: { of: "ownerId" },
+      find: "none",
+    }),
     contentFormat: createSelectField({ required: true, options: [...CONTENT_FORMATS] }),
   },
   indexes: [

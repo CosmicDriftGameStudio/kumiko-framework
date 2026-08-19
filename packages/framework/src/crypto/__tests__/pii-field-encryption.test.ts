@@ -26,7 +26,7 @@ const KMS_CTX: KmsContext = { requestId: "test" };
 
 const userLikeEntity = createEntity({
   fields: {
-    email: createTextField({ required: true, pii: true }),
+    email: createTextField({ required: true, personal: "self", find: "none" }),
     role: createTextField(),
   },
   table: "pii_users",
@@ -34,7 +34,10 @@ const userLikeEntity = createEntity({
 
 const commentEntity = createEntity({
   fields: {
-    body: createTextField({ userOwned: { ownerField: "authorId" } }),
+    body: createTextField({
+      personal: { of: "authorId" },
+      find: "none",
+    }),
     authorId: createTextField({ required: true }),
   },
   table: "pii_comments",
@@ -42,7 +45,10 @@ const commentEntity = createEntity({
 
 const brandingEntity = createEntity({
   fields: {
-    brandColor: createTextField({ tenantOwned: true }),
+    brandColor: createTextField({
+      personal: "tenant",
+      find: "none",
+    }),
   },
   table: "pii_branding",
 });
@@ -225,14 +231,14 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
   });
 });
 
-describe("piiEncrypted alias (kumiko-platform#457)", () => {
-  test("piiEncrypted + tenantOwned round-trips through the same subject-KMS pipeline", async () => {
+describe("tenant-owned field encryption (kumiko-platform#457)", () => {
+  test("tenant-owned field round-trips through the subject-KMS pipeline", async () => {
     const kms = new InMemoryKmsAdapter();
     const brandingWithAccess = createEntity({
       fields: {
         iban: createTextField({
-          piiEncrypted: true,
-          tenantOwned: true,
+          personal: "tenant",
+          find: "none",
           access: { read: ["TenantAdmin"] },
         }),
       },
@@ -250,11 +256,11 @@ describe("piiEncrypted alias (kumiko-platform#457)", () => {
     expect(read["iban"]).toBe("DE89370400440532013000");
   });
 
-  test("piiEncrypted field is covered by subject erasure (Art. 17, kumiko-platform#461)", async () => {
+  test("tenant-annotated field becomes unreadable after subject erasure (Art. 17, kumiko-platform#461)", async () => {
     const kms = new InMemoryKmsAdapter();
     const brandingWithAccess = createEntity({
       fields: {
-        iban: createTextField({ piiEncrypted: true, tenantOwned: true }),
+        iban: createTextField({ personal: "tenant", find: "none" }),
       },
       table: "pii_branding_iban_erasure",
     });
@@ -263,7 +269,7 @@ describe("piiEncrypted alias (kumiko-platform#457)", () => {
     const stored = await encryptPiiFieldValues(row, brandingWithAccess, fields, kms, KMS_CTX);
 
     // Erasure is subject-keyed, not field-flag-keyed — kms.eraseKey doesn't
-    // know or care that this field is piiEncrypted vs. plain tenantOwned.
+    // know or care about the field's `personal` annotation, just the subject.
     await kms.eraseKey({ kind: "tenant", tenantId: UUID_B });
 
     const read = await decryptPiiFieldValues(stored, fields, kms, KMS_CTX);

@@ -1,7 +1,7 @@
 import {
   EXT_USER_DATA,
   type FeatureDefinition,
-  type PiiAnnotations,
+  type ResolvedPiiFlags,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { entitiesOf } from "../shared";
 
@@ -58,7 +58,7 @@ export function validateGdprPiiHookCoverage(features: readonly FeatureDefinition
       if (hookedEntities.has(entityName)) continue;
       const subjectFields = Object.entries(entity.fields)
         .filter(([, field]) => {
-          const annot = field as PiiAnnotations; // @cast-boundary schema-walk
+          const annot = field as ResolvedPiiFlags; // @cast-boundary schema-walk
           return Boolean(annot.pii) || Boolean(annot.userOwned) || Boolean(annot.subjectRef);
         })
         .map(([name]) => name);

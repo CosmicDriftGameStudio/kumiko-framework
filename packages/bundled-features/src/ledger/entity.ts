@@ -41,11 +41,12 @@ export const transactionEntity = createEntity({
   fields: {
     date: createDateField({ required: true }),
     // Journal narration ("Miete Januar", "Storno: …") is accounting data, not
-    // user-generated PII → allowPlaintext silences the user-content heuristic.
+    // user-generated PII → `personal: false` silences the user-content heuristic.
     description: createTextField({
       required: true,
       maxLength: 200,
-      allowPlaintext: "is-business-data",
+      personal: false,
+      reason: "is_business_data",
     }),
     // For a Storno entry this points at the reversed transaction's id.
     reference: createTextField({ maxLength: 120 }),
@@ -79,7 +80,8 @@ export const scheduleEntity = createEntity({
     description: createTextField({
       required: true,
       maxLength: 200,
-      allowPlaintext: "is-business-data",
+      personal: false,
+      reason: "is_business_data",
     }),
     startDate: createDateField({ required: true }),
     // Absent → open-ended (projects to the window's end).

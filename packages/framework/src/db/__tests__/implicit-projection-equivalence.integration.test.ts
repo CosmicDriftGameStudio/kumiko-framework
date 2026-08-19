@@ -250,7 +250,7 @@ const sensitiveEntity = createEntity({
   table: sensitiveTable,
   fields: {
     email: createTextField({ required: true }),
-    apiKey: createTextField({ sensitive: true, pii: true, lookupable: true }),
+    apiKey: createTextField({ personal: "self", find: "exact" }),
   },
 });
 

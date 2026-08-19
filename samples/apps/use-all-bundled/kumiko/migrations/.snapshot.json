@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-19T14:06:39.442Z",
+  "generatedAt": "2026-08-19T18:36:18.558Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -2839,6 +2839,11 @@
           "notNull": true
         },
         {
+          "name": "display_name_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "locale",
           "pgType": "text",
           "notNull": false
@@ -2890,6 +2895,10 @@
         {
           "name": "read_users_email_bidx_idx",
           "columns": ["email_bidx"]
+        },
+        {
+          "name": "read_users_display_name_bidx_idx",
+          "columns": ["display_name_bidx"]
         },
         {
           "name": "read_users_email_unique",

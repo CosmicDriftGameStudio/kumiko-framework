@@ -37,7 +37,7 @@ const BIDX_KEY = Buffer.alloc(32, 5).toString("base64");
 
 const contactEntity = createEntity({
   fields: {
-    email: createTextField({ required: true, pii: true, lookupable: true }),
+    email: createTextField({ required: true, personal: "self", find: "exact" }),
     displayName: createTextField(),
   },
 });
@@ -53,6 +53,20 @@ const mailerFeature = defineFeature("mailer", (r) => {
     z.object({ targetId: z.string().nullable(), address: z.string().nullable() }),
     { piiFields: { address: { subjectField: "targetId" } } },
   );
+});
+
+// personal: { of } (not "self") — the named owner field can legitimately be
+// absent from an old event's payload, unlike contact.email (self-subject via row id).
+const noteEntity = createEntity({
+  fields: {
+    authorId: createTextField(),
+    body: createTextField({ personal: { of: "authorId" }, find: "none" }),
+  },
+});
+const noteTable = buildEntityTable("note", noteEntity);
+
+const notesFeature = defineFeature("notes", (r) => {
+  r.entity("note", noteEntity);
 });
 
 let testDb: TestDb;
@@ -79,9 +93,10 @@ async function appendPlain(
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  registry = createRegistry([crmFeature, mailerFeature]);
+  registry = createRegistry([crmFeature, mailerFeature, notesFeature]);
   await createEventsTable(testDb.db);
   await unsafeCreateEntityTable(testDb.db, contactEntity, "contact");
+  await unsafeCreateEntityTable(testDb.db, noteEntity, "note");
 });
 
 afterAll(async () => {
@@ -92,6 +107,7 @@ beforeEach(async () => {
   const raw = asRawClient(testDb.db);
   await raw.unsafe(`TRUNCATE "kumiko_events" RESTART IDENTITY`);
   await raw.unsafe(`TRUNCATE "${contactTable.tableName}"`);
+  await raw.unsafe(`TRUNCATE "${noteTable.tableName}"`);
   // Plaintext era: NO KMS while the legacy events are appended.
   resetPiiSubjectKmsForTests();
   resetBlindIndexKeyForTests();
@@ -277,6 +293,167 @@ describe("backfillEventPiiEncryption", () => {
     expect(backfillEventPiiEncryption(testDb.db, registry)).rejects.toThrow(
       /requires a configured subject KMS/,
     );
+  });
+});
+
+describe("backfillEventPiiEncryption: owner-resolution chain (fw#2266)", () => {
+  async function insertNoteProjectionRow(id: string, authorId: string): Promise<void> {
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO "${noteTable.tableName}" (id, tenant_id, author_id, body) VALUES ($1, $2, $3, $4)`,
+      [id, TENANT, authorId, "projection-row-body"],
+    );
+  }
+
+  test("payload missing owner + projection row has it: resolveOwnerFromProjection encrypts, no failures", async () => {
+    const author = generateId();
+    const noteId = generateId();
+    await insertNoteProjectionRow(noteId, author);
+    // Legacy event predating the authorId column — payload never carried it.
+    await appendPlain(noteId, "note", "note.created", { id: noteId, body: "old plaintext note" });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry, {
+      resolveOwnerFromProjection: true,
+    });
+
+    expect(result.failures).toEqual([]);
+    expect(result.encryptedFields).toBe(1);
+    expect(result.ownerFromProjection).toBe(1);
+
+    const created = (await loadAggregate(testDb.db, noteId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(isPiiCiphertext(created["body"])).toBe(true);
+    expect(String(created["body"])).toContain(`user:${author}`);
+  });
+
+  test("same event without the flags: stays in failures (default behavior unchanged)", async () => {
+    const author = generateId();
+    const noteId = generateId();
+    await insertNoteProjectionRow(noteId, author);
+    await appendPlain(noteId, "note", "note.created", { id: noteId, body: "old plaintext note" });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+
+    expect(result.encryptedFields).toBe(0);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]?.reason).toContain("resolveOwnerFromProjection");
+    expect(result.failures[0]?.reason).toContain("eraseUnresolvableSubjects");
+
+    const created = (await loadAggregate(testDb.db, noteId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(created["body"]).toBe("old plaintext note");
+  });
+
+  test("owner missing from payload AND projection: eraseUnresolvableSubjects sentinels the field", async () => {
+    const noteId = generateId();
+    // No projection row for this aggregate — hard-deleted, or never rebuilt.
+    await appendPlain(noteId, "note", "note.created", { id: noteId, body: "orphaned note" });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry, {
+      resolveOwnerFromProjection: true,
+      eraseUnresolvableSubjects: true,
+    });
+
+    expect(result.failures).toEqual([]);
+    expect(result.erasedFields).toBe(1);
+    expect(result.erasedUnresolvable).toBe(1);
+
+    const created = (await loadAggregate(testDb.db, noteId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(created["body"]).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("already-ciphertext field with unresolvable owner is left untouched (no data loss)", async () => {
+    // Produce genuine ciphertext under a real, resolvable subject first.
+    const author = generateId();
+    const seedId = generateId();
+    await appendPlain(seedId, "note", "note.created", {
+      id: seedId,
+      authorId: author,
+      body: "seed",
+    });
+
+    armKms();
+    await backfillEventPiiEncryption(testDb.db, registry);
+    const seeded = (await loadAggregate(testDb.db, seedId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    const ciphertext = seeded["body"];
+    expect(isPiiCiphertext(ciphertext)).toBe(true);
+
+    // New event: body already holds that ciphertext, owner unresolvable
+    // (no authorId in payload, no projection row for THIS aggregate).
+    const noteId = generateId();
+    await appendPlain(noteId, "note", "note.created", { id: noteId, body: ciphertext });
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, {
+      resolveOwnerFromProjection: true,
+      eraseUnresolvableSubjects: true,
+    });
+
+    expect(result.failures).toEqual([]);
+    expect(result.erasedUnresolvable).toBe(0);
+    expect(result.encryptedFields).toBe(0);
+    expect(result.erasedFields).toBe(0);
+
+    const created = (await loadAggregate(testDb.db, noteId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(created["body"]).toBe(ciphertext);
+  });
+
+  test("payload owner differs from projection owner: payload wins, ownerFromProjection stays 0", async () => {
+    const payloadAuthor = generateId();
+    const projectionAuthor = generateId();
+    const noteId = generateId();
+    await insertNoteProjectionRow(noteId, projectionAuthor);
+    // Ownership changed since this event was written — payload is the
+    // historical truth, the projection only today's state. Stage 2 must
+    // fill gaps, never override a value stage 1 already resolved.
+    await appendPlain(noteId, "note", "note.created", {
+      id: noteId,
+      authorId: payloadAuthor,
+      body: "old plaintext note",
+    });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry, {
+      resolveOwnerFromProjection: true,
+    });
+
+    expect(result.failures).toEqual([]);
+    expect(result.encryptedFields).toBe(1);
+    expect(result.ownerFromProjection).toBe(0);
+
+    const created = (await loadAggregate(testDb.db, noteId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(isPiiCiphertext(created["body"])).toBe(true);
+    expect(String(created["body"])).toContain(`user:${payloadAuthor}`);
+  });
+
+  test("pii field absent from the section with an unresolvable owner: skipped, no failure (no flags)", async () => {
+    const noteId = generateId();
+    // No "body" key at all, no authorId, no projection row — the value
+    // guard skips owner resolution entirely before it could ever fail.
+    await appendPlain(noteId, "note", "note.created", { id: noteId });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+
+    expect(result.failures).toEqual([]);
+    expect(result.updatedEvents).toBe(0);
   });
 });
 

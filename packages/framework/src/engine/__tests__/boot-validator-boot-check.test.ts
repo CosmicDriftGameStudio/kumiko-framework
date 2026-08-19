@@ -25,7 +25,12 @@ const requiresUserDataHook = (features: readonly { readonly name: string }[]) =>
 
 const promptStore = () =>
   defineFeature("prompt-store", (r) => {
-    const promptFields = { text: createTextField({ pii: true }) };
+    const promptFields = {
+      text: createTextField({
+        personal: "self",
+        find: "none",
+      }),
+    };
     r.entity("prompt", createEntity({ fields: promptFields }));
     r.bootCheck(({ features }) => {
       // Conditional on this feature's own shape (has a pii field), closed

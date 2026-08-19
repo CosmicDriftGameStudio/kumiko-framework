@@ -1049,7 +1049,7 @@ describe("hard PII boot gate (#818 step 2)", () => {
       "gate-person",
       createEntity({
         table: "read_gate_persons",
-        fields: { email: createTextField({ required: true, pii: true }) },
+        fields: { email: createTextField({ required: true, personal: "self", find: "none" }) },
       }),
     );
   });

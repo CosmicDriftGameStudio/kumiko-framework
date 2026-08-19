@@ -17,9 +17,9 @@ import {
 // Source-of-truth sind die event-store-Streams `mail-account` /
 // `inbound-message` / `mail-thread` — die Tabellen sind rebuild-fähig.
 //
-// **PII-Konvention:** tenantOwned (nicht `encrypted`): Felder müssen
-// crypto-shredden wenn eraseSubjectKeys den Tenant-Subject-Key beim
-// tenant-destroy löscht (#800-Muster aus billing-foundation).
+// **PII convention:** `personal: "tenant"` (not `encrypted`): fields must
+// crypto-shred when eraseSubjectKeys deletes the tenant subject key on
+// tenant-destroy (#800 pattern from billing-foundation).
 // maxLength jeweils Ciphertext-budgetiert (`kumiko-pii:v1:<subject>:
 // <blob>` — Plaintext×~2.3 + Envelope-Overhead).
 //
@@ -41,12 +41,14 @@ export const mailAccountEntity = createEntity({
     // Owner + TenantAdmin (Compliance); KEIN Crypto-Subject-Wechsel in
     // V1 (Subject bleibt Tenant, siehe Header).
     ownerUserId: createTextField({ maxLength: 36 }),
+    // Tenant-authored mailbox label, not a person's name.
     displayName: createTextField({
       maxLength: 200,
-      allowPlaintext: "mailbox display name, tenant config not personal data",
+      personal: false,
+      reason: "tenant_config_not_personal",
     }),
     // Postfach-Adresse — PII des Tenants.
-    address: createTextField({ required: true, maxLength: 1000, tenantOwned: true }),
+    address: createTextField({ required: true, maxLength: 1000, personal: "tenant", find: "none" }),
     status: createTextField({ required: true, maxLength: 30 }),
     watchState: createTextField({ maxLength: 100 }),
     connectedAt: createTimestampField({ required: true }),
@@ -66,12 +68,12 @@ export const inboundMessageEntity = createEntity({
     ownerUserId: createTextField({ maxLength: 36 }),
     messageIdHeader: createTextField({ required: true, maxLength: 500 }),
     threadKey: createTextField({ required: true, maxLength: 500 }),
-    from: createTextField({ required: true, maxLength: 2000, tenantOwned: true }),
+    from: createTextField({ required: true, maxLength: 2000, personal: "tenant", find: "none" }),
     // JSON-stringified string[] — als Ganzes encrypted.
-    to: createTextField({ maxLength: 8000, tenantOwned: true }),
-    cc: createTextField({ maxLength: 8000, tenantOwned: true }),
-    subject: createTextField({ maxLength: 4000, tenantOwned: true }),
-    snippet: createTextField({ maxLength: 4000, tenantOwned: true }),
+    to: createTextField({ maxLength: 8000, personal: "tenant", find: "none" }),
+    cc: createTextField({ maxLength: 8000, personal: "tenant", find: "none" }),
+    subject: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
+    snippet: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
     receivedAt: createTimestampField({ required: true }),
     bodyRef: createTextField({ maxLength: 500 }),
     scope: createTextField({ maxLength: 200 }),
@@ -84,7 +86,7 @@ export const mailThreadEntity = createEntity({
   table: "read_mail_threads",
   fields: {
     threadKey: createTextField({ required: true, maxLength: 500 }),
-    subject: createTextField({ maxLength: 4000, tenantOwned: true }),
+    subject: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
     lastMessageAt: createTimestampField({ required: true }),
     messageCount: createNumberField({ required: true, integer: true }),
   },
