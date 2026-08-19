@@ -1,13 +1,24 @@
 // @runtime client
-// Pure string-Konstanten — `@runtime client` damit auch Browser-Code
-// (Members-Screen) sie importieren kann (siehe auth-email-password/
-// constants.ts für die Begründung). Runtime importiert client → server
-// kann sie weiter nutzen.
+// Pure string constants — `@runtime client` so browser code (e.g. the
+// MemberStatusCell column renderer) can import them too (see
+// auth-email-password/constants.ts for the rationale). Runtime imports
+// client → server can keep using them as well.
 
 // Feature name
 export const TENANT_FEATURE = "tenant" as const;
 
 export const MEMBERS_SCREEN_ID = "members" as const;
+
+export const INVITE_CREATE_SCREEN_ID = "invite-create" as const;
+
+/** Client column-renderer for the /members screen's status column — see
+ *  `screen.columns[].renderer.react.__component` in screens.ts and
+ *  `tenantClient()`'s `columnRenderers` map. */
+export const MEMBER_STATUS_CELL_COMPONENT = "MemberStatusCell" as const;
+
+/** Client column-renderer for the /members screen's roles column (joins the
+ *  `roles: readonly string[]` field into one cell) — same wiring as above. */
+export const MEMBER_ROLES_CELL_COMPONENT = "MemberRolesCell" as const;
 
 /** Closed allowlist for invite-role picker — never free text (escalation guard). */
 export const DEFAULT_INVITE_ROLE_OPTIONS = ["User", "Admin", "Editor"] as const;
@@ -34,6 +45,8 @@ export const TenantQueries = {
   resolveUserIds: "tenant:query:resolve-user-ids",
   // Pending Invitations für den aktuellen Tenant (Admin-UI-Liste).
   invitations: "tenant:query:invitations",
+  // Combined active-members + pending-invitations list backing /members.
+  teamList: "tenant:query:team:list",
 } as const;
 
 // Error codes

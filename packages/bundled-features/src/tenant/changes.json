@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.209.0",
+    "type": "improvement",
+    "title": "tenant: single /members screen replaces the members-card/pending-card split (#2223)",
+    "detail": "New `tenant:query:team:list` handler merges active memberships and pending invitations into one projectionList screen (`membersScreen`), with a `status` facet, sortable/searchable columns, and a danger-styled `cancel-invitation` row action visible only on pending rows. `createTenantFeature({ inviteScreen: true })` additionally wires a drawer-hosted invite actionForm onto the toolbar (bound to auth-email-password's `invite-create` handler) — off by default, and only safe to enable once the app also configures `createAuthEmailPasswordFeature({ invite: {...} })`, since the boot validator rejects the actionForm's cross-feature handler QN otherwise. The old `members`/`invitations` query handlers and their custom `MembersScreen` component are unaffected and stay registered for existing callers; `updateMemberRoles` stays SystemAdmin-only and off this screen."
+  },
+  {
     "version": "0.165.0",
     "type": "fix",
     "title": "resolveRawDb: removed redundant null check",
