@@ -76,6 +76,32 @@ describe("resolveDetailBreadcrumb", () => {
     ]);
   });
 
+  // fw#2245: projectionDetail has no entity for `listFromEntity` to pair
+  // against — listScreenId is its only back-navigation source, same role it
+  // plays for `custom` above. Matters once a screen hides its RenderEdit
+  // action-bar footer (hideActions) and has no entityList rowAction either.
+  test("projectionDetail uses listScreenId", () => {
+    const screens: ScreenDefinition[] = [
+      {
+        id: "session-list",
+        type: "projectionList",
+        query: "sessions:query:user-session:list",
+        columns: ["userId"],
+      },
+      {
+        id: "session-detail",
+        type: "projectionDetail",
+        query: "sessions:query:user-session:detail",
+        listScreenId: "session-list",
+        layout: { sections: [{ fields: ["userId"] }] },
+      },
+    ];
+    expect(resolveDetailBreadcrumb(screens, "session-detail", t)).toEqual([
+      { label: "screen:session-list.title", screenId: "session-list" },
+      { label: "screen:session-detail.title" },
+    ]);
+  });
+
   test("unknown screen returns undefined", () => {
     expect(resolveDetailBreadcrumb([], "missing", t)).toBeUndefined();
   });

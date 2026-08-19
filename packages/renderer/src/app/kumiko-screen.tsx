@@ -2094,6 +2094,8 @@ function ProjectionDetailBody({
       onCancel={screen.listScreenId !== undefined ? navigateToList : undefined}
       {...(headerActions !== undefined && { actions: headerActions })}
       {...(translate !== undefined && { translate })}
+      valueDisplay={screen.valueDisplay ?? "text"}
+      hideActions={screen.hideActions === true}
     />
   );
 }
