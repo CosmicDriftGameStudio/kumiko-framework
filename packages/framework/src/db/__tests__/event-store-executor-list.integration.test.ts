@@ -7,11 +7,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient } from "../../db/query";
-import { createEntity, createNumberField, createTextField } from "../../engine";
+import { createDateField, createEntity, createNumberField, createTextField } from "../../engine";
 import { UnprocessableError } from "../../errors";
 import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
+import { encodeCursor } from "../cursor";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
@@ -21,6 +22,7 @@ const entity = createEntity({
   fields: {
     title: createTextField({ required: true, sortable: true }),
     rank: createNumberField({ sortable: true }),
+    dueDate: createDateField({ sortable: true }),
   },
 });
 const table = buildEntityTable("pagerItem", entity);
@@ -496,5 +498,146 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
       searchAdapter: mockAdapter,
     });
     expect(res.rows).toHaveLength(0);
+  });
+});
+
+describe("event-store-executor.list — keyset cursor mit custom sort (#2265)", () => {
+  const exec = createEventStoreExecutor(table, entity, { entityName: "pagerItem" });
+
+  async function collectPages(
+    sort: string,
+    direction: "asc" | "desc",
+    pageSize: number,
+  ): Promise<{ ids: string[]; iterations: number }> {
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    let iterations = 0;
+    while (iterations < 10) {
+      iterations++;
+      const res = await exec.list(
+        { limit: pageSize, cursor, sort, sortDirection: direction },
+        admin,
+        tdb,
+      );
+      ids.push(...res.rows.map((r) => r["id"] as string));
+      if (res.nextCursor === null) break;
+      cursor = res.nextCursor;
+    }
+    return { ids, iterations };
+  }
+
+  test("Issue-Repro: Seite 2 dupliziert nicht mehr die letzte Zeile von Seite 1 und überspringt nicht die älteste", async () => {
+    await exec.create({ title: "re-1001", dueDate: "2026-01-15" }, admin, tdb);
+    await exec.create({ title: "re-1002", dueDate: "2026-02-15" }, admin, tdb);
+    await exec.create({ title: "re-1003", dueDate: "2026-03-15" }, admin, tdb);
+
+    const page1 = await exec.list({ limit: 2, sort: "dueDate", sortDirection: "desc" }, admin, tdb);
+    expect(page1.rows.map((r) => r["title"])).toEqual(["re-1003", "re-1002"]);
+    expect(page1.nextCursor).not.toBeNull();
+
+    const page2 = await exec.list(
+      {
+        limit: 2,
+        cursor: page1.nextCursor ?? undefined,
+        sort: "dueDate",
+        sortDirection: "desc",
+        totalCount: true,
+      },
+      admin,
+      tdb,
+    );
+    expect(page2.rows.map((r) => r["title"])).toEqual(["re-1001"]);
+    expect(page2.rows.map((r) => r["title"])).not.toContain("re-1003");
+    // total reuses the same WHERE (cursor boundary included) as the page
+    // query — this pins that the keyset boundary's extra param doesn't
+    // desync the shared `params` array between the two queries.
+    expect(page2.total).toBe(1);
+  });
+
+  test.each(["asc", "desc"] as const)(
+    "Voll-Sweep mit Ties (sort=dueDate, %s) matcht die Referenz-Abfrage exakt",
+    async (direction) => {
+      // Interleaved seed order (round-robin across dueDates) decorrelates
+      // uuidv7 id order from dueDate order — a grouped seed (all of date A,
+      // then all of date B, ...) would leave id order and asc-dueDate order
+      // coincidentally identical, letting the pre-fix id-only cursor
+      // boundary pass this test by accident.
+      const dueDates = ["2026-01-10", "2026-02-10", "2026-03-10", "2026-04-10"];
+      for (let i = 0; i < 3; i++) {
+        for (const dueDate of dueDates) {
+          await exec.create({ title: `tie-${dueDate}-${i}`, dueDate }, admin, tdb);
+        }
+      }
+
+      const reference = await exec.list(
+        { limit: 50, sort: "dueDate", sortDirection: direction },
+        admin,
+        tdb,
+      );
+      const referenceIds = reference.rows.map((r) => r["id"] as string);
+      expect(referenceIds).toHaveLength(12);
+
+      const { ids, iterations } = await collectPages("dueDate", direction, 5);
+      expect(iterations).toBeLessThan(10);
+      expect(ids).toEqual(referenceIds);
+      expect(new Set(ids).size).toBe(12);
+    },
+  );
+
+  test.each(["asc", "desc"] as const)(
+    "Voll-Sweep mit NULL dueDate (%s) matcht die Referenz-Abfrage exakt",
+    async (direction) => {
+      const seedPlan: Array<{ title: string; dueDate?: string }> = [
+        { title: "n-1" },
+        { title: "d-1", dueDate: "2026-01-05" },
+        { title: "n-2" },
+        { title: "d-2", dueDate: "2026-02-05" },
+        { title: "d-3", dueDate: "2026-01-05" },
+        { title: "n-3" },
+        { title: "d-4", dueDate: "2026-03-05" },
+        { title: "n-4" },
+        { title: "d-5", dueDate: "2026-02-05" },
+      ];
+      for (const row of seedPlan) {
+        await exec.create(
+          row.dueDate === undefined
+            ? { title: row.title }
+            : { title: row.title, dueDate: row.dueDate },
+          admin,
+          tdb,
+        );
+      }
+
+      const reference = await exec.list(
+        { limit: 50, sort: "dueDate", sortDirection: direction },
+        admin,
+        tdb,
+      );
+      const referenceIds = reference.rows.map((r) => r["id"] as string);
+      expect(referenceIds).toHaveLength(9);
+
+      const { ids, iterations } = await collectPages("dueDate", direction, 2);
+      expect(iterations).toBeLessThan(10);
+      expect(ids).toEqual(referenceIds);
+      expect(new Set(ids).size).toBe(9);
+    },
+  );
+
+  test("Rückwärtskompatibilität: legacy id-only Cursor + custom sort wirft nicht und fällt auf die id-Grenze zurück", async () => {
+    const created: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const res = await exec.create({ title: `legacy-${i}`, dueDate: "2026-05-01" }, admin, tdb);
+      if (!res.isSuccess) throw new Error("create failed");
+      created.push(String(res.data.id));
+    }
+    const legacyCursor = encodeCursor(created[0] as string);
+
+    const call = exec.list({ limit: 50, cursor: legacyCursor, sort: "dueDate" }, admin, tdb);
+    await expect(call).resolves.toBeDefined();
+
+    const res = await call;
+    const returnedIds = res.rows.map((r) => r["id"] as string);
+    expect(returnedIds).not.toContain(created[0]);
+    expect(returnedIds).toEqual(created.slice(1));
   });
 });
