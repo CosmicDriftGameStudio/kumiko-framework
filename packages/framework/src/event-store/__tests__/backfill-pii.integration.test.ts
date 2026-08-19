@@ -279,3 +279,29 @@ describe("backfillEventPiiEncryption", () => {
     );
   });
 });
+
+describe("backfillEventPiiEncryption: raw jsonb column type (fw#2253)", () => {
+  // The UPDATE used to wrap outcome.payload in JSON.stringify before handing
+  // it to the ::jsonb cast — Bun.SQL already serializes objects, so the
+  // double encoding produced a jsonb STRING scalar instead of an object.
+  // loadAggregate stayed green either way: the typed read path (bun-db's
+  // coerceRow) re-parses string-shaped jsonb columns on the way out, which
+  // cancels the write-side bug out. Only raw SQL consumers (this query,
+  // GDPR exports, MSP replays) saw the corruption, so assert on the column
+  // type directly instead of going through loadAggregate.
+  test("UPDATE writes payload as a jsonb object, not a double-encoded string", async () => {
+    const c1 = generateId();
+    await appendPlain(c1, "contact", "contact.created", { id: c1, email: "raw@x.com" });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+    expect(result.updatedEvents).toBe(1);
+
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT jsonb_typeof(payload) AS t FROM "kumiko_events" WHERE aggregate_id = $1`,
+      [c1],
+    )) as ReadonlyArray<{ t: string }>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.t).toBe("object");
+  });
+});
