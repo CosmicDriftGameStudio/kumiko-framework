@@ -162,11 +162,12 @@ const SCENARIOS: readonly Scenario[] = [
     waitFor: '[data-testid^="job-runs-table"]',
     settleMs: 1000,
   },
-  // delivery — delivery-attempt log (admin), the notification delivery record.
+  // projectionList renders via RenderList with a fixed testId; `^=` matches
+  // the empty state too, an empty log is a valid ready state here.
   {
     name: "delivery-log",
     flow: admin("/tenant-admin/delivery-log"),
-    waitFor: '[data-testid^="delivery-log-table"]',
+    waitFor: '[data-testid^="render-list-table"]',
     settleMs: 1000,
   },
   // auth-mfa — logged-in self-service TOTP enrollment (QR + recovery codes).

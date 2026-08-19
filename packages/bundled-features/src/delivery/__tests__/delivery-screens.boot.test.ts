@@ -11,10 +11,10 @@ describe("delivery screens + handler access alignment", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
-  test("delivery-log screen is custom, access.admin-gated", () => {
+  test("delivery-log screen is projectionList, access.admin-gated", () => {
     const delivery = createDeliveryFeature();
     const screen = delivery.screens[DELIVERY_LOG_SCREEN_ID];
-    expect(screen?.type).toBe("custom");
+    expect(screen?.type).toBe("projectionList");
     expect(rolesOf(screen?.access)).toEqual([...access.admin]);
   });
 
