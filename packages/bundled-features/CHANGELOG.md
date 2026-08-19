@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.208.2
+
+### Patch Changes
+
+- e364c7e: fw#2230: `user-session:list` (the `session-list` admin screen) had an empty input schema, so the list was always `createdAt desc` with no `sortable` capability. The query now accepts `sort`/`sortDirection`/`limit`; `sort` is checked against a column allowlist (`id`, `userId`, `createdAt`, `expiresAt`, `revokedAt`) before being used in `selectMany`'s `orderBy`, falling back to `createdAt desc` for anything else. No pager: `SelectOptions` has no `offset`/`COUNT(*)`, so `cursor`/`offset` stay out of the schema.
+- Updated dependencies [257e425]
+  - @cosmicdrift/kumiko-renderer@0.208.2
+  - @cosmicdrift/kumiko-renderer-web@0.208.2
+  - @cosmicdrift/kumiko-framework@0.208.2
+  - @cosmicdrift/kumiko-types@0.208.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.208.2
+  - @cosmicdrift/kumiko-headless@0.208.2
+
 ## 0.208.1
 
 ### Patch Changes
