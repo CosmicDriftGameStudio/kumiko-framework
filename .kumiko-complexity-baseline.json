@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "generated": "2026-08-13",
-  "total": 103,
+  "generated": "2026-08-19",
+  "total": 104,
   "perFile": {
     "packages/bundled-features/src/auth-mfa/handlers/enable-confirm-preauth.write.ts": 1,
     "packages/bundled-features/src/auth-mfa/handlers/verify.write.ts": 1,
@@ -11,6 +11,7 @@
     "packages/bundled-features/src/data-retention/run-retention-cleanup.ts": 1,
     "packages/bundled-features/src/inbound-mail-foundation/connect-routes.ts": 1,
     "packages/bundled-features/src/subscription-mollie/verify-webhook.ts": 1,
+    "packages/bundled-features/src/tenant/handlers/team-list.query.ts": 1,
     "packages/bundled-features/src/user-data-rights/feature.ts": 1,
     "packages/dev-server/src/build-server-bundle.ts": 1,
     "packages/dev-server/src/create-kumiko-server.ts": 3,
