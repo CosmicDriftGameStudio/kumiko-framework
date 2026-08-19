@@ -25,6 +25,7 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
+  seedRows,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
@@ -706,6 +707,60 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(createdAtValues).toEqual(sortedDescending);
     // bobAsAdmin's own (re-)login is the most recent row, must lead.
     expect(body.data.rows[0]?.id).toBe(bobAsAdmin.sid);
+  });
+
+  // fw#2198/PR#2208 (the sibling stable-ORDER-BY fix) found the repro shape
+  // for Postgres's Top-N-heapsort tie instability empirically: few rows on
+  // large pages stay green even with no tie-breaker at all, by luck — it
+  // took 25 rows sharing one sort value at page size 3 to make it flip
+  // reliably. Same recipe here: seed 25 sessions with an identical
+  // createdAt, then compare a small LIMIT (a Top-N heap) against a LIMIT
+  // covering everything (a full sort) — without an `id` tie-breaker the two
+  // heap sizes can disagree on tie order even though the underlying rows
+  // never change between the two calls.
+  test("session:list keeps a stable order for tied createdAt values across page sizes", async () => {
+    const { userId: adminId } = await h.seedUser("tiebreak-admin@example.com", "pw-long-enough");
+    await updateRows(
+      stack.db,
+      tenantMembershipsTable,
+      { roles: JSON.stringify(["Admin"]) },
+      { userId: adminId, tenantId: TENANT },
+    );
+    const admin = await h.login("tiebreak-admin@example.com", "pw-long-enough");
+
+    const tiedCreatedAt = Temporal.Instant.from("2026-01-01T00:00:00Z");
+    const futureExpiry = Temporal.Instant.from("2099-01-01T00:00:00Z");
+    await seedRows(
+      stack.db,
+      userSessionTable,
+      Array.from({ length: 25 }, (_, i) => ({
+        id: `22222222-2222-2222-2222-${String(i).padStart(12, "0")}`,
+        tenantId: TENANT,
+        userId: adminId,
+        createdAt: tiedCreatedAt,
+        expiresAt: futureExpiry,
+        revokedAt: null,
+        ip: null,
+        userAgent: null,
+      })),
+    );
+
+    const fetchIds = async (limit: number) => {
+      const res = await h.authedPost("/api/query", admin.token, {
+        type: SessionQueries.list,
+        payload: { limit },
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { data: { rows: Array<{ id: string }> } };
+      return body.data.rows.map((r) => r.id);
+    };
+
+    // admin's own login row is strictly newer than the 25 tied rows, so it
+    // always leads both lists — the tie-breaking under test is among the 25.
+    const top3 = await fetchIds(3);
+    const full = await fetchIds(26);
+    expect(full).toHaveLength(26);
+    expect(top3).toEqual(full.slice(0, 3));
   });
 
   // Single-row inspector backing the session-detail screen (kumiko-framework#255).

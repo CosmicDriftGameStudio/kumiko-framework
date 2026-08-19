@@ -46,7 +46,16 @@ export const listQuery = definePagedQueryHandler({
       ip: string | null;
       userAgent: string | null;
     }>(ctx.db, userSessionTable, undefined, {
-      orderBy: { col: sortColumn, direction: query.payload.sortDirection ?? "desc" },
+      // `id` as a tie-breaker keeps row order (and, with `limit` set, row
+      // selection) deterministic across identical requests — sortColumn
+      // alone isn't unique (e.g. many NULL revokedAt, or equal timestamps).
+      orderBy:
+        sortColumn === "id"
+          ? { col: "id", direction: query.payload.sortDirection ?? "desc" }
+          : [
+              { col: sortColumn, direction: query.payload.sortDirection ?? "desc" },
+              { col: "id", direction: "asc" },
+            ],
       ...(query.payload.limit !== undefined && { limit: query.payload.limit }),
     });
     const decryptedRows = await Promise.all(
