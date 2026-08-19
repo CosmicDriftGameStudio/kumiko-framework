@@ -3511,6 +3511,103 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- toolbarAction drawer (fw#2225) ---
+  describe("entityList toolbarAction drawer (fw#2225)", () => {
+    function makeFeature(opts: {
+      readonly targetId?: string;
+      readonly targetType?: "actionForm" | "entityList";
+    }) {
+      const targetId = opts.targetId ?? "restock-form";
+      return defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          toolbarActions: [
+            { kind: "drawer", id: "open-drawer", label: "actions.restock", screen: targetId },
+          ],
+        });
+        if (opts.targetType === "entityList") {
+          r.screen({
+            id: targetId,
+            type: "entityList",
+            entity: "product",
+            columns: ["name"],
+          });
+          return;
+        }
+        if (opts.targetType === "actionForm") {
+          r.writeHandler(
+            "restock",
+            z.object({ qty: z.number() }),
+            async () => ({ isSuccess: true as const, data: null }),
+            { access: { roles: ["Admin"] } },
+          );
+          r.screen({
+            id: targetId,
+            type: "actionForm",
+            handler: "shop:write:restock",
+            fields: { qty: { type: "number" } } as never,
+            layout: { sections: [{ fields: ["qty"] }] },
+          });
+        }
+      });
+    }
+
+    test("drawer-target → registered actionForm → no throw", () => {
+      expect(() => validateBoot([makeFeature({ targetType: "actionForm" })])).not.toThrow();
+    });
+
+    test("drawer-target → unknown → throw with a clear message", () => {
+      expect(() => validateBoot([makeFeature({ targetId: "ghost-form" })])).toThrow(
+        /toolbarAction "open-drawer" drawer-target "ghost-form" does not resolve to a registered screen/,
+      );
+    });
+
+    test("drawer-target → screen exists but is not an actionForm → throw with a clear message", () => {
+      expect(() =>
+        validateBoot([makeFeature({ targetId: "product-list-2", targetType: "entityList" })]),
+      ).toThrow(
+        /toolbarAction "open-drawer" drawer-target "product-list-2" is a "entityList" screen, not an actionForm/,
+      );
+    });
+
+    test("drawer-target → actionForm in ANOTHER feature → throw (drawer resolves same-feature only)", () => {
+      const list = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          toolbarActions: [
+            { kind: "drawer", id: "open-drawer", label: "actions.restock", screen: "restock-form" },
+          ],
+        });
+      });
+      const consumer = defineFeature("app", (r) => {
+        r.writeHandler(
+          "restock",
+          z.object({ qty: z.number() }),
+          async () => ({ isSuccess: true as const, data: null }),
+          { access: { roles: ["Admin"] } },
+        );
+        r.screen({
+          id: "restock-form",
+          type: "actionForm",
+          handler: "app:write:restock",
+          fields: { qty: { type: "number" } } as never,
+          layout: { sections: [{ fields: ["qty"] }] },
+        });
+      });
+      expect(() => validateBoot([list, consumer])).toThrow(
+        /toolbarAction "open-drawer" drawer-target "restock-form" does not resolve to a registered screen in this feature/,
+      );
+    });
+  });
+
   // --- defaultSort funktioniert für ALLE Field-Types die sortable
   //     unterstützen (Tier 2.6b Field-Erweiterung) ---
   // Vor Tier 2.6b war `sortable` nur auf TextFieldDef. Erweitert auf

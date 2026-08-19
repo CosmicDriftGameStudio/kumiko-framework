@@ -89,6 +89,7 @@ import { StepBar } from "../widgets/step-bar";
 import { ComboboxInput } from "./combobox";
 import { DateInput } from "./date-input";
 import { DefaultDialog } from "./dialog";
+import { DefaultDrawer } from "./drawer";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -2043,6 +2044,7 @@ export const defaultPrimitives: CorePrimitives = {
   Heading: DefaultHeading,
   Dialog: DefaultDialog,
   Modal: DefaultModal,
+  Drawer: DefaultDrawer,
   Lightbox: DefaultLightbox,
   ConfigSourceBadge: DefaultConfigSourceBadge,
   ConfigCascadeView: DefaultConfigCascadeView,

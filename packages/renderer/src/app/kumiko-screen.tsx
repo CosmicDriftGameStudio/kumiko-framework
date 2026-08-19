@@ -975,6 +975,110 @@ function resolveProjectionFacetSpecs(
   );
 }
 
+// ---- toolbarAction kind:"drawer" (fw#2225) ----
+//
+// Shared between EntityListBody and ProjectionListBody: state for "which
+// drawer-kind toolbar action is currently open" plus a host component that
+// mounts the referenced actionForm inside the Drawer primitive. Reuses
+// ActionFormBody (no second, parallel form renderer) with onSuccess/
+// onCancelOverride so submit-success closes the drawer + refetches the
+// list instead of navigating, mirroring what a full-page actionForm would
+// do via `redirect`.
+type ToolbarDrawerAction = Extract<ToolbarAction, { kind: "drawer" }>;
+
+function useToolbarDrawerAction(schema: FeatureSchema): {
+  readonly drawerAction: ToolbarDrawerAction | null;
+  readonly drawerScreen: ActionFormScreenDefinition | undefined;
+  readonly openDrawer: (action: ToolbarDrawerAction) => void;
+  readonly closeDrawer: () => void;
+} {
+  const [drawerAction, setDrawerAction] = useState<ToolbarDrawerAction | null>(null);
+  const drawerScreen = useMemo(() => {
+    if (drawerAction === null) return undefined;
+    // Same same-feature, short-id resolution as runNavigate — the drawer's
+    // `screen` reference is scoped to schema.screens, not cross-feature.
+    return schema.screens.find(
+      (s): s is ActionFormScreenDefinition =>
+        s.type === "actionForm" && lastSegment(s.id) === drawerAction.screen,
+    );
+  }, [drawerAction, schema.screens]);
+  const openDrawer = useCallback((action: ToolbarDrawerAction) => setDrawerAction(action), []);
+  const closeDrawer = useCallback(() => setDrawerAction(null), []);
+  return { drawerAction, drawerScreen, openDrawer, closeDrawer };
+}
+
+function ToolbarDrawerHost({
+  schema,
+  drawerAction,
+  drawerScreen,
+  userRoles,
+  translate,
+  onClose,
+  onSuccess,
+}: {
+  readonly schema: FeatureSchema;
+  readonly drawerAction: ToolbarDrawerAction | null;
+  readonly drawerScreen: ActionFormScreenDefinition | undefined;
+  readonly userRoles: readonly string[] | undefined;
+  readonly translate?: Translate;
+  readonly onClose: () => void;
+  readonly onSuccess: () => void;
+}): ReactNode {
+  const { Drawer, Banner, Text } = usePrimitives();
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
+  // Drawer is an optional Core-Primitive (additive rollout) — same "skip +
+  // warn once" precedent as rowActions without a mounted DispatcherProvider
+  // above, instead of crashing when a web app hasn't upgraded its
+  // createKumikoApp wiring yet.
+  useEffect(() => {
+    if (drawerAction !== null && Drawer === undefined) {
+      // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
+      console.warn(
+        `[kumiko] toolbarAction "${drawerAction.id}" is kind:"drawer", but no <Drawer> primitive is registered — it will not open. createKumikoApp() from kumiko-renderer-web wires it automatically.`,
+      );
+    }
+  }, [drawerAction, Drawer]);
+
+  if (drawerAction === null || Drawer === undefined) return null;
+
+  // Access mirrors kind:"navigate" exactly: the toolbar button itself stays
+  // visible either way (same as navigate — access is enforced at the
+  // target, not by hiding the trigger), but the drawer shows the same
+  // "Access denied" state KumikoScreen's top-level gate would show for a
+  // direct hit on that screen, never the form.
+  const allowed = screenAccessAllows(drawerScreen?.access, userRoles);
+
+  return (
+    <Drawer
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      title={effectiveTranslate(drawerAction.label)}
+      testId={`toolbar-drawer-${drawerAction.id}`}
+    >
+      {drawerScreen === undefined ? (
+        <Banner padded variant="error" testId="kumiko-toolbar-drawer-not-found">
+          Screen not found: <Text variant="code">{drawerAction.screen}</Text>
+        </Banner>
+      ) : !allowed ? (
+        <Banner padded variant="error" testId="kumiko-toolbar-drawer-access-denied">
+          Access denied: <Text variant="code">{drawerAction.screen}</Text>
+        </Banner>
+      ) : (
+        <ActionFormBody
+          schema={schema}
+          screen={drawerScreen}
+          {...(translate !== undefined && { translate })}
+          onSuccess={onSuccess}
+          onCancelOverride={onClose}
+        />
+      )}
+    </Drawer>
+  );
+}
+
 function EntityListScreen({
   schema,
   screen,
@@ -1028,6 +1132,8 @@ function EntityListBody({
   const { Banner } = usePrimitives();
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
   const nav = useNav();
+  const userRoles = useUserRoles();
+  const { drawerAction, drawerScreen, openDrawer, closeDrawer } = useToolbarDrawerAction(schema);
 
   // URL-State: sort/dir/q/page leben unter dem screen.id-Namespace
   // (`/orders?orders.sort=createdAt&orders.dir=desc&orders.q=acme`),
@@ -1303,6 +1409,14 @@ function EntityListBody({
             onTrigger: () => nav.navigate({ screenId: action.screen }),
           };
         }
+        if (action.kind === "drawer") {
+          return {
+            id: action.id,
+            label: effectiveTranslate(action.label),
+            ...(action.style !== undefined && { style: action.style }),
+            onTrigger: () => openDrawer(action),
+          };
+        }
         // writeHandler — braucht Dispatcher. Wenn keiner mounted ist,
         // skippen wir die Action statt zu crashen (gleiche Logik wie
         // bei rowActions; einmaliger Warn-Log dort reicht).
@@ -1333,7 +1447,7 @@ function EntityListBody({
         };
       })
       .filter((a: ToolbarActionButton | null): a is ToolbarActionButton => a !== null);
-  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch]);
+  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch, openDrawer]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -1397,34 +1511,48 @@ function EntityListBody({
   const renderRows = useInfinite ? accumulated : (rowsQuery.data?.rows ?? []);
 
   return (
-    <RenderList
-      screen={screen}
-      entity={entity}
-      rows={renderRows}
-      featureName={featureName}
-      searchable={searchable}
-      searchValue={urlState.q}
-      onSearchChange={urlState.setQ}
-      sort={effectiveSort}
-      onSortChange={urlState.setSort}
-      {...(pager !== undefined && { pager })}
-      {...(rowActions !== undefined && { rowActions })}
-      {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
-      {...(useInfinite && {
-        onReachEnd: loadMore,
-        loadingMore: rowsQuery.loading,
-        hasMore,
-      })}
-      {...(onCreate !== undefined && { onCreate })}
-      {...(translate !== undefined && { translate })}
-      {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
-      {...(filterFacets.length > 0 && {
-        filterFacets,
-        filterValues: urlState.filters,
-        onFilterChange: urlState.setFilter,
-        onFilterReset: urlState.clearFilters,
-      })}
-    />
+    <>
+      <RenderList
+        screen={screen}
+        entity={entity}
+        rows={renderRows}
+        featureName={featureName}
+        searchable={searchable}
+        searchValue={urlState.q}
+        onSearchChange={urlState.setQ}
+        sort={effectiveSort}
+        onSortChange={urlState.setSort}
+        {...(pager !== undefined && { pager })}
+        {...(rowActions !== undefined && { rowActions })}
+        {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
+        {...(useInfinite && {
+          onReachEnd: loadMore,
+          loadingMore: rowsQuery.loading,
+          hasMore,
+        })}
+        {...(onCreate !== undefined && { onCreate })}
+        {...(translate !== undefined && { translate })}
+        {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
+        {...(filterFacets.length > 0 && {
+          filterFacets,
+          filterValues: urlState.filters,
+          onFilterChange: urlState.setFilter,
+          onFilterReset: urlState.clearFilters,
+        })}
+      />
+      <ToolbarDrawerHost
+        schema={schema}
+        drawerAction={drawerAction}
+        drawerScreen={drawerScreen}
+        userRoles={userRoles}
+        {...(translate !== undefined && { translate })}
+        onClose={closeDrawer}
+        onSuccess={() => {
+          closeDrawer();
+          void rowsQuery.refetch();
+        }}
+      />
+    </>
   );
 }
 
@@ -1453,6 +1581,8 @@ function ProjectionListBody({
   const nav = useNav();
   const dispatcher = useOptionalDispatcher();
   const effectiveTranslate = translate ?? t;
+  const userRoles = useUserRoles();
+  const { drawerAction, drawerScreen, openDrawer, closeDrawer } = useToolbarDrawerAction(schema);
 
   // searchable/sortable/paginated are derived at buildAppSchema time from the
   // query handler's Zod schema (fw#2165) — not authored on the screen.
@@ -1618,6 +1748,15 @@ function ProjectionListBody({
         });
         continue;
       }
+      if (action.kind === "drawer") {
+        out.push({
+          id: action.id,
+          label: effectiveTranslate(action.label),
+          ...(action.style !== undefined && { style: action.style }),
+          onTrigger: () => openDrawer(action),
+        });
+        continue;
+      }
       // writeHandler — analog entityList; ohne Dispatcher skippen statt crashen.
       if (dispatcher === undefined) continue;
       out.push({
@@ -1645,7 +1784,7 @@ function ProjectionListBody({
       });
     }
     return out.length > 0 ? out : undefined;
-  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch]);
+  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch, openDrawer]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -1696,28 +1835,42 @@ function ProjectionListBody({
       : undefined;
 
   return (
-    <RenderList
-      screen={listScreen}
-      entity={entity}
-      rows={rowsQuery.data?.rows ?? []}
-      featureName={schema.featureName}
-      searchable={searchable}
-      searchValue={urlState.q}
-      onSearchChange={urlState.setQ}
-      sort={activeSort}
-      onSortChange={urlState.setSort}
-      {...(pager !== undefined && { pager })}
-      {...(rowActions !== undefined && { rowActions })}
-      {...(toolbarActions !== undefined && { toolbarActions })}
-      {...(translate !== undefined && { translate })}
-      {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
-      {...(filterFacets.length > 0 && {
-        filterFacets,
-        filterValues: urlState.filters,
-        onFilterChange: urlState.setFilter,
-        onFilterReset: urlState.clearFilters,
-      })}
-    />
+    <>
+      <RenderList
+        screen={listScreen}
+        entity={entity}
+        rows={rowsQuery.data?.rows ?? []}
+        featureName={schema.featureName}
+        searchable={searchable}
+        searchValue={urlState.q}
+        onSearchChange={urlState.setQ}
+        sort={activeSort}
+        onSortChange={urlState.setSort}
+        {...(pager !== undefined && { pager })}
+        {...(rowActions !== undefined && { rowActions })}
+        {...(toolbarActions !== undefined && { toolbarActions })}
+        {...(translate !== undefined && { translate })}
+        {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
+        {...(filterFacets.length > 0 && {
+          filterFacets,
+          filterValues: urlState.filters,
+          onFilterChange: urlState.setFilter,
+          onFilterReset: urlState.clearFilters,
+        })}
+      />
+      <ToolbarDrawerHost
+        schema={schema}
+        drawerAction={drawerAction}
+        drawerScreen={drawerScreen}
+        userRoles={userRoles}
+        {...(translate !== undefined && { translate })}
+        onClose={closeDrawer}
+        onSuccess={() => {
+          closeDrawer();
+          void rowsQuery.refetch();
+        }}
+      />
+    </>
   );
 }
 
@@ -1957,10 +2110,21 @@ function ActionFormBody({
   schema,
   screen,
   translate,
+  onSuccess,
+  onCancelOverride,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: ActionFormScreenDefinition;
   readonly translate?: Translate;
+  /** Drawer-hosted usage (toolbarAction kind:"drawer", fw#2225): called
+   *  instead of the redirect-based navigation on successful submit, so the
+   *  host closes the drawer + refetches its list regardless of whether
+   *  `screen.redirect` is set — a full-page redirect would navigate away
+   *  from the list the drawer sits on top of. */
+  readonly onSuccess?: () => void;
+  /** Drawer-hosted usage: replaces the cancelTarget/redirect-based Cancel
+   *  handler so Cancel closes the drawer instead of navigating. */
+  readonly onCancelOverride?: () => void;
 }): ReactNode {
   const nav = useNav();
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
@@ -1976,24 +2140,30 @@ function ActionFormBody({
   );
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
+      if (!result.isSuccess) return;
+      if (onSuccess !== undefined) {
+        onSuccess();
+        return;
+      }
       // Redirect ist optional. Bei isSuccess + redirect → nav.navigate.
       // Author entscheidet bewusst ob "stay on form" (default) oder
       // "back to list" (typisch bei Create-style Aktionen).
-      if (result.isSuccess && screen.redirect !== undefined) {
+      if (screen.redirect !== undefined) {
         nav.navigate({ screenId: lastSegment(screen.redirect) });
       }
     },
-    [nav, screen.redirect],
+    [nav, screen.redirect, onSuccess],
   );
   // Cancel ist nur sinnvoll wenn ein Navigations-Ziel existiert —
   // sonst hätte der Button nirgendwo hin zu navigieren. cancelTarget
   // gewinnt über redirect; `false` schaltet den Button explizit ab
   // (Single-Action-Screens, wo Cancel nur Submit-ohne-Senden wäre).
   const handleCancel = useMemo<(() => void) | undefined>(() => {
+    if (onCancelOverride !== undefined) return onCancelOverride;
     const target = screen.cancelTarget ?? screen.redirect;
     if (target === undefined || target === false) return undefined;
     return () => nav.navigate({ screenId: lastSegment(target) });
-  }, [nav, screen.redirect, screen.cancelTarget]);
+  }, [nav, screen.redirect, screen.cancelTarget, onCancelOverride]);
   return (
     <RenderEdit
       screen={synthScreen}
