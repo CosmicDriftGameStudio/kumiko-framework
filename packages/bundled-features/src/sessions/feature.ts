@@ -248,7 +248,19 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       layout: {
         sections: [
           {
-            fields: ["id", "userId", "createdAt", "expiresAt", "revokedAt", "ip", "userAgent"],
+            fields: [
+              "id",
+              "userId",
+              // The shim (projection-detail-shim.ts) stamps every field as
+              // type:"text" — field.renderer is the only way this screen
+              // type reaches real per-type formatting instead of a raw ISO
+              // string (fw#2245).
+              { field: "createdAt", renderer: { format: "timestamp" } },
+              { field: "expiresAt", renderer: { format: "timestamp" } },
+              { field: "revokedAt", renderer: { format: "timestamp" } },
+              "ip",
+              "userAgent",
+            ],
           },
         ],
       },

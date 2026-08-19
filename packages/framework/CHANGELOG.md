@@ -1,5 +1,36 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.209.1
+
+### Patch Changes
+
+- f387a20: Fix `backfillEventPiiEncryption` writing the re-encrypted event payload as a double-encoded jsonb string instead of a jsonb object. `loadAggregate` masked this because its typed read path re-parses string-shaped jsonb columns, but raw SQL consumers (GDPR exports, MSP replays) saw corrupted data.
+- 2c05054: Job runs (`jobRun`) no longer go through the event store. Every job execution used to append a `run-started` + `run-completed`/`run-failed` event replayed through two inline projections — in the busiest apps this was ~99% of all events ever written, for data nothing else replays or subscribes to. `onJobStart`/`onJobComplete`/`onJobFailed` now write straight into the (renamed) `store_job_runs` / `store_job_run_logs` tables, with a new daily `jobs:job:retention-cleanup` job (`retentionDays`, default 30) purging old rows so the tables don't grow forever.
+
+  **Breaking for raw-SQL consumers:** the table is renamed `read_job_runs` → `store_job_runs` (`store_job_run_logs` is unchanged). The migration drops `read_job_runs` outright — old run history is not preserved, it was operational/debug data, not a system of record. Apps that only use the shipped `job-runs-screen`/`jobs:query:*` handlers are unaffected; apps with a raw SQL dependency on `read_job_runs` (e.g. `kumiko-studio`'s migrations/tests) need a follow-up on their side.
+
+  Also fixes two `user-data-rights` cron jobs (`run-export-jobs`, `run-forget-cleanup`) that were firing every minute instead of daily — the 6-field trigger string carried a leading seconds field that this repo's cron parser doesn't use, so `"0 * * * * *"` meant "every minute" instead of the intended midnight-3am daily run.
+
+  - @cosmicdrift/kumiko-types@0.209.1
+
+## 0.209.0
+
+### Minor Changes
+
+- 49662ef: fw#2225: `ToolbarAction` gains a third variant, `kind: "drawer"`, alongside `navigate` and `writeHandler`. It references an `actionForm` screen by id; clicking the toolbar button mounts that actionForm inline in a slide-in Drawer instead of navigating to a full page. A successful submit closes the Drawer and reloads the underlying list; Cancel closes it without navigating. The boot validator rejects a `screen` reference that doesn't resolve to a same-feature `actionForm` screen, and access is enforced exactly like `kind: "navigate"` — the toolbar button stays visible, but the Drawer shows an access-denied state instead of the form when the user lacks the target screen's role.
+
+  A new optional `Drawer` Core-Primitive backs this (`packages/renderer-web` wires it to the existing `widgets/drawer.tsx` `Drawer`); apps on an older `PrimitivesRegistry` without it simply don't render the drawer-kind button.
+
+- f86cf43: `projectionDetail` screens now render read-only fields as plain formatted text instead of disabled Inputs. `RenderField`/`RenderEdit` also consume `EditFieldSpec.renderer` on readOnly fields (FormatSpec or a registered `__component`), matching the existing list-column renderer behavior. New optional `RenderEditProps.valueDisplay`/`RenderFieldProps.valueDisplay` ("form" | "text", default "form" — no change for existing callers) and `ProjectionDetailScreenDefinition.valueDisplay`/`hideActions` let a screen opt out of either the text display or the Cancel action-bar button while keeping `listScreenId` back-navigation (fw#2245).
+- b9fdc41: `projectionList` screens can now declare `filter` (a static `ScreenFilter`) and `facets` (a `ListFacetSpec[]` for user-toggleable select/boolean dropdowns), matching the existing `entityList` capability. The bound query handler's Zod schema must accept `filter`/`filters` params for the declared capability to reach the server — the boot-validator now checks this and throws a clear error naming the missing schema field.
+
+### Patch Changes
+
+- f707d1b: `/delivery-log` is now a declarative `projectionList` screen instead of a hand-rolled `custom` React component. `delivery:query:log` moved to `definePagedQueryHandler` (cursor/limit/sort, whitelisted sort columns, id tie-breaker) and now returns `type`/`recipient` display fields instead of the raw `notificationType`/`recipientAddress` column names — that mapping used to live in the client component. The status column keeps a small `DeliveryStatusCell` renderer (`StatusBadge`); the rest of the old 103-line screen component is gone.
+- 12df48b: compliance-profiles: `/profile-picker` is now a declarative `actionForm` screen (select field + extension section for the read-only profile catalog) instead of a 152-line custom TSX screen. Submits to the existing `compliance-profiles:write:set-profile` handler unchanged. Nav entry gained a `shield` icon (fw#2222).
+- 92a5361: Session rows now track a `lastSeenAt` timestamp, set at creation and refreshed by `sessionChecker` at most once per hour. Gives apps a coarse "last activity" signal (e.g. for the session-list UI) without a DB write on every authenticated request.
+  - @cosmicdrift/kumiko-types@0.209.0
+
 ## 0.208.3
 
 ### Patch Changes

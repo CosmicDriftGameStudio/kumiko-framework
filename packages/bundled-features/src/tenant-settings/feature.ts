@@ -41,6 +41,18 @@ export function createTenantSettingsFeature(
           de: "Tenant-Einstellungen",
           en: "Tenant Settings",
         },
+        // Settings-Hub nav label + configEdit section heading (same key, both
+        // scopes fall back here — see buildConfigFeatureSchema).
+        "tenant-settings.settings": { de: "Tenant-Einstellungen", en: "Tenant Settings" },
+        // Both currency/locale are tenant-home with admin write access, which
+        // cascades a SystemAdmin-only "set the platform default" screen up to
+        // the system audience — scoped override so its nav entry reads
+        // differently from the tenant-home entry instead of repeating the
+        // same words under both "Platform" and "Organization".
+        "tenant-settings.settings.system": {
+          de: "Tenant-Einstellungen (Plattform-Standard)",
+          en: "Tenant Settings (Platform Default)",
+        },
       },
     });
   });

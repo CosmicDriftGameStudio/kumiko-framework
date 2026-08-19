@@ -421,6 +421,11 @@ export type ProjectionDetailScreenDefinition = {
    *  `rowClick` has no target here (there is no row to click) and is
    *  rejected by the boot-validator. */
   readonly actions?: readonly RowAction[];
+  /** How head fields render. Default "text" — plain text instead of a
+   *  disabled Input, since every field on this screen type is forced
+   *  readOnly anyway (there is no write path, see the shim doc above).
+   *  Set "form" to opt back into the disabled-Input look (fw#2245). */
+  readonly valueDisplay?: "form" | "text";
 };
 
 // --- dashboard ---

@@ -1,11 +1,8 @@
-// Event-payload schemas for the jobRun aggregate. Shared between
-// jobs-feature.ts (registers them via r.defineEvent and consumes them
-// in the inline-projections) and job-run-logger.ts (parses payloads
-// before low-level append() so out-of-dispatcher writes stay as
-// type-safe as ctx.appendEvent writes).
-//
-// Keeping them in a separate module avoids the circular import between
-// jobs-feature.ts (imports the logger) and job-run-logger.ts.
+// Payload schemas for the jobRun direct-write path (#2243). Pre-#2243 these
+// backed jobRun's event-store payloads (r.defineEvent + inline projections);
+// now job-run-logger.ts parses against them before writing straight into
+// jobRunsTable/jobRunLogsTable, so an out-of-dispatcher write still gets the
+// same validation guarantee ctx.appendEvent used to give it.
 
 import { z } from "zod";
 

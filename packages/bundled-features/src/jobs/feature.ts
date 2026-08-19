@@ -1,16 +1,5 @@
-import { insertMany, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  defineApply,
-  defineFeature,
-  type FeatureDefinition,
-} from "@cosmicdrift/kumiko-framework/engine";
-import type { z } from "zod";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID } from "./constants";
-// Event-payload schemas live in a sibling module so the logger can import
-// them without the cycle jobs-feature ↔ job-run-logger. The logger parses
-// payloads against these schemas before low-level append() — that's what
-// keeps out-of-dispatcher writes as type-safe as ctx.appendEvent.
-import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
 import { catalogQuery } from "./handlers/catalog.query";
 import { detailQuery } from "./handlers/detail.query";
 import { listQuery } from "./handlers/list.query";
@@ -19,21 +8,26 @@ import {
   projectionRebuildPayloadSchema,
 } from "./handlers/projection-rebuild.job";
 import { reindexEntityJob, reindexEntityPayloadSchema } from "./handlers/reindex-entity.job";
+import {
+  createRetentionCleanupJob,
+  DEFAULT_JOB_RUN_RETENTION_DAYS,
+} from "./handlers/retention-cleanup.job";
 import { retryWrite } from "./handlers/retry.write";
 import { triggerWrite } from "./handlers/trigger.write";
 import { JOBS_I18N } from "./i18n";
-import { parseJobInstant } from "./job-instant";
-import {
-  JOB_RUN_COMPLETED_EVENT,
-  JOB_RUN_FAILED_EVENT,
-  JOB_RUN_STARTED_EVENT,
-} from "./job-run-logger";
-import { jobRunLogsTable, jobRunLogsTableMeta, jobRunsTable } from "./job-run-table";
+import { jobRunLogsTableMeta, jobRunsTableMeta } from "./job-run-table";
 
-export function createJobsFeature(): FeatureDefinition {
+export type JobsFeatureOptions = {
+  // How long a job run (and its logs) stays in store_job_runs/
+  // store_job_run_logs before the daily retention-cleanup job deletes it.
+  readonly retentionDays?: number;
+};
+
+export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefinition {
+  const retentionDays = options.retentionDays ?? DEFAULT_JOB_RUN_RETENTION_DAYS;
   return defineFeature("jobs", (r) => {
     r.describe(
-      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution appends `run-started`, `run-completed`, and `run-failed` events to the `jobRun` aggregate stream, which two inline projections materialize into `read_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI.",
+      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`. Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI.",
     );
     r.uiHints({
       displayLabel: "Jobs · Audit & Operator UI",
@@ -41,133 +35,11 @@ export function createJobsFeature(): FeatureDefinition {
       recommended: false,
     });
     r.systemScope();
+    r.storeTable(jobRunsTableMeta, {
+      reason: "direct_write.job_runs",
+    });
     r.storeTable(jobRunLogsTableMeta, {
       reason: "read_side.job_run_logs",
-    });
-    // Events-only aggregate: "jobRun" has no r.entity registration, because
-    // the entire lifecycle is driven by BullMQ-callback → r.defineEvent
-    // (no executor, no CRUD). The boot-validator accepts the two
-    // projections below because every apply-key is a registered
-    // domain-event.
-    // payload can carry arbitrary user data; triggeredById stays plaintext
-    // (pseudonymous fk). System runs (triggeredById null) stay plaintext —
-    // no user subject to shred.
-    r.defineEvent("run-started", runStartedSchema, {
-      piiFields: { payload: { subjectField: "triggeredById" } },
-    });
-    r.defineEvent("run-completed", runCompletedSchema);
-    r.defineEvent("run-failed", runFailedSchema);
-
-    // Inline projection: status-row in jobRunsTable. Runs in same TX as
-    // the event-append (the logger calls runProjectionsForEvent manually
-    // because the BullMQ-callback path has no dispatcher-ctx).
-    r.projection({
-      name: "job-runs",
-      source: "jobRun",
-      table: jobRunsTable,
-      apply: {
-        [JOB_RUN_STARTED_EVENT]: defineApply<z.infer<typeof runStartedSchema>>(
-          async (event, tx, table) => {
-            const p = event.payload;
-            await insertOne(tx, table, {
-              id: event.aggregateId,
-              tenantId: event.tenantId,
-              version: event.version,
-              insertedAt: event.createdAt,
-              insertedById: event.metadata?.userId ?? "system",
-              jobName: p.jobName,
-              bullJobId: p.bullJobId,
-              status: p.status,
-              payload: p.payload,
-              attempt: p.attempt,
-              startedAt: parseJobInstant(p.startedAt),
-              triggeredById: p.triggeredById,
-            });
-          },
-        ),
-        [JOB_RUN_COMPLETED_EVENT]: defineApply<z.infer<typeof runCompletedSchema>>(
-          async (event, tx, table) => {
-            const p = event.payload;
-            await updateMany(
-              tx,
-              table,
-              {
-                status: "completed",
-                duration: p.duration,
-                finishedAt: parseJobInstant(p.finishedAt),
-                version: event.version,
-                modifiedAt: event.createdAt,
-                modifiedById: event.metadata?.userId ?? "system",
-              },
-              { id: event.aggregateId },
-            );
-          },
-        ),
-        [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(
-          async (event, tx, table) => {
-            const p = event.payload;
-            await updateMany(
-              tx,
-              table,
-              {
-                status: "failed",
-                error: p.error,
-                duration: p.duration,
-                finishedAt: parseJobInstant(p.finishedAt),
-                version: event.version,
-                modifiedAt: event.createdAt,
-                modifiedById: event.metadata?.userId ?? "system",
-              },
-              { id: event.aggregateId },
-            );
-          },
-        ),
-      },
-    });
-
-    // Second inline projection — same source, different table. Expands
-    // the batched logs array from completed/failed events into N rows
-    // per run in jobRunLogsTable.
-    r.projection({
-      name: "job-run-logs",
-      source: "jobRun",
-      table: jobRunLogsTable,
-      apply: {
-        [JOB_RUN_COMPLETED_EVENT]: defineApply<z.infer<typeof runCompletedSchema>>(
-          async (event, tx) => {
-            const p = event.payload;
-            // skip: empty log batch — the worker ran silent. No child rows
-            // to insert; the completed-event alone already updated the run's
-            // status via the sibling job-runs projection.
-            if (p.logs.length === 0) return;
-            await insertMany(
-              tx,
-              jobRunLogsTable,
-              p.logs.map((log) => ({
-                runId: event.aggregateId,
-                level: log.level,
-                message: log.message,
-                timestamp: parseJobInstant(log.timestamp),
-              })),
-            );
-          },
-        ),
-        [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(async (event, tx) => {
-          const p = event.payload;
-          // skip: empty log batch — the worker ran silent (mirror of completed)
-          if (p.logs.length === 0) return;
-          await insertMany(
-            tx,
-            jobRunLogsTable,
-            p.logs.map((log) => ({
-              runId: event.aggregateId,
-              level: log.level,
-              message: log.message,
-              timestamp: parseJobInstant(log.timestamp),
-            })),
-          );
-        }),
-      },
     });
 
     // Framework-provided rebuild job — available whenever `jobs` is composed; enqueueProjectionRebuild dispatches it.
@@ -185,6 +57,14 @@ export function createJobsFeature(): FeatureDefinition {
       "reindexEntity",
       { trigger: { manual: true }, perTenant: true, schema: reindexEntityPayloadSchema },
       reindexEntityJob,
+    );
+
+    // store_job_runs/store_job_run_logs are direct-write, unbounded-growth
+    // stores (#2243) — nothing else purges them.
+    r.job(
+      "retention-cleanup",
+      { trigger: { cron: "0 3 * * *" }, concurrency: "skip" },
+      createRetentionCleanupJob(retentionDays),
     );
 
     const handlers = {

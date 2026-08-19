@@ -19,6 +19,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.reload": "Reload",
     "kumiko.actions.create": "New",
     "kumiko.actions.edit": "Edit",
+    "kumiko.actions.view": "View",
     "kumiko.actions.copyLink": "Copy link",
     "kumiko.actions.copyLinkCopied": "Copied!",
     "kumiko.actions.next": "Next",

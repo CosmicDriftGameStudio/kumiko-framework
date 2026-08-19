@@ -401,7 +401,7 @@ describe("delivery-attempt userData-hooks (#799)", () => {
 describe("job-run userData-hooks (#799)", () => {
   async function seedRun(id: string, triggeredById: string | null): Promise<void> {
     await asRawClient(full.db).unsafe(
-      `INSERT INTO read_job_runs
+      `INSERT INTO store_job_runs
          (id, tenant_id, job_name, bull_job_id, status, payload, attempt, started_at, triggered_by_id)
        VALUES ($1::uuid, $2, 'app:job:export', $3, 'completed', '{"scope":"mine"}', 1, now(), $4)`,
       [id, TENANT_A, `bull-${id}`, triggeredById],

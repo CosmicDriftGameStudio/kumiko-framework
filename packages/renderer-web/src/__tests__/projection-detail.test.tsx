@@ -50,13 +50,60 @@ describe("KumikoScreen / projectionDetail", () => {
     );
 
     await waitFor(() => screen.getByTestId("render-edit-form"));
-    const userIdInput = screen.getByTestId("field-userId").querySelector("input");
-    expect(userIdInput?.value).toBe("user-42");
-    expect(userIdInput?.disabled).toBe(true);
+    // fw#2245: projectionDetail defaults to text display — a readOnly field
+    // renders its value as plain text, not a disabled Input.
+    expect(screen.getByTestId("field-userId").textContent).toContain("user-42");
+    expect(screen.getByTestId("field-userId").querySelector("input")).toBeNull();
 
     // hasEditableSection() reads readOnly on every field — projectionDetail
     // forces it hard in the shim, so RenderEdit must never draw a Save button.
     expect(screen.queryByTestId("render-edit-submit")).toBeNull();
+  });
+
+  // fw#2245 Teil 4: synthesizeProjectionDetailEntity (projection-detail-shim.ts)
+  // stamps every field as type:"text" — the shim has no access to the query's
+  // real field types. field.renderer (Teil 1) is the only way this screen
+  // type reaches real per-type formatting; without it a timestamp field would
+  // render its raw ISO string. Mirrors the sessions bundled feature's actual
+  // session-detail screen (feature.ts).
+  test("field.renderer formats a value past the shim's synthesized type:'text' field", async () => {
+    const timestampScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        sections: [
+          {
+            title: "Session",
+            fields: ["userId", { field: "createdAt", renderer: { format: "timestamp" } }],
+          },
+        ],
+      },
+    };
+    const timestampSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [timestampScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={timestampSchema}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const rendered = screen.getByTestId("field-value-createdAt").textContent;
+    expect(rendered).not.toBe("2026-07-01T00:00:00Z");
+    expect(rendered).not.toBe("");
   });
 
   // synthesizeProjectionDetailScreen rebuilds `layout` from `sections` alone
@@ -128,6 +175,117 @@ describe("KumikoScreen / projectionDetail", () => {
 
     await waitFor(() => screen.getByTestId("kumiko-screen-record-missing"));
   });
+
+  // A projectionDetail has no write path, so there's nothing for a "Cancel"
+  // button to discard — RenderEdit's Cancel is never wired up for this
+  // screen type, regardless of `listScreenId`. Back-navigation goes through
+  // the breadcrumb instead (shell-breadcrumb.ts resolves `listScreenId`
+  // independently of the footer — see shell-breadcrumb.test.ts).
+  test("never shows Cancel, even when listScreenId is set", async () => {
+    const withListScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      listScreenId: "session-list",
+    };
+    const withListSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [withListScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={withListSchema}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.queryByTestId("render-edit-cancel")).toBeNull();
+  });
+
+  // Regression: declared `actions` used to disappear along with Cancel
+  // whenever a screen hid its RenderEdit footer to get rid of the latter —
+  // both now render independently of each other.
+  test("declared actions render alongside no Cancel button", async () => {
+    const withActionsScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      listScreenId: "session-list",
+      actions: [
+        {
+          kind: "navigate",
+          id: "open-user",
+          label: "sessions.detail.action.openUser",
+          screen: "user-detail",
+        },
+      ],
+    };
+    const withActionsSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [withActionsScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={withActionsSchema}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-action-open-user"));
+    expect(screen.queryByTestId("render-edit-cancel")).toBeNull();
+  });
+
+  test("valueDisplay:'form' opts back into the disabled-Input look", async () => {
+    const formDisplayScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      valueDisplay: "form",
+    };
+    const formDisplaySchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [formDisplayScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={formDisplaySchema}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const userIdInput = screen.getByTestId("field-userId").querySelector("input");
+    expect(userIdInput?.value).toBe("user-42");
+    expect(userIdInput?.disabled).toBe(true);
+  });
 });
 
 // fw#2166: `relatedList` sections run their own query against the shown
@@ -187,8 +345,7 @@ describe("KumikoScreen / projectionDetail relatedList section (fw#2166)", () => 
 
     // The shim's isFieldsEditSection flip must not regress the structural
     // readOnly proof from the first test above.
-    const userIdInput = screen.getByTestId("field-userId").querySelector("input");
-    expect(userIdInput?.disabled).toBe(true);
+    expect(screen.getByTestId("field-userId").querySelector("input")).toBeNull();
     expect(screen.queryByTestId("render-edit-submit")).toBeNull();
 
     const relatedCall = calls.find((c) => c.type === "sessions:query:user-session:payments");
