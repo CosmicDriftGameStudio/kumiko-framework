@@ -79,11 +79,13 @@ describe("use-all-bundled boot", () => {
     expect(missing).toEqual([]);
   });
 
-  test("projection-only tables land in ENTITY_METAS (#255)", () => {
+  test("projection-only and store-only tables land in ENTITY_METAS (#255)", () => {
     const generated = new Set(ENTITY_METAS.map((m) => m.tableName));
-    // billing-foundation registriert read_subscriptions NUR als r.projection,
-    // jobs read_job_runs ebenso — vor dem Fix fehlten beide in Migrations.
+    // billing-foundation registers read_subscriptions only as r.projection —
+    // before the #255 fix that table was missing from migrations. jobs'
+    // store_job_runs is the r.storeTable analogue (#2243 moved it off the
+    // event store onto a direct-write table) — same failure mode, same guard.
     expect(generated.has("read_subscriptions")).toBe(true);
-    expect(generated.has("read_job_runs")).toBe(true);
+    expect(generated.has("store_job_runs")).toBe(true);
   });
 });

@@ -134,8 +134,8 @@ export type UserDataRightsOptions = {
 };
 
 export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): FeatureDefinition {
-  // One-shot operator warning (the export cron fires every minute — warn once
-  // per process, not every run). Lives in the factory scope so the cron closure
+  // One-shot operator warning (the export cron fires daily — warn once per
+  // process, not every run). Lives in the factory scope so the cron closure
   // shares it across runs.
   let warnedMissingExportUrl = false;
   return defineFeature("user-data-rights", (r) => {
@@ -401,7 +401,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // S2.U3 Atom 3b — Worker fuer Async Export-Pipeline. Cron-getriggert.
     r.job(
       "run-export-jobs",
-      { trigger: { cron: "0 * * * * *" }, concurrency: "skip" },
+      { trigger: { cron: "0 3 * * *" }, concurrency: "skip" },
       async (_payload, ctx) => {
         if (!ctx.db || !ctx.registry) {
           throw new Error(
@@ -488,7 +488,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // — Art.17 wuerde nie ausgefuehrt.
     r.job(
       "run-forget-cleanup",
-      { trigger: { cron: "0 * * * * *" }, concurrency: "skip" },
+      { trigger: { cron: "0 3 * * *" }, concurrency: "skip" },
       async (_payload, ctx) => {
         if (!ctx.db || !ctx.registry) {
           throw new Error(

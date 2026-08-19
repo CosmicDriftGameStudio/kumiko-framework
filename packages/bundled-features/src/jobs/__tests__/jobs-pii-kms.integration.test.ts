@@ -1,9 +1,9 @@
-// Event-PII on the jobs run-logger (#799): runStarted.payload can carry
-// arbitrary user data and is written via LOW-LEVEL append() (not
-// ctx.appendEvent) — exactly the path the event-PII catalog must cover.
-// With a KMS active the stored event AND the projected read-row carry
-// ciphertext under the triggering user's DEK; erasing that key makes the
-// payload unreadable ([[erased]]) without touching the append-only stream.
+// PII on the jobs run-logger, direct-write path (#2243, formerly #799):
+// run-started payload can carry arbitrary user data and is written straight
+// into jobRunsTable (no event store, no event-PII catalog — #2243 removed
+// the jobRun r.defineEvent registrations). With a KMS active the stored row
+// carries ciphertext under the triggering user's DEK; erasing that key
+// makes the payload unreadable ([[erased]]) without touching the row.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -25,7 +25,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { createJobsFeature } from "../feature";
-import { createJobRunLogger, JOB_RUN_STARTED_EVENT } from "../job-run-logger";
+import { createJobRunLogger } from "../job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
 
 let testDb: TestDb;
@@ -39,10 +39,10 @@ const SECRET_PAYLOAD = JSON.stringify({ iban: "DE89370400440532013000" });
 beforeAll(async () => {
   testDb = await createTestDb();
   testRedis = await createTestRedis();
-  // createRegistry publishes the event-PII catalog as a module singleton —
-  // the logger's low-level append() picks it up without further wiring.
   const registry = createRegistry([createJobsFeature()]);
   await unsafePushTables(testDb.db, { jobRunsTable, jobRunLogsTable });
+  // Kept only so the "no event store involved" assertion below has a table
+  // to assert against — the write path itself never touches it.
   await createEventsTable(testDb.db);
   logger = createJobRunLogger({ db: testDb.db, registry });
 });
@@ -63,25 +63,28 @@ afterEach(() => {
 });
 
 describe("jobs run-started payload under KMS", () => {
-  test("stored event carries ciphertext payload, plaintext triggeredById", async () => {
+  test("stored row carries ciphertext payload, plaintext triggeredById — no event-store write", async () => {
     await logger.onJobStart?.("app:job:export", "bull-1", {
       triggeredById: USER_ID,
       payload: SECRET_PAYLOAD,
       attempt: 1,
     });
 
-    const events = await selectMany(testDb.db, eventsTable, { type: JOB_RUN_STARTED_EVENT });
-    expect(events.length).toBe(1);
-    const payload = events[0]?.payload as Record<string, unknown>;
-    expect(isPiiCiphertext(payload["payload"])).toBe(true);
-    expect(String(payload["payload"])).toContain(`user:${USER_ID}`);
-    expect(payload["triggeredById"]).toBe(USER_ID);
+    const row = await fetchOne(testDb.db, jobRunsTable, { bullJobId: "bull-1" });
+    expect(isPiiCiphertext(row?.["payload"])).toBe(true);
+    expect(String(row?.["payload"])).toContain(`user:${USER_ID}`);
+    expect(row?.["triggeredById"]).toBe(USER_ID);
 
-    const back = await decryptPiiFieldValues(payload, ["payload"], kms, { requestId: "t" });
+    const back = await decryptPiiFieldValues({ payload: row?.["payload"] }, ["payload"], kms, {
+      requestId: "t",
+    });
     expect(back["payload"]).toBe(SECRET_PAYLOAD);
+
+    const events = await selectMany(testDb.db, eventsTable, { aggregateType: "jobRun" });
+    expect(events).toHaveLength(0);
   });
 
-  test("projected read-row carries the same ciphertext; erase → [[erased]]", async () => {
+  test("erase subject key → row payload decrypts to [[erased]]", async () => {
     await logger.onJobStart?.("app:job:export", "bull-2", {
       triggeredById: USER_ID,
       payload: SECRET_PAYLOAD,
