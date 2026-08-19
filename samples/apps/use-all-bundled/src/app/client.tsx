@@ -18,9 +18,11 @@ import { adminShellClient } from "@cosmicdrift/kumiko-bundled-features/admin-she
 import { auditClient } from "@cosmicdrift/kumiko-bundled-features/audit/web";
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { authMfaClient, MfaVerifyScreen } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/web";
+import { complianceProfilesClient } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles/web";
 import { configClient } from "@cosmicdrift/kumiko-bundled-features/config/web";
 import { customFieldsClient } from "@cosmicdrift/kumiko-bundled-features/custom-fields/web";
 import { deliveryClient } from "@cosmicdrift/kumiko-bundled-features/delivery/web";
+import { featureTogglesClient } from "@cosmicdrift/kumiko-bundled-features/feature-toggles/web";
 import { foldersClient } from "@cosmicdrift/kumiko-bundled-features/folders/web";
 import { jobsClient } from "@cosmicdrift/kumiko-bundled-features/jobs/web";
 import { personalAccessTokensClient } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens/web";
@@ -113,6 +115,8 @@ createKumikoApp({
     personalAccessTokensClient(),
     customFieldsClient(),
     foldersClient(),
+    complianceProfilesClient(),
+    featureTogglesClient(),
     // tag-list management screen (TagManager) + TagSection/TagFilter extension
     // slots + tag i18n. Required for the dev-only notesFeature host to render.
     tagsClient(),

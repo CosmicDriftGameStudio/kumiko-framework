@@ -427,6 +427,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.actions.next": "Next",
   "kumiko.actions.reload": "Reload",
   "kumiko.actions.save": "Save",
+  "kumiko.actions.view": "View",
   "kumiko.aiText.acceptHint": "Tab = accept, Esc = discard",
   "kumiko.aiText.capExceeded": "Monthly AI limit reached.",
   "kumiko.aiText.correct": "Correct",
