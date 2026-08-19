@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-17T15:38:08.641Z",
+  "generatedAt": "2026-08-19T14:06:39.442Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1045,108 +1045,6 @@
       "indexes": [
         {
           "name": "read_inbound_messages_tenant_id_idx",
-          "columns": ["tenant_id"]
-        }
-      ],
-      "source": "unmanaged"
-    },
-    {
-      "tableName": "read_job_runs",
-      "columns": [
-        {
-          "name": "id",
-          "pgType": "uuid",
-          "notNull": true,
-          "primaryKey": true,
-          "defaultSql": "gen_random_uuid()"
-        },
-        {
-          "name": "tenant_id",
-          "pgType": "uuid",
-          "notNull": true
-        },
-        {
-          "name": "version",
-          "pgType": "integer",
-          "notNull": true,
-          "defaultSql": "1"
-        },
-        {
-          "name": "inserted_at",
-          "pgType": "timestamptz",
-          "notNull": true,
-          "defaultSql": "now()"
-        },
-        {
-          "name": "modified_at",
-          "pgType": "timestamptz",
-          "notNull": false
-        },
-        {
-          "name": "inserted_by_id",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "modified_by_id",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "job_name",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "bull_job_id",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "status",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "payload",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "error",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "attempt",
-          "pgType": "integer",
-          "notNull": true,
-          "defaultSql": "1"
-        },
-        {
-          "name": "started_at",
-          "pgType": "timestamptz",
-          "notNull": true
-        },
-        {
-          "name": "finished_at",
-          "pgType": "timestamptz",
-          "notNull": false
-        },
-        {
-          "name": "duration",
-          "pgType": "integer",
-          "notNull": false
-        },
-        {
-          "name": "triggered_by_id",
-          "pgType": "text",
-          "notNull": false
-        }
-      ],
-      "indexes": [
-        {
-          "name": "read_job_runs_tenant_id_idx",
           "columns": ["tenant_id"]
         }
       ],
@@ -3234,6 +3132,108 @@
       "source": "unmanaged"
     },
     {
+      "tableName": "store_job_runs",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "job_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "bull_job_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "payload",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "error",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "attempt",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "started_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "finished_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "duration",
+          "pgType": "integer",
+          "notNull": false
+        },
+        {
+          "name": "triggered_by_id",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_job_runs_tenant_id_idx",
+          "columns": ["tenant_id"]
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
       "tableName": "store_mail_seen_messages",
       "columns": [
         {
@@ -3429,6 +3429,11 @@
         },
         {
           "name": "revoked_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "last_seen_at",
           "pgType": "timestamptz",
           "notNull": false
         },

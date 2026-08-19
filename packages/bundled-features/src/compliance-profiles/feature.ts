@@ -1,9 +1,14 @@
+import { SELECTABLE_PROFILE_KEYS } from "@cosmicdrift/kumiko-framework/compliance";
 import {
   access,
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { COMPLIANCE_PROFILE_SCREEN_ID } from "./constants";
+import {
+  COMPLIANCE_PROFILE_CATALOG_EXTENSION_NAME,
+  COMPLIANCE_PROFILE_SCREEN_ID,
+  ComplianceProfileHandlers,
+} from "./constants";
 import { forTenantQuery } from "./handlers/for-tenant.query";
 import { listProfilesQuery } from "./handlers/list-profiles.query";
 import { createNeedsProfileQuery } from "./handlers/needs-profile.query";
@@ -75,14 +80,34 @@ export function createComplianceProfilesFeature(
 
     r.screen({
       id: COMPLIANCE_PROFILE_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "ComplianceProfileScreen" } },
+      type: "actionForm",
+      handler: ComplianceProfileHandlers.setProfile,
+      fields: {
+        profileKey: { type: "select", options: SELECTABLE_PROFILE_KEYS, required: true },
+      },
+      layout: {
+        width: "full",
+        sections: [
+          { fields: ["profileKey"] },
+          {
+            kind: "extension",
+            title: "compliance-profiles:profile.catalog.title",
+            component: { react: { __component: COMPLIANCE_PROFILE_CATALOG_EXTENSION_NAME } },
+          },
+        ],
+      },
+      submitLabel: "compliance-profiles:profile.actions.save",
       access: { roles: resolvedAccess },
     });
     r.nav({
       id: "profile-picker",
       label: "compliance-profiles:nav.profilePicker",
       screen: "compliance-profiles:screen:profile-picker",
+      // "shield-check" (spec suggestion, fw#2222) isn't in NavIconKey's closed
+      // vocabulary (packages/types/src/nav-icon.ts) — adding it needs a
+      // matching lucide-react entry in renderer-web's NAV_ICONS map too, both
+      // outside this feature. "shield" is the closest already-registered key.
+      icon: "shield",
       order: 50,
     });
 

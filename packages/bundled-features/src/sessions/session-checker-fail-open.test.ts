@@ -110,6 +110,44 @@ describe("sessionChecker fail-open on user-lookup throw", () => {
   });
 });
 
+describe("sessionChecker fail-open on lastSeenAt refresh throw", () => {
+  test("updateMany THROW on refresh → live (not 500)", async () => {
+    const db = {} as DbConnection;
+    const cbs = createSessionCallbacks({ db });
+    const sid = "00000000-0000-4000-8000-00000000sid5";
+    const userId = "00000000-0000-4000-8000-00000000usr5";
+    const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
+
+    const originalUpdateMany = bunDb.updateMany;
+    const fetchSpy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+      if (table === userSessionTable) {
+        return {
+          userId,
+          revokedAt: null,
+          expiresAt: { epochMilliseconds: farFutureMs },
+          lastSeenAt: null,
+        };
+      }
+      if (table === userTable) {
+        throw new Error("simulated pool exhaustion");
+      }
+      throw new Error("unexpected table in sessionChecker spy");
+    }) as FetchOne);
+    const updateSpy = spyOn(bunDb, "updateMany").mockImplementation(async () => {
+      throw new Error("simulated write failure");
+    });
+
+    try {
+      expect(await cbs.sessionChecker(sid, userId)).toBe("live");
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      fetchSpy.mockRestore();
+      updateSpy.mockRestore();
+      expect(bunDb.updateMany).toBe(originalUpdateMany);
+    }
+  });
+});
+
 describe("sessionChecker role re-derivation", () => {
   test("live session composes global + tenant-membership roles fresh from the DB", async () => {
     const db = {} as DbConnection;

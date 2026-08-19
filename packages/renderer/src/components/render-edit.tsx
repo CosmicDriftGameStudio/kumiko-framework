@@ -210,6 +210,13 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  `onControlsReady`'s `submit`. Omitting this prop keeps unchanged
    *  behavior. */
   readonly hideActions?: boolean;
+  /** "form" (default) — every field renders as its Input widget, disabled
+   *  when `field.readOnly`, unchanged behavior. "text" renders a
+   *  `field.readOnly` field as plain text instead of a disabled Input
+   *  (ProjectionDetailBody's read view, fw#2245) — editable fields are
+   *  unaffected either way, so this only changes forms that already have
+   *  readOnly fields. */
+  readonly valueDisplay?: "form" | "text";
 };
 
 export type RenderEditAction = {
@@ -427,6 +434,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     fields: fieldsFilter,
     disabled = false,
     hideActions,
+    valueDisplay = "form",
   } = props;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -1358,6 +1366,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                       fieldAppendix: fieldAppendix(field.field),
                     })}
                     allIssues={snapshot.errors}
+                    valueDisplay={valueDisplay}
+                    row={snapshot.values}
                   />
                 ))}
               </Grid>
@@ -1442,6 +1452,10 @@ type GridCellForFieldProps = {
   /** Full issues-by-path map (FormSnapshot.errors) — passed through for
    *  embedded-list fields, which bucket row-/cell-level issues themselves. */
   readonly allIssues: Readonly<Record<string, readonly FieldIssue[]>>;
+  /** Passed through to RenderField unchanged — see RenderEditProps.valueDisplay. */
+  readonly valueDisplay: "form" | "text";
+  /** Passed through to RenderField as `row` — see RenderFieldProps.row. */
+  readonly row: Readonly<Record<string, unknown>>;
 };
 
 function GridCellForField({
@@ -1454,6 +1468,8 @@ function GridCellForField({
   labelAppendix,
   fieldAppendix,
   allIssues,
+  valueDisplay,
+  row,
 }: GridCellForFieldProps): ReactNode {
   // RenderField renders nothing for a hidden field, but the GridCell around it still claims the row.
   if (!field.visible) return null;
@@ -1469,6 +1485,8 @@ function GridCellForField({
         {...(labelAppendix !== undefined && { labelAppendix })}
         {...(fieldAppendix !== undefined && { fieldAppendix })}
         allIssues={allIssues}
+        valueDisplay={valueDisplay}
+        row={row}
       />
     </GridCell>
   );

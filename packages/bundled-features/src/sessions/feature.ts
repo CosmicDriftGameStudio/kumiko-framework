@@ -217,6 +217,10 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       id: SESSION_LIST_SCREEN_ID,
       type: "projectionList",
       query: SessionQueries.list,
+      // Mirrors list.query's own fallback (unrecognised/absent sort → createdAt
+      // desc) — kept in sync by hand, boot-validator only requires the field
+      // be present once the query accepts `sort` (fw#2230).
+      defaultSort: { field: "createdAt", dir: "desc" },
       columns: [
         { field: "id", label: "sessions.list.col.id" },
         { field: "userId", label: "sessions.list.col.userId" },
@@ -244,7 +248,19 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       layout: {
         sections: [
           {
-            fields: ["id", "userId", "createdAt", "expiresAt", "revokedAt", "ip", "userAgent"],
+            fields: [
+              "id",
+              "userId",
+              // The shim (projection-detail-shim.ts) stamps every field as
+              // type:"text" — field.renderer is the only way this screen
+              // type reaches real per-type formatting instead of a raw ISO
+              // string (fw#2245).
+              { field: "createdAt", renderer: { format: "timestamp" } },
+              { field: "expiresAt", renderer: { format: "timestamp" } },
+              { field: "revokedAt", renderer: { format: "timestamp" } },
+              "ip",
+              "userAgent",
+            ],
           },
         ],
       },

@@ -515,7 +515,7 @@ describe("flow 3: broadcast to multiple users + markAllRead", () => {
 
     // 1 orderAssigned × 3 channels + 2 announcement × 3 channels = 9 total
     expect(result.rows.length).toBe(9);
-    expect(result.rows[0]?.["notificationType"]).toBe("app:notify:announcement");
+    expect(result.rows[0]?.["type"]).toBe("app:notify:announcement");
   });
 });
 

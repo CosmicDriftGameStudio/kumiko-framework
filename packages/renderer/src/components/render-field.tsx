@@ -1,11 +1,18 @@
-import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
+  type EntityEditScreenDefinition,
+  type FieldRenderer,
+  isFormatSpec,
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  applyFormatSpec,
   currencyDecimals,
   type EditFieldViewModel,
   type FieldIssue,
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context";
+import { useColumnRenderer } from "../app/column-renderers";
+import { extensionSectionName } from "../app/extension-sections";
 import { toKebab } from "../app/qn";
 import { screenAccessAllows } from "../app/screen-access";
 import { useUserRoles } from "../context/user-roles-context";
@@ -48,6 +55,17 @@ export type RenderFieldProps = {
    *  (`${field}.${rowIndex}` / `${field}.${rowIndex}.${cellField}`).
    *  Other field types ignore this prop. */
   readonly allIssues?: Readonly<Record<string, readonly FieldIssue[]>>;
+  /** "form" (default) renders every field as its editable Input, disabled
+   *  when `field.readOnly` — unchanged behavior. "text" renders a
+   *  `field.readOnly` field as plain text instead (projectionDetail's read
+   *  view, fw#2245); editable fields are untouched by this prop either way. */
+  readonly valueDisplay?: "form" | "text";
+  /** Current form values, keyed by field name — only consulted when
+   *  `field.renderer` resolves to a `{ react: { __component } }` registry
+   *  component, passed through as `ColumnRendererProps.row` (same contract
+   *  as list-column renderers, fw#2245). Omitted → falls back to a
+   *  single-key `{ [field.field]: field.value }` row. */
+  readonly row?: Readonly<Record<string, unknown>>;
 };
 
 export function RenderField({
@@ -58,6 +76,8 @@ export function RenderField({
   labelAppendix,
   fieldAppendix,
   allIssues,
+  valueDisplay = "form",
+  row,
 }: RenderFieldProps): ReactNode {
   const { Field, Input, Banner, Text } = usePrimitives();
   // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
@@ -71,12 +91,24 @@ export function RenderField({
 
   const id = inputId(field);
   const hasError = issues !== undefined && issues.length > 0;
+  // An author-declared renderer always wins over the input widget, same as
+  // the list-column path (render-list.tsx). Only takes effect once the field
+  // is actually readOnly — a FormatSpec/PlatformComponent renderer has no
+  // editable widget of its own, so applying it to an editable field would
+  // silently make that field un-editable (fw#2245).
+  const readOnlyText = valueDisplay === "text" && field.readOnly && field.renderer === undefined;
 
   // Reference-Field rendert eine eigene Component — sie nutzt
   // useQuery() für den Live-Lookup, also muss sie als React-
   // Komponente gemountet werden (nicht als pure render-Call).
   const control =
-    field.type === "embedded" && field.embeddedListCells !== undefined ? (
+    field.readOnly && field.renderer !== undefined ? (
+      <FieldRendererOutput
+        field={field}
+        renderer={field.renderer}
+        {...(row !== undefined && { row })}
+      />
+    ) : field.type === "embedded" && field.embeddedListCells !== undefined ? (
       <EmbeddedListField
         field={field}
         id={id}
@@ -85,14 +117,20 @@ export function RenderField({
         featureName={featureName ?? ""}
       />
     ) : field.type === "reference" ? (
-      <ReferenceInput
-        field={field}
-        id={id}
-        hasError={hasError}
-        onChange={onChange}
-        Input={Input}
-        featureName={featureName ?? ""}
-      />
+      readOnlyText ? (
+        <ReadOnlyReferenceValue field={field} featureName={featureName ?? ""} />
+      ) : (
+        <ReferenceInput
+          field={field}
+          id={id}
+          hasError={hasError}
+          onChange={onChange}
+          Input={Input}
+          featureName={featureName ?? ""}
+        />
+      )
+    ) : readOnlyText && !isComplexFieldType(field.type) ? (
+      <Text testId={`field-value-${field.field}`}>{readOnlyDisplayText(field, appLocale)}</Text>
     ) : (
       renderInput({ field, id, hasError, onChange, Input, appLocale, Banner, Text, t })
     );
@@ -294,6 +332,87 @@ function ReferenceInput({
 
 function inputId(field: EditFieldViewModel): string {
   return `kumiko-edit-${field.field}`;
+}
+
+// Doesn't resolve the `string` (cross-feature QN) FieldRenderer variant — the
+// list-column path (DataTableCell) doesn't either, so this stays in parity.
+function FieldRendererOutput({
+  field,
+  renderer,
+  row,
+}: {
+  readonly field: EditFieldViewModel;
+  readonly renderer: FieldRenderer;
+  readonly row?: Readonly<Record<string, unknown>>;
+}): ReactNode {
+  const { Text } = usePrimitives();
+  const componentName =
+    !isFormatSpec(renderer) && typeof renderer === "object" && renderer !== null
+      ? extensionSectionName(renderer)
+      : undefined;
+  const Component = useColumnRenderer(componentName);
+  if (isFormatSpec(renderer)) {
+    return (
+      <Text testId={`field-value-${field.field}`}>{applyFormatSpec(renderer, field.value)}</Text>
+    );
+  }
+  if (componentName !== undefined) {
+    if (Component !== undefined) {
+      return (
+        <Component
+          value={field.value}
+          row={row ?? { [field.field]: field.value }}
+          column={{ field: field.field }}
+        />
+      );
+    }
+    // biome-ignore lint/suspicious/noConsole: dev-warning for a registry mismatch, mirrors DataTableCell's columnRenderer warning.
+    console.warn(`[kumiko] fieldRenderer "${componentName}" not registered`);
+  }
+  return <Text testId={`field-value-${field.field}`}>{stringValue(field.value)}</Text>;
+}
+
+// Read-only text for `type: "reference"` — resolves the referenced row's
+// label via the same lookup query as ReferenceInput's combobox, but shows
+// plain text instead of mounting an (unusable, disabled) combobox.
+function ReadOnlyReferenceValue({
+  field,
+  featureName,
+}: {
+  readonly field: EditFieldViewModel;
+  readonly featureName: string;
+}): ReactNode {
+  const { Text } = usePrimitives();
+  const refEntity = field.refEntity ?? "";
+  const refFeature = field.refFeature ?? featureName;
+  const labelField = field.refLabelField ?? "id";
+  const isMultiple = field.refMultiple === true;
+  const queryQn = `${toKebab(refFeature)}:query:${toKebab(refEntity)}:list`;
+  const queryResult = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
+    limit: REFERENCE_COMBOBOX_LIMIT,
+  });
+  const ids: readonly string[] = isMultiple
+    ? Array.isArray(field.value)
+      ? (field.value as readonly string[])
+      : []
+    : typeof field.value === "string" && field.value !== ""
+      ? [field.value]
+      : [];
+  if (ids.length === 0) return <Text testId={`field-value-${field.field}`}>—</Text>;
+  const rows = queryResult.data?.rows ?? [];
+  const labels = ids.map((id) => {
+    const row = rows.find((r) => String(r["id"] ?? "") === id);
+    return row !== undefined ? String(row[labelField] ?? id) : id;
+  });
+  return <Text testId={`field-value-${field.field}`}>{labels.join(", ")}</Text>;
+}
+
+// Field types whose read display already isn't a boxed "disabled input" look
+// (embedded/jsonb render as an info Banner, files/images as an unsupported-
+// type Banner) — `readOnlyDisplayText` doesn't cover these, they keep going
+// through `renderInput`'s existing Banner branch in text-display mode too.
+function isComplexFieldType(type: string): boolean {
+  return type === "embedded" || type === "jsonb" || type === "files" || type === "images";
 }
 
 // Dispatches field.type → Input-kind. Select threads options through
@@ -591,4 +710,59 @@ function locatedValue(v: unknown): { at: string; tz: string; utc?: string } | ""
     };
   }
   return "";
+}
+
+// Read-only text for a `field.readOnly` field without its own `renderer` —
+// per-type formatting that reuses the same value-shaping helpers as the
+// editable widgets above, so a text value and its would-be Input widget stay
+// derived from the identical parse (fw#2245). `type: "reference"` isn't
+// covered here — it needs a live label lookup, see ReadOnlyReferenceValue.
+// `isComplexFieldType` types aren't covered either — callers keep those on
+// `renderInput`'s existing Banner fallback.
+function readOnlyDisplayText(field: EditFieldViewModel, appLocale: string): string {
+  const { type, value } = field;
+  if (value === undefined || value === null || value === "") return "—";
+  switch (type) {
+    case "boolean":
+      return applyFormatSpec({ format: "boolean" }, value);
+    case "date":
+      return applyFormatSpec({ format: "date", locale: field.dateLocale ?? appLocale }, value);
+    case "timestamp":
+      return applyFormatSpec({ format: "timestamp", locale: field.dateLocale ?? appLocale }, value);
+    case "locatedTimestamp": {
+      const located = locatedValue(value);
+      if (located === "" || located.at === "") return "—";
+      return applyFormatSpec(
+        { format: "timestamp", locale: field.dateLocale ?? appLocale },
+        located.utc ?? located.at,
+      );
+    }
+    case "number":
+    case "bigInt":
+    case "decimal": {
+      const n = numberValue(value);
+      return n === "" ? "—" : new Intl.NumberFormat(appLocale).format(n);
+    }
+    case "money": {
+      const currency = field.currency ?? "EUR";
+      const minor = moneyMinorValue(value, currency);
+      if (minor === "") return "—";
+      const major = minor / 10 ** currencyDecimals(currency);
+      return new Intl.NumberFormat(appLocale, { style: "currency", currency }).format(major);
+    }
+    case "select":
+    case "multiSelect": {
+      const labels = field.optionLabels;
+      const values = Array.isArray(value) ? value : [value];
+      if (values.length === 0) return "—";
+      return values
+        .map((v) => (typeof v === "string" ? (labels?.[v] ?? v) : stringValue(v)))
+        .join(", ");
+    }
+    case "file":
+    case "image":
+      return typeof value === "string" ? value : "—";
+    default:
+      return stringValue(value);
+  }
 }

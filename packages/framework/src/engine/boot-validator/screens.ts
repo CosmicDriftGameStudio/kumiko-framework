@@ -303,6 +303,39 @@ function validateScreenNavTarget(
   }
 }
 
+// kind:"drawer" resolves same-feature only — unlike navigate/redirect,
+// which the runtime router resolves app-wide (see the comment on
+// validateScreens below), the drawer mounts the target inline using this
+// feature's schema, so a cross-feature reference could never actually
+// render. Two distinct failure messages: dangling reference vs. wrong
+// screen type (fw#2225).
+function validateToolbarDrawerAction(
+  featureName: string,
+  screenId: string,
+  screenKind: string,
+  action: Extract<ToolbarAction, { kind: "drawer" }>,
+  screens: FeatureDefinition["screens"],
+): void {
+  const target = screens[action.screen];
+  if (target === undefined) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) toolbarAction "${action.id}" ` +
+        `drawer-target "${action.screen}" does not resolve to a registered screen in this feature. ` +
+        `kind:"drawer" only resolves same-feature screens (unlike kind:"navigate", which can target ` +
+        `screens in any feature) — the drawer mounts the target inline using this feature's schema. ` +
+        `Known screens in this feature: ${[...Object.keys(screens)].sort().join(", ") || "(none)"}.`,
+    );
+  }
+  if (target.type !== "actionForm") {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) toolbarAction "${action.id}" ` +
+        `drawer-target "${action.screen}" is a "${target.type}" screen, not an actionForm. ` +
+        `kind:"drawer" mounts an actionForm inside a Drawer widget — point "screen" at an ` +
+        `actionForm screen, or use kind:"navigate" for a full-page target.`,
+    );
+  }
+}
+
 export function validateScreens(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
@@ -351,6 +384,52 @@ export function validateScreens(
       for (const col of screen.columns) {
         validateColumnRendererForm(feature.name, screenId, normalizeListColumn(col));
       }
+      // Screen filter (fw#2224) — field existence can't be checked without
+      // an entity (columns aren't a complete field inventory of the
+      // underlying query), so only pin the structure: "in" requires an
+      // array. Field validity is documented in the PR body.
+      if (
+        screen.filter !== undefined &&
+        screen.filter.op === "in" &&
+        !Array.isArray(screen.filter.value)
+      ) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionList) filter.op "in" requires ` +
+            `filter.value to be a readonly array.`,
+        );
+      }
+      // Facets (fw#2224) — unlike filter, a field inventory IS available
+      // here: the declared columns. A facet on a field with no column is
+      // almost always a typo (the user never sees the field anywhere), so
+      // this is hard-checked rather than just documented.
+      if (screen.facets !== undefined) {
+        const columnFieldNames = new Set(
+          screen.columns.map((col) => normalizeListColumn(col).field),
+        );
+        const seenFacetFields = new Set<string>();
+        for (const facet of screen.facets) {
+          if (seenFacetFields.has(facet.field)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionList) declares facet ` +
+                `"${facet.field}" more than once.`,
+            );
+          }
+          seenFacetFields.add(facet.field);
+          if (!columnFieldNames.has(facet.field)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionList) facet references field ` +
+                `"${facet.field}" which is not a declared column. Known columns: ` +
+                `${[...columnFieldNames].sort().join(", ")}`,
+            );
+          }
+          if (facet.type === "select" && facet.options.length === 0) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionList) facet "${facet.field}" ` +
+                `(type "select") has an empty options list — declare at least one option.`,
+            );
+          }
+        }
+      }
       if (screen.rowActions !== undefined) {
         for (const action of screen.rowActions) {
           if (action.kind === "navigate") {
@@ -373,6 +452,22 @@ export function validateScreens(
           }
         }
         validateAtMostOneRowClick(feature.name, screenId, "projectionList", screen.rowActions);
+      }
+      // Only drawer-kind is validated here — navigate/writeHandler toolbarActions
+      // on projectionList have no boot check yet (pre-existing gap, out of
+      // scope for fw#2225).
+      if (screen.toolbarActions !== undefined) {
+        for (const action of screen.toolbarActions) {
+          if (action.kind === "drawer") {
+            validateToolbarDrawerAction(
+              feature.name,
+              screenId,
+              "projectionList",
+              action,
+              feature.screens,
+            );
+          }
+        }
       }
       continue;
     }
@@ -923,6 +1018,14 @@ export function validateScreens(
                   `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
               );
             }
+          } else if (action.kind === "drawer") {
+            validateToolbarDrawerAction(
+              feature.name,
+              screenId,
+              "entityList",
+              action,
+              feature.screens,
+            );
           } else {
             if (!allWriteHandlerQns.has(action.handler)) {
               throw new Error(

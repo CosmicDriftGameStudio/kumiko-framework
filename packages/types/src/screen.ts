@@ -232,9 +232,10 @@ export type RowActionNavigate = {
   readonly rowClick?: boolean;
 };
 
-// ToolbarAction — Button im List-Header. Zwei Varianten: navigate auf
-// einen anderen Screen (z.B. zu einem actionForm) oder direkt einen
-// Handler dispatchen (z.B. "Sync All" ohne Form).
+// ToolbarAction — button in the list header. Three variants: navigate to
+// another screen (e.g. a full-page actionForm), dispatch a handler directly
+// (e.g. "Sync All" without a form), or mount an actionForm in a Drawer
+// without leaving the list (fw#2225).
 export type ToolbarAction =
   | {
       readonly kind: "navigate";
@@ -257,6 +258,18 @@ export type ToolbarAction =
       /** i18n-Key für Confirm-Button-Text im Dialog. Default = `label`. */
       readonly confirmLabel?: string;
       readonly style?: "primary" | "secondary" | "danger";
+    }
+  | {
+      readonly kind: "drawer";
+      readonly id: string;
+      readonly label: string;
+      /** Short, unqualified id of an `actionForm` screen in the same
+       *  feature. Boot validator rejects a missing screen and a screen
+       *  whose `type` isn't `actionForm` — the caller decides full-page
+       *  vs. drawer, not the form (see docs/plans/bundled-features-screen-
+       *  standardisierung.md §2.6c). */
+      readonly screen: string;
+      readonly style?: "primary" | "secondary";
     };
 
 export type EntityListScreenDefinition = {
@@ -313,6 +326,27 @@ export type EntityListScreenDefinition = {
 // auto create-navigation (a projection isn't an editable entity list). Row
 // interaction is explicit via `rowActions`. The query must return the same
 // paged envelope as an entity list-query: `{ rows, nextCursor, total? }`.
+// User-toggleable facet dropdown on a projectionList screen (fw#2224).
+// entityList derives the same UI from `filterable: true` entity fields plus
+// the `<feature>:entity:<entity>:field:<field>:option:<value>` i18n
+// convention — a projectionList has no entity to derive from, so every
+// label here is explicit instead. Sent to the server as
+// `{field, op:"in", value}` in `payload.filters`, ANDed with `filter`.
+export type ListFacetSpec =
+  | {
+      readonly field: string;
+      readonly type: "select";
+      readonly label: string;
+      readonly options: readonly { readonly value: string; readonly label: string }[];
+    }
+  | {
+      readonly field: string;
+      readonly type: "boolean";
+      readonly label: string;
+      readonly trueLabel: string;
+      readonly falseLabel: string;
+    };
+
 export type ProjectionListScreenDefinition = {
   readonly id: string;
   readonly type: "projectionList";
@@ -336,6 +370,14 @@ export type ProjectionListScreenDefinition = {
    *  or `offset` param present). See `sortable` doc for why this is
    *  boot-enforced rather than type-enforced. */
   readonly paginated?: boolean;
+  /** Server-side filter, fixed on the screen — see `ScreenFilter` doc above
+   *  (entityList). Field existence can't be checked without an entity; the
+   *  boot-validator only checks structure (`op:"in"` ⇒ array value). */
+  readonly filter?: ScreenFilter;
+  /** User-toggleable facet dropdowns — see `ListFacetSpec` doc. `field`
+   *  must be a declared column; the bound query handler must accept
+   *  `filters` in its Zod schema — the boot-validator checks both. */
+  readonly facets?: readonly ListFacetSpec[];
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };
@@ -379,6 +421,11 @@ export type ProjectionDetailScreenDefinition = {
    *  `rowClick` has no target here (there is no row to click) and is
    *  rejected by the boot-validator. */
   readonly actions?: readonly RowAction[];
+  /** How head fields render. Default "text" — plain text instead of a
+   *  disabled Input, since every field on this screen type is forced
+   *  readOnly anyway (there is no write path, see the shim doc above).
+   *  Set "form" to opt back into the disabled-Input look (fw#2245). */
+  readonly valueDisplay?: "form" | "text";
 };
 
 // --- dashboard ---

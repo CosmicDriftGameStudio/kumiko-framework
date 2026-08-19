@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.208.2",
+    "type": "improvement",
+    "title": "`/delivery-log` is a declarative projectionList screen (#2221).",
+    "detail": "The 103-line hand-rolled `custom` screen (`delivery-log-screen.tsx`) is gone. `r.screen({ id: DELIVERY_LOG_SCREEN_ID, type: \"projectionList\", ... })` drives the list off `delivery:query:log`, now built on `definePagedQueryHandler` with `cursor`/`limit`/`sort`/`sortDirection` and a server-side sort whitelist (type-guarded, not an `as`-cast) covering `createdAt`/`type`/`channel`/`status` — `recipient` isn't sortable since it's PII decrypted per-row, not a column SQL can ORDER BY. Pagination is cursor-based (`pagination: \"infinite\"`): `deliveryAttemptsTable.id` is an event-stream aggregate id, not a sequential PK, so there's no cheap offset/COUNT(*) path. The notificationType/recipientAddress → type/recipient display-name mapping moved from the old client component into the query handler, matching the read-projection convention for declarative list screens; column i18n keys moved from the client-only bundle into the server-registered `DELIVERY_I18N` so the generic renderer can resolve them. The status column keeps one small TSX cell (`DeliveryStatusCell`, a `StatusBadge`), registered as a `columnRenderer` — that's the only surviving hand-written UI for this screen."
+  },
+  {
     "version": "0.120.0",
     "type": "improvement",
     "title": "PII on custom-event payloads (#799).",

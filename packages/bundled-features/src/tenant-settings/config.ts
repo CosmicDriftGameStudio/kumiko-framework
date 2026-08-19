@@ -3,17 +3,16 @@ import {
   type ConfigKeyDefinition,
   createTenantConfig,
   DEFAULT_CURRENCIES,
+  DEFAULT_LOCALES,
 } from "@cosmicdrift/kumiko-framework/engine";
-
-// ISO-639-1, optional ISO-3166-1 region ("de" or "de-DE") — apps constrain
-// further via their own i18n setup; this only guards against garbage input.
-const LOCALE_PATTERN = { regex: "^[a-z]{2}(-[A-Z]{2})?$" } as const;
 
 export type TenantSettingsKeyOptions = {
   /** Selectable currencies. Default: DEFAULT_CURRENCIES (engine). */
   readonly currencies?: readonly string[];
   /** Fallback when a tenant never set the key. Default: "EUR". */
   readonly defaultCurrency?: string;
+  /** Selectable locales. Default: DEFAULT_LOCALES (engine). */
+  readonly locales?: readonly string[];
   /** Fallback when a tenant never set the key. Default: "en". */
   readonly defaultLocale?: string;
   /** Who may change the tenant's settings. Default: access.admin. */
@@ -34,9 +33,9 @@ export function buildTenantSettingsKeys(
       write,
       mask: { title: "tenant-settings.currency", icon: "coins", order: 1 },
     }),
-    locale: createTenantConfig("text", {
+    locale: createTenantConfig("select", {
       default: opts.defaultLocale ?? "en",
-      pattern: LOCALE_PATTERN,
+      options: opts.locales ?? DEFAULT_LOCALES,
       write,
       mask: { title: "tenant-settings.locale", icon: "languages", order: 2 },
     }),

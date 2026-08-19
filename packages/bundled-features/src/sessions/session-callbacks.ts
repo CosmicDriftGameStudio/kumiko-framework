@@ -19,7 +19,7 @@ import { Temporal } from "temporal-polyfill";
 import { encryptForDirectWrite } from "../shared";
 import { tenantMembershipsTable } from "../tenant";
 import { USER_STATUS, type UserStatus, userTable } from "../user";
-import { DEFAULT_SESSION_EXPIRY_MS } from "./constants";
+import { DEFAULT_SESSION_EXPIRY_MS, LAST_SEEN_REFRESH_MS } from "./constants";
 import { userSessionEntity, userSessionTable } from "./schema/user-session";
 import {
   SESSION_REVOKED_AGGREGATE_TYPE,
@@ -91,6 +91,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
             userId: user.id,
             createdAt: now,
             expiresAt,
+            lastSeenAt: now,
             ip: meta.ip,
             userAgent: meta.userAgent,
           },
@@ -120,6 +121,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
         tenantId: TenantId;
         revokedAt: unknown;
         expiresAt: { epochMilliseconds: number };
+        lastSeenAt: { epochMilliseconds: number } | null;
       }>(db, userSessionTable, { id: sid });
       if (!row) return "missing";
       // Cross-user check: if the sid belongs to someone else, treat it
@@ -133,6 +135,23 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       if (row.expiresAt.epochMilliseconds <= Temporal.Now.instant().epochMilliseconds) {
         return "expired";
       }
+
+      // Hourly, not per-request: this check runs on every authenticated
+      // request, so a write here has to stay off the hot path.
+      const nowMs = Temporal.Now.instant().epochMilliseconds;
+      if (!row.lastSeenAt || row.lastSeenAt.epochMilliseconds + LAST_SEEN_REFRESH_MS <= nowMs) {
+        try {
+          await updateMany(
+            db,
+            userSessionTable,
+            { lastSeenAt: Temporal.Now.instant() },
+            { id: sid },
+          );
+        } catch {
+          // fail-open: a refresh failure must not block the session check
+        }
+      }
+
       // Defense-in-depth: status flips (Art. 18 restrict, forget) revoke
       // sessions, but a missed revoke must not keep a locked account alive on
       // a stale sid. Fail-OPEN on a lookup miss — this is the second layer,

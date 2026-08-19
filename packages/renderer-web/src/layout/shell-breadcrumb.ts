@@ -33,7 +33,17 @@ export function resolveDetailBreadcrumb(
       ? screens.find((s) => lastSegment(s.id) === detail.listScreenId)
       : undefined;
 
-  const list = listFromRowAction ?? listFromEntity ?? listFromCustomParent;
+  // projectionDetail has no entity to pair with an entityList (unlike
+  // entityEdit above) — `listScreenId` is its only back-navigation source.
+  // Needed because RenderEdit's Cancel button is never wired up for this
+  // screen type and isn't reachable via a listFromRowAction either.
+  const listFromProjectionDetailParent =
+    detail.type === "projectionDetail" && detail.listScreenId !== undefined
+      ? screens.find((s) => lastSegment(s.id) === detail.listScreenId)
+      : undefined;
+
+  const list =
+    listFromRowAction ?? listFromEntity ?? listFromCustomParent ?? listFromProjectionDetailParent;
   if (list === undefined) {
     return [{ label: t(screenTitleKey(detailScreenId)) }];
   }

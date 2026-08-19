@@ -41,12 +41,18 @@ export { createApp } from "./create-app";
 export { crossTenantOverrideDenied } from "./cross-tenant";
 export { defineFeature } from "./define-feature";
 export type {
+  PagedQueryHandlerDefinition,
   QueryHandlerDefinition,
   StreamHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
 } from "./define-handler";
-export { defineQueryHandler, defineWriteHandler } from "./define-handler";
+export {
+  definePagedQueryHandler,
+  defineQueryHandler,
+  defineWriteHandler,
+  isPagedQueryHandler,
+} from "./define-handler";
 export { defineRoles } from "./define-roles";
 export { defineStep, getStep, listStepKinds } from "./define-step";
 export type { WorkflowDefinition, WorkflowInput, WorkflowTrigger } from "./define-workflow";
@@ -418,7 +424,7 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "./types";
-export { DEFAULT_CURRENCIES, HookPhases } from "./types";
+export { DEFAULT_CURRENCIES, DEFAULT_LOCALES, HookPhases } from "./types";
 export { isSystemTenant, isUuid, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
 export type {
   PipelineBuildCtx,

@@ -5,7 +5,13 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { z } from "zod";
-import { DELIVERY_ATTEMPT_EVENT, DELIVERY_LOG_SCREEN_ID, DeliveryJobNames } from "./constants";
+import {
+  DELIVERY_ATTEMPT_EVENT,
+  DELIVERY_LOG_SCREEN_ID,
+  DELIVERY_STATUS_CELL_COMPONENT,
+  DeliveryJobNames,
+  DeliveryQueries,
+} from "./constants";
 import { deliveryAttemptSchema } from "./events";
 import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
@@ -134,13 +140,32 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
 
     r.screen({
       id: DELIVERY_LOG_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "DeliveryLogScreen" } },
+      type: "projectionList",
+      query: DeliveryQueries.log,
+      columns: [
+        { field: "type", label: "delivery.log.col.type" },
+        { field: "channel", label: "delivery.log.col.channel" },
+        { field: "recipient", label: "delivery.log.col.recipient" },
+        {
+          field: "status",
+          label: "delivery.log.col.status",
+          renderer: { react: { __component: DELIVERY_STATUS_CELL_COMPONENT } },
+        },
+      ],
+      // Cursor-based paging: deliveryAttemptsTable's id is an event-stream
+      // aggregate id (not a sequential PK), so the "pages" default (offset +
+      // COUNT(*)) has no cheap query-side implementation here — "infinite"
+      // matches what log.query.ts's cursor/limit/sort schema actually supports.
+      pagination: "infinite",
+      defaultSort: { field: "createdAt", dir: "desc" },
       access: { roles: resolvedAccess },
     });
     r.nav({
       id: "delivery-log",
       label: "delivery:nav.deliveryLog",
+      // "send" isn't in the closed NavIconKey vocabulary (packages/types/src/
+      // nav-icon.ts) — "bell" matches the feature's own notifications framing.
+      icon: "bell",
       screen: "delivery:screen:delivery-log",
       order: 40,
     });

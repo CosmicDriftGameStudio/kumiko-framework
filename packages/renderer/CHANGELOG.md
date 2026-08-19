@@ -1,5 +1,52 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.209.1
+
+### Patch Changes
+
+- Updated dependencies [f387a20]
+- Updated dependencies [2c05054]
+  - @cosmicdrift/kumiko-framework@0.209.1
+  - @cosmicdrift/kumiko-headless@0.209.1
+
+## 0.209.0
+
+### Patch Changes
+
+- Updated dependencies [f707d1b]
+- Updated dependencies [49662ef]
+- Updated dependencies [12df48b]
+- Updated dependencies [f86cf43]
+- Updated dependencies [b9fdc41]
+- Updated dependencies [92a5361]
+  - @cosmicdrift/kumiko-framework@0.209.0
+  - @cosmicdrift/kumiko-headless@0.209.0
+
+## 0.208.3
+
+### Patch Changes
+
+- Updated dependencies [e595330]
+- Updated dependencies [8087d17]
+  - @cosmicdrift/kumiko-framework@0.208.3
+  - @cosmicdrift/kumiko-headless@0.208.3
+
+## 0.208.2
+
+### Patch Changes
+
+- 257e425: fw#2216: `ProjectionListBody` read `rowsQuery.data?.rows ?? []` and silently rendered an empty table for any query handler response that wasn't a `{ rows, nextCursor }` envelope — a bare array, HTTP 200, empty table, no error. This is exactly what hid the `/session-list` bug in #2216. The renderer now checks the resolved response's `rows` field and, when it isn't an array, renders an error banner naming the screen and query instead of falling through to an empty list.
+  - @cosmicdrift/kumiko-framework@0.208.2
+  - @cosmicdrift/kumiko-headless@0.208.2
+
+## 0.208.1
+
+### Patch Changes
+
+- Updated dependencies [f538bc0]
+  - @cosmicdrift/kumiko-framework@0.208.1
+  - @cosmicdrift/kumiko-headless@0.208.1
+
 ## 0.208.0
 
 ### Minor Changes

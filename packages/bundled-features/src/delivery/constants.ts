@@ -6,6 +6,7 @@ export {
   DELIVERY_ATTEMPT_EVENT,
   DELIVERY_FEATURE,
   DELIVERY_LOG_SCREEN_ID,
+  DELIVERY_STATUS_CELL_COMPONENT,
   DeliveryErrors,
   DeliveryHandlers,
   DeliveryJobNames,

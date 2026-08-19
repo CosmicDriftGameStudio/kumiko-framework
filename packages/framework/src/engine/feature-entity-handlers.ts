@@ -1,9 +1,11 @@
 import type { ZodType, z } from "zod";
 import { toTableName } from "../db/table-builder";
-import type {
-  QueryHandlerDefinition,
-  StreamHandlerDefinition,
-  WriteHandlerDefinition,
+import {
+  isPagedQueryHandler,
+  PAGED_QUERY_HANDLER_BRAND,
+  type QueryHandlerDefinition,
+  type StreamHandlerDefinition,
+  type WriteHandlerDefinition,
 } from "./define-handler";
 import type { RegisterEntityCrudOptions } from "./entity-handlers";
 import { registerEntityCrud } from "./entity-handlers";
@@ -153,6 +155,9 @@ export function buildEntityHandlerMethods<TName extends string>(
           handler: def.handler as QueryHandlerFn, // @cast-boundary engine-bridge
           ...(def.access && { access: def.access }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
+          // Carry the definePagedQueryHandler brand through — this rebuild
+          // drops any field not explicitly listed.
+          ...(isPagedQueryHandler(def) && { [PAGED_QUERY_HANDLER_BRAND]: true }),
         };
         tryMapEntity(state, name, def.name);
         return { name: def.name };

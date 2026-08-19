@@ -269,6 +269,7 @@ export type {
   FieldRenderer,
   FormatSpec,
   ListColumnSpec,
+  ListFacetSpec,
   PlatformComponent,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
@@ -299,7 +300,7 @@ export type {
   LifecycleHookType,
   OnDeleteStrategy,
 } from "../constants";
-export { DEFAULT_CURRENCIES, isFileField } from "../field-helpers";
+export { DEFAULT_CURRENCIES, DEFAULT_LOCALES, isFileField } from "../field-helpers";
 export { resolveName, withResponseData } from "../handler-helpers";
 export { HookPhases } from "../hook-helpers";
 export {

@@ -1,3 +1,4 @@
+import type { CursorResult } from "@cosmicdrift/kumiko-types/cursor-types";
 import type { ZodType, z } from "zod";
 import type { ContainsSecret } from "../secrets/types";
 import { runPipeline } from "./run-pipeline";
@@ -115,4 +116,69 @@ export function defineQueryHandler<
     : []
 ): QueryHandlerDefinition<TName, TSchema, TResult, TMap> {
   return def;
+}
+
+// Runtime marker set only by definePagedQueryHandler. A plain
+// defineQueryHandler-built object never carries it. Kept as a type-level
+// signal (fw#2216) even though no validator gates on it — QueryHandlerDef
+// has no output schema, so a boot check can't distinguish "returns
+// PagedRows" from "doesn't" without running the handler; the actual
+// enforcement is a runtime shape guard in the renderer (kumiko-screen.tsx).
+//
+// A string key, not a Symbol: bundled-features imports this module through
+// the package's "@cosmicdrift/kumiko-framework/engine" subpath (symlinked
+// node_modules entry) via a different resolution route than a same-package
+// relative import — two routes to the same file that can end up as two
+// separate module instances under bundler symlink handling. A Symbol()
+// evaluated twice would produce two unequal brands; a string literal doesn't
+// have that failure mode.
+// Exported (not just the predicate) so feature-entity-handlers.ts's
+// queryHandler() registrar — which rebuilds a fresh QueryHandlerDef from an
+// explicit field whitelist rather than spreading `def` — can carry the
+// brand through into the stored registry entry.
+export const PAGED_QUERY_HANDLER_BRAND = "__kumikoPagedQueryHandler";
+
+export function isPagedQueryHandler(def: object): boolean {
+  // @cast-boundary brand-probe — reading an internal marker key off an
+  // otherwise-typed handler definition; the property may legitimately be
+  // absent, which is exactly the case this function distinguishes.
+  return (def as Record<string, unknown>)[PAGED_QUERY_HANDLER_BRAND] === true;
+}
+
+export type PagedQueryHandlerDefinition<
+  TName extends string = string,
+  TSchema extends ZodType = ZodType,
+  TRow = unknown,
+  TMap extends object = KumikoEventTypeMap,
+> = QueryHandlerDefinition<TName, TSchema, CursorResult<TRow>, TMap> & {
+  readonly [PAGED_QUERY_HANDLER_BRAND]: true;
+};
+
+// A projectionList screen's query must resolve to { rows, nextCursor, total? }
+// (CursorResult<T>) — the renderer used to read rowsQuery.data?.rows and
+// silently show an empty list otherwise (fw#2216: session-list); the
+// renderer now guards against a malformed shape at runtime instead. Use this
+// instead of defineQueryHandler for any query wired to a projectionList
+// screen's `query` so the contract is documented at the definition site.
+//
+// Deliberately does NOT merge cursor/limit/sort/search into the input
+// schema — that would change sortable/paginated derivation for existing
+// screens (a behavior change, not a wrapper change). Callers that want
+// those params add them to `schema` themselves.
+export function definePagedQueryHandler<
+  const TName extends string,
+  TSchema extends ZodType,
+  TRow = unknown,
+  TMap extends object = KumikoEventTypeMap,
+>(
+  def: QueryHandlerDefinition<TName, TSchema, CursorResult<TRow>, TMap>,
+  // R6: phantom rest-param — see defineWriteHandler. CursorResult<TRow> wraps
+  // TRow in `rows`, so ContainsSecret recurses through the array element.
+  ..._noSecretInResponse: true extends ContainsSecret<CursorResult<TRow>>
+    ? [
+        secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field.",
+      ]
+    : []
+): PagedQueryHandlerDefinition<TName, TSchema, TRow, TMap> {
+  return { ...def, [PAGED_QUERY_HANDLER_BRAND]: true };
 }

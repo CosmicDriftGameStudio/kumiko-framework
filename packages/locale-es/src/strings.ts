@@ -437,6 +437,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.actions.next": "Siguiente",
   "kumiko.actions.reload": "Recargar",
   "kumiko.actions.save": "Guardar",
+  "kumiko.actions.view": "Ver",
   "kumiko.aiText.acceptHint": "Tab = aceptar, Esc = descartar",
   "kumiko.aiText.capExceeded": "Se alcanzó el límite mensual de IA.",
   "kumiko.aiText.correct": "Corregir",

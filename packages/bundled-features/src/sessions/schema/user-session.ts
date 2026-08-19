@@ -53,6 +53,11 @@ export const userSessionEntity = createEntity({
     revokedAt: createTimestampField({
       access: { write: access.privileged },
     }),
+    // Coarse last-activity marker, refreshed at most hourly (see
+    // LAST_SEEN_REFRESH_MS) — not a per-request write.
+    lastSeenAt: createTimestampField({
+      access: { write: access.privileged },
+    }),
     // Subject is the session's user, not the session row — a user-forget
     // must shred these, so the key hangs off userId (sid-self would orphan).
     ip: createTextField({

@@ -6,6 +6,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  ListFacetSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
@@ -24,7 +25,7 @@ import type {
   SubmitResult,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
-import { fieldLabelKey } from "@cosmicdrift/kumiko-headless";
+import { fieldLabelKey, fieldOptionLabelKey } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractCreatedId } from "../components/reference-create-dialog";
 import { RenderEdit, type RenderEditAction } from "../components/render-edit";
@@ -858,6 +859,226 @@ export function buildListQueryPayload(state: {
   return payload;
 }
 
+// One resolved facet, independent of where the type info came from — an
+// entity field (entityList) or an explicit ListFacetSpec (projectionList,
+// fw#2224). Shared by buildFilterFacets/buildFilterPayload below so both
+// screen types build their query-payload filters and DataTable facet-UI
+// through the same code, instead of two copies that can drift.
+type ResolvedFacetSpec = {
+  readonly field: string;
+  readonly type: "select" | "boolean";
+  readonly label: string;
+  readonly options: readonly { readonly value: string; readonly label: string }[];
+};
+
+function buildFilterFacets(specs: readonly ResolvedFacetSpec[]): DataTableFacet[] {
+  return specs.map((spec) => ({ field: spec.field, label: spec.label, options: spec.options }));
+}
+
+// User-selected faceted filters from URL-state → payload.filters. Boolean
+// fields coerce "true"/"false" strings to real booleans (DB column is
+// boolean); everything else stays string[] under op:"in" (multi-select
+// semantics). `typeOf` resolves a field to its known type string —
+// undefined means "unknown field", so it's dropped (typo-safe: a stale/
+// hand-crafted URL param for an undeclared field never reaches the
+// server). Deliberately NOT gated on the field being a *facet* — entityList
+// passes through any field present in entity.fields, matching its
+// pre-fw#2224 behavior; only the boolean-coercion branch cares about type.
+function buildFilterPayload(
+  urlFilters: Readonly<Record<string, readonly string[]>>,
+  typeOf: (field: string) => string | undefined,
+): { field: string; op: "in"; value: unknown }[] {
+  const out: { field: string; op: "in"; value: unknown }[] = [];
+  for (const [field, values] of Object.entries(urlFilters)) {
+    if (values.length === 0) continue;
+    // `id` is a base column (not a declared facet), allowed as an id-set
+    // filter so a header-slot control — e.g. the tags TagFilter — can narrow
+    // ANY list to a resolved set of row ids without the host declaring a facet.
+    if (field === "id") {
+      out.push({ field, op: "in", value: values });
+      continue;
+    }
+    const type = typeOf(field);
+    if (type === undefined) continue;
+    const value = type === "boolean" ? values.map((v) => v === "true") : values;
+    out.push({ field, op: "in", value });
+  }
+  return out;
+}
+
+// entityList adapter — one DataTableFacet per filterable select/boolean
+// entity field, labels via the standard field/option i18n convention.
+function resolveEntityFacetSpecs(
+  fields: Readonly<Record<string, unknown>>,
+  featureName: string,
+  entityName: string,
+  translate: Translate,
+): ResolvedFacetSpec[] {
+  const out: ResolvedFacetSpec[] = [];
+  for (const [field, rawDef] of Object.entries(fields)) {
+    // entity.fields ist am Renderer-Layer schwach getypt (Record<string,
+    // unknown>, vom Schema deserialisiert) — Boundary-Cast wie buildInitialValues.
+    const def = rawDef as { type?: string; filterable?: boolean; options?: readonly string[] };
+    if (def.filterable !== true) continue;
+    const label = translate(fieldLabelKey(featureName, entityName, field));
+    if (def.type === "select" && Array.isArray(def.options)) {
+      out.push({
+        field,
+        type: "select",
+        label,
+        options: def.options.map((value) => ({
+          value,
+          label: translate(fieldOptionLabelKey(featureName, entityName, field, value)),
+        })),
+      });
+    } else if (def.type === "boolean") {
+      out.push({
+        field,
+        type: "boolean",
+        label,
+        options: [
+          {
+            value: "true",
+            label: translate(fieldOptionLabelKey(featureName, entityName, field, "true")),
+          },
+          {
+            value: "false",
+            label: translate(fieldOptionLabelKey(featureName, entityName, field, "false")),
+          },
+        ],
+      });
+    }
+  }
+  return out;
+}
+
+// projectionList adapter — a projectionList has no entity/i18n convention to
+// derive labels from, so ListFacetSpec carries every label explicitly
+// (fw#2224); this just reshapes it into the same ResolvedFacetSpec the
+// entityList adapter produces.
+function resolveProjectionFacetSpecs(
+  facets: readonly ListFacetSpec[] | undefined,
+): ResolvedFacetSpec[] {
+  if (facets === undefined) return [];
+  return facets.map((facet) =>
+    facet.type === "select"
+      ? { field: facet.field, type: "select", label: facet.label, options: facet.options }
+      : {
+          field: facet.field,
+          type: "boolean",
+          label: facet.label,
+          options: [
+            { value: "true", label: facet.trueLabel },
+            { value: "false", label: facet.falseLabel },
+          ],
+        },
+  );
+}
+
+// ---- toolbarAction kind:"drawer" (fw#2225) ----
+//
+// Shared between EntityListBody and ProjectionListBody: state for "which
+// drawer-kind toolbar action is currently open" plus a host component that
+// mounts the referenced actionForm inside the Drawer primitive. Reuses
+// ActionFormBody (no second, parallel form renderer) with onSuccess/
+// onCancelOverride so submit-success closes the drawer + refetches the
+// list instead of navigating, mirroring what a full-page actionForm would
+// do via `redirect`.
+type ToolbarDrawerAction = Extract<ToolbarAction, { kind: "drawer" }>;
+
+function useToolbarDrawerAction(schema: FeatureSchema): {
+  readonly drawerAction: ToolbarDrawerAction | null;
+  readonly drawerScreen: ActionFormScreenDefinition | undefined;
+  readonly openDrawer: (action: ToolbarDrawerAction) => void;
+  readonly closeDrawer: () => void;
+} {
+  const [drawerAction, setDrawerAction] = useState<ToolbarDrawerAction | null>(null);
+  const drawerScreen = useMemo(() => {
+    if (drawerAction === null) return undefined;
+    // Same same-feature, short-id resolution as runNavigate — the drawer's
+    // `screen` reference is scoped to schema.screens, not cross-feature.
+    return schema.screens.find(
+      (s): s is ActionFormScreenDefinition =>
+        s.type === "actionForm" && lastSegment(s.id) === drawerAction.screen,
+    );
+  }, [drawerAction, schema.screens]);
+  const openDrawer = useCallback((action: ToolbarDrawerAction) => setDrawerAction(action), []);
+  const closeDrawer = useCallback(() => setDrawerAction(null), []);
+  return { drawerAction, drawerScreen, openDrawer, closeDrawer };
+}
+
+function ToolbarDrawerHost({
+  schema,
+  drawerAction,
+  drawerScreen,
+  userRoles,
+  translate,
+  onClose,
+  onSuccess,
+}: {
+  readonly schema: FeatureSchema;
+  readonly drawerAction: ToolbarDrawerAction | null;
+  readonly drawerScreen: ActionFormScreenDefinition | undefined;
+  readonly userRoles: readonly string[] | undefined;
+  readonly translate?: Translate;
+  readonly onClose: () => void;
+  readonly onSuccess: () => void;
+}): ReactNode {
+  const { Drawer, Banner, Text } = usePrimitives();
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
+  // Drawer is an optional Core-Primitive (additive rollout) — same "skip +
+  // warn once" precedent as rowActions without a mounted DispatcherProvider
+  // above, instead of crashing when a web app hasn't upgraded its
+  // createKumikoApp wiring yet.
+  useEffect(() => {
+    if (drawerAction !== null && Drawer === undefined) {
+      // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
+      console.warn(
+        `[kumiko] toolbarAction "${drawerAction.id}" is kind:"drawer", but no <Drawer> primitive is registered — it will not open. createKumikoApp() from kumiko-renderer-web wires it automatically.`,
+      );
+    }
+  }, [drawerAction, Drawer]);
+
+  if (drawerAction === null || Drawer === undefined) return null;
+
+  // Access mirrors kind:"navigate" exactly: the toolbar button itself stays
+  // visible either way (same as navigate — access is enforced at the
+  // target, not by hiding the trigger), but the drawer shows the same
+  // "Access denied" state KumikoScreen's top-level gate would show for a
+  // direct hit on that screen, never the form.
+  const allowed = screenAccessAllows(drawerScreen?.access, userRoles);
+
+  return (
+    <Drawer
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      title={effectiveTranslate(drawerAction.label)}
+      testId={`toolbar-drawer-${drawerAction.id}`}
+    >
+      {drawerScreen === undefined ? (
+        <Banner padded variant="error" testId="kumiko-toolbar-drawer-not-found">
+          Screen not found: <Text variant="code">{drawerAction.screen}</Text>
+        </Banner>
+      ) : !allowed ? (
+        <Banner padded variant="error" testId="kumiko-toolbar-drawer-access-denied">
+          Access denied: <Text variant="code">{drawerAction.screen}</Text>
+        </Banner>
+      ) : (
+        <ActionFormBody
+          schema={schema}
+          screen={drawerScreen}
+          {...(translate !== undefined && { translate })}
+          onSuccess={onSuccess}
+          onCancelOverride={onClose}
+        />
+      )}
+    </Drawer>
+  );
+}
+
 function EntityListScreen({
   schema,
   screen,
@@ -911,6 +1132,8 @@ function EntityListBody({
   const { Banner } = usePrimitives();
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
   const nav = useNav();
+  const userRoles = useUserRoles();
+  const { drawerAction, drawerScreen, openDrawer, closeDrawer } = useToolbarDrawerAction(schema);
 
   // URL-State: sort/dir/q/page leben unter dem screen.id-Namespace
   // (`/orders?orders.sort=createdAt&orders.dir=desc&orders.q=acme`),
@@ -947,28 +1170,18 @@ function EntityListBody({
   }, [useInfinite, sortQKey]);
 
   // User-gewählte Faceted-Filter aus dem URL-State → payload.filters.
-  // Boolean-Felder: "true"/"false"-Strings zu echten Booleans coercen
-  // (DB-Spalte ist boolean). Alles als op:"in" (Multi-Select-Semantik).
-  const filterPayload = useMemo(() => {
-    const out: { field: string; op: "in"; value: unknown }[] = [];
-    for (const [field, values] of Object.entries(urlState.filters)) {
-      if (values.length === 0) continue;
-      // `id` is a base column (not in entity.fields), allowed as an id-set
-      // filter so a header-slot control — e.g. the tags TagFilter — can narrow
-      // ANY list to a resolved set of row ids without the host declaring a facet.
-      if (field === "id") {
-        out.push({ field, op: "in", value: values });
-        continue;
-      }
-      // entity.fields ist am Renderer-Layer schwach getypt (vom Schema
-      // deserialisiert) — Boundary-Cast wie buildInitialValues.
-      const def = entity.fields[field] as { type?: string } | undefined;
-      if (def === undefined) continue;
-      const value = def.type === "boolean" ? values.map((v) => v === "true") : values;
-      out.push({ field, op: "in", value });
-    }
-    return out;
-  }, [urlState.filters, entity.fields]);
+  // typeOf liest den Field-Type direkt aus entity.fields (nicht gated auf
+  // filterable — bewusst permissiv, siehe buildFilterPayload-Doc).
+  const filterPayload = useMemo(
+    () =>
+      buildFilterPayload(urlState.filters, (field) => {
+        // entity.fields ist am Renderer-Layer schwach getypt (vom Schema
+        // deserialisiert) — Boundary-Cast wie buildInitialValues.
+        const def = entity.fields[field] as { type?: string } | undefined;
+        return def?.type;
+      }),
+    [urlState.filters, entity.fields],
+  );
 
   // Entity-only additions (screen.filter, faceted filters) layer on top of
   // the shared buildListQueryPayload — projectionList has neither.
@@ -1052,52 +1265,13 @@ function EntityListBody({
   // Faceted-Filter: ein Dropdown pro filterable select/boolean-Feld.
   // Labels + select-Option-Labels über dieselbe i18n-Konvention wie die
   // Spalten-Header (fieldLabelKey / :option:<value>).
-  const filterFacets = useMemo<DataTableFacet[]>(() => {
-    const out: DataTableFacet[] = [];
-    for (const [field, rawDef] of Object.entries(entity.fields)) {
-      // entity.fields ist am Renderer-Layer schwach getypt (Record<string,
-      // unknown>, vom Schema deserialisiert) — Boundary-Cast wie buildInitialValues.
-      const def = rawDef as {
-        type?: string;
-        filterable?: boolean;
-        options?: readonly string[];
-      };
-      if (def.filterable !== true) continue;
-      const label = effectiveTranslate(fieldLabelKey(featureName, screen.entity, field));
-      if (def.type === "select" && Array.isArray(def.options)) {
-        out.push({
-          field,
-          label,
-          options: def.options.map((value) => ({
-            value,
-            label: effectiveTranslate(
-              `${featureName}:entity:${screen.entity}:field:${field}:option:${value}`,
-            ),
-          })),
-        });
-      } else if (def.type === "boolean") {
-        out.push({
-          field,
-          label,
-          options: [
-            {
-              value: "true",
-              label: effectiveTranslate(
-                `${featureName}:entity:${screen.entity}:field:${field}:option:true`,
-              ),
-            },
-            {
-              value: "false",
-              label: effectiveTranslate(
-                `${featureName}:entity:${screen.entity}:field:${field}:option:false`,
-              ),
-            },
-          ],
-        });
-      }
-    }
-    return out;
-  }, [entity.fields, featureName, screen.entity, effectiveTranslate]);
+  const filterFacets = useMemo<DataTableFacet[]>(
+    () =>
+      buildFilterFacets(
+        resolveEntityFacetSpecs(entity.fields, featureName, screen.entity, effectiveTranslate),
+      ),
+    [entity.fields, featureName, screen.entity, effectiveTranslate],
+  );
 
   // Soft-Dispatcher: in Tests die ohne DispatcherProvider mounten,
   // bleibt rowActions undefined statt zu crashen. Echte Apps haben
@@ -1235,6 +1409,14 @@ function EntityListBody({
             onTrigger: () => nav.navigate({ screenId: action.screen }),
           };
         }
+        if (action.kind === "drawer") {
+          return {
+            id: action.id,
+            label: effectiveTranslate(action.label),
+            ...(action.style !== undefined && { style: action.style }),
+            onTrigger: () => openDrawer(action),
+          };
+        }
         // writeHandler — braucht Dispatcher. Wenn keiner mounted ist,
         // skippen wir die Action statt zu crashen (gleiche Logik wie
         // bei rowActions; einmaliger Warn-Log dort reicht).
@@ -1265,7 +1447,7 @@ function EntityListBody({
         };
       })
       .filter((a: ToolbarActionButton | null): a is ToolbarActionButton => a !== null);
-  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch]);
+  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch, openDrawer]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -1329,34 +1511,48 @@ function EntityListBody({
   const renderRows = useInfinite ? accumulated : (rowsQuery.data?.rows ?? []);
 
   return (
-    <RenderList
-      screen={screen}
-      entity={entity}
-      rows={renderRows}
-      featureName={featureName}
-      searchable={searchable}
-      searchValue={urlState.q}
-      onSearchChange={urlState.setQ}
-      sort={effectiveSort}
-      onSortChange={urlState.setSort}
-      {...(pager !== undefined && { pager })}
-      {...(rowActions !== undefined && { rowActions })}
-      {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
-      {...(useInfinite && {
-        onReachEnd: loadMore,
-        loadingMore: rowsQuery.loading,
-        hasMore,
-      })}
-      {...(onCreate !== undefined && { onCreate })}
-      {...(translate !== undefined && { translate })}
-      {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
-      {...(filterFacets.length > 0 && {
-        filterFacets,
-        filterValues: urlState.filters,
-        onFilterChange: urlState.setFilter,
-        onFilterReset: urlState.clearFilters,
-      })}
-    />
+    <>
+      <RenderList
+        screen={screen}
+        entity={entity}
+        rows={renderRows}
+        featureName={featureName}
+        searchable={searchable}
+        searchValue={urlState.q}
+        onSearchChange={urlState.setQ}
+        sort={effectiveSort}
+        onSortChange={urlState.setSort}
+        {...(pager !== undefined && { pager })}
+        {...(rowActions !== undefined && { rowActions })}
+        {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
+        {...(useInfinite && {
+          onReachEnd: loadMore,
+          loadingMore: rowsQuery.loading,
+          hasMore,
+        })}
+        {...(onCreate !== undefined && { onCreate })}
+        {...(translate !== undefined && { translate })}
+        {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
+        {...(filterFacets.length > 0 && {
+          filterFacets,
+          filterValues: urlState.filters,
+          onFilterChange: urlState.setFilter,
+          onFilterReset: urlState.clearFilters,
+        })}
+      />
+      <ToolbarDrawerHost
+        schema={schema}
+        drawerAction={drawerAction}
+        drawerScreen={drawerScreen}
+        userRoles={userRoles}
+        {...(translate !== undefined && { translate })}
+        onClose={closeDrawer}
+        onSuccess={() => {
+          closeDrawer();
+          void rowsQuery.refetch();
+        }}
+      />
+    </>
   );
 }
 
@@ -1380,11 +1576,13 @@ function ProjectionListBody({
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
 }): ReactNode {
-  const { Banner } = usePrimitives();
+  const { Banner, Text } = usePrimitives();
   const t = useTranslation();
   const nav = useNav();
   const dispatcher = useOptionalDispatcher();
   const effectiveTranslate = translate ?? t;
+  const userRoles = useUserRoles();
+  const { drawerAction, drawerScreen, openDrawer, closeDrawer } = useToolbarDrawerAction(schema);
 
   // searchable/sortable/paginated are derived at buildAppSchema time from the
   // query handler's Zod schema (fw#2165) — not authored on the screen.
@@ -1408,21 +1606,55 @@ function ProjectionListBody({
   // "infinite" on a paginated projectionList is silently a no-op today.
   const usePager = paginated && (screen.pagination ?? "pages") === "pages";
 
-  const queryPayload = useMemo(
+  // Facets (fw#2224) — a projectionList has no entity, so screen.facets is
+  // the only field inventory; resolveProjectionFacetSpecs reshapes its
+  // explicit labels into the same ResolvedFacetSpec the entityList adapter
+  // produces, so both feed the same buildFilterFacets/buildFilterPayload.
+  const facetSpecs = useMemo(() => resolveProjectionFacetSpecs(screen.facets), [screen.facets]);
+  const filterPayload = useMemo(
     () =>
-      buildListQueryPayload({
-        limit,
-        search: activeSearch,
-        sort: activeSort,
-        usePager,
-        page: urlState.page,
-        useInfinite: false,
-        cursor: undefined,
-      }),
-    [limit, activeSearch, activeSort, usePager, urlState.page],
+      buildFilterPayload(
+        urlState.filters,
+        (field) => facetSpecs.find((spec) => spec.field === field)?.type,
+      ),
+    [urlState.filters, facetSpecs],
   );
 
+  const queryPayload = useMemo(() => {
+    const payload = buildListQueryPayload({
+      limit,
+      search: activeSearch,
+      sort: activeSort,
+      usePager,
+      page: urlState.page,
+      useInfinite: false,
+      cursor: undefined,
+    });
+    // Gated on screen.filter/screen.facets being declared (not just on
+    // urlState/filterPayload happening to carry a value) — same rule as
+    // activeSearch/activeSort above: a stale URL must not smuggle a param
+    // the bound query's Zod schema doesn't accept (fw#2165 pattern).
+    if (screen.filter !== undefined) {
+      payload["filter"] = screen.filter;
+    }
+    if (screen.facets !== undefined && filterPayload.length > 0) {
+      payload["filters"] = filterPayload;
+    }
+    return payload;
+  }, [
+    limit,
+    activeSearch,
+    activeSort,
+    usePager,
+    urlState.page,
+    screen.filter,
+    screen.facets,
+    filterPayload,
+  ]);
+
   const rowsQuery = useQuery<PagedRows>(screen.query, queryPayload, { live: true });
+
+  const filterFacets = useMemo<DataTableFacet[]>(() => buildFilterFacets(facetSpecs), [facetSpecs]);
 
   const runNavigate = useCallback(
     (action: RowActionNavigate, row: ListRowViewModel) => {
@@ -1516,6 +1748,15 @@ function ProjectionListBody({
         });
         continue;
       }
+      if (action.kind === "drawer") {
+        out.push({
+          id: action.id,
+          label: effectiveTranslate(action.label),
+          ...(action.style !== undefined && { style: action.style }),
+          onTrigger: () => openDrawer(action),
+        });
+        continue;
+      }
       // writeHandler — analog entityList; ohne Dispatcher skippen statt crashen.
       if (dispatcher === undefined) continue;
       out.push({
@@ -1543,7 +1784,7 @@ function ProjectionListBody({
       });
     }
     return out.length > 0 ? out : undefined;
-  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch]);
+  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch, openDrawer]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -1556,6 +1797,21 @@ function ProjectionListBody({
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
         {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
+      </Banner>
+    );
+  }
+
+  // rowsQuery.data is typed as PagedRows but the query handler is free to
+  // return anything at runtime (fw#2216: a bare array silently rendered an
+  // empty table instead of surfacing the mismatch); a system-boundary cast
+  // is needed to inspect the actual wire shape before trusting it.
+  const rawRowsData = rowsQuery.data as unknown as { readonly rows?: unknown } | null;
+  if (rawRowsData !== null && !Array.isArray(rawRowsData.rows)) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-projection-list-bad-shape">
+        Screen <Text variant="code">{screen.id}</Text> query{" "}
+        <Text variant="code">{screen.query}</Text> did not return a PagedRows envelope; a
+        projectionList query must return <Text variant="code">{"{ rows, nextCursor }"}</Text>.
       </Banner>
     );
   }
@@ -1579,22 +1835,42 @@ function ProjectionListBody({
       : undefined;
 
   return (
-    <RenderList
-      screen={listScreen}
-      entity={entity}
-      rows={rowsQuery.data?.rows ?? []}
-      featureName={schema.featureName}
-      searchable={searchable}
-      searchValue={urlState.q}
-      onSearchChange={urlState.setQ}
-      sort={activeSort}
-      onSortChange={urlState.setSort}
-      {...(pager !== undefined && { pager })}
-      {...(rowActions !== undefined && { rowActions })}
-      {...(toolbarActions !== undefined && { toolbarActions })}
-      {...(translate !== undefined && { translate })}
-      {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
-    />
+    <>
+      <RenderList
+        screen={listScreen}
+        entity={entity}
+        rows={rowsQuery.data?.rows ?? []}
+        featureName={schema.featureName}
+        searchable={searchable}
+        searchValue={urlState.q}
+        onSearchChange={urlState.setQ}
+        sort={activeSort}
+        onSortChange={urlState.setSort}
+        {...(pager !== undefined && { pager })}
+        {...(rowActions !== undefined && { rowActions })}
+        {...(toolbarActions !== undefined && { toolbarActions })}
+        {...(translate !== undefined && { translate })}
+        {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
+        {...(filterFacets.length > 0 && {
+          filterFacets,
+          filterValues: urlState.filters,
+          onFilterChange: urlState.setFilter,
+          onFilterReset: urlState.clearFilters,
+        })}
+      />
+      <ToolbarDrawerHost
+        schema={schema}
+        drawerAction={drawerAction}
+        drawerScreen={drawerScreen}
+        userRoles={userRoles}
+        {...(translate !== undefined && { translate })}
+        onClose={closeDrawer}
+        onSuccess={() => {
+          closeDrawer();
+          void rowsQuery.refetch();
+        }}
+      />
+    </>
   );
 }
 
@@ -1633,11 +1909,6 @@ function ProjectionDetailBody({
     screen.query,
     entityId !== undefined ? { [idParam]: entityId } : {},
   );
-
-  const navigateToList = useCallback(() => {
-    if (screen.listScreenId === undefined) return;
-    nav.navigate({ screenId: screen.listScreenId });
-  }, [nav, screen.listScreenId]);
 
   // Default edit action (fw#2166): resolved cross-feature over ALL mounted
   // features, not just this feature's own schema — detailFor itself is
@@ -1815,9 +2086,9 @@ function ProjectionDetailBody({
       initial={record as FormValues}
       entityId={entityId}
       customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
-      onCancel={screen.listScreenId !== undefined ? navigateToList : undefined}
       {...(headerActions !== undefined && { actions: headerActions })}
       {...(translate !== undefined && { translate })}
+      valueDisplay={screen.valueDisplay ?? "text"}
     />
   );
 }
@@ -1834,10 +2105,21 @@ function ActionFormBody({
   schema,
   screen,
   translate,
+  onSuccess,
+  onCancelOverride,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: ActionFormScreenDefinition;
   readonly translate?: Translate;
+  /** Drawer-hosted usage (toolbarAction kind:"drawer", fw#2225): called
+   *  instead of the redirect-based navigation on successful submit, so the
+   *  host closes the drawer + refetches its list regardless of whether
+   *  `screen.redirect` is set — a full-page redirect would navigate away
+   *  from the list the drawer sits on top of. */
+  readonly onSuccess?: () => void;
+  /** Drawer-hosted usage: replaces the cancelTarget/redirect-based Cancel
+   *  handler so Cancel closes the drawer instead of navigating. */
+  readonly onCancelOverride?: () => void;
 }): ReactNode {
   const nav = useNav();
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
@@ -1853,24 +2135,30 @@ function ActionFormBody({
   );
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
+      if (!result.isSuccess) return;
+      if (onSuccess !== undefined) {
+        onSuccess();
+        return;
+      }
       // Redirect ist optional. Bei isSuccess + redirect → nav.navigate.
       // Author entscheidet bewusst ob "stay on form" (default) oder
       // "back to list" (typisch bei Create-style Aktionen).
-      if (result.isSuccess && screen.redirect !== undefined) {
+      if (screen.redirect !== undefined) {
         nav.navigate({ screenId: lastSegment(screen.redirect) });
       }
     },
-    [nav, screen.redirect],
+    [nav, screen.redirect, onSuccess],
   );
   // Cancel ist nur sinnvoll wenn ein Navigations-Ziel existiert —
   // sonst hätte der Button nirgendwo hin zu navigieren. cancelTarget
   // gewinnt über redirect; `false` schaltet den Button explizit ab
   // (Single-Action-Screens, wo Cancel nur Submit-ohne-Senden wäre).
   const handleCancel = useMemo<(() => void) | undefined>(() => {
+    if (onCancelOverride !== undefined) return onCancelOverride;
     const target = screen.cancelTarget ?? screen.redirect;
     if (target === undefined || target === false) return undefined;
     return () => nav.navigate({ screenId: lastSegment(target) });
-  }, [nav, screen.redirect, screen.cancelTarget]);
+  }, [nav, screen.redirect, screen.cancelTarget, onCancelOverride]);
   return (
     <RenderEdit
       screen={synthScreen}

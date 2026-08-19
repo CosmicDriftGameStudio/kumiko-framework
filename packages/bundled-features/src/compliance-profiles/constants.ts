@@ -13,3 +13,8 @@ export const ComplianceProfileQueries = {
 } as const;
 
 export const COMPLIANCE_PROFILE_SCREEN_ID = "profile-picker" as const;
+
+// Extension-section component name for the profile-catalog block under the
+// picker's select field — registered client-side via
+// complianceProfilesClient()'s extensionSectionComponents.
+export const COMPLIANCE_PROFILE_CATALOG_EXTENSION_NAME = "ComplianceProfileCatalog" as const;

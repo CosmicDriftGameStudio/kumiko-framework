@@ -106,6 +106,9 @@ function pushToolbarActionKeys(out: Set<string>, action: ToolbarAction): void {
     pushKey(out, action.confirm);
     pushKey(out, action.confirmLabel);
   }
+  // drawer-kind carries no confirm/confirmLabel — action.label (the
+  // toolbar button AND the Drawer title, see ToolbarDrawerHost) is
+  // already pushed above.
 }
 
 export function requiredKeysFromScreen(

@@ -3,4 +3,4 @@ export {
   type ComplianceProfilesClientOptions,
   complianceProfilesClient,
 } from "./client-plugin";
-export { ComplianceProfileScreen } from "./compliance-profile-screen";
+export { ComplianceProfileCatalog } from "./compliance-profile-catalog";

@@ -89,3 +89,53 @@ describe("compliance profile HTTP access", () => {
     ).toBe(403);
   });
 });
+
+describe("profile-picker actionForm screen: submit-path wiring", () => {
+  function pickerScreen() {
+    const feature = createComplianceProfilesFeature();
+    const screen = feature.screens[COMPLIANCE_PROFILE_SCREEN_ID];
+    if (screen?.type !== "actionForm") throw new Error("expected actionForm screen");
+    return screen;
+  }
+
+  test("submitting the screen's own handler with a screen-listed profile actually sets it", async () => {
+    const screen = pickerScreen();
+    const profileField = screen.fields["profileKey"] as { readonly options?: readonly string[] };
+    const chosen = profileField.options?.[1];
+    if (chosen === undefined) throw new Error("expected at least 2 selectable profiles");
+    const admin = createTestUser({ id: 34, roles: ["TenantAdmin"] });
+
+    const res = await stack.http.writeOk<{ profileKey: string }>(
+      screen.handler,
+      { profileKey: chosen },
+      admin,
+    );
+    expect(res.profileKey).toBe(chosen);
+
+    const current = await stack.http.queryOk<{ profile: { key: string } }>(
+      ComplianceProfileQueries.forTenant,
+      {},
+      admin,
+    );
+    expect(current.profile.key).toBe(chosen);
+  });
+
+  test("a profileKey outside the screen's declared options is rejected", async () => {
+    const screen = pickerScreen();
+    const admin = createTestUser({ id: 35, roles: ["TenantAdmin"] });
+    const res = await stack.http.write(
+      screen.handler,
+      { profileKey: "not-a-declared-profile" },
+      admin,
+    );
+    expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+
+  test("a role outside the screen's access can't reach the handler it submits to", async () => {
+    const screen = pickerScreen();
+    const outsider = createTestUser({ id: 36, roles: ["User"] });
+    expect(rolesOf(screen.access)).not.toContain("User");
+    const res = await stack.http.write(screen.handler, { profileKey: "eu-dsgvo" }, outsider);
+    expect(res.status).toBe(403);
+  });
+});

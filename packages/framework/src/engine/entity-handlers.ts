@@ -9,6 +9,7 @@ import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-s
 import { buildEntityTable, type EntityTable } from "../db/table-builder";
 import { createTenantDb, type TenantDb } from "../db/tenant-db";
 import { assertUnreachable } from "../utils";
+import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 import type {
   AccessRule,
@@ -366,6 +367,12 @@ export function defineEntityQueryHandler(
     schema,
     handler,
     ...(options?.access && { access: options.access }),
+    // The "list" verb's executor.list() always returns { rows, nextCursor,
+    // total? } (see the handler body above) — brand it so the definition
+    // site documents the PagedRows contract without needing
+    // definePagedQueryHandler on top. The "detail" verb returns a single
+    // row/null, never this shape.
+    ...(verb === "list" && { [PAGED_QUERY_HANDLER_BRAND]: true }),
   };
 }
 

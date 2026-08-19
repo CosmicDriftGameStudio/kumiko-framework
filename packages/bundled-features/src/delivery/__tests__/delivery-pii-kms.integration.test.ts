@@ -171,7 +171,7 @@ describe("delivery attempt log under KMS", () => {
     const entry = before.rows.find(
       (r) => r["recipientId"] === recipient.id && r["channel"] === "email",
     );
-    expect(entry?.["recipientAddress"]).toBe(testEmail(recipient.id));
+    expect(entry?.["recipient"]).toBe(testEmail(recipient.id));
 
     await kms.eraseKey({ kind: "user", userId: recipient.id });
 
@@ -183,7 +183,7 @@ describe("delivery attempt log under KMS", () => {
     const erased = after.rows.find(
       (r) => r["recipientId"] === recipient.id && r["channel"] === "email",
     );
-    expect(erased?.["recipientAddress"]).toBe(PII_ERASED_SENTINEL);
+    expect(erased?.["recipient"]).toBe(PII_ERASED_SENTINEL);
   });
 
   // money-horse#330: route:{email} (no user account, e.g. a share-token
@@ -224,7 +224,7 @@ describe("delivery attempt log under KMS", () => {
     );
     const otherSubjectBefore = beforeErase.rows.find(
       (r) => r["recipientId"] === recipient.id && r["channel"] === "email",
-    )?.["recipientAddress"];
+    )?.["recipient"];
     // Guard against a vacuous pass: if the row fell outside the `limit 100`
     // window, both sides below would be `undefined` and the "unaffected"
     // assertion would prove nothing.
@@ -241,13 +241,13 @@ describe("delivery attempt log under KMS", () => {
     const shredded = after.rows.find(
       (r) => r["recipientId"] === subjectId && r["channel"] === "email",
     );
-    expect(shredded?.["recipientAddress"]).toBe(PII_ERASED_SENTINEL);
+    expect(shredded?.["recipient"]).toBe(PII_ERASED_SENTINEL);
 
     // Other subjects (e.g. the plain `to:` recipient) are unaffected by the
     // share-token subject's erasure.
     const otherSubjectAfter = after.rows.find(
       (r) => r["recipientId"] === recipient.id && r["channel"] === "email",
-    )?.["recipientAddress"];
+    )?.["recipient"];
     expect(otherSubjectAfter).toBe(otherSubjectBefore);
   });
 });
