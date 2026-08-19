@@ -245,10 +245,6 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       type: "projectionDetail",
       query: SessionQueries.detail,
       listScreenId: SESSION_LIST_SCREEN_ID,
-      // No write path on this screen — a "Cancel" button here would only
-      // ever discard nothing. Back-navigation still works via listScreenId
-      // above (resolveDetailBreadcrumb, renderer-web) — fw#2245.
-      hideActions: true,
       layout: {
         sections: [
           {

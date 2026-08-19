@@ -426,12 +426,11 @@ export type ProjectionDetailScreenDefinition = {
    *  readOnly anyway (there is no write path, see the shim doc above).
    *  Set "form" to opt back into the disabled-Input look (fw#2245). */
   readonly valueDisplay?: "form" | "text";
-  /** Hides RenderEdit's action-bar footer (effectively just the "Cancel"
-   *  button here — this screen type never has Save/Delete). Default false,
-   *  matching the pre-fw#2245 behavior: Cancel is shown whenever
-   *  `listScreenId` is set. `resolveDetailBreadcrumb` (renderer-web) also
-   *  reads `listScreenId` on this screen type, so the breadcrumb still
-   *  offers "back" when the footer is hidden. */
+  /** Unused: a read-only screen has nothing to cancel, so RenderEdit's
+   *  Cancel button is never wired up here regardless of this flag —
+   *  `resolveDetailBreadcrumb` (renderer-web) reads `listScreenId` directly
+   *  for back-navigation. Kept on the type for existing callers; setting it
+   *  has no effect. */
   readonly hideActions?: boolean;
 };
 

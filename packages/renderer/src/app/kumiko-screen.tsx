@@ -1910,11 +1910,6 @@ function ProjectionDetailBody({
     entityId !== undefined ? { [idParam]: entityId } : {},
   );
 
-  const navigateToList = useCallback(() => {
-    if (screen.listScreenId === undefined) return;
-    nav.navigate({ screenId: screen.listScreenId });
-  }, [nav, screen.listScreenId]);
-
   // Default edit action (fw#2166): resolved cross-feature over ALL mounted
   // features, not just this feature's own schema — detailFor itself is
   // resolved cross-feature by the boot-validator (detail-screens.ts), and
@@ -2091,11 +2086,9 @@ function ProjectionDetailBody({
       initial={record as FormValues}
       entityId={entityId}
       customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
-      onCancel={screen.listScreenId !== undefined ? navigateToList : undefined}
       {...(headerActions !== undefined && { actions: headerActions })}
       {...(translate !== undefined && { translate })}
       valueDisplay={screen.valueDisplay ?? "text"}
-      hideActions={screen.hideActions === true}
     />
   );
 }

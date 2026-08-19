@@ -35,9 +35,8 @@ export function resolveDetailBreadcrumb(
 
   // projectionDetail has no entity to pair with an entityList (unlike
   // entityEdit above) — `listScreenId` is its only back-navigation source.
-  // Needed so the breadcrumb still offers "back" when a screen hides its
-  // RenderEdit action-bar footer (fw#2245's `hideActions`) and isn't
-  // reachable via a listFromRowAction either.
+  // Needed because RenderEdit's Cancel button is never wired up for this
+  // screen type and isn't reachable via a listFromRowAction either.
   const listFromProjectionDetailParent =
     detail.type === "projectionDetail" && detail.listScreenId !== undefined
       ? screens.find((s) => lastSegment(s.id) === detail.listScreenId)

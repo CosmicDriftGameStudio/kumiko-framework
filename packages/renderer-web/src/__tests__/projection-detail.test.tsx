@@ -176,12 +176,12 @@ describe("KumikoScreen / projectionDetail", () => {
     await waitFor(() => screen.getByTestId("kumiko-screen-record-missing"));
   });
 
-  // fw#2245: a projectionDetail has no write path — its footer is Cancel-only
-  // and defaults to shown (pre-fw#2245 behavior) so existing screens without
-  // an explicit opt-in keep working; `hideActions: true` turns it off without
-  // losing back-navigation (shell-breadcrumb.ts also resolves listScreenId
-  // for this screen type, independent of the footer — see shell-breadcrumb.test.ts).
-  test("shows Cancel by default when listScreenId is set", async () => {
+  // A projectionDetail has no write path, so there's nothing for a "Cancel"
+  // button to discard — RenderEdit's Cancel is never wired up for this
+  // screen type, regardless of `listScreenId`. Back-navigation goes through
+  // the breadcrumb instead (shell-breadcrumb.ts resolves `listScreenId`
+  // independently of the footer — see shell-breadcrumb.test.ts).
+  test("never shows Cancel, even when listScreenId is set", async () => {
     const withListScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       listScreenId: "session-list",
@@ -208,19 +208,32 @@ describe("KumikoScreen / projectionDetail", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => screen.getByTestId("render-edit-cancel"));
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.queryByTestId("render-edit-cancel")).toBeNull();
   });
 
-  test("hideActions:true hides the Cancel button", async () => {
-    const hiddenActionsScreen: ProjectionDetailScreenDefinition = {
+  // Regression: declared `actions` used to disappear along with Cancel
+  // whenever a screen set `hideActions: true` to get rid of the latter —
+  // `hideActions` is now unused for this screen type (see the field's doc
+  // comment), so it must have no bearing on the declared actions either.
+  test("declared actions render, and hideActions has no effect", async () => {
+    const withActionsScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       listScreenId: "session-list",
       hideActions: true,
+      actions: [
+        {
+          kind: "navigate",
+          id: "open-user",
+          label: "sessions.detail.action.openUser",
+          screen: "user-detail",
+        },
+      ],
     };
-    const hiddenActionsSchema: FeatureSchema = {
+    const withActionsSchema: FeatureSchema = {
       featureName: "sessions",
       entities: {},
-      screens: [hiddenActionsScreen],
+      screens: [withActionsScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
       query: (async () => ({
@@ -232,14 +245,14 @@ describe("KumikoScreen / projectionDetail", () => {
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen
-          schema={hiddenActionsSchema}
+          schema={withActionsSchema}
           qn="sessions:screen:session-detail"
           entityId="sess-1"
         />
       </DispatcherProvider>,
     );
 
-    await waitFor(() => screen.getByTestId("render-edit-form"));
+    await waitFor(() => screen.getByTestId("render-edit-action-open-user"));
     expect(screen.queryByTestId("render-edit-cancel")).toBeNull();
   });
 
