@@ -18,6 +18,7 @@ import "..";
 const EXPECTED_IDS = [
   "add",
   "build",
+  "changes",
   "check",
   "check:fast",
   "ci:guards",
