@@ -109,6 +109,7 @@ export {
   embeddedCellLabelKey,
   embeddedCellOptionLabelKey,
   fieldLabelKey,
+  fieldOptionLabelKey,
   groupEmbeddedListIssues,
   roundDerivedCellValue,
   sumEmbeddedListColumn,

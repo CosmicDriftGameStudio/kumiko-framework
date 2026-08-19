@@ -71,6 +71,45 @@ function validateOneProjectionListScreen(
   if ((searchActive || sortActive) && screen.defaultSort === undefined) {
     throw new Error(`${prefix}: defaultSort required when search or sort is active`);
   }
+
+  validateProjectionListFilterSchemaAcceptance(prefix, screen, schema);
+  validateProjectionListFacetsSchemaAcceptance(prefix, screen, schema);
+}
+
+// filter (fw#2224) sends `payload.filter` — same 422 footgun as facets below
+// if the handler's schema doesn't accept it.
+function validateProjectionListFilterSchemaAcceptance(
+  prefix: string,
+  screen: ProjectionListScreenDefinition,
+  schema: QueryHandlerDef["schema"] | undefined,
+): void {
+  // skip: no filter declared, or the schema already accepts it — nothing to reject.
+  if (screen.filter === undefined || schemaAccepts(schema, "filter")) return;
+  throw new Error(
+    `${prefix}: declares filter but query "${screen.query}" has no "filter" parameter in its Zod ` +
+      `schema — add filter: z.object({ field: z.string(), op: z.enum(["eq","ne","lt","gt","in"]), ` +
+      `value: z.unknown() }).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
+  );
+}
+
+// facets (fw#2224) send `payload.filters` — same failure mode as search/sort
+// (fw#2165): definePagedQueryHandler doesn't auto-merge params into the
+// handler's own Zod schema, so a declared facet would 422 on every query
+// unless the author added `filters` themselves.
+function validateProjectionListFacetsSchemaAcceptance(
+  prefix: string,
+  screen: ProjectionListScreenDefinition,
+  schema: QueryHandlerDef["schema"] | undefined,
+): void {
+  // skip: no facets declared — nothing to reject.
+  if (screen.facets === undefined || screen.facets.length === 0) return;
+  // skip: the schema already accepts filters — nothing to reject.
+  if (schemaAccepts(schema, "filters")) return;
+  throw new Error(
+    `${prefix}: declares facets but query "${screen.query}" has no "filters" parameter in its ` +
+      `Zod schema — add filters: z.array(z.object({ field: z.string(), op: z.literal("in"), ` +
+      `value: z.unknown() })).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
+  );
 }
 
 export function validateProjectionListScreens(features: readonly FeatureDefinition[]): void {
