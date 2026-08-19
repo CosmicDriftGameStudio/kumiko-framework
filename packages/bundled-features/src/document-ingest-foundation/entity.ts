@@ -37,14 +37,17 @@ export const documentExtractEntity = createEntity({
   fields: {
     fileRefId: createTextField({ required: true }),
     storageKey: createTextField({ required: true }),
-    // Holds the full extracted document text (PII). `tenantOwned`, NOT
-    // `encrypted: true` (#1621): the master-key path has no erasure subject,
+    // Holds the full extracted document text (PII). `personal: "tenant"`,
+    // NOT `encrypted: true` (#1621): the master-key path has no erasure subject,
     // so nothing here would ever be shreddable. Tenant-subject ciphertext
     // dies with eraseSubjectKeys on tenant-destroy (#800 pattern). Whose
     // subject a third party named inside a document is stays open, same as
     // inbound-mail-foundation (#957). meta is provider telemetry only and
     // stays plaintext jsonb.
-    pages: createLongTextField({ tenantOwned: true }),
+    pages: createLongTextField({
+      personal: "tenant",
+      find: "none",
+    }),
     meta: createJsonbField(),
   },
 });

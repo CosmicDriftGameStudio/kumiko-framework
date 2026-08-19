@@ -24,11 +24,12 @@ export type FieldAccess = {
 
 // --- PII / Subject-Key Annotations (GDPR Art. 17) ---
 //
-// Four independent mechanisms, NOT interchangeable. Picking the wrong one is
-// the recurring mistake this table exists to prevent: `encrypted: true` looks
-// like the strongest option and is the only one with NO erasure guarantee.
+// Four independent mechanisms, NOT interchangeable. Picking the wrong
+// `personal`/`find` combination is the recurring mistake this table exists
+// to prevent: `encrypted: true` looks like the strongest option and is the
+// only one with NO erasure guarantee.
 //
-//   flag                           | at rest    | searchable | Art. 17 erasure
+//   resolved flag                  | at rest    | searchable | Art. 17 erasure
 //   -------------------------------|------------|------------|----------------
 //   (none)                         | plaintext  | yes        | no
 //   allowPlaintext + anonymize     | plaintext  | yes        | read side only
@@ -62,36 +63,52 @@ export type FieldAccess = {
 // access — an access + retention question, not a crypto one. Choose it
 // deliberately, not by forgetting to annotate.
 //
-// Which subject owns the field:
-//   - `pii: true`                 — the entity itself. user.email.
-//   - `userOwned: { ownerField }` — the user referenced in that field.
-//                                   comment.body → comment.authorId.
-//   - `tenantOwned: true`         — the current tenant (ctx.tenantId at write
-//                                   time). tenantBranding.brandColor.
-// `piiEncrypted: true` is a declarative alias over these for values the user
-// may legitimately see back (their own IBAN), unlike `r.secret()`. Text
-// fields only. `sortable` + subject annotation still throws; `searchable` is allowed (#1610). `sensitive` + `searchable` throws.
+// Which subject owns the field — expressed via `personal` on the field
+// factory, resolved to these flags:
+//   - `personal: "self"`         → `pii: true`. the entity itself, user.email.
+//   - `personal: { of: "<f>" }`  → `userOwned: { ownerField: "<f>" }`. the
+//                                  user referenced in that field.
+//                                  comment.body → comment.authorId.
+//   - `personal: "tenant"`       → `tenantOwned: true`. the current tenant
+//                                  (ctx.tenantId at write time).
+//                                  tenantBranding.brandColor.
+//   - `personal: "ref"`          → `subjectRef: true`. FK into `user` with no
+//                                  annotated content of its own (authorId,
+//                                  assigneeId).
+//   - `personal: false, reason`  → `allowPlaintext: "<reason>"`. deliberately
+//                                  plaintext; `reason` is mandatory snake_case.
+//
+// How findable it must stay — `find`, mandatory whenever `personal` names a
+// subject ("self" / { of } / "tenant"):
+//   - `find: "exact"`  → `lookupable: true`. equality only, via blind index.
+//   - `find: "fuzzy"`  → `lookupable: true, searchable: true`. substring/
+//                        full-text via the Meilisearch consumer (#1610).
+//   - `find: "none"`   → neither.
+//   - `find: "secret"` → `sensitive: true`. longText fields only allow
+//                        "none" | "secret" — no lookup/search machinery there.
 //
 // Worked examples, all live in this repo:
 //
 //   user.email (user/schema/user.ts) — login identifier, must stay findable.
-//     `pii: true, lookupable: true`. Ciphertext everywhere, exact lookup via
-//     the blind index, gone when the user's subject key dies.
+//     `personal: "self", find: "exact"`. Ciphertext everywhere, exact lookup
+//     via the blind index, gone when the user's subject key dies.
 //
 //   user.displayName (same file) — real name; substring search via Meili.
-//     `pii: true, searchable: true` (#1610). Ciphertext in events/projection;
-//     plaintext only in the derived index; purged on forget.
+//     `personal: "self", find: "fuzzy"` (#1610). Ciphertext in
+//     events/projection; plaintext only in the derived index; purged on
+//     forget.
 //
 //   ledger.description (ledger/entity.ts) — "Miete Januar" is accounting
 //     data that happens to read like PII, and full-text search over it is the
-//     point. `allowPlaintext: "is-business-data"`, cleaned up via retention,
-//     event log keeps the original. Accepted deliberately.
+//     point. `personal: false, reason: "is_business_data"`, cleaned up via
+//     retention, event log keeps the original. Accepted deliberately.
 //
 //   subscription.providerCustomerId (billing-foundation/entities.ts) — a
-//     Mollie/Stripe id, never searched. `tenantOwned: true`, explicitly NOT
-//     `encrypted: true`: tenant-destroy erases the tenant subject key, and
-//     only the subject path shreds along with it (#800). Budget maxLength for
-//     ciphertext (`kumiko-pii:v1:<subject>:<blob>`, roughly plaintext × 2.3).
+//     Mollie/Stripe id, never searched. `personal: "tenant", find: "none"`,
+//     explicitly NOT `encrypted: true`: tenant-destroy erases the tenant
+//     subject key, and only the subject path shreds along with it (#800).
+//     Budget maxLength for ciphertext
+//     (`kumiko-pii:v1:<subject>:<blob>`, roughly plaintext × 2.3).
 //
 // `sensitive: true` is orthogonal to all of this — see its own note above.
 //
@@ -102,7 +119,10 @@ export type FieldAccess = {
 //
 // Background specs (both shipped, kumiko-platform/docs/archive/plans/):
 // datenschutz/crypto-shredding.md, datenschutz/blind-index.md.
-export type PiiAnnotations = {
+// Internal, expanded flag shape a field definition carries after a factory
+// (createTextField, createTimestampField, ...) resolves the author-facing
+// `personal`/`find` annotations below. No field author sets this directly.
+export type ResolvedPiiFlags = {
   readonly pii?: boolean;
   readonly userOwned?: { readonly ownerField: string };
   readonly tenantOwned?: boolean;
@@ -120,6 +140,74 @@ export type PiiAnnotations = {
    *  that lives purely in an FK column. */
   readonly subjectRef?: true;
 };
+
+// --- Author-facing PII API (kumiko-framework#2250) ---
+//
+// Two questions instead of the twelve raw flags above: whose data is this
+// (`personal`, resolved to a subject key) and how findable must it stay
+// (`find`, resolved to the search/lookup flags). Field factories expand
+// these into `ResolvedPiiFlags` — see packages/framework/src/engine/factories.ts.
+export type PersonalSubject = "self" | { readonly of: string } | "tenant";
+export type Findability = "exact" | "fuzzy" | "none" | "secret";
+
+// Marks "no personal annotation given" — plain `Record<string, never>` would
+// force every OTHER intersected property (e.g. a factory's `required?: R`)
+// to `never` too, since its index signature applies to all string keys.
+// Naming the three annotation keys explicitly avoids that trap.
+type NoPersonalAnnotation = {
+  readonly personal?: never;
+  readonly find?: never;
+  readonly reason?: never;
+  readonly anonymize?: never;
+};
+
+export type PersonalAnnotations =
+  | {
+      readonly personal: PersonalSubject;
+      readonly find: Findability;
+      readonly anonymize?: () => unknown | Promise<unknown>;
+    }
+  | { readonly personal: "ref" }
+  | {
+      readonly personal: false;
+      readonly reason: string;
+      readonly anonymize?: () => unknown | Promise<unknown>;
+    }
+  | NoPersonalAnnotation;
+
+// longText has no lookupable/searchable machinery ("Kein searchable" — see
+// LongTextFieldDef doc) — only "does this need to stay a secret" applies.
+// Kept mandatory like `find` on PersonalAnnotations: no silent default.
+export type LongTextFindability = "none" | "secret";
+
+export type PersonalAnnotationsLongText =
+  | {
+      readonly personal: PersonalSubject;
+      readonly find: LongTextFindability;
+      readonly anonymize?: () => unknown | Promise<unknown>;
+    }
+  | { readonly personal: "ref" }
+  | {
+      readonly personal: false;
+      readonly reason: string;
+      readonly anonymize?: () => unknown | Promise<unknown>;
+    }
+  | NoPersonalAnnotation;
+
+// Same as PersonalAnnotations but without `find` — for field types with no
+// full-text/blind-index machinery (everything except text and longText).
+export type PersonalAnnotationsNoFind =
+  | {
+      readonly personal: PersonalSubject;
+      readonly anonymize?: () => unknown | Promise<unknown>;
+    }
+  | { readonly personal: "ref" }
+  | {
+      readonly personal: false;
+      readonly reason: string;
+      readonly anonymize?: () => unknown | Promise<unknown>;
+    }
+  | NoPersonalAnnotation;
 
 // --- Retention (DSGVO Art. 5(1)(e) + HGB/AO Aufbewahrungspflichten) ---
 //
@@ -158,12 +246,6 @@ export type TextFieldDef = {
    *  Default: false — analog zu `sortable`, opt-in. */
   readonly filterable?: boolean;
   readonly encrypted?: boolean;
-  /** User/admin may legitimately see the value (their own IBAN, passport
-   *  number) — unlike `r.secret()`, which only server code reads. A
-   *  declarative alias over the subject-KMS (pii/userOwned/tenantOwned):
-   *  only allowed on `type: "text"`, can't combine with `searchable`/
-   *  `sortable` (boot validator, kumiko-platform#231/#456). */
-  readonly piiEncrypted?: boolean;
   readonly sensitive?: boolean;
   readonly format?: "email" | "url" | "phone";
   readonly default?: string;
@@ -173,7 +255,7 @@ export type TextFieldDef = {
    *  explizite Höhe. Search/sort/encrypt verhalten sich unverändert
    *  identisch zu single-line — nur die Render-Surface wechselt. */
   readonly multiline?: boolean | { readonly rows?: number };
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 /**
  * Long-form text content — source-code, markdown, blog-posts, email-
@@ -207,7 +289,7 @@ export type LongTextFieldDef = {
   readonly default?: string;
   readonly access?: FieldAccess;
   readonly multiline?: boolean | { readonly rows?: number };
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 export type BooleanFieldDef = {
   readonly type: "boolean";
@@ -228,7 +310,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly sensitive?: boolean;
   readonly default?: TOptions[number];
   readonly access?: FieldAccess;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 // Mehrere Werte aus einer festen Options-Liste — UI rendert als
 // Checkbox-/Multi-Select-Kontrolle. Storage: jsonb-Array<string>;
@@ -252,7 +334,7 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
   /** Default-Auswahl. Jeder Eintrag muss in `options` sein (Boot-Validator). */
   readonly default?: readonly TOptions[number][];
   readonly access?: FieldAccess;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 /**
  * Storage: `integer` flag decides the Postgres column type, not just Zod
@@ -276,7 +358,7 @@ export type NumberFieldDef = {
   /** `true` → `integer` column + `.int()` Zod validation. Omitted/`false` →
    *  `double precision` column, fractional values allowed. */
   readonly integer?: boolean;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 /**
  * 64-bit-Integer-Spalte fuer Audit-Counter, Byte-Sizes, Event-IDs und
@@ -298,7 +380,7 @@ export type BigIntFieldDef = {
   readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 /**
  * Exact decimal — Postgres `numeric(precision, scale)`. For values that need
@@ -322,7 +404,7 @@ export type DecimalFieldDef = {
   readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 export type MoneyFieldDef = {
   readonly type: "money";
@@ -361,7 +443,7 @@ export type ReferenceFieldDef = {
    *  statt single UUID. Storage als jsonb-Array<uuid>. UI rendert
    *  Multi-Select-Combobox mit Tag-Anzeige der gewählten Items. */
   readonly multiple?: boolean;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 // --- Currency ---
 
@@ -463,7 +545,7 @@ export type EmbeddedFieldDef = {
    *  rounded `derived` cells, i.e. "sum-of-rounded" not "round-of-sum" —
    *  see kumiko-framework#1866. */
   readonly totalsMatch?: Readonly<Record<string, string>>;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 // Free-form jsonb — keys/shape NOT validated at write-time. Use for:
 //   - Tenant-defined extension data (custom-fields-bundle uses this for
@@ -478,7 +560,7 @@ export type JsonbFieldDef = {
   readonly type: "jsonb";
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 // Legacy "date" — JS-Date-Object, semantisch unklar (Wall-Clock vs Instant).
 // Für neue Felder bevorzuge:
@@ -502,7 +584,7 @@ export type DateFieldDef = {
   /** Format/Locale-Override für Anzeige und Eingabe-Parsing (z.B.
    *  "de-DE"). Default = App-Locale. */
   readonly locale?: string;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 // UTC-Instant (Temporal.Instant). Für Ereignisse die zu einem bestimmten
 // Augenblick passieren, ohne Location-Bezug: createdAt, loginAt, actualPickupAt.
@@ -539,7 +621,7 @@ export type TimestampFieldDef = {
   /** Format/Locale-Override für Anzeige und Eingabe-Parsing. Default =
    *  App-Locale. */
   readonly locale?: string;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 // IANA-Zonenname (z.B. "Europe/Berlin", "America/Los_Angeles").
 // Wird via `Intl.supportedValuesOf("timeZone")` validiert (kommt im
@@ -550,7 +632,7 @@ export type TzFieldDef = {
   readonly required?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 // Wall-Clock-Termin an einem Ort als ATOMARES Konzept.
 // EIN Feld in der Schema-Definition, ZWEI Spalten in der DB
@@ -585,7 +667,7 @@ export type LocatedTimestampFieldDef = {
   /** Format/Locale-Override für Anzeige und Eingabe-Parsing. Default =
    *  App-Locale. */
   readonly locale?: string;
-} & PiiAnnotations;
+} & ResolvedPiiFlags;
 
 export type FileFieldDef = {
   readonly type: "file";

@@ -25,7 +25,10 @@ export const configValueEntity = createEntity({
     // breaking the null-vs-missing distinction the resolver already draws.
     value: createTextField({}),
     // user-scope row: userId populated. tenant- / system-scope: null.
-    userId: createTextField({ allowPlaintext: "pseudonymous-fk" }),
+    userId: createTextField({
+      personal: false,
+      reason: "pseudonymous_fk",
+    }),
   },
   indexes: [
     { unique: true, columns: ["key", "tenantId", "userId"], name: "read_config_values_unique" },

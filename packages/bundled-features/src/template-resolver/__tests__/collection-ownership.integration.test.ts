@@ -321,7 +321,7 @@ describe("GDPR :: the owner column is what makes erasure possible", () => {
 
   test("the tenant-wide table keeps its business-data declaration", () => {
     const content = templateResourceEntity.fields["content"];
-    expect((content as { allowPlaintext?: string }).allowPlaintext).toBe("is-business-data");
+    expect((content as { allowPlaintext?: string }).allowPlaintext).toBe("is_business_data");
     expect((content as { userOwned?: unknown }).userOwned).toBeUndefined();
   });
 

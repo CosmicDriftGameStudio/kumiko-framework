@@ -26,7 +26,12 @@ import {
 const noteEntity = createEntity({
   table: "read_permalink_notes",
   fields: {
-    title: createTextField({ required: true, maxLength: 160, allowPlaintext: "is-business-data" }),
+    title: createTextField({
+      required: true,
+      maxLength: 160,
+      personal: false,
+      reason: "is_business_data",
+    }),
   },
 });
 

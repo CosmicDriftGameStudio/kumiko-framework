@@ -14,7 +14,7 @@ import { createBigIntField, createEntity, createTextField } from "../engine";
 // ohne `.default(now()).notNull()` macht inserted_at still nullable.
 //
 // PII-Annotations:
-//   - fileName → pii: true (Originalname enthält oft Personen-Bezug:
+//   - fileName → personal: "self" (Originalname enthält oft Personen-Bezug:
 //     "Marc-Lebenslauf.pdf", "Krankheitsattest-Mai.pdf"). Andere Felder
 //     (storageKey, mimeType, size, entityType, entityId, fieldName) treffen
 //     die PII-Heuristik nicht.
@@ -23,7 +23,7 @@ export const fileRefEntity = createEntity({
   softDelete: true,
   fields: {
     storageKey: createTextField({ required: true }),
-    fileName: createTextField({ required: true, pii: true }),
+    fileName: createTextField({ required: true, personal: "self", find: "none" }),
     mimeType: createTextField({ required: true }),
     size: createBigIntField({ required: true }),
     entityType: createTextField(),

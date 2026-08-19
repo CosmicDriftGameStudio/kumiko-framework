@@ -8,7 +8,7 @@ const piiFeature = defineFeature("gate-pii", (r) => {
     "person",
     createEntity({
       table: "read_gate_persons",
-      fields: { email: createTextField({ required: true, pii: true, lookupable: true }) },
+      fields: { email: createTextField({ required: true, personal: "self", find: "exact" }) },
     }),
   );
 });

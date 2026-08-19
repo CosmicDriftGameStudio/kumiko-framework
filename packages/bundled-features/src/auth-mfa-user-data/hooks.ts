@@ -1,10 +1,11 @@
 // EXT_USER_DATA hooks for userMfa (GDPR Art. 15/17/20). Both totpSecret and
-// recoveryCodes are marked userOwned in the schema for exactly this: on
-// forget, the row must actually disappear — a leftover TOTP secret or
-// recovery-code hash under an anonymized user is still a live credential
-// nobody can rotate. Mirrors folders-user-data/hooks.ts's executor-based
-// delete (rebuild-safe: forget replays via the event, a raw DELETE would be
-// resurrected by a projection rebuild).
+// recoveryCodes are annotated `personal: { of: "userId" }` in the schema
+// for exactly this: on forget, the row must actually disappear — a
+// leftover TOTP secret or recovery-code hash under an anonymized user is
+// still a live credential nobody can rotate. Mirrors
+// folders-user-data/hooks.ts's executor-based delete (rebuild-safe: forget
+// replays via the event, a raw DELETE would be resurrected by a
+// projection rebuild).
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
@@ -36,8 +37,8 @@ export const userMfaExportHook: UserDataExportHook = async (ctx) => {
 };
 
 // Always a real hard-delete regardless of the incoming strategy — a 2FA
-// secret can't be anonymized, and userOwned already means this row belongs
-// to exactly one user (never shared tenant data).
+// secret can't be anonymized, and `personal: { of: "userId" }` already
+// means this row belongs to exactly one user (never shared tenant data).
 export const userMfaDeleteHook: UserDataDeleteHook = async (ctx) => {
   const rows = await selectMany<{ id: string }>(ctx.db, userMfaTable, {
     userId: ctx.userId,

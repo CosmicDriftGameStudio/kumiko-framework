@@ -15,7 +15,10 @@ const entity = createEntity({
   table: "source-probe",
   fields: {
     userId: createTextField({ required: true }),
-    ip: createTextField({ userOwned: { ownerField: "userId" } }),
+    ip: createTextField({
+      personal: { of: "userId" },
+      find: "none",
+    }),
   },
 });
 

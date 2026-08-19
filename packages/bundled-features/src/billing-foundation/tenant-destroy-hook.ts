@@ -6,7 +6,7 @@ import { subscriptionAggregateId } from "./aggregate-id";
 import { SUBSCRIPTION_AGGREGATE_TYPE } from "./events";
 import { subscriptionsProjectionTable } from "./projection";
 
-// providerCustomerId/providerSubscriptionId are `tenantOwned: true` on the
+// providerCustomerId/providerSubscriptionId are `personal: "tenant"` on the
 // entity (envelope-encrypted with the tenant subject key, see entities.ts) —
 // eraseSubjectKeys crypto-shreds them for tenants that hard-delete. HGB
 // can not: it needs the accounting facts (status/tier/period) to survive, so

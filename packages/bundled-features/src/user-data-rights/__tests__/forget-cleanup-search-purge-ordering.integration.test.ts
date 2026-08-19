@@ -46,8 +46,8 @@ const noteEntity = createEntity({
     authorId: createTextField({ required: true }),
     body: createTextField({
       required: true,
-      searchable: true,
-      userOwned: { ownerField: "authorId" },
+      personal: { of: "authorId" },
+      find: "fuzzy",
     }),
   },
 });

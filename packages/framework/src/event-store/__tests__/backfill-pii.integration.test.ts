@@ -37,7 +37,7 @@ const BIDX_KEY = Buffer.alloc(32, 5).toString("base64");
 
 const contactEntity = createEntity({
   fields: {
-    email: createTextField({ required: true, pii: true, lookupable: true }),
+    email: createTextField({ required: true, personal: "self", find: "exact" }),
     displayName: createTextField(),
   },
 });

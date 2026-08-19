@@ -26,9 +26,10 @@ export const pageEntity = createEntity({
     body: createTextField({
       multiline: { rows: 16 },
       maxLength: 100_000,
-      allowPlaintext: "is-business-data",
+      personal: false,
+      reason: "is_business_data",
     }),
-    description: createTextField({ maxLength: 500, allowPlaintext: "is-business-data" }),
+    description: createTextField({ maxLength: 500, personal: false, reason: "is_business_data" }),
     ogImage: createTextField({ maxLength: 2000 }),
     published: createBooleanField({ default: false }),
   },

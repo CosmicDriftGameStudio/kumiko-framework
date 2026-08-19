@@ -15,8 +15,9 @@ import {
 // registered (see feature.ts). A correction is a new entry, not an edit —
 // that is the whole point of a note *history* instead of the single
 // overwritable textarea this bundle replaces (solon#13). GDPR erasure of the
-// author still works without a delete path: `body` is `userOwned` (crypto-
-// shredding on the author's subject key), not `pii` on the entity itself.
+// author still works without a delete path: `body` is `personal: { of:
+// "authorId" }` (crypto-shredding on the author's subject key), not
+// `personal: "self"` on the entity itself.
 export const noteEntryEntity = createEntity({
   table: "read_note_entries",
   fields: {
@@ -27,11 +28,14 @@ export const noteEntryEntity = createEntity({
     // ctx.user.id (see feature.ts), so a note can't be authored as someone
     // else. subjectRef feeds the GDPR-hook-coverage boot guard (it's a plain
     // FK into `user`, not content of its own).
-    authorId: createTextField({ subjectRef: true }),
+    authorId: createTextField({
+      personal: "ref",
+    }),
     body: createLongTextField({
       required: true,
       maxLength: 20_000,
-      userOwned: { ownerField: "authorId" },
+      personal: { of: "authorId" },
+      find: "none",
     }),
   },
 });

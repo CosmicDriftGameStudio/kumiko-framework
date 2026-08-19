@@ -10,6 +10,7 @@ import type {
   FieldsMap,
   FileFieldDef,
   FilesFieldDef,
+  Findability,
   ImageFieldDef,
   ImagesFieldDef,
   JsonbFieldDef,
@@ -18,12 +19,67 @@ import type {
   MoneyFieldDef,
   MultiSelectFieldDef,
   NumberFieldDef,
+  PersonalAnnotations,
+  PersonalAnnotationsLongText,
+  PersonalAnnotationsNoFind,
+  PersonalSubject,
+  ResolvedPiiFlags,
   RetentionDef,
   SelectFieldDef,
   TextFieldDef,
   TimestampFieldDef,
   TzFieldDef,
 } from "./types";
+
+type PersonalOverridesInput = {
+  readonly personal?: PersonalSubject | "ref" | false;
+  readonly find?: Findability;
+  readonly reason?: string;
+  readonly anonymize?: () => unknown | Promise<unknown>;
+};
+
+// Resolves the author-facing `personal`/`find` annotations (kumiko-framework#2250)
+// into the internal ResolvedPiiFlags every factory below merges into its
+// return value. `personal`, `find`, `reason` never survive into the field def.
+function expandPersonalAnnotations<T extends PersonalOverridesInput>(
+  overrides: T | undefined,
+): Omit<T, "personal" | "find" | "reason"> & ResolvedPiiFlags {
+  if (!overrides) {
+    return {} as Omit<T, "personal" | "find" | "reason"> & ResolvedPiiFlags;
+  }
+  const { personal, find, reason, anonymize, ...rest } = overrides;
+
+  let personalFlags: ResolvedPiiFlags = {};
+  if (personal === "self") {
+    personalFlags = { pii: true };
+  } else if (personal === "tenant") {
+    personalFlags = { tenantOwned: true };
+  } else if (personal === "ref") {
+    personalFlags = { subjectRef: true };
+  } else if (personal === false) {
+    personalFlags = { allowPlaintext: reason };
+  } else if (personal) {
+    personalFlags = { userOwned: { ownerField: personal.of } };
+  }
+
+  // `searchable`/`sensitive` live on the individual FieldDef, not on
+  // ResolvedPiiFlags — "fuzzy"/"secret" resolve into those too.
+  let findFlags: ResolvedPiiFlags & { searchable?: boolean; sensitive?: boolean } = {};
+  if (find === "exact") {
+    findFlags = { lookupable: true };
+  } else if (find === "fuzzy") {
+    findFlags = { lookupable: true, searchable: true };
+  } else if (find === "secret") {
+    findFlags = { sensitive: true };
+  }
+
+  return {
+    ...rest,
+    ...personalFlags,
+    ...findFlags,
+    ...(anonymize ? { anonymize } : {}),
+  } as Omit<T, "personal" | "find" | "reason"> & ResolvedPiiFlags;
+}
 
 // Generic über `R extends true | false` (statt `boolean`) damit
 // `createTextField({ required: true })` literal `required: true` im
@@ -33,7 +89,8 @@ import type {
 // degradieren. Default `R = false` matcht den runtime-default. Pattern
 // in jeder required-bearing factory unten.
 export function createTextField<R extends true | false = false>(
-  overrides?: Partial<Omit<TextFieldDef, "type" | "required">> & { required?: R },
+  overrides?: Partial<Omit<TextFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotations & { required?: R },
 ): TextFieldDef & { required: R } {
   return {
     type: "text",
@@ -41,7 +98,7 @@ export function createTextField<R extends true | false = false>(
     required: false,
     searchable: false,
     sortable: false,
-    ...overrides,
+    ...expandPersonalAnnotations(overrides),
   } as TextFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
@@ -67,12 +124,13 @@ export function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef {
 }
 
 export function createLongTextField<R extends true | false = false>(
-  overrides?: Partial<Omit<LongTextFieldDef, "type" | "required">> & { required?: R },
+  overrides?: Partial<Omit<LongTextFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsLongText & { required?: R },
 ): LongTextFieldDef & { required: R } {
   return {
     type: "longText",
     required: false,
-    ...overrides,
+    ...expandPersonalAnnotations(overrides),
   } as LongTextFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
@@ -92,13 +150,14 @@ export function createSelectField<
   R extends true | false = false,
 >(
   opts: { options: TOptions } & Partial<
-    Omit<SelectFieldDef<TOptions>, "type" | "options" | "required">
-  > & { required?: R },
+    Omit<SelectFieldDef<TOptions>, "type" | "options" | "required" | keyof ResolvedPiiFlags>
+  > &
+    PersonalAnnotationsNoFind & { required?: R },
 ): SelectFieldDef<TOptions> & { required: R } {
   return {
     type: "select",
     required: false,
-    ...opts,
+    ...expandPersonalAnnotations(opts),
   } as SelectFieldDef<TOptions> & { required: R }; // @cast-boundary engine-payload
 }
 
@@ -124,12 +183,15 @@ export function createSelectField<
  * Wann statt `embedded` mit Booleans: bei mehr als ~5 Optionen.
  */
 export function createMultiSelectField<const TOptions extends readonly string[]>(
-  opts: { options: TOptions } & Partial<Omit<MultiSelectFieldDef<TOptions>, "type" | "options">>,
+  opts: { options: TOptions } & Partial<
+    Omit<MultiSelectFieldDef<TOptions>, "type" | "options" | keyof ResolvedPiiFlags>
+  > &
+    PersonalAnnotationsNoFind,
 ): MultiSelectFieldDef<TOptions> {
   return {
     type: "multiSelect",
     required: false,
-    ...opts,
+    ...expandPersonalAnnotations(opts),
   };
 }
 
@@ -140,22 +202,24 @@ export function createMultiSelectField<const TOptions extends readonly string[]>
  * instead (money-adjacent math)? Use `createDecimalField` (`numeric`).
  */
 export function createNumberField<R extends true | false = false>(
-  overrides?: Partial<Omit<NumberFieldDef, "type" | "required">> & { required?: R },
+  overrides?: Partial<Omit<NumberFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsNoFind & { required?: R },
 ): NumberFieldDef & { required: R } {
   return {
     type: "number",
     required: false,
-    ...overrides,
+    ...expandPersonalAnnotations(overrides),
   } as NumberFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 export function createBigIntField<R extends true | false = false>(
-  overrides?: Partial<Omit<BigIntFieldDef, "type" | "required">> & { required?: R },
+  overrides?: Partial<Omit<BigIntFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsNoFind & { required?: R },
 ): BigIntFieldDef & { required: R } {
   return {
     type: "bigInt",
     required: false,
-    ...overrides,
+    ...expandPersonalAnnotations(overrides),
   } as BigIntFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
@@ -164,8 +228,9 @@ export function createBigIntField<R extends true | false = false>(
 // caveat (surfaced as JS number, safe ≤ 2^53).
 export function createDecimalField<R extends true | false = false>(
   config: { precision: number; scale: number } & Partial<
-    Omit<DecimalFieldDef, "type" | "precision" | "scale" | "required">
-  > & { required?: R },
+    Omit<DecimalFieldDef, "type" | "precision" | "scale" | "required" | keyof ResolvedPiiFlags>
+  > &
+    PersonalAnnotationsNoFind & { required?: R },
 ): DecimalFieldDef & { required: R } {
   // Fail at definition time, not at the first migration: numeric(p,s) requires
   // integer p ≥ 1 and 0 ≤ s ≤ p (Postgres rejects e.g. numeric(2,4), and the
@@ -186,7 +251,7 @@ export function createDecimalField<R extends true | false = false>(
   return {
     type: "decimal",
     required: false,
-    ...config,
+    ...expandPersonalAnnotations(config),
   } as DecimalFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
@@ -201,12 +266,13 @@ export function createMoneyField<R extends true | false = false>(
 
 export function createEmbeddedField(
   schema: EmbeddedFieldDef["schema"],
-  overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema">>,
+  overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsNoFind,
 ): EmbeddedFieldDef {
   return {
     type: "embedded",
     schema,
-    ...overrides,
+    ...expandPersonalAnnotations(overrides),
   };
 }
 
@@ -221,12 +287,15 @@ export function createEmbeddedField(
 // silently fall back to the single-object column type.
 export function createEmbeddedListField(
   schema: EmbeddedFieldDef["schema"],
-  overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | "multiple">>,
+  overrides?: Partial<
+    Omit<EmbeddedFieldDef, "type" | "schema" | "multiple" | keyof ResolvedPiiFlags>
+  > &
+    PersonalAnnotationsNoFind,
 ): EmbeddedFieldDef & { multiple: true } {
   return {
     type: "embedded",
     schema,
-    ...overrides,
+    ...expandPersonalAnnotations(overrides),
     multiple: true,
   };
 }
@@ -235,20 +304,24 @@ export function createEmbeddedListField(
 // `{}`, NOT NULL. Hauptnutzer: custom-fields-Bundle (host-entity's
 // `customFields`-Spalte). Andere valid uses: tenant-config-blobs, AI-
 // inferred-metadata, future tags-arrays.
-export function createJsonbField(overrides?: Partial<Omit<JsonbFieldDef, "type">>): JsonbFieldDef {
+export function createJsonbField(
+  overrides?: Partial<Omit<JsonbFieldDef, "type" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsNoFind,
+): JsonbFieldDef {
   return {
     type: "jsonb",
-    ...overrides,
+    ...expandPersonalAnnotations(overrides),
   };
 }
 
 export function createDateField<R extends true | false = false>(
-  overrides?: Partial<Omit<DateFieldDef, "type" | "required">> & { required?: R },
+  overrides?: Partial<Omit<DateFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsNoFind & { required?: R },
 ): DateFieldDef & { required: R } {
   return {
     type: "date",
     required: false,
-    ...overrides,
+    ...expandPersonalAnnotations(overrides),
   } as DateFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
@@ -261,13 +334,14 @@ export function createDateField<R extends true | false = false>(
  * das EIN atomares Feld statt eines lose verdrahteten Pairs erzeugt.
  */
 export function createTimestampField<R extends true | false = false>(
-  overrides?: Partial<Omit<TimestampFieldDef, "type" | "required">> & { required?: R },
+  overrides?: Partial<Omit<TimestampFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsNoFind & { required?: R },
 ): TimestampFieldDef & { required: R } {
   // Object-Build vermeidet hartcodiertes `required: false` im literal —
   // das würde TS dazu bringen, R auf `boolean` zu widenen statt das
   // literal `true`/`false` aus dem overrides-Argument zu inferieren.
   return {
-    ...overrides,
+    ...expandPersonalAnnotations(overrides),
     type: "timestamp",
     required: (overrides?.required ?? false) as R, // @cast-boundary engine-payload
   };
@@ -278,12 +352,13 @@ export function createTimestampField<R extends true | false = false>(
  * via `Intl.supportedValuesOf("timeZone")` geprüft (kommt im Zod-Schritt).
  */
 export function createTzField<R extends true | false = false>(
-  overrides?: Partial<Omit<TzFieldDef, "type" | "required">> & { required?: R },
+  overrides?: Partial<Omit<TzFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsNoFind & { required?: R },
 ): TzFieldDef & { required: R } {
   return {
     type: "tz",
     required: false,
-    ...overrides,
+    ...expandPersonalAnnotations(overrides),
   } as TzFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
@@ -318,12 +393,15 @@ export function createTzField<R extends true | false = false>(
  * separater Berechnung.
  */
 export function createLocatedTimestampField<R extends true | false = false>(
-  overrides?: Partial<Omit<LocatedTimestampFieldDef, "type" | "required">> & { required?: R },
+  overrides?: Partial<
+    Omit<LocatedTimestampFieldDef, "type" | "required" | keyof ResolvedPiiFlags>
+  > &
+    PersonalAnnotationsNoFind & { required?: R },
 ): LocatedTimestampFieldDef & { required: R } {
   return {
     type: "locatedTimestamp",
     required: false,
-    ...overrides,
+    ...expandPersonalAnnotations(overrides),
   } as LocatedTimestampFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 

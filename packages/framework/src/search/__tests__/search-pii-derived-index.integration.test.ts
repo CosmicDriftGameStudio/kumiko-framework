@@ -18,8 +18,8 @@ import { purgeSearchDocumentsForSubject } from "../purge-subject";
 const contactEntity = createEntity({
   table: "read_search_pii_contacts",
   fields: {
-    // pii: true → subject = entity id (self). searchable via derived index.
-    label: createTextField({ required: true, maxLength: 100, pii: true, searchable: true }),
+    // personal: "self" → subject = entity id. find: "fuzzy" → searchable via derived index.
+    label: createTextField({ required: true, maxLength: 100, personal: "self", find: "fuzzy" }),
     note: createTextField({ required: true, maxLength: 100, searchable: true }),
   },
 });

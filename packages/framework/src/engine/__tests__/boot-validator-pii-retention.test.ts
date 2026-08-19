@@ -32,6 +32,13 @@ import {
   createTimestampField,
   createTzField,
 } from "../factories";
+import type { LongTextFieldDef, TextFieldDef } from "../types";
+
+// The new personal/find union can no longer express some flag combinations
+// on purpose (e.g. two subjects on one field) — these tests deliberately
+// construct the raw, rejected shape to prove the boot-validator still throws.
+const rawField = <T>(f: T) => f as unknown as TextFieldDef;
+const rawLongTextField = <T>(f: T) => f as unknown as LongTextFieldDef;
 
 // Stubt einen leeren `<entity>:list`-Query-Handler damit der reference-
 // Field-Boot-Validator den Audit-Fix-#2-Check durchläßt. Wird gebraucht
@@ -64,7 +71,10 @@ describe("validateBoot — PII annotations", () => {
         "user",
         createEntity({
           fields: {
-            email: createTextField({ pii: true }),
+            email: createTextField({
+              personal: "self",
+              find: "none",
+            }),
           },
         }),
       );
@@ -78,7 +88,10 @@ describe("validateBoot — PII annotations", () => {
         "branding",
         createEntity({
           fields: {
-            brandColor: createTextField({ tenantOwned: true }),
+            brandColor: createTextField({
+              personal: "tenant",
+              find: "none",
+            }),
           },
         }),
       );
@@ -88,13 +101,26 @@ describe("validateBoot — PII annotations", () => {
 
   test("userOwned with valid ownerField on reference passes", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("user", createEntity({ fields: { email: createTextField({ pii: true }) } }));
+      r.entity(
+        "user",
+        createEntity({
+          fields: {
+            email: createTextField({
+              personal: "self",
+              find: "none",
+            }),
+          },
+        }),
+      );
       stubListHandler(r, "user");
       r.entity(
         "comment",
         createEntity({
           fields: {
-            body: createLongTextField({ userOwned: { ownerField: "authorId" } }),
+            body: createLongTextField({
+              personal: { of: "authorId" },
+              find: "none",
+            }),
             authorId: { type: "reference", entity: "user" },
           },
         }),
@@ -109,7 +135,11 @@ describe("validateBoot — PII annotations", () => {
         "thing",
         createEntity({
           fields: {
-            confused: createTextField({ pii: true, tenantOwned: true }),
+            confused: rawField({
+              ...createTextField(),
+              pii: true,
+              tenantOwned: true,
+            }),
           },
         }),
       );
@@ -137,7 +167,10 @@ describe("validateBoot — PII annotations", () => {
         "vault",
         createEntity({
           fields: {
-            apiToken: createTextField({ sensitive: true, pii: true }),
+            apiToken: createTextField({
+              personal: "self",
+              find: "secret",
+            }),
           },
         }),
       );
@@ -172,13 +205,16 @@ describe("validateBoot — PII annotations", () => {
         "comment",
         createEntity({
           fields: {
-            body: createLongTextField({ userOwned: { ownerField: "ghostField" } }),
+            body: createLongTextField({
+              personal: { of: "ghostField" },
+              find: "none",
+            }),
           },
         }),
       );
     });
     expect(() => validateBoot([feature])).toThrow(
-      /userOwned\.ownerField "ghostField" but no such field exists/,
+      /personal\.of "ghostField" but no such field exists/,
     );
   });
 
@@ -188,7 +224,10 @@ describe("validateBoot — PII annotations", () => {
         "comment",
         createEntity({
           fields: {
-            body: createLongTextField({ userOwned: { ownerField: "authorId" } }),
+            body: createLongTextField({
+              personal: { of: "authorId" },
+              find: "none",
+            }),
             authorId: createTextField(),
           },
         }),
@@ -203,7 +242,10 @@ describe("validateBoot — PII annotations", () => {
         "comment",
         createEntity({
           fields: {
-            body: createLongTextField({ userOwned: { ownerField: "isPublic" } }),
+            body: createLongTextField({
+              personal: { of: "isPublic" },
+              find: "none",
+            }),
             isPublic: { type: "boolean" },
           },
         }),
@@ -222,7 +264,10 @@ describe("validateBoot — PII annotations", () => {
         "personalNote",
         createEntity({
           fields: {
-            body: createLongTextField({ userOwned: { ownerField: "employeeId" } }),
+            body: createLongTextField({
+              personal: { of: "employeeId" },
+              find: "none",
+            }),
             employeeId: { type: "reference", entity: "employee" },
           },
         }),
@@ -295,7 +340,9 @@ describe("validateBoot — PII annotations", () => {
         "thing",
         createEntity({
           fields: {
-            authorId: createTextField({ subjectRef: true }),
+            authorId: createTextField({
+              personal: "ref",
+            }),
           },
         }),
       );
@@ -313,7 +360,10 @@ describe("validateBoot — PII annotations", () => {
         "company",
         createEntity({
           fields: {
-            name: createTextField({ allowPlaintext: "is-business-data" }),
+            name: createTextField({
+              personal: false,
+              reason: "is_business_data",
+            }),
           },
         }),
       );
@@ -331,7 +381,10 @@ describe("validateBoot — PII annotations", () => {
         "user",
         createEntity({
           fields: {
-            email: createTextField({ pii: true }),
+            email: createTextField({
+              personal: "self",
+              find: "none",
+            }),
           },
         }),
       );
@@ -351,7 +404,9 @@ describe("validateBoot — PII annotations", () => {
         "payslip",
         createEntity({
           fields: {
-            grossAmount: createNumberField({ pii: true }),
+            grossAmount: createNumberField({
+              personal: "self",
+            }),
           },
         }),
       );
@@ -367,7 +422,7 @@ describe("validateBoot — PII annotations", () => {
           fields: {
             gender: createSelectField({
               options: ["male", "female", "diverse", "prefer-not-to-say"] as const,
-              pii: true,
+              personal: "self",
             }),
           },
         }),
@@ -384,7 +439,7 @@ describe("validateBoot — PII annotations", () => {
           fields: {
             dietaryRestrictions: createMultiSelectField({
               options: ["vegan", "vegetarian", "halal", "kosher", "gluten-free"] as const,
-              pii: true,
+              personal: "self",
             }),
           },
         }),
@@ -399,7 +454,9 @@ describe("validateBoot — PII annotations", () => {
         "profile",
         createEntity({
           fields: {
-            dateOfBirth: createDateField({ pii: true }),
+            dateOfBirth: createDateField({
+              personal: "self",
+            }),
           },
         }),
       );
@@ -413,7 +470,9 @@ describe("validateBoot — PII annotations", () => {
         "session",
         createEntity({
           fields: {
-            lastLoginAt: createTimestampField({ pii: true }),
+            lastLoginAt: createTimestampField({
+              personal: "self",
+            }),
           },
         }),
       );
@@ -427,7 +486,9 @@ describe("validateBoot — PII annotations", () => {
         "profile",
         createEntity({
           fields: {
-            homeTz: createTzField({ pii: true }),
+            homeTz: createTzField({
+              personal: "self",
+            }),
           },
         }),
       );
@@ -441,7 +502,9 @@ describe("validateBoot — PII annotations", () => {
         "shift",
         createEntity({
           fields: {
-            startsAt: createLocatedTimestampField({ pii: true }),
+            startsAt: createLocatedTimestampField({
+              personal: "self",
+            }),
           },
         }),
       );
@@ -461,7 +524,9 @@ describe("validateBoot — PII annotations", () => {
                 city: { type: "text" },
                 postalCode: { type: "text" },
               },
-              { pii: true },
+              {
+                personal: "self",
+              },
             ),
           },
         }),
@@ -593,8 +658,14 @@ describe("validateBoot — retention", () => {
         "invoice",
         createEntity({
           fields: {
-            invoiceNumber: createTextField({ allowPlaintext: "is-business-data" }),
-            customerName: createTextField({ pii: true }),
+            invoiceNumber: createTextField({
+              personal: false,
+              reason: "is_business_data",
+            }),
+            customerName: createTextField({
+              personal: "self",
+              find: "none",
+            }),
           },
           retention: { keepFor: "10y", strategy: "blockDelete" },
         }),
@@ -613,7 +684,10 @@ describe("validateBoot — retention", () => {
         "lease",
         createEntity({
           fields: {
-            reference: createTextField({ allowPlaintext: "is-business-data" }),
+            reference: createTextField({
+              personal: false,
+              reason: "is_business_data",
+            }),
           },
           retention: { keepFor: "10y", strategy: "blockDelete" },
         }),
@@ -632,7 +706,9 @@ describe("validateBoot — retention", () => {
         "lease",
         createEntity({
           fields: {
-            authorId: createTextField({ subjectRef: true }),
+            authorId: createTextField({
+              personal: "ref",
+            }),
           },
           retention: { keepFor: "10y", strategy: "blockDelete" },
         }),
@@ -651,7 +727,10 @@ describe("validateBoot — retention", () => {
         "thing",
         createEntity({
           fields: {
-            note: createTextField({ allowPlaintext: "is-business-data" }),
+            note: createTextField({
+              personal: false,
+              reason: "is_business_data",
+            }),
           },
           retention: { keepFor: "30days", strategy: "hardDelete" },
         }),
@@ -672,7 +751,10 @@ describe("validateBoot — retention", () => {
           "thing",
           createEntity({
             fields: {
-              note: createTextField({ allowPlaintext: "is-business-data" }),
+              note: createTextField({
+                personal: false,
+                reason: "is_business_data",
+              }),
             },
             retention: { keepFor, strategy: "hardDelete" },
           }),
@@ -692,9 +774,13 @@ describe("validateBoot — retention", () => {
         "invoice",
         createEntity({
           fields: {
-            invoiceNumber: createTextField({ allowPlaintext: "is-business-data" }),
+            invoiceNumber: createTextField({
+              personal: false,
+              reason: "is_business_data",
+            }),
             customerName: createTextField({
-              pii: true,
+              personal: "self",
+              find: "none",
               anonymize: () => "[ANONYMIZED]",
             }),
           },
@@ -717,7 +803,10 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         "user",
         createEntity({
           fields: {
-            email: createTextField({ pii: true, lookupable: true }),
+            email: createTextField({
+              personal: "self",
+              find: "exact",
+            }),
           },
         }),
       );
@@ -731,12 +820,15 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         "doc",
         createEntity({
           fields: {
-            slug: createTextField({ lookupable: true }),
+            slug: rawField({
+              ...createTextField(),
+              lookupable: true,
+            }),
           },
         }),
       );
     });
-    expect(() => validateBoot([feature])).toThrow(/lookupable.*without a subject annotation/);
+    expect(() => validateBoot([feature])).toThrow(/find:.*without a subject annotation/);
   });
 
   test("lookupable on non-text field throws", () => {
@@ -745,8 +837,10 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         "person",
         createEntity({
           fields: {
-            // longText carries PiiAnnotations too — lookupable must still be rejected.
-            bio: createLongTextField({ userOwned: { ownerField: "ownerId" }, lookupable: true }),
+            bio: rawLongTextField({
+              ...createLongTextField({ personal: { of: "ownerId" }, find: "none" }),
+              lookupable: true,
+            }),
             ownerId: createTextField({ required: true }),
           },
         }),
@@ -761,7 +855,10 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         "user",
         createEntity({
           fields: {
-            displayName: createTextField({ pii: true, searchable: true }),
+            displayName: createTextField({
+              personal: "self",
+              find: "fuzzy",
+            }),
           },
         }),
       );
@@ -775,7 +872,11 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         "user",
         createEntity({
           fields: {
-            email: createTextField({ pii: true, sortable: true }),
+            email: createTextField({
+              personal: "self",
+              find: "none",
+              sortable: true,
+            }),
           },
         }),
       );
@@ -789,7 +890,8 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         "user",
         createEntity({
           fields: {
-            passwordHash: createTextField({
+            passwordHash: rawField({
+              ...createTextField(),
               pii: true,
               sensitive: true,
               searchable: true,
@@ -799,107 +901,5 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
       );
     });
     expect(() => validateBoot([feature])).toThrow(/sensitive.*searchable/);
-  });
-});
-
-describe("validateBoot — piiEncrypted (kumiko-platform#231/#456)", () => {
-  test("piiEncrypted on a plain text field passes", () => {
-    const feature = defineFeature("test", (r) => {
-      r.entity(
-        "tenant",
-        createEntity({
-          fields: {
-            iban: createTextField({
-              piiEncrypted: true,
-              tenantOwned: true,
-              access: { read: ["TenantAdmin"] },
-            }),
-          },
-        }),
-      );
-    });
-    expect(() => validateBoot([feature])).not.toThrow();
-  });
-
-  test("piiEncrypted on a non-text field throws", () => {
-    const feature = defineFeature("test", (r) => {
-      r.entity(
-        "tenant",
-        createEntity({
-          fields: {
-            amount: { ...createNumberField(), piiEncrypted: true } as unknown as ReturnType<
-              typeof createNumberField
-            >,
-          },
-        }),
-      );
-    });
-    expect(() => validateBoot([feature])).toThrow(/piiEncrypted.*only applies to text fields/);
-  });
-
-  test("piiEncrypted without a subject annotation throws (kumiko-platform#457)", () => {
-    const feature = defineFeature("test", (r) => {
-      r.entity(
-        "tenant",
-        createEntity({
-          fields: {
-            iban: createTextField({ piiEncrypted: true }),
-          },
-        }),
-      );
-    });
-    expect(() => validateBoot([feature])).toThrow(/piiEncrypted.*without a subject annotation/);
-  });
-
-  test("piiEncrypted combined with searchable passes (#1610)", () => {
-    const feature = defineFeature("test", (r) => {
-      r.entity(
-        "tenant",
-        createEntity({
-          fields: {
-            iban: createTextField({
-              piiEncrypted: true,
-              tenantOwned: true,
-              access: { read: ["TenantAdmin"] },
-              searchable: true,
-            }),
-          },
-        }),
-      );
-    });
-    expect(() => validateBoot([feature])).not.toThrow();
-  });
-
-  test("piiEncrypted combined with sortable throws", () => {
-    const feature = defineFeature("test", (r) => {
-      r.entity(
-        "tenant",
-        createEntity({
-          fields: {
-            iban: createTextField({
-              piiEncrypted: true,
-              tenantOwned: true,
-              access: { read: ["TenantAdmin"] },
-              sortable: true,
-            }),
-          },
-        }),
-      );
-    });
-    expect(() => validateBoot([feature])).toThrow(/sortable/);
-  });
-
-  test("piiEncrypted without access.read throws (kumiko-platform#460)", () => {
-    const feature = defineFeature("test", (r) => {
-      r.entity(
-        "tenant",
-        createEntity({
-          fields: {
-            iban: createTextField({ piiEncrypted: true, tenantOwned: true }),
-          },
-        }),
-      );
-    });
-    expect(() => validateBoot([feature])).toThrow(/piiEncrypted.*without.*access.*read/);
   });
 });
