@@ -200,8 +200,8 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
 
       const orderByClause =
         payload.sort && table[payload.sort]
-          ? ` ORDER BY ${colSql(payload.sort)} ${payload.sortDirection === "desc" ? "DESC" : "ASC"}`
-          : "";
+          ? ` ORDER BY ${colSql(payload.sort)} ${payload.sortDirection === "desc" ? "DESC" : "ASC"}, ${colSql("id")} ASC`
+          : ` ORDER BY ${colSql("id")} ASC`;
       const useOffset = !payload.cursor && offset > 0;
       const offsetClause = useOffset ? ` OFFSET ${offset}` : "";
 
