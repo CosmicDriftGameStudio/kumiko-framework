@@ -608,6 +608,95 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(body.data.rows[0]?.id).toBe(aliceAsAdmin.sid);
   });
 
+  // fw#2230 — sort/sortDirection let the admin UI re-order the table client-
+  // side without a full refetch-and-sort round trip.
+  test("session:list sorts by an allowlisted column and direction", async () => {
+    const { userId: aliceId } = await h.seedUser("alice-sort@example.com", "pw-long-enough");
+    const { userId: bobId } = await h.seedUser("bob-sort@example.com", "pw-long-enough");
+    await updateRows(
+      stack.db,
+      tenantMembershipsTable,
+      { roles: JSON.stringify(["Admin"]) },
+      { userId: aliceId, tenantId: TENANT },
+    );
+    const aliceAsAdmin = await h.login("alice-sort@example.com", "pw-long-enough");
+    await h.login("bob-sort@example.com", "pw-long-enough");
+
+    const res = await h.authedPost("/api/query", aliceAsAdmin.token, {
+      type: SessionQueries.list,
+      payload: { sort: "userId", sortDirection: "asc" },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { rows: Array<{ id: string; userId: string }> } };
+    const nonSystemRows = body.data.rows.filter((r) => r.userId !== TestUsers.systemAdmin.id);
+    const userIds = nonSystemRows.map((r) => r.userId);
+    const sortedAscending = [...userIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    expect(userIds).toEqual(sortedAscending);
+    expect(new Set(userIds)).toEqual(new Set([aliceId, bobId]));
+  });
+
+  // A `sort` value outside the column allowlist (or an outright injection
+  // attempt) must not throw or 500 — it silently falls back to the default
+  // createdAt/desc ordering instead of letting a client sort by a
+  // non-exposed column like ip/userAgent.
+  test.each(["ip", "createdAt; DROP TABLE"])(
+    "session:list falls back to createdAt desc for a disallowed sort=%s",
+    async (badSort) => {
+      const { userId: aliceId } = await h.seedUser(
+        `alice-badsort-${badSort.length}@example.com`,
+        "pw-long-enough",
+      );
+      await updateRows(
+        stack.db,
+        tenantMembershipsTable,
+        { roles: JSON.stringify(["Admin"]) },
+        { userId: aliceId, tenantId: TENANT },
+      );
+      const aliceAsAdmin = await h.login(
+        `alice-badsort-${badSort.length}@example.com`,
+        "pw-long-enough",
+      );
+
+      const res = await h.authedPost("/api/query", aliceAsAdmin.token, {
+        type: SessionQueries.list,
+        payload: { sort: badSort },
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        data: { rows: Array<{ id: string; createdAt: string }> };
+      };
+      expect(body.data.rows.length).toBeGreaterThan(0);
+      const createdAtValues = body.data.rows.map((r) => Date.parse(r.createdAt));
+      const sortedDescending = [...createdAtValues].sort((a, b) => b - a);
+      expect(createdAtValues).toEqual(sortedDescending);
+    },
+  );
+
+  test("session:list defaults to createdAt desc without a sort param", async () => {
+    await h.seedUser("alice-nosort@example.com", "pw-long-enough");
+    await h.login("alice-nosort@example.com", "pw-long-enough");
+    const { userId: bobId } = await h.seedUser("bob-nosort@example.com", "pw-long-enough");
+    await updateRows(
+      stack.db,
+      tenantMembershipsTable,
+      { roles: JSON.stringify(["Admin"]) },
+      { userId: bobId, tenantId: TENANT },
+    );
+    const bobAsAdmin = await h.login("bob-nosort@example.com", "pw-long-enough");
+
+    const res = await h.authedPost("/api/query", bobAsAdmin.token, {
+      type: SessionQueries.list,
+      payload: {},
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { rows: Array<{ id: string; createdAt: string }> } };
+    const createdAtValues = body.data.rows.map((r) => Date.parse(r.createdAt));
+    const sortedDescending = [...createdAtValues].sort((a, b) => b - a);
+    expect(createdAtValues).toEqual(sortedDescending);
+    // bobAsAdmin's own (re-)login is the most recent row, must lead.
+    expect(body.data.rows[0]?.id).toBe(bobAsAdmin.sid);
+  });
+
   // Single-row inspector backing the session-detail screen (kumiko-framework#255).
   // Same access-gate as session:list (admin-or-higher); verifies field-shape,
   // decryption of ip/userAgent, and the "unknown id" not-found path.
