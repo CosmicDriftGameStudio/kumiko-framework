@@ -133,11 +133,12 @@ export const exportJobEntity = createEntity({
     // verbleiben.
     expiresAt: createTimestampField({}),
 
-    // Failed-State Diagnose. longText weil Hook-Errors mit Stack-Trace
-    // mehrere KB werden koennen. is-business-data weil Job-Status
-    // public im UI-Polling sichtbar (kein PII).
+    // Failed-state diagnostics. longText because hook errors with stack
+    // traces can run several KB. `reason: "is_business_data"` because
+    // job status is publicly visible in UI polling (no PII).
     errorMessage: createLongTextField({
-      allowPlaintext: "is-business-data",
+      personal: false,
+      reason: "is_business_data",
     }),
 
     // Audit-Info fuer Operator: wie gross war der Export. Hilft beim

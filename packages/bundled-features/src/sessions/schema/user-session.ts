@@ -63,12 +63,14 @@ export const userSessionEntity = createEntity({
     ip: createTextField({
       maxLength: 64,
       access: { write: access.privileged },
-      userOwned: { ownerField: "userId" },
+      personal: { of: "userId" },
+      find: "none",
     }),
     userAgent: createTextField({
       maxLength: 512,
       access: { write: access.privileged },
-      userOwned: { ownerField: "userId" },
+      personal: { of: "userId" },
+      find: "none",
     }),
   },
 });

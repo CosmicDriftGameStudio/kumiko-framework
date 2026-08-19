@@ -1,5 +1,5 @@
 import type { FeatureDefinition } from "../types";
-import type { FieldAccess, PiiAnnotations } from "../types/fields";
+import type { ResolvedPiiFlags } from "../types/fields";
 import {
   PII_DIRECT_NAME_HINTS,
   PII_USER_OWNED_NAME_HINTS,
@@ -24,7 +24,7 @@ const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 // A field carries a subject binding — pii/userOwned/tenantOwned mark
 // annotated content, subjectRef marks a bare FK into `user` with no
 // annotated content of its own but the same Art.17 obligations (#1645).
-function hasSubjectAnnotation(annot: PiiAnnotations): boolean {
+function hasSubjectAnnotation(annot: ResolvedPiiFlags): boolean {
   return Boolean(annot.pii || annot.userOwned || annot.tenantOwned || annot.subjectRef);
 }
 
@@ -43,7 +43,7 @@ function hasSubjectAnnotation(annot: PiiAnnotations): boolean {
 //
 // 3. Heuristik-Warnings: Field-Namen die typischerweise PII enthalten
 //    (email, name, phone, body, etc.) ohne Annotation → Boot-Warning.
-//    Mit `allowPlaintext: "<reason>"` unterdrückbar (geht in Audit).
+//    Mit `{ personal: false, reason: "<reason>" }` unterdrückbar (geht in Audit).
 //
 // 4. Retention-Integrity: retention.reference (wenn gesetzt) muss auf
 //    ein bestehendes Field zeigen (oder Framework-Timestamp). retention.
@@ -57,12 +57,12 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
     const fieldsByName = entity.fields;
 
     for (const [fieldName, field] of Object.entries(fieldsByName)) {
-      // PiiAnnotations-Properties sind type-level optional. Auf Field-
-      // Defs die nicht via "& PiiAnnotations" erweitert sind (Boolean,
+      // ResolvedPiiFlags-Properties sind type-level optional. Auf Field-
+      // Defs die nicht via "& ResolvedPiiFlags" erweitert sind (Boolean,
       // Money, Reference, Embedded, Tz, LocatedTimestamp, File*, Image*)
       // liefert property-access undefined zur Runtime. Die TS-Compile-
       // Time-Validation hat dort schon abgelehnt → Cast ist safe.
-      const annot = field as PiiAnnotations; // @cast-boundary schema-walk
+      const annot = field as ResolvedPiiFlags; // @cast-boundary schema-walk
 
       const hasPii = Boolean(annot.pii);
       const hasUserOwned = Boolean(annot.userOwned);
@@ -71,7 +71,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
 
       if (annotCount > 1) {
         throw new Error(
-          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has multiple subject-key annotations (pii / userOwned / tenantOwned). Pick one — each field belongs to exactly one subject.`,
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has multiple subject-key annotations (personal: "self" / "tenant" / { of: "<field>" }). Pick one — each field belongs to exactly one subject.`,
         );
       }
 
@@ -81,46 +81,14 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       if (annot.lookupable === true) {
         if (field.type !== "text") {
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { lookupable: true } but has type "${field.type}" — blind-index equality lookups only apply to text fields.`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares find: "exact" (or "fuzzy") but has type "${field.type}" — blind-index equality lookups only apply to text fields.`,
           );
         }
         if (annotCount === 0) {
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { lookupable: true } without a subject annotation (pii / userOwned / tenantOwned). Plaintext fields don't need a blind index — add the subject annotation or drop lookupable.`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares find: "exact" (or "fuzzy") without a subject annotation (personal: "self" / "tenant" / { of: "<field>" }). Plaintext fields don't need a blind index — add personal or set find: "none".`,
           );
         }
-      }
-
-      // piiEncrypted (kumiko-platform#231/#456): a declarative alias over
-      // the subject-KMS — text only (storage stays the plaintext column
-      // with subject ciphertext, no separate envelope path).
-      const piiEncryptedFlag = field as { readonly piiEncrypted?: boolean }; // @cast-boundary schema-walk
-      if (piiEncryptedFlag.piiEncrypted === true && field.type !== "text") {
-        throw new Error(
-          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } but has type "${field.type}" — piiEncrypted only applies to text fields.`,
-        );
-      }
-      // piiEncrypted wiring (kumiko-platform#457): resolveSubjectForField/
-      // collectPiiSubjectFields only ever look at pii/userOwned/tenantOwned
-      // — piiEncrypted alone doesn't pick a subject. Without one of the
-      // three, the field would silently stay plaintext (no encrypt-on-
-      // write happens). Fail at boot like lookupable does, not at first read.
-      if (piiEncryptedFlag.piiEncrypted === true && annotCount === 0) {
-        throw new Error(
-          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } without a subject annotation (pii / userOwned / tenantOwned) — piiEncrypted alone doesn't encrypt anything, it only adds the access/masking layer on top of the subject-key encryption.`,
-        );
-      }
-      // piiEncrypted access model (kumiko-platform#460): field-level
-      // access.read already exists + is enforced (filterReadFields), but
-      // its default without an access config is "visible to everyone" —
-      // the wrong default for a field whose entire point is "only the
-      // legitimate owner may see the plaintext". Force an explicit choice
-      // instead of silently decrypting for every row-reader.
-      const accessFlag = field as { readonly access?: FieldAccess }; // @cast-boundary schema-walk
-      if (piiEncryptedFlag.piiEncrypted === true && !accessFlag.access?.read) {
-        throw new Error(
-          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } without { access: { read: [...] } } — without it the decrypted value is visible to anyone who can read the row. Set the roles allowed to see the plaintext.`,
-        );
       }
 
       // sensitive-Felder liegen seit #967 als Tabellen-Ciphertext im Event-
@@ -136,7 +104,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         sensitiveFlags.encrypted !== true
       ) {
         throw new Error(
-          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { sensitive: true } without ciphertext-at-rest. Since #967 the event log stores sensitive fields as table ciphertext — add a subject annotation (pii / userOwned / tenantOwned) or { encrypted: true }.`,
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { sensitive: true } without ciphertext-at-rest. Since #967 the event log stores sensitive fields as table ciphertext — add a subject annotation (personal: "self" / "tenant" / { of: "<field>" }) or { encrypted: true }.`,
         );
       }
 
@@ -152,9 +120,9 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
           readonly sortable?: boolean;
           readonly sensitive?: boolean;
         }; // @cast-boundary schema-walk
-        if ((annotCount > 0 || piiEncryptedFlag.piiEncrypted === true) && flags.sortable === true) {
+        if (annotCount > 0 && flags.sortable === true) {
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines a subject-key annotation or { piiEncrypted: true } with { sortable: true } — sorting reads the projection column, which is ciphertext at rest. For equality lookups use { lookupable: true }; drop sortable or keep the field plaintext (allowPlaintext).`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines a subject-key annotation with { sortable: true } — sorting reads the projection column, which is ciphertext at rest. For equality lookups use find: "exact"; drop sortable or keep the field plaintext (personal: false).`,
           );
         }
         if (flags.sensitive === true && flags.searchable === true) {
@@ -168,14 +136,14 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         const ownerName = annot.userOwned.ownerField;
         if (!ownerName || typeof ownerName !== "string") {
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has userOwned without ownerField name`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has personal: { of: ... } without an owner field name`,
           );
         }
         const ownerField = fieldsByName[ownerName];
         if (!ownerField) {
           const known = Object.keys(fieldsByName).sort().join(", ");
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" references userOwned.ownerField "${ownerName}" but no such field exists. Known fields: ${known}`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" references personal.of "${ownerName}" but no such field exists. Known fields: ${known}`,
           );
         }
         // Text is accepted alongside reference: the ES-framework carries
@@ -185,7 +153,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         // ownerField (the field's own value IS the owner id) rides on this.
         if (ownerField.type !== "reference" && ownerField.type !== "text") {
           throw new Error(
-            `[Feature ${feature.name}] userOwned.ownerField "${ownerName}" on entity "${entityName}" must be a reference or text (userId) field, got type "${ownerField.type}"`,
+            `[Feature ${feature.name}] personal.of "${ownerName}" on entity "${entityName}" must be a reference or text (userId) field, got type "${ownerField.type}"`,
           );
         }
         // Soft-Warning wenn das reference-target nicht offensichtlich user
@@ -197,7 +165,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
           if (targetEntity !== "user") {
             // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
             console.warn(
-              `[kumiko:boot] [Feature ${feature.name}] userOwned.ownerField "${ownerName}" on entity "${entityName}" targets reference "${refTarget}" — typically should be a user reference. If intentional (custom subject-entity like employee/patient), ignore.`,
+              `[kumiko:boot] [Feature ${feature.name}] personal.of "${ownerName}" on entity "${entityName}" targets reference "${refTarget}" — typically should be a user reference. If intentional (custom subject-entity like employee/patient), ignore.`,
             );
           }
         }
@@ -206,24 +174,24 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       // PII-Heuristik: nur wenn keine Annotation gesetzt UND kein
       // allowPlaintext-Marker. Ergibt false positives auf Geschäftsdaten
       // mit personenartigem Namen (z.B. company.legalName) — Author
-      // unterdrückt mit { allowPlaintext: "is-business-data" }.
+      // unterdrückt mit { personal: false, reason: "is_business_data" }.
       const noAnnotation = annotCount === 0 && !annot.allowPlaintext;
       if (noAnnotation) {
         const lower = fieldName.toLowerCase();
         if (PII_DIRECT_NAME_HINTS.has(lower)) {
           // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
           console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a PII-typical name but no { pii: true } annotation. If this is PII, mark it. If business data, set { allowPlaintext: "is-business-data" } to silence.`,
+            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a PII-typical name but no personal annotation. If this is PII, mark it { personal: "self", find: ... }. If business data, set { personal: false, reason: "is_business_data" } to silence.`,
           );
         } else if (PII_USER_OWNED_NAME_HINTS.has(lower)) {
           // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
           console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-content-typical name but no { userOwned } annotation. If this contains user-generated content, mark it { userOwned: { ownerField: "<authorIdField>" }}. If business data, set { allowPlaintext: "..." } to silence.`,
+            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-content-typical name but no personal annotation. If this contains user-generated content, mark it { personal: { of: "<authorIdField>" }, find: ... }. If business data, set { personal: false, reason: "..." } to silence.`,
           );
         } else if (PII_USER_REFERENCE_NAME_HINTS.has(lower) && !annot.subjectRef) {
           // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
           console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no { subjectRef: true } annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { subjectRef: true } AND register r.useExtension(EXT_USER_DATA, "${entityName}", …) — without the hook the V3 boot guard throws. Or { userOwned: { ownerField: "${fieldName}" } } on the field it owns. If business data, set { allowPlaintext: "..." } to silence.`,
+            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no personal annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { personal: "ref" } AND register r.useExtension(EXT_USER_DATA, "${entityName}", …) — without the hook the V3 boot guard throws. Or { personal: { of: "${fieldName}" } } on the field it owns. If business data, set { personal: false, reason: "..." } to silence.`,
           );
         }
       }
@@ -254,10 +222,10 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         // blockDelete on an entity with no subject field is the correct
         // "never auto-delete" choice; User-Forget never reaches those rows (#1622).
         const hasSubjectField = Object.values(fieldsByName).some(
-          (f) => hasSubjectAnnotation(f as PiiAnnotations), // @cast-boundary schema-walk
+          (f) => hasSubjectAnnotation(f as ResolvedPiiFlags), // @cast-boundary schema-walk
         );
         const hasAnonymize = Object.values(fieldsByName).some((f) => {
-          const a = f as PiiAnnotations; // @cast-boundary schema-walk
+          const a = f as ResolvedPiiFlags; // @cast-boundary schema-walk
           return Boolean(a.anonymize);
         });
         if (hasSubjectField && !hasAnonymize) {

@@ -36,7 +36,7 @@ const TEST_KEY = decodeBlindIndexKey(TEST_KEY_B64);
 const personEntity = createEntity({
   table: "read_bidx_persons",
   fields: {
-    email: createTextField({ required: true, pii: true, lookupable: true }),
+    email: createTextField({ required: true, personal: "self", find: "exact" }),
     firstName: createTextField(),
   },
 });

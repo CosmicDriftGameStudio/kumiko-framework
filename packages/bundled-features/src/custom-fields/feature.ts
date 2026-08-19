@@ -6,8 +6,8 @@
 // nicht für personenbezogene Daten. Das frühere `sensitive`-Flag wurde
 // entfernt; das Schema rejected es und `parseSerializedField` wirft auf
 // Alt-Definitionen. Werte stehen vollständig im Event-Log (rebuild-safe).
-// PII gehört in Schema-Entity-Felder mit pii/userOwned/tenantOwned-
-// Annotation (Crypto-Shredding, Event-Ciphertext, Forget-Pipeline).
+// PII belongs in schema-entity fields with a `personal` annotation
+// (crypto-shredding, event ciphertext, forget pipeline).
 //
 // **Was diese Feature liefert (B1 + B2, 2026-05-23):**
 //   1. r.entity("field-definition") — Definition-Storage (event-sourced).

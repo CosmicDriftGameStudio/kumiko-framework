@@ -49,7 +49,7 @@ const contactEntity = createEntity({
   table: "el_contacts",
   fields: {
     name: createTextField({ required: true }),
-    email: createTextField({ required: true, tenantOwned: true }),
+    email: createTextField({ required: true, personal: "tenant", find: "none" }),
     iban: createTextField({ required: true, encrypted: true }),
   },
 });
@@ -71,7 +71,7 @@ const ownedContactEntity = createEntity({
   table: "el_owned_contacts",
   fields: {
     name: createTextField({ required: true }),
-    email: createTextField({ required: true, tenantOwned: true }),
+    email: createTextField({ required: true, personal: "tenant", find: "none" }),
     iban: createTextField({ required: true, encrypted: true }),
   },
   access: { read: { admin: from("user:id", "ownerId") } },
@@ -85,7 +85,7 @@ const unrestrictedContactEntity = createEntity({
   table: "el_unrestricted_contacts",
   fields: {
     name: createTextField({ required: true }),
-    email: createTextField({ required: true, tenantOwned: true }),
+    email: createTextField({ required: true, personal: "tenant", find: "none" }),
   },
   access: { read: { admin: "all", member: "all" } },
 });

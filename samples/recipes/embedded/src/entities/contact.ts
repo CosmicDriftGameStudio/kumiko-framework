@@ -13,8 +13,8 @@ import {
 export const contactEntity = createEntity({
   table: "read_sample_contacts",
   fields: {
-    name: createTextField({ required: true, searchable: true, pii: true }),
-    email: createTextField({ format: "email", pii: true }),
+    name: createTextField({ required: true, personal: "self", find: "fuzzy" }),
+    email: createTextField({ format: "email", personal: "self", find: "none" }),
     address: createEmbeddedField(
       {
         street: { type: "text", required: true, searchable: true },

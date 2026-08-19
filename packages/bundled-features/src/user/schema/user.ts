@@ -67,8 +67,8 @@ export const userEntity = createEntity({
       required: true,
       format: "email",
       maxLength: 320,
-      pii: true,
-      lookupable: true,
+      personal: "self",
+      find: "exact",
       access: { write: access.privileged },
     }),
 
@@ -85,8 +85,8 @@ export const userEntity = createEntity({
     displayName: createTextField({
       required: true,
       maxLength: 100,
-      pii: true,
-      searchable: true,
+      personal: "self",
+      find: "fuzzy",
     }),
     // No default here — tenant-settings owns the app-wide locale default; see #1637.
     locale: createTextField({ maxLength: 10 }),
@@ -169,7 +169,7 @@ export const userEntity = createEntity({
       access: { write: access.privileged },
     }),
   },
-  // fw#2134 — email is `pii: true, lookupable: true`, so the column holds
+  // fw#2134 — email is `personal: "self", find: "exact"`, so the column holds
   // per-row ciphertext: a plain unique index on it can't catch duplicates.
   // `unique: true` over a lookupable column makes buildEntityTable /
   // deriveEntityTableMeta emit a second, partial unique index over the
