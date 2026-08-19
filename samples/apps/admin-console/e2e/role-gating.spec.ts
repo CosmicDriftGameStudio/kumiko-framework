@@ -25,8 +25,9 @@ test.describe("TenantAdmin workspace gating", () => {
     await loginAsTenantAdmin(page);
     await page.goto("/tenant-admin/members");
 
-    await expect(page.getByTestId("members-screen")).toBeVisible();
-    await page.getByTestId("combobox-invite-role").click();
+    await expect(page.getByTestId("render-list-table")).toBeVisible();
+    await page.getByTestId("render-list-toolbar-action-invite").click();
+    await page.getByTestId("combobox-kumiko-edit-role").click();
     const options = page.getByRole("option");
     await expect(options.filter({ hasText: "User" })).toBeVisible();
     await expect(options.filter({ hasText: "Admin" })).toBeVisible();
@@ -76,6 +77,6 @@ test.describe("Regular user denied admin workspaces", () => {
 
     await expect(page.getByTestId("workspace-tab-tenant-admin")).toHaveCount(0);
     await expect(page.getByTestId("workspace-tab-platform")).toHaveCount(0);
-    await expect(page.getByTestId("members-screen")).toHaveCount(0);
+    await expect(page.getByTestId("render-list-table")).toHaveCount(0);
   });
 });

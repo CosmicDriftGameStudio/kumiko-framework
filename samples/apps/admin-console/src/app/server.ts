@@ -8,11 +8,15 @@ import { seedRoleUsers } from "./seed-users";
 await runDevApp({
   features: APP_FEATURES,
   port: Number.parseInt(process.env["PORT"] ?? "4177", 10),
+  // Invite drawer on /members needs auth-email-password invite-create wired.
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
   watchDirs: ["./src", "../../../packages/*/src"],
   seeds: [seedRoleUsers],
   auth: {
+    invite: {
+      appUrl: `http://localhost:${Number.parseInt(process.env["PORT"] ?? "4177", 10)}/invite/accept`,
+    },
     admin: {
       email: SYSADMIN_EMAIL,
       password: SYSADMIN_PASSWORD,

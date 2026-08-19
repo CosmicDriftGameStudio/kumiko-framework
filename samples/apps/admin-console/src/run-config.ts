@@ -1,5 +1,6 @@
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
+import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
@@ -24,6 +25,7 @@ export const APP_FEATURES = [
   localeDe(),
   createSecretsFeature(),
   createAuditFeature(),
+  createDeliveryFeature(),
   createJobsFeature(),
   tierEngineFeature,
   createAdminShellFeature(),

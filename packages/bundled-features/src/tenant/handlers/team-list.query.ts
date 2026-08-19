@@ -8,7 +8,7 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
-import { userSessionTable } from "../../sessions";
+import { userSessionTable } from "../../sessions/schema/user-session";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { userTable } from "../../user";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table";
@@ -117,21 +117,28 @@ export const teamListQuery = definePagedQueryHandler({
           })
         : [];
 
-    const sessions =
-      userIds.length > 0
-        ? await selectMany<{ userId: unknown; lastSeenAt: unknown }>(db, userSessionTable, {
-            tenantId,
-            userId: userIds,
-          })
-        : [];
     const lastSeenByUserId = new Map<string, Temporal.Instant>();
-    for (const session of sessions) {
-      const value = session["lastSeenAt"];
-      if (!(value instanceof Temporal.Instant)) continue;
-      const userId = String(session["userId"]);
-      const current = lastSeenByUserId.get(userId);
-      if (current === undefined || Temporal.Instant.compare(value, current) > 0) {
-        lastSeenByUserId.set(userId, value);
+    if (userIds.length > 0) {
+      try {
+        const sessions = await selectMany<{ userId: unknown; lastSeenAt: unknown }>(
+          db,
+          userSessionTable,
+          { tenantId, userId: userIds },
+        );
+        for (const session of sessions) {
+          const value = session["lastSeenAt"];
+          if (!(value instanceof Temporal.Instant)) continue;
+          const userId = String(session["userId"]);
+          const current = lastSeenByUserId.get(userId);
+          if (current === undefined || Temporal.Instant.compare(value, current) > 0) {
+            lastSeenByUserId.set(userId, value);
+          }
+        }
+      } catch (err) {
+        // ponytail: lean sample apps (admin-console) mount auth without
+        // sessions — store_user_sessions never gets pushed. Integration tests
+        // may seed the table without mounting the feature; prod mounts both.
+        if ((err as { code?: string }).code !== "42P01") throw err;
       }
     }
 
