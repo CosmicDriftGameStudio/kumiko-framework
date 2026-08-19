@@ -60,6 +60,52 @@ describe("KumikoScreen / projectionDetail", () => {
     expect(screen.queryByTestId("render-edit-submit")).toBeNull();
   });
 
+  // fw#2245 Teil 4: synthesizeProjectionDetailEntity (projection-detail-shim.ts)
+  // stamps every field as type:"text" — the shim has no access to the query's
+  // real field types. field.renderer (Teil 1) is the only way this screen
+  // type reaches real per-type formatting; without it a timestamp field would
+  // render its raw ISO string. Mirrors the sessions bundled feature's actual
+  // session-detail screen (feature.ts).
+  test("field.renderer formats a value past the shim's synthesized type:'text' field", async () => {
+    const timestampScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        sections: [
+          {
+            title: "Session",
+            fields: ["userId", { field: "createdAt", renderer: { format: "timestamp" } }],
+          },
+        ],
+      },
+    };
+    const timestampSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [timestampScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={timestampSchema}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const rendered = screen.getByTestId("field-value-createdAt").textContent;
+    expect(rendered).not.toBe("2026-07-01T00:00:00Z");
+    expect(rendered).not.toBe("");
+  });
+
   // synthesizeProjectionDetailScreen rebuilds `layout` from `sections` alone
   // (structural readOnly:true proof) — a naive rebuild would drop sibling
   // layout fields like `width` (#1676).
