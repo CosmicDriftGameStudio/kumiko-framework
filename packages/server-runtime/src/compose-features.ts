@@ -78,7 +78,11 @@ export function composeFeatures(
   const bundled = [
     createConfigFeature(),
     createUserFeature(),
-    createTenantFeature(),
+    // inviteScreen mirrors authOptions.invite: that's the exact option that
+    // makes auth-email-password register the invite-create write-handler
+    // the /members invite drawer is bound to — without this, includeBundled
+    // apps that DO configure invite still get /members with no invite button.
+    createTenantFeature({ inviteScreen: Boolean(authOptions?.invite) }),
     createAuthEmailPasswordFeature(authOptions ?? {}),
     // signup-request/signup-confirm are registered whenever authOptions.signup
     // is set (see above), but the handler itself no-ops unless the companion
