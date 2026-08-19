@@ -48,5 +48,9 @@ export const DEFAULT_SESSION_CACHE_TTL_MS = 60_000;
 // MVP ships a single window; per-app overrides can come later.
 export const DEFAULT_SESSION_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
 
+// Minimum gap between lastSeenAt writes — coarse activity tracking without a
+// write on every authenticated request.
+export const LAST_SEEN_REFRESH_MS = 3_600_000;
+
 export const SESSION_LIST_SCREEN_ID = "session-list" as const;
 export const SESSION_DETAIL_SCREEN_ID = "session-detail" as const;
