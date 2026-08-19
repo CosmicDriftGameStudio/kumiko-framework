@@ -217,6 +217,10 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       id: SESSION_LIST_SCREEN_ID,
       type: "projectionList",
       query: SessionQueries.list,
+      // Mirrors list.query's own fallback (unrecognised/absent sort → createdAt
+      // desc) — kept in sync by hand, boot-validator only requires the field
+      // be present once the query accepts `sort` (fw#2230).
+      defaultSort: { field: "createdAt", dir: "desc" },
       columns: [
         { field: "id", label: "sessions.list.col.id" },
         { field: "userId", label: "sessions.list.col.userId" },

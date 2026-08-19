@@ -190,34 +190,30 @@ mit nacktem Array-Return rendert und den Error-Banner
 erwartet. Plus der bestehende Integration-Test auf `session-list`, der über
 echtes HTTP `{ rows: [...] }` bekommt und mindestens eine Zeile sieht.
 
-### 1.2 `searchable: true` ohne Suchindex ablehnen
+### 1.2 `searchable: true` auf `/export-job-list` — kein Framework-Bug, ein Versionsstand
 
-**Symptom:** `/export-job-list`, Sucheingabe wirft.
+Ursprünglich als offener Fix eingeplant (Boot-Check gegen `searchable: true`
+ohne Suchindex). Beide Prämissen dieses Plans waren falsch — der Punkt
+entfällt, hier zur Nachvollziehbarkeit stehen gelassen statt gelöscht.
 
-**Ursache:** `user-data-rights/screens.ts:32` setzt `searchable: true`. Die
-Entity `export-job` hat aber weder searchable Felder noch einen verdrahteten
-SearchAdapter. `event-store-executor-read.ts:81-92` wirft dann bewusst
-`UnprocessableError("search_adapter_not_wired")` (das ist fw#2032, korrektes
-Fail-Loud). Der Renderer hat mit `schema.searchAdapterMissing` bereits ein
-Gate (`kumiko-screen.tsx:1303-1310`), das aber app-global ist und nicht pro
-Entity greift.
-
-**Fix:** Boot-Validator lehnt `searchable: true` ab, wenn die Entity keine
-`searchable: true`-Felder hat. Das ist die statisch prüfbare Bedingung und
-deckt den Fall ab. Fehlermeldung nennt Screen-Id, Entity und die Auflösung
-(Feld auf `searchable` setzen oder `searchable` am Screen weglassen).
-
-**Der Check gilt nur für `entityList`.** Eine `projectionList` hat keine
-Entity, ihre Suche läuft im Query-Handler und braucht keinen SearchAdapter.
-Ohne diese Einschränkung würde 1.2 den `/members`-Screen aus 2.6d beim Boot
-failen lassen, der genau so gebaut ist.
-
-**Sofortmaßnahme im selben PR:** `searchable: true` in
-`user-data-rights/screens.ts:32` entfernen. Der Default (`false`, weil keine
-searchable Felder) ist korrekt.
-
-**Offen:** Ob `export-job` stattdessen einen Suchindex bekommen soll, ist eine
-Produktentscheidung. Siehe offene Fragen.
+- **Kein Framework-Bug.** Das Gate, das `search_adapter_not_wired` (#2032)
+  korrekt auslöst, kam mit df2db70 (#2062) und ist ab 0.199.0 released.
+  offlot-app pinnt 0.198.0. Auf diesem Stand rendert die Suchbox noch, wirft
+  aber beim ersten Query, weil offlot keinen SearchAdapter verdrahtet hat —
+  nichts, was ein Framework-Fix ändern könnte.
+- **`searchable: true` war korrekt.** `export-job` hat ein searchable Feld
+  (`schema/export-job.ts:76`) — der Screen war richtig deklariert. Die
+  ursprüngliche Ursachenannahme (keine searchable Felder auf der Entity) ist
+  widerlegt.
+- **Der geplante Boot-Check wäre falsch-positiv gewesen.** Er hätte diesen
+  Screen gar nicht gefunden, dafür aber solons `invoice-list`
+  (`src/features/invoice/feature.ts:92`) den App-Start gekostet — die Entity
+  hat 0 searchable Felder und läuft produktiv. Zusätzlich kann ein
+  Index-Dokument rein aus `searchPayloadExtensions` entstehen
+  (`pipeline/system-hooks.ts:196-211`), ohne dass die Entity selbst ein
+  searchable Feld trägt — der Check hätte diesen Fall nicht von einem echten
+  Fehler unterscheiden können.
+- **Fix:** offlot-app auf aktuelles Framework bumpen. #2217 ist geschlossen.
 
 ### 1.3 configEdit-Generator: Breite und Section-Description
 
@@ -343,12 +339,24 @@ der Query-Contract.
 - `mine.query.ts` bleibt liegen. Der nackte Array-Return ist dort kein Bug,
   weil kein `projectionList`-Screen daran hängt. Wird mitgezogen, sobald
   einer entsteht.
-- **Offen: Sort und Pager fehlen weiterhin.** `sortable`/`paginated` leitet
-  buildAppSchema aus dem Zod-Schema des Handlers ab. `user-session:list` hat
-  `z.object({})`, also weder `sort` noch `cursor`, also bleibt die Liste ohne
-  beides. `definePagedQueryHandler` ändert daran nichts, es prägt nur den
-  Rückgabetyp. Wer Sort und Pager will, muss das Input-Schema um `sort`,
-  `cursor` und `limit` erweitern und den Handler danach auswerten lassen.
+- **Umgesetzt in #2230, mit bewusst engerem Scope: Sortierung ja, Pager
+  nein.** `sortable`/`paginated` leitet buildAppSchema weiterhin aus dem
+  Zod-Schema des Handlers ab (`sort`/`cursor`/`offset` als Keys).
+  `user-session:list` bekommt `sort`, `sortDirection` und `limit` — macht die
+  Liste sortierbar, aber bewusst nicht `paginated`. Grund: `selectMany`s
+  `SelectOptions` kennt nur `limit`/`orderBy`, kein `offset` und kein
+  `COUNT(*)` — ein `cursor`/`offset`-Param im Zod-Shape würde `paginated:
+  true` im AppSchema versprechen, ohne dass der Handler je eine zweite Seite
+  liefern könnte. Pager bleibt ein eigenes Stück Arbeit, das zuerst
+  `SelectOptions.offset` (oder eine Cursor-Strategie) im bun-db-Layer
+  braucht.
+- **Doku-Lücke, kein Code-Task:** `entityListSchema` (die Sort/Limit/Filter-
+  Shape aus 1.1/2.1) ist aus `@cosmicdrift/kumiko-framework/engine` public
+  exportiert, wird von Consumern trotzdem von Hand abgeschrieben statt
+  importiert — money-horse (`mieten-list.query.ts`) und solon bauen ihr
+  eigenes `z.object({ sort, limit, ... })` statt `entityListSchema` zu
+  importieren. Kein Framework-Fix nötig, aber die Doku sollte den Export
+  sichtbarer machen.
 - Nav-Icon ist gesetzt (`icon: "list"`), Breite ist korrekt (kein
   FormScreenShell). Beides bereits in Ordnung.
 
@@ -361,13 +369,16 @@ Bereits `entityList` (`user-data-rights/screens.ts:17-34`), Nav mit
 `icon: "download"`, Standard-Empty-State
 (`query-table.tsx:97`, `t("kumiko.list.no-entries")`).
 
-- Erledigt durch **1.2** (`searchable` raus).
+- **Kein Fix nötig.** 1.2 ist widerlegt: `searchable: true` ist hier korrekt,
+  `export-job` hat mit `schema/export-job.ts:76` ein durchsuchbares Feld. Der
+  ursprüngliche Fehler (`search_adapter_not_wired`) kam von offlot-app auf
+  Framework 0.198.0, nicht vom Screen — siehe 1.2.
 - Marc meldet zusätzlich "no entries nicht standard". Der Screen nutzt aber
   bereits den Standard-EmptyState. Vermutlich hat er den Fehlerzustand nach
-  der geworfenen Suche gesehen, nicht den Empty-State. **Nach dem Fix
-  gegenprüfen**, bevor hier weiter etwas geändert wird.
+  der geworfenen Suche (auf 0.198.0) gesehen, nicht den Empty-State. **Nach
+  dem Versions-Bump gegenprüfen**, bevor hier weiter etwas geändert wird.
 
-**Aufwand:** fällt aus 1.2 heraus, plus Verifikation.
+**Aufwand:** entfällt, plus Verifikation nach dem Versions-Bump.
 
 ### 2.3 `/tenant-settings-tenant` (S)
 
@@ -670,9 +681,12 @@ mehr, die die Umsetzung blockieren.
    Framework unvollständig, und eine angebotene, aber leere Sprache ist
    schlechter als eine fehlende. Apps mit mehr Bundles setzen den Parameter.
 
-4. **`export-job` bekommt keine Suche.** `searchable` fliegt raus, Sortierung
+4. ~~**`export-job` bekommt keine Suche.** `searchable` fliegt raus, Sortierung
    und Pager reichen für eine SystemAdmin-Liste von Export-Jobs. Ein
-   Meili-Index für eine Handvoll Jobs pro Tenant wäre Aufwand ohne Nutzen.
+   Meili-Index für eine Handvoll Jobs pro Tenant wäre Aufwand ohne Nutzen.~~
+   **Widerlegt (#2230):** `searchable: true` war korrekt, `export-job` hat ein
+   durchsuchbares Feld. Der Fehler kam von offlot-app auf Framework 0.198.0,
+   nicht vom Schema — siehe 1.2. Kein Fix nötig.
 
 5. **Drawer in zwei Schritten.** `/members` bekommt zuerst einen normalen
    `actionForm` als Vollseite über `toolbarActions: [{ kind: "navigate" }]`,
@@ -690,8 +704,8 @@ sechs in den Folge-PRs wieder verschwinden. Erst umbauen, dann zuschließen.
 
 ```
 1.1         definePagedQueryHandler + Renderer-Guard (Einzelfall)  S   → erledigt
-2.1         session-list: sort/cursor ins Input-Schema             S
-1.2         searchable-Boot-Check + export-job-list fix           S   → schließt 2.2
+2.1         session-list: Sortierung ins Input-Schema (kein Pager) S   → erledigt, #2230
+1.2         ~~searchable-Boot-Check + export-job-list fix~~        —   → WIDERLEGT, kein Framework-Bug (siehe 1.2), Fix war Versions-Bump offlot-app (#2217)
 1.3 + 1.4   configEdit width/description + Locale-Select          S   → schließt 2.3
 1.5         lastSeenAt auf der Session + stündlicher Touch        S   ← blockiert 2.6d
 2.4         delivery-log auf projectionList                       M
