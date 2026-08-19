@@ -651,6 +651,7 @@ jobs:
       # kein OIDC). scripts/publish-with-oidc.sh iteriert publishable
       # workspaces, ruft `npm publish --provenance --access public`.
       - uses: changesets/action@v1
+        id: changesets
         with:
           # changesets/action runs `version:` as a split argv (no shell), so an
           # inline `&& bun install` is passed as extra args to changeset and
@@ -695,3 +696,24 @@ jobs:
           bun install --frozen-lockfile
           bash scripts/publish-with-oidc.sh
           git push origin --tags
+
+      # infra#540 (B2.8): Renovate soll per repository_dispatch statt Cron
+      # auf ein erfolgreiches Release reagieren. RENOVATE_DISPATCH_TOKEN
+      # existiert als Secret noch nicht (Marc setzt es separat, siehe
+      # infra/renovate/README.md) — deshalb `if: env... != ''` UND
+      # `continue-on-error: true`: ein fehlendes Secret oder ein
+      # fehlgeschlagener Dispatch-Call darf den Release-Job NIEMALS rot
+      # machen, ein ausgebliebener Renovate-Lauf ist harmlos (infra faengt es
+      # per 4h-Cron ohnehin auf), ein roter Release-Job blockiert den
+      # naechsten Publish. Deckt nur den regulaeren changesets/action-Publish
+      # ab, nicht den Rescue-Pfad im Schritt oben (#1781, konkurrierende
+      # Changesets) — der ist selten genug, dass der 4h-Cron als Netz reicht.
+      - name: Trigger Renovate in consumers
+        if: steps.changesets.outputs.published == 'true' && env.RENOVATE_DISPATCH_TOKEN != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.RENOVATE_DISPATCH_TOKEN }}
+          RENOVATE_DISPATCH_TOKEN: ${{ secrets.RENOVATE_DISPATCH_TOKEN }}
+        run: |
+          gh api repos/CosmicDriftGameStudio/infra/dispatches \
+            -f event_type=publisher-released
