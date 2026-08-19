@@ -2454,16 +2454,17 @@
         {
           "key": "locale",
           "qualifiedName": "tenant-settings:config:locale",
-          "type": "text",
+          "type": "select",
           "scope": "tenant",
           "default": "en",
           "encrypted": false,
           "computed": false,
-          "options": null,
+          "options": [
+            "de",
+            "en"
+          ],
           "bounds": null,
-          "pattern": {
-            "regex": "^[a-z]{2}(-[A-Z]{2})?$"
-          },
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "Admin",

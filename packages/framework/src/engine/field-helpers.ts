@@ -20,6 +20,10 @@ export const DEFAULT_CURRENCIES = [
   "INR",
 ] as const;
 
+// --- Locale ---
+
+export const DEFAULT_LOCALES = ["de", "en"] as const;
+
 export function isFileField(field: FieldDefinition | undefined): field is AnyFileFieldDef {
   if (!field) return false;
   return (
