@@ -76,10 +76,10 @@ describe("resolveDetailBreadcrumb", () => {
     ]);
   });
 
-  // fw#2245: projectionDetail has no entity for `listFromEntity` to pair
-  // against — listScreenId is its only back-navigation source, same role it
-  // plays for `custom` above. Matters once a screen hides its RenderEdit
-  // action-bar footer (hideActions) and has no entityList rowAction either.
+  // projectionDetail has no entity for `listFromEntity` to pair against —
+  // listScreenId is its only back-navigation source, same role it plays for
+  // `custom` above. Matters because RenderEdit's Cancel button is never
+  // wired up for this screen type and there's no entityList rowAction either.
   test("projectionDetail uses listScreenId", () => {
     const screens: ScreenDefinition[] = [
       {
