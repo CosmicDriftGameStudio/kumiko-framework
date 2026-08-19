@@ -1,27 +1,26 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, insertMany, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configuredPiiSubjectKms,
+  encryptPiiValueForSubject,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { append, getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import type { JobLogEntry, JobMeta, JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
-import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
-import { jobRunsTable } from "./job-run-table";
+import { parseJobInstant } from "./job-instant";
+import { jobRunLogsTable, jobRunsTable } from "./job-run-table";
 
-// ES job-run lifecycle:
-//   - onJobStart  → jobs:event:run-started   (first append, version 0→1)
-//   - onJobComplete → jobs:event:run-completed (append at current version,
-//                     payload carries the batched logs)
-//   - onJobFailed   → jobs:event:run-failed    (same shape as completed + error)
+// Direct-write job-run log (#2243): onJobStart/-Complete/-Failed write
+// straight into jobRunsTable / jobRunLogsTable instead of appending to the
+// event store and replaying through inline projections. Pre-#2243 every run
+// left two permanent `kumiko_events` rows that nothing else ever replayed
+// or MSP-subscribed to — in two production apps that was ~99% of all
+// events. Same tables, same shape, no event stream in between.
 //
 // BullMQ callbacks don't carry a tenantId (jobs are cross-tenant). We
 // anchor every run on SYSTEM_TENANT_ID — mirrors how config system-scope
-// rows use the sentinel. The stream still works per-run because
-// aggregate_id is a fresh UUID per run.
-
-export const JOB_RUN_STARTED_EVENT = "jobs:event:run-started" as const;
-export const JOB_RUN_COMPLETED_EVENT = "jobs:event:run-completed" as const;
-export const JOB_RUN_FAILED_EVENT = "jobs:event:run-failed" as const;
+// rows use the sentinel.
 
 export type JobRunLoggerOptions = {
   readonly db: DbConnection;
@@ -45,18 +44,40 @@ const DEFAULT_CACHE_MAX_ENTRIES = 10_000;
 // to DB-lookup if actually needed.
 const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallbacks {
-  const { db, registry } = opts;
+// The run-started payload can carry arbitrary user data; triggeredById
+// names its owning user. No event-PII catalog involved (#2243 removed the
+// jobRun r.defineEvent registrations, so there is nothing to catalog) —
+// the subject is known statically, so we encrypt directly. A null subject
+// (system cron runs, recipient-less triggers) stays plaintext: there is no
+// user key to shred, mirroring the previous event-pii catalog's own skip
+// rule. Absent KMS adapter stays plaintext too (rollout mode, unchanged).
+async function encryptStartedPayload(
+  payload: string | null,
+  triggeredById: string | null,
+): Promise<string | null> {
+  if (payload === null || triggeredById === null) return payload;
+  const kms = configuredPiiSubjectKms();
+  if (!kms) return payload;
+  return encryptPiiValueForSubject(
+    kms,
+    { kind: "user", userId: triggeredById },
+    payload,
+    { requestId: "jobs:job-run-logger" },
+    "payload",
+  );
+}
 
-  // bullJobId → aggregate uuid. BullMQ hands us the bullJobId on every
-  // callback, but our aggregate stream is keyed by a fresh UUID we mint
-  // on start. The cache threads that UUID from onJobStart through to
-  // onJobComplete/onJobFailed so the completion-event lands on the same
-  // stream as the start-event.
+export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallbacks {
+  const { db } = opts;
+
+  // bullJobId → run uuid. BullMQ hands us the bullJobId on every callback,
+  // but the run row is keyed by a fresh UUID we mint on start. The cache
+  // threads that UUID from onJobStart through to onJobComplete/onJobFailed
+  // so the completion-write lands on the same row as the start-write.
   //
   // Bounded cache (LRU-ish with TTL) — worker-crash between start and
   // complete would otherwise leak entries. DB-lookup recovers evicted
-  // entries via bull_job_id on the projection.
+  // entries via bull_job_id on jobRunsTable.
   type CacheEntry = { readonly runId: string; readonly expiresAt: number };
   const runIdByBullJobId = new Map<string, CacheEntry>();
 
@@ -106,7 +127,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       // Parse against the registered schema so out-of-dispatcher writes
       // get the same validation guarantee as ctx.appendEvent. A shape
       // drift between feature + logger fails loudly at the source
-      // instead of silently landing on the events-table.
+      // instead of silently landing on the table.
       const payload = runStartedSchema.parse({
         jobName,
         bullJobId,
@@ -116,16 +137,19 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         startedAt: Temporal.Now.instant().toString(),
         attempt: meta.attempt ?? 1,
       });
-      const event = await append(db, {
-        aggregateId: runId,
-        aggregateType: "jobRun",
+      const encryptedPayload = await encryptStartedPayload(payload.payload, payload.triggeredById);
+      await insertOne(db, jobRunsTable, {
+        id: runId,
         tenantId: SYSTEM_TENANT_ID,
-        expectedVersion: 0,
-        type: JOB_RUN_STARTED_EVENT,
-        payload,
-        metadata: { userId: "system" },
+        insertedById: "system",
+        jobName: payload.jobName,
+        bullJobId: payload.bullJobId,
+        status: payload.status,
+        payload: encryptedPayload,
+        attempt: payload.attempt,
+        startedAt: parseJobInstant(payload.startedAt),
+        triggeredById: payload.triggeredById,
       });
-      await runProjectionsForEvent(event, registry, db);
     },
 
     onJobComplete: async (
@@ -137,10 +161,9 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       const runId = await resolveRunId(bullJobId);
       // skip: state loss between start + complete (worker restart, cache
       // evicted AND DB has no matching bull_job_id). Rare edge case; we
-      // drop the completion event rather than forging a jobRun aggregate
-      // from scratch — forensics still has the original BullMQ lifecycle.
+      // drop the completion write rather than forging a run row from
+      // scratch — forensics still has the original BullMQ lifecycle.
       if (!runId) return;
-      const currentVersion = await getStreamVersion(db, runId, SYSTEM_TENANT_ID);
       const payload = runCompletedSchema.parse({
         duration,
         finishedAt: Temporal.Now.instant().toString(),
@@ -150,16 +173,32 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
           timestamp: l.timestamp.toString(),
         })),
       });
-      const event = await append(db, {
-        aggregateId: runId,
-        aggregateType: "jobRun",
-        tenantId: SYSTEM_TENANT_ID,
-        expectedVersion: currentVersion,
-        type: JOB_RUN_COMPLETED_EVENT,
-        payload,
-        metadata: { userId: "system" },
-      });
-      await runProjectionsForEvent(event, registry, db);
+      await updateMany(
+        db,
+        jobRunsTable,
+        {
+          status: "completed",
+          duration: payload.duration,
+          finishedAt: parseJobInstant(payload.finishedAt),
+          modifiedAt: Temporal.Now.instant(),
+          modifiedById: "system",
+        },
+        { id: runId },
+      );
+      // skip: empty log batch — the worker ran silent. No child rows to
+      // insert; the status update above already recorded completion.
+      if (payload.logs.length > 0) {
+        await insertMany(
+          db,
+          jobRunLogsTable,
+          payload.logs.map((log) => ({
+            runId,
+            level: log.level,
+            message: log.message,
+            timestamp: parseJobInstant(log.timestamp),
+          })),
+        );
+      }
       runIdByBullJobId.delete(bullJobId); // immediate cleanup on terminal callback
     },
 
@@ -171,13 +210,11 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
     ) => {
       const runId = await resolveRunId(bullJobId);
       // skip: same rare state-loss case as in onJobComplete — drop the
-      // failure event rather than forge a jobRun aggregate from scratch.
+      // failure write rather than forge a run row from scratch.
       if (!runId) return;
-      const currentVersion = await getStreamVersion(db, runId, SYSTEM_TENANT_ID);
-      // Read started_at off the projection so we can compute duration
+      // Read started_at off the row so we can compute duration
       // symmetrically to onJobComplete (which gets duration from the
-      // worker). The projection already has started_at from the
-      // run-started inline-apply.
+      // worker). The row already has started_at from onJobStart.
       const row = await fetchOne<{ startedAt: Temporal.Instant }>(db, jobRunsTable, { id: runId });
       const now = Temporal.Now.instant();
       const duration = row ? Number(now.since(row.startedAt).total({ unit: "millisecond" })) : 0;
@@ -191,16 +228,32 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
           timestamp: l.timestamp.toString(),
         })),
       });
-      const event = await append(db, {
-        aggregateId: runId,
-        aggregateType: "jobRun",
-        tenantId: SYSTEM_TENANT_ID,
-        expectedVersion: currentVersion,
-        type: JOB_RUN_FAILED_EVENT,
-        payload,
-        metadata: { userId: "system" },
-      });
-      await runProjectionsForEvent(event, registry, db);
+      await updateMany(
+        db,
+        jobRunsTable,
+        {
+          status: "failed",
+          error: payload.error,
+          duration: payload.duration,
+          finishedAt: parseJobInstant(payload.finishedAt),
+          modifiedAt: now,
+          modifiedById: "system",
+        },
+        { id: runId },
+      );
+      // skip: empty log batch — mirror of onJobComplete
+      if (payload.logs.length > 0) {
+        await insertMany(
+          db,
+          jobRunLogsTable,
+          payload.logs.map((log) => ({
+            runId,
+            level: log.level,
+            message: log.message,
+            timestamp: parseJobInstant(log.timestamp),
+          })),
+        );
+      }
       runIdByBullJobId.delete(bullJobId); // immediate cleanup on terminal callback
     },
   };

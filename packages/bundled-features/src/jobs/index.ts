@@ -1,4 +1,4 @@
-export { createJobsFeature } from "./feature";
+export { createJobsFeature, type JobsFeatureOptions } from "./feature";
 export type { JobRunLoggerCallbacks } from "./job-run-logger";
 export { createJobRunLogger } from "./job-run-logger";
 export type { JobLogLevel, JobRunStatus } from "./job-run-table";

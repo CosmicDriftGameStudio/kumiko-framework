@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-19T11:48:10.994Z",
+  "generatedAt": "2026-08-19T14:06:39.442Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -100,11 +100,15 @@
       "indexes": [
         {
           "name": "file_refs_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["fileName"]
+      "piiSubjectFields": [
+        "fileName"
+      ]
     },
     {
       "tableName": "read_cap_counters",
@@ -174,7 +178,9 @@
       "indexes": [
         {
           "name": "read_cap_counters_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed"
@@ -240,11 +246,17 @@
       "indexes": [
         {
           "name": "read_config_values_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_config_values_unique",
-          "columns": ["key", "tenant_id", "user_id"],
+          "columns": [
+            "key",
+            "tenant_id",
+            "user_id"
+          ],
           "unique": true
         }
       ],
@@ -349,7 +361,9 @@
       "indexes": [
         {
           "name": "read_custom_field_definitions_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed"
@@ -421,11 +435,15 @@
       "indexes": [
         {
           "name": "read_document_extracts_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["pages"]
+      "piiSubjectFields": [
+        "pages"
+      ]
     },
     {
       "tableName": "read_download_attempts",
@@ -513,7 +531,9 @@
       "indexes": [
         {
           "name": "read_download_attempts_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed"
@@ -605,11 +625,15 @@
       "indexes": [
         {
           "name": "read_export_download_tokens_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_export_download_tokens_one_per_job",
-          "columns": ["job_id"],
+          "columns": [
+            "job_id"
+          ],
           "unique": true
         }
       ],
@@ -713,11 +737,15 @@
       "indexes": [
         {
           "name": "read_export_jobs_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_export_jobs_one_active_per_user",
-          "columns": ["user_id"],
+          "columns": [
+            "user_id"
+          ],
           "unique": true,
           "whereSql": "status IN ('pending', 'running')"
         }
@@ -801,7 +829,9 @@
       "indexes": [
         {
           "name": "read_folder_assignments_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed"
@@ -862,7 +892,9 @@
       "indexes": [
         {
           "name": "read_folders_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed"
@@ -929,11 +961,17 @@
       "indexes": [
         {
           "name": "read_form_drafts_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_form_drafts_tenant_owner_key_uniq",
-          "columns": ["tenant_id", "owner_id", "draft_key"],
+          "columns": [
+            "tenant_id",
+            "owner_id",
+            "draft_key"
+          ],
           "unique": true
         }
       ],
@@ -1045,109 +1083,9 @@
       "indexes": [
         {
           "name": "read_inbound_messages_tenant_id_idx",
-          "columns": ["tenant_id"]
-        }
-      ],
-      "source": "unmanaged"
-    },
-    {
-      "tableName": "read_job_runs",
-      "columns": [
-        {
-          "name": "id",
-          "pgType": "uuid",
-          "notNull": true,
-          "primaryKey": true,
-          "defaultSql": "gen_random_uuid()"
-        },
-        {
-          "name": "tenant_id",
-          "pgType": "uuid",
-          "notNull": true
-        },
-        {
-          "name": "version",
-          "pgType": "integer",
-          "notNull": true,
-          "defaultSql": "1"
-        },
-        {
-          "name": "inserted_at",
-          "pgType": "timestamptz",
-          "notNull": true,
-          "defaultSql": "now()"
-        },
-        {
-          "name": "modified_at",
-          "pgType": "timestamptz",
-          "notNull": false
-        },
-        {
-          "name": "inserted_by_id",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "modified_by_id",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "job_name",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "bull_job_id",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "status",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "payload",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "error",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "attempt",
-          "pgType": "integer",
-          "notNull": true,
-          "defaultSql": "1"
-        },
-        {
-          "name": "started_at",
-          "pgType": "timestamptz",
-          "notNull": true
-        },
-        {
-          "name": "finished_at",
-          "pgType": "timestamptz",
-          "notNull": false
-        },
-        {
-          "name": "duration",
-          "pgType": "integer",
-          "notNull": false
-        },
-        {
-          "name": "triggered_by_id",
-          "pgType": "text",
-          "notNull": false
-        }
-      ],
-      "indexes": [
-        {
-          "name": "read_job_runs_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "unmanaged"
@@ -1218,7 +1156,9 @@
       "indexes": [
         {
           "name": "read_ledger_accounts_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed"
@@ -1304,7 +1244,9 @@
       "indexes": [
         {
           "name": "read_ledger_schedules_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed"
@@ -1381,7 +1323,9 @@
       "indexes": [
         {
           "name": "read_ledger_transactions_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed"
@@ -1472,7 +1416,9 @@
       "indexes": [
         {
           "name": "read_mail_accounts_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "unmanaged"
@@ -1543,7 +1489,9 @@
       "indexes": [
         {
           "name": "read_mail_threads_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "unmanaged"
@@ -1614,11 +1562,15 @@
       "indexes": [
         {
           "name": "read_note_entries_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["body"]
+      "piiSubjectFields": [
+        "body"
+      ]
     },
     {
       "tableName": "read_notification_preferences",
@@ -1687,7 +1639,12 @@
       "indexes": [
         {
           "name": "read_notification_preferences_unique",
-          "columns": ["tenant_id", "user_id", "notification_type", "channel"],
+          "columns": [
+            "tenant_id",
+            "user_id",
+            "notification_type",
+            "channel"
+          ],
           "unique": true
         }
       ],
@@ -1775,11 +1732,17 @@
       "indexes": [
         {
           "name": "read_pages_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_pages_unique",
-          "columns": ["tenant_id", "slug", "lang"],
+          "columns": [
+            "tenant_id",
+            "slug",
+            "lang"
+          ],
           "unique": true
         }
       ],
@@ -1861,7 +1824,9 @@
       "indexes": [
         {
           "name": "read_subscriptions_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "unmanaged"
@@ -1943,7 +1908,9 @@
       "indexes": [
         {
           "name": "read_tag_assignments_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed"
@@ -2009,7 +1976,9 @@
       "indexes": [
         {
           "name": "read_tags_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed"
@@ -2120,11 +2089,18 @@
       "indexes": [
         {
           "name": "read_template_resources_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_template_resources_unique",
-          "columns": ["tenant_id", "slug", "kind", "locale"],
+          "columns": [
+            "tenant_id",
+            "slug",
+            "kind",
+            "locale"
+          ],
           "unique": true
         }
       ],
@@ -2186,11 +2162,15 @@
       "indexes": [
         {
           "name": "read_tenant_compliance_profiles_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_tenant_compliance_profiles_tenant_id_unique",
-          "columns": ["tenant_id"],
+          "columns": [
+            "tenant_id"
+          ],
           "unique": true
         }
       ],
@@ -2278,30 +2258,45 @@
       "indexes": [
         {
           "name": "read_tenant_invitations_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_tenant_invitations_email_bidx_idx",
-          "columns": ["email_bidx"]
+          "columns": [
+            "email_bidx"
+          ]
         },
         {
           "name": "read_tenant_invitations_invited_by_bidx_idx",
-          "columns": ["invited_by_bidx"]
+          "columns": [
+            "invited_by_bidx"
+          ]
         },
         {
           "name": "read_tenant_invitations_tenant_email_unique",
-          "columns": ["tenant_id", "email"],
+          "columns": [
+            "tenant_id",
+            "email"
+          ],
           "unique": true
         },
         {
           "name": "read_tenant_invitations_tenant_email_unique_bidx",
-          "columns": ["tenant_id", "email_bidx"],
+          "columns": [
+            "tenant_id",
+            "email_bidx"
+          ],
           "unique": true,
           "whereSql": "\"email_bidx\" IS NOT NULL"
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["email", "invitedBy"]
+      "piiSubjectFields": [
+        "email",
+        "invitedBy"
+      ]
     },
     {
       "tableName": "read_tenant_memberships",
@@ -2359,11 +2354,16 @@
       "indexes": [
         {
           "name": "read_tenant_memberships_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_tenant_memberships_unique",
-          "columns": ["user_id", "tenant_id"],
+          "columns": [
+            "user_id",
+            "tenant_id"
+          ],
           "unique": true
         }
       ],
@@ -2430,11 +2430,16 @@
       "indexes": [
         {
           "name": "read_tenant_retention_overrides_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_tenant_retention_overrides_tenant_id_entity_name_unique",
-          "columns": ["tenant_id", "entity_name"],
+          "columns": [
+            "tenant_id",
+            "entity_name"
+          ],
           "unique": true
         }
       ],
@@ -2513,7 +2518,10 @@
       "indexes": [
         {
           "name": "read_tenant_secrets_tenant_key_unique",
-          "columns": ["tenant_id", "key"],
+          "columns": [
+            "tenant_id",
+            "key"
+          ],
           "unique": true
         }
       ],
@@ -2612,11 +2620,15 @@
       "indexes": [
         {
           "name": "read_tenants_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_tenants_key_unique",
-          "columns": ["key"],
+          "columns": [
+            "key"
+          ],
           "unique": true
         }
       ],
@@ -2678,7 +2690,9 @@
       "indexes": [
         {
           "name": "read_tier_assignments_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "managed"
@@ -2769,16 +2783,26 @@
       "indexes": [
         {
           "name": "read_user_content_entries_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_user_content_entries_unique",
-          "columns": ["tenant_id", "owner_id", "slug", "kind", "locale"],
+          "columns": [
+            "tenant_id",
+            "owner_id",
+            "slug",
+            "kind",
+            "locale"
+          ],
           "unique": true
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["content"]
+      "piiSubjectFields": [
+        "content"
+      ]
     },
     {
       "tableName": "read_user_mfa",
@@ -2851,16 +2875,24 @@
       "indexes": [
         {
           "name": "read_user_mfa_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_user_mfa_user_unique",
-          "columns": ["user_id", "tenant_id"],
+          "columns": [
+            "user_id",
+            "tenant_id"
+          ],
           "unique": true
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["totpSecret", "recoveryCodes"]
+      "piiSubjectFields": [
+        "totpSecret",
+        "recoveryCodes"
+      ]
     },
     {
       "tableName": "read_users",
@@ -2987,26 +3019,37 @@
       "indexes": [
         {
           "name": "read_users_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "read_users_email_bidx_idx",
-          "columns": ["email_bidx"]
+          "columns": [
+            "email_bidx"
+          ]
         },
         {
           "name": "read_users_email_unique",
-          "columns": ["email"],
+          "columns": [
+            "email"
+          ],
           "unique": true
         },
         {
           "name": "read_users_email_unique_bidx",
-          "columns": ["email_bidx"],
+          "columns": [
+            "email_bidx"
+          ],
           "unique": true,
           "whereSql": "\"email_bidx\" IS NOT NULL"
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["email", "displayName"]
+      "piiSubjectFields": [
+        "email",
+        "displayName"
+      ]
     },
     {
       "tableName": "store_api_tokens",
@@ -3094,16 +3137,22 @@
       "indexes": [
         {
           "name": "store_api_tokens_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         },
         {
           "name": "store_api_tokens_hash_unique",
-          "columns": ["token_hash"],
+          "columns": [
+            "token_hash"
+          ],
           "unique": true
         }
       ],
       "source": "unmanaged",
-      "piiSubjectFields": ["name"]
+      "piiSubjectFields": [
+        "name"
+      ]
     },
     {
       "tableName": "store_delivery_attempts",
@@ -3234,6 +3283,110 @@
       "source": "unmanaged"
     },
     {
+      "tableName": "store_job_runs",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "job_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "bull_job_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "payload",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "error",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "attempt",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "started_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "finished_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "duration",
+          "pgType": "integer",
+          "notNull": false
+        },
+        {
+          "name": "triggered_by_id",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_job_runs_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
       "tableName": "store_mail_seen_messages",
       "columns": [
         {
@@ -3294,7 +3447,9 @@
       "indexes": [
         {
           "name": "store_mail_seen_messages_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "unmanaged"
@@ -3365,7 +3520,9 @@
       "indexes": [
         {
           "name": "store_mail_sync_cursors_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "unmanaged"
@@ -3451,11 +3608,16 @@
       "indexes": [
         {
           "name": "store_user_sessions_tenant_id_idx",
-          "columns": ["tenant_id"]
+          "columns": [
+            "tenant_id"
+          ]
         }
       ],
       "source": "unmanaged",
-      "piiSubjectFields": ["ip", "userAgent"]
+      "piiSubjectFields": [
+        "ip",
+        "userAgent"
+      ]
     }
   ]
 }
