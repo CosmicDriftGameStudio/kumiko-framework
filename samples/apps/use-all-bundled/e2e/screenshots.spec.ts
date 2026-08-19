@@ -162,14 +162,8 @@ const SCENARIOS: readonly Scenario[] = [
     waitFor: '[data-testid^="job-runs-table"]',
     settleMs: 1000,
   },
-  // delivery — delivery-attempt log (admin), the notification delivery record.
-  // A declarative projectionList screen (fw#2221), not a hand-rolled one —
-  // it renders through the shared RenderList/DataTable machinery, whose
-  // testId is the fixed "render-list-table" (see render-list.tsx), not a
-  // screen-specific id. `^=` matches both the populated table and
-  // DataTable's own empty-state div ("render-list-table-empty") — same
-  // rationale as audit-log/job-runs above: a genuinely empty log is a valid
-  // ready state here, this only needs to rule out loading/error/bad-shape.
+  // projectionList renders via RenderList with a fixed testId; `^=` matches
+  // the empty state too, an empty log is a valid ready state here.
   {
     name: "delivery-log",
     flow: admin("/tenant-admin/delivery-log"),
