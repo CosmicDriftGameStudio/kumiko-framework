@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.208.2",
+    "type": "improvement",
+    "title": "Session rows track lastSeenAt, refreshed hourly",
+    "detail": "userSession now carries a lastSeenAt timestamp, set on session creation and refreshed by sessionChecker at most once per hour (LAST_SEEN_REFRESH_MS). A refresh failure is swallowed and the check still returns \"live\" — this is a coarse activity marker, not a per-request write."
+  },
+  {
     "version": "0.165.1",
     "type": "fix",
     "title": "Mid-stream access revocation aborts idle SSE pulls; sseHeartbeatMs is a real buildServer option (fw#1587).",
