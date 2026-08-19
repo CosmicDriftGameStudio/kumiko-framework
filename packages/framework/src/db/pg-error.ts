@@ -49,6 +49,13 @@ export function isLockNotAvailable(e: unknown): boolean {
   return extractPgError(e)?.code === "55P03";
 }
 
+// PG SQLSTATE 42P01 — "undefined table". A projection table for an entity
+// that was never mounted/rebuilt (or was dropped since) — callers treat
+// this as "no row found", not as a fatal error.
+export function isUndefinedTable(e: unknown): boolean {
+  return extractPgError(e)?.code === "42P01";
+}
+
 export function constraintOf(e: unknown): string | undefined {
   return extractPgError(e)?.constraint_name;
 }
