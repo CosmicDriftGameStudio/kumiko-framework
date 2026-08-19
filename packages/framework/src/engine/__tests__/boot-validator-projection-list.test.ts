@@ -238,4 +238,208 @@ describe("validateBoot — projectionList screens", () => {
       );
     });
   });
+
+  // fw#2224: filter/facets are new on ProjectionListScreenDefinition — no
+  // entity to check field-existence against, so validation is either
+  // structural (filter) or checked against the declared columns (facets),
+  // plus the same "does the bound query's schema actually accept this
+  // param" check fw#2165 already does for search/sort.
+  describe("projectionList filter + facets (fw#2224)", () => {
+    test('filter.op "in" requires an array value', () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({ filter: z.unknown().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: true } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["description"],
+          filter: { field: "status", op: "in", value: "not-an-array" },
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/filter\.op "in" requires/);
+    });
+
+    test('filter declared but the query schema has no "filter" parameter', () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({}),
+          async () => ({ rows: [], nextCursor: null }),
+          {
+            access: { openToAll: true },
+          },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["description"],
+          filter: { field: "status", op: "eq", value: "active" },
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/no "filter" parameter/);
+    });
+
+    test("a facet referencing a field that isn't a declared column is rejected", () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({ filters: z.unknown().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: true } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["description"],
+          facets: [
+            {
+              field: "status",
+              type: "select",
+              label: "Status",
+              options: [{ value: "active", label: "Active" }],
+            },
+          ],
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/not a declared column/);
+    });
+
+    test("duplicate facet fields are rejected", () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({ filters: z.unknown().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: true } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["status"],
+          facets: [
+            {
+              field: "status",
+              type: "boolean",
+              label: "Status",
+              trueLabel: "On",
+              falseLabel: "Off",
+            },
+            {
+              field: "status",
+              type: "boolean",
+              label: "Status",
+              trueLabel: "On",
+              falseLabel: "Off",
+            },
+          ],
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/more than once/);
+    });
+
+    test("a select facet with an empty options list is rejected", () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({ filters: z.unknown().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: true } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["status"],
+          facets: [{ field: "status", type: "select", label: "Status", options: [] }],
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/empty options list/);
+    });
+
+    test('facets declared but the query schema has no "filters" parameter', () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({}),
+          async () => ({ rows: [], nextCursor: null }),
+          {
+            access: { openToAll: true },
+          },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["status"],
+          facets: [
+            {
+              field: "status",
+              type: "boolean",
+              label: "Status",
+              trueLabel: "On",
+              falseLabel: "Off",
+            },
+          ],
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/no "filters" parameter/);
+    });
+
+    test("a valid filter + facets declaration on a schema that accepts both passes boot", () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({ filter: z.unknown().optional(), filters: z.unknown().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: true } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["status"],
+          filter: { field: "tier", op: "eq", value: "gold" },
+          facets: [
+            {
+              field: "status",
+              type: "boolean",
+              label: "Status",
+              trueLabel: "On",
+              falseLabel: "Off",
+            },
+          ],
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+  });
 });

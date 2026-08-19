@@ -1,7 +1,8 @@
 ---
-status: plan
+status: in-progress
 verified: 2026-08-19
 evidence: "offlot Mount-Punkte (Marc, 2026-08-19); Referenz-Pattern: kumiko-enterprise/packages/kumiko-credit/src/feature.ts (credit-list)"
+next: "Phase 2 (2.4 delivery-log, 2.5 profile-picker, 2.6a+d members, 2.6c drawer) + Phase 0 Guards — siehe 'Reihenfolge und Schnitt in Issues'"
 ---
 
 # Bundled-Features: Screen-Standardisierung

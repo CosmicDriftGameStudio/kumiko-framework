@@ -313,6 +313,27 @@ export type EntityListScreenDefinition = {
 // auto create-navigation (a projection isn't an editable entity list). Row
 // interaction is explicit via `rowActions`. The query must return the same
 // paged envelope as an entity list-query: `{ rows, nextCursor, total? }`.
+// User-toggleable facet dropdown on a projectionList screen (fw#2224).
+// entityList derives the same UI from `filterable: true` entity fields plus
+// the `<feature>:entity:<entity>:field:<field>:option:<value>` i18n
+// convention — a projectionList has no entity to derive from, so every
+// label here is explicit instead. Sent to the server as
+// `{field, op:"in", value}` in `payload.filters`, ANDed with `filter`.
+export type ListFacetSpec =
+  | {
+      readonly field: string;
+      readonly type: "select";
+      readonly label: string;
+      readonly options: readonly { readonly value: string; readonly label: string }[];
+    }
+  | {
+      readonly field: string;
+      readonly type: "boolean";
+      readonly label: string;
+      readonly trueLabel: string;
+      readonly falseLabel: string;
+    };
+
 export type ProjectionListScreenDefinition = {
   readonly id: string;
   readonly type: "projectionList";
@@ -336,6 +357,14 @@ export type ProjectionListScreenDefinition = {
    *  or `offset` param present). See `sortable` doc for why this is
    *  boot-enforced rather than type-enforced. */
   readonly paginated?: boolean;
+  /** Server-side filter, fixed on the screen — see `ScreenFilter` doc above
+   *  (entityList). Field existence can't be checked without an entity; the
+   *  boot-validator only checks structure (`op:"in"` ⇒ array value). */
+  readonly filter?: ScreenFilter;
+  /** User-toggleable facet dropdowns — see `ListFacetSpec` doc. `field`
+   *  must be a declared column; the bound query handler must accept
+   *  `filters` in its Zod schema — the boot-validator checks both. */
+  readonly facets?: readonly ListFacetSpec[];
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

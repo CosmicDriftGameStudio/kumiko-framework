@@ -6,6 +6,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  ListFacetSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
@@ -24,7 +25,7 @@ import type {
   SubmitResult,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
-import { fieldLabelKey } from "@cosmicdrift/kumiko-headless";
+import { fieldLabelKey, fieldOptionLabelKey } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractCreatedId } from "../components/reference-create-dialog";
 import { RenderEdit, type RenderEditAction } from "../components/render-edit";
@@ -858,6 +859,122 @@ export function buildListQueryPayload(state: {
   return payload;
 }
 
+// One resolved facet, independent of where the type info came from — an
+// entity field (entityList) or an explicit ListFacetSpec (projectionList,
+// fw#2224). Shared by buildFilterFacets/buildFilterPayload below so both
+// screen types build their query-payload filters and DataTable facet-UI
+// through the same code, instead of two copies that can drift.
+type ResolvedFacetSpec = {
+  readonly field: string;
+  readonly type: "select" | "boolean";
+  readonly label: string;
+  readonly options: readonly { readonly value: string; readonly label: string }[];
+};
+
+function buildFilterFacets(specs: readonly ResolvedFacetSpec[]): DataTableFacet[] {
+  return specs.map((spec) => ({ field: spec.field, label: spec.label, options: spec.options }));
+}
+
+// User-selected faceted filters from URL-state → payload.filters. Boolean
+// fields coerce "true"/"false" strings to real booleans (DB column is
+// boolean); everything else stays string[] under op:"in" (multi-select
+// semantics). `typeOf` resolves a field to its known type string —
+// undefined means "unknown field", so it's dropped (typo-safe: a stale/
+// hand-crafted URL param for an undeclared field never reaches the
+// server). Deliberately NOT gated on the field being a *facet* — entityList
+// passes through any field present in entity.fields, matching its
+// pre-fw#2224 behavior; only the boolean-coercion branch cares about type.
+function buildFilterPayload(
+  urlFilters: Readonly<Record<string, readonly string[]>>,
+  typeOf: (field: string) => string | undefined,
+): { field: string; op: "in"; value: unknown }[] {
+  const out: { field: string; op: "in"; value: unknown }[] = [];
+  for (const [field, values] of Object.entries(urlFilters)) {
+    if (values.length === 0) continue;
+    // `id` is a base column (not a declared facet), allowed as an id-set
+    // filter so a header-slot control — e.g. the tags TagFilter — can narrow
+    // ANY list to a resolved set of row ids without the host declaring a facet.
+    if (field === "id") {
+      out.push({ field, op: "in", value: values });
+      continue;
+    }
+    const type = typeOf(field);
+    if (type === undefined) continue;
+    const value = type === "boolean" ? values.map((v) => v === "true") : values;
+    out.push({ field, op: "in", value });
+  }
+  return out;
+}
+
+// entityList adapter — one DataTableFacet per filterable select/boolean
+// entity field, labels via the standard field/option i18n convention.
+function resolveEntityFacetSpecs(
+  fields: Readonly<Record<string, unknown>>,
+  featureName: string,
+  entityName: string,
+  translate: Translate,
+): ResolvedFacetSpec[] {
+  const out: ResolvedFacetSpec[] = [];
+  for (const [field, rawDef] of Object.entries(fields)) {
+    // entity.fields ist am Renderer-Layer schwach getypt (Record<string,
+    // unknown>, vom Schema deserialisiert) — Boundary-Cast wie buildInitialValues.
+    const def = rawDef as { type?: string; filterable?: boolean; options?: readonly string[] };
+    if (def.filterable !== true) continue;
+    const label = translate(fieldLabelKey(featureName, entityName, field));
+    if (def.type === "select" && Array.isArray(def.options)) {
+      out.push({
+        field,
+        type: "select",
+        label,
+        options: def.options.map((value) => ({
+          value,
+          label: translate(fieldOptionLabelKey(featureName, entityName, field, value)),
+        })),
+      });
+    } else if (def.type === "boolean") {
+      out.push({
+        field,
+        type: "boolean",
+        label,
+        options: [
+          {
+            value: "true",
+            label: translate(fieldOptionLabelKey(featureName, entityName, field, "true")),
+          },
+          {
+            value: "false",
+            label: translate(fieldOptionLabelKey(featureName, entityName, field, "false")),
+          },
+        ],
+      });
+    }
+  }
+  return out;
+}
+
+// projectionList adapter — a projectionList has no entity/i18n convention to
+// derive labels from, so ListFacetSpec carries every label explicitly
+// (fw#2224); this just reshapes it into the same ResolvedFacetSpec the
+// entityList adapter produces.
+function resolveProjectionFacetSpecs(
+  facets: readonly ListFacetSpec[] | undefined,
+): ResolvedFacetSpec[] {
+  if (facets === undefined) return [];
+  return facets.map((facet) =>
+    facet.type === "select"
+      ? { field: facet.field, type: "select", label: facet.label, options: facet.options }
+      : {
+          field: facet.field,
+          type: "boolean",
+          label: facet.label,
+          options: [
+            { value: "true", label: facet.trueLabel },
+            { value: "false", label: facet.falseLabel },
+          ],
+        },
+  );
+}
+
 function EntityListScreen({
   schema,
   screen,
@@ -947,28 +1064,18 @@ function EntityListBody({
   }, [useInfinite, sortQKey]);
 
   // User-gewählte Faceted-Filter aus dem URL-State → payload.filters.
-  // Boolean-Felder: "true"/"false"-Strings zu echten Booleans coercen
-  // (DB-Spalte ist boolean). Alles als op:"in" (Multi-Select-Semantik).
-  const filterPayload = useMemo(() => {
-    const out: { field: string; op: "in"; value: unknown }[] = [];
-    for (const [field, values] of Object.entries(urlState.filters)) {
-      if (values.length === 0) continue;
-      // `id` is a base column (not in entity.fields), allowed as an id-set
-      // filter so a header-slot control — e.g. the tags TagFilter — can narrow
-      // ANY list to a resolved set of row ids without the host declaring a facet.
-      if (field === "id") {
-        out.push({ field, op: "in", value: values });
-        continue;
-      }
-      // entity.fields ist am Renderer-Layer schwach getypt (vom Schema
-      // deserialisiert) — Boundary-Cast wie buildInitialValues.
-      const def = entity.fields[field] as { type?: string } | undefined;
-      if (def === undefined) continue;
-      const value = def.type === "boolean" ? values.map((v) => v === "true") : values;
-      out.push({ field, op: "in", value });
-    }
-    return out;
-  }, [urlState.filters, entity.fields]);
+  // typeOf liest den Field-Type direkt aus entity.fields (nicht gated auf
+  // filterable — bewusst permissiv, siehe buildFilterPayload-Doc).
+  const filterPayload = useMemo(
+    () =>
+      buildFilterPayload(urlState.filters, (field) => {
+        // entity.fields ist am Renderer-Layer schwach getypt (vom Schema
+        // deserialisiert) — Boundary-Cast wie buildInitialValues.
+        const def = entity.fields[field] as { type?: string } | undefined;
+        return def?.type;
+      }),
+    [urlState.filters, entity.fields],
+  );
 
   // Entity-only additions (screen.filter, faceted filters) layer on top of
   // the shared buildListQueryPayload — projectionList has neither.
@@ -1052,52 +1159,13 @@ function EntityListBody({
   // Faceted-Filter: ein Dropdown pro filterable select/boolean-Feld.
   // Labels + select-Option-Labels über dieselbe i18n-Konvention wie die
   // Spalten-Header (fieldLabelKey / :option:<value>).
-  const filterFacets = useMemo<DataTableFacet[]>(() => {
-    const out: DataTableFacet[] = [];
-    for (const [field, rawDef] of Object.entries(entity.fields)) {
-      // entity.fields ist am Renderer-Layer schwach getypt (Record<string,
-      // unknown>, vom Schema deserialisiert) — Boundary-Cast wie buildInitialValues.
-      const def = rawDef as {
-        type?: string;
-        filterable?: boolean;
-        options?: readonly string[];
-      };
-      if (def.filterable !== true) continue;
-      const label = effectiveTranslate(fieldLabelKey(featureName, screen.entity, field));
-      if (def.type === "select" && Array.isArray(def.options)) {
-        out.push({
-          field,
-          label,
-          options: def.options.map((value) => ({
-            value,
-            label: effectiveTranslate(
-              `${featureName}:entity:${screen.entity}:field:${field}:option:${value}`,
-            ),
-          })),
-        });
-      } else if (def.type === "boolean") {
-        out.push({
-          field,
-          label,
-          options: [
-            {
-              value: "true",
-              label: effectiveTranslate(
-                `${featureName}:entity:${screen.entity}:field:${field}:option:true`,
-              ),
-            },
-            {
-              value: "false",
-              label: effectiveTranslate(
-                `${featureName}:entity:${screen.entity}:field:${field}:option:false`,
-              ),
-            },
-          ],
-        });
-      }
-    }
-    return out;
-  }, [entity.fields, featureName, screen.entity, effectiveTranslate]);
+  const filterFacets = useMemo<DataTableFacet[]>(
+    () =>
+      buildFilterFacets(
+        resolveEntityFacetSpecs(entity.fields, featureName, screen.entity, effectiveTranslate),
+      ),
+    [entity.fields, featureName, screen.entity, effectiveTranslate],
+  );
 
   // Soft-Dispatcher: in Tests die ohne DispatcherProvider mounten,
   // bleibt rowActions undefined statt zu crashen. Echte Apps haben
@@ -1408,21 +1476,55 @@ function ProjectionListBody({
   // "infinite" on a paginated projectionList is silently a no-op today.
   const usePager = paginated && (screen.pagination ?? "pages") === "pages";
 
-  const queryPayload = useMemo(
+  // Facets (fw#2224) — a projectionList has no entity, so screen.facets is
+  // the only field inventory; resolveProjectionFacetSpecs reshapes its
+  // explicit labels into the same ResolvedFacetSpec the entityList adapter
+  // produces, so both feed the same buildFilterFacets/buildFilterPayload.
+  const facetSpecs = useMemo(() => resolveProjectionFacetSpecs(screen.facets), [screen.facets]);
+  const filterPayload = useMemo(
     () =>
-      buildListQueryPayload({
-        limit,
-        search: activeSearch,
-        sort: activeSort,
-        usePager,
-        page: urlState.page,
-        useInfinite: false,
-        cursor: undefined,
-      }),
-    [limit, activeSearch, activeSort, usePager, urlState.page],
+      buildFilterPayload(
+        urlState.filters,
+        (field) => facetSpecs.find((spec) => spec.field === field)?.type,
+      ),
+    [urlState.filters, facetSpecs],
   );
 
+  const queryPayload = useMemo(() => {
+    const payload = buildListQueryPayload({
+      limit,
+      search: activeSearch,
+      sort: activeSort,
+      usePager,
+      page: urlState.page,
+      useInfinite: false,
+      cursor: undefined,
+    });
+    // Gated on screen.filter/screen.facets being declared (not just on
+    // urlState/filterPayload happening to carry a value) — same rule as
+    // activeSearch/activeSort above: a stale URL must not smuggle a param
+    // the bound query's Zod schema doesn't accept (fw#2165 pattern).
+    if (screen.filter !== undefined) {
+      payload["filter"] = screen.filter;
+    }
+    if (screen.facets !== undefined && filterPayload.length > 0) {
+      payload["filters"] = filterPayload;
+    }
+    return payload;
+  }, [
+    limit,
+    activeSearch,
+    activeSort,
+    usePager,
+    urlState.page,
+    screen.filter,
+    screen.facets,
+    filterPayload,
+  ]);
+
   const rowsQuery = useQuery<PagedRows>(screen.query, queryPayload, { live: true });
+
+  const filterFacets = useMemo<DataTableFacet[]>(() => buildFilterFacets(facetSpecs), [facetSpecs]);
 
   const runNavigate = useCallback(
     (action: RowActionNavigate, row: ListRowViewModel) => {
@@ -1609,6 +1711,12 @@ function ProjectionListBody({
       {...(toolbarActions !== undefined && { toolbarActions })}
       {...(translate !== undefined && { translate })}
       {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
+      {...(filterFacets.length > 0 && {
+        filterFacets,
+        filterValues: urlState.filters,
+        onFilterChange: urlState.setFilter,
+        onFilterReset: urlState.clearFilters,
+      })}
     />
   );
 }

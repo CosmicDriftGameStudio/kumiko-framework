@@ -351,6 +351,52 @@ export function validateScreens(
       for (const col of screen.columns) {
         validateColumnRendererForm(feature.name, screenId, normalizeListColumn(col));
       }
+      // Screen filter (fw#2224) — field existence can't be checked without
+      // an entity (columns aren't a complete field inventory of the
+      // underlying query), so only pin the structure: "in" requires an
+      // array. Field validity is documented in the PR body.
+      if (
+        screen.filter !== undefined &&
+        screen.filter.op === "in" &&
+        !Array.isArray(screen.filter.value)
+      ) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionList) filter.op "in" requires ` +
+            `filter.value to be a readonly array.`,
+        );
+      }
+      // Facets (fw#2224) — unlike filter, a field inventory IS available
+      // here: the declared columns. A facet on a field with no column is
+      // almost always a typo (the user never sees the field anywhere), so
+      // this is hard-checked rather than just documented.
+      if (screen.facets !== undefined) {
+        const columnFieldNames = new Set(
+          screen.columns.map((col) => normalizeListColumn(col).field),
+        );
+        const seenFacetFields = new Set<string>();
+        for (const facet of screen.facets) {
+          if (seenFacetFields.has(facet.field)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionList) declares facet ` +
+                `"${facet.field}" more than once.`,
+            );
+          }
+          seenFacetFields.add(facet.field);
+          if (!columnFieldNames.has(facet.field)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionList) facet references field ` +
+                `"${facet.field}" which is not a declared column. Known columns: ` +
+                `${[...columnFieldNames].sort().join(", ")}`,
+            );
+          }
+          if (facet.type === "select" && facet.options.length === 0) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionList) facet "${facet.field}" ` +
+                `(type "select") has an empty options list — declare at least one option.`,
+            );
+          }
+        }
+      }
       if (screen.rowActions !== undefined) {
         for (const action of screen.rowActions) {
           if (action.kind === "navigate") {

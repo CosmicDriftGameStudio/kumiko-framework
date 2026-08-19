@@ -80,6 +80,7 @@ export type {
   FieldRenderer,
   FormWidth,
   ListColumnSpec,
+  ListFacetSpec,
   PlatformComponent,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,

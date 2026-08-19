@@ -269,6 +269,7 @@ export type {
   FieldRenderer,
   FormatSpec,
   ListColumnSpec,
+  ListFacetSpec,
   PlatformComponent,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
