@@ -109,6 +109,13 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
   const masked = collectMaskedKeys(registry);
   if (masked.length === 0) return { screens: [], navs: [] };
 
+  // Verbatim (unprefixed) keys as the client sees them — NOT getAllTranslations()
+  // (server-merged, "feature:"-prefixed, see build-app-schema.ts:77-81).
+  const declaredTranslationKeys = new Set<string>();
+  for (const f of registry.features.values()) {
+    for (const key of Object.keys(f.translations ?? {})) declaredTranslationKeys.add(key);
+  }
+
   const screens: ScreenDefinition[] = [];
   const navs: NavDefinition[] = [];
 
@@ -131,7 +138,7 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
       const access = rolesToAccess(group.flatMap((v) => v.roles));
       const shortId = `${feature}-${scope}`;
 
-      screens.push(buildScreen(shortId, scope, feature, ordered, access));
+      screens.push(buildScreen(shortId, scope, feature, ordered, access, declaredTranslationKeys));
       navs.push({
         id: shortId,
         label: `${feature}.settings`,
@@ -201,6 +208,7 @@ function buildScreen(
   feature: string,
   keys: readonly MaskedKey[],
   access: AccessRule,
+  declaredTranslationKeys: ReadonlySet<string>,
 ): ConfigEditScreenDefinition {
   const configKeys: Record<string, string> = {};
   const fields: Record<string, FieldDefinition> = {};
@@ -226,8 +234,11 @@ function buildScreen(
     // mask is the visibility gate, so collectMaskedKeys guarantees it here.
     if (k.def.mask) fieldLabels[id] = k.def.mask.title;
   }
+  // translate() echoes an undeclared key, so an ungated description would render raw.
+  const descriptionKey = `${feature}.settings.description`;
   const section: EditFieldsSection = {
     title: `${feature}.settings`,
+    ...(declaredTranslationKeys.has(descriptionKey) && { description: descriptionKey }),
     fields: keys.map(fieldId),
   };
   return {
@@ -237,7 +248,7 @@ function buildScreen(
     configKeys,
     fields,
     fieldLabels,
-    layout: { sections: [section] },
+    layout: { sections: [section], width: "full" },
     access,
   };
 }
