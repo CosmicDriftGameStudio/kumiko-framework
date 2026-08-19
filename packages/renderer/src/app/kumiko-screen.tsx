@@ -1380,7 +1380,7 @@ function ProjectionListBody({
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
 }): ReactNode {
-  const { Banner } = usePrimitives();
+  const { Banner, Text } = usePrimitives();
   const t = useTranslation();
   const nav = useNav();
   const dispatcher = useOptionalDispatcher();
@@ -1556,6 +1556,21 @@ function ProjectionListBody({
     return (
       <Banner padded variant="error" testId="kumiko-screen-error">
         {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
+      </Banner>
+    );
+  }
+
+  // rowsQuery.data is typed as PagedRows but the query handler is free to
+  // return anything at runtime (fw#2216: a bare array silently rendered an
+  // empty table instead of surfacing the mismatch); a system-boundary cast
+  // is needed to inspect the actual wire shape before trusting it.
+  const rawRowsData = rowsQuery.data as unknown as { readonly rows?: unknown } | null;
+  if (rawRowsData !== null && !Array.isArray(rawRowsData.rows)) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-projection-list-bad-shape">
+        Screen <Text variant="code">{screen.id}</Text> query{" "}
+        <Text variant="code">{screen.query}</Text> did not return a PagedRows envelope; a
+        projectionList query must return <Text variant="code">{"{ rows, nextCursor }"}</Text>.
       </Banner>
     );
   }

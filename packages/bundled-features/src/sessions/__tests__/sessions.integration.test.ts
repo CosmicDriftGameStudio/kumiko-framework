@@ -579,18 +579,25 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     });
     expect(asAdmin.status).toBe(200);
     const body = (await asAdmin.json()) as {
-      data: Array<{
-        id: string;
-        userId: string;
-        createdAt: string;
-        revokedAt: string | null;
-      }>;
+      data: {
+        rows: Array<{
+          id: string;
+          userId: string;
+          createdAt: string;
+          revokedAt: string | null;
+        }>;
+        nextCursor: string | null;
+      };
     };
+    // PagedRows envelope (fw#2216) — the renderer reads data.rows, not a
+    // bare array; asserting the shape here is the proof session-list
+    // actually renders rows instead of silently falling back to [].
+    expect(body.data.nextCursor).toBeNull();
     // Three rows total for the two test users: Alice's pre-promotion session,
     // Alice's post-promotion session, Bob's session. seedUser's bootstrap
     // actor (systemAdmin) also holds live sessions in this tenant — exclude
     // them, they aren't part of what this test pins.
-    const nonSystemRows = body.data.filter((r) => r.userId !== TestUsers.systemAdmin.id);
+    const nonSystemRows = body.data.rows.filter((r) => r.userId !== TestUsers.systemAdmin.id);
     expect(nonSystemRows).toHaveLength(3);
     const userIds = new Set(nonSystemRows.map((r) => r.userId));
     expect(userIds.size).toBe(2);
@@ -598,7 +605,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     // Order: most-recently-created first. aliceAsAdmin's session was the
     // last login; aliceAsAdmin.sid leads the list. Pinning guards against
     // silent orderBy removal.
-    expect(body.data[0]?.id).toBe(aliceAsAdmin.sid);
+    expect(body.data.rows[0]?.id).toBe(aliceAsAdmin.sid);
   });
 
   // Single-row inspector backing the session-detail screen (kumiko-framework#255).
@@ -685,8 +692,8 @@ describe("sessions feature — login → check → revoke → rejected", () => {
       payload: {},
     });
     expect(listRes.status).toBe(200);
-    const listBody = (await listRes.json()) as { data: Array<{ id: string }> };
-    expect(listBody.data.map((r) => r.id)).not.toContain(carolAsAdmin.sid);
+    const listBody = (await listRes.json()) as { data: { rows: Array<{ id: string }> } };
+    expect(listBody.data.rows.map((r) => r.id)).not.toContain(carolAsAdmin.sid);
   });
 });
 

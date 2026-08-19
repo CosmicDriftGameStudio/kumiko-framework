@@ -1,5 +1,5 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { access, definePagedQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { decryptStoredPii } from "../../shared";
 import { userSessionTable } from "../schema/user-session";
@@ -7,7 +7,9 @@ import { userSessionTable } from "../schema/user-session";
 // Admin view of every session in the active tenant. ctx.db (TenantDb)
 // applies tenant-scoping automatically on selects from tables with a
 // tenantId column. Includes revoked rows; UI shows revokedAt distinct.
-export const listQuery = defineQueryHandler({
+// Unpaginated query (no limit/cursor) — nextCursor is always null, there's
+// never a further page to fetch.
+export const listQuery = definePagedQueryHandler({
   name: "user-session:list",
   schema: z.object({}),
   access: { roles: access.admin },
@@ -23,7 +25,7 @@ export const listQuery = defineQueryHandler({
     }>(ctx.db, userSessionTable, undefined, {
       orderBy: { col: "createdAt", direction: "desc" },
     });
-    return Promise.all(
+    const decryptedRows = await Promise.all(
       rows.map(async (r) => ({
         id: r.id,
         userId: r.userId,
@@ -36,5 +38,6 @@ export const listQuery = defineQueryHandler({
           : r.userAgent,
       })),
     );
+    return { rows: decryptedRows, nextCursor: null };
   },
 });
