@@ -369,13 +369,16 @@ Bereits `entityList` (`user-data-rights/screens.ts:17-34`), Nav mit
 `icon: "download"`, Standard-Empty-State
 (`query-table.tsx:97`, `t("kumiko.list.no-entries")`).
 
-- Erledigt durch **1.2** (`searchable` raus).
+- **Kein Fix nötig.** 1.2 ist widerlegt: `searchable: true` ist hier korrekt,
+  `export-job` hat mit `schema/export-job.ts:76` ein durchsuchbares Feld. Der
+  ursprüngliche Fehler (`search_adapter_not_wired`) kam von offlot-app auf
+  Framework 0.198.0, nicht vom Screen — siehe 1.2.
 - Marc meldet zusätzlich "no entries nicht standard". Der Screen nutzt aber
   bereits den Standard-EmptyState. Vermutlich hat er den Fehlerzustand nach
-  der geworfenen Suche gesehen, nicht den Empty-State. **Nach dem Fix
-  gegenprüfen**, bevor hier weiter etwas geändert wird.
+  der geworfenen Suche (auf 0.198.0) gesehen, nicht den Empty-State. **Nach
+  dem Versions-Bump gegenprüfen**, bevor hier weiter etwas geändert wird.
 
-**Aufwand:** fällt aus 1.2 heraus, plus Verifikation.
+**Aufwand:** entfällt, plus Verifikation nach dem Versions-Bump.
 
 ### 2.3 `/tenant-settings-tenant` (S)
 
@@ -678,9 +681,12 @@ mehr, die die Umsetzung blockieren.
    Framework unvollständig, und eine angebotene, aber leere Sprache ist
    schlechter als eine fehlende. Apps mit mehr Bundles setzen den Parameter.
 
-4. **`export-job` bekommt keine Suche.** `searchable` fliegt raus, Sortierung
+4. ~~**`export-job` bekommt keine Suche.** `searchable` fliegt raus, Sortierung
    und Pager reichen für eine SystemAdmin-Liste von Export-Jobs. Ein
-   Meili-Index für eine Handvoll Jobs pro Tenant wäre Aufwand ohne Nutzen.
+   Meili-Index für eine Handvoll Jobs pro Tenant wäre Aufwand ohne Nutzen.~~
+   **Widerlegt (#2230):** `searchable: true` war korrekt, `export-job` hat ein
+   durchsuchbares Feld. Der Fehler kam von offlot-app auf Framework 0.198.0,
+   nicht vom Schema — siehe 1.2. Kein Fix nötig.
 
 5. **Drawer in zwei Schritten.** `/members` bekommt zuerst einen normalen
    `actionForm` als Vollseite über `toolbarActions: [{ kind: "navigate" }]`,

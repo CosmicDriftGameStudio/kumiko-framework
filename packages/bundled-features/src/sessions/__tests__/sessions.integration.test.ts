@@ -613,6 +613,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
   test("session:list sorts by an allowlisted column and direction", async () => {
     const { userId: aliceId } = await h.seedUser("alice-sort@example.com", "pw-long-enough");
     const { userId: bobId } = await h.seedUser("bob-sort@example.com", "pw-long-enough");
+    const { userId: carolId } = await h.seedUser("carol-sort@example.com", "pw-long-enough");
     await updateRows(
       stack.db,
       tenantMembershipsTable,
@@ -621,18 +622,28 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     );
     const aliceAsAdmin = await h.login("alice-sort@example.com", "pw-long-enough");
     await h.login("bob-sort@example.com", "pw-long-enough");
+    await h.login("carol-sort@example.com", "pw-long-enough");
 
-    const res = await h.authedPost("/api/query", aliceAsAdmin.token, {
-      type: SessionQueries.list,
-      payload: { sort: "userId", sortDirection: "asc" },
-    });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { data: { rows: Array<{ id: string; userId: string }> } };
-    const nonSystemRows = body.data.rows.filter((r) => r.userId !== TestUsers.systemAdmin.id);
-    const userIds = nonSystemRows.map((r) => r.userId);
-    const sortedAscending = [...userIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-    expect(userIds).toEqual(sortedAscending);
-    expect(new Set(userIds)).toEqual(new Set([aliceId, bobId]));
+    const fetchUserIds = async (sortDirection: "asc" | "desc") => {
+      const res = await h.authedPost("/api/query", aliceAsAdmin.token, {
+        type: SessionQueries.list,
+        payload: { sort: "userId", sortDirection },
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { data: { rows: Array<{ id: string; userId: string }> } };
+      return body.data.rows
+        .filter((r) => r.userId !== TestUsers.systemAdmin.id)
+        .map((r) => r.userId);
+    };
+
+    // Comparing asc against desc on the same query (rather than asserting
+    // against a re-sort of the response itself) is what actually fails if
+    // `sort`/`sortDirection` were silently ignored and rows just stayed in
+    // createdAt-desc order.
+    const ascending = await fetchUserIds("asc");
+    const descending = await fetchUserIds("desc");
+    expect(ascending).toEqual([...descending].reverse());
+    expect(new Set(ascending)).toEqual(new Set([aliceId, bobId, carolId]));
   });
 
   // A `sort` value outside the column allowlist (or an outright injection
