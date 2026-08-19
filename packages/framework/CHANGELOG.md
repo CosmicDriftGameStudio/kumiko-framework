@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.209.0
+
+### Minor Changes
+
+- 49662ef: fw#2225: `ToolbarAction` gains a third variant, `kind: "drawer"`, alongside `navigate` and `writeHandler`. It references an `actionForm` screen by id; clicking the toolbar button mounts that actionForm inline in a slide-in Drawer instead of navigating to a full page. A successful submit closes the Drawer and reloads the underlying list; Cancel closes it without navigating. The boot validator rejects a `screen` reference that doesn't resolve to a same-feature `actionForm` screen, and access is enforced exactly like `kind: "navigate"` — the toolbar button stays visible, but the Drawer shows an access-denied state instead of the form when the user lacks the target screen's role.
+
+  A new optional `Drawer` Core-Primitive backs this (`packages/renderer-web` wires it to the existing `widgets/drawer.tsx` `Drawer`); apps on an older `PrimitivesRegistry` without it simply don't render the drawer-kind button.
+
+- f86cf43: `projectionDetail` screens now render read-only fields as plain formatted text instead of disabled Inputs. `RenderField`/`RenderEdit` also consume `EditFieldSpec.renderer` on readOnly fields (FormatSpec or a registered `__component`), matching the existing list-column renderer behavior. New optional `RenderEditProps.valueDisplay`/`RenderFieldProps.valueDisplay` ("form" | "text", default "form" — no change for existing callers) and `ProjectionDetailScreenDefinition.valueDisplay`/`hideActions` let a screen opt out of either the text display or the Cancel action-bar button while keeping `listScreenId` back-navigation (fw#2245).
+- b9fdc41: `projectionList` screens can now declare `filter` (a static `ScreenFilter`) and `facets` (a `ListFacetSpec[]` for user-toggleable select/boolean dropdowns), matching the existing `entityList` capability. The bound query handler's Zod schema must accept `filter`/`filters` params for the declared capability to reach the server — the boot-validator now checks this and throws a clear error naming the missing schema field.
+
+### Patch Changes
+
+- f707d1b: `/delivery-log` is now a declarative `projectionList` screen instead of a hand-rolled `custom` React component. `delivery:query:log` moved to `definePagedQueryHandler` (cursor/limit/sort, whitelisted sort columns, id tie-breaker) and now returns `type`/`recipient` display fields instead of the raw `notificationType`/`recipientAddress` column names — that mapping used to live in the client component. The status column keeps a small `DeliveryStatusCell` renderer (`StatusBadge`); the rest of the old 103-line screen component is gone.
+- 12df48b: compliance-profiles: `/profile-picker` is now a declarative `actionForm` screen (select field + extension section for the read-only profile catalog) instead of a 152-line custom TSX screen. Submits to the existing `compliance-profiles:write:set-profile` handler unchanged. Nav entry gained a `shield` icon (fw#2222).
+- 92a5361: Session rows now track a `lastSeenAt` timestamp, set at creation and refreshed by `sessionChecker` at most once per hour. Gives apps a coarse "last activity" signal (e.g. for the session-list UI) without a DB write on every authenticated request.
+  - @cosmicdrift/kumiko-types@0.209.0
+
 ## 0.208.3
 
 ### Patch Changes
