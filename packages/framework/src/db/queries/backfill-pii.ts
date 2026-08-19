@@ -141,7 +141,7 @@ export async function backfillEventPiiEncryption(
         result.erasedFields += outcome.erased;
         if (!options.dryRun) {
           await raw.unsafe(`UPDATE "kumiko_events" SET "payload" = $1::jsonb WHERE "id" = $2`, [
-            JSON.stringify(outcome.payload),
+            outcome.payload,
             row.id,
           ]);
         }
