@@ -126,6 +126,81 @@ describe("event-store-executor.list — offset + totalCount (Tier 2.6d)", () => 
   });
 });
 
+describe("event-store-executor.list — stable order (#2198)", () => {
+  const exec = createEventStoreExecutor(table, entity, { entityName: "pagerItem" });
+
+  test("offset paging mit identischem sort-Wert: keine Row auf beiden Seiten, Union = alle Rows", async () => {
+    // All rows share the same rank value. Postgres picks a Top-N heapsort
+    // for LIMIT queries, which is not stable across ties — and different
+    // offsets sort differently-sized heaps (LIMIT 3 OFFSET 0 sorts the
+    // top 3, LIMIT 3 OFFSET 3 sorts the top 6), so without an id
+    // tie-breaker the same row can surface on multiple pages while
+    // another is skipped entirely. Needs enough rows + small enough
+    // pages to make the heap sizes diverge; 10 rows / page 5 (the
+    // previous setup) was too forgiving and stayed green without the fix.
+    const total = 25;
+    const pageSize = 3;
+    for (let i = 0; i < total; i++) {
+      await exec.create({ title: `item-${String(i).padStart(3, "0")}`, rank: 1 }, admin, tdb);
+    }
+    const page1 = await exec.list(
+      { limit: pageSize, offset: 0, sort: "rank", sortDirection: "asc" },
+      admin,
+      tdb,
+    );
+    const page2 = await exec.list(
+      { limit: pageSize, offset: pageSize, sort: "rank", sortDirection: "asc" },
+      admin,
+      tdb,
+    );
+    const ids1 = page1.rows.map((r) => r["id"]);
+    const ids2 = page2.rows.map((r) => r["id"]);
+    expect(ids1.filter((id) => ids2.includes(id))).toHaveLength(0);
+
+    const allIds = new Set<unknown>();
+    for (let offset = 0; offset < total; offset += pageSize) {
+      const page = await exec.list(
+        { limit: pageSize, offset, sort: "rank", sortDirection: "asc" },
+        admin,
+        tdb,
+      );
+      for (const id of page.rows.map((r) => r["id"])) allIds.add(id);
+    }
+    expect(allIds.size).toBe(total);
+  });
+
+  test("cursor paging ohne sort: jede Row genau einmal", async () => {
+    // Plain sequential inserts keep heap physical order == uuidv7 id order,
+    // so a Seq Scan without ORDER BY happens to come out sorted anyway and
+    // the missing-ORDER-BY bug stays invisible. Delete half the rows and
+    // VACUUM to free their heap space, then insert more rows so their
+    // (higher) uuidv7 ids get placed into the reused (earlier) pages —
+    // now physical scan order diverges from id order.
+    const client = asRawClient(testDb.db);
+    for (let i = 0; i < 100; i++) {
+      await exec.create({ title: `item-${String(i).padStart(3, "0")}`, rank: i }, admin, tdb);
+    }
+    await client.unsafe(`DELETE FROM read_pager_items WHERE rank::int % 2 = 1`);
+    await client.unsafe(`VACUUM read_pager_items`);
+    for (let i = 100; i < 150; i++) {
+      await exec.create({ title: `item-${String(i).padStart(3, "0")}`, rank: i }, admin, tdb);
+    }
+    const countRow = await client.unsafe(`SELECT count(*)::int AS c FROM read_pager_items`);
+    const total = (countRow as unknown as Array<{ c: number }>)[0]?.c ?? 0;
+
+    const seenIds: string[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < total + 5; page++) {
+      const res = await exec.list({ limit: 3, cursor }, admin, tdb);
+      seenIds.push(...res.rows.map((r) => r["id"] as string));
+      if (res.nextCursor === null) break;
+      cursor = res.nextCursor;
+    }
+    expect(seenIds).toHaveLength(total);
+    expect(new Set(seenIds).size).toBe(total);
+  });
+});
+
 describe("event-store-executor.list — filter (Tier 2.7c)", () => {
   const exec = createEventStoreExecutor(table, entity, { entityName: "pagerItem" });
 
