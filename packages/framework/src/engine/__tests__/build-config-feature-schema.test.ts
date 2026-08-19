@@ -137,6 +137,34 @@ describe("buildConfigFeatureSchema — structure", () => {
     ]);
   });
 
+  test("screen layout renders full-width", () => {
+    expect(configScreen("billing-tenant").layout.width).toBe("full");
+  });
+
+  test("section has no description when the feature never declares the '<feature>.settings.description' key", () => {
+    // billing declares no translations at all — the section must NOT carry a
+    // description prop (not just undefined), else the renderer would try to
+    // subtitle-render translate()'s undeclared-key fallback (the raw key).
+    const section = configScreen("billing-tenant").layout.sections[0];
+    expect(section && "description" in section).toBe(false);
+  });
+
+  test("section carries description when the feature declares '<feature>.settings.description'", () => {
+    const described = defineFeature("described", (r) => {
+      r.translations({ keys: { "described.settings.description": { en: "Manage settings." } } });
+      r.config({
+        keys: { flag: createTenantConfig("boolean", { mask: { title: "described.flag" } }) },
+      });
+    });
+    const out = buildConfigFeatureSchema(createRegistry([described]));
+    const screen = out.screens.find((s) => s.id === "described-tenant");
+    if (screen?.type !== "configEdit") throw new Error("expected configEdit screen");
+    const section = screen.layout.sections[0];
+    expect(section && "description" in section ? section.description : undefined).toBe(
+      "described.settings.description",
+    );
+  });
+
   test("excludes unmasked keys and computed keys", () => {
     const s = configScreen("billing-tenant");
     // internal-flag has no mask, derived is computed → neither appears anywhere
