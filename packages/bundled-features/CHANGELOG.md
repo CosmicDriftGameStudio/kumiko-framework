@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.212.0
+
+### Minor Changes
+
+- da78a06: `custom-fields` gains a `fieldDefinitionWriteRoles` option on `createCustomFieldsFeature` that overrides the roles required for `define-tenant-field`, `update-tenant-field` and `delete-tenant-field` (previously hard-wired to `["TenantAdmin"]`) and feeds into the field-definition list-query default the same way `valueWriteRoles` already does. `secrets` gains `access`/`roles` options on `createSecretsFeature` that override the roles (or open access) required for `set`, `delete` and `list` (previously hard-wired to `["TenantAdmin"]`). Both changes are backward-compatible — the previous hard-wired roles remain the defaults.
+
+### Patch Changes
+
+- 30bd330: Audit log screen now shows the actor's display name (or email) instead of a raw user id, and drops the aggregate column from the list view.
+- 120e585: Audit log actor column and detail view now show a translated "System" label when an event's `createdBy` is the literal `"system"` string written by system-authored events (e.g. delivery attempts), instead of rendering an empty cell.
+- 5372dce: Job-run log messages (`store_job_run_logs.message`) are now encrypted under the triggering user's DEK, same as `store_job_runs.payload` already was — closes the gap where free-text log lines from `onJobComplete`/`onJobFailed` landed in the unmanaged direct-write table without any PII protection. System/cron runs (no `triggeredById`) and rollout mode (no KMS configured) both stay plaintext, matching the existing payload behavior. `jobs:query:details` decrypts log messages for display.
+- Updated dependencies [35b0005]
+- Updated dependencies [d006e42]
+- Updated dependencies [28fc80a]
+  - @cosmicdrift/kumiko-types@0.212.0
+  - @cosmicdrift/kumiko-framework@0.212.0
+  - @cosmicdrift/kumiko-renderer@0.212.0
+  - @cosmicdrift/kumiko-renderer-web@0.212.0
+  - @cosmicdrift/kumiko-headless@0.212.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.212.0
+
 ## 0.211.0
 
 ### Patch Changes

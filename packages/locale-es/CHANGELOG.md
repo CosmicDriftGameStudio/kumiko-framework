@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-locale-es
 
+## 0.212.0
+
+### Patch Changes
+
+- 120e585: Audit log actor column and detail view now show a translated "System" label when an event's `createdBy` is the literal `"system"` string written by system-authored events (e.g. delivery attempts), instead of rendering an empty cell.
+- Updated dependencies [35b0005]
+- Updated dependencies [d006e42]
+- Updated dependencies [28fc80a]
+  - @cosmicdrift/kumiko-framework@0.212.0
+
 ## 0.211.0
 
 ### Patch Changes
