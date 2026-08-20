@@ -317,6 +317,7 @@ async function applyCodemods(
   return 0;
 }
 
+// kumiko-lint-ignore complexity-budget CLI orchestration moved from bin/commands/upgrade.ts — same branching surface, shared by kumiko upgrade + published kumiko-upgrade bin
 export async function runUpgradeCli(
   argv: readonly string[],
   cwd: string,
