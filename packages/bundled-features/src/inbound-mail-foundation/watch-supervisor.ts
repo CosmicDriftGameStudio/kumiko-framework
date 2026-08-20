@@ -5,27 +5,44 @@
 // Dedup im ingest-Handler macht Watch/Poll-Überschneidung idempotent —
 // der Poll ist Korrektheits-Anker, watch nur Latenz-Optimierung.
 //
-// **Plan-Abweichung (dokumentiert):** Der Plan sah den Poll als
-// `r.job`-Cron vor. JobContext hat aber KEINEN Dispatcher (verifiziert:
-// run-export-jobs.ts "Worker-AppContext hat kein queryAs/write") — der
-// ingest MUSS durch den Standard-Write-Handler (ES-Executor, PII,
-// Idempotency). Deshalb ist der Supervisor eine app-verdrahtete
-// Komponente mit `dispatchSystemWrite` in den Deps, exakt wie
-// billing-foundation's webhook-handler. Der App-Owner startet ihn in
-// bin/server.ts:
+// **Plan deviation (documented):** the plan had the poll as an `r.job`
+// cron trigger. At the time this was written, JobContext had no
+// dispatcher (verified against run-export-jobs.ts). It now does
+// (`ctx.write`/`ctx.queryAs`, job-runner.ts) — but converting the poll to
+// a cron job is a separate migration (job concurrency instead of this
+// dispatcher contract), not part of #1719, and stays untouched here. The
+// app owner still wires the supervisor in bin/server.ts:
 //
 //   const supervisor = createInboundMailSupervisor({
 //     providerCtx: { registry: deps.registry, secrets },
 //     db,
 //     dispatchWrite: ({ handlerQn, payload, tenantId }) =>
 //       deps.dispatchSystemWrite({ handlerQn, payload, tenantId: tenantId as TenantId }),
+//     // Multi-worker deployments: share one DistributedLock (same Redis,
+//     // same key prefix) across every worker process so only one of them
+//     // holds the IMAP IDLE connection per account (#1719). Omit `lock`
+//     // for a single-process deployment — every active account gets
+//     // watched locally, same as before.
+//     lock: createDistributedLock(redis, `${RedisKeys.lock}inbound-mail:watch:`),
 //   });
 //   await supervisor.start();
 //   // shutdown-hook: await supervisor.stop();
 //
-// **Betriebsrisiko IDLE (Plan §7.3):** langlebige Sockets im Prozess.
-// Mitigation hier: Backoff-Restart via onError, sauberes stop() aller
-// Watcher beim Shutdown, Poll fängt jede Lücke.
+// **IDLE operational risk (plan §7.3):** long-lived sockets in-process.
+// Mitigated here via backoff-restart on onError, a clean stop() of every
+// watcher on shutdown, and the poll covering every gap.
+//
+// **Multi-worker coordination (#1719):** the reconciliation poll stays
+// deliberately N-fold — every worker polls every active account, which
+// is idempotent and cheap. Only `plugin.watch()` holds a long-lived
+// connection, and only one worker may hold it per account. With
+// `deps.lock`, `ensureWatcher` claims a TTL lease (`lock.acquire`) for
+// the account before connecting; a worker that doesn't get it leaves the
+// account to its current holder — the poll still covers it. The holder
+// renews the claim via heartbeat (`lock.renew`, every ttl/3) for as long
+// as the watcher state lives, including across reconnect backoff, not
+// only while the connection is open. Losing the claim (Redis outage, TTL
+// exceeded) tears down the local watcher instead of racing a new holder.
 
 import { fetchOne, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
@@ -33,6 +50,7 @@ import {
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "temporal-polyfill";
 import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants";
 import { MAIL_ACCOUNT_PII_FIELDS, syncCursorTable } from "./entities";
@@ -54,6 +72,7 @@ const DEFAULT_BACKFILL_WINDOW_DAYS = 30;
 const DEFAULT_MAX_MESSAGES_PER_POLL = 200;
 const DEFAULT_WATCH_BACKOFF_INITIAL_MS = 5_000;
 const DEFAULT_WATCH_BACKOFF_MAX_MS = 5 * 60 * 1000;
+const DEFAULT_WATCH_LEASE_TTL_SECONDS = 90;
 /** V1: ein Cursor pro Account (eine Mailbox-Inbox). Multi-Folder später
  *  über weitere scopes ohne Schema-Änderung. */
 const CURSOR_SCOPE = "default";
@@ -85,6 +104,15 @@ export type InboundMailSupervisorDeps = {
   readonly maxMessagesPerPoll?: number;
   readonly watchBackoffInitialMs?: number;
   readonly watchBackoffMaxMs?: number;
+  /** Coordinates the IMAP watch (not the poll) across worker processes:
+   *  before `plugin.watch()`, ensureWatcher claims a TTL lease for the
+   *  account via `lock.acquire` and renews it via `lock.renew` while the
+   *  watcher lives. Omit for single-process deployments — every active
+   *  account is watched locally, same as before #1719. */
+  readonly lock?: DistributedLock;
+  /** TTL (seconds) for the per-account watch lease. Default 90s, renewed
+   *  every ttl/3. Only used when `lock` is set. */
+  readonly watchLeaseTtlSeconds?: number;
   readonly log?: (line: string) => void;
 };
 
@@ -95,6 +123,10 @@ type WatcherState = {
   /** Bump beim stop() — verhindert dass ein nachzügelnder Restart einen
    *  bereits gestoppten Watcher wiederbelebt. */
   generation: number;
+  /** Token from `deps.lock.acquire` while this worker owns the account's
+   *  watch lease; null when unclaimed (no `deps.lock`, or claim lost). */
+  lockToken: string | null;
+  renewTimer: ReturnType<typeof setTimeout> | null;
 };
 
 export type InboundMailSupervisor = {
@@ -113,6 +145,11 @@ export function createInboundMailSupervisor(
   const maxMessagesPerPoll = deps.maxMessagesPerPoll ?? DEFAULT_MAX_MESSAGES_PER_POLL;
   const backoffInitialMs = deps.watchBackoffInitialMs ?? DEFAULT_WATCH_BACKOFF_INITIAL_MS;
   const backoffMaxMs = deps.watchBackoffMaxMs ?? DEFAULT_WATCH_BACKOFF_MAX_MS;
+  const leaseTtlSeconds = deps.watchLeaseTtlSeconds ?? DEFAULT_WATCH_LEASE_TTL_SECONDS;
+  // ttl/3 keeps at least two renewal attempts inside the TTL window before
+  // it lapses. The 50ms floor only guards against a pathologically small
+  // configured TTL — real deployments (default 90s) never hit it.
+  const renewIntervalMs = Math.max(50, Math.floor((leaseTtlSeconds * 1000) / 3));
   const log = deps.log ?? (() => {});
 
   let running = false;
@@ -343,6 +380,48 @@ export function createInboundMailSupervisor(
   // ---------------------------------------------------------------
   // Watch-Lifecycle mit Backoff-Restart.
   // ---------------------------------------------------------------
+  // Heartbeat for a held watch lease. Independent of the connection's own
+  // lifecycle — it keeps renewing across reconnect backoff, not just while
+  // `plugin.watch()` is actually connected, so a flaky IMAP link doesn't
+  // make this worker lose the account to a peer mid-backoff.
+  function scheduleRenew(
+    account: MailAccountRecord,
+    state: WatcherState,
+    generation: number,
+  ): void {
+    state.renewTimer = setTimeout(() => {
+      void (async () => {
+        state.renewTimer = null;
+        if (!running || state.generation !== generation || !state.lockToken || !deps.lock) return;
+        let renewed: boolean;
+        try {
+          renewed = await deps.lock.renew(account.id, state.lockToken, leaseTtlSeconds);
+        } catch (err) {
+          log(
+            `inbound-mail: watch lease renew for account ${account.id} failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          // Treat a renew error as transient (Redis blip) — keep the local
+          // watcher running and retry next tick within the TTL grace window.
+          if (running && state.generation === generation && state.lockToken) {
+            scheduleRenew(account, state, generation);
+          }
+          return;
+        }
+        if (!renewed) {
+          log(
+            `inbound-mail: watch lease for account ${account.id} lost — tearing down local watcher`,
+          );
+          state.lockToken = null;
+          await stopWatcher(account.id);
+          return;
+        }
+        if (running && state.generation === generation && state.lockToken) {
+          scheduleRenew(account, state, generation);
+        }
+      })();
+    }, renewIntervalMs);
+  }
+
   async function ensureWatcher(
     account: MailAccountRecord,
     plugin: InboundMailProviderPlugin,
@@ -358,8 +437,33 @@ export function createInboundMailSupervisor(
       backoffMs: backoffInitialMs,
       restartTimer: null,
       generation: 0,
+      lockToken: null,
+      renewTimer: null,
     };
     watchers.set(account.id, state);
+
+    if (deps.lock && !state.lockToken) {
+      const token = await deps.lock.acquire(account.id, { ttlSeconds: leaseTtlSeconds });
+      if (!token) {
+        // skip: another worker already holds this account's watch lease —
+        // the poll still covers it, this worker just doesn't open a
+        // second IDLE connection. Retried on the next tick.
+        if (!existing) watchers.delete(account.id);
+        return;
+      }
+      // The acquire() await is a yield point: a concurrent stopWatcher()
+      // (e.g. from a lost-lease renewal on a different generation) may have
+      // already retired this exact state and removed it from the map. If so,
+      // committing the fresh token onto it would leak the lease — nothing
+      // would ever release it, blocking failover for the full TTL.
+      if (watchers.get(account.id) !== state) {
+        await deps.lock.release(account.id, token);
+        return;
+      }
+      state.lockToken = token;
+      scheduleRenew(account, state, state.generation);
+    }
+
     const generation = state.generation;
 
     const scheduleRestart = (err: unknown) => {
@@ -434,8 +538,17 @@ export function createInboundMailSupervisor(
       clearTimeout(state.restartTimer);
       state.restartTimer = null;
     }
+    if (state.renewTimer) {
+      clearTimeout(state.renewTimer);
+      state.renewTimer = null;
+    }
     const stop = state.stop;
     state.stop = null;
+    // Read the token before clearing it: only OUR claim gets released — a
+    // caller that already cleared lockToken (lease-lost path in
+    // scheduleRenew) means someone else may own it by now.
+    const lockToken = state.lockToken;
+    state.lockToken = null;
     watchers.delete(accountId);
     if (stop) {
       try {
@@ -443,6 +556,15 @@ export function createInboundMailSupervisor(
       } catch (err) {
         log(
           `inbound-mail: stop watcher ${accountId} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    if (deps.lock && lockToken) {
+      try {
+        await deps.lock.release(accountId, lockToken);
+      } catch (err) {
+        log(
+          `inbound-mail: watch lease release for account ${accountId} failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }

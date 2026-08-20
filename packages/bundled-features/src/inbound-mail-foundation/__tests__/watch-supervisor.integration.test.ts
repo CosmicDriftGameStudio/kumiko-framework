@@ -10,6 +10,7 @@ import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestUser,
   setupTestStack,
@@ -426,6 +427,146 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
       expect(isWatching(accountId)).toBe(true);
     } finally {
       await supervisor.stop();
+    }
+  });
+});
+
+describe("watch-supervisor — multi-worker watch coordination (#1719)", () => {
+  // Counts only watch-path ingests (payload.providerCursor === "watch") —
+  // the reconciliation poll is deliberately N-fold (every worker polls
+  // every account) and would otherwise inflate this count regardless of
+  // which worker actually holds the watch lease.
+  function makeWatchIngestCounter() {
+    let count = 0;
+    const dispatchWrite = ({
+      handlerQn,
+      payload,
+      tenantId,
+    }: {
+      handlerQn: string;
+      payload: unknown;
+      tenantId: string;
+    }) => {
+      if (handlerQn === InboundMailFoundationHandlers.ingestMessage) {
+        const cursor = (payload as { providerCursor?: string }).providerCursor;
+        if (cursor === "watch") count += 1;
+      }
+      return stack.dispatcher.write(
+        handlerQn,
+        payload,
+        createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
+      );
+    };
+    return { dispatchWrite, watchIngestCount: () => count };
+  }
+
+  test("only one supervisor holds the watch lease; the peer takes over after stop()", async () => {
+    const admin = adminFor(4200);
+    const accountId = await connectSharedAccount(admin);
+    const lock = createDistributedLock(stack.redis.redis, "test-watch-lease:");
+    const a = makeWatchIngestCounter();
+    const b = makeWatchIngestCounter();
+    const supervisorA = createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db,
+      dispatchWrite: a.dispatchWrite,
+      lock,
+      watchLeaseTtlSeconds: 5,
+      pollIntervalMs: 60_000,
+    });
+    const supervisorB = createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db,
+      dispatchWrite: b.dispatchWrite,
+      lock,
+      watchLeaseTtlSeconds: 5,
+      pollIntervalMs: 60_000,
+    });
+
+    try {
+      await supervisorA.start();
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(true);
+      });
+
+      // B's own start() polls too (poll stays N-fold by design) but must
+      // not claim the watch lease — A already holds it.
+      await supervisorB.start();
+
+      await seedInboundMessage(accountId, rawMsg({ providerMessageId: "mw-1" }));
+      await waitFor(() => {
+        expect(a.watchIngestCount()).toBe(1);
+      });
+      expect(b.watchIngestCount()).toBe(0);
+
+      await supervisorA.stop();
+      expect(isWatching(accountId)).toBe(false);
+
+      await supervisorB.pollOnce();
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(true);
+      });
+
+      await seedInboundMessage(accountId, rawMsg({ providerMessageId: "mw-2" }));
+      await waitFor(() => {
+        expect(b.watchIngestCount()).toBe(1);
+      });
+      expect(a.watchIngestCount()).toBe(1);
+    } finally {
+      await supervisorA.stop();
+      await supervisorB.stop();
+    }
+  });
+
+  test("the holder renews its lease past the TTL — the peer still can't claim it", async () => {
+    const admin = adminFor(4201);
+    const accountId = await connectSharedAccount(admin);
+    const lock = createDistributedLock(stack.redis.redis, "test-watch-lease-renew:");
+    const a = makeWatchIngestCounter();
+    const b = makeWatchIngestCounter();
+    const supervisorA = createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db,
+      dispatchWrite: a.dispatchWrite,
+      lock,
+      watchLeaseTtlSeconds: 1,
+      pollIntervalMs: 60_000,
+    });
+    const supervisorB = createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db,
+      dispatchWrite: b.dispatchWrite,
+      lock,
+      watchLeaseTtlSeconds: 1,
+      pollIntervalMs: 60_000,
+    });
+
+    try {
+      await supervisorA.start();
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(true);
+      });
+
+      // 2.5x the 1s TTL: long enough that a dead heartbeat guarantees the
+      // key expired (1.5x left this indistinguishable from Redis's
+      // second-granularity EX not having rolled over yet).
+      await new Promise((r) => setTimeout(r, 2500));
+
+      // Direct probe of the invariant: the lease itself must still be held,
+      // independent of B's behavior below (which only infers it indirectly).
+      expect(await lock.acquire(accountId, { ttlSeconds: 1 })).toBeNull();
+
+      await supervisorB.start();
+      expect(isWatching(accountId)).toBe(true);
+
+      await seedInboundMessage(accountId, rawMsg({ providerMessageId: "mw-renew-1" }));
+      await waitFor(() => {
+        expect(a.watchIngestCount()).toBe(1);
+      });
+      expect(b.watchIngestCount()).toBe(0);
+    } finally {
+      await supervisorA.stop();
+      await supervisorB.stop();
     }
   });
 });
