@@ -334,6 +334,13 @@ export const AUTH_COMPOSE_OPTIONS = {
     appUrl: "http://localhost:4186/signup",
     tokenTtlMinutes: 60,
   },
+  // Registers the invite-create write handler (dev-server RunDevAppAuthOptions
+  // .invite) so the seed can dispatch real invitations — appUrl is a stub, same
+  // as signup's above (no real mail in boot).
+  invite: {
+    appUrl: "http://localhost:4186/invite/accept",
+    tokenTtlMinutes: 60,
+  },
 } as const;
 
 /** schema-check: auth-self-registration is mounted when signup is set. */
