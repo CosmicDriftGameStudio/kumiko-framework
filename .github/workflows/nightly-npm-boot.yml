@@ -1,0 +1,92 @@
+# Nightly publish-integrity check (#1729). Every other CI job/e2e-suite that
+# exercises a scaffolded app relinks @cosmicdrift/* to file:-pins in the
+# monorepo (e2e/hero-demos/boot-demo.ts's relinkCosmicDriftToWorkspace) —
+# so a broken/unpublished npm release would pass every existing check
+# silently. This job does the opposite: `bun create kumiko-app` exactly as
+# documented in the README, installing the actually-published
+# @cosmicdrift/* packages from the npm registry, then boots the result.
+name: Nightly npm boot check
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: nightly-npm-boot
+  cancel-in-progress: false
+
+jobs:
+  npm-boot-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      # Deliberately no actions/checkout and no bun-install cache here: this
+      # job's entire point is a from-scratch registry install of the
+      # published packages. Scaffolding under runner.temp (outside
+      # $GITHUB_WORKSPACE) also means no ancestor package.json can hijack
+      # resolution to local workspace symlinks (the exact blind spot #1729
+      # exists to close) — see money-horse#277 for the same class of bug
+      # in a consumer repo.
+      - name: Scaffold via published create-kumiko-app (npm registry)
+        working-directory: ${{ runner.temp }}
+        run: bun create kumiko-app nightly-boot-check --yes
+
+      - name: Install (published @cosmicdrift/* packages)
+        working-directory: ${{ runner.temp }}/nightly-boot-check
+        run: bun install
+
+      # The --yes recommended set pulls PII-annotated entities (user-data-rights
+      # transitively via user-profile), and the scaffolded bin/main.ts doesn't
+      # wire a kms adapter — runProdApp's boot gate correctly refuses plaintext
+      # PII in prod by design (#1262/#1617). That's a real onboarding gap
+      # (filed separately: #2330), not this check's job to silently fix — but
+      # it also isn't what THIS check tests, so acknowledge it explicitly for
+      # this ephemeral, no-real-data smoke run instead of blocking on it.
+      - name: Acknowledge plaintext-PII boot gate (ephemeral CI run, see #2330)
+        working-directory: ${{ runner.temp }}/nightly-boot-check
+        run: |
+          sed -i 's/staticDir: ".\/dist",/staticDir: ".\/dist",\n  allowPlaintextPii: "nightly CI boot smoke (#1729) — ephemeral run, no real data persisted",/' bin/main.ts
+          grep -q allowPlaintextPii bin/main.ts || { echo "::error::PII-ack patch did not apply — renderMain() template changed, see #2330"; exit 1; }
+
+      # Same stub-secret rationale as ci.yml's "Boot smoke (no DB)": boot-mode
+      # exits after composeFeatures + validateBoot + createRegistry, before
+      # any DB/Redis connect or secret-decrypt path runs. Constant stub
+      # values for reproducible runs — never used as a real KEK.
+      - name: Boot smoke
+        working-directory: ${{ runner.temp }}/nightly-boot-check
+        env:
+          KUMIKO_DRY_RUN_ENV: boot
+          DATABASE_URL: postgres://smoke:smoke@127.0.0.1:1/smoke
+          REDIS_URL: redis://127.0.0.1:1
+          JWT_SECRET: smokesmokesmokesmokesmokesmokesmokesmoke
+          KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
+        run: bun run boot
+
+      # Dedupe-by-title-marker guard, same pattern as
+      # infra/.github/workflows/compliance-review-reminder.yml — a red
+      # scheduled run in a tab nobody watches is the same blind spot #1729
+      # exists to close.
+      - name: Open issue on failure (publish integrity break)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MARKER: "[nightly-npm-boot]"
+        run: |
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 \
+            --json title --jq "[.[] | select(.title | startswith(\"$MARKER\"))] | length")
+          if [ "$existing" != "0" ]; then
+            echo "Open issue already tracks this — not filing another."
+            exit 0
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "$MARKER npm boot check failed ($(date -u +%F))" \
+            --body "\`bun create kumiko-app\` against the published npm registry failed to install or boot. Note: this check patches the scaffold's PII boot-gate ack before booting (see #2330) — check the failed step name in the run log to tell a patch-application break from a real install/boot break. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
