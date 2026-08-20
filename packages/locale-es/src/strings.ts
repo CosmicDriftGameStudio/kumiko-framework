@@ -238,7 +238,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Te hemos enviado un enlace de activación a tu correo electrónico. Haz clic en él para establecer tu contraseña e iniciar sesión.",
   "auth.signup.successTitle": "Correo enviado",
   "auth.signup.title": "Crear cuenta",
+  "auth.signupComplete.activated": "Tu cuenta está activa y has iniciado sesión.",
   "auth.signupComplete.confirmPassword": "Confirmar contraseña",
+  "auth.signupComplete.continue": "Continuar",
   "auth.signupComplete.intro": "Elige una contraseña (al menos 8 caracteres) para tu nueva cuenta.",
   "auth.signupComplete.mismatch": "Las contraseñas no coinciden.",
   "auth.signupComplete.missingToken":

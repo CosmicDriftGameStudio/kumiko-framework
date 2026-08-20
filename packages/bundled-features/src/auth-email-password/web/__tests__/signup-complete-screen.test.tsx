@@ -57,12 +57,10 @@ describe("SignupCompleteScreen", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test("happy path: gültiges Passwort → signup-confirm fetch + location.assign", async () => {
-    const assigned: string[] = [];
+  test("happy path: gültiges Passwort → Bestätigung statt sofortigem Redirect, Weiter-Button trifft resolveLoggedInHref-Ziel", async () => {
+    const assignMock = mock((_url: string | URL): void => {});
     const assignOrig = window.location.assign.bind(window.location);
-    window.location.assign = ((url: string | URL) => {
-      assigned.push(String(url));
-    }) as typeof window.location.assign;
+    window.location.assign = assignMock as typeof window.location.assign;
 
     const fetchMock = mock(
       async () =>
@@ -94,8 +92,16 @@ describe("SignupCompleteScreen", () => {
             body: JSON.stringify({ token: "abc-token", password: "validpass1" }),
           }),
         );
-        expect(assigned).toEqual(["/acme/"]);
+        expect(screen.getByText("Your account is active and you're signed in.")).toBeTruthy();
       });
+
+      // No automatic redirect: the form is gone, but nothing navigated us away.
+      expect(assignMock).not.toHaveBeenCalled();
+
+      // Continue button targets exactly what resolveLoggedInHref computes from
+      // the response's tenantKey, via the app-supplied function-form prop.
+      const continueLink = screen.getByRole("link", { name: "Continue" }) as HTMLAnchorElement;
+      expect(continueLink.getAttribute("href")).toBe("/acme/");
     } finally {
       window.location.assign = assignOrig;
     }
@@ -130,5 +136,8 @@ describe("SignupCompleteScreen", () => {
     await waitFor(() => {
       expect(screen.getByRole("alert").textContent).toMatch(/invalid|expired/i);
     });
+    // Error path stays on the form — no confirmation, no continue link.
+    expect(screen.queryByRole("link", { name: "Continue" })).toBeNull();
+    expect(document.getElementById("signup-password")).toBeTruthy();
   });
 });
