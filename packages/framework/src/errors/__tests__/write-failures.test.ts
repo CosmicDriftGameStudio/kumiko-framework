@@ -17,6 +17,11 @@ describe("failUnprocessable", () => {
     expect(f.error.httpStatus).toBe(422);
     expect(f.error.details).toMatchObject({ reason: "custom_business_rule", extra: 42 });
   });
+
+  test("reason-Argument überlebt ein details.reason aus dem Aufruf", () => {
+    const f = failUnprocessable("custom_business_rule", { reason: "raw cause text", extra: 42 });
+    expect(f.error.details).toEqual({ reason: "custom_business_rule", extra: 42 });
+  });
 });
 
 describe("failTransition", () => {

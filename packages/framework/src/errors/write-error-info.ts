@@ -23,7 +23,9 @@ export function writeFailure(err: KumikoError): WriteFailure {
 
 // Focused convenience for the two most common handler failures: "X not found"
 // (typed 404) and "business rule violated: REASON" (typed 422 with the reason
-// string surfaced in details.reason). Reach for the concrete classes when you
+// string surfaced in details.reason — the positional `reason` always wins
+// over a same-named key in `details`, so passing an unrelated `reason` there
+// by mistake can't shadow the slug). Reach for the concrete classes when you
 // need richer payload — these two cover the bulk of handler code.
 // @wrapper-known error-helper
 export function failNotFound(entity: string, id?: number | string): WriteFailure {
