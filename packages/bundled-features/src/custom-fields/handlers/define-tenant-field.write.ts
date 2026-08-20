@@ -1,6 +1,7 @@
 import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
+import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../constants";
 import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect";
 import { buildFieldDefinitionColumns } from "../lib/field-definition-row";
 import { countTenantFieldDefinitions } from "../lib/quota";
@@ -37,6 +38,11 @@ import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas";
 export interface DefineTenantFieldOptions {
   /** Soft cap — `>= limit` definitions per tenant rejects further defines (see header: concurrent defines may overshoot). */
   readonly fieldDefinitionLimitPerTenant?: number;
+  /** Access roles for this handler. Default ["TenantAdmin"] (#2296) — apps with
+   *  their own role vocabulary pass this via createCustomFieldsFeature({
+   *  fieldDefinitionWriteRoles }), which threads the same roles into
+   *  update-/delete-tenant-field too (the definition-CRUD triad shares one gate). */
+  readonly roles?: readonly string[];
 }
 
 export function createDefineTenantFieldHandler(
@@ -46,7 +52,7 @@ export function createDefineTenantFieldHandler(
   return {
     name: "define-tenant-field",
     schema: defineFieldPayloadSchema,
-    access: { roles: ["TenantAdmin"] },
+    access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
     handler: async (event, ctx) => {
       const payload = event.payload as DefineFieldPayload; // @cast-boundary engine-payload
       const tenantId = event.user.tenantId;

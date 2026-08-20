@@ -1776,7 +1776,7 @@
     },
     {
       "name": "secrets",
-      "description": "Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump.",
+      "description": "Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump. The `set`/`delete`/`list` handlers share one access rule — default { roles: [\"TenantAdmin\"] }; adopt the host's role vocabulary with createSecretsFeature({ roles }) or open it to every authenticated tenant user with { access: { openToAll: true } } (larger blast radius: any tenant member can then read secret previews and write/delete secrets, not just admins).",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],

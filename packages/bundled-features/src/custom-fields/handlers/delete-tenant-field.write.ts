@@ -1,6 +1,9 @@
 import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
-import { FIELD_DEFINITION_AGGREGATE_TYPE } from "../constants";
+import {
+  DEFAULT_FIELD_DEFINITION_WRITE_ROLES,
+  FIELD_DEFINITION_AGGREGATE_TYPE,
+} from "../constants";
 import { fieldDefinitionExecutor } from "../executor";
 import { customFieldsFeature } from "../feature";
 import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas";
@@ -15,36 +18,54 @@ import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas";
 // **Idempotency:** Delete auf nicht-existente Definition → version_conflict
 // (executor.delete returns failure, dispatcher 404/422). Caller sieht "not
 // found" — kein Crash.
-export const deleteTenantFieldHandler: WriteHandlerDef = {
-  name: "delete-tenant-field",
-  schema: deleteFieldPayloadSchema,
-  access: { roles: ["TenantAdmin"] },
-  handler: async (event, ctx) => {
-    const payload = event.payload as DeleteFieldPayload; // @cast-boundary engine-payload
-    const tenantId = event.user.tenantId;
+export interface DeleteTenantFieldOptions {
+  /** Access roles for this handler. Default ["TenantAdmin"] (#2296) — see
+   *  DefineTenantFieldOptions.roles, the definition-CRUD triad shares one gate. */
+  readonly roles?: readonly string[];
+}
 
-    if (isSystemTenant(tenantId)) {
-      throw new Error(
-        "delete-tenant-field: tenantId is SYSTEM_TENANT_ID — use delete-system-field for system-scope deletions",
+export function createDeleteTenantFieldHandler(
+  opts: DeleteTenantFieldOptions = {},
+): WriteHandlerDef {
+  return {
+    name: "delete-tenant-field",
+    schema: deleteFieldPayloadSchema,
+    access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
+    handler: async (event, ctx) => {
+      const payload = event.payload as DeleteFieldPayload; // @cast-boundary engine-payload
+      const tenantId = event.user.tenantId;
+
+      if (isSystemTenant(tenantId)) {
+        throw new Error(
+          "delete-tenant-field: tenantId is SYSTEM_TENANT_ID — use delete-system-field for system-scope deletions",
+        );
+      }
+
+      const aggregateId = fieldDefinitionAggregateId(
+        tenantId,
+        payload.entityName,
+        payload.fieldKey,
       );
-    }
 
-    const aggregateId = fieldDefinitionAggregateId(tenantId, payload.entityName, payload.fieldKey);
+      const result = await fieldDefinitionExecutor.delete({ id: aggregateId }, event.user, ctx.db);
 
-    const result = await fieldDefinitionExecutor.delete({ id: aggregateId }, event.user, ctx.db);
+      // Emit cascade-cleanup-Event NACH erfolgreichem Delete. host-entity-MSPs
+      // (registriert via wireCustomFieldsFor) konsumieren das + entfernen orphan
+      // values aus ihrer customFields jsonb. Im selben TX = atomic cleanup.
+      if (result.isSuccess) {
+        await ctx.unsafeAppendEvent({
+          aggregateId,
+          aggregateType: FIELD_DEFINITION_AGGREGATE_TYPE,
+          type: customFieldsFeature.exports.fieldDefinitionDeletedEvent.name,
+          payload: { entityName: payload.entityName, fieldKey: payload.fieldKey, tenantId },
+        });
+      }
 
-    // Emit cascade-cleanup-Event NACH erfolgreichem Delete. host-entity-MSPs
-    // (registriert via wireCustomFieldsFor) konsumieren das + entfernen orphan
-    // values aus ihrer customFields jsonb. Im selben TX = atomic cleanup.
-    if (result.isSuccess) {
-      await ctx.unsafeAppendEvent({
-        aggregateId,
-        aggregateType: FIELD_DEFINITION_AGGREGATE_TYPE,
-        type: customFieldsFeature.exports.fieldDefinitionDeletedEvent.name,
-        payload: { entityName: payload.entityName, fieldKey: payload.fieldKey, tenantId },
-      });
-    }
+      return result;
+    },
+  };
+}
 
-    return result;
-  },
-};
+// Backwards-compat: existing imports of `deleteTenantFieldHandler` keep
+// working — identical to createDeleteTenantFieldHandler() with default roles.
+export const deleteTenantFieldHandler: WriteHandlerDef = createDeleteTenantFieldHandler();
