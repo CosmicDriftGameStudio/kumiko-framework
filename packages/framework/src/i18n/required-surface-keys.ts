@@ -56,8 +56,13 @@ function isI18nKey(value: string): boolean {
   return value.includes(":");
 }
 
-function pushKey(out: Set<string>, value: string | undefined): void {
-  if (value !== undefined && isI18nKey(value)) out.add(value);
+/**
+ * `treatAsKey` bypasses the colon-only `isI18nKey` check — used by the Settings-Hub
+ * generator's dot-form labels (`${feature}.settings`, mask titles), which are
+ * always i18n references by construction, never literal display text (fw#2260).
+ */
+function pushKey(out: Set<string>, value: string | undefined, treatAsKey = false): void {
+  if (value !== undefined && (treatAsKey || isI18nKey(value))) out.add(value);
 }
 
 function editFieldName(f: string | { readonly field: string }): string {
@@ -111,10 +116,17 @@ function pushToolbarActionKeys(out: Set<string>, action: ToolbarAction): void {
   // already pushed above.
 }
 
+export type RequiredKeysOptions = {
+  /** Bypass `isI18nKey`'s colon-only check for generated dot-form labels (fw#2260). */
+  readonly treatDotFormAsKey?: boolean;
+};
+
 export function requiredKeysFromScreen(
   featureName: string,
   screen: ScreenDefinition,
+  options: RequiredKeysOptions = {},
 ): readonly string[] {
+  const { treatDotFormAsKey = false } = options;
   const out = new Set<string>();
   pushKey(out, screenTitleKey(screen.id));
 
@@ -192,7 +204,7 @@ export function requiredKeysFromScreen(
       pushKey(out, config.submitLabel);
       for (const fieldName of Object.keys(config.fields)) {
         const override = config.fieldLabels?.[fieldName];
-        if (override !== undefined) pushKey(out, override);
+        if (override !== undefined) pushKey(out, override, treatDotFormAsKey);
         else out.add(fieldLabelKey(featureName, CONFIG_EDIT_ENTITY, fieldName));
       }
       for (const section of config.layout.sections) {
@@ -201,11 +213,11 @@ export function requiredKeysFromScreen(
           continue;
         }
         if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
-        pushKey(out, section.title);
+        pushKey(out, section.title, treatDotFormAsKey);
         for (const f of section.fields) {
           const fieldName = editFieldName(f);
           const override = config.fieldLabels?.[fieldName];
-          if (override !== undefined) pushKey(out, override);
+          if (override !== undefined) pushKey(out, override, treatDotFormAsKey);
           else out.add(fieldLabelKey(featureName, CONFIG_EDIT_ENTITY, fieldName));
         }
       }
@@ -240,9 +252,12 @@ export function requiredKeysFromScreen(
   return [...out];
 }
 
-export function requiredKeysFromNav(nav: NavDefinition): readonly string[] {
+export function requiredKeysFromNav(
+  nav: NavDefinition,
+  options: RequiredKeysOptions = {},
+): readonly string[] {
   const out = new Set<string>();
-  pushKey(out, nav.label);
+  pushKey(out, nav.label, options.treatDotFormAsKey ?? false);
   return [...out];
 }
 
