@@ -1,12 +1,12 @@
-// Kleiner arg-parser für die Commands. Nicht so featurereich wie commander
-// oder yargs — wir brauchen nur:
+// Small arg parser for CLI commands. Not as feature-rich as commander or
+// yargs — just:
 //   - Positional args:  cmd "value1" "value2"
 //   - Flags:            --flag (boolean) / --key value
 //   - Negatable:        --no-flag
 //
-// Kopie von bin/commands/arg-parser.ts — Registry-frei, aber upgrade-cli.ts
-// lebt im publizierten @cosmicdrift/kumiko-framework-Package und kann bin/
-// commands/ (nicht Teil des Package-Exports) nicht importieren.
+// Copy of bin/commands/arg-parser.ts — registry-free, but upgrade-cli.ts
+// lives in the published @cosmicdrift/kumiko-framework package and can't
+// import from bin/commands/ (outside the package's export surface).
 
 export type ParsedArgs = {
   readonly positional: ReadonlyArray<string>;
