@@ -17,6 +17,7 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
+  KeyNotFoundError,
   PII_ERASED_SENTINEL,
 } from "../../crypto";
 import { applyEntityEvent } from "../../db/apply-entity-event";
@@ -253,6 +254,80 @@ describe("backfillEventPiiEncryption", () => {
     const second = await backfillEventPiiEncryption(testDb.db, registry);
     expect(second.updatedEvents).toBe(0);
     expect(second.failures).toEqual([]);
+  });
+
+  test("dryRun mints no subject key (fw#2255) and predicts the real run's counters exactly", async () => {
+    const c1 = generateId();
+    await appendPlain(c1, "contact", "contact.created", { id: c1, email: "a@x.com" });
+
+    armKms();
+    const dry = await backfillEventPiiEncryption(testDb.db, registry, { dryRun: true });
+    expect(dry.failures).toEqual([]);
+    expect(dry.encryptedFields).toBe(1);
+
+    // No key exists in the separate subject-keys store — dry-run must not
+    // have called kms.createKey.
+    await expect(kms.getKey({ kind: "user", userId: c1 })).rejects.toThrow(KeyNotFoundError);
+
+    const real = await backfillEventPiiEncryption(testDb.db, registry);
+    expect(real.updatedEvents).toBe(dry.updatedEvents);
+    expect(real.encryptedFields).toBe(dry.encryptedFields);
+    expect(real.erasedFields).toBe(dry.erasedFields);
+    expect(real.ownerFromProjection).toBe(dry.ownerFromProjection);
+    expect(real.erasedUnresolvable).toBe(dry.erasedUnresolvable);
+  });
+
+  test("dryRun on a KMS-era-erased subject (no *.forgotten event) predicts [[erased]] without touching the key store", async () => {
+    const author = generateId();
+    const noteId = generateId();
+    await appendPlain(noteId, "note", "note.created", {
+      id: noteId,
+      authorId: author,
+      body: "secret",
+    });
+
+    armKms();
+    // Layer 1 (header comment): a subject erased in the KMS era, with no
+    // *.forgotten event on the stream to catch it via isForgottenSubject.
+    const subject = { kind: "user" as const, userId: author };
+    await kms.createKey(subject);
+    await kms.eraseKey(subject);
+
+    const dry = await backfillEventPiiEncryption(testDb.db, registry, { dryRun: true });
+    expect(dry.failures).toEqual([]);
+    expect(dry.erasedFields).toBe(1);
+    expect(dry.encryptedFields).toBe(0);
+
+    const untouched = (await loadAggregate(testDb.db, noteId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(untouched["body"]).toBe("secret");
+
+    const real = await backfillEventPiiEncryption(testDb.db, registry);
+    expect(real.erasedFields).toBe(dry.erasedFields);
+    expect(real.encryptedFields).toBe(dry.encryptedFields);
+  });
+
+  test("dryRun over a catalogued custom event mints no key for its payload-resolved subject", async () => {
+    const p1 = generateId();
+    await appendPlain(p1, "ping", "mailer:event:ping", {
+      targetId: "u-7",
+      address: "u7@x.com",
+    });
+
+    armKms();
+    const dry = await backfillEventPiiEncryption(testDb.db, registry, { dryRun: true });
+    expect(dry.failures).toEqual([]);
+    expect(dry.encryptedFields).toBe(1);
+
+    // "u-7" comes straight from the event payload, not from aggregate_id —
+    // the catalog path is the one that mints a key for a subject that never
+    // existed anywhere else (the reported phronexsis prod symptom).
+    await expect(kms.getKey({ kind: "user", userId: "u-7" })).rejects.toThrow(KeyNotFoundError);
+
+    const real = await backfillEventPiiEncryption(testDb.db, registry);
+    expect(real.encryptedFields).toBe(dry.encryptedFields);
   });
 
   test("small batchSize pages through the estate completely", async () => {
