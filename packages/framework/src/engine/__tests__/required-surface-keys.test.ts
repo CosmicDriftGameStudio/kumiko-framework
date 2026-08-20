@@ -169,3 +169,50 @@ describe("requiredKeysFromNav / requiredKeysFromWorkspace", () => {
     ).toEqual(["bmc:workspace.disposition"]);
   });
 });
+
+// fw#2260: isI18nKey's colon-only check silently drops dot-form labels like
+// `${feature}.settings` — the Settings-Hub generator's own convention (see
+// buildConfigFeatureSchema). requiredKeysFromScreen/requiredKeysFromNav take
+// an opt-in `treatDotFormAsKey` option so the boot-validator can register
+// those generated keys directly instead of relying on isI18nKey to recognize
+// them.
+describe("dot-form labels + treatDotFormAsKey (fw#2260)", () => {
+  const configScreen: ConfigEditScreenDefinition = {
+    id: "billing-tenant",
+    type: "configEdit",
+    scope: "tenant",
+    configKeys: { apiKey: "billing:config:api-key" },
+    fieldLabels: { apiKey: "billing.api-key" },
+    fields: { apiKey: { type: "text" } },
+    layout: { sections: [{ title: "billing.settings", fields: ["apiKey"] }] },
+  };
+
+  test("configEdit section title + fieldLabels override: dot-form is dropped by default", () => {
+    const keys = requiredKeysFromScreen("config", configScreen);
+    expect(keys).not.toContain("billing.settings");
+    expect(keys).not.toContain("billing.api-key");
+  });
+
+  test("configEdit section title + fieldLabels override: treatDotFormAsKey surfaces the dot-form keys", () => {
+    const keys = requiredKeysFromScreen("config", configScreen, { treatDotFormAsKey: true });
+    expect(keys).toContain("billing.settings");
+    expect(keys).toContain("billing.api-key");
+  });
+
+  test("colon-form keys are still required with treatDotFormAsKey (no regression for the normal path)", () => {
+    const screen: ConfigEditScreenDefinition = {
+      ...configScreen,
+      fieldLabels: { apiKey: "billing:override.apiKey" },
+      layout: { sections: [{ title: "billing:section.basics", fields: ["apiKey"] }] },
+    };
+    const keys = requiredKeysFromScreen("config", screen, { treatDotFormAsKey: true });
+    expect(keys).toContain("billing:override.apiKey");
+    expect(keys).toContain("billing:section.basics");
+  });
+
+  test("nav label: dot-form is dropped by default, treatDotFormAsKey surfaces it", () => {
+    const nav = { id: "billing-tenant", label: "billing.settings" };
+    expect(requiredKeysFromNav(nav)).not.toContain("billing.settings");
+    expect(requiredKeysFromNav(nav, { treatDotFormAsKey: true })).toContain("billing.settings");
+  });
+});
