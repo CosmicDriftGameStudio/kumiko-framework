@@ -536,7 +536,9 @@ async function renderHtml(
   return injectAssetTags(template, manifest, entry, buildInfo);
 }
 
-function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry): string {
+// @internal — exported for unit tests only. See #2305: the message must
+// name the source file and the filename convention.
+export function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry): string {
   const cssLine = manifest["styles.css"]
     ? `    <link rel="stylesheet" href="/styles.css" />\n`
     : "";
@@ -544,8 +546,22 @@ function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry):
     ? // html-ok: Error-Hilfetext (Tag-Snippet als Text), wird nie gerendert.
       `    <script type="module" src="/${entry.manifestKey}"></script>\n`
     : "";
+  const sourceBasename = basenameOf(entry.sourceFile);
+  // Single-mode entries always carry manifestKey "client.js"; any other
+  // value came from discoverMultiClientEntries' filename match.
+  const isMultiEntry = entry.manifestKey !== "client.js";
+  const discoveryHint = isMultiEntry
+    ? `"src/${sourceBasename}" wurde automatisch als eigener Bundle-Entry erkannt — ` +
+      `jede Datei nach dem Muster src/client-<suffix>.tsx zählt als Entry (hier: Suffix "${entry.name}"). ` +
+      `War das nicht beabsichtigt, z. B. weil die Datei nur ein von einem anderen client-*.tsx ` +
+      `importiertes Modul ist: Datei umbenennen (ohne "client-"-Präfix), dann verschwindet der Entry.\n` +
+      `\n` +
+      `War es beabsichtigt:\n`
+    : "";
   return (
-    `[kumiko build] kein ${entry.htmlPath} gefunden, aber es gibt JS/CSS-Output.\n` +
+    `[kumiko build] kein ${entry.htmlPath} gefunden für Entry "src/${sourceBasename}", ` +
+    `aber es gibt JS/CSS-Output.\n` +
+    discoveryHint +
     `Leg ein public/${basenameOf(entry.htmlPath)} oder ${basenameOf(entry.htmlPath)} im App-Root an, z. B.:\n` +
     `\n` +
     `<!doctype html>\n` +
