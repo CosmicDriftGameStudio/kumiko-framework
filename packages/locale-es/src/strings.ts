@@ -20,6 +20,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "admin-shell:overview.users": "Usuarios",
   "admin-shell:workspace.platform": "Plataforma",
   "admin-shell:workspace.tenant": "Administración",
+  "audit.log.actor.system": "Sistema",
   "audit.log.col.actor": "Actor",
   "audit.log.col.aggregate": "Agregado",
   "audit.log.col.type": "Evento",

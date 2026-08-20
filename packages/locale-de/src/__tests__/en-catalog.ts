@@ -20,6 +20,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "admin-shell:overview.users": "Users",
   "admin-shell:workspace.platform": "Platform",
   "admin-shell:workspace.tenant": "Administration",
+  "audit.log.actor.system": "System",
   "audit.log.col.actor": "Actor",
   "audit.log.col.aggregate": "Aggregate",
   "audit.log.col.type": "Event",
