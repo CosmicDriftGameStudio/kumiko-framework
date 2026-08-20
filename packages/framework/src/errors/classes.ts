@@ -207,7 +207,7 @@ export class UnprocessableError extends KumikoError {
       message: `unprocessable: ${reason}`,
       i18nKey: opts?.i18nKey ?? "errors.unprocessable",
       ...(opts?.i18nParams && { i18nParams: opts.i18nParams }),
-      details: { reason, ...opts?.details },
+      details: { ...opts?.details, reason },
       ...(opts?.cause && { cause: opts.cause }),
     });
   }
