@@ -69,6 +69,51 @@ describe("runSchemaCli — no-DB paths", () => {
     expect(cap.err.join("\n")).not.toContain("kumiko-schema");
   });
 
+  test("generate --help prints usage, exits 0, writes no migration (framework#2191)", async () => {
+    writeSchemaFile(appCwd, "tbl_a");
+    const cap = captureOut();
+    const code = await runSchemaCli(["generate", "--help"], appCwd, cap.out);
+    expect(code).toBe(0);
+    expect(cap.log.join("\n")).toContain("Usage: schema generate <name>");
+    expect(cap.err).toHaveLength(0);
+    expect(existsSync(join(appCwd, "kumiko/migrations"))).toBe(false);
+  });
+
+  test("generate -h prints usage, exits 0, writes no migration", async () => {
+    writeSchemaFile(appCwd, "tbl_a");
+    const cap = captureOut();
+    const code = await runSchemaCli(["generate", "-h"], appCwd, cap.out);
+    expect(code).toBe(0);
+    expect(cap.log.join("\n")).toContain("Usage: schema generate <name>");
+    expect(existsSync(join(appCwd, "kumiko/migrations"))).toBe(false);
+  });
+
+  test("generate name starting with -- is rejected, exits 1, writes no migration", async () => {
+    writeSchemaFile(appCwd, "tbl_a");
+    const cap = captureOut();
+    const code = await runSchemaCli(["generate", "--evil"], appCwd, cap.out);
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain('Invalid migration name "--evil"');
+    expect(existsSync(join(appCwd, "kumiko/migrations"))).toBe(false);
+  });
+
+  test("generate name with path separators is rejected (path traversal)", async () => {
+    writeSchemaFile(appCwd, "tbl_a");
+    const cap = captureOut();
+    const code = await runSchemaCli(["generate", "../../evil"], appCwd, cap.out);
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain("Invalid migration name");
+    expect(existsSync(join(appCwd, "kumiko/migrations"))).toBe(false);
+  });
+
+  test("generate with a hyphenated name still works", async () => {
+    writeSchemaFile(appCwd, "tbl_a");
+    const cap = captureOut();
+    const code = await runSchemaCli(["generate", "add-user-table"], appCwd, cap.out);
+    expect(code).toBe(0);
+    expect(existsSync(join(appCwd, "kumiko/migrations/0001_add-user-table.sql"))).toBe(true);
+  });
+
   test("generate with missing schema.ts exits 1", async () => {
     const cap = captureOut();
     const code = await runSchemaCli(["generate", "init"], appCwd, cap.out);
