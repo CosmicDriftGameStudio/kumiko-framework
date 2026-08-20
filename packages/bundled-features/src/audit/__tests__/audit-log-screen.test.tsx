@@ -99,6 +99,24 @@ const AUDIT_ROWS: readonly AuditRowFixture[] = [
     createdAt: "2026-08-03T00:00:00.000Z",
     payload: {},
   },
+  {
+    id: "4",
+    aggregateId: "agg-4",
+    aggregateType: "widget",
+    type: "widget.synced",
+    createdBy: "system",
+    createdAt: "2026-08-04T00:00:00.000Z",
+    payload: {},
+  },
+  {
+    id: "5",
+    aggregateId: "agg-5",
+    aggregateType: "widget",
+    type: "widget.archived",
+    createdBy: "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+    createdAt: "2026-08-05T00:00:00.000Z",
+    payload: {},
+  },
 ];
 
 const MEMBERS: readonly MemberRowFixture[] = [
@@ -186,5 +204,25 @@ describe("AuditLogScreen — actor name resolution", () => {
     });
     expect(view.queryByTestId("cell-1-aggregate")).toBeNull();
     expect(view.container.textContent).not.toContain("agg-1");
+  });
+
+  test("createdBy is the system literal → cell shows the System label", async () => {
+    const view = renderScreen();
+    await waitFor(() => {
+      const cell = view.queryByTestId("cell-4-actor");
+      if (cell === null) throw new Error("actor cell not rendered yet");
+    });
+    expect(view.getByTestId("cell-4-actor").textContent).toBe("System");
+  });
+
+  test("createdBy is an unresolvable UUID → cell stays empty, raw UUID never rendered", async () => {
+    const view = renderScreen();
+    await waitFor(() => {
+      const cell = view.queryByTestId("cell-5-actor");
+      if (cell === null) throw new Error("actor cell not rendered yet");
+    });
+    const cell = view.getByTestId("cell-5-actor");
+    expect(cell.textContent).toBe("");
+    expect(view.container.textContent).not.toContain("3f2504e0-4f89-11d3-9a0c-0305e82c3301");
   });
 });

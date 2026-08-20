@@ -2,6 +2,9 @@
 // Qualified handler names + screen ids — shared by server feature and web client.
 export const AUDIT_FEATURE = "audit" as const;
 
+/** Literal `createdBy` written by system-authored events (e.g. delivery attempts). */
+export const SYSTEM_ACTOR_ID = "system" as const;
+
 export const AuditQueries = {
   list: "audit:query:list",
   details: "audit:query:details",

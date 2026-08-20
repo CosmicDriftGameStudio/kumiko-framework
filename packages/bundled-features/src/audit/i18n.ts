@@ -16,6 +16,7 @@ export const AUDIT_I18N: Readonly<Record<string, LocalizedString>> = {
   "audit.log.col.type": { en: "Event" },
   "audit.log.col.aggregate": { en: "Aggregate" },
   "audit.log.col.actor": { en: "Actor" },
+  "audit.log.actor.system": { en: "System" },
   "audit.log.filter.eventType": { en: "Event type" },
   "audit.log.filter.aggregateType": { en: "Aggregate type" },
   "audit.log.filter.from": { en: "From" },

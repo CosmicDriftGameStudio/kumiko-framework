@@ -14,7 +14,7 @@ import {
 import { Filter, RotateCcw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { TenantQueries } from "../../tenant/constants";
-import { AUDIT_LOG_DETAIL_SCREEN_ID, AuditQueries } from "../constants";
+import { AUDIT_LOG_DETAIL_SCREEN_ID, AuditQueries, SYSTEM_ACTOR_ID } from "../constants";
 
 type AuditRow = {
   readonly id: string;
@@ -216,7 +216,10 @@ export function AuditLogScreen(): ReactNode {
           values: {
             when: formatWhen(row.createdAt),
             type: row.type,
-            actor: state.names.get(row.createdBy) ?? "",
+            actor:
+              row.createdBy === SYSTEM_ACTOR_ID
+                ? t("audit.log.actor.system")
+                : (state.names.get(row.createdBy) ?? ""),
           },
         }))}
         onRowClick={(row) => openDetail(row.id)}
