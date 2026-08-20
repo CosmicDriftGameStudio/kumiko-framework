@@ -223,6 +223,29 @@ jobs:
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
         run: bun ../../../packages/dev-server/bin/kumiko-schema.ts validate
 
+      - name: Schema validate (demo)
+        # demo/ has no schema/generate.ts registry (schema-check needs one),
+        # so only validate is wired here — entity↔snapshot + validateBoot +
+        # SQL-replay↔snapshot against demo/kumiko/migrations. Without this,
+        # demo/ silently re-drifts on the next entity change (kumiko-framework#2309).
+        working-directory: demo
+        run: bun ../packages/dev-server/bin/kumiko-schema.ts validate
+
+      - name: Boot smoke (demo)
+        # kumiko-schema validate never touches bin/main.ts, so it can't catch
+        # a stale/missing runtime import (kumiko-framework#2309 bug 2) —
+        # only an actual boot does. Same stub-secret rationale as the
+        # use-all-bundled boot smoke below; no Stripe/Mollie stubs needed,
+        # demo doesn't mount those features.
+        working-directory: demo
+        env:
+          KUMIKO_DRY_RUN_ENV: boot
+          DATABASE_URL: postgres://smoke:smoke@127.0.0.1:1/smoke
+          REDIS_URL: redis://127.0.0.1:1
+          JWT_SECRET: smokesmokesmokesmokesmokesmokesmokesmoke
+          KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
+        run: bun bin/main.ts
+
       - name: Boot smoke (no DB)
         # Stub-secrets: validators check Format (base64 32-byte, min-length),
         # nicht echte Crypto-Strength. boot-mode exitiert vor jedem
