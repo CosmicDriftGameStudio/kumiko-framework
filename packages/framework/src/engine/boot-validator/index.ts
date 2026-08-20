@@ -16,7 +16,7 @@ import {
   validateConfigReads,
   warnOnToggleableDependencies,
 } from "./config-deps";
-import { validateDetailForScreens } from "./detail-screens";
+import { collectDetailForScreens } from "./detail-screens";
 import {
   validateDerivedFieldCollisions,
   validateEmbeddedFields,
@@ -142,6 +142,11 @@ export function validateBoot(
   const allWriteHandlerQns = collectWriteHandlerQns(features);
   const screensByShortId = collectScreensByShortId(features);
   validateScreenShortIdCollisions(screensByShortId);
+  // Cross-feature entity → detailFor-screen map — built (+ uniqueness-
+  // validated) up front so per-feature rowAction entity-targets (fw#2228)
+  // resolve against it inside the loop below, instead of at the very end
+  // where this used to run.
+  const detailForScreens = collectDetailForScreens(features, featureMap);
 
   // Cross-feature API exposure-map — jedes Feature deklariert Marker via
   // r.exposesApi(name). Per-feature validateApiExposureMatching walkt
@@ -202,6 +207,7 @@ export function validateBoot(
       allScreenQns,
       allConfigKeyQns,
       screensByShortId,
+      detailForScreens,
     );
     validateNavs(feature, allScreenQns, allNavQns, allWorkspaceQns);
     validateWorkspaces(feature, allNavQns);
@@ -211,7 +217,6 @@ export function validateBoot(
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
   validateI18nSurfaceKeys(features);
   validateEntityListScreens(features);
-  validateDetailForScreens(features, featureMap);
   // Must run before validateProjectionListScreens: an unresolvable query
   // there is silently treated as "capability absent" and surfaces as a
   // misleading "no search parameter in its Zod schema" error instead of

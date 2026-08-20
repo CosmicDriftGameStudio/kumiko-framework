@@ -3192,6 +3192,228 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- fw#2228: rowAction navigate-target as an entity instead of a screen ---
+  describe("entityList rowAction kind=navigate entity-target (fw#2228)", () => {
+    test("entity-target resolving via detailFor → kein Throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [{ kind: "navigate", id: "view", label: "actions.view", entity: "product" }],
+        });
+        r.screen({
+          id: "product-detail",
+          type: "custom",
+          renderer: { react: "stub" },
+          detailFor: "product",
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
+    test("entity-target with no detailFor screen anywhere → Throw mit klarer Message", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [{ kind: "navigate", id: "view", label: "actions.view", entity: "product" }],
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /rowAction "view" navigate-target entity "product" has no screen declaring detailFor: "product"/,
+      );
+    });
+
+    test("both screen and entity set → Throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [
+            {
+              kind: "navigate",
+              id: "view",
+              label: "actions.view",
+              screen: "product-detail",
+              entity: "product",
+            },
+          ],
+        });
+        r.screen({
+          id: "product-detail",
+          type: "custom",
+          renderer: { react: "stub" },
+          detailFor: "product",
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /rowAction "view" sets both "screen" and "entity"/,
+      );
+    });
+
+    test("neither screen nor entity set → Throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [{ kind: "navigate", id: "view", label: "actions.view" }],
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /rowAction "view" sets neither "screen" nor "entity"/,
+      );
+    });
+
+    test("entity-target resolving cross-feature to a NON-entityEdit detailFor screen → kein Throw", () => {
+      // Mirrors the existing cross-feature screen-target case above, but via
+      // detailFor resolution — the owning feature's list navigates to a
+      // detail screen a consumer app registers for the entity.
+      const list = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [{ kind: "navigate", id: "view", label: "actions.view", entity: "product" }],
+        });
+      });
+      const consumer = defineFeature("app", (r) => {
+        r.screen({
+          id: "product-detail",
+          type: "custom",
+          renderer: { react: "stub" },
+          detailFor: "product",
+        });
+      });
+      expect(() => validateBoot([list, consumer])).not.toThrow();
+    });
+
+    test("entity-target resolving cross-feature to an entityEdit detailFor screen WITHOUT entityId → kein Throw", () => {
+      // Regression guard: the cross-feature-entityEdit-needs-explicit-entityId
+      // check (screen-target branch) must NOT fire for entity-targets — the
+      // renderer always supplies an id for those (explicit entityId, else
+      // row["id"]), so the same-feature-fallback gap that check guards
+      // against doesn't exist here.
+      const list = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [{ kind: "navigate", id: "edit", label: "actions.edit", entity: "invoice" }],
+        });
+      });
+      const consumer = defineFeature("billing", (r) => {
+        r.entity("invoice", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "invoice-edit",
+          type: "entityEdit",
+          entity: "invoice",
+          layout: { sections: [{ columns: 1, fields: ["name"] }] },
+          detailFor: "invoice",
+        });
+      });
+      expect(() => validateBoot([list, consumer])).not.toThrow();
+    });
+
+    test("projectionList rowAction entity-target without explicit entityId → Throw", () => {
+      // projectionList rows come from an arbitrary query projection with no
+      // guaranteed "id" field, unlike entityList rows — an entity-target
+      // there must name the field to read the id from.
+      const feature = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          access: { openToAll: true },
+        });
+        r.screen({
+          id: "product-projection",
+          type: "projectionList",
+          query: "shop:query:products",
+          columns: ["name"],
+          rowActions: [{ kind: "navigate", id: "view", label: "actions.view", entity: "product" }],
+        });
+        r.screen({
+          id: "product-detail",
+          type: "custom",
+          renderer: { react: "stub" },
+          detailFor: "product",
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /rowAction "view" navigate-target entity "product" needs an explicit "entityId"/,
+      );
+    });
+
+    test("projectionList rowAction entity-target with explicit entityId → kein Throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          access: { openToAll: true },
+        });
+        r.screen({
+          id: "product-projection",
+          type: "projectionList",
+          query: "shop:query:products",
+          columns: ["name"],
+          rowActions: [
+            {
+              kind: "navigate",
+              id: "view",
+              label: "actions.view",
+              entity: "product",
+              entityId: "productId",
+            },
+          ],
+        });
+        r.screen({
+          id: "product-detail",
+          type: "custom",
+          renderer: { react: "stub" },
+          detailFor: "product",
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
+    test("projectionDetail action entity-target without explicit entityId → Throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "order-detail",
+          type: "projectionDetail",
+          query: "shop:query:order-detail",
+          layout: { sections: [{ fields: ["total"] }] },
+          actions: [
+            { kind: "navigate", id: "view-product", label: "actions.view", entity: "product" },
+          ],
+        });
+        r.screen({
+          id: "product-detail",
+          type: "custom",
+          renderer: { react: "stub" },
+          detailFor: "product",
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /action "view-product" navigate-target entity "product" needs an explicit "entityId"/,
+      );
+    });
+  });
+
   // --- Screen short-id collision across features ---
   describe("screen short-id collisions across features", () => {
     test("two features registering the same short screen-id → Throw", () => {
