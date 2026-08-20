@@ -11,6 +11,7 @@ import {
   usePrimitives,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { Filter, RotateCcw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { AUDIT_LOG_DETAIL_SCREEN_ID, AuditQueries } from "../constants";
 
@@ -105,8 +106,8 @@ export function AuditLogScreen(): ReactNode {
 
   return (
     <div className="w-full" data-testid="audit-log-screen">
-      <div className="flex flex-col gap-4 px-6 pt-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="flex flex-wrap items-end gap-4 px-6 pt-6">
+        <div className="min-w-40 flex-1">
           <Field id="audit-filter-event" label={t("audit.log.filter.eventType")}>
             <Input
               kind="text"
@@ -116,6 +117,8 @@ export function AuditLogScreen(): ReactNode {
               onChange={(v: string) => setFilters((f) => ({ ...f, eventType: v }))}
             />
           </Field>
+        </div>
+        <div className="min-w-40 flex-1">
           <Field id="audit-filter-aggregate" label={t("audit.log.filter.aggregateType")}>
             <Input
               kind="text"
@@ -125,6 +128,8 @@ export function AuditLogScreen(): ReactNode {
               onChange={(v) => setFilters((f) => ({ ...f, aggregateType: v }))}
             />
           </Field>
+        </div>
+        <div className="min-w-40 flex-1">
           <Field id="audit-filter-from" label={t("audit.log.filter.from")}>
             <Input
               kind="date"
@@ -134,6 +139,8 @@ export function AuditLogScreen(): ReactNode {
               onChange={(v) => setFilters((f) => ({ ...f, from: v ?? "" }))}
             />
           </Field>
+        </div>
+        <div className="min-w-40 flex-1">
           <Field id="audit-filter-to" label={t("audit.log.filter.to")}>
             <Input
               kind="date"
@@ -154,7 +161,8 @@ export function AuditLogScreen(): ReactNode {
             }}
             testId="audit-log-apply-filters"
           >
-            {t("audit.log.filter.apply")}
+            <Filter className="h-4 w-4" />
+            <span>{t("audit.log.filter.apply")}</span>
           </Button>
           <Button
             type="button"
@@ -166,7 +174,8 @@ export function AuditLogScreen(): ReactNode {
             }}
             testId="audit-log-reset-filters"
           >
-            {t("audit.log.filter.reset")}
+            <RotateCcw className="h-4 w-4" />
+            <span>{t("audit.log.filter.reset")}</span>
           </Button>
         </div>
       </div>
