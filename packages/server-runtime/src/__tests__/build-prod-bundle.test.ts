@@ -12,6 +12,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  buildMissingTemplateError,
   type ClientEntry,
   computeBuildId,
   discoverClientEntries,
@@ -332,5 +333,50 @@ describe("build-prod-bundle/discovery edges", () => {
     await writeFile(join(workDir, "src/client-1bad.tsx"), "// bad");
     await writeFile(join(workDir, "src/client_admin.tsx"), "// bad");
     expect(discoverClientEntries(workDir)).toEqual([]);
+  });
+
+  // #2305: a module only imported by another client-*.tsx still matches
+  // the entry pattern and becomes a second bundle entry.
+  test("discoverClientEntries treats a plain imported module named client-<x>.tsx as its own entry", async () => {
+    await mkdir(join(workDir, "src"), { recursive: true });
+    await writeFile(join(workDir, "src/client-app.tsx"), "// real entry");
+    await writeFile(join(workDir, "src/client-features.tsx"), "export const clientFeatures = [];");
+
+    const entries = discoverClientEntries(workDir);
+
+    expect(entries.map((e) => e.name)).toEqual(["app", "features"]);
+  });
+});
+
+describe("build-prod-bundle/buildMissingTemplateError", () => {
+  function multiEntry(): ClientEntry {
+    return {
+      name: "features",
+      sourceFile: "/Users/dev/offlot-app/src/client-features.tsx",
+      manifestKey: "client-features.js",
+      htmlPath: "features.html",
+    };
+  }
+
+  test("names the discovered source file and the client-<suffix> convention", () => {
+    const message = buildMissingTemplateError(
+      { "client-features.js": "/assets/client-features-abcd.js" },
+      multiEntry(),
+    );
+
+    expect(message).toContain("src/client-features.tsx");
+    expect(message).toContain("client-<suffix>.tsx");
+    expect(message).toContain("umbenennen");
+  });
+
+  test("single-mode entry gets no rename hint (nothing was auto-discovered by suffix)", () => {
+    const message = buildMissingTemplateError(
+      { "client.js": "/assets/client-abcd.js" },
+      clientEntry(),
+    );
+
+    expect(message).toContain("src/client.tsx");
+    expect(message).not.toContain("umbenennen");
+    expect(message).not.toContain("client-<suffix>.tsx");
   });
 });
