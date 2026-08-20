@@ -163,9 +163,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     r.nav({
       id: "delivery-log",
       label: "delivery:nav.deliveryLog",
-      // "send" isn't in the closed NavIconKey vocabulary (packages/types/src/
-      // nav-icon.ts) — "bell" matches the feature's own notifications framing.
-      icon: "bell",
+      icon: "send",
       screen: "delivery:screen:delivery-log",
       order: 40,
     });
