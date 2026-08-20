@@ -191,8 +191,8 @@ export function AuditLogScreen(): ReactNode {
           values: {
             when: formatWhen(row.createdAt),
             type: row.type,
-            aggregate: `${row.aggregateType} / ${row.aggregateId}`,
-            actor: row.createdBy,
+            aggregate: `${row.aggregateType} / ${shortId(row.aggregateId)}`,
+            actor: shortId(row.createdBy),
           },
         }))}
         onRowClick={(row) => openDetail(row.id)}
@@ -247,4 +247,8 @@ function toIsoStart(date: string): string {
 
 function toIsoEnd(date: string): string {
   return new Date(`${date}T23:59:59.999Z`).toISOString();
+}
+
+function shortId(id: string): string {
+  return id.slice(0, 8);
 }
