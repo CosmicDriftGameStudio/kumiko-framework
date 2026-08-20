@@ -41,6 +41,11 @@ while [ "$DIR" != "/" ]; do
   DIR="$(dirname "$DIR")"
 done
 
+if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ] && [ -x "$PARENT_DIR/scripts/check-wt.sh" ]; then
+  echo "[pre-push] Worktree erkannt — Worktree-Check (tsc + Biome + Unit-Tests; Guards laufen in der PR-CI)…"
+  cd "$REPO_ROOT" && exec "$PARENT_DIR/scripts/check-wt.sh"
+fi
+
 if [ -n "$PARENT_DIR" ]; then
   echo "[pre-push] bun check (scoped: $REPO_NAME)…"
   cd "$PARENT_DIR" && KUMIKO_CLI_SCOPE="$REPO_NAME" bun kumiko-framework/bin/kumiko.ts check
