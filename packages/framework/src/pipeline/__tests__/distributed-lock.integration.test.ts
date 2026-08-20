@@ -64,4 +64,35 @@ describe("distributed lock", () => {
     const token = await lock.acquire("test-lock-5");
     expect(token).not.toBeNull();
   });
+
+  test("renew extends the TTL for the owning token", async () => {
+    const lock = createDistributedLock(testRedis.redis);
+    const token = await lock.acquire("test-lock-6", { ttlSeconds: 1 });
+    if (!token) throw new Error("expected token");
+
+    const renewed = await lock.renew("test-lock-6", token, 5);
+    expect(renewed).toBe(true);
+
+    // Past the original 1s TTL, but renew pushed it out to 5s — still held.
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(await lock.acquire("test-lock-6")).toBeNull();
+  });
+
+  test("renew with wrong token fails and does not extend the TTL", async () => {
+    const lock = createDistributedLock(testRedis.redis);
+    await lock.acquire("test-lock-7", { ttlSeconds: 1 });
+
+    const renewed = await lock.renew("test-lock-7", "wrong-token", 5);
+    expect(renewed).toBe(false);
+
+    // The original 1s TTL still applies — the wrong-token renew didn't touch it.
+    await new Promise((r) => setTimeout(r, 1100));
+    expect(await lock.acquire("test-lock-7")).not.toBeNull();
+  });
+
+  test("renew on an expired/absent key fails", async () => {
+    const lock = createDistributedLock(testRedis.redis);
+    const renewed = await lock.renew("test-lock-8-never-acquired", "some-token", 5);
+    expect(renewed).toBe(false);
+  });
 });
