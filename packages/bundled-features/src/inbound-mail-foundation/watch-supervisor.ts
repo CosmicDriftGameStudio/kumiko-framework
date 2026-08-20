@@ -129,6 +129,8 @@ type WatcherState = {
   renewTimer: ReturnType<typeof setTimeout> | null;
 };
 
+type WatchLeaseResult = "acquired" | "no-token" | "stale";
+
 export type InboundMailSupervisor = {
   readonly start: () => Promise<void>;
   /** Ein Reconciliation-Durchlauf über alle aktiven Accounts — auch
@@ -392,6 +394,7 @@ export function createInboundMailSupervisor(
     state.renewTimer = setTimeout(() => {
       void (async () => {
         state.renewTimer = null;
+        // skip: supervisor stopped, generation superseded, or lease already lost — stale timer fire, nothing to renew.
         if (!running || state.generation !== generation || !state.lockToken || !deps.lock) return;
         let renewed: boolean;
         try {
@@ -405,6 +408,7 @@ export function createInboundMailSupervisor(
           if (running && state.generation === generation && state.lockToken) {
             scheduleRenew(account, state, generation);
           }
+          // skip: renew already rescheduled above (or conditions no longer hold) — nothing left to do this tick.
           return;
         }
         if (!renewed) {
@@ -413,6 +417,7 @@ export function createInboundMailSupervisor(
           );
           state.lockToken = null;
           await stopWatcher(account.id);
+          // skip: watcher already torn down by stopWatcher() above — nothing left to do.
           return;
         }
         if (running && state.generation === generation && state.lockToken) {
@@ -420,6 +425,27 @@ export function createInboundMailSupervisor(
         }
       })();
     }, renewIntervalMs);
+  }
+
+  async function acquireWatchLease(
+    account: MailAccountRecord,
+    state: WatcherState,
+  ): Promise<WatchLeaseResult> {
+    if (!deps.lock || state.lockToken) return "acquired";
+    const token = await deps.lock.acquire(account.id, { ttlSeconds: leaseTtlSeconds });
+    if (!token) return "no-token";
+    // The acquire() await is a yield point: a concurrent stopWatcher()
+    // (e.g. from a lost-lease renewal on a different generation) may have
+    // already retired this exact state and removed it from the map. If so,
+    // committing the fresh token onto it would leak the lease — nothing
+    // would ever release it, blocking failover for the full TTL.
+    if (watchers.get(account.id) !== state) {
+      await deps.lock.release(account.id, token);
+      return "stale";
+    }
+    state.lockToken = token;
+    scheduleRenew(account, state, state.generation);
+    return "acquired";
   }
 
   async function ensureWatcher(
@@ -442,26 +468,19 @@ export function createInboundMailSupervisor(
     };
     watchers.set(account.id, state);
 
-    if (deps.lock && !state.lockToken) {
-      const token = await deps.lock.acquire(account.id, { ttlSeconds: leaseTtlSeconds });
-      if (!token) {
-        // skip: another worker already holds this account's watch lease —
-        // the poll still covers it, this worker just doesn't open a
-        // second IDLE connection. Retried on the next tick.
-        if (!existing) watchers.delete(account.id);
-        return;
-      }
-      // The acquire() await is a yield point: a concurrent stopWatcher()
-      // (e.g. from a lost-lease renewal on a different generation) may have
-      // already retired this exact state and removed it from the map. If so,
-      // committing the fresh token onto it would leak the lease — nothing
-      // would ever release it, blocking failover for the full TTL.
-      if (watchers.get(account.id) !== state) {
-        await deps.lock.release(account.id, token);
-        return;
-      }
-      state.lockToken = token;
-      scheduleRenew(account, state, state.generation);
+    const leaseResult = await acquireWatchLease(account, state);
+    if (leaseResult === "no-token") {
+      // Another worker already holds this account's watch lease — the poll
+      // still covers it, this worker just doesn't open a second IDLE
+      // connection. Retried on the next tick.
+      if (!existing) watchers.delete(account.id);
+      // skip: no lease token acquired above — nothing more to set up here.
+      return;
+    }
+    if (leaseResult === "stale") {
+      // skip: state was retired by a concurrent stopWatcher while acquire()
+      // awaited — committing here would leak the lease.
+      return;
     }
 
     const generation = state.generation;
