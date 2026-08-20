@@ -159,6 +159,10 @@
       "types": "./src/consumer-cli.ts",
       "default": "./src/consumer-cli.ts"
     },
+    "./upgrade-cli": {
+      "types": "./src/upgrade-cli.ts",
+      "default": "./src/upgrade-cli.ts"
+    },
     "./stack": {
       "types": "./src/stack/index.ts",
       "default": "./src/stack/index.ts"

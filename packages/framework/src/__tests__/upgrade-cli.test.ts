@@ -1,8 +1,49 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
-import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
-import { resolveCodemodScript, upgradeCommand } from "../upgrade";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { resolveCodemodScript, runUpgradeCli, type UpgradeCliOut } from "../upgrade-cli";
+
+function makeSpyOutput(): {
+  readonly out: UpgradeCliOut;
+  readonly logs: string[];
+  readonly errs: string[];
+} {
+  const logs: string[] = [];
+  const errs: string[] = [];
+  return {
+    logs,
+    errs,
+    out: {
+      log: (m: string) => logs.push(m),
+      err: (m: string) => errs.push(m),
+    },
+  };
+}
+
+function makeTempCwd(files?: Record<string, string>): {
+  readonly cwd: string;
+  readonly cleanup: () => void;
+} {
+  const cwd = mkdtempSync(join(tmpdir(), "kumiko-upgrade-cli-"));
+  if (files) {
+    for (const [relPath, content] of Object.entries(files)) {
+      const full = join(cwd, relPath);
+      mkdirSync(join(full, ".."), { recursive: true });
+      writeFileSync(full, content, "utf-8");
+    }
+  }
+  return {
+    cwd,
+    cleanup: () => {
+      try {
+        rmSync(cwd, { recursive: true, force: true });
+      } catch {
+        // ignore — best-effort
+      }
+    },
+  };
+}
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -19,9 +60,7 @@ const CORE_ENTRY = JSON.stringify([
   },
 ]);
 
-const FEATURE_ENTRY = JSON.stringify([
-  { version: "0.166.0", type: "fix", title: "feature fix" },
-]);
+const FEATURE_ENTRY = JSON.stringify([{ version: "0.166.0", type: "fix", title: "feature fix" }]);
 
 function tmp(files: Record<string, string>): string {
   const t = makeTempCwd(files);
@@ -31,9 +70,7 @@ function tmp(files: Record<string, string>): string {
 
 async function runJson(cwd: string, from: string): Promise<{ pending: Array<{ title: string }> }> {
   const spy = makeSpyOutput();
-  const exit = await upgradeCommand.run(
-    makeContext({ cwd, argv: ["--from", from, "--json"], out: spy.out }),
-  );
+  const exit = await runUpgradeCli(["--from", from, "--json"], cwd, spy.out);
   expect(exit).toBe(0);
   return JSON.parse(spy.logs.join("\n"));
 }
@@ -95,9 +132,7 @@ describe("upgrade command — framework core changelog", () => {
     const cwd = tmp({ "packages/framework/src/changes.json": CORE_ENTRY });
     const spy = makeSpyOutput();
 
-    const exit = await upgradeCommand.run(
-      makeContext({ cwd, argv: ["--from", "latest", "--json"], out: spy.out }),
-    );
+    const exit = await runUpgradeCli(["--from", "latest", "--json"], cwd, spy.out);
 
     expect(exit).toBe(1);
     expect(spy.errs.join("\n")).toContain("Invalid version format");
@@ -132,7 +167,7 @@ describe("upgrade command — enterprise package layout", () => {
 
 // The repo actually checked out on disk — scripts/codemod/ isn't published,
 // so --apply only ever works against a real local framework checkout.
-const REAL_REPO_ROOT = join(import.meta.dir, "../../..");
+const REAL_REPO_ROOT = join(import.meta.dir, "../../../..");
 const REAL_CODEMOD = "scripts/codemod/crypto-shredding-testing-move.ts";
 
 function breakingEntryWithCodemod(codemod: string | undefined): string {
@@ -164,7 +199,9 @@ describe("resolveCodemodScript", () => {
   });
 
   test("rejects path traversal that escapes scripts/codemod/", () => {
-    expect(resolveCodemodScript(REAL_REPO_ROOT, "scripts/codemod/../../package.json.ts")).toBeNull();
+    expect(
+      resolveCodemodScript(REAL_REPO_ROOT, "scripts/codemod/../../package.json.ts"),
+    ).toBeNull();
     expect(resolveCodemodScript(REAL_REPO_ROOT, "../outside/x.ts")).toBeNull();
   });
 
@@ -189,9 +226,9 @@ describe("upgrade command — --apply", () => {
     });
     const spy = makeSpyOutput();
 
-    const exit = await upgradeCommand.run(
-      makeContext({ cwd, repoRoot: REAL_REPO_ROOT, argv: ["--from", "0.165.0", "--apply"], out: spy.out }),
-    );
+    const exit = await runUpgradeCli(["--from", "0.165.0", "--apply"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
 
     expect(exit).toBe(0);
 
@@ -204,7 +241,9 @@ describe("upgrade command — --apply", () => {
     const marker = JSON.parse(readFileSync(markerPath, "utf-8"));
     expect(marker.version).toBe("0.167.0");
     expect(typeof marker.appliedAt).toBe("string");
-    expect(marker.codemods).toEqual([{ version: "0.167.0", codemod: REAL_CODEMOD, title: "helper moved" }]);
+    expect(marker.codemods).toEqual([
+      { version: "0.167.0", codemod: REAL_CODEMOD, title: "helper moved" },
+    ]);
   });
 
   test("--dry-run runs the codemod but changes nothing and writes no marker", async () => {
@@ -214,14 +253,9 @@ describe("upgrade command — --apply", () => {
     });
     const spy = makeSpyOutput();
 
-    const exit = await upgradeCommand.run(
-      makeContext({
-        cwd,
-        repoRoot: REAL_REPO_ROOT,
-        argv: ["--from", "0.165.0", "--apply", "--dry-run"],
-        out: spy.out,
-      }),
-    );
+    const exit = await runUpgradeCli(["--from", "0.165.0", "--apply", "--dry-run"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
 
     expect(exit).toBe(0);
     expect(readFileSync(join(cwd, "legacy-test-helper.ts"), "utf-8")).toBe(LEGACY_IMPORT_FIXTURE);
@@ -235,9 +269,9 @@ describe("upgrade command — --apply", () => {
     });
     const spy = makeSpyOutput();
 
-    const exit = await upgradeCommand.run(
-      makeContext({ cwd, repoRoot: REAL_REPO_ROOT, argv: ["--from", "0.165.0", "--apply"], out: spy.out }),
-    );
+    const exit = await runUpgradeCli(["--from", "0.165.0", "--apply"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
 
     expect(exit).toBe(1);
     expect(spy.errs.join("\n")).toContain("invalid codemod path");
@@ -246,13 +280,15 @@ describe("upgrade command — --apply", () => {
 
   test("fails when the codemod script doesn't exist, writes no marker", async () => {
     const cwd = tmp({
-      "packages/framework/src/changes.json": breakingEntryWithCodemod("scripts/codemod/does-not-exist.ts"),
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(
+        "scripts/codemod/does-not-exist.ts",
+      ),
     });
     const spy = makeSpyOutput();
 
-    const exit = await upgradeCommand.run(
-      makeContext({ cwd, repoRoot: REAL_REPO_ROOT, argv: ["--from", "0.165.0", "--apply"], out: spy.out }),
-    );
+    const exit = await runUpgradeCli(["--from", "0.165.0", "--apply"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
 
     expect(exit).toBe(1);
     expect(spy.errs.join("\n")).toContain("invalid codemod path");
@@ -265,9 +301,9 @@ describe("upgrade command — --apply", () => {
     });
     const spy = makeSpyOutput();
 
-    const exit = await upgradeCommand.run(
-      makeContext({ cwd, repoRoot: REAL_REPO_ROOT, argv: ["--from", "0.165.0", "--apply"], out: spy.out }),
-    );
+    const exit = await runUpgradeCli(["--from", "0.165.0", "--apply"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
 
     expect(exit).toBe(0);
     expect(spy.logs.join("\n")).toContain("no codemod, manual migration required");
@@ -280,9 +316,9 @@ describe("upgrade command — --apply", () => {
     });
     const spy = makeSpyOutput();
 
-    const exit = await upgradeCommand.run(
-      makeContext({ cwd, repoRoot: REAL_REPO_ROOT, argv: ["--from", "0.170.0", "--apply"], out: spy.out }),
-    );
+    const exit = await runUpgradeCli(["--from", "0.170.0", "--apply"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
 
     expect(exit).toBe(0);
     expect(spy.logs.join("\n")).toContain("Nothing new since your version");
@@ -301,14 +337,9 @@ describe("upgrade command — --apply", () => {
     });
     const spy = makeSpyOutput();
 
-    const exit = await upgradeCommand.run(
-      makeContext({
-        cwd,
-        repoRoot: REAL_REPO_ROOT,
-        argv: ["--from", "0.170.0", "--apply", "--dry-run"],
-        out: spy.out,
-      }),
-    );
+    const exit = await runUpgradeCli(["--from", "0.170.0", "--apply", "--dry-run"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
 
     expect(exit).toBe(0);
     expect(spy.logs.join("\n")).toContain("Nothing new since your version");
@@ -322,13 +353,13 @@ describe("upgrade command — --apply", () => {
     const target = tmp({ "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE });
     const spy = makeSpyOutput();
 
-    const exit = await upgradeCommand.run(
-      makeContext({
-        cwd,
+    const exit = await runUpgradeCli(
+      ["--from", "0.165.0", "--apply", "--dir", target],
+      cwd,
+      spy.out,
+      {
         repoRoot: REAL_REPO_ROOT,
-        argv: ["--from", "0.165.0", "--apply", "--dir", target],
-        out: spy.out,
-      }),
+      },
     );
 
     expect(exit).toBe(0);
