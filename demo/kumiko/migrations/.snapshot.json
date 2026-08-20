@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-07-08T13:04:43.337Z",
+  "generatedAt": "2026-08-20T13:59:24.692Z",
   "tables": [
     {
       "tableName": "read_config_values",
@@ -78,66 +78,6 @@
         }
       ],
       "source": "managed"
-    },
-    {
-      "tableName": "read_delivery_attempts",
-      "columns": [
-        {
-          "name": "id",
-          "pgType": "uuid",
-          "notNull": true,
-          "primaryKey": true
-        },
-        {
-          "name": "tenant_id",
-          "pgType": "uuid",
-          "notNull": true
-        },
-        {
-          "name": "notification_type",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "channel",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "recipient_id",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "recipient_address",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "status",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "error",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "priority",
-          "pgType": "text",
-          "notNull": true,
-          "defaultSql": "'normal'"
-        },
-        {
-          "name": "created_at",
-          "pgType": "timestamptz",
-          "notNull": true,
-          "defaultSql": "now()"
-        }
-      ],
-      "indexes": [],
-      "source": "unmanaged"
     },
     {
       "tableName": "read_download_attempts",
@@ -578,7 +518,7 @@
         },
         {
           "name": "priority",
-          "pgType": "integer",
+          "pgType": "double precision",
           "notNull": false
         },
         {
@@ -737,6 +677,11 @@
           "notNull": true
         },
         {
+          "name": "invited_by_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "expires_at",
           "pgType": "timestamptz",
           "notNull": true
@@ -753,6 +698,12 @@
           "name": "read_tenant_invitations_email_bidx_idx",
           "columns": [
             "email_bidx"
+          ]
+        },
+        {
+          "name": "read_tenant_invitations_invited_by_bidx_idx",
+          "columns": [
+            "invited_by_bidx"
           ]
         },
         {
@@ -1116,93 +1067,6 @@
       "source": "managed"
     },
     {
-      "tableName": "read_user_sessions",
-      "columns": [
-        {
-          "name": "id",
-          "pgType": "uuid",
-          "notNull": true,
-          "defaultSql": "gen_random_uuid()",
-          "primaryKey": true
-        },
-        {
-          "name": "tenant_id",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "version",
-          "pgType": "integer",
-          "notNull": true,
-          "defaultSql": "1"
-        },
-        {
-          "name": "inserted_at",
-          "pgType": "timestamptz",
-          "notNull": true,
-          "defaultSql": "now()"
-        },
-        {
-          "name": "modified_at",
-          "pgType": "timestamptz",
-          "notNull": false
-        },
-        {
-          "name": "inserted_by_id",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "modified_by_id",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "user_id",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "created_at",
-          "pgType": "timestamptz",
-          "notNull": true
-        },
-        {
-          "name": "expires_at",
-          "pgType": "timestamptz",
-          "notNull": true
-        },
-        {
-          "name": "revoked_at",
-          "pgType": "timestamptz",
-          "notNull": false
-        },
-        {
-          "name": "ip",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "user_agent",
-          "pgType": "text",
-          "notNull": false
-        }
-      ],
-      "indexes": [
-        {
-          "name": "read_user_sessions_tenant_id_idx",
-          "columns": [
-            "tenant_id"
-          ]
-        }
-      ],
-      "source": "managed",
-      "piiSubjectFields": [
-        "ip",
-        "userAgent"
-      ]
-    },
-    {
       "tableName": "read_users",
       "columns": [
         {
@@ -1281,7 +1145,17 @@
           "notNull": true
         },
         {
+          "name": "display_name_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "locale",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "timezone",
           "pgType": "text",
           "notNull": false
         },
@@ -1331,12 +1205,185 @@
           "columns": [
             "email_bidx"
           ]
+        },
+        {
+          "name": "read_users_display_name_bidx_idx",
+          "columns": [
+            "display_name_bidx"
+          ]
+        },
+        {
+          "name": "read_users_email_unique",
+          "columns": [
+            "email"
+          ],
+          "unique": true
+        },
+        {
+          "name": "read_users_email_unique_bidx",
+          "columns": [
+            "email_bidx"
+          ],
+          "unique": true,
+          "whereSql": "\"email_bidx\" IS NOT NULL"
         }
       ],
       "source": "managed",
       "piiSubjectFields": [
         "email",
         "displayName"
+      ]
+    },
+    {
+      "tableName": "store_delivery_attempts",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "notification_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "channel",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "recipient_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "recipient_address",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "error",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "priority",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'normal'"
+        },
+        {
+          "name": "created_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        }
+      ],
+      "indexes": [],
+      "source": "unmanaged"
+    },
+    {
+      "tableName": "store_user_sessions",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "user_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "created_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "expires_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "revoked_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "last_seen_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "ip",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "user_agent",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_user_sessions_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        }
+      ],
+      "source": "unmanaged",
+      "piiSubjectFields": [
+        "ip",
+        "userAgent"
       ]
     }
   ]
