@@ -1,19 +1,19 @@
 // @runtime client
 // SignupCompleteScreen — Magic-Link-Self-Signup, Step 2.
 //
-// Liest `?token=...` aus der URL, zeigt Form mit Password + Confirm.
-// Submit triggert /api/auth/signup-confirm — bei Erfolg setzt der
-// Server JWT + Cookies (Auto-Login!) und liefert tenantKey für den
-// Post-Signup-Redirect.
+// Reads `?token=...` from the URL, shows a form with password + confirm.
+// Submit posts to /api/auth/signup-confirm — on success the server sets
+// JWT + cookies (auto-login!) and returns the tenantKey.
 //
-// Token-Quelle ist read-once via useUrlToken: liest `?token=...` beim
-// Mount und scrubbt den Param danach aus der URL (#774). Apps die einen
-// server-injected Token nutzen, reichen `token` als Prop durch.
+// Token source is read-once via useUrlToken: reads `?token=...` on mount
+// and scrubs the param from the URL afterwards (#774). Apps that inject a
+// server-side token pass `token` as a prop instead.
 //
-// Nach success: redirect via window.location.assign zu loggedInHref.
-// Default-Pattern ist "/<tenantKey>/" — die App reicht ein Template
-// rein. Default-Template "/" wäre auch valide (App hat dann eigene
-// Routing-Logik die den eingeloggten User zur richtigen Page schickt).
+// On success: shows a confirmation (account active, signed in) with a
+// button to loggedInHref, instead of navigating away immediately — the
+// server already logged the user in via cookies, but a silent redirect
+// leaves no signal that activation worked. Default pattern is "/" — apps
+// with multi-tenant routing pass `(data) => "/" + data.tenantKey + "/"`.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
@@ -50,6 +50,7 @@ export function SignupCompleteScreen({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [continueHref, setContinueHref] = useState<string | null>(null);
 
   const doSubmit = async (): Promise<void> => {
     setError(null);
@@ -66,9 +67,10 @@ export function SignupCompleteScreen({
     const res = await confirmSignup(token, password);
     setSubmitting(false);
     if (res.ok) {
-      // Auto-Login: Cookies sind via Set-Cookie schon im Browser. Wir
-      // schicken den User direkt zur eingeloggten Page.
-      window.location.assign(resolveLoggedInHref(loggedInHref, res.data.tenantKey));
+      // Cookies are already set (auto-login). Show a confirmation with an
+      // explicit continue button instead of navigating away silently —
+      // the user otherwise gets no signal that activation worked.
+      setContinueHref(resolveLoggedInHref(loggedInHref, res.data.tenantKey));
       return;
     }
     if (res.error.reason === "invalid_signup_token") {
@@ -98,6 +100,19 @@ export function SignupCompleteScreen({
           <p className="text-sm text-muted-foreground">{t("auth.signupComplete.missingToken")}</p>
           <Link href={loginHref} variant="muted">
             {t("auth.signup.haveAccount")}
+          </Link>
+        </div>
+      </AuthCard>
+    );
+  }
+
+  if (continueHref !== null) {
+    return (
+      <AuthCard title={effectiveTitle}>
+        <div className="p-6 pt-0 flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">{t("auth.signupComplete.activated")}</p>
+          <Link href={continueHref} variant="button">
+            {t("auth.signupComplete.continue")}
           </Link>
         </div>
       </AuthCard>

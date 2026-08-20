@@ -230,7 +230,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "We've sent you an activation link. Click it to set your password and sign in.",
   "auth.signup.successTitle": "Email sent",
   "auth.signup.title": "Create account",
+  "auth.signupComplete.activated": "Your account is active and you're signed in.",
   "auth.signupComplete.confirmPassword": "Confirm password",
+  "auth.signupComplete.continue": "Continue",
   "auth.signupComplete.intro": "Choose a password (at least 8 characters) for your new account.",
   "auth.signupComplete.mismatch": "Passwords do not match.",
   "auth.signupComplete.missingToken":
