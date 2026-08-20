@@ -1,7 +1,115 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-20T13:59:24.692Z",
+  "generatedAt": "2026-08-20T18:20:13.780Z",
   "tables": [
+    {
+      "tableName": "file_refs",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "is_deleted",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "deleted_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "deleted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "storage_key",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "file_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "mime_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "size",
+          "pgType": "bigint",
+          "notNull": true,
+          "bigintJsMode": "number"
+        },
+        {
+          "name": "entity_type",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "entity_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "field_name",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "file_refs_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": [
+        "fileName"
+      ]
+    },
     {
       "tableName": "read_config_values",
       "columns": [
