@@ -11,7 +11,8 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes, rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+import { expectErrorIncludes, rolesOf, seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { Temporal } from "temporal-polyfill";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
@@ -22,6 +23,7 @@ import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery
 import { notificationPreferencesTable } from "../../delivery/tables";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
+import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
 import { hashPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createUserFeature } from "../../user/feature";
@@ -61,7 +63,9 @@ beforeAll(async () => {
     features: [
       createConfigFeature(),
       createUserFeature(),
-      createTenantFeature(),
+      // inviteScreen: this suite dispatches AuthHandlers.inviteCreate and
+      // needs /members' invite-create actionForm screen registered too.
+      createTenantFeature({ inviteScreen: true }),
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createDeliveryFeature(),
@@ -93,6 +97,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
+  await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafePushTables(stack.db, {
     configValuesTable,
     tenantMembershipsTable,
@@ -108,6 +113,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
   emailTransport.sent.length = 0;
   const keys = await stack.redis.redis.keys("invite:*");
@@ -229,10 +235,11 @@ describe("TenantAdmin can use members-admin HTTP surface", () => {
 });
 
 describe("regular User is denied members-admin surface", () => {
-  test("403 on members, invitations, invite-create, cancel-invitation", async () => {
+  test("403 on members, invitations, team:list, invite-create, cancel-invitation", async () => {
     for (const [label, fn] of [
       ["members", () => stack.http.query(TenantQueries.members, {}, regularUserB())],
       ["invitations", () => stack.http.query(TenantQueries.invitations, {}, regularUserB())],
+      ["team:list", () => stack.http.query(TenantQueries.teamList, {}, regularUserB())],
       [
         "invite-create",
         () =>
@@ -247,6 +254,11 @@ describe("regular User is denied members-admin surface", () => {
       expect(res.status, label).toBe(403);
     }
   });
+
+  // The /members screen gates on the SAME access.admin roles as its query
+  // (see members-screens.boot.test.ts) — there is no separate HTTP surface
+  // for "screen access" beyond the query/handlers it dispatches, so denying
+  // the query above + the screen.access assertion together cover point 8.
 });
 
 describe("privilege escalation via invite role", () => {
@@ -295,6 +307,251 @@ describe("tenant isolation on cancel-invitation", () => {
       tenantAdminA(),
     );
     expectErrorIncludes(err, "invitation_not_found");
+  });
+});
+
+type TeamListRow = {
+  readonly id: string;
+  readonly email: string | null;
+  readonly roles: readonly string[];
+  readonly status: "active" | "pending";
+  readonly createdAt: string;
+  readonly lastSeenAt: string | null;
+};
+
+async function queryTeamList(
+  payload: Record<string, unknown>,
+  user: SessionUser,
+): Promise<readonly TeamListRow[]> {
+  const result = await stack.http.queryOk<{
+    rows: readonly TeamListRow[];
+    nextCursor: string | null;
+  }>(TenantQueries.teamList, payload, user);
+  return result.rows;
+}
+
+describe("tenant:query:team:list — combined members + pending invitations (§2.6a)", () => {
+  test("returns both memberships and pending invitations with correct per-row status", async () => {
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "member-x@example.com",
+      displayName: "Member X",
+      passwordHash: await hashPassword("pw-x-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+    await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "invitee-x@example.com", role: "Editor" },
+      tenantAdminA(),
+    );
+
+    const rows = await queryTeamList({}, tenantAdminA());
+    const admin = rows.find((r) => r.email === "admin-a@example.com");
+    const member = rows.find((r) => r.email === "member-x@example.com");
+    const invitee = rows.find((r) => r.email === "invitee-x@example.com");
+    expect(admin?.status).toBe("active");
+    expect(admin?.roles).toEqual(["TenantAdmin"]);
+    expect(member?.status).toBe("active");
+    expect(member?.roles).toEqual(["User"]);
+    expect(invitee?.status).toBe("pending");
+    expect(invitee?.roles).toEqual(["Editor"]);
+  });
+
+  test("status facet genuinely narrows to matching rows, not just the count", async () => {
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "member-y@example.com",
+      displayName: "Member Y",
+      passwordHash: await hashPassword("pw-y-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+    await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "invitee-y1@example.com", role: "User" },
+      tenantAdminA(),
+    );
+    await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "invitee-y2@example.com", role: "User" },
+      tenantAdminA(),
+    );
+
+    const pendingOnly = await queryTeamList(
+      { filters: [{ field: "status", op: "in", value: ["pending"] }] },
+      tenantAdminA(),
+    );
+    expect(pendingOnly.map((r) => r.email).sort()).toEqual([
+      "invitee-y1@example.com",
+      "invitee-y2@example.com",
+    ]);
+
+    const activeOnly = await queryTeamList(
+      { filters: [{ field: "status", op: "in", value: ["active"] }] },
+      tenantAdminA(),
+    );
+    expect(activeOnly.map((r) => r.email).sort()).toEqual([
+      "admin-a@example.com",
+      "member-y@example.com",
+    ]);
+
+    const unfiltered = await queryTeamList({}, tenantAdminA());
+    expect(unfiltered).toHaveLength(pendingOnly.length + activeOnly.length);
+  });
+
+  test("sort direction genuinely reverses row order across ≥3 differing rows", async () => {
+    for (const email of [
+      "aaa-member@example.com",
+      "mmm-member@example.com",
+      "zzz-member@example.com",
+    ]) {
+      const { id: userId } = await seedUser(stack.db, {
+        email,
+        displayName: email,
+        passwordHash: await hashPassword("pw-sort-1234"),
+        emailVerified: true,
+      });
+      await seedTenantMembership(stack.db, { userId, tenantId: TENANT_A_ID, roles: ["User"] });
+    }
+
+    const asc = await queryTeamList({ sort: "email", sortDirection: "asc" }, tenantAdminA());
+    const desc = await queryTeamList({ sort: "email", sortDirection: "desc" }, tenantAdminA());
+    expect(asc.map((r) => r.email)).toEqual([
+      "aaa-member@example.com",
+      "admin-a@example.com",
+      "mmm-member@example.com",
+      "zzz-member@example.com",
+    ]);
+    expect(desc.map((r) => r.email)).toEqual([
+      "zzz-member@example.com",
+      "mmm-member@example.com",
+      "admin-a@example.com",
+      "aaa-member@example.com",
+    ]);
+  });
+
+  test("pagination crosses both sources: memberships-only page, then a page including invitations", async () => {
+    for (const email of ["page-member-1@example.com", "page-member-2@example.com"]) {
+      const { id: userId } = await seedUser(stack.db, {
+        email,
+        displayName: email,
+        passwordHash: await hashPassword("pw-page-1234"),
+        emailVerified: true,
+      });
+      await seedTenantMembership(stack.db, { userId, tenantId: TENANT_A_ID, roles: ["User"] });
+    }
+    await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "page-invitee-1@example.com", role: "User" },
+      tenantAdminA(),
+    );
+    await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "page-invitee-2@example.com", role: "User" },
+      tenantAdminA(),
+    );
+    // 3 members (adminA + 2 seeded, created first) + 2 invitations (created
+    // after) = 5 rows. Sorted oldest-first, a page size of 3 lands exactly
+    // on the members/invitations boundary.
+    const page1 = await queryTeamList(
+      { sort: "createdAt", sortDirection: "asc", limit: 3, offset: 0 },
+      tenantAdminA(),
+    );
+    const page2 = await queryTeamList(
+      { sort: "createdAt", sortDirection: "asc", limit: 3, offset: 3 },
+      tenantAdminA(),
+    );
+    expect(page1).toHaveLength(3);
+    expect(page1.every((r) => r.status === "active")).toBe(true);
+    expect(page2).toHaveLength(2);
+    expect(page2.every((r) => r.status === "pending")).toBe(true);
+
+    const allIds = [...page1, ...page2].map((r) => r.id);
+    expect(new Set(allIds).size).toBe(5);
+  });
+
+  test("lastSeenAt is set for a member with a session, null for one without, and null for an invitation", async () => {
+    const { id: withSessionId } = await seedUser(stack.db, {
+      email: "with-session@example.com",
+      displayName: "With Session",
+      passwordHash: await hashPassword("pw-sess-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: withSessionId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+    const seededLastSeen = Temporal.Now.instant().subtract({ minutes: 5 });
+    await seedRow(stack.db, userSessionTable, {
+      id: crypto.randomUUID(),
+      userId: withSessionId,
+      tenantId: TENANT_A_ID,
+      createdAt: Temporal.Now.instant().subtract({ hours: 1 }),
+      expiresAt: Temporal.Now.instant().add({ hours: 1 }),
+      lastSeenAt: seededLastSeen,
+    });
+
+    const { id: withoutSessionId } = await seedUser(stack.db, {
+      email: "without-session@example.com",
+      displayName: "Without Session",
+      passwordHash: await hashPassword("pw-nosess-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: withoutSessionId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+    await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "invitee-lastseen@example.com", role: "User" },
+      tenantAdminA(),
+    );
+
+    const rows = await queryTeamList({}, tenantAdminA());
+    const withSession = rows.find((r) => r.email === "with-session@example.com");
+    const withoutSession = rows.find((r) => r.email === "without-session@example.com");
+    const invitee = rows.find((r) => r.email === "invitee-lastseen@example.com");
+
+    expect(withSession?.lastSeenAt).not.toBeNull();
+    const driftMs = Math.abs(
+      Temporal.Instant.from(withSession?.lastSeenAt as string).epochMilliseconds -
+        seededLastSeen.epochMilliseconds,
+    );
+    expect(driftMs).toBeLessThan(1_000);
+    expect(withoutSession?.lastSeenAt).toBeNull();
+    expect(invitee?.lastSeenAt).toBeNull();
+  });
+});
+
+describe("cancel-invitation on the /members surface genuinely cancels", () => {
+  test("a pending invitation created via invite-create disappears from team:list after cancel-invitation", async () => {
+    await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "cancel-me@example.com", role: "User" },
+      tenantAdminA(),
+    );
+    const before = await queryTeamList({}, tenantAdminA());
+    const pending = before.find((r) => r.email === "cancel-me@example.com");
+    expect(pending?.status).toBe("pending");
+    if (pending === undefined) throw new Error("expected the seeded invitation to be listed");
+
+    await stack.http.writeOk(
+      TenantHandlers.cancelInvitation,
+      { invitationId: pending.id },
+      tenantAdminA(),
+    );
+
+    const after = await queryTeamList({}, tenantAdminA());
+    expect(after.some((r) => r.email === "cancel-me@example.com")).toBe(false);
   });
 });
 

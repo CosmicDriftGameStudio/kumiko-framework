@@ -8,7 +8,7 @@
 // dispatched ins Leere → 500.
 
 import { describe, expect, spyOn, test } from "bun:test";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "../compose-features";
 
 const noopFeature = defineFeature("noop-app", () => {});
@@ -128,6 +128,38 @@ describe("composeFeatures", () => {
     // aber immer da sein — das ist der core-flow.
     expect(handlerNames).toContain("login");
     expect(handlerNames).toContain("logout");
+  });
+
+  // fw#2223 regression: without this wiring, includeBundled apps that DO
+  // configure authOptions.invite still got /members with no invite button —
+  // the screen is bound to auth-email-password's invite-create handler,
+  // which only exists when opts.invite is set (feature.ts:238-239).
+  test("authOptions.invite → tenant bekommt invite-Screen + Toolbar-Action; ohne invite bootet sauber ohne beides", () => {
+    const withInvite = composeFeatures([noopFeature], {
+      includeBundled: true,
+      authOptions: { invite: { appUrl: "https://app/invite" } },
+    });
+    const tenantWith = withInvite.find((f) => f.name === "tenant");
+    expect(tenantWith).toBeDefined();
+    if (!tenantWith) return;
+    const membersScreenWith = tenantWith.screens["members"];
+    if (membersScreenWith?.type !== "projectionList") {
+      throw new Error("expected members screen to be projectionList");
+    }
+    expect(membersScreenWith.toolbarActions?.some((a) => a.id === "invite")).toBe(true);
+    expect(tenantWith.screens["invite-create"]).toBeDefined();
+
+    const withoutInvite = composeFeatures([noopFeature], { includeBundled: true });
+    const tenantWithout = withoutInvite.find((f) => f.name === "tenant");
+    expect(tenantWithout).toBeDefined();
+    if (!tenantWithout) return;
+    const membersScreenWithout = tenantWithout.screens["members"];
+    if (membersScreenWithout?.type !== "projectionList") {
+      throw new Error("expected members screen to be projectionList");
+    }
+    expect(membersScreenWithout.toolbarActions ?? []).toHaveLength(0);
+    expect(tenantWithout.screens["invite-create"]).toBeUndefined();
+    expect(() => validateBoot(withoutInvite)).not.toThrow();
   });
 
   test("app feature duplicating a bundled name is dropped (no createRegistry crash)", () => {

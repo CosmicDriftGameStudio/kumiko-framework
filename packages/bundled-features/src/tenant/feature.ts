@@ -8,7 +8,6 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { MEMBERS_SCREEN_ID } from "./constants";
 import { activeTenantIdsQuery } from "./handlers/active-tenant-ids.query";
 import { addMemberWrite } from "./handlers/add-member.write";
 import { cancelInvitationWrite } from "./handlers/cancel-invitation.write";
@@ -20,6 +19,7 @@ import { membersQuery } from "./handlers/members.query";
 import { membershipsQuery } from "./handlers/memberships.query";
 import { removeMemberWrite } from "./handlers/remove-member.write";
 import { resolveUserIdsQuery } from "./handlers/resolve-user-ids.query";
+import { teamListQuery } from "./handlers/team-list.query";
 import { disableWrite, enableWrite } from "./handlers/toggle-enabled.write";
 import { updateWrite } from "./handlers/update.write";
 import { updateMemberRolesWrite } from "./handlers/update-member-roles.write";
@@ -27,13 +27,29 @@ import { TENANT_I18N } from "./i18n";
 import { tenantInvitationEntity } from "./invitation-table";
 import { tenantMembershipEntity } from "./membership-table";
 import { tenantEntity } from "./schema/tenant";
-import { tenantEditScreen, tenantListScreen } from "./screens";
+import {
+  createMembersScreen,
+  inviteCreateScreen,
+  tenantEditScreen,
+  tenantListScreen,
+} from "./screens";
 
 export { tenantEntity, tenantTable } from "./schema/tenant";
 
+export type TenantFeatureOptions = {
+  /** Adds the /members "invite" drawer button + its `invite-create`
+   *  actionForm, bound to auth-email-password's `invite-create` write-
+   *  handler. That handler only exists when the app also mounts
+   *  `createAuthEmailPasswordFeature({ invite: {...} })` — the boot
+   *  validator rejects the actionForm's handler QN otherwise (cross-feature
+   *  handler lookup fails). Off by default: `tenant` cannot see whether an
+   *  app configured that optional auth-email-password flow. */
+  readonly inviteScreen?: boolean;
+};
+
 // --- Feature ---
 
-export function createTenantFeature(): FeatureDefinition {
+export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefinition {
   return defineFeature("tenant", (r) => {
     r.describe(
       "Registers the three core multi-tenancy entities \u2014 `tenant`, `tenant-membership`, and `tenant-invitation` (DB tables `read_tenants`, `read_tenant_memberships`, and `read_tenant_invitations`) \u2014 along with write handlers for create/update/disable/enable/addMember/removeMember/updateMemberRoles and the matching queries. It also declares a set of per-tenant config keys (companyName, timezone, locale, SMTP credentials) and system-only keys (priceModel, maxUsers) via `r.config({ keys: { ... } })`. Use this feature in every multi-tenant app; membership resolution and invitation flows depend on it, and `auth-email-password` requires it.",
@@ -117,6 +133,7 @@ export function createTenantFeature(): FeatureDefinition {
       activeTenantIds: r.queryHandler(activeTenantIdsQuery),
       resolveUserIds: r.queryHandler(resolveUserIdsQuery),
       invitations: r.queryHandler(invitationsQuery),
+      teamList: r.queryHandler(teamListQuery),
     };
 
     // Entity-convention handlers for the SystemAdmin entityList/entityEdit
@@ -136,14 +153,14 @@ export function createTenantFeature(): FeatureDefinition {
     );
     r.screen(tenantListScreen);
     r.screen(tenantEditScreen);
-    // Tenant-admin team UI: members list + invite/cancel (no role-edit — updateMemberRoles
-    // stays SystemAdmin-only). Screen access matches handler access.admin.
-    r.screen({
-      id: MEMBERS_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "MembersScreen" } },
-      access: { roles: access.admin },
-    });
+    // Tenant-admin team UI: one list (active members + pending invitations,
+    // §2.6), invite via a drawer-hosted actionForm. No role-edit —
+    // updateMemberRoles stays SystemAdmin-only. Screen access matches
+    // handler access.admin.
+    r.screen(createMembersScreen(options));
+    if (options?.inviteScreen) {
+      r.screen(inviteCreateScreen);
+    }
     r.nav({
       id: "members",
       label: "tenant.nav.members",

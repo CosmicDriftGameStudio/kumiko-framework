@@ -133,6 +133,7 @@
     },
     "delivery": {
       "samples": [
+        "apps-admin-console",
         "recipes-delivery-notifications"
       ],
       "hasVisualOutput": true,
