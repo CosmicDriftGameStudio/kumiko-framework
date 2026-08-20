@@ -355,12 +355,12 @@ function FieldRendererOutput({
       : undefined;
   const Component = useColumnRenderer(componentName);
   if (isFormatSpec(renderer)) {
-    // App-Locale als Default, wenn der FormatSpec kein eigenes `locale`
-    // deklariert — sonst fielen locale-sensitive Formate (timestamp/date/
-    // number/decimal/bigInt/unit) auf Intl's Runtime-Default zurück statt
-    // die per LocaleProvider gewählte App-Sprache zu nutzen (fw#2187). Ein
-    // explizites `renderer.locale` gewinnt, gleiches Muster wie dateLocale
-    // vs. appLocale weiter unten in readOnlyDisplayText.
+    // App locale as default when the FormatSpec declares none of its own —
+    // otherwise locale-sensitive formats (timestamp/date/number/decimal/
+    // bigInt/unit) fell back to Intl's runtime default instead of the app
+    // language chosen via LocaleProvider (fw#2187). An explicit
+    // `renderer.locale` still wins, same pattern as dateLocale vs. appLocale
+    // further below in readOnlyDisplayText.
     return (
       <Text testId={`field-value-${field.field}`}>
         {applyFormatSpec({ locale: appLocale, ...renderer }, field.value)}
