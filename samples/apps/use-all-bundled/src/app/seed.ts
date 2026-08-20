@@ -307,6 +307,18 @@ export const seedScreenshotData: SeedFn = async (stack) => {
   // personal-access-tokens list for the admin (active tenant = dev).
   await seedApiTokens(stack.db, devTenant);
 
+  // invite-create dispatches — the delivery-log screen renders notification
+  // attempts, and only the real handler (not a projection write) produces
+  // them; #2292.
+  const inviter: SessionUser = { ...TestUsers.systemAdmin, tenantId: devTenant, id: devAdminId };
+  for (const invitee of [
+    { email: "amara.solis@example.com", role: "User" },
+    { email: "devon.park@example.com", role: "User" },
+    { email: "priya.nandan@example.com", role: "User" },
+  ]) {
+    await stack.http.writeOk("auth-email-password:write:invite-create", invitee, inviter);
+  }
+
   // reply-snippets — entries for the rich collection. Written through the
   // collection's own set-handler, the same path the editor uses, so the rows
   // carry whatever the handler derives instead of a hand-built projection.

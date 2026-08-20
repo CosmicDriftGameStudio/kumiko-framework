@@ -64,6 +64,10 @@
       "secrets": [],
       "writeHandlers": [
         "auth-email-password:write:change-password",
+        "auth-email-password:write:invite-accept",
+        "auth-email-password:write:invite-accept-with-login",
+        "auth-email-password:write:invite-create",
+        "auth-email-password:write:invite-signup-complete",
         "auth-email-password:write:login",
         "auth-email-password:write:logout",
         "auth-email-password:write:signup-confirm",
