@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.193.0",
+    "type": "breaking",
+    "title": "Image fields get named derived variants; ImageFieldDef/ImagesFieldDef.thumbnails removed (fw#1973).",
+    "detail": "createImageField now accepts variants: Record<string, VariantSpec> — boot-validated named derived-image specs, served via GET /api/files/:id/variant/:name behind the same tenant + access guard as the download. A request carries only a NAME, never a spec, so no caller can drive an arbitrary render. The edit-form preview loads the first declared variant instead of the original.",
+    "migration": "ImageFieldDef.thumbnails / ImagesFieldDef.thumbnails are removed — the flag was never read by anything. Replace any reliance on it with a declared variants entry."
+  },
+  {
+    "version": "0.189.0",
+    "type": "breaking",
+    "title": "createDateField now backs a real Postgres DATE column, round-trips as Temporal.PlainDate (fw#1924).",
+    "detail": "type:\"date\" fields were silently aliased onto the same instant()/TIMESTAMPTZ column as type:\"timestamp\": reads returned a full ISO instant (\"2026-03-15T00:00:00Z\"), writes expected a bare \"yyyy-mm-dd\" string bound to a timestamptz column through the session's TimeZone — both directions were timezone-dependent for what is meant to be a pure calendar-day value. A date field now serializes as \"2026-03-15\" (Temporal.PlainDate's own toJSON()); a non-form client that Instant-parses a date field's JSON value now throws. Write shape is unchanged (bare \"yyyy-mm-dd\").",
+    "migration": "Managed (event-sourced projection) tables: the generator emits DROP TABLE + CREATE TABLE and replays from the event log automatically — factor in replay cost for entities with a large event history. Unmanaged (store_*, direct-write) tables: the generator emits an in-place ALTER TABLE … ALTER COLUMN … TYPE date USING (col AT TIME ZONE 'UTC')::date, anchored explicitly at UTC — do not hand-write a bare ALTER COLUMN … TYPE date without USING, which falls back to Postgres's session-TimeZone-dependent implicit cast."
+  },
+  {
     "version": "0.177.0",
     "type": "breaking",
     "title": "createMoneyField's amount now converts to/from minor-unit BIGINT storage (fw#1767).",
