@@ -1,5 +1,6 @@
 // Shared factory for the request-side of out-of-band token flows
-// (password-reset, email-verification). Both follow the same shape:
+// (password-reset, email-verification, account-unlock). All follow the
+// same shape:
 //
 //   POST email
 //     → resolve user (system-scoped query)
@@ -11,6 +12,7 @@
 // default TTL, extra skip condition) + two error codes — encoded on the
 // spec rather than duplicated across two near-identical handler bodies.
 
+import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "temporal-polyfill";
@@ -70,9 +72,14 @@ export type TokenRequestSpec<TName extends string, TSuccessKind extends string> 
 export type TokenRequestOptions = {
   readonly hmacSecret: string;
   readonly tokenTtlMinutes?: number;
-  // App page that receives the magic-link; the handler appends `?token=…`.
-  readonly appUrl: string;
+  /** App page that receives the magic-link; the handler appends `?token=…`.
+   *  Apps with language-in-path routing pass a function to pick the right
+   *  page for the resolved locale; everyone else keeps a plain string. */
+  readonly appUrl: string | ((locale: string) => string);
   readonly appName?: string;
+  /** Static fallback mail locale, used only when the request itself
+   *  carries no locale signal (no X-Locale header, no usable
+   *  Accept-Language) — see the locale resolution in the handler below. */
   readonly locale?: AuthMailLocale;
 };
 
@@ -117,6 +124,15 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
 
       const { token, expiresAt } = spec.sign(user.id, ttl, opts.hmacSecret);
 
+      // ctx.locale always resolves to something (falls back to the app's
+      // boot default, then "en"), so it can't tell us whether THIS request
+      // actually carried a locale signal. Read the raw request-layer value
+      // instead: present → the requester's active language wins over
+      // opts.locale (this handler's static config); absent → opts.locale
+      // is the real, still-relevant fallback, then ctx.locale's own
+      // resolved default.
+      const locale = requestContext.get()?.locale ?? opts.locale ?? ctx.locale;
+
       await dispatchMagicLinkMail(
         ctx.notify,
         {
@@ -132,7 +148,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
           token,
           expiresAt: expiresAt.toString(),
           ...(opts.appName !== undefined && { appName: opts.appName }),
-          ...(opts.locale !== undefined && { locale: opts.locale }),
+          locale,
         },
       );
 

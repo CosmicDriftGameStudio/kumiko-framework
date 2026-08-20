@@ -132,24 +132,21 @@ export type AuthOptionsCarrier = {
  *  Returns undefined when neither passwordReset nor emailVerification is
  *  set (composeFeatures default-deny: NO handler registered in the
  *  registry, /api/auth/request-password-reset etc. stay 401/404). */
-// appUrl is generic per call site: reset/verify/invite stay plain strings,
-// signup alone allows the `(locale) => string` form (language-in-path apps —
-// see SignupRequestOptions.appUrl). A shared non-generic type here would
-// force every flow to the widest shape, breaking the narrower ones.
-type MailFlowFields<TAppUrl extends string | ((locale: string) => string) = string> = {
-  readonly appUrl: TAppUrl;
+// All five magic-link flows (reset/verify/signup/invite/unlock) accept the
+// same appUrl shape — a plain string, or a `(locale) => string` function for
+// apps with language-in-path routing (see SignupRequestOptions.appUrl).
+type MailFlowFields = {
+  readonly appUrl: string | ((locale: string) => string);
   readonly tokenTtlMinutes?: number;
   readonly appName?: string;
   readonly locale?: AuthMailLocale;
 };
 
-// The magic-link mail fields shared by all four flows. Conditional spreads omit
+// The magic-link mail fields shared by all five flows. Conditional spreads omit
 // undefined keys (exactOptionalPropertyTypes) and avoid the property-write that
 // trips noPropertyAccessFromIndexSignature on the type-aliased option shapes.
 // reset/verify layer hmacSecret (+ mode) on top.
-function pickMailFields<TAppUrl extends string | ((locale: string) => string)>(
-  src: MailFlowFields<TAppUrl>,
-): MailFlowFields<TAppUrl> {
+function pickMailFields(src: MailFlowFields): MailFlowFields {
   return {
     appUrl: src.appUrl,
     ...(src.tokenTtlMinutes !== undefined && { tokenTtlMinutes: src.tokenTtlMinutes }),

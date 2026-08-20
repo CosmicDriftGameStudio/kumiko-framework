@@ -1,11 +1,10 @@
 // Active-locale header transport for the live dispatcher.
 //
-// @cosmicdrift/kumiko-renderer's LocaleProvider sets document.documentElement.lang
-// to the resolver's current locale on mount and on every locale change (see
-// i18n.tsx). This module reads that value back so every outgoing request
-// carries the language the user is ACTUALLY using — not the app's hardcoded
-// boot language — with zero app-side wiring: any app that renders
-// <LocaleProvider> already gets this for free.
+// @cosmicdrift/kumiko-renderer-web's DocumentLangSync (mounted by
+// createKumikoApp/createPublicSurface) keeps document.documentElement.lang in
+// sync with the app's LocaleResolver. This module reads that value back so
+// every outgoing request carries the language the user is ACTUALLY using —
+// not the app's hardcoded boot language — with zero app-side wiring.
 
 // Kept in sync with LOCALE_HEADER_NAME in api-constants.ts by hand rather
 // than imported from @cosmicdrift/kumiko-framework — this package must

@@ -64,8 +64,10 @@ export type PasswordResetOptions = {
   readonly tokenTtlMinutes?: number;
   // App page that receives the magic-link; the handler appends `?token=…` and
   // sends the mail via delivery (ctx.notify). No sendResetEmail callback — the
-  // app mounts `delivery` + a mail channel instead.
-  readonly appUrl: string;
+  // app mounts `delivery` + a mail channel instead. Apps with language-in-path
+  // routing may pass a function to pick the right page for the resolved
+  // locale instead of a plain string.
+  readonly appUrl: string | ((locale: string) => string);
   readonly appName?: string;
   readonly locale?: AuthMailLocale;
 };
@@ -80,8 +82,10 @@ export type EmailVerificationOptions = {
   readonly tokenTtlMinutes?: number;
   readonly mode?: "strict" | "off";
   // App page that receives the magic-link; the handler appends `?token=…` and
-  // sends via delivery (ctx.notify). No sendVerificationEmail callback.
-  readonly appUrl: string;
+  // sends via delivery (ctx.notify). No sendVerificationEmail callback. Apps
+  // with language-in-path routing may pass a function to pick the right page
+  // for the resolved locale instead of a plain string.
+  readonly appUrl: string | ((locale: string) => string);
   readonly appName?: string;
   readonly locale?: AuthMailLocale;
 };

@@ -527,3 +527,74 @@ describe("POST /api/auth/signup-request — opts.locale stays a real fallback", 
     expect(sent.subject).toContain("Account aktivieren");
   });
 });
+
+describe("POST /api/auth/signup-request — appUrl as a function picks the activation link's locale", () => {
+  // This is the actual mechanism the whole PR exists for: an app with
+  // language-in-path routing (/de/activate, /en/activate, ...) passes a
+  // function instead of a plain string, and the resolved locale must land
+  // in the link the user actually clicks — not just the mail's language.
+  const appUrlTransport = createInMemoryTransport();
+  let appUrlStack: TestStack;
+
+  beforeAll(async () => {
+    appUrlStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createTemplateResolverFeature(),
+        createRendererFoundationFeature(),
+        createDeliveryFeature(),
+        createRendererSimpleFeature(),
+        createChannelEmailFeature({
+          transport: appUrlTransport,
+          renderer: simpleRenderer,
+          resolveEmail: async () => "unused@test.local",
+        }),
+        createAuthEmailPasswordFeature({
+          signup: {
+            tokenTtlMinutes: 60,
+            appUrl: (locale) => `https://app.example.com/${locale}/activate`,
+          },
+        }),
+      ],
+      extraContext: (deps) => ({
+        ...createDeliveryTestContext(deps),
+        configResolver: createConfigResolver(),
+      }),
+      authConfig: {
+        membershipQuery: "tenant:query:memberships",
+        loginHandler: AuthHandlers.login,
+        signup: {
+          requestHandler: AuthHandlers.signupRequest,
+          confirmHandler: AuthHandlers.signupConfirm,
+        },
+      },
+    });
+    await unsafeCreateEntityTable(appUrlStack.db, userEntity);
+    await unsafeCreateEntityTable(appUrlStack.db, tenantEntity);
+    await unsafePushTables(appUrlStack.db, {
+      configValuesTable,
+      tenantMembershipsTable,
+      notificationPreferencesTable,
+    });
+  });
+
+  afterAll(async () => {
+    await appUrlStack.cleanup();
+  });
+
+  test("X-Locale: de → the activation link in the sent mail points at /de/activate", async () => {
+    const res = await appUrlStack.http.raw(
+      "POST",
+      "/api/auth/signup-request",
+      { email: "appurl-de@example.com" },
+      { [LOCALE_HEADER_NAME]: "de" },
+    );
+    expect(res.status).toBe(200);
+    expect(appUrlTransport.sent).toHaveLength(1);
+    const sent = appUrlTransport.sent[0];
+    if (!sent) throw new Error("no mail sent");
+    expect(sent.html).toContain("https://app.example.com/de/activate?token=");
+  });
+});

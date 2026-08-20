@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import {
   setupTestStack,
   type TestStack,
@@ -11,6 +12,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher, seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { Temporal } from "temporal-polyfill";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
@@ -38,6 +40,13 @@ import { signResetToken } from "../reset-token";
 // in-memory transport captures what would be sent; route:{email} delivers
 // directly (no jobRunner in the test stack → inline send).
 const emailTransport = createInMemoryTransport();
+
+// Kept in sync with LOCALE_HEADER_NAME in api-constants.ts by hand — that
+// constant is a framework-internal implementation detail, not exported from
+// the public /api barrel (same as TENANT_HEADER_NAME).
+const LOCALE_HEADER_NAME = "X-Locale";
+
+registerMailTranslations("de", localeDeBundle);
 
 // Records the userId every time the sessions feature's auto-revoke hook
 // fires after a password change. The session-revoke tests assert on this
@@ -146,8 +155,12 @@ async function seedUser(opts: {
   return { id: created.id, tenantId };
 }
 
-async function post(path: string, body: unknown): Promise<Response> {
-  return stack.http.raw("POST", path, body);
+async function post(
+  path: string,
+  body: unknown,
+  headers?: Record<string, string>,
+): Promise<Response> {
+  return stack.http.raw("POST", path, body, headers);
 }
 
 // --- request-password-reset -----------------------------------------------
@@ -181,6 +194,22 @@ describe("POST /auth/request-password-reset", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ isSuccess: true });
     expect(emailTransport.sent).toHaveLength(0);
+  });
+
+  test("X-Locale: de → the reset mail is rendered in German, same as signup", async () => {
+    await seedUser({ email: "locale-de@example.com", password: "initial-pw!" });
+
+    const res = await post(
+      "/api/auth/request-password-reset",
+      { email: "locale-de@example.com" },
+      { [LOCALE_HEADER_NAME]: "de" },
+    );
+
+    expect(res.status).toBe(200);
+    expect(emailTransport.sent).toHaveLength(1);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no email sent");
+    expect(sent.subject).toContain("Passwort zurücksetzen");
   });
 });
 
