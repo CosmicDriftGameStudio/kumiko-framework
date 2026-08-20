@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   compareVersions,
   filterEntriesAfter,
@@ -9,8 +9,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { parseArgs, getFlag, getStringFlag } from "./arg-parser";
 import { defineCommand } from "./registry";
+import type { Output } from "./types";
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
+const CODEMOD_SUBDIR = "scripts/codemod";
 
 function readPackageVersion(cwd: string, pkgName: string, repoLocalPath: string): string | null {
   // Walk up from cwd to find node_modules/@cosmicdrift/<pkgName>/package.json
@@ -151,25 +153,152 @@ export function findFeaturesDirs(cwd: string): string[] {
   return dirs;
 }
 
+// Resolves a changes.json `codemod` field to an absolute script path,
+// refusing anything that would escape scripts/codemod/ (path traversal,
+// absolute paths, symlinks pointing outward) or that isn't a real .ts file.
+export function resolveCodemodScript(repoRoot: string, codemodField: string | undefined): string | null {
+  if (!codemodField) return null;
+  if (codemodField.includes("\0") || codemodField.startsWith("/") || !codemodField.endsWith(".ts")) return null;
+
+  const scriptsRoot = join(repoRoot, CODEMOD_SUBDIR);
+  const resolved = join(repoRoot, codemodField);
+  const rel = relative(scriptsRoot, resolved);
+  if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) return null;
+  if (!existsSync(resolved)) return null;
+
+  try {
+    const realResolved = realpathSync(resolved);
+    const realScriptsRoot = realpathSync(scriptsRoot);
+    const realRel = relative(realScriptsRoot, realResolved);
+    if (realRel.startsWith("..") || isAbsolute(realRel)) return null;
+  } catch {
+    return null;
+  }
+
+  return resolved;
+}
+
+type CodemodRunResult = { readonly ok: boolean; readonly output: string };
+
+// Array-form argv only — never a shell string. The script itself decides
+// what to touch inside targetDir; this just invokes it as a subprocess.
+async function runCodemodScript(scriptPath: string, targetDir: string, repoRoot: string, dryRun: boolean): Promise<CodemodRunResult> {
+  const cmd = ["bun", scriptPath, targetDir, ...(dryRun ? ["--dry-run"] : [])];
+  const proc = Bun.spawn({ cmd, cwd: repoRoot, stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { ok: exitCode === 0, output: `${stdout}${stderr}`.trim() };
+}
+
+function hasCodemod(e: ChangelogEntry): e is ChangelogEntry & { codemod: string } {
+  return typeof e.codemod === "string" && e.codemod.length > 0;
+}
+
+type UpgradeMarkerCodemod = { readonly version: string; readonly codemod: string; readonly title: string };
+type UpgradeMarker = {
+  readonly version: string;
+  readonly appliedAt: string;
+  readonly codemods: readonly UpgradeMarkerCodemod[];
+};
+
+function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
+  const dir = join(targetDir, ".kumiko");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "upgrade-state.json"), `${JSON.stringify(marker, null, 2)}\n`, "utf-8");
+}
+
+// Runs every pending breaking entry's codemod, oldest version first (so a
+// later codemod can assume an earlier one already ran). Stops on the first
+// failure — no partial marker. Writes the marker only when at least one
+// codemod actually ran and dryRun is false.
+async function applyCodemods(
+  out: Output,
+  pending: readonly ChangelogEntry[],
+  repoRoot: string,
+  targetDir: string,
+  dryRun: boolean,
+): Promise<number> {
+  if (pending.length === 0) {
+    out.log("  ✓ Nothing new since your version.");
+    return 0;
+  }
+
+  const breaking = pending.filter((e) => e.type === "breaking");
+  const codemodEntries = breaking.filter(hasCodemod).sort((a, b) => compareVersions(a.version, b.version));
+  const manualEntries = breaking.filter((e) => !e.codemod);
+
+  for (const e of manualEntries) {
+    out.log(`  ⚠ ${e.version} · ${e.title} — no codemod, manual migration required`);
+  }
+
+  if (codemodEntries.length === 0) {
+    out.log(breaking.length > 0 ? "  No automatable codemods among the pending breaking changes." : "  ✓ No breaking changes pending.");
+    return 0;
+  }
+
+  const ran: UpgradeMarkerCodemod[] = [];
+  for (const e of codemodEntries) {
+    const scriptPath = resolveCodemodScript(repoRoot, e.codemod);
+    if (!scriptPath) {
+      out.err(`  ✗ ${e.version} · ${e.title} — invalid codemod path "${e.codemod}"`);
+      return 1;
+    }
+
+    out.log(`  → ${e.version} · running ${e.codemod}${dryRun ? " (dry-run)" : ""}`);
+    const result = await runCodemodScript(scriptPath, targetDir, repoRoot, dryRun);
+    if (result.output) out.log(result.output);
+    if (!result.ok) {
+      out.err(`  ✗ ${e.version} · ${e.codemod} failed`);
+      return 1;
+    }
+    ran.push({ version: e.version, codemod: e.codemod, title: e.title });
+  }
+
+  if (dryRun) {
+    out.log(`  ✓ Dry-run: ${ran.length} codemod(s) would run. Nothing written.`);
+    return 0;
+  }
+
+  const latestVersion = pending.reduce((max, e) => (compareVersions(e.version, max) > 0 ? e.version : max), pending[0]!.version);
+  writeUpgradeMarker(targetDir, { version: latestVersion, appliedAt: new Date().toISOString(), codemods: ran });
+  out.log(`  ✓ Applied ${ran.length} codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`);
+  return 0;
+}
+
 export const upgradeCommand = defineCommand({
   id: "upgrade",
   label: "upgrade",
   description: "Show what changed since your Kumiko version — migration hints for breaking changes",
   help: [
     "Usage: kumiko upgrade [--from <version>] [--json] [--verbose]",
+    "       kumiko upgrade --apply [--dir <path>] [--dry-run] [--from <version>]",
     "",
     "Reads changes.json from all bundled features plus the framework core",
     "and shows what's new since your current (or specified) Kumiko version.",
+    "",
+    "--apply runs the codemod referenced by every pending breaking change's",
+    "`codemod` field (oldest version first), against --dir (default: cwd).",
+    "Codemod scripts must live under <repo>/scripts/codemod/ — this only",
+    "works from a checkout that has the framework repo locally (workspace",
+    "member), not a plain npm install. Writes .kumiko/upgrade-state.json on",
+    "full success; stops on the first codemod failure without writing it.",
     "",
     "Flags:",
     "  --from <ver>   Override current version (default: auto-detect from node_modules)",
     "  --json         Machine-readable output (for agents)",
     "  --verbose      Show detail + migration text",
+    "  --apply        Run pending breaking changes' codemods instead of reporting",
+    "  --dir <path>   Target directory for --apply (default: cwd)",
+    "  --dry-run      With --apply: run codemods without writing files or the marker",
     "",
     "Examples:",
     "  kumiko upgrade",
     "  kumiko upgrade --from 0.160.0 --verbose",
     "  kumiko upgrade --json",
+    "  kumiko upgrade --apply --dry-run",
   ].join("\n"),
   category: "lifecycle",
   roles: ["maintainer", "app-dev"],
@@ -213,6 +342,16 @@ export const upgradeCommand = defineCommand({
       allEntries.push(...readChangelogFile(coreChangelogFile));
     }
     const pending = sortEntries(filterEntriesAfter(allEntries, currentVersion));
+
+    if (getFlag(args, "apply")) {
+      const dirFlag = getStringFlag(args, "dir");
+      const targetDir = dirFlag ? resolve(dirFlag) : ctx.cwd;
+      const dryRun = getFlag(args, "dry-run");
+      ctx.out.log("");
+      const code = await applyCodemods(ctx.out, pending, ctx.repoRoot, targetDir, dryRun);
+      ctx.out.log("");
+      return code;
+    }
 
     if (jsonMode) {
       ctx.out.log(JSON.stringify({ currentVersion, pending }, null, 2));

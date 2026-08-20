@@ -167,10 +167,11 @@ describe("changes add — writes the entry", () => {
     expect(raw).toContain('  {\n    "version"');
   });
 
-  test("--codemod is written onto the entry", async () => {
+  test("--codemod is written onto the entry when it resolves under scripts/codemod/", async () => {
     const cwd = tmp({
       "packages/bundled-features/package.json": BUNDLED_FEATURES_PKG,
       "packages/bundled-features/src/sessions/changes.json": OLD_SESSIONS_ENTRY,
+      "scripts/codemod/rename-x-to-y.ts": "// fixture",
     });
 
     await run(cwd, [
@@ -181,13 +182,39 @@ describe("changes add — writes the entry", () => {
       "--migration",
       "rename x to y",
       "--codemod",
-      "scripts/codemods/rename-x-to-y.ts",
+      "scripts/codemod/rename-x-to-y.ts",
       "--feature",
       "sessions",
     ]);
 
     const written = JSON.parse(readFileSync(join(cwd, "packages/bundled-features/src/sessions/changes.json"), "utf-8"));
-    expect(written[0].codemod).toBe("scripts/codemods/rename-x-to-y.ts");
+    expect(written[0].codemod).toBe("scripts/codemod/rename-x-to-y.ts");
+  });
+
+  test("--codemod is rejected when it doesn't resolve under scripts/codemod/", async () => {
+    const cwd = tmp({
+      "packages/bundled-features/package.json": BUNDLED_FEATURES_PKG,
+      "packages/bundled-features/src/sessions/changes.json": OLD_SESSIONS_ENTRY,
+    });
+
+    const { exit, errs } = await run(cwd, [
+      "add",
+      "--breaking",
+      "--title",
+      "renamed field",
+      "--migration",
+      "rename x to y",
+      "--codemod",
+      "../../../etc/passwd.ts",
+      "--feature",
+      "sessions",
+    ]);
+
+    expect(exit).toBe(1);
+    expect(errs.join("\n")).toContain("must be an existing .ts file under scripts/codemod/");
+
+    const written = JSON.parse(readFileSync(join(cwd, "packages/bundled-features/src/sessions/changes.json"), "utf-8"));
+    expect(written).toEqual(JSON.parse(OLD_SESSIONS_ENTRY));
   });
 
   test("--feature framework-core writes packages/framework/src/changes.json", async () => {

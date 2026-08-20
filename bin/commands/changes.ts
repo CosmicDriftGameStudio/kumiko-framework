@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, join, relative, sep } from "node:path";
 import { parseArgs, getFlag, getStringFlag } from "./arg-parser";
 import { defineCommand } from "./registry";
-import { findCoreChangelogFile, findFeaturesDirs } from "./upgrade";
+import { findCoreChangelogFile, findFeaturesDirs, resolveCodemodScript } from "./upgrade";
 
 type ChangeType = "breaking" | "improvement" | "fix";
 
@@ -170,6 +170,13 @@ export const changesCommand = defineCommand({
     const codemod = getStringFlag(args, "codemod");
 
     const repoRoot = findRepoRoot(ctx.cwd);
+
+    if (codemod && !resolveCodemodScript(repoRoot, codemod)) {
+      ctx.out.err("");
+      ctx.out.err(`  --codemod "${codemod}" must be an existing .ts file under scripts/codemod/ (relative to the repo root).`);
+      ctx.out.err("");
+      return 1;
+    }
     const featureName = getStringFlag(args, "feature") ?? deriveFeatureFromCwd(repoRoot, ctx.cwd);
     if (!featureName) {
       const available = listAvailableFeatures(repoRoot);
