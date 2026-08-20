@@ -1,4 +1,4 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
@@ -16,7 +16,8 @@ export async function selectConfigRowsForScope(
   tenantId: TenantId,
   userId: string,
 ): Promise<readonly ConfigRow[]> {
-  return asRawClient(db).unsafe<ConfigRow>(
+  return unsafeReadRetrying<ConfigRow>(
+    db,
     `SELECT id, key, value, tenant_id AS "tenantId", user_id AS "userId"
      FROM read_config_values
      WHERE (tenant_id = $1 AND user_id IS NULL)
@@ -33,7 +34,8 @@ export async function selectConfigRowsForKeys(
   tenantId: TenantId,
   userId: string,
 ): Promise<readonly ConfigRow[]> {
-  return asRawClient(db).unsafe<ConfigRow>(
+  return unsafeReadRetrying<ConfigRow>(
+    db,
     `SELECT id, key, value, tenant_id AS "tenantId", user_id AS "userId"
      FROM read_config_values
      WHERE key = ANY($1)

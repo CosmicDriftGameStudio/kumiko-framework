@@ -685,7 +685,10 @@ function isClosedConnectionError(err: unknown): boolean {
   );
 }
 
-async function unsafeRead<TRow>(
+// Exported so raw-SQL query modules outside bun-db (e.g. bundled-features'
+// db/queries/*.ts) can opt into the same #1163 retry instead of calling
+// asRawClient(db).unsafe(...) directly and losing it.
+export async function unsafeReadRetrying<TRow>(
   db: AnyDb,
   sqlText: string,
   params: readonly unknown[],
@@ -736,7 +739,7 @@ export async function selectMany<TRow = any>(
     }
     sqlText += ` LIMIT ${options.limit}`;
   }
-  const raw = (await unsafeRead(db, sqlText, values)) as readonly Record<string, unknown>[];
+  const raw = (await unsafeReadRetrying(db, sqlText, values)) as readonly Record<string, unknown>[];
   return coerceRows(raw, info) as readonly TRow[];
 }
 
@@ -970,7 +973,7 @@ export async function countWhere(
     sqlText += ` WHERE ${w.sqlText}`;
     values = w.values;
   }
-  const rows = (await unsafeRead(db, sqlText, values)) as readonly { count: number }[];
+  const rows = (await unsafeReadRetrying(db, sqlText, values)) as readonly { count: number }[];
   return rows[0]?.count ?? 0;
 }
 

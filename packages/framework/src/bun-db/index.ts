@@ -28,6 +28,7 @@ export {
   selectMany,
   transaction,
   type UpsertOnConflictOptions,
+  unsafeReadRetrying,
   updateMany,
   upsertByPk,
   upsertOnConflict,
