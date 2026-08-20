@@ -39,12 +39,12 @@ export type ComposeFeaturesOptions = {
    *  (+ auth-self-registration when authOptions.signup is set) before the
    *  app features. Mirror of "auth-mode" in run{Dev,Prod}App. */
   readonly includeBundled: boolean;
-  /** Optional auth-feature-options durchgereicht an
-   *  createAuthEmailPasswordFeature. Wenn passwordReset / emailVerification
-   *  hier gesetzt sind, registriert das Feature die request-/confirm-
-   *  Handler — sonst NICHT (500 wenn die routes via auth-routes.ts
-   *  gemounted sind aber kein Handler dispatcht). Hand-in-hand mit dem
-   *  passwordReset-Block in RunProdAppAuthOptions / RunDevAppAuthOptions. */
+  /** Optional auth-feature options passed through to
+   *  createAuthEmailPasswordFeature. When passwordReset / emailVerification
+   *  are set here, the feature registers the request/confirm handlers —
+   *  otherwise it doesn't (500 if the routes are mounted via
+   *  auth-routes.ts but no handler dispatches). Goes hand-in-hand with the
+   *  passwordReset block in RunProdAppAuthOptions / RunDevAppAuthOptions. */
   readonly authOptions?: AuthEmailPasswordOptions;
 };
 
@@ -108,13 +108,12 @@ export function composeFeatures(
   return [...bundled, ...filteredApp];
 }
 
-/** Shape eines beliebigen run{Prod,Dev}App-Auth-Blocks der eine
- *  PasswordReset/EmailVerification-Konfiguration tragen kann. Die
- *  Wrapper-API (PasswordResetSetup) extends die Feature-API
- *  (PasswordResetOptions), darum reicht ein structural-typed
- *  Lookup auf den auth-only-Subset. Erlaubt buildComposeAuthOptions
- *  mit RunProd- UND RunDev-AuthOptions zu callen ohne den Helper
- *  doppelt zu bauen. */
+/** Shape of any run{Prod,Dev}App auth block that can carry a
+ *  passwordReset/emailVerification config. The wrapper API
+ *  (PasswordResetSetup) extends the feature API (PasswordResetOptions), so
+ *  a structural-typed lookup on the auth-only subset is enough. Lets
+ *  buildComposeAuthOptions be called with both RunProd- and
+ *  RunDev-AuthOptions without building the helper twice. */
 export type AuthOptionsCarrier = {
   readonly passwordReset?: PasswordResetOptions;
   readonly emailVerification?: EmailVerificationOptions;
@@ -124,24 +123,26 @@ export type AuthOptionsCarrier = {
   readonly accountLockout?: AccountLockoutOptions;
 };
 
-/** Baut den authOptions-Block für composeFeatures aus einem
- *  Wrapper-Auth-Block. Reicht NUR die feature-side-Felder
- *  (hmacSecret, tokenTtlMinutes, mode) durch — die mail-side
- *  (sendResetEmail/appResetUrl) gehört in die auth-routes-config
- *  und wird vom Wrapper separat verdrahtet.
+/** Builds the authOptions block for composeFeatures from a wrapper auth
+ *  block. Passes through ONLY the feature-side fields (hmacSecret,
+ *  tokenTtlMinutes, mode) — the mail side (sendResetEmail/appResetUrl)
+ *  belongs in the auth-routes config and is wired separately by the
+ *  wrapper.
  *
- *  Returnt undefined wenn weder passwordReset noch emailVerification
- *  gesetzt sind (composeFeatures default-deny: KEINE handler in der
- *  Registry registriert, /api/auth/request-password-reset etc. bleiben
- *  401/404). */
+ *  Returns undefined when neither passwordReset nor emailVerification is
+ *  set (composeFeatures default-deny: NO handler registered in the
+ *  registry, /api/auth/request-password-reset etc. stay 401/404). */
+// All five magic-link flows (reset/verify/signup/invite/unlock) accept the
+// same appUrl shape — a plain string, or a `(locale) => string` function for
+// apps with language-in-path routing (see SignupRequestOptions.appUrl).
 type MailFlowFields = {
-  readonly appUrl: string;
+  readonly appUrl: string | ((locale: string) => string);
   readonly tokenTtlMinutes?: number;
   readonly appName?: string;
   readonly locale?: AuthMailLocale;
 };
 
-// The magic-link mail fields shared by all four flows. Conditional spreads omit
+// The magic-link mail fields shared by all five flows. Conditional spreads omit
 // undefined keys (exactOptionalPropertyTypes) and avoid the property-write that
 // trips noPropertyAccessFromIndexSignature on the type-aliased option shapes.
 // reset/verify layer hmacSecret (+ mode) on top.

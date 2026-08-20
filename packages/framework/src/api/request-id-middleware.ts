@@ -1,4 +1,6 @@
 import type { Context, Next } from "hono";
+import { resolveHeaderLocale } from "../i18n/request-locale";
+import { LOCALE_HEADER_NAME } from "./api-constants";
 import { type RequestContextData, requestContext } from "./request-context";
 
 const REQUEST_ID_HEADER = "X-Request-ID";
@@ -45,6 +47,13 @@ export function buildRequestContextData(c: Context): RequestContextData {
   const xff = c.req.header("x-forwarded-for");
   const ip = xff?.split(",")[0]?.trim();
   const userAgent = c.req.header("user-agent");
+  // Runs before auth-middleware, so this reaches public routes too (e.g.
+  // signup-request) — that's the whole point: the active UI locale must
+  // survive to anonymous callers, not just authenticated ones.
+  const locale = resolveHeaderLocale({
+    headerLocale: c.req.header(LOCALE_HEADER_NAME),
+    acceptLanguage: c.req.header("accept-language"),
+  });
 
   return {
     requestId,
@@ -52,6 +61,7 @@ export function buildRequestContextData(c: Context): RequestContextData {
     ...(signal ? { signal } : {}),
     ...(ip && ip.length > 0 ? { ip } : {}),
     ...(userAgent !== undefined ? { userAgent } : {}),
+    ...(locale !== undefined ? { locale } : {}),
   };
 }
 

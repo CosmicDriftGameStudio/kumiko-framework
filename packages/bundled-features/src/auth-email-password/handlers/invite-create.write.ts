@@ -17,7 +17,7 @@
 // erlaubt new-user-signup mit dem Token. Keine Enumeration durchs
 // invite-create.
 
-import { generateToken } from "@cosmicdrift/kumiko-framework/api";
+import { generateToken, requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
@@ -62,9 +62,14 @@ export type InviteCreateOptions = {
   /** TTL für den Activation-Token. Default 7 Tage. */
   readonly tokenTtlMinutes?: number;
   /** App page that receives the magic-link; the handler appends `?token=…`
-   *  and dispatches the invite mail via delivery (ctx.notify). */
-  readonly appUrl: string;
+   *  and dispatches the invite mail via delivery (ctx.notify). Apps with
+   *  language-in-path routing pass a function to pick the right page for
+   *  the resolved locale; everyone else keeps a plain string. */
+  readonly appUrl: string | ((locale: string) => string);
   readonly appName?: string;
+  /** Static fallback mail locale, used only when the request itself
+   *  carries no locale signal (no X-Locale header, no usable
+   *  Accept-Language) — see the locale resolution in the handler below. */
   readonly locale?: AuthMailLocale;
   // Opt-in role-hierarchy gate. Roles are app-defined strings, not a framework
   // concept, so the hierarchy itself must live in the app — this hook lets it
@@ -154,6 +159,11 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
 
       await storeInviteToken(ctx.redis, { invitationId, token, ttlSeconds });
 
+      // Same precedence as signup/reset/verify: the inviting admin's active
+      // browser language wins when the request carries one, else the
+      // handler's static opts.locale, else ctx.locale's own default.
+      const locale = requestContext.get()?.locale ?? opts.locale ?? ctx.locale;
+
       await dispatchMagicLinkMail(
         ctx.notify,
         {
@@ -168,7 +178,7 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
           token,
           expiresAt: expiresAt.toString(),
           ...(opts.appName !== undefined && { appName: opts.appName }),
-          ...(opts.locale !== undefined && { locale: opts.locale }),
+          locale,
         },
       );
 

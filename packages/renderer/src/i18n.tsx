@@ -1,19 +1,18 @@
-// Locale-Handling für React-Consumer des Kumiko-Renderers. Eine dünne
-// Schicht um den platform-agnostischen `LocaleResolver`-Contract aus
-// @cosmicdrift/kumiko-headless: Provider, Hooks, Default-Noop-Resolver und ein
-// Fallback-Bundle-Merge für Feature-gelieferte Translations.
+// Locale handling for React consumers of the Kumiko renderer. A thin layer
+// around the platform-agnostic `LocaleResolver` contract from
+// @cosmicdrift/kumiko-headless: provider, hooks, a default no-op resolver,
+// and a fallback-bundle merge for feature-supplied translations.
 //
-// Architektur-Idee:
-//   1. App liefert genau einen `LocaleResolver` über `<LocaleProvider>`
-//      (oder überhaupt keinen → Default-Resolver returnt keys as-is).
-//   2. Feature-Plugins dürfen Fallback-Bundles mitbringen: wenn der
-//      App-Resolver einen Key nicht auflöst, probiert `useTranslation`
-//      die Plugin-Bundles. Das hält Feature-UI unabhängig von der
-//      App-seitigen i18next-Instanz und funktioniert out-of-the-box,
-//      bleibt aber vollständig overridbar.
-//   3. Re-Render bei Locale-Wechsel via `useSyncExternalStore` auf
-//      dem Resolver's `subscribe()` — App-Code kann mitten in der
-//      Session die Sprache umschalten ohne Reload.
+// Architecture:
+//   1. The app supplies exactly one `LocaleResolver` via `<LocaleProvider>`
+//      (or none at all → the default resolver returns keys as-is).
+//   2. Feature plugins may bring fallback bundles: when the app resolver
+//      can't resolve a key, `useTranslation` tries the plugin bundles.
+//      This keeps feature UI independent of the app's own i18next instance
+//      and works out of the box, while staying fully overridable.
+//   3. Re-render on locale change via `useSyncExternalStore` on the
+//      resolver's `subscribe()` — app code can switch language mid-session
+//      without a reload.
 
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import {
@@ -78,14 +77,13 @@ const EMPTY_FALLBACK_BUNDLES: readonly TranslationsByLocale[] = [];
 
 export type LocaleProviderProps = {
   readonly resolver: LocaleResolver;
-  /** Von Feature-Plugins gelieferte Default-Bundles. Lookup-Reihenfolge
-   *  pro Key: (1) App-Resolver, (2) diese Bundles in Array-Order,
-   *  (3) Key as-is. Apps können somit einzelne Keys overriden ohne
-   *  ganze Feature-Bundles austauschen zu müssen. */
+  /** Default bundles supplied by feature plugins. Lookup order per key:
+   *  (1) app resolver, (2) these bundles in array order, (3) key as-is.
+   *  Apps can thus override individual keys without swapping out whole
+   *  feature bundles. */
   readonly fallbackBundles?: readonly TranslationsByLocale[];
-  /** Auf den fallbackLocale wird zurückgegriffen, wenn weder der
-   *  current-locale- noch der key-Lookup im Plugin-Bundle greift.
-   *  Default: `"en"`. */
+  /** Falls back to fallbackLocale when neither the current-locale nor the
+   *  key lookup hits in a plugin bundle. Default: `"en"`. */
   readonly fallbackLocale?: string;
   readonly children: ReactNode;
 };
@@ -96,12 +94,12 @@ export function LocaleProvider({
   fallbackLocale = "en",
   children,
 }: LocaleProviderProps): ReactNode {
-  // Ohne Memoization baut jeder Re-Render des Providers (z.B. weil ein
-  // Ahnen-Component neu rendert) ein neues Context-Value-Objekt — jeder
-  // Consumer von useTranslation()/useLocale() sieht dann eine neue `ctx`-
-  // Referenz und damit selbst mit useCallback-Memoization einen neuen `t`.
-  // Konsequenz: `t` in einem useEffect-Dependency-Array triggert einen
-  // Endlos-Loop (siehe admin-shell Overview-Screens, Prod-Incident).
+  // Without memoization every re-render of the provider (e.g. because an
+  // ancestor component re-renders) builds a new context-value object —
+  // every consumer of useTranslation()/useLocale() then sees a new `ctx`
+  // reference and, even with useCallback memoization, a new `t`.
+  // Consequence: `t` in a useEffect dependency array triggers an infinite
+  // loop (see admin-shell Overview screens, prod incident).
   const value = useMemo(
     () => ({ resolver, fallbackBundles, fallbackLocale }),
     [resolver, fallbackBundles, fallbackLocale],

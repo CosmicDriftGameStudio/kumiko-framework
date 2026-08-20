@@ -335,6 +335,11 @@ export type AppContext = SharedContextFields & {
    *  Sprint-8a Tier-Composition: `effectiveFeatures(ctx._tenantId)`-call
    *  in den hook-filter-Stellen. */
   readonly _tenantId?: TenantId;
+  /** Boot-configured default locale (BCP-47). Last fallback in ctx.locale's
+   *  Request-Locale → Boot-Default chain (dispatch-shared.ts) — used when
+   *  the request carries no X-Locale header and no usable Accept-Language.
+   *  Absent falls back to "en". */
+  readonly defaultLocale?: string;
 };
 
 // Handler execution: db (tenant-scoped) + registry guaranteed.
@@ -560,6 +565,13 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // mounted or the value is unset); user reads SessionUser.timezone (falls
   // back to tenant).
   readonly tz: TzContext;
+
+  // Resolved request locale (BCP-47): X-Locale header → Accept-Language →
+  // the app's boot-configured defaultLocale → "en" (dispatch-shared.ts).
+  // Always a concrete tag, never optional — mirrors ctx.tz's Request →
+  // Boot-Default fallback chain, so handlers never need to check for
+  // absence before using it.
+  readonly locale: string;
 
   // Resolve every registered r.authClaims() hook against `user` and return
   // the merged claim record (keys auto-prefixed with the feature name). Used

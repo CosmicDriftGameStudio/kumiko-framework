@@ -2,5 +2,6 @@ export { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, readCsrfToken } from "./csrf";
 export type { LiveDispatcherOptions } from "./dispatcher-live";
 export { createLiveDispatcher } from "./dispatcher-live";
 export { buildAbortError, buildNetworkError, mapServerError } from "./error-mapping";
+export { LOCALE_HEADER_NAME, readActiveLocale } from "./locale";
 export type { SseFrame } from "./sse-stream";
 export { iterateSseChunks, parseSseBlock, parseSseFrames } from "./sse-stream";

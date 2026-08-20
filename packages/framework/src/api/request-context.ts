@@ -33,6 +33,11 @@ export type RequestContextData = {
   // Raw User-Agent header — audit trails (download tokens, GDPR export
   // access) want it alongside `ip`. Undefined for non-HTTP entry points.
   readonly userAgent?: string;
+  // Client-declared active UI locale (BCP-47), resolved once from
+  // X-Locale / Accept-Language by requestIdMiddleware — see
+  // request-locale.ts. Undefined when neither header carried a valid tag;
+  // callers fall back further (dispatch-shared.ts's ctx.locale chain).
+  readonly locale?: string;
 };
 
 const storage = new AsyncLocalStorage<RequestContextData>();
