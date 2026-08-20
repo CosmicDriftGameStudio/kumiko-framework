@@ -41,7 +41,7 @@ import { asRawClient } from "../../bun-db";
 import { quoteIdent } from "../../crypto/ciphertext-pattern";
 import { configuredEventPiiCatalog } from "../../crypto/event-pii";
 import type { KmsContext, LocalKeyKmsAdapter, SubjectId } from "../../crypto/kms-adapter";
-import { KeyErasedError } from "../../crypto/kms-adapter";
+import { KeyErasedError, KeyNotFoundError } from "../../crypto/kms-adapter";
 import {
   configuredPiiSubjectKms,
   encryptPiiValueForSubject,
@@ -83,7 +83,8 @@ export type PiiBackfillResult = {
 
 export type PiiBackfillOptions = {
   readonly batchSize?: number;
-  // Scan + count only, write nothing.
+  // Scan + count only, write nothing — including the subject KMS: outcomes
+  // are predicted from a read-only kms.getKey probe, never kms.createKey.
   readonly dryRun?: boolean;
   // Stage 2: fall back to the entity's projection row (by aggregate_id)
   // when a lifecycle event's payload doesn't name the owner field.
@@ -350,6 +351,7 @@ export async function backfillEventPiiEncryption(
         section[field] = PII_ERASED_SENTINEL;
         return "erased";
       }
+      if (options.dryRun) return predictEncryptOutcome(subject);
       try {
         section[field] = await encryptPiiValueForSubject(
           kms as LocalKeyKmsAdapter,
@@ -364,6 +366,21 @@ export async function backfillEventPiiEncryption(
           section[field] = PII_ERASED_SENTINEL;
           return "erased";
         }
+        throw e;
+      }
+    }
+
+    // getKey alone never mints (unlike getOrCreateDek → createKey on the real
+    // path) — a real run's outcome is fully determined by whether a key
+    // already exists, so probing it read-only predicts the outcome without
+    // writing to the subject-keys store.
+    async function predictEncryptOutcome(subject: SubjectId): Promise<FieldOutcome> {
+      try {
+        await (kms as LocalKeyKmsAdapter).getKey(subject, kmsCtx);
+        return "encrypted";
+      } catch (e) {
+        if (e instanceof KeyErasedError) return "erased";
+        if (e instanceof KeyNotFoundError) return "encrypted";
         throw e;
       }
     }
