@@ -29,12 +29,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
@@ -95,6 +97,13 @@ const tenantMembershipHookVendorFeature = defineFeature(
 );
 
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
+
+// Kept in sync with LOCALE_HEADER_NAME in api-constants.ts by hand — that
+// constant is a framework-internal implementation detail, not exported from
+// the public /api barrel (same as TENANT_HEADER_NAME).
+const LOCALE_HEADER_NAME = "X-Locale";
+
+registerMailTranslations("de", localeDeBundle);
 
 // Activation mails now go through delivery (ctx.notify → channel-email). The
 // in-memory transport captures what would be sent; route:{email} delivers
@@ -177,8 +186,11 @@ beforeEach(async () => {
   if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
 });
 
-async function postSignupRequest(email: string): Promise<Response> {
-  return stack.http.raw("POST", "/api/auth/signup-request", { email });
+async function postSignupRequest(
+  email: string,
+  headers?: Record<string, string>,
+): Promise<Response> {
+  return stack.http.raw("POST", "/api/auth/signup-request", { email }, headers);
 }
 
 async function postSignupConfirm(token: string, password: string): Promise<Response> {
@@ -423,5 +435,95 @@ describe("POST /api/auth/signup-confirm", () => {
     // No user created — the rejected confirm never landed.
     const userRows = await selectMany(stack.db, userTable, { email });
     expect(userRows).toHaveLength(0);
+  });
+});
+
+describe("POST /api/auth/signup-request — mail locale follows the active browser language", () => {
+  // The stack config sets no `signup.locale` (see beforeAll above) — this
+  // isolates ctx.locale as the only possible source, so a German subject
+  // here can only come from the X-Locale header, never from opts.locale.
+  test("X-Locale: de → the activation mail is rendered in German", async () => {
+    const res = await postSignupRequest("locale-de@example.com", { [LOCALE_HEADER_NAME]: "de" });
+    expect(res.status).toBe(200);
+    expect(emailTransport.sent).toHaveLength(1);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no mail sent");
+    expect(sent.subject).toContain("Account aktivieren");
+  });
+
+  test("no X-Locale header → the activation mail falls back to English", async () => {
+    const res = await postSignupRequest("locale-default@example.com");
+    expect(res.status).toBe(200);
+    expect(emailTransport.sent).toHaveLength(1);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no mail sent");
+    expect(sent.subject).toContain("Activate your account");
+  });
+});
+
+describe("POST /api/auth/signup-request — opts.locale stays a real fallback", () => {
+  // Regression guard: ctx.locale is always resolved (never undefined), so a
+  // naive `ctx.locale ?? opts.locale` would make opts.locale unreachable and
+  // silently drop every app's configured mail language the moment this PR
+  // ships. This stack configures signup.locale statically (no defaultLocale
+  // on the app context either) — a request with no X-Locale header must
+  // still land in the handler's configured language, not "en".
+  const optsLocaleTransport = createInMemoryTransport();
+  let optsLocaleStack: TestStack;
+
+  beforeAll(async () => {
+    optsLocaleStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createTemplateResolverFeature(),
+        createRendererFoundationFeature(),
+        createDeliveryFeature(),
+        createRendererSimpleFeature(),
+        createChannelEmailFeature({
+          transport: optsLocaleTransport,
+          renderer: simpleRenderer,
+          resolveEmail: async () => "unused@test.local",
+        }),
+        createAuthEmailPasswordFeature({
+          signup: { tokenTtlMinutes: 60, appUrl: APP_ACTIVATION_URL, locale: "de" },
+        }),
+      ],
+      extraContext: (deps) => ({
+        ...createDeliveryTestContext(deps),
+        configResolver: createConfigResolver(),
+      }),
+      authConfig: {
+        membershipQuery: "tenant:query:memberships",
+        loginHandler: AuthHandlers.login,
+        signup: {
+          requestHandler: AuthHandlers.signupRequest,
+          confirmHandler: AuthHandlers.signupConfirm,
+        },
+      },
+    });
+    await unsafeCreateEntityTable(optsLocaleStack.db, userEntity);
+    await unsafeCreateEntityTable(optsLocaleStack.db, tenantEntity);
+    await unsafePushTables(optsLocaleStack.db, {
+      configValuesTable,
+      tenantMembershipsTable,
+      notificationPreferencesTable,
+    });
+  });
+
+  afterAll(async () => {
+    await optsLocaleStack.cleanup();
+  });
+
+  test("no X-Locale header → falls back to the handler's configured opts.locale, not English", async () => {
+    const res = await optsLocaleStack.http.raw("POST", "/api/auth/signup-request", {
+      email: "opts-locale@example.com",
+    });
+    expect(res.status).toBe(200);
+    expect(optsLocaleTransport.sent).toHaveLength(1);
+    const sent = optsLocaleTransport.sent[0];
+    if (!sent) throw new Error("no mail sent");
+    expect(sent.subject).toContain("Account aktivieren");
   });
 });

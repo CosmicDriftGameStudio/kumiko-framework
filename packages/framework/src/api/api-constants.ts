@@ -118,4 +118,11 @@ export const STATE_CHANGING_METHODS: ReadonlySet<string> = new Set([
 export const TENANT_HEADER_NAME = "X-Tenant";
 export const TENANT_COOKIE_NAME = "kumiko_tenant";
 
+// Client-declared active UI locale (BCP-47). Read once per request in
+// request-id-middleware.ts, before auth, so it reaches public routes
+// (e.g. signup-request) too. Falls back to Accept-Language, then the app's
+// boot-configured defaultLocale, when absent or malformed — see
+// request-locale.ts and dispatch-shared.ts's ctx.locale resolution.
+export const LOCALE_HEADER_NAME = "X-Locale";
+
 export type Route = (typeof Routes)[keyof typeof Routes];

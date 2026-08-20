@@ -21,14 +21,22 @@ export type MagicLinkMailSpec = {
 
 // Per-request values: the recipient + the app page that receives the token, plus
 // optional presentation. appUrl is the bare page URL; the token is appended here.
+// appUrl as a function lets apps with language-in-path routing (/de/activate,
+// /en/activate) pick the right page for `locale` — the mail is the only
+// channel that survives a device switch (signup on desktop, open on mobile),
+// so this is the last point where the language can still reach the link.
 export type MagicLinkMailParams = {
   readonly email: string;
-  readonly appUrl: string;
+  readonly appUrl: string | ((locale: string) => string);
   readonly token: string;
   readonly expiresAt: string;
   readonly appName?: string;
   readonly locale?: AuthMailLocale;
 };
+
+function resolveAppUrl(appUrl: string | ((locale: string) => string), locale: string): string {
+  return typeof appUrl === "function" ? appUrl(locale) : appUrl;
+}
 
 function appendToken(appUrl: string, token: string): string {
   const sep = appUrl.includes("?") ? "&" : "?";
@@ -48,8 +56,9 @@ export async function dispatchMagicLinkMail(
       message: `${spec.handlerName}: ctx.notify unavailable — the delivery feature must be mounted`,
     });
   }
+  const locale = params.locale ?? "en";
   const content = spec.renderContent({
-    url: appendToken(params.appUrl, params.token),
+    url: appendToken(resolveAppUrl(params.appUrl, locale), params.token),
     expiresAt: params.expiresAt,
     ...(params.locale !== undefined && { locale: params.locale }),
     ...(params.appName !== undefined && { appName: params.appName }),

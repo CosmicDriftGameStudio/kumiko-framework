@@ -15,6 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-headless";
 import { CSRF_HEADER_NAME, readCsrfToken } from "./csrf";
 import { buildAbortError, buildNetworkError, mapServerError } from "./error-mapping";
+import { LOCALE_HEADER_NAME, readActiveLocale } from "./locale";
 import { iterateSseChunks } from "./sse-stream";
 
 // HTTP-only dispatcher. Maps Kumiko's client-side Dispatcher contract to
@@ -103,6 +104,8 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
     };
     const csrf = readCsrf();
     if (csrf !== undefined) headers[CSRF_HEADER_NAME] = csrf;
+    const locale = readActiveLocale();
+    if (locale !== undefined) headers[LOCALE_HEADER_NAME] = locale;
     // If no CSRF token, still send the request — public / pre-login
     // routes like /auth/login don't require CSRF, and POST /write/query/
     // batch against a logged-out client returns 401 via auth-middleware
@@ -204,6 +207,8 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
       };
       const csrf = readCsrf();
       if (csrf !== undefined) headers[CSRF_HEADER_NAME] = csrf;
+      const locale = readActiveLocale();
+      if (locale !== undefined) headers[LOCALE_HEADER_NAME] = locale;
 
       let response: Response;
       try {

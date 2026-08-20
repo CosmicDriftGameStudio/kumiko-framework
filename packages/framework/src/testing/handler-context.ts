@@ -1,10 +1,10 @@
 // @runtime runtime
 //
-// bridgeStub liefert eine HandlerContext-Shape mit throw-on-use Bridge-Methods
-// (ctx.query/write/loadAggregate/...). Wird von Test-Code UND Production-
-// Services genutzt (delivery-service nutzt es um cross-feature notify-Calls
-// ohne echten Dispatcher zu fahren). Daher runtime-Klassifizierung trotz
-// Wohnsitz unter `testing/` — keine vitest-Imports, keine Test-Side-Effects.
+// bridgeStub hands back a HandlerContext shape with throw-on-use bridge
+// methods (ctx.query/write/loadAggregate/...). Used by both test code AND
+// production services (delivery-service uses it to run cross-feature notify
+// calls without a real dispatcher). Hence the runtime classification despite
+// living under `testing/` — no vitest imports, no test side-effects.
 import type {
   AppendEventArgs,
   FetchForWritingArgs,
@@ -12,6 +12,7 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types";
+import { DEFAULT_LOCALE } from "../i18n/request-locale";
 import { createNoopMetricsHandle, getFallbackTracer } from "../observability";
 import { createTzContext } from "../time";
 
@@ -61,13 +62,14 @@ export function bridgeStub(opts?: {
   | "metricsFor"
   | "tracer"
   | "tz"
+  | "locale"
   | "user"
 > {
-  // ctx.user ist Convenience-Alias zu event.user (siehe HandlerContext-
-  // Doku). Caller-Code erwartet das Feld; bridgeStub liefert es als
-  // Stub mit den Anonymous-Default-Werten wenn kein User explizit
-  // übergeben wird. Test-Code mit Identity-Bezug übergibt seinen
-  // SessionUser hier und bekommt ihn am ctx zurück.
+  // ctx.user is a convenience alias for event.user (see HandlerContext
+  // docs). Caller code expects the field; bridgeStub hands back a stub with
+  // anonymous default values when no user is passed explicitly. Test code
+  // that cares about identity passes its own SessionUser here and gets it
+  // back on ctx.
   const stubUser: SessionUser = opts?.user ?? {
     id: "00000000-0000-0000-0000-000000000000",
     tenantId: "00000000-0000-0000-0000-000000000000" as SessionUser["tenantId"], // @cast-boundary engine-bridge
@@ -122,8 +124,11 @@ export function bridgeStub(opts?: {
     metrics: createNoopMetricsHandle(),
     metricsFor: () => createNoopMetricsHandle(),
     tracer: noopTracer,
-    // Echter TzContext, kein notAvailable — Test-Code nutzt ctx.tz häufig
-    // ohne dass es ein "Bridge"-Konzept ist. Default UTC.
+    // Real TzContext, not notAvailable — test code uses ctx.tz routinely,
+    // it isn't a "bridge" concept. Defaults to UTC.
     tz: createTzContext(),
+    // Same reasoning as tz above — ctx.locale is always-present, not a
+    // bridge method. Defaults to DEFAULT_LOCALE.
+    locale: DEFAULT_LOCALE,
   };
 }

@@ -48,6 +48,7 @@ import { UpdateChecker } from "../version/update-checker";
 import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 import { WebDashboardBody } from "./dashboard-body";
+import { DocumentLangSync } from "./document-lang-sync";
 import { createBrowserDraftStorage } from "./draft-storage";
 import { useBrowserNavApi } from "./nav";
 import { NavProvidersProvider } from "./nav-providers-context";
@@ -426,6 +427,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   const tree = (
     <TokensBoot>
       <LocaleProvider resolver={localeResolver} fallbackBundles={fallbackBundles}>
+        <DocumentLangSync resolver={localeResolver} />
         <PrimitivesProvider value={primitives}>
           <AppFeaturesProvider features={app.features}>
             <DispatcherProvider dispatcher={dispatcher}>

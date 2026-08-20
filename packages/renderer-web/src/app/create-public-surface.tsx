@@ -13,19 +13,20 @@ import { defaultPrimitives } from "../primitives";
 import { ToastProvider } from "../primitives/toast";
 import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
+import { DocumentLangSync } from "./document-lang-sync";
 
-// Apex-Surface — der öffentliche Gegenpart zu createKumikoApp. Mountet eine
-// schlanke, schema-LOSE Provider-Chain (Locale + Primitives + Dispatcher +
-// feature-providers) und rendert genau einen anhand des URL-Pfads gewählten
-// Content. Bewusst KEIN Schema, KEINE Nav, KEIN KumikoScreen: die Surface ist
-// anonym erreichbar, ein __KUMIKO_SCHEMA__-Inject würde Admin-Nav/Topologie an
-// Besucher leaken (injectSchema:false ist hier struktureller Default, kein Flag).
+// Apex surface — the public counterpart to createKumikoApp. Mounts a thin,
+// schema-LESS provider chain (locale + primitives + dispatcher +
+// feature-providers) and renders exactly one content chosen by URL path.
+// Deliberately NO schema, NO nav, NO KumikoScreen: the surface is reachable
+// anonymously, and a __KUMIKO_SCHEMA__ inject would leak admin nav/topology
+// to visitors (injectSchema:false is a structural default here, not a flag).
 //
-// `routes` sind app-authored React-Elemente — Auth-Screens et al. tragen
-// Callback-Props (loggedInHref usw.), die durch keine serialisierbare
-// ScreenDefinition passen würden; deshalb laufen sie über diesen Mount und
-// nicht über die Registry. Späterer Registry-Content (CMS/Landing) konvergiert
-// auf denselben Mount.
+// `routes` are app-authored React elements — auth screens et al. carry
+// callback props (loggedInHref etc.) that wouldn't fit through any
+// serializable ScreenDefinition; that's why they run through this mount and
+// not through the registry. Later registry content (CMS/landing) converges
+// on the same mount.
 //
 //   createPublicSurface({
 //     routes: [{ path: "/login", component: <LoginScreen ... /> }],
@@ -35,28 +36,28 @@ import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 //   });
 
 export type PublicRoute = {
-  /** Exakter window.location.pathname-Match (match-once beim Mount; alle
-   *  Apex-Pages sind Full-Page-Reloads, kein SPA-Router). */
+  /** Exact window.location.pathname match (matched once on mount; every
+   *  apex page is a full-page reload, no SPA router). */
   readonly path: string;
   readonly component: ReactNode;
 };
 
 export type CreatePublicSurfaceOptions = {
   readonly routes: readonly PublicRoute[];
-  /** Gerendert wenn kein route.path auf den aktuellen Pfad matcht. */
+  /** Rendered when no route.path matches the current path. */
   readonly fallback?: ReactNode;
   readonly rootId?: string;
   readonly locale?: LocaleResolver;
   readonly primitives?: Partial<PrimitivesRegistry>;
-  /** Dispatcher für Handler-Calls (z.B. anonymer Deletion-Request). Auth-
-   *  Screens brauchen ihn nicht (fetch via auth-client), aber er steht für
-   *  dispatchende Public-Flows bereit. Default: createLiveDispatcher(). */
+  /** Dispatcher for handler calls (e.g. an anonymous deletion request).
+   *  Auth screens don't need it (fetch via auth-client), but it's there for
+   *  dispatching public flows. Default: createLiveDispatcher(). */
   readonly dispatcher?: Dispatcher;
-  /** Feature-Client-Extensions — NUR `providers` + `translations` werden
-   *  gestackt. `gates` werden bewusst ignoriert: ein AuthGate würde die
-   *  öffentliche Surface hinter Login sperren. */
+  /** Feature client extensions — ONLY `providers` + `translations` are
+   *  stacked. `gates` are deliberately ignored: an AuthGate would lock the
+   *  public surface behind login. */
   readonly clientFeatures?: readonly ClientFeatureDefinition[];
-  /** Page-Chrome um den gematchten Content (Apex-/Marketing-Layout). */
+  /** Page chrome around the matched content (apex/marketing layout). */
   readonly shell?: (props: { readonly children: ReactNode }) => ReactNode;
 };
 
@@ -94,6 +95,7 @@ export function createPublicSurface(options: CreatePublicSurfaceOptions): { read
 
   const tree = (
     <LocaleProvider resolver={localeResolver} fallbackBundles={fallbackBundles}>
+      <DocumentLangSync resolver={localeResolver} />
       <PrimitivesProvider value={primitives}>
         <DispatcherProvider dispatcher={dispatcher}>
           <ToastProvider>{stackWrappers(providers, content)}</ToastProvider>

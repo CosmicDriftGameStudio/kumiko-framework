@@ -51,6 +51,7 @@ import {
 } from "../event-store/snapshot";
 import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster";
 import { createFileContext } from "../files/file-handle";
+import { DEFAULT_LOCALE } from "../i18n/request-locale";
 import {
   createMetricsHandle,
   createNoopMetricsHandle,
@@ -620,6 +621,12 @@ export async function buildHandlerContext(
     ...(safeUserTz !== undefined && { user: safeUserTz }),
   });
 
+  // ctx.locale — request-layer signal (X-Locale header → Accept-Language,
+  // resolved once at the HTTP boundary by request-id-middleware.ts) wins;
+  // falls back to the app's boot-configured defaultLocale, then
+  // DEFAULT_LOCALE. Mirrors ctx.tz's Request → Boot-Default chain above.
+  const locale = reqCtx?.locale ?? context.defaultLocale ?? DEFAULT_LOCALE;
+
   return {
     ...context,
     registry,
@@ -647,6 +654,7 @@ export async function buildHandlerContext(
     metrics,
     metricsFor,
     tz,
+    locale,
     // Cancellation signal flows from the HTTP middleware via
     // requestContext. Conditional spread so non-HTTP entry-points
     // (jobs, dispatcher MSP-applies) don't get a phantom signal that
