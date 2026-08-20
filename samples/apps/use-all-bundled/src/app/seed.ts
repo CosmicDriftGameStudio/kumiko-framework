@@ -16,9 +16,10 @@ import {
   tagEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
+import { tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
-import { fetchOne, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
@@ -42,6 +43,28 @@ const { executor: tagAssignmentExecutor } = createEntityExecutor(
 );
 const { executor: noteExecutor } = createEntityExecutor("note", noteEntity);
 
+// Resolves the real dev-admin user (runDevApp's auth.admin, seeded via
+// seedAdmin() before options.seeds run) so seeded writes carry a created_by
+// the audit-log actor lookup can resolve — TestUsers.systemAdmin has no user
+// row / tenant-membership and renders as a blank actor column.
+async function resolveAdminUserId(db: DbConnection, tenantId: TenantId): Promise<string> {
+  const memberships = await selectMany<{ userId: string }>(db, tenantMembershipsTable, {
+    tenantId,
+  });
+  const [membership, extra] = memberships;
+  if (!membership) {
+    throw new Error(
+      `seed.ts: no tenant-membership found for tenant ${tenantId} — expected runDevApp's auth.admin to be seeded before options.seeds run`,
+    );
+  }
+  if (extra) {
+    throw new Error(
+      `seed.ts: found ${memberships.length} tenant-memberships for tenant ${tenantId} — the "admin is the only member" assumption no longer holds; resolveAdminUserId must pick the admin explicitly by role instead of taking the first membership`,
+    );
+  }
+  return membership.userId;
+}
+
 // tags + notes + assignments for the tags feature-reference screenshots:
 //   - tag-list management screen: colored catalog + non-zero usage counts
 //   - note-list: rows to filter via the TagFilter header slot
@@ -49,8 +72,12 @@ const { executor: noteExecutor } = createEntityExecutor("note", noteEntity);
 // ponytail: no idempotency guard — the screenshot server boots a fresh ephemeral
 // DB (KUMIKO_DEV_DB_NAME="") and runs this once; add a fetchOne-by-name guard if
 // a persistent dev DB ever reuses the process.
-async function seedTagsAndNotes(db: DbConnection, tenantId: TenantId): Promise<void> {
-  const by: SessionUser = { ...TestUsers.systemAdmin, tenantId };
+async function seedTagsAndNotes(
+  db: DbConnection,
+  tenantId: TenantId,
+  adminUserId: string,
+): Promise<void> {
+  const by: SessionUser = { ...TestUsers.systemAdmin, tenantId, id: adminUserId };
   const tdb = createTenantDb(db, tenantId, "system");
 
   const created = async (
@@ -117,10 +144,16 @@ async function seedTagsAndNotes(db: DbConnection, tenantId: TenantId): Promise<v
 async function seedCustomFieldsAndFolders(
   stack: Parameters<SeedFn>[0],
   tenantId: TenantId,
+  adminUserId: string,
 ): Promise<void> {
   // custom-fields + folders sind tenant-scoped → TenantAdmin (nicht die
   // Plattform-Rolle SystemAdmin; hasAccess ist exact-match, keine Hierarchie).
-  const by: SessionUser = { ...TestUsers.systemAdmin, tenantId, roles: ["TenantAdmin"] };
+  const by: SessionUser = {
+    ...TestUsers.systemAdmin,
+    tenantId,
+    id: adminUserId,
+    roles: ["TenantAdmin"],
+  };
 
   await stack.http.writeOk(
     "custom-fields:write:define-tenant-field",
@@ -260,11 +293,16 @@ export const seedScreenshotData: SeedFn = async (stack) => {
     await seedTextBlock(stack.db, { tenantId: SYSTEM_TENANT_ID, locale: "en", ...block });
   }
 
+  // Real dev-admin identity (not TestUsers.systemAdmin — see resolveAdminUserId)
+  // so the audit-log actor column resolves for these seeded writes. One lookup
+  // for the whole tenant, not per record.
+  const devAdminId = await resolveAdminUserId(stack.db, devTenant);
+
   // tags + notes + assignments in the dev tenant for the tags screenshots.
-  await seedTagsAndNotes(stack.db, devTenant);
+  await seedTagsAndNotes(stack.db, devTenant, devAdminId);
 
   // custom-fields + folders extension sections on note-edit.
-  await seedCustomFieldsAndFolders(stack, devTenant);
+  await seedCustomFieldsAndFolders(stack, devTenant, devAdminId);
 
   // personal-access-tokens list for the admin (active tenant = dev).
   await seedApiTokens(stack.db, devTenant);
