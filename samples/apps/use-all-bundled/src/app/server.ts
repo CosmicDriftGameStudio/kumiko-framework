@@ -47,7 +47,11 @@ await runDevApp({
           tenantId: DEV_TENANT_ID as TenantId,
           tenantKey: "dev",
           tenantName: "Dev Tenant",
-          roles: ["Admin"],
+          // TenantAdmin alongside Admin: sessionChecker re-derives roles from
+          // this membership row on every write (buildSessionRoles), discarding
+          // any roles override baked into a hand-signed SessionUser — without
+          // it, seedCustomFieldsAndFolders's TenantAdmin-gated writes 403.
+          roles: ["Admin", "TenantAdmin"],
         },
         {
           tenantId: BETA_TENANT_ID as TenantId,
