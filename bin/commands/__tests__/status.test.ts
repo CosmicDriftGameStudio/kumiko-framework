@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { runGit } from "../../_git-test-helpers";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
@@ -32,6 +35,29 @@ describe("status command", () => {
     expect(joined).toContain("Services");
     expect(joined).toContain("Docker services not running"); // no compose.yml
     expect(joined).toContain("Not a git repository");
+  });
+
+  test("docker probe that hangs is capped by its own timeout, not the daemon's", async () => {
+    const cwd = tmp();
+    const binDir = mkdtempSync(join(tmpdir(), "kumiko-fakebin-"));
+    writeFileSync(join(binDir, "docker"), "#!/bin/sh\nexec sleep 30\n", { mode: 0o755 });
+    const originalPath = process.env["PATH"];
+    cleanups.push(() => {
+      process.env["PATH"] = originalPath;
+      rmSync(binDir, { recursive: true, force: true });
+    });
+    process.env["PATH"] = `${binDir}:${originalPath}`;
+
+    const spy = makeSpyOutput();
+    const start = Date.now();
+    const exit = await statusCommand.run(makeContext({ cwd, out: spy.out }));
+    const elapsedMs = Date.now() - start;
+
+    expect(exit).toBe(0);
+    expect(elapsedMs).toBeGreaterThanOrEqual(1500); // probe really ran and was cut off, not ENOENT
+    expect(elapsedMs).toBeLessThan(4000);
+    const joined = spy.logs.join("\n");
+    expect(joined).toContain("Docker services not running");
   });
 
   test("real git repo shows current branch + status", async () => {
