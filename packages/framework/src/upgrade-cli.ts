@@ -15,6 +15,7 @@ import {
   parseFeatureChangelog,
   sortEntries,
 } from "./engine";
+import { ensureTemporalPolyfill } from "./time";
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 const CODEMOD_SUBDIR = "scripts/codemod";
@@ -297,7 +298,7 @@ async function applyCodemods(
   );
   writeUpgradeMarker(targetDir, {
     version: latestVersion,
-    appliedAt: new Date().toISOString(),
+    appliedAt: Temporal.Now.instant().toString(),
     codemods: ran,
   });
   out.log(
@@ -312,6 +313,8 @@ export async function runUpgradeCli(
   out: UpgradeCliOut,
   options?: { readonly repoRoot?: string },
 ): Promise<number> {
+  // Standalone CLI entry, not booted via runProdApp/runDevApp — Temporal needs an explicit polyfill here.
+  await ensureTemporalPolyfill();
   const repoRoot = options?.repoRoot ?? cwd;
   const args = parseArgs(argv);
   const jsonMode = getFlag(args, "json");
