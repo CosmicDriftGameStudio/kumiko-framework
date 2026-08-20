@@ -19,7 +19,7 @@ import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-res
 import { tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
-import { fetchOne, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
@@ -48,10 +48,18 @@ const { executor: noteExecutor } = createEntityExecutor("note", noteEntity);
 // the audit-log actor lookup can resolve — TestUsers.systemAdmin has no user
 // row / tenant-membership and renders as a blank actor column.
 async function resolveAdminUserId(db: DbConnection, tenantId: TenantId): Promise<string> {
-  const membership = await fetchOne<{ userId: string }>(db, tenantMembershipsTable, { tenantId });
+  const memberships = await selectMany<{ userId: string }>(db, tenantMembershipsTable, {
+    tenantId,
+  });
+  const [membership, extra] = memberships;
   if (!membership) {
     throw new Error(
       `seed.ts: no tenant-membership found for tenant ${tenantId} — expected runDevApp's auth.admin to be seeded before options.seeds run`,
+    );
+  }
+  if (extra) {
+    throw new Error(
+      `seed.ts: found ${memberships.length} tenant-memberships for tenant ${tenantId} — the "admin is the only member" assumption no longer holds; resolveAdminUserId must pick the admin explicitly by role instead of taking the first membership`,
     );
   }
   return membership.userId;
