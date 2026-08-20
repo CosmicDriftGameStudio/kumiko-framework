@@ -20,6 +20,22 @@ Use `kumiko upgrade` to check what's new since your current version.
 
 **Migration:** Apps that already mint PATs (their own client code, scripts, or tests) need to add `currentPassword` to the `create` request payload — this is a breaking change to the `create` request shape despite the minor bump (bundled-features doesn't follow strict semver across its handler schemas yet). If the caller has MFA enrolled, also include a valid `mfaCode`.
 
+## 0.201.0
+
+### framework-core
+
+**IdempotencyGuard.check()/.store() gain a discriminated result + token param on top of the 0.198.0 signature (fw#2139).**
+
+Fixes two idempotency-lock races that could let a duplicate request re-run a write handler or silently overwrite a fresher cached result. `waitTimeoutMs` (how long a duplicate request waits for the in-flight one) is now clamped to always exceed `pendingTtlSeconds` (the in-progress lock's own TTL) — previously the defaults (30s lock vs. 25s wait) let a retry give up and re-execute the handler while the original call was still legitimately running. `IdempotencyGuard.store()` now does an atomic compare-and-swap against the exact lock token the calling run acquired (Redis EVAL) instead of an unconditional SET, so a stale, slow-finishing run can no longer stomp the result a reclaiming run already persisted after the lock expired. `IdempotencyGuard.check()` now returns a discriminated `{ status: "cached", result }` / `{ status: "acquired", token }` union instead of `string | null`, and `store()` takes the acquired token as a new parameter.
+
+**Migration:** Layered on top of the 0.198.0 signature change: check() is now check(tenantId, userId, requestId) returning { status: "cached", result } | { status: "acquired", token }; store() is now store(tenantId, userId, requestId, token). Both call sites in this repo (dispatch-batch.ts, the dispatcher test mock) are already updated; any code outside this repo calling IdempotencyGuard directly needs the same update.
+
+**GET /files/:id now sniffs bytes and serves svg/txt/csv/json/md as application/octet-stream instead of inline (fw#2140).**
+
+GET /files/:id served the stored mimeType as Content-Type without verifying it against the file's actual bytes — a client can declare any MIME at upload time, so an attacker could upload real HTML/SVG content and have it served back with a trusted-looking Content-Type from the app origin, enabling stored XSS. Uploads themselves are still accepted regardless of declared MIME (this is unchanged); the fix hardens serving instead. The download route now sniffs the file's magic bytes and only serves the sniffed Content-Type inline when it matches a known-safe binary signature (png/jpeg/gif/webp/pdf) AND matches the declared MIME from upload. Anything else — including a genuine mismatch, or file types with no reliable binary signature such as svg/txt/csv/json/md — is now served as application/octet-stream. This also adds X-Content-Type-Options: nosniff to GET /files/:id, which previously had none.
+
+**Migration:** Breaking for consumers that render uploaded svg/txt/csv/json/md files inline (e.g. an <img src> pointing at GET /files/:id): those now download as application/octet-stream instead of rendering. Route such content through a purpose-built safe viewer if inline rendering is required.
+
 ## 0.198.0
 
 ### framework-core
