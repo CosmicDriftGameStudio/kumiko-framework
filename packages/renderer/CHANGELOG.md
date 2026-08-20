@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.212.0
+
+### Minor Changes
+
+- 35b0005: `RowActionNavigate` (rowActions on entityList/projectionList, and header actions on projectionDetail) can now target an entity instead of a screen id: set `entity: "<entityName>"` instead of `screen`. The boot validator resolves it against the screen that declares `detailFor: "<entityName>"` (in any feature), the same way hand-written `nav.navigate({ entity, id })` calls already resolve via `resolveTarget`. `screen` and `entity` are mutually exclusive; `projectionList`/`projectionDetail` entity-targets require an explicit `entityId` field name since those rows have no guaranteed `id` field.
+
+### Patch Changes
+
+- Updated dependencies [35b0005]
+- Updated dependencies [d006e42]
+- Updated dependencies [28fc80a]
+  - @cosmicdrift/kumiko-framework@0.212.0
+  - @cosmicdrift/kumiko-headless@0.212.0
+
 ## 0.211.0
 
 ### Patch Changes

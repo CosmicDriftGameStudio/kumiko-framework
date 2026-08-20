@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.212.0
+
+### Minor Changes
+
+- 35b0005: `RowActionNavigate` (rowActions on entityList/projectionList, and header actions on projectionDetail) can now target an entity instead of a screen id: set `entity: "<entityName>"` instead of `screen`. The boot validator resolves it against the screen that declares `detailFor: "<entityName>"` (in any feature), the same way hand-written `nav.navigate({ entity, id })` calls already resolve via `resolveTarget`. `screen` and `entity` are mutually exclusive; `projectionList`/`projectionDetail` entity-targets require an explicit `entityId` field name since those rows have no guaranteed `id` field.
+
+### Patch Changes
+
+- d006e42: Boot validation now catches missing translations for Settings-Hub generated screens/navs. `buildConfigFeatureSchema` labels every masked config key's generated nav entry and configEdit section with the dot-form key `${feature}.settings` (and `mask.title` values as field-label overrides) — `isI18nKey`'s colon-only check silently dropped these from the required-keys set, so a feature could ship a generated Settings screen whose label was never translated and boot stayed silent (fw#2260). If your app defines a feature with a human-writable masked config key, make sure `${feature}.settings` and every `mask.title` value are declared as translations, or boot now throws `[i18n] Settings-Hub: required translation key missing: "..."`.
+- 28fc80a: Fix `UnprocessableError` (and `failUnprocessable`) so the positional `reason` slug always wins over a same-named `reason` key inside `opts.details`. Previously a caller passing `details: { reason: ... }` — e.g. to attach a cause message — silently overwrote the stable reason slug, corrupting `reasonSlug`/`docsUrl` and leaking raw error text as `details.reason` in the wire response. Callers that want to attach a cause message should use `opts.cause` instead of `details.reason`.
+- Updated dependencies [35b0005]
+  - @cosmicdrift/kumiko-types@0.212.0
+
 ## 0.211.0
 
 ### Minor Changes
