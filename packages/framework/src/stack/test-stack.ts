@@ -153,6 +153,11 @@ export type TestStackOptions = {
     consumerLane?: JobRunIn;
     queueNamePrefix?: string;
   };
+  /** Override the event dispatcher's polling-timer interval. Default 50ms.
+   *  Tests that assert LISTEN/NOTIFY wake-up latency need this pushed far
+   *  out (e.g. 60_000) so the polling timer can't land inside the
+   *  assertion window and mask a dead subscription — see E.4 (#2042). */
+  eventDispatcherPollIntervalMs?: number;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -379,7 +384,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       // plumbs through the LISTEN wake-up for tests that want to measure
       // post-commit latency (Sprint E.4).
       eventDispatcher: {
-        pollIntervalMs: 50,
+        pollIntervalMs: options.eventDispatcherPollIntervalMs ?? 50,
         pgClient: testDb.client as PgClient | undefined,
         systemConsumers: {
           sse: enabledHooks.includes("sse"),

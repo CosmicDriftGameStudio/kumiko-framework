@@ -1,15 +1,29 @@
 // E.4 — PG LISTEN/NOTIFY wake-up. Without this, delivery latency is
-// bounded below by pollIntervalMs (default 100ms, test-stack 50ms). With
-// LISTEN, event-store.append fires `pg_notify` on commit and any
-// subscribed dispatcher wakes immediately — latency becomes TCP
-// round-trip, typically sub-millisecond on localhost.
+// bounded below by pollIntervalMs. With LISTEN, event-store.append fires
+// `pg_notify` on commit and any subscribed dispatcher wakes immediately —
+// latency becomes TCP round-trip, typically sub-millisecond on localhost.
 //
 // The polling timer stays on as a safety net for dropped subscriptions
 // and crashes between commit and wake. These tests pin:
 //
-//   1. NOTIFY → runOnce fires faster than one pollInterval.
+//   1. NOTIFY → runOnce fires promptly, without waiting for the timer.
 //   2. The dispatcher starts cleanly when pgClient is wired and stops
-//      without leaking the LISTEN connection.
+//      without leaking the LISTEN connection, and still wakes on NOTIFY
+//      after a restart cycle.
+//
+// #2042: these used to assert an absolute millisecond latency bound
+// (`< 40`, later `< 100`) against the test-stack's default 50ms polling
+// timer. On a shared CI runner a stalled event loop can push even a
+// working LISTEN's delivery past 100ms — measured up to 154ms — so no
+// millisecond bound both clears runner noise and stays under a 50ms
+// timer. Fix: push the polling timer out to 60s for this stack
+// (`eventDispatcherPollIntervalMs`) and assert delivery happens at all
+// inside a 5s window. If LISTEN is dead, nothing arrives before the 5s
+// deadline — a 12x margin under the 60s timer that no runner stall gets
+// anywhere near. If LISTEN works, delivery is near-instant regardless of
+// runner load. Verified by temporarily forcing pgClient to undefined in
+// test-stack.ts: both tests then fail at toHaveLength(1) with 0 received
+// after ~5s, confirming the assertion still discriminates.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
@@ -47,6 +61,10 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [listenFeature],
     systemHooks: [],
+    // Timer effectively off — see file header (#2042). If LISTEN is
+    // broken, delivery only happens via this timer, so nothing arrives
+    // before the 60s mark; the tests below wait a mere 5s.
+    eventDispatcherPollIntervalMs: 60_000,
   });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db, admin.tenantId);
@@ -60,34 +78,18 @@ afterAll(async () => {
 // --- Tests ---
 
 describe("E.4 — PG NOTIFY/LISTEN wake-up", () => {
-  test("NOTIFY on commit triggers runOnce faster than one pollInterval", async () => {
-    // pollIntervalMs in the test-stack is 50ms. If LISTEN works, delivery
-    // lands within a few ms of commit; if LISTEN is broken, it takes up
-    // to pollIntervalMs. Use a generous upper bound that still discriminates:
-    // if the timer drives delivery, the gap between append and delivery
-    // is 25–50ms on average. If LISTEN drives it, it's sub-10ms.
+  test("NOTIFY on commit triggers runOnce without waiting for the poll timer", async () => {
     deliveryTimes.length = 0;
 
     await stack.eventDispatcher?.start();
     try {
-      const appendedAt = Date.now();
       await executor.create({ name: "latency-test" }, admin, tdb);
 
-      // Wait up to 500ms, then check latency.
-      const deadline = Date.now() + 500;
+      const deadline = Date.now() + 5000;
       while (Date.now() < deadline && deliveryTimes.length === 0) {
         await new Promise((r) => setTimeout(r, 5));
       }
       expect(deliveryTimes).toHaveLength(1);
-
-      const latencyMs = (deliveryTimes[0] ?? 0) - appendedAt;
-      // LISTEN should beat the polling timer comfortably. Originally 40ms
-      // (LISTEN typical: <10ms; pollInterval: 50ms). ARM self-hosted runner
-      // schwankt bei 50-60ms wegen DB-IPC + clock-jitter im poll-loop —
-      // bound auf 2× pollInterval erweitert. Discriminierung bleibt:
-      // wenn LISTEN ganz broken ist, fällt der 500ms-Wait am `expect
-      // (deliveryTimes).toHaveLength(1)`-Check leer.
-      expect(latencyMs).toBeLessThan(100);
     } finally {
       await stack.eventDispatcher?.stop();
     }
@@ -106,16 +108,13 @@ describe("E.4 — PG NOTIFY/LISTEN wake-up", () => {
     deliveryTimes.length = 0;
     await stack.eventDispatcher?.start();
     try {
-      const appendedAt = Date.now();
       await executor.create({ name: "restart-probe" }, admin, tdb);
-      const deadline = Date.now() + 500;
+
+      const deadline = Date.now() + 5000;
       while (Date.now() < deadline && deliveryTimes.length === 0) {
         await new Promise((r) => setTimeout(r, 5));
       }
       expect(deliveryTimes).toHaveLength(1);
-      // Latency must still be LISTEN-fast (< pollInterval) — if the
-      // subscription silently dropped, the timer would deliver at ~50ms.
-      expect((deliveryTimes[0] ?? 0) - appendedAt).toBeLessThan(40);
     } finally {
       await stack.eventDispatcher?.stop();
     }
