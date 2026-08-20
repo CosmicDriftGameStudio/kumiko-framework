@@ -11,4 +11,4 @@ The browser's active UI language now reaches the server. `createLiveDispatcher` 
 
 The server resolves the header (falling back to `Accept-Language`, then the app's boot-configured default locale, then `"en"`) into a new, always-present `ctx.locale` on `HandlerContext` — the same Request → Boot-Default precedence `ctx.tz` already uses.
 
-The signup activation mail now renders in the requester's active locale instead of a hardcoded boot-time default, and `appUrl` in the auth-email-password feature can now be a `(locale: string) => string` function so apps with language-prefixed paths can point the activation link at the right locale.
+Every magic-link mail in the auth-email-password feature (signup, password-reset, email-verification, invite, account-unlock) now renders in the requester's active locale instead of a hardcoded boot-time default, and each flow's `appUrl` can now be a `(locale: string) => string` function so apps with language-prefixed paths can point the link at the right locale.
