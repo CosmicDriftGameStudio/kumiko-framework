@@ -103,6 +103,7 @@ export function AuditLogScreen(): ReactNode {
     [dispatcher],
   );
 
+  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
     void load(before);
   }, [load, before]);

@@ -40,6 +40,7 @@
 //
 // **Boot-Dependencies:** config + tenant.
 
+// kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312 (feature.ts > 300 lines)
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
@@ -236,6 +237,7 @@ export function createTierEngineFeature<
     // platziert ihn nur via r.nav("tier-engine:screen:tier-admin"); die
     // Komponente liefert tierEngineClient() aus dem ./web-subpath.
     r.translations({ keys: TIER_ENGINE_I18N });
+    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: TIER_ADMIN_SCREEN_ID,
       type: "custom",

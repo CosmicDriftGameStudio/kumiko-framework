@@ -63,7 +63,7 @@ function ColorPicker({
     <div className="flex items-center gap-2">
       <div className="flex flex-wrap gap-1">
         {PRESET_COLORS.map((c) => (
-          // kumiko-lint-ignore primitives-discipline color swatch needs a raw colored button — Button is variant-styled
+          // kumiko-lint-ignore primitives-discipline color swatch needs a raw colored button — Button is variant-styled. kumiko-lint-ignore no-inline-styles Preset swatch color is user-defined (hex), no finite token palette possible
           <button
             key={c}
             type="button"
@@ -87,6 +87,7 @@ function ColorPicker({
           name={`${idPrefix}-hex`}
           value={value}
           onChange={onChange}
+          // kumiko-lint-ignore i18n-ui-strings Hex color value as an example placeholder, not UI text
           placeholder="#22cc88"
         />
       </div>

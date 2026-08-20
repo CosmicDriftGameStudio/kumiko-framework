@@ -63,6 +63,7 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       ...(includeTierAdmin ? (["admin-shell:nav:tier-admin"] as const) : []),
     ];
 
+    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: TENANT_OVERVIEW_SCREEN_ID,
       type: "custom",
@@ -77,6 +78,7 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       order: 1,
     });
 
+    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: PLATFORM_OVERVIEW_SCREEN_ID,
       type: "custom",

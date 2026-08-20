@@ -1,3 +1,4 @@
+// kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312 (feature.ts > 300 lines)
 import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
 import {
   defineFeature,

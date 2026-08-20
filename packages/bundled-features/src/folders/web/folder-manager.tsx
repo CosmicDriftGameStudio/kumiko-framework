@@ -108,6 +108,7 @@ export function FolderManager({
   const [pendingDelete, setPendingDelete] = useState<FolderNode | null>(null);
 
   // Persist expand/collapse so a reload (F5) doesn't re-expand everything.
+  // kumiko-lint-ignore no-raw-hooks DOM integration: writes to window.localStorage, no framework query/mutation equivalent
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {

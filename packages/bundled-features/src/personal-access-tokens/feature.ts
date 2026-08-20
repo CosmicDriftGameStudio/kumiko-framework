@@ -149,6 +149,7 @@ export function createPersonalAccessTokensFeature(
     // the app places it via r.nav in its logged-in settings area. dormant:
     // true skips createKumikoApp's missing-client-plugin boot diagnostic
     // (#2025) for apps that don't nav this screen (#2034).
+    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: PAT_SCREEN_ID,
       type: "custom",

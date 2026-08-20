@@ -631,6 +631,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "profile.email.title": "E-Mail-Adresse",
   "profile.errors.emailUnchanged": "Das ist bereits deine E-Mail-Adresse.",
   "profile.errors.generic": "Etwas ist schiefgegangen.",
+  "profile.loading": "Lädt…",
   "profile.password.confirm": "Neues Passwort bestätigen",
   "profile.password.mismatch": "Die Passwörter stimmen nicht überein.",
   "profile.password.new": "Neues Passwort",

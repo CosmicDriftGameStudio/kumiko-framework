@@ -76,6 +76,7 @@ export function createLoginRoute(
       readonly accountLabel: string;
     } | null>(null);
 
+    // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
     useEffect(() => {
       if (status === "authenticated") onAuthenticated?.();
     }, [status]);
