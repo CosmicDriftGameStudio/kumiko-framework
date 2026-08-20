@@ -10,7 +10,10 @@ export const statusCommand = defineCommand({
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
     ctx.out.log("--- Services ---");
-    const docker = await run("docker", ["compose", "ps", "--format", "json"], { cwd: ctx.cwd });
+    const docker = await run("docker", ["compose", "ps", "--format", "json"], {
+      cwd: ctx.cwd,
+      timeoutMs: 2000,
+    });
     if (docker.status === 0 && docker.stdout.trim()) {
       for (const line of docker.stdout.trim().split("\n").filter(Boolean)) {
         try {

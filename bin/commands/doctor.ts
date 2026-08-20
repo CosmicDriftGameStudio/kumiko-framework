@@ -54,7 +54,10 @@ export const doctorCommand = defineCommand({
       hint: existsSync(nm) ? undefined : "bun install",
     });
 
-    const dockerPs = await run("docker", ["compose", "ps", "--format", "json"], { cwd: ctx.cwd });
+    const dockerPs = await run("docker", ["compose", "ps", "--format", "json"], {
+      cwd: ctx.cwd,
+      timeoutMs: 2000,
+    });
     const dockerOk = dockerPs.status === 0 && dockerPs.stdout.trim().length > 0;
     checks.push({
       name: "docker services",
