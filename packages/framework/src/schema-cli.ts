@@ -143,7 +143,18 @@ export async function runSchemaCli(
   switch (sub) {
     case "generate": {
       const name = argv[1];
+      if (name === "--help" || name === "-h") {
+        out.log("  Usage: schema generate <name>");
+        return 0;
+      }
       if (!name) {
+        out.err("  Usage: schema generate <name>");
+        return 1;
+      }
+      // name lands unescaped in `${seq}_${name}.sql` (generateMigration) — this
+      // allowlist blocks flag-like names and path traversal (`../../x`).
+      if (name.startsWith("-") || !/^[A-Za-z0-9_-]+$/.test(name)) {
+        out.err(`  Invalid migration name "${name}" — use letters, digits, "-", "_" only.`);
         out.err("  Usage: schema generate <name>");
         return 1;
       }
