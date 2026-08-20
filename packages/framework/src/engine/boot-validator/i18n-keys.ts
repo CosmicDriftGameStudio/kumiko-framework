@@ -16,11 +16,18 @@ function requiredKeysFromGeneratedConfigHub(registry: Registry): readonly string
   if (schema.navs.length === 0) return [];
   const out = new Set<string>();
 
+  // The generator's section titles + mask-title field-label overrides are
+  // dot-form i18n references (`${feature}.settings`), never literal display
+  // text, so treatDotFormAsKey bypasses isI18nKey's colon-only check (fw#2260).
   for (const screen of schema.screens) {
-    for (const key of requiredKeysFromScreen(SETTINGS_HUB_FEATURE, screen)) out.add(key);
+    for (const key of requiredKeysFromScreen(SETTINGS_HUB_FEATURE, screen, {
+      treatDotFormAsKey: true,
+    })) {
+      out.add(key);
+    }
   }
   for (const nav of schema.navs) {
-    for (const key of requiredKeysFromNav(nav)) out.add(key);
+    for (const key of requiredKeysFromNav(nav, { treatDotFormAsKey: true })) out.add(key);
   }
   if (schema.workspace) {
     for (const key of requiredKeysFromWorkspace(schema.workspace.definition)) out.add(key);

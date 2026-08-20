@@ -1,3 +1,4 @@
+// kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312 (feature.ts > 300 lines)
 import {
   createSystemConfig,
   defineFeature,
@@ -291,6 +292,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // its authed area. dormant: true so createKumikoApp's boot diagnostic
     // (#2025) doesn't flag apps that haven't (yet) navved the screen as
     // having a missing client plugin (#2034).
+    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: PRIVACY_CENTER_SCREEN_ID,
       type: "custom",

@@ -130,6 +130,7 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     // convention). App places it via r.nav in its logged-in settings area.
     // dormant: true skips createKumikoApp's missing-client-plugin boot
     // diagnostic (#2025) for apps that don't nav this screen (#2034).
+    // kumiko-lint-ignore app-feature-structure Multi-step auth flow (enable + recovery-codes reveal), no declarative screen type covers this
     r.screen({
       id: MFA_ENABLE_SCREEN_ID,
       type: "custom",

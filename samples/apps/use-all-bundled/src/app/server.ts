@@ -63,5 +63,8 @@ await runDevApp({
     },
     // Coverage for auth-self-registration toggle (#1521 Option A).
     signup: AUTH_COMPOSE_OPTIONS.signup,
+    // Registers invite-create so the seed can dispatch real invitations —
+    // the delivery-log screenshot needs real attempts, not projection writes.
+    invite: AUTH_COMPOSE_OPTIONS.invite,
   },
 });

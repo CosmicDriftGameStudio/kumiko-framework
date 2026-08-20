@@ -73,12 +73,18 @@ import {
   defineTenantFieldHandler,
 } from "./handlers/define-tenant-field.write";
 import { deleteSystemFieldHandler } from "./handlers/delete-system-field.write";
-import { deleteTenantFieldHandler } from "./handlers/delete-tenant-field.write";
+import {
+  createDeleteTenantFieldHandler,
+  deleteTenantFieldHandler,
+} from "./handlers/delete-tenant-field.write";
 import {
   createSetCustomFieldHandler,
   setCustomFieldHandler,
 } from "./handlers/set-custom-field.write";
-import { updateTenantFieldHandler } from "./handlers/update-tenant-field.write";
+import {
+  createUpdateTenantFieldHandler,
+  updateTenantFieldHandler,
+} from "./handlers/update-tenant-field.write";
 
 const fieldDefinitionDeletedSchema = z.object({
   entityName: z.string(),
@@ -97,6 +103,8 @@ const fieldDefinitionDeletedSchema = z.object({
 // Options-Variante verfehlt.
 type RegisterVariant = {
   readonly defineTenantHandler: WriteHandlerDef;
+  readonly updateTenantHandler: WriteHandlerDef;
+  readonly deleteTenantHandler: WriteHandlerDef;
   readonly setHandler: WriteHandlerDef;
   readonly clearHandler: WriteHandlerDef;
   readonly fieldDefinitionListRoles: readonly string[];
@@ -141,8 +149,8 @@ function registerCustomFields(
   // Definition-CRUD handlers (B1; update kam mit Bug-Bash D2 2026-06-08).
   r.writeHandler(variant.defineTenantHandler);
   r.writeHandler(defineSystemFieldHandler);
-  r.writeHandler(updateTenantFieldHandler);
-  r.writeHandler(deleteTenantFieldHandler);
+  r.writeHandler(variant.updateTenantHandler);
+  r.writeHandler(variant.deleteTenantHandler);
   r.writeHandler(deleteSystemFieldHandler);
 
   // Value-write handlers (B2). Emittieren events auf host-aggregate-stream.
@@ -169,6 +177,8 @@ function registerCustomFields(
 export const customFieldsFeature = defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) =>
   registerCustomFields(r, {
     defineTenantHandler: defineTenantFieldHandler,
+    updateTenantHandler: updateTenantFieldHandler,
+    deleteTenantHandler: deleteTenantFieldHandler,
     setHandler: setCustomFieldHandler,
     clearHandler: clearCustomFieldHandler,
     fieldDefinitionListRoles: DEFAULT_FIELD_DEFINITION_LIST_ROLES,
@@ -191,14 +201,37 @@ export type CustomFieldsFeatureOptions = {
    *  FormSection für Value-Writer nie (access_denied), während der Save-Pfad
    *  offen wäre (asymmetrischer Bruch). */
   readonly fieldDefinitionListRoles?: readonly string[];
+  /** Access roles for the definition-CRUD triad (`define-tenant-field`,
+   *  `update-tenant-field`, `delete-tenant-field`) — hard-wired to ["TenantAdmin"]
+   *  before #2296. Apps with their own role vocabulary (e.g. ["Admin","Editor"])
+   *  MUST set this, else field-definition management is access_denied for every
+   *  app-user without a "TenantAdmin" role. Only covers the tenant-scope triad —
+   *  define-/delete-system-field stay hard-wired to ["TenantAdmin"], since
+   *  system-scope is a separate trust boundary that must not become reachable
+   *  through a tenant role vocabulary. Also feeds into
+   *  resolveFieldDefinitionListRoles (below) so a definer without an explicit
+   *  fieldDefinitionListRoles override can still load the definitions they can
+   *  write — mirrors the valueWriteRoles → list-default inheritance. */
+  readonly fieldDefinitionWriteRoles?: readonly string[];
 };
 
 export function resolveFieldDefinitionListRoles(
-  opts: Pick<CustomFieldsFeatureOptions, "valueWriteRoles" | "fieldDefinitionListRoles">,
+  opts: Pick<
+    CustomFieldsFeatureOptions,
+    "valueWriteRoles" | "fieldDefinitionListRoles" | "fieldDefinitionWriteRoles"
+  >,
 ): readonly string[] {
   if (opts.fieldDefinitionListRoles !== undefined) return opts.fieldDefinitionListRoles;
-  if (opts.valueWriteRoles === undefined) return DEFAULT_FIELD_DEFINITION_LIST_ROLES;
-  return [...new Set([...opts.valueWriteRoles, ...DEFAULT_FIELD_DEFINITION_LIST_ROLES])];
+  if (opts.valueWriteRoles === undefined && opts.fieldDefinitionWriteRoles === undefined) {
+    return DEFAULT_FIELD_DEFINITION_LIST_ROLES;
+  }
+  return [
+    ...new Set([
+      ...(opts.valueWriteRoles ?? []),
+      ...(opts.fieldDefinitionWriteRoles ?? []),
+      ...DEFAULT_FIELD_DEFINITION_LIST_ROLES,
+    ]),
+  ];
 }
 
 // Backwards-compat-wrapper. Bestehende Caller (z.B. integration-tests,
@@ -212,17 +245,30 @@ export function createCustomFieldsFeature(
   const hasOptions =
     opts.fieldDefinitionLimitPerTenant !== undefined ||
     opts.valueWriteRoles !== undefined ||
-    opts.fieldDefinitionListRoles !== undefined;
+    opts.fieldDefinitionListRoles !== undefined ||
+    opts.fieldDefinitionWriteRoles !== undefined;
   if (!hasOptions) {
     return customFieldsFeature;
   }
   const limit = opts.fieldDefinitionLimitPerTenant;
+  const definitionWriteRoles = opts.fieldDefinitionWriteRoles;
   return defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) =>
     registerCustomFields(r, {
       defineTenantHandler:
-        limit !== undefined
-          ? createDefineTenantFieldHandler({ fieldDefinitionLimitPerTenant: limit })
+        limit !== undefined || definitionWriteRoles !== undefined
+          ? createDefineTenantFieldHandler({
+              fieldDefinitionLimitPerTenant: limit,
+              roles: definitionWriteRoles,
+            })
           : defineTenantFieldHandler,
+      updateTenantHandler:
+        definitionWriteRoles !== undefined
+          ? createUpdateTenantFieldHandler({ roles: definitionWriteRoles })
+          : updateTenantFieldHandler,
+      deleteTenantHandler:
+        definitionWriteRoles !== undefined
+          ? createDeleteTenantFieldHandler({ roles: definitionWriteRoles })
+          : deleteTenantFieldHandler,
       setHandler: createSetCustomFieldHandler(opts.valueWriteRoles),
       clearHandler: createClearCustomFieldHandler(opts.valueWriteRoles),
       fieldDefinitionListRoles: resolveFieldDefinitionListRoles(opts),

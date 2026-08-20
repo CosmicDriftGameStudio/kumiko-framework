@@ -36,6 +36,8 @@ export type NavIconKey =
   | "home"
   | "bell"
   | "shield"
+  | "shield-check"
+  | "send"
   | "settings"
   | "users"
   | "user"

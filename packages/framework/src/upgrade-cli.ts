@@ -236,17 +236,29 @@ function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
 
 // Runs every pending breaking entry's codemod, oldest version first (so a
 // later codemod can assume an earlier one already ran). Stops on the first
-// failure — no partial marker. Writes the marker only when at least one
-// codemod actually ran and dryRun is false.
+// failure — no partial marker. Writes the marker whenever dryRun is false —
+// even with zero pending entries, so an already-current app still gets a
+// bootstrap marker recording its installed version (fw#2299).
 async function applyCodemods(
   out: UpgradeCliOut,
   pending: readonly ChangelogEntry[],
   repoRoot: string,
   targetDir: string,
   dryRun: boolean,
+  currentVersion: string,
 ): Promise<number> {
   if (pending.length === 0) {
     out.log("  ✓ Nothing new since your version.");
+    if (!dryRun) {
+      writeUpgradeMarker(targetDir, {
+        version: currentVersion,
+        appliedAt: Temporal.Now.instant().toString(),
+        codemods: [],
+      });
+      out.log(
+        `  ✓ Applied 0 codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`,
+      );
+    }
     return 0;
   }
 
@@ -361,7 +373,7 @@ export async function runUpgradeCli(
     const targetDir = dirFlag ? resolve(dirFlag) : cwd;
     const dryRun = getFlag(args, "dry-run");
     out.log("");
-    const code = await applyCodemods(out, pending, repoRoot, targetDir, dryRun);
+    const code = await applyCodemods(out, pending, repoRoot, targetDir, dryRun, currentVersion);
     out.log("");
     return code;
   }

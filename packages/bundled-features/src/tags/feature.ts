@@ -71,6 +71,7 @@ function registerTags(
 
   // Standalone Tags management screen (custom React: TagManager). The app places
   // it in nav via r.nav("tags:screen:tag-list"); tagsClient() maps the component.
+  // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
   r.screen({
     id: TAGS_SCREEN_ID,
     type: "custom",

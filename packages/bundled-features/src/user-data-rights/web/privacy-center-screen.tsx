@@ -121,8 +121,9 @@ function ExportSection(): ReactNode {
   const done = job?.status === EXPORT_JOB_STATUS.Done;
   const failed = job?.status === EXPORT_JOB_STATUS.Failed;
 
-  // Solange der Job läuft: pollen bis Done/Failed, dann auto-Stop.
+  // While the job is running: poll until Done/Failed, then auto-stop.
   const refetch = statusQuery.refetch;
+  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
     if (!inProgress || !refetch) return;
     const id = setInterval(() => void refetch(), EXPORT_POLL_MS);

@@ -103,11 +103,7 @@ export function createComplianceProfilesFeature(
       id: "profile-picker",
       label: "compliance-profiles:nav.profilePicker",
       screen: "compliance-profiles:screen:profile-picker",
-      // "shield-check" (spec suggestion, fw#2222) isn't in NavIconKey's closed
-      // vocabulary (packages/types/src/nav-icon.ts) — adding it needs a
-      // matching lucide-react entry in renderer-web's NAV_ICONS map too, both
-      // outside this feature. "shield" is the closest already-registered key.
-      icon: "shield",
+      icon: "shield-check",
       order: 50,
     });
 

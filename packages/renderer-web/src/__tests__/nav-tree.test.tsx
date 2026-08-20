@@ -166,6 +166,8 @@ const NAV_ICON_LUCIDE_CLASS: Readonly<Record<string, string>> = {
   palette: "lucide-palette",
   link: "lucide-link",
   share: "lucide-share-2",
+  send: "lucide-send",
+  "shield-check": "lucide-shield-check",
 };
 
 function expectNavIcons(container: HTMLElement, iconKeys: readonly string[]): void {
@@ -338,6 +340,30 @@ describe("NavTree", () => {
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     expectNavIcons(container, ["palette", "link", "share"]);
+  });
+
+  test("send und shield-check rendern Lucide-Icons", () => {
+    const schema = {
+      featureName: "app",
+      entities: {},
+      screens: [
+        { id: "delivery-log", type: "entityList", entity: "x", columns: [] },
+        { id: "profile-picker", type: "entityList", entity: "x", columns: [] },
+      ],
+      navs: [
+        { id: "delivery-log", label: "Log", screen: "delivery-log", order: 10, icon: "send" },
+        {
+          id: "profile-picker",
+          label: "Profile",
+          screen: "profile-picker",
+          order: 20,
+          icon: "shield-check",
+        },
+      ],
+    } as FeatureSchema;
+    const { container } = render(<NavTree schema={schema} />);
+    expectNavIcons(container, ["send", "shield-check"]);
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   test("unbekannter icon-Key fällt sauber auf den Dot zurück (kein svg), aber warnt sichtbar", () => {

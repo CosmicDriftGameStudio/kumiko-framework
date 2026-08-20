@@ -351,7 +351,7 @@ export function ProfileScreen(): ReactNode {
   if (me === null || me === undefined) {
     return (
       <Banner padded variant="loading" testId="profile-loading">
-        Loading…
+        {t("profile.loading")}
       </Banner>
     );
   }

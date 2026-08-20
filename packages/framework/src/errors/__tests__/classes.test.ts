@@ -323,6 +323,14 @@ describe("UnprocessableError", () => {
     expect(err.details).toMatchObject({ reason: "order.already_cancelled", orderId: 7 });
     expect(err.i18nKey).toBe("orders.errors.alreadyCancelled");
   });
+
+  test("positional reason survives a conflicting details.reason from the caller", () => {
+    const err = new UnprocessableError("order.already_cancelled", {
+      details: { reason: "some unrelated cause text", orderId: 7 },
+    });
+    expect(err.details).toEqual({ reason: "order.already_cancelled", orderId: 7 });
+    expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/order.already_cancelled");
+  });
 });
 
 describe("InternalError", () => {

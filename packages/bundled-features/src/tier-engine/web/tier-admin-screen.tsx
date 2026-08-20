@@ -56,11 +56,11 @@ export function TierAdminScreen(): ReactNode {
     { enabled: tenantId !== "" },
   );
 
-  // Tenant-Wechsel: Auswahl + Status zurücksetzen, damit kein Tier eines
-  // anderen Tenants stehen bleibt (Mis-Grant-Schutz auf UI-Ebene). tenantId
-  // ist hier reiner Trigger (Body liest es nicht) — Biome's "extra dep"-
-  // Autofix würde die Deps leeren und den Reset auf den Mount beschränken.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: tenantId ist der gewollte Reset-Trigger, nicht entfernen.
+  // Tenant switch: reset selection + status so no other tenant's tier stays
+  // shown (UI-level mis-grant guard). tenantId is a pure trigger here (the
+  // body doesn't read it) — Biome's "extra dep" autofix would empty the deps
+  // and limit the reset to mount.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tenantId is the intended reset trigger, do not remove. kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
     setTier("");
     setStatus({ kind: "idle" });

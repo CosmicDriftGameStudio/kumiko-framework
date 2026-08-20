@@ -59,6 +59,12 @@ export const CUSTOM_FIELDS_EXTENSION = "customFields";
 // für jeden App-User access_denied.
 export const DEFAULT_VALUE_WRITE_ROLES = ["TenantAdmin", "TenantMember"] as const;
 export const DEFAULT_FIELD_DEFINITION_LIST_ROLES = ["TenantAdmin"] as const;
+// Default-RBAC of the definition-CRUD triad (define-/update-/delete-tenant-field,
+// #2296). Apps with their own role vocabulary override via
+// createCustomFieldsFeature({ fieldDefinitionWriteRoles }) — otherwise those three
+// hard-wired handler QNs are access_denied for every app-user without a
+// "TenantAdmin" role (same Role-Naming-Drift as DEFAULT_VALUE_WRITE_ROLES above).
+export const DEFAULT_FIELD_DEFINITION_WRITE_ROLES = ["TenantAdmin"] as const;
 
 // Field-type union — identisch zu Stammfeld-Field-Type-System (Spec Z.59-73:
 // `Identisch zu Entity-Feld-Typen`). Builder-Reuse-Promise: was `r.field.X()`

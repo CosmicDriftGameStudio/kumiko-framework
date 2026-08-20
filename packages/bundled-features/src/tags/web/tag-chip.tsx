@@ -33,6 +33,7 @@ function hexToRgb(color: string): { r: number; g: number; b: number } | null {
   };
 }
 
+// kumiko-lint-ignore no-inline-styles Tag color is user-defined (hex from the DB), no finite token palette possible
 const BASE_STYLE: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
@@ -56,6 +57,7 @@ export function TagChip({
   const fg = color != null && color !== "" ? contrastText(color) : null;
   const palette = fg !== null && color != null ? { backgroundColor: color, color: fg } : NEUTRAL;
   return (
+    // kumiko-lint-ignore no-inline-styles Tag color is user-defined (hex from the DB), no finite token palette possible
     <span data-testid="tag-chip" style={{ ...BASE_STYLE, ...palette }}>
       {name}
     </span>

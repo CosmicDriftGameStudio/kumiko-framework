@@ -1,11 +1,16 @@
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AccessRule,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { z } from "zod";
-import { deleteWrite } from "./handlers/delete.write";
-import { listQuery } from "./handlers/list.query";
+import { DEFAULT_SECRETS_ACCESS } from "./constants";
+import { createDeleteHandler } from "./handlers/delete.write";
+import { createListHandler } from "./handlers/list.query";
 import { rotateJob } from "./handlers/rotate.job";
-import { setWrite } from "./handlers/set.write";
+import { createSetHandler } from "./handlers/set.write";
 import { secretReadSchema } from "./secrets-context";
 import { tenantSecretEntity, tenantSecretsTable } from "./table";
 
@@ -84,10 +89,31 @@ export function requireSecretsContext(
   };
 }
 
-export function createSecretsFeature(): FeatureDefinition {
+export type SecretsFeatureOptions = {
+  /** Access rule for the `set`, `delete` and `list` handlers. Default
+   *  { roles: ["TenantAdmin"] }. Adopt the host's role vocabulary with
+   *  { roles: [...] }, or { openToAll: true } to let any authenticated tenant
+   *  user manage secrets — note this is a much larger blast radius than the
+   *  default: tenant credentials (API keys, tokens) become writable/deletable,
+   *  and their previews/hints listable, by every tenant member, not just
+   *  admins. Takes precedence over `roles`. The `rotate` job is unaffected —
+   *  it's a manual, cross-tenant ops path, not per-tenant RBAC. */
+  readonly access?: AccessRule;
+  /** Shorthand for { access: { roles } }. Ignored when `access` is set. */
+  readonly roles?: readonly string[];
+};
+
+function resolveSecretsAccess(opts: SecretsFeatureOptions): AccessRule {
+  if (opts.access !== undefined) return opts.access;
+  if (opts.roles !== undefined) return { roles: opts.roles };
+  return DEFAULT_SECRETS_ACCESS;
+}
+
+export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureDefinition {
+  const access = resolveSecretsAccess(opts);
   return defineFeature(SECRETS_FEATURE_NAME, (r) => {
     r.describe(
-      "Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump.",
+      'Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump. The `set`/`delete`/`list` handlers share one access rule — default { roles: ["TenantAdmin"] }; adopt the host\'s role vocabulary with createSecretsFeature({ roles }) or open it to every authenticated tenant user with { access: { openToAll: true } } (larger blast radius: any tenant member can then read secret previews and write/delete secrets, not just admins).',
     );
     r.uiHints({
       displayLabel: "Tenant Secrets",
@@ -117,9 +143,9 @@ export function createSecretsFeature(): FeatureDefinition {
     // The rotation job deliberately reaches for ctx.db as DbConnection
     // (raw, cross-tenant) because rotation is a deployment-wide operation —
     // no feature-wide r.systemScope() needed.
-    r.writeHandler(setWrite);
-    r.writeHandler(deleteWrite);
-    r.queryHandler(listQuery);
+    r.writeHandler(createSetHandler(access));
+    r.writeHandler(createDeleteHandler(access));
+    r.queryHandler(createListHandler(access));
     // Manual-only by design: ops triggers rotation after a KEK version flip.
     // BullMQ delivers to exactly one worker, so running it against a busy
     // table on multiple instances is still safe.

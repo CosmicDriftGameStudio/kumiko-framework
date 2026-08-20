@@ -209,12 +209,19 @@ export type RowActionNavigate = {
   readonly id: string;
   readonly label: string;
   /** Screen-id (kurz, unqualified) zu dem navigiert wird. Boot-
-   *  Validator prüft Existenz im selben Feature. */
-  readonly screen: string;
+   *  Validator prüft Existenz im selben Feature. Genau eines von
+   *  `screen`/`entity` muss gesetzt sein. */
+  readonly screen?: string;
+  /** Entity-Name statt Screen-Id (fw#2228) — löst zur Boot-Zeit auf den
+   *  Screen auf, der `detailFor: "<entity>"` deklariert (siehe ObjectTarget/
+   *  resolveTarget in @cosmicdrift/kumiko-renderer's nav.tsx), egal in
+   *  welchem Feature dieser liegt. Genau eines von `screen`/`entity` muss
+   *  gesetzt sein. */
+  readonly entity?: string;
   /** Feldname dessen Wert als entityId in den URL-Pfad eingebettet wird
    *  (`/<workspace>/<screen>/<entityId>`). entityEdit liest die Id
-   *  AUSSCHLIESSLICH aus dem Pfad. Default: "id" wenn der Ziel-Screen
-   *  ein entityEdit ist. */
+   *  AUSSCHLIESSLICH aus dem Pfad. Default: "id" wenn der Ziel-Screen ein
+   *  entityEdit ist ODER wenn `entity` (statt `screen`) gesetzt ist. */
   readonly entityId?: string;
   /** Declarative URL search params extracted from the clicked row.
    *  Both actionForm and entityEdit-create targets read `params` as

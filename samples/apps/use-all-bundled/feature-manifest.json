@@ -64,6 +64,10 @@
       "secrets": [],
       "writeHandlers": [
         "auth-email-password:write:change-password",
+        "auth-email-password:write:invite-accept",
+        "auth-email-password:write:invite-accept-with-login",
+        "auth-email-password:write:invite-create",
+        "auth-email-password:write:invite-signup-complete",
         "auth-email-password:write:login",
         "auth-email-password:write:logout",
         "auth-email-password:write:signup-confirm",
@@ -1133,7 +1137,7 @@
     },
     {
       "name": "jobs",
-      "description": "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`. Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI.",
+      "description": "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`; an hourly `stale-run-sweep` job marks runs stuck at status `running` past `staleRunTimeoutHours` as `failed` (#2246 — a crashed worker never fires the completion callback, so nothing else ever revisits the row). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -1772,7 +1776,7 @@
     },
     {
       "name": "secrets",
-      "description": "Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump.",
+      "description": "Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump. The `set`/`delete`/`list` handlers share one access rule — default { roles: [\"TenantAdmin\"] }; adopt the host's role vocabulary with createSecretsFeature({ roles }) or open it to every authenticated tenant user with { access: { openToAll: true } } (larger blast radius: any tenant member can then read secret previews and write/delete secrets, not just admins).",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
