@@ -39,6 +39,18 @@ export const detailQuery = defineQueryHandler({
       },
     );
 
-    return { ...row, logs };
+    // message is stored encrypted under the triggering user's DEK (#2247),
+    // same mechanism as row.payload above.
+    const decryptedLogs = await Promise.all(
+      logs.map(async (log) => {
+        if (typeof log["message"] !== "string") return log;
+        return {
+          ...log,
+          message: await decryptStoredPii(log["message"], "message", "job-run-detail-log"),
+        };
+      }),
+    );
+
+    return { ...row, logs: decryptedLogs };
   },
 });

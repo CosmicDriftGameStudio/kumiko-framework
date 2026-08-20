@@ -67,6 +67,35 @@ async function encryptStartedPayload(
   );
 }
 
+// Same per-subject encryption as encryptStartedPayload, applied to each
+// batched log line's `message` (#2247) before insertMany into
+// jobRunLogsTable — that table is unmanaged/direct-write, so there is no
+// event-piiFields catalog to lean on here either. "message" is the AAD
+// field name and must match the field passed to decryptStoredPii on read
+// (detail.query.ts) or decrypt fails loud. Same skip rules as the payload:
+// null subject (system/cron runs) and absent KMS (rollout mode) both stay
+// plaintext.
+async function encryptLogMessages<T extends { readonly message: string }>(
+  logs: readonly T[],
+  triggeredById: string | null,
+): Promise<T[]> {
+  if (triggeredById === null) return [...logs];
+  const kms = configuredPiiSubjectKms();
+  if (!kms) return [...logs];
+  return Promise.all(
+    logs.map(async (log) => ({
+      ...log,
+      message: await encryptPiiValueForSubject(
+        kms,
+        { kind: "user", userId: triggeredById },
+        log.message,
+        { requestId: "jobs:job-run-logger" },
+        "message",
+      ),
+    })),
+  );
+}
+
 export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallbacks {
   const { db } = opts;
 
@@ -78,10 +107,17 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
   // Bounded cache (LRU-ish with TTL) — worker-crash between start and
   // complete would otherwise leak entries. DB-lookup recovers evicted
   // entries via bull_job_id on jobRunsTable.
-  type CacheEntry = { readonly runId: string; readonly expiresAt: number };
+  // triggeredById rides along with runId (#2247) — resolved once at start
+  // (or on cache-miss DB fallback) so onJobComplete/-Failed know the log
+  // subject without an extra always-on DB round trip.
+  type CacheEntry = {
+    readonly runId: string;
+    readonly triggeredById: string | null;
+    readonly expiresAt: number;
+  };
   const runIdByBullJobId = new Map<string, CacheEntry>();
 
-  function cachePut(bullJobId: string, runId: string): void {
+  function cachePut(bullJobId: string, runId: string, triggeredById: string | null): void {
     // Enforce max-size BEFORE insert. Map iteration returns insertion
     // order, so dropping the first entry is the oldest.
     if (runIdByBullJobId.size >= DEFAULT_CACHE_MAX_ENTRIES) {
@@ -90,24 +126,32 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
     }
     runIdByBullJobId.set(bullJobId, {
       runId,
+      triggeredById,
       expiresAt: Date.now() + DEFAULT_CACHE_TTL_MS,
     });
   }
 
-  function cacheGet(bullJobId: string): string | undefined {
+  function cacheGet(bullJobId: string): CacheEntry | undefined {
     const entry = runIdByBullJobId.get(bullJobId);
     if (!entry) return undefined;
     if (Date.now() >= entry.expiresAt) {
       runIdByBullJobId.delete(bullJobId); // immediate cleanup on terminal callback
       return undefined;
     }
-    return entry.runId;
+    return entry;
   }
 
-  async function resolveRunId(bullJobId: string): Promise<string | undefined> {
+  async function resolveRun(
+    bullJobId: string,
+  ): Promise<{ readonly runId: string; readonly triggeredById: string | null } | undefined> {
     const cached = cacheGet(bullJobId);
-    if (cached) return cached;
-    const row = await fetchOne<{ id: string | number }>(db, jobRunsTable, { bullJobId });
+    if (cached) return { runId: cached.runId, triggeredById: cached.triggeredById };
+    const row = await fetchOne<{ id: string | number; triggeredById: string | null }>(
+      db,
+      jobRunsTable,
+      { bullJobId },
+    );
+    if (!row) return undefined;
     // buildBaseColumns's signature types `id` as `string | number` because
     // it returns both branches of the idType union. We know this table
     // was built with idType: "uuid" (see job-run-table.ts), so narrowing
@@ -115,15 +159,17 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
     // would overload buildBaseColumns per idType — scoped out of this
     // follow-up as its return type has four branches (with/without
     // softDelete × serial/uuid).
-    const id = row ? String(row.id) : undefined;
-    if (id) cachePut(bullJobId, id);
-    return id;
+    const runId = String(row.id);
+    const triggeredById = row.triggeredById ?? null;
+    cachePut(bullJobId, runId, triggeredById);
+    return { runId, triggeredById };
   }
 
   return {
     onJobStart: async (jobName: string, bullJobId: string, meta: JobMeta) => {
       const runId = generateId();
-      cachePut(bullJobId, runId);
+      const triggeredById = meta.triggeredById ?? null;
+      cachePut(bullJobId, runId, triggeredById);
       // Parse against the registered schema so out-of-dispatcher writes
       // get the same validation guarantee as ctx.appendEvent. A shape
       // drift between feature + logger fails loudly at the source
@@ -133,7 +179,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         bullJobId,
         status: "running",
         payload: meta.payload ?? null,
-        triggeredById: meta.triggeredById ?? null,
+        triggeredById,
         startedAt: Temporal.Now.instant().toString(),
         attempt: meta.attempt ?? 1,
       });
@@ -158,12 +204,13 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       duration: number,
       logs: JobLogEntry[],
     ) => {
-      const runId = await resolveRunId(bullJobId);
+      const resolved = await resolveRun(bullJobId);
       // skip: state loss between start + complete (worker restart, cache
       // evicted AND DB has no matching bull_job_id). Rare edge case; we
       // drop the completion write rather than forging a run row from
       // scratch — forensics still has the original BullMQ lifecycle.
-      if (!runId) return;
+      if (!resolved) return;
+      const { runId, triggeredById } = resolved;
       const payload = runCompletedSchema.parse({
         duration,
         finishedAt: Temporal.Now.instant().toString(),
@@ -188,10 +235,11 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       // skip: empty log batch — the worker ran silent. No child rows to
       // insert; the status update above already recorded completion.
       if (payload.logs.length > 0) {
+        const encryptedLogs = await encryptLogMessages(payload.logs, triggeredById);
         await insertMany(
           db,
           jobRunLogsTable,
-          payload.logs.map((log) => ({
+          encryptedLogs.map((log) => ({
             runId,
             level: log.level,
             message: log.message,
@@ -208,10 +256,11 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       error: string,
       logs: JobLogEntry[],
     ) => {
-      const runId = await resolveRunId(bullJobId);
+      const resolved = await resolveRun(bullJobId);
       // skip: same rare state-loss case as in onJobComplete — drop the
       // failure write rather than forge a run row from scratch.
-      if (!runId) return;
+      if (!resolved) return;
+      const { runId, triggeredById } = resolved;
       // Read started_at off the row so we can compute duration
       // symmetrically to onJobComplete (which gets duration from the
       // worker). The row already has started_at from onJobStart.
@@ -243,10 +292,11 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       );
       // skip: empty log batch — mirror of onJobComplete
       if (payload.logs.length > 0) {
+        const encryptedLogs = await encryptLogMessages(payload.logs, triggeredById);
         await insertMany(
           db,
           jobRunLogsTable,
-          payload.logs.map((log) => ({
+          encryptedLogs.map((log) => ({
             runId,
             level: log.level,
             message: log.message,
