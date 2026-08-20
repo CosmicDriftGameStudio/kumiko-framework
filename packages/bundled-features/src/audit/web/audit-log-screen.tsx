@@ -12,6 +12,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { TenantQueries } from "../../tenant/constants";
 import { AUDIT_LOG_DETAIL_SCREEN_ID, AuditQueries } from "../constants";
 
 type AuditRow = {
@@ -25,6 +26,12 @@ type AuditRow = {
 };
 
 type AuditResponse = { readonly rows: readonly AuditRow[]; readonly nextBefore: string | null };
+
+type MemberRow = {
+  readonly userId: string;
+  readonly email: string | null;
+  readonly displayName: string | null;
+};
 
 type Filters = {
   readonly eventType: string;
@@ -40,6 +47,7 @@ type State =
       readonly kind: "ready";
       readonly rows: readonly AuditRow[];
       readonly nextBefore: string | null;
+      readonly names: ReadonlyMap<string, string>;
     };
 
 const EMPTY_FILTERS: Filters = { eventType: "", aggregateType: "", from: "", to: "" };
@@ -57,25 +65,39 @@ export function AuditLogScreen(): ReactNode {
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
 
+  // Loaded once per screen lifetime, not per page — members rarely change
+  // mid-session and refetching on every "older" click is wasted work.
+  const membersRef = useRef<Promise<ReadonlyMap<string, string>> | null>(null);
+
   const load = useCallback(
     async (cursor?: string, overrideFilters?: Filters): Promise<void> => {
       setState({ kind: "loading" });
       const f = overrideFilters ?? filtersRef.current;
-      const res = await dispatcher.query<AuditResponse>(AuditQueries.list, {
-        limit: 50,
-        ...(cursor !== undefined && { before: cursor }),
-        ...(f.eventType.trim() !== "" && { eventType: f.eventType.trim() }),
-        ...(f.aggregateType.trim() !== "" && {
-          aggregateType: f.aggregateType.trim(),
+      membersRef.current ??= dispatcher
+        .query<readonly MemberRow[]>(TenantQueries.members, {})
+        .then((res) =>
+          res.isSuccess
+            ? new Map(res.data.map((m) => [m.userId, m.displayName ?? m.email ?? ""] as const))
+            : new Map<string, string>(),
+        );
+      const [res, names] = await Promise.all([
+        dispatcher.query<AuditResponse>(AuditQueries.list, {
+          limit: 50,
+          ...(cursor !== undefined && { before: cursor }),
+          ...(f.eventType.trim() !== "" && { eventType: f.eventType.trim() }),
+          ...(f.aggregateType.trim() !== "" && {
+            aggregateType: f.aggregateType.trim(),
+          }),
+          ...(f.from !== "" && { from: toIsoStart(f.from) }),
+          ...(f.to !== "" && { to: toIsoEnd(f.to) }),
         }),
-        ...(f.from !== "" && { from: toIsoStart(f.from) }),
-        ...(f.to !== "" && { to: toIsoEnd(f.to) }),
-      });
+        membersRef.current,
+      ]);
       if (!res.isSuccess) {
         setState({ kind: "error", message: res.error.message });
         return;
       }
-      setState({ kind: "ready", rows: res.data.rows, nextBefore: res.data.nextBefore });
+      setState({ kind: "ready", rows: res.data.rows, nextBefore: res.data.nextBefore, names });
     },
     [dispatcher],
   );
@@ -176,12 +198,6 @@ export function AuditLogScreen(): ReactNode {
         columns={[
           { field: "when", label: t("audit.log.col.when"), type: "string", sortable: true },
           { field: "type", label: t("audit.log.col.type"), type: "string", sortable: true },
-          {
-            field: "aggregate",
-            label: t("audit.log.col.aggregate"),
-            type: "string",
-            sortable: false,
-          },
           { field: "actor", label: t("audit.log.col.actor"), type: "string", sortable: false },
         ]}
         sort={sort}
@@ -191,8 +207,7 @@ export function AuditLogScreen(): ReactNode {
           values: {
             when: formatWhen(row.createdAt),
             type: row.type,
-            aggregate: `${row.aggregateType} / ${row.aggregateId}`,
-            actor: row.createdBy,
+            actor: state.names.get(row.createdBy) ?? "",
           },
         }))}
         onRowClick={(row) => openDetail(row.id)}
