@@ -337,14 +337,9 @@ describe("upgrade command — --apply", () => {
     });
     const spy = makeSpyOutput();
 
-    const exit = await runUpgradeCli(
-      ["--from", "0.170.0", "--apply", "--dry-run"],
-      cwd,
-      spy.out,
-      {
-        repoRoot: REAL_REPO_ROOT,
-      },
-    );
+    const exit = await runUpgradeCli(["--from", "0.170.0", "--apply", "--dry-run"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
 
     expect(exit).toBe(0);
     expect(spy.logs.join("\n")).toContain("Nothing new since your version");

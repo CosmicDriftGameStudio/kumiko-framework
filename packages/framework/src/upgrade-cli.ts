@@ -255,9 +255,7 @@ async function applyCodemods(
         appliedAt: Temporal.Now.instant().toString(),
         codemods: [],
       });
-      out.log(
-        `  ✓ Applied 0 codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`,
-      );
+      out.log(`  ✓ Applied 0 codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`);
     }
     return 0;
   }
