@@ -274,14 +274,40 @@ describe("upgrade command — --apply", () => {
     expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
   });
 
-  test("nothing pending: reports up to date, writes no marker", async () => {
+  test("nothing pending: reports up to date, still bootstraps the marker", async () => {
     const cwd = tmp({
       "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
     });
     const spy = makeSpyOutput();
 
     const exit = await upgradeCommand.run(
-      makeContext({ cwd, repoRoot: REAL_REPO_ROOT, argv: ["--from", "0.167.0", "--apply"], out: spy.out }),
+      makeContext({ cwd, repoRoot: REAL_REPO_ROOT, argv: ["--from", "0.170.0", "--apply"], out: spy.out }),
+    );
+
+    expect(exit).toBe(0);
+    expect(spy.logs.join("\n")).toContain("Nothing new since your version");
+
+    const markerPath = join(cwd, ".kumiko/upgrade-state.json");
+    expect(existsSync(markerPath)).toBe(true);
+    const marker = JSON.parse(readFileSync(markerPath, "utf-8"));
+    expect(marker.version).toBe("0.170.0");
+    expect(marker.codemods).toEqual([]);
+    expect(typeof marker.appliedAt).toBe("string");
+  });
+
+  test("nothing pending + --dry-run: reports up to date, writes no marker", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await upgradeCommand.run(
+      makeContext({
+        cwd,
+        repoRoot: REAL_REPO_ROOT,
+        argv: ["--from", "0.170.0", "--apply", "--dry-run"],
+        out: spy.out,
+      }),
     );
 
     expect(exit).toBe(0);
