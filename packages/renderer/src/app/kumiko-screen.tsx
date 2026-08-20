@@ -1297,23 +1297,34 @@ function EntityListBody({
   // nicht auseinanderdriften.
   const runNavigate = useCallback(
     (action: RowActionNavigate, row: ListRowViewModel) => {
-      // Default entityId für entityEdit-Targets: row["id"] wenn kein expliziter
-      // entityId-Feldname gesetzt ist. Nur für Targets DERSELBEN Entity — sonst
-      // bekäme ein Cross-Entity-Edit-Screen die falsche row.id injiziert.
-      const targetIsEntityEdit = schema.screens.some(
-        (s) =>
-          s.type === "entityEdit" &&
-          s.entity === screen.entity &&
-          lastSegment(s.id) === action.screen,
-      );
-      const explicit =
-        action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
-      const fallback = targetIsEntityEdit ? String(row.values["id"] ?? "") : undefined;
-      const entityId = explicit ?? fallback;
-      nav.navigate({
-        screenId: action.screen,
-        ...(entityId !== undefined && entityId !== "" && { entityId }),
-      });
+      if (action.entity !== undefined) {
+        // Entity-Targets (fw#2228) lösen sich erst in der NavApi-Impl gegen
+        // ALLE Features auf (resolveTarget in renderer-web/nav.tsx) — dieses
+        // Package kennt nur `schema` (das eine aufrufende Feature) und kann
+        // detailFor cross-feature nicht selbst nachschlagen.
+        const explicit =
+          action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
+        const id = explicit ?? String(row.values["id"] ?? "");
+        nav.navigate({ entity: action.entity, id });
+      } else if (action.screen !== undefined) {
+        // Default entityId für entityEdit-Targets: row["id"] wenn kein expliziter
+        // entityId-Feldname gesetzt ist. Nur für Targets DERSELBEN Entity — sonst
+        // bekäme ein Cross-Entity-Edit-Screen die falsche row.id injiziert.
+        const targetIsEntityEdit = schema.screens.some(
+          (s) =>
+            s.type === "entityEdit" &&
+            s.entity === screen.entity &&
+            lastSegment(s.id) === action.screen,
+        );
+        const explicit =
+          action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
+        const fallback = targetIsEntityEdit ? String(row.values["id"] ?? "") : undefined;
+        const entityId = explicit ?? fallback;
+        nav.navigate({
+          screenId: action.screen,
+          ...(entityId !== undefined && entityId !== "" && { entityId }),
+        });
+      }
       const params =
         action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined;
       if (params !== undefined) {
@@ -1658,12 +1669,24 @@ function ProjectionListBody({
 
   const runNavigate = useCallback(
     (action: RowActionNavigate, row: ListRowViewModel) => {
-      const entityId =
-        action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
-      nav.navigate({
-        screenId: action.screen,
-        ...(entityId !== undefined && entityId !== "" && { entityId }),
-      });
+      if (action.entity !== undefined) {
+        // Entity-Targets (fw#2228) — siehe EntityListBody.runNavigate für die
+        // Begründung, warum die Auflösung in der NavApi-Impl passiert. Anders
+        // als dort: KEIN row["id"]-Fallback — projectionList-Rows kommen aus
+        // einer beliebigen Query-Projection ohne garantiertes "id"-Feld
+        // (gleiche Begründung wie beim screen-Target unten). Der Boot-
+        // Validator erzwingt deshalb einen expliziten entityId für
+        // projectionList-entity-Targets.
+        const id = action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : "";
+        nav.navigate({ entity: action.entity, id });
+      } else if (action.screen !== undefined) {
+        const entityId =
+          action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
+        nav.navigate({
+          screenId: action.screen,
+          ...(entityId !== undefined && entityId !== "" && { entityId }),
+        });
+      }
       const params =
         action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined;
       if (params !== undefined) {
@@ -1963,46 +1986,68 @@ function ProjectionDetailBody({
         continue;
       }
       if (action.kind === "navigate") {
-        // Default entityId for an entityEdit target of the SAME entity
-        // (screen.detailFor plays entity's role here, like screen.entity
-        // does for entityList's runNavigate) — without this fallback the
-        // target opens an empty create-form instead of the shown record,
-        // silently. Searched cross-feature, consistent with editScreen above.
-        const explicit =
-          action.entityId !== undefined ? String(record[action.entityId] ?? "") : undefined;
-        const targetIsEntityEditSameEntity =
-          screen.detailFor !== undefined &&
-          appFeatures.some((feature) =>
-            feature.screens.some(
-              (s) =>
-                s.type === "entityEdit" &&
-                s.entity === screen.detailFor &&
-                lastSegment(s.id) === action.screen,
-            ),
-          );
-        const fallback = targetIsEntityEditSameEntity ? String(record["id"] ?? "") : undefined;
-        const navEntityId = explicit ?? fallback;
-        const targetScreen = action.screen;
-        out.push({
-          id: action.id,
-          label: effectiveTranslate(action.label),
-          ...(action.style !== undefined && { style: action.style }),
-          onPress: () => {
-            nav.navigate({
-              screenId: targetScreen,
-              ...(navEntityId !== undefined && navEntityId !== "" && { entityId: navEntityId }),
-            });
-            const params =
-              action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
-            if (params !== undefined) {
-              const stringified: Record<string, string | null> = {};
-              for (const [k, v] of Object.entries(params)) {
-                stringified[k] = v === null || v === undefined ? null : String(v);
-              }
-              nav.setSearchParams(stringified);
+        const runParams = (): void => {
+          const params =
+            action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
+          if (params !== undefined) {
+            const stringified: Record<string, string | null> = {};
+            for (const [k, v] of Object.entries(params)) {
+              stringified[k] = v === null || v === undefined ? null : String(v);
             }
-          },
-        });
+            nav.setSearchParams(stringified);
+          }
+        };
+        if (action.entity !== undefined) {
+          // Entity-Targets (fw#2228) — Auflösung passiert in der NavApi-Impl
+          // (siehe EntityListBody.runNavigate), nicht hier. KEIN record["id"]-
+          // Fallback: record kommt aus einer beliebigen Detail-Query ohne
+          // garantiertes "id"-Feld, der Boot-Validator erzwingt deshalb einen
+          // expliziten entityId für projectionDetail-entity-Targets.
+          const targetEntity = action.entity;
+          const id = action.entityId !== undefined ? String(record[action.entityId] ?? "") : "";
+          out.push({
+            id: action.id,
+            label: effectiveTranslate(action.label),
+            ...(action.style !== undefined && { style: action.style }),
+            onPress: () => {
+              nav.navigate({ entity: targetEntity, id });
+              runParams();
+            },
+          });
+        } else if (action.screen !== undefined) {
+          // Default entityId for an entityEdit target of the SAME entity
+          // (screen.detailFor plays entity's role here, like screen.entity
+          // does for entityList's runNavigate) — without this fallback the
+          // target opens an empty create-form instead of the shown record,
+          // silently. Searched cross-feature, consistent with editScreen above.
+          const explicit =
+            action.entityId !== undefined ? String(record[action.entityId] ?? "") : undefined;
+          const targetIsEntityEditSameEntity =
+            screen.detailFor !== undefined &&
+            appFeatures.some((feature) =>
+              feature.screens.some(
+                (s) =>
+                  s.type === "entityEdit" &&
+                  s.entity === screen.detailFor &&
+                  lastSegment(s.id) === action.screen,
+              ),
+            );
+          const fallback = targetIsEntityEditSameEntity ? String(record["id"] ?? "") : undefined;
+          const navEntityId = explicit ?? fallback;
+          const targetScreen = action.screen;
+          out.push({
+            id: action.id,
+            label: effectiveTranslate(action.label),
+            ...(action.style !== undefined && { style: action.style }),
+            onPress: () => {
+              nav.navigate({
+                screenId: targetScreen,
+                ...(navEntityId !== undefined && navEntityId !== "" && { entityId: navEntityId }),
+              });
+              runParams();
+            },
+          });
+        }
         continue;
       }
       // writeHandler — same dispatch/refetch/failure-surfacing pattern as

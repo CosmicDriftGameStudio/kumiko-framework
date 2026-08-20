@@ -20,6 +20,7 @@ import type {
   EditLayout,
   FieldCondition,
   RowAction,
+  RowActionNavigate,
   RowFieldExtractor,
   ScreenDefinition,
   ToolbarAction,
@@ -118,9 +119,11 @@ function validateRowActionNavigateParams(
             : `same entity "${screenEntity}" auto-fills row["id"]`
         })`
       : `screen type "${target.screen.type}"`;
+    const targetDescriptor =
+      action.screen !== undefined ? `"${action.screen}"` : `entity "${action.entity}"`;
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${action.id}" ` +
-        `sets params on navigate-target "${action.screen}" which ${reason} — only actionForm ` +
+        `sets params on navigate-target ${targetDescriptor} which ${reason} — only actionForm ` +
         `and entityEdit-create targets read URL search params as initial values. Remove the ` +
         `params extractor or retarget to an actionForm / cross-entity entityEdit-create screen.`,
     );
@@ -336,6 +339,74 @@ function validateToolbarDrawerAction(
   }
 }
 
+// fw#2228: a navigate rowAction (or projectionDetail header action, which
+// reuses the same RowActionNavigate shape) names its target as either a
+// screen (existing) or an entity (new) — exactly one. Shared by all three
+// call sites so the mutual-exclusivity check and the entity→detailFor
+// resolution don't drift between them (same drift risk
+// validateRowActionNavigateParams above is already shared to avoid).
+function resolveRowActionNavigateTarget(
+  featureName: string,
+  screenId: string,
+  screenType: "entityList" | "projectionList" | "projectionDetail",
+  actionLabel: "rowAction" | "action",
+  action: RowActionNavigate,
+  allScreenQns: ReadonlySet<string>,
+  navTargetShortIds: ReadonlySet<string>,
+  screensByShortId: ReadonlyMap<
+    string,
+    ReadonlyArray<{ readonly featureName: string; readonly screen: ScreenDefinition }>
+  >,
+  detailForScreens: ReadonlyMap<
+    string,
+    { readonly featureName: string; readonly screen: ScreenDefinition }
+  >,
+): { readonly featureName: string; readonly screen: ScreenDefinition } | undefined {
+  if (action.entity !== undefined) {
+    if (action.screen !== undefined) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+          `sets both "screen" and "entity" — exactly one navigate-target form is allowed.`,
+      );
+    }
+    if (screenType !== "entityList" && action.entityId === undefined) {
+      // entityList rows are always a real entity record, so row["id"] is a
+      // safe implicit default. projectionList/projectionDetail rows come from
+      // an arbitrary query projection with no guaranteed "id" field — an
+      // entity-target there needs an explicit entityId, or navigation silently
+      // opens the detail screen with no entity context at runtime.
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+          `navigate-target entity "${action.entity}" needs an explicit "entityId" — ${screenType} rows ` +
+          `come from a query projection with no guaranteed "id" field.`,
+      );
+    }
+    const detail = detailForScreens.get(action.entity);
+    if (detail === undefined) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+          `navigate-target entity "${action.entity}" has no screen declaring ` +
+          `detailFor: "${action.entity}".`,
+      );
+    }
+    return detail;
+  }
+  if (action.screen === undefined) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+        `sets neither "screen" nor "entity" — exactly one navigate-target form is required.`,
+    );
+  }
+  const candidateQn = qualifyEntityName(featureName, "screen", action.screen);
+  if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+        `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
+    );
+  }
+  return screensByShortId.get(action.screen)?.[0];
+}
+
 export function validateScreens(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
@@ -345,6 +416,10 @@ export function validateScreens(
   screensByShortId: ReadonlyMap<
     string,
     ReadonlyArray<{ readonly featureName: string; readonly screen: ScreenDefinition }>
+  >,
+  detailForScreens: ReadonlyMap<
+    string,
+    { readonly featureName: string; readonly screen: ScreenDefinition }
   >,
 ): void {
   // navigate-Targets (rowAction/toolbarAction) dürfen cross-feature zeigen —
@@ -433,14 +508,17 @@ export function validateScreens(
       if (screen.rowActions !== undefined) {
         for (const action of screen.rowActions) {
           if (action.kind === "navigate") {
-            const candidateQn = qualifyEntityName(feature.name, "screen", action.screen);
-            if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
-              throw new Error(
-                `[Feature ${feature.name}] Screen "${screenId}" (projectionList) rowAction "${action.id}" ` +
-                  `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
-              );
-            }
-            const target = screensByShortId.get(action.screen)?.[0];
+            const target = resolveRowActionNavigateTarget(
+              feature.name,
+              screenId,
+              "projectionList",
+              "rowAction",
+              action,
+              allScreenQns,
+              navTargetShortIds,
+              screensByShortId,
+              detailForScreens,
+            );
             validateRowActionNavigateParams(
               feature.name,
               screenId,
@@ -545,14 +623,17 @@ export function validateScreens(
             );
           }
           if (action.kind === "navigate") {
-            const candidateQn = qualifyEntityName(feature.name, "screen", action.screen);
-            if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
-              throw new Error(
-                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) action "${action.id}" ` +
-                  `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
-              );
-            }
-            const target = screensByShortId.get(action.screen)?.[0];
+            const target = resolveRowActionNavigateTarget(
+              feature.name,
+              screenId,
+              "projectionDetail",
+              "action",
+              action,
+              allScreenQns,
+              navTargetShortIds,
+              screensByShortId,
+              detailForScreens,
+            );
             validateRowActionNavigateParams(
               feature.name,
               screenId,
@@ -934,20 +1015,28 @@ export function validateScreens(
       if (screen.rowActions !== undefined) {
         for (const action of screen.rowActions) {
           if (action.kind === "navigate") {
-            const candidateQn = qualifyEntityName(feature.name, "screen", action.screen);
-            if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
-              throw new Error(
-                `[Feature ${feature.name}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
-                  `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
-              );
-            }
+            const target = resolveRowActionNavigateTarget(
+              feature.name,
+              screenId,
+              "entityList",
+              "rowAction",
+              action,
+              allScreenQns,
+              navTargetShortIds,
+              screensByShortId,
+              detailForScreens,
+            );
             // The renderer's default-entityId fallback (row["id"]) only fires
             // for a same-feature entityEdit target — it can't safely guess
             // the id for a screen owned by a different feature. Cross-feature
             // + entityEdit therefore MUST set an explicit entityId, or the
             // edit screen silently opens with no entity context at runtime.
-            const target = screensByShortId.get(action.screen)?.[0];
+            // Entity-targets (fw#2228) are exempt: the renderer always
+            // supplies an id for them (explicit entityId, else row["id"]),
+            // regardless of which feature the resolved detailFor screen
+            // belongs to.
             if (
+              action.screen !== undefined &&
               target !== undefined &&
               target.featureName !== feature.name &&
               target.screen.type === "entityEdit" &&
