@@ -2,7 +2,11 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, join, relative, sep } from "node:path";
 import { parseArgs, getFlag, getStringFlag } from "./arg-parser";
 import { defineCommand } from "./registry";
-import { findCoreChangelogFile, findFeaturesDirs, resolveCodemodScript } from "./upgrade";
+import {
+  findCoreChangelogFile,
+  findFeaturesDirs,
+  resolveCodemodScript,
+} from "@cosmicdrift/kumiko-framework/upgrade-cli";
 
 type ChangeType = "breaking" | "improvement" | "fix";
 
