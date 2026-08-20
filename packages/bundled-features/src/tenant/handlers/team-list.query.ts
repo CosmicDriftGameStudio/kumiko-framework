@@ -8,7 +8,7 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
-import { userSessionTable } from "../../sessions/schema/user-session";
+import { userSessionTable } from "../../sessions";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { userTable } from "../../user";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table";
