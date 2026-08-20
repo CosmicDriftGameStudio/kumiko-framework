@@ -63,6 +63,7 @@ export function JobRunDetailScreen(): ReactNode {
     setState({ kind: "ready", run: res.data });
   }, [dispatcher, runId]);
 
+  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
     void load();
   }, [load]);

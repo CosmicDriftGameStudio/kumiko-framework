@@ -1,3 +1,4 @@
+// kumiko-lint-ignore app-feature-structure Server-side re-export barrel (branding/sanitize helpers), not a client screen — name collision with the web.ts monolith heuristic
 export {
   type BrandingTokens,
   brandingHeaderHtml,

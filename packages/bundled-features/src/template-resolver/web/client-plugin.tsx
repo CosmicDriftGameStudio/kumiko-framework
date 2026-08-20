@@ -170,6 +170,7 @@ function makeTreeProvider(tenantIdOverride?: string, collectionId?: string): Tre
     const headers: Record<string, string> = { "content-type": "application/json" };
     const csrf = readCsrfToken();
     if (csrf !== undefined) headers[CSRF_HEADER_NAME] = csrf;
+    // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
     fetch("/api/query", {
       method: "POST",
       headers,
@@ -338,6 +339,7 @@ function TextBlockEditor({
 
   // Sync loaded data into the form state. loaded === null means the block does
   // not exist yet — empty form for the create flow.
+  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
     if (loading) return;
     setTitle(loaded?.title ?? "");

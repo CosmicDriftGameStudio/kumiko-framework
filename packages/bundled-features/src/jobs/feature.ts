@@ -82,12 +82,14 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
 
     r.translations({ keys: JOBS_I18N });
 
+    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: JOB_RUNS_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "JobRunsScreen" } },
       access: systemAdminAccess,
     });
+    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: JOB_RUN_DETAIL_SCREEN_ID,
       type: "custom",

@@ -61,6 +61,7 @@ export function InviteAcceptScreen({
   const acceptLoggedIn = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);
+    // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
     const res = await fetch("/api/auth/invite-accept", {
       method: "POST",
       credentials: "same-origin",
@@ -83,6 +84,7 @@ export function InviteAcceptScreen({
   const acceptAnonExisting = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);
+    // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
     const res = await fetch("/api/auth/invite-accept-with-login", {
       method: "POST",
       credentials: "same-origin",
@@ -105,6 +107,7 @@ export function InviteAcceptScreen({
   const acceptAnonNew = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);
+    // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
     const res = await fetch("/api/auth/invite-signup-complete", {
       method: "POST",
       credentials: "same-origin",

@@ -27,6 +27,7 @@ export function TagPicker({
   const t = useTranslation();
   const [buffer, setBuffer] = useState<readonly string[]>(value);
   // Reset the buffer to the caller's truth every time the modal (re)opens.
+  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
     if (open) setBuffer(value);
   }, [open, value]);

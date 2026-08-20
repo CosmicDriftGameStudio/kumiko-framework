@@ -33,6 +33,7 @@ export function ConfirmAccountUnlockScreen({
   const [status, setStatus] = useState<Status>(token === "" ? "missing-token" : "verifying");
   const startedRef = useRef(false);
 
+  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
     if (status !== "verifying") return;
     if (startedRef.current) return;

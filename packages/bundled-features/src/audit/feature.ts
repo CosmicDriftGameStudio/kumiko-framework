@@ -37,12 +37,14 @@ export function createAuditFeature(): FeatureDefinition {
       details: r.queryHandler(detailsQuery),
     };
 
+    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: AUDIT_LOG_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "AuditLogScreen" } },
       access: { roles: access.admin },
     });
+    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: AUDIT_LOG_DETAIL_SCREEN_ID,
       type: "custom",

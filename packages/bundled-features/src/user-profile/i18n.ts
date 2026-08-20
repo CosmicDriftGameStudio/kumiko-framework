@@ -11,6 +11,7 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 export const defaultTranslations: TranslationsByLocale = {
   en: {
     "profile.title": "Profile",
+    "profile.loading": "Loading…",
 
     "profile.email.title": "Email address",
     "profile.email.current": "Current email",

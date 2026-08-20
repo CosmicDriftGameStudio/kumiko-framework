@@ -128,6 +128,7 @@ export function SessionProvider({ children }: { readonly children: ReactNode }):
     setState(next);
   }, []);
 
+  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
     void doRefresh();
   }, [doRefresh]);

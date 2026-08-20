@@ -613,6 +613,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "profile.email.title": "Email address",
   "profile.errors.emailUnchanged": "That is already your email address.",
   "profile.errors.generic": "Something went wrong.",
+  "profile.loading": "Loading…",
   "profile.password.confirm": "Confirm new password",
   "profile.password.mismatch": "Passwords do not match.",
   "profile.password.new": "New password",

@@ -38,6 +38,7 @@ export function ToggleAdminScreen(): ReactNode {
     setState({ kind: "ready", items: res.data.items });
   }, [dispatcher]);
 
+  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
     void load();
   }, [load]);

@@ -67,6 +67,7 @@ export function createFeatureTogglesFeature(
       registered: r.queryHandler(registeredQuery),
     };
 
+    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: TOGGLE_ADMIN_SCREEN_ID,
       type: "custom",

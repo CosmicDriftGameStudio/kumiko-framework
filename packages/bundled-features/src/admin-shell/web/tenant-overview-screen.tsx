@@ -12,6 +12,7 @@ export function TenantOverviewScreen(): ReactNode {
   const dispatcher = useDispatcher();
   const [state, setState] = useState<OverviewState>({ kind: "loading" });
 
+  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
     let cancelled = false;
     void (async (): Promise<void> => {
