@@ -10,6 +10,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { TenantQueries } from "../../tenant/constants";
 import { AuditQueries } from "../constants";
 
 type AuditDetail = {
@@ -23,11 +24,17 @@ type AuditDetail = {
   readonly metadata: Record<string, unknown>;
 };
 
+type MemberRow = {
+  readonly userId: string;
+  readonly email: string | null;
+  readonly displayName: string | null;
+};
+
 type State =
   | { readonly kind: "loading" }
   | { readonly kind: "missing" }
   | { readonly kind: "error"; readonly message: string }
-  | { readonly kind: "ready"; readonly event: AuditDetail };
+  | { readonly kind: "ready"; readonly event: AuditDetail; readonly actorName: string };
 
 export function AuditLogDetailScreen(): ReactNode {
   const t = useTranslation();
@@ -52,7 +59,16 @@ export function AuditLogDetailScreen(): ReactNode {
       setState({ kind: "missing" });
       return;
     }
-    setState({ kind: "ready", event: res.data });
+    const event = res.data;
+    const membersRes = await dispatcher.query<readonly MemberRow[]>(TenantQueries.members, {});
+    const member = membersRes.isSuccess
+      ? membersRes.data.find((m) => m.userId === event.createdBy)
+      : undefined;
+    setState({
+      kind: "ready",
+      event,
+      actorName: member ? (member.displayName ?? member.email ?? "") : "",
+    });
   }, [dispatcher, eventId]);
 
   useEffect(() => {
@@ -83,7 +99,7 @@ export function AuditLogDetailScreen(): ReactNode {
     );
   }
 
-  const { event } = state;
+  const { event, actorName } = state;
 
   return (
     <FormScreenShell testId="audit-log-detail-screen" className="flex flex-col gap-6">
@@ -101,7 +117,7 @@ export function AuditLogDetailScreen(): ReactNode {
           </div>
           <div>
             <dt className="font-medium">{t("audit.log.col.actor")}</dt>
-            <dd data-testid="audit-detail-actor">{event.createdBy}</dd>
+            <dd data-testid="audit-detail-actor">{actorName}</dd>
           </div>
           <div>
             <dt className="font-medium">{t("audit.log.detail.field.id")}</dt>
