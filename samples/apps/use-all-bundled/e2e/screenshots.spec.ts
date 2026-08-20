@@ -51,6 +51,22 @@ const collectionEditor = () => async (page: Page) => {
   await page.getByTestId("text-block-editor").waitFor();
 };
 
+// export-job-list — a read-only SystemAdmin inspector over rows the GDPR
+// export worker produces; nothing seeds one. request-export (user-data-
+// rights, openToAll) is the same self-service write a logged-in user's
+// privacy-center "Export my data" button calls — dispatch it directly for
+// the admin so the inspector has a row to show.
+const exportJobListFlow = () => async (page: Page) => {
+  await loginAsAdmin(page);
+  const cookies = await page.context().cookies();
+  const csrfToken = cookies.find((c) => c.name === "kumiko_csrf")?.value ?? "";
+  await page.request.post("/api/write", {
+    headers: { "X-CSRF-Token": csrfToken },
+    data: { type: "user-data-rights:write:request-export", payload: {} },
+  });
+  await page.goto("/tenant-admin/export-job-list");
+};
+
 // auth-mfa-enable is unlisted in any workspace's nav — reach it via an
 // explicit workspace prefix. Click "Start setup" so the screenshot shows the
 // QR/recovery-code step, not just the entry button.
@@ -167,6 +183,33 @@ const SCENARIOS: readonly Scenario[] = [
   {
     name: "delivery-log",
     flow: admin("/tenant-admin/delivery-log"),
+    waitFor: '[data-testid^="render-list-table"]',
+    settleMs: 1000,
+  },
+  // profile-picker — compliance-profiles actionForm (profileKey select) plus
+  // an extension section rendering the profile catalog below the form.
+  { name: "profile-picker", flow: admin("/tenant-admin/profile-picker"), settleMs: 1000 },
+  // tenant-settings-tenant — Settings-Hub-derived configEdit screen (mask-
+  // based, same mechanism as config-settings-hub above) for the tenant-scope
+  // currency/locale defaults.
+  {
+    name: "tenant-settings-tenant",
+    flow: admin("/settings/tenant-settings-tenant"),
+    settleMs: 1000,
+  },
+  // session-list — sortable projectionList over store_user_sessions.
+  // loginAsAdmin's own login already creates one live session row.
+  {
+    name: "session-list",
+    flow: admin("/tenant-admin/session-list"),
+    waitFor: '[data-testid^="render-list-table"]',
+    settleMs: 1000,
+  },
+  // export-job-list — SystemAdmin GDPR-export inspector; exportJobListFlow
+  // dispatches one request-export write first so the list isn't empty.
+  {
+    name: "export-job-list",
+    flow: exportJobListFlow(),
     waitFor: '[data-testid^="render-list-table"]',
     settleMs: 1000,
   },
