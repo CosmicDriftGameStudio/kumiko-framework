@@ -10,6 +10,16 @@ verified: 2026-08-20
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.209.1
+
+### framework-core
+
+**Job runs no longer go through the event store; read_job_runs table renamed to store_job_runs (fw#2243).**
+
+Job runs (jobRun) no longer go through the event store. Every job execution used to append a run-started + run-completed/run-failed event replayed through two inline projections — in the busiest apps this was ~99% of all events ever written, for data nothing else replays or subscribes to. onJobStart/onJobComplete/onJobFailed now write straight into the (renamed) store_job_runs / store_job_run_logs tables, with a new daily jobs:job:retention-cleanup job (retentionDays, default 30) purging old rows so the tables don't grow forever.
+
+**Migration:** Breaking for raw-SQL consumers: the table is renamed read_job_runs → store_job_runs (store_job_run_logs is unchanged). The migration drops read_job_runs outright — old run history is not preserved, it was operational/debug data, not a system of record. Apps that only use the shipped job-runs-screen/jobs:query:* handlers are unaffected; apps with a raw SQL dependency on read_job_runs need a follow-up on their side.
+
 ## 0.202.0
 
 ### personal-access-tokens
