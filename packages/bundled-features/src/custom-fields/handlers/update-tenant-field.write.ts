@@ -1,6 +1,7 @@
 import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
+import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../constants";
 import { fieldDefinitionExecutor } from "../executor";
 import { buildFieldDefinitionColumns } from "../lib/field-definition-row";
 import { type UpdateFieldPayload, updateFieldPayloadSchema } from "../schemas";
@@ -29,45 +30,67 @@ import { type UpdateFieldPayload, updateFieldPayloadSchema } from "../schemas";
 // **skipOptimisticLock:** Definition-Edits sind admin-only + low-frequency
 // (gleiche Abwägung wie der Quota-soft-cap in define). Last-write-wins
 // statt version-Roundtrip durch den Edit-Screen.
-export const updateTenantFieldHandler: WriteHandlerDef = {
-  name: "update-tenant-field",
-  schema: updateFieldPayloadSchema,
-  access: { roles: ["TenantAdmin"] },
-  handler: async (event, ctx) => {
-    const payload = event.payload as UpdateFieldPayload; // @cast-boundary engine-payload
-    const tenantId = event.user.tenantId;
+export interface UpdateTenantFieldOptions {
+  /** Access roles for this handler. Default ["TenantAdmin"] (#2296) — see
+   *  DefineTenantFieldOptions.roles, the definition-CRUD triad shares one gate. */
+  readonly roles?: readonly string[];
+}
 
-    if (isSystemTenant(tenantId)) {
-      throw new Error(
-        "update-tenant-field: tenantId is SYSTEM_TENANT_ID — system-scope definitions have no update handler (delete + re-define via the system-field handlers)",
+export function createUpdateTenantFieldHandler(
+  opts: UpdateTenantFieldOptions = {},
+): WriteHandlerDef {
+  return {
+    name: "update-tenant-field",
+    schema: updateFieldPayloadSchema,
+    access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
+    handler: async (event, ctx) => {
+      const payload = event.payload as UpdateFieldPayload; // @cast-boundary engine-payload
+      const tenantId = event.user.tenantId;
+
+      if (isSystemTenant(tenantId)) {
+        throw new Error(
+          "update-tenant-field: tenantId is SYSTEM_TENANT_ID — system-scope definitions have no update handler (delete + re-define via the system-field handlers)",
+        );
+      }
+
+      const aggregateId = fieldDefinitionAggregateId(
+        tenantId,
+        payload.entityName,
+        payload.fieldKey,
       );
-    }
 
-    const aggregateId = fieldDefinitionAggregateId(tenantId, payload.entityName, payload.fieldKey);
+      const existing = await fieldDefinitionExecutor.detail(
+        { id: aggregateId },
+        event.user,
+        ctx.db,
+      );
+      if (!existing) {
+        return failNotFound("field-definition", aggregateId);
+      }
 
-    const existing = await fieldDefinitionExecutor.detail({ id: aggregateId }, event.user, ctx.db);
-    if (!existing) {
-      return failNotFound("field-definition", aggregateId);
-    }
+      if (existing["type"] !== payload.serializedField.type) {
+        return failUnprocessable("field_type_immutable", {
+          entityName: payload.entityName,
+          fieldKey: payload.fieldKey,
+          currentType: existing["type"],
+          requestedType: payload.serializedField.type,
+        });
+      }
 
-    if (existing["type"] !== payload.serializedField.type) {
-      return failUnprocessable("field_type_immutable", {
-        entityName: payload.entityName,
-        fieldKey: payload.fieldKey,
-        currentType: existing["type"],
-        requestedType: payload.serializedField.type,
+      // entityName/fieldKey sind die Identität — nicht Teil der changes.
+      const {
+        entityName: _entityName,
+        fieldKey: _fieldKey,
+        ...changes
+      } = buildFieldDefinitionColumns(payload);
+
+      return fieldDefinitionExecutor.update({ id: aggregateId, changes }, event.user, ctx.db, {
+        skipOptimisticLock: true,
       });
-    }
+    },
+  };
+}
 
-    // entityName/fieldKey sind die Identität — nicht Teil der changes.
-    const {
-      entityName: _entityName,
-      fieldKey: _fieldKey,
-      ...changes
-    } = buildFieldDefinitionColumns(payload);
-
-    return fieldDefinitionExecutor.update({ id: aggregateId, changes }, event.user, ctx.db, {
-      skipOptimisticLock: true,
-    });
-  },
-};
+// Backwards-compat: existing imports of `updateTenantFieldHandler` keep
+// working — identical to createUpdateTenantFieldHandler() with default roles.
+export const updateTenantFieldHandler: WriteHandlerDef = createUpdateTenantFieldHandler();

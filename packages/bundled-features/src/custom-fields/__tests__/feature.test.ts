@@ -189,6 +189,33 @@ describe("createCustomFieldsFeature access-options", () => {
     });
     expect(listAccess(feature)).toEqual(["Viewer"]);
   });
+
+  // #2296 — define-/update-/delete-tenant-field were hard-wired to
+  // ["TenantAdmin"] with no override; fieldDefinitionWriteRoles closes that gap.
+  test("fieldDefinitionWriteRoles überschreibt define-, update- UND delete-tenant-field", () => {
+    const feature = createCustomFieldsFeature({ fieldDefinitionWriteRoles: ["Admin", "Editor"] });
+    expect(writeAccess(feature, "define-tenant-field")).toEqual(["Admin", "Editor"]);
+    expect(writeAccess(feature, "update-tenant-field")).toEqual(["Admin", "Editor"]);
+    expect(writeAccess(feature, "delete-tenant-field")).toEqual(["Admin", "Editor"]);
+    // System-scope stays hard-wired — a different trust boundary that must not
+    // become reachable through a tenant role vocabulary.
+    expect(writeAccess(feature, "define-system-field")).toEqual(["SystemAdmin"]);
+    expect(writeAccess(feature, "delete-system-field")).toEqual(["SystemAdmin"]);
+  });
+
+  test("fieldDefinitionWriteRoles feeds into the list-default (a definer can load what they defined)", () => {
+    const feature = createCustomFieldsFeature({ fieldDefinitionWriteRoles: ["Admin", "Editor"] });
+    const roles = listAccess(feature);
+    expect(roles).toContain("Admin");
+    expect(roles).toContain("Editor");
+    expect(roles).toContain("TenantAdmin");
+  });
+
+  test("fieldDefinitionWriteRoles and valueWriteRoles are independent — setting one leaves the other's default", () => {
+    const feature = createCustomFieldsFeature({ fieldDefinitionWriteRoles: ["Admin"] });
+    expect(writeAccess(feature, "set-custom-field")).toEqual(["TenantAdmin", "TenantMember"]);
+    expect(writeAccess(feature, "clear-custom-field")).toEqual(["TenantAdmin", "TenantMember"]);
+  });
 });
 
 describe("resolveFieldDefinitionListRoles", () => {
@@ -215,5 +242,20 @@ describe("resolveFieldDefinitionListRoles", () => {
         fieldDefinitionListRoles: ["Viewer"],
       }),
     ).toEqual(["Viewer"]);
+  });
+
+  test("fieldDefinitionWriteRoles gesetzt, list ungesetzt → Union mit Default, dedupliziert", () => {
+    expect(
+      resolveFieldDefinitionListRoles({ fieldDefinitionWriteRoles: ["Admin", "Editor"] }),
+    ).toEqual(["Admin", "Editor", "TenantAdmin"]);
+  });
+
+  test("valueWriteRoles UND fieldDefinitionWriteRoles gesetzt → Union aus beiden plus Default", () => {
+    expect(
+      resolveFieldDefinitionListRoles({
+        valueWriteRoles: ["Member"],
+        fieldDefinitionWriteRoles: ["Admin"],
+      }),
+    ).toEqual(["Member", "Admin", "TenantAdmin"]);
   });
 });
