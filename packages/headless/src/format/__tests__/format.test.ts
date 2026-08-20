@@ -90,3 +90,67 @@ describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
     expect(out).toContain("2026");
   });
 });
+
+describe("applyFormatSpec — unit (fw#2187)", () => {
+  test("km/m/kg/percent gehen über Intl.NumberFormat(style:'unit'), locale-korrekt", () => {
+    expect(applyFormatSpec({ format: "unit", unit: "km" }, 58)).toBe(
+      new Intl.NumberFormat(undefined, {
+        style: "unit",
+        unit: "kilometer",
+        unitDisplay: "short",
+      }).format(58),
+    );
+    expect(applyFormatSpec({ format: "unit", unit: "km", locale: "de-DE" }, 58)).toBe("58 km");
+    expect(applyFormatSpec({ format: "unit", unit: "kg", locale: "de-DE" }, 2.5)).toBe("2,5 kg");
+    // de-DE percent uses a narrow no-break space (U+202F) before "%", not a
+    // plain space — assert against Intl's own output rather than guessing.
+    expect(applyFormatSpec({ format: "unit", unit: "percent", locale: "de-DE" }, 12)).toBe(
+      new Intl.NumberFormat("de-DE", {
+        style: "unit",
+        unit: "percent",
+        unitDisplay: "short",
+      }).format(12),
+    );
+  });
+
+  test("m2 hat kein ECMA-402-sanktioniertes Intl-Unit (RangeError für 'square-meter') — Zahl + literales Suffix", () => {
+    expect(applyFormatSpec({ format: "unit", unit: "m2", locale: "de-DE" }, 58)).toBe("58 m²");
+    expect(applyFormatSpec({ format: "unit", unit: "m2", locale: "de-DE" }, 1234.5)).toBe(
+      "1.234,5 m²",
+    );
+  });
+
+  test("unitDisplay steuert long", () => {
+    expect(
+      applyFormatSpec({ format: "unit", unit: "km", locale: "en-US", unitDisplay: "long" }, 3),
+    ).toBe("3 kilometers");
+    expect(
+      applyFormatSpec({ format: "unit", unit: "km", locale: "en-US", unitDisplay: "narrow" }, 3),
+    ).toBe(
+      new Intl.NumberFormat("en-US", {
+        style: "unit",
+        unit: "kilometer",
+        unitDisplay: "narrow",
+      }).format(3),
+    );
+  });
+
+  test("nicht-numerischer Wert fällt auf String zurück", () => {
+    expect(applyFormatSpec({ format: "unit", unit: "km" }, "not-a-number")).toBe("not-a-number");
+  });
+
+  test("fehlende/unbekannte unit fällt auf String zurück, statt zu werfen", () => {
+    expect(applyFormatSpec({ format: "unit" }, 58)).toBe("58");
+    expect(applyFormatSpec({ format: "unit", unit: "does-not-exist" }, 58)).toBe("58");
+  });
+
+  test("Prototype-Chain-Keys (toString, constructor) zählen NICHT als unit — Object.hasOwn statt `in`", () => {
+    expect(applyFormatSpec({ format: "unit", unit: "toString" }, 58)).toBe("58");
+    expect(applyFormatSpec({ format: "unit", unit: "constructor" }, 58)).toBe("58");
+  });
+
+  test("leerer Wert collapst zu '' wie jedes andere Nicht-priority-Format", () => {
+    expect(applyFormatSpec({ format: "unit", unit: "km" }, null)).toBe("");
+    expect(applyFormatSpec({ format: "unit", unit: "km" }, "")).toBe("");
+  });
+});

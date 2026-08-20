@@ -80,6 +80,54 @@ function formatNumberCell(value: unknown, locale?: string): string {
   }
 }
 
+// Two-tier unit table for `{ format: "unit" }`. Keys mirror
+// @cosmicdrift/kumiko-types' UnitKey (kept as a local literal union instead
+// of an import — headless has no build-time dependency on kumiko-types
+// today, and applyFormatSpec's spec param is already an untyped
+// Record<string, unknown>, cast per-case like every other format below).
+const UNIT_INTL_IDS = {
+  km: "kilometer",
+  m: "meter",
+  kg: "kilogram",
+  percent: "percent",
+} as const;
+
+// "m2" (square meter) has no ECMA-402 sanctioned unit — Intl.NumberFormat
+// throws RangeError for "square-meter". Locale-format the number and append
+// the literal suffix instead of going through `style: "unit"`.
+const UNIT_SUFFIXES = { m2: "m²" } as const;
+
+type UnitKey = keyof typeof UNIT_INTL_IDS | keyof typeof UNIT_SUFFIXES;
+
+function isUnitKey(unit: string): unit is UnitKey {
+  // Object.hasOwn, not `in` — `in` walks the prototype chain, so
+  // "toString" or "constructor" would pass as a valid unit key.
+  return Object.hasOwn(UNIT_INTL_IDS, unit) || Object.hasOwn(UNIT_SUFFIXES, unit);
+}
+
+function formatUnitCell(
+  value: unknown,
+  unit: string | undefined,
+  locale: string | undefined,
+  unitDisplay: Intl.NumberFormatOptions["unitDisplay"],
+): string {
+  const n = typeof value === "number" ? value : Number(value);
+  if (unit === undefined || !isUnitKey(unit) || !Number.isFinite(n)) return String(value);
+  if (Object.hasOwn(UNIT_INTL_IDS, unit)) {
+    try {
+      return new Intl.NumberFormat(locale, {
+        style: "unit",
+        unit: UNIT_INTL_IDS[unit as keyof typeof UNIT_INTL_IDS],
+        unitDisplay,
+      }).format(n);
+    } catch {
+      // Malformed BCP-47 locale tag — mirrors formatNumberCell's fallback below.
+      return formatNumberCell(n, locale);
+    }
+  }
+  return `${formatNumberCell(n, locale)} ${UNIT_SUFFIXES[unit as keyof typeof UNIT_SUFFIXES]}`;
+}
+
 export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape";
 export { type HtmlValue, html, RawHtml, raw } from "./html-template";
 export { currencyDecimals } from "./money";
@@ -115,6 +163,13 @@ export function applyFormatSpec(
     case "decimal":
     case "bigInt":
       return formatNumberCell(value, spec["locale"] as string | undefined);
+    case "unit":
+      return formatUnitCell(
+        value,
+        spec["unit"] as string | undefined,
+        spec["locale"] as string | undefined,
+        (spec["unitDisplay"] as Intl.NumberFormatOptions["unitDisplay"]) ?? "short",
+      );
     case "priority": {
       const emptyLabel = (spec["emptyLabel"] as string | undefined) ?? "—";
       const prefix = (spec["prefix"] as string | undefined) ?? "";

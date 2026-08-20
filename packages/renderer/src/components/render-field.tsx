@@ -106,6 +106,7 @@ export function RenderField({
       <FieldRendererOutput
         field={field}
         renderer={field.renderer}
+        appLocale={appLocale}
         {...(row !== undefined && { row })}
       />
     ) : field.type === "embedded" && field.embeddedListCells !== undefined ? (
@@ -340,10 +341,12 @@ function FieldRendererOutput({
   field,
   renderer,
   row,
+  appLocale,
 }: {
   readonly field: EditFieldViewModel;
   readonly renderer: FieldRenderer;
   readonly row?: Readonly<Record<string, unknown>>;
+  readonly appLocale: string;
 }): ReactNode {
   const { Text } = usePrimitives();
   const componentName =
@@ -352,8 +355,16 @@ function FieldRendererOutput({
       : undefined;
   const Component = useColumnRenderer(componentName);
   if (isFormatSpec(renderer)) {
+    // App-Locale als Default, wenn der FormatSpec kein eigenes `locale`
+    // deklariert — sonst fielen locale-sensitive Formate (timestamp/date/
+    // number/decimal/bigInt/unit) auf Intl's Runtime-Default zurück statt
+    // die per LocaleProvider gewählte App-Sprache zu nutzen (fw#2187). Ein
+    // explizites `renderer.locale` gewinnt, gleiches Muster wie dateLocale
+    // vs. appLocale weiter unten in readOnlyDisplayText.
     return (
-      <Text testId={`field-value-${field.field}`}>{applyFormatSpec(renderer, field.value)}</Text>
+      <Text testId={`field-value-${field.field}`}>
+        {applyFormatSpec({ locale: appLocale, ...renderer }, field.value)}
+      </Text>
     );
   }
   if (componentName !== undefined) {

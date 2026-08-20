@@ -25,6 +25,14 @@ export type PlatformComponent = {
   readonly native?: unknown;
 };
 
+// Closed set of unit identifiers for `{ format: "unit" }` (no bare `string`
+// per house convention). "m2" has no ECMA-402 sanctioned unit — Intl throws
+// RangeError for "square-meter" — so kumiko-headless's applyFormatSpec
+// formats it as a locale-formatted number with a literal "m²" suffix. The
+// rest map to a CLDR-sanctioned Intl.NumberFormat unit id and get
+// locale-correct pluralization/spacing straight from Intl.
+export type UnitKey = "m2" | "km" | "m" | "kg" | "percent";
+
 // Built-in value formatters. Apps extend via module augmentation:
 //   declare module "@cosmicdrift/kumiko-framework/engine/types" {
 //     interface FieldFormatRegistry { myFormat: { myOption?: string } }
@@ -47,6 +55,11 @@ export interface FieldFormatRegistry {
   number: { readonly locale?: string };
   decimal: { readonly locale?: string };
   bigInt: { readonly locale?: string };
+  unit: {
+    readonly unit: UnitKey;
+    readonly locale?: string;
+    readonly unitDisplay?: "long" | "short" | "narrow";
+  };
 }
 
 // Discriminated union derived from the registry — one variant per key.
