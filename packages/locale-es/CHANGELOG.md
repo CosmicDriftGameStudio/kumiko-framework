@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-locale-es
 
+## 0.213.0
+
+### Patch Changes
+
+- fd90843: SignupCompleteScreen now shows a confirmation with a continue button after successful account activation, instead of silently redirecting.
+- Updated dependencies [7ffd0f6]
+- Updated dependencies [774ca7d]
+  - @cosmicdrift/kumiko-framework@0.213.0
+
 ## 0.212.0
 
 ### Patch Changes

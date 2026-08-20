@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.213.0
+
+### Minor Changes
+
+- 7ffd0f6: The browser's active UI language now reaches the server. `createLiveDispatcher` reads `document.documentElement.lang` and sends it as an `X-Locale` header on every request; `createKumikoApp`/`createPublicSurface` keep that attribute in sync with the app's `LocaleResolver` via a new `DocumentLangSync` component, so this works in every app with zero app-side wiring.
+
+  The server resolves the header (falling back to `Accept-Language`, then the app's boot-configured default locale, then `"en"`) into a new, always-present `ctx.locale` on `HandlerContext` — the same Request → Boot-Default precedence `ctx.tz` already uses.
+
+  Every magic-link mail in the auth-email-password feature (signup, password-reset, email-verification, invite, account-unlock) now renders in the requester's active locale instead of a hardcoded boot-time default, and each flow's `appUrl` can now be a `(locale: string) => string` function so apps with language-prefixed paths can point the link at the right locale.
+
+### Patch Changes
+
+- 8e3a500: `buildProdBundle`'s "kein `<x>`.html gefunden" error (thrown when a discovered `src/client-<suffix>.tsx` has no matching HTML template) now names the source file and explains that it was auto-discovered by the `src/client-<suffix>.tsx` filename convention, with a rename suggestion if that wasn't intended. Previously the error only suggested creating the missing HTML template, which is the wrong fix when the file was meant to be a plain module rather than a bundle entry.
+- Updated dependencies [7ffd0f6]
+- Updated dependencies [774ca7d]
+- Updated dependencies [fd90843]
+  - @cosmicdrift/kumiko-framework@0.213.0
+  - @cosmicdrift/kumiko-bundled-features@0.213.0
+
 ## 0.212.0
 
 ### Patch Changes
