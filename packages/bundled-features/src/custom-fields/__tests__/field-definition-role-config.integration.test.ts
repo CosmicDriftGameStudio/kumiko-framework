@@ -58,18 +58,39 @@ describe("custom-fields — fieldDefinitionWriteRoles (#2296)", () => {
       defPayload("vip"),
       customRoleUser,
     );
+    const afterDefine = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+      "custom-fields:query:field-definition:list",
+      {},
+      customRoleUser,
+    );
+    const defined = afterDefine.rows.find((r) => r["fieldKey"] === "vip");
+    expect(defined).toBeDefined();
+    expect(defined?.["searchable"]).toBe(false);
 
     await stack.http.writeOk(
       "custom-fields:write:update-tenant-field",
       { ...defPayload("vip"), searchable: true },
       customRoleUser,
     );
+    const afterUpdate = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+      "custom-fields:query:field-definition:list",
+      {},
+      customRoleUser,
+    );
+    const updated = afterUpdate.rows.find((r) => r["fieldKey"] === "vip");
+    expect(updated?.["searchable"]).toBe(true);
 
     await stack.http.writeOk(
       "custom-fields:write:delete-tenant-field",
       { entityName: "customer", fieldKey: "vip" },
       customRoleUser,
     );
+    const afterDelete = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+      "custom-fields:query:field-definition:list",
+      {},
+      customRoleUser,
+    );
+    expect(afterDelete.rows.some((r) => r["fieldKey"] === "vip")).toBe(false);
   });
 
   test("the default TenantAdmin role is denied on all three once fieldDefinitionWriteRoles overrides it", async () => {
