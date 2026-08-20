@@ -648,6 +648,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # A step's `env: GITHUB_TOKEN` doesn't change git's push credential —
+          # only checkout's `token:` does; App tokens can't get `workflows` (#1788).
+          token: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -719,7 +722,19 @@ jobs:
           git clean -fd
           bun install --frozen-lockfile
           bash scripts/publish-with-oidc.sh
-          git push origin --tags
+          new_tags="$(git tag --points-at "$GITHUB_SHA")"
+          if [ -z "$new_tags" ]; then
+            echo "no tags at this SHA"
+          # Push only tags pointing at this run's SHA, not --tags (a single
+          # unrelated stale local tag would otherwise redden every future
+          # release run). npm publish above already went through — a
+          # rejected push here (#1788) means only the git tags are missing,
+          # not that the release failed.
+          elif ! git push origin $(printf '%s\n' "$new_tags" | sed 's#^#refs/tags/#'); then
+            flat_tags="$(printf '%s ' $new_tags)"
+            echo "::error::npm publish for this release already succeeded — only the git tag push failed. Push the missing tags manually (see kumiko-framework#1788): $flat_tags"
+            exit 1
+          fi
 
       # infra#540 (B2.8): Renovate soll per repository_dispatch statt Cron
       # auf ein erfolgreiches Release reagieren. RENOVATE_DISPATCH_TOKEN als
