@@ -364,6 +364,15 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   } else {
     console.log("Subpath-Exports Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).");
   }
+  // No bunx fallback here on purpose (infra#538): the guard reads the parent's
+  // own `workspaces` array, not just whatever siblings happen to exist — it
+  // only makes sense from the parent workspace.
+  const workspaceDriftGuard = join(REPO_ROOT, "infra/guards/check-workspace-drift.ts");
+  if (existsSync(workspaceDriftGuard)) {
+    steps.push({ name: "Workspace-Drift Guard", cmd: `bun ${workspaceDriftGuard}` });
+  } else {
+    console.log("Workspace-Drift Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).");
+  }
   steps.push({ name: "Deprecated Deps", cmd: "bunx kumiko-check-outdated" });
 
   return steps;
