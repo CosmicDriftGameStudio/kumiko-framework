@@ -700,7 +700,7 @@ describe("validateBoot — retention", () => {
     expect(matchingWarn).toBeUndefined();
   });
 
-  test("blockDelete with only a subjectRef-only field and no anonymize warns (#1645)", () => {
+  test("blockDelete with only a subjectRef-only field and no anonymize stays silent (#1645, narrowed by #2336)", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(
         "lease",
@@ -708,6 +708,31 @@ describe("validateBoot — retention", () => {
           fields: {
             authorId: createTextField({
               personal: "ref",
+            }),
+          },
+          retention: { keepFor: "10y", strategy: "blockDelete" },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes('strategy="blockDelete" but no field has an anonymize-function'),
+    );
+    expect(matchingWarn).toBeUndefined();
+  });
+
+  test("blockDelete with a subjectRef field plus an anonymizable subject field and no anonymize still warns (#2336)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "lease",
+        createEntity({
+          fields: {
+            authorId: createTextField({
+              personal: "ref",
+            }),
+            customerName: createTextField({
+              personal: "self",
+              find: "none",
             }),
           },
           retention: { keepFor: "10y", strategy: "blockDelete" },

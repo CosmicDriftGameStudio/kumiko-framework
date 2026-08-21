@@ -21,11 +21,10 @@ const FRAMEWORK_TIMESTAMP_FIELDS: ReadonlySet<string> = new Set([
 // werden statt erst beim ersten Cleanup-Run.
 const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 
-// A field carries a subject binding — pii/userOwned/tenantOwned mark
-// annotated content, subjectRef marks a bare FK into `user` with no
-// annotated content of its own but the same Art.17 obligations (#1645).
-function hasSubjectAnnotation(annot: ResolvedPiiFlags): boolean {
-  return Boolean(annot.pii || annot.userOwned || annot.tenantOwned || annot.subjectRef);
+// Excludes subjectRef: its `personal: "ref"` union member structurally
+// forbids `anonymize` (packages/types/src/fields.ts) — #2336.
+function hasAnonymizableSubjectField(annot: ResolvedPiiFlags): boolean {
+  return Boolean(annot.pii || annot.userOwned || annot.tenantOwned);
 }
 
 // --- PII / Subject-Key Annotations + Retention validation ---
@@ -222,7 +221,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         // blockDelete on an entity with no subject field is the correct
         // "never auto-delete" choice; User-Forget never reaches those rows (#1622).
         const hasSubjectField = Object.values(fieldsByName).some(
-          (f) => hasSubjectAnnotation(f as ResolvedPiiFlags), // @cast-boundary schema-walk
+          (f) => hasAnonymizableSubjectField(f as ResolvedPiiFlags), // @cast-boundary schema-walk
         );
         const hasAnonymize = Object.values(fieldsByName).some((f) => {
           const a = f as ResolvedPiiFlags; // @cast-boundary schema-walk
