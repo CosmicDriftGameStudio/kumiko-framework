@@ -277,7 +277,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "config.errors.systemOnly": "This value can only be set by the system.",
   "config.errors.unknownKey": "Unknown configuration key.",
   "config.settings.system": "Platform",
-  "config.settings.tenant": "Organization",
+  "config.settings.tenant": "Tenant",
   "config.settings.title": "Settings",
   "config.settings.user": "Personal",
   "custom-fields.errors.saveFailed": "Save failed.",
