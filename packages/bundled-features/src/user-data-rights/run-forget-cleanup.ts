@@ -38,7 +38,11 @@ import {
   type KmsAdapter,
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { type DbRunner, nullBlindIndexesForSubject } from "@cosmicdrift/kumiko-framework/db";
+import {
+  type DbRunner,
+  entityEventName,
+  nullBlindIndexesForSubject,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   EXT_USER_DATA,
   EXT_USER_DATA_ORDER,
@@ -49,6 +53,7 @@ import {
   type UserDataDeleteStrategy,
   type UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   purgeSearchDocumentsForSubject,
   type SearchAdapter,
@@ -554,7 +559,37 @@ async function resolveEffectiveTenantModel(
     { tenantId },
     { limit: 2 },
   );
-  return members.length === 1 ? "single-user" : "multi-user";
+  if (members.length !== 1) return "multi-user";
+  return (await everHadMultipleMembers(db, tenantId)) ? "multi-user" : "single-user";
+}
+
+// removeMemberWrite only deletes the tenant-membership PROJECTION row — the
+// event history survives forever, and a departed member's own tenant-scoped
+// data rows (contributor-style records with no per-user column) can
+// outlive their membership (ent#346). A live count of 1 is therefore not
+// enough: a tenant that ever had >1 distinct member must stay multi-user for
+// the forget path even after everyone but one is removed, or the sole
+// remaining member's forget request wipes the departed co-member's leftover
+// rows. LIMIT chosen generously for a nominally single-user tenant; hitting
+// it is itself a multi-user signal, so it also resolves to "multi-user".
+const MAX_MEMBERSHIP_CREATED_EVENTS = 1000;
+
+async function everHadMultipleMembers(db: DbRunner, tenantId: TenantId): Promise<boolean> {
+  const createdEvents = await selectMany<{ payload: Record<string, unknown> }>(
+    db,
+    eventsTable,
+    {
+      tenantId,
+      aggregateType: "tenant-membership",
+      type: entityEventName("tenant-membership", "created"),
+    },
+    { limit: MAX_MEMBERSHIP_CREATED_EVENTS },
+  );
+  if (createdEvents.length >= MAX_MEMBERSHIP_CREATED_EVENTS) return true;
+  const distinctUserIds = new Set(
+    createdEvents.map((e) => e.payload["userId"]).filter((v): v is string => typeof v === "string"),
+  );
+  return distinctUserIds.size > 1;
 }
 
 // Mapping retention.strategy → user-data-rights.UserDataDeleteStrategy.
