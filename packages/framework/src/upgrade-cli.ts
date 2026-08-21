@@ -164,19 +164,39 @@ export function findFeaturesDirs(cwd: string): string[] {
   return dirs;
 }
 
+// Consumer-facing codemod scripts ship inside the published
+// @cosmicdrift/kumiko-framework package (src/scripts/codemod), not at the
+// git repo root — only the installed package path exists in a consumer's
+// node_modules after a plain npm/bun install (fw#2301).
+export function findCodemodScriptsRoot(repoRoot: string): string | null {
+  const local = join(repoRoot, "packages/framework/src");
+  if (existsSync(join(local, CODEMOD_SUBDIR))) return local;
+
+  let dir = repoRoot;
+  for (let i = 0; i < 10; i++) {
+    const nmSrc = join(dir, "node_modules/@cosmicdrift/kumiko-framework/src");
+    if (existsSync(join(nmSrc, CODEMOD_SUBDIR))) return nmSrc;
+    const parent = join(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  return null;
+}
+
 // Resolves a changes.json `codemod` field to an absolute script path,
 // refusing anything that would escape scripts/codemod/ (path traversal,
 // absolute paths, symlinks pointing outward) or that isn't a real .ts file.
 export function resolveCodemodScript(
-  repoRoot: string,
+  codemodScriptsRoot: string,
   codemodField: string | undefined,
 ): string | null {
   if (!codemodField) return null;
   if (codemodField.includes("\0") || codemodField.startsWith("/") || !codemodField.endsWith(".ts"))
     return null;
 
-  const scriptsRoot = join(repoRoot, CODEMOD_SUBDIR);
-  const resolved = join(repoRoot, codemodField);
+  const scriptsRoot = join(codemodScriptsRoot, CODEMOD_SUBDIR);
+  const resolved = join(codemodScriptsRoot, codemodField);
   const rel = relative(scriptsRoot, resolved);
   if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) return null;
   if (!existsSync(resolved)) return null;
@@ -279,9 +299,12 @@ async function applyCodemods(
     return 0;
   }
 
+  const codemodScriptsRoot = findCodemodScriptsRoot(repoRoot);
   const ran: UpgradeMarkerCodemod[] = [];
   for (const e of codemodEntries) {
-    const scriptPath = resolveCodemodScript(repoRoot, e.codemod);
+    const scriptPath = codemodScriptsRoot
+      ? resolveCodemodScript(codemodScriptsRoot, e.codemod)
+      : null;
     if (!scriptPath) {
       out.err(`  ✗ ${e.version} · ${e.title} — invalid codemod path "${e.codemod}"`);
       return 1;

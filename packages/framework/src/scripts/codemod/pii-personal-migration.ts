@@ -28,8 +28,8 @@ import { Glob } from "bun";
 import {
   Node,
   type ObjectLiteralExpression,
-  type PropertyAssignment,
   Project,
+  type PropertyAssignment,
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
@@ -93,7 +93,11 @@ const counts: Record<FindBucket, number> = {
 };
 
 function report(node: Node, reason: string): void {
-  reports.push({ file: node.getSourceFile().getFilePath(), line: node.getStartLineNumber(), reason });
+  reports.push({
+    file: node.getSourceFile().getFilePath(),
+    line: node.getStartLineNumber(),
+    reason,
+  });
 }
 
 function isTrueLiteral(node: Node | undefined): boolean {
@@ -139,18 +143,26 @@ function collectFieldCalls(sourceFile: SourceFile): FieldCall[] {
   return calls;
 }
 
-function reportRawSubjectLiterals(sourceFile: SourceFile, handled: ReadonlySet<ObjectLiteralExpression>): void {
+function reportRawSubjectLiterals(
+  sourceFile: SourceFile,
+  handled: ReadonlySet<ObjectLiteralExpression>,
+): void {
   for (const objLit of sourceFile.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression)) {
     if (handled.has(objLit)) continue;
     const found = [...SUBJECT_FLAG_NAMES, "piiEncrypted"].filter((n) => objLit.getProperty(n));
     if (found.length > 0) {
-      report(objLit, `subject flag(s) [${found.join(", ")}] on an object literal that is not a create*Field(...) call`);
+      report(
+        objLit,
+        `subject flag(s) [${found.join(", ")}] on an object literal that is not a create*Field(...) call`,
+      );
     }
   }
 }
 
+// kumiko-lint-ignore complexity-budget migration codemod, one-time script — splitting would add risk without benefit
 function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string): void {
-  if (obj.getProperty("personal")) return; // already migrated — idempotent no-op
+  // skip: field already carries `personal` — already migrated, idempotent no-op
+  if (obj.getProperty("personal")) return;
 
   const piiEncryptedProp = obj.getProperty("piiEncrypted");
   if (piiEncryptedProp) {
@@ -158,6 +170,7 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
       piiEncryptedProp,
       "piiEncrypted: true on an entity field (removed from the type system) — needs a human decision, not a mechanical mapping",
     );
+    // skip: reported above — piiEncrypted needs a human decision, not a mechanical mapping
     return;
   }
 
@@ -175,11 +188,18 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
     // (always an excess property without a `personal` to attach `find`
     // to). `anonymize` alone has no PersonalAnnotations arm to live on.
     if (lookupableProp) {
-      report(lookupableProp, "lookupable without any subject annotation — no `personal` to attach `find` to");
+      report(
+        lookupableProp,
+        "lookupable without any subject annotation — no `personal` to attach `find` to",
+      );
     }
     if (anonymizeProp) {
-      report(anonymizeProp, "anonymize without any subject annotation — no PersonalAnnotations arm accepts anonymize alone");
+      report(
+        anonymizeProp,
+        "anonymize without any subject annotation — no PersonalAnnotations arm accepts anonymize alone",
+      );
     }
+    // skip: no subject flag on this field — stray lookupable/anonymize already reported above if present
     return;
   }
 
@@ -188,6 +208,7 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
       subjectProps[0]!.prop,
       `multiple subject annotations on one field (${subjectProps.map((s) => s.name).join(", ")}) — needs a human decision on which subject is correct`,
     );
+    // skip: reported above — multiple subject annotations need a human call on which one wins
     return;
   }
 
@@ -198,13 +219,18 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
       subject.prop,
       `${factoryName} has no personal-annotation support — subject flag "${subject.name}" cannot be expressed here`,
     );
+    // skip: reported above — this factory has no personal-annotation support to migrate into
     return;
   }
   const isTextFind = TEXT_FIND_FACTORIES.has(factoryName);
   const isLongTextFind = LONGTEXT_FIND_FACTORIES.has(factoryName);
   const isNoFind = NO_FIND_FACTORIES.has(factoryName);
   if (!isTextFind && !isLongTextFind && !isNoFind) {
-    report(subject.prop, `unrecognized field factory "${factoryName}" — cannot verify its PersonalAnnotations shape`);
+    report(
+      subject.prop,
+      `unrecognized field factory "${factoryName}" — cannot verify its PersonalAnnotations shape`,
+    );
+    // skip: reported above — unknown factory shape, cannot verify safely
     return;
   }
 
@@ -213,18 +239,21 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
   if (subject.name === "pii") {
     if (!isTrueLiteral(subject.prop.getInitializer())) {
       report(subject.prop, "pii is set to a non-`true` value — cannot infer intent");
+      // skip: reported above — non-`true` pii value, can't infer intent
       return;
     }
     personalInit = `"self"`;
   } else if (subject.name === "tenantOwned") {
     if (!isTrueLiteral(subject.prop.getInitializer())) {
       report(subject.prop, "tenantOwned is set to a non-`true` value — cannot infer intent");
+      // skip: reported above — non-`true` tenantOwned value, can't infer intent
       return;
     }
     personalInit = `"tenant"`;
   } else if (subject.name === "subjectRef") {
     if (!isTrueLiteral(subject.prop.getInitializer())) {
       report(subject.prop, "subjectRef is set to a non-`true` value — cannot infer intent");
+      // skip: reported above — non-`true` subjectRef value, can't infer intent
       return;
     }
     personalInit = `"ref"`;
@@ -232,6 +261,7 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
     const init = subject.prop.getInitializer();
     if (!init) {
       report(subject.prop, "allowPlaintext has no value");
+      // skip: reported above — allowPlaintext has no value to migrate
       return;
     }
     personalInit = "false";
@@ -242,17 +272,20 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
     const init = subject.prop.getInitializer();
     if (!init || !Node.isObjectLiteralExpression(init)) {
       report(subject.prop, "userOwned value is not an object literal — cannot extract ownerField");
+      // skip: reported above — userOwned value isn't an object literal, can't extract ownerField
       return;
     }
     const ownerFieldProp = findProp(init, "ownerField");
     if (!ownerFieldProp?.getInitializer()) {
       report(subject.prop, 'userOwned is missing an "ownerField" property');
+      // skip: reported above — userOwned is missing its ownerField property
       return;
     }
     personalInit = `{ of: ${ownerFieldProp.getInitializer()!.getText()} }`;
   }
 
-  const subjectIsRefOrPlaintext = subject.name === "subjectRef" || subject.name === "allowPlaintext";
+  const subjectIsRefOrPlaintext =
+    subject.name === "subjectRef" || subject.name === "allowPlaintext";
 
   if (subjectIsRefOrPlaintext) {
     // These PersonalAnnotations arms carry no `find` field at all.
@@ -261,21 +294,36 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
         lookupableProp,
         `lookupable combined with personal:${subject.name === "subjectRef" ? '"ref"' : "false"} — findability doesn't apply to this subject, table has no mapping`,
       );
+      // skip: reported above — lookupable doesn't apply to this subject, no mapping to migrate
       return;
     }
-    applyTransform(obj, [subject.prop], { personal: personalInit, reason: reasonInit, find: undefined });
+    applyTransform(obj, [subject.prop], {
+      personal: personalInit,
+      reason: reasonInit,
+      find: undefined,
+    });
     counts[subject.name === "subjectRef" ? "ref" : "personal-false"]++;
+    // skip: already transformed above — nothing left to check for this subject
     return;
   }
 
   if (isNoFind) {
     const stray = lookupableProp ?? searchableProp ?? sensitiveProp;
     if (stray) {
-      report(stray, `${factoryName} has no \`find\` in its PersonalAnnotations — findability flag present on a non-text field`);
+      report(
+        stray,
+        `${factoryName} has no \`find\` in its PersonalAnnotations — findability flag present on a non-text field`,
+      );
+      // skip: reported above — findability flag on a non-text field, no valid find to attach
       return;
     }
-    applyTransform(obj, [subject.prop], { personal: personalInit, reason: undefined, find: undefined });
+    applyTransform(obj, [subject.prop], {
+      personal: personalInit,
+      reason: undefined,
+      find: undefined,
+    });
     counts["no-find"]++;
+    // skip: already transformed above — no-find factory has nothing further to check
     return;
   }
 
@@ -288,6 +336,7 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
       sensitiveProp!,
       'sensitive combined with lookupable/searchable — two find values ("secret" vs "exact"/"fuzzy"), needs a human decision',
     );
+    // skip: reported above — sensitive plus lookupable/searchable is an ambiguous find value
     return;
   }
 
@@ -303,6 +352,7 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
       (lookupableProp ?? searchableProp)!,
       'lookupable/searchable on createLongTextField — only "none"/"secret" are valid find values on longText',
     );
+    // skip: reported above — exact/fuzzy find isn't valid on createLongTextField
     return;
   }
 
@@ -313,7 +363,8 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
     newLookupableSites.push({
       file: obj.getSourceFile().getFilePath(),
       line: subject.prop.getStartLineNumber(),
-      reason: `find: "fuzzy" newly adds lookupable (was searchable-only) — needs a _bidx column migration`,
+      // find: "fuzzy" newly adds lookupable (was searchable-only) — needs a _bidx column migration
+      reason: "fuzzy_search_needs_bidx_migration",
     });
   }
 
@@ -340,7 +391,9 @@ function applyTransform(
 
   for (const p of removedProps) p.remove();
 
-  const newProps: { name: string; initializer: string }[] = [{ name: "personal", initializer: next.personal }];
+  const newProps: { name: string; initializer: string }[] = [
+    { name: "personal", initializer: next.personal },
+  ];
   if (next.find) newProps.push({ name: "find", initializer: `"${next.find}"` });
   if (next.reason !== undefined) newProps.push({ name: "reason", initializer: next.reason });
 
@@ -368,7 +421,10 @@ async function main(): Promise<void> {
   const rootDir = resolve(positional[0] ?? process.cwd());
 
   const files = findTargetFiles(rootDir);
-  const project = new Project({ skipAddingFilesFromTsConfig: true, skipFileDependencyResolution: true });
+  const project = new Project({
+    skipAddingFilesFromTsConfig: true,
+    skipFileDependencyResolution: true,
+  });
 
   let touchedFiles = 0;
   for (const file of files) {
@@ -379,7 +435,9 @@ async function main(): Promise<void> {
 
     const countsBefore = { ...counts };
     for (const { name, objArg } of calls) processObjectLiteral(objArg, name);
-    const changed = (Object.keys(counts) as FindBucket[]).some((k) => counts[k] !== countsBefore[k]);
+    const changed = (Object.keys(counts) as FindBucket[]).some(
+      (k) => counts[k] !== countsBefore[k],
+    );
 
     if (changed) {
       touchedFiles++;
