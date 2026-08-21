@@ -1,4 +1,4 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
@@ -11,7 +11,8 @@ export async function countDraftsByOwner(
   tenantId: TenantId,
   ownerId: string,
 ): Promise<number> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = (await unsafeReadRetrying(
+    db,
     `SELECT count(*)::int AS "count" FROM "read_form_drafts"
      WHERE "tenant_id" = $1 AND "owner_id" = $2`,
     [tenantId, ownerId],

@@ -1,4 +1,4 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 
 export async function selectHostRowsWithCustomFields(
@@ -7,7 +7,8 @@ export async function selectHostRowsWithCustomFields(
   tenantId: string,
 ): Promise<readonly unknown[]> {
   const quoted = `"${tableName.replace(/"/g, '""')}"`;
-  const rowsResult = await asRawClient(db).unsafe(
+  const rowsResult = await unsafeReadRetrying(
+    db,
     `SELECT id, modified_at, custom_fields FROM ${quoted} WHERE tenant_id = $1 AND custom_fields IS NOT NULL`,
     [tenantId],
   );

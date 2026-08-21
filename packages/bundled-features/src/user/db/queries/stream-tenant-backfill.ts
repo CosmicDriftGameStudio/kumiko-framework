@@ -24,7 +24,7 @@
 // the stream move: rebuildProjection("user:projection:user-entity", ...) or
 // the jobs:job:projection-rebuild job.
 
-import { asRawClient, transaction } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, transaction, unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 
@@ -37,7 +37,8 @@ export type UserStreamBackfillResult = {
 export async function backfillUserStreamTenants(
   db: DbConnection,
 ): Promise<UserStreamBackfillResult> {
-  const candidates = (await asRawClient(db).unsafe(
+  const candidates = (await unsafeReadRetrying(
+    db,
     `SELECT DISTINCT "aggregate_id" FROM "kumiko_events"
       WHERE "aggregate_type" = 'user' AND "tenant_id" <> $1::uuid`,
     [SYSTEM_TENANT_ID],

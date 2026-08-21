@@ -24,6 +24,7 @@ export {
   type TableInfo,
   transaction,
   type UpsertOnConflictOptions,
+  unsafeReadRetrying,
   updateMany,
   upsertByPk,
   upsertOnConflict,

@@ -1,10 +1,11 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 
 export async function countTenantFieldDefinitions(db: TenantDb, tenantId: string): Promise<number> {
   // Active definitions only — delete soft-deletes (the deterministic stream is
   // kept so a re-define can restore it), so isDeleted rows must not consume quota.
-  const rowsResult = await asRawClient(db.raw).unsafe(
+  const rowsResult = await unsafeReadRetrying(
+    db.raw,
     "SELECT COUNT(*)::int AS n FROM read_custom_field_definitions WHERE tenant_id = $1 AND is_deleted = FALSE",
     [tenantId],
   );
