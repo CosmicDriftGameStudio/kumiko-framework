@@ -34,14 +34,19 @@ async function main(): Promise<void> {
   const rootDir = resolve(positional[0] ?? process.cwd());
 
   const files = findTargetFiles(rootDir);
-  const project = new Project({ skipAddingFilesFromTsConfig: true, skipFileDependencyResolution: true });
+  const project = new Project({
+    skipAddingFilesFromTsConfig: true,
+    skipFileDependencyResolution: true,
+  });
 
   let touchedFiles = 0;
   let movedNames = 0;
 
   for (const file of files) {
     const sourceFile = project.addSourceFileAtPath(file);
-    const oldImport = sourceFile.getImportDeclarations().find((d) => d.getModuleSpecifierValue() === OLD_SPECIFIER);
+    const oldImport = sourceFile
+      .getImportDeclarations()
+      .find((d) => d.getModuleSpecifierValue() === OLD_SPECIFIER);
     if (!oldImport) continue;
 
     const movedHere = oldImport.getNamedImports().filter((spec) => MOVED_NAMES.has(spec.getName()));
@@ -62,7 +67,10 @@ async function main(): Promise<void> {
     }
 
     for (const spec of movedHere) spec.remove();
-    const remaining = oldImport.getNamedImports().length > 0 || !!oldImport.getDefaultImport() || !!oldImport.getNamespaceImport();
+    const remaining =
+      oldImport.getNamedImports().length > 0 ||
+      !!oldImport.getDefaultImport() ||
+      !!oldImport.getNamespaceImport();
     if (!remaining) oldImport.remove();
 
     touchedFiles++;
@@ -71,7 +79,9 @@ async function main(): Promise<void> {
   }
 
   console.log(`\nScanned ${files.length} files under ${rootDir}${dryRun ? " (dry-run)" : ""}.`);
-  console.log(`Touched ${touchedFiles} files, moved ${movedNames} import(s) from "${OLD_SPECIFIER}" to "${NEW_SPECIFIER}".\n`);
+  console.log(
+    `Touched ${touchedFiles} files, moved ${movedNames} import(s) from "${OLD_SPECIFIER}" to "${NEW_SPECIFIER}".\n`,
+  );
 }
 
 await main();

@@ -28,8 +28,8 @@ import { Glob } from "bun";
 import {
   Node,
   type ObjectLiteralExpression,
-  type PropertyAssignment,
   Project,
+  type PropertyAssignment,
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
@@ -93,7 +93,11 @@ const counts: Record<FindBucket, number> = {
 };
 
 function report(node: Node, reason: string): void {
-  reports.push({ file: node.getSourceFile().getFilePath(), line: node.getStartLineNumber(), reason });
+  reports.push({
+    file: node.getSourceFile().getFilePath(),
+    line: node.getStartLineNumber(),
+    reason,
+  });
 }
 
 function isTrueLiteral(node: Node | undefined): boolean {
@@ -139,12 +143,18 @@ function collectFieldCalls(sourceFile: SourceFile): FieldCall[] {
   return calls;
 }
 
-function reportRawSubjectLiterals(sourceFile: SourceFile, handled: ReadonlySet<ObjectLiteralExpression>): void {
+function reportRawSubjectLiterals(
+  sourceFile: SourceFile,
+  handled: ReadonlySet<ObjectLiteralExpression>,
+): void {
   for (const objLit of sourceFile.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression)) {
     if (handled.has(objLit)) continue;
     const found = [...SUBJECT_FLAG_NAMES, "piiEncrypted"].filter((n) => objLit.getProperty(n));
     if (found.length > 0) {
-      report(objLit, `subject flag(s) [${found.join(", ")}] on an object literal that is not a create*Field(...) call`);
+      report(
+        objLit,
+        `subject flag(s) [${found.join(", ")}] on an object literal that is not a create*Field(...) call`,
+      );
     }
   }
 }
@@ -175,10 +185,16 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
     // (always an excess property without a `personal` to attach `find`
     // to). `anonymize` alone has no PersonalAnnotations arm to live on.
     if (lookupableProp) {
-      report(lookupableProp, "lookupable without any subject annotation — no `personal` to attach `find` to");
+      report(
+        lookupableProp,
+        "lookupable without any subject annotation — no `personal` to attach `find` to",
+      );
     }
     if (anonymizeProp) {
-      report(anonymizeProp, "anonymize without any subject annotation — no PersonalAnnotations arm accepts anonymize alone");
+      report(
+        anonymizeProp,
+        "anonymize without any subject annotation — no PersonalAnnotations arm accepts anonymize alone",
+      );
     }
     return;
   }
@@ -204,7 +220,10 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
   const isLongTextFind = LONGTEXT_FIND_FACTORIES.has(factoryName);
   const isNoFind = NO_FIND_FACTORIES.has(factoryName);
   if (!isTextFind && !isLongTextFind && !isNoFind) {
-    report(subject.prop, `unrecognized field factory "${factoryName}" — cannot verify its PersonalAnnotations shape`);
+    report(
+      subject.prop,
+      `unrecognized field factory "${factoryName}" — cannot verify its PersonalAnnotations shape`,
+    );
     return;
   }
 
@@ -252,7 +271,8 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
     personalInit = `{ of: ${ownerFieldProp.getInitializer()!.getText()} }`;
   }
 
-  const subjectIsRefOrPlaintext = subject.name === "subjectRef" || subject.name === "allowPlaintext";
+  const subjectIsRefOrPlaintext =
+    subject.name === "subjectRef" || subject.name === "allowPlaintext";
 
   if (subjectIsRefOrPlaintext) {
     // These PersonalAnnotations arms carry no `find` field at all.
@@ -263,7 +283,11 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
       );
       return;
     }
-    applyTransform(obj, [subject.prop], { personal: personalInit, reason: reasonInit, find: undefined });
+    applyTransform(obj, [subject.prop], {
+      personal: personalInit,
+      reason: reasonInit,
+      find: undefined,
+    });
     counts[subject.name === "subjectRef" ? "ref" : "personal-false"]++;
     return;
   }
@@ -271,10 +295,17 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
   if (isNoFind) {
     const stray = lookupableProp ?? searchableProp ?? sensitiveProp;
     if (stray) {
-      report(stray, `${factoryName} has no \`find\` in its PersonalAnnotations — findability flag present on a non-text field`);
+      report(
+        stray,
+        `${factoryName} has no \`find\` in its PersonalAnnotations — findability flag present on a non-text field`,
+      );
       return;
     }
-    applyTransform(obj, [subject.prop], { personal: personalInit, reason: undefined, find: undefined });
+    applyTransform(obj, [subject.prop], {
+      personal: personalInit,
+      reason: undefined,
+      find: undefined,
+    });
     counts["no-find"]++;
     return;
   }
@@ -340,7 +371,9 @@ function applyTransform(
 
   for (const p of removedProps) p.remove();
 
-  const newProps: { name: string; initializer: string }[] = [{ name: "personal", initializer: next.personal }];
+  const newProps: { name: string; initializer: string }[] = [
+    { name: "personal", initializer: next.personal },
+  ];
   if (next.find) newProps.push({ name: "find", initializer: `"${next.find}"` });
   if (next.reason !== undefined) newProps.push({ name: "reason", initializer: next.reason });
 
@@ -368,7 +401,10 @@ async function main(): Promise<void> {
   const rootDir = resolve(positional[0] ?? process.cwd());
 
   const files = findTargetFiles(rootDir);
-  const project = new Project({ skipAddingFilesFromTsConfig: true, skipFileDependencyResolution: true });
+  const project = new Project({
+    skipAddingFilesFromTsConfig: true,
+    skipFileDependencyResolution: true,
+  });
 
   let touchedFiles = 0;
   for (const file of files) {
@@ -379,7 +415,9 @@ async function main(): Promise<void> {
 
     const countsBefore = { ...counts };
     for (const { name, objArg } of calls) processObjectLiteral(objArg, name);
-    const changed = (Object.keys(counts) as FindBucket[]).some((k) => counts[k] !== countsBefore[k]);
+    const changed = (Object.keys(counts) as FindBucket[]).some(
+      (k) => counts[k] !== countsBefore[k],
+    );
 
     if (changed) {
       touchedFiles++;

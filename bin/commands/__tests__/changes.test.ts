@@ -171,7 +171,7 @@ describe("changes add — writes the entry", () => {
     const cwd = tmp({
       "packages/bundled-features/package.json": BUNDLED_FEATURES_PKG,
       "packages/bundled-features/src/sessions/changes.json": OLD_SESSIONS_ENTRY,
-      "scripts/codemod/rename-x-to-y.ts": "// fixture",
+      "packages/framework/src/scripts/codemod/rename-x-to-y.ts": "// fixture",
     });
 
     await run(cwd, [
@@ -211,7 +211,9 @@ describe("changes add — writes the entry", () => {
     ]);
 
     expect(exit).toBe(1);
-    expect(errs.join("\n")).toContain("must be an existing .ts file under scripts/codemod/");
+    expect(errs.join("\n")).toContain(
+      "must be an existing .ts file under packages/framework/src/scripts/codemod/",
+    );
 
     const written = JSON.parse(readFileSync(join(cwd, "packages/bundled-features/src/sessions/changes.json"), "utf-8"));
     expect(written).toEqual(JSON.parse(OLD_SESSIONS_ENTRY));

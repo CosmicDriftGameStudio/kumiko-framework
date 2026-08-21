@@ -3,6 +3,7 @@ import { dirname, join, relative, sep } from "node:path";
 import { parseArgs, getFlag, getStringFlag } from "./arg-parser";
 import { defineCommand } from "./registry";
 import {
+  findCodemodScriptsRoot,
   findCoreChangelogFile,
   findFeaturesDirs,
   resolveCodemodScript,
@@ -175,9 +176,10 @@ export const changesCommand = defineCommand({
 
     const repoRoot = findRepoRoot(ctx.cwd);
 
-    if (codemod && !resolveCodemodScript(repoRoot, codemod)) {
+    const codemodScriptsRoot = codemod ? findCodemodScriptsRoot(repoRoot) : null;
+    if (codemod && (!codemodScriptsRoot || !resolveCodemodScript(codemodScriptsRoot, codemod))) {
       ctx.out.err("");
-      ctx.out.err(`  --codemod "${codemod}" must be an existing .ts file under scripts/codemod/ (relative to the repo root).`);
+      ctx.out.err(`  --codemod "${codemod}" must be an existing .ts file under packages/framework/src/scripts/codemod/.`);
       ctx.out.err("");
       return 1;
     }
