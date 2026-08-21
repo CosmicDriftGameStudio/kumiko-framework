@@ -13,6 +13,9 @@ export type JwtPayload = {
   // IANA zone from user.timezone, set at login — see SessionUser.timezone
   // (fw#1636). Absent → ctx.tz.user falls back to ctx.tz.tenant.
   timezone?: string;
+  // BCP-47 tag from user.locale, set at login — see SessionUser.locale
+  // (fw#2333). Absent → ctx.locale falls back further down the chain.
+  locale?: string;
   // Optional — present when a feature has registered auth claims via the
   // `r.authClaims()` hook system. Absent for stateless-JWT deployments
   // without auth-claims wiring.
@@ -110,6 +113,7 @@ export function createJwtHelper(
         roles: [...user.roles],
       };
       if (user.timezone) body.timezone = user.timezone;
+      if (user.locale) body.locale = user.locale;
       if (user.claims) body.claims = { ...user.claims };
 
       const header: jose.JWTHeaderParameters = keyring.signKid
@@ -161,6 +165,9 @@ export function createJwtHelper(
       };
       if (typeof payload["timezone"] === "string") {
         result.timezone = payload["timezone"];
+      }
+      if (typeof payload["locale"] === "string") {
+        result.locale = payload["locale"];
       }
       const claims = payload["claims"];
       if (claims && typeof claims === "object") {

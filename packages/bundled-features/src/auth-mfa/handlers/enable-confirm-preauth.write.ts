@@ -9,7 +9,7 @@ import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
-import { burnToken, sessionTimezoneField } from "../../shared";
+import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared";
 import { USER_STATUS, UserQueries } from "../../user";
 import { base32Decode } from "../base32";
 import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants";
@@ -138,7 +138,12 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
       const userRow = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
         id: userId,
-      })) as { roles?: string | null; status?: string; timezone?: string | null } | null; // @cast-boundary engine-payload
+      })) as {
+        roles?: string | null;
+        status?: string;
+        timezone?: string | null;
+        locale?: string | null;
+      } | null; // @cast-boundary engine-payload
 
       if (!userRow) return invalidSetupToken();
       if (
@@ -192,6 +197,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
         // a plain password login does — same helper as verify.write.ts /
         // invite-accept-with-login.write.ts (#1759).
         ...sessionTimezoneField(userRow?.timezone),
+        ...sessionLocaleField(userRow?.locale),
       };
       const claims = await ctx.resolveAuthClaims(baseSession);
       const session: SessionUser =

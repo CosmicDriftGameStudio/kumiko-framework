@@ -51,7 +51,7 @@ import {
 } from "../event-store/snapshot";
 import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster";
 import { createFileContext } from "../files/file-handle";
-import { DEFAULT_LOCALE } from "../i18n/request-locale";
+import { DEFAULT_LOCALE, isValidLocaleTag } from "../i18n/request-locale";
 import {
   createMetricsHandle,
   createNoopMetricsHandle,
@@ -623,9 +623,13 @@ export async function buildHandlerContext(
 
   // ctx.locale — request-layer signal (X-Locale header → Accept-Language,
   // resolved once at the HTTP boundary by request-id-middleware.ts) wins;
-  // falls back to the app's boot-configured defaultLocale, then
-  // DEFAULT_LOCALE. Mirrors ctx.tz's Request → Boot-Default chain above.
-  const locale = reqCtx?.locale ?? context.defaultLocale ?? DEFAULT_LOCALE;
+  // then SessionUser.locale (set at login, see fw#2333 — stale until
+  // re-login, same tradeoff as ctx.tz.user); falls back to the app's
+  // boot-configured defaultLocale, then DEFAULT_LOCALE. Mirrors ctx.tz's
+  // Request → Session → Boot-Default chain above.
+  const safeUserLocale =
+    user.locale !== undefined && isValidLocaleTag(user.locale) ? user.locale : undefined;
+  const locale = reqCtx?.locale ?? safeUserLocale ?? context.defaultLocale ?? DEFAULT_LOCALE;
 
   return {
     ...context,

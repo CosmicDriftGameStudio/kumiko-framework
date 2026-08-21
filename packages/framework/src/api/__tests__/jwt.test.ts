@@ -94,6 +94,18 @@ describe("createJwtHelper.verify — payload validation (KF-2)", () => {
     const payload = await jwt.verify(await jwt.sign(user));
     expect(payload.timezone).toBeUndefined();
   });
+
+  // fw#2333 — SessionUser.locale must survive the sign/verify roundtrip,
+  // same contract as timezone above.
+  it("round-trips the locale claim when set", async () => {
+    const payload = await jwt.verify(await jwt.sign({ ...user, locale: "de-DE" }));
+    expect(payload.locale).toBe("de-DE");
+  });
+
+  it("omits the locale claim when unset", async () => {
+    const payload = await jwt.verify(await jwt.sign(user));
+    expect(payload.locale).toBeUndefined();
+  });
 });
 
 describe("createJwtHelper — keyring form", () => {

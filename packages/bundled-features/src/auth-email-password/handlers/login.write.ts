@@ -230,12 +230,14 @@ export async function gateBuildSession(
   tenantId: TenantId,
   mergedRoles: readonly string[],
   timezone?: string | null,
+  locale?: string | null,
 ): Promise<{ readonly kind: "auth-session"; readonly session: SessionUser }> {
   const baseSession: SessionUser = {
     id: userId,
     tenantId,
     roles: mergedRoles,
     ...(timezone !== null && timezone !== undefined && { timezone }),
+    ...(locale !== null && locale !== undefined && { locale }),
   };
   const claims = await ctx.resolveAuthClaims(baseSession);
   const session: SessionUser =
@@ -306,6 +308,7 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
         chosen.tenantId,
         mergedRoles,
         found.timezone,
+        found.locale,
       );
       return { isSuccess: true, data: session };
     },
