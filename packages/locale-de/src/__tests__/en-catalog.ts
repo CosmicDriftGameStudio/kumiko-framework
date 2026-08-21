@@ -558,6 +558,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "managed-pages:section.body": "Content",
   "managed-pages:section.meta": "Metadata",
   "notesHistory.section.add": "Add note",
+  "notesHistory.section.authorUnknown": "Unknown author",
   "notesHistory.section.createMode": "Save the entity first to add notes.",
   "notesHistory.section.empty": "No notes yet.",
   "notesHistory.section.loading": "Loading…",

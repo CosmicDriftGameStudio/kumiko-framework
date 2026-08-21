@@ -54,6 +54,9 @@ describe("noteEntryExportHook", () => {
     expect(snippet).not.toBeNull();
     const bodies = (snippet?.rows ?? []).map((r) => r["body"]);
     expect(bodies).toEqual(["by author"]);
+    // No read_users row is seeded in this stack, so add-note's self-lookup
+    // stamps authorName null — export must still carry the key.
+    expect(Object.keys(snippet?.rows?.[0] ?? {})).toContain("authorName");
   });
 
   test("returns null when the user authored no notes", async () => {

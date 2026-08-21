@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "version": "0.215.3",
+    "type": "improvement",
+    "title": "note-entry gains authorName, stamped at write time",
+    "detail": "The entry display previously had no readable author — only the internal authorId (UUID). note-entry now carries an `authorName` field (personal: { of: \"authorId\" }, same crypto-shredding subject as `body`), stamped once at add-note write time from the writer's own read_users row (self-lookup by id, decrypted displayName) so the append-only history keeps the name as it was when the note was written, not whatever the account is called later. A failed lookup, a missing displayName, and pre-field/shredded rows all read `authorName: null` — the UI falls back to a translated placeholder, never the raw id; the write itself never fails over a missing name.",
+    "migration": "Run `kumiko-schema generate` and apply — the migration adds `read_note_entries.authorName`. No backfill: existing rows read null and show the placeholder, same as before this change from the user's point of view."
+  }
+]

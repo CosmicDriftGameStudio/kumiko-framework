@@ -87,6 +87,11 @@ describe("notes-history integration — add + list", () => {
     expect(rows[0]?.["body"]).toBe("Called about renewal");
     expect(rows[0]?.["authorId"]).toBe(member.id);
     expect(rows[0]?.["insertedAt"]).toBeTruthy();
+    // member is a synthetic SessionUser (createTestUser) with no backing
+    // read_users row, so add-note's self-lookup finds nothing to stamp — see
+    // add-note-author-name-kms.integration.test.ts for the seeded-user path
+    // where a real displayName does land in authorName.
+    expect(rows[0]?.["authorName"]).toBeNull();
   });
 
   test("a client-supplied authorId in the payload is ignored", async () => {
@@ -96,6 +101,15 @@ describe("notes-history integration — add + list", () => {
     // to a value smuggled in through the payload — schema doesn't even accept
     // an authorId field, so this proves it's silently dropped, not honoured.
     expect(rows[0]?.["authorId"]).toBe(member.id);
+  });
+
+  test("a client-supplied authorName in the payload is ignored", async () => {
+    await addNote("contact", "contact-2b", "note", member, { authorName: "Fake Display Name" });
+    const rows = await listNotes({ field: "entityId", op: "eq", value: "contact-2b" });
+    // Same guard as authorId above: addNotePayloadSchema doesn't accept an
+    // authorName field, so a smuggled value never survives to the write —
+    // the name (once stamped) can only come from the caller's own session.
+    expect(rows[0]?.["authorName"]).not.toBe("Fake Display Name");
   });
 
   test("multiple notes on the same entity accumulate — nothing overwrites", async () => {

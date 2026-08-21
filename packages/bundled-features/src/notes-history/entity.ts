@@ -31,6 +31,13 @@ export const noteEntryEntity = createEntity({
     authorId: createTextField({
       personal: "ref",
     }),
+    // Stamped once at write time, never re-resolved later — the history
+    // needs the name as it was then, not whatever the account is called now.
+    authorName: createTextField({
+      maxLength: 200,
+      personal: { of: "authorId" },
+      find: "none",
+    }),
     body: createLongTextField({
       required: true,
       maxLength: 20_000,

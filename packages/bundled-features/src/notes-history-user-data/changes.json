@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "version": "0.215.3",
+    "type": "improvement",
+    "title": "note-entry GDPR export now includes authorName",
+    "detail": "The Art. 20 export for `note-entry` (noteEntryExportHook) enumerates fields explicitly and did not know about the new `authorName` field added alongside `body`. The export row now also carries the stamped `authorName` (null on legacy/shredded rows, same as the read path)."
+  }
+]
