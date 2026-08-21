@@ -40,6 +40,7 @@ import { apiTokenEntity, apiTokenTable } from "../../personal-access-tokens/sche
 import { createTenantFeature } from "../../tenant";
 import { tenantInvitationEntity } from "../../tenant/invitation-table";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
+import { seedTenantMembership } from "../../tenant/seeding";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { seedUser } from "../../user/seeding";
@@ -116,20 +117,47 @@ describe("crypto-shredding :: forget-subject", () => {
     });
   });
 
-  test("tenant subject shreds the same way", async () => {
-    const subject = { kind: "tenant", tenantId: TARGET_TENANT_ID } as const;
-    await kms.createKey({ kind: "tenant", tenantId: TARGET_TENANT_ID as TenantId });
+  test("tenant subject shreds the same way (DPO's own tenant)", async () => {
+    const subject = { kind: "tenant", tenantId: TENANT } as const;
+    await kms.createKey({ kind: "tenant", tenantId: TENANT });
 
     const result = await stack.http.writeOk<{ subjectKey: string }>(
       FORGET,
       { subject, reason: REASON },
       dpoUser,
     );
-    expect(result.subjectKey).toBe(`tenant:${TARGET_TENANT_ID}`);
+    expect(result.subjectKey).toBe(`tenant:${TENANT}`);
+
+    await expect(kms.getKey({ kind: "tenant", tenantId: TENANT })).rejects.toThrow(
+      "Subject key erased",
+    );
+  });
+
+  // mh#349: DataProtectionOfficer is tenant-scoped — a DPO who learns a
+  // foreign tenant's id (export, support ticket, log line) must not be able
+  // to destroy that tenant's subject key.
+  test("DPO cannot forget a different tenant's subject → 403", async () => {
+    const subject = { kind: "tenant", tenantId: TARGET_TENANT_ID } as const;
+    await kms.createKey({ kind: "tenant", tenantId: TARGET_TENANT_ID as TenantId });
+
+    const err = await stack.http.writeErr(FORGET, { subject, reason: REASON }, dpoUser);
+    expect(err.httpStatus).toBe(403);
 
     await expect(
       kms.getKey({ kind: "tenant", tenantId: TARGET_TENANT_ID as TenantId }),
-    ).rejects.toThrow("Subject key erased");
+    ).resolves.toBeTruthy();
+  });
+
+  test("SystemAdmin bypasses the tenant-scope guard", async () => {
+    const subject = { kind: "tenant", tenantId: TARGET_TENANT_ID } as const;
+    await kms.createKey({ kind: "tenant", tenantId: TARGET_TENANT_ID as TenantId });
+
+    const result = await stack.http.writeOk<{ subjectKey: string }>(
+      FORGET,
+      { subject, reason: REASON },
+      TestUsers.systemAdmin,
+    );
+    expect(result.subjectKey).toBe(`tenant:${TARGET_TENANT_ID}`);
   });
 
   test("repeat forget: erase is a no-op but each attempt is audited", async () => {
@@ -307,6 +335,31 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
   let kms: InMemoryKmsAdapter;
   const TENANT_B = testTenantId(3);
 
+  // mh#349: a "user"-kind subject isn't always a real user — a share-token
+  // recipient or email subscriber self-owns its PII the same way
+  // (personal: "self", its own row id is the subject) but has no tenant-
+  // membership row. The guard must fall back to the subject row's own
+  // tenant_id for these.
+  const shareLikeEntity = createEntity({
+    table: "read_forget_subject_share_like_probe",
+    fields: {
+      recipientName: createTextField({
+        required: true,
+        maxLength: 100,
+        personal: "self",
+        find: "exact",
+      }),
+    },
+  });
+  const shareLikeTable = buildEntityTable("forgetSubjectShareLikeProbe", shareLikeEntity);
+  const shareLikeFeature = defineFeature("forget-subject-share-like-probe", (r) => {
+    r.entity("probe", shareLikeEntity);
+  });
+
+  function shareLikeProbeExecutor() {
+    return createEventStoreExecutor(shareLikeTable, shareLikeEntity, { entityName: "probe" });
+  }
+
   beforeAll(async () => {
     stack = await setupTestStack({
       features: [
@@ -316,6 +369,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
         createConfigFeature(),
         authFoundationFeature,
         createPersonalAccessTokensFeature({ scopes: {} }),
+        shareLikeFeature,
       ],
     });
     await unsafeCreateEntityTable(stack.db, userEntity);
@@ -323,6 +377,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     // tenant feature's only lookupable entity — the blind-index sweep
     // touches it; without the table the handler 500s on `read_tenant_invitations`.
     await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
+    await unsafeCreateEntityTable(stack.db, shareLikeEntity, "probe");
     await unsafePushTables(stack.db, { tenantMembershipsTable });
     await createEventsTable(stack.db);
   });
@@ -336,6 +391,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
       userTable,
       apiTokenTable,
       tenantMembershipsTable,
+      shareLikeTable,
       eventsTable,
     ]);
     kms = new InMemoryKmsAdapter();
@@ -352,6 +408,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
       displayName: "Forgotten User",
       emailVerified: true,
     });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT, roles: ["Member"] });
     // No explicit createKey: seedUser's PII-encrypt (email) already created
     // the subject key implicitly via getOrCreateDek.
     await insertOne(stack.db, apiTokenTable, {
@@ -377,5 +434,85 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     const tokens = await selectMany(stack.db, apiTokenTable, { userId });
     expect(tokens).toHaveLength(1);
     expect(tokens[0]?.["revokedAt"]).not.toBeNull();
+  });
+
+  // mh#349: a DPO must not be able to forget a user who has no membership in
+  // their own tenant (e.g. a Tenant-A DPO who learned a Tenant-B user id).
+  test("DPO cannot forget a user with no membership in their tenant → 403", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "foreign-tenant-user@example.com",
+      displayName: "Foreign Tenant User",
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT_B, roles: ["Member"] });
+
+    const err = await stack.http.writeErr(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      dpoUser,
+    );
+    expect(err.httpStatus).toBe(403);
+
+    const userRow = await fetchOne<Record<string, unknown>>(stack.db, userTable, { id: userId });
+    expect(userRow?.["status"]).not.toBe(USER_STATUS.Deleted);
+  });
+
+  test("SystemAdmin can forget a user with no membership in any tenant", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "system-admin-forgets@example.com",
+      displayName: "System Admin Forgets",
+      emailVerified: true,
+    });
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      TestUsers.systemAdmin,
+    );
+
+    const userRow = await fetchOne<Record<string, unknown>>(stack.db, userTable, { id: userId });
+    expect(userRow?.["status"]).toBe(USER_STATUS.Deleted);
+  });
+
+  test("DPO can forget a self-owned PII subject (share-token-like) in their own tenant", async () => {
+    const created = await shareLikeProbeExecutor().create(
+      { recipientName: "Tommy Recipient" },
+      dpoUser,
+      createTenantDb(stack.db, TENANT, "system"),
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const subjectId = String(created.data.id);
+
+    const result = await stack.http.writeOk<{ subjectKey: string }>(
+      FORGET,
+      { subject: { kind: "user", userId: subjectId }, reason: REASON },
+      dpoUser,
+    );
+    expect(result.subjectKey).toBe(`user:${subjectId}`);
+  });
+
+  test("DPO cannot forget another tenant's self-owned PII subject → 403", async () => {
+    // create()'s event stream is tenant-scoped to the AUTHOR, not the
+    // tenantDb override — an actor whose own tenantId is TENANT_B is
+    // required to actually seed the row under the foreign tenant.
+    const foreignTenantAuthor = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-0000000000f2",
+      tenantId: TENANT_B,
+      roles: ["Member"],
+    };
+    const created = await shareLikeProbeExecutor().create(
+      { recipientName: "Peter Recipient" },
+      foreignTenantAuthor,
+      createTenantDb(stack.db, TENANT_B, "system"),
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const subjectId = String(created.data.id);
+
+    const err = await stack.http.writeErr(
+      FORGET,
+      { subject: { kind: "user", userId: subjectId }, reason: REASON },
+      dpoUser,
+    );
+    expect(err.httpStatus).toBe(403);
   });
 });

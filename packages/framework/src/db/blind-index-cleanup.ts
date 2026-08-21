@@ -44,3 +44,35 @@ export async function nullBlindIndexesForSubject(
     }
   }
 }
+
+// Tenant-scope oracle for crypto-shredding's forget-subject (mh#349): a
+// "user"-kind subject id is often not a real user (share-token recipient,
+// email subscriber, ...) — those entities self-own their PII (`personal:
+// "self"`, i.e. their own row id IS the subject) and carry a real tenant_id,
+// unlike read_users (systemStream, tenant_id always SYSTEM_TENANT_ID). This
+// checks whether the subject row lives in the given tenant, so a tenant-
+// scoped DPO can still forget subjects it truly owns without needing a
+// tenant-membership row (which only exists for real users).
+export async function subjectRowExistsInTenant(
+  db: DbRunner,
+  features: ReadonlyMap<string, FeatureDefinition>,
+  subjectId: string,
+  tenantId: string,
+): Promise<boolean> {
+  for (const feature of features.values()) {
+    for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+      const hasSelfPiiField = Object.values(entity.fields).some(
+        (field) => "pii" in field && field.pii === true,
+      );
+      if (!hasSelfPiiField) continue;
+      const tableName = resolveTableName(entityName, entity, undefined);
+      const rows = await executeRawQuery(
+        db,
+        `SELECT 1 FROM ${quoteIdent(tableName)} WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+        [subjectId, tenantId],
+      );
+      if (rows.length > 0) return true;
+    }
+  }
+  return false;
+}

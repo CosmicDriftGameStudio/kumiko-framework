@@ -5,15 +5,30 @@ import {
   type SubjectId,
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { nullBlindIndexesForSubject } from "@cosmicdrift/kumiko-framework/db";
+import {
+  nullBlindIndexesForSubject,
+  subjectRowExistsInTenant,
+} from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  AccessDeniedError,
+  InternalError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
 import { z } from "zod";
 import { revokeAllPatTokensForUser } from "../../personal-access-tokens";
 import { USER_STATUS } from "../../user";
-import { updateUserLifecycle } from "../../user-data-rights";
-import { CRYPTO_SHREDDING_AGGREGATE_TYPE, SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
+import {
+  denyIfTargetOutsideAdminTenant,
+  isSystemAdminActor,
+  updateUserLifecycle,
+} from "../../user-data-rights";
+import {
+  CRYPTO_SHREDDING_AGGREGATE_TYPE,
+  SUBJECT_FORGOTTEN_EVENT_NAME,
+  TARGET_TENANT_NOT_ADMIN_TENANT,
+} from "../constants";
 
 export const subjectIdSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("user"), userId: z.uuid() }),
@@ -62,6 +77,42 @@ export const forgetSubjectWrite = defineWriteHandler({
         ? { kind: "user", userId: raw.userId }
         : { kind: "tenant", tenantId: raw.tenantId as TenantId }; // @cast-boundary uuid-validated command payload → branded id
     const subjectKey = subjectIdToKey(subject);
+
+    // Tenant-scope guard (mh#349): DataProtectionOfficer is a tenant-scoped
+    // role, but this handler otherwise erases ANY subject cross-tenant on a
+    // raw (un-scoped) client — a Tenant-A DPO who learns a Tenant-B subject
+    // id (export, support ticket, log line) could destroy it. SystemAdmin
+    // (platform-wide) always bypasses.
+    if (!isSystemAdminActor(event.user)) {
+      if (raw.kind === "tenant") {
+        if (raw.tenantId !== event.user.tenantId) {
+          return writeFailure(
+            new AccessDeniedError({ details: { reason: TARGET_TENANT_NOT_ADMIN_TENANT } }),
+          );
+        }
+      } else if (ctx.registry.features.has("tenant")) {
+        // Without the tenant feature there's no membership table to check
+        // against — no scoping concept exists to enforce (single/no-tenant
+        // apps only; ponytail: fail-open here, not a gap in multi-tenant apps).
+        const memberDenied = await denyIfTargetOutsideAdminTenant(
+          ctx.db.raw,
+          event.user,
+          raw.userId,
+        );
+        if (memberDenied) {
+          // Not a real user in the actor's tenant — raw.userId may still be
+          // a self-owned PII subject (share-token recipient, email
+          // subscriber, ...) whose own row carries a real tenant_id.
+          const ownedInTenant = await subjectRowExistsInTenant(
+            ctx.db.raw,
+            ctx.registry.features,
+            raw.userId,
+            event.user.tenantId,
+          );
+          if (!ownedInTenant) return memberDenied;
+        }
+      }
+    }
 
     // Erase BEFORE the audit append: if the append throws, the key is gone
     // but no event exists — a retry is a no-op erase plus the event. The

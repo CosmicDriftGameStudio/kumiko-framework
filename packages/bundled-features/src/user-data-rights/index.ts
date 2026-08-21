@@ -1,5 +1,10 @@
 export { createUserDataRightsFeature, type UserDataRightsOptions } from "./feature";
 export type { SendDeletionVerificationEmailFn } from "./handlers/request-deletion-by-email.write";
+export {
+  denyIfTargetOutsideAdminTenant,
+  TARGET_USER_NOT_IN_ADMIN_TENANT,
+} from "./lib/deny-if-target-outside-admin-tenant";
+export { isAdminActor, isSystemAdminActor } from "./lib/is-admin-actor";
 // #494 Bestandsdaten-Reconcile — Apps rufen das einmalig vor dem Re-Enable
 // von read_users-Rebuilds (siehe lib-Doc).
 export { backfillUserLifecycleEvents, updateUserLifecycle } from "./lib/update-user-lifecycle";
