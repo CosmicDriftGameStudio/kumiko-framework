@@ -2,12 +2,12 @@
 //
 // Concrete contract-entity showing the full ownership matrix:
 //
-//   Dimension      | Entity-level         | Field-level
-//   -----------    | -------------------- | --------------------------------
-//   Read           | list/detail filter   | propX stripped from response JSON
-//   Write          | create/update/delete | individual fields rejected loud
-//   Rule shape     | { Role: OwnershipRule }            (same on both dimensions)
-//   Rule kinds     | "all" | from(ref, col?) | { where: (user, table) => SQL }
+//   Dimension      Entity-level           Field-level
+//   ---------      ------------           -----------
+//   Read           list/detail filter     propX stripped from response JSON
+//   Write          create/update/delete   individual fields rejected loud
+//   Rule shape     { Role: OwnershipRule } (same on both dimensions)
+//   Rule kinds     "all" / from(ref, col?) / { where: (user, table) => SQL }
 //
 // The entity below is the "contract" example from the H.2 design
 // discussion: propA is public, propB is Admin-only, propC requires a
