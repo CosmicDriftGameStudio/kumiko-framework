@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.215.0
+
+### Minor Changes
+
+- 2bcf3c9: `SessionUser` gains an optional `locale` field, carried in the JWT `locale` claim alongside the existing `timezone` claim. It's set at login from the user's stored `locale` column (the same column `user:update` already lets users change explicitly) and threaded through every session-minting handler (login, invite-accept, MFA enable/verify).
+
+  `ctx.locale`'s fallback chain now checks the persisted `SessionUser.locale` (validated as a well-formed BCP-47 tag) between the live per-request signal (`X-Locale`/`Accept-Language`) and the app's boot-configured `defaultLocale` — so a user's chosen language now survives across devices and background/job contexts that carry no request-scoped locale signal.
+
+  Silent server-side adoption of the live `ctx.locale` back onto `SessionUser` at login was considered and rejected: `ctx.locale` is already cascaded through the boot default by the time a handler sees it, so a login without an `X-Locale`/`Accept-Language` signal (curl, non-browser clients) would silently overwrite an explicitly-chosen locale. The existing `user:update` write path stays the sanctioned way to change a stored locale.
+
+### Patch Changes
+
+- 5cf7f9d: The `pii-retention` boot-validator's `blockDelete`-without-`anonymize` warning no longer fires for entities whose only subject binding is a `subjectRef` field (`personal: "ref"`). This narrows the behavior added in #1645: the `personal: "ref"` variant of `PersonalAnnotations` structurally forbids an `anonymize` property, so the warning could never be silenced through the type-sanctioned field API — it was an unactionable false positive. `subjectRef`-only entities rely on the `EXT_USER_DATA` extension hook for Art.17 erasure instead of a per-field `anonymize` function. Entities with a `pii`/`userOwned`/`tenantOwned` subject field still get the warning as before.
+- Updated dependencies [67805ac]
+- Updated dependencies [2bcf3c9]
+  - @cosmicdrift/kumiko-types@0.215.0
+
 ## 0.214.0
 
 ### Patch Changes

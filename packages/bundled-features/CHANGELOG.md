@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.215.0
+
+### Minor Changes
+
+- 2bcf3c9: `SessionUser` gains an optional `locale` field, carried in the JWT `locale` claim alongside the existing `timezone` claim. It's set at login from the user's stored `locale` column (the same column `user:update` already lets users change explicitly) and threaded through every session-minting handler (login, invite-accept, MFA enable/verify).
+
+  `ctx.locale`'s fallback chain now checks the persisted `SessionUser.locale` (validated as a well-formed BCP-47 tag) between the live per-request signal (`X-Locale`/`Accept-Language`) and the app's boot-configured `defaultLocale` — so a user's chosen language now survives across devices and background/job contexts that carry no request-scoped locale signal.
+
+  Silent server-side adoption of the live `ctx.locale` back onto `SessionUser` at login was considered and rejected: `ctx.locale` is already cascaded through the boot default by the time a handler sees it, so a login without an `X-Locale`/`Accept-Language` signal (curl, non-browser clients) would silently overwrite an explicitly-chosen locale. The existing `user:update` write path stays the sanctioned way to change a stored locale.
+
+### Patch Changes
+
+- Updated dependencies [5cf7f9d]
+- Updated dependencies [67805ac]
+- Updated dependencies [2bcf3c9]
+  - @cosmicdrift/kumiko-framework@0.215.0
+  - @cosmicdrift/kumiko-types@0.215.0
+  - @cosmicdrift/kumiko-headless@0.215.0
+  - @cosmicdrift/kumiko-renderer@0.215.0
+  - @cosmicdrift/kumiko-renderer-web@0.215.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.215.0
+
 ## 0.214.0
 
 ### Patch Changes

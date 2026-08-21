@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.215.0
+
+### Minor Changes
+
+- 7a7f6a9: Added a dedicated `@cosmicdrift/kumiko-dev-server/env-schema` subpath export for `frameworkCoreEnvSchema`, so app repos' `bin/env.ts` (which every app's prod boot path reads) no longer has to pull in the full `runDevApp`/`scaffoldApp`/tooling barrel just for the schema.
+
+  Also marked `compose-stacks.ts` with a `// @runtime runtime` directive: despite living in this `"dev"`-marked package, every preset it exports composes `@cosmicdrift/kumiko-bundled-features` factories and is consumed by `run-config.ts`'s `runProdApp` boot path in 5 app repos today — the directive is the runtime-isolation guard's highest-priority classification layer and lets this one file opt out of the package-wide `"dev"` marker without reclassifying the whole package (which would also mislabel genuinely dev-only exports like `runDevApp`/`scaffoldApp`). No behavior change; this only affects the infra runtime-isolation guard's classification of the file.
+
+### Patch Changes
+
+- 54fa88c: `bun create kumiko-app --yes` now wires the generated `bin/main.ts`'s `runProdApp` call through `resolveKmsWiring` (existing framework helper), so the default `--yes` feature set no longer hits `BOOT ABORTED` on the first `bun run boot` / `bun run start`. Without a configured subject-keys KMS this falls back to plaintext PII with a loud boot warning — never silently — and the generated `.env.example`/README now document the `PLATFORM_KEK` / `SUBJECT_KEYS_DATABASE_URL` / `KUMIKO_BLIND_INDEX_KEY` trio needed for a real deploy.
+- Updated dependencies [5cf7f9d]
+- Updated dependencies [2bcf3c9]
+  - @cosmicdrift/kumiko-framework@0.215.0
+  - @cosmicdrift/kumiko-bundled-features@0.215.0
+  - @cosmicdrift/kumiko-server-runtime@0.215.0
+
 ## 0.214.0
 
 ### Patch Changes
