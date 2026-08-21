@@ -154,6 +154,19 @@ describe("scaffoldApp", () => {
     expect(env).toContain("DATABASE_URL=");
   });
 
+  // kumiko-framework#2330: unset (not pre-filled) so the default stays on
+  // resolveKmsWiring's plaintext fallback — a half-filled trio would throw
+  // the all-or-none error instead of booting.
+  test(".env.example documents the PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY trio, unset by default", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const env = readFileSync(join(dest, ".env.example"), "utf-8");
+    expect(env).toContain("PLATFORM_KEK=\n");
+    expect(env).toContain("SUBJECT_KEYS_DATABASE_URL=\n");
+    expect(env).toContain("KUMIKO_BLIND_INDEX_KEY=\n");
+  });
+
   test("docker-compose.yml ports + credentials match the .env.example *_URL defaults", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
@@ -196,6 +209,15 @@ describe("scaffoldApp", () => {
     expect(readme).toContain("## Mounted features");
     expect(readme).toContain("- `tenant`");
     expect(readme).toContain("- `delivery`");
+  });
+
+  test("README documents the plaintext-PII default until PLATFORM_KEK/SUBJECT_KEYS_DATABASE_URL/KUMIKO_BLIND_INDEX_KEY are set", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const readme = readFileSync(join(dest, "README.md"), "utf-8");
+    expect(readme).toContain("PLATFORM_KEK");
+    expect(readme).toContain("plaintext");
   });
 
   test("callExpression/export-callability mismatch throws instead of silently mis-instantiating", async () => {
@@ -241,6 +263,22 @@ describe("scaffoldApp", () => {
     expect(main).toContain(
       "composeEnvSchema({ core: frameworkCoreEnvSchema, features: bootFeatures })",
     );
+  });
+
+  // kumiko-framework#2330: the --yes recommended set mounts PII-annotated
+  // entities (user, tenant-invitation, fileRef via user-data-rights), so
+  // runProdApp's PII boot gate throws BOOT ABORTED unless kms/allowPlaintextPii
+  // is wired. resolveKmsWiring supplies a real KMS when the env trio is set,
+  // otherwise an explicit, logged plaintext fallback — never a silent one.
+  test("bin/main.ts wires resolveKmsWiring into runProdApp so the PII boot gate doesn't abort", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const main = readFileSync(join(dest, "bin/main.ts"), "utf-8");
+    expect(main).toContain('from "@cosmicdrift/kumiko-framework/crypto"');
+    expect(main).toContain("resolveKmsWiring(process.env");
+    expect(main).toContain('if ("allowPlaintextPii" in kmsWiring)');
+    expect(main).toContain("...kmsWiring,");
   });
 
   test("src/run-config.ts mounts secrets + sessions + tasks + HAS_AUTH", async () => {

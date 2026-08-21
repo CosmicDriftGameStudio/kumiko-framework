@@ -438,6 +438,10 @@ function renderMain(appName: string): string {
     namedImports: ["composeEnvSchema"],
   });
   sf.addImportDeclaration({
+    moduleSpecifier: "@cosmicdrift/kumiko-framework/crypto",
+    namedImports: ["resolveKmsWiring"],
+  });
+  sf.addImportDeclaration({
     moduleSpecifier: "../src/run-config",
     namedImports: ["APP_FEATURES", "HAS_AUTH"],
   });
@@ -477,6 +481,37 @@ function renderMain(appName: string): string {
     ],
   });
 
+  // Subject-key KMS for the pii-annotated entities the --yes recommended set
+  // mounts (user, tenant-invitation, fileRef). Without the PLATFORM_KEK /
+  // SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY trio this falls back
+  // to plaintext PII with a loud boot warning — fine to get running locally,
+  // never for a real deploy (kumiko-framework#2330).
+  sf.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [
+      {
+        name: "kmsWiring",
+        initializer: (writer) => {
+          writer.write("resolveKmsWiring(process.env, ").inlineBlock(() => {
+            writer.writeLine(`logPrefix: "[${appName}]",`);
+            writer.writeLine(
+              `plaintextReason: "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",`,
+            );
+          });
+          writer.write(")");
+        },
+      },
+    ],
+  });
+
+  sf.addStatements((writer) => {
+    writer.write('if ("allowPlaintextPii" in kmsWiring) ').inlineBlock(() => {
+      writer.writeLine(
+        `console.warn(\`[${appName}] PII IS STORED IN PLAINTEXT — \${kmsWiring.allowPlaintextPii}\`);`,
+      );
+    });
+  });
+
   sf.addStatements((writer) => {
     writer
       .write("await runProdApp(")
@@ -484,6 +519,7 @@ function renderMain(appName: string): string {
         writer.writeLine("features: APP_FEATURES,");
         writer.writeLine("envSchema,");
         writer.writeLine('staticDir: "./dist",');
+        writer.writeLine("...kmsWiring,");
         writer.write("auth: ").inlineBlock(() => {
           writer.write("admin: ").inlineBlock(() => {
             writer.writeLine(`email: "admin@${appName}.local",`);
@@ -661,6 +697,14 @@ JWT_SECRET=change-me-min-32-chars-change-me-min-32
 # Generate with: openssl rand -base64 32
 KUMIKO_SECRETS_MASTER_KEY_V1=
 
+# Subject-keys KMS for PII fields (user, tenant-invitation, fileRef). Unset by
+# default — bin/main.ts then boots with plaintext PII and a loud warning, fine
+# to get running locally. Set all three before a real deploy (crypto-shredding
+# needs it for GDPR erasure): PLATFORM_KEK generate with: openssl rand -base64 32
+PLATFORM_KEK=
+SUBJECT_KEYS_DATABASE_URL=
+KUMIKO_BLIND_INDEX_KEY=
+
 # Dev-only: persistent DB for \`bun dev\`. Without this var every reboot starts
 # a fresh kumiko_test_<random> DB → admin login + data gone on every edit.
 # With it the DB persists across reboots (schema pushes are idempotent).
@@ -743,6 +787,11 @@ bun run boot
 
 Runs \`KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts\` — validates feature composition
 + env schema, exits 0 without touching DB/Redis. Useful in CI.
+
+Without \`PLATFORM_KEK\` / \`SUBJECT_KEYS_DATABASE_URL\` / \`KUMIKO_BLIND_INDEX_KEY\`
+set (see \`.env.example\`), both \`bun run boot\` and \`bun run start\` boot with
+PII fields (user, tenant-invitation, fileRef) stored in plaintext and a loud
+warning — set all three before a real deploy.
 
 ## Production build + schema
 
