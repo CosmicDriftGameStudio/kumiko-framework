@@ -355,7 +355,10 @@ export async function runUpgradeCli(
   const verbose = getFlag(args, "verbose");
   const fromFlag = getStringFlag(args, "from");
 
-  const currentVersion = fromFlag ?? readCurrentVersion(cwd);
+  // Always resolve the actually installed version, even when --from is set,
+  // so --json can report both the filter baseline and what's really there.
+  const installedVersion = readCurrentVersion(cwd);
+  const currentVersion = fromFlag ?? installedVersion;
   if (!currentVersion) {
     out.err("");
     out.err("  Could not detect Kumiko version.");
@@ -401,7 +404,7 @@ export async function runUpgradeCli(
   }
 
   if (jsonMode) {
-    out.log(JSON.stringify({ currentVersion, pending }, null, 2));
+    out.log(JSON.stringify({ currentVersion, installedVersion, pending }, null, 2));
     return 0;
   }
 
