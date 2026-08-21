@@ -15,8 +15,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
+  createSystemUser,
   createTextField,
   defineFeature,
   EXT_USER_DATA,
@@ -38,6 +40,8 @@ import { buildEnvConfigOverrides, createConfigResolver } from "../../config/reso
 import { configValueEntity } from "../../config/table";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { createSessionsFeature } from "../../sessions";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant";
+import { seedTenantMembership } from "../../tenant/seeding";
 import { createUserFeature, userEntity } from "../../user";
 import { TENANT_MODEL_CONFIG_KEY } from "../constants";
 import { createUserDataRightsFeature } from "../feature";
@@ -73,6 +77,14 @@ const contributorFeature = defineFeature("dsgvo-tenant-scoped", (r) => {
     delete: tenantScopedDeleteHook,
   });
 });
+
+const membershipExecutor = createEventStoreExecutor(
+  tenantMembershipsTable,
+  tenantMembershipEntity,
+  {
+    entityName: "tenant-membership",
+  },
+);
 
 let stack: TestStack;
 const seed = (db: unknown) =>
@@ -222,6 +234,69 @@ describe("forget pipeline honours the effective tenant model", () => {
     });
 
     expect(result.errors).toHaveLength(0);
+    expect(await rowCount()).toBe(1);
+  });
+
+  test("single-user, sole live member, but a departed co-member's history remains → rows preserved (ent#346)", async () => {
+    await seedScopedRow("dddddddd-dddd-4ddd-8ddd-0000000000c5");
+    await seed(stack.db).seedForgetUser(FORGET_USER);
+    // Both memberships go through the REAL event-store executor (not the
+    // raw-INSERT seedMembership() helper) — the historical check reads
+    // `tenant-membership.created` events, so FORGET_USER needs its own
+    // `.created` event too, or the tenant would only ever show 1 distinct
+    // historical member (CO_MEMBER) even after it truly had 2.
+    // Explicit `by`: streamTenantFor(user) keys each event's OWN tenantId
+    // column off the acting user, not the payload's tenantId — the
+    // seedTenantMembership default (TestUsers.systemAdmin) lives on a
+    // different tenant, which would emit .created under the wrong tenantId
+    // and make it invisible to everHadMultipleMembers' tenant-scoped query.
+    await seedTenantMembership(stack.db, {
+      userId: FORGET_USER,
+      tenantId: TENANT,
+      roles: ["Member"],
+      by: createSystemUser(TENANT),
+    });
+
+    // CO_MEMBER joins for real (emits tenant-membership.created) and is then
+    // removed for real (emits tenant-membership.deleted, deletes the
+    // projection row) — mirrors removeMemberWrite exactly, so the created
+    // event survives in kumiko_events even though the live row is gone.
+    const created = await seedTenantMembership(stack.db, {
+      userId: CO_MEMBER,
+      tenantId: TENANT,
+      roles: ["Member"],
+      by: createSystemUser(TENANT),
+    });
+    const deleteResult = await membershipExecutor.delete(
+      { id: created.id },
+      createSystemUser(TENANT),
+      createTenantDb(stack.db, TENANT, "system"),
+    );
+    if (!deleteResult.isSuccess) {
+      throw new Error(`test setup: co-member delete failed: ${deleteResult.error.code}`);
+    }
+
+    // Pins the test's premise: exactly 1 live membership row, so a live-count-
+    // only check would call this tenant single-user (and the fix must reject
+    // that call via history instead).
+    const liveMemberships = await asRawClient(stack.db).unsafe(
+      "SELECT id FROM read_tenant_memberships WHERE tenant_id = $1",
+      [TENANT],
+    );
+    expect(liveMemberships.length).toBe(1);
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: nowInstant(),
+      tenantModel: "single-user",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.processedUserIds).toContain(FORGET_USER);
+    // Only 1 live membership remains (FORGET_USER) — the OLD live-only check
+    // would have called this single-user and wiped the co-member's row. The
+    // historical check must still resolve multi-user here.
     expect(await rowCount()).toBe(1);
   });
 });
