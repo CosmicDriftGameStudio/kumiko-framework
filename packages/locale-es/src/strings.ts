@@ -61,7 +61,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Esta aplicación no admite la verificación en dos pasos. Contacta con soporte.",
   "auth.errors.mfaSetupRequired":
     "Se requiere autenticación en dos pasos. Contacta con el administrador.",
-  "auth.errors.noMembership": "Esta cuenta no tiene acceso a ningún tenant.",
+  "auth.errors.noMembership": "Esta cuenta no tiene acceso a ninguna organización.",
   "auth.errors.originNotAllowed": "El acceso desde este origen no está permitido.",
   "auth.errors.rateLimited": "Demasiados intentos de inicio de sesión. Espera un momento.",
   "auth.errors.signupEmailAlreadyRegistered":
@@ -250,8 +250,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "auth.signupComplete.submitting": "…",
   "auth.signupComplete.title": "Establecer contraseña",
   "auth.signupComplete.tooShort": "La contraseña debe tener al menos 8 caracteres.",
-  "auth.tenant.switcher.label": "Tenant",
-  "auth.tenant.switcher.none": "Sin tenant",
+  "auth.tenant.switcher.label": "Organización",
+  "auth.tenant.switcher.none": "Sin organización",
   "auth.unlockAccount.errorBody":
     "El enlace no es válido o ha caducado. Solicita un nuevo enlace de desbloqueo.",
   "auth.unlockAccount.errorTitle": "Error al desbloquear",
@@ -465,7 +465,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.config.source.default": "Predeterminado",
   "kumiko.config.source.missing": "Falta",
   "kumiko.config.source.system": "Sistema",
-  "kumiko.config.source.tenant": "Tenant",
+  "kumiko.config.source.tenant": "Organización",
   "kumiko.config.source.user": "Mi valor",
   "kumiko.contentEditor.bold": "Negrita",
   "kumiko.contentEditor.bulletList": "Lista con viñetas",
@@ -743,14 +743,14 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "tier-admin.current.label": "Tier actual",
   "tier-admin.current.none": "— aún ninguno —",
   "tier-admin.error.generic": "No se pudo asignar el tier.",
-  "tier-admin.error.load": "No se pudieron cargar los tenants.",
+  "tier-admin.error.load": "No se pudieron cargar las organizaciones.",
   "tier-admin.error.noTiers":
     "Esta aplicación no tiene una TierMap configurada — no hay tiers asignables.",
   "tier-admin.explainer":
-    "Asigna un tier a un tenant sin necesidad de compra. La asignación se marca como «manual» y no será sobrescrita por una sincronización de facturación posterior.",
+    "Asigna un tier a una organización sin necesidad de compra. La asignación se marca como «manual» y no será sobrescrita por una sincronización de facturación posterior.",
   "tier-admin.submit": "Asignar tier",
   "tier-admin.success": "Tier «{tier}» asignado.",
-  "tier-admin.tenant.label": "Tenant",
+  "tier-admin.tenant.label": "Organización",
   "tier-admin.tier.label": "Nuevo tier",
   "tier-admin.title": "Asignar tier manualmente",
   "user-data-rights:entity:download-attempt:field:attemptedAt": "Fecha y hora",
