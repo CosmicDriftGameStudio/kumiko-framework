@@ -55,4 +55,42 @@ describe("tenant-settings — Settings-Hub nav/section labels", () => {
     if (sectionTitle === undefined) throw new Error("unreachable");
     expect(translate(translations, sectionTitle)).not.toBe(sectionTitle);
   });
+
+  test("every Settings-Hub label the schema renders resolves in es, distinct from en", () => {
+    const registry = createRegistry([createConfigFeature(), createTenantSettingsFeature()]);
+    const schema = buildConfigFeatureSchema(registry);
+    const translations = registry.getFeature("tenant-settings")?.translations ?? {};
+
+    const renderedKeys: string[] = [];
+    for (const screenId of ["tenant-settings-system", "tenant-settings-tenant"]) {
+      const nav = schema.navs.find((n) => n.id === screenId);
+      const screen = schema.screens.find((s) => s.id === screenId);
+      expect(nav).toBeDefined();
+      expect(screen).toBeDefined();
+      if (nav === undefined || screen === undefined || screen.type !== "configEdit") {
+        throw new Error("unreachable");
+      }
+      const section = screen.layout.sections[0];
+      const sectionTitle = section !== undefined && "title" in section ? section.title : undefined;
+      expect(sectionTitle).toBeDefined();
+      if (sectionTitle === undefined) throw new Error("unreachable");
+
+      renderedKeys.push(nav.label, `screen:${screenId}.title`, sectionTitle);
+      renderedKeys.push(...Object.values(screen.fieldLabels ?? {}));
+    }
+
+    // The Settings-Hub renders exactly these label surfaces per scope: nav
+    // entry, screen title, section heading and one label per masked config
+    // key (currency + locale) — six distinct keys across both scopes.
+    expect(new Set(renderedKeys).size).toBe(6);
+
+    for (const key of renderedKeys) {
+      expect(translate(translations, key, "es")).not.toBe(key);
+      expect(translate(translations, key, "es")).not.toBe(translate(translations, key, "en"));
+    }
+
+    const systemLabel = translate(translations, "tenant-settings.settings.system", "es");
+    const tenantLabel = translate(translations, "tenant-settings.settings", "es");
+    expect(systemLabel).not.toBe(tenantLabel);
+  });
 });

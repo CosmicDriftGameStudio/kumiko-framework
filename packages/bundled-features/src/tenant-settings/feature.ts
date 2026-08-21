@@ -29,21 +29,35 @@ export function createTenantSettingsFeature(
     r.config({ keys: buildTenantSettingsKeys(opts) });
     r.translations({
       keys: {
-        "tenant-settings.currency": { de: "Standard-Währung", en: "Default Currency" },
-        "tenant-settings.locale": { de: "Standard-Sprache", en: "Default Locale" },
+        "tenant-settings.currency": {
+          de: "Standard-Währung",
+          en: "Default Currency",
+          es: "Moneda predeterminada",
+        },
+        "tenant-settings.locale": {
+          de: "Standard-Sprache",
+          en: "Default Locale",
+          es: "Idioma predeterminado",
+        },
         // Settings-Hub-derived configEdit screen title (buildConfigFeatureSchema) —
         // required by the i18n boot-validator whenever a feature masks config keys.
         "screen:tenant-settings-system.title": {
           de: "Tenant-Einstellungen",
           en: "Tenant Settings",
+          es: "Ajustes de la organización",
         },
         "screen:tenant-settings-tenant.title": {
           de: "Tenant-Einstellungen",
           en: "Tenant Settings",
+          es: "Ajustes de la organización",
         },
         // Settings-Hub nav label + configEdit section heading (same key, both
         // scopes fall back here — see buildConfigFeatureSchema).
-        "tenant-settings.settings": { de: "Tenant-Einstellungen", en: "Tenant Settings" },
+        "tenant-settings.settings": {
+          de: "Tenant-Einstellungen",
+          en: "Tenant Settings",
+          es: "Ajustes de la organización",
+        },
         // Both currency/locale are tenant-home with admin write access, which
         // cascades a SystemAdmin-only "set the platform default" screen up to
         // the system audience — scoped override so its nav entry reads
@@ -52,6 +66,7 @@ export function createTenantSettingsFeature(
         "tenant-settings.settings.system": {
           de: "Tenant-Einstellungen (Plattform-Standard)",
           en: "Tenant Settings (Platform Default)",
+          es: "Ajustes de la organización (valor predeterminado de la plataforma)",
         },
       },
     });
