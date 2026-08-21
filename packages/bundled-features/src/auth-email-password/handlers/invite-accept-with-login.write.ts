@@ -32,7 +32,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { decryptStoredPii, sessionTimezoneField } from "../../shared";
+import { decryptStoredPii, sessionLocaleField, sessionTimezoneField } from "../../shared";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
   INVITATION_STATUS,
@@ -136,6 +136,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
         readonly id: string;
         readonly passwordHash: string | null;
         readonly timezone?: string | null;
+        readonly locale?: string | null;
         readonly emailVerified?: boolean | null;
         readonly status?: string | null;
       };
@@ -251,6 +252,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
           tenantId: invitationTenantId,
           roles: mergedRoles,
           ...sessionTimezoneField(userRow.timezone),
+          ...sessionLocaleField(userRow.locale),
         };
 
         committed = true;

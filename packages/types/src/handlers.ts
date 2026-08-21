@@ -35,6 +35,11 @@ export type SessionUser = {
   // to tenant.timezone, then "UTC" (buildHandlerContext, fw#1636). Stale
   // until re-login — same tradeoff as `roles`.
   readonly timezone?: string;
+  // BCP-47 tag from user.locale, set at login. Absent → ctx.locale falls
+  // back to the app's boot-configured defaultLocale, then "en"
+  // (dispatch-shared.ts, fw#2333). Stale until re-login — same tradeoff as
+  // `timezone`.
+  readonly locale?: string;
   // App-specific identity facts baked into the JWT at login time.
   // Populated by `r.authClaims()` hooks (not yet implemented — see the
   // auth-claims design note in docs/plans). Reserved here so the type shape
