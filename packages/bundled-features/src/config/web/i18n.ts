@@ -13,7 +13,7 @@ export const defaultTranslations: TranslationsByLocale = {
   en: {
     "config.settings.title": "Settings",
     "config.settings.system": "Platform",
-    "config.settings.tenant": "Organization",
+    "config.settings.tenant": "Tenant",
     "config.settings.user": "Personal",
     "config.errors.systemOnly": "This value can only be set by the system.",
     "config.errors.invalidScope": "This scope is not allowed for this key.",
