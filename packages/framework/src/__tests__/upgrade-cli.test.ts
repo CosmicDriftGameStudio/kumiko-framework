@@ -151,6 +151,47 @@ describe("upgrade command — framework core changelog", () => {
     expect(spy.errs.join("\n")).toContain("Invalid version format");
     expect(spy.logs).toEqual([]);
   });
+
+  test("--json installedVersion reflects the actually installed version, not an echo of --from", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": CORE_ENTRY,
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--from", "0.165.0", "--json"], cwd, spy.out);
+
+    expect(exit).toBe(0);
+    const result = JSON.parse(spy.logs.join("\n"));
+    expect(result.currentVersion).toBe("0.165.0");
+    expect(result.installedVersion).toBe("0.190.0");
+  });
+
+  test("--json without --from: currentVersion and installedVersion both come from the installed package", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": CORE_ENTRY,
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--json"], cwd, spy.out);
+
+    expect(exit).toBe(0);
+    const result = JSON.parse(spy.logs.join("\n"));
+    expect(result.currentVersion).toBe("0.190.0");
+    expect(result.installedVersion).toBe("0.190.0");
+  });
+
+  test("--json installedVersion is null when nothing is installed and --from is given", async () => {
+    const cwd = tmp({ "packages/framework/src/changes.json": CORE_ENTRY });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--from", "0.165.0", "--json"], cwd, spy.out);
+
+    expect(exit).toBe(0);
+    const result = JSON.parse(spy.logs.join("\n"));
+    expect(result.installedVersion).toBeNull();
+  });
 });
 
 describe("upgrade command — enterprise package layout", () => {
