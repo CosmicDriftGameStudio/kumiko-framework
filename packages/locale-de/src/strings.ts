@@ -575,6 +575,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "managed-pages:section.body": "Inhalt",
   "managed-pages:section.meta": "Metadaten",
   "notesHistory.section.add": "Notiz hinzufügen",
+  "notesHistory.section.authorUnknown": "Unbekannter Autor",
   "notesHistory.section.createMode": "Speichere zuerst den Eintrag, um Notizen anzulegen.",
   "notesHistory.section.empty": "Noch keine Notizen.",
   "notesHistory.section.loading": "Lädt…",

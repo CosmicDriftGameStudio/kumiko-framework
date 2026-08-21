@@ -21,12 +21,13 @@ export const noteEntryExportHook: UserDataExportHook = async (ctx) => {
       entityType: r["entityType"],
       entityId: r["entityId"],
       body: r["body"],
+      authorName: r["authorName"],
       insertedAt: r["insertedAt"],
     })),
   };
 };
 
-// Deliberate no-op: `body` is annotated `personal: { of: "authorId" }`
+// Deliberate no-op: `body` and `authorName` are annotated `personal: { of: "authorId" }`
 // (entity.ts), which relies on crypto-shredding (mounted KMS) for erasure —
 // destroying the author's subject key makes every note-entry event AND
 // projected row unreadable at once, without needing a physical delete

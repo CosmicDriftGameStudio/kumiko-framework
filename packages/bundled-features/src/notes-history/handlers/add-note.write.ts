@@ -1,4 +1,7 @@
+import { fetchOne, runInSavepoint } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { decryptStoredPii } from "../../shared";
+import { userTable } from "../../user";
 import { DEFAULT_NOTES_HISTORY_ACCESS } from "../constants";
 import { noteEntryExecutor } from "../executor";
 import { type AddNotePayload, addNotePayloadSchema } from "../schemas";
@@ -17,7 +20,28 @@ export function createAddNoteHandler(
     access,
     handler: async (event, ctx) => {
       const payload = event.payload as AddNotePayload; // @cast-boundary engine-payload
-      return noteEntryExecutor.create({ ...payload, authorId: event.user.id }, event.user, ctx.db);
+
+      let authorName: string | null = null;
+      try {
+        // read_users is tenant-agnostic → ctx.db.raw, not the tenant-scoped ctx.db.
+        // Bun.SQL poisons the whole tx after any error inside it, even one that's
+        // caught — a bare try/catch here would take the note write down with it.
+        authorName = await runInSavepoint(ctx.db.raw, async (sp) => {
+          const userRow = await fetchOne<{ displayName: string | null }>(sp, userTable, {
+            id: event.user.id,
+          });
+          if (!userRow?.displayName) return null;
+          return decryptStoredPii(userRow.displayName, "displayName", "notes-history:add-note");
+        });
+      } catch {
+        authorName = null;
+      }
+
+      return noteEntryExecutor.create(
+        { ...payload, authorId: event.user.id, authorName },
+        event.user,
+        ctx.db,
+      );
     },
   };
 }

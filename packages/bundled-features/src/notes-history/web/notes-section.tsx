@@ -12,6 +12,7 @@
 //                   (RenderEdit passes { entityName, entityId }).
 
 import {
+  formatWhen,
   useDispatcher,
   usePrimitives,
   useQuery,
@@ -25,6 +26,8 @@ type NoteRow = {
   readonly entityType: string;
   readonly entityId: string;
   readonly authorId: string;
+  // Null for pre-authorName history and for shredded authors.
+  readonly authorName: string | null;
   readonly body: string;
   readonly insertedAt: string;
 };
@@ -136,11 +139,14 @@ export function NotesSection({
             <div
               key={n.id}
               data-testid={`notes-section-row-${n.id}`}
-              className="rounded-md border p-2"
+              className="flex flex-col gap-1 rounded-md border p-2"
             >
-              <Text>{n.body}</Text>
-              <Text variant="small">
-                {t("notesHistory.section.meta", { author: n.authorId, date: n.insertedAt })}
+              <Text testId={`notes-section-row-${n.id}-body`}>{n.body}</Text>
+              <Text variant="small" testId={`notes-section-row-${n.id}-meta`}>
+                {t("notesHistory.section.meta", {
+                  author: n.authorName ?? t("notesHistory.section.authorUnknown"),
+                  date: formatWhen(n.insertedAt),
+                })}
               </Text>
             </div>
           ))}
