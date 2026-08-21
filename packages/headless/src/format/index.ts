@@ -134,6 +134,7 @@ export { currencyDecimals } from "./money";
 export function applyFormatSpec(
   spec: { format: string } & Record<string, unknown>,
   value: unknown,
+  translate?: (key: string) => string,
 ): string {
   const isEmpty = value === null || value === undefined || value === "";
   // priority renders its emptyLabel for empty values — every other format
@@ -175,6 +176,14 @@ export function applyFormatSpec(
       const prefix = (spec["prefix"] as string | undefined) ?? "";
       if (isEmpty || value === 0) return emptyLabel;
       return `${prefix}${value}`;
+    }
+    case "enumOption": {
+      const raw = typeof value === "string" ? value : String(value);
+      const keyPrefix = spec["keyPrefix"] as string | undefined;
+      if (keyPrefix === undefined || translate === undefined) return raw;
+      const key = `${keyPrefix}${raw}`;
+      const translated = translate(key);
+      return translated === key ? raw : translated;
     }
     default:
       if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {

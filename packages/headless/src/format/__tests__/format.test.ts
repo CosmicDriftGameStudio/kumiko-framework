@@ -154,3 +154,38 @@ describe("applyFormatSpec — unit (fw#2187)", () => {
     expect(applyFormatSpec({ format: "unit", unit: "km" }, "")).toBe("");
   });
 });
+
+describe("applyFormatSpec — enumOption (fw#2315)", () => {
+  const spec = { format: "enumOption", keyPrefix: "contact:entity:contact:field:status:option:" };
+
+  test("übersetzter Key gewinnt gegen den Rohwert", () => {
+    const translate = (key: string) =>
+      key === "contact:entity:contact:field:status:option:active" ? "Aktiv" : key;
+    expect(applyFormatSpec(spec, "active", translate)).toBe("Aktiv");
+  });
+
+  test("unbekannter Key fällt auf den Rohwert zurück (translate gibt den Key unverändert zurück)", () => {
+    const translate = (key: string) => key;
+    expect(applyFormatSpec(spec, "active", translate)).toBe("active");
+  });
+
+  test("ohne translate-Parameter fällt auf den Rohwert zurück", () => {
+    expect(applyFormatSpec(spec, "active")).toBe("active");
+  });
+
+  test("ohne keyPrefix fällt auf den Rohwert zurück, auch mit translate", () => {
+    const translate = (key: string) => `translated:${key}`;
+    expect(applyFormatSpec({ format: "enumOption" }, "active", translate)).toBe("active");
+  });
+
+  test("nicht-string-Wert wird vor der Key-Bildung stringifiziert", () => {
+    const translate = (key: string) =>
+      key === "contact:entity:contact:field:status:option:1" ? "Eins" : key;
+    expect(applyFormatSpec(spec, 1, translate)).toBe("Eins");
+  });
+
+  test("leerer Wert collapst zu '' wie jedes andere Nicht-priority-Format", () => {
+    expect(applyFormatSpec(spec, null, (k) => k)).toBe("");
+    expect(applyFormatSpec(spec, "", (k) => k)).toBe("");
+  });
+});

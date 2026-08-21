@@ -60,6 +60,11 @@ export interface FieldFormatRegistry {
     readonly locale?: string;
     readonly unitDisplay?: "long" | "short" | "narrow";
   };
+  // Resolves an enum value through the i18n convention
+  // `<feature>:entity:<entity>:field:<field>:option:<value>` — same
+  // fallback-to-raw-value rule as buildOptionLabels: an untranslated key
+  // renders the raw enum value instead of the literal i18n key.
+  enumOption: { readonly keyPrefix: string };
 }
 
 // Discriminated union derived from the registry — one variant per key.

@@ -349,6 +349,7 @@ function FieldRendererOutput({
   readonly appLocale: string;
 }): ReactNode {
   const { Text } = usePrimitives();
+  const t = useTranslation();
   const componentName =
     !isFormatSpec(renderer) && typeof renderer === "object" && renderer !== null
       ? extensionSectionName(renderer)
@@ -363,7 +364,7 @@ function FieldRendererOutput({
     // further below in readOnlyDisplayText.
     return (
       <Text testId={`field-value-${field.field}`}>
-        {applyFormatSpec({ locale: appLocale, ...renderer }, field.value)}
+        {applyFormatSpec({ locale: appLocale, ...renderer }, field.value, t)}
       </Text>
     );
   }
