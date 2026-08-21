@@ -3,7 +3,7 @@
 // feature without an actual postgres/redis. See package.json `boot`
 // script + ../README.md.
 
-import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server";
+import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server/env-schema";
 import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
