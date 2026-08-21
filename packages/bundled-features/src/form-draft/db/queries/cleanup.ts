@@ -1,4 +1,4 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "temporal-polyfill";
@@ -29,7 +29,8 @@ export async function selectStaleDraftsBatch(
   olderThanDays: number,
   batchSize: number,
 ): Promise<readonly StaleDraftRow[]> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = (await unsafeReadRetrying(
+    db,
     `SELECT "id", "tenant_id", "owner_id", "draft_key", "draft", "inserted_at" FROM "read_form_drafts"
      WHERE COALESCE("modified_at", "inserted_at") < now() - ($1::int * interval '1 day')
      ORDER BY COALESCE("modified_at", "inserted_at") ASC

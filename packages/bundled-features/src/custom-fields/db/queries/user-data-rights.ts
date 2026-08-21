@@ -1,4 +1,4 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 
 function quoteTable(tableName: string): string {
@@ -18,7 +18,8 @@ export async function selectCustomFieldsHostRows(
 ): Promise<readonly unknown[]> {
   const tbl = quoteTable(tableName);
   const userCol = quoteColumn(userIdColumn);
-  const rowsResult = await asRawClient(db).unsafe(
+  const rowsResult = await unsafeReadRetrying(
+    db,
     `SELECT id, custom_fields FROM ${tbl} WHERE ${userCol} = $1 AND tenant_id = $2`,
     [userId, tenantId],
   );
@@ -30,7 +31,8 @@ export async function selectFieldDefinitionsForEntity(
   entityName: string,
   tenantId: string,
 ): Promise<readonly { field_key: string; serialized_field: unknown }[]> {
-  return asRawClient(db).unsafe(
+  return unsafeReadRetrying(
+    db,
     "SELECT field_key, serialized_field FROM read_custom_field_definitions WHERE entity_name = $1 AND tenant_id = $2",
     [entityName, tenantId],
   ) as Promise<readonly { field_key: string; serialized_field: unknown }[]>;

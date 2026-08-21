@@ -1,5 +1,5 @@
 import type { AnyDb } from "../query";
-import { asRawClient } from "../query";
+import { asRawClient, unsafeReadRetrying } from "../query";
 
 export async function markProjectionRebuilding(db: AnyDb, projectionName: string): Promise<void> {
   await asRawClient(db).unsafe(
@@ -26,7 +26,8 @@ export async function selectEventsForProjectionRebuildBatch(
   // Archived streams don't replay (Marten-aligned): their aggregates are
   // frozen ops-tombstones — replaying them would resurrect rows (or, for
   // stranded duplicate-aggregates like fw#832, collide on unique indexes).
-  return (await asRawClient(db).unsafe(
+  return (await unsafeReadRetrying(
+    db,
     `SELECT * FROM "kumiko_events" e
      WHERE e."aggregate_type" = ANY($1::text[])
        AND e."type" = ANY($2::text[])
@@ -53,7 +54,8 @@ export async function countSubscribedEvents(
   // Same archived-streams exclusion as the batch query — the #443 recompute
   // compares this count against applied events; a filter mismatch would make
   // every rebuild with an archived stream loop the full-re-replay forever.
-  const rows = (await asRawClient(db).unsafe(
+  const rows = (await unsafeReadRetrying(
+    db,
     `SELECT count(*)::bigint AS n FROM "kumiko_events" e
      WHERE e."aggregate_type" = ANY($1::text[])
        AND e."type" = ANY($2::text[])

@@ -1,4 +1,4 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "temporal-polyfill";
@@ -62,7 +62,8 @@ export async function filterOwnedFileRefs(
   isCreateMode: boolean,
 ): Promise<readonly OwnedFileRef[]> {
   if (candidateKeys.length === 0) return [];
-  const rows = (await asRawClient(db).unsafe(
+  const rows = (await unsafeReadRetrying(
+    db,
     `SELECT "id", "storage_key" FROM "file_refs"
      WHERE "tenant_id" = $1 AND "inserted_by_id" = $2
        AND "storage_key" = ANY($3::text[]) AND "is_deleted" = false

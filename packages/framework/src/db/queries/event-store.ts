@@ -5,7 +5,7 @@ import {
   isUniqueViolation,
 } from "../pg-error";
 import type { AnyDb } from "../query";
-import { asRawClient } from "../query";
+import { asRawClient, unsafeReadRetrying } from "../query";
 
 /** NOTIFY on commit — wakes LISTEN subscribers (event-dispatcher). */
 export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void> {
@@ -175,7 +175,8 @@ export async function selectStreamMaxVersion(
   aggregateId: string,
   tenantId: string,
 ): Promise<number> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = (await unsafeReadRetrying(
+    db,
     `SELECT MAX("version") AS v FROM "kumiko_events" WHERE "aggregate_id" = $1 AND "tenant_id" = $2`,
     [aggregateId, tenantId],
   )) as ReadonlyArray<{ v: number | null }>;
@@ -184,7 +185,8 @@ export async function selectStreamMaxVersion(
 
 /** MAX(version) for one aggregate stream — no tenant filter (seed idempotency). */
 export async function selectAggregateMaxVersion(db: AnyDb, aggregateId: string): Promise<number> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = (await unsafeReadRetrying(
+    db,
     `SELECT MAX("version") AS v FROM "kumiko_events" WHERE "aggregate_id" = $1`,
     [aggregateId],
   )) as ReadonlyArray<{ v: number | null }>;
@@ -192,8 +194,10 @@ export async function selectAggregateMaxVersion(db: AnyDb, aggregateId: string):
 }
 
 export async function selectEventsHighWaterMark(db: AnyDb): Promise<bigint> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = (await unsafeReadRetrying(
+    db,
     `SELECT COALESCE(MAX("id"), 0)::bigint AS max FROM "kumiko_events"`,
+    [],
   )) as ReadonlyArray<{ max: bigint | string | number | null }>;
   const raw = rows[0]?.max;
   if (typeof raw === "bigint") return raw;
@@ -208,7 +212,8 @@ export async function selectEventsHeadId(db: AnyDb): Promise<bigint> {
 }
 
 export async function selectNextEventIdAfter(db: AnyDb, afterId: bigint): Promise<bigint | null> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = (await unsafeReadRetrying(
+    db,
     `SELECT "id" FROM "kumiko_events" WHERE "id" > $1 ORDER BY "id" ASC LIMIT 1`,
     [afterId],
   )) as ReadonlyArray<{ id: string | bigint }>;

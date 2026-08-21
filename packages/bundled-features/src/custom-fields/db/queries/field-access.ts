@@ -1,4 +1,4 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 
 export async function selectSerializedFieldDefinition(
@@ -7,7 +7,8 @@ export async function selectSerializedFieldDefinition(
   entityName: string,
   fieldKey: string,
 ): Promise<unknown | null> {
-  const rows = await asRawClient(db.raw).unsafe(
+  const rows = await unsafeReadRetrying(
+    db.raw,
     "SELECT serialized_field FROM read_custom_field_definitions WHERE entity_name = $1 AND field_key = $2 AND tenant_id = $3 LIMIT 1",
     [entityName, fieldKey, tenantId],
   );
