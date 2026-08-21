@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-19T18:36:18.558Z",
+  "generatedAt": "2026-08-21T14:33:42.199Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1504,6 +1504,11 @@
           "notNull": false
         },
         {
+          "name": "author_name",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "body",
           "pgType": "text",
           "notNull": true
@@ -1516,7 +1521,7 @@
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["body"]
+      "piiSubjectFields": ["authorName", "body"]
     },
     {
       "tableName": "read_notification_preferences",
