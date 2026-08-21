@@ -66,12 +66,18 @@ export async function subjectRowExistsInTenant(
       );
       if (!hasSelfPiiField) continue;
       const tableName = resolveTableName(entityName, entity, undefined);
-      const rows = await executeRawQuery(
-        db,
-        `SELECT 1 FROM ${quoteIdent(tableName)} WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
-        [subjectId, tenantId],
-      );
-      if (rows.length > 0) return true;
+      try {
+        const rows = await executeRawQuery(
+          db,
+          `SELECT 1 FROM ${quoteIdent(tableName)} WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+          [subjectId, tenantId],
+        );
+        if (rows.length > 0) return true;
+      } catch {
+        // Table missing, id-type mismatch, ... — not evidence the subject is
+        // owned here. Fail-closed must come from an honest "not found" across
+        // every entity, never from a query blowing up on one of them.
+      }
     }
   }
   return false;
