@@ -1,3 +1,9 @@
+// @runtime runtime
+// Despite living in this "dev"-marked package, every preset here composes
+// @cosmicdrift/kumiko-bundled-features factories, and run-config.ts in every
+// app repo feeds it into the runProdApp boot path, not just runDevApp
+// (kumiko-framework#2337).
+//
 // Composable SaaS stack presets — explicit opt-in blocks for run-config.ts.
 // Presets export feature instances only; no implicit PAT scopes, anonymousAccess,
 // or tier maps (those stay in bin/server.ts / app run-config).

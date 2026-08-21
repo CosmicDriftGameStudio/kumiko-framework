@@ -5,7 +5,8 @@
 // stack — DX-1.0 only covers the boot-mode path; `kumiko dev` lands in a
 // later DX phase.
 
-import { composeFeatures, frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server";
+import { composeFeatures } from "@cosmicdrift/kumiko-dev-server";
+import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server/env-schema";
 import { resolveKmsWiring } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
