@@ -1528,8 +1528,9 @@ function DataTableCell({
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
+  const t = useTranslation();
   if (typeof renderer === "object" && renderer !== null && "format" in renderer) {
-    return applyFormatSpec(renderer as { format: string } & Record<string, unknown>, value);
+    return applyFormatSpec(renderer as { format: string } & Record<string, unknown>, value, t);
   }
   if (typeof renderer === "function") {
     const fn = renderer as (v: unknown, r?: Readonly<Record<string, unknown>>) => string;
