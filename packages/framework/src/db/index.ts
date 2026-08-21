@@ -1,5 +1,5 @@
 export { assertExistsIn } from "./assert-exists-in";
-export { nullBlindIndexesForSubject } from "./blind-index-cleanup";
+export { nullBlindIndexesForSubject, subjectRowExistsInTenant } from "./blind-index-cleanup";
 export { collectTableMetas } from "./collect-table-metas";
 export { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
 export { seedConfigValues } from "./config-seed";
