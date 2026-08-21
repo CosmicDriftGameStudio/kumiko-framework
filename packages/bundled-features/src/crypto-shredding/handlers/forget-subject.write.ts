@@ -6,13 +6,20 @@ import {
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
+  type DbRunner,
   nullBlindIndexesForSubject,
   subjectRowExistsInTenant,
 } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineWriteHandler,
+  type FeatureDefinition,
+  type SessionUser,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
   InternalError,
+  type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
@@ -46,6 +53,43 @@ export const subjectForgottenSchema = z.object({
   forgottenBy: z.string().min(1),
 });
 
+type SubjectIdInput = z.infer<typeof subjectIdSchema>;
+
+// Tenant-scope guard (mh#349): DataProtectionOfficer is a tenant-scoped role,
+// but the handler otherwise erases ANY subject cross-tenant on a raw
+// (un-scoped) client — a Tenant-A DPO who learns a Tenant-B subject id
+// (export, support ticket, log line) could destroy it. SystemAdmin
+// (platform-wide) always bypasses.
+async function resolveTenantScopeDenial(
+  db: DbRunner,
+  features: ReadonlyMap<string, FeatureDefinition>,
+  user: SessionUser,
+  raw: SubjectIdInput,
+): Promise<WriteFailure | undefined> {
+  if (isSystemAdminActor(user)) return undefined;
+
+  if (raw.kind === "tenant") {
+    if (raw.tenantId === user.tenantId) return undefined;
+    return writeFailure(
+      new AccessDeniedError({ details: { reason: TARGET_TENANT_NOT_ADMIN_TENANT } }),
+    );
+  }
+
+  // Without the tenant feature there's no membership table to check against —
+  // no scoping concept exists to enforce (single/no-tenant apps only;
+  // ponytail: fail-open here, not a gap in multi-tenant apps).
+  if (!features.has("tenant")) return undefined;
+
+  const memberDenied = await denyIfTargetOutsideAdminTenant(db, user, raw.userId);
+  if (!memberDenied) return undefined;
+
+  // Not a real user in the actor's tenant — raw.userId may still be a
+  // self-owned PII subject (share-token recipient, email subscriber, ...)
+  // whose own row carries a real tenant_id.
+  const ownedInTenant = await subjectRowExistsInTenant(db, features, raw.userId, user.tenantId);
+  return ownedInTenant ? undefined : memberDenied;
+}
+
 // Manual crypto-shred for a DPO / platform operator: erases the subject's
 // DEK immediately (all its PII ciphertext becomes unreadable, reads render
 // "[[erased]]") and appends the audit event. Forget is final — the adapter
@@ -78,41 +122,13 @@ export const forgetSubjectWrite = defineWriteHandler({
         : { kind: "tenant", tenantId: raw.tenantId as TenantId }; // @cast-boundary uuid-validated command payload → branded id
     const subjectKey = subjectIdToKey(subject);
 
-    // Tenant-scope guard (mh#349): DataProtectionOfficer is a tenant-scoped
-    // role, but this handler otherwise erases ANY subject cross-tenant on a
-    // raw (un-scoped) client — a Tenant-A DPO who learns a Tenant-B subject
-    // id (export, support ticket, log line) could destroy it. SystemAdmin
-    // (platform-wide) always bypasses.
-    if (!isSystemAdminActor(event.user)) {
-      if (raw.kind === "tenant") {
-        if (raw.tenantId !== event.user.tenantId) {
-          return writeFailure(
-            new AccessDeniedError({ details: { reason: TARGET_TENANT_NOT_ADMIN_TENANT } }),
-          );
-        }
-      } else if (ctx.registry.features.has("tenant")) {
-        // Without the tenant feature there's no membership table to check
-        // against — no scoping concept exists to enforce (single/no-tenant
-        // apps only; ponytail: fail-open here, not a gap in multi-tenant apps).
-        const memberDenied = await denyIfTargetOutsideAdminTenant(
-          ctx.db.raw,
-          event.user,
-          raw.userId,
-        );
-        if (memberDenied) {
-          // Not a real user in the actor's tenant — raw.userId may still be
-          // a self-owned PII subject (share-token recipient, email
-          // subscriber, ...) whose own row carries a real tenant_id.
-          const ownedInTenant = await subjectRowExistsInTenant(
-            ctx.db.raw,
-            ctx.registry.features,
-            raw.userId,
-            event.user.tenantId,
-          );
-          if (!ownedInTenant) return memberDenied;
-        }
-      }
-    }
+    const tenantScopeDenial = await resolveTenantScopeDenial(
+      ctx.db.raw,
+      ctx.registry.features,
+      event.user,
+      raw,
+    );
+    if (tenantScopeDenial) return tenantScopeDenial;
 
     // Erase BEFORE the audit append: if the append throws, the key is gone
     // but no event exists — a retry is a no-op erase plus the event. The
