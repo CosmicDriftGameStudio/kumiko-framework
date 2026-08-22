@@ -198,7 +198,7 @@ function renderPackageJson(name: string, version: string): string {
         "@tailwindcss/cli": "^4.3.0",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
-        "bun-types": "^1.3.14",
+        "bun-types": "^1.4.0",
         tailwindcss: "^4.3.0",
         typescript: "^6.0.3",
       },

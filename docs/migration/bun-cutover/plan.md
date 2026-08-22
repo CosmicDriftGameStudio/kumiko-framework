@@ -237,7 +237,7 @@ ts-morph kann das, aber: 4 Configs (framework unit + integration, publicstatus, 
 
 # NACHHER
 - uses: oven-sh/setup-bun@v2
-  with: { bun-version: '1.3.14' }
+  with: { bun-version: '1.4.0' }
 - run: bun install --frozen-lockfile
 - run: bun kumiko-framework/bin/kumiko.ts check
 ```
@@ -367,7 +367,7 @@ Drizzle-Session pausiert (siehe Reihenfolge-Entscheidung oben). Direkter Sprung 
 - husky-Hooks: `prepare`-Script bleibt, Hooks selbst rufen `bun lint-staged` (statt yarn)
 - lint-staged: `bunx lint-staged` (getestet, lädt)
 - changesets: `bunx changeset` (getestet, 2.31.0 lädt)
-- Bun-Version pinnen: in CI `bun-version: 1.3.14` (sonst CI-Drift bei Bun-Releases)
+- Bun-Version pinnen: in CI `bun-version: "1.4.0"` (sonst CI-Drift bei Bun-Releases)
 - `.env`-Loading-Reihenfolge prüfen (Bun: .env → .env.production → .env.local → .env.<NODE_ENV>.local)
 
 **Verifikation:**
