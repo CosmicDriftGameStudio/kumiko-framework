@@ -6,7 +6,7 @@
 // referenzieren den Namen im Screen-Schema:
 //
 //   layout: { sections: [
-//     { kind: "extension", title: "...", component: {
+//     { kind: "extension", title: "...", contributesToFormSubmit: true, component: {
 //       react: { __component: CUSTOM_FIELDS_FORM_EXTENSION_NAME }
 //     } },
 //   ]}

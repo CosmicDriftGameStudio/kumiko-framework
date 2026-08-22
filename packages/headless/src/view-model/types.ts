@@ -252,6 +252,7 @@ export type EditExtensionSectionViewModel = {
   readonly kind: "extension";
   readonly title: string;
   readonly component: PlatformComponent;
+  readonly contributesToFormSubmit: boolean;
 };
 
 // Mirrors EditRelatedListSection verbatim — no per-row/query resolution

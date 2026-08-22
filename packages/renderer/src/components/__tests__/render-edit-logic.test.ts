@@ -88,6 +88,11 @@ const extensionSection: EditSectionViewModel = {
   kind: "extension",
   title: "Custom",
   component: {},
+  contributesToFormSubmit: false,
+};
+const composedExtensionSection: EditSectionViewModel = {
+  ...extensionSection,
+  contributesToFormSubmit: true,
 };
 
 describe("hasEditableSection", () => {
@@ -106,8 +111,12 @@ describe("hasEditableSection", () => {
     expect(hasEditableSection([fieldsSection(true), fieldsSection(false)])).toBe(true);
   });
 
-  test("extension section counts as editable (carries its own save)", () => {
-    expect(hasEditableSection([extensionSection])).toBe(true);
+  test("extension section without form-submit opt-in → false", () => {
+    expect(hasEditableSection([extensionSection])).toBe(false);
+  });
+
+  test("extension section with contributesToFormSubmit → true", () => {
+    expect(hasEditableSection([composedExtensionSection])).toBe(true);
   });
 
   test("no sections → false", () => {

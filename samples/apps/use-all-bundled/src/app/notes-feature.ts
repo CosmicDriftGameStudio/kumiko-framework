@@ -91,6 +91,7 @@ const noteEditScreen: EntityEditScreenDefinition = {
         kind: "extension",
         title: "notes-demo:section.customFields",
         component: { react: { __component: CUSTOM_FIELDS_FORM_EXTENSION_NAME } },
+        contributesToFormSubmit: true,
       },
       {
         kind: "extension",
