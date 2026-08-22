@@ -649,6 +649,12 @@ export type EditExtensionSection = {
   readonly kind: "extension";
   readonly title: string;
   readonly component: PlatformComponent;
+  /** When true, the extension registers via `useExtensionFormSubmit` and the
+   *  surrounding form's Save button should activate for its dirty state.
+   *  Omit/false for extensions that persist through their own dispatcher
+   *  writes (e.g. notes-history NotesSection) — otherwise a read-only form
+   *  shows a Save button that does nothing (fw#2359). */
+  readonly contributesToFormSubmit?: boolean;
 };
 
 // Read-only list of related records, driven by its own query — for a

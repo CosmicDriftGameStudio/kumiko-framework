@@ -72,6 +72,7 @@ export function computeEditViewModel<
         kind: "extension" as const,
         title: translate(sectionSpec.title),
         component: sectionSpec.component,
+        contributesToFormSubmit: sectionSpec.contributesToFormSubmit === true,
       };
     }
     if (!isFieldsEditSection(sectionSpec)) {

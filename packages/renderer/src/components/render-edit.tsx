@@ -813,7 +813,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     [vm.sections, fieldsFilter],
   );
 
-  // true for an extension section with no fields of its own too (it carries its own dirty/save).
+  // true when editable fields exist or an extension opted into composed submit (fw#2359).
   const isFormEditable = hasEditableSection(filteredSections);
 
   // Persistiert alle composed Extension-Sections mit der aufgelösten entityId.
