@@ -59,7 +59,7 @@ describe("instant() customType is forgiving with ISO strings", () => {
     });
     const rows = await selectMany(stack.db, tsTable);
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.["insertedAt"]).toBeInstanceOf(Temporal.Instant);
+    expect((rows[0]?.["insertedAt"] as Temporal.Instant).toString()).toBe(isoString);
   });
 });
 

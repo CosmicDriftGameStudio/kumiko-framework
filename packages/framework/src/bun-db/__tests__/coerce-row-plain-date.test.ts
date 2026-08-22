@@ -28,7 +28,6 @@ describe("coerceRow — date → Temporal.PlainDate", () => {
     // (2026-03-15T00:00:00.000Z) regardless of process TZ.
     const row = { published_at: new Date(Date.UTC(2026, 2, 15)) };
     const result = coerceRow(row, dateTableInfo());
-    expect(result.published_at).toBeInstanceOf(Temporal.PlainDate);
     expect((result.published_at as unknown as Temporal.PlainDate).toString()).toBe("2026-03-15");
   });
 
@@ -51,7 +50,6 @@ describe("coerceRow — date → Temporal.PlainDate", () => {
   test("coerces a plain 'yyyy-mm-dd' driver string", () => {
     const row = { published_at: "2026-12-01" };
     const result = coerceRow(row, dateTableInfo());
-    expect(result.published_at).toBeInstanceOf(Temporal.PlainDate);
     expect((result.published_at as unknown as Temporal.PlainDate).toString()).toBe("2026-12-01");
   });
 

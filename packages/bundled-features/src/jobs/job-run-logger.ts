@@ -266,7 +266,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       // worker). The row already has started_at from onJobStart.
       const row = await fetchOne<{ startedAt: Temporal.Instant }>(db, jobRunsTable, { id: runId });
       const now = Temporal.Now.instant();
-      const duration = row ? Number(now.since(row.startedAt).total({ unit: "millisecond" })) : 0;
+      const duration = row ? Math.round(Number(now.since(row.startedAt).total({ unit: "millisecond" }))) : 0;
       const payload = runFailedSchema.parse({
         duration,
         finishedAt: now.toString(),

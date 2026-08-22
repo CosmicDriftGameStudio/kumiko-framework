@@ -50,6 +50,8 @@ describe("entity with a `source` field — create-path is shadow-proof", () => {
     const rows = await selectMany(stack.db, sourceTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["source"]).toBe("import");
-    expect(rows[0]?.["insertedAt"]).toBeInstanceOf(Temporal.Instant);
+    expect((rows[0]?.["insertedAt"] as Temporal.Instant).toString()).toBe(
+      "2026-01-15T12:00:00Z",
+    );
   });
 });

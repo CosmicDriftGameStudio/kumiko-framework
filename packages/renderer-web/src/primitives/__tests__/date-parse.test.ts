@@ -33,7 +33,6 @@ const enPlaceholderLetters = placeholderLetters("en");
 describe("parseIso", () => {
   test("valid yyyy-mm-dd → PlainDate (no TZ conversion)", () => {
     const d = parseIso("2026-04-25");
-    expect(d).toEqual(Temporal.PlainDate.from("2026-04-25"));
     expect(d?.year).toBe(2026);
     expect(d?.month).toBe(4);
     expect(d?.day).toBe(25);

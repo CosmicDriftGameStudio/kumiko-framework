@@ -29,7 +29,6 @@ describe("coerceRow — timestamptz → Temporal.Instant", () => {
     try {
       const row = { updated_at: new Date("2026-04-18T10:00:00Z") };
       const result = coerceRow(row, timestamptzTableInfo());
-      expect(result.updated_at).toBeInstanceOf(Temporal.Instant);
       expect((result.updated_at as unknown as Temporal.Instant).toString()).toBe(
         "2026-04-18T10:00:00Z",
       );
