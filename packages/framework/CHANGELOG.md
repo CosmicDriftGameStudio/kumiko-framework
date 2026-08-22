@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.215.4
+
+### Patch Changes
+
+- e2a55b2: Pin `html-to-text@10.0.1` (via resolutions + Bun overrides) instead of forcing `deepmerge-ts` alone. `mailparser` still declares `html-to-text@10.0.0` which pulls vulnerable `deepmerge-ts@^7`; 10.0.1 already depends on `deepmerge-ts@^8`.
+  - @cosmicdrift/kumiko-types@0.215.4
+
 ## 0.215.3
 
 ### Patch Changes
