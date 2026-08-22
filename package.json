@@ -95,10 +95,17 @@
     "undici": "^7.29.0",
     "ip-address": "^10.5.0",
     "js-yaml": "^4.3.1",
-    "deepmerge-ts": "^8.0.1"
+    "html-to-text": "^10.0.1"
+  },
+  "overrides": {
+    "html-to-text": "10.0.1",
+    "mailparser": {
+      "html-to-text": "10.0.1"
+    }
   },
   "dependencies": {
     "hono": "^4.13.1",
+    "html-to-text": "10.0.1",
     "ink": "^7.1.1",
     "ink-select-input": "^6.2.0",
     "ink-spinner": "^5.0.0",
