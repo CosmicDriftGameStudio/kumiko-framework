@@ -8,7 +8,7 @@
 // coerceRow — proving the coercion no longer depends on the global at all.
 
 import { describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import type { Temporal } from "temporal-polyfill";
 import { coerceRow, type TableInfo } from "../query";
 
 function timestamptzTableInfo(): TableInfo {
