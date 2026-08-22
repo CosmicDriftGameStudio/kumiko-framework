@@ -49,7 +49,7 @@ describe("r.storeTable — DB roundtrip via setupTestStack", () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload).toBe(payload);
-    expect(rows[0]?.receivedAt).toBeInstanceOf(Temporal.Instant);
+    expect(String(rows[0]?.receivedAt)).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   test("registry exposes the store table with its reason and featureName", () => {

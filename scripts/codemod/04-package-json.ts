@@ -17,7 +17,7 @@
 //     bleiben unverändert (bun supportet "resolutions" + "overrides")
 //
 //   packageManager:
-//     "yarn@4.x.x" → "bun@1.3.14"
+//     "yarn@4.x.x" → "bun@1.4.0"
 //
 //   link:./path Protocol → file:./path
 //
@@ -28,7 +28,7 @@ import { Glob } from "bun";
 import { resolve, relative } from "node:path";
 
 const PROJECT_ROOT = process.argv[2] ?? process.cwd();
-const BUN_VERSION = process.argv[3] ?? "1.3.14";
+const BUN_VERSION = process.argv[3] ?? "1.4.0";
 
 const SCRIPT_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bvitest run --config\s+(\S+)/g, "bun test --config $1"], // Hinweis: bunfig.toml hat keine --config-Flag-Variant, manual nötig

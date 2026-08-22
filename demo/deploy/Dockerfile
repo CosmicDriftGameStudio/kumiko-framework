@@ -11,7 +11,7 @@
 #
 # Build context: repository root (monorepo is used in the build stage).
 
-ARG BUN_VERSION=1.3.14
+ARG BUN_VERSION=1.4.0
 # Build identity — passed in by the CI workflow via --build-arg. Defaults
 # for local container builds.
 ARG BUILD_VERSION=dev
