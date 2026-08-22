@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.215.5
+
+### Patch Changes
+
+- 16454c2: Bun 1.4 compatibility: native Temporal test assertions, signal-handler process.on typing, integer job duration rounding.
+  - @cosmicdrift/kumiko-types@0.215.5
+
 ## 0.215.4
 
 ### Patch Changes
