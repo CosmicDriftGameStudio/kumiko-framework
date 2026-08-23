@@ -238,4 +238,100 @@ describe("projectionList filter + facets (fw#2224)", () => {
       filters: [{ field: "active", op: "in", value: [true] }],
     });
   });
+
+  // fw#2373: labels without a translation key must pass through unchanged —
+  // otherwise shipping translate() alone regresses Members filters to raw keys
+  // when locale packs are missing.
+  test("projection facet labels without a translation key pass through unchanged", async () => {
+    queryCalls = [];
+    capturedProps = undefined;
+    const screen: ProjectionListScreenDefinition = {
+      id: "member-list",
+      type: "projectionList",
+      query: "ledger:query:member:list",
+      columns: ["tier", "active"],
+      facets: [
+        {
+          field: "tier",
+          type: "select",
+          label: "ledger.member.tier",
+          options: [
+            { value: "gold", label: "ledger.member.tier.gold" },
+            { value: "silver", label: "ledger.member.tier.silver" },
+          ],
+        },
+        {
+          field: "active",
+          type: "boolean",
+          label: "ledger.member.active",
+          trueLabel: "ledger.member.active.true",
+          falseLabel: "ledger.member.active.false",
+        },
+      ],
+    };
+    const schema: FeatureSchema = {
+      featureName: "ledger",
+      entities: {},
+      screens: [screen],
+    } as FeatureSchema;
+
+    renderScreen(schema, "ledger:screen:member-list");
+
+    await waitFor(() => expect(capturedProps).toBeDefined());
+    const props = getCapturedProps();
+    if (props === undefined) throw new Error("DataTable was not rendered");
+    expect(props.filterFacets).toEqual([
+      {
+        field: "tier",
+        label: "ledger.member.tier",
+        options: [
+          { value: "gold", label: "ledger.member.tier.gold" },
+          { value: "silver", label: "ledger.member.tier.silver" },
+        ],
+      },
+      {
+        field: "active",
+        label: "ledger.member.active",
+        options: [
+          { value: "true", label: "ledger.member.active.true" },
+          { value: "false", label: "ledger.member.active.false" },
+        ],
+      },
+    ]);
+  });
+
+  test("projection facet labels resolve when a translation key exists", async () => {
+    queryCalls = [];
+    capturedProps = undefined;
+    const screen: ProjectionListScreenDefinition = {
+      id: "member-list",
+      type: "projectionList",
+      query: "ledger:query:member:list",
+      columns: ["tier"],
+      facets: [
+        {
+          field: "tier",
+          type: "select",
+          label: "kumiko.actions.save",
+          options: [{ value: "gold", label: "kumiko.actions.cancel" }],
+        },
+      ],
+    };
+    const schema: FeatureSchema = {
+      featureName: "ledger",
+      entities: {},
+      screens: [screen],
+    } as FeatureSchema;
+
+    renderScreen(schema, "ledger:screen:member-list");
+
+    await waitFor(() => expect(capturedProps).toBeDefined());
+    const props = getCapturedProps();
+    if (props === undefined) throw new Error("DataTable was not rendered");
+    const facet = props.filterFacets?.[0];
+    expect(facet?.label).not.toBe("kumiko.actions.save");
+    expect(facet?.options?.[0]?.label).not.toBe("kumiko.actions.cancel");
+    expect(typeof facet?.label).toBe("string");
+    expect(facet?.label.length).toBeGreaterThan(0);
+  });
 });
