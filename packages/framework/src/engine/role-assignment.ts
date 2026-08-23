@@ -1,8 +1,10 @@
 const ROLE_RANKS: Readonly<Record<string, number>> = {
   User: 0,
-  Admin: 1,
-  TenantAdmin: 2,
-  SystemAdmin: 3,
+  // Matches DEFAULT_INVITE_ROLE_OPTIONS — must stay ranked or invite UI fails closed.
+  Editor: 1,
+  Admin: 2,
+  TenantAdmin: 3,
+  SystemAdmin: 4,
 };
 
 function getRoleRank(role: string): number {

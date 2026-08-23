@@ -4,7 +4,7 @@
 // Provider-Wrapper lokal (Dependency-Richtung renderer-web → bundled-features
 // verbietet test-utils-Import).
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { createStore, type Dispatcher, type DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
@@ -43,6 +43,8 @@ type QueryResponses = {
   readonly me: Record<string, unknown>;
   readonly exportStatus?: unknown;
   readonly auditLog?: unknown;
+  /** Signed URL returned by downloadByJob — drives postWithDownload navigation. */
+  readonly downloadUrl?: string;
 };
 
 function makeDispatcher(
@@ -59,6 +61,12 @@ function makeDispatcher(
     }
     if (type === UserDataRightsQueries.myAuditLog) {
       return { isSuccess: true, data: responses.auditLog ?? { rows: [] } };
+    }
+    if (type === UserDataRightsQueries.downloadByJob) {
+      if (responses.downloadUrl === undefined) {
+        return { isSuccess: true, data: null };
+      }
+      return { isSuccess: true, data: { url: responses.downloadUrl } };
     }
     return { isSuccess: true, data: null };
   }) as unknown as Dispatcher["query"];
@@ -124,6 +132,15 @@ async function waitForMount(view: ReturnType<typeof render>): Promise<void> {
   });
 }
 
+/** Export status is a second async query — mount alone can race before Done UI. */
+async function waitForDownloadReady(view: ReturnType<typeof render>): Promise<void> {
+  await waitFor(() => {
+    if (view.queryByTestId("privacy-export-download") === null) {
+      throw new Error("download button not ready");
+    }
+  });
+}
+
 // CI runs this file in its own `bun test` process (own ci.yml step), NOT in the
 // shared `kumiko check` run — see bunfig.ci.toml pathIgnorePatterns. In the shared
 // single-process happy-dom, the global `afterEach` from `test-setup/dom.preload.ts`
@@ -151,7 +168,7 @@ describe("PrivacyCenterScreen", () => {
         job: { id: "job-123", status: EXPORT_JOB_STATUS.Done, expiresAt: "2026-07-11T00:00:00Z" },
       },
     });
-    await waitForMount(view);
+    await waitForDownloadReady(view);
     expect(view.getByTestId("privacy-export-download")).toBeTruthy();
     const ready = view.getByTestId("privacy-export-ready");
     expect(ready.textContent).toContain("2026-07-11");
@@ -223,7 +240,7 @@ describe("PrivacyCenterScreen", () => {
         job: { id: "job-123", status: EXPORT_JOB_STATUS.Done, expiresAt: "2026-07-11T00:00:00Z" },
       },
     });
-    await waitForMount(view);
+    await waitForDownloadReady(view);
     fireEvent.click(view.getByTestId("privacy-export-download"));
     await waitFor(() => {
       if (!queries.some((q) => q.type === UserDataRightsQueries.downloadByJob)) {
@@ -232,6 +249,29 @@ describe("PrivacyCenterScreen", () => {
     });
     const download = queries.find((q) => q.type === UserDataRightsQueries.downloadByJob);
     expect(download?.payload).toEqual({ jobId: "job-123" });
+  });
+
+  test("Download-Button navigates to the signed URL from downloadByJob", async () => {
+    const signedUrl = "https://cdn.test/exports/job-123.zip?sig=abc";
+    const assign = spyOn(window.location, "assign").mockImplementation(() => {});
+    try {
+      const { view } = renderCenter({
+        me: activeMe,
+        downloadUrl: signedUrl,
+        exportStatus: {
+          hasJob: true,
+          job: { id: "job-123", status: EXPORT_JOB_STATUS.Done, expiresAt: "2026-07-11T00:00:00Z" },
+        },
+      });
+      await waitForDownloadReady(view);
+      fireEvent.click(view.getByTestId("privacy-export-download"));
+      await waitFor(() => {
+        if (assign.mock.calls.length === 0) throw new Error("location.assign not called");
+      });
+      expect(assign).toHaveBeenCalledWith(signedUrl);
+    } finally {
+      assign.mockRestore();
+    }
   });
 });
 
