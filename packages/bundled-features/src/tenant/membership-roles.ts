@@ -6,10 +6,13 @@
 // this validator makes every membership-role write path enforce the same
 // invariant. Derived from the framework presets so it tracks access.privileged.
 
-import { findForbiddenMembershipRole } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  findForbiddenMembershipRole,
+  findForbiddenRoleAssignment,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 
-export { findForbiddenMembershipRole };
+export { findForbiddenMembershipRole, findForbiddenRoleAssignment };
 
 export function reservedMembershipRoleError(role: string): AccessDeniedError {
   return new AccessDeniedError({

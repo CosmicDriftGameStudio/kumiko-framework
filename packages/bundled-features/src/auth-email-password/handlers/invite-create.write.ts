@@ -33,6 +33,7 @@ import {
 // kumiko-lint-ignore cross-feature-import membership-role validation owned by tenant-feature
 import {
   findForbiddenMembershipRole,
+  findForbiddenRoleAssignment,
   reservedMembershipRoleError,
   unassignableMembershipRoleError,
 } from "../../tenant/membership-roles";
@@ -99,6 +100,13 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
       const forbiddenRole = findForbiddenMembershipRole([event.payload.role]);
       if (forbiddenRole !== undefined) {
         return writeFailure(reservedMembershipRoleError(forbiddenRole));
+      }
+
+      const elevationForbidden = findForbiddenRoleAssignment(event.user.roles, [
+        event.payload.role,
+      ]);
+      if (elevationForbidden !== undefined) {
+        return writeFailure(unassignableMembershipRoleError(elevationForbidden));
       }
 
       if (opts.canAssignRole && !opts.canAssignRole(event.user.roles, event.payload.role)) {
