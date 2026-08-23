@@ -555,13 +555,221 @@ describe("cancel-invitation on the /members surface genuinely cancels", () => {
   });
 });
 
-describe("updateMemberRoles not reachable by TenantAdmin", () => {
-  test("TenantAdmin gets access_denied on updateMemberRoles", async () => {
+describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates", () => {
+  test("TenantAdmin can update roles of a member in own tenant", async () => {
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "updatable-member@example.com",
+      displayName: "Updatable Member",
+      passwordHash: await hashPassword("pw-update-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+
+    const res = await stack.http.writeOk(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] },
+      tenantAdminA(),
+    );
+    expect(res).toMatchObject({ userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] });
+
+    const rows = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(rows).toHaveLength(1);
+    expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["Admin"]);
+  });
+
+  test("TenantAdmin cannot update membership of a user in another tenant", async () => {
+    const { id: otherTenantMemberId } = await seedUser(stack.db, {
+      email: "other-tenant-member@example.com",
+      displayName: "Other Tenant Member",
+      passwordHash: await hashPassword("pw-other-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: otherTenantMemberId,
+      tenantId: TENANT_B_ID,
+      roles: ["User"],
+    });
+
+    const err = await stack.http.writeErr(
+      TenantHandlers.updateMemberRoles,
+      { userId: otherTenantMemberId, tenantId: TENANT_B_ID, roles: ["Admin"] },
+      tenantAdminA(),
+    );
+    expectErrorIncludes(err, "membership_not_found");
+  });
+
+  test("TenantAdmin cannot assign reserved/global roles", async () => {
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "reserved-role-target@example.com",
+      displayName: "Reserved Role Target",
+      passwordHash: await hashPassword("pw-res-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+
+    for (const role of FORBIDDEN_ROLES) {
+      const err = await stack.http.writeErr(
+        TenantHandlers.updateMemberRoles,
+        { userId: memberUserId, tenantId: TENANT_A_ID, roles: [role] },
+        tenantAdminA(),
+      );
+      expectErrorIncludes(err, "access_denied");
+      expectErrorIncludes(err, "reserved_membership_role");
+    }
+  });
+
+  test("TenantAdmin cannot assign unknown role (elevation guard)", async () => {
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "elevation-guard-target@example.com",
+      displayName: "Elevation Guard Target",
+      passwordHash: await hashPassword("pw-elev-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+
+    const err = await stack.http.writeErr(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberUserId, tenantId: TENANT_A_ID, roles: ["SuperCustomRole"] },
+      tenantAdminA(),
+    );
+    expectErrorIncludes(err, "access_denied");
+    expectErrorIncludes(err, "unassignable_membership_role");
+  });
+
+  test("Admin cannot elevate target to TenantAdmin or modify a TenantAdmin", async () => {
+    const { id: adminUserId } = await seedUser(stack.db, {
+      email: "plain-admin@example.com",
+      displayName: "Plain Admin",
+      passwordHash: await hashPassword("pw-adm-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: adminUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["Admin"],
+    });
+    const adminUser: SessionUser = { id: adminUserId, tenantId: TENANT_A_ID, roles: ["Admin"] };
+
+    const { id: regularMemberId } = await seedUser(stack.db, {
+      email: "plain-member@example.com",
+      displayName: "Plain Member",
+      passwordHash: await hashPassword("pw-mem-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: regularMemberId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+
+    // 1. Admin tries to assign TenantAdmin to regular member -> rejected
+    const errElevate = await stack.http.writeErr(
+      TenantHandlers.updateMemberRoles,
+      { userId: regularMemberId, tenantId: TENANT_A_ID, roles: ["TenantAdmin"] },
+      adminUser,
+    );
+    expectErrorIncludes(errElevate, "unassignable_membership_role");
+
+    // 2. Admin tries to modify existing TenantAdmin -> rejected
+    const errModifyHigher = await stack.http.writeErr(
+      TenantHandlers.updateMemberRoles,
+      { userId: tenantAdminAId, tenantId: TENANT_A_ID, roles: ["Admin"] },
+      adminUser,
+    );
+    expectErrorIncludes(errModifyHigher, "unassignable_membership_role");
+  });
+
+  test("refuses demoting/removing the last TenantAdmin", async () => {
+    // tenantAdminA is currently the only TenantAdmin in TENANT_A_ID
     const err = await stack.http.writeErr(
       TenantHandlers.updateMemberRoles,
       { userId: tenantAdminAId, tenantId: TENANT_A_ID, roles: ["User"] },
       tenantAdminA(),
     );
-    expectErrorIncludes(err, "access_denied");
+    expectErrorIncludes(err, "last_tenant_admin");
+    expectErrorIncludes(err, "cannot demote the last tenant admin");
+
+    // Verify role remains unchanged
+    const rows = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: tenantAdminAId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["TenantAdmin"]);
+  });
+
+  test("allows demoting a TenantAdmin when another TenantAdmin exists", async () => {
+    const { id: secondAdminId } = await seedUser(stack.db, {
+      email: "second-admin@example.com",
+      displayName: "Second Admin",
+      passwordHash: await hashPassword("pw-adm2-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: secondAdminId,
+      tenantId: TENANT_A_ID,
+      roles: ["TenantAdmin"],
+    });
+
+    // Now there are 2 TenantAdmins (tenantAdminA and secondAdminId)
+    const res = await stack.http.writeOk(
+      TenantHandlers.updateMemberRoles,
+      { userId: secondAdminId, tenantId: TENANT_A_ID, roles: ["Admin"] },
+      tenantAdminA(),
+    );
+    expect(res).toMatchObject({ userId: secondAdminId, roles: ["Admin"] });
+
+    const rows = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: secondAdminId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["Admin"]);
+  });
+
+  test("SystemAdmin can update member roles across tenants", async () => {
+    const systemAdmin: SessionUser = {
+      id: "sys-admin-root",
+      tenantId: "system" as TenantId,
+      roles: ["SystemAdmin"],
+    };
+
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "sysadmin-cross-target@example.com",
+      displayName: "SysAdmin Target",
+      passwordHash: await hashPassword("pw-sys-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_B_ID,
+      roles: ["User"],
+    });
+
+    const res = await stack.http.writeOk(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberUserId, tenantId: TENANT_B_ID, roles: ["Admin"] },
+      systemAdmin,
+    );
+    expect(res).toMatchObject({ userId: memberUserId, tenantId: TENANT_B_ID, roles: ["Admin"] });
+
+    const rows = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: memberUserId,
+      tenantId: TENANT_B_ID,
+    });
+    expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["Admin"]);
   });
 });

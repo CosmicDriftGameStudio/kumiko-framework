@@ -114,11 +114,11 @@ describe("tenant members screen + handler access alignment", () => {
     expect(nav?.label).toBe("tenant.nav.members");
   });
 
-  test("updateMemberRoles stays SystemAdmin/system-only (not on members screen)", () => {
+  test("updateMemberRoles allows system and access.admin", () => {
     const tenant = createTenantFeature();
     expect(rolesOf(tenant.writeHandlers["updateMemberRoles"]?.access)).toEqual([
       "system",
-      "SystemAdmin",
+      ...access.admin,
     ]);
   });
 });
