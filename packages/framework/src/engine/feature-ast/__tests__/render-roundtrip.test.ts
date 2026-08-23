@@ -13,7 +13,7 @@ import * as path from "node:path";
 import { Project, ts } from "ts-morph";
 import { parseSourceFile } from "../parse";
 import type { FeaturePattern } from "../patterns";
-import { renderFeatureFile, renderPattern } from "../render";
+import { indent, renderFeatureFile, renderPattern } from "../render";
 
 const STATIC_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -92,6 +92,11 @@ const BODY_LOC_KEYS = new Set([
   "recipientBody",
   "dataBody",
   "defBody",
+  "inputBody",
+  "instructionsBody",
+  "documentBody",
+  "outputSchemaSource",
+  "paramsSchemaSource",
 ]);
 
 function normalizeBodyRaw(raw: string): string {
@@ -814,4 +819,74 @@ describe("render → compiles against the real FeatureRegistrar type — full pa
   test("job/notification/httpRoute/projection/workspace patterns compile clean", () => {
     expect(renderAndCompile(INTEGRATION_FEATURE)).toEqual([]);
   }, 20_000);
+});
+
+const AI_PIPELINE_FEATURE = `
+import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+const paramsSchema = z.object({ maxTokens: z.number().optional() });
+
+const generateSpec = {
+  stepKey: "generate",
+  promptKey: "demo:generate",
+  promptFallback: "Write a summary.",
+  paramsSchema,
+  defaults: { enabled: true, params: {} },
+  input: (ctx) => ctx.event.label,
+};
+
+defineFeature("ai-demo", (r) => {
+  defineWorkflow({
+    name: "demo",
+    steps: stepsPipeline(() => [
+      aiExtractStep({
+        stepKey: "extract",
+        promptKey: "demo:extract",
+        promptFallback: "Extract fields.",
+        paramsSchema,
+        defaults: { enabled: true, params: {} },
+        outputSchema: z.object({ title: z.string() }),
+        instructions: () => "Extract the title.",
+      }),
+      aiClassifyStep({
+        stepKey: "classify",
+        promptKey: "demo:classify",
+        promptFallback: "Classify the input.",
+        paramsSchema,
+        defaults: { enabled: true, params: {} },
+        actions: [{ type: "approve", description: "Approve" }],
+        input: (ctx) => ctx.event.label,
+      }),
+      aiGenerateStep(generateSpec),
+    ]),
+  });
+});
+`;
+
+describe("render → parse roundtrip — AI pipeline steps", () => {
+  const initial = parse(AI_PIPELINE_FEATURE);
+
+  test("inline + const-ref ai steps round-trip structurally", () => {
+    const aiPatterns = initial.patterns.filter((p) => p.kind.startsWith("ai."));
+    const stepCalls = aiPatterns
+      .map((p) => indent(renderPattern(p), "      ").replace(/;\s*$/, ","))
+      .join("\n");
+    const wrapped = `
+import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+defineFeature("${initial.featureName ?? "ai-demo"}", (r) => {
+  defineWorkflow({
+    name: "demo",
+    trigger: { kind: "event", eventType: "demo.run" },
+    steps: stepsPipeline(() => [
+${stepCalls}
+    ]),
+  });
+});
+`;
+    const reparsed = parse(wrapped);
+    expect(reparsed.patterns.map(stripLocations)).toEqual(aiPatterns.map(stripLocations));
+  });
 });

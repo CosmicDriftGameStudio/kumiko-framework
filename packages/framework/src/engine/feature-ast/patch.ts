@@ -30,6 +30,7 @@
 // roadmap C-Notes for the canonical-comment-attach Pattern that would
 // preserve prefixed `// kumiko-comment:` markers across roundtrips.
 
+import type { ObjectLiteralExpression } from "ts-morph";
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { readNameLiteral, readNameOrRef } from "./extractors/shared";
 import type { FeaturePattern, FeaturePatternKind } from "./patterns";
@@ -72,6 +73,9 @@ export type PatternId =
   | { readonly kind: "multiStreamProjection"; readonly name: string }
   | { readonly kind: "defineEvent"; readonly eventName: string }
   | { readonly kind: "extendsRegistrar"; readonly extensionName: string }
+  | { readonly kind: "ai.generate"; readonly stepKey: string }
+  | { readonly kind: "ai.extract"; readonly stepKey: string }
+  | { readonly kind: "ai.classify"; readonly stepKey: string }
   // Singleton patterns — only one per feature, kind alone identifies them.
   | { readonly kind: "requires" }
   | { readonly kind: "optionalRequires" }
@@ -188,10 +192,10 @@ export function replacePattern(
   // Whole call-statement spans from the CallExpression's start through
   // its enclosing ExpressionStatement (which carries the trailing `;`).
   const enclosingStatement = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
-  const startNode = enclosingStatement ?? call;
+  const startNode = isAiStepId(id) ? call : (enclosingStatement ?? call);
 
   const startPos = startNode.getStart();
-  const endPos = startNode.getEnd();
+  const endPos = isAiStepId(id) ? aiStepPatchSpan(sourceFile, call).end : startNode.getEnd();
 
   // Detect column of the original call's first non-whitespace character;
   // the rendered pattern starts at column 0 and gets indented to match.
@@ -219,25 +223,50 @@ export function removePattern(sourceFile: SourceFile, id: PatternId): void {
   if (!call) {
     throw new Error(`removePattern: no call found for ${describeId(id)}`);
   }
-  const enclosingStatement = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
-  const target = enclosingStatement ?? call;
+  if (isAiStepId(id)) {
+    const { start, end } = aiStepPatchSpan(sourceFile, call);
+    sourceFile.replaceText([start, end], "");
+  } else {
+    const enclosingStatement = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
+    const target = enclosingStatement ?? call;
 
-  // Erase from the start of the line containing the statement (so leading
-  // indentation goes with it) through the trailing newline, including the
-  // *leading* blank line that addPattern emits — keeps blank-line counts
-  // stable under add → remove cycles. We don't touch leading comments.
-  const startPos = lineStart(sourceFile, target.getStart());
-  const endPos = lineEnd(sourceFile, target.getEnd());
+    // Erase from the start of the line containing the statement (so leading
+    // indentation goes with it) through the trailing newline, including the
+    // *leading* blank line that addPattern emits — keeps blank-line counts
+    // stable under add → remove cycles. We don't touch leading comments.
+    const startPos = lineStart(sourceFile, target.getStart());
+    const endPos = lineEnd(sourceFile, target.getEnd());
 
-  // Collapse a preceding blank line if there is one (avoids a double
-  // blank line between the now-adjacent statements).
-  const collapseStart = collapsePrecedingBlankLine(sourceFile, startPos);
-  sourceFile.replaceText([collapseStart, endPos + 1], "");
+    // Collapse a preceding blank line if there is one (avoids a double
+    // blank line between the now-adjacent statements).
+    const collapseStart = collapsePrecedingBlankLine(sourceFile, startPos);
+    sourceFile.replaceText([collapseStart, endPos + 1], "");
+  }
 }
 
 // =============================================================================
 // Lookup
 // =============================================================================
+
+function isAiStepId(
+  id: PatternId,
+): id is Extract<PatternId, { kind: "ai.generate" | "ai.extract" | "ai.classify" }> {
+  return id.kind === "ai.generate" || id.kind === "ai.extract" || id.kind === "ai.classify";
+}
+
+function aiStepPatchSpan(
+  sourceFile: SourceFile,
+  call: CallExpression,
+): { start: number; end: number } {
+  const start = call.getStart();
+  let end = call.getEnd();
+  const text = sourceFile.getFullText();
+  while (end < text.length && (text[end] === " " || text[end] === "	")) end++;
+  if (text[end] === ",") end++;
+  while (end < text.length && (text[end] === " " || text[end] === "	")) end++;
+  if (end < text.length && text[end] === "\n") end++;
+  return { start, end };
+}
 
 function findSetupCallback(
   sourceFile: SourceFile,
@@ -293,6 +322,9 @@ export const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
  * feature can fix it explicitly.
  */
 function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {
+  if (id.kind === "ai.generate" || id.kind === "ai.extract" || id.kind === "ai.classify") {
+    return findAiStepCall(sourceFile, id);
+  }
   const setup = findSetupCallback(sourceFile);
   if (!setup) return undefined;
   const registrarParam = setup.call
@@ -317,6 +349,53 @@ function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | 
     );
   }
   return matches[0];
+}
+
+const AI_STEP_FACTORY: Readonly<Record<"ai.generate" | "ai.extract" | "ai.classify", string>> = {
+  "ai.generate": "aiGenerateStep",
+  "ai.extract": "aiExtractStep",
+  "ai.classify": "aiClassifyStep",
+};
+
+function resolveSameFileObjectLiteral(
+  node: import("ts-morph").Node,
+): ObjectLiteralExpression | undefined {
+  const direct = node.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (direct) return direct;
+  const identifier = node.asKind(SyntaxKind.Identifier);
+  if (!identifier) return undefined;
+  const varDecl = node.getSourceFile().getVariableDeclaration(identifier.getText());
+  return varDecl?.getInitializer()?.asKind(SyntaxKind.ObjectLiteralExpression);
+}
+
+function readAiStepKey(call: CallExpression): string | undefined {
+  const arg = call.getArguments()[0];
+  if (!arg) return undefined;
+  const obj = resolveSameFileObjectLiteral(arg);
+  if (!obj) return undefined;
+  const prop = obj.getProperty("stepKey");
+  if (!prop) return undefined;
+  const assign = prop.asKind(SyntaxKind.PropertyAssignment);
+  if (assign) {
+    const init = assign.getInitializer();
+    if (!init) return undefined;
+    return readNameLiteral(init);
+  }
+  const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
+  if (shorthand) return readNameLiteral(shorthand.getNameNode());
+  return undefined;
+}
+
+function findAiStepCall(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {
+  if (id.kind !== "ai.generate" && id.kind !== "ai.extract" && id.kind !== "ai.classify") {
+    return undefined;
+  }
+  const factory = AI_STEP_FACTORY[id.kind];
+  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    if (call.getExpression().getText() !== factory) continue;
+    if (callMatchesId(call, id)) return call;
+  }
+  return undefined;
 }
 
 function callMatchesId(call: CallExpression, id: PatternId): boolean {
@@ -421,6 +500,10 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
       );
     case "extendsRegistrar":
       return matchFirstArgString(call, id.extensionName);
+    case "ai.generate":
+    case "ai.extract":
+    case "ai.classify":
+      return readAiStepKey(call) === id.stepKey;
     default: {
       const _exhaustive: never = id;
       return _exhaustive;
