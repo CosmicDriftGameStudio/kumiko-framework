@@ -11,9 +11,21 @@ describe("role assignment guard", () => {
     expect(findForbiddenRoleAssignment(["Admin"], ["User", "Admin"])).toBeUndefined();
     expect(findForbiddenRoleAssignment(["TenantAdmin"], ["User", "Admin"])).toBeUndefined();
     expect(findForbiddenRoleAssignment(["Admin"], ["Admin"])).toBeUndefined();
+    expect(findForbiddenRoleAssignment(["SystemAdmin"], ["SystemAdmin"])).toBeUndefined();
   });
 
-  test("treats unknown roles as the lowest rank", () => {
-    expect(findForbiddenRoleAssignment(["User"], ["Custom"])).toBeUndefined();
+  test("rejects unknown roles (fail-closed)", () => {
+    expect(findForbiddenRoleAssignment(["User"], ["Custom"])).toBe("Custom");
+    expect(findForbiddenRoleAssignment(["SystemAdmin"], ["Custom"])).toBe("Custom");
+  });
+
+  test("rejects assignment if actor has no roles or only unknown roles", () => {
+    expect(findForbiddenRoleAssignment([], ["User"])).toBe("User");
+    expect(findForbiddenRoleAssignment(["UnknownRole"], ["User"])).toBe("User");
+  });
+
+  test("rejects modifying target user with higher existing role", () => {
+    expect(findForbiddenRoleAssignment(["Admin"], ["User"], ["SystemAdmin"])).toBe("SystemAdmin");
+    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["User"], ["TenantAdmin"])).toBeUndefined();
   });
 });
