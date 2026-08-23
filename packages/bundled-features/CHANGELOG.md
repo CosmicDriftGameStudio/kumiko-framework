@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.215.6
+
+### Patch Changes
+
+- 5126f8a: Recreate orphan text-block projections on seed update instead of crashing with version_conflict (empty event stream).
+  - @cosmicdrift/kumiko-framework@0.215.6
+  - @cosmicdrift/kumiko-types@0.215.6
+  - @cosmicdrift/kumiko-dispatcher-live@0.215.6
+  - @cosmicdrift/kumiko-headless@0.215.6
+  - @cosmicdrift/kumiko-renderer@0.215.6
+  - @cosmicdrift/kumiko-renderer-web@0.215.6
+
 ## 0.215.5
 
 ### Patch Changes
