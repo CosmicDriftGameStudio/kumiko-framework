@@ -143,6 +143,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       type: "projectionList",
       query: DeliveryQueries.log,
       columns: [
+        { field: "tenantId", label: "delivery.log.col.tenantId" },
         { field: "type", label: "delivery.log.col.type" },
         { field: "channel", label: "delivery.log.col.channel" },
         { field: "recipient", label: "delivery.log.col.recipient" },

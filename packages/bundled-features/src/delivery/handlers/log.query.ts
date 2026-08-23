@@ -81,8 +81,15 @@ export const logQuery = definePagedQueryHandler({
     // delivery is r.systemScope()'d, so the TenantDb is system-mode (reads
     // unfiltered). assertTenantMatch is a self-check on the caller's own
     // tenantId, not a query filter — it returns that same unfiltered db, so
-    // the explicit `where` below still does the actual tenant scoping.
-    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+    // the explicit `where` below still does the actual tenant scoping for
+    // non-SystemAdmin callers. SystemAdmin acknowledges cross-tenant read
+    // (PII-bearing delivery logs across all tenants incl. SYSTEM_TENANT_ID).
+    const isSystemAdmin = query.user.roles.includes("SystemAdmin");
+    const db = isSystemAdmin
+      ? ctx.systemDb.acknowledgeCrossTenant(
+          "SystemAdmin reads delivery attempts across all tenants including SYSTEM_TENANT_ID",
+        )
+      : ctx.systemDb.assertTenantMatch(query.user.tenantId);
 
     const requestedSort = query.payload.sort;
     const sortField: DeliveryLogSortField =
@@ -92,7 +99,9 @@ export const logQuery = definePagedQueryHandler({
     const sortDirection = query.payload.sortDirection ?? "desc";
     const sortColumn = DELIVERY_LOG_SORT_COLUMNS[sortField];
 
-    const where: WhereObject = { tenantId: query.user.tenantId };
+    // TenantAdmin/Admin stay strictly tenant-scoped; SystemAdmin sees every
+    // tenant's attempts (platform waitlist confirmations live on SYSTEM_TENANT_ID).
+    const where: WhereObject = isSystemAdmin ? {} : { tenantId: query.user.tenantId };
     if (query.payload.cursor) {
       where[sortColumn] = {
         [sortDirection === "asc" ? "gt" : "lt"]: decodeSortCursor(sortColumn, query.payload.cursor),
