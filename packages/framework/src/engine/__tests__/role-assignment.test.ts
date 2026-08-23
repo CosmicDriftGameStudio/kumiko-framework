@@ -28,4 +28,11 @@ describe("role assignment guard", () => {
     expect(findForbiddenRoleAssignment(["Admin"], ["User"], ["SystemAdmin"])).toBe("SystemAdmin");
     expect(findForbiddenRoleAssignment(["TenantAdmin"], ["User"], ["TenantAdmin"])).toBeUndefined();
   });
+
+  test("allows modifying target that currently holds an unranked app role", () => {
+    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["User"], ["Editor"])).toBeUndefined();
+    expect(findForbiddenRoleAssignment(["Admin"], ["User"], ["Editor", "User"])).toBeUndefined();
+    // Still cannot assign the unranked role on the write path (fail-closed).
+    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["Editor"], ["Editor"])).toBe("Editor");
+  });
 });

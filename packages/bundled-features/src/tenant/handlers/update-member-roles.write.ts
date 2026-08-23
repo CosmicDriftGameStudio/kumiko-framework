@@ -1,5 +1,9 @@
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, type DbRow } from "@cosmicdrift/kumiko-framework/db";
+import {
+  acquireNamespacedAdvisoryLock,
+  createEventStoreExecutor,
+  type DbRow,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createSystemUser,
@@ -31,6 +35,10 @@ const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembersh
 // foundational and must boot without sessions mounted (no r.requires/
 // r.usesApi here, unlike user-data-rights:restrict-account's hard dep).
 const REVOKE_ALL_SESSIONS_QN = "sessions:write:user-session:revoke-all-for-user";
+
+// Serializes last-TenantAdmin demotion checks per tenant inside the write TX
+// (dispatcher batch wraps handlers in transaction — xact lock holds through update).
+const LAST_TENANT_ADMIN_LOCK_NAMESPACE = 0x7461646d; // 'tadm'
 
 export const updateMemberRolesWrite = defineWriteHandler({
   name: "updateMemberRoles",
@@ -93,6 +101,9 @@ export const updateMemberRolesWrite = defineWriteHandler({
     const willBeTenantAdmin = event.payload.roles.includes("TenantAdmin");
 
     if (targetIsTenantAdmin && !willBeTenantAdmin) {
+      // Lock before count+update so two concurrent demotions cannot both
+      // observe adminCount === 2 and leave the tenant with zero TenantAdmins.
+      await acquireNamespacedAdvisoryLock(db, LAST_TENANT_ADMIN_LOCK_NAMESPACE, targetTenantId);
       const allMemberships = await selectMany(db, tenantMembershipsTable, {
         tenantId: targetTenantId,
       });

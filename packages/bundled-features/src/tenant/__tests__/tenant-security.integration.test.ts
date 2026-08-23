@@ -629,6 +629,33 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
     }
   });
 
+  test("TenantAdmin can demote a member that currently holds an app-defined role", async () => {
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "editor-demote-target@example.com",
+      displayName: "Editor Demote Target",
+      passwordHash: await hashPassword("pw-ed-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+
+    const res = await stack.http.writeOk(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberUserId, tenantId: TENANT_A_ID, roles: ["User"] },
+      tenantAdminA(),
+    );
+    expect(res).toMatchObject({ userId: memberUserId, roles: ["User"] });
+
+    const rows = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["User"]);
+  });
+
   test("TenantAdmin cannot assign unknown role (elevation guard)", async () => {
     const { id: memberUserId } = await seedUser(stack.db, {
       email: "elevation-guard-target@example.com",
