@@ -8,6 +8,7 @@ import { access, type SessionUser, type TenantId } from "@cosmicdrift/kumiko-fra
 import {
   setupTestStack,
   type TestStack,
+  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -768,12 +769,6 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
   });
 
   test("SystemAdmin can update member roles across tenants", async () => {
-    const systemAdmin: SessionUser = {
-      id: "sys-admin-root",
-      tenantId: "system" as TenantId,
-      roles: ["SystemAdmin"],
-    };
-
     const { id: memberUserId } = await seedUser(stack.db, {
       email: "sysadmin-cross-target@example.com",
       displayName: "SysAdmin Target",
@@ -789,7 +784,7 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
     const res = await stack.http.writeOk(
       TenantHandlers.updateMemberRoles,
       { userId: memberUserId, tenantId: TENANT_B_ID, roles: ["Admin"] },
-      systemAdmin,
+      TestUsers.systemAdmin,
     );
     expect(res).toMatchObject({ userId: memberUserId, tenantId: TENANT_B_ID, roles: ["Admin"] });
 

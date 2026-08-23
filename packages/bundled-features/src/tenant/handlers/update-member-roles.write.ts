@@ -145,13 +145,16 @@ export const updateMemberRolesWrite = defineWriteHandler({
       });
     }
 
+    // Stream tenant follows the actor via streamTenantFor — use the
+    // membership tenant so SystemAdmin/cross-tenant and TenantAdmin paths
+    // hit the same stream seedTenantMembership/invite-accept wrote.
     const result = await executor.update(
       {
         id: row["id"] as string, // @cast-boundary db-row
         version: row["version"] as number, // @cast-boundary db-row
         changes: { roles: JSON.stringify(event.payload.roles) },
       },
-      event.user,
+      createSystemUser(targetTenantId),
       db,
     );
 
