@@ -1,4 +1,9 @@
 export {
+  extractAiClassify,
+  extractAiExtract,
+  extractAiGenerate,
+} from "./ai-steps";
+export {
   extractDefineEvent,
   extractNotification,
 } from "./events";
@@ -17,11 +22,6 @@ export {
   readOptionalPhase,
   readOptionalRateLimit,
 } from "./hooks";
-export {
-  extractAiClassify,
-  extractAiExtract,
-  extractAiGenerate,
-} from "./ai-steps";
 export {
   extractHttpRoute,
   extractJob,

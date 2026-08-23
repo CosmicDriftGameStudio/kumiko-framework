@@ -1823,7 +1823,6 @@ defineFeature("f", (r) => {
   });
 });
 
-
 describe("extractAiGenerate", () => {
   test("captures inline object literal args", () => {
     const result = parseInline(`
@@ -2043,8 +2042,6 @@ defineFeature("f", (r) => {
     expect(result.patterns.some((p) => p.kind === "ai.generate")).toBe(true);
   });
 });
-
-
 
 describe("extractHttpRoute", () => {
   test("captures method, path, anonymous, handler", () => {

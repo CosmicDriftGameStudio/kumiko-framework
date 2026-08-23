@@ -414,7 +414,7 @@ function resolveStepsArrayRoot(stepsInit: Expression): Node | undefined {
   if (directArray) return directArray;
 
   const pipelineCall = stepsInit.asKind(SyntaxKind.CallExpression);
-  if (!pipelineCall || pipelineCall.getExpression().getText() !== "stepsPipeline") {
+  if (pipelineCall?.getExpression().getText() !== "stepsPipeline") {
     return undefined;
   }
 
@@ -423,7 +423,9 @@ function resolveStepsArrayRoot(stepsInit: Expression): Node | undefined {
   const fn = findFunctionLiteral(closureArg);
   if (!fn) return undefined;
 
-  const fnBody = fn.getBody();
+  const fnBody =
+    fn.asKind(SyntaxKind.ArrowFunction)?.getBody() ??
+    fn.asKind(SyntaxKind.FunctionExpression)?.getBody();
   const exprBody = fnBody?.asKind(SyntaxKind.ArrayLiteralExpression);
   if (exprBody) return exprBody;
 

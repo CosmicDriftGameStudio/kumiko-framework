@@ -890,4 +890,3 @@ ${stepCalls}
     expect(reparsed.patterns.map(stripLocations)).toEqual(aiPatterns.map(stripLocations));
   });
 });
-

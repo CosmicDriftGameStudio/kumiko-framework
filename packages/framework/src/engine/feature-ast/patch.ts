@@ -226,35 +226,38 @@ export function removePattern(sourceFile: SourceFile, id: PatternId): void {
   if (isAiStepId(id)) {
     const { start, end } = aiStepPatchSpan(sourceFile, call);
     sourceFile.replaceText([start, end], "");
-    return;
+  } else {
+    const enclosingStatement = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
+    const target = enclosingStatement ?? call;
+
+    // Erase from the start of the line containing the statement (so leading
+    // indentation goes with it) through the trailing newline, including the
+    // *leading* blank line that addPattern emits — keeps blank-line counts
+    // stable under add → remove cycles. We don't touch leading comments.
+    const startPos = lineStart(sourceFile, target.getStart());
+    const endPos = lineEnd(sourceFile, target.getEnd());
+
+    // Collapse a preceding blank line if there is one (avoids a double
+    // blank line between the now-adjacent statements).
+    const collapseStart = collapsePrecedingBlankLine(sourceFile, startPos);
+    sourceFile.replaceText([collapseStart, endPos + 1], "");
   }
-
-  const enclosingStatement = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
-  const target = enclosingStatement ?? call;
-
-  // Erase from the start of the line containing the statement (so leading
-  // indentation goes with it) through the trailing newline, including the
-  // *leading* blank line that addPattern emits — keeps blank-line counts
-  // stable under add → remove cycles. We don't touch leading comments.
-  const startPos = lineStart(sourceFile, target.getStart());
-  const endPos = lineEnd(sourceFile, target.getEnd());
-
-  // Collapse a preceding blank line if there is one (avoids a double
-  // blank line between the now-adjacent statements).
-  const collapseStart = collapsePrecedingBlankLine(sourceFile, startPos);
-  sourceFile.replaceText([collapseStart, endPos + 1], "");
 }
 
 // =============================================================================
 // Lookup
 // =============================================================================
 
-
-function isAiStepId(id: PatternId): id is Extract<PatternId, { kind: "ai.generate" | "ai.extract" | "ai.classify" }> {
+function isAiStepId(
+  id: PatternId,
+): id is Extract<PatternId, { kind: "ai.generate" | "ai.extract" | "ai.classify" }> {
   return id.kind === "ai.generate" || id.kind === "ai.extract" || id.kind === "ai.classify";
 }
 
-function aiStepPatchSpan(sourceFile: SourceFile, call: CallExpression): { start: number; end: number } {
+function aiStepPatchSpan(
+  sourceFile: SourceFile,
+  call: CallExpression,
+): { start: number; end: number } {
   const start = call.getStart();
   let end = call.getEnd();
   const text = sourceFile.getFullText();

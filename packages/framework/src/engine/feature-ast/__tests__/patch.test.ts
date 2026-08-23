@@ -757,9 +757,12 @@ defineFeature("ai-demo", (r) => {
     const reparsed = parseSourceFile(sf);
     expect(reparsed.errors).toEqual([]);
     expect(reparsed.patterns).toContainEqual(
-      expect.objectContaining({ kind: "ai.generate", stepKey: "generate", promptFallback: "Updated." }),
+      expect.objectContaining({
+        kind: "ai.generate",
+        stepKey: "generate",
+        promptFallback: "Updated.",
+      }),
     );
     expect(sf.getFullText()).toContain("defineWorkflow");
   });
 });
-

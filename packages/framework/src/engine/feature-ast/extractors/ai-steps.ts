@@ -73,17 +73,12 @@ function readEditableDefaults(
   if (!isPlainObject(value)) return undefined;
   if (typeof value["enabled"] !== "boolean") return undefined;
   if (!isPlainObject(value["params"])) return undefined;
-  const policy: AiStepPolicy = {
+  return {
     enabled: value["enabled"],
     params: value["params"] as Record<string, unknown>,
+    ...(typeof value["providerId"] === "string" && { providerId: value["providerId"] }),
+    ...(typeof value["model"] === "string" && { model: value["model"] }),
   };
-  if (typeof value["providerId"] === "string") {
-    policy.providerId = value["providerId"];
-  }
-  if (typeof value["model"] === "string") {
-    policy.model = value["model"];
-  }
-  return policy;
 }
 
 function readClassifyActions(
