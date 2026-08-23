@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import type { Dispatcher, DispatcherError, QueryResult } from "@cosmicdrift/kumiko-headless";
 import { postWithDownload } from "../download";
 
-function stubDispatcher(result: unknown) {
-  return { query: async () => result };
+function stubDispatcher(result: QueryResult<{ url?: string }>): Dispatcher {
+  return { query: async () => result } as unknown as Dispatcher;
 }
 
 // Works in both bunfig (node) and bunfig.dom.toml (happy-dom) runs:
@@ -43,25 +44,39 @@ describe("postWithDownload", () => {
 
   test("assigns the url and returns null on success", async () => {
     tracked = trackAssignedUrl();
-    const dispatcher = stubDispatcher({ isSuccess: true, data: { url: "https://cdn.example.com/f.pdf" } });
-    const err = await postWithDownload(dispatcher as never, "files.signedUrl", {});
+    const dispatcher = stubDispatcher({
+      isSuccess: true,
+      data: { url: "https://cdn.example.com/f.pdf" },
+    });
+    const err = await postWithDownload(dispatcher, "files.signedUrl", {});
     expect(err).toBeNull();
     expect(tracked.url()).toBe("https://cdn.example.com/f.pdf");
   });
 
   test("passes the dispatcher error through when not successful", async () => {
-    const dispatcherError = { code: "boom", httpStatus: 500 };
+    const dispatcherError: DispatcherError = {
+      code: "boom",
+      httpStatus: 500,
+      i18nKey: "errors.internal",
+      message: "boom",
+    };
     const dispatcher = stubDispatcher({ isSuccess: false, error: dispatcherError });
-    const err = await postWithDownload(dispatcher as never, "files.signedUrl", {});
+    const err = await postWithDownload(dispatcher, "files.signedUrl", {});
     expect(err).toEqual(dispatcherError);
   });
 
   test("returns download_url_missing error when url is absent", async () => {
+    tracked = trackAssignedUrl();
     const err = await postWithDownload(
-      stubDispatcher({ isSuccess: true, data: {} }) as never,
+      stubDispatcher({ isSuccess: true, data: {} }),
       "files.signedUrl",
       {},
     );
-    expect(err).not.toBeNull();
+    expect(err).toMatchObject({
+      code: "download_url_missing",
+      httpStatus: 502,
+      i18nKey: "errors.download.urlMissing",
+    });
+    expect(tracked.url()).toBeUndefined();
   });
 });

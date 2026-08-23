@@ -3,12 +3,22 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { DispatcherError, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
+import { buildFormSchema } from "../../app/form-schema";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
 import { kumikoDefaultTranslations } from "../../i18n-defaults";
-import { type CorePrimitives, PrimitivesProvider, type SectionProps } from "../../primitives";
-import { RenderEdit, type RenderEditAction } from "../render-edit";
+import {
+  type BannerProps,
+  type CorePrimitives,
+  PrimitivesProvider,
+  type SectionProps,
+  type TextProps,
+} from "../../primitives";
+import { RenderEdit, type RenderEditAction, type RenderEditProps } from "../render-edit";
+
+type Values = { name: string };
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
@@ -59,10 +69,18 @@ const testInput: ComponentType<{
   />
 );
 
+const testBanner: ComponentType<BannerProps> = ({ children, testId }) => (
+  <div data-testid={testId}>{children}</div>
+);
+
+const testText: ComponentType<TextProps> = ({ children, testId }) => (
+  <span data-testid={testId}>{children}</span>
+);
+
 function testPrimitives(): CorePrimitives {
   return {
     Button: testButton,
-    Banner: noop,
+    Banner: testBanner,
     Field: passChildren,
     Input: testInput,
     DataTable: noop,
@@ -71,7 +89,7 @@ function testPrimitives(): CorePrimitives {
     Card: passChildren,
     Grid: passChildren,
     GridCell: passChildren,
-    Text: passChildren,
+    Text: testText,
     Heading: noop,
     Dialog: noop,
     Modal: noop,
@@ -82,15 +100,25 @@ function testPrimitives(): CorePrimitives {
   } as unknown as CorePrimitives;
 }
 
-function buildEntity(): EntityDefinition {
+function buildEntity(required = false): EntityDefinition {
   return {
     fields: {
-      name: { type: "text", maxLength: 200, required: false, searchable: false, sortable: false },
+      name: {
+        type: "text",
+        maxLength: 200,
+        required,
+        searchable: false,
+        sortable: false,
+      },
     },
   };
 }
 
-function renderEdit(screen: EntityEditScreenDefinition, overrides: Record<string, unknown> = {}) {
+function renderEdit(
+  screen: EntityEditScreenDefinition,
+  overrides: Partial<RenderEditProps<Values>> = {},
+  entity: EntityDefinition = buildEntity(),
+) {
   return render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
@@ -99,7 +127,7 @@ function renderEdit(screen: EntityEditScreenDefinition, overrides: Record<string
       <PrimitivesProvider value={testPrimitives()}>
         <RenderEdit
           screen={screen}
-          entity={buildEntity()}
+          entity={entity}
           featureName="contacts"
           initial={{ name: "" }}
           {...overrides}
@@ -116,14 +144,25 @@ const oneFieldScreen: EntityEditScreenDefinition = {
   layout: { sections: [{ title: "Main", fields: ["name"] }] },
 };
 
+const writeFailure: DispatcherError = {
+  code: "conflict",
+  httpStatus: 409,
+  i18nKey: "errors.conflict",
+  message: "conflict",
+};
+
 describe("RenderEdit — submit path", () => {
   test("changing a field and saving calls onSubmit with a successful result", async () => {
-    let submitted: { isSuccess?: boolean } | undefined;
+    let submitted: SubmitResult<unknown> | undefined;
     renderEdit(oneFieldScreen, {
-      customSubmit: (async () => ({ isSuccess: true, data: { id: "n1" } })) as never,
-      onSubmit: ((result: unknown) => {
-        submitted = result as { isSuccess?: boolean };
-      }) as never,
+      customSubmit: async () => ({
+        validationBlocked: false,
+        isSuccess: true,
+        data: { id: "n1" },
+      }),
+      onSubmit: (result) => {
+        submitted = result;
+      },
     });
 
     fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ferdinand" } });
@@ -134,12 +173,11 @@ describe("RenderEdit — submit path", () => {
   });
 
   test("submit stays disabled while the form is unchanged and enables after edits", async () => {
-    const onSubmitted = () => {
-      throw new Error("must not fire");
-    };
     const view = renderEdit(oneFieldScreen, {
-      customSubmit: (async () => ({ isSuccess: true })) as never,
-      onSubmit: onSubmitted as never,
+      customSubmit: async () => ({ validationBlocked: false, isSuccess: true, data: {} }),
+      onSubmit: () => {
+        throw new Error("must not fire while disabled");
+      },
     });
 
     const save = rtlScreen.getByTestId("render-edit-submit") as HTMLButtonElement;
@@ -148,24 +186,115 @@ describe("RenderEdit — submit path", () => {
     await waitFor(() => expect(save.disabled).toBe(false));
     view.unmount();
   });
+
+  test("failed customSubmit surfaces the form-error banner and notifies onSubmit", async () => {
+    let submitted: SubmitResult<unknown> | undefined;
+    let customCalls = 0;
+    renderEdit(oneFieldScreen, {
+      customSubmit: async () => {
+        customCalls += 1;
+        return { validationBlocked: false, isSuccess: false, error: writeFailure };
+      },
+      onSubmit: (result) => {
+        submitted = result;
+      },
+    });
+
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ferdinand" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy());
+    // LocaleProvider resolves i18nKey → human copy; pin the error code via onSubmit.
+    expect(rtlScreen.getByTestId("render-edit-form-error-key").textContent?.length).toBeGreaterThan(
+      0,
+    );
+    expect(customCalls).toBe(1);
+    expect(submitted).toEqual({
+      validationBlocked: false,
+      isSuccess: false,
+      error: writeFailure,
+    });
+  });
+
+  test("schema validation blocks customSubmit and notifies validationBlocked", async () => {
+    let submitted: SubmitResult<unknown> | undefined;
+    let customCalls = 0;
+    const entity = buildEntity(true);
+    // RenderEdit only validates when a schema is passed (kumiko-screen builds it
+    // via buildFormSchema). Without it, entity.required is display-only here.
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <PrimitivesProvider value={testPrimitives()}>
+          <RenderEdit
+            screen={oneFieldScreen}
+            entity={entity}
+            featureName="contacts"
+            initial={{ name: "seed" }}
+            schema={buildFormSchema(entity, oneFieldScreen)}
+            customSubmit={async () => {
+              customCalls += 1;
+              return { validationBlocked: false, isSuccess: true, data: {} };
+            }}
+            onSubmit={(result) => {
+              submitted = result;
+            }}
+          />
+        </PrimitivesProvider>
+      </LocaleProvider>,
+    );
+
+    // Clear the required field; form stays dirty vs initial "seed".
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "" } });
+    await waitFor(() =>
+      expect((rtlScreen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(submitted).toBeDefined());
+    expect(submitted).toEqual({ validationBlocked: true, isSuccess: false });
+    expect(customCalls).toBe(0);
+  });
 });
 
 describe("RenderEdit — custom actions", () => {
   test("renders an action button and runs its handler on click", async () => {
     let pressed = 0;
-    renderEdit(oneFieldScreen, {
-      actions: [
-        {
-          id: "ping",
-          label: "Ping",
-          onPress: async () => {
-            pressed += 1;
-          },
-        } as unknown as RenderEditAction,
-      ],
-    });
+    const actions: readonly RenderEditAction[] = [
+      {
+        id: "ping",
+        label: "Ping",
+        onPress: async () => {
+          pressed += 1;
+        },
+      },
+    ];
+    renderEdit(oneFieldScreen, { actions });
 
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-ping"));
     await waitFor(() => expect(pressed).toBe(1));
+  });
+
+  test("action handler failure shows the action-error banner", async () => {
+    const actions: readonly RenderEditAction[] = [
+      {
+        id: "boom",
+        label: "Boom",
+        onPress: async () => {
+          throw new Error("action exploded");
+        },
+      },
+    ];
+    renderEdit(oneFieldScreen, { actions });
+
+    fireEvent.click(rtlScreen.getByTestId("render-edit-action-boom"));
+    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-action-error")).toBeTruthy());
+    expect(rtlScreen.getByTestId("render-edit-action-error").textContent).toContain(
+      "action exploded",
+    );
   });
 });
