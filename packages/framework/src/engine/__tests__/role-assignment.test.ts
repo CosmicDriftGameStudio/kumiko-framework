@@ -37,9 +37,10 @@ describe("role assignment guard", () => {
   });
 
   test("allows modifying target that currently holds an unranked app role", () => {
-    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["User"], ["Editor"])).toBeUndefined();
-    expect(findForbiddenRoleAssignment(["Admin"], ["User"], ["Editor", "User"])).toBeUndefined();
+    // Editor is ranked (invite options); use a true app-defined role here.
+    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["User"], ["Billing"])).toBeUndefined();
+    expect(findForbiddenRoleAssignment(["Admin"], ["User"], ["Billing", "User"])).toBeUndefined();
     // Still cannot assign the unranked role on the write path (fail-closed).
-    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["Editor"], ["Editor"])).toBe("Editor");
+    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["Billing"], ["Billing"])).toBe("Billing");
   });
 });

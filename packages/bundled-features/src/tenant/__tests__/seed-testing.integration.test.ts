@@ -19,7 +19,6 @@ import {
   createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
