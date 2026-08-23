@@ -21,8 +21,13 @@ function jwtStub() {
   return { jwt, signed };
 }
 
-function appRecording(handler: (c: { req: { json: () => Promise<unknown>; header: (n: string) => string | undefined } }) => Response | Promise<Response>) {
-  const calls: { path: string; auth?: string; extraHeaders: Record<string, string | undefined> }[] = [];
+function appRecording(
+  handler: (c: {
+    req: { json: () => Promise<unknown>; header: (n: string) => string | undefined };
+  }) => Response | Promise<Response>,
+) {
+  const calls: { path: string; auth?: string; extraHeaders: Record<string, string | undefined> }[] =
+    [];
   const app = new Hono();
   for (const path of ["/api/write", "/api/query", "/api/command", "/api/batch"]) {
     app.post(path, async (c) => {
@@ -39,8 +44,8 @@ function appRecording(handler: (c: { req: { json: () => Promise<unknown>; header
 
 describe("createRequestHelper", () => {
   test("writeOk posts JSON to /api/write and resolves the success data", async () => {
-    const { app, calls } = appRecording(
-      () => Response.json({ isSuccess: true, data: { written: true } }),
+    const { app, calls } = appRecording(() =>
+      Response.json({ isSuccess: true, data: { written: true } }),
     );
     const { jwt } = jwtStub();
     const http = createRequestHelper(app, jwt);
@@ -114,7 +119,9 @@ describe("createRequestHelper", () => {
 
     const succeeding = appRecording(() => Response.json({ isSuccess: true, data: {} }));
     const http2 = createRequestHelper(succeeding.app, jwtStub().jwt);
-    expect(http2.queryErr("q.type", {}, user)).rejects.toThrow('Expected query "q.type" to fail but it succeeded');
+    expect(http2.queryErr("q.type", {}, user)).rejects.toThrow(
+      'Expected query "q.type" to fail but it succeeded',
+    );
   });
 
   test("batch posts the commands array unchanged to /api/batch", async () => {

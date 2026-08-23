@@ -10,7 +10,9 @@ describe("buildMultipartBody", () => {
     const { body, contentType } = await buildMultipartBody(fd);
     expect(contentType).toMatch(/^multipart\/form-data; boundary=kumikoBnd/i);
 
-    const parsed = await new Response(body, { headers: { "content-type": contentType } }).formData();
+    const parsed = await new Response(body, {
+      headers: { "content-type": contentType },
+    }).formData();
     expect(parsed.get("title")).toBe("hello world");
     expect(parsed.get("count")).toBe("42");
   });
@@ -34,7 +36,9 @@ describe("buildMultipartBody", () => {
     fd.set("file", new File(["abc"], "a.txt"));
 
     const { body, contentType } = await buildMultipartBody(fd);
-    const parsed = await new Response(body, { headers: { "content-type": contentType } }).formData();
+    const parsed = await new Response(body, {
+      headers: { "content-type": contentType },
+    }).formData();
     expect(parsed.get("note")).toBe("attached");
     // Structural check: happy-dom and bun can expose different File realms,
     // so instanceof would fail depending on file order in the same process.
