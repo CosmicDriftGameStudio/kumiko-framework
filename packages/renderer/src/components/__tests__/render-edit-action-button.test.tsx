@@ -1,23 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
-import type { ComponentType, ReactNode } from "react";
-import type { DialogProps } from "../../primitives";
+import type { ComponentType } from "react";
+import type { ButtonProps, DialogProps } from "../../primitives";
 import { RenderEditActionButton } from "../render-edit-action-button";
 import type { RenderEditAction } from "../render-edit-types";
 
-const TestButton: ComponentType<{
-  children?: ReactNode;
-  onClick?: () => void;
-  testId?: string;
-  type?: "button" | "submit";
-  loading?: boolean;
-  variant?: string;
-}> = ({ children, onClick, testId, type, loading }) => (
+const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId, type, loading }) => (
   <button
     type={type ?? "button"}
     data-testid={testId}
     data-loading={loading ? "1" : "0"}
-    onClick={onClick}
+    onClick={() => {
+      void onClick?.();
+    }}
   >
     {children}
   </button>
@@ -143,7 +138,6 @@ describe("RenderEditActionButton", () => {
 
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-boom"));
     await waitFor(() => expect(errors).toContain("action exploded"));
-    // Cleared at the start of trigger, then set on failure.
     expect(errors[0]).toBeNull();
   });
 
