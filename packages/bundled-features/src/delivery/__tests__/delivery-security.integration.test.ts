@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { insertMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { access, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import { access, createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -102,6 +102,144 @@ describe("delivery log tenant isolation", () => {
     expect(res.rows.length).toBeGreaterThan(0);
     expect(res.rows.every((r) => r.tenantId === tenantA)).toBe(true);
     expect(res.rows.some((r) => r.tenantId === tenantB)).toBe(false);
+  });
+});
+
+describe("delivery log SystemAdmin cross-tenant scope", () => {
+  // Platform waitlist confirmations are dispatched under SYSTEM_TENANT_ID
+  // (anonymous submit). SystemAdmin must see those rows even when their
+  // session tenant is a demo tenant; TenantAdmin must not.
+  const WAITLIST_CONFIRMATION = "waitlist:notify:confirmation";
+
+  test("SystemAdmin sees waitlist confirmation under SYSTEM_TENANT_ID and other tenants, with tenantId on each row", async () => {
+    const demoTenant = testTenantId(51);
+    const otherTenant = testTenantId(52);
+    const systemConfirmationId = crypto.randomUUID();
+    const demoActivationId = crypto.randomUUID();
+    const otherTenantId = crypto.randomUUID();
+    const failedConfirmationId = crypto.randomUUID();
+
+    await insertMany(stack.db, deliveryAttemptsTable, [
+      {
+        id: systemConfirmationId,
+        tenantId: SYSTEM_TENANT_ID,
+        notificationType: WAITLIST_CONFIRMATION,
+        channel: "email",
+        recipientAddress: null,
+        status: "sent",
+      },
+      {
+        id: failedConfirmationId,
+        tenantId: SYSTEM_TENANT_ID,
+        notificationType: WAITLIST_CONFIRMATION,
+        channel: "email",
+        recipientAddress: null,
+        status: "failed",
+        error: "smtp down",
+      },
+      {
+        id: demoActivationId,
+        tenantId: demoTenant,
+        notificationType: "auth-email-password:signup-activation",
+        channel: "email",
+        recipientAddress: null,
+        status: "sent",
+      },
+      {
+        id: otherTenantId,
+        tenantId: otherTenant,
+        notificationType: "welcome",
+        channel: "email",
+        recipientAddress: null,
+        status: "sent",
+      },
+    ]);
+
+    // Session on demo tenant — mirrors SystemAdmin browsing a tenant panel.
+    const systemAdmin = createTestUser({
+      id: 51,
+      roles: ["SystemAdmin"],
+      tenantId: demoTenant,
+    });
+    const res = await stack.http.queryOk<{
+      rows: readonly {
+        id: string;
+        tenantId: string;
+        type: string;
+        status: string;
+        error: string | null;
+      }[];
+    }>(DeliveryQueries.log, {}, systemAdmin);
+
+    const byId = new Map(res.rows.map((r) => [r.id, r]));
+    expect(byId.get(systemConfirmationId)?.tenantId).toBe(SYSTEM_TENANT_ID);
+    expect(byId.get(systemConfirmationId)?.type).toBe(WAITLIST_CONFIRMATION);
+    expect(byId.get(demoActivationId)?.tenantId).toBe(demoTenant);
+    expect(byId.get(otherTenantId)?.tenantId).toBe(otherTenant);
+
+    const failed = byId.get(failedConfirmationId);
+    expect(failed?.tenantId).toBe(SYSTEM_TENANT_ID);
+    expect(failed?.type).toBe(WAITLIST_CONFIRMATION);
+    // Failure path: confirmation delivery errors must surface in the log so
+    // SystemAdmin can diagnose SMTP/channel outages (status=failed).
+    expect(failed?.status).toBe("failed");
+
+    expect(res.rows.every((r) => typeof r.tenantId === "string" && r.tenantId.length > 0)).toBe(
+      true,
+    );
+  });
+
+  test("TenantAdmin cannot read SYSTEM_TENANT_ID or foreign-tenant delivery attempts", async () => {
+    const demoTenant = testTenantId(61);
+    const otherTenant = testTenantId(62);
+    await insertMany(stack.db, deliveryAttemptsTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: SYSTEM_TENANT_ID,
+        notificationType: WAITLIST_CONFIRMATION,
+        channel: "email",
+        recipientAddress: null,
+        status: "sent",
+      },
+      {
+        id: crypto.randomUUID(),
+        tenantId: otherTenant,
+        notificationType: "welcome",
+        channel: "email",
+        recipientAddress: null,
+        status: "sent",
+      },
+      {
+        id: crypto.randomUUID(),
+        tenantId: demoTenant,
+        notificationType: "welcome",
+        channel: "email",
+        recipientAddress: null,
+        status: "sent",
+      },
+    ]);
+
+    const tenantAdmin = createTestUser({
+      id: 61,
+      roles: ["TenantAdmin"],
+      tenantId: demoTenant,
+    });
+    const res = await stack.http.queryOk<{ rows: readonly { tenantId: string }[] }>(
+      DeliveryQueries.log,
+      {},
+      tenantAdmin,
+    );
+
+    expect(res.rows.length).toBeGreaterThan(0);
+    expect(res.rows.every((r) => r.tenantId === demoTenant)).toBe(true);
+    expect(res.rows.some((r) => r.tenantId === SYSTEM_TENANT_ID)).toBe(false);
+    expect(res.rows.some((r) => r.tenantId === otherTenant)).toBe(false);
+  });
+
+  test("tenant User cannot query delivery log (negative authz)", async () => {
+    const demoTenant = testTenantId(71);
+    const user = createTestUser({ id: 71, roles: ["User"], tenantId: demoTenant });
+    expect((await stack.http.query(DeliveryQueries.log, {}, user)).status).toBe(403);
   });
 });
 
