@@ -110,6 +110,7 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
     id: "cap-list",
     label: "cap-counter:nav.cap-list",
     screen: "cap-counter:screen:cap-list",
+    icon: "gauge",
     order: 60,
   });
   r.translations({

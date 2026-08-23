@@ -11,6 +11,10 @@ describe("cap-counter list screen + handler access alignment", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
+  test("cap-list nav declares icon gauge", () => {
+    expect(capCounterFeature.navs["cap-list"]?.icon).toBe("gauge");
+  });
+
   test("cap-list screen is entityList, SystemAdmin-gated", () => {
     const screen = capCounterFeature.screens[CAP_COUNTER_LIST_SCREEN_ID];
     expect(screen?.type).toBe("entityList");
