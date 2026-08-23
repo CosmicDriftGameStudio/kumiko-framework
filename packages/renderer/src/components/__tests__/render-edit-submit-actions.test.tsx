@@ -130,7 +130,7 @@ function stubDispatcher(
     statusStore: {
       getState: () => "online",
       subscribe: () => () => {},
-    } as Dispatcher["statusStore"],
+    } as unknown as Dispatcher["statusStore"],
     async *stream() {},
     pendingWrites: () => [],
     pendingFiles: () => [],
