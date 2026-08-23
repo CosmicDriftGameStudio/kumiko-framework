@@ -1,4 +1,3 @@
-import type { z } from "zod";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -10,33 +9,33 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
+import type { z } from "zod";
 
 export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly screen: EntityEditScreenDefinition;
   readonly entity: EntityDefinition;
   readonly featureName: string;
   readonly initial: TValues;
-  /** Echte entity-id für extension-section-Mounts (Set-Value-UI). Mount UND
-   *  persistExtensions lösen sie über `resolveExtensionEntityId(entityIdProp,
-   *  vm.id)` auf — denselben Wert, damit die Section nicht editierbar gegen eine
-   *  id mountet während Persist gegen eine andere (oder gar nicht) schreibt.
-   *  Weglassen (undefined) = Fallback auf `vm.id` (= values["id"]), das das
-   *  Update-Form für die bestehende Row trägt. Explizites `null` = "keine
-   *  entity" (create-mode / keine extension-Persistenz). */
+  /** Real entity id for extension-section mounts (set-value UI). Mount AND
+   *  persistExtensions resolve it via `resolveExtensionEntityId(entityIdProp,
+   *  vm.id)` — the same value, so the section doesn't mount editable against
+   *  one id while persist writes against another (or none at all).
+   *  Omitting (undefined) = fallback to `vm.id` (= values["id"]), which the
+   *  update form carries for the existing row. Explicit `null` = "no entity"
+   *  (create mode / no extension persistence). */
   readonly entityId?: string | null;
-  /** Bereits gespeicherte Extension-Werte (z.B. `record.customFields`) für
-   *  extension-section-Mounts. Erlaubt der Section, den Bestand beim Edit
-   *  anzuzeigen. Nur der Update-Body liefert das. */
+  /** Already-persisted extension values (e.g. `record.customFields`) for
+   *  extension-section mounts. Lets the section display its current stock
+   *  during edit. Only the update body provides this. */
   readonly extensionInitialValues?: Readonly<Record<string, unknown>>;
-  /** Standard single-write Submit-Pfad. Ignoriert wenn `customSubmit`
-   *  gesetzt ist (configEdit-Screens dispatchen mehrere Writes pro
-   *  Submit, da macht writeCommand keinen Sinn). */
+  /** Standard single-write submit path. Ignored when `customSubmit` is set
+   *  (configEdit screens dispatch multiple writes per submit, where a single
+   *  writeCommand makes no sense). */
   readonly writeCommand?: string;
-  /** Override für die Submit-Pipeline. Wenn gesetzt, läuft erst
-   *  controller.validate() und dann customSubmit(snapshot) statt
-   *  controller.submit(). On-success rebased der Form-State so dass
-   *  isUnchanged/isDirty wieder false werden — ohne das blieben
-   *  Save-Button und Banner stale. */
+  /** Override for the submit pipeline. When set, runs controller.validate()
+   *  and then customSubmit(snapshot) instead of controller.submit(). On
+   *  success the form state rebases so that isUnchanged/isDirty become false
+   *  again — without that, save button and banner stay stale. */
   readonly customSubmit?: (snapshot: FormSnapshot<TValues>) => Promise<SubmitResult<unknown>>;
   readonly translate?: Translate;
   readonly ctx?: TCtx;
@@ -47,12 +46,12 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly onDelete?: () => Promise<void> | void;
   readonly onCancel?: () => void;
   readonly onReload?: () => void;
-  /** Copy-Link-Action (Issue #912) — nur in update-mode gesetzt (create-mode
-   *  hat noch keine entity-id, also keinen Permalink). Der Callback ist
-   *  bereits vollständig gebunden (URL-Bau + Clipboard passiert außerhalb,
-   *  in `@cosmicdrift/kumiko-renderer-web`'s RoutedScreen — dieses
-   *  platform-neutrale Package darf kein `navigator`/`window` anfassen,
-   *  siehe guard-renderer-boundaries). undefined = kein Button. */
+  /** Copy-link action (issue #912) — only set in update mode (create mode
+   *  has no entity id yet, hence no permalink). The callback is already fully
+   *  bound (URL building + clipboard happen outside, in
+   *  `@cosmicdrift/kumiko-renderer-web`'s RoutedScreen — this platform-neutral
+   *  package must not touch `navigator`/`window`, see
+   *  guard-renderer-boundaries). undefined = no button. */
   readonly onCopyLink?: () => Promise<void> | void;
   /** Header action buttons, rendered before the built-in copy-link/
    *  delete/cancel/save controls. Each callback is already fully
@@ -60,18 +59,17 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  same split as `onCopyLink`) — RenderEdit only wires the button, its
    *  busy state and its confirm dialog. */
   readonly actions?: readonly RenderEditAction[];
-  /** i18n-key für den Submit-Button. Default: "kumiko.actions.save".
-   *  Action-Forms (Tier 2.7d) übergeben hier ihren screen.submitLabel,
-   *  damit "Speichern" durch domain-spezifischere Strings ersetzt
-   *  werden kann ("Genehmigen" / "Versenden" / etc.). */
+  /** i18n key for the submit button. Default: "kumiko.actions.save".
+   *  Action forms (tier 2.7d) pass their screen.submitLabel here so that
+   *  "Save" can be replaced by domain-specific strings ("Approve" /
+   *  "Dispatch" / etc.). */
   readonly submitLabel?: string;
-  /** Pro-Field-Zusatz-Inhalt inline nach dem Label (z.B. ConfigSourceBadge).
-   *  Wird mit dem Field-Namen aufgerufen, returnt ReactNode oder
+  /** Per-field extra content inline after the label (e.g.
+   *  ConfigSourceBadge). Called with the field name, returns a ReactNode or
    *  undefined. */
   readonly labelAppendix?: (fieldName: string) => ReactNode | undefined;
-  /** Pro-Field-Zusatz-Inhalt unter dem Input (z.B. ConfigCascadeView).
-   *  Wird mit dem Field-Namen aufgerufen, returnt ReactNode oder
-   *  undefined. */
+  /** Per-field extra content below the input (e.g. ConfigCascadeView).
+   *  Called with the field name, returns a ReactNode or undefined. */
   readonly fieldAppendix?: (fieldName: string) => ReactNode | undefined;
   /** Controlled mode (issue #1887): fires on every values-snapshot change
    *  (typing, `patch(...)` from outside) with the current values. `changes`

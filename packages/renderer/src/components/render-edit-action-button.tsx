@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { usePrimitives } from "../primitives";
+import type { usePrimitives } from "../primitives";
 import type { RenderEditAction } from "./render-edit-types";
 
 export function RenderEditActionButton({

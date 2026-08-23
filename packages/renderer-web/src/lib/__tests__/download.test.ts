@@ -12,11 +12,11 @@ function stubDispatcher(result: unknown) {
 //   whole window object corrupts every later DOM suite in the same process.
 function trackAssignedUrl(): { url: () => string | undefined; restore: () => void } {
   const g = globalThis as Record<string, unknown>;
-  const hadWindow = typeof g.window !== "undefined";
+  const hadWindow = typeof g["window"] !== "undefined";
   if (!hadWindow) {
-    g.window = { location: { assign(_url: string) {} } };
+    g["window"] = { location: { assign(_url: string) {} } };
   }
-  const win = g.window as { location: { assign: (u: string) => void } };
+  const win = g["window"] as { location: { assign: (u: string) => void } };
   const originalAssign = win.location.assign;
   let assignedUrl: string | undefined;
   win.location.assign = (u: string) => {
@@ -28,7 +28,7 @@ function trackAssignedUrl(): { url: () => string | undefined; restore: () => voi
       if (hadWindow) {
         win.location.assign = originalAssign;
       } else {
-        delete g.window;
+        delete g["window"];
       }
     },
   };

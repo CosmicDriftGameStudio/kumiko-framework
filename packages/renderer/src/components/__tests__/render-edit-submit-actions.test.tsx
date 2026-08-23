@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { EntityDefinition, EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  EntityDefinition,
+  EntityEditScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
@@ -87,10 +90,7 @@ function buildEntity(): EntityDefinition {
   };
 }
 
-function renderEdit(
-  screen: EntityEditScreenDefinition,
-  overrides: Record<string, unknown> = {},
-) {
+function renderEdit(screen: EntityEditScreenDefinition, overrides: Record<string, unknown> = {}) {
   return render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
@@ -139,7 +139,7 @@ describe("RenderEdit — submit path", () => {
     };
     const view = renderEdit(oneFieldScreen, {
       customSubmit: (async () => ({ isSuccess: true })) as never,
-      onSubmit: (onSubmitted as never),
+      onSubmit: onSubmitted as never,
     });
 
     const save = rtlScreen.getByTestId("render-edit-submit") as HTMLButtonElement;
