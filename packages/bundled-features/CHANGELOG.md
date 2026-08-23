@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.215.7
+
+### Patch Changes
+
+- 93220e2: Panel-ready for offlot: translate projectionList facets, Members status-filter es/de, cap-list gauge icon, SystemAdmin cross-tenant delivery log (incl. SYSTEM_TENANT_ID).
+- Updated dependencies [93220e2]
+  - @cosmicdrift/kumiko-renderer@0.215.7
+  - @cosmicdrift/kumiko-renderer-web@0.215.7
+  - @cosmicdrift/kumiko-framework@0.215.7
+  - @cosmicdrift/kumiko-types@0.215.7
+  - @cosmicdrift/kumiko-dispatcher-live@0.215.7
+  - @cosmicdrift/kumiko-headless@0.215.7
+
 ## 0.215.6
 
 ### Patch Changes
