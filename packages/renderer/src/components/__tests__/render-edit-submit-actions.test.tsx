@@ -3,7 +3,8 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { DispatcherError, SubmitResult } from "@cosmicdrift/kumiko-headless";
+import type { Dispatcher, DispatcherError, SubmitResult } from "@cosmicdrift/kumiko-headless";
+import { DispatcherProvider } from "../../context/dispatcher-context";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { buildFormSchema } from "../../app/form-schema";
@@ -114,12 +115,36 @@ function buildEntity(required = false): EntityDefinition {
   };
 }
 
+function stubDispatcher(
+  writeImpl?: Dispatcher["write"],
+): { dispatcher: Dispatcher; writes: Array<{ type: string; payload: unknown }> } {
+  const writes: Array<{ type: string; payload: unknown }> = [];
+  const dispatcher: Dispatcher = {
+    write: (async (type, payload) => {
+      writes.push({ type, payload });
+      if (writeImpl) return writeImpl(type, payload);
+      return { isSuccess: true, data: { id: "n1" } };
+    }) as Dispatcher["write"],
+    query: (async () => ({ isSuccess: true, data: {} })) as Dispatcher["query"],
+    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
+    statusStore: {
+      getState: () => "online",
+      subscribe: () => () => {},
+    } as Dispatcher["statusStore"],
+    async *stream() {},
+    pendingWrites: () => [],
+    pendingFiles: () => [],
+  };
+  return { dispatcher, writes };
+}
+
 function renderEdit(
   screen: EntityEditScreenDefinition,
   overrides: Partial<RenderEditProps<Values>> = {},
   entity: EntityDefinition = buildEntity(),
+  dispatcher?: Dispatcher,
 ) {
-  return render(
+  const body = (
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
       fallbackBundles={[kumikoDefaultTranslations]}
@@ -133,7 +158,14 @@ function renderEdit(
           {...overrides}
         />
       </PrimitivesProvider>
-    </LocaleProvider>,
+    </LocaleProvider>
+  );
+  return render(
+    dispatcher !== undefined ? (
+      <DispatcherProvider dispatcher={dispatcher}>{body}</DispatcherProvider>
+    ) : (
+      body
+    ),
   );
 }
 
@@ -298,3 +330,62 @@ describe("RenderEdit — custom actions", () => {
     );
   });
 });
+
+describe("RenderEdit — writeCommand path", () => {
+  test("successful writeCommand dispatches and notifies onSubmit", async () => {
+    const { dispatcher, writes } = stubDispatcher();
+    let submitted: SubmitResult<unknown> | undefined;
+    renderEdit(
+      oneFieldScreen,
+      {
+        writeCommand: "contacts:write:contact:update",
+        onSubmit: (result) => {
+          submitted = result;
+        },
+      },
+      buildEntity(),
+      dispatcher,
+    );
+
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ada" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(submitted).toBeDefined());
+    expect(submitted?.isSuccess).toBe(true);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]?.type).toBe("contacts:write:contact:update");
+    expect(writes[0]?.payload).toMatchObject({ name: "Ada" });
+  });
+
+  test("failed writeCommand without field issues shows form-error banner", async () => {
+    const writeFailure: DispatcherError = {
+      code: "conflict",
+      httpStatus: 409,
+      i18nKey: "errors.conflict",
+      message: "conflict",
+    };
+    const { dispatcher } = stubDispatcher(async () => ({
+      isSuccess: false,
+      error: writeFailure,
+    }));
+    let submitted: SubmitResult<unknown> | undefined;
+    renderEdit(
+      oneFieldScreen,
+      {
+        writeCommand: "contacts:write:contact:update",
+        onSubmit: (result) => {
+          submitted = result;
+        },
+      },
+      buildEntity(),
+      dispatcher,
+    );
+
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ada" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy());
+    expect(submitted?.isSuccess).toBe(false);
+  });
+});
+
