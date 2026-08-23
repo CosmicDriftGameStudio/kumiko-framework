@@ -4,7 +4,7 @@
 // Provider-Wrapper lokal (Dependency-Richtung renderer-web → bundled-features
 // verbietet test-utils-Import).
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { createStore, type Dispatcher, type DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
@@ -43,6 +43,8 @@ type QueryResponses = {
   readonly me: Record<string, unknown>;
   readonly exportStatus?: unknown;
   readonly auditLog?: unknown;
+  /** Signed URL returned by downloadByJob — drives postWithDownload navigation. */
+  readonly downloadUrl?: string;
 };
 
 function makeDispatcher(
@@ -59,6 +61,12 @@ function makeDispatcher(
     }
     if (type === UserDataRightsQueries.myAuditLog) {
       return { isSuccess: true, data: responses.auditLog ?? { rows: [] } };
+    }
+    if (type === UserDataRightsQueries.downloadByJob) {
+      if (responses.downloadUrl === undefined) {
+        return { isSuccess: true, data: null };
+      }
+      return { isSuccess: true, data: { url: responses.downloadUrl } };
     }
     return { isSuccess: true, data: null };
   }) as unknown as Dispatcher["query"];
@@ -232,6 +240,29 @@ describe("PrivacyCenterScreen", () => {
     });
     const download = queries.find((q) => q.type === UserDataRightsQueries.downloadByJob);
     expect(download?.payload).toEqual({ jobId: "job-123" });
+  });
+
+  test("Download-Button navigates to the signed URL from downloadByJob", async () => {
+    const signedUrl = "https://cdn.test/exports/job-123.zip?sig=abc";
+    const assign = spyOn(window.location, "assign").mockImplementation(() => {});
+    try {
+      const { view } = renderCenter({
+        me: activeMe,
+        downloadUrl: signedUrl,
+        exportStatus: {
+          hasJob: true,
+          job: { id: "job-123", status: EXPORT_JOB_STATUS.Done, expiresAt: "2026-07-11T00:00:00Z" },
+        },
+      });
+      await waitForMount(view);
+      fireEvent.click(view.getByTestId("privacy-export-download"));
+      await waitFor(() => {
+        if (assign.mock.calls.length === 0) throw new Error("location.assign not called");
+      });
+      expect(assign).toHaveBeenCalledWith(signedUrl);
+    } finally {
+      assign.mockRestore();
+    }
   });
 });
 
