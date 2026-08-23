@@ -9,7 +9,7 @@
 // Default ifExists="skip". `createSystemUser(SYSTEM_TENANT_ID)` als Actor —
 // bewusst nicht TestUsers (Prod-Seeds ≠ Test-Utilities).
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { deleteMany, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -17,10 +17,31 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants";
 import { executor } from "./handlers/shared";
 import { type TemplateResourceRow, templateResourcesTable } from "./table";
+
+
+/** Projection row without events — update() would 409 (expectedVersion from
+ *  projection, stream currentVersion=0). Drop the orphan and treat as create
+ *  so boot seeds (legal ifExists:update) survive desync. Stream version is the
+ *  optimistic-lock source of truth when events exist. */
+async function resolveExistingForEventStoreSeed(
+  db: DbConnection,
+  existingRow: { readonly id: string | number; readonly version: number } | null,
+  tenantId: TenantId,
+): Promise<{ id: string; version: number } | null> {
+  if (existingRow == null) return null;
+  const id = String(existingRow.id);
+  const streamVersion = await getStreamVersion(db, id, tenantId);
+  if (streamVersion === 0) {
+    await deleteMany(db, templateResourcesTable, { id });
+    return null;
+  }
+  return { id, version: streamVersion };
+}
 
 export type SeedSystemTemplateOptions = {
   readonly slug: string;
@@ -43,12 +64,17 @@ export async function seedSystemTemplate(
   const by = opts.by ?? createSystemUser(tenantId);
   const tdb = createTenantDb(db, tenantId, "system");
 
-  const existing = (await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+  const existingRow = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
     tenantId,
     slug: opts.slug,
     kind: opts.kind,
     locale: opts.locale,
-  })) as { id: string; version: number } | null;
+  });
+  const existing = await resolveExistingForEventStoreSeed(
+    db,
+    existingRow ? { id: existingRow.id, version: existingRow.version } : null,
+    tenantId,
+  );
 
   const variableSchema = JSON.stringify(opts.variableSchema ?? {});
   const linkedResources = JSON.stringify(opts.linkedResources ?? {});
@@ -127,9 +153,11 @@ export async function seedTextBlock(
     kind: TEXT_BLOCK_KIND,
     locale: opts.locale,
   });
-  const existing = existingRow
-    ? { id: String(existingRow.id), version: existingRow.version }
-    : null;
+  const existing = await resolveExistingForEventStoreSeed(
+    db,
+    existingRow ? { id: existingRow.id, version: existingRow.version } : null,
+    opts.tenantId,
+  );
 
   const fields = {
     slug: opts.slug,
