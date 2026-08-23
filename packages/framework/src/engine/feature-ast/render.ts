@@ -23,6 +23,11 @@
 
 import { isRawRefSentinel } from "./extractors/shared";
 import type {
+  AiClassifyPattern,
+  AiExtractPattern,
+  AiGeneratePattern,
+  AiStepOpaqueArgs,
+  AiStepPolicy,
   AuthClaimsPattern,
   ClaimKeyPattern,
   ConfigPattern,
@@ -143,6 +148,12 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderTreeActions(pattern);
     case "envSchema":
       return renderEnvSchema(pattern);
+    case "ai.generate":
+      return renderAiGenerate(pattern);
+    case "ai.extract":
+      return renderAiExtract(pattern);
+    case "ai.classify":
+      return renderAiClassify(pattern);
     case "unknown":
       return renderUnknown(pattern);
     default: {
@@ -435,6 +446,66 @@ function renderHook(p: HookPattern): string {
   lines.push(`  target: ${renderHookTarget(p.target)},`);
   lines.push(`  handler: ${reindentBody(p.fnBody.raw, PATTERN_INDENT)},`);
   if (p.phase !== undefined) lines.push(`  phase: ${JSON.stringify(p.phase)},`);
+  lines.push("});");
+  return lines.join("\n");
+}
+
+function renderEditableString(value: string | AiStepOpaqueArgs): string {
+  return typeof value === "string" ? JSON.stringify(value) : value.__raw;
+}
+
+function renderEditableDefaults(value: AiStepPolicy | AiStepOpaqueArgs): string {
+  if (isRawRefSentinel(value)) return value.__raw;
+  return renderValue(value);
+}
+
+function renderAiStepCommonFields(
+  lines: string[],
+  p: AiGeneratePattern | AiExtractPattern | AiClassifyPattern,
+): void {
+  if (p.stepKey !== undefined) lines.push(`  stepKey: ${renderEditableString(p.stepKey)},`);
+  if (p.promptKey !== undefined) lines.push(`  promptKey: ${renderEditableString(p.promptKey)},`);
+  if (p.promptFallback !== undefined) {
+    lines.push(`  promptFallback: ${renderEditableString(p.promptFallback)},`);
+  }
+  if (p.paramsSchemaSource !== undefined) {
+    lines.push(`  paramsSchema: ${p.paramsSchemaSource.raw},`);
+  }
+  if (p.defaults !== undefined) {
+    lines.push(`  defaults: ${renderEditableDefaults(p.defaults)},`);
+  }
+}
+
+function renderAiGenerate(p: AiGeneratePattern): string {
+  if (p.argsSource) return `aiGenerateStep(${p.argsSource.__raw})`;
+  const lines: string[] = ["aiGenerateStep({"];
+  renderAiStepCommonFields(lines, p);
+  if (p.inputBody !== undefined) lines.push(`  input: ${p.inputBody.raw},`);
+  lines.push("});");
+  return lines.join("\n");
+}
+
+function renderAiExtract(p: AiExtractPattern): string {
+  if (p.argsSource) return `aiExtractStep(${p.argsSource.__raw})`;
+  const lines: string[] = ["aiExtractStep({"];
+  renderAiStepCommonFields(lines, p);
+  if (p.outputSchemaSource !== undefined) {
+    lines.push(`  outputSchema: ${p.outputSchemaSource.raw},`);
+  }
+  if (p.instructionsBody !== undefined) {
+    lines.push(`  instructions: ${p.instructionsBody.raw},`);
+  }
+  if (p.documentBody !== undefined) lines.push(`  document: ${p.documentBody.raw},`);
+  lines.push("});");
+  return lines.join("\n");
+}
+
+function renderAiClassify(p: AiClassifyPattern): string {
+  if (p.argsSource) return `aiClassifyStep(${p.argsSource.__raw})`;
+  const lines: string[] = ["aiClassifyStep({"];
+  renderAiStepCommonFields(lines, p);
+  if (p.actions !== undefined) lines.push(`  actions: ${renderValue(p.actions)},`);
+  if (p.inputBody !== undefined) lines.push(`  input: ${p.inputBody.raw},`);
   lines.push("});");
   return lines.join("\n");
 }

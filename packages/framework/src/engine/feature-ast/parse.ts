@@ -32,6 +32,9 @@ import { Project, SyntaxKind } from "ts-morph";
 
 import {
   type ExtractOutput,
+  extractAiClassify,
+  extractAiExtract,
+  extractAiGenerate,
   extractAuthClaims,
   extractClaimKey,
   extractConfig,
@@ -152,6 +155,7 @@ export function parseSourceFile(sourceFile: SourceFile): ParseResult {
   const errors: ParseError[] = [];
 
   walkSetupCallback(setupCallback.getBody(), registrarParamName, sourceFile, patterns, errors);
+  walkAiStepCalls(sourceFile, patterns, errors);
 
   return { featureName, patterns, errors };
 }
@@ -378,6 +382,38 @@ function extractRegistrarMethodName(
   const receiver = propAccess.getExpression();
   if (receiver.getText() !== registrarParamName) return undefined;
   return propAccess.getName();
+}
+
+function walkAiStepCalls(
+  sourceFile: SourceFile,
+  patterns: FeaturePattern[],
+  errors: ParseError[],
+): void {
+  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const callee = call.getExpression().getText();
+    switch (callee) {
+      case "aiGenerateStep": {
+        const result = extractAiGenerate(call, sourceFile);
+        if (result.kind === "pattern") patterns.push(result.pattern);
+        else errors.push(result.error);
+        break;
+      }
+      case "aiExtractStep": {
+        const result = extractAiExtract(call, sourceFile);
+        if (result.kind === "pattern") patterns.push(result.pattern);
+        else errors.push(result.error);
+        break;
+      }
+      case "aiClassifyStep": {
+        const result = extractAiClassify(call, sourceFile);
+        if (result.kind === "pattern") patterns.push(result.pattern);
+        else errors.push(result.error);
+        break;
+      }
+      default:
+        break;
+    }
+  }
 }
 
 // =============================================================================

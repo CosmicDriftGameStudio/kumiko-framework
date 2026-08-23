@@ -18,6 +18,11 @@ export {
   readOptionalRateLimit,
 } from "./hooks";
 export {
+  extractAiClassify,
+  extractAiExtract,
+  extractAiGenerate,
+} from "./ai-steps";
+export {
   extractHttpRoute,
   extractJob,
   isHttpRouteMethod,

@@ -30,6 +30,7 @@
 // roadmap C-Notes for the canonical-comment-attach Pattern that would
 // preserve prefixed `// kumiko-comment:` markers across roundtrips.
 
+import type { ObjectLiteralExpression } from "ts-morph";
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { readNameLiteral, readNameOrRef } from "./extractors/shared";
 import type { FeaturePattern, FeaturePatternKind } from "./patterns";
@@ -72,6 +73,9 @@ export type PatternId =
   | { readonly kind: "multiStreamProjection"; readonly name: string }
   | { readonly kind: "defineEvent"; readonly eventName: string }
   | { readonly kind: "extendsRegistrar"; readonly extensionName: string }
+  | { readonly kind: "ai.generate"; readonly stepKey: string }
+  | { readonly kind: "ai.extract"; readonly stepKey: string }
+  | { readonly kind: "ai.classify"; readonly stepKey: string }
   // Singleton patterns — only one per feature, kind alone identifies them.
   | { readonly kind: "requires" }
   | { readonly kind: "optionalRequires" }
@@ -293,6 +297,9 @@ export const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
  * feature can fix it explicitly.
  */
 function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {
+  if (id.kind === "ai.generate" || id.kind === "ai.extract" || id.kind === "ai.classify") {
+    return findAiStepCall(sourceFile, id);
+  }
   const setup = findSetupCallback(sourceFile);
   if (!setup) return undefined;
   const registrarParam = setup.call
@@ -317,6 +324,45 @@ function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | 
     );
   }
   return matches[0];
+}
+
+const AI_STEP_FACTORY: Readonly<Record<"ai.generate" | "ai.extract" | "ai.classify", string>> = {
+  "ai.generate": "aiGenerateStep",
+  "ai.extract": "aiExtractStep",
+  "ai.classify": "aiClassifyStep",
+};
+
+function resolveSameFileObjectLiteral(
+  node: import("ts-morph").Node,
+): ObjectLiteralExpression | undefined {
+  const direct = node.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (direct) return direct;
+  const identifier = node.asKind(SyntaxKind.Identifier);
+  if (!identifier) return undefined;
+  const varDecl = node.getSourceFile().getVariableDeclaration(identifier.getText());
+  return varDecl?.getInitializer()?.asKind(SyntaxKind.ObjectLiteralExpression);
+}
+
+function readAiStepKey(call: CallExpression): string | undefined {
+  const arg = call.getArguments()[0];
+  if (!arg) return undefined;
+  const obj = resolveSameFileObjectLiteral(arg);
+  if (!obj) return undefined;
+  const init = obj.getProperty("stepKey")?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
+  if (!init) return undefined;
+  return readNameLiteral(init);
+}
+
+function findAiStepCall(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {
+  if (id.kind !== "ai.generate" && id.kind !== "ai.extract" && id.kind !== "ai.classify") {
+    return undefined;
+  }
+  const factory = AI_STEP_FACTORY[id.kind];
+  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    if (call.getExpression().getText() !== factory) continue;
+    if (callMatchesId(call, id)) return call;
+  }
+  return undefined;
 }
 
 function callMatchesId(call: CallExpression, id: PatternId): boolean {
@@ -421,6 +467,10 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
       );
     case "extendsRegistrar":
       return matchFirstArgString(call, id.extensionName);
+    case "ai.generate":
+    case "ai.extract":
+    case "ai.classify":
+      return readAiStepKey(call) === id.stepKey;
     default: {
       const _exhaustive: never = id;
       return _exhaustive;

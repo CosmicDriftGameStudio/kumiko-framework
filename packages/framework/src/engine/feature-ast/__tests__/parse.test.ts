@@ -1823,6 +1823,119 @@ defineFeature("f", (r) => {
   });
 });
 
+
+describe("extractAiGenerate", () => {
+  test("captures inline object literal args", () => {
+    const result = parseInline(`
+const paramsSchema = z.object({ maxTokens: z.number().optional() });
+
+defineFeature("f", (r) => {
+  defineWorkflow({
+    name: "demo",
+    steps: stepsPipeline(({ r }) => [
+      aiGenerateStep({
+        stepKey: "generate",
+        promptKey: "demo:generate",
+        promptFallback: "Write a summary.",
+        paramsSchema,
+        defaults: { enabled: true, params: { maxTokens: 256 } },
+        input: (ctx) => ctx.event.label,
+      }),
+    ]),
+  });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toContainEqual(
+      expect.objectContaining({
+        kind: "ai.generate",
+        stepKey: "generate",
+        promptKey: "demo:generate",
+        promptFallback: "Write a summary.",
+        defaults: { enabled: true, params: { maxTokens: 256 } },
+      }),
+    );
+  });
+
+  test("resolves same-file const spec reference", () => {
+    const result = parseInline(`
+const paramsSchema = z.object({});
+const generateSpec = {
+  stepKey: "generate",
+  promptKey: "demo:generate",
+  promptFallback: "Write a summary.",
+  paramsSchema,
+  defaults: { enabled: true, params: {} },
+  input: (ctx) => ctx.event.label,
+};
+
+defineFeature("f", (r) => {
+  defineWorkflow({
+    name: "demo",
+    steps: stepsPipeline(() => [aiGenerateStep(generateSpec)]),
+  });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toContainEqual(
+      expect.objectContaining({ kind: "ai.generate", stepKey: "generate" }),
+    );
+  });
+});
+
+describe("extractAiExtract", () => {
+  test("captures inline extract step", () => {
+    const result = parseInline(`
+const paramsSchema = z.object({});
+
+defineFeature("f", (r) => {
+  defineWorkflow({
+    name: "demo",
+    steps: stepsPipeline(() => [
+      aiExtractStep({
+        stepKey: "extract",
+        promptKey: "demo:extract",
+        promptFallback: "Extract fields.",
+        paramsSchema,
+        defaults: { enabled: true, params: {} },
+        outputSchema: z.object({ title: z.string() }),
+        instructions: () => "Extract the title.",
+      }),
+    ]),
+  });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toContainEqual(
+      expect.objectContaining({ kind: "ai.extract", stepKey: "extract" }),
+    );
+  });
+});
+
+describe("extractAiClassify", () => {
+  test("keeps unresolvable spec ref as opaque argsSource", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  defineWorkflow({
+    name: "demo",
+    steps: stepsPipeline(() => [aiClassifyStep(importedSpec)]),
+  });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toContainEqual(
+      expect.objectContaining({
+        kind: "ai.classify",
+        argsSource: { __raw: "importedSpec" },
+      }),
+    );
+  });
+});
+
 describe("extractHttpRoute", () => {
   test("captures method, path, anonymous, handler", () => {
     const result = parseInline(`
