@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type DbConnection, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  type DbConnection,
+  deleteMany,
+  fetchOne,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -75,6 +80,32 @@ describe("seedLegalContentFromJson", () => {
     const row = (await read("privacy", "de")) as TemplateResourceRow & { modifiedById: string };
     expect(row).toMatchObject({ content: "v2 + Sub-Processor-Tabelle" });
     expect(row.modifiedById).toBe(SYSTEM_USER_ID);
+  });
+
+  test("orphan projection (row without events) is recreated on ifExists:update", async () => {
+    await seedLegalContentFromJson(db, [
+      { slug: "orphan-privacy", locale: "de", title: "DS", content: "old" },
+    ]);
+    const before = await read("orphan-privacy", "de");
+    expect(before).not.toBeNull();
+
+    // Same desync as prod: projection left behind, event stream empty.
+    await deleteMany(db, eventsTable, { aggregateId: String(before!.id) });
+    expect(await read("orphan-privacy", "de")).not.toBeNull();
+
+    await seedLegalContentFromJson(db, [
+      {
+        slug: "orphan-privacy",
+        locale: "de",
+        title: "DS",
+        content: "new from template",
+      },
+    ]);
+    const after = await read("orphan-privacy", "de");
+    expect(after).toMatchObject({ content: "new from template", title: "DS" });
+    const events = await selectMany(db, eventsTable, { aggregateId: String(after!.id) });
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.some((e) => e.type === "template-resource.created")).toBe(true);
   });
 
   test("identical re-seed is a no-op (no update event, version/modifiedAt stable)", async () => {
