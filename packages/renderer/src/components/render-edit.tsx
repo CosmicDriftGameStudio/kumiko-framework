@@ -1,5 +1,4 @@
 import type {
-  EntityDefinition,
   EntityEditScreenDefinition,
   FieldCondition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -15,19 +14,12 @@ import type {
   EditSectionViewModel,
   FieldConditions,
   FieldIssue,
-  FormSnapshot,
   FormValues,
   SubmitResult,
-  Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { computeEditViewModel } from "@cosmicdrift/kumiko-headless";
-import type {
-  RenderEditAction,
-  RenderEditChangeState,
-  RenderEditControls,
-  RenderEditProps,
-} from "./render-edit-types";
 import { RenderEditActionButton } from "./render-edit-action-button";
+import type { RenderEditProps } from "./render-edit-types";
 
 export type {
   RenderEditAction,
@@ -35,8 +27,8 @@ export type {
   RenderEditControls,
   RenderEditProps,
 } from "./render-edit-types";
+
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { z } from "zod";
 import { ExtensionFormRegistryProvider, useExtensionFormHost } from "../app/extension-form-submit";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
 import { useOptionalDispatcher } from "../context/dispatcher-context";
@@ -107,7 +99,6 @@ function mintDraftId(): string {
 // schließlich über Primitives — kein raw HTML. Ein Native-Renderer
 // der dieselbe Primitives-Registry füllt kriegt das Form ohne weitere
 // Änderungen.
-
 
 function toConditionValue<TValues extends FormValues, TCtx>(
   cond: FieldCondition,
