@@ -229,6 +229,7 @@ export { readClaim } from "./read-claim";
 export { createRegistry } from "./registry";
 export type { ClampInfo, ResolveOptions } from "./resolve-config-or-param";
 export { resolveConfigOrParam } from "./resolve-config-or-param";
+export { findForbiddenRoleAssignment } from "./role-assignment";
 export { runsInLane } from "./run-in";
 export type { StepListOutcome } from "./run-pipeline";
 export { runPipeline, runStepList } from "./run-pipeline";
