@@ -9,9 +9,16 @@ describe("role assignment guard", () => {
 
   test("allows equal or lower roles, including self-updates", () => {
     expect(findForbiddenRoleAssignment(["Admin"], ["User", "Admin"])).toBeUndefined();
+    expect(findForbiddenRoleAssignment(["Admin"], ["Editor"])).toBeUndefined();
+    expect(findForbiddenRoleAssignment(["Editor"], ["User", "Editor"])).toBeUndefined();
     expect(findForbiddenRoleAssignment(["TenantAdmin"], ["User", "Admin"])).toBeUndefined();
     expect(findForbiddenRoleAssignment(["Admin"], ["Admin"])).toBeUndefined();
     expect(findForbiddenRoleAssignment(["SystemAdmin"], ["SystemAdmin"])).toBeUndefined();
+  });
+
+  test("rejects Editor above User, Admin above Editor", () => {
+    expect(findForbiddenRoleAssignment(["User"], ["Editor"])).toBe("Editor");
+    expect(findForbiddenRoleAssignment(["Editor"], ["Admin"])).toBe("Admin");
   });
 
   test("rejects unknown roles (fail-closed)", () => {
