@@ -132,6 +132,15 @@ async function waitForMount(view: ReturnType<typeof render>): Promise<void> {
   });
 }
 
+/** Export status is a second async query — mount alone can race before Done UI. */
+async function waitForDownloadReady(view: ReturnType<typeof render>): Promise<void> {
+  await waitFor(() => {
+    if (view.queryByTestId("privacy-export-download") === null) {
+      throw new Error("download button not ready");
+    }
+  });
+}
+
 // CI runs this file in its own `bun test` process (own ci.yml step), NOT in the
 // shared `kumiko check` run — see bunfig.ci.toml pathIgnorePatterns. In the shared
 // single-process happy-dom, the global `afterEach` from `test-setup/dom.preload.ts`
@@ -159,7 +168,7 @@ describe("PrivacyCenterScreen", () => {
         job: { id: "job-123", status: EXPORT_JOB_STATUS.Done, expiresAt: "2026-07-11T00:00:00Z" },
       },
     });
-    await waitForMount(view);
+    await waitForDownloadReady(view);
     expect(view.getByTestId("privacy-export-download")).toBeTruthy();
     const ready = view.getByTestId("privacy-export-ready");
     expect(ready.textContent).toContain("2026-07-11");
@@ -231,7 +240,7 @@ describe("PrivacyCenterScreen", () => {
         job: { id: "job-123", status: EXPORT_JOB_STATUS.Done, expiresAt: "2026-07-11T00:00:00Z" },
       },
     });
-    await waitForMount(view);
+    await waitForDownloadReady(view);
     fireEvent.click(view.getByTestId("privacy-export-download"));
     await waitFor(() => {
       if (!queries.some((q) => q.type === UserDataRightsQueries.downloadByJob)) {
@@ -254,7 +263,7 @@ describe("PrivacyCenterScreen", () => {
           job: { id: "job-123", status: EXPORT_JOB_STATUS.Done, expiresAt: "2026-07-11T00:00:00Z" },
         },
       });
-      await waitForMount(view);
+      await waitForDownloadReady(view);
       fireEvent.click(view.getByTestId("privacy-export-download"));
       await waitFor(() => {
         if (assign.mock.calls.length === 0) throw new Error("location.assign not called");
