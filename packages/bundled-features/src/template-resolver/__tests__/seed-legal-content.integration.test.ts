@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type DbConnection, deleteMany, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  type DbConnection,
+  deleteMany,
+  fetchOne,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -76,7 +81,6 @@ describe("seedLegalContentFromJson", () => {
     expect(row).toMatchObject({ content: "v2 + Sub-Processor-Tabelle" });
     expect(row.modifiedById).toBe(SYSTEM_USER_ID);
   });
-
 
   test("orphan projection (row without events) is recreated on ifExists:update", async () => {
     await seedLegalContentFromJson(db, [

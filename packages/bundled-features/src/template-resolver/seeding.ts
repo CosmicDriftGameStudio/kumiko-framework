@@ -9,8 +9,13 @@
 // Default ifExists="skip". `createSystemUser(SYSTEM_TENANT_ID)` als Actor —
 // bewusst nicht TestUsers (Prod-Seeds ≠ Test-Utilities).
 
-import { deleteMany, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  createTenantDb,
+  type DbConnection,
+  deleteMany,
+  type EntityTableMeta,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type SessionUser,
@@ -22,7 +27,6 @@ import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framew
 import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants";
 import { executor } from "./handlers/shared";
 import { type TemplateResourceRow, templateResourcesTable } from "./table";
-
 
 /** Projection row without events — update() would 409 (expectedVersion from
  *  projection, stream currentVersion=0). Drop the orphan and treat as create
@@ -37,7 +41,7 @@ async function resolveExistingForEventStoreSeed(
   const id = String(existingRow.id);
   const streamVersion = await getStreamVersion(db, id, tenantId);
   if (streamVersion === 0) {
-    await deleteMany(db, templateResourcesTable, { id });
+    await deleteMany(db, templateResourcesTable as EntityTableMeta, { id });
     return null;
   }
   return { id, version: streamVersion };
