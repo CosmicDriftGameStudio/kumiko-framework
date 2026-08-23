@@ -954,22 +954,31 @@ function resolveEntityFacetSpecs(
 
 // projectionList adapter — a projectionList has no entity/i18n convention to
 // derive labels from, so ListFacetSpec carries every label explicitly
-// (fw#2224); this just reshapes it into the same ResolvedFacetSpec the
-// entityList adapter produces.
+// (fw#2224). Labels may be raw display strings or i18n keys; run them
+// through translate like entity facets (passthrough when the key is missing).
 function resolveProjectionFacetSpecs(
   facets: readonly ListFacetSpec[] | undefined,
+  translate: Translate,
 ): ResolvedFacetSpec[] {
   if (facets === undefined) return [];
   return facets.map((facet) =>
     facet.type === "select"
-      ? { field: facet.field, type: "select", label: facet.label, options: facet.options }
+      ? {
+          field: facet.field,
+          type: "select",
+          label: translate(facet.label),
+          options: facet.options.map((opt) => ({
+            value: opt.value,
+            label: translate(opt.label),
+          })),
+        }
       : {
           field: facet.field,
           type: "boolean",
-          label: facet.label,
+          label: translate(facet.label),
           options: [
-            { value: "true", label: facet.trueLabel },
-            { value: "false", label: facet.falseLabel },
+            { value: "true", label: translate(facet.trueLabel) },
+            { value: "false", label: translate(facet.falseLabel) },
           ],
         },
   );
@@ -1618,10 +1627,14 @@ function ProjectionListBody({
   const usePager = paginated && (screen.pagination ?? "pages") === "pages";
 
   // Facets (fw#2224) — a projectionList has no entity, so screen.facets is
-  // the only field inventory; resolveProjectionFacetSpecs reshapes its
-  // explicit labels into the same ResolvedFacetSpec the entityList adapter
-  // produces, so both feed the same buildFilterFacets/buildFilterPayload.
-  const facetSpecs = useMemo(() => resolveProjectionFacetSpecs(screen.facets), [screen.facets]);
+  // the only field inventory; resolveProjectionFacetSpecs reshapes +
+  // translates its explicit labels into the same ResolvedFacetSpec the
+  // entityList adapter produces, so both feed the same
+  // buildFilterFacets/buildFilterPayload.
+  const facetSpecs = useMemo(
+    () => resolveProjectionFacetSpecs(screen.facets, effectiveTranslate),
+    [screen.facets, effectiveTranslate],
+  );
   const filterPayload = useMemo(
     () =>
       buildFilterPayload(
