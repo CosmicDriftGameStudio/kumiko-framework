@@ -78,10 +78,10 @@ function readEditableDefaults(
     params: value["params"] as Record<string, unknown>,
   };
   if (typeof value["providerId"] === "string") {
-    return { ...policy, providerId: value["providerId"] };
+    policy.providerId = value["providerId"];
   }
   if (typeof value["model"] === "string") {
-    return { ...policy, model: value["model"] };
+    policy.model = value["model"];
   }
   return policy;
 }

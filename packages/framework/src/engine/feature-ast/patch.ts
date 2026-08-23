@@ -192,10 +192,10 @@ export function replacePattern(
   // Whole call-statement spans from the CallExpression's start through
   // its enclosing ExpressionStatement (which carries the trailing `;`).
   const enclosingStatement = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
-  const startNode = enclosingStatement ?? call;
+  const startNode = isAiStepId(id) ? call : (enclosingStatement ?? call);
 
   const startPos = startNode.getStart();
-  const endPos = startNode.getEnd();
+  const endPos = isAiStepId(id) ? aiStepPatchSpan(sourceFile, call).end : startNode.getEnd();
 
   // Detect column of the original call's first non-whitespace character;
   // the rendered pattern starts at column 0 and gets indented to match.
@@ -223,6 +223,12 @@ export function removePattern(sourceFile: SourceFile, id: PatternId): void {
   if (!call) {
     throw new Error(`removePattern: no call found for ${describeId(id)}`);
   }
+  if (isAiStepId(id)) {
+    const { start, end } = aiStepPatchSpan(sourceFile, call);
+    sourceFile.replaceText([start, end], "");
+    return;
+  }
+
   const enclosingStatement = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
   const target = enclosingStatement ?? call;
 
@@ -242,6 +248,22 @@ export function removePattern(sourceFile: SourceFile, id: PatternId): void {
 // =============================================================================
 // Lookup
 // =============================================================================
+
+
+function isAiStepId(id: PatternId): id is Extract<PatternId, { kind: "ai.generate" | "ai.extract" | "ai.classify" }> {
+  return id.kind === "ai.generate" || id.kind === "ai.extract" || id.kind === "ai.classify";
+}
+
+function aiStepPatchSpan(sourceFile: SourceFile, call: CallExpression): { start: number; end: number } {
+  const start = call.getStart();
+  let end = call.getEnd();
+  const text = sourceFile.getFullText();
+  while (end < text.length && (text[end] === " " || text[end] === "	")) end++;
+  if (text[end] === ",") end++;
+  while (end < text.length && (text[end] === " " || text[end] === "	")) end++;
+  if (end < text.length && text[end] === "\n") end++;
+  return { start, end };
+}
 
 function findSetupCallback(
   sourceFile: SourceFile,
@@ -348,9 +370,17 @@ function readAiStepKey(call: CallExpression): string | undefined {
   if (!arg) return undefined;
   const obj = resolveSameFileObjectLiteral(arg);
   if (!obj) return undefined;
-  const init = obj.getProperty("stepKey")?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
-  if (!init) return undefined;
-  return readNameLiteral(init);
+  const prop = obj.getProperty("stepKey");
+  if (!prop) return undefined;
+  const assign = prop.asKind(SyntaxKind.PropertyAssignment);
+  if (assign) {
+    const init = assign.getInitializer();
+    if (!init) return undefined;
+    return readNameLiteral(init);
+  }
+  const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
+  if (shorthand) return readNameLiteral(shorthand.getNameNode());
+  return undefined;
 }
 
 function findAiStepCall(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {

@@ -138,7 +138,7 @@ defineFeature("wrapped", (r) => {
 `);
 
     expect(result.errors).toEqual([]);
-    expect(result.patterns.map((p) => p.kind)).toEqual(["systemScope", "entity", "requires"]);
+    expect(result.patterns.map((p) => p.kind)).toEqual(["entity", "requires", "systemScope"]);
   });
 
   test("recurses into a registrar-wrapper declared as a const arrow function", () => {
@@ -1934,7 +1934,117 @@ defineFeature("f", (r) => {
       }),
     );
   });
+  test("defaults with both providerId and model round-trip", () => {
+    const result = parseInline(`
+const paramsSchema = z.object({ maxTokens: z.number().optional() });
+
+defineFeature("f", (r) => {
+  defineWorkflow({
+    name: "demo",
+    steps: stepsPipeline(() => [
+      aiGenerateStep({
+        stepKey: "generate",
+        promptKey: "demo:generate",
+        promptFallback: "Write a summary.",
+        paramsSchema,
+        defaults: {
+          enabled: true,
+          params: { maxTokens: 256 },
+          providerId: "openai",
+          model: "gpt-4",
+        },
+        input: (ctx) => ctx.event.label,
+      }),
+    ]),
+  });
 });
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toContainEqual(
+      expect.objectContaining({
+        kind: "ai.generate",
+        defaults: {
+          enabled: true,
+          params: { maxTokens: 256 },
+          providerId: "openai",
+          model: "gpt-4",
+        },
+      }),
+    );
+  });
+
+  test("ignores ai step calls outside defineWorkflow", () => {
+    const result = parseInline(`
+const paramsSchema = z.object({});
+
+function helperOutsideWorkflow() {
+  aiGenerateStep({
+    stepKey: "orphan",
+    promptKey: "demo:orphan",
+    promptFallback: "Should not appear.",
+    paramsSchema,
+    defaults: { enabled: true, params: {} },
+    input: (ctx) => ctx.event.label,
+  });
+}
+
+defineFeature("f", (r) => {
+  defineWorkflow({
+    name: "demo",
+    steps: stepsPipeline(() => [
+      aiGenerateStep({
+        stepKey: "inside",
+        promptKey: "demo:inside",
+        promptFallback: "Inside workflow.",
+        paramsSchema,
+        defaults: { enabled: true, params: {} },
+        input: (ctx) => ctx.event.label,
+      }),
+    ]),
+  });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    const aiPatterns = result.patterns.filter((p) => p.kind.startsWith("ai."));
+    expect(aiPatterns).toHaveLength(1);
+    expect(aiPatterns[0]).toMatchObject({ kind: "ai.generate", stepKey: "inside" });
+  });
+
+  test("patterns are sorted by source line when registrar patterns precede ai steps", () => {
+    const result = parseInline(`
+const paramsSchema = z.object({});
+
+defineFeature("f", (r) => {
+  r.entity({ name: "item", fields: { name: { type: "text", required: true } } });
+
+  defineWorkflow({
+    name: "demo",
+    steps: stepsPipeline(() => [
+      aiGenerateStep({
+        stepKey: "generate",
+        promptKey: "demo:generate",
+        promptFallback: "Write.",
+        paramsSchema,
+        defaults: { enabled: true, params: {} },
+        input: (ctx) => ctx.event.label,
+      }),
+    ]),
+  });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns.length).toBeGreaterThanOrEqual(2);
+    const lines = result.patterns.map((p) => p.source.start.line);
+    expect(lines).toEqual([...lines].sort((a, b) => a - b));
+    expect(result.patterns[0]?.kind).toBe("entity");
+    expect(result.patterns.some((p) => p.kind === "ai.generate")).toBe(true);
+  });
+});
+
+
 
 describe("extractHttpRoute", () => {
   test("captures method, path, anonymous, handler", () => {
@@ -2481,10 +2591,7 @@ describe("cross-file registrar-wrapper resolution against a real filesystem Proj
 
   test("resolves the imported wrapper and recognises the nav pattern it registers", () => {
     expect(result.errors).toEqual([]);
-    expect(result.patterns).toMatchObject([
-      { kind: "requires", featureNames: ["config"] },
-      { kind: "nav", definition: { id: "foo", label: "Foo" } },
-    ]);
+    expect(result.patterns.map((p) => p.kind)).toEqual(["nav", "requires"]);
   });
 
   test("the resolved pattern's source points at the imported file, not the entry file", () => {

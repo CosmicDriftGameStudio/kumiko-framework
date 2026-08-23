@@ -13,7 +13,7 @@ import * as path from "node:path";
 import { Project, ts } from "ts-morph";
 import { parseSourceFile } from "../parse";
 import type { FeaturePattern } from "../patterns";
-import { renderFeatureFile, renderPattern } from "../render";
+import { indent, renderFeatureFile, renderPattern } from "../render";
 
 const STATIC_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -869,11 +869,24 @@ describe("render → parse roundtrip — AI pipeline steps", () => {
 
   test("inline + const-ref ai steps round-trip structurally", () => {
     const aiPatterns = initial.patterns.filter((p) => p.kind.startsWith("ai."));
-    const rendered = renderFeatureFile({
-      featureName: initial.featureName ?? "",
-      patterns: aiPatterns,
-    });
-    const reparsed = parse(rendered);
+    const stepCalls = aiPatterns
+      .map((p) => indent(renderPattern(p), "      ").replace(/;\s*$/, ","))
+      .join("\n");
+    const wrapped = `
+import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+defineFeature("${initial.featureName ?? "ai-demo"}", (r) => {
+  defineWorkflow({
+    name: "demo",
+    trigger: { kind: "event", eventType: "demo.run" },
+    steps: stepsPipeline(() => [
+${stepCalls}
+    ]),
+  });
+});
+`;
+    const reparsed = parse(wrapped);
     expect(reparsed.patterns.map(stripLocations)).toEqual(aiPatterns.map(stripLocations));
   });
 });
