@@ -4,10 +4,10 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, DispatcherError, SubmitResult } from "@cosmicdrift/kumiko-headless";
-import { DispatcherProvider } from "../../context/dispatcher-context";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { buildFormSchema } from "../../app/form-schema";
+import { DispatcherProvider } from "../../context/dispatcher-context";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
 import { kumikoDefaultTranslations } from "../../i18n-defaults";
 import {
@@ -115,9 +115,10 @@ function buildEntity(required = false): EntityDefinition {
   };
 }
 
-function stubDispatcher(
-  writeImpl?: Dispatcher["write"],
-): { dispatcher: Dispatcher; writes: Array<{ type: string; payload: unknown }> } {
+function stubDispatcher(writeImpl?: Dispatcher["write"]): {
+  dispatcher: Dispatcher;
+  writes: Array<{ type: string; payload: unknown }>;
+} {
   const writes: Array<{ type: string; payload: unknown }> = [];
   const dispatcher: Dispatcher = {
     write: (async (type, payload) => {
@@ -388,4 +389,3 @@ describe("RenderEdit — writeCommand path", () => {
     expect(submitted?.isSuccess).toBe(false);
   });
 });
-
