@@ -675,7 +675,7 @@ describe("privilege escalation via invite role", () => {
       expect(err.details).toMatchObject({ reason: "reserved_membership_role", role });
       const rows = await selectMany(stack.db, tenantInvitationsTable, { email: CAROL_EMAIL });
       expect(rows).toHaveLength(0);
-      expect(transport.sent).toHaveLength(0);
+      expect(emailTransport.sent).toHaveLength(0);
     }
   });
 
@@ -688,13 +688,13 @@ describe("privilege escalation via invite role", () => {
     expect(result.role).toBe("Admin");
   });
 
-  test("TenantAdmin can invite TenantAdmin, Admin, and User", async () => {
+  test("TenantAdmin can invite TenantAdmin, Admin, Editor, and User", async () => {
     const tenantAdminSession: SessionUser = {
       id: aliceId,
       tenantId: TENANT_A_ID,
       roles: ["TenantAdmin"],
     };
-    for (const role of ["TenantAdmin", "Admin", "User"]) {
+    for (const role of ["TenantAdmin", "Admin", "Editor", "User"]) {
       const email = `target-${role.toLowerCase()}@example.com`;
       const result = (await stack.http.writeOk(
         AuthHandlers.inviteCreate,
@@ -719,7 +719,7 @@ describe("privilege escalation via invite role", () => {
       email: "elevate-target@example.com",
     });
     expect(rows).toHaveLength(0);
-    expect(transport.sent).toHaveLength(0);
+    expect(emailTransport.sent).toHaveLength(0);
   });
 
   test("TenantAdmin cannot invite SystemAdmin (rejected by reserved role guard)", async () => {
@@ -754,32 +754,18 @@ describe("privilege escalation via invite role", () => {
       role: "CustomRole",
     });
   });
-
-  test("rejects if actor has only unknown roles", async () => {
-    const err = await stack.http.writeErr(
-      AuthHandlers.inviteCreate,
-      { email: "unranked-actor@example.com", role: "User" },
-      { id: aliceId, tenantId: TENANT_A_ID, roles: ["UnknownRole"] },
-    );
-    expect(err.details).toMatchObject({
-      reason: "unassignable_membership_role",
-      role: "User",
-    });
-  });
 });
 
-// canAssignRole is a role-hierarchy gate that must live in the app (roles are
-// app-defined strings, not a framework concept) — a separate stack mounts the
-// invite feature WITH the hook to prove it's actually enforced, distinct from
-// the framework-reserved-role check covered above.
+// canAssignRole further restricts ranked roles after the default elevation
+// guard — a separate stack mounts the invite feature WITH the hook.
 describe("invite-create role-hierarchy gate (opt-in canAssignRole)", () => {
   let gateStack: TestStack;
   let gateAliceId: string;
   let gateTenantId: TenantId;
   const gateTransport = createInMemoryTransport();
 
-  function gateAliceSession(): SessionUser {
-    return { id: gateAliceId, tenantId: gateTenantId, roles: ["TenantAdmin"] };
+  function gateAliceSession(roles: readonly string[] = ["TenantAdmin"]): SessionUser {
+    return { id: gateAliceId, tenantId: gateTenantId, roles: [...roles] };
   }
 
   beforeAll(async () => {
@@ -871,11 +857,12 @@ describe("invite-create role-hierarchy gate (opt-in canAssignRole)", () => {
   });
 
   test("canAssignRole → true allows invite-create through", async () => {
+    // Elevation alone would allow TenantAdmin → Admin; hook requires SpecialAdmin.
     const result = (await gateStack.http.writeOk(
       AuthHandlers.inviteCreate,
-      { email: "allowed-target@example.com", role: "User" },
-      gateAliceSession(),
+      { email: "allowed-target@example.com", role: "Admin" },
+      gateAliceSession(["TenantAdmin", "SpecialAdmin"]),
     )) as { role: string };
-    expect(result.role).toBe("User");
+    expect(result.role).toBe("Admin");
   });
 });

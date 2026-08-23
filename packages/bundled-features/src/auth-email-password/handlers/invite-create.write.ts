@@ -72,9 +72,10 @@ export type InviteCreateOptions = {
    *  carries no locale signal (no X-Locale header, no usable
    *  Accept-Language) — see the locale resolution in the handler below. */
   readonly locale?: AuthMailLocale;
-  // Opt-in role-hierarchy gate. Roles are app-defined strings, not a framework
-  // concept, so the hierarchy itself must live in the app — this hook lets it
-  // plug in without the framework hardcoding any role names.
+  // Optional app policy on top of the default elevation guard
+  // (findForbiddenRoleAssignment). Cannot authorize reserved or unranked
+  // roles, and cannot raise above the inviter's max framework rank — only
+  // further restrict assignable ranked roles.
   readonly canAssignRole?: (inviterRoles: readonly string[], targetRole: string) => boolean;
 };
 
