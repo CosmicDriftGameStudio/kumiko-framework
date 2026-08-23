@@ -11,7 +11,7 @@
 #
 # Build context: repository root (monorepo is used in the build stage).
 
-ARG BUN_VERSION=1.3.14
+ARG BUN_VERSION=1.4.0
 {{#hasPrivateGhPackages}}
 # Private GH-Packages: der CI-Workflow injects GITHUB_TOKEN via --build-arg.
 # Docker's multi-stage ARG scoping braucht die Re-declaration in jeder Stage

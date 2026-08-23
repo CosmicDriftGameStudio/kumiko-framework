@@ -47,14 +47,14 @@ export function attachSignalHandlers(
         .then(() => exitFn(0))
         .catch(() => exitFn(1));
     };
-    process.on(sig, handler);
+    (process as NodeJS.EventEmitter).on(sig, handler);
     listeners.set(sig, handler);
   }
 
   return {
     detach: () => {
       for (const [sig, handler] of listeners) {
-        process.off(sig, handler);
+        (process as NodeJS.EventEmitter).off(sig, handler);
       }
       listeners.clear();
     },

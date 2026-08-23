@@ -329,15 +329,14 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     name: "No-Major-Gt-Zero Guard",
     cmd: `bun ${join(frameworkRepoRoot, "scripts/guard-no-major-gt-zero.ts")}`,
   });
+  // Self-contained since the app-rollout (infra#610): no more framework-
+  // local sql-inventory.ts/baseline fallback tier here — both the parent-
+  // workspace guard and the published `bunx kumiko-guard-raw-sql` scan +
+  // allowlist themselves.
   const rawSqlGuard = join(REPO_ROOT, "infra/guards/guard-raw-sql.ts");
-  const sqlInventoryScript = join(frameworkRepoRoot, "scripts/sql-inventory.ts");
   steps.push({
     name: "Raw-SQL Guard",
-    cmd: existsSync(rawSqlGuard)
-      ? `bun ${rawSqlGuard}`
-      : existsSync(sqlInventoryScript)
-        ? `cd ${frameworkRepoRoot} && bun scripts/sql-inventory.ts --compare-baseline`
-        : "bunx kumiko-guard-raw-sql",
+    cmd: existsSync(rawSqlGuard) ? `bun ${rawSqlGuard}` : "bunx kumiko-guard-raw-sql",
   });
   steps.push({ name: "License Check", cmd: "bunx kumiko-check-licenses" });
   steps.push({ name: "Security Audit", cmd: "bunx kumiko-check-security" });

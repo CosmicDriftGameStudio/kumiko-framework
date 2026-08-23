@@ -1,7 +1,7 @@
 // Mixed pattern schemas (header form + opaque body source).
 
 import { accessRuleField, HOOK_TYPE_OPTIONS, HTTP_METHOD_OPTIONS } from "./shared-fields";
-import type { PatternFormSchema } from "./types";
+import type { FormFieldSpec, PatternFormSchema } from "./types";
 
 // --- Mixed patterns (header form + opaque body source) --------------------
 
@@ -223,6 +223,108 @@ export const jobSchema: PatternFormSchema = {
     {
       path: "handlerBody",
       label: { en: "Handler body (source)", de: "Handler-Body (Source)" },
+      input: "code-block",
+      language: "typescript",
+      readOnly: true,
+    },
+  ],
+};
+
+const aiStepCommonFields = [
+  {
+    path: "stepKey",
+    label: { en: "Step key", de: "Step-Key" },
+    input: "text",
+    required: true,
+  },
+  {
+    path: "promptKey",
+    label: { en: "Prompt key", de: "Prompt-Key" },
+    input: "text",
+    required: true,
+  },
+  {
+    path: "defaults",
+    label: { en: "Defaults", de: "Defaults" },
+    hint: { en: "enabled, providerId, model, params" },
+    input: "json-readonly",
+  },
+  {
+    path: "paramsSchemaSource",
+    label: { en: "Params schema (source)", de: "Params-Schema (Source)" },
+    input: "code-block",
+    language: "typescript",
+    readOnly: true,
+  },
+] as const satisfies readonly FormFieldSpec[];
+
+export const aiGenerateSchema: PatternFormSchema = {
+  kind: "ai.generate",
+  label: { en: "AI generate step", de: "AI-Generate-Step" },
+  summary: { en: "Tier-3 workflow step for freeform text generation." },
+  category: "behaviour",
+  editability: "mixed",
+  fields: [
+    ...aiStepCommonFields,
+    {
+      path: "inputBody",
+      label: { en: "Input resolver (source)", de: "Input-Resolver (Source)" },
+      input: "code-block",
+      language: "typescript",
+      readOnly: true,
+    },
+  ],
+};
+
+export const aiExtractSchema: PatternFormSchema = {
+  kind: "ai.extract",
+  label: { en: "AI extract step", de: "AI-Extract-Step" },
+  summary: { en: "Schema-driven structured extraction step." },
+  category: "behaviour",
+  editability: "mixed",
+  fields: [
+    ...aiStepCommonFields,
+    {
+      path: "outputSchemaSource",
+      label: { en: "Output schema (source)", de: "Output-Schema (Source)" },
+      input: "code-block",
+      language: "typescript",
+      readOnly: true,
+    },
+    {
+      path: "instructionsBody",
+      label: { en: "Instructions (source)", de: "Instructions (Source)" },
+      input: "code-block",
+      language: "typescript",
+      readOnly: true,
+    },
+    {
+      path: "documentBody",
+      label: { en: "Document resolver (source)", de: "Document-Resolver (Source)" },
+      input: "code-block",
+      language: "typescript",
+      readOnly: true,
+    },
+  ],
+};
+
+export const aiClassifySchema: PatternFormSchema = {
+  kind: "ai.classify",
+  label: { en: "AI classify step", de: "AI-Classify-Step" },
+  summary: { en: "Action-catalogue classification step." },
+  category: "behaviour",
+  editability: "mixed",
+  fields: [
+    ...aiStepCommonFields,
+    {
+      path: "actions",
+      label: { en: "Actions", de: "Aktionen" },
+      input: "json-readonly",
+      required: true,
+    },
+    {
+      path: "inputBody",
+      label: { en: "Input resolver (source)", de: "Input-Resolver (Source)" },
       input: "code-block",
       language: "typescript",
       readOnly: true,

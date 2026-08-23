@@ -60,6 +60,9 @@ const ALL_KINDS: FeaturePatternKind[] = [
   "exposesApi",
   "treeActions",
   "envSchema",
+  "ai.generate",
+  "ai.extract",
+  "ai.classify",
   "unknown",
 ];
 
@@ -342,6 +345,42 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
       return { kind, source: PLACEHOLDER_LOC, definitions: {} };
     case "envSchema":
       return { kind, source: PLACEHOLDER_LOC, schemaBody: PLACEHOLDER_BODY_LOC };
+
+    case "ai.generate":
+      return {
+        kind,
+        source: PLACEHOLDER_LOC,
+        stepKey: "generate",
+        promptKey: "demo:generate",
+        promptFallback: "Write a summary.",
+        defaults: { enabled: true, params: {} },
+        paramsSchemaSource: PLACEHOLDER_BODY_LOC,
+        inputBody: PLACEHOLDER_BODY_LOC,
+      };
+    case "ai.extract":
+      return {
+        kind,
+        source: PLACEHOLDER_LOC,
+        stepKey: "extract",
+        promptKey: "demo:extract",
+        promptFallback: "Extract fields.",
+        defaults: { enabled: true, params: {} },
+        paramsSchemaSource: PLACEHOLDER_BODY_LOC,
+        outputSchemaSource: PLACEHOLDER_BODY_LOC,
+        instructionsBody: PLACEHOLDER_BODY_LOC,
+      };
+    case "ai.classify":
+      return {
+        kind,
+        source: PLACEHOLDER_LOC,
+        stepKey: "classify",
+        promptKey: "demo:classify",
+        promptFallback: "Classify the input.",
+        defaults: { enabled: true, params: {} },
+        paramsSchemaSource: PLACEHOLDER_BODY_LOC,
+        actions: [{ type: "approve", description: "Approve" }],
+        inputBody: PLACEHOLDER_BODY_LOC,
+      };
     case "unknown":
       return { kind, source: PLACEHOLDER_LOC, methodName: "x" };
     case "usesApi":

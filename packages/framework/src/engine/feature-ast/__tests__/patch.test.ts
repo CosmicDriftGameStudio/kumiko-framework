@@ -708,3 +708,61 @@ defineFeature("inventory", (r) => {
     ).toThrow(/no call found/);
   });
 });
+describe("ai step patterns — shorthand stepKey (#1491)", () => {
+  const AI_STEP_FIXTURE = `
+import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+const paramsSchema = z.object({});
+const stepKey = "generate";
+
+defineFeature("ai-demo", (r) => {
+  defineWorkflow({
+    name: "demo",
+    steps: stepsPipeline(() => [
+      aiGenerateStep({
+        stepKey,
+        promptKey: "demo:generate",
+        promptFallback: "Write.",
+        paramsSchema,
+        defaults: { enabled: true, params: {} },
+        input: (ctx) => ctx.event.label,
+      }),
+    ]),
+  });
+});
+`;
+
+  test("removePattern finds ai.generate with shorthand stepKey", () => {
+    const sf = makeSourceFile(AI_STEP_FIXTURE);
+    removePattern(sf, { kind: "ai.generate", stepKey: "generate" });
+    const reparsed = parseSourceFile(sf);
+    expect(reparsed.errors).toEqual([]);
+    expect(reparsed.patterns.filter((p) => p.kind.startsWith("ai."))).toEqual([]);
+  });
+
+  test("replacePattern finds ai.generate with shorthand stepKey", () => {
+    const sf = makeSourceFile(AI_STEP_FIXTURE);
+    const replacement: FeaturePattern = {
+      kind: "ai.generate",
+      source: SAMPLE_LOC,
+      stepKey: "generate",
+      promptKey: "demo:generate",
+      promptFallback: "Updated.",
+      defaults: { enabled: true, params: {} },
+      paramsSchemaSource: { ...SAMPLE_LOC, raw: "paramsSchema" },
+      inputBody: { ...SAMPLE_LOC, raw: "(ctx) => ctx.event.label" },
+    };
+    replacePattern(sf, { kind: "ai.generate", stepKey: "generate" }, replacement);
+    const reparsed = parseSourceFile(sf);
+    expect(reparsed.errors).toEqual([]);
+    expect(reparsed.patterns).toContainEqual(
+      expect.objectContaining({
+        kind: "ai.generate",
+        stepKey: "generate",
+        promptFallback: "Updated.",
+      }),
+    );
+    expect(sf.getFullText()).toContain("defineWorkflow");
+  });
+});

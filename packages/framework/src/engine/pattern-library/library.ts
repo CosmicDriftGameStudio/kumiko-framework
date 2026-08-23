@@ -15,6 +15,9 @@
 
 import type { FeaturePatternKind } from "../feature-ast/patterns";
 import {
+  aiClassifySchema,
+  aiExtractSchema,
+  aiGenerateSchema,
   authClaimsSchema,
   defineEventSchema,
   hookSchema,
@@ -94,6 +97,9 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   exposesApi: exposesApiSchema,
   treeActions: treeActionsSchema,
   envSchema: envSchemaSchema,
+  "ai.generate": aiGenerateSchema,
+  "ai.extract": aiExtractSchema,
+  "ai.classify": aiClassifySchema,
   unknown: unknownSchema,
 } satisfies Readonly<Record<FeaturePatternKind, PatternFormSchema>>;
 

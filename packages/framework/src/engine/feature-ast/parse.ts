@@ -24,7 +24,9 @@
 import type {
   ArrowFunction,
   CallExpression,
+  Expression,
   Node,
+  ObjectLiteralExpression,
   ParameterDeclaration,
   SourceFile,
 } from "ts-morph";
@@ -32,6 +34,9 @@ import { Project, SyntaxKind } from "ts-morph";
 
 import {
   type ExtractOutput,
+  extractAiClassify,
+  extractAiExtract,
+  extractAiGenerate,
   extractAuthClaims,
   extractClaimKey,
   extractConfig,
@@ -152,6 +157,8 @@ export function parseSourceFile(sourceFile: SourceFile): ParseResult {
   const errors: ParseError[] = [];
 
   walkSetupCallback(setupCallback.getBody(), registrarParamName, sourceFile, patterns, errors);
+  walkAiStepCalls(setupCallback.getBody(), registrarParamName, sourceFile, patterns, errors);
+  patterns.sort((a, b) => a.source.start.line - b.source.start.line);
 
   return { featureName, patterns, errors };
 }
@@ -378,6 +385,134 @@ function extractRegistrarMethodName(
   const receiver = propAccess.getExpression();
   if (receiver.getText() !== registrarParamName) return undefined;
   return propAccess.getName();
+}
+
+function readObjectPropertyInitializer(
+  obj: ObjectLiteralExpression,
+  propertyName: string,
+): Expression | undefined {
+  const prop = obj.getProperty(propertyName);
+  if (!prop) return undefined;
+  const assign = prop.asKind(SyntaxKind.PropertyAssignment);
+  if (assign) return assign.getInitializer();
+  const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
+  if (shorthand) return shorthand.getNameNode();
+  return undefined;
+}
+
+function resolveSameFileObjectLiteralArg(node: Node): ObjectLiteralExpression | undefined {
+  const direct = node.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (direct) return direct;
+  const identifier = node.asKind(SyntaxKind.Identifier);
+  if (!identifier) return undefined;
+  const varDecl = node.getSourceFile().getVariableDeclaration(identifier.getText());
+  return varDecl?.getInitializer()?.asKind(SyntaxKind.ObjectLiteralExpression);
+}
+
+function resolveStepsArrayRoot(stepsInit: Expression): Node | undefined {
+  const directArray = stepsInit.asKind(SyntaxKind.ArrayLiteralExpression);
+  if (directArray) return directArray;
+
+  const pipelineCall = stepsInit.asKind(SyntaxKind.CallExpression);
+  if (pipelineCall?.getExpression().getText() !== "stepsPipeline") {
+    return undefined;
+  }
+
+  const closureArg = pipelineCall.getArguments()[0];
+  if (!closureArg) return undefined;
+  const fn = findFunctionLiteral(closureArg);
+  if (!fn) return undefined;
+
+  const fnBody =
+    fn.asKind(SyntaxKind.ArrowFunction)?.getBody() ??
+    fn.asKind(SyntaxKind.FunctionExpression)?.getBody();
+  const exprBody = fnBody?.asKind(SyntaxKind.ArrayLiteralExpression);
+  if (exprBody) return exprBody;
+
+  if (fnBody?.isKind(SyntaxKind.Block)) {
+    for (const stmt of fnBody.getStatements()) {
+      const ret = stmt.asKind(SyntaxKind.ReturnStatement);
+      const retArray = ret?.getExpression()?.asKind(SyntaxKind.ArrayLiteralExpression);
+      if (retArray) return retArray;
+    }
+  }
+
+  return undefined;
+}
+
+function collectWorkflowStepArrayRoots(body: Node): Node[] {
+  const roots: Node[] = [];
+  for (const call of body.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    if (call.getExpression().getText() !== "defineWorkflow") continue;
+    const obj = resolveSameFileObjectLiteralArg(call.getArguments()[0] ?? call);
+    if (!obj) continue;
+    const stepsInit = readObjectPropertyInitializer(obj, "steps");
+    if (!stepsInit) continue;
+    const arrayRoot = resolveStepsArrayRoot(stepsInit);
+    if (arrayRoot) roots.push(arrayRoot);
+  }
+  return roots;
+}
+
+function walkAiStepCallsInNode(
+  node: Node,
+  sourceFile: SourceFile,
+  patterns: FeaturePattern[],
+  errors: ParseError[],
+): void {
+  for (const call of node.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const callee = call.getExpression().getText();
+    switch (callee) {
+      case "aiGenerateStep": {
+        const result = extractAiGenerate(call, sourceFile);
+        if (result.kind === "pattern") patterns.push(result.pattern);
+        else errors.push(result.error);
+        break;
+      }
+      case "aiExtractStep": {
+        const result = extractAiExtract(call, sourceFile);
+        if (result.kind === "pattern") patterns.push(result.pattern);
+        else errors.push(result.error);
+        break;
+      }
+      case "aiClassifyStep": {
+        const result = extractAiClassify(call, sourceFile);
+        if (result.kind === "pattern") patterns.push(result.pattern);
+        else errors.push(result.error);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+}
+
+function walkAiStepCalls(
+  body: Node,
+  registrarParamName: string,
+  sourceFile: SourceFile,
+  patterns: FeaturePattern[],
+  errors: ParseError[],
+  visitedWrapperDecls: Set<Node> = new Set(),
+): void {
+  for (const arrayRoot of collectWorkflowStepArrayRoots(body)) {
+    walkAiStepCallsInNode(arrayRoot, sourceFile, patterns, errors);
+  }
+
+  for (const call of body.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const wrapper = resolveRegistrarWrapperCall(call, registrarParamName);
+    if (!wrapper) continue;
+    if (visitedWrapperDecls.has(wrapper.declNode)) continue;
+    visitedWrapperDecls.add(wrapper.declNode);
+    walkAiStepCalls(
+      wrapper.body,
+      wrapper.paramName,
+      wrapper.sourceFile,
+      patterns,
+      errors,
+      visitedWrapperDecls,
+    );
+  }
 }
 
 // =============================================================================

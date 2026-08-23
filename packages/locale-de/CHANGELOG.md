@@ -1,5 +1,31 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.215.5
+
+### Patch Changes
+
+- Updated dependencies [16454c2]
+  - @cosmicdrift/kumiko-framework@0.215.5
+
+## 0.215.4
+
+### Patch Changes
+
+- Updated dependencies [e2a55b2]
+  - @cosmicdrift/kumiko-framework@0.215.4
+
+## 0.215.3
+
+### Patch Changes
+
+- be16c6b: Normalize the tenant-concept terminology: German UI copy now consistently says "Mandant" (was a mix of "Mandant"/"Tenant"/"Organisation" across bundles), Spanish consistently says "Organización" (was a mix of "Organización"/loanword "tenant"). English source copy for `config.settings.tenant` reverted to "Tenant" to match the chosen term.
+- 2a74871: Fix `<NotesSection>` (notes-history bundle) rendering each entry as one unbroken line with the raw author id and raw ISO timestamp glued to the note text. Body and meta now render as two visually separated lines and the timestamp uses the shared `formatWhen` formatter.
+
+  `note-entry` also gains an `authorName` field (`personal: { of: "authorId" }`, same crypto-shredding subject as `body`), stamped once at `add-note` write time — a self-lookup of the writer's own `read_users` row via `ctx.db.raw` (tenant-agnostic, same pattern as `user-data-rights/handlers/cancel-deletion.write.ts`), decrypting `displayName` with `decryptStoredPii`. Append-only history keeps the name as it was when the note was written, never re-resolved later against a mutable roster. A client-supplied `authorName` in the payload is ignored, same guard as `authorId`. If the self-lookup or decrypt fails, or the user has no `displayName`, `authorName` stays `null` and the write still succeeds — the note text is the point, the name is best-effort. The display already prefers `authorName` and falls back to a translated placeholder for `null` (pre-field history, shredded authors, and any lookup failure).
+
+- Updated dependencies [469ec58]
+  - @cosmicdrift/kumiko-framework@0.215.3
+
 ## 0.215.2
 
 ### Patch Changes

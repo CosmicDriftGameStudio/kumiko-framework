@@ -4,7 +4,7 @@
   "description": "Config-driven, command-based, realtime multi-tenant app framework.",
   "private": true,
   "engines": {
-    "bun": ">=1.3.14"
+    "bun": ">=1.4.0"
   },
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -77,11 +77,11 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
     "@changesets/cli": "^2.31.1",
-    "@cosmicdriftgamestudio/kumiko-guards": "0.26.6",
+    "@cosmicdriftgamestudio/kumiko-guards": "0.27.0",
     "@happy-dom/global-registrator": "^20.11.2",
     "@playwright/test": "^1.62.1",
     "@testing-library/dom": "^10.4.1",
-    "bun-types": "^1.3.14",
+    "bun-types": "^1.4.0",
     "happy-dom": "^20.11.2",
     "husky": "^9.1.7",
     "ts-morph": "^28.0.0",
@@ -95,7 +95,10 @@
     "undici": "^7.29.0",
     "ip-address": "^10.5.0",
     "js-yaml": "^4.3.1",
-    "deepmerge-ts": "^8.0.1"
+    "html-to-text": "^10.0.1"
+  },
+  "overrides": {
+    "html-to-text": "10.0.1"
   },
   "dependencies": {
     "hono": "^4.13.1",

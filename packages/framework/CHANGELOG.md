@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.215.5
+
+### Patch Changes
+
+- 16454c2: Bun 1.4 compatibility: native Temporal test assertions, signal-handler process.on typing, integer job duration rounding.
+  - @cosmicdrift/kumiko-types@0.215.5
+
+## 0.215.4
+
+### Patch Changes
+
+- e2a55b2: Pin `html-to-text@10.0.1` (via resolutions + Bun overrides) instead of forcing `deepmerge-ts` alone. `mailparser` still declares `html-to-text@10.0.0` which pulls vulnerable `deepmerge-ts@^7`; 10.0.1 already depends on `deepmerge-ts@^8`.
+  - @cosmicdrift/kumiko-types@0.215.4
+
+## 0.215.3
+
+### Patch Changes
+
+- 469ec58: kumiko-upgrade: add `installedVersion` to `--json` output. `currentVersion` still echoes `--from` when given (unchanged filter baseline), but it previously masked the actually installed `@cosmicdrift/kumiko-bundled-features`/`kumiko-framework` version whenever `--from` was passed — the new field always reflects what `readCurrentVersion` detects, independent of `--from`.
+  - @cosmicdrift/kumiko-types@0.215.3
+
 ## 0.215.2
 
 ### Patch Changes

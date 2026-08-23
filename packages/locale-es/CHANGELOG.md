@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-locale-es
 
+## 0.215.5
+
+### Patch Changes
+
+- Updated dependencies [16454c2]
+  - @cosmicdrift/kumiko-framework@0.215.5
+
+## 0.215.4
+
+### Patch Changes
+
+- Updated dependencies [e2a55b2]
+  - @cosmicdrift/kumiko-framework@0.215.4
+
+## 0.215.3
+
+### Patch Changes
+
+- be16c6b: Normalize the tenant-concept terminology: German UI copy now consistently says "Mandant" (was a mix of "Mandant"/"Tenant"/"Organisation" across bundles), Spanish consistently says "Organización" (was a mix of "Organización"/loanword "tenant"). English source copy for `config.settings.tenant` reverted to "Tenant" to match the chosen term.
+- Updated dependencies [469ec58]
+  - @cosmicdrift/kumiko-framework@0.215.3
+
 ## 0.215.2
 
 ### Patch Changes
