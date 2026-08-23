@@ -33,6 +33,10 @@ const enPlaceholderLetters = placeholderLetters("en");
 describe("parseIso", () => {
   test("valid yyyy-mm-dd → PlainDate (no TZ conversion)", () => {
     const d = parseIso("2026-04-25");
+    // Cross-realm safe: bun and happy-dom can expose different Temporal
+    // copies, so toBeInstanceOf fails depending on file order. The ISO
+    // string proves both the type and the no-TZ-conversion property.
+    expect(String(d)).toBe("2026-04-25");
     expect(d?.year).toBe(2026);
     expect(d?.month).toBe(4);
     expect(d?.day).toBe(25);
