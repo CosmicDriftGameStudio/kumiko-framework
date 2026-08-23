@@ -13,13 +13,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_USER_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
-  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -200,9 +199,9 @@ describe("seedTenantMembership", () => {
   });
 
   test("records the `by` user as insertedById on the projection", async () => {
-    // Audit-queries that join events → users need a stable actor. Default
-    // `by` is TestUsers.systemAdmin; override to a custom test user and
-    // assert it propagates to the projection's inserted_by_id column.
+    // Audit-queries that join events → users need a stable actor. Override
+    // default createSystemUser(tenantId) with a custom test user and assert
+    // it propagates to the projection's inserted_by_id column.
     const seedActor = createTestUser({ id: 99, tenantId: TENANT_A });
     await seedTenantMembership(stack.db, {
       userId: ALICE_ID,
@@ -215,15 +214,18 @@ describe("seedTenantMembership", () => {
     expect(row?.["insertedById"]).toBe(seedActor.id);
   });
 
-  test("default `by` is TestUsers.systemAdmin", async () => {
-    // Documents the fallback — a regression that changed the default would
-    // silently skew audit queries across 18 call-sites.
+  test("default `by` is createSystemUser(tenantId)", async () => {
     await seedTenantMembership(stack.db, {
       userId: ALICE_ID,
       tenantId: TENANT_A,
       roles: ["User"],
     });
     const [row] = await selectMany(stack.db, tenantMembershipsTable, { userId: ALICE_ID });
-    expect(row?.["insertedById"]).toBe(TestUsers.systemAdmin.id);
+    expect(row?.["insertedById"]).toBe(SYSTEM_USER_ID);
+
+    const events = await selectMany(stack.db, eventsTable, { aggregateType: "tenant-membership" });
+    const created = events.filter((e) => e.type === "tenant-membership.created");
+    expect(created).toHaveLength(1);
+    expect(created[0]?.tenantId).toBe(TENANT_A);
   });
 });
