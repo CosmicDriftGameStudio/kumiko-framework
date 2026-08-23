@@ -8,6 +8,10 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "composite": true
   },
-  "references": [{ "path": "../framework" }, { "path": "../locale-de" }],
+  "references": [
+    { "path": "../framework" },
+    { "path": "../locale-de" },
+    { "path": "../locale-es" }
+  ],
   "include": ["./src"]
 }

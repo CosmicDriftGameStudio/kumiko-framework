@@ -54,6 +54,7 @@
       },
       "devDependencies": {
         "@cosmicdrift/kumiko-locale-de": "workspace:*",
+        "@cosmicdrift/kumiko-locale-es": "workspace:*",
         "@testing-library/user-event": "^14.6.1",
         "@types/qrcode": "^1.5.5",
       },
