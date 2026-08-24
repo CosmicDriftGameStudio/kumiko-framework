@@ -9,7 +9,11 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes, resetTestTables, updateRows } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  expectErrorIncludes,
+  resetTestTables,
+  updateRows,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { UserErrors, UserHandlers, UserQueries } from "../constants";
 import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../schema/user";
