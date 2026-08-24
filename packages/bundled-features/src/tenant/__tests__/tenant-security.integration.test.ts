@@ -25,7 +25,7 @@ import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery
 import { notificationPreferencesTable } from "../../delivery/tables";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
-import { userSessionTable } from "../../sessions";
+import { userSessionEntity, userSessionTable } from "../../sessions";
 import { hashPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createUserFeature } from "../../user/feature";
@@ -105,7 +105,7 @@ beforeAll(async () => {
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
-  await createEventsTable(stack.db.raw);
+  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -847,19 +847,25 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
       roles: ["User"],
     });
 
-    const sessionTarget1 = await seedRow(stack.db, userSessionTable, {
+    const sessionTarget1Id = crypto.randomUUID();
+    const sessionTarget2Id = crypto.randomUUID();
+    const sessionAdminId = crypto.randomUUID();
+    await seedRow(stack.db, userSessionTable, {
+      id: sessionTarget1Id,
       userId: memberUserId,
       tenantId: TENANT_A_ID,
       createdAt: Temporal.Now.instant().subtract({ minutes: 30 }),
       expiresAt: Temporal.Now.instant().add({ hours: 2 }),
     });
-    const sessionTarget2 = await seedRow(stack.db, userSessionTable, {
+    await seedRow(stack.db, userSessionTable, {
+      id: sessionTarget2Id,
       userId: memberUserId,
       tenantId: TENANT_A_ID,
       createdAt: Temporal.Now.instant().subtract({ minutes: 10 }),
       expiresAt: Temporal.Now.instant().add({ hours: 2 }),
     });
-    const sessionAdmin = await seedRow(stack.db, userSessionTable, {
+    await seedRow(stack.db, userSessionTable, {
+      id: sessionAdminId,
       userId: tenantAdminAId,
       tenantId: TENANT_A_ID,
       createdAt: Temporal.Now.instant().subtract({ minutes: 5 }),
@@ -873,12 +879,12 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
     );
     expect(res).toMatchObject({ userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] });
 
-    const [s1] = await selectMany(stack.db, userSessionTable, { id: sessionTarget1.id });
-    const [s2] = await selectMany(stack.db, userSessionTable, { id: sessionTarget2.id });
+    const [s1] = await selectMany(stack.db, userSessionTable, { id: sessionTarget1Id });
+    const [s2] = await selectMany(stack.db, userSessionTable, { id: sessionTarget2Id });
     expect(s1?.revokedAt).not.toBeNull();
     expect(s2?.revokedAt).not.toBeNull();
 
-    const [sAdmin] = await selectMany(stack.db, userSessionTable, { id: sessionAdmin.id });
+    const [sAdmin] = await selectMany(stack.db, userSessionTable, { id: sessionAdminId });
     expect(sAdmin?.revokedAt).toBeNull();
 
     const membershipEvents = await selectMany(stack.db, eventsTable, {
