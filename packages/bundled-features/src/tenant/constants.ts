@@ -11,6 +11,8 @@ export const MEMBERS_SCREEN_ID = "members" as const;
 
 export const INVITE_CREATE_SCREEN_ID = "invite-create" as const;
 
+export const MEMBER_ROLES_EDIT_SCREEN_ID = "member-roles-edit" as const;
+
 /** Client column-renderer for the /members screen's status column — see
  *  `screen.columns[].renderer.react.__component` in screens.ts and
  *  `tenantClient()`'s `columnRenderers` map. */

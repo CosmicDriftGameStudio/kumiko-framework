@@ -9,6 +9,7 @@ import {
   DEFAULT_INVITE_ROLE_OPTIONS,
   INVITE_CREATE_SCREEN_ID,
   MEMBER_ROLES_CELL_COMPONENT,
+  MEMBER_ROLES_EDIT_SCREEN_ID,
   MEMBER_STATUS_CELL_COMPONENT,
   MEMBERS_SCREEN_ID,
   TenantHandlers,
@@ -108,6 +109,14 @@ export function createMembersScreen(options?: {
     ],
     rowActions: [
       {
+        kind: "navigate",
+        id: "edit-roles",
+        label: "tenant.members.actions.editRoles",
+        screen: MEMBER_ROLES_EDIT_SCREEN_ID,
+        params: { map: { userId: "userId" } },
+        visible: { field: "status", eq: "active" },
+      },
+      {
         kind: "writeHandler",
         id: "cancel-invitation",
         label: "tenant.members.cancel",
@@ -151,5 +160,20 @@ export const inviteCreateScreen = {
     sections: [{ fields: ["email", "role"] }],
   },
   submitLabel: "tenant.members.invite.submit",
+  access: { roles: access.admin },
+} satisfies ScreenDefinition;
+
+export const memberRolesEditScreen = {
+  id: MEMBER_ROLES_EDIT_SCREEN_ID,
+  type: "actionForm",
+  handler: TenantHandlers.updateMemberRoles,
+  fields: {
+    userId: { type: "text", required: true },
+    roles: { type: "multiSelect", options: DEFAULT_INVITE_ROLE_OPTIONS, required: true },
+  },
+  layout: {
+    sections: [{ fields: ["userId", "roles"] }],
+  },
+  submitLabel: "tenant.members.roles.edit.submit",
   access: { roles: access.admin },
 } satisfies ScreenDefinition;

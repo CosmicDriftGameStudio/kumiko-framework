@@ -20,6 +20,7 @@ type TeamStatus = "active" | "pending";
 
 type TeamRow = {
   readonly id: string;
+  readonly userId: string | null;
   readonly email: string | null;
   readonly displayName: string | null;
   readonly roles: readonly string[];
@@ -165,6 +166,7 @@ export const teamListQuery = definePagedQueryHandler({
       const createdAt = row["createdAt"];
       return {
         id: String(row["id"]),
+        userId,
         email: decrypted?.email ?? null,
         displayName: decrypted?.displayName ?? null,
         roles: parseRoles(row["roles"]),
@@ -197,6 +199,7 @@ export const teamListQuery = definePagedQueryHandler({
         const expiresAt = row["expiresAt"];
         return {
           id: String(row["id"]),
+          userId: null,
           email: decryptedEmail,
           displayName: null,
           roles: typeof row["role"] === "string" ? [row["role"]] : [],
