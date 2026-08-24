@@ -849,7 +849,6 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     expect(stillAdmin.filter(Boolean)).toHaveLength(1);
   });
 
-
   test("soft-deleted SystemAdmin does not count toward last-admin protection", async () => {
     const activeAdmin = await seedUser({
       email: "active-admin@example.com",
