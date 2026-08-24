@@ -5,6 +5,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, type SessionUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -16,6 +17,7 @@ import { expectErrorIncludes, rolesOf, seedRow } from "@cosmicdrift/kumiko-frame
 import { Temporal } from "temporal-polyfill";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
+import { authFoundationFeature } from "../../auth-foundation";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
@@ -24,13 +26,18 @@ import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery
 import { notificationPreferencesTable } from "../../delivery/tables";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
-import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
+import { createSessionsFeature, userSessionEntity, userSessionTable } from "../../sessions";
 import { hashPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { seedUser } from "../../user/seeding";
-import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../constants";
+import {
+  MEMBER_ROLES_EDIT_SCREEN_ID,
+  MEMBERS_SCREEN_ID,
+  TenantHandlers,
+  TenantQueries,
+} from "../constants";
 import { createTenantFeature } from "../feature";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-table";
 import { tenantMembershipsTable } from "../membership-table";
@@ -67,6 +74,10 @@ beforeAll(async () => {
       // inviteScreen: this suite dispatches AuthHandlers.inviteCreate and
       // needs /members' invite-create actionForm screen registered too.
       createTenantFeature({ inviteScreen: true }),
+      // Sessions required so updateMemberRoles can revoke target JWTs via
+      // sessions:write:user-session:revoke-all-for-user (best-effort lookup).
+      authFoundationFeature,
+      createSessionsFeature(),
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createDeliveryFeature(),
@@ -104,6 +115,7 @@ beforeAll(async () => {
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -116,6 +128,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
   emailTransport.sent.length = 0;
   const keys = await stack.redis.redis.keys("invite:*");
   if (keys.length > 0) await stack.redis.redis.del(...keys);
@@ -250,6 +263,15 @@ describe("regular User is denied members-admin surface", () => {
             regularUserB(),
           ),
       ],
+      [
+        "update-member-roles",
+        () =>
+          stack.http.write(
+            TenantHandlers.updateMemberRoles,
+            { userId: regularUserBId, tenantId: TENANT_B_ID, roles: ["Admin"] },
+            regularUserB(),
+          ),
+      ],
     ] as const) {
       const res = await fn();
       expect(res.status, label).toBe(403);
@@ -277,6 +299,35 @@ describe("privilege escalation via invite role", () => {
     });
     expect(rows).toHaveLength(0);
     expect(emailTransport.sent).toHaveLength(0);
+  });
+
+  test("Admin cannot invite as TenantAdmin (elevation guard)", async () => {
+    const { id: adminUserId } = await seedUser(stack.db, {
+      email: "admin-inviter@example.com",
+      displayName: "Admin Inviter",
+    });
+    await seedTenantMembership(stack.db, {
+      userId: adminUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["Admin"],
+    });
+    const adminUser: SessionUser = { id: adminUserId, tenantId: TENANT_A_ID, roles: ["Admin"] };
+
+    const err = await stack.http.writeErr(
+      AuthHandlers.inviteCreate,
+      { email: "elevated-invitee@example.com", role: "TenantAdmin" },
+      adminUser,
+    );
+    expectErrorIncludes(err, "unassignable_membership_role");
+  });
+
+  test("TenantAdmin cannot invite with unknown unranked role (elevation guard)", async () => {
+    const err = await stack.http.writeErr(
+      AuthHandlers.inviteCreate,
+      { email: "unknown-role@example.com", role: "SuperCustomRole" },
+      tenantAdminA(),
+    );
+    expectErrorIncludes(err, "unassignable_membership_role");
   });
 });
 
@@ -793,5 +844,152 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
       tenantId: TENANT_B_ID,
     });
     expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["Admin"]);
+  });
+
+  test("updateMemberRoles appends audit event and invalidates active sessions for target user", async () => {
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "session-target@example.com",
+      displayName: "Session Target",
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+
+    const sessionTarget1Id = crypto.randomUUID();
+    const sessionTarget2Id = crypto.randomUUID();
+    const sessionAdminId = crypto.randomUUID();
+    await seedRow(stack.db, userSessionTable, {
+      id: sessionTarget1Id,
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      createdAt: Temporal.Now.instant().subtract({ minutes: 30 }),
+      expiresAt: Temporal.Now.instant().add({ hours: 2 }),
+    });
+    await seedRow(stack.db, userSessionTable, {
+      id: sessionTarget2Id,
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      createdAt: Temporal.Now.instant().subtract({ minutes: 10 }),
+      expiresAt: Temporal.Now.instant().add({ hours: 2 }),
+    });
+    await seedRow(stack.db, userSessionTable, {
+      id: sessionAdminId,
+      userId: tenantAdminAId,
+      tenantId: TENANT_A_ID,
+      createdAt: Temporal.Now.instant().subtract({ minutes: 5 }),
+      expiresAt: Temporal.Now.instant().add({ hours: 2 }),
+    });
+
+    const res = await stack.http.writeOk(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] },
+      tenantAdminA(),
+    );
+    expect(res).toMatchObject({ userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] });
+
+    const [s1] = await selectMany(stack.db, userSessionTable, { id: sessionTarget1Id });
+    const [s2] = await selectMany(stack.db, userSessionTable, { id: sessionTarget2Id });
+    expect(s1?.revokedAt).not.toBeNull();
+    expect(s2?.revokedAt).not.toBeNull();
+
+    const [sAdmin] = await selectMany(stack.db, userSessionTable, { id: sessionAdminId });
+    expect(sAdmin?.revokedAt).toBeNull();
+
+    // Event-store actor is createSystemUser (handler rewrites via system
+    // stream), so filter by type + tenant — not the HTTP caller's user id.
+    const membershipEvents = await selectMany(stack.db, eventsTable, {
+      aggregateType: "tenant-membership",
+    });
+    const updateEvent = membershipEvents.find(
+      (e) => e.type === "tenant-membership.updated" && e.tenantId === TENANT_A_ID,
+    );
+    expect(updateEvent).toBeDefined();
+    expect(updateEvent?.payload).toMatchObject({
+      changes: { roles: JSON.stringify(["Admin"]) },
+    });
+  });
+});
+
+describe("invite + accept end-to-end integration against real stack", () => {
+  test("TenantAdmin invites user with Admin role, recipient accepts via invite-signup-complete and gains Admin membership", async () => {
+    const inviteeEmail = "invitee-e2e@example.com";
+    const inviteRes = (await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: inviteeEmail, role: "Admin" },
+      tenantAdminA(),
+    )) as { invitationId: string; email: string };
+
+    expect(inviteRes.email).toBe(inviteeEmail);
+
+    const sentMail = emailTransport.sent.find((m) => m.to.includes(inviteeEmail));
+    expect(sentMail).toBeDefined();
+    const tokenMatch = sentMail?.html?.match(/token=([a-zA-Z0-9_-]+)/);
+    expect(tokenMatch?.[1]).toBeDefined();
+    const token = tokenMatch![1];
+
+    const acceptRes = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
+      token,
+      email: inviteeEmail,
+      name: "Invited Admin",
+      password: "StrongValidPassword123!",
+    });
+    expect(acceptRes.status).toBe(200);
+    const acceptBody = (await acceptRes.json()) as { user?: { id?: string }; token?: string };
+    expect(acceptBody.user?.id).toBeDefined();
+    const newUserId = acceptBody.user!.id!;
+
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: newUserId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(memberships).toHaveLength(1);
+    expect(JSON.parse(memberships[0]?.roles as string)).toEqual(["Admin"]);
+
+    const teamRows = await queryTeamList({}, tenantAdminA());
+    const pendingInvite = teamRows.find((r) => r.email === inviteeEmail && r.status === "pending");
+    expect(pendingInvite).toBeUndefined();
+    const activeMember = teamRows.find((r) => r.email === inviteeEmail && r.status === "active");
+    expect(activeMember).toBeDefined();
+
+    const newAdminSession: SessionUser = { id: newUserId, tenantId: TENANT_A_ID, roles: ["Admin"] };
+    const membersList = await stack.http.queryOk<readonly { userId: string }[]>(
+      TenantQueries.members,
+      {},
+      newAdminSession,
+    );
+    expect(membersList.some((m) => m.userId === newUserId)).toBe(true);
+  });
+});
+
+describe("members UI screens and actions integration against real stack", () => {
+  test("members screen and member-roles-edit actionForm execute through stack", async () => {
+    const membersScreen = stack.registry.getScreen(`tenant:screen:${MEMBERS_SCREEN_ID}`);
+    expect(membersScreen).toBeDefined();
+    expect(membersScreen?.type).toBe("projectionList");
+
+    const editRolesScreen = stack.registry.getScreen(
+      `tenant:screen:${MEMBER_ROLES_EDIT_SCREEN_ID}`,
+    );
+    expect(editRolesScreen).toBeDefined();
+    expect(editRolesScreen?.type).toBe("actionForm");
+
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "ui-member@example.com",
+      displayName: "UI Member",
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+
+    const res = await stack.http.writeOk(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] },
+      tenantAdminA(),
+    );
+    expect(res).toMatchObject({ userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] });
   });
 });
