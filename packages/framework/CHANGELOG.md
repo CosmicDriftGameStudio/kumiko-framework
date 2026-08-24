@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.216.0
+
+### Minor Changes
+
+- 89654bc: Admin self-service: TenantAdmin may mutate membership roles only in their own session tenant (`updateMemberRoles`), with elevation rules that forbid self-elevate and assigning a role above the actor; SystemAdmin global user-role edits share the same elevation guard, last-admin protection, audit events, and session invalidation.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-types@0.216.0
+
 ## 0.215.7
 
 ### Patch Changes
