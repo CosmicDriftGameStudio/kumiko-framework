@@ -17,13 +17,13 @@ import { expectErrorIncludes, rolesOf, seedRow } from "@cosmicdrift/kumiko-frame
 import { Temporal } from "temporal-polyfill";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
+import { authFoundationFeature } from "../../auth-foundation";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
 import { notificationPreferencesTable } from "../../delivery/tables";
-import { authFoundationFeature } from "../../auth-foundation";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
 import { createSessionsFeature, userSessionEntity, userSessionTable } from "../../sessions";
