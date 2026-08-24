@@ -1,5 +1,9 @@
 import { asEntityTableMeta, asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  acquireNamespacedAdvisoryLock,
+  createEventStoreExecutor,
+  type TenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   findForbiddenRoleAssignment,
@@ -22,6 +26,10 @@ const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user
 
 const REVOKE_ALL_SESSIONS_QN = "sessions:write:user-session:revoke-all-for-user";
 
+// Serializes last-SystemAdmin demotion checks globally inside the write TX
+// (dispatcher batch wraps handlers in transaction — xact lock holds through update).
+const LAST_SYSTEM_ADMIN_LOCK_NAMESPACE = 0x7361646d; // 'sadm'
+
 type UserRolesRow = {
   id: string;
   roles: string | null;
@@ -42,19 +50,15 @@ function isActiveSystemAdminRow(row: UserRolesRow): boolean {
   return isActiveUserRow(row) && parseRoles(row.roles).includes("SystemAdmin");
 }
 
-async function countOtherActiveSystemAdminsLocked(
-  db: TenantDb,
-  excludeUserId: string,
-): Promise<number> {
+async function countOtherActiveSystemAdmins(db: TenantDb, excludeUserId: string): Promise<number> {
   const tableName = asEntityTableMeta(userTable)?.tableName ?? "read_users";
-  // kumiko-lint-ignore raw-sql FOR UPDATE lock for last-SystemAdmin demotion guard
+  // kumiko-lint-ignore raw-sql LIKE prefilter for SystemAdmin roster under advisory lock
   const rows = (await asRawClient(db.raw).unsafe(
     `SELECT id, roles, status, is_deleted AS "isDeleted"
      FROM ${quoteIdent(tableName)}
      WHERE is_deleted = false
        AND (status = $1 OR status IS NULL)
-       AND roles LIKE '%SystemAdmin%'
-     FOR UPDATE`,
+       AND roles LIKE '%SystemAdmin%'`,
     [USER_STATUS.Active],
   )) as UserRolesRow[];
   return rows.filter((u) => u.id !== excludeUserId && isActiveSystemAdminRow(u)).length;
@@ -114,7 +118,10 @@ export async function applyUserRolesUpdate(
   const willBeSystemAdmin = newRoles.includes("SystemAdmin");
 
   if (wasActiveSystemAdmin && !willBeSystemAdmin) {
-    const otherActiveSystemAdmins = await countOtherActiveSystemAdminsLocked(db, event.payload.id);
+    // Lock before count+update so two concurrent demotions cannot both
+    // observe otherActiveSystemAdmins >= 1 and leave zero active SystemAdmins.
+    await acquireNamespacedAdvisoryLock(db, LAST_SYSTEM_ADMIN_LOCK_NAMESPACE, "global");
+    const otherActiveSystemAdmins = await countOtherActiveSystemAdmins(db, event.payload.id);
     if (otherActiveSystemAdmins === 0) {
       return writeFailure(
         new ConflictError({
@@ -129,6 +136,24 @@ export async function applyUserRolesUpdate(
     }
   }
 
+  const normalizedChanges = {
+    ...event.payload.changes,
+    roles: JSON.stringify(newRoles),
+  };
+
+  // Persist roles first. Session revoke runs only after a successful update so a
+  // version conflict / projection error cannot leave sessions revoked while roles
+  // stay unchanged. Dispatcher TX still wraps both: revoke shares the write tx
+  // and rolls back with a failed outer write.
+  const updateResult = await crud.update(
+    { ...event.payload, changes: normalizedChanges },
+    event.user,
+    db,
+  );
+  if (!updateResult.isSuccess) {
+    return updateResult;
+  }
+
   const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
   if (revoker) {
     await ctx.writeAs(
@@ -140,10 +165,5 @@ export async function applyUserRolesUpdate(
     );
   }
 
-  const normalizedChanges = {
-    ...event.payload.changes,
-    roles: JSON.stringify(newRoles),
-  };
-
-  return crud.update({ ...event.payload, changes: normalizedChanges }, event.user, db);
+  return updateResult;
 }
