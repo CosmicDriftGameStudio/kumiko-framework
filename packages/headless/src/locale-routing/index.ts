@@ -1,3 +1,5 @@
+import type { LocaleResolver } from "../contracts";
+
 export type LocaleRouterConfig<TPage extends string> = {
   /** Canonical default, usually "de". No URL prefix. */
   readonly defaultLocale: string;
@@ -141,4 +143,39 @@ export function createLocaleRouter<TPage extends string>(
   }
 
   return { detectLang, publicPath, resolvePage, altLocalePath, sectionAnchor };
+}
+
+export type WrapUrlLocaleResolverOptions = {
+  resolvePage: (pathname: string) => unknown;
+  detectLang: (pathname: string) => string;
+  pathname?: () => string;
+};
+
+function defaultBrowserPathname(): string {
+  const loc = (globalThis as { location?: { pathname?: string } }).location;
+  return typeof loc?.pathname === "string" ? loc.pathname : "/";
+}
+
+/**
+ * Prefer URL-derived locale when `resolvePage` matches the current path;
+ * otherwise defer to `base.locale()`. Passes through setLocale and the rest of LocaleResolver.
+ */
+export function wrapUrlLocaleResolver(
+  base: LocaleResolver,
+  options: WrapUrlLocaleResolverOptions,
+): LocaleResolver {
+  const getPathname = options.pathname ?? defaultBrowserPathname;
+  return {
+    translate: (key, params) => base.translate(key, params),
+    timeZone: () => base.timeZone(),
+    subscribe: (listener) => base.subscribe(listener),
+    setLocale: base.setLocale !== undefined ? (locale) => base.setLocale?.(locale) : undefined,
+    locale: () => {
+      const path = getPathname();
+      if (options.resolvePage(path) !== undefined) {
+        return options.detectLang(path);
+      }
+      return base.locale();
+    },
+  };
 }
