@@ -23,15 +23,21 @@ import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
 import { notificationPreferencesTable } from "../../delivery/tables";
+import { authFoundationFeature } from "../../auth-foundation";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
-import { userSessionEntity, userSessionTable } from "../../sessions";
+import { createSessionsFeature, userSessionEntity, userSessionTable } from "../../sessions";
 import { hashPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { seedUser } from "../../user/seeding";
-import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../constants";
+import {
+  MEMBER_ROLES_EDIT_SCREEN_ID,
+  MEMBERS_SCREEN_ID,
+  TenantHandlers,
+  TenantQueries,
+} from "../constants";
 import { createTenantFeature } from "../feature";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-table";
 import { tenantMembershipsTable } from "../membership-table";
@@ -68,6 +74,10 @@ beforeAll(async () => {
       // inviteScreen: this suite dispatches AuthHandlers.inviteCreate and
       // needs /members' invite-create actionForm screen registered too.
       createTenantFeature({ inviteScreen: true }),
+      // Sessions required so updateMemberRoles can revoke target JWTs via
+      // sessions:write:user-session:revoke-all-for-user (best-effort lookup).
+      authFoundationFeature,
+      createSessionsFeature(),
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createDeliveryFeature(),
@@ -308,7 +318,7 @@ describe("privilege escalation via invite role", () => {
       { email: "elevated-invitee@example.com", role: "TenantAdmin" },
       adminUser,
     );
-    expectErrorIncludes(err, "forbidden_role_elevation");
+    expectErrorIncludes(err, "unassignable_membership_role");
   });
 
   test("TenantAdmin cannot invite with unknown unranked role (elevation guard)", async () => {
@@ -317,7 +327,7 @@ describe("privilege escalation via invite role", () => {
       { email: "unknown-role@example.com", role: "SuperCustomRole" },
       tenantAdminA(),
     );
-    expectErrorIncludes(err, "forbidden_role_elevation");
+    expectErrorIncludes(err, "unassignable_membership_role");
   });
 });
 
@@ -887,14 +897,16 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
     const [sAdmin] = await selectMany(stack.db, userSessionTable, { id: sessionAdminId });
     expect(sAdmin?.revokedAt).toBeNull();
 
+    // Event-store actor is createSystemUser (handler rewrites via system
+    // stream), so filter by type + tenant — not the HTTP caller's user id.
     const membershipEvents = await selectMany(stack.db, eventsTable, {
       aggregateType: "tenant-membership",
     });
     const updateEvent = membershipEvents.find(
-      (e) => e.tenantId === TENANT_A_ID && e.by === tenantAdminAId,
+      (e) => e.type === "tenant-membership.updated" && e.tenantId === TENANT_A_ID,
     );
     expect(updateEvent).toBeDefined();
-    expect(JSON.parse(updateEvent?.payload as string)).toMatchObject({
+    expect(updateEvent?.payload).toMatchObject({
       changes: { roles: JSON.stringify(["Admin"]) },
     });
   });
@@ -953,11 +965,13 @@ describe("invite + accept end-to-end integration against real stack", () => {
 
 describe("members UI screens and actions integration against real stack", () => {
   test("members screen and member-roles-edit actionForm execute through stack", async () => {
-    const membersScreen = stack.registry.getScreen(MEMBERS_SCREEN_ID);
+    const membersScreen = stack.registry.getScreen(`tenant:screen:${MEMBERS_SCREEN_ID}`);
     expect(membersScreen).toBeDefined();
     expect(membersScreen?.type).toBe("projectionList");
 
-    const editRolesScreen = stack.registry.getScreen("member-roles-edit");
+    const editRolesScreen = stack.registry.getScreen(
+      `tenant:screen:${MEMBER_ROLES_EDIT_SCREEN_ID}`,
+    );
     expect(editRolesScreen).toBeDefined();
     expect(editRolesScreen?.type).toBe("actionForm");
 
