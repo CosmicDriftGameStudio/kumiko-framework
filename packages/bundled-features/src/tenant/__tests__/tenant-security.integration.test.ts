@@ -294,7 +294,7 @@ describe("privilege escalation via invite role", () => {
   test("Admin cannot invite as TenantAdmin (elevation guard)", async () => {
     const { id: adminUserId } = await seedUser(stack.db, {
       email: "admin-inviter@example.com",
-      name: "Admin Inviter",
+      displayName: "Admin Inviter",
     });
     await seedTenantMembership(stack.db, {
       userId: adminUserId,
@@ -839,7 +839,7 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
   test("updateMemberRoles appends audit event and invalidates active sessions for target user", async () => {
     const { id: memberUserId } = await seedUser(stack.db, {
       email: "session-target@example.com",
-      name: "Session Target",
+      displayName: "Session Target",
     });
     await seedTenantMembership(stack.db, {
       userId: memberUserId,
@@ -957,7 +957,7 @@ describe("members UI screens and actions integration against real stack", () => 
 
     const { id: memberUserId } = await seedUser(stack.db, {
       email: "ui-member@example.com",
-      name: "UI Member",
+      displayName: "UI Member",
     });
     await seedTenantMembership(stack.db, {
       userId: memberUserId,
