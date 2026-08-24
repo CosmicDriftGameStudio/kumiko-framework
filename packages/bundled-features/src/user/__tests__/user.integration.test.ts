@@ -773,6 +773,89 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     expect(reloaded["roles"]).toEqual(["User", "Editor"]);
   });
 
+  test("concurrent demotions of the last two SystemAdmins: one wins, one gets 409", async () => {
+    const adminA = await seedUser({
+      email: "race-admin-a@example.com",
+      displayName: "Race Admin A",
+      roles: JSON.stringify(["SystemAdmin"]),
+    });
+    const adminB = await seedUser({
+      email: "race-admin-b@example.com",
+      displayName: "Race Admin B",
+      roles: JSON.stringify(["SystemAdmin"]),
+    });
+
+    const loadedA = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: adminA.id },
+      systemAdmin,
+    );
+    const loadedB = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: adminB.id },
+      systemAdmin,
+    );
+
+    const [resA, resB] = await Promise.all([
+      stack.http.write(
+        UserHandlers.update,
+        {
+          id: adminA.id,
+          version: loadedA["version"],
+          changes: { roles: JSON.stringify(["User"]) },
+        },
+        systemAdmin,
+      ),
+      stack.http.write(
+        UserHandlers.update,
+        {
+          id: adminB.id,
+          version: loadedB["version"],
+          changes: { roles: JSON.stringify(["User"]) },
+        },
+        systemAdmin,
+      ),
+    ]);
+
+    const bodyA = (await resA.json()) as {
+      isSuccess: boolean;
+      error?: { code?: string; details?: { reason?: string } };
+    };
+    const bodyB = (await resB.json()) as {
+      isSuccess: boolean;
+      error?: { code?: string; details?: { reason?: string } };
+    };
+
+    const outcomes = [
+      { status: resA.status, body: bodyA },
+      { status: resB.status, body: bodyB },
+    ];
+    const successes = outcomes.filter((o) => o.body.isSuccess === true);
+    const failures = outcomes.filter((o) => o.body.isSuccess === false);
+
+    expect(successes).toHaveLength(1);
+    expect(failures).toHaveLength(1);
+    const loser = failures[0];
+    if (!loser) throw new Error("expected exactly one failing demotion");
+    expect(loser.status).toBe(409);
+    expect(loser.body.error?.code).toBe("conflict");
+    expect(loser.body.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
+
+    // Exactly one active SystemAdmin must remain among the two race targets.
+    const stillAdmin = await Promise.all(
+      [adminA.id, adminB.id].map(async (id) => {
+        const row = await stack.http.queryOk<Record<string, unknown>>(
+          UserQueries.detail,
+          { id },
+          systemAdmin,
+        );
+        return JSON.parse(String(row["roles"] ?? "[]")).includes("SystemAdmin");
+      }),
+    );
+    expect(stillAdmin.filter(Boolean)).toHaveLength(1);
+  });
+
+
   test("soft-deleted SystemAdmin does not count toward last-admin protection", async () => {
     const activeAdmin = await seedUser({
       email: "active-admin@example.com",
