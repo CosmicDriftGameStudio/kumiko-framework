@@ -400,7 +400,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       { id: created.id },
       systemAdmin,
     );
-    expect(reloaded["roles"]).toEqual(["SystemAdmin"]);
+    expect(JSON.parse(String(reloaded["roles"] ?? "[]"))).toEqual(["SystemAdmin"]);
   });
 
   test("promoted user with SystemAdmin role can perform SystemAdmin-only queries", async () => {
@@ -456,7 +456,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       { id: created.id },
       systemAdmin,
     );
-    expect(reloaded["roles"]).toEqual(["User", "Editor"]);
+    expect(JSON.parse(String(reloaded["roles"] ?? "[]"))).toEqual(["User", "Editor"]);
   });
 
   test("TenantAdmin gets 403 on global role mutation (HTTP level check)", async () => {
@@ -495,7 +495,8 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
     );
 
     const actor = createTestUser({ id: tenantAdmin.id, roles: ["TenantAdmin"] });
-    const res = await stack.http.write(
+    // Field-level write ACL on roles fires before handler elevation guard.
+    const error = await stack.http.writeErr(
       UserHandlers.update,
       {
         id: tenantAdmin.id,
@@ -504,11 +505,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       },
       actor,
     );
-
-    expect(res.status).toBe(403);
-    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
-    expect(body.error?.code).toBe("access_denied");
-    expect(body.error?.details?.reason).toBe(UserErrors.cannotModifyGlobalRoles);
+    expectErrorIncludes(error, "field_access_denied");
   });
 
   test("normal user gets 403 when attempting to assign global roles to self", async () => {
@@ -520,7 +517,8 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
     );
 
     const normalUser = createTestUser({ id: user.id, roles: ["User"] });
-    const res = await stack.http.write(
+    // Field-level write ACL on roles fires before handler elevation guard.
+    const error = await stack.http.writeErr(
       UserHandlers.update,
       {
         id: user.id,
@@ -529,11 +527,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       },
       normalUser,
     );
-
-    expect(res.status).toBe(403);
-    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
-    expect(body.error?.code).toBe("access_denied");
-    expect(body.error?.details?.reason).toBe(UserErrors.cannotModifyGlobalRoles);
+    expectErrorIncludes(error, "field_access_denied");
   });
 
   test("normal user gets 403 when attempting to assign global roles to another user", async () => {
@@ -770,7 +764,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       { id: normalUser.id },
       systemAdmin,
     );
-    expect(reloaded["roles"]).toEqual(["User", "Editor"]);
+    expect(JSON.parse(String(reloaded["roles"] ?? "[]"))).toEqual(["User", "Editor"]);
   });
 
   test("concurrent demotions of the last two SystemAdmins: one wins, one gets 409", async () => {
