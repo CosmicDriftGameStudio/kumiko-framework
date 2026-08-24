@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createLocaleRouter } from "../index";
+import type { LocaleResolver } from "../../contracts";
+import { createLocaleRouter, wrapUrlLocaleResolver } from "../index";
 
 type MoneyHorsePage = "home" | "features" | "rechner" | "budget" | "ltv";
 
@@ -76,7 +77,7 @@ describe("createLocaleRouter publicstatus config", () => {
 });
 
 describe("createLocaleRouter inverted default (website-style)", () => {
-  const router = createLocaleRouter({
+  const router = createLocaleRouter<"home">({
     defaultLocale: "en",
     prefixedLocales: ["de"],
     prefixFor: () => "/de",
@@ -155,5 +156,66 @@ describe("createLocaleRouter homePage validation", () => {
       >,
     });
     expect(() => router.publicPath("features", "de")).toThrow(/no path for page/);
+  });
+});
+
+function staticBase(locale: string): LocaleResolver {
+  let current = locale;
+  const listeners = new Set<() => void>();
+  return {
+    translate: (key) => key,
+    locale: () => current,
+    timeZone: () => "UTC",
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    setLocale: (next) => {
+      current = next;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
+describe("wrapUrlLocaleResolver", () => {
+  test("registered path uses detectLang, not base locale", () => {
+    const wrapped = wrapUrlLocaleResolver(staticBase("de"), {
+      resolvePage: (pathname) => moneyHorseRouter.resolvePage(pathname),
+      detectLang: (pathname) => moneyHorseRouter.detectLang(pathname),
+      pathname: () => "/en/features",
+    });
+    expect(wrapped.locale()).toBe("en");
+  });
+
+  test("home path uses URL locale even when base differs", () => {
+    const wrapped = wrapUrlLocaleResolver(staticBase("en"), {
+      resolvePage: (pathname) => moneyHorseRouter.resolvePage(pathname),
+      detectLang: (pathname) => moneyHorseRouter.detectLang(pathname),
+      pathname: () => "/",
+    });
+    expect(wrapped.locale()).toBe("de");
+  });
+
+  test("unregistered path keeps base locale", () => {
+    const wrapped = wrapUrlLocaleResolver(staticBase("de"), {
+      resolvePage: (pathname) => moneyHorseRouter.resolvePage(pathname),
+      detectLang: (pathname) => moneyHorseRouter.detectLang(pathname),
+      pathname: () => "/app/credits",
+    });
+    expect(wrapped.locale()).toBe("de");
+  });
+
+  test("setLocale passes through to base", () => {
+    const base = staticBase("de");
+    const wrapped = wrapUrlLocaleResolver(base, {
+      resolvePage: () => undefined,
+      detectLang: () => "en",
+      pathname: () => "/app",
+    });
+    wrapped.setLocale?.("en");
+    expect(base.locale()).toBe("en");
+    expect(wrapped.locale()).toBe("en");
   });
 });
