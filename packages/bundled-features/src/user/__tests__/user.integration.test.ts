@@ -103,6 +103,16 @@ describe("scenario 1: create + me", () => {
     expectErrorIncludes(error, "access_denied");
   });
 
+  test("TenantAdmin cannot create user", async () => {
+    const tenantAdmin = createTestUser({ id: 8888, roles: ["TenantAdmin"] });
+    const error = await stack.http.writeErr(
+      UserHandlers.create,
+      { email: "tenantadmin-user-create@example.com", displayName: "Denied" },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "access_denied");
+  });
+
   test("duplicate email is rejected", async () => {
     await seedUser({ email: "dup@example.com", displayName: "First" });
     const error = await stack.http.writeErr(
@@ -279,6 +289,25 @@ describe("scenario 4: detail + list access", () => {
     expect(res.status).toBe(403);
   });
 
+  test("TenantAdmin cannot fetch arbitrary users via detail", async () => {
+    const target = await seedUser({
+      email: "tenantadmin-target@example.com",
+      displayName: "Target",
+    });
+    const tenantAdmin = createTestUser({ id: 9998, roles: ["TenantAdmin"] });
+
+    const res = await stack.http.query(UserQueries.detail, { id: target.id }, tenantAdmin);
+    expect(res.status).toBe(403);
+  });
+
+  test("normal user cannot fetch arbitrary users via detail", async () => {
+    const target = await seedUser({ email: "normal-target@example.com", displayName: "Target" });
+    const normal = createTestUser({ id: 2001, roles: ["User"] });
+
+    const res = await stack.http.query(UserQueries.detail, { id: target.id }, normal);
+    expect(res.status).toBe(403);
+  });
+
   test("list returns users (SystemAdmin only)", async () => {
     await seedUser({ email: "a@example.com", displayName: "A" });
     await seedUser({ email: "b@example.com", displayName: "B" });
@@ -294,6 +323,18 @@ describe("scenario 4: detail + list access", () => {
 
   test("normal user cannot list", async () => {
     const signedIn = createTestUser({ id: 2000, roles: ["User"] });
+    const res = await stack.http.query(UserQueries.list, {}, signedIn);
+    expect(res.status).toBe(403);
+  });
+
+  test("TenantAdmin cannot list users", async () => {
+    const signedIn = createTestUser({ id: 2002, roles: ["TenantAdmin"] });
+    const res = await stack.http.query(UserQueries.list, {}, signedIn);
+    expect(res.status).toBe(403);
+  });
+
+  test("tenant Admin cannot list users", async () => {
+    const signedIn = createTestUser({ id: 2003, roles: ["Admin"] });
     const res = await stack.http.query(UserQueries.list, {}, signedIn);
     expect(res.status).toBe(403);
   });
@@ -359,7 +400,63 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       { id: created.id },
       systemAdmin,
     );
-    expect(reloaded["roles"]).toBe(JSON.stringify(["SystemAdmin"]));
+    expect(reloaded["roles"]).toEqual(["SystemAdmin"]);
+  });
+
+  test("promoted user with SystemAdmin role can perform SystemAdmin-only queries", async () => {
+    const created = await seedUser({
+      email: "promoted-admin@example.com",
+      displayName: "PromotedAdmin",
+    });
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: created.id },
+      systemAdmin,
+    );
+
+    await stack.http.writeOk(
+      UserHandlers.update,
+      {
+        id: created.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+      },
+      systemAdmin,
+    );
+
+    const newlyPromoted = createTestUser({ id: created.id, roles: ["SystemAdmin"] });
+    const listResult = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      UserQueries.list,
+      {},
+      newlyPromoted,
+    );
+    expect(listResult.rows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("SystemAdmin updates target user roles to multiple valid roles", async () => {
+    const created = await seedUser({ email: "multirole@example.com", displayName: "MultiRole" });
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: created.id },
+      systemAdmin,
+    );
+
+    await stack.http.writeOk(
+      UserHandlers.update,
+      {
+        id: created.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["User", "Editor"]) },
+      },
+      systemAdmin,
+    );
+
+    const reloaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: created.id },
+      systemAdmin,
+    );
+    expect(reloaded["roles"]).toEqual(["User", "Editor"]);
   });
 
   test("TenantAdmin gets 403 on global role mutation (HTTP level check)", async () => {
@@ -380,9 +477,38 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       },
       tenantAdmin,
     );
+
     expect(res.status).toBe(403);
     const body = (await res.json()) as { error?: { code?: string } };
     expect(body.error?.code).toBe("access_denied");
+  });
+
+  test("TenantAdmin gets 403 when attempting to assign global roles to self", async () => {
+    const tenantAdmin = await seedUser({
+      email: "tenant-admin-self@example.com",
+      displayName: "TAdmin",
+    });
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: tenantAdmin.id },
+      systemAdmin,
+    );
+
+    const actor = createTestUser({ id: tenantAdmin.id, roles: ["TenantAdmin"] });
+    const res = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: tenantAdmin.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+      },
+      actor,
+    );
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
+    expect(body.error?.code).toBe("access_denied");
+    expect(body.error?.details?.reason).toBe(UserErrors.cannotModifyGlobalRoles);
   });
 
   test("normal user gets 403 when attempting to assign global roles to self", async () => {
@@ -403,6 +529,35 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       },
       normalUser,
     );
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
+    expect(body.error?.code).toBe("access_denied");
+    expect(body.error?.details?.reason).toBe(UserErrors.cannotModifyGlobalRoles);
+  });
+
+  test("normal user gets 403 when attempting to assign global roles to another user", async () => {
+    const target = await seedUser({
+      email: "target-user-roles@example.com",
+      displayName: "Target",
+    });
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: target.id },
+      systemAdmin,
+    );
+
+    const attacker = createTestUser({ id: 99999, roles: ["User"] });
+    const res = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: target.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+      },
+      attacker,
+    );
+
     expect(res.status).toBe(403);
     const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
     expect(body.error?.code).toBe("access_denied");
@@ -425,6 +580,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       },
       systemAdmin,
     );
+
     expect(res.status).toBe(403);
     const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
     expect(body.error?.code).toBe("access_denied");
@@ -435,13 +591,13 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
     const res = await stack.http.write(
       UserHandlers.create,
       {
-        email: "create-elevate@example.com",
-        displayName: "CreateElevate",
-        passwordHash: "seeded-hash",
-        roles: JSON.stringify(["SuperPowerUnknown"]),
+        email: "unknown-role-create@example.com",
+        displayName: "BadRole",
+        roles: JSON.stringify(["UnknownRole"]),
       },
       systemAdmin,
     );
+
     expect(res.status).toBe(403);
     const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
     expect(body.error?.code).toBe("access_denied");
@@ -452,18 +608,17 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
 describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
   test("refuses removing/demoting the last active SystemAdmin", async () => {
     const onlyAdmin = await seedUser({
-      email: "onlyadmin@example.com",
-      displayName: "Only Admin",
+      email: "only-admin@example.com",
+      displayName: "OnlyAdmin",
       roles: JSON.stringify(["SystemAdmin"]),
     });
-
     const loaded = await stack.http.queryOk<Record<string, unknown>>(
       UserQueries.detail,
       { id: onlyAdmin.id },
       systemAdmin,
     );
 
-    // Attempting to demote the only active SystemAdmin must fail with 409 Conflict
+    // Demoting the only active SystemAdmin must fail with 409
     const res = await stack.http.write(
       UserHandlers.update,
       {
@@ -473,36 +628,32 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       },
       systemAdmin,
     );
+
     expect(res.status).toBe(409);
     const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
     expect(body.error?.code).toBe("conflict");
     expect(body.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
 
-    // Create a second active SystemAdmin
+    // Now seed a second SystemAdmin
     const secondAdmin = await seedUser({
-      email: "secondadmin@example.com",
-      displayName: "Second Admin",
+      email: "second-admin@example.com",
+      displayName: "SecondAdmin",
       roles: JSON.stringify(["SystemAdmin"]),
     });
 
-    // Now demoting one of them succeeds
-    const loadedFirst = await stack.http.queryOk<Record<string, unknown>>(
-      UserQueries.detail,
-      { id: onlyAdmin.id },
-      systemAdmin,
-    );
+    // Demoting onlyAdmin now succeeds (since secondAdmin remains active)
     await stack.http.writeOk(
       UserHandlers.update,
       {
         id: onlyAdmin.id,
-        version: loadedFirst["version"],
+        version: loaded["version"],
         changes: { roles: JSON.stringify(["User"]) },
       },
       systemAdmin,
     );
 
-    // Now secondAdmin is the only remaining active SystemAdmin. Demoting them must fail!
-    const loadedSecond = await stack.http.queryOk<Record<string, unknown>>(
+    // But demoting secondAdmin must now fail (it's the only remaining active SystemAdmin)
+    const secondLoaded = await stack.http.queryOk<Record<string, unknown>>(
       UserQueries.detail,
       { id: secondAdmin.id },
       systemAdmin,
@@ -511,11 +662,12 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       UserHandlers.update,
       {
         id: secondAdmin.id,
-        version: loadedSecond["version"],
+        version: secondLoaded["version"],
         changes: { roles: JSON.stringify(["User"]) },
       },
       systemAdmin,
     );
+
     expect(resSecond.status).toBe(409);
     const bodySecond = (await resSecond.json()) as {
       error?: { code?: string; details?: { reason?: string } };
@@ -524,26 +676,124 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     expect(bodySecond.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
   });
 
+  test("refuses setting empty roles on the last active SystemAdmin", async () => {
+    const onlyAdmin = await seedUser({
+      email: "empty-roles-admin@example.com",
+      displayName: "EmptyRolesAdmin",
+      roles: JSON.stringify(["SystemAdmin"]),
+    });
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: onlyAdmin.id },
+      systemAdmin,
+    );
+
+    const res = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: onlyAdmin.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify([]) },
+      },
+      systemAdmin,
+    );
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
+    expect(body.error?.code).toBe("conflict");
+    expect(body.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
+  });
+
+  test("non-role updates on the last active SystemAdmin succeed", async () => {
+    const onlyAdmin = await seedUser({
+      email: "non-role-admin@example.com",
+      displayName: "InitialAdminName",
+      roles: JSON.stringify(["SystemAdmin"]),
+    });
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: onlyAdmin.id },
+      systemAdmin,
+    );
+
+    await stack.http.writeOk(
+      UserHandlers.update,
+      {
+        id: onlyAdmin.id,
+        version: loaded["version"],
+        changes: { displayName: "UpdatedAdminName" },
+      },
+      systemAdmin,
+    );
+
+    const reloaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: onlyAdmin.id },
+      systemAdmin,
+    );
+    expect(reloaded["displayName"]).toBe("UpdatedAdminName");
+  });
+
+  test("updating non-SystemAdmin user roles succeeds when only one SystemAdmin exists", async () => {
+    // Seed 1 active SystemAdmin
+    await seedUser({
+      email: "the-system-admin@example.com",
+      displayName: "TheAdmin",
+      roles: JSON.stringify(["SystemAdmin"]),
+    });
+
+    // Seed a normal user
+    const normalUser = await seedUser({
+      email: "regular-user@example.com",
+      displayName: "RegularUser",
+      roles: JSON.stringify(["User"]),
+    });
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: normalUser.id },
+      systemAdmin,
+    );
+
+    // Updating normal user roles to ["User", "Editor"] should succeed without conflict
+    await stack.http.writeOk(
+      UserHandlers.update,
+      {
+        id: normalUser.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["User", "Editor"]) },
+      },
+      systemAdmin,
+    );
+
+    const reloaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: normalUser.id },
+      systemAdmin,
+    );
+    expect(reloaded["roles"]).toEqual(["User", "Editor"]);
+  });
+
   test("soft-deleted SystemAdmin does not count toward last-admin protection", async () => {
     const activeAdmin = await seedUser({
-      email: "active-lastadmin@example.com",
-      displayName: "Active Admin",
+      email: "active-admin@example.com",
+      displayName: "ActiveAdmin",
       roles: JSON.stringify(["SystemAdmin"]),
     });
     const softDeletedAdmin = await seedUser({
-      email: "soft-deleted-admin@example.com",
-      displayName: "Soft Deleted Admin",
+      email: "deleted-admin@example.com",
+      displayName: "DeletedAdmin",
       roles: JSON.stringify(["SystemAdmin"]),
     });
 
+    // Soft-delete the second admin directly
     await updateRows(stack.db, userTable, { isDeleted: true }, { id: softDeletedAdmin.id });
 
+    // Attempting to demote activeAdmin must fail with 409 because the other is deleted
     const loaded = await stack.http.queryOk<Record<string, unknown>>(
       UserQueries.detail,
       { id: activeAdmin.id },
       systemAdmin,
     );
-
     const res = await stack.http.write(
       UserHandlers.update,
       {
@@ -553,6 +803,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       },
       systemAdmin,
     );
+
     expect(res.status).toBe(409);
     const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
     expect(body.error?.code).toBe("conflict");
