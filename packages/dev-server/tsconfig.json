@@ -4,6 +4,7 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "noEmit": false,
+    "lib": ["ESNext", "DOM"],
     "composite": true
   },
   "references": [
@@ -12,9 +13,4 @@
     { "path": "../server-runtime" }
   ],
   "include": ["./src"]
-}
-  ],
-  "include": [
-    "./src"
-  ]
 }
