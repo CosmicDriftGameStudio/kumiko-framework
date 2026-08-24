@@ -9,7 +9,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { expectErrorIncludes, resetTestTables, updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { UserErrors, UserHandlers, UserQueries } from "../constants";
 import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../schema/user";
@@ -426,6 +426,23 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
     expect(body.error?.code).toBe("access_denied");
     expect(body.error?.details?.reason).toBe(UserErrors.roleElevationForbidden);
   });
+
+  test("elevation guard rejects unknown role on user:create", async () => {
+    const res = await stack.http.write(
+      UserHandlers.create,
+      {
+        email: "create-elevate@example.com",
+        displayName: "CreateElevate",
+        passwordHash: "seeded-hash",
+        roles: JSON.stringify(["SuperPowerUnknown"]),
+      },
+      systemAdmin,
+    );
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
+    expect(body.error?.code).toBe("access_denied");
+    expect(body.error?.details?.reason).toBe(UserErrors.roleElevationForbidden);
+  });
 });
 
 describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
@@ -501,5 +518,40 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     };
     expect(bodySecond.error?.code).toBe("conflict");
     expect(bodySecond.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
+  });
+
+  test("soft-deleted SystemAdmin does not count toward last-admin protection", async () => {
+    const activeAdmin = await seedUser({
+      email: "active-lastadmin@example.com",
+      displayName: "Active Admin",
+      roles: JSON.stringify(["SystemAdmin"]),
+    });
+    const softDeletedAdmin = await seedUser({
+      email: "soft-deleted-admin@example.com",
+      displayName: "Soft Deleted Admin",
+      roles: JSON.stringify(["SystemAdmin"]),
+    });
+
+    await updateRows(stack.db, userTable, { isDeleted: true }, { id: softDeletedAdmin.id });
+
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: activeAdmin.id },
+      systemAdmin,
+    );
+
+    const res = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: activeAdmin.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["User"]) },
+      },
+      systemAdmin,
+    );
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
+    expect(body.error?.code).toBe("conflict");
+    expect(body.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
   });
 });
