@@ -15,6 +15,7 @@ import {
   ConflictError,
   InternalError,
   NotFoundError,
+  ValidationError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
@@ -44,7 +45,7 @@ export const updateMemberRolesWrite = defineWriteHandler({
   name: "updateMemberRoles",
   schema: z.object({
     userId: z.string(),
-    tenantId: z.string(),
+    tenantId: z.string().optional(),
     roles: z.array(z.string()).min(1),
   }),
   // "system" + access.admin ("TenantAdmin", "Admin", "SystemAdmin").
@@ -63,6 +64,19 @@ export const updateMemberRolesWrite = defineWriteHandler({
     const isSystem =
       event.user.roles.includes("SystemAdmin") || event.user.roles.includes("system");
     const targetTenantId = isSystem ? event.payload.tenantId : event.user.tenantId;
+    if (!targetTenantId) {
+      return writeFailure(
+        new ValidationError({
+          fields: [
+            {
+              path: "tenantId",
+              code: "required",
+              i18nKey: "errors.validation.required",
+            },
+          ],
+        }),
+      );
+    }
     const db = isSystem
       ? ctx.systemDb.acknowledgeCrossTenant("SystemAdmin manages memberships across tenants")
       : ctx.systemDb.assertTenantMatch(event.user.tenantId);

@@ -4,7 +4,9 @@ import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createConfigFeature } from "../../config/feature";
 import {
+  DEFAULT_INVITE_ROLE_OPTIONS,
   INVITE_CREATE_SCREEN_ID,
+  MEMBER_ROLES_EDIT_SCREEN_ID,
   MEMBERS_SCREEN_ID,
   TenantHandlers,
   TenantQueries,
@@ -64,6 +66,37 @@ describe("tenant members screen + handler access alignment", () => {
     expect(rowAction.visible).toEqual({ field: "status", eq: "pending" });
   });
 
+  test("edit-roles row action is only visible on active rows and navigates to member-roles-edit", () => {
+    const tenant = createTenantFeature();
+    const screen = tenant.screens[MEMBERS_SCREEN_ID];
+    if (screen?.type !== "projectionList")
+      throw new Error("expected members screen to be projectionList");
+    const rowAction = screen.rowActions?.find((a) => a.id === "edit-roles");
+    if (rowAction?.kind !== "navigate") throw new Error("expected a navigate row action");
+    expect(rowAction.screen).toBe(MEMBER_ROLES_EDIT_SCREEN_ID);
+    expect(rowAction.params).toEqual({ map: { userId: "userId" } });
+    expect(rowAction.visible).toEqual({ field: "status", eq: "active" });
+  });
+
+  test("member-roles-edit actionForm screen is registered and bound to updateMemberRoles, access.admin-gated", () => {
+    const tenant = createTenantFeature();
+    const screen = tenant.screens[MEMBER_ROLES_EDIT_SCREEN_ID];
+    if (screen?.type !== "actionForm")
+      throw new Error("expected member-roles-edit screen to be actionForm");
+    expect(screen.handler).toBe(TenantHandlers.updateMemberRoles);
+    expect(screen.fields["userId"]).toEqual({ type: "text", required: true });
+    expect(screen.fields["roles"]).toEqual({
+      type: "multiSelect",
+      options: DEFAULT_INVITE_ROLE_OPTIONS,
+      required: true,
+    });
+    if (screen && "access" in screen && screen.access && "roles" in screen.access) {
+      expect(rolesOf(screen.access)).toEqual([...access.admin]);
+    } else {
+      throw new Error("expected member-roles-edit screen to have access.roles");
+    }
+  });
+
   // The generic drawer-open/submit/close/refetch mechanics for kind:"drawer"
   // toolbar actions are already covered end-to-end with a synthetic screen in
   // renderer-web's projection-list-actions.test.tsx — this only proves OUR
@@ -103,6 +136,10 @@ describe("tenant members screen + handler access alignment", () => {
     expect(rolesOf(tenant.queryHandlers["invitations"]?.access)).toEqual(adminRoles);
     expect(rolesOf(tenant.queryHandlers["team:list"]?.access)).toEqual(adminRoles);
     expect(rolesOf(tenant.writeHandlers["cancel-invitation"]?.access)).toEqual(adminRoles);
+    expect(rolesOf(tenant.writeHandlers["updateMemberRoles"]?.access)).toEqual([
+      "system",
+      ...adminRoles,
+    ]);
     // invite-create lives on auth feature — checked in tenant-security.integration.test.ts
     void AuthHandlers;
     void TenantHandlers;

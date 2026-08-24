@@ -30,6 +30,7 @@ import { tenantEntity } from "./schema/tenant";
 import {
   createMembersScreen,
   inviteCreateScreen,
+  memberRolesEditScreen,
   tenantEditScreen,
   tenantListScreen,
 } from "./screens";
@@ -154,10 +155,10 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
     r.screen(tenantListScreen);
     r.screen(tenantEditScreen);
     // Tenant-admin team UI: one list (active members + pending invitations,
-    // §2.6), invite via a drawer-hosted actionForm. No role-edit —
-    // updateMemberRoles stays SystemAdmin-only. Screen access matches
-    // handler access.admin.
+    // §2.6), invite via a drawer-hosted actionForm, role-edit via
+    // actionForm. Screen access matches handler access.admin.
     r.screen(createMembersScreen(options));
+    r.screen(memberRolesEditScreen);
     if (options?.inviteScreen) {
       r.screen(inviteCreateScreen);
     }
