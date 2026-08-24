@@ -24,7 +24,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
@@ -54,7 +54,7 @@ import { createTenantFeature } from "../tenant";
 import { TenantHandlers } from "../tenant/constants";
 import { tenantMembershipsTable } from "../tenant/membership-table";
 import { tenantEntity } from "../tenant/schema/tenant";
-import { UserHandlers } from "../user";
+import { UserHandlers, UserQueries } from "../user";
 import { createUserFeature } from "../user/feature";
 import { userEntity, userTable } from "../user/schema/user";
 
@@ -275,5 +275,38 @@ describe("access-invalidation event consumer", () => {
     await stack.eventDispatcher?.runOnce();
 
     expect(invalidated).toEqual([userId]);
+  });
+
+  test("user:update (global role change) revokes sessions and pushes an invalidation", async () => {
+    const { userId } = await h.seedUser("globalrolechange@example.com", "pw-long-enough");
+    const { sid } = await h.login("globalrolechange@example.com", "pw-long-enough");
+    trackInvalidation(userId);
+
+    const admin = await withMintedSession(sessionCreator, TestUsers.systemAdmin);
+    const detail = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: userId },
+      admin,
+    );
+
+    const result = await stack.http.writeOk(
+      UserHandlers.update,
+      {
+        id: userId,
+        version: detail["version"],
+        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+      },
+      admin,
+    );
+    expect(result).toBeTruthy();
+
+    await stack.eventDispatcher?.runOnce();
+
+    expect(invalidated).toEqual([userId]);
+
+    const sessionRow = await fetchOne<{ revokedAt: unknown }>(stack.db, userSessionTable, {
+      id: sid,
+    });
+    expect(sessionRow?.revokedAt).not.toBeNull();
   });
 });

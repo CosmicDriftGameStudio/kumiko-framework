@@ -14,6 +14,7 @@ describe("role assignment guard", () => {
     expect(findForbiddenRoleAssignment(["TenantAdmin"], ["User", "Admin"])).toBeUndefined();
     expect(findForbiddenRoleAssignment(["Admin"], ["Admin"])).toBeUndefined();
     expect(findForbiddenRoleAssignment(["SystemAdmin"], ["SystemAdmin"])).toBeUndefined();
+    expect(findForbiddenRoleAssignment(["system"], ["SystemAdmin"])).toBeUndefined();
   });
 
   test("rejects Editor above User, Admin above Editor", () => {

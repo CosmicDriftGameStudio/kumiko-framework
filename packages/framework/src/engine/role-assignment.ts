@@ -5,6 +5,7 @@ const ROLE_RANKS: Readonly<Record<string, number>> = {
   Admin: 2,
   TenantAdmin: 3,
   SystemAdmin: 4,
+  system: 5,
 };
 
 function getRoleRank(role: string): number {

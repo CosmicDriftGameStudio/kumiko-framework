@@ -21,4 +21,7 @@ export const UserQueries = {
 export const UserErrors = {
   emailAlreadyExists: "email_already_exists",
   cannotEditOtherUser: "cannot_edit_other_user",
+  cannotModifyGlobalRoles: "cannot_modify_global_roles",
+  cannotDemoteLastSystemAdmin: "cannot_demote_last_system_admin",
+  roleElevationForbidden: "role_elevation_forbidden",
 } as const;

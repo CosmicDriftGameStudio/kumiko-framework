@@ -68,7 +68,7 @@ describe("mapWithConcurrency", () => {
       // for a real unhandled rejection (if any) to fire.
       await new Promise((resolve) => setTimeout(resolve, 50));
     } finally {
-      process.off("unhandledRejection", onUnhandledRejection);
+      process.off("unhandledRejection" as never, onUnhandledRejection);
     }
     expect(unhandled).toEqual([]);
   });

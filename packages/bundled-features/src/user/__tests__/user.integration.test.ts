@@ -9,7 +9,11 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  expectErrorIncludes,
+  resetTestTables,
+  updateRows,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { UserErrors, UserHandlers, UserQueries } from "../constants";
 import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../schema/user";
@@ -37,8 +41,9 @@ async function seedUser(overrides: {
   email: string;
   displayName: string;
   passwordHash?: string;
-}): Promise<{ id: number }> {
-  const res = await stack.http.writeOk<{ id: number }>(
+  roles?: string;
+}): Promise<{ id: string }> {
+  const res = await stack.http.writeOk<{ id: string }>(
     UserHandlers.create,
     {
       passwordHash: "seeded-hash",
@@ -327,5 +332,230 @@ describe("scenario 8: entityEdit round-trip via convention QNs", () => {
       systemAdmin,
     );
     expect(reloaded["displayName"]).toBe("After");
+  });
+});
+
+describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
+  test("SystemAdmin updates target user roles to SystemAdmin", async () => {
+    const created = await seedUser({ email: "promotee@example.com", displayName: "Promotee" });
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: created.id },
+      systemAdmin,
+    );
+
+    await stack.http.writeOk(
+      UserHandlers.update,
+      {
+        id: created.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+      },
+      systemAdmin,
+    );
+
+    const reloaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: created.id },
+      systemAdmin,
+    );
+    expect(reloaded["roles"]).toBe(JSON.stringify(["SystemAdmin"]));
+  });
+
+  test("TenantAdmin gets 403 on global role mutation (HTTP level check)", async () => {
+    const target = await seedUser({ email: "victim-role@example.com", displayName: "Target" });
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: target.id },
+      systemAdmin,
+    );
+
+    const tenantAdmin = createTestUser({ id: 8888, roles: ["TenantAdmin"] });
+    const res = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: target.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+      },
+      tenantAdmin,
+    );
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe("access_denied");
+  });
+
+  test("normal user gets 403 when attempting to assign global roles to self", async () => {
+    const user = await seedUser({ email: "self-elevate@example.com", displayName: "SelfElevate" });
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: user.id },
+      systemAdmin,
+    );
+
+    const normalUser = createTestUser({ id: user.id, roles: ["User"] });
+    const res = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: user.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+      },
+      normalUser,
+    );
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
+    expect(body.error?.code).toBe("access_denied");
+  });
+
+  test("elevation guard rejects unknown role assignment", async () => {
+    const target = await seedUser({ email: "unknown-role@example.com", displayName: "Target" });
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: target.id },
+      systemAdmin,
+    );
+
+    const res = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: target.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["SuperPowerUnknown"]) },
+      },
+      systemAdmin,
+    );
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
+    expect(body.error?.code).toBe("access_denied");
+    expect(body.error?.details?.reason).toBe(UserErrors.roleElevationForbidden);
+  });
+
+  test("elevation guard rejects unknown role on user:create", async () => {
+    const res = await stack.http.write(
+      UserHandlers.create,
+      {
+        email: "create-elevate@example.com",
+        displayName: "CreateElevate",
+        passwordHash: "seeded-hash",
+        roles: JSON.stringify(["SuperPowerUnknown"]),
+      },
+      systemAdmin,
+    );
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
+    expect(body.error?.code).toBe("access_denied");
+    expect(body.error?.details?.reason).toBe(UserErrors.roleElevationForbidden);
+  });
+});
+
+describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
+  test("refuses removing/demoting the last active SystemAdmin", async () => {
+    const onlyAdmin = await seedUser({
+      email: "onlyadmin@example.com",
+      displayName: "Only Admin",
+      roles: JSON.stringify(["SystemAdmin"]),
+    });
+
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: onlyAdmin.id },
+      systemAdmin,
+    );
+
+    // Attempting to demote the only active SystemAdmin must fail with 409 Conflict
+    const res = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: onlyAdmin.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["User"]) },
+      },
+      systemAdmin,
+    );
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
+    expect(body.error?.code).toBe("conflict");
+    expect(body.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
+
+    // Create a second active SystemAdmin
+    const secondAdmin = await seedUser({
+      email: "secondadmin@example.com",
+      displayName: "Second Admin",
+      roles: JSON.stringify(["SystemAdmin"]),
+    });
+
+    // Now demoting one of them succeeds
+    const loadedFirst = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: onlyAdmin.id },
+      systemAdmin,
+    );
+    await stack.http.writeOk(
+      UserHandlers.update,
+      {
+        id: onlyAdmin.id,
+        version: loadedFirst["version"],
+        changes: { roles: JSON.stringify(["User"]) },
+      },
+      systemAdmin,
+    );
+
+    // Now secondAdmin is the only remaining active SystemAdmin. Demoting them must fail!
+    const loadedSecond = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: secondAdmin.id },
+      systemAdmin,
+    );
+    const resSecond = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: secondAdmin.id,
+        version: loadedSecond["version"],
+        changes: { roles: JSON.stringify(["User"]) },
+      },
+      systemAdmin,
+    );
+    expect(resSecond.status).toBe(409);
+    const bodySecond = (await resSecond.json()) as {
+      error?: { code?: string; details?: { reason?: string } };
+    };
+    expect(bodySecond.error?.code).toBe("conflict");
+    expect(bodySecond.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
+  });
+
+  test("soft-deleted SystemAdmin does not count toward last-admin protection", async () => {
+    const activeAdmin = await seedUser({
+      email: "active-lastadmin@example.com",
+      displayName: "Active Admin",
+      roles: JSON.stringify(["SystemAdmin"]),
+    });
+    const softDeletedAdmin = await seedUser({
+      email: "soft-deleted-admin@example.com",
+      displayName: "Soft Deleted Admin",
+      roles: JSON.stringify(["SystemAdmin"]),
+    });
+
+    await updateRows(stack.db, userTable, { isDeleted: true }, { id: softDeletedAdmin.id });
+
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: activeAdmin.id },
+      systemAdmin,
+    );
+
+    const res = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: activeAdmin.id,
+        version: loaded["version"],
+        changes: { roles: JSON.stringify(["User"]) },
+      },
+      systemAdmin,
+    );
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error?: { code?: string; details?: { reason?: string } } };
+    expect(body.error?.code).toBe("conflict");
+    expect(body.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
   });
 });

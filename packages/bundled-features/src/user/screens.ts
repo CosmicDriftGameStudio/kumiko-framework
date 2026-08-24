@@ -36,7 +36,7 @@ export const userEditScreen: EntityEditScreenDefinition = {
     sections: [
       {
         columns: 2,
-        fields: ["email", "displayName", "locale", "timezone", "emailVerified"],
+        fields: ["email", "displayName", "locale", "timezone", "emailVerified", "roles"],
       },
     ],
   },

@@ -9,6 +9,7 @@ import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { UserErrors } from "../constants";
 import { userEntity, userTable } from "../schema/user";
+import { applyUserRolesUpdate } from "./update-roles";
 
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 
@@ -32,14 +33,10 @@ export const updateWrite = defineWriteHandler({
       passwordHash: z.string().optional(),
       lastActiveTenantId: z.string().optional(),
       emailVerified: z.boolean().optional(),
-      // Globale Rollen — JSON-encoded string[]. Field-level write-access
-      // ist privileged (siehe userEntity.roles), d.h. ein non-privileged
-      // Caller sieht hier zwar einen 200, aber das Field-Guard im
-      // executor blockt die Spalte vorm Schreiben (silent strip). Schema
-      // akzeptiert das field damit der SystemAdmin-Pfad explizit
-      // existiert; der Privilege-Escalation-Schutz greift im
-      // FieldAccessFilter, nicht im Schema.
-      roles: z.string().optional(),
+      // Global roles — JSON-encoded string[] or string[]. Field-level write
+      // access is privileged (see userEntity.roles); handler also requires a
+      // privileged actor and runs the elevation guard.
+      roles: z.union([z.string(), z.array(z.string())]).optional(),
     }),
   }),
   access: { openToAll: true },
@@ -55,12 +52,39 @@ export const updateWrite = defineWriteHandler({
         }),
       );
     }
+
+    if (event.payload.changes.roles !== undefined && !isPrivileged) {
+      return writeFailure(
+        new AccessDeniedError({
+          message: "cannot modify global roles",
+          i18nKey: "user.errors.cannotModifyGlobalRoles",
+          details: { reason: UserErrors.cannotModifyGlobalRoles },
+        }),
+      );
+    }
+
     if (!ctx.systemDb) {
       throw new InternalError({ message: "user:update requires r.systemScope()" });
     }
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "user rows are tenant-agnostic identity records; self/admin update needs no tenant filter",
     );
+
+    const roles = event.payload.changes.roles;
+    if (roles !== undefined) {
+      return applyUserRolesUpdate(
+        {
+          ...event,
+          payload: {
+            ...event.payload,
+            changes: { ...event.payload.changes, roles },
+          },
+        },
+        ctx,
+        db,
+      );
+    }
+
     return crud.update(event.payload, event.user, db);
   },
 });
