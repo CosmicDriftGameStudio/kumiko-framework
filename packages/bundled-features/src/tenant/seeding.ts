@@ -36,6 +36,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   type AppContext,
+  createSystemUser,
   HookPhases,
   type Registry,
   type SaveContext,
@@ -63,8 +64,10 @@ export type SeedTenantMembershipOptions = {
   readonly roles: readonly string[];
   /**
    * SessionUser to bill the event against (goes into event.metadata.userId +
-   * the projection's inserted_by_id column). Defaults to TestUsers.systemAdmin
-   * — mirrors the real call-path, where add-member is SystemAdmin-only.
+   * the projection's inserted_by_id column). Defaults to
+   * createSystemUser(tenantId) so the event stream tenant matches the
+   * membership row — otherwise later updates from that tenant cannot find
+   * the stream (version_conflict / currentVersion=0).
    */
   readonly by?: SessionUser;
 };
@@ -263,10 +266,10 @@ export async function seedTenantMembership(
   // Chokepoint: invite-accept (×3) + seedAdmin/provisionSignup all flow
   // through here — reject reserved/global roles before they ever persist.
   assertAssignableMembershipRoles(options.roles);
-  const by = options.by ?? TestUsers.systemAdmin;
-  // Wrap into a system-scoped TenantDb so the insert respects the tenant-
-  // override (we write into options.tenantId, which may differ from by.tenantId).
-  const tdb = createTenantDb(db, by.tenantId, "system");
+  const by = options.by ?? createSystemUser(options.tenantId);
+  // System-scoped TenantDb: payload.tenantId may differ from an explicit
+  // `by` override; stream tenant still follows `by` via streamTenantFor.
+  const tdb = createTenantDb(db, options.tenantId, "system");
 
   // Idempotency: duplicate seeds are common across beforeEach-resets where
   // only certain tables get truncated. A plain executor.create would trip

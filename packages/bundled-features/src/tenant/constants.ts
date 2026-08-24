@@ -53,4 +53,5 @@ export const TenantQueries = {
 export const TenantErrors = {
   membershipNotFound: "membership_not_found",
   membershipAlreadyExists: "membership_already_exists",
+  lastTenantAdmin: "last_tenant_admin",
 } as const;

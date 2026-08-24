@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { access } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -360,10 +361,10 @@ describe("scenario 7: access rules on handlers", () => {
       "SystemAdmin",
     ]);
     // updateMemberRoles akzeptiert "system" (für seed-migrations + ops-tooling)
-    // PLUS "SystemAdmin" (echter Operator-Pfad). Symmetrisch zu create.
+    // PLUS access.admin ("TenantAdmin", "Admin", "SystemAdmin").
     expect(
       rolesOf(stack.registry.getWriteHandler(TenantHandlers.updateMemberRoles)?.access),
-    ).toEqual(["system", "SystemAdmin"]);
+    ).toEqual(["system", ...access.admin]);
     expect(rolesOf(stack.registry.getQueryHandler(TenantQueries.list)?.access)).toEqual([
       "SystemAdmin",
     ]);
