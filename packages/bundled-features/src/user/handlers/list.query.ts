@@ -109,7 +109,7 @@ export const listQuery = {
     query: Parameters<NonNullable<typeof baseList.handler>>[0],
     ctx: HandlerContext,
   ) => {
-    const result = await baseList.handler!(query, ctx);
+    const result = await baseList.handler?.(query, ctx);
     if (result === null || typeof result !== "object" || !("rows" in result)) {
       return result;
     }
