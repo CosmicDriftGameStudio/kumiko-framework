@@ -1,7 +1,7 @@
 // Magic-Link-Signup, Step 2 (confirm).
 //
 // Token aus URL + Password vom User → wir lösen den Token in Redis ein
-// und legen Tenant + User + Admin-Membership atomar an. emailVerified
+// und legen Tenant + User + TenantAdmin membership atomically. emailVerified
 // wird sofort auf true gesetzt — der Magic-Link IST der Beweis.
 //
 // Pipeline:
@@ -141,7 +141,7 @@ export function createSignupConfirmHandler() {
 
         // SessionUser für JWT-Mint. Roles aus INITIAL_SIGNUP_ROLES
         // damit DB-write (provisionSignupAccount) und Session-claim
-        // dieselbe Quelle teilen — sonst hätten zwei Stellen "Admin"
+        // dieselbe Quelle teilen — sonst hätten zwei Stellen "TenantAdmin"
         // hardcoded und ein Refactor würde role-mismatch zwischen DB
         // und JWT erzeugen.
         const session: SessionUser = {

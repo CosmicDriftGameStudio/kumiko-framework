@@ -103,12 +103,12 @@ export async function seedUserWithPassword(
  *  minten (Account-Takeover, #365). `seedUser` selbst bleibt idempotent
  *  add-only (für Bootstrap/Tests); die create-only-Garantie sitzt hier.
  *  tenantKey-Kollisionen löst der Caller via generateUniqueName. */
-/** Default-Roles für den Self-Signup-Admin. Geteilt zwischen
+/** Default membership roles for self-signup tenant owners. Shared between
  *  provisionSignupAccount (DB-write) und signup-confirm-handler
  *  (SessionUser-Konstruktion für JWT-Mint) — sonst hätten zwei
- *  Stellen unabhängig "Admin" hardcoded und würden bei einem
+ *  Stellen unabhängig "TenantAdmin" hardcoded und würden bei einem
  *  Refactor zu role-mismatch zwischen DB und Session leiden. */
-export const INITIAL_SIGNUP_ROLES = ["Admin"] as const;
+export const INITIAL_SIGNUP_ROLES = ["TenantAdmin"] as const;
 
 export type ProvisionSignupAccountOptions = {
   readonly email: string;

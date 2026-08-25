@@ -7,7 +7,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient } from "../../db/query";
-import { createDateField, createEntity, createNumberField, createTextField } from "../../engine";
+import {
+  createDateField,
+  createEntity,
+  createNumberField,
+  createTextField,
+  SYSTEM_TENANT_ID,
+} from "../../engine";
 import { UnprocessableError } from "../../errors";
 import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
@@ -498,6 +504,45 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
       searchAdapter: mockAdapter,
     });
     expect(res.rows).toHaveLength(0);
+  });
+
+  test("system-mode list: search uses SYSTEM_TENANT_ID (not session tenant)", async () => {
+    const systemTdb = createTenantDb(testDb.db, admin.tenantId, "system");
+    let searchedTenant: string | undefined;
+    const mockAdapter = {
+      configure: async () => {},
+      index: async () => {},
+      indexBatch: async () => {},
+      remove: async () => {},
+      search: async (tenantId: string) => {
+        searchedTenant = tenantId;
+        return [];
+      },
+      reset: async () => {},
+    } as never;
+    await exec.list({ limit: 50, search: "x" }, admin, systemTdb, {
+      searchAdapter: mockAdapter,
+    });
+    expect(searchedTenant).toBe(SYSTEM_TENANT_ID);
+  });
+
+  test("tenant-mode list: search still uses session tenantId", async () => {
+    let searchedTenant: string | undefined;
+    const mockAdapter = {
+      configure: async () => {},
+      index: async () => {},
+      indexBatch: async () => {},
+      remove: async () => {},
+      search: async (tenantId: string) => {
+        searchedTenant = tenantId;
+        return [];
+      },
+      reset: async () => {},
+    } as never;
+    await exec.list({ limit: 50, search: "x" }, admin, tdb, {
+      searchAdapter: mockAdapter,
+    });
+    expect(searchedTenant).toBe(admin.tenantId);
   });
 });
 

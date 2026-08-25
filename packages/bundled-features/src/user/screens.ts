@@ -27,7 +27,8 @@ export const userListScreen: EntityListScreenDefinition = {
     },
   ],
   defaultSort: { field: "status", dir: "asc" },
-  // ponytail: screen searchable but email is encrypted PII — list search uses non-encrypted columns only.
+  // Search uses SYSTEM_TENANT_ID for systemScope lists (see event-store-executor-read).
+  // Apps must boot a user search index on that tenant (offlot: bootWaitlistSearch).
   searchable: true,
   access: { roles: ["SystemAdmin"] },
 };
