@@ -52,7 +52,7 @@ function isActiveSystemAdminRow(row: UserRolesRow): boolean {
 
 async function countOtherActiveSystemAdmins(db: TenantDb, excludeUserId: string): Promise<number> {
   const tableName = asEntityTableMeta(userTable)?.tableName ?? "read_users";
-  // kumiko-lint-ignore raw-sql LIKE prefilter for SystemAdmin roster under advisory lock
+  // kumiko-lint-ignore raw-sql jsonb @> prefilter for SystemAdmin roster under advisory lock
   const rows = (await asRawClient(db.raw).unsafe(
     `SELECT id, roles, status, is_deleted AS "isDeleted"
      FROM ${quoteIdent(tableName)}

@@ -86,7 +86,10 @@ function dbForList(ctx: HandlerContext): TenantDb {
 // (derived field) — without it the platform roster is unusable for ops.
 export const listQuery = {
   ...baseList,
-  handler: async (query: Parameters<NonNullable<typeof baseList.handler>>[0], ctx: HandlerContext) => {
+  handler: async (
+    query: Parameters<NonNullable<typeof baseList.handler>>[0],
+    ctx: HandlerContext,
+  ) => {
     const result = await baseList.handler!(query, ctx);
     if (result === null || typeof result !== "object" || !("rows" in result)) {
       return result;

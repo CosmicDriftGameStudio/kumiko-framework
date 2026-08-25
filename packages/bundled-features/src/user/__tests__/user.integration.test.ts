@@ -14,10 +14,10 @@ import {
   resetTestTables,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { UserErrors, UserHandlers, UserQueries } from "../constants";
 import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../schema/user";
-import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 
 let stack: TestStack;
 
