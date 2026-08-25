@@ -72,6 +72,8 @@ export const userEntity = createEntity({
       maxLength: 320,
       personal: "self",
       find: "exact",
+      // Roster search needs email hits; find:"exact" alone is blind-index only.
+      searchable: true,
       access: { write: access.privileged },
     }),
 
@@ -112,6 +114,7 @@ export const userEntity = createEntity({
     // refuse a session while this is false (strict mode).
     emailVerified: createBooleanField({
       default: false,
+      sortable: true,
       access: { write: access.privileged },
     }),
 

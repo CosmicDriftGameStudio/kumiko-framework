@@ -5,6 +5,7 @@ import {
   defineEntityListHandler,
   type HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 // kumiko-lint-ignore cross-feature-import SystemAdmin user-list joins memberships for tenants column
 import { tenantMembershipsTable, tenantTable } from "../../tenant";
 import { userEntity } from "../schema/user";
@@ -13,7 +14,7 @@ const baseList = defineEntityListHandler("user", userEntity, {
   access: { roles: access.systemAdmin },
 });
 
-type MembershipRow = { userId: unknown; tenantId: unknown };
+type MembershipRow = { userId: unknown; tenantId: unknown; roles?: unknown };
 type TenantRow = { id: unknown; name?: unknown; key?: unknown };
 
 function isMissingRelation(err: unknown): boolean {
@@ -30,7 +31,6 @@ async function loadMemberships(
       userId: { in: [...userIds] },
     });
   } catch (err) {
-    // User-only test stacks (and mid-migration DBs) may lack membership tables.
     if (isMissingRelation(err)) return null;
     throw err;
   }
@@ -46,6 +46,12 @@ function tenantLabelById(tenants: readonly TenantRow[]): Map<string, string> {
   return map;
 }
 
+/** "Offlot Demo (TenantAdmin)" — membership roles live here, not on user.roles. */
+function membershipLabel(tenantLabel: string, membershipRoles: readonly string[]): string {
+  if (membershipRoles.length === 0) return tenantLabel;
+  return `${tenantLabel} (${membershipRoles.join("+")})`;
+}
+
 function labelsByUserId(
   memberships: readonly MembershipRow[],
   labelByTenantId: Map<string, string>,
@@ -55,7 +61,8 @@ function labelsByUserId(
     const userId = String(m.userId ?? "");
     const tenantId = String(m.tenantId ?? "");
     if (userId === "" || tenantId === "") continue;
-    const label = labelByTenantId.get(tenantId) ?? tenantId;
+    const tenantLabel = labelByTenantId.get(tenantId) ?? tenantId;
+    const label = membershipLabel(tenantLabel, parseRoles(m.roles ?? null));
     const list = map.get(userId) ?? [];
     list.push(label);
     map.set(userId, list);

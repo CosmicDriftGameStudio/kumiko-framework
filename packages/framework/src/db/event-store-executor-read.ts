@@ -138,7 +138,10 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
             },
           });
         }
-        const results = await effectiveSearchAdapter.search(user.tenantId, payload.search, {
+        // system-mode lists (r.systemScope / cross-tenant) index under SYSTEM_TENANT_ID;
+        // searching the caller's session tenant misses the roster and can 500 on Meili.
+        const searchTenantId = db.mode === "system" ? SYSTEM_TENANT_ID : user.tenantId;
+        const results = await effectiveSearchAdapter.search(searchTenantId, payload.search, {
           filterType: entityName,
         });
         filterIds = results.map((r) => r.entityId);

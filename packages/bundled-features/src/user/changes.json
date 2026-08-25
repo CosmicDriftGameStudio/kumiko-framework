@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.218.0",
+    "type": "fix",
+    "title": "user-list: system-scope search; membership roles on tenants; emailVerified sort",
+    "detail": "systemScope entityList search uses SYSTEM_TENANT_ID (was session tenant → Meili miss/500). Tenants column shows membership roles (Offlot Demo (TenantAdmin)). emailVerified sortable; email also searchable for roster lookup. Global roles stay SystemAdmin-only — TenantAdmin/Admin live on membership (Team → Members)."
+  },
+  {
     "version": "0.217.0",
     "type": "improvement",
     "title": "user-list: roles multiSelect + tenants column; roles editable as SystemAdmin (fw#2384 follow-up)",

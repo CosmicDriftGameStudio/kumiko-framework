@@ -5,8 +5,14 @@ export const USER_I18N: Readonly<Record<string, LocalizedString>> = {
   "screen:user-edit.title": { en: "Edit user" },
   "user:entity:user:field:email": { en: "Email" },
   "user:entity:user:field:displayName": { en: "Display name" },
-  "user:entity:user:field:roles": { en: "Roles" },
+  "user:entity:user:field:roles": { en: "Platform roles" },
   "user:entity:user:field:tenants": { en: "Tenants" },
+  "user:entity:user:field:tenants:description": {
+    en: "Membership tenants with roles, e.g. Offlot Demo (TenantAdmin). Edit under Team → Members.",
+  },
+  "user:entity:user:field:roles:description": {
+    en: "Global platform roles only (SystemAdmin). TenantAdmin/Admin are membership roles under Team → Members.",
+  },
   "user:entity:user:field:roles:option:SystemAdmin": { en: "SystemAdmin" },
   "user:entity:user:field:status": { en: "Status" },
   "user:entity:user:field:emailVerified": { en: "Email verified" },
