@@ -275,7 +275,7 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(body.token).toBeTruthy();
     expect(body.user?.id).toBeTruthy();
     expect(body.user?.tenantId).toBeTruthy();
-    expect(body.user?.roles).toContain("Admin");
+    expect(body.user?.roles).toContain("TenantAdmin");
     expect(body.tenantKey).toBeTruthy();
 
     // Cookies gesetzt (auth + csrf)
@@ -299,7 +299,7 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(memberships).toHaveLength(1);
     const rolesRaw = memberships[0]?.["roles"];
     if (typeof rolesRaw === "string") {
-      expect(JSON.parse(rolesRaw) as string[]).toContain("Admin");
+      expect(JSON.parse(rolesRaw) as string[]).toContain("TenantAdmin");
     }
 
     // #1463 regression: seedTenant fires the tenant entity's postSave
