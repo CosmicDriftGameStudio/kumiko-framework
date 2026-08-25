@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.217.0
+
+### Minor Changes
+
+- 02aadf9: user admin UX: `roles` is a multiSelect (jsonb string[]) so SystemAdmin can promote peers in entityEdit; user-list shows roles + membership tenants. switch-tenant and auth-client use `parseRoles` so jsonb arrays survive tenant switches (string-only parse dropped SystemAdmin). Last-admin roster query passes a JS array to jsonb `@>` (stringified params double-encode via postgres.js).
+
+### Patch Changes
+
+- Updated dependencies [02aadf9]
+  - @cosmicdrift/kumiko-framework@0.217.0
+  - @cosmicdrift/kumiko-headless@0.217.0
+  - @cosmicdrift/kumiko-renderer@0.217.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.217.0
+  - @cosmicdrift/kumiko-renderer-web@0.217.0
+  - @cosmicdrift/kumiko-types@0.217.0
+
 ## 0.216.0
 
 ### Minor Changes
