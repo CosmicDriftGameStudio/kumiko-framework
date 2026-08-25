@@ -5,15 +5,63 @@ import {
   defineEntityListHandler,
   type HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
-// kumiko-lint-ignore cross-feature-import SystemAdmin user-list shows membership
-// tenants; membership + tenant tables are owned by the tenant feature.
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantTable } from "../../tenant/schema/tenant";
+// kumiko-lint-ignore cross-feature-import SystemAdmin user-list joins memberships for tenants column
+import { tenantMembershipsTable, tenantTable } from "../../tenant";
 import { userEntity } from "../schema/user";
 
 const baseList = defineEntityListHandler("user", userEntity, {
   access: { roles: access.systemAdmin },
 });
+
+type MembershipRow = { userId: unknown; tenantId: unknown };
+type TenantRow = { id: unknown; name?: unknown; key?: unknown };
+
+function isMissingRelation(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes("does not exist") || msg.includes("42P01");
+}
+
+async function loadMemberships(
+  db: TenantDb,
+  userIds: readonly string[],
+): Promise<readonly MembershipRow[] | null> {
+  try {
+    return await selectMany<MembershipRow>(db, tenantMembershipsTable, {
+      userId: { in: [...userIds] },
+    });
+  } catch (err) {
+    // User-only test stacks (and mid-migration DBs) may lack membership tables.
+    if (isMissingRelation(err)) return null;
+    throw err;
+  }
+}
+
+function tenantLabelById(tenants: readonly TenantRow[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const t of tenants) {
+    const id = String(t.id ?? "");
+    if (id === "") continue;
+    map.set(id, String(t.name ?? t.key ?? id));
+  }
+  return map;
+}
+
+function labelsByUserId(
+  memberships: readonly MembershipRow[],
+  labelByTenantId: Map<string, string>,
+): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  for (const m of memberships) {
+    const userId = String(m.userId ?? "");
+    const tenantId = String(m.tenantId ?? "");
+    if (userId === "" || tenantId === "") continue;
+    const label = labelByTenantId.get(tenantId) ?? tenantId;
+    const list = map.get(userId) ?? [];
+    list.push(label);
+    map.set(userId, list);
+  }
+  return map;
+}
 
 async function attachTenantLabels(
   rows: readonly Record<string, unknown>[],
@@ -23,50 +71,21 @@ async function attachTenantLabels(
   const userIds = rows.map((r) => String(r["id"] ?? "")).filter((id) => id !== "");
   if (userIds.length === 0) return [...rows];
 
-  let memberships: readonly { userId: unknown; tenantId: unknown }[];
-  try {
-    memberships = await selectMany<{ userId: unknown; tenantId: unknown }>(
-      db,
-      tenantMembershipsTable,
-      { userId: { in: userIds } },
-    );
-  } catch (err) {
-    // User-only test stacks (and mid-migration DBs) may lack membership tables.
-    // List must still work — tenants column falls back to em-dash.
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("does not exist") || msg.includes("42P01")) {
-      return rows.map((row) => ({ ...row, tenants: "—" }));
-    }
-    throw err;
+  const memberships = await loadMemberships(db, userIds);
+  if (memberships === null) {
+    return rows.map((row) => ({ ...row, tenants: "—" }));
   }
+
   const tenantIds = [
     ...new Set(memberships.map((m) => String(m.tenantId ?? "")).filter((id) => id !== "")),
   ];
   const tenants =
     tenantIds.length > 0
-      ? await selectMany<{ id: unknown; name?: unknown; key?: unknown }>(db, tenantTable, {
-          id: { in: tenantIds },
-        })
+      ? await selectMany<TenantRow>(db, tenantTable, { id: { in: tenantIds } })
       : [];
-  const labelByTenantId = new Map<string, string>();
-  for (const t of tenants) {
-    const id = String(t.id ?? "");
-    const label = String(t.name ?? t.key ?? id);
-    if (id !== "") labelByTenantId.set(id, label);
-  }
-  const labelsByUser = new Map<string, string[]>();
-  for (const m of memberships) {
-    const userId = String(m.userId ?? "");
-    const tenantId = String(m.tenantId ?? "");
-    if (userId === "" || tenantId === "") continue;
-    const label = labelByTenantId.get(tenantId) ?? tenantId;
-    const list = labelsByUser.get(userId) ?? [];
-    list.push(label);
-    labelsByUser.set(userId, list);
-  }
+  const byUser = labelsByUserId(memberships, tenantLabelById(tenants));
   return rows.map((row) => {
-    const id = String(row["id"] ?? "");
-    const labels = labelsByUser.get(id) ?? [];
+    const labels = byUser.get(String(row["id"] ?? "")) ?? [];
     return { ...row, tenants: labels.length > 0 ? labels.join(", ") : "—" };
   });
 }
