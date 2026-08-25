@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.218.0
+
+### Minor Changes
+
+- bfae2fb: user-list ops UX: systemScope list search uses SYSTEM_TENANT_ID; tenants column shows membership roles; email searchable + emailVerified sortable. Global roles remain SystemAdmin-only — TenantAdmin is edited under Team → Members.
+
+  Self-signup INITIAL_SIGNUP_ROLES is TenantAdmin (was Admin) so new tenant owners can manage memberships.
+
+### Patch Changes
+
+- Updated dependencies [bfae2fb]
+  - @cosmicdrift/kumiko-framework@0.218.0
+  - @cosmicdrift/kumiko-headless@0.218.0
+  - @cosmicdrift/kumiko-renderer@0.218.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.218.0
+  - @cosmicdrift/kumiko-renderer-web@0.218.0
+  - @cosmicdrift/kumiko-types@0.218.0
+
 ## 0.217.0
 
 ### Minor Changes
