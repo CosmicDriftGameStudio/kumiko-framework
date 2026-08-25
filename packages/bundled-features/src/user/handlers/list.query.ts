@@ -1,9 +1,9 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   defineEntityListHandler,
   type HandlerContext,
-  type TenantDb,
 } from "@cosmicdrift/kumiko-framework/engine";
 // kumiko-lint-ignore cross-feature-import SystemAdmin user-list shows membership
 // tenants; membership + tenant tables are owned by the tenant feature.
@@ -23,7 +23,7 @@ async function attachTenantLabels(
   const userIds = rows.map((r) => String(r["id"] ?? "")).filter((id) => id !== "");
   if (userIds.length === 0) return [...rows];
 
-  let memberships: { userId: unknown; tenantId: unknown }[];
+  let memberships: readonly { userId: unknown; tenantId: unknown }[];
   try {
     memberships = await selectMany<{ userId: unknown; tenantId: unknown }>(
       db,

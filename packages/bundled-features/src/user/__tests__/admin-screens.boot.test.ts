@@ -41,7 +41,7 @@ describe("user + tenant SystemAdmin admin screens", () => {
       "fields" in s ? s.fields.map((f) => (typeof f === "string" ? f : f.field)) : [],
     );
     expect(fieldNames).toContain("roles");
-    expect(user.entities?.user?.fields["roles"]?.type).toBe("multiSelect");
+    expect(user.entities?.["user"]?.fields["roles"]?.type).toBe("multiSelect");
   });
 
   test("user-list columns include roles and tenants for the platform roster", () => {
@@ -51,7 +51,7 @@ describe("user + tenant SystemAdmin admin screens", () => {
     if (list?.type !== "entityList") throw new Error("expected entityList");
     const cols = list.columns.map((c) => (typeof c === "string" ? c : c.field));
     expect(cols).toEqual(expect.arrayContaining(["roles", "tenants", "email"]));
-    expect(user.entities?.user?.derivedFields?.["tenants"]).toBeDefined();
+    expect(user.entities?.["user"]?.derivedFields?.["tenants"]).toBeDefined();
   });
 
   test("user list/detail/create/update handlers already sit on the screen QNs", () => {
