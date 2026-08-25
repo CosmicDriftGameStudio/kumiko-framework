@@ -29,10 +29,12 @@ test.describe("TenantAdmin workspace gating", () => {
     await page.getByTestId("render-list-toolbar-action-invite").click();
     await page.getByTestId("combobox-kumiko-edit-role").click();
     const options = page.getByRole("option");
-    await expect(options.filter({ hasText: "User" })).toBeVisible();
-    await expect(options.filter({ hasText: "Admin" })).toBeVisible();
-    await expect(options.filter({ hasText: "Editor" })).toBeVisible();
-    await expect(options.filter({ hasText: "SystemAdmin" })).toHaveCount(0);
+    // Exact names — hasText:"Admin" also matches "TenantAdmin".
+    await expect(options.filter({ hasText: /^User$/ })).toBeVisible();
+    await expect(options.filter({ hasText: /^Editor$/ })).toBeVisible();
+    await expect(options.filter({ hasText: /^Admin$/ })).toBeVisible();
+    await expect(options.filter({ hasText: /^TenantAdmin$/ })).toBeVisible();
+    await expect(options.filter({ hasText: /^SystemAdmin$/ })).toHaveCount(0);
   });
 
   test("API rejects platform tenant:list for TenantAdmin (403)", async ({ page }) => {
