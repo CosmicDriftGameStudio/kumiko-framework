@@ -32,6 +32,28 @@ describe("user + tenant SystemAdmin admin screens", () => {
     expect(user.screens["user-edit"]?.type).toBe("entityEdit");
   });
 
+  test("user-edit layout includes roles (multiSelect) so SystemAdmin can promote peers", () => {
+    const user = createUserFeature();
+    const edit = user.screens["user-edit"];
+    expect(edit?.type).toBe("entityEdit");
+    if (edit?.type !== "entityEdit") throw new Error("expected entityEdit");
+    const fieldNames = edit.layout.sections.flatMap((s) =>
+      "fields" in s ? s.fields.map((f) => (typeof f === "string" ? f : f.field)) : [],
+    );
+    expect(fieldNames).toContain("roles");
+    expect(user.entities?.["user"]?.fields["roles"]?.type).toBe("multiSelect");
+  });
+
+  test("user-list columns include roles and tenants for the platform roster", () => {
+    const user = createUserFeature();
+    const list = user.screens["user-list"];
+    expect(list?.type).toBe("entityList");
+    if (list?.type !== "entityList") throw new Error("expected entityList");
+    const cols = list.columns.map((c) => (typeof c === "string" ? c : c.field));
+    expect(cols).toEqual(expect.arrayContaining(["roles", "tenants", "email"]));
+    expect(user.entities?.["user"]?.derivedFields?.["tenants"]).toBeDefined();
+  });
+
   test("user list/detail/create/update handlers already sit on the screen QNs", () => {
     const user = createUserFeature();
     // → user:query:user:list, user:query:user:detail

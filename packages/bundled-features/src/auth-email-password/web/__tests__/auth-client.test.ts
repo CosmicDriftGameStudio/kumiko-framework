@@ -520,7 +520,7 @@ describe("fetchCurrentUser", () => {
     expect(res?.globalRoles).toEqual([]);
   });
 
-  test("mixed-type array roles → empty globalRoles", async () => {
+  test("mixed-type JSON roles → keeps string entries only", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({
         data: { id: "u1", email: "a@b.c", displayName: "User", roles: '["Admin",1,true]' },
@@ -529,7 +529,19 @@ describe("fetchCurrentUser", () => {
 
     const res = await fetchCurrentUser();
 
-    expect(res?.globalRoles).toEqual([]);
+    expect(res?.globalRoles).toEqual(["Admin"]);
+  });
+
+  test("native array roles (jsonb wire) → globalRoles", async () => {
+    globalThis.fetch = mock(async () =>
+      jsonResponse({
+        data: { id: "u1", email: "a@b.c", displayName: "User", roles: ["SystemAdmin"] },
+      }),
+    ) as unknown as typeof fetch;
+
+    const res = await fetchCurrentUser();
+
+    expect(res?.globalRoles).toEqual(["SystemAdmin"]);
   });
 
   test("non-ok status → throws", async () => {

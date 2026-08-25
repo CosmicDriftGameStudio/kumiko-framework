@@ -9,7 +9,7 @@ import { createSystemUser } from "../engine/system-user";
 import { type SessionUser, SYSTEM_TENANT_ID, type TenantId } from "../engine/types";
 import { NotFoundError } from "../errors";
 import type { Dispatcher } from "../pipeline/dispatcher";
-import { parseStringArrayJson } from "../utils/parse-string-array-json";
+import { parseRoles } from "../utils/serialization";
 import { Routes } from "./api-constants";
 import {
   AUTH_COOKIE_NAME,
@@ -1361,11 +1361,10 @@ export function createAuthRoutes(
           config.userQuery,
           { id: user.id },
           createSystemUser(user.tenantId),
-        )) as { roles?: string | null } | null;
-        const raw = userRow?.roles;
-        if (typeof raw === "string" && raw.length > 0) {
-          globalRoles = parseStringArrayJson(raw);
-        }
+        )) as { roles?: unknown } | null;
+        // roles is jsonb string[] (multiSelect); parseRoles also accepts legacy
+        // JSON-encoded text from pre-0.217.0 rows.
+        globalRoles = parseRoles(userRow?.roles ?? null);
       } catch (e) {
         // Non-fatal: globale Rollen kann nicht aufgelöst werden → switch
         // läuft weiter mit nur tenant-rollen. Server-error mit nur dem

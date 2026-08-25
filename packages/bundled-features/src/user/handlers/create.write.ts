@@ -39,11 +39,10 @@ export const createWrite = defineWriteHandler({
     displayName: z.string().min(1).max(100),
     locale: z.string().min(2).max(10).optional(),
     timezone: z.string().max(64).refine(isValidIanaTimeZone, "invalid IANA time zone").optional(),
-    // Global roles — JSON-encoded string[]. Optional because the entity default
-    // is "[]"; set when bootstrapping privileged global roles. Field-level
-    // write access (privileged) is defense-in-depth — create is already
-    // system/SystemAdmin-only.
-    roles: z.string().optional(),
+    // Global roles — multiSelect jsonb string[]. Optional (entity default []).
+    // Field-level write access (privileged) is defense-in-depth — create is
+    // already system/SystemAdmin-only.
+    roles: z.union([z.string(), z.array(z.string())]).optional(),
   }),
   access: { roles: ["system", "SystemAdmin"] },
   handler: async (event, ctx) => {
@@ -81,7 +80,7 @@ export const createWrite = defineWriteHandler({
           }),
         );
       }
-      createPayload = { ...event.payload, roles: JSON.stringify(newRoles) };
+      createPayload = { ...event.payload, roles: newRoles };
     }
 
     const result = await crud.create(createPayload, event.user, db);

@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.217.0",
+    "type": "improvement",
+    "title": "user-list: roles multiSelect + tenants column; roles editable as SystemAdmin (fw#2384 follow-up)",
+    "detail": "user.roles is now createMultiSelectField (jsonb string[], options=[SystemAdmin]) so entityEdit shows a real multi-select instead of a raw JSON text box — SystemAdmins can promote another SystemAdmin from the UI. user-list columns gain roles + tenants; tenants is a derived field filled by the list handler from memberships (platform roster was unusable without tenant context). switch-tenant + auth-client parseRoles accept jsonb arrays (string-only deserialize dropped SystemAdmin on tenant switch). Soft-deleted users stay hidden by default.",
+    "migration": "Run `kumiko-schema generate` and apply — migrates read_users.roles from text to jsonb USING roles::jsonb. Existing JSON array strings (`[]`, `[\"SystemAdmin\"]`) convert cleanly. Consumers that wrote roles as a JSON-encoded string via user:create/update should pass string[] instead (parseRoles still accepts both on read)."
+  },
+  {
     "version": "0.167.1",
     "type": "breaking",
     "title": "user.locale no longer defaults to \"de\" (fw#1637).",
