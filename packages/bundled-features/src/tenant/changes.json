@@ -1,33 +1,39 @@
 [
   {
+    "version": "0.219.0",
+    "type": "improvement",
+    "title": "Invite/member-roles pickers include TenantAdmin",
+    "detail": "DEFAULT_INVITE_ROLE_OPTIONS adds TenantAdmin so SystemAdmin/TenantAdmin can invite owners. SystemAdmin stays global-only (user.roles), never a membership invite option."
+  },
+  {
     "version": "0.209.0",
     "type": "improvement",
     "title": "tenant: single /members screen replaces the members-card/pending-card split (#2223)",
-    "detail": "New `tenant:query:team:list` handler merges active memberships and pending invitations into one projectionList screen (`membersScreen`), with a `status` facet, sortable/searchable columns, and a danger-styled `cancel-invitation` row action visible only on pending rows. `createTenantFeature({ inviteScreen: true })` additionally wires a drawer-hosted invite actionForm onto the toolbar (bound to auth-email-password's `invite-create` handler) — off by default, and only safe to enable once the app also configures `createAuthEmailPasswordFeature({ invite: {...} })`, since the boot validator rejects the actionForm's cross-feature handler QN otherwise. The old `members`/`invitations` query handlers and their custom `MembersScreen` component are unaffected and stay registered for existing callers; `updateMemberRoles` stays SystemAdmin-only and off this screen."
+    "detail": "New `tenant:query:team:list` handler merges active memberships and pending invitations into one projectionList screen (`membersScreen`), with a `status` facet, sortable/searchable columns, and a danger-styled `cancel-invitation` row action visible only on pending rows. `createTenantFeature({ inviteScreen: true })` additionally wires a drawer-hosted invite actionForm onto the toolbar (bound to auth-email-password's `invite-create` handler) \u2014 off by default, and only safe to enable once the app also configures `createAuthEmailPasswordFeature({ invite: {...} })`, since the boot validator rejects the actionForm's cross-feature handler QN otherwise. The old `members`/`invitations` query handlers and their custom `MembersScreen` component are unaffected and stay registered for existing callers; `updateMemberRoles` stays SystemAdmin-only and off this screen."
   },
   {
     "version": "0.165.0",
     "type": "fix",
     "title": "resolveRawDb: removed redundant null check",
-    "detail": "CodeQL flagged db !== null after if (!db) — truthiness already excludes null. Internal cleanup, no API break."
+    "detail": "CodeQL flagged db !== null after if (!db) \u2014 truthiness already excludes null. Internal cleanup, no API break."
   },
   {
     "version": "0.165.0",
     "type": "fix",
     "title": "Seed hook: explicit SessionUser typing",
-    "detail": "Fixed tenant seeding type annotation — prevents implicit any propagation in seed handlers."
+    "detail": "Fixed tenant seeding type annotation \u2014 prevents implicit any propagation in seed handlers."
   },
   {
     "version": "0.165.0",
     "type": "fix",
     "title": "Seed afterCommit + real tenant rescope",
-    "detail": "ScheduleAfterCommit now available on HandlerContext — fireEntityPostSave queues after TX commit instead of mid-transaction. DB/notify/hasFeature/_tenantId are correctly rescoped when targeting an entity's tenant.",
-    "migration": "Only affects custom seed handlers using fireEntityPostSave — now afterCommit-compatible."
+    "detail": "ScheduleAfterCommit now available on HandlerContext \u2014 fireEntityPostSave queues after TX commit instead of mid-transaction. DB/notify/hasFeature/_tenantId are correctly rescoped when targeting an entity's tenant.",
+    "migration": "Only affects custom seed handlers using fireEntityPostSave \u2014 now afterCommit-compatible."
   },
   {
     "version": "0.163.0",
     "type": "improvement",
     "title": "tenant: seedTenant fires entity postSave hooks (#1463).",
-    "detail": "tenant: seedTenant fires entity postSave hooks (#1463). `seedTenant` writes through the raw event-store executor, which never fired postSave hooks — self-signup (`provisionSignupAccount` → `signup-confirm`) silently skipped feature-registered entity hooks like tier-engine's auto-default-tier and app-level auto-default-compliance, leaving new tenants without a tier/compliance row. `seedTenant` and `provisionSignupAccount` take a new optional `hooks: { registry, context }` param; passing it fires the same entity-scoped postSave hooks the dispatcher would, without the full dispatch roundtrip. Existing call-sites are unaffected — the param is optional and append-only."
+    "detail": "tenant: seedTenant fires entity postSave hooks (#1463). `seedTenant` writes through the raw event-store executor, which never fired postSave hooks \u2014 self-signup (`provisionSignupAccount` \u2192 `signup-confirm`) silently skipped feature-registered entity hooks like tier-engine's auto-default-tier and app-level auto-default-compliance, leaving new tenants without a tier/compliance row. `seedTenant` and `provisionSignupAccount` take a new optional `hooks: { registry, context }` param; passing it fires the same entity-scoped postSave hooks the dispatcher would, without the full dispatch roundtrip. Existing call-sites are unaffected \u2014 the param is optional and append-only."
   }
 ]

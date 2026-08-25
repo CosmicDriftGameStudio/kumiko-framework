@@ -321,6 +321,19 @@ describe("privilege escalation via invite role", () => {
     expectErrorIncludes(err, "unassignable_membership_role");
   });
 
+  test("TenantAdmin can invite as TenantAdmin (same-rank owner invite)", async () => {
+    await stack.http.write(
+      AuthHandlers.inviteCreate,
+      { email: "co-owner@example.com", role: "TenantAdmin" },
+      tenantAdminA(),
+    );
+    const rows = await selectMany(stack.db, tenantInvitationsTable, {
+      email: "co-owner@example.com",
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["role"]).toBe("TenantAdmin");
+  });
+
   test("TenantAdmin cannot invite with unknown unranked role (elevation guard)", async () => {
     const err = await stack.http.writeErr(
       AuthHandlers.inviteCreate,

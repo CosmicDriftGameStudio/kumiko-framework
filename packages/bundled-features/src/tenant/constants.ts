@@ -23,7 +23,7 @@ export const MEMBER_STATUS_CELL_COMPONENT = "MemberStatusCell" as const;
 export const MEMBER_ROLES_CELL_COMPONENT = "MemberRolesCell" as const;
 
 /** Closed allowlist for invite-role picker — never free text (escalation guard). */
-export const DEFAULT_INVITE_ROLE_OPTIONS = ["User", "Admin", "Editor"] as const;
+export const DEFAULT_INVITE_ROLE_OPTIONS = ["User", "Editor", "Admin", "TenantAdmin"] as const;
 
 // Qualified write handler names (QN format: scope:type:name)
 export const TenantHandlers = {
