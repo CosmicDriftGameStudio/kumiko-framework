@@ -6,6 +6,8 @@ export const USER_I18N: Readonly<Record<string, LocalizedString>> = {
   "user:entity:user:field:email": { en: "Email" },
   "user:entity:user:field:displayName": { en: "Display name" },
   "user:entity:user:field:roles": { en: "Roles" },
+  "user:entity:user:field:tenants": { en: "Tenants" },
+  "user:entity:user:field:roles:option:SystemAdmin": { en: "SystemAdmin" },
   "user:entity:user:field:status": { en: "Status" },
   "user:entity:user:field:emailVerified": { en: "Email verified" },
   "user:entity:user:field:locale": { en: "Locale" },

@@ -17,6 +17,7 @@ import {
 import { UserErrors, UserHandlers, UserQueries } from "../constants";
 import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../schema/user";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 
 let stack: TestStack;
 
@@ -41,7 +42,7 @@ async function seedUser(overrides: {
   email: string;
   displayName: string;
   passwordHash?: string;
-  roles?: string;
+  roles?: readonly string[];
 }): Promise<{ id: string }> {
   const res = await stack.http.writeOk<{ id: string }>(
     UserHandlers.create,
@@ -390,7 +391,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       {
         id: created.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+        changes: { roles: ["SystemAdmin"] },
       },
       systemAdmin,
     );
@@ -400,7 +401,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       { id: created.id },
       systemAdmin,
     );
-    expect(JSON.parse(String(reloaded["roles"] ?? "[]"))).toEqual(["SystemAdmin"]);
+    expect(parseRoles(reloaded["roles"])).toEqual(["SystemAdmin"]);
   });
 
   test("promoted user with SystemAdmin role can perform SystemAdmin-only queries", async () => {
@@ -419,7 +420,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       {
         id: created.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+        changes: { roles: ["SystemAdmin"] },
       },
       systemAdmin,
     );
@@ -446,7 +447,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       {
         id: created.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["User", "Editor"]) },
+        changes: { roles: ["User", "Editor"] },
       },
       systemAdmin,
     );
@@ -456,7 +457,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       { id: created.id },
       systemAdmin,
     );
-    expect(JSON.parse(String(reloaded["roles"] ?? "[]"))).toEqual(["User", "Editor"]);
+    expect(parseRoles(reloaded["roles"])).toEqual(["User", "Editor"]);
   });
 
   test("TenantAdmin gets 403 on global role mutation (HTTP level check)", async () => {
@@ -473,7 +474,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       {
         id: target.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+        changes: { roles: ["SystemAdmin"] },
       },
       tenantAdmin,
     );
@@ -501,7 +502,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       {
         id: tenantAdmin.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+        changes: { roles: ["SystemAdmin"] },
       },
       actor,
     );
@@ -523,7 +524,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       {
         id: user.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+        changes: { roles: ["SystemAdmin"] },
       },
       normalUser,
     );
@@ -547,7 +548,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       {
         id: target.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+        changes: { roles: ["SystemAdmin"] },
       },
       attacker,
     );
@@ -570,7 +571,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       {
         id: target.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["SuperPowerUnknown"]) },
+        changes: { roles: ["SuperPowerUnknown"] },
       },
       systemAdmin,
     );
@@ -587,7 +588,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       {
         email: "unknown-role-create@example.com",
         displayName: "BadRole",
-        roles: JSON.stringify(["UnknownRole"]),
+        roles: ["UnknownRole"],
       },
       systemAdmin,
     );
@@ -604,7 +605,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     const onlyAdmin = await seedUser({
       email: "only-admin@example.com",
       displayName: "OnlyAdmin",
-      roles: JSON.stringify(["SystemAdmin"]),
+      roles: ["SystemAdmin"],
     });
     const loaded = await stack.http.queryOk<Record<string, unknown>>(
       UserQueries.detail,
@@ -618,7 +619,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       {
         id: onlyAdmin.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["User"]) },
+        changes: { roles: ["User"] },
       },
       systemAdmin,
     );
@@ -632,7 +633,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     const secondAdmin = await seedUser({
       email: "second-admin@example.com",
       displayName: "SecondAdmin",
-      roles: JSON.stringify(["SystemAdmin"]),
+      roles: ["SystemAdmin"],
     });
 
     // Demoting onlyAdmin now succeeds (since secondAdmin remains active)
@@ -641,7 +642,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       {
         id: onlyAdmin.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["User"]) },
+        changes: { roles: ["User"] },
       },
       systemAdmin,
     );
@@ -657,7 +658,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       {
         id: secondAdmin.id,
         version: secondLoaded["version"],
-        changes: { roles: JSON.stringify(["User"]) },
+        changes: { roles: ["User"] },
       },
       systemAdmin,
     );
@@ -674,7 +675,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     const onlyAdmin = await seedUser({
       email: "empty-roles-admin@example.com",
       displayName: "EmptyRolesAdmin",
-      roles: JSON.stringify(["SystemAdmin"]),
+      roles: ["SystemAdmin"],
     });
     const loaded = await stack.http.queryOk<Record<string, unknown>>(
       UserQueries.detail,
@@ -687,7 +688,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       {
         id: onlyAdmin.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify([]) },
+        changes: { roles: [] },
       },
       systemAdmin,
     );
@@ -702,7 +703,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     const onlyAdmin = await seedUser({
       email: "non-role-admin@example.com",
       displayName: "InitialAdminName",
-      roles: JSON.stringify(["SystemAdmin"]),
+      roles: ["SystemAdmin"],
     });
     const loaded = await stack.http.queryOk<Record<string, unknown>>(
       UserQueries.detail,
@@ -733,14 +734,14 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     await seedUser({
       email: "the-system-admin@example.com",
       displayName: "TheAdmin",
-      roles: JSON.stringify(["SystemAdmin"]),
+      roles: ["SystemAdmin"],
     });
 
     // Seed a normal user
     const normalUser = await seedUser({
       email: "regular-user@example.com",
       displayName: "RegularUser",
-      roles: JSON.stringify(["User"]),
+      roles: ["User"],
     });
     const loaded = await stack.http.queryOk<Record<string, unknown>>(
       UserQueries.detail,
@@ -754,7 +755,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       {
         id: normalUser.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["User", "Editor"]) },
+        changes: { roles: ["User", "Editor"] },
       },
       systemAdmin,
     );
@@ -764,19 +765,19 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       { id: normalUser.id },
       systemAdmin,
     );
-    expect(JSON.parse(String(reloaded["roles"] ?? "[]"))).toEqual(["User", "Editor"]);
+    expect(parseRoles(reloaded["roles"])).toEqual(["User", "Editor"]);
   });
 
   test("concurrent demotions of the last two SystemAdmins: one wins, one gets 409", async () => {
     const adminA = await seedUser({
       email: "race-admin-a@example.com",
       displayName: "Race Admin A",
-      roles: JSON.stringify(["SystemAdmin"]),
+      roles: ["SystemAdmin"],
     });
     const adminB = await seedUser({
       email: "race-admin-b@example.com",
       displayName: "Race Admin B",
-      roles: JSON.stringify(["SystemAdmin"]),
+      roles: ["SystemAdmin"],
     });
 
     const loadedA = await stack.http.queryOk<Record<string, unknown>>(
@@ -796,7 +797,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
         {
           id: adminA.id,
           version: loadedA["version"],
-          changes: { roles: JSON.stringify(["User"]) },
+          changes: { roles: ["User"] },
         },
         systemAdmin,
       ),
@@ -805,7 +806,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
         {
           id: adminB.id,
           version: loadedB["version"],
-          changes: { roles: JSON.stringify(["User"]) },
+          changes: { roles: ["User"] },
         },
         systemAdmin,
       ),
@@ -843,7 +844,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
           { id },
           systemAdmin,
         );
-        return JSON.parse(String(row["roles"] ?? "[]")).includes("SystemAdmin");
+        return parseRoles(row["roles"]).includes("SystemAdmin");
       }),
     );
     expect(stillAdmin.filter(Boolean)).toHaveLength(1);
@@ -853,12 +854,12 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     const activeAdmin = await seedUser({
       email: "active-admin@example.com",
       displayName: "ActiveAdmin",
-      roles: JSON.stringify(["SystemAdmin"]),
+      roles: ["SystemAdmin"],
     });
     const softDeletedAdmin = await seedUser({
       email: "deleted-admin@example.com",
       displayName: "DeletedAdmin",
-      roles: JSON.stringify(["SystemAdmin"]),
+      roles: ["SystemAdmin"],
     });
 
     // Soft-delete the second admin directly
@@ -875,7 +876,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       {
         id: activeAdmin.id,
         version: loaded["version"],
-        changes: { roles: JSON.stringify(["User"]) },
+        changes: { roles: ["User"] },
       },
       systemAdmin,
     );

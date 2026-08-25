@@ -58,8 +58,10 @@ async function countOtherActiveSystemAdmins(db: TenantDb, excludeUserId: string)
      FROM ${quoteIdent(tableName)}
      WHERE is_deleted = false
        AND (status = $1 OR status IS NULL)
-       AND roles LIKE '%SystemAdmin%'`,
-    [USER_STATUS.Active],
+       AND roles @> $2::jsonb`,
+    // Pass a JS array — JSON.stringify + $n::jsonb double-encodes to a jsonb string
+    // (postgres.js), so `@>` never matches a roles array.
+    [USER_STATUS.Active, ["SystemAdmin"]],
   )) as UserRolesRow[];
   return rows.filter((u) => u.id !== excludeUserId && isActiveSystemAdminRow(u)).length;
 }
@@ -138,7 +140,8 @@ export async function applyUserRolesUpdate(
 
   const normalizedChanges = {
     ...event.payload.changes,
-    roles: JSON.stringify(newRoles),
+    // multiSelect column is jsonb string[] — do not JSON.stringify.
+    roles: newRoles,
   };
 
   // Persist roles first. Session revoke runs only after a successful update so a

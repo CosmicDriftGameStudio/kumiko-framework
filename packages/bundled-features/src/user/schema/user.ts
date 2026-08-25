@@ -2,12 +2,15 @@ import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createBooleanField,
+  createDerivedField,
   createEntity,
+  createMultiSelectField,
   createSelectField,
   createTextField,
   createTimestampField,
   createTzField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { GLOBAL_ROLE_OPTIONS } from "../constants";
 
 /**
  * User-Lifecycle-Status (S2.U1). Single source of truth — Auth-Middleware
@@ -112,16 +115,13 @@ export const userEntity = createEntity({
       access: { write: access.privileged },
     }),
 
-    // Globale Rollen — parallel zu tenantMemberships.roles. JSON-encoded
-    // string[]; parseRoles() deserialisiert beim Read. Login-Handler mergt
-    // diese Rollen mit den tenant-membership-roles in die Session — so
-    // sind sie tenant-unabhängig (z.B. SystemAdmin, BillingAdmin). Default
-    // "[]" damit die Session-Roles-Merge keinen NULL-Branch braucht.
-    // Schreibrecht privileged: ein User darf sich nicht selbst zum
-    // SystemAdmin machen.
-    roles: createTextField({
-      required: true,
-      default: "[]",
+    // Global (cross-tenant) roles — parallel to tenantMemberships.roles.
+    // multiSelect stores jsonb string[]; login merges these with membership
+    // roles into the session. Write access privileged: users cannot self-elevate
+    // to SystemAdmin. Closed options = only assignable platform roles.
+    roles: createMultiSelectField({
+      options: GLOBAL_ROLE_OPTIONS,
+      default: [],
       access: { write: access.privileged },
     }),
 
@@ -179,6 +179,14 @@ export const userEntity = createEntity({
   // Global (not tenant-scoped): user is a tenant-agnostic identity
   // aggregate (systemStream: true) — a composite (tenantId, email) would
   // leave the same email resolvable twice.
+  // Filled by user:list / user:detail enrichment (membership → tenant names).
+  // derive() is a placeholder — list/detail handlers overwrite after the join.
+  derivedFields: {
+    tenants: createDerivedField({
+      valueType: "text",
+      derive: () => "",
+    }),
+  },
   indexes: [{ columns: ["email"], unique: true, name: "read_users_email_unique" }],
 });
 

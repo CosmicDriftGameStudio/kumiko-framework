@@ -2,6 +2,11 @@
 // Feature name
 export const USER_FEATURE = "user" as const;
 
+/** Assignable global (cross-tenant) roles on user.roles — SystemAdmin is the
+ *  platform operator. Membership roles (TenantAdmin/Admin/User/…) live on
+ *  tenant-membership, not here. */
+export const GLOBAL_ROLE_OPTIONS = ["SystemAdmin"] as const;
+
 // Qualified write handler names. Handlers carry the "user:" entity prefix so
 // field-level access rules (passwordHash system-only etc.) are wired up.
 export const UserHandlers = {

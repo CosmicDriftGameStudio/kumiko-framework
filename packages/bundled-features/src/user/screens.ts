@@ -7,12 +7,16 @@ import type {
 // feature runs with `r.systemScope()`, the entityList query returns every
 // user across all tenants — the SystemAdmin platform roster. Both screens are
 // SystemAdmin-gated and stay inert until an app navs them (no auto-nav).
+//
+// `roles` is a multiSelect (global SystemAdmin). `tenants` is a derived field
+// filled by the list handler from memberships — without it the roster is
+// unusable for ops (waitlist signups look like platform users with no context).
 
 export const userListScreen: EntityListScreenDefinition = {
   id: "user-list",
   type: "entityList",
   entity: "user",
-  columns: ["email", "displayName", "status", "emailVerified"],
+  columns: ["email", "displayName", "roles", "tenants", "status", "emailVerified"],
   rowActions: [
     {
       kind: "navigate",
