@@ -91,7 +91,7 @@ async function seedUser(
       displayName: email.split("@")[0] ?? "user",
       // user.roles im create wird privileged geprüft — systemAdmin hat
       // SystemAdmin-Rolle (siehe TestUsers.systemAdmin).
-      roles: JSON.stringify(globalRoles),
+      roles: globalRoles,
     },
     systemAdmin,
   );
@@ -132,7 +132,7 @@ describe("multi-roles: login mergt globale + membership-roles", () => {
     // nur Zufall (z.B. wenn login-handler hardcoded SystemAdmin reinpacken
     // würde). Direct DB-read schließt das aus.
     const dbRow = await selectMany(stack.db, userTable, { id: userId });
-    expect(dbRow[0]?.roles).toBe(JSON.stringify(["SystemAdmin"]));
+    expect(dbRow[0]?.roles).toEqual(["SystemAdmin"]);
 
     const { user } = await login("syadmin@example.com", "pw-long-enough");
     expect(user.tenantId).toBe(tenantA);

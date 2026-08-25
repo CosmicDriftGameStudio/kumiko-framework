@@ -10,6 +10,7 @@
 // nicht divergieren.
 
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 
 export type TenantSummary = {
   readonly tenantId: string;
@@ -414,19 +415,8 @@ export async function fetchCurrentUser(): Promise<CurrentUserProfile | null> {
   };
 }
 
-// Defensive parse — server-side ist die Spalte JSON-encoded string[],
-// aber bei migration-drift oder corrupted-row liefern wir [] statt einen
-// runtime-throw der die ganze SessionProvider-mount blockt.
-function parseGlobalRoles(raw: string | undefined): readonly string[] {
-  if (typeof raw !== "string" || raw.length === 0) return [];
-  try {
-    // @cast-boundary user-row.roles is JSON-encoded string[] per server contract
-    const parsed = JSON.parse(raw) as unknown;
-    if (Array.isArray(parsed) && parsed.every((r) => typeof r === "string")) {
-      return parsed;
-    }
-  } catch {
-    // malformed JSON → behave as empty
-  }
-  return [];
+// Defensive parse — roles may be jsonb string[] (0.217+) or a legacy
+// JSON-encoded string; malformed → [] so SessionProvider mount never throws.
+function parseGlobalRoles(raw: unknown): readonly string[] {
+  return parseRoles(raw);
 }
