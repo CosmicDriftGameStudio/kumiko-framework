@@ -155,7 +155,11 @@ describe("Event Sourcing Showcase", () => {
       { id, amountCents: 900, approvedBy: "cfo" },
       admin,
     );
-    const cutoff = new Date();
+    // Cutoff from DB event timestamp — host Date() drifts vs Postgres now()
+    // under Docker and excluded the approve event (fw#2425).
+    const beforePay = await loadAggregateRaw(stack.db, id, admin.tenantId);
+    expect(beforePay).toHaveLength(2);
+    const cutoff = beforePay.at(-1)!.createdAt;
     await new Promise((r) => setTimeout(r, 10));
     await stack.http.writeOk("showcase:write:invoice:pay", { id, amountCents: 900 }, admin);
 
@@ -169,7 +173,7 @@ describe("Event Sourcing Showcase", () => {
 
     const past = await stack.http.queryOk<{ status: string; paid: boolean }>(
       "showcase:query:invoice:state",
-      { id, asOf: cutoff.toISOString() },
+      { id, asOf: cutoff.toString() },
       admin,
     );
     expect(past.status).toBe("approved");
