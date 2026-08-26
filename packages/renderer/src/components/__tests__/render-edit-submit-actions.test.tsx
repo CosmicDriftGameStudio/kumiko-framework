@@ -292,8 +292,33 @@ describe("RenderEdit — submit path", () => {
     expect(submitted).toEqual({ validationBlocked: true, isSuccess: false });
     expect(customCalls).toBe(0);
   });
-});
+  test("failed writeCommand with field issues suppresses the form-error banner", async () => {
+    const writeFailure: DispatcherError = {
+      code: "validation_failed",
+      httpStatus: 422,
+      i18nKey: "kumiko.errors.validation",
+      message: "validation failed",
+      details: {
+        fields: [{ path: "name", code: "too_small", i18nKey: "kumiko.errors.required" }],
+      },
+    };
+    const { dispatcher } = stubDispatcher(async () => ({
+      isSuccess: false,
+      error: writeFailure,
+    }));
+    renderEdit(
+      oneFieldScreen,
+      { writeCommand: "contacts:write:contact:update" },
+      buildEntity(),
+      dispatcher,
+    );
 
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ada" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(rtlScreen.queryByTestId("render-edit-form-error")).toBeNull());
+  });
+});
 describe("RenderEdit — custom actions", () => {
   test("renders an action button and runs its handler on click", async () => {
     let pressed = 0;
@@ -387,5 +412,31 @@ describe("RenderEdit — writeCommand path", () => {
 
     await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy());
     expect(submitted?.isSuccess).toBe(false);
+  });
+  test("failed writeCommand with field issues suppresses the form-error banner", async () => {
+    const writeFailure: DispatcherError = {
+      code: "validation_failed",
+      httpStatus: 422,
+      i18nKey: "kumiko.errors.validation",
+      message: "validation failed",
+      details: {
+        fields: [{ path: "name", code: "too_small", i18nKey: "kumiko.errors.required" }],
+      },
+    };
+    const { dispatcher } = stubDispatcher(async () => ({
+      isSuccess: false,
+      error: writeFailure,
+    }));
+    renderEdit(
+      oneFieldScreen,
+      { writeCommand: "contacts:write:contact:update" },
+      buildEntity(),
+      dispatcher,
+    );
+
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ada" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(rtlScreen.queryByTestId("render-edit-form-error")).toBeNull());
   });
 });

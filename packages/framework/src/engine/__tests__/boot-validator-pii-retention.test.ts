@@ -721,19 +721,20 @@ describe("validateBoot — retention", () => {
     expect(matchingWarn).toBeUndefined();
   });
 
-  test("blockDelete with a subjectRef field plus an anonymizable subject field and no anonymize still warns (#2336)", () => {
+
+
+  test.each([
+    ["self", { personal: "self" as const, find: "none" as const }],
+    ["userOwned", { personal: { of: "authorId" } as const, find: "none" as const }],
+    ["tenantOwned", { personal: "tenant" as const, find: "none" as const }],
+  ])("blockDelete warns when subjectRef coexists with anonymizable %s field (#2336)", (_label, personal) => {
     const feature = defineFeature("test", (r) => {
       r.entity(
         "lease",
         createEntity({
           fields: {
-            authorId: createTextField({
-              personal: "ref",
-            }),
-            customerName: createTextField({
-              personal: "self",
-              find: "none",
-            }),
+            authorId: createTextField({ personal: "ref" }),
+            subjectField: createTextField(personal),
           },
           retention: { keepFor: "10y", strategy: "blockDelete" },
         }),

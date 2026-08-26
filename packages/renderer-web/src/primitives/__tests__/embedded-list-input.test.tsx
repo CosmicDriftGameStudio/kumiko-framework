@@ -498,6 +498,20 @@ describe("EmbeddedListInput — paste", () => {
 });
 
 describe("EmbeddedListInput — Enter-to-add-row (#1839)", () => {
+  test("Enter on a select trigger in the last cell does not append a row", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      { field: "status", label: "Status", type: "select", required: false, derived: false, options: ["open"] },
+    ];
+    const rows = [{ status: "open" }];
+    const onAddRow = mock(() => {});
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows, onAddRow })} />);
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const trigger = desktop.getByTestId("lines-cell-0-status").querySelector("button");
+    if (trigger === null) throw new Error("expected a select trigger button");
+    fireEvent.keyDown(trigger, { key: "Enter", code: "Enter" });
+    expect(onAddRow).not.toHaveBeenCalled();
+  });
+
   test("Enter on the last editable cell of the last row fires onAddRow and prevents default, same as Tab", () => {
     const rows = [{ description: "A", quantity: 1, amount: 100 }];
     const onAddRow = mock(() => {});

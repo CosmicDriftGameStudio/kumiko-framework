@@ -44,6 +44,11 @@ describe("public-export smoke", () => {
   });
 });
 
+  it("re-exports frameworkCoreEnvSchema via the env-schema subpath", async () => {
+    const viaSubpath = await import("@cosmicdrift/kumiko-dev-server/env-schema");
+    expect(viaSubpath.frameworkCoreEnvSchema).toBe(frameworkCoreEnvSchema);
+  });
+
 describe("runProdApp envSchema integration", () => {
   it("aggregates all env-errors at boot, not first-fail", async () => {
     let captured: KumikoBootError | undefined;

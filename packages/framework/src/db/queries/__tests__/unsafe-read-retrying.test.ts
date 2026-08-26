@@ -26,18 +26,23 @@ function closedConnectionError(): Error {
   return Object.assign(new Error("The connection was closed."), { name: "AbortError" });
 }
 
+type RecordedCall = { readonly sql: string; readonly params: readonly unknown[] | undefined };
+
 type FakeClient = {
   unsafe: (sql: string, params?: readonly unknown[]) => Promise<readonly unknown[]>;
   begin: () => never;
   calls: number;
+  recordedCalls: RecordedCall[];
 };
 
 function fakeClient(failures: Error[], row: Record<string, unknown>): FakeClient {
   const remaining = [...failures];
   const client: FakeClient = {
     calls: 0,
-    unsafe: async () => {
+    recordedCalls: [],
+    unsafe: async (sql, params) => {
       client.calls++;
+      client.recordedCalls.push({ sql, params });
       const err = remaining.shift();
       if (err) throw err;
       return [row];
@@ -55,6 +60,8 @@ describe("framework db/queries — closed-connection retry (#2323)", () => {
     const result = await selectStreamMaxVersion(db as never, "agg1", "t1");
     expect(result).toBe(5);
     expect(db.calls).toBe(2);
+    expect(db.recordedCalls).toHaveLength(2);
+    expect(db.recordedCalls[0]).toEqual(db.recordedCalls[1]);
   });
 
   test("selectAggregateMaxVersion retries once and returns the version", async () => {
