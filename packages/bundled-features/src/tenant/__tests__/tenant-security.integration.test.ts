@@ -859,6 +859,40 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
     expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["Admin"]);
   });
 
+  test("SystemAdmin omits payload.tenantId — uses session tenant (actionForm UI shape)", async () => {
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "sysadmin-session-tenant@example.com",
+      displayName: "SysAdmin Session Tenant",
+      passwordHash: await hashPassword("pw-sys-sess-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+
+    // Mirrors prod: SystemAdmin with an active tenant opens Edit roles; the
+    // actionForm only posts userId+roles (no tenantId field).
+    const sysAdminInTenant: SessionUser = {
+      id: TestUsers.systemAdmin.id,
+      tenantId: TENANT_A_ID,
+      roles: ["SystemAdmin", "TenantAdmin"],
+    };
+    const res = await stack.http.writeOk(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberUserId, roles: ["Admin"] },
+      sysAdminInTenant,
+    );
+    expect(res).toMatchObject({ userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] });
+
+    const rows = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["Admin"]);
+  });
+
   test("updateMemberRoles appends audit event and invalidates active sessions for target user", async () => {
     const { id: memberUserId } = await seedUser(stack.db, {
       email: "session-target@example.com",

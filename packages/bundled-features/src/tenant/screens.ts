@@ -113,7 +113,7 @@ export function createMembersScreen(options?: {
         id: "edit-roles",
         label: "tenant.members.actions.editRoles",
         screen: MEMBER_ROLES_EDIT_SCREEN_ID,
-        params: { map: { userId: "userId" } },
+        params: { map: { userId: "userId", roles: "roles" } },
         visible: { field: "status", eq: "active" },
       },
       {
@@ -172,7 +172,8 @@ export const memberRolesEditScreen = {
     roles: { type: "multiSelect", options: DEFAULT_INVITE_ROLE_OPTIONS, required: true },
   },
   layout: {
-    sections: [{ fields: ["userId", "roles"] }],
+    // Prefill userId from rowAction; readOnly so the operator cannot retarget.
+    sections: [{ fields: [{ field: "userId", readOnly: true }, "roles"] }],
   },
   submitLabel: "tenant.members.roles.edit.submit",
   access: { roles: access.admin },

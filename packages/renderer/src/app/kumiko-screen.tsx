@@ -341,7 +341,13 @@ export function buildInitialValues(
       continue;
     }
     out[name] =
-      shape.type === "boolean" ? false : shape.type === "number" || shape.type === "money" ? 0 : "";
+      shape.type === "boolean"
+        ? false
+        : shape.type === "number" || shape.type === "money"
+          ? 0
+          : shape.type === "multiSelect"
+            ? []
+            : "";
   }
   return out;
 }
@@ -372,6 +378,26 @@ export function mergeSearchParamsIntoInitial(
           : parsed;
     } else if (shape.type === "boolean") {
       merged[name] = raw === "true";
+    } else if (shape.type === "multiSelect") {
+      // Row-action navigate stringifies arrays via String(arr) → "a,b" (or
+      // JSON when the navigate helper JSON.stringifies). Accept both so
+      // member-roles-edit can prefill from ?roles=TenantAdmin.
+      if (raw.startsWith("[")) {
+        try {
+          const parsed: unknown = JSON.parse(raw);
+          merged[name] = Array.isArray(parsed) ? parsed.map((v) => String(v)) : defaults[name];
+        } catch {
+          merged[name] = defaults[name];
+        }
+      } else {
+        merged[name] =
+          raw === ""
+            ? []
+            : raw
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean);
+      }
     } else {
       merged[name] = raw;
     }
@@ -1343,7 +1369,8 @@ function EntityListBody({
         // Row-Actions praktisch nicht erreichbar, Pfad differiert).
         const stringified: Record<string, string | null> = {};
         for (const [k, v] of Object.entries(params)) {
-          stringified[k] = v === null || v === undefined ? null : String(v);
+          stringified[k] =
+            v === null || v === undefined ? null : Array.isArray(v) ? JSON.stringify(v) : String(v);
         }
         nav.setSearchParams(stringified);
       }
@@ -1705,7 +1732,8 @@ function ProjectionListBody({
       if (params !== undefined) {
         const stringified: Record<string, string | null> = {};
         for (const [k, v] of Object.entries(params)) {
-          stringified[k] = v === null || v === undefined ? null : String(v);
+          stringified[k] =
+            v === null || v === undefined ? null : Array.isArray(v) ? JSON.stringify(v) : String(v);
         }
         nav.setSearchParams(stringified);
       }
@@ -2005,7 +2033,12 @@ function ProjectionDetailBody({
           if (params !== undefined) {
             const stringified: Record<string, string | null> = {};
             for (const [k, v] of Object.entries(params)) {
-              stringified[k] = v === null || v === undefined ? null : String(v);
+              stringified[k] =
+                v === null || v === undefined
+                  ? null
+                  : Array.isArray(v)
+                    ? JSON.stringify(v)
+                    : String(v);
             }
             nav.setSearchParams(stringified);
           }

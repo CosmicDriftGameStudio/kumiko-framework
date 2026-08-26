@@ -41,6 +41,16 @@ const REVOKE_ALL_SESSIONS_QN = "sessions:write:user-session:revoke-all-for-user"
 // (dispatcher batch wraps handlers in transaction — xact lock holds through update).
 const LAST_TENANT_ADMIN_LOCK_NAMESPACE = 0x7461646d; // 'tadm'
 
+/** SystemAdmin may pass payload.tenantId (cross-tenant); the members actionForm
+ *  only sends userId+roles, so fall back to the active session tenant. */
+function resolveTargetTenantId(
+  isSystem: boolean,
+  payloadTenantId: string | undefined,
+  sessionTenantId: string | undefined,
+): string | undefined {
+  return isSystem ? (payloadTenantId ?? sessionTenantId) : sessionTenantId;
+}
+
 export const updateMemberRolesWrite = defineWriteHandler({
   name: "updateMemberRoles",
   schema: z.object({
@@ -63,7 +73,11 @@ export const updateMemberRolesWrite = defineWriteHandler({
 
     const isSystem =
       event.user.roles.includes("SystemAdmin") || event.user.roles.includes("system");
-    const targetTenantId = isSystem ? event.payload.tenantId : event.user.tenantId;
+    const targetTenantId = resolveTargetTenantId(
+      isSystem,
+      event.payload.tenantId,
+      event.user.tenantId,
+    );
     if (!targetTenantId) {
       return writeFailure(
         new ValidationError({

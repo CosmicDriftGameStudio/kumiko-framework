@@ -77,4 +77,27 @@ describe("mergeSearchParamsIntoInitial", () => {
     const result = mergeSearchParamsIntoInitial(fields, { ownerId: "user-123" });
     expect(result["ownerId"]).toBe("user-123");
   });
+
+  test("multiSelect coerces comma-separated searchParam to string[]", () => {
+    const fields: Record<string, FieldDef> = { roles: { type: "multiSelect" } };
+    expect(mergeSearchParamsIntoInitial(fields, { roles: "TenantAdmin" })["roles"]).toEqual([
+      "TenantAdmin",
+    ]);
+    expect(mergeSearchParamsIntoInitial(fields, { roles: "Admin,User" })["roles"]).toEqual([
+      "Admin",
+      "User",
+    ]);
+  });
+
+  test("multiSelect coerces JSON-array searchParam to string[]", () => {
+    const fields: Record<string, FieldDef> = { roles: { type: "multiSelect" } };
+    expect(
+      mergeSearchParamsIntoInitial(fields, { roles: JSON.stringify(["Admin", "Editor"]) })["roles"],
+    ).toEqual(["Admin", "Editor"]);
+  });
+
+  test("multiSelect defaults to [] when unset", () => {
+    const fields: Record<string, FieldDef> = { roles: { type: "multiSelect" } };
+    expect(mergeSearchParamsIntoInitial(fields, {})["roles"]).toEqual([]);
+  });
 });

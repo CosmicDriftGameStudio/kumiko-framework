@@ -74,7 +74,7 @@ describe("tenant members screen + handler access alignment", () => {
     const rowAction = screen.rowActions?.find((a) => a.id === "edit-roles");
     if (rowAction?.kind !== "navigate") throw new Error("expected a navigate row action");
     expect(rowAction.screen).toBe(MEMBER_ROLES_EDIT_SCREEN_ID);
-    expect(rowAction.params).toEqual({ map: { userId: "userId" } });
+    expect(rowAction.params).toEqual({ map: { userId: "userId", roles: "roles" } });
     expect(rowAction.visible).toEqual({ field: "status", eq: "active" });
   });
 
@@ -85,6 +85,11 @@ describe("tenant members screen + handler access alignment", () => {
       throw new Error("expected member-roles-edit screen to be actionForm");
     expect(screen.handler).toBe(TenantHandlers.updateMemberRoles);
     expect(screen.fields["userId"]).toEqual({ type: "text", required: true });
+    const section = screen.layout.sections[0];
+    if (section === undefined || !("fields" in section)) {
+      throw new Error("expected member-roles-edit layout fields section");
+    }
+    expect(section.fields).toEqual([{ field: "userId", readOnly: true }, "roles"]);
     expect(screen.fields["roles"]).toEqual({
       type: "multiSelect",
       options: DEFAULT_INVITE_ROLE_OPTIONS,
