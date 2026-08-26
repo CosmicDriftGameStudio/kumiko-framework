@@ -1667,8 +1667,8 @@ describe("KumikoScreen", () => {
   // #2416: entityEdit-create passes the newly created record's id through to
   // the post-submit navigate as `entityId` (extractCreatedId); actionForm's
   // redirect did the same navigate but never extracted the id. The with-id
-  // case is covered by "actionForm mit redirect: nach success → ..." above
-  // (now asserting entityId); this pins the back-compat guarantee.
+  // case is covered by the actionForm redirect success test above (now
+  // asserting entityId); this pins the back-compat guarantee.
   test("actionForm mit redirect: Handler-Result ohne id → navigate ohne entityId-Key (Rückwärtskompatibilität, #2416)", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
