@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.219.0
+
+### Minor Changes
+
+- 7e1a189: Invite and member-roles pickers include TenantAdmin (SystemAdmin remains global-only on user.roles).
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.219.0
+- @cosmicdrift/kumiko-types@0.219.0
+- @cosmicdrift/kumiko-dispatcher-live@0.219.0
+- @cosmicdrift/kumiko-headless@0.219.0
+- @cosmicdrift/kumiko-renderer@0.219.0
+- @cosmicdrift/kumiko-renderer-web@0.219.0
+
 ## 0.218.0
 
 ### Minor Changes
