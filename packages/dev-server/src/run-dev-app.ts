@@ -211,6 +211,9 @@ export type RunDevAppOptions = {
   /** Extra-AppContext-Keys. `templateResolver` (immer) + `secrets` (wenn das
    *  secrets-Feature gemountet ist) + `configResolver` (auth-mode) werden
    *  automatisch ergänzt — App-Werte gewinnen. Symmetrisch zu runProdApp. */
+  /** Boot default locale (BCP-47) for ctx.locale when the request carries
+   *  no locale signal. Merged into AppContext before extraContext (app wins). */
+  readonly defaultLocale?: string;
   readonly extraContext?: CreateKumikoServerOptions["extraContext"];
   /** MasterKeyProvider für die auto-verdrahtete `ctx.secrets`. Default:
    *  `createEnvMasterKeyProvider`. Override für KMS-Backends. Nur relevant
@@ -407,7 +410,11 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       crypto: bootCrypto,
     });
     const base = typeof cfgExtra === "function" ? cfgExtra(deps) : (cfgExtra ?? {});
-    return { ...boot, ...base };
+    return {
+      ...boot,
+      ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
+      ...base,
+    };
   };
 
   // Sessions: late-bound holder — resolveSessionStore needs concrete db+

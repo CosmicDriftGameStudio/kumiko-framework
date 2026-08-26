@@ -138,6 +138,7 @@ describe("RenderEditActionButton", () => {
 
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-boom"));
     await waitFor(() => expect(errors).toContain("action exploded"));
+    // Cleared at the start of trigger, then set on failure.
     expect(errors[0]).toBeNull();
   });
 

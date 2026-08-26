@@ -411,12 +411,6 @@ export async function fetchCurrentUser(): Promise<CurrentUserProfile | null> {
     email: body.data.email,
     displayName: body.data.displayName,
     ...(body.data.locale !== undefined && { locale: body.data.locale }),
-    globalRoles: parseGlobalRoles(body.data.roles),
+    globalRoles: parseRoles(body.data.roles),
   };
-}
-
-// Defensive parse — roles may be jsonb string[] (0.217+) or a legacy
-// JSON-encoded string; malformed → [] so SessionProvider mount never throws.
-function parseGlobalRoles(raw: unknown): readonly string[] {
-  return parseRoles(raw);
 }

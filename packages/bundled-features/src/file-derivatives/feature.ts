@@ -112,12 +112,10 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
     // dispatch even when the httpRoute below isn't mounted, bypassing the
     // "tenantId comes from the host, never the payload" invariant that only
     // `resolveApexTenant` enforces.
-    const queries: { publicVariant?: ReturnType<typeof r.queryHandler> } = {};
-
     if (opts.resolveApexTenant) {
       const resolveApexTenant = opts.resolveApexTenant;
 
-      queries.publicVariant = r.queryHandler(publicVariantQuery);
+      r.queryHandler(publicVariantQuery);
 
       r.httpRoute({
         method: "GET",
@@ -180,8 +178,6 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
         },
       });
     }
-
-    return { queries };
   });
 }
 

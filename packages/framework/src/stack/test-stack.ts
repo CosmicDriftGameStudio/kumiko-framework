@@ -72,6 +72,8 @@ export type TestStackOptions = {
   jwtSecret?: string;
   /** Extra fields merged into the AppContext (e.g. _notifyFactory, configResolver).
    *  Can be a function receiving (registry, db, sseBroker) for late binding. */
+  /** Boot default locale (BCP-47) merged into AppContext before extraContext. */
+  defaultLocale?: string;
   extraContext?:
     | Record<string, unknown>
     | ((deps: {
@@ -294,6 +296,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     registry,
     ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
     ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
+    ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
     ...(typeof options.extraContext === "function"
       ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
       : options.extraContext),
