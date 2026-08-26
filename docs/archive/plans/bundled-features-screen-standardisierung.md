@@ -1,20 +1,37 @@
 ---
-status: in-progress
-verified: 2026-08-19
-evidence: "offlot Mount-Punkte (Marc, 2026-08-19); Referenz-Pattern: kumiko-enterprise/packages/kumiko-credit/src/feature.ts (credit-list)"
-next: "Phase 2 (2.4 delivery-log, 2.5 profile-picker, 2.6a+d members, 2.6c drawer) + Phase 0 Guards — siehe 'Reihenfolge und Schnitt in Issues'"
+status: shipped
+verified: 2026-08-26
+evidence: "fw#2224 (b9fdc4107, projectionList filter/facets), fw#2225 (49662ef14, ToolbarAction kind:\"drawer\"); geschlossene Issues #2230, #2217, #2032, #2062, #2226"
 ---
 
 # Bundled-Features: Screen-Standardisierung
+
+## Stand (2026-08-26)
+
+Umgesetzt: Phasen 0-2, alle zugehörigen Issues geschlossen (#2230, #2217,
+#2032, #2062, #2226). Die beiden unten als "Framework kann das nicht"
+geplanten Erweiterungen — 2.6b (`filter`/Facetten auf `projectionList`) und
+2.6c (`ToolbarAction kind: "drawer"`) — waren zum Zeitpunkt dieses Plans noch
+nicht im Framework, sind aber am 2026-08-19 als fw#2224 (b9fdc4107) und
+fw#2225 (49662ef14) gemerged worden. **Wer den Text unten liest, baut diese
+beiden Punkte nicht nach.**
+
+Ist-Stand heute: **12 von 30** Screens in `packages/bundled-features` sind
+noch `type: "custom"`, verteilt auf neun Features — admin-shell (2), audit (2),
+jobs (2), auth-mfa, feature-toggles, personal-access-tokens, tags, tier-engine
+und user-data-rights (je 1). Phase 3 läuft als eigenes Issue #2312 weiter.
+
+Der Text ab hier ist der Plan-Stand vom 2026-08-19 und historisch zu lesen.
 
 ## Kernbefund
 
 Das Framework erzwingt in den App-Repos deklarative Screens und bricht die
 Regel bei sich selbst.
 
-**17 von 19 Screens in `packages/bundled-features` sind `type: "custom"`**,
-also handgeschriebenes TSX. Deklarativ sind nur `cap-counter` (entityList) und
-`sessions` (projectionList + projectionDetail).
+**17 von 19 Screens in `packages/bundled-features` sind `type: "custom"`**
+(historisch — siehe Stand oben), also handgeschriebenes TSX. Deklarativ sind
+nur `cap-counter` (entityList) und `sessions` (projectionList +
+projectionDetail).
 
 Der Grund ist eine Guard-Lücke, keine technische Notwendigkeit:
 
@@ -530,7 +547,7 @@ haben andere Konsumenten), werden aber im selben Zug auf den Paged-Helper
 gezogen (unabhängig von 1.1, das nur den einen tatsächlich betroffenen
 Handler abdeckt).
 
-**2.6b `filter` für projectionList** (Framework)
+**2.6b `filter` für projectionList** (Framework) (erledigt: fw#2224 — nicht nachbauen)
 
 `ProjectionListScreenDefinition` bekommt `filter?: ScreenFilter` und
 Facetten-Support, analog `EntityListScreenDefinition`
@@ -548,7 +565,7 @@ Das ist eine eigenständige Framework-Erweiterung mit Nutzen weit über
 festem `status`-Param, verlinkt über `toolbarActions`. Billiger, aber es ist
 nicht das, was Marc beschrieben hat (ein Filter in einer Liste).
 
-**2.6c Drawer für "neue Einladung"** (Framework)
+**2.6c Drawer für "neue Einladung"** (Framework) (erledigt: fw#2225 — nicht nachbauen)
 
 Marc will explizit einen Drawer, ausgelöst von einem Header-Button.
 

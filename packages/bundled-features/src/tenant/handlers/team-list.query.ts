@@ -223,7 +223,9 @@ export const teamListQuery = definePagedQueryHandler({
     // the order of a few thousand members per tenant; past that the fix is
     // a real combined read-projection (a materialized view/table kept in
     // sync by both tenant-membership and tenant-invitation events), not a
-    // cursor bolted onto this merge.
+    // cursor bolted onto this merge. Upgrade path: r.multiStreamProjection({
+    // name, apply }) — see custom-fields/wire-for-entity.ts:174,
+    // feature-toggles/feature.ts:109, step-dispatcher/feature.ts:41.
     const search = query.payload.search?.trim().toLowerCase();
     const merged = [...memberRows, ...invitationRows].filter((row) => {
       if (search === undefined || search === "") return true;
