@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-types
 
+## 0.220.0
+
+### Minor Changes
+
+- c2ea385: FormScreenShell / EditLayout.width default to full width (same chrome as lists). Override with layout.width or maxWidth when a screen needs a narrow column.
+
 ## 0.219.0
 
 ## 0.218.0

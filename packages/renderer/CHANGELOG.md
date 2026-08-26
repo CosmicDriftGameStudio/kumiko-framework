@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.220.0
+
+### Minor Changes
+
+- c2ea385: FormScreenShell / EditLayout.width default to full width (same chrome as lists). Override with layout.width or maxWidth when a screen needs a narrow column.
+
+### Patch Changes
+
+- 98304cf: actionForm redirect now carries the created record's id as entityId, matching entityEdit-create.
+  - @cosmicdrift/kumiko-framework@0.220.0
+  - @cosmicdrift/kumiko-headless@0.220.0
+
 ## 0.219.0
 
 ### Patch Changes
