@@ -283,7 +283,7 @@ describe("RenderEdit", () => {
     expect(seenResults[0]?.isSuccess).toBe(true);
   });
 
-  test("layout.width defaults the form shell to max-w-3xl when unset", () => {
+  test("layout.width defaults the form shell to max-w-full when unset", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <RenderEdit<TestValues>
@@ -297,16 +297,16 @@ describe("RenderEdit", () => {
     );
 
     const shell = screen.getByTestId("render-edit-form").firstElementChild;
-    expect(shell?.className).toContain("max-w-3xl");
-    expect(shell?.className).not.toContain("max-w-full");
+    expect(shell?.className).toContain("max-w-full");
+    expect(shell?.className).not.toContain("max-w-3xl");
   });
 
-  test("layout.width: 'full' widens the form shell to max-w-full (#1676)", () => {
+  test("layout.width: '3xl' narrows the form shell when set", () => {
     const screenDef = makeScreen();
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <RenderEdit<TestValues>
-          screen={{ ...screenDef, layout: { ...screenDef.layout, width: "full" } }}
+          screen={{ ...screenDef, layout: { ...screenDef.layout, width: "3xl" } }}
           entity={orderEntity}
           featureName="orders"
           initial={{ title: "", count: 0, isUrgent: false }}
@@ -316,8 +316,8 @@ describe("RenderEdit", () => {
     );
 
     const shell = screen.getByTestId("render-edit-form").firstElementChild;
-    expect(shell?.className).toContain("max-w-full");
-    expect(shell?.className).not.toContain("max-w-3xl");
+    expect(shell?.className).toContain("max-w-3xl");
+    expect(shell?.className).not.toContain("max-w-full");
   });
 
   test("title resolved aus i18n-Key `screen:<id>.title` mit screenId als Fallback", () => {
