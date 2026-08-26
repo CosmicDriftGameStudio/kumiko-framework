@@ -325,9 +325,11 @@ async function applyCodemods(
     return 0;
   }
 
+  const firstPending = pending[0];
+  if (!firstPending) return 0;
   const latestVersion = pending.reduce(
     (max, e) => (compareVersions(e.version, max) > 0 ? e.version : max),
-    pending[0]!.version,
+    firstPending.version,
   );
   writeUpgradeMarker(targetDir, {
     version: latestVersion,
