@@ -14,15 +14,18 @@
 //
 // Handlers: create-tag, update-tag (rename/recolor/re-scope), delete-tag
 // (cascades over assignments), assign-tag, remove-tag, list tags, list assignments.
+// Convention aliases tag:{create,update,delete} + tag:detail back the
+// entityList/entityEdit catalog screens (legacy QNs stay for TagManager).
 // Deferred: optional host-projection decoration (`wireTagsFor`), search indexing.
 
 import {
   type AccessRule,
+  defineEntityDetailHandler,
   defineEntityListHandler,
   defineFeature,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME, TAGS_SCREEN_ID } from "./constants";
+import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./constants";
 import { tagAssignmentEntity, tagEntity } from "./entity";
 import { createAssignTagHandler } from "./handlers/assign-tag.write";
 import { createCreateTagHandler } from "./handlers/create-tag.write";
@@ -30,6 +33,7 @@ import { createDeleteTagHandler } from "./handlers/delete-tag.write";
 import { createRemoveTagHandler } from "./handlers/remove-tag.write";
 import { createUpdateTagHandler } from "./handlers/update-tag.write";
 import { TAGS_FEATURE_I18N } from "./i18n";
+import { createTagEditScreen, createTagListScreen } from "./screens";
 
 // Opt-in tier-gating: when set, the feature declares itself r.toggleable so the
 // dispatcher gate + feature-toggles + tier-engine can switch the WHOLE feature
@@ -66,18 +70,20 @@ function registerTags(
   r.writeHandler(createAssignTagHandler(access));
   r.writeHandler(createRemoveTagHandler(access));
 
+  // Convention aliases for entityList/entityEdit — same bodies as the legacy
+  // create-tag/update-tag/delete-tag QNs (TagManager/TagPicker keep those).
+  r.writeHandler(createCreateTagHandler(access, "tag:create"));
+  r.writeHandler(createUpdateTagHandler(access, "tag:update"));
+  r.writeHandler(createDeleteTagHandler(access, "tag:delete"));
+
   r.queryHandler(defineEntityListHandler("tag", tagEntity, { access }));
   r.queryHandler(defineEntityListHandler("tag-assignment", tagAssignmentEntity, { access }));
+  r.queryHandler(defineEntityDetailHandler("tag", tagEntity, { access }));
 
-  // Standalone Tags management screen (custom React: TagManager). The app places
-  // it in nav via r.nav("tags:screen:tag-list"); tagsClient() maps the component.
-  // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
-  r.screen({
-    id: TAGS_SCREEN_ID,
-    type: "custom",
-    renderer: { react: { __component: "TagsScreen" } },
-    access,
-  });
+  // Standalone catalog: entityList + entityEdit. App navs via
+  // r.nav("tags:screen:tag-list"). TagManager stays for picker/section only.
+  r.screen(createTagListScreen(access));
+  r.screen(createTagEditScreen(access));
   r.translations({ keys: TAGS_FEATURE_I18N });
 }
 

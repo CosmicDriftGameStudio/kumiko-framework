@@ -15,6 +15,8 @@ export const tagEntity = createEntity({
     name: createTextField({
       required: true,
       maxLength: 64,
+      sortable: true,
+      searchable: true,
       personal: false,
       reason: "catalog_label",
     }),

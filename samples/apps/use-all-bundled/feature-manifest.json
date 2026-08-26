@@ -2125,6 +2125,9 @@
         "tags:write:create-tag",
         "tags:write:delete-tag",
         "tags:write:remove-tag",
+        "tags:write:tag:create",
+        "tags:write:tag:delete",
+        "tags:write:tag:update",
         "tags:write:update-tag"
       ],
       "uiHints": {

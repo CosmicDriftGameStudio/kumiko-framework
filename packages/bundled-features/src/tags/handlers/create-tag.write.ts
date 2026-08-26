@@ -7,9 +7,12 @@ import { type CreateTagPayload, createTagPayloadSchema } from "../schemas";
 // UUIDv7 id (no explicit id passed). Tag names are not unique by design: the
 // catalog is a free list and dedup is a UI concern (autocomplete from existing
 // tags). Editing is update-tag.write.ts; delete (with cascade) is delete-tag.write.ts.
-export function createCreateTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS): WriteHandlerDef {
+export function createCreateTagHandler(
+  access: AccessRule = DEFAULT_TAG_ACCESS,
+  name = "create-tag",
+): WriteHandlerDef {
   return {
-    name: "create-tag",
+    name,
     schema: createTagPayloadSchema,
     access,
     handler: async (event, ctx) => {
