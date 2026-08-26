@@ -673,8 +673,8 @@ function DefaultDataTable({
   // scrollen typischerweise mit dem Page-Container, nicht intern.
   // Sticky würde mit der Topbar konkurrieren.
   const hasTableActions = rowActions !== undefined && rowActions.length > 0;
-  const tableContent =
-    rows.length === 0 ? (
+  function tableInner(): ReactNode {
+    return rows.length === 0 ? (
       <div
         data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
         className="flex flex-col items-center justify-center rounded-md border border-dashed p-12 text-sm text-muted-foreground gap-3"
@@ -777,6 +777,8 @@ function DefaultDataTable({
         </Table>
       </div>
     );
+  }
+  const tableContent = tableInner();
 
   // Pager wird IMMER unter der Tabelle gerendert (auch bei rows=[]),
   // damit der User bei einem Filter-Hit-of-Zero zurückblättern kann
@@ -1708,7 +1710,6 @@ function DefaultForm({
 export type FormScreenShellWidth = FormWidth;
 
 const formScreenShellWidth: Record<FormScreenShellWidth, string> = {
-  sm: "max-w-sm mx-auto",
   "3xl": "max-w-3xl mx-auto",
   "4xl": "max-w-4xl mx-auto",
   full: "max-w-full",

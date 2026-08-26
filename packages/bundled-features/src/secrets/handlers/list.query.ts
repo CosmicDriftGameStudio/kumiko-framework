@@ -38,7 +38,3 @@ export function createListHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
     },
   });
 }
-
-// Backwards-compat: existing imports of `listQuery` keep working — identical
-// to createListHandler() with the default access.
-export const listQuery = createListHandler();
