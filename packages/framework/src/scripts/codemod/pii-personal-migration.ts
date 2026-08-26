@@ -204,15 +204,22 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
   }
 
   if (subjectProps.length > 1) {
-    report(
-      subjectProps[0]!.prop,
-      `multiple subject annotations on one field (${subjectProps.map((s) => s.name).join(", ")}) — needs a human decision on which subject is correct`,
-    );
+    const first = subjectProps[0];
+    if (first) {
+      report(
+        first.prop,
+        `multiple subject annotations on one field (${subjectProps.map((s) => s.name).join(", ")}) — needs a human decision on which subject is correct`,
+      );
+    }
     // skip: reported above — multiple subject annotations need a human call on which one wins
     return;
   }
 
-  const subject = subjectProps[0]!;
+  const subject = subjectProps[0];
+  if (!subject) {
+    // skip: length===0 and length>1 already returned — empty [0] is unreachable
+    return;
+  }
 
   if (NO_PERSONAL_FACTORIES.has(factoryName)) {
     report(
@@ -276,12 +283,13 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
       return;
     }
     const ownerFieldProp = findProp(init, "ownerField");
-    if (!ownerFieldProp?.getInitializer()) {
+    const ownerFieldInit = ownerFieldProp?.getInitializer();
+    if (!ownerFieldInit) {
       report(subject.prop, 'userOwned is missing an "ownerField" property');
       // skip: reported above — userOwned is missing its ownerField property
       return;
     }
-    personalInit = `{ of: ${ownerFieldProp.getInitializer()!.getText()} }`;
+    personalInit = `{ of: ${ownerFieldInit.getText()} }`;
   }
 
   const subjectIsRefOrPlaintext =
@@ -331,9 +339,9 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
   const hasSearchable = !!searchableProp;
   const hasSensitive = !!sensitiveProp;
 
-  if (hasSensitive && (hasLookupable || hasSearchable)) {
+  if (sensitiveProp && (hasLookupable || hasSearchable)) {
     report(
-      sensitiveProp!,
+      sensitiveProp,
       'sensitive combined with lookupable/searchable — two find values ("secret" vs "exact"/"fuzzy"), needs a human decision',
     );
     // skip: reported above — sensitive plus lookupable/searchable is an ambiguous find value
@@ -348,10 +356,13 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
   else find = "none";
 
   if (isLongTextFind && (find === "exact" || find === "fuzzy")) {
-    report(
-      (lookupableProp ?? searchableProp)!,
-      'lookupable/searchable on createLongTextField — only "none"/"secret" are valid find values on longText',
-    );
+    const findSite = lookupableProp ?? searchableProp;
+    if (findSite) {
+      report(
+        findSite,
+        'lookupable/searchable on createLongTextField — only "none"/"secret" are valid find values on longText',
+      );
+    }
     // skip: reported above — exact/fuzzy find isn't valid on createLongTextField
     return;
   }
@@ -381,7 +392,12 @@ function applyTransform(
   next: { personal: string; reason: string | undefined; find: string | undefined },
 ): void {
   const properties = obj.getProperties();
-  const anchor = removedProps[0]!;
+  // Call sites always pass at least subject.prop; without an anchor there is nowhere to insert.
+  const anchor = removedProps[0];
+  if (!anchor) {
+    // skip: no removed prop to anchor inserts on — nothing to transform
+    return;
+  }
   const anchorIndex = properties.indexOf(anchor);
   const removedSet = new Set<PropertyAssignment>(removedProps);
   let insertIndex = 0;
