@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.220.1
+
+### Patch Changes
+
+- 45abad1: member-roles-edit: SystemAdmin falls back to session tenantId (actionForm UI no longer 400s); row action prefills roles into the multiSelect.
+  - @cosmicdrift/kumiko-framework@0.220.1
+  - @cosmicdrift/kumiko-headless@0.220.1
+
 ## 0.220.0
 
 ### Minor Changes
