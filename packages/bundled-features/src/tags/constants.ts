@@ -25,9 +25,10 @@ export const TAGS_FILTER_EXTENSION_NAME = "TagFilter";
 // after mounting tagsClient() (which registers it under clientFeatures.columnRenderers).
 export const TAGS_COLUMN_RENDERER_NAME = "TagsCell";
 
-// Screen-id of the standalone Tags management screen (custom screen rendering
-// TagManager). Qualified = "tags:screen:tag-list"; the app places it via r.nav.
+// Screen-ids for the declarative tag catalog (entityList + entityEdit).
+// Qualified list = "tags:screen:tag-list"; the app places it via r.nav.
 export const TAGS_SCREEN_ID = "tag-list";
+export const TAGS_EDIT_SCREEN_ID = "tag-edit";
 
 // Qualified handler names (QN format: scope:type:name). Clients reference the
 // object instead of magic strings (mirror custom-fields' Handlers/Queries).

@@ -8,9 +8,12 @@ import { type UpdateTagPayload, updateTagPayloadSchema } from "../schemas";
 // the fields present in the payload go into `changes`, and the executor merges
 // shallowly, so any omitted field is preserved (color/scope accept "" to clear).
 // A stale version returns version_conflict; the UI refetches and retries.
-export function createUpdateTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS): WriteHandlerDef {
+export function createUpdateTagHandler(
+  access: AccessRule = DEFAULT_TAG_ACCESS,
+  name = "update-tag",
+): WriteHandlerDef {
   return {
-    name: "update-tag",
+    name,
     schema: updateTagPayloadSchema,
     access,
     handler: async (event, ctx) => {

@@ -16,9 +16,12 @@ const CASCADE_PAGE = 200;
 // hides isDeleted rows, so a keyset cursor over the shrinking result set would
 // silently skip rows. Re-reading the head always returns the remaining live
 // rows and terminates when none are left.
-export function createDeleteTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS): WriteHandlerDef {
+export function createDeleteTagHandler(
+  access: AccessRule = DEFAULT_TAG_ACCESS,
+  name = "delete-tag",
+): WriteHandlerDef {
   return {
-    name: "delete-tag",
+    name,
     schema: deleteTagPayloadSchema,
     access,
     handler: async (event, ctx) => {

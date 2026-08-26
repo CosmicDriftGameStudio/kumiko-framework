@@ -48,7 +48,7 @@ function rawQueryAccess(feature: ReturnType<typeof createTagsFeature>, nameMatch
 }
 
 describe("createTagsFeature shape", () => {
-  test("registers tag + tag-assignment entities, 5 write-handlers, 2 query-handlers", () => {
+  test("registers tag + tag-assignment entities, legacy + convention CRUD handlers", () => {
     const feature = createTagsFeature();
 
     expect(Object.keys(feature.entities ?? {})).toEqual(
@@ -62,17 +62,21 @@ describe("createTagsFeature shape", () => {
         expect.stringMatching(/delete-tag/),
         expect.stringMatching(/assign-tag/),
         expect.stringMatching(/remove-tag/),
+        "tag:create",
+        "tag:update",
+        "tag:delete",
       ]),
     );
-    expect(Object.keys(feature.writeHandlers)).toHaveLength(5);
+    expect(Object.keys(feature.writeHandlers)).toHaveLength(8);
 
     expect(Object.keys(feature.queryHandlers)).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/tag:list/),
         expect.stringMatching(/tag-assignment:list/),
+        "tag:detail",
       ]),
     );
-    expect(Object.keys(feature.queryHandlers)).toHaveLength(2);
+    expect(Object.keys(feature.queryHandlers)).toHaveLength(3);
   });
 });
 
@@ -102,10 +106,19 @@ describe("createTagsFeature access-options", () => {
 
   test("access:{openToAll} applies to every write- and query-path", () => {
     const feature = createTagsFeature({ access: { openToAll: true } });
-    for (const path of ["create-tag", "update-tag", "delete-tag", "assign-tag", "remove-tag"]) {
+    for (const path of [
+      "create-tag",
+      "update-tag",
+      "delete-tag",
+      "tag:create",
+      "tag:update",
+      "tag:delete",
+      "assign-tag",
+      "remove-tag",
+    ]) {
       expect(rawWriteAccess(feature, path)).toEqual({ openToAll: true });
     }
-    for (const query of ["tag:list", "tag-assignment:list"]) {
+    for (const query of ["tag:list", "tag:detail", "tag-assignment:list"]) {
       expect(rawQueryAccess(feature, query)).toEqual({ openToAll: true });
     }
   });
