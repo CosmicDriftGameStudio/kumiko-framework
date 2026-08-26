@@ -1570,8 +1570,8 @@ describe("KumikoScreen", () => {
     expect(writeCalls[0]?.payload).toEqual({ title: "New Task", priority: 1 });
   });
 
-  test("actionForm mit redirect: nach success → nav.navigate({screenId: redirect})", async () => {
-    const navigateCalls: { screenId: string }[] = [];
+  test("actionForm mit redirect: nach success → nav.navigate({screenId: redirect, entityId})", async () => {
+    const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
         isSuccess: true,
@@ -1613,11 +1613,13 @@ describe("KumikoScreen", () => {
     fireEvent.change(titleInput, { target: { value: "go" } });
     fireEvent.click(screen.getByTestId("render-edit-submit"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
-    expect(navigateCalls[0]).toEqual({ screenId: "task-list" });
+    // #2416: the handler returns a created id (`{ id: "x" }`) — it must land
+    // on the navigate as entityId, same as entityEdit-create.
+    expect(navigateCalls[0]).toEqual({ screenId: "task-list", entityId: "x" });
   });
 
   test("actionForm mit Cross-Feature-QN als redirect: navigiert per Short-Id (#1946)", async () => {
-    const navigateCalls: { screenId: string }[] = [];
+    const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
         isSuccess: true,
@@ -1659,7 +1661,59 @@ describe("KumikoScreen", () => {
     fireEvent.change(titleInput, { target: { value: "go" } });
     fireEvent.click(screen.getByTestId("render-edit-submit"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
-    expect(navigateCalls[0]).toEqual({ screenId: "statement-upload-list" });
+    expect(navigateCalls[0]).toEqual({ screenId: "statement-upload-list", entityId: "x" });
+  });
+
+  // #2416: entityEdit-create passes the newly created record's id through to
+  // the post-submit navigate as `entityId` (extractCreatedId); actionForm's
+  // redirect did the same navigate but never extracted the id. The with-id
+  // case is covered by the actionForm redirect success test above (now
+  // asserting entityId); this pins the back-compat guarantee.
+  test("actionForm mit redirect: Handler-Result ohne id → navigate ohne entityId-Key (Rückwärtskompatibilität, #2416)", async () => {
+    const navigateCalls: NavTarget[] = [];
+    const dispatcher = makeDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: {},
+      })) as unknown as Dispatcher["write"],
+    });
+    const memoryNav = {
+      route: { screenId: "quick-add" },
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
+      replace: () => undefined,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      redirect: "task-list",
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [actionScreen, listScreen] }}
+            qn="tasks:screen:quick-add"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "go" } });
+    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "task-list" });
+    expect(Object.hasOwn(navigateCalls[0] ?? {}, "entityId")).toBe(false);
   });
 
   // cancelTarget (Bug-Bash 2026-06-07, Bug 9): redirect erzeugte
