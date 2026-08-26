@@ -1,5 +1,10 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { FEATURE_TOGGLE_SET_EVENT_NAME, TOGGLE_ADMIN_SCREEN_ID } from "./constants";
+import {
+  FEATURE_TOGGLE_SET_EVENT_NAME,
+  FeatureToggleHandlers,
+  FeatureToggleQueries,
+  TOGGLE_ADMIN_SCREEN_ID,
+} from "./constants";
 import { featureToggleSetSchema } from "./events";
 import { globalFeatureStateTableMeta } from "./global-feature-state-table";
 import { listQuery } from "./handlers/list.query";
@@ -67,11 +72,26 @@ export function createFeatureTogglesFeature(
       registered: r.queryHandler(registeredQuery),
     };
 
-    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: TOGGLE_ADMIN_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "ToggleAdminScreen" } },
+      type: "projectionList",
+      query: FeatureToggleQueries.registered,
+      columns: [
+        { field: "name", label: "feature-toggles.admin.col.feature" },
+        { field: "defaultLabel", label: "feature-toggles.admin.col.default" },
+        { field: "overrideLabel", label: "feature-toggles.admin.col.override" },
+        { field: "effectiveLabel", label: "feature-toggles.admin.col.effective" },
+      ],
+      rowActions: [
+        {
+          kind: "writeHandler",
+          id: "toggle",
+          label: "feature-toggles.admin.toggle",
+          handler: FeatureToggleHandlers.set,
+          payload: { map: { featureName: "name", enabled: "nextEnabled" } },
+          visible: { field: "toggleable", eq: true },
+        },
+      ],
       access: { roles: ["SystemAdmin"] },
     });
     r.nav({

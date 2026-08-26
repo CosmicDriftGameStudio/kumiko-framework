@@ -568,7 +568,7 @@ describe("feature-toggles queries + audit automation", () => {
   test("registered query reports metadata + override + effective for every feature", async () => {
     runtime.apply("widget", false);
     const data = await stack.http.queryOk<{
-      items: Array<{
+      rows: Array<{
         name: string;
         toggleable: boolean;
         default: boolean | null;
@@ -577,7 +577,7 @@ describe("feature-toggles queries + audit automation", () => {
         effective: boolean | null;
       }>;
     }>("feature-toggles:query:registered", {}, admin);
-    const byName = new Map(data.items.map((i) => [i.name, i]));
+    const byName = new Map(data.rows.map((i) => [i.name, i]));
 
     expect(byName.get("widget")).toMatchObject({
       toggleable: true,

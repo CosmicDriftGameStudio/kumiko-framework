@@ -36,6 +36,7 @@ describe("feature-toggles access matrix", () => {
     ]);
     const feature = createFeatureTogglesFeature();
     const screen = feature.screens[TOGGLE_ADMIN_SCREEN_ID];
+    expect(screen?.type).toBe("projectionList");
     if (screen && "access" in screen && screen.access && "roles" in screen.access) {
       expect(screen.access.roles).toEqual(["SystemAdmin"]);
     }
@@ -49,12 +50,12 @@ describe("feature-toggles HTTP access", () => {
       { items?: readonly unknown[] } | { rows?: readonly unknown[] }
     >(FeatureToggleQueries.list, {}, admin);
     expect(typeof list).toBe("object");
-    const registered = await stack.http.queryOk<{ items: readonly unknown[] }>(
+    const registered = await stack.http.queryOk<{ rows: readonly unknown[] }>(
       FeatureToggleQueries.registered,
       {},
       admin,
     );
-    expect(Array.isArray(registered.items)).toBe(true);
+    expect(Array.isArray(registered.rows)).toBe(true);
   });
 
   test("TenantAdmin gets 403 on list, registered, and set", async () => {
