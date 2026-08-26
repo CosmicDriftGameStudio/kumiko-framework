@@ -63,7 +63,13 @@ export const updateMemberRolesWrite = defineWriteHandler({
 
     const isSystem =
       event.user.roles.includes("SystemAdmin") || event.user.roles.includes("system");
-    const targetTenantId = isSystem ? event.payload.tenantId : event.user.tenantId;
+    // SystemAdmin may pass payload.tenantId for cross-tenant ops; the members
+    // actionForm only sends userId+roles, so fall back to the active session
+    // tenant (same as TenantAdmin). Require one of the two — bare SystemAdmin
+    // with no tenant context still gets a clear validation error.
+    const targetTenantId = isSystem
+      ? (event.payload.tenantId ?? event.user.tenantId)
+      : event.user.tenantId;
     if (!targetTenantId) {
       return writeFailure(
         new ValidationError({
