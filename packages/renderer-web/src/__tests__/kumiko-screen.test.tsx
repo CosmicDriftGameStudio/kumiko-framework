@@ -1613,8 +1613,8 @@ describe("KumikoScreen", () => {
     fireEvent.change(titleInput, { target: { value: "go" } });
     fireEvent.click(screen.getByTestId("render-edit-submit"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
-    // #2416: der Handler liefert eine erzeugte Id (`{ id: "x" }`) — die muss
-    // wie bei entityEdit-create als entityId auf dem Navigate landen.
+    // #2416: the handler returns a created id (`{ id: "x" }`) — it must land
+    // on the navigate as entityId, same as entityEdit-create.
     expect(navigateCalls[0]).toEqual({ screenId: "task-list", entityId: "x" });
   });
 
