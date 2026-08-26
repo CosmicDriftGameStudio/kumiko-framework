@@ -1666,54 +1666,9 @@ describe("KumikoScreen", () => {
 
   // #2416: entityEdit-create passes the newly created record's id through to
   // the post-submit navigate as `entityId` (extractCreatedId); actionForm's
-  // redirect did the same navigate but never extracted the id. Both cases
-  // below pin the fix AND the back-compat guarantee in one place.
-  test("actionForm mit redirect: Handler-Result mit id → nav.navigate erhält entityId (#2416)", async () => {
-    const navigateCalls: NavTarget[] = [];
-    const dispatcher = makeDispatcher({
-      write: (async () => ({
-        isSuccess: true,
-        data: { id: "invite-1" },
-      })) as unknown as Dispatcher["write"],
-    });
-    const memoryNav = {
-      route: { screenId: "quick-add" },
-      navigate: (target: NavTarget) => {
-        if ("screenId" in target) navigateCalls.push(target);
-      },
-      replace: () => undefined,
-      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
-      searchParams: {},
-      setSearchParams: () => undefined,
-    };
-    const actionScreen: ActionFormScreenDefinition = {
-      id: "quick-add",
-      type: "actionForm",
-      handler: "tasks:write:task:quick-add",
-      fields: { title: { type: "text", required: true } },
-      layout: { sections: [{ title: "x", fields: ["title"] }] },
-      redirect: "task-list",
-    };
-
-    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
-    render(
-      <NavProvider value={memoryNav}>
-        <DispatcherProvider dispatcher={dispatcher}>
-          <KumikoScreen
-            schema={{ ...schema, screens: [actionScreen, listScreen] }}
-            qn="tasks:screen:quick-add"
-          />
-        </DispatcherProvider>
-      </NavProvider>,
-    );
-
-    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
-    fireEvent.change(titleInput, { target: { value: "go" } });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
-    await waitFor(() => expect(navigateCalls.length).toBe(1));
-    expect(navigateCalls[0]).toEqual({ screenId: "task-list", entityId: "invite-1" });
-  });
-
+  // redirect did the same navigate but never extracted the id. The with-id
+  // case is covered by "actionForm mit redirect: nach success → ..." above
+  // (now asserting entityId); this pins the back-compat guarantee.
   test("actionForm mit redirect: Handler-Result ohne id → navigate ohne entityId-Key (Rückwärtskompatibilität, #2416)", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
