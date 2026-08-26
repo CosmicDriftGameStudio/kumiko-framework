@@ -190,10 +190,12 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
       { customer: "TimeTraveler", status: "draft" },
       admin,
     );
-    // Capture the event timestamp from the events-table for a precise cutoff.
-    // A too-small offset risks clock granularity flakes — we rely on the
-    // millisecond-precision timestamp column.
-    const preApprove = new Date();
+    // Cutoff must come from the event row's created_at (Postgres now()), not
+    // host wall-clock — Docker clock skew made Date()-based cutoffs exclude
+    // the create event (fw#2425).
+    const beforeApprove = await loadAggregateRaw(stack.db, created.id, admin.tenantId);
+    expect(beforeApprove).toHaveLength(1);
+    const preApprove = beforeApprove[0]!.createdAt;
     // Make sure the next event's createdAt is strictly after the cutoff.
     await new Promise((r) => setTimeout(r, 10));
     await stack.http.writeOk(
@@ -210,10 +212,10 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
     );
     expect(now.approved).toBe(true);
 
-    // asOf preApprove: the approval is in the future, not yet visible.
+    // asOf create.createdAt: the approval is in the future, not yet visible.
     const past = await stack.http.queryOk<{ approved: boolean; status: string }>(
       "asoftest:query:invoice:state",
-      { id: created.id, asOf: preApprove.toISOString() },
+      { id: created.id, asOf: preApprove.toString() },
       admin,
     );
     expect(past.approved).toBe(false);
