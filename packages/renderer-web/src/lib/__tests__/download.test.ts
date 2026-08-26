@@ -56,6 +56,7 @@ describe("postWithDownload", () => {
   });
 
   test("passes the dispatcher error through when not successful", async () => {
+    tracked = trackAssignedUrl();
     const dispatcherError: DispatcherError = {
       code: "boom",
       httpStatus: 500,
@@ -65,6 +66,7 @@ describe("postWithDownload", () => {
     const dispatcher = stubDispatcher({ isSuccess: false, error: dispatcherError });
     const err = await postWithDownload(dispatcher, "files.signedUrl", {});
     expect(err).toEqual(dispatcherError);
+    expect(tracked.url()).toBeUndefined();
   });
 
   test("returns download_url_missing error when url is absent", async () => {

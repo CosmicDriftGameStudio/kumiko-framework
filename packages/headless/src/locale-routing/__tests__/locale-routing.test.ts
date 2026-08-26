@@ -218,4 +218,16 @@ describe("wrapUrlLocaleResolver", () => {
     expect(base.locale()).toBe("en");
     expect(wrapped.locale()).toBe("en");
   });
+
+  test("URL locale wins over sticky setLocale on a registered path", () => {
+    const base = staticBase("de");
+    const wrapped = wrapUrlLocaleResolver(base, {
+      resolvePage: (pathname) => moneyHorseRouter.resolvePage(pathname),
+      detectLang: (pathname) => moneyHorseRouter.detectLang(pathname),
+      pathname: () => "/en/features",
+    });
+    wrapped.setLocale?.("de");
+    expect(base.locale()).toBe("de");
+    expect(wrapped.locale()).toBe("en");
+  });
 });

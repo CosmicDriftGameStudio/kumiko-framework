@@ -74,7 +74,7 @@ describe("createRequestHelper via setupTestStack.http", () => {
   test("writeErr returns structured WriteErrorInfo with httpStatus", async () => {
     const err = await stack.http.writeErr("reqhelp:write:boom", {}, TestUsers.admin);
     expect(err.code).toBe("unprocessable");
-    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(err.httpStatus).toBe(422);
     expect(err.i18nKey).toBe("errors.unprocessable");
   });
 
@@ -122,5 +122,19 @@ describe("createRequestHelper via setupTestStack.http", () => {
     const body = (await res.json()) as { isSuccess?: boolean; data?: { note?: string } };
     expect(body.isSuccess).toBe(true);
     expect(body.data?.note).toBe("hdr");
+    expect(res.headers.get("X-Correlation-ID")).toBe("corr-42");
+  });
+
+  test("queryWithHeaders forwards extra headers alongside auth", async () => {
+    const res = await stack.http.queryWithHeaders(
+      "reqhelp:query:lookup",
+      { id: "abc" },
+      TestUsers.admin,
+      { "X-Correlation-ID": "corr-query" },
+    );
+    expect(res.ok).toBe(true);
+    expect(res.headers.get("X-Correlation-ID")).toBe("corr-query");
+    const body = (await res.json()) as { data?: { id?: string; ok?: boolean } };
+    expect(body.data).toEqual({ id: "abc", ok: true });
   });
 });

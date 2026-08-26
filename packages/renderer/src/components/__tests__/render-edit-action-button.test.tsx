@@ -117,6 +117,10 @@ describe("RenderEditActionButton", () => {
     expect(rtlScreen.queryByTestId("render-edit-action-delete-dialog-description")).toBeNull();
     expect(pressed).toBe(0);
 
+    expect(rtlScreen.getByTestId("render-edit-action-delete-dialog-confirm").textContent).toBe(
+      "Delete",
+    );
+
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-delete-dialog-confirm"));
     await waitFor(() => expect(pressed).toBe(1));
   });

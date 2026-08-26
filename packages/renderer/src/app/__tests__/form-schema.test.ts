@@ -138,6 +138,15 @@ describe("buildFormSchema", () => {
     expect(buildFormSchema(entity, screen).safeParse({ lines: undefined }).success).toBe(true);
   });
 
+  test("required embedded list field → issue when missing (has EmbeddedListField widget)", () => {
+    const entity = entityWith({
+      lines: { type: "embedded", multiple: true, required: true, schema: {} },
+    });
+    const screen = screenWith(["lines"]);
+    const result = buildFormSchema(entity, screen).safeParse({ lines: undefined });
+    expect(result.success).toBe(false);
+  });
+
   test("required files field → no issue (#1925: no multi-upload widget yet, deliberately deferred)", () => {
     const entity = entityWith({ attachments: { type: "files" } });
     const screen = screenWith([{ field: "attachments", required: true }]);

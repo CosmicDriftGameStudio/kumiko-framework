@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { DEFAULT_INVITE_ROLE_OPTIONS } from "@cosmicdrift/kumiko-bundled-features/tenant/constants";
 import { findForbiddenRoleAssignment } from "../role-assignment";
 
 describe("role assignment guard", () => {
@@ -43,5 +44,11 @@ describe("role assignment guard", () => {
     expect(findForbiddenRoleAssignment(["Admin"], ["User"], ["Billing", "User"])).toBeUndefined();
     // Still cannot assign the unranked role on the write path (fail-closed).
     expect(findForbiddenRoleAssignment(["TenantAdmin"], ["Billing"], ["Billing"])).toBe("Billing");
+  });
+
+  test("TenantAdmin can assign every default invite role", () => {
+    for (const role of DEFAULT_INVITE_ROLE_OPTIONS) {
+      expect(findForbiddenRoleAssignment(["TenantAdmin"], [role])).toBeUndefined();
+    }
   });
 });

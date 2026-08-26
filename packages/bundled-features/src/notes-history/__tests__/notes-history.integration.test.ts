@@ -109,7 +109,8 @@ describe("notes-history integration — add + list", () => {
     // Same guard as authorId above: addNotePayloadSchema doesn't accept an
     // authorName field, so a smuggled value never survives to the write —
     // the name (once stamped) can only come from the caller's own session.
-    expect(rows[0]?.["authorName"]).not.toBe("Fake Display Name");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["authorName"]).toBeNull();
   });
 
   test("multiple notes on the same entity accumulate — nothing overwrites", async () => {
