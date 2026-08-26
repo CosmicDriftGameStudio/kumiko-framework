@@ -385,14 +385,18 @@ export function mergeSearchParamsIntoInitial(
       if (raw.startsWith("[")) {
         try {
           const parsed: unknown = JSON.parse(raw);
-          merged[name] = Array.isArray(parsed)
-            ? parsed.map((v) => String(v))
-            : defaults[name];
+          merged[name] = Array.isArray(parsed) ? parsed.map((v) => String(v)) : defaults[name];
         } catch {
           merged[name] = defaults[name];
         }
       } else {
-        merged[name] = raw === "" ? [] : raw.split(",").map((s) => s.trim()).filter(Boolean);
+        merged[name] =
+          raw === ""
+            ? []
+            : raw
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean);
       }
     } else {
       merged[name] = raw;
@@ -1366,11 +1370,7 @@ function EntityListBody({
         const stringified: Record<string, string | null> = {};
         for (const [k, v] of Object.entries(params)) {
           stringified[k] =
-            v === null || v === undefined
-              ? null
-              : Array.isArray(v)
-                ? JSON.stringify(v)
-                : String(v);
+            v === null || v === undefined ? null : Array.isArray(v) ? JSON.stringify(v) : String(v);
         }
         nav.setSearchParams(stringified);
       }
@@ -1733,11 +1733,7 @@ function ProjectionListBody({
         const stringified: Record<string, string | null> = {};
         for (const [k, v] of Object.entries(params)) {
           stringified[k] =
-            v === null || v === undefined
-              ? null
-              : Array.isArray(v)
-                ? JSON.stringify(v)
-                : String(v);
+            v === null || v === undefined ? null : Array.isArray(v) ? JSON.stringify(v) : String(v);
         }
         nav.setSearchParams(stringified);
       }

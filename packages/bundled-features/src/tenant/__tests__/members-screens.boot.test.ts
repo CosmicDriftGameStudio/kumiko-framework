@@ -84,7 +84,11 @@ describe("tenant members screen + handler access alignment", () => {
     if (screen?.type !== "actionForm")
       throw new Error("expected member-roles-edit screen to be actionForm");
     expect(screen.handler).toBe(TenantHandlers.updateMemberRoles);
-    expect(screen.fields["userId"]).toEqual({ type: "text", required: true, readOnly: true });
+    expect(screen.fields["userId"]).toEqual({ type: "text", required: true });
+    expect(screen.layout.sections[0]?.fields).toEqual([
+      { field: "userId", readOnly: true },
+      "roles",
+    ]);
     expect(screen.fields["roles"]).toEqual({
       type: "multiSelect",
       options: DEFAULT_INVITE_ROLE_OPTIONS,

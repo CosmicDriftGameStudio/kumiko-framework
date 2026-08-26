@@ -168,12 +168,12 @@ export const memberRolesEditScreen = {
   type: "actionForm",
   handler: TenantHandlers.updateMemberRoles,
   fields: {
-    // Prefill from rowAction params; readOnly so the operator cannot retarget.
-    userId: { type: "text", required: true, readOnly: true },
+    userId: { type: "text", required: true },
     roles: { type: "multiSelect", options: DEFAULT_INVITE_ROLE_OPTIONS, required: true },
   },
   layout: {
-    sections: [{ fields: ["userId", "roles"] }],
+    // Prefill userId from rowAction; readOnly so the operator cannot retarget.
+    sections: [{ fields: [{ field: "userId", readOnly: true }, "roles"] }],
   },
   submitLabel: "tenant.members.roles.edit.submit",
   access: { roles: access.admin },

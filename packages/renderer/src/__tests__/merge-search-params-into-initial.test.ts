@@ -92,9 +92,7 @@ describe("mergeSearchParamsIntoInitial", () => {
   test("multiSelect coerces JSON-array searchParam to string[]", () => {
     const fields: Record<string, FieldDef> = { roles: { type: "multiSelect" } };
     expect(
-      mergeSearchParamsIntoInitial(fields, { roles: JSON.stringify(["Admin", "Editor"]) })[
-        "roles"
-      ],
+      mergeSearchParamsIntoInitial(fields, { roles: JSON.stringify(["Admin", "Editor"]) })["roles"],
     ).toEqual(["Admin", "Editor"]);
   });
 
