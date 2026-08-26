@@ -1620,13 +1620,9 @@ function DefaultForm({
     );
   }
 
-  // shadcn-Form-Muster: das Formular ist EINE Card — Titel als Card-Header
-  // OHNE Trennlinie darunter (Titel fließt in die erste Section). Sections
-  // sind divide-y-getrennt (Linien nur ZWISCHEN ihnen). Action-Footer mit
-  // bg-muted/30 als Farb-Trenner statt harter Linie. main hat kein Padding;
-  // der max-w-3xl-Body rahmt die Card, mx-auto zentriert ihn im Main statt
-  // linksbündig (sonst „eingesperrt" mit leerer rechter Hälfte auf breiten
-  // Screens).
+  // One card form: title as header (no divider under it), sections divided
+  // between each other, muted action footer. Shell width defaults to full
+  // (same chrome as lists); pass width to narrow (auth-adjacent / dense).
   return (
     <form
       onSubmit={(e) => {
@@ -1698,13 +1694,10 @@ function DefaultForm({
   );
 }
 
-// Kanonische Form/Settings-Shell: zentrierte Spalte mit Standard-Screen-
-// Padding. DefaultForm (configEdit/entityEdit) UND custom Settings-Screens
-// (url-settings, privacy-center) teilen sie → einheitliche Breite +
-// Zentrierung statt per-Screen-Wildwuchs. Breite über `maxWidth`-Intent statt
-// beliebiger max-w-*-Overrides: sm=schmale Auth-Forms, 3xl=Standard-Detail,
-// 4xl=tabellen-nahe Forms, full=volle Breite. Inhalt nutzt Card-Primitives;
-// `className` (z.B. "flex flex-col gap-6") für Multi-Card-Stacks.
+// Canonical form/settings shell shared by DefaultForm (configEdit/entityEdit)
+// and custom settings screens (profile, privacy-center). Default width matches
+// list chrome (full); override via maxWidth / layout.width when a screen
+// truly needs a narrow column (sm=auth-adjacent, 3xl/4xl=centered detail).
 export type FormScreenShellWidth = FormWidth;
 
 const formScreenShellWidth: Record<FormScreenShellWidth, string> = {
@@ -1718,7 +1711,7 @@ export function FormScreenShell({
   children,
   className,
   testId,
-  maxWidth = "3xl",
+  maxWidth = "full",
 }: {
   readonly children: ReactNode;
   readonly className?: string;

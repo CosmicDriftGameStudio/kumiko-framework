@@ -683,9 +683,8 @@ export type FormWidth = "sm" | "3xl" | "4xl" | "full";
 
 export type EditLayout = {
   readonly sections: readonly EditSectionSpec[];
-  /** Default "3xl". "full" for dense multi-column masks (many sections,
-   *  three-column fields) that would leave dead space on both sides in a
-   *  3xl column — see #1676. */
+  /** Default "full" (same content width as lists). Override to "sm" /
+   *  "3xl" / "4xl" only when a screen needs a narrower centered column. */
   readonly width?: FormWidth;
   /** Default "single". "wizard" renders one section per step (with
    *  progress + per-step validation) instead of all sections at once —

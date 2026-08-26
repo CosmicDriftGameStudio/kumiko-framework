@@ -699,9 +699,9 @@ export type FormProps = {
   readonly subtitle?: ReactNode;
   readonly actions?: ReactNode;
   readonly testId?: string;
-  /** Max width of the form container. Default "3xl" — see FormWidth
-   *  (`packages/types/src/screen.ts`, EditLayout.width, #1676). Native
-   *  impls may ignore this prop (no width constraint there). */
+  /** Max width of the form container. Default "full" — see FormWidth
+   *  (`packages/types/src/screen.ts`, EditLayout.width). Native impls may
+   *  ignore this prop (no width constraint there). */
   readonly width?: FormWidth;
   /** Pins `actions` to the viewport bottom on narrow screens (`<640px`)
    *  instead of normal document flow, so it stays reachable when a virtual
