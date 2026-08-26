@@ -2202,7 +2202,11 @@ function ActionFormBody({
       // Author entscheidet bewusst ob "stay on form" (default) oder
       // "back to list" (typisch bei Create-style Aktionen).
       if (screen.redirect !== undefined) {
-        nav.navigate({ screenId: lastSegment(screen.redirect) });
+        const entityId = extractCreatedId(result.data);
+        nav.navigate({
+          screenId: lastSegment(screen.redirect),
+          ...(entityId !== undefined && { entityId }),
+        });
       }
     },
     [nav, screen.redirect, onSuccess],
