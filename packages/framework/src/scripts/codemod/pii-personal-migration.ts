@@ -216,7 +216,10 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
   }
 
   const subject = subjectProps[0];
-  if (!subject) return;
+  if (!subject) {
+    // skip: length===0 and length>1 already returned — empty [0] is unreachable
+    return;
+  }
 
   if (NO_PERSONAL_FACTORIES.has(factoryName)) {
     report(
@@ -391,7 +394,10 @@ function applyTransform(
   const properties = obj.getProperties();
   // Call sites always pass at least subject.prop; without an anchor there is nowhere to insert.
   const anchor = removedProps[0];
-  if (!anchor) return;
+  if (!anchor) {
+    // skip: no removed prop to anchor inserts on — nothing to transform
+    return;
+  }
   const anchorIndex = properties.indexOf(anchor);
   const removedSet = new Set<PropertyAssignment>(removedProps);
   let insertIndex = 0;
