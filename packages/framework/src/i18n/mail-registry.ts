@@ -24,3 +24,13 @@ export function mailT(
   if (params === undefined) return raw;
   return raw.replace(/\{(\w+)\}/g, (_, name: string) => params[name] ?? `{${name}}`);
 }
+
+/** Locale key mailT would actually use (exact → root → en). Use for appUrl
+ *  path negotiation so the link language matches the rendered mail body. */
+export function resolveMailLocale(locale: string): string {
+  const root = locale.split("-")[0] ?? locale;
+  if (tables.has(locale)) return locale;
+  if (tables.has(root)) return root;
+  if (tables.has("en")) return "en";
+  return "en";
+}

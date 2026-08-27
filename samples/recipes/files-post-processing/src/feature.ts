@@ -69,7 +69,12 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
       // runtime data (e.g. a detected face box), which is exactly why this
       // can only be expressed imperatively, not in a static field def.
       blurRegion: z
-        .object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
+        .object({
+          x: z.number().nonnegative(),
+          y: z.number().nonnegative(),
+          width: z.number().positive(),
+          height: z.number().positive(),
+        })
         .optional(),
     }),
     async (event, ctx) => {
@@ -95,6 +100,8 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
     { access: { openToAll: true } },
   );
 
+  // A real app would gate this behind real roles; `openToAll` keeps the
+  // recipe's HTTP wiring to one line.
   r.writeHandler(
     "publish",
     z.object({ entityId: z.string() }),

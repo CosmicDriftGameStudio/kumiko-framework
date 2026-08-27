@@ -54,7 +54,7 @@ function resolveTargetTenantId(
 export const updateMemberRolesWrite = defineWriteHandler({
   name: "updateMemberRoles",
   schema: z.object({
-    userId: z.string(),
+    userId: z.string().min(1),
     tenantId: z.string().optional(),
     roles: z.array(z.string()).min(1),
   }),

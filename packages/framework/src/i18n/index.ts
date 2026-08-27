@@ -1,7 +1,13 @@
 import type { Registry, TranslationKeys } from "../engine/types";
 
-export { hasMailTranslations, mailT, registerMailTranslations } from "./mail-registry";
 export {
+  hasMailTranslations,
+  mailT,
+  registerMailTranslations,
+  resolveMailLocale,
+} from "./mail-registry";
+export {
+  canonicalizeLocaleTag,
   DEFAULT_LOCALE,
   isValidLocaleTag,
   pickAcceptLanguage,

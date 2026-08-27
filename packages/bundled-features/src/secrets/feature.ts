@@ -96,14 +96,21 @@ export type SecretsFeatureOptions = {
    *  user manage secrets — note this is a much larger blast radius than the
    *  default: tenant credentials (API keys, tokens) become writable/deletable,
    *  and their previews/hints listable, by every tenant member, not just
-   *  admins. Takes precedence over `roles`. The `rotate` job is unaffected —
+   *  admins. Mutually exclusive with `roles`. The `rotate` job is unaffected —
    *  it's a manual, cross-tenant ops path, not per-tenant RBAC. */
   readonly access?: AccessRule;
-  /** Shorthand for { access: { roles } }. Ignored when `access` is set. */
+  /** Shorthand for { access: { roles } }. Mutually exclusive with `access`. */
   readonly roles?: readonly string[];
 };
 
 function resolveSecretsAccess(opts: SecretsFeatureOptions): AccessRule {
+  if (opts.access !== undefined && opts.roles !== undefined) {
+    throw new InternalError({
+      message:
+        "createSecretsFeature: pass either `access` or `roles`, not both — " +
+        "`access` previously silently discarded `roles`, which looks like a refinement.",
+    });
+  }
   if (opts.access !== undefined) return opts.access;
   if (opts.roles !== undefined) return { roles: opts.roles };
   return DEFAULT_SECRETS_ACCESS;

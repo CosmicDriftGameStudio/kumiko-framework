@@ -294,7 +294,7 @@ describe("access-invalidation event consumer", () => {
       {
         id: userId,
         version: detail["version"],
-        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+        changes: { roles: ["SystemAdmin"] },
       },
       admin,
     );

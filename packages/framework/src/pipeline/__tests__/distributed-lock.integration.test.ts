@@ -90,6 +90,18 @@ describe("distributed lock", () => {
     expect(await lock.acquire("test-lock-7")).not.toBeNull();
   });
 
+  test("renew with ttlSeconds 0 does not drop the lock", async () => {
+    const lock = createDistributedLock(testRedis.redis);
+    const token = await lock.acquire("test-lock-ttl0", { ttlSeconds: 5 });
+    if (!token) throw new Error("expected token");
+    const renewed = await lock.renew("test-lock-ttl0", token, 0);
+    expect(renewed).toBe(false);
+    // Original lock still held — a peer acquire must fail.
+    const peer = await lock.acquire("test-lock-ttl0", { ttlSeconds: 5 });
+    expect(peer).toBeNull();
+    await lock.release("test-lock-ttl0", token);
+  });
+
   test("renew on an expired/absent key fails", async () => {
     const lock = createDistributedLock(testRedis.redis);
     const renewed = await lock.renew("test-lock-8-never-acquired", "some-token", 5);

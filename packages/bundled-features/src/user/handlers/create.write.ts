@@ -11,10 +11,12 @@ import {
   type WriteErrorInfo,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { UserErrors } from "../constants";
+import { rolesInputSchema } from "../roles-input-schema";
 import { userEntity, userTable } from "../schema/user";
 
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
@@ -37,12 +39,11 @@ export const createWrite = defineWriteHandler({
     email: z.email(),
     passwordHash: z.string().optional(),
     displayName: z.string().min(1).max(100),
-    locale: z.string().min(2).max(10).optional(),
+    locale: z.string().min(2).max(10).refine(isValidLocaleTag, "invalid locale tag").optional(),
     timezone: z.string().max(64).refine(isValidIanaTimeZone, "invalid IANA time zone").optional(),
-    // Global roles — multiSelect jsonb string[]. Optional (entity default []).
     // Field-level write access (privileged) is defense-in-depth — create is
     // already system/SystemAdmin-only.
-    roles: z.union([z.string(), z.array(z.string())]).optional(),
+    roles: rolesInputSchema.optional(),
   }),
   access: { roles: ["system", "SystemAdmin"] },
   handler: async (event, ctx) => {
@@ -70,7 +71,7 @@ export const createWrite = defineWriteHandler({
     let createPayload = event.payload;
     if (event.payload.roles !== undefined) {
       const newRoles = parseRoles(event.payload.roles);
-      const forbidden = findForbiddenRoleAssignment(event.user.roles, newRoles);
+      const forbidden = findForbiddenRoleAssignment(event.user.roles, newRoles, []);
       if (forbidden !== undefined) {
         return writeFailure(
           new AccessDeniedError({

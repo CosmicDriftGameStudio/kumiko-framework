@@ -18,6 +18,14 @@ export function isValidLocaleTag(value: string): boolean {
   return value.length <= MAX_LOCALE_TAG_LENGTH && LOCALE_TAG_RE.test(value);
 }
 
+/** BCP-47 is case-insensitive; canonicalize the primary subtag to lowercase
+ *  so registry lookups (`mailT`, `hasMailTranslations`) hit registered keys. */
+export function canonicalizeLocaleTag(tag: string): string {
+  const dash = tag.indexOf("-");
+  if (dash === -1) return tag.toLowerCase();
+  return `${tag.slice(0, dash).toLowerCase()}${tag.slice(dash)}`;
+}
+
 type AcceptLanguageCandidate = { readonly tag: string; readonly q: number; readonly index: number };
 
 /**
@@ -57,7 +65,8 @@ export function resolveHeaderLocale(options: {
   readonly acceptLanguage?: string;
 }): string | undefined {
   if (options.headerLocale !== undefined && isValidLocaleTag(options.headerLocale)) {
-    return options.headerLocale;
+    return canonicalizeLocaleTag(options.headerLocale);
   }
-  return pickAcceptLanguage(options.acceptLanguage);
+  const picked = pickAcceptLanguage(options.acceptLanguage);
+  return picked !== undefined ? canonicalizeLocaleTag(picked) : undefined;
 }

@@ -6,6 +6,15 @@ describe("sessionLocaleField", () => {
     expect(sessionLocaleField("de-DE")).toEqual({ locale: "de-DE" });
   });
 
+  test("canonicalizes primary subtag", () => {
+    expect(sessionLocaleField("DE")).toEqual({ locale: "de" });
+    expect(sessionLocaleField("DE-at")).toEqual({ locale: "de-at" });
+  });
+
+  test("rejects malformed locale tags", () => {
+    expect(sessionLocaleField('"><img sr')).toEqual({});
+  });
+
   test("null locale → empty object", () => {
     expect(sessionLocaleField(null)).toEqual({});
   });

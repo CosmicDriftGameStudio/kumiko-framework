@@ -103,9 +103,11 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
         return writeFailure(reservedMembershipRoleError(forbiddenRole));
       }
 
-      const elevationForbidden = findForbiddenRoleAssignment(event.user.roles, [
-        event.payload.role,
-      ]);
+      const elevationForbidden = findForbiddenRoleAssignment(
+        event.user.roles,
+        [event.payload.role],
+        [],
+      );
       if (elevationForbidden !== undefined) {
         return writeFailure(unassignableMembershipRoleError(elevationForbidden));
       }

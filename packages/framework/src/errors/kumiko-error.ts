@@ -19,10 +19,10 @@ export type ErrorCtorInput = {
   readonly cause?: Error;
 };
 
-// Default-Doku-URL für Self-Service-Errors. Kann via env-var
-// `KUMIKO_DOCS_URL` überschrieben werden — z.B. für Self-Hosted-Kunden
-// die ihre eigene Doku-Instanz hosten.
+// Default docs URL for self-service errors. Override via `KUMIKO_DOCS_URL`
+// (e.g. self-hosted customers pointing at their own docs instance).
 const DEFAULT_DOCS_BASE_URL = "https://docs.kumiko.rocks";
+const REASON_SLUG_RE = /^[a-z0-9_.-]+$/;
 
 function docsBaseUrl(): string {
   return process.env["KUMIKO_DOCS_URL"] ?? DEFAULT_DOCS_BASE_URL;
@@ -43,20 +43,20 @@ export abstract class KumikoError extends Error {
     this.details = input.details;
   }
 
-  // Doku-URL für Self-Service. Pro-Reason-Slug aus `details.reason` wenn
-  // vorhanden (z.B. ConflictError → "stale_state"), sonst Fallback auf
-  // den Error-Code (z.B. "not_found", "validation_error"). Default-Renderer
-  // im Client zeigt "Mehr erfahren →" Link auf diese URL.
+  // Docs URL for self-service. Prefer a well-formed `details.reason` slug
+  // (e.g. ConflictError → "stale_state"); otherwise fall back to the error
+  // code. Encode the path segment so spaces/`../` in free-form reasons
+  // cannot break or redirect the link the default renderer shows.
   get docsUrl(): string {
-    return `${docsBaseUrl()}/errors/${this.reasonSlug}`;
+    return `${docsBaseUrl()}/errors/${encodeURIComponent(this.reasonSlug)}`;
   }
 
   private get reasonSlug(): string {
     if (this.details && typeof this.details === "object") {
-      // @cast-boundary error-details — KumikoError.details ist per-error
-      // typed, hier reines reflection-shape für reasonSlug-Lookup.
+      // @cast-boundary error-details — per-error typed details; reflection
+      // shape only for the reasonSlug lookup.
       const r = (this.details as Record<string, unknown>)["reason"];
-      if (typeof r === "string") return r;
+      if (typeof r === "string" && REASON_SLUG_RE.test(r)) return r;
     }
     return this.code;
   }

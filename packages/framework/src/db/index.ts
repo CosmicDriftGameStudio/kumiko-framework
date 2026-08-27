@@ -76,6 +76,7 @@ export {
 } from "./feature-table-sources";
 export { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp";
 export {
+  assertValidMigrationName,
   diffSnapshots,
   type GenerateMigrationInput,
   type GenerateMigrationOutput,

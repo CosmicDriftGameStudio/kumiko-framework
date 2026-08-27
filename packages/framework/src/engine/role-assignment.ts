@@ -31,7 +31,9 @@ function knownRoleRank(role: string): number | undefined {
 export function findForbiddenRoleAssignment(
   actorRoles: readonly string[],
   assignedRoles: readonly string[],
-  targetCurrentRoles: readonly string[] = [],
+  // Required so callers cannot accidentally disable the downgrade/
+  // takeover guard by omitting the third argument (new users: pass []).
+  targetCurrentRoles: readonly string[],
 ): string | undefined {
   const actorRank = maxRoleRank(actorRoles);
   // Assign path: fail-closed on unknown / above-actor roles.

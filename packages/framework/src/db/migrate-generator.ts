@@ -415,7 +415,21 @@ export type GenerateMigrationOutput = {
   readonly diff: SchemaDiff;
 };
 
+// Shared allowlist for migration names — used by the CLI and by
+// generateMigration so a programmatic caller cannot skip the check and
+// smuggle path segments / newlines into the filename or SQL header.
+export const MIGRATION_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+
+export function assertValidMigrationName(name: string): void {
+  if (!MIGRATION_NAME_RE.test(name)) {
+    throw new Error(
+      `Invalid migration name "${name}" — must start with a letter or digit, then letters/digits/"-"/"_" only (max 64 chars).`,
+    );
+  }
+}
+
 export function generateMigration(input: GenerateMigrationInput): GenerateMigrationOutput {
+  assertValidMigrationName(input.name);
   const nextSnapshot = snapshotFromMetas(input.metas);
   const diff = diffSnapshots(input.prevSnapshot, nextSnapshot);
   const sqlContent = renderMigrationSql(diff, {

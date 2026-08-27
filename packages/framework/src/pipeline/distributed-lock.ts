@@ -50,6 +50,9 @@ export function createDistributedLock(
     },
 
     async renew(key, token, ttlSeconds) {
+      // EXPIRE with 0/negative deletes the key but still returns 1 — reject
+      // before we claim ownership while releasing the lock.
+      if (!Number.isInteger(ttlSeconds) || ttlSeconds < 1) return false;
       const result = (await redis.eval(
         renewScript,
         1,
