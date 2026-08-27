@@ -60,6 +60,7 @@ async function releaseRowFileRefs(
     log?.warn?.(
       `[form-draft:cleanup] tenant=${row.tenantId} has ${keys.length} FileRef(s) but no _fileProviderResolver is wired — row will be deleted without releasing storage`,
     );
+    // skip: no provider wired — cannot release storage; row deletion proceeds anyway.
     return;
   }
 
