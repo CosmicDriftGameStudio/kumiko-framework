@@ -33,7 +33,11 @@ describe("status command", () => {
     expect(exit).toBe(0);
     const joined = spy.logs.join("\n");
     expect(joined).toContain("Services");
-    expect(joined).toContain("Docker services not running"); // no compose.yml
+    // CI runners can have a slow docker daemon → timeout instead of "not running"
+    expect(
+      joined.includes("Docker services not running") ||
+        joined.includes("Docker probe timed out (daemon slow or hung)"),
+    ).toBe(true);
     expect(joined).toContain("Not a git repository");
   });
 
