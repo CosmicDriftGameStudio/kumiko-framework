@@ -329,6 +329,7 @@ function markerVersionForPending(
 // failure — no partial marker. Writes the marker whenever dryRun is false —
 // even with zero pending entries, so an already-current app still gets a
 // bootstrap marker recording its installed version (fw#2299).
+// kumiko-lint-ignore complexity-budget sequential codemod runner with zero-pending bootstrap marker
 async function applyCodemods(
   out: UpgradeCliOut,
   pending: readonly ChangelogEntry[],

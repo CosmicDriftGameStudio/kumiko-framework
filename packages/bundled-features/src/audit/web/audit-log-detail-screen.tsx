@@ -1,7 +1,6 @@
 // @runtime client
 // Single audit event detail. Route entityId = event-store id (bigint string).
 
-import { ANONYMOUS_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   formatWhen,
   useDispatcher,
@@ -12,7 +11,7 @@ import {
 import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { TenantQueries } from "../../tenant/constants";
-import { AuditQueries, SYSTEM_ACTOR_ID } from "../constants";
+import { ANONYMOUS_USER_ID, AuditQueries, SYSTEM_ACTOR_ID } from "../constants";
 
 type AuditDetail = {
   readonly id: string;

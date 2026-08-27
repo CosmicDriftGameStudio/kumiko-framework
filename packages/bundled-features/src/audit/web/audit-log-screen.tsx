@@ -2,7 +2,6 @@
 // Paginated tenant-scoped audit log (event store). Rows link to the
 // audit-log-detail screen; the screen title lives in the shell breadcrumb.
 
-import { ANONYMOUS_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type DataTableSort,
   formatWhen,
@@ -15,7 +14,7 @@ import {
 import { Filter, RotateCcw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { TenantQueries } from "../../tenant/constants";
-import { AUDIT_LOG_DETAIL_SCREEN_ID, AuditQueries, SYSTEM_ACTOR_ID } from "../constants";
+import { AUDIT_LOG_DETAIL_SCREEN_ID, ANONYMOUS_USER_ID, AuditQueries, SYSTEM_ACTOR_ID } from "../constants";
 
 type AuditRow = {
   readonly id: string;
@@ -82,6 +81,7 @@ export function AuditLogScreen(): ReactNode {
 
   // Tenant/dispatcher identity can change without remounting — drop the cache.
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset is keyed on dispatcher identity, not a read inside the effect
+  // kumiko-lint-ignore no-raw-hooks dispatcher-identity cache bust (not data fetching)
   useEffect(() => {
     membersRef.current = null;
   }, [dispatcher]);
