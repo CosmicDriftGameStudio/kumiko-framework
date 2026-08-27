@@ -230,6 +230,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "We've sent you an activation link. Click it to set your password and sign in.",
   "auth.signup.successTitle": "Email sent",
   "auth.signup.title": "Create account",
+  "auth.signupComplete.activatedTitle": "Account activated",
   "auth.signupComplete.activated": "Your account is active and you're signed in.",
   "auth.signupComplete.confirmPassword": "Confirm password",
   "auth.signupComplete.continue": "Continue",

@@ -43,6 +43,19 @@ acknowledgement or a delivery-attempt record. It is not a replacement for
 `r.systemScope()` handler it is fail-closed exactly like `ctx.db` — reach for
 `ctx.systemDb.outsideTransaction` instead (see below).
 
+Hard constraints when using `ctx.dbOutsideTransaction`:
+
+- **No overlapping locks.** Outside-tx writes must only touch tables/rows the
+  open handler transaction does **not** lock (typically append-only log tables).
+  Writing the same entity/stream the handler tx already touched deadlocks until
+  statement timeout — the pool connection waits on a lock only the waiting tx
+  can release.
+- **Pool capacity.** Each outside-tx acquire holds a second connection while the
+  handler tx still holds its first. Under load (every pool slot in open handler
+  txs) outside-tx acquires block until acquire timeout. Size the pool for
+  concurrent (handler + outside) pairs, or keep outside-tx use rare.
+
+
 ## `r.systemScope()` handlers self-check through `ctx.systemDb`
 
 `r.systemScope()` switches a feature's `TenantDbMode` from `"tenant"` to

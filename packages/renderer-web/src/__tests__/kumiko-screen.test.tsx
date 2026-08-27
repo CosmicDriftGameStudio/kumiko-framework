@@ -1570,7 +1570,7 @@ describe("KumikoScreen", () => {
     expect(writeCalls[0]?.payload).toEqual({ title: "New Task", priority: 1 });
   });
 
-  test("actionForm mit redirect: nach success → nav.navigate({screenId: redirect, entityId})", async () => {
+  test("actionForm mit redirect auf entityList: nach success → navigate ohne entityId (#2419)", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -1613,9 +1613,9 @@ describe("KumikoScreen", () => {
     fireEvent.change(titleInput, { target: { value: "go" } });
     fireEvent.click(screen.getByTestId("render-edit-submit"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
-    // #2416: the handler returns a created id (`{ id: "x" }`) — it must land
-    // on the navigate as entityId, same as entityEdit-create.
-    expect(navigateCalls[0]).toEqual({ screenId: "task-list", entityId: "x" });
+    // #2419: entityList targets ignore entityId — do not attach a handler id.
+    expect(navigateCalls[0]).toEqual({ screenId: "task-list" });
+    expect(Object.hasOwn(navigateCalls[0] ?? {}, "entityId")).toBe(false);
   });
 
   test("actionForm mit Cross-Feature-QN als redirect: navigiert per Short-Id (#1946)", async () => {
@@ -1661,7 +1661,62 @@ describe("KumikoScreen", () => {
     fireEvent.change(titleInput, { target: { value: "go" } });
     fireEvent.click(screen.getByTestId("render-edit-submit"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
-    expect(navigateCalls[0]).toEqual({ screenId: "statement-upload-list", entityId: "x" });
+    // Cross-feature QN is not in this feature's schema.screens — keep prior
+    // behavior without entityId (#2419).
+    expect(navigateCalls[0]).toEqual({ screenId: "statement-upload-list" });
+    expect(Object.hasOwn(navigateCalls[0] ?? {}, "entityId")).toBe(false);
+  });
+
+  test("actionForm mit redirect auf entityEdit: hängt entityId an (#2419)", async () => {
+    const navigateCalls: NavTarget[] = [];
+    const dispatcher = makeDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "x" },
+      })) as unknown as Dispatcher["write"],
+    });
+    const memoryNav = {
+      route: { screenId: "quick-add" },
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
+      replace: () => undefined,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const editScreen: EntityEditScreenDefinition = {
+      id: "task-edit",
+      type: "entityEdit",
+      entity: "task",
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+    };
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      redirect: "task-edit",
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [actionScreen, editScreen, listScreen] }}
+            qn="tasks:screen:quick-add"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "go" } });
+    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "x" });
   });
 
   // #2416: entityEdit-create passes the newly created record's id through to
