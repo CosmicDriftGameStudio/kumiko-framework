@@ -48,8 +48,16 @@ export function run(
     child.on("exit", (code) => settle(code ?? 0));
     if (opts?.timeoutMs) {
       timer = setTimeout(() => {
-        if (child.exitCode === null) {
+        if (child.exitCode === null && child.signalCode === null) {
           child.kill("SIGTERM");
+          child.stdout?.destroy();
+          child.stderr?.destroy();
+          const killTimer = setTimeout(() => {
+            if (child.exitCode === null && child.signalCode === null) {
+              child.kill("SIGKILL");
+            }
+          }, 500);
+          killTimer.unref();
           settle(-1);
         }
       }, opts.timeoutMs);

@@ -215,7 +215,6 @@ export function renderDemoTasksIndex(): string {
 
 export function renderDemoSeedFile(): string {
   return `// Demo seed — a few tasks so \`bun dev\` shows a non-empty list.
-// Idempotent: skips when the tenant already has tasks (persistent dev DB).
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";

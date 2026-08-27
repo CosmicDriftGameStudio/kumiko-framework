@@ -225,13 +225,12 @@ export function resolveFieldDefinitionListRoles(
   if (opts.valueWriteRoles === undefined && opts.fieldDefinitionWriteRoles === undefined) {
     return DEFAULT_FIELD_DEFINITION_LIST_ROLES;
   }
-  return [
-    ...new Set([
-      ...(opts.valueWriteRoles ?? []),
-      ...(opts.fieldDefinitionWriteRoles ?? []),
-      ...DEFAULT_FIELD_DEFINITION_LIST_ROLES,
-    ]),
-  ];
+  // Write-roles override replaces the default role vocab — don't keep unioning
+  // TenantAdmin onto list when the app opted into its own write roles.
+  if (opts.fieldDefinitionWriteRoles !== undefined) {
+    return [...new Set([...(opts.valueWriteRoles ?? []), ...opts.fieldDefinitionWriteRoles])];
+  }
+  return [...new Set([...(opts.valueWriteRoles ?? []), ...DEFAULT_FIELD_DEFINITION_LIST_ROLES])];
 }
 
 // Backwards-compat-wrapper. Bestehende Caller (z.B. integration-tests,

@@ -100,7 +100,7 @@ describe("SignupCompleteScreen", () => {
 
       // Continue button targets exactly what resolveLoggedInHref computes from
       // the response's tenantKey, via the app-supplied function-form prop.
-      const continueLink = screen.getByRole("link", { name: "Continue" }) as HTMLAnchorElement;
+      const continueLink = screen.getByRole("link", { name: "Continue" });
       expect(continueLink.getAttribute("href")).toBe("/acme/");
     } finally {
       window.location.assign = assignOrig;

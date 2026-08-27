@@ -44,7 +44,7 @@ describe("mapWithConcurrency", () => {
   // `mapWithConcurrency` call already settled on the first one.
   test("a second rejection after the first doesn't surface as an unhandled rejection", async () => {
     const unhandled: unknown[] = [];
-    const onUnhandledRejection = (reason: unknown): void => {
+    const onUnhandledRejection = (reason: unknown, _promise: Promise<unknown>): void => {
       unhandled.push(reason);
     };
     process.on("unhandledRejection", onUnhandledRejection);
@@ -68,7 +68,7 @@ describe("mapWithConcurrency", () => {
       // for a real unhandled rejection (if any) to fire.
       await new Promise((resolve) => setTimeout(resolve, 50));
     } finally {
-      process.off("unhandledRejection" as never, onUnhandledRejection);
+      process.off("unhandledRejection", onUnhandledRejection);
     }
     expect(unhandled).toEqual([]);
   });

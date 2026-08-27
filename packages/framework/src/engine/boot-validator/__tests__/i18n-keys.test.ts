@@ -17,7 +17,7 @@ const configHub = defineFeature("config", (r) => {
     keys: {
       "config.settings.title": { en: "Settings" },
       "config.settings.system": { en: "Platform" },
-      "config.settings.tenant": { en: "Organization" },
+      "config.settings.tenant": { en: "Tenant" },
       "config.settings.user": { en: "Personal" },
     },
   });

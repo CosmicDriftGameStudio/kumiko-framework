@@ -664,7 +664,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "screen:session-detail.title": "Sitzung",
   "screen:session-list.title": "Sitzungen",
   "screen:tag-list.title": "Tags",
-  "screen:tenant-edit.title": "Mandanten bearbeiten",
+  "screen:tenant-edit.title": "Mandant bearbeiten",
   "screen:tenant-list.title": "Mandanten",
   "screen:tenant-overview.title": "Übersicht",
   "screen:tier-admin.title": "Tier manuell zuweisen",

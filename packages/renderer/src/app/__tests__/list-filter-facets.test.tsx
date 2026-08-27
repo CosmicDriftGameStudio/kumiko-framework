@@ -329,9 +329,12 @@ describe("projectionList filter + facets (fw#2224)", () => {
     const props = getCapturedProps();
     if (props === undefined) throw new Error("DataTable was not rendered");
     const facet = props.filterFacets?.[0];
-    expect(facet?.label).not.toBe("kumiko.actions.save");
-    expect(facet?.options?.[0]?.label).not.toBe("kumiko.actions.cancel");
-    expect(typeof facet?.label).toBe("string");
-    expect(facet?.label.length).toBeGreaterThan(0);
+    const de = kumikoDefaultTranslations["de"];
+    const en = kumikoDefaultTranslations["en"];
+    if (en === undefined) throw new Error("missing en default translations");
+    const save = de?.["kumiko.actions.save"] ?? en["kumiko.actions.save"];
+    const cancel = de?.["kumiko.actions.cancel"] ?? en["kumiko.actions.cancel"];
+    expect(facet?.label).toBe(save);
+    expect(facet?.options?.[0]?.label).toBe(cancel);
   });
 });

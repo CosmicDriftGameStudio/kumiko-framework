@@ -233,6 +233,17 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
           console.warn(
             `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.strategy="blockDelete" but no field has an anonymize-function. User-Forget cannot anonymize — Forget will return error. Add { anonymize: () => null } or () => "[ANONYMIZED]" to PII fields.`,
           );
+        } else if (!entityHasAnonymizableSubjectField) {
+          const hasSubjectRef = Object.values(fieldsByName).some((f) => {
+            const a = f as ResolvedPiiFlags; // @cast-boundary schema-walk
+            return Boolean(a.subjectRef);
+          });
+          if (hasSubjectRef) {
+            // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+            console.warn(
+              `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.strategy="blockDelete" with subjectRef-only PII relies on the EXT_USER_DATA delete hook for Art.17 — make sure it is not a no-op.`,
+            );
+          }
         }
       }
     }

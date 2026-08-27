@@ -178,7 +178,8 @@ export function computeEditViewModel<
           : undefined;
       // file/image: accept/maxSize ins ViewModel + entityType/fieldName für
       // den Upload-POST (Endpoint validiert gegen die richtige Field-Def).
-      const isFileType = fieldDef.type === "file" || fieldDef.type === "image";
+      const isFileType =
+        fieldDef.type === "file" || fieldDef.type === "image" || fieldDef.type === "images";
       // ponytail: "EUR" mirrors DEFAULT_CURRENCIES[0] from
       // framework/src/engine/field-helpers.ts — headless has no dependency
       // on that module, so the literal is duplicated here instead of
@@ -193,7 +194,9 @@ export function computeEditViewModel<
           })
         : undefined;
       const imageVariant =
-        fieldDef.type === "image" ? Object.keys(fileDef?.variants ?? {})[0] : undefined;
+        fieldDef.type === "image" || fieldDef.type === "images"
+          ? Object.keys(fileDef?.variants ?? {})[0]
+          : undefined;
       const capture = fieldDef.type === "image" ? fileDef?.capture : undefined;
       // Embedded-LIST field (`multiple: true`) — per-cell metadata for a
       // renderer to draw one row per array item (invoice-positions-style

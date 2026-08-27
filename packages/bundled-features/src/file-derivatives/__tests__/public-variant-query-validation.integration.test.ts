@@ -8,7 +8,7 @@
 // fetchOne(), throwing a Postgres 22P02 (malformed uuid literal) that
 // poisons the pooled Bun.SQL connection, an unauth DoS primitive.
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
@@ -21,8 +21,10 @@ import { createFileDerivativesFeature } from "../feature";
 import { PUBLIC_VARIANT_QN } from "../handlers/public-variant.query";
 
 describe("file-derivatives :: publicVariant query fileRefId validation", () => {
-  test("non-UUID fileRefId via /api/query → 400 validation_error, never reaches the DB", async () => {
-    const stack: TestStack = await setupTestStack({
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await setupTestStack({
       features: [
         createConfigFeature(),
         fileFoundationFeature,
@@ -32,44 +34,31 @@ describe("file-derivatives :: publicVariant query fileRefId validation", () => {
       anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
       files: { storageProvider: createInMemoryFileProvider() },
     });
+  });
 
-    try {
-      const res = await stack.http.raw("POST", "/api/query", {
-        type: PUBLIC_VARIANT_QN,
-        payload: { fileRefId: "not-a-uuid; DROP TABLE file_refs;--", variant: "thumb" },
-      });
+  afterAll(async () => {
+    await stack.cleanup();
+  });
 
-      expect(res.status).toBe(400);
-      const body = (await res.json()) as { error?: { code?: string } };
-      expect(body.error?.code).toBe("validation_error");
-    } finally {
-      await stack.cleanup();
-    }
+  test("non-UUID fileRefId via /api/query → 400 validation_error, never reaches the DB", async () => {
+    const res = await stack.http.raw("POST", "/api/query", {
+      type: PUBLIC_VARIANT_QN,
+      payload: { fileRefId: "not-a-uuid; DROP TABLE file_refs;--", variant: "thumb" },
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe("validation_error");
   });
 
   test("well-formed but unknown UUID fileRefId via /api/query → 200 with null (schema passes, DB lookup just finds nothing)", async () => {
-    const stack: TestStack = await setupTestStack({
-      features: [
-        createConfigFeature(),
-        fileFoundationFeature,
-        createFilesFeature(),
-        createFileDerivativesFeature({ resolveApexTenant: () => SYSTEM_TENANT_ID }),
-      ],
-      anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-      files: { storageProvider: createInMemoryFileProvider() },
+    const res = await stack.http.raw("POST", "/api/query", {
+      type: PUBLIC_VARIANT_QN,
+      payload: { fileRefId: "00000000-0000-4000-8000-000000000000", variant: "thumb" },
     });
 
-    try {
-      const res = await stack.http.raw("POST", "/api/query", {
-        type: PUBLIC_VARIANT_QN,
-        payload: { fileRefId: "00000000-0000-4000-8000-000000000000", variant: "thumb" },
-      });
-
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as { data: unknown };
-      expect(body.data).toBeNull();
-    } finally {
-      await stack.cleanup();
-    }
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: unknown };
+    expect(body.data).toBeNull();
   });
 });

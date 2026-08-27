@@ -40,8 +40,13 @@
 import { asRawClient } from "../../bun-db";
 import { quoteIdent } from "../../crypto/ciphertext-pattern";
 import { configuredEventPiiCatalog } from "../../crypto/event-pii";
-import type { KmsContext, LocalKeyKmsAdapter, SubjectId } from "../../crypto/kms-adapter";
-import { KeyErasedError, KeyNotFoundError } from "../../crypto/kms-adapter";
+import {
+  isLocalKeyKmsAdapter,
+  KeyErasedError,
+  KeyNotFoundError,
+  type KmsContext,
+  type SubjectId,
+} from "../../crypto/kms-adapter";
 import {
   configuredPiiSubjectKms,
   encryptPiiValueForSubject,
@@ -117,6 +122,10 @@ export async function backfillEventPiiEncryption(
         "runProdApp({ kms }) / configurePiiSubjectKms(adapter) before running the backfill.",
     );
   }
+  if (!isLocalKeyKmsAdapter(kms)) {
+    throw new Error("backfillEventPiiEncryption requires a local-key KMS adapter");
+  }
+  const subjectKms = kms;
   const batchSize = options.batchSize ?? 500;
   const raw = asRawClient(db);
   const kmsCtx: KmsContext = { requestId: "pii-backfill" };
@@ -353,13 +362,7 @@ export async function backfillEventPiiEncryption(
       }
       if (options.dryRun) return predictEncryptOutcome(subject);
       try {
-        section[field] = await encryptPiiValueForSubject(
-          kms as LocalKeyKmsAdapter,
-          subject,
-          value,
-          kmsCtx,
-          field,
-        );
+        section[field] = await encryptPiiValueForSubject(subjectKms, subject, value, kmsCtx, field);
         return "encrypted";
       } catch (e) {
         if (e instanceof KeyErasedError) {
@@ -376,7 +379,7 @@ export async function backfillEventPiiEncryption(
     // writing to the subject-keys store.
     async function predictEncryptOutcome(subject: SubjectId): Promise<FieldOutcome> {
       try {
-        await (kms as LocalKeyKmsAdapter).getKey(subject, kmsCtx);
+        await subjectKms.getKey(subject, kmsCtx);
         return "encrypted";
       } catch (e) {
         if (e instanceof KeyErasedError) return "erased";

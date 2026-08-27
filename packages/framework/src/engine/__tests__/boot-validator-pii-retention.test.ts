@@ -700,7 +700,7 @@ describe("validateBoot — retention", () => {
     expect(matchingWarn).toBeUndefined();
   });
 
-  test("blockDelete with only a subjectRef-only field and no anonymize stays silent (#1645, narrowed by #2336)", () => {
+  test("blockDelete with only a subjectRef-only field warns about EXT_USER_DATA delete hook (#2338)", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(
         "lease",
@@ -715,10 +715,14 @@ describe("validateBoot — retention", () => {
       );
     });
     validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+    const anonymizeWarn = warnSpy.mock.calls.find((args: unknown[]) =>
       String(args[0]).includes('strategy="blockDelete" but no field has an anonymize-function'),
     );
-    expect(matchingWarn).toBeUndefined();
+    expect(anonymizeWarn).toBeUndefined();
+    const extWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes("EXT_USER_DATA delete hook for Art.17"),
+    );
+    expect(extWarn).toBeDefined();
   });
 
   test.each([

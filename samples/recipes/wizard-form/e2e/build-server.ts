@@ -29,7 +29,7 @@
 // the server must die hard instead of serving an empty stylesheet stub
 // and letting the layout assertions pass vacuously.
 
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
@@ -59,17 +59,21 @@ async function buildStylesheet(): Promise<string> {
     );
   }
   const outDir = mkdtempSync(join(tmpdir(), "wizard-form-e2e-tw-"));
-  const outPath = join(outDir, "styles.css");
-  const bunBin = process.argv[0] ?? "bun";
-  const build = Bun.spawnSync([bunBin, "run", cliPath, "-i", entryCss, "-o", outPath], {
-    cwd: HERE,
-  });
-  if (!build.success) {
-    throw new Error(
-      `wizard-form/e2e: tailwind build failed (exit ${build.exitCode})\n${build.stderr.toString()}`,
-    );
+  try {
+    const outPath = join(outDir, "styles.css");
+    const bunBin = process.argv[0] ?? "bun";
+    const build = Bun.spawnSync([bunBin, "run", cliPath, "-i", entryCss, "-o", outPath], {
+      cwd: HERE,
+    });
+    if (!build.success) {
+      throw new Error(
+        `wizard-form/e2e: tailwind build failed (exit ${build.exitCode})\n${build.stderr.toString()}`,
+      );
+    }
+    return await Bun.file(outPath).text();
+  } finally {
+    rmSync(outDir, { recursive: true, force: true });
   }
-  return await Bun.file(outPath).text();
 }
 
 const css = await buildStylesheet();
