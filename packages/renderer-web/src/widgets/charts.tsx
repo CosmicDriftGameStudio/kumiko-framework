@@ -23,15 +23,17 @@ export type StatusBarEntry = {
   readonly label?: string;
 };
 
-/** Status-Balkenleiste (z.B. 90-Tage-Uptime): variable-height Bars mit
- *  Gradient-Fade + Tick-Line am Bar-Top; der letzte Eintrag bekommt einen
- *  „jetzt"-Accent-Stripe. */
+/** Status bar strip (e.g. 90-day uptime): variable-height bars with
+ *  gradient fade + tick line on top; the last entry gets a "now"
+ *  accent stripe. `dense` swaps this for a flat-fill, fixed-size
+ *  variant sized to fit a table cell instead of stretching to `w-full`. */
 export function StatusBarChart({
   entries,
   ariaLabel,
   startLabel,
   endLabel,
   highlightLast = true,
+  dense = false,
   testId,
 }: {
   readonly entries: readonly StatusBarEntry[];
@@ -40,28 +42,34 @@ export function StatusBarChart({
   readonly startLabel?: string;
   readonly endLabel?: string;
   readonly highlightLast?: boolean;
+  /** Compact variant for table cells: fixed intrinsic size (no `w-full` stretch), flat fills instead of gradients, no tick marks. */
+  readonly dense?: boolean;
   readonly testId?: string;
 }): ReactNode {
   const gradPrefix = useId();
-  if (entries.length === 0) return <div className="h-9" aria-hidden />;
+  if (entries.length === 0) return <div className={dense ? "h-3" : "h-9"} aria-hidden />;
 
-  const chartHeight = 36;
-  const tickHeight = 1;
+  const chartHeight = dense ? 12 : 36;
+  const tickHeight = dense ? 0 : 1;
+  const barWidth = dense ? 3 : 1;
   const barGap = 1;
   const lastIdx = entries.length - 1;
+  const totalWidth = entries.length * (barWidth + barGap);
 
   return (
     <div data-testid={testId}>
       <svg
-        viewBox={`0 0 ${entries.length * (1 + barGap)} ${chartHeight}`}
-        preserveAspectRatio="none"
-        className="block h-9 w-full"
+        viewBox={`0 0 ${totalWidth} ${chartHeight}`}
+        preserveAspectRatio={dense ? undefined : "none"}
+        width={dense ? totalWidth : undefined}
+        height={dense ? chartHeight : undefined}
+        className={dense ? "block" : "block h-9 w-full"}
         role="img"
         aria-label={ariaLabel}
       >
         <title>{ariaLabel}</title>
         {entries.map((entry, idx) => {
-          const x = idx * (1 + barGap);
+          const x = idx * (barWidth + barGap);
           const level = Math.max(0, Math.min(1, entry.level));
           const barHeight = (chartHeight - tickHeight) * level;
           const barY = chartHeight - barHeight;
@@ -70,33 +78,44 @@ export function StatusBarChart({
           const gradId = `${gradPrefix}-${idx}`;
           return (
             <g key={entry.key}>
-              <defs>
-                <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor={color} stopOpacity={isLast ? 0.85 : 0.5} />
-                  <stop offset="100%" stopColor={color} stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
+              {!dense && (
+                <defs>
+                  <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor={color} stopOpacity={isLast ? 0.85 : 0.5} />
+                    <stop offset="100%" stopColor={color} stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+              )}
               {isLast && (
                 <rect
-                  x={x - 0.5}
+                  x={x - barGap / 2}
                   y={0}
-                  width={2}
+                  width={barWidth + barGap}
                   height={chartHeight}
                   fill="var(--color-foreground)"
                   fillOpacity={0.06}
                 />
               )}
-              <rect x={x} y={barY} width={1} height={barHeight} fill={`url(#${gradId})`}>
-                {entry.label !== undefined && <title>{entry.label}</title>}
-              </rect>
               <rect
                 x={x}
-                y={barY - tickHeight}
-                width={1}
-                height={tickHeight}
-                fill="var(--color-foreground)"
-                fillOpacity={isLast ? 1.0 : 0.7}
-              />
+                y={barY}
+                width={barWidth}
+                height={barHeight}
+                fill={dense ? color : `url(#${gradId})`}
+                fillOpacity={dense ? (isLast ? 1 : 0.75) : undefined}
+              >
+                {entry.label !== undefined && <title>{entry.label}</title>}
+              </rect>
+              {!dense && (
+                <rect
+                  x={x}
+                  y={barY - tickHeight}
+                  width={barWidth}
+                  height={tickHeight}
+                  fill="var(--color-foreground)"
+                  fillOpacity={isLast ? 1.0 : 0.7}
+                />
+              )}
             </g>
           );
         })}
