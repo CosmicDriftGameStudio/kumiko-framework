@@ -820,98 +820,98 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     expect(parseRoles(reloaded["roles"])).toEqual(["User", "Editor"]);
   });
 
-  async function raceTwoAdminDemotions(trial: number): Promise<void> {
-    // beforeEach only resets the table once per test, not per loop
-    // iteration — without this, a demoted-loser leftover from a prior
-    // trial would count as an "other active SystemAdmin" and mask the race.
-    await resetTestTables(stack.db, [userTable]);
-    const adminA = await seedUser({
-      email: `race-admin-a-${trial}@example.com`,
-      displayName: "Race Admin A",
-      roles: ["SystemAdmin"],
-    });
-    const adminB = await seedUser({
-      email: `race-admin-b-${trial}@example.com`,
-      displayName: "Race Admin B",
-      roles: ["SystemAdmin"],
-    });
-
-    const loadedA = await stack.http.queryOk<Record<string, unknown>>(
-      UserQueries.detail,
-      { id: adminA.id },
-      systemAdmin,
-    );
-    const loadedB = await stack.http.queryOk<Record<string, unknown>>(
-      UserQueries.detail,
-      { id: adminB.id },
-      systemAdmin,
-    );
-
-    const [resA, resB] = await Promise.all([
-      stack.http.write(
-        UserHandlers.update,
-        {
-          id: adminA.id,
-          version: loadedA["version"],
-          changes: { roles: ["User"] },
-        },
-        systemAdmin,
-      ),
-      stack.http.write(
-        UserHandlers.update,
-        {
-          id: adminB.id,
-          version: loadedB["version"],
-          changes: { roles: ["User"] },
-        },
-        systemAdmin,
-      ),
-    ]);
-
-    const bodyA = (await resA.json()) as {
-      isSuccess: boolean;
-      error?: { code?: string; details?: { reason?: string } };
-    };
-    const bodyB = (await resB.json()) as {
-      isSuccess: boolean;
-      error?: { code?: string; details?: { reason?: string } };
-    };
-
-    const outcomes = [
-      { status: resA.status, body: bodyA },
-      { status: resB.status, body: bodyB },
-    ];
-    const successes = outcomes.filter((o) => o.body.isSuccess === true);
-    const failures = outcomes.filter((o) => o.body.isSuccess === false);
-
-    expect(successes).toHaveLength(1);
-    expect(failures).toHaveLength(1);
-    const loser = failures[0];
-    if (!loser) throw new Error("expected exactly one failing demotion");
-    expect(loser.status).toBe(409);
-    expect(loser.body.error?.code).toBe("conflict");
-    expect(loser.body.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
-
-    // Exactly one active SystemAdmin must remain among the two race targets.
-    const stillAdmin = await Promise.all(
-      [adminA.id, adminB.id].map(async (id) => {
-        const row = await stack.http.queryOk<Record<string, unknown>>(
-          UserQueries.detail,
-          { id },
-          systemAdmin,
-        );
-        return parseRoles(row["roles"]).includes("SystemAdmin");
-      }),
-    );
-    expect(stillAdmin.filter(Boolean)).toHaveLength(1);
-  }
-
   test("concurrent demotions of the last two SystemAdmins: one wins, one gets 409", async () => {
     // Repeated across fresh admin pairs: a single trial is a flaky regression
     // guard — measured ~25% of runs still land on 1 success/1×409 by pure
     // request-interleaving luck even with acquireNamespacedAdvisoryLock
     // removed from applyUserRolesUpdate. 10 independent trials push the
     // chance of missing a reintroduced race down to roughly 0.25^10.
+    async function raceTwoAdminDemotions(trial: number): Promise<void> {
+      // beforeEach only resets the table once per test, not per loop
+      // iteration — without this, a demoted-loser leftover from a prior
+      // trial would count as an "other active SystemAdmin" and mask the race.
+      await resetTestTables(stack.db, [userTable]);
+      const adminA = await seedUser({
+        email: `race-admin-a-${trial}@example.com`,
+        displayName: "Race Admin A",
+        roles: ["SystemAdmin"],
+      });
+      const adminB = await seedUser({
+        email: `race-admin-b-${trial}@example.com`,
+        displayName: "Race Admin B",
+        roles: ["SystemAdmin"],
+      });
+
+      const loadedA = await stack.http.queryOk<Record<string, unknown>>(
+        UserQueries.detail,
+        { id: adminA.id },
+        systemAdmin,
+      );
+      const loadedB = await stack.http.queryOk<Record<string, unknown>>(
+        UserQueries.detail,
+        { id: adminB.id },
+        systemAdmin,
+      );
+
+      const [resA, resB] = await Promise.all([
+        stack.http.write(
+          UserHandlers.update,
+          {
+            id: adminA.id,
+            version: loadedA["version"],
+            changes: { roles: ["User"] },
+          },
+          systemAdmin,
+        ),
+        stack.http.write(
+          UserHandlers.update,
+          {
+            id: adminB.id,
+            version: loadedB["version"],
+            changes: { roles: ["User"] },
+          },
+          systemAdmin,
+        ),
+      ]);
+
+      const bodyA = (await resA.json()) as {
+        isSuccess: boolean;
+        error?: { code?: string; details?: { reason?: string } };
+      };
+      const bodyB = (await resB.json()) as {
+        isSuccess: boolean;
+        error?: { code?: string; details?: { reason?: string } };
+      };
+
+      const outcomes = [
+        { status: resA.status, body: bodyA },
+        { status: resB.status, body: bodyB },
+      ];
+      const successes = outcomes.filter((o) => o.body.isSuccess === true);
+      const failures = outcomes.filter((o) => o.body.isSuccess === false);
+
+      expect(successes).toHaveLength(1);
+      expect(failures).toHaveLength(1);
+      const loser = failures[0];
+      if (!loser) throw new Error("expected exactly one failing demotion");
+      expect(loser.status).toBe(409);
+      expect(loser.body.error?.code).toBe("conflict");
+      expect(loser.body.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
+
+      // Exactly one active SystemAdmin must remain among the two race targets.
+      const stillAdmin = await Promise.all(
+        [adminA.id, adminB.id].map(async (id) => {
+          const row = await stack.http.queryOk<Record<string, unknown>>(
+            UserQueries.detail,
+            { id },
+            systemAdmin,
+          );
+          return parseRoles(row["roles"]).includes("SystemAdmin");
+        }),
+      );
+      expect(stillAdmin.filter(Boolean)).toHaveLength(1);
+    }
+
     const trials = 10;
     for (let trial = 0; trial < trials; trial++) {
       await raceTwoAdminDemotions(trial);
