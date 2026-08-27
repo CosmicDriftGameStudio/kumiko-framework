@@ -519,12 +519,12 @@ async function runInSubTransaction(
     begin?: (f: (tx: DbRunner) => Promise<void>) => Promise<void>;
     savepoint?: (f: (tx: DbRunner) => Promise<void>) => Promise<void>;
   };
-  // savepoint-FIRST — empirisch (Bun 1.4.0) sind die Flächen NICHT
-  // mutually exclusive: eine TransactionSql exposed begin UND savepoint,
-  // nur die Top-Level-Connection hat ausschließlich begin. begin-first
-  // wählte im Tx-Fall das nested BEGIN (Prod-Incident-Klasse, s. Header);
-  // savepoint-first trifft im Tx-Fall den Savepoint und fällt top-level
-  // sauber auf begin zurück.
+  // savepoint-FIRST — empirisch (Bun 1.3.14, unter 1.4.0 nicht neu geprüft)
+  // sind die Flächen NICHT mutually exclusive: eine TransactionSql exposed
+  // begin UND savepoint, nur die Top-Level-Connection hat ausschließlich
+  // begin. begin-first wählte im Tx-Fall das nested BEGIN (Prod-Incident-
+  // Klasse, s. Header); savepoint-first trifft im Tx-Fall den Savepoint
+  // und fällt top-level sauber auf begin zurück.
   const open = runner.savepoint ?? runner.begin;
   if (!open) {
     throw new Error(

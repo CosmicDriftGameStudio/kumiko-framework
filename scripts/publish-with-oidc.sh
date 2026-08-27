@@ -102,7 +102,8 @@ for pkg_json in packages/*/package.json; do
   # bekommen "Workspace not found" beim install. `bun publish` rewrited richtig,
   # unterstützt aber kein OIDC-Trusted-Publishing.
   # --quiet emittet den Tarball-Basename auf stdout (im pkg_dir erzeugt), aber
-  # mit führender Leerzeile (bun 1.4.0) → .tgz-Zeile rausfiltern. Die pack-
+  # mit führender Leerzeile (bun 1.3.14, unter 1.4.0 nicht neu geprüft) →
+  # .tgz-Zeile rausfiltern. Die pack-
   # Substitution bleibt in der if-Condition, damit `set -e` einen Pack-Fehler
   # nicht zum Script-Abbruch macht (er soll nur dieses Paket als failed zählen).
   TARBALL=""

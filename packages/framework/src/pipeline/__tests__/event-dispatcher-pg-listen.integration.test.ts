@@ -1,29 +1,11 @@
 // E.4 — PG LISTEN/NOTIFY wake-up. Without this, delivery latency is
 // bounded below by pollIntervalMs. With LISTEN, event-store.append fires
-// `pg_notify` on commit and any subscribed dispatcher wakes immediately —
-// latency becomes TCP round-trip, typically sub-millisecond on localhost.
+// `pg_notify` on commit and any subscribed dispatcher wakes immediately.
 //
-// The polling timer stays on as a safety net for dropped subscriptions
-// and crashes between commit and wake. These tests pin:
-//
-//   1. NOTIFY → runOnce fires promptly, without waiting for the timer.
-//   2. The dispatcher starts cleanly when pgClient is wired and stops
-//      without leaking the LISTEN connection, and still wakes on NOTIFY
-//      after a restart cycle.
-//
-// #2042: these used to assert an absolute millisecond latency bound
-// (`< 40`, later `< 100`) against the test-stack's default 50ms polling
-// timer. On a shared CI runner a stalled event loop can push even a
-// working LISTEN's delivery past 100ms — measured up to 154ms — so no
-// millisecond bound both clears runner noise and stays under a 50ms
-// timer. Fix: push the polling timer out to 60s for this stack
-// (`eventDispatcherPollIntervalMs`) and assert delivery happens at all
-// inside a 5s window. If LISTEN is dead, nothing arrives before the 5s
-// deadline — a 12x margin under the 60s timer that no runner stall gets
-// anywhere near. If LISTEN works, delivery is near-instant regardless of
-// runner load. Verified by temporarily forcing pgClient to undefined in
-// test-stack.ts: both tests then fail at toHaveLength(1) with 0 received
-// after ~5s, confirming the assertion still discriminates.
+// The polling timer stays as a safety net. These tests pin NOTIFY wake
+// without waiting for the timer, and that start/stop still leaves LISTEN
+// working. #2042: poll interval is 60s here; assert delivery inside 5s —
+// if LISTEN is dead the timer cannot rescue the assertion.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
@@ -96,10 +78,10 @@ describe("E.4 — PG NOTIFY/LISTEN wake-up", () => {
   });
 
   test("dispatcher start/stop cycle with LISTEN attached still delivers after restart", async () => {
-    // Repeated start/stop must not leak connections or break LISTEN. After
-    // 3 cycles the last .start() should still wake on NOTIFY — if the
-    // unlisten handle was mishandled, the subscription would either be
-    // stale (LISTEN on a closed connection) or double-registered.
+    // Repeated start/stop must not leak connections or break LISTEN.
+    // Two start/stop cycles, then a third start() that must still wake on
+    // NOTIFY — if the unlisten handle was mishandled, the subscription
+    // would be stale or double-registered.
     for (let i = 0; i < 2; i++) {
       await stack.eventDispatcher?.start();
       await stack.eventDispatcher?.stop();

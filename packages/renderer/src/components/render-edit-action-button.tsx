@@ -3,6 +3,10 @@ import { useState } from "react";
 import type { usePrimitives } from "../primitives";
 import type { RenderEditAction } from "./render-edit-types";
 
+// One header action + its own busy/confirm state — same pattern as
+// render-list.tsx's ToolbarActionView (each RenderEditAction is
+// independently bound by the caller, there is no shared trigger pipeline
+// to hook into like the built-in onDelete/onSubmit paths have).
 export function RenderEditActionButton({
   action,
   Button,

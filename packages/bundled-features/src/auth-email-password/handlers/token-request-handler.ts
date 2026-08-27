@@ -12,7 +12,6 @@
 // default TTL, extra skip condition) + two error codes — encoded on the
 // spec rather than duplicated across two near-identical handler bodies.
 
-import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "temporal-polyfill";
@@ -20,7 +19,7 @@ import { z } from "zod";
 import { UserQueries } from "../../user";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row";
 import type { AuthMailContent, AuthMailLocale, RenderTokenContentArgs } from "../email-templates";
-import { dispatchMagicLinkMail } from "../magic-link-mail";
+import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail";
 
 const RequestTokenSchema = z.object({
   email: z.email(),
@@ -124,14 +123,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
 
       const { token, expiresAt } = spec.sign(user.id, ttl, opts.hmacSecret);
 
-      // ctx.locale always resolves to something (falls back to the app's
-      // boot default, then "en"), so it can't tell us whether THIS request
-      // actually carried a locale signal. Read the raw request-layer value
-      // instead: present → the requester's active language wins over
-      // opts.locale (this handler's static config); absent → opts.locale
-      // is the real, still-relevant fallback, then ctx.locale's own
-      // resolved default.
-      const locale = requestContext.get()?.locale ?? opts.locale ?? ctx.locale;
+      const locale = resolveHandlerMailLocale(ctx, opts.locale);
 
       await dispatchMagicLinkMail(
         ctx.notify,

@@ -26,6 +26,7 @@
 //      zusammen).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { LOCALE_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -97,11 +98,6 @@ const tenantMembershipHookVendorFeature = defineFeature(
 );
 
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
-
-// Kept in sync with LOCALE_HEADER_NAME in api-constants.ts by hand — that
-// constant is a framework-internal implementation detail, not exported from
-// the public /api barrel (same as TENANT_HEADER_NAME).
-const LOCALE_HEADER_NAME = "X-Locale";
 
 registerMailTranslations("de", localeDeBundle);
 

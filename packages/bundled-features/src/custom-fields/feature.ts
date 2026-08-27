@@ -206,7 +206,7 @@ export type CustomFieldsFeatureOptions = {
    *  before #2296. Apps with their own role vocabulary (e.g. ["Admin","Editor"])
    *  MUST set this, else field-definition management is access_denied for every
    *  app-user without a "TenantAdmin" role. Only covers the tenant-scope triad —
-   *  define-/delete-system-field stay hard-wired to ["TenantAdmin"], since
+   *  define-/delete-system-field stay hard-wired to ["SystemAdmin"], since
    *  system-scope is a separate trust boundary that must not become reachable
    *  through a tenant role vocabulary. Also feeds into
    *  resolveFieldDefinitionListRoles (below) so a definer without an explicit

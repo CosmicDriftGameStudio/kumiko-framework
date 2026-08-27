@@ -101,17 +101,15 @@ Geklärt, und die Antwort ist erfreulich: es gibt zwei Fälle.
   ohne Shell und füllen die Content-Breite von sich aus
   (`renderer/src/app/kumiko-screen.tsx:1330`).
 - **Forms** (`entityEdit`/`configEdit`/`actionForm`) rendern über
-  `FormScreenShell` mit Default `maxWidth="3xl"` = `max-w-3xl mx-auto`
-  (`renderer-web/src/primitives/index.tsx:1715-1728`). Der Marker ist
-  `layout: { width: "full" }` (`types/src/screen.ts:604-611`).
+  `FormScreenShell` mit Default `maxWidth="full"` (same chrome as lists).
+  Narrow with `layout: { width: "3xl" }` (or another FormScreenShellWidth).
 
 Die drei custom-Screens (members, delivery-log, profile-picker) wrappen ihre
-**Liste** in `FormScreenShell` ohne `maxWidth`. Deswegen sind sie schmal und
-zentriert. Das ist kein fehlendes Flag, sondern der falsche Wrapper, und es
-verschwindet mit der Umstellung auf deklarativ von selbst.
+**Liste** in `FormScreenShell`. Der frühere 3xl-Default machte sie schmal;
+der full-Default erledigt die Breiten-Arbeit für delivery-log/members ohne
+extra `layout.width: "full"`. Listen gehören ohnehin nicht in FormScreenShell.
 
-Nur bei `tenant-settings-tenant` (ein echtes Form) ist es wirklich das
-fehlende `layout.width: "full"`.
+Nur bei bewusst schmalen Forms (auth-adjacent) ist `layout.width` noch nötig.
 
 ---
 
@@ -484,7 +482,7 @@ eine eigene Entscheidung.
 
 Heute: `custom` (`tenant/feature.ts:141-146`), 270 Zeilen TSX
 (`tenant/web/members-screen.tsx`), drei Cards untereinander in einem
-`FormScreenShell` (3xl, zentriert):
+`FormScreenShell` (full-width default; früher 3xl/zentriert):
 
 1. Card "Aktive Mitglieder" mit `DataTable` (email, roles)
 2. Ein Invite-Form mitten auf der Seite

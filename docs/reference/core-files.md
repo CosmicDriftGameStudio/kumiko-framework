@@ -74,7 +74,7 @@ It is safe only because of three properties, all enforced together:
   `thumb`/`card`/`hero`/`full` (`.../file-derivatives/presets.ts`) are just
   ready-made specs an app can spread into its own `variants` declaration, not
   an allow-list the route checks against. Before this DB lookup, the route
-  path param only passes a syntactic gate (`[a-z0-9-]{1,64}`, mirroring the
+  path param only passes a syntactic gate (`[a-zA-Z0-9_-]{1,64}`, mirroring the
   UUID guard on `fileRefId`) to keep pathological input off the DB/rate-limit
   budget — it does not restrict which *declared* names are reachable. A field
   with no `variants` declared at all has nothing to serve here: every request

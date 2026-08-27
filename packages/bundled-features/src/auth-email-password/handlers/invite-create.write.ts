@@ -17,7 +17,7 @@
 // erlaubt new-user-signup mit dem Token. Keine Enumeration durchs
 // invite-create.
 
-import { generateToken, requestContext } from "@cosmicdrift/kumiko-framework/api";
+import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
@@ -41,7 +41,7 @@ import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants";
 import type { AuthMailLocale } from "../email-templates";
 import { renderInviteEmail } from "../email-templates";
 import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store";
-import { dispatchMagicLinkMail } from "../magic-link-mail";
+import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail";
 
 const INVITE_NOTIFICATION_TYPE = "auth-email-password:invite";
 
@@ -170,10 +170,7 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
 
       await storeInviteToken(ctx.redis, { invitationId, token, ttlSeconds });
 
-      // Same precedence as signup/reset/verify: the inviting admin's active
-      // browser language wins when the request carries one, else the
-      // handler's static opts.locale, else ctx.locale's own default.
-      const locale = requestContext.get()?.locale ?? opts.locale ?? ctx.locale;
+      const locale = resolveHandlerMailLocale(ctx, opts.locale);
 
       await dispatchMagicLinkMail(
         ctx.notify,

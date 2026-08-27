@@ -190,10 +190,6 @@ function ExtensionSectionMount({
   );
 }
 
-// One header action + its own busy/confirm state — same pattern as
-// render-list.tsx's ToolbarActionView (each RenderEditAction is
-// independently bound by the caller, there is no shared trigger pipeline
-// to hook into like the built-in onDelete/onSubmit paths have).
 export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   props: RenderEditProps<TValues, TCtx>,
 ): ReactNode {
@@ -301,9 +297,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
 
   // Must be computed before submitConfig/useForm bakes it in (the controller
-  // freezes it on first render) — safe because a section's field-name set is
-  // value-independent, so it matches filterEditSections(vm.sections, fieldsFilter).
-  // undefined = unscoped, since scoping would silently drop root-level .refine() issues.
+  // freezes it on first render). This is the unfiltered field-name set from
+  // `fieldsFilter` ∩ `fields` — not the value-dependent `filteredSections`
+  // (which also drops `section.visible === false`). Hidden fields still fall
+  // out via form-controller's `hiddenFields` path. undefined = unscoped, since
+  // scoping would silently drop root-level .refine() issues.
   // A `fieldsFilter` that matches nothing in `fields` (typo, renamed field)
   // must fall back to unscoped too — an empty scope array would filter out
   // ALL validation issues (kumiko-framework#1907), letting submit() through
@@ -361,11 +359,6 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // re-subscribes with a "new" onChange → refires.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
-  // `schema` is typically an inline caller prop (`schema={z.object({...})}`)
-  // with unstable identity across renders — as an effect dep it would refire
-  // on every parent render, not just on a snapshot change, risking a loop if
-  // the caller's onChange triggers a parent re-render. Held in a ref like
-  // onChangeRef so only a real snapshot mutation retriggers this effect.
   // Guards against redelivering to the SAME callback identity on every
   // render (an inline-arrow onControlsReady would otherwise refire the
   // effect below on every render since the callback itself is now a dep).
@@ -451,6 +444,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // unstable inline-arrow identity from redelivering on every render.
   }, [onControlsReady, controller, scopedValidate, patchAndScheduleDraftSave]);
 
+  // `schema` is typically an inline caller prop (`schema={z.object({...})}`)
+  // with unstable identity across renders — as an effect dep it would refire
+  // on every parent render, not just on a snapshot change, risking a loop if
+  // the caller's onChange triggers a parent re-render. Held in a ref like
+  // onChangeRef so only a real snapshot mutation retriggers this effect.
   const schemaRef = useRef(schema);
   schemaRef.current = schema;
   // Controls are guaranteed ready by the time this fires (see the

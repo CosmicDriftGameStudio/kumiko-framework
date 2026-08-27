@@ -6,9 +6,7 @@ function stubDispatcher(result: QueryResult<{ url?: string }>): Dispatcher {
   return { query: async () => result } as unknown as Dispatcher;
 }
 
-// Sole postWithDownload suite (unit + DOM). The former
-// src/__tests__/download.test.tsx duplicate was removed — this helper
-// already covers both bunfig (node) and bunfig.dom.toml (happy-dom):
+// Covers both bunfig (node) and bunfig.dom.toml (happy-dom):
 // - node env: install a minimal fake window for the duration of the test,
 //   then remove it again so later suites are unaffected.
 // - dom env: patch only location.assign on the real window — swapping the
