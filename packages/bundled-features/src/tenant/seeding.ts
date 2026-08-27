@@ -314,3 +314,11 @@ function extractMembershipId(data: unknown): string {
     `seedTenantMembership: executor.create returned no string id (got ${JSON.stringify(data)})`,
   );
 }
+
+/** Allowlisted wrapper — template-resolver seeding may not import the unscoped primitive directly. */
+export async function getSeedUnscopedStreamMaxVersion(
+  db: Parameters<typeof getUnscopedAggregateStreamMaxVersion>[0],
+  aggregateId: string,
+): Promise<number> {
+  return getUnscopedAggregateStreamMaxVersion(db, aggregateId);
+}
