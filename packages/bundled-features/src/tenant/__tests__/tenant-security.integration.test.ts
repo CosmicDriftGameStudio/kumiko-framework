@@ -649,6 +649,33 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
     expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["Admin"]);
   });
 
+  test("TenantAdmin omits payload.tenantId — updates roles in own tenant (fallback)", async () => {
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "tenant-fallback-member@example.com",
+      displayName: "Tenant Fallback Member",
+      passwordHash: await hashPassword("pw-fallback-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+
+    const res = await stack.http.writeOk(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberUserId, roles: ["Admin"] },
+      tenantAdminA(),
+    );
+    expect(res).toMatchObject({ userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] });
+
+    const rows = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["Admin"]);
+  });
+
   test("TenantAdmin cannot update membership of a user in another tenant", async () => {
     const { id: otherTenantMemberId } = await seedUser(stack.db, {
       email: "other-tenant-member@example.com",
@@ -891,6 +918,44 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
       tenantId: TENANT_A_ID,
     });
     expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["Admin"]);
+  });
+
+  test("SystemAdmin sending an explicit empty payload.tenantId is rejected, not silently falls back", async () => {
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "no-tenant-target@example.com",
+      displayName: "No Tenant Target",
+      passwordHash: await hashPassword("pw-notenant-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+
+    // `payloadTenantId ?? sessionTenantId` only falls back on null/undefined —
+    // a JWT always carries a valid session tenantId (jwt.verify rejects a
+    // malformed/empty tenantId claim), so the only way to reach the
+    // `!targetTenantId` branch through the real HTTP path is an explicit
+    // empty-string payload.tenantId, which `??` does NOT treat as absent.
+    const sysAdminInTenant: SessionUser = {
+      id: TestUsers.systemAdmin.id,
+      tenantId: TENANT_A_ID,
+      roles: ["SystemAdmin"],
+    };
+    const err = await stack.http.writeErr(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberUserId, tenantId: "", roles: ["Admin"] },
+      sysAdminInTenant,
+    );
+    expectErrorIncludes(err, "validation_error");
+    expectErrorIncludes(err, "tenantId");
+
+    const rows = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["User"]);
   });
 
   test("updateMemberRoles appends audit event and invalidates active sessions for target user", async () => {
