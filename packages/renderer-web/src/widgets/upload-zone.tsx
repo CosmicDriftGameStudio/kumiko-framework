@@ -92,9 +92,10 @@ export function UploadZone({
 
   async function uploadOne(file: File): Promise<void> {
     const rowId = String(nextRowId.current++);
-    setRows((prev) => [...prev, { id: rowId, fileName: file.name, status: "uploading" }]);
+    const uploadFile = await resizeImageBeforeUpload(file);
+    setRows((prev) => [...prev, { id: rowId, fileName: uploadFile.name, status: "uploading" }]);
     try {
-      await onUpload(await resizeImageBeforeUpload(file));
+      await onUpload(uploadFile);
       setRows((prev) => prev.map((row) => (row.id === rowId ? { ...row, status: "done" } : row)));
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : t("kumiko.widget.upload.error");
@@ -107,6 +108,8 @@ export function UploadZone({
   async function uploadFiles(files: FileList | null): Promise<void> {
     if (files === null || files.length === 0) return;
     const picked = multiple ? Array.from(files) : files[0] !== undefined ? [files[0]] : [];
+    // Reset before awaits so re-picking the same file during a slow upload still fires change.
+    if (inputRef.current) inputRef.current.value = "";
     const [accepted, rejected] = partitionByAccept(picked, accept);
     for (const file of rejected) {
       setRows((prev) => [
@@ -120,9 +123,6 @@ export function UploadZone({
       ]);
     }
     await Promise.all(accepted.map((file) => uploadOne(file)));
-    // Reset so re-picking the SAME file still fires change — the browser
-    // suppresses the event otherwise.
-    if (inputRef.current) inputRef.current.value = "";
   }
 
   function handleDrop(e: DragEvent<HTMLLabelElement>): void {

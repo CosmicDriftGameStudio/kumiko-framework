@@ -225,6 +225,8 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         jobRunsTable,
         {
           status: "completed",
+          // Clear stale-sweep error if the run finished after being marked failed.
+          error: null,
           // integer column — match onJobFailed's Math.round so fractional
           // BullMQ timings don't trip Postgres integer syntax.
           duration: Math.round(payload.duration),

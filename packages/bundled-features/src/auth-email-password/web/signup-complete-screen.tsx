@@ -23,17 +23,11 @@ import { AuthCard, useUrlToken } from "./auth-form-primitives";
 
 export type SignupCompleteScreenProps = {
   readonly title?: string;
-  /** Override für den Token aus der URL — Apps die per server-side-
-   *  Render einen Token reinreichen, brauchen das. Default: parsed aus
-   *  `?token=...` in der URL. */
+  /** Override for the URL token — server-rendered apps can pass it. Default: `?token=...`. */
   readonly token?: string;
-  /** Where to send the user after successful activation. Default "/" —
-   *  Apps mit Multi-Tenant-Routing ersetzen das durch
-   *  `(data) => "/" + data.tenantKey + "/"`. Function-form, weil nur
-   *  nach success bekannt welcher tenantKey zugeteilt wurde. */
+  /** Where to send the user after activation. Function-form receives the tenantKey. Default "/". */
   readonly loggedInHref?: string | ((args: { tenantKey: string }) => string);
-  /** href für "Schon einen Account?"-Link bei missing-token-Fall.
-   *  Default "/login". */
+  /** Href for the "already have an account?" link when the token is missing. Default "/login". */
   readonly loginHref?: string;
 };
 
@@ -89,7 +83,11 @@ export function SignupCompleteScreen({
     void doSubmit();
   };
 
-  const effectiveTitle = title ?? t("auth.signupComplete.title");
+  const effectiveTitle =
+    title ??
+    (continueHref !== null
+      ? t("auth.signupComplete.activatedTitle")
+      : t("auth.signupComplete.title"));
 
   // Kein Token in der URL → klare Message statt Form ohne Token
   // (würde nur invalidSignupToken zeigen, verwirrend).
@@ -110,7 +108,9 @@ export function SignupCompleteScreen({
     return (
       <AuthCard title={effectiveTitle}>
         <div className="p-6 pt-0 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">{t("auth.signupComplete.activated")}</p>
+          <p className="text-sm text-muted-foreground" role="status">
+            {t("auth.signupComplete.activated")}
+          </p>
           <Link href={continueHref} variant="button">
             {t("auth.signupComplete.continue")}
           </Link>
