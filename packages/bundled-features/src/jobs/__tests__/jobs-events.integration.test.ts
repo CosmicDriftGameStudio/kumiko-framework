@@ -99,6 +99,18 @@ describe("jobRun direct writes", () => {
     expect(logs).toHaveLength(1);
   });
 
+  test("rounds fractional job duration to an integer millisecond value", async () => {
+    await logger.onJobStart?.("example:job:timing", "bull-timing", {});
+    // Pass a fractional ms value directly — Temporal DurationLike.nanoseconds
+    // is absolute ns (5e8 = 500ms), not a sub-ms fraction.
+    await logger.onJobComplete?.("example:job:timing", "bull-timing", 150.5, []);
+
+    const runs = await selectMany(testDb.db, jobRunsTable, { bullJobId: "bull-timing" });
+    expect(runs).toHaveLength(1);
+    expect(Number.isInteger(runs[0]?.duration)).toBe(true);
+    expect(runs[0]?.duration).toBe(151);
+  });
+
   test("start + complete both act on the SAME row", async () => {
     await logger.onJobStart?.("example:job:stream", "bull-99", {});
     await logger.onJobComplete?.("example:job:stream", "bull-99", 10, []);

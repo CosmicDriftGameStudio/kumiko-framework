@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { findForbiddenRoleAssignment } from "../role-assignment";
 
+// Mirror DEFAULT_INVITE_ROLE_OPTIONS — framework must not import bundled-features
+// (tsc pulls source into framework's rootDir and fails the package build).
+const DEFAULT_INVITE_ROLE_OPTIONS = ["User", "Editor", "Admin", "TenantAdmin"] as const;
+
 describe("role assignment guard", () => {
   test("rejects roles above the actor's highest role", () => {
     expect(findForbiddenRoleAssignment(["Admin"], ["User", "TenantAdmin"])).toBe("TenantAdmin");
@@ -43,5 +47,11 @@ describe("role assignment guard", () => {
     expect(findForbiddenRoleAssignment(["Admin"], ["User"], ["Billing", "User"])).toBeUndefined();
     // Still cannot assign the unranked role on the write path (fail-closed).
     expect(findForbiddenRoleAssignment(["TenantAdmin"], ["Billing"], ["Billing"])).toBe("Billing");
+  });
+
+  test("TenantAdmin can assign every default invite role", () => {
+    for (const role of DEFAULT_INVITE_ROLE_OPTIONS) {
+      expect(findForbiddenRoleAssignment(["TenantAdmin"], [role])).toBeUndefined();
+    }
   });
 });

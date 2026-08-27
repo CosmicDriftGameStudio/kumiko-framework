@@ -18,6 +18,9 @@ describe("FeedList", () => {
   test("renders trailing content only when defined", () => {
     render(<FeedList rows={rows} testId="feed" />);
     expect(screen.getByText("3 min")).toBeTruthy();
+    const items = screen.getAllByRole("listitem");
+    expect(items[0]?.textContent).toContain("3 min");
+    expect(items[1]?.textContent).not.toContain("min");
   });
 
   test("renders the empty state when there are no rows", () => {

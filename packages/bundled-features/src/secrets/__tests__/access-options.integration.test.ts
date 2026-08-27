@@ -77,12 +77,22 @@ describe("secrets — roles option (#2296)", () => {
   });
 
   test("the framework-default TenantAdmin role is denied once `roles` overrides it", async () => {
-    const denied = await stack.http.writeErr(
+    const deniedSet = await stack.http.writeErr(
       "secrets:write:set",
       { key: "api.key.denied", value: "x" },
       admin,
     );
-    expect(denied.code).toBe("access_denied");
+    expect(deniedSet.code).toBe("access_denied");
+
+    const deniedList = await stack.http.queryErr("secrets:query:list", {}, admin);
+    expect(deniedList.code).toBe("access_denied");
+
+    const deniedDelete = await stack.http.writeErr(
+      "secrets:write:delete",
+      { key: "api.key.denied" },
+      admin,
+    );
+    expect(deniedDelete.code).toBe("access_denied");
   });
 });
 

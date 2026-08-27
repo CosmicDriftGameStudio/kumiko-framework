@@ -44,6 +44,30 @@ describe("createFormController — submit()", () => {
     await expect(form.submit()).rejects.toThrow(/submit\(\) called without a dispatcher/);
   });
 
+  test("returns validationBlocked without a dispatcher when schema fails first", async () => {
+    const form = createFormController({
+      initial: { title: "" },
+      schema: z.object({ title: z.string().min(3) }),
+      submit: { type: "app:write:task:create" },
+    });
+
+    const result = await form.submit();
+    expect(result.validationBlocked).toBe(true);
+  });
+
+  test("returns isNoOp without a dispatcher when payloadMode changes is empty", async () => {
+    const form = createFormController({
+      initial: { title: "hello" },
+      submit: { type: "app:write:task:update", payloadMode: "changes" },
+    });
+
+    const result = await form.submit();
+    expect(result.validationBlocked).toBe(false);
+    if (!result.validationBlocked) {
+      expect(result.isNoOp).toBe(true);
+    }
+  });
+
   test("happy path: dispatches values, returns success, rebases form", async () => {
     const disp = makeDispatcher();
     const form = createFormController({

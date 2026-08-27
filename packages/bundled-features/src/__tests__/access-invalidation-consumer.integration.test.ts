@@ -307,6 +307,7 @@ describe("access-invalidation event consumer", () => {
     const sessionRow = await fetchOne<{ revokedAt: unknown }>(stack.db, userSessionTable, {
       id: sid,
     });
+    expect(sessionRow).toBeTruthy();
     expect(sessionRow?.revokedAt).not.toBeNull();
   });
 });

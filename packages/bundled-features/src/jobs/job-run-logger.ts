@@ -225,7 +225,9 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         jobRunsTable,
         {
           status: "completed",
-          duration: payload.duration,
+          // integer column — match onJobFailed's Math.round so fractional
+          // BullMQ timings don't trip Postgres integer syntax.
+          duration: Math.round(payload.duration),
           finishedAt: parseJobInstant(payload.finishedAt),
           modifiedAt: Temporal.Now.instant(),
           modifiedById: "system",
