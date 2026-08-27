@@ -15,4 +15,5 @@ import { runUpgradeCli } from "@cosmicdrift/kumiko-framework/upgrade-cli";
 const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };
 const appCwd = process.env["INIT_CWD"] ?? process.cwd();
 const code = await runUpgradeCli(process.argv.slice(2), appCwd, out);
-process.exit(code);
+// Let the event loop drain stdout (piped by guard-upgrade-state) before exit.
+process.exitCode = code;

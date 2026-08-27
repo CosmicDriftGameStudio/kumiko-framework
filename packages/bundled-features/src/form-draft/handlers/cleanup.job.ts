@@ -121,16 +121,21 @@ export function groupStaleDraftIdsByTenant(
 async function deleteStaleDraftsBatch(
   batch: readonly StaleDraftRow[],
   db: DbConnection,
+  retentionDays: number,
   log: AppContext["log"],
-): Promise<number> {
-  let deleted = 0;
+): Promise<readonly StaleDraftRow[]> {
+  const deletedRows: StaleDraftRow[] = [];
+  const byId = new Map(batch.map((row) => [row.id, row]));
   for (const [tenantId, ids] of groupStaleDraftIdsByTenant(batch)) {
     const systemUser = createSystemUser(tenantId);
     const tenantDb = createTenantDb(db, tenantId, "system");
     for (const id of ids) {
+      // Race: user may have saved between select and here — skip if no longer stale.
+      if (!(await isDraftStillStale(db, id, retentionDays))) continue;
       const result = await formDraftExecutor.delete({ id }, systemUser, tenantDb);
       if (result.isSuccess) {
-        deleted++;
+        const row = byId.get(id);
+        if (row) deletedRows.push(row);
       } else {
         log?.warn?.(
           `[form-draft:cleanup] failed to delete stale draft id=${id} tenant=${tenantId}: ${result.error.message}`,
@@ -138,7 +143,7 @@ async function deleteStaleDraftsBatch(
       }
     }
   }
-  return deleted;
+  return deletedRows;
 }
 
 export const cleanupDraftsJob: JobHandlerFn = async (_payload, ctx) => {
@@ -182,13 +187,14 @@ export const cleanupDraftsJob: JobHandlerFn = async (_payload, ctx) => {
     // tenant per job run and would be wrong here, so each row resolves its
     // own tenant's provider via _fileProviderResolver instead. Skipped
     // entirely for rows with no FileRefs in the blob, the common case.
-    for (const row of batch) {
+    // Delete first (with staleness re-check), then release binaries from rows
+    // that actually disappeared — never release a draft the user just saved.
+    const deletedRows = await deleteStaleDraftsBatch(batch, db, retentionDays, ctx.log);
+    for (const row of deletedRows) {
       await releaseRowFileRefs(row, db, fileProviderResolver, ctx.log);
     }
-
-    const batchDeleted = await deleteStaleDraftsBatch(batch, db, ctx.log);
-    deleted += batchDeleted;
-    if (batchDeleted === 0 || batch.length < DEFAULT_BATCH_SIZE) break;
+    deleted += deletedRows.length;
+    if (deletedRows.length === 0 || batch.length < DEFAULT_BATCH_SIZE) break;
   }
   ctx.log?.info?.(`[form-draft:cleanup] deleted=${deleted} retentionDays=${retentionDays}`);
 };

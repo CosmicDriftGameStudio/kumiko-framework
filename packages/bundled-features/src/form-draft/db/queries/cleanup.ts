@@ -53,3 +53,20 @@ export async function selectStaleDraftsBatch(
     insertedAt: Temporal.Instant.fromEpochMilliseconds(+row.inserted_at), // @cast-boundary db-row
   }));
 }
+
+/** Re-check staleness after the select→release window so a freshly saved draft is not deleted. */
+export async function isDraftStillStale(
+  db: DbConnection,
+  id: string,
+  olderThanDays: number,
+): Promise<boolean> {
+  const rows = (await unsafeReadRetrying(
+    db,
+    `SELECT 1 FROM "read_form_drafts"
+     WHERE "id" = $1
+       AND COALESCE("modified_at", "inserted_at") < now() - ($2::int * interval '1 day')
+     LIMIT 1`,
+    [id, olderThanDays],
+  )) as readonly unknown[];
+  return rows.length > 0;
+}

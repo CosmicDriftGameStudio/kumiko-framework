@@ -162,9 +162,7 @@ describe("POST /auth/mfa/preauth-confirm", () => {
       async write(): Promise<WriteResult> {
         return {
           isSuccess: false,
-          error: new UnprocessableError("invalid_totp_code", {
-            details: { reason: "invalid_totp_code" },
-          }),
+          error: new UnprocessableError("invalid_totp_code"),
         };
       },
     });

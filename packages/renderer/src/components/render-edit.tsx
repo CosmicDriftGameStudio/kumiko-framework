@@ -277,9 +277,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // never enters `fields`/`controller.getSnapshot().values` — there is no
   // draft-blob-covered state left for persistExtensions() to compete over.
   const [extensionDirty, setExtensionDirty] = useState(false);
+  const [hasExtensionRegistrations, setHasExtensionRegistrations] = useState(false);
   const [extensionErrorKey, setExtensionErrorKey] = useState<string | null>(null);
-  const { registry: extensionFormRegistry, runAll: runExtensionSubmits } =
-    useExtensionFormHost(setExtensionDirty);
+  const { registry: extensionFormRegistry, runAll: runExtensionSubmits } = useExtensionFormHost(
+    ({ anyDirty, hasRegistrations }) => {
+      setExtensionDirty(anyDirty);
+      setHasExtensionRegistrations(hasRegistrations);
+    },
+  );
   const {
     Button,
     Banner,
@@ -971,7 +976,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate("kumiko.actions.next")}
         </Button>
       )}
-      {isFormEditable && (!isWizard || isLastWizardStep) && (
+      {(isFormEditable || hasExtensionRegistrations) && (!isWizard || isLastWizardStep) && (
         <Button
           type="submit"
           disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting || disabled}

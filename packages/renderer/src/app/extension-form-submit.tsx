@@ -42,13 +42,18 @@ export const ExtensionFormRegistryProvider = ExtensionFormRegistryContext.Provid
 // Host-Seite (render-edit): hält die Registrierungen in einem ref, meldet den
 // aggregierten dirty-State via onDirtyChange hoch (damit der Save-Button
 // re-rendert) und liefert runAll() zum Ausführen aller Handler beim Submit.
-export function useExtensionFormHost(onDirtyChange: (anyDirty: boolean) => void): {
+export type ExtensionFormHostStatus = {
+  readonly anyDirty: boolean;
+  readonly hasRegistrations: boolean;
+};
+
+export function useExtensionFormHost(onStatusChange: (status: ExtensionFormHostStatus) => void): {
   readonly registry: ExtensionFormRegistry;
   readonly runAll: (ctx: ExtensionSubmitContext) => Promise<readonly ExtensionSubmitResult[]>;
 } {
   const regsRef = useRef<Map<string, Registration>>(new Map());
-  const onDirtyRef = useRef(onDirtyChange);
-  onDirtyRef.current = onDirtyChange;
+  const onStatusRef = useRef(onStatusChange);
+  onStatusRef.current = onStatusChange;
 
   const registry = useMemo<ExtensionFormRegistry>(() => {
     const emitDirty = (): void => {
@@ -59,7 +64,7 @@ export function useExtensionFormHost(onDirtyChange: (anyDirty: boolean) => void)
           break;
         }
       }
-      onDirtyRef.current(any);
+      onStatusRef.current({ anyDirty: any, hasRegistrations: regsRef.current.size > 0 });
     };
     return {
       upsert: (reg) => {

@@ -58,7 +58,7 @@ export type FileDerivativesOptions = {
 type PublicVariantQueryResult = {
   readonly dataBase64: string;
   readonly mimeType: string;
-  readonly storageKey: string;
+  readonly revision: string;
 } | null;
 
 // file-derivatives — derive-on-first-use file variants (thumbnails,
@@ -168,7 +168,7 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
           if (!result) return c.text("not found", 404);
 
           const bytes = Buffer.from(result.dataBase64, "base64");
-          const etag = computeRevisionEtag([tenantId, fileRefId, variant, result.storageKey]);
+          const etag = computeRevisionEtag([tenantId, fileRefId, variant, result.revision]);
           return cachedResponse(c.req.raw, {
             body: bytes,
             etag,

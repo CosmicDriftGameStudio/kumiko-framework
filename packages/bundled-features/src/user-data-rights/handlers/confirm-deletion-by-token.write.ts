@@ -13,9 +13,7 @@ export type ConfirmDeletionByTokenOptions = {
 // Generischer 422 für jeden Token-Fehlerpfad (malformed / bad_signature /
 // expired / kein Secret) — kein Signal ob ein Token zu einem User gehört.
 function invalidToken(): UnprocessableError {
-  return new UnprocessableError("invalid_or_expired_token", {
-    details: { reason: "invalid_or_expired_token" },
-  });
+  return new UnprocessableError("invalid_or_expired_token");
 }
 
 // userId stammt aus dem noch-unverifizierten Token (Angreifer-Eingabe). Ein
@@ -81,11 +79,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
         // user_not_in_active_state) und würde einem Token-Inhaber das Proben des
         // Account-Status erlauben (#354/2). Der authentifizierte request-deletion-
         // Pfad zeigt dem User legitim seinen eigenen Status.
-        return writeFailure(
-          new UnprocessableError("cannot_process_deletion", {
-            details: { reason: "cannot_process_deletion" },
-          }),
-        );
+        return writeFailure(new UnprocessableError("cannot_process_deletion"));
       }
 
       return {

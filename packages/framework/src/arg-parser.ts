@@ -4,7 +4,7 @@
 //   - Flags:            --flag (boolean) / --key value
 //   - Negatable:        --no-flag
 //
-// Copy of bin/commands/arg-parser.ts — registry-free, but upgrade-cli.ts
+// Shared arg parser (also re-exported from bin/commands/arg-parser.ts). upgrade-cli.ts
 // lives in the published @cosmicdrift/kumiko-framework package and can't
 // import from bin/commands/ (outside the package's export surface).
 

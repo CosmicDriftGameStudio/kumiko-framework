@@ -35,7 +35,7 @@ export function failNotFound(entity: string, id?: number | string): WriteFailure
 // @wrapper-known error-helper
 export function failUnprocessable(
   reason: string,
-  details?: Readonly<Record<string, unknown>>,
+  details?: Readonly<Record<string, unknown>> & { readonly reason?: never },
 ): WriteFailure {
   return writeFailure(new UnprocessableError(reason, details ? { details } : undefined));
 }

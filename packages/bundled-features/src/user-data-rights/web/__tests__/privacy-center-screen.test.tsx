@@ -132,13 +132,17 @@ async function waitForMount(view: ReturnType<typeof render>): Promise<void> {
   });
 }
 
-/** Export status is a second async query — mount alone can race before Done UI. */
-async function waitForDownloadReady(view: ReturnType<typeof render>): Promise<void> {
+/** Export status is a second async query — mount alone races status-dependent UI. */
+async function waitForTestId(view: ReturnType<typeof render>, testId: string): Promise<void> {
   await waitFor(() => {
-    if (view.queryByTestId("privacy-export-download") === null) {
-      throw new Error("download button not ready");
+    if (view.queryByTestId(testId) === null) {
+      throw new Error(`${testId} not ready`);
     }
   });
+}
+
+async function waitForDownloadReady(view: ReturnType<typeof render>): Promise<void> {
+  await waitForTestId(view, "privacy-export-download");
 }
 
 // CI runs this file in its own `bun test` process (own ci.yml step), NOT in the
@@ -180,7 +184,7 @@ describe("PrivacyCenterScreen", () => {
       me: activeMe,
       exportStatus: { hasJob: true, job: { id: "job-9", status: EXPORT_JOB_STATUS.Failed } },
     });
-    await waitForMount(view);
+    await waitForTestId(view, "privacy-export-failed");
     expect(view.getByTestId("privacy-export-failed")).toBeTruthy();
     expect(view.getByTestId("privacy-export-request")).toBeTruthy();
   });
@@ -190,7 +194,7 @@ describe("PrivacyCenterScreen", () => {
       me: activeMe,
       exportStatus: { hasJob: true, job: { id: "job-1", status: EXPORT_JOB_STATUS.Pending } },
     });
-    await waitForMount(view);
+    await waitForTestId(view, "privacy-export-pending");
     expect(view.getByTestId("privacy-export-pending")).toBeTruthy();
     expect(view.queryByTestId("privacy-export-request")).toBeNull();
   });
