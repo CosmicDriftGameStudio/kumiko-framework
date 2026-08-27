@@ -439,7 +439,7 @@ function renderMain(appName: string): string {
   });
   sf.addImportDeclaration({
     moduleSpecifier: "@cosmicdrift/kumiko-framework/crypto",
-    namedImports: ["resolveKmsWiring"],
+    namedImports: ["requireKmsWiring", "resolveKmsWiring"],
   });
   sf.addImportDeclaration({
     moduleSpecifier: "../src/run-config",
@@ -482,23 +482,36 @@ function renderMain(appName: string): string {
   });
 
   // Subject-key KMS for the pii-annotated entities the --yes recommended set
-  // mounts (user, tenant-invitation, fileRef). Without the PLATFORM_KEK /
-  // SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY trio this falls back
-  // to plaintext PII with a loud boot warning — fine to get running locally,
-  // never for a real deploy (kumiko-framework#2330).
+  // mounts (user, tenant-invitation, fileRef). Local/dev may omit the trio
+  // (plaintext + loud warning); NODE_ENV=production uses requireKmsWiring so
+  // a real deploy cannot silently store plaintext PII (fw#2317).
+  sf.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [
+      {
+        name: "kmsOpts",
+        initializer: (writer) => {
+          writer.write("{").newLine();
+          writer.writeLine(`  logPrefix: "[${appName}]",`);
+          writer.writeLine(
+            `  plaintextReason: "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",`,
+          );
+          writer.write("} as const");
+        },
+      },
+    ],
+  });
   sf.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
     declarations: [
       {
         name: "kmsWiring",
         initializer: (writer) => {
-          writer.write("resolveKmsWiring(process.env, ").inlineBlock(() => {
-            writer.writeLine(`logPrefix: "[${appName}]",`);
-            writer.writeLine(
-              `plaintextReason: "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",`,
-            );
-          });
-          writer.write(")");
+          writer.write(`process.env["NODE_ENV"] === "production"`);
+          writer.newLine();
+          writer.write("  ? requireKmsWiring(process.env, kmsOpts)");
+          writer.newLine();
+          writer.write("  : resolveKmsWiring(process.env, kmsOpts)");
         },
       },
     ],
@@ -697,10 +710,11 @@ JWT_SECRET=change-me-min-32-chars-change-me-min-32
 # Generate with: openssl rand -base64 32
 KUMIKO_SECRETS_MASTER_KEY_V1=
 
-# Subject-keys KMS for PII fields (user, tenant-invitation, fileRef). Unset by
-# default — bin/main.ts then boots with plaintext PII and a loud warning, fine
-# to get running locally. Set all three before a real deploy (crypto-shredding
-# needs it for GDPR erasure): PLATFORM_KEK generate with: openssl rand -base64 32
+# Subject-keys KMS for PII fields (user, tenant-invitation, fileRef). All-or-none.
+# Unset → local boot with plaintext PII + warning; NODE_ENV=production requires
+# the trio (requireKmsWiring). Generate PLATFORM_KEK / KUMIKO_BLIND_INDEX_KEY
+# with: openssl rand -base64 32. SUBJECT_KEYS_DATABASE_URL must be a dedicated
+# subject-keys cluster (not the app DB) — see kms-adapter.md.
 PLATFORM_KEK=
 SUBJECT_KEYS_DATABASE_URL=
 KUMIKO_BLIND_INDEX_KEY=
