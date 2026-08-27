@@ -23,7 +23,11 @@ export const MEMBER_STATUS_CELL_COMPONENT = "MemberStatusCell" as const;
 export const MEMBER_ROLES_CELL_COMPONENT = "MemberRolesCell" as const;
 
 /** Closed allowlist for invite-role picker — never free text (escalation guard). */
-export const DEFAULT_INVITE_ROLE_OPTIONS = ["User", "Editor", "Admin", "TenantAdmin"] as const;
+// Admin (rank 2) shares these screens with TenantAdmin — TenantAdmin must not
+// appear here or Admin sees an unassignable option (fw#2414). Apps that need
+// owner invites compose OWNER_INVITE_ROLE_OPTIONS into a custom screen.
+export const DEFAULT_INVITE_ROLE_OPTIONS = ["User", "Editor", "Admin"] as const;
+export const OWNER_INVITE_ROLE_OPTIONS = ["User", "Editor", "Admin", "TenantAdmin"] as const;
 
 // Qualified write handler names (QN format: scope:type:name)
 export const TenantHandlers = {

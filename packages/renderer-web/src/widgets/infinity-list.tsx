@@ -28,7 +28,7 @@ export type InfinityListProps<TData = unknown, TRow = Readonly<Record<string, un
    *  (`<feature>:query:<entity>:<verb>`) and refetch the first page on
    *  any create/update/delete/restore event, merging it into the
    *  already-accumulated rows instead of collapsing them — see
-   *  `useQuery`'s `live` option for the same convention. Default true. */
+   *  `useQuery`'s `live` option for the same convention. Default false. */
   readonly live?: boolean;
 };
 
@@ -53,7 +53,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   emptyState,
   className,
   testId,
-  live = true,
+  live = false,
 }: InfinityListProps<TData, TRow>): ReactNode {
   const dispatcher = useDispatcher();
   const t = useTranslation();
@@ -183,15 +183,51 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     });
   }, [dispatcher, query, pageSize, payloadKey]);
 
+  // Trailing debounce + in-flight coalesce: bulk SSE storms must not fan out
+  // into one query per event (fw#1829). A refresh already running schedules
+  // exactly one trailing pass after it settles.
+  const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const liveInFlightRef = useRef(false);
+  const liveTrailingRef = useRef(false);
+
   useEffect(() => {
     // skip: live mode off, no SSE subscription needed
     if (!live) return;
     const entity = entityFromQueryType(query);
     // skip: query type has no mapped entity, nothing to subscribe to
     if (entity === undefined) return;
-    return subscribeLive(entity, () => {
-      void refreshFirstPage();
-    });
+
+    const runRefresh = (): void => {
+      liveInFlightRef.current = true;
+      void refreshFirstPage().finally(() => {
+        liveInFlightRef.current = false;
+        if (liveTrailingRef.current) {
+          liveTrailingRef.current = false;
+          runRefresh();
+        }
+      });
+    };
+
+    const scheduleRefresh = (): void => {
+      if (liveTimerRef.current !== null) clearTimeout(liveTimerRef.current);
+      liveTimerRef.current = setTimeout(() => {
+        liveTimerRef.current = null;
+        if (liveInFlightRef.current) {
+          liveTrailingRef.current = true;
+          return;
+        }
+        runRefresh();
+      }, 250);
+    };
+
+    const unsubscribe = subscribeLive(entity, scheduleRefresh);
+    return () => {
+      unsubscribe();
+      if (liveTimerRef.current !== null) {
+        clearTimeout(liveTimerRef.current);
+        liveTimerRef.current = null;
+      }
+    };
   }, [live, query, refreshFirstPage, subscribeLive]);
 
   useEffect(() => {

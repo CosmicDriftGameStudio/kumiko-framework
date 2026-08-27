@@ -31,6 +31,8 @@ export function createAuditFeature(): FeatureDefinition {
       recommended: false,
     });
     r.translations({ keys: AUDIT_I18N });
+    // Screens resolve actor names via tenant:query:members.
+    r.requires("tenant");
 
     const queries = {
       list: r.queryHandler(listQuery),

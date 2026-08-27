@@ -95,6 +95,7 @@ export function AcceptSuggestionDrawer({
       }
     >
       <RenderEdit
+        key={suggestion.id}
         screen={prospectAcceptScreen}
         entity={prospectEntity}
         featureName="prospects"

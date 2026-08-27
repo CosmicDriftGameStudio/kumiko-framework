@@ -11,7 +11,7 @@ import {
 import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { TenantQueries } from "../../tenant/constants";
-import { ANONYMOUS_USER_ID, AuditQueries, SYSTEM_ACTOR_ID } from "../constants";
+import { ANONYMOUS_USER_ID, AuditQueries, SYSTEM_ACTOR_IDS } from "../constants";
 
 type AuditDetail = {
   readonly id: string;
@@ -68,7 +68,7 @@ export function AuditLogDetailScreen(): ReactNode {
       return;
     }
     const event = res.data;
-    if (event.createdBy === SYSTEM_ACTOR_ID) {
+    if (SYSTEM_ACTOR_IDS.has(event.createdBy)) {
       setState({ kind: "ready", event, memberLabel: "", isSystemActor: true });
       return;
     }

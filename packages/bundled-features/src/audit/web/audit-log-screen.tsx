@@ -18,7 +18,7 @@ import {
   ANONYMOUS_USER_ID,
   AUDIT_LOG_DETAIL_SCREEN_ID,
   AuditQueries,
-  SYSTEM_ACTOR_ID,
+  SYSTEM_ACTOR_IDS,
 } from "../constants";
 
 type AuditRow = {
@@ -62,7 +62,7 @@ function actorLabel(
   names: ReadonlyMap<string, string>,
   t: (key: string) => string,
 ): string {
-  if (createdBy === SYSTEM_ACTOR_ID) return t("audit.log.actor.system");
+  if (SYSTEM_ACTOR_IDS.has(createdBy)) return t("audit.log.actor.system");
   if (createdBy === ANONYMOUS_USER_ID) return t("audit.log.actor.anonymous");
   return names.get(createdBy) ?? t("audit.log.actor.unknown");
 }

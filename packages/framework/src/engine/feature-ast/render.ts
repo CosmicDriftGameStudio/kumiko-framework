@@ -481,7 +481,7 @@ function renderAiGenerate(p: AiGeneratePattern): string {
   const lines: string[] = ["aiGenerateStep({"];
   renderAiStepCommonFields(lines, p);
   if (p.inputBody !== undefined) lines.push(`  input: ${p.inputBody.raw},`);
-  lines.push("});");
+  lines.push("})");
   return lines.join("\n");
 }
 
@@ -496,7 +496,7 @@ function renderAiExtract(p: AiExtractPattern): string {
     lines.push(`  instructions: ${p.instructionsBody.raw},`);
   }
   if (p.documentBody !== undefined) lines.push(`  document: ${p.documentBody.raw},`);
-  lines.push("});");
+  lines.push("})");
   return lines.join("\n");
 }
 
@@ -506,7 +506,7 @@ function renderAiClassify(p: AiClassifyPattern): string {
   renderAiStepCommonFields(lines, p);
   if (p.actions !== undefined) lines.push(`  actions: ${renderValue(p.actions)},`);
   if (p.inputBody !== undefined) lines.push(`  input: ${p.inputBody.raw},`);
-  lines.push("});");
+  lines.push("})");
   return lines.join("\n");
 }
 

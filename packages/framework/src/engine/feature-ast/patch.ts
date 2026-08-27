@@ -203,7 +203,9 @@ export function replacePattern(
   const startNode = isAiStepId(id) ? call : (enclosingStatement ?? call);
 
   const startPos = startNode.getStart();
-  const endPos = isAiStepId(id) ? aiStepPatchSpan(sourceFile, call).end : startNode.getEnd();
+  // AI steps live in array literals — replace only the CallExpression so the
+  // surrounding comma stays (comma-eating belongs to removePattern alone).
+  const endPos = isAiStepId(id) ? call.getEnd() : startNode.getEnd();
 
   // Detect column of the original call's first non-whitespace character;
   // the rendered pattern starts at column 0 and gets indented to match.
@@ -388,11 +390,19 @@ function findAiStepCall(sourceFile: SourceFile, id: PatternId): CallExpression |
     return undefined;
   }
   const factory = AI_STEP_FACTORY[id.kind];
+  const matches: CallExpression[] = [];
   for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     if (call.getExpression().getText() !== factory) continue;
-    if (callMatchesId(call, id)) return call;
+    if (callMatchesId(call, id)) matches.push(call);
   }
-  return undefined;
+  if (matches.length > 1) {
+    throw new Error(
+      `findAiStepCall: ambiguous ${id.kind} stepKey=${JSON.stringify(
+        "stepKey" in id ? id.stepKey : undefined,
+      )} — ${matches.length} matches; disambiguate or include workflowName in PatternId`,
+    );
+  }
+  return matches[0];
 }
 
 function callMatchesId(call: CallExpression, id: PatternId): boolean {

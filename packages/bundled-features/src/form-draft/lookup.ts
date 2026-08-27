@@ -47,9 +47,16 @@ export async function listDraftsByScreen(
   ownerId: string,
   screenId: string,
 ): Promise<readonly FormDraftSummaryRow[]> {
-  return selectMany<FormDraftSummaryRow>(db, formDraftTable, {
-    tenantId,
-    ownerId,
-    draftKey: { like: `${escapeLikePattern(screenId)}:%` },
-  });
+  // ponytail: hard cap — savedAt lives in jsonb so SQL ORDER BY+LIMIT is wrong;
+  // promote savedAt to a column when callers need correct newest-N under the ceiling.
+  return selectMany<FormDraftSummaryRow>(
+    db,
+    formDraftTable,
+    {
+      tenantId,
+      ownerId,
+      draftKey: { like: `${escapeLikePattern(screenId)}:%` },
+    },
+    { limit: 200 },
+  );
 }

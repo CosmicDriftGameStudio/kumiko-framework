@@ -77,6 +77,9 @@ export type InviteCreateOptions = {
   // roles, and cannot raise above the inviter's max framework rank — only
   // further restrict assignable ranked roles.
   readonly canAssignRole?: (inviterRoles: readonly string[], targetRole: string) => boolean;
+  /** Opt-in allow-list for app-defined (unranked) roles the elevation guard
+   *  would otherwise reject with unassignable_membership_role (fw#2398). */
+  readonly additionalAssignableRoles?: readonly string[];
 };
 
 const executor = createEventStoreExecutor(tenantInvitationsTable, tenantInvitationEntity, {
@@ -108,7 +111,10 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
         [event.payload.role],
         [],
       );
-      if (elevationForbidden !== undefined) {
+      if (
+        elevationForbidden !== undefined &&
+        !opts.additionalAssignableRoles?.includes(elevationForbidden)
+      ) {
         return writeFailure(unassignableMembershipRoleError(elevationForbidden));
       }
 

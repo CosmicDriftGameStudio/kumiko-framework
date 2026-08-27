@@ -1391,6 +1391,9 @@ export function createAuthRoutes(
       id: user.id,
       tenantId: targetTenantId,
       roles: mergedRoles,
+      // Tenant-independent prefs must survive the switch (fw#2343).
+      ...(user.timezone ? { timezone: user.timezone } : {}),
+      ...(user.locale ? { locale: user.locale } : {}),
     };
     const claims = await dispatcher.resolveAuthClaims(targetSession);
     const sessionForJwt: SessionUser =

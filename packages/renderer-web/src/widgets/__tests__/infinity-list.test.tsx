@@ -73,7 +73,7 @@ function renderWithLive(ui: ReactNode, dispatcher: Dispatcher, liveEvents: LiveE
 type Row = { readonly id: string; readonly subject: string };
 type Page = { readonly rows: readonly Row[]; readonly nextCursor: string | null };
 
-function list(query: string) {
+function list(query: string, live = false) {
   return (
     <InfinityList<Page, Row>
       query={query}
@@ -82,6 +82,7 @@ function list(query: string) {
       rowId={(row) => row.id}
       renderRow={(row) => <span>{row.subject}</span>}
       testId="inbox"
+      live={live}
     />
   );
 }
@@ -304,6 +305,7 @@ describe("InfinityList", () => {
           rowId={(row) => row.id}
           renderRow={(row) => <span>{row.subject}</span>}
           testId="inbox"
+          live={true}
         />,
         dispatcher,
         fake.subscriber,
@@ -362,7 +364,7 @@ describe("InfinityList", () => {
       });
       const fake = makeFakeLiveEvents();
 
-      renderWithLive(list("inbox:query:message:list"), dispatcher, fake.subscriber);
+      renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
 
       await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
       expect(screen.getByText("Zweite")).toBeTruthy();
@@ -421,6 +423,7 @@ describe("InfinityList", () => {
           rowId={(row) => row.id}
           renderRow={(row) => <span>{row.subject}</span>}
           testId="inbox"
+          live={true}
         />,
         dispatcher,
         fake.subscriber,
@@ -508,6 +511,7 @@ describe("InfinityList", () => {
           rowId={(row) => row.id}
           renderRow={(row) => <span>{row.subject}</span>}
           testId="inbox"
+          live={true}
         />,
         dispatcher,
         fake.subscriber,
@@ -540,7 +544,7 @@ describe("InfinityList", () => {
       });
       const fake = makeFakeLiveEvents();
 
-      renderWithLive(list("inbox:query:message:list"), dispatcher, fake.subscriber);
+      renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
 
       await waitFor(() => expect(resolvers.length).toBe(1));
 

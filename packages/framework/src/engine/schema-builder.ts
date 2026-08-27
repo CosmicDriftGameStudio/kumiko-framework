@@ -315,8 +315,19 @@ function applyTotalsMatchRefinements(
       for (const [subFieldName, siblingFieldName] of Object.entries(totalsMatch)) {
         const rawRows = values[fieldName];
         const siblingRaw = values[siblingFieldName];
-        // Not sent -> not checkable, not an error (partial update payloads).
-        if (rawRows === undefined || siblingRaw === undefined) continue;
+        // Neither side sent → nothing to check (unrelated partial update).
+        if (rawRows === undefined && siblingRaw === undefined) continue;
+        // One side of a totalsMatch pair without the other → reject. Update
+        // payloads only carry `changes`, so omitting the sibling would otherwise
+        // silently leave sum ≠ total (fw#1841).
+        if (rawRows === undefined || siblingRaw === undefined) {
+          ctx.addIssue({
+            code: "custom",
+            path: [rawRows === undefined ? fieldName : siblingFieldName],
+            message: `totalsMatch requires both "${fieldName}" and "${siblingFieldName}" in the same payload`,
+          });
+          continue;
+        }
         // Not an array -> a different refinement already rejects the shape;
         // this check isn't the right place to report it.
         if (!Array.isArray(rawRows)) continue;

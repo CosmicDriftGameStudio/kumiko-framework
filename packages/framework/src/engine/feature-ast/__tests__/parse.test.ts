@@ -2588,7 +2588,7 @@ describe("cross-file registrar-wrapper resolution against a real filesystem Proj
 
   test("resolves the imported wrapper and recognises the nav pattern it registers", () => {
     expect(result.errors).toEqual([]);
-    expect(result.patterns.map((p) => p.kind)).toEqual(["nav", "requires"]);
+    expect(result.patterns.map((p) => p.kind)).toEqual(["requires", "nav"]);
   });
 
   test("the resolved pattern's source points at the imported file, not the entry file", () => {

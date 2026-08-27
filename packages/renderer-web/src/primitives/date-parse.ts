@@ -10,6 +10,8 @@ import { Temporal } from "temporal-polyfill";
 // Prefer the native Temporal (Chromium 144+/Firefox 139+) over the bundled
 // polyfill so `instanceof` checks match values crossing package boundaries;
 // falls back to the polyfill where native support is absent.
+// Callers must not feed parseIso()/makePlainDate results into polyfill-only
+// Statics (compare/equals/since) — mixed Temporal brands throw TypeError.
 function activeTemporal(): typeof Temporal {
   return (globalThis as unknown as { Temporal?: typeof Temporal }).Temporal ?? Temporal;
 }

@@ -244,6 +244,12 @@ const aiStepCommonFields = [
     required: true,
   },
   {
+    path: "promptFallback",
+    label: { en: "Prompt fallback", de: "Prompt-Fallback" },
+    input: "text",
+    required: true,
+  },
+  {
     path: "defaults",
     label: { en: "Defaults", de: "Defaults" },
     hint: { en: "enabled, providerId, model, params" },
