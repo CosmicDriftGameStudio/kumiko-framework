@@ -14,7 +14,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { TEXT_BLOCK_KIND } from "../constants";
 import { createTemplateResolverFeature } from "../feature";
-import { type LegalContentBlock, seedLegalContentFromJson } from "../seeding";
+import {
+  type LegalContentBlock,
+  seedLegalContentFromJson,
+  seedSystemTemplate,
+  type SeedSystemTemplateOptions,
+} from "../seeding";
 import { type TemplateResourceRow, templateResourceEntity, templateResourcesTable } from "../table";
 
 // Pins seedLegalContentFromJson: seeds into SYSTEM_TENANT_ID by default and
@@ -40,6 +45,15 @@ function read(slug: string, locale: string) {
     tenantId: SYSTEM_TENANT_ID,
     slug,
     kind: TEXT_BLOCK_KIND,
+    locale,
+  });
+}
+
+function readSystemTemplate(slug: string, locale: string, kind: SeedSystemTemplateOptions["kind"]) {
+  return fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+    tenantId: SYSTEM_TENANT_ID,
+    slug,
+    kind,
     locale,
   });
 }
@@ -82,6 +96,30 @@ describe("seedLegalContentFromJson", () => {
     expect(row.modifiedById).toBe(SYSTEM_USER_ID);
   });
 
+  test("re-seed of a healthy row (existing events) keeps id and appends, does not delete+recreate", async () => {
+    await seedLegalContentFromJson(db, [
+      { slug: "healthy-block", locale: "de", title: "Titel", content: "v1" },
+    ]);
+    const before = await read("healthy-block", "de");
+    expect(before).not.toBeNull();
+    const eventsBefore = await selectMany(db, eventsTable, { aggregateId: String(before!.id) });
+    expect(eventsBefore.map((e) => e.type)).toEqual(["template-resource.created"]);
+
+    await seedLegalContentFromJson(db, [
+      { slug: "healthy-block", locale: "de", title: "Titel", content: "v2" },
+    ]);
+
+    const after = await read("healthy-block", "de");
+    expect(after).not.toBeNull();
+    expect(after!.id).toBe(before!.id);
+    expect(after).toMatchObject({ content: "v2" });
+
+    const eventsAfter = await selectMany(db, eventsTable, { aggregateId: String(before!.id) });
+    expect(eventsAfter.filter((e) => e.type === "template-resource.created")).toHaveLength(1);
+    expect(eventsAfter.filter((e) => e.type === "template-resource.updated")).toHaveLength(1);
+    expect(eventsAfter).toHaveLength(2);
+  });
+
   test("orphan projection (row without events) is recreated on ifExists:update", async () => {
     await seedLegalContentFromJson(db, [
       { slug: "orphan-privacy", locale: "de", title: "DS", content: "old" },
@@ -106,6 +144,31 @@ describe("seedLegalContentFromJson", () => {
     const events = await selectMany(db, eventsTable, { aggregateId: String(after!.id) });
     expect(events.length).toBeGreaterThan(0);
     expect(events.some((e) => e.type === "template-resource.created")).toBe(true);
+  });
+
+  test("orphan projection (row without events) is recreated on ifExists:update — seedSystemTemplate path", async () => {
+    const opts: SeedSystemTemplateOptions = {
+      slug: "orphan-notification",
+      kind: "notification",
+      locale: "de",
+      content: "old",
+      contentFormat: "plain",
+      ifExists: "update",
+    };
+    await seedSystemTemplate(db, opts);
+    const before = await readSystemTemplate(opts.slug, opts.locale, opts.kind);
+    expect(before).not.toBeNull();
+
+    // Same desync as prod: projection left behind, event stream empty.
+    await deleteMany(db, eventsTable, { aggregateId: String(before!.id) });
+    expect(await readSystemTemplate(opts.slug, opts.locale, opts.kind)).not.toBeNull();
+
+    await seedSystemTemplate(db, { ...opts, content: "new from template" });
+    const after = await readSystemTemplate(opts.slug, opts.locale, opts.kind);
+    expect(after).toMatchObject({ content: "new from template" });
+    const events2 = await selectMany(db, eventsTable, { aggregateId: String(after!.id) });
+    expect(events2.length).toBeGreaterThan(0);
+    expect(events2.some((e) => e.type === "template-resource.created")).toBe(true);
   });
 
   test("identical re-seed is a no-op (no update event, version/modifiedAt stable)", async () => {
