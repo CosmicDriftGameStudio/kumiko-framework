@@ -8,11 +8,13 @@ import { frameworkCoreEnvSchema as envSchemaViaRelative } from "../env-schema";
 // `// @runtime <kind>`) — guards against a reformat of compose-stacks.ts
 // pushing the directive out of that window. Doesn't catch infra changing
 // the window/regex itself; that lives in the infra repo's own tests.
+const ALL_RUNTIMES = new Set(["runtime", "client", "dev", "tooling", "test"]);
+
 function classifyByDirective(filePath: string): string | null {
   const head = readFileSync(filePath, "utf8").slice(0, 600);
   for (const line of head.split("\n").slice(0, 8)) {
     const match = line.match(/\/\/\s*@runtime\s+(\w+)/);
-    if (match) return match[1] ?? null;
+    if (match && ALL_RUNTIMES.has(match[1] ?? "")) return match[1] ?? null;
   }
   return null;
 }

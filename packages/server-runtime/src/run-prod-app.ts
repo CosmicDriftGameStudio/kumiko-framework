@@ -492,6 +492,9 @@ export type RunProdAppOptions = {
    *  `({db, redis, registry}) => Record<string, unknown>` — gleiches
    *  Pattern wie `anonymousAccess`. Eine App die einen dieser Keys selbst
    *  setzt (z.B. eigener configResolver) überschreibt den Default. */
+  /** Boot default locale (BCP-47) for ctx.locale when the request carries
+   *  no locale signal. Merged into AppContext before extraContext (app wins). */
+  readonly defaultLocale?: string;
   readonly extraContext?: ExtraContextOption;
   /** MasterKeyProvider für die auto-verdrahtete `ctx.secrets`. Default:
    *  `createEnvMasterKeyProvider` (KEK aus `KUMIKO_SECRETS_MASTER_KEY_V<n>`).
@@ -927,10 +930,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     crypto: bootCrypto,
     ...(options.kms && { kms: options.kms }),
   });
-  const extraContext = addConfigAccessorFactory(
-    { ...autoExtraContext, ...resolvedExtraContext },
-    registry,
-  );
+  const extraContext = {
+    ...addConfigAccessorFactory({ ...autoExtraContext, ...resolvedExtraContext }, registry),
+    ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
+  };
   // @cast-boundary engine-bridge — searchAdapter is an optional context-extension
   // (SharedContextFields.searchAdapter), invisible to extraContext's loose
   // Record<string, unknown>-based typing. Presence check only, no need to

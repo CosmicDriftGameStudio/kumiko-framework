@@ -85,7 +85,7 @@ describe("ctx.locale falls back to the app's boot-configured defaultLocale", () 
   beforeAll(async () => {
     stack = await setupTestStack({
       features: [localeProbe],
-      extraContext: { defaultLocale: "ja" },
+      defaultLocale: "ja",
     });
   });
 
@@ -108,7 +108,7 @@ describe("ctx.locale falls back to SessionUser.locale ahead of the boot default"
   beforeAll(async () => {
     stack = await setupTestStack({
       features: [localeProbe],
-      extraContext: { defaultLocale: "ja" },
+      defaultLocale: "ja",
     });
   });
 

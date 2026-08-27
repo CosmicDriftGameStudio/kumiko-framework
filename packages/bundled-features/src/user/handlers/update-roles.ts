@@ -15,6 +15,7 @@ import {
 import {
   AccessDeniedError,
   ConflictError,
+  InternalError,
   NotFoundError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
@@ -51,7 +52,10 @@ function isActiveSystemAdminRow(row: UserRolesRow): boolean {
 }
 
 async function countOtherActiveSystemAdmins(db: TenantDb, excludeUserId: string): Promise<number> {
-  const tableName = asEntityTableMeta(userTable)?.tableName ?? "read_users";
+  const tableName = asEntityTableMeta(userTable)?.tableName;
+  if (!tableName) {
+    throw new InternalError({ message: "user read table meta missing" });
+  }
   // kumiko-lint-ignore raw-sql jsonb @> prefilter for SystemAdmin roster under advisory lock
   const rows = (await asRawClient(db.raw).unsafe(
     `SELECT id, roles, status, is_deleted AS "isDeleted"

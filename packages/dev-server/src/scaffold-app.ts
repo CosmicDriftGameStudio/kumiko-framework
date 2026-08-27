@@ -421,7 +421,7 @@ function renderMain(appName: string): string {
   const sf = project.createSourceFile("main.ts", "");
 
   sf.addImportDeclaration({
-    moduleSpecifier: "@cosmicdrift/kumiko-dev-server",
+    moduleSpecifier: "@cosmicdrift/kumiko-dev-server/env-schema",
     namedImports: ["frameworkCoreEnvSchema"],
   });
   sf.addImportDeclaration({

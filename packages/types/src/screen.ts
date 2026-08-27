@@ -679,7 +679,7 @@ export type EditRelatedListSection = {
 };
 
 // Max width of the form container (see FormScreenShell in renderer-web).
-export type FormWidth = "sm" | "3xl" | "4xl" | "full";
+export type FormWidth = "3xl" | "4xl" | "full";
 
 export type EditLayout = {
   readonly sections: readonly EditSectionSpec[];

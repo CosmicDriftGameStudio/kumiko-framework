@@ -38,7 +38,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
   entityName: "widget",
 });
 
-const deliveryTimes: number[] = [];
+let deliveryCount = 0;
 
 const listenFeature = defineFeature("listen", (r) => {
   r.entity("widget", sharedWidgetEntity);
@@ -47,7 +47,7 @@ const listenFeature = defineFeature("listen", (r) => {
     name: "latency-probe",
     apply: {
       "widget.created": async () => {
-        deliveryTimes.push(Date.now());
+        deliveryCount += 1;
       },
     },
   });
@@ -79,17 +79,17 @@ afterAll(async () => {
 
 describe("E.4 — PG NOTIFY/LISTEN wake-up", () => {
   test("NOTIFY on commit triggers runOnce without waiting for the poll timer", async () => {
-    deliveryTimes.length = 0;
+    deliveryCount = 0;
 
     await stack.eventDispatcher?.start();
     try {
       await executor.create({ name: "latency-test" }, admin, tdb);
 
       const deadline = Date.now() + 5000;
-      while (Date.now() < deadline && deliveryTimes.length === 0) {
+      while (Date.now() < deadline && deliveryCount === 0) {
         await new Promise((r) => setTimeout(r, 5));
       }
-      expect(deliveryTimes).toHaveLength(1);
+      expect(deliveryCount).toBe(1);
     } finally {
       await stack.eventDispatcher?.stop();
     }
@@ -105,16 +105,16 @@ describe("E.4 — PG NOTIFY/LISTEN wake-up", () => {
       await stack.eventDispatcher?.stop();
     }
 
-    deliveryTimes.length = 0;
+    deliveryCount = 0;
     await stack.eventDispatcher?.start();
     try {
       await executor.create({ name: "restart-probe" }, admin, tdb);
 
       const deadline = Date.now() + 5000;
-      while (Date.now() < deadline && deliveryTimes.length === 0) {
+      while (Date.now() < deadline && deliveryCount === 0) {
         await new Promise((r) => setTimeout(r, 5));
       }
-      expect(deliveryTimes).toHaveLength(1);
+      expect(deliveryCount).toBe(1);
     } finally {
       await stack.eventDispatcher?.stop();
     }
