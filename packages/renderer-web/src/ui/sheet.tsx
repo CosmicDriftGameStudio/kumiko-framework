@@ -47,8 +47,6 @@ function SheetOverlay({
 
 function SheetContent({
   className,
-  overlayClassName,
-  overlayStyle,
   children,
   side = "right",
   showCloseButton = true,
@@ -56,12 +54,10 @@ function SheetContent({
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
-  overlayClassName?: string
-  overlayStyle?: React.CSSProperties
 }) {
   return (
     <SheetPortal>
-      <SheetOverlay className={overlayClassName} style={overlayStyle} />
+      <SheetOverlay />
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
@@ -104,16 +100,7 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-footer"
-      // Matches the card footer convention (primitives/index.tsx cardFooter
-      // + cardFooterBorder) for padding/border/button-row shape, but keeps
-      // the panel's own `bg-background` instead of the card footer's
-      // `bg-muted/30` — the sheet panel isn't a card, so its footer reads
-      // as the same surface as the body above it. The border-t alone marks
-      // the footer boundary.
-      className={cn(
-        "mt-auto flex items-center justify-end gap-2 border-t bg-background px-[var(--card-padding)] py-4",
-        className,
-      )}
+      className={cn("mt-auto flex flex-col gap-2 p-4", className)}
       {...props}
     />
   )

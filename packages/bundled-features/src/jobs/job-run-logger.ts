@@ -2,14 +2,23 @@ import { fetchOne, insertMany, insertOne, updateMany } from "@cosmicdrift/kumiko
 import {
   configuredPiiSubjectKms,
   encryptPiiValueForSubject,
+  KeyErasedError,
+  type LocalKeyKmsAdapter,
+  PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { JobLogEntry, JobMeta, JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { mapWithConcurrency } from "../shared";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
 import { parseJobInstant } from "./job-instant";
 import { jobRunLogsTable, jobRunsTable } from "./job-run-table";
+
+// Matches PgKmsAdapter's default pool size (see tenant/handlers/*.query.ts) —
+// bounds concurrent getOrCreateDek calls so a large log batch doesn't claim
+// every connection in the pool.
+const KMS_POOL_CONCURRENCY = 4;
 
 // Direct-write job-run log (#2243): onJobStart/-Complete/-Failed write
 // straight into jobRunsTable / jobRunLogsTable instead of appending to the
@@ -44,27 +53,32 @@ const DEFAULT_CACHE_MAX_ENTRIES = 10_000;
 // to DB-lookup if actually needed.
 const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-// The run-started payload can carry arbitrary user data; triggeredById
-// names its owning user. No event-PII catalog involved (#2243 removed the
-// jobRun r.defineEvent registrations, so there is nothing to catalog) —
-// the subject is known statically, so we encrypt directly. A null subject
-// (system cron runs, recipient-less triggers) stays plaintext: there is no
-// user key to shred, mirroring the previous event-pii catalog's own skip
-// rule. Absent KMS adapter stays plaintext too (rollout mode, unchanged).
-async function encryptStartedPayload(
-  payload: string | null,
-  triggeredById: string | null,
-): Promise<string | null> {
-  if (payload === null || triggeredById === null) return payload;
-  const kms = configuredPiiSubjectKms();
-  if (!kms) return payload;
-  return encryptPiiValueForSubject(
-    kms,
-    { kind: "user", userId: triggeredById },
-    payload,
-    { requestId: "jobs:job-run-logger" },
-    "payload",
-  );
+// Same per-subject encryption as encryptFailureError/encryptStartedPayload,
+// applied to a single value — shared so payload/message/error all go
+// through the identical erased-key fallback. A key erased right before (or
+// between) any of these callbacks must not blow up the write (status is
+// already committed by the time logs/error land): fall back to the
+// sentinel like decryptPiiValueForSubject does on the read side, instead of
+// throwing and dropping the rest of the batch — or, for onJobStart, the
+// whole run row.
+async function encryptOrSentinel(
+  kms: LocalKeyKmsAdapter,
+  subjectUserId: string,
+  value: string,
+  field: string,
+): Promise<string> {
+  try {
+    return await encryptPiiValueForSubject(
+      kms,
+      { kind: "user", userId: subjectUserId },
+      value,
+      { requestId: "jobs:job-run-logger" },
+      field,
+    );
+  } catch (e) {
+    if (!(e instanceof KeyErasedError)) throw e;
+    return PII_ERASED_SENTINEL;
+  }
 }
 
 // Same per-subject encryption as encryptStartedPayload, applied to each
@@ -74,7 +88,8 @@ async function encryptStartedPayload(
 // field name and must match the field passed to decryptStoredPii on read
 // (detail.query.ts) or decrypt fails loud. Same skip rules as the payload:
 // null subject (system/cron runs) and absent KMS (rollout mode) both stay
-// plaintext.
+// plaintext. Bounded concurrency (#2307) — unbounded Promise.all would fire
+// one getOrCreateDek per log line at once against the KMS adapter's pool.
 async function encryptLogMessages<T extends { readonly message: string }>(
   logs: readonly T[],
   triggeredById: string | null,
@@ -82,18 +97,40 @@ async function encryptLogMessages<T extends { readonly message: string }>(
   if (triggeredById === null) return [...logs];
   const kms = configuredPiiSubjectKms();
   if (!kms) return [...logs];
-  return Promise.all(
-    logs.map(async (log) => ({
-      ...log,
-      message: await encryptPiiValueForSubject(
-        kms,
-        { kind: "user", userId: triggeredById },
-        log.message,
-        { requestId: "jobs:job-run-logger" },
-        "message",
-      ),
-    })),
-  );
+  return mapWithConcurrency(logs, KMS_POOL_CONCURRENCY, async (log) => ({
+    ...log,
+    message: await encryptOrSentinel(kms, triggeredById, log.message, "message"),
+  }));
+}
+
+// Mirrors encryptFailureError for the failure-path `error` column (#2307):
+// stored alongside logs[].message under the same triggering user's DEK, so
+// a log/error pair from the same failed run decrypt together or erase
+// together.
+async function encryptFailureError(error: string, triggeredById: string | null): Promise<string> {
+  if (triggeredById === null) return error;
+  const kms = configuredPiiSubjectKms();
+  if (!kms) return error;
+  return encryptOrSentinel(kms, triggeredById, error, "error");
+}
+
+// The run-started payload can carry arbitrary user data; triggeredById
+// names its owning user. No event-PII catalog involved (#2243 removed the
+// jobRun r.defineEvent registrations, so there is nothing to catalog) —
+// the subject is known statically, so we encrypt directly. A null subject
+// (system cron runs, recipient-less triggers) stays plaintext: there is no
+// user key to shred, mirroring the previous event-pii catalog's own skip
+// rule. Absent KMS adapter stays plaintext too (rollout mode, unchanged).
+// A key already erased by the time the trigger lands (#2307) must not fail
+// the whole run-start write — sentinel like the log/error paths.
+async function encryptStartedPayload(
+  payload: string | null,
+  triggeredById: string | null,
+): Promise<string | null> {
+  if (payload === null || triggeredById === null) return payload;
+  const kms = configuredPiiSubjectKms();
+  if (!kms) return payload;
+  return encryptOrSentinel(kms, triggeredById, payload, "payload");
 }
 
 export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallbacks {
@@ -281,12 +318,13 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
           timestamp: l.timestamp.toString(),
         })),
       });
+      const encryptedError = await encryptFailureError(payload.error, triggeredById);
       await updateMany(
         db,
         jobRunsTable,
         {
           status: "failed",
-          error: payload.error,
+          error: encryptedError,
           duration: payload.duration,
           finishedAt: parseJobInstant(payload.finishedAt),
           modifiedAt: now,
