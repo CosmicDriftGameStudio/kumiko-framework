@@ -146,13 +146,12 @@ async function seedCustomFieldsAndFolders(
   tenantId: TenantId,
   adminUserId: string,
 ): Promise<void> {
-  // custom-fields + folders sind tenant-scoped → TenantAdmin (nicht die
-  // Plattform-Rolle SystemAdmin; hasAccess ist exact-match, keine Hierarchie).
+  // Roles come from the tenant-membership row (server.ts auth.admin);
+  // sessionChecker re-derives them per write.
   const by: SessionUser = {
     ...TestUsers.systemAdmin,
     tenantId,
     id: adminUserId,
-    roles: ["TenantAdmin"],
   };
 
   await stack.http.writeOk(

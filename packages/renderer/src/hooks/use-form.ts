@@ -23,20 +23,10 @@ import { useOptionalDispatcher } from "../context/dispatcher-context";
 //   });
 // and the hook wires the ambient DispatcherProvider's dispatcher in.
 
-export type UseFormOptions<TValues extends FormValues, TCtx = unknown> = Omit<
-  FormControllerOptions<TValues, TCtx>,
-  "submit"
-> & {
-  // `submit` here takes everything the ui-core SubmitConfig takes
-  // EXCEPT dispatcher — that comes from context. Passing an explicit
-  // dispatcher here (e.g. from a test) overrides the context one.
-  readonly submit?: Omit<
-    NonNullable<FormControllerOptions<TValues, TCtx>["submit"]>,
-    "dispatcher"
-  > & {
-    readonly dispatcher?: NonNullable<FormControllerOptions<TValues, TCtx>["submit"]>["dispatcher"];
-  };
-};
+export type UseFormOptions<TValues extends FormValues, TCtx = unknown> = FormControllerOptions<
+  TValues,
+  TCtx
+>;
 
 export type UseFormResult<TValues extends FormValues> = {
   readonly controller: FormController<TValues>;
@@ -63,10 +53,7 @@ export function useForm<TValues extends FormValues, TCtx = unknown>(
   // in-flight state and dirty edits on every parent re-render.
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — controller is lifetime-scoped, not render-scoped
   const controller = useMemo<FormController<TValues>>(() => {
-    // Default the dispatcher to the ambient one, then hand ui-core
-    // a fully-populated SubmitConfig. The input signature lets the
-    // caller omit `dispatcher`; the output shape createFormController
-    // expects requires it.
+    // Default submit.dispatcher to the ambient one when omitted.
     type FullOptions = FormControllerOptions<TValues, TCtx>;
     const rawSubmit = options.submit;
     const submitConfig: FullOptions["submit"] = rawSubmit

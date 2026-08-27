@@ -13,11 +13,11 @@ export {
   TENANT_SECRET_READ_EVENT,
   tenantSecretsTable,
 } from "./feature";
-export { createDeleteHandler, deleteWrite } from "./handlers/delete.write";
-export { createListHandler, listQuery } from "./handlers/list.query";
+export { createDeleteHandler } from "./handlers/delete.write";
+export { createListHandler } from "./handlers/list.query";
 export {
   type RotateJobPayload,
   type RotateJobResult,
   rotateJob,
 } from "./handlers/rotate.job";
-export { createSetHandler, setWrite } from "./handlers/set.write";
+export { createSetHandler } from "./handlers/set.write";

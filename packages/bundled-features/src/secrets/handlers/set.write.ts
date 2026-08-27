@@ -44,10 +44,6 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   });
 }
 
-// Backwards-compat: existing imports of `setWrite` keep working — identical
-// to createSetHandler() with the default access.
-export const setWrite = createSetHandler();
-
 // Fallback redaction: show at most the first 3 chars + trailing bullets.
 // Deliberately conservative — a too-generous preview defeats the point.
 function defaultRedact(value: string): string {

@@ -21,7 +21,3 @@ export function createDeleteHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS)
     },
   });
 }
-
-// Backwards-compat: existing imports of `deleteWrite` keep working —
-// identical to createDeleteHandler() with the default access.
-export const deleteWrite = createDeleteHandler();

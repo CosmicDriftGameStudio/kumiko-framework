@@ -22,7 +22,6 @@ export const TENANT_I18N: Readonly<Record<string, LocalizedString>> = {
   },
   "tenant.members.invite.title": { en: "New invitation" },
   "tenant.members.invite.submit": { en: "Send invitation" },
-  "tenant.members.roles.edit.title": { en: "Edit roles" },
   "tenant.members.roles.edit.submit": { en: "Save roles" },
   "tenant:entity:__action-form__:field:email": { en: "Email" },
   "tenant:entity:__action-form__:field:role": { en: "Role" },
