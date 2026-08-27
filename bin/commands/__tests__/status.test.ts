@@ -57,7 +57,7 @@ describe("status command", () => {
     expect(elapsedMs).toBeGreaterThanOrEqual(1500); // probe really ran and was cut off, not ENOENT
     expect(elapsedMs).toBeLessThan(4000);
     const joined = spy.logs.join("\n");
-    expect(joined).toContain("Docker services not running");
+    expect(joined).toContain("Docker probe timed out (daemon slow or hung)");
   });
 
   test("real git repo shows current branch + status", async () => {

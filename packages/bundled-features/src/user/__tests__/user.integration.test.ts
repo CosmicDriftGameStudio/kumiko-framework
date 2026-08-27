@@ -370,8 +370,8 @@ describe("scenario 4: detail + list access", () => {
     const labels = String(enrichedRow["tenants"]).split(", ").sort();
     expect(labels).toEqual(["Tenant Alpha (TenantAdmin)", "Tenant Beta"].sort());
 
-    // No memberships: falls back to the placeholder, not an empty string.
-    expect(bareRow["tenants"]).toBe("—");
+    // No memberships: empty string (renderer formats); not a hard-coded em-dash.
+    expect(bareRow["tenants"]).toBe("");
   });
 
   test("normal user cannot list", async () => {

@@ -27,6 +27,13 @@ async function applyTheme(page: Page, theme: (typeof THEMES)[number]): Promise<v
   }, theme);
 }
 
+async function csrfTokenOf(page: Page): Promise<string> {
+  const cookies = await page.context().cookies();
+  const csrf = cookies.find((c) => c.name === "kumiko_csrf")?.value;
+  if (!csrf) throw new Error("no kumiko_csrf cookie after login");
+  return csrf;
+}
+
 // Logged-in screens: authenticate (cookie-jar shared with the page context),
 // then navigate. WorkspaceShell routes as `/<workspace>/<screen>` — admin-shell
 // owns tenant-admin (default) + platform; Settings-Hub owns settings.
@@ -58,13 +65,22 @@ const collectionEditor = () => async (page: Page) => {
 // the admin so the inspector has a row to show.
 const exportJobListFlow = () => async (page: Page) => {
   await loginAsAdmin(page);
-  const cookies = await page.context().cookies();
-  const csrfToken = cookies.find((c) => c.name === "kumiko_csrf")?.value ?? "";
-  await page.request.post("/api/write", {
+  const csrfToken = await csrfTokenOf(page);
+  const res = await page.request.post("/api/write", {
     headers: { "X-CSRF-Token": csrfToken },
     data: { type: "user-data-rights:write:request-export", payload: {} },
   });
+  if (!res.ok()) {
+    throw new Error(`request-export → ${res.status()} ${await res.text()}`);
+  }
   await page.goto("/tenant-admin/export-job-list");
+  // Table shell matches empty state too — wait for a data row so a failed
+  // seed cannot green-pass an empty screenshot into the docs.
+  await page
+    .getByTestId(/^render-list-table/)
+    .getByRole("row")
+    .nth(1)
+    .waitFor();
 };
 
 // auth-mfa-enable is unlisted in any workspace's nav — reach it via an
@@ -87,8 +103,7 @@ const adminMfaEnroll = () => async (page: Page) => {
 // would otherwise challenge every other admin-flow scenario.
 const adminMfaLoginChallenge = () => async (page: Page) => {
   await loginAsAdmin(page);
-  const cookies = await page.context().cookies();
-  const csrfToken = cookies.find((c) => c.name === "kumiko_csrf")?.value ?? "";
+  const csrfToken = await csrfTokenOf(page);
   const start = await page.request.post("/api/write", {
     headers: { "X-CSRF-Token": csrfToken },
     data: {

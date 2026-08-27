@@ -33,7 +33,11 @@ export function createAddNoteHandler(
           if (!userRow?.displayName) return null;
           return decryptStoredPii(userRow.displayName, "displayName", "notes-history:add-note");
         });
-      } catch {
+      } catch (e) {
+        ctx.log?.warn("notes-history: authorName lookup failed", {
+          error: e,
+          userId: event.user.id,
+        });
         authorName = null;
       }
 

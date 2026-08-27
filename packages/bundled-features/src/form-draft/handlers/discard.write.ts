@@ -66,17 +66,17 @@ export const discardDraftWrite = defineWriteHandler({
         existing.insertedAt,
         isCreateMode,
       );
-      const refsByStorageKey = new Map(ownedRefs.map((ref) => [ref.storageKey, ref]));
+      // Fail-closed erase of file_refs rows FIRST (outside the best-effort
+      // storage-hygiene loop). releaseDraftFileRefs swallows per-key errors
+      // by design — routing forget through it would report discarded:true
+      // while leaving the row behind (#1922 / review #2009).
+      for (const ref of ownedRefs) {
+        const forgetResult = await fileRefExecutor.forget({ id: ref.id }, event.user, ctx.db);
+        if (!forgetResult.isSuccess) return forgetResult;
+      }
       await releaseDraftFileRefs(
         ownedRefs.map((ref) => ref.storageKey),
         async (key) => {
-          // Hard-erase via the executor first (fileRef.forgotten — row +
-          // event, rebuild-safe), then the binary. A raw provider.delete()
-          // alone left the file_refs row behind forever (kumiko-framework
-          // review #1922): no event, no projection update, the row just
-          // pointed at a storage key that no longer existed.
-          const ref = refsByStorageKey.get(key);
-          if (ref !== undefined) await fileRefExecutor.forget({ id: ref.id }, event.user, ctx.db);
           await files.ref(key).delete();
         },
         ctx.log,

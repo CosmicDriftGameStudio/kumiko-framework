@@ -364,9 +364,20 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       // dispatcher was ever wired up.
       const dispatcher = submitCfg.dispatcher;
       if (!dispatcher) {
-        throw new Error(
-          "createFormController: submit() called without a dispatcher. Pass `submit.dispatcher` explicitly, or mount a <DispatcherProvider> above this form.",
-        );
+        // Return SubmitResult (not throw) so RenderEdit's banner path shows
+        // the misconfiguration instead of an unhandled rejection on save.
+        return {
+          validationBlocked: false,
+          isSuccess: false,
+          isNoOp: false,
+          error: {
+            code: "misconfigured",
+            httpStatus: 500,
+            i18nKey: "errors.internal",
+            message:
+              "createFormController: submit() called without a dispatcher. Pass `submit.dispatcher` explicitly, or mount a <DispatcherProvider> above this form.",
+          },
+        };
       }
 
       const runWrite = async (): Promise<SubmitResult<TData>> => {

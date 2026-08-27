@@ -1,4 +1,4 @@
-import { run } from "./_spawn";
+import { DOCKER_PROBE_TIMEOUT_MS, run } from "./_spawn";
 import { defineCommand } from "./registry";
 
 async function waitForPostgres(cwd: string, retries = 30): Promise<boolean> {
@@ -6,7 +6,7 @@ async function waitForPostgres(cwd: string, retries = 30): Promise<boolean> {
     const r = await run(
       "docker",
       ["compose", "exec", "-T", "postgres", "pg_isready", "-U", "kumiko"],
-      { cwd, timeoutMs: 2000 },
+      { cwd, timeoutMs: DOCKER_PROBE_TIMEOUT_MS },
     );
     if (r.status === 0) return true;
     await new Promise((res) => setTimeout(res, 500));

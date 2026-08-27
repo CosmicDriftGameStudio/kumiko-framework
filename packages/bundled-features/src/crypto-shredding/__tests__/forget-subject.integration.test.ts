@@ -538,15 +538,11 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
   });
 });
 
-// mh#349 continued: subjectRowExistsInTenant's catch swallows query errors
-// (missing table, id-type mismatch, ...) so one broken/unmigrated entity
-// doesn't fail the whole ownership sweep — but "swallowed" must still mean
-// "fail-closed", not "silently allow" or "500". The "closes the login door"
-// stack above always has its self-PII probe table created before these
-// tests run, so that catch branch is never actually exercised there.
-// Deliberately never creates this stack's probe table so the SELECT throws
-// and the catch path actually runs.
-describe("crypto-shredding :: forget-subject subjectRowExistsInTenant catch path (missing table)", () => {
+// mh#349 continued: subjectRowExistsInTenant prefills via to_regclass and
+// skips missing tables (fail-closed deny, not 500). Unexpected query errors
+// propagate. Deliberately never creates this stack's probe table so the
+// existence probe returns null and that entity is skipped.
+describe("crypto-shredding :: forget-subject subjectRowExistsInTenant missing table", () => {
   const missingTableProbeEntity = createEntity({
     table: "read_forget_subject_missing_table_probe",
     fields: {

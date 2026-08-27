@@ -10,7 +10,7 @@ import { NotFoundError, UnprocessableError, writeFailure } from "../../errors";
 import { setupTestStack, type TestStack } from "../test-stack";
 import { TestUsers } from "../test-users";
 
-let stack: TestStack;
+let stack: TestStack | undefined;
 
 const pingFeature = defineFeature("reqhelp", (r) => {
   r.writeHandler(
@@ -49,12 +49,12 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await stack.cleanup();
+  await stack?.cleanup();
 });
 
 describe("createRequestHelper via setupTestStack.http", () => {
   test("writeOk posts to /api/write and returns handler data", async () => {
-    const data = await stack.http.writeOk<{ note: string; userId: string }>(
+    const data = await stack!.http.writeOk<{ note: string; userId: string }>(
       "reqhelp:write:echo",
       { note: "hello" },
       TestUsers.admin,
@@ -63,7 +63,7 @@ describe("createRequestHelper via setupTestStack.http", () => {
   });
 
   test("queryOk posts to /api/query and returns handler data", async () => {
-    const data = await stack.http.queryOk<{ id: string; ok: boolean }>(
+    const data = await stack!.http.queryOk<{ id: string; ok: boolean }>(
       "reqhelp:query:lookup",
       { id: "abc" },
       TestUsers.admin,
@@ -72,14 +72,14 @@ describe("createRequestHelper via setupTestStack.http", () => {
   });
 
   test("writeErr returns structured WriteErrorInfo with httpStatus", async () => {
-    const err = await stack.http.writeErr("reqhelp:write:boom", {}, TestUsers.admin);
+    const err = await stack!.http.writeErr("reqhelp:write:boom", {}, TestUsers.admin);
     expect(err.code).toBe("unprocessable");
     expect(err.httpStatus).toBe(422);
     expect(err.i18nKey).toBe("errors.unprocessable");
   });
 
   test("queryErr returns structured WriteErrorInfo for not-found", async () => {
-    const err = await stack.http.queryErr(
+    const err = await stack!.http.queryErr(
       "reqhelp:query:lookup",
       { id: "missing" },
       TestUsers.admin,
@@ -89,13 +89,13 @@ describe("createRequestHelper via setupTestStack.http", () => {
   });
 
   test("writeOk throws when the write fails (so suites cannot ignore failures)", async () => {
-    await expect(stack.http.writeOk("reqhelp:write:boom", {}, TestUsers.admin)).rejects.toThrow(
+    await expect(stack!.http.writeOk("reqhelp:write:boom", {}, TestUsers.admin)).rejects.toThrow(
       /reqhelp:write:boom/,
     );
   });
 
   test("batch posts commands and returns per-command results", async () => {
-    const res = await stack.http.batch(
+    const res = await stack!.http.batch(
       [
         { type: "reqhelp:write:echo", payload: { note: "a" } },
         { type: "reqhelp:write:echo", payload: { note: "b" } },
@@ -112,7 +112,7 @@ describe("createRequestHelper via setupTestStack.http", () => {
   });
 
   test("writeWithHeaders forwards extra headers alongside auth", async () => {
-    const res = await stack.http.writeWithHeaders(
+    const res = await stack!.http.writeWithHeaders(
       "reqhelp:write:echo",
       { note: "hdr" },
       TestUsers.admin,
@@ -126,7 +126,7 @@ describe("createRequestHelper via setupTestStack.http", () => {
   });
 
   test("queryWithHeaders forwards extra headers alongside auth", async () => {
-    const res = await stack.http.queryWithHeaders(
+    const res = await stack!.http.queryWithHeaders(
       "reqhelp:query:lookup",
       { id: "abc" },
       TestUsers.admin,

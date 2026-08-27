@@ -17,23 +17,16 @@ const baseList = defineEntityListHandler("user", userEntity, {
 type MembershipRow = { userId: unknown; tenantId: unknown; roles?: unknown };
 type TenantRow = { id: unknown; name?: unknown; key?: unknown };
 
-function isMissingRelation(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err);
-  return msg.includes("does not exist") || msg.includes("42P01");
-}
-
 async function loadMemberships(
   db: TenantDb,
   userIds: readonly string[],
-): Promise<readonly MembershipRow[] | null> {
-  try {
-    return await selectMany<MembershipRow>(db, tenantMembershipsTable, {
-      userId: { in: [...userIds] },
-    });
-  } catch (err) {
-    if (isMissingRelation(err)) return null;
-    throw err;
-  }
+): Promise<readonly MembershipRow[]> {
+  // Membership tables ship with the tenant feature; user:list is SystemAdmin
+  // roster code that always mounts both. Do not swallow missing-relation
+  // errors here — that hid real schema bugs behind a permanent "—" column.
+  return await selectMany<MembershipRow>(db, tenantMembershipsTable, {
+    userId: { in: [...userIds] },
+  });
 }
 
 function tenantLabelById(tenants: readonly TenantRow[]): Map<string, string> {
@@ -79,9 +72,6 @@ export async function attachTenantLabels(
   if (userIds.length === 0) return [...rows];
 
   const memberships = await loadMemberships(db, userIds);
-  if (memberships === null) {
-    return rows.map((row) => ({ ...row, tenants: "—" }));
-  }
 
   const tenantIds = [
     ...new Set(memberships.map((m) => String(m.tenantId ?? "")).filter((id) => id !== "")),
@@ -93,7 +83,7 @@ export async function attachTenantLabels(
   const byUser = labelsByUserId(memberships, tenantLabelById(tenants));
   return rows.map((row) => {
     const labels = byUser.get(String(row["id"] ?? "")) ?? [];
-    return { ...row, tenants: labels.length > 0 ? labels.join(", ") : "—" };
+    return { ...row, tenants: labels.length > 0 ? labels.join(", ") : "" };
   });
 }
 
