@@ -206,6 +206,13 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
           KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
           DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
           REDIS_URL: "redis://127.0.0.1:1",
+          // Pinned empty, not inherited from process.env: a dev machine with
+          // the real trio set would otherwise flip resolveKmsWiring into the
+          // ActiveKmsWiring branch (and its KMS health check) instead of the
+          // plaintext fallback this test exercises.
+          PLATFORM_KEK: "",
+          SUBJECT_KEYS_DATABASE_URL: "",
+          KUMIKO_BLIND_INDEX_KEY: "",
         },
         stdout: "pipe",
         stderr: "pipe",
@@ -216,9 +223,9 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
         proc.exited,
       ]);
 
+      expect(code, `stdout:\n${stdout}\nstderr:\n${stderr}`).toBe(0);
       expect(`${stdout}${stderr}`).not.toContain("BOOT ABORTED");
       expect(stdout).toContain("boot validation OK");
-      expect(code).toBe(0);
     },
     30_000,
   );
