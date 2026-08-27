@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { EntityTableMeta } from "../entity-table-meta";
 import {
+  assertValidMigrationName,
   diffSnapshots,
   generateMigration,
   renderMigrationSql,
@@ -195,5 +196,16 @@ describe("renderMigrationSql — managed recreate vs unmanaged in-place", () => 
     });
     expect(sql).toContain("dropped column(s): old_col");
     expect(sql).toContain("new NOT NULL column(s) without default: envelope");
+  });
+});
+
+describe("assertValidMigrationName", () => {
+  test("accepts alphanumeric hyphenated names", () => {
+    expect(() => assertValidMigrationName("add-user-table")).not.toThrow();
+  });
+
+  test("rejects leading hyphen and oversized names", () => {
+    expect(() => assertValidMigrationName("-foo")).toThrow(/Invalid migration name/);
+    expect(() => assertValidMigrationName(`a${"x".repeat(64)}`)).toThrow(/Invalid migration name/);
   });
 });

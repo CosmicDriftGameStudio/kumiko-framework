@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { hasMailTranslations, mailT, registerMailTranslations } from "../mail-registry";
+import {
+  hasMailTranslations,
+  mailT,
+  registerMailTranslations,
+  resolveMailLocale,
+} from "../mail-registry";
 
 describe("mail-registry", () => {
   registerMailTranslations("en", { "test.hi": "Hello {name}" });
@@ -20,4 +25,11 @@ test("hasMailTranslations is true only for registered locales", () => {
   registerMailTranslations("de", { "test.hi": "Hallo {name}" });
   expect(hasMailTranslations("de")).toBe(true);
   expect(hasMailTranslations("de-AT")).toBe(true);
+});
+
+test("resolveMailLocale prefers exact, then root, then en", () => {
+  registerMailTranslations("de", { "test.hi": "Hallo" });
+  expect(resolveMailLocale("de")).toBe("de");
+  expect(resolveMailLocale("de-AT")).toBe("de");
+  expect(resolveMailLocale("fr-CA")).toBe("en");
 });

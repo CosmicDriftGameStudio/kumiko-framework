@@ -352,6 +352,13 @@ export function buildInitialValues(
   return out;
 }
 
+function multiSelectOptionValues(shape: {
+  readonly options?: readonly (string | { readonly value: string })[];
+}): ReadonlySet<string> | undefined {
+  if (shape.options === undefined || shape.options.length === 0) return undefined;
+  return new Set(shape.options.map((o) => (typeof o === "string" ? o : o.value)));
+}
+
 export function mergeSearchParamsIntoInitial(
   fields: Readonly<Record<string, unknown>>,
   searchParams: Readonly<Record<string, string>>,
@@ -362,7 +369,11 @@ export function mergeSearchParamsIntoInitial(
   const merged: Record<string, unknown> = { ...defaults };
   for (const [name, fieldDef] of Object.entries(fields)) {
     if (renderableFields !== undefined && !renderableFields.has(name)) continue;
-    const shape = fieldDef as { type?: string; sensitive?: boolean };
+    const shape = fieldDef as {
+      type?: string;
+      sensitive?: boolean;
+      options?: readonly (string | { readonly value: string })[];
+    };
     if (shape.sensitive === true) continue;
     const raw = searchParams[name];
     if (raw === undefined) continue;
@@ -380,17 +391,28 @@ export function mergeSearchParamsIntoInitial(
       merged[name] = raw === "true";
     } else if (shape.type === "multiSelect") {
       // Row-action navigate stringifies arrays via String(arr) → "a,b" (or
-      // JSON when the navigate helper JSON.stringifies). Accept both so
-      // member-roles-edit can prefill from ?roles=TenantAdmin.
-      if (raw.startsWith("[")) {
-        try {
-          const parsed: unknown = JSON.parse(raw);
-          merged[name] = Array.isArray(parsed) ? parsed.map((v) => String(v)) : defaults[name];
-        } catch {
-          merged[name] = defaults[name];
+      // JSON when the navigate helper JSON.stringifies). Try JSON first
+      // (even without a "[" prefix), then comma-split; filter against
+      // field.options when present so unknown values never reach the form.
+      const optionValues = multiSelectOptionValues(shape);
+      let values: string[];
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          values = parsed.map((v) => String(v));
+        } else if (typeof parsed === "string") {
+          values = [parsed];
+        } else {
+          values =
+            raw === ""
+              ? []
+              : raw
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean);
         }
-      } else {
-        merged[name] =
+      } catch {
+        values =
           raw === ""
             ? []
             : raw
@@ -398,6 +420,8 @@ export function mergeSearchParamsIntoInitial(
                 .map((s) => s.trim())
                 .filter(Boolean);
       }
+      merged[name] =
+        optionValues !== undefined ? values.filter((v) => optionValues.has(v)) : values;
     } else {
       merged[name] = raw;
     }
@@ -1340,6 +1364,7 @@ function EntityListBody({
         const explicit =
           action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
         const id = explicit ?? String(row.values["id"] ?? "");
+        if (id === "") return;
         nav.navigate({ entity: action.entity, id });
       } else if (action.screen !== undefined) {
         // Default entityId für entityEdit-Targets: row["id"] wenn kein expliziter
@@ -1718,6 +1743,7 @@ function ProjectionListBody({
         // Validator erzwingt deshalb einen expliziten entityId für
         // projectionList-entity-Targets.
         const id = action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : "";
+        if (id === "") return;
         nav.navigate({ entity: action.entity, id });
       } else if (action.screen !== undefined) {
         const entityId =
@@ -2056,6 +2082,7 @@ function ProjectionDetailBody({
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
             onPress: () => {
+              if (id === "") return;
               nav.navigate({ entity: targetEntity, id });
               runParams();
             },

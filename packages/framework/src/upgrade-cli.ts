@@ -4,6 +4,7 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
@@ -277,13 +278,16 @@ async function applyCodemods(
   repoRoot: string,
   targetDir: string,
   dryRun: boolean,
-  currentVersion: string,
+  // Installed version for the zero-pending bootstrap marker — never a
+  // `--from` filter override (that would permanently skip real pending
+  // codemods once the CI guard compares against the fake marker).
+  markerVersion: string,
 ): Promise<number> {
   if (pending.length === 0) {
     out.log("  ✓ Nothing new since your version.");
     if (!dryRun) {
       writeUpgradeMarker(targetDir, {
-        version: currentVersion,
+        version: markerVersion,
         appliedAt: Temporal.Now.instant().toString(),
         codemods: [],
       });
@@ -408,9 +412,19 @@ export async function runUpgradeCli(
   if (getFlag(args, "apply")) {
     const dirFlag = getStringFlag(args, "dir");
     const targetDir = dirFlag ? resolve(dirFlag) : cwd;
+    if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
+      out.err("");
+      out.err(`  --dir path is not a directory: ${targetDir}`);
+      out.err("");
+      return 1;
+    }
+    // Marker must reflect what is actually installed under the target (or
+    // cwd), not a `--from` filter override — otherwise CI stays green forever.
+    const markerVersion =
+      (dirFlag ? readCurrentVersion(targetDir) : null) ?? installedVersion ?? currentVersion;
     const dryRun = getFlag(args, "dry-run");
     out.log("");
-    const code = await applyCodemods(out, pending, repoRoot, targetDir, dryRun, currentVersion);
+    const code = await applyCodemods(out, pending, repoRoot, targetDir, dryRun, markerVersion);
     out.log("");
     return code;
   }

@@ -11,6 +11,7 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import {
+  assertValidMigrationName,
   baselineMigrations,
   createDbConnection,
   type DbConnection,
@@ -151,10 +152,14 @@ export async function runSchemaCli(
         out.err("  Usage: schema generate <name>");
         return 1;
       }
-      // name lands unescaped in `${seq}_${name}.sql` (generateMigration) — this
-      // allowlist blocks flag-like names and path traversal (`../../x`).
-      if (name.startsWith("-") || !/^[A-Za-z0-9_-]+$/.test(name)) {
-        out.err(`  Invalid migration name "${name}" — use letters, digits, "-", "_" only.`);
+      // name lands unescaped in `${seq}_${name}.sql` (generateMigration) —
+      // shared allowlist blocks flag-like names, path traversal, and
+      // ENAMETOOLONG-length names.
+      try {
+        assertValidMigrationName(name);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        out.err(`  ${msg}`);
         out.err("  Usage: schema generate <name>");
         return 1;
       }

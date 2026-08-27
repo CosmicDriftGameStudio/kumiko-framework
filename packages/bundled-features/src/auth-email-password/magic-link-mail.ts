@@ -8,6 +8,7 @@
 
 import type { NotifyFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { resolveMailLocale } from "@cosmicdrift/kumiko-framework/i18n";
 import type { AuthMailContent, AuthMailLocale, RenderTokenContentArgs } from "./email-templates";
 
 // Per-flow constants: which notification type to dispatch and how to render the
@@ -57,8 +58,11 @@ export async function dispatchMagicLinkMail(
     });
   }
   const locale = params.locale ?? "en";
+  // mailT already root-falls-back; appUrl must use the same negotiated tag
+  // or language-in-path apps 404 on e.g. /de-AT/activate.
+  const urlLocale = resolveMailLocale(locale);
   const content = spec.renderContent({
-    url: appendToken(resolveAppUrl(params.appUrl, locale), params.token),
+    url: appendToken(resolveAppUrl(params.appUrl, urlLocale), params.token),
     expiresAt: params.expiresAt,
     ...(params.locale !== undefined && { locale: params.locale }),
     ...(params.appName !== undefined && { appName: params.appName }),

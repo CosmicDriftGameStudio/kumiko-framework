@@ -65,6 +65,11 @@ describe("KumikoError: abstract base", () => {
       const body = serializeError(err);
       expect(body.error.docsUrl).toBe("https://docs.kumiko.rocks/errors/stale_state");
     });
+
+    test("falls back to code when reason slug is not URL-safe", () => {
+      const err = new ConflictError({ details: { reason: "stale state/../x" } });
+      expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/conflict");
+    });
   });
 });
 

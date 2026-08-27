@@ -5,6 +5,7 @@ import {
   InternalError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { UserErrors } from "../constants";
@@ -27,16 +28,17 @@ export const updateWrite = defineWriteHandler({
     version: z.number(),
     changes: z.object({
       displayName: z.string().min(1).max(100).optional(),
-      locale: z.string().min(2).max(10).optional(),
+      locale: z.string().min(2).max(10).refine(isValidLocaleTag, "invalid locale tag").optional(),
       timezone: z.string().max(64).refine(isValidIanaTimeZone, "invalid IANA time zone").optional(),
       email: z.email().optional(),
       passwordHash: z.string().optional(),
       lastActiveTenantId: z.string().optional(),
       emailVerified: z.boolean().optional(),
-      // Global roles — JSON-encoded string[] or string[]. Field-level write
-      // access is privileged (see userEntity.roles); handler also requires a
-      // privileged actor and runs the elevation guard.
-      roles: z.union([z.string(), z.array(z.string())]).optional(),
+      // Global roles — string[] only. A bare string used to parse to [] via
+      // parseRoles and silently clear every role; reject that at the boundary.
+      // Field-level write access is privileged (see userEntity.roles); handler
+      // also requires a privileged actor and runs the elevation guard.
+      roles: z.array(z.string()).optional(),
     }),
   }),
   access: { openToAll: true },

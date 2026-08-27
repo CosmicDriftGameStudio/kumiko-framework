@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { mergeSearchParamsIntoInitial } from "../app/kumiko-screen";
 
-type FieldDef = { type?: string; default?: unknown; sensitive?: boolean };
+type FieldDef = {
+  type?: string;
+  default?: unknown;
+  sensitive?: boolean;
+  options?: readonly string[];
+};
 
 describe("mergeSearchParamsIntoInitial", () => {
   test("raw string param merges in as-is for a text field", () => {
@@ -99,5 +104,21 @@ describe("mergeSearchParamsIntoInitial", () => {
   test("multiSelect defaults to [] when unset", () => {
     const fields: Record<string, FieldDef> = { roles: { type: "multiSelect" } };
     expect(mergeSearchParamsIntoInitial(fields, {})["roles"]).toEqual([]);
+  });
+
+  test("multiSelect prefers JSON parse even without '[' prefix for quoted strings", () => {
+    const fields: Record<string, FieldDef> = { tags: { type: "multiSelect" } };
+    expect(
+      mergeSearchParamsIntoInitial(fields, { tags: JSON.stringify("Berlin, Germany") })["tags"],
+    ).toEqual(["Berlin, Germany"]);
+  });
+
+  test("multiSelect filters unknown option values when options are set", () => {
+    const fields: Record<string, FieldDef> = {
+      roles: { type: "multiSelect", options: ["Admin", "User"] },
+    };
+    expect(
+      mergeSearchParamsIntoInitial(fields, { roles: JSON.stringify(["Admin", "Hacker"]) })["roles"],
+    ).toEqual(["Admin"]);
   });
 });

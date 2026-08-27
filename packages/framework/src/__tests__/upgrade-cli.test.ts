@@ -432,6 +432,41 @@ describe("upgrade command — --apply", () => {
     expect(typeof marker.appliedAt).toBe("string");
   });
 
+  test("nothing pending + --from: marker records installed version, not the filter", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--from", "0.999.0", "--apply"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
+
+    expect(exit).toBe(0);
+    const marker = JSON.parse(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"));
+    expect(marker.version).toBe("0.190.0");
+  });
+
+  test("--dir that is not a directory exits 1 without writing a marker", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
+      "not-a-dir.txt": "x",
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(
+      ["--from", "0.165.0", "--apply", "--dir", join(cwd, "not-a-dir.txt")],
+      cwd,
+      spy.out,
+      { repoRoot: REAL_REPO_ROOT },
+    );
+
+    expect(exit).toBe(1);
+    expect(spy.errs.join("\n")).toContain("not a directory");
+    expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
+  });
+
   test("nothing pending + --dry-run: reports up to date, writes no marker", async () => {
     const cwd = tmp({
       "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
