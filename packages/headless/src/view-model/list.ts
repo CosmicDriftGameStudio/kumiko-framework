@@ -144,13 +144,21 @@ export function fieldLabelKey(featureName: string, entityName: string, fieldName
   return `${featureName}:entity:${entityName}:field:${fieldName}`;
 }
 
+export function fieldOptionLabelKeyPrefix(
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+): string {
+  return `${fieldLabelKey(featureName, entityName, fieldName)}:option:`;
+}
+
 export function fieldOptionLabelKey(
   featureName: string,
   entityName: string,
   fieldName: string,
   value: string,
 ): string {
-  return `${featureName}:entity:${entityName}:field:${fieldName}:option:${value}`;
+  return `${fieldOptionLabelKeyPrefix(featureName, entityName, fieldName)}${value}`;
 }
 
 // Embedded-list cell label key — one level deeper than fieldLabelKey,

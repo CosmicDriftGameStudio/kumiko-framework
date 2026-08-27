@@ -439,7 +439,7 @@ function renderMain(appName: string): string {
   });
   sf.addImportDeclaration({
     moduleSpecifier: "@cosmicdrift/kumiko-framework/crypto",
-    namedImports: ["resolveKmsWiring"],
+    namedImports: ["requireKmsWiring", "resolveKmsWiring"],
   });
   sf.addImportDeclaration({
     moduleSpecifier: "../src/run-config",
@@ -482,17 +482,22 @@ function renderMain(appName: string): string {
   });
 
   // Subject-key KMS for the pii-annotated entities the --yes recommended set
-  // mounts (user, tenant-invitation, fileRef). Without the PLATFORM_KEK /
-  // SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY trio this falls back
-  // to plaintext PII with a loud boot warning — fine to get running locally,
-  // never for a real deploy (kumiko-framework#2330).
+  // mounts (user, tenant-invitation, fileRef). Prod (NODE_ENV=production) uses
+  // requireKmsWiring so runProdApp never falls open to plaintext PII; local/CI
+  // keep resolveKmsWiring's plaintext fallback (#2339). assertPiiBootInvariants
+  // already warns on the plaintext path — no duplicate console.warn here.
   sf.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
     declarations: [
       {
         name: "kmsWiring",
         initializer: (writer) => {
-          writer.write("resolveKmsWiring(process.env, ").inlineBlock(() => {
+          writer.write('process.env.NODE_ENV === "production"\n  ? requireKmsWiring(process.env, ');
+          writer.inlineBlock(() => {
+            writer.writeLine(`logPrefix: "[${appName}]",`);
+          });
+          writer.write(")\n  : resolveKmsWiring(process.env, ");
+          writer.inlineBlock(() => {
             writer.writeLine(`logPrefix: "[${appName}]",`);
             writer.writeLine(
               `plaintextReason: "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",`,
@@ -502,14 +507,6 @@ function renderMain(appName: string): string {
         },
       },
     ],
-  });
-
-  sf.addStatements((writer) => {
-    writer.write('if ("allowPlaintextPii" in kmsWiring) ').inlineBlock(() => {
-      writer.writeLine(
-        `console.warn(\`[${appName}] PII IS STORED IN PLAINTEXT — \${kmsWiring.allowPlaintextPii}\`);`,
-      );
-    });
   });
 
   sf.addStatements((writer) => {
@@ -698,10 +695,13 @@ JWT_SECRET=change-me-min-32-chars-change-me-min-32
 KUMIKO_SECRETS_MASTER_KEY_V1=
 
 # Subject-keys KMS for PII fields (user, tenant-invitation, fileRef). Unset by
-# default — bin/main.ts then boots with plaintext PII and a loud warning, fine
-# to get running locally. Set all three before a real deploy (crypto-shredding
-# needs it for GDPR erasure): PLATFORM_KEK generate with: openssl rand -base64 32
+# default — local/CI bin/main.ts boots with plaintext PII (NODE_ENV≠production);
+# production requires the full trio or boot aborts. All three or none — a
+# half-filled trio throws at resolve time. Generate each secret with:
+#   openssl rand -base64 32
 PLATFORM_KEK=
+# Separate Postgres instance for subject keys — never DATABASE_URL (retention
+# must outlive app-DB backups for crypto-shredding).
 SUBJECT_KEYS_DATABASE_URL=
 KUMIKO_BLIND_INDEX_KEY=
 

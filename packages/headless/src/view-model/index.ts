@@ -18,6 +18,7 @@ export {
   embeddedCellOptionLabelKey,
   fieldLabelKey,
   fieldOptionLabelKey,
+  fieldOptionLabelKeyPrefix,
 } from "./list";
 export type {
   EditExtensionSectionViewModel,

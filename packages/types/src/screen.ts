@@ -55,6 +55,8 @@ export interface FieldFormatRegistry {
   number: { readonly locale?: string };
   decimal: { readonly locale?: string };
   bigInt: { readonly locale?: string };
+  // Value is percent *points* (12 → "12 %"), not a 0..1 ratio — Intl
+  // style:"unit"/unit:"percent" does NOT multiply by 100 (unlike style:"percent").
   unit: {
     readonly unit: UnitKey;
     readonly locale?: string;
@@ -64,6 +66,8 @@ export interface FieldFormatRegistry {
   // `<feature>:entity:<entity>:field:<field>:option:<value>` — same
   // fallback-to-raw-value rule as buildOptionLabels: an untranslated key
   // renders the raw enum value instead of the literal i18n key.
+  // Prefer fieldOptionLabelKeyPrefix() from @cosmicdrift/kumiko-headless
+  // over hand-typed prefix strings.
   enumOption: { readonly keyPrefix: string };
 }
 
@@ -222,20 +226,10 @@ export type RowActionWriteHandler = {
   readonly style?: "primary" | "secondary" | "danger";
 };
 
-export type RowActionNavigate = {
+export type RowActionNavigateBase = {
   readonly kind: "navigate";
   readonly id: string;
   readonly label: string;
-  /** Screen-id (kurz, unqualified) zu dem navigiert wird. Boot-
-   *  Validator prüft Existenz im selben Feature. Genau eines von
-   *  `screen`/`entity` muss gesetzt sein. */
-  readonly screen?: string;
-  /** Entity-Name statt Screen-Id (fw#2228) — löst zur Boot-Zeit auf den
-   *  Screen auf, der `detailFor: "<entity>"` deklariert (siehe ObjectTarget/
-   *  resolveTarget in @cosmicdrift/kumiko-renderer's nav.tsx), egal in
-   *  welchem Feature dieser liegt. Genau eines von `screen`/`entity` muss
-   *  gesetzt sein. */
-  readonly entity?: string;
   /** Feldname dessen Wert als entityId in den URL-Pfad eingebettet wird
    *  (`/<workspace>/<screen>/<entityId>`). entityEdit liest die Id
    *  AUSSCHLIESSLICH aus dem Pfad. Default: "id" wenn der Ziel-Screen ein
@@ -256,6 +250,25 @@ export type RowActionNavigate = {
    *  Write auslösen, daher nicht auf writeHandler-Actions. */
   readonly rowClick?: boolean;
 };
+
+/** Exactly one of `screen` / `entity` — mutual exclusivity is type-enforced
+ *  (boot validator still rejects both/neither for untyped schemas). */
+export type RowActionNavigate = RowActionNavigateBase &
+  (
+    | {
+        /** Screen-id (kurz, unqualified). Boot-Validator prüft Existenz im
+         *  selben Feature. */
+        readonly screen: string;
+        readonly entity?: never;
+      }
+    | {
+        /** Entity-Name statt Screen-Id (fw#2228) — löst zur Boot-Zeit auf den
+         *  Screen auf, der `detailFor: "<entity>"` deklariert (siehe ObjectTarget/
+         *  resolveTarget in @cosmicdrift/kumiko-renderer's nav.tsx). */
+        readonly entity: string;
+        readonly screen?: never;
+      }
+  );
 
 // ToolbarAction — button in the list header. Three variants: navigate to
 // another screen (e.g. a full-page actionForm), dispatch a handler directly
@@ -354,9 +367,10 @@ export type EntityListScreenDefinition = {
 // User-toggleable facet dropdown on a projectionList screen (fw#2224).
 // entityList derives the same UI from `filterable: true` entity fields plus
 // the `<feature>:entity:<entity>:field:<field>:option:<value>` i18n
-// convention — a projectionList has no entity to derive from, so every
-// label here is explicit instead. Sent to the server as
-// `{field, op:"in", value}` in `payload.filters`, ANDed with `filter`.
+// convention. Labels here (`label`, `options[].label`, `trueLabel`/
+// `falseLabel`) are i18n keys resolved via `translate()` with passthrough
+// for unknown keys (fw#2373) — not raw display strings. Sent to the server
+// as `{field, op:"in", value}` in `payload.filters`, ANDed with `filter`.
 export type ListFacetSpec =
   | {
       readonly field: string;

@@ -45,8 +45,22 @@ describe("role assignment guard", () => {
     // Editor is ranked (invite options); use a true app-defined role here.
     expect(findForbiddenRoleAssignment(["TenantAdmin"], ["User"], ["Billing"])).toBeUndefined();
     expect(findForbiddenRoleAssignment(["Admin"], ["User"], ["Billing", "User"])).toBeUndefined();
-    // Still cannot assign the unranked role on the write path (fail-closed).
-    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["Billing"], ["Billing"])).toBe("Billing");
+    // Cannot introduce a *new* unranked role (fail-closed).
+    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["Billing"], [])).toBe("Billing");
+    // Round-trip: strip then re-assign an unranked role the target already had.
+    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["Billing"], ["Billing"])).toBeUndefined();
+    expect(
+      findForbiddenRoleAssignment(["TenantAdmin"], ["User", "Billing"], ["Billing"]),
+    ).toBeUndefined();
+  });
+
+  test("prototype-polluting role names do not bypass the guard", () => {
+    expect(findForbiddenRoleAssignment(["constructor"], ["SystemAdmin"], [])).toBe("SystemAdmin");
+    expect(findForbiddenRoleAssignment(["SystemAdmin"], ["toString"], [])).toBe("toString");
+  });
+
+  test("empty-string role is forbidden (not truthiness-skipped)", () => {
+    expect(findForbiddenRoleAssignment(["Admin"], [""], [])).toBe("");
   });
 
   test("TenantAdmin can assign every default invite role", () => {

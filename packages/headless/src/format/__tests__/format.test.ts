@@ -111,6 +111,14 @@ describe("applyFormatSpec — unit (fw#2187)", () => {
         unitDisplay: "short",
       }).format(12),
     );
+    // Ratio 0.15 must NOT become 15 % — unit:"percent" is percent-points.
+    expect(applyFormatSpec({ format: "unit", unit: "percent", locale: "de-DE" }, 0.15)).toBe(
+      new Intl.NumberFormat("de-DE", {
+        style: "unit",
+        unit: "percent",
+        unitDisplay: "short",
+      }).format(0.15),
+    );
   });
 
   test("m2 hat kein ECMA-402-sanktioniertes Intl-Unit (RangeError für 'square-meter') — Zahl + literales Suffix", () => {

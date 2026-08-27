@@ -41,6 +41,7 @@ import {
 import {
   type DbRunner,
   entityEventName,
+  executeRawQuery,
   nullBlindIndexesForSubject,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -53,7 +54,6 @@ import {
   type UserDataDeleteStrategy,
   type UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   purgeSearchDocumentsForSubject,
   type SearchAdapter,
@@ -570,26 +570,36 @@ async function resolveEffectiveTenantModel(
 // enough: a tenant that ever had >1 distinct member must stay multi-user for
 // the forget path even after everyone but one is removed, or the sole
 // remaining member's forget request wipes the departed co-member's leftover
-// rows. LIMIT chosen generously for a nominally single-user tenant; hitting
-// it is itself a multi-user signal, so it also resolves to "multi-user".
-const MAX_MEMBERSHIP_CREATED_EVENTS = 1000;
-
+// rows.
+//
+// Filter by payload->>'tenantId' (not the event column tenant_id): cross-
+// tenant SystemAdmin adds land under the actor's tenant_id (#2347). SQL
+// aggregation stays fail-safe when userId payloads are unreadable: more
+// created-rows than distinct userIds ⇒ treat as multi-user.
 async function everHadMultipleMembers(db: DbRunner, tenantId: TenantId): Promise<boolean> {
-  const createdEvents = await selectMany<{ payload: Record<string, unknown> }>(
+  const eventType = entityEventName("tenant-membership", "created");
+  const rows = await executeRawQuery<{
+    event_count: number;
+    distinct_users: number;
+  }>(
     db,
-    eventsTable,
-    {
-      tenantId,
-      aggregateType: "tenant-membership",
-      type: entityEventName("tenant-membership", "created"),
-    },
-    { limit: MAX_MEMBERSHIP_CREATED_EVENTS },
+    `SELECT
+       COUNT(*)::int AS event_count,
+       COUNT(DISTINCT payload->>'userId')::int AS distinct_users
+     FROM kumiko_events
+     WHERE aggregate_type = 'tenant-membership'
+       AND type = $1
+       AND payload->>'tenantId' = $2`,
+    [eventType, tenantId],
   );
-  if (createdEvents.length >= MAX_MEMBERSHIP_CREATED_EVENTS) return true;
-  const distinctUserIds = new Set(
-    createdEvents.map((e) => e.payload["userId"]).filter((v): v is string => typeof v === "string"),
-  );
-  return distinctUserIds.size > 1;
+  const row = rows[0];
+  if (!row) return false;
+  if (row.distinct_users > 1) return true;
+  // Unreadable / missing userId payloads: fail-safe to multi-user
+  // (including a lone created-event with no readable userId).
+  if (row.event_count >= 1 && row.distinct_users < 1) return true;
+  if (row.event_count > 1 && row.distinct_users <= 1) return true;
+  return false;
 }
 
 // Mapping retention.strategy → user-data-rights.UserDataDeleteStrategy.

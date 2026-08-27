@@ -14,6 +14,7 @@ export {
   encryptEventPayloadPii,
 } from "./event-pii";
 export { InMemoryKmsAdapter } from "./in-memory-kms-adapter";
+export { isSelfPiiField } from "./is-self-pii-field";
 export {
   isLocalKeyKmsAdapter,
   KeyAlreadyExistsError,
