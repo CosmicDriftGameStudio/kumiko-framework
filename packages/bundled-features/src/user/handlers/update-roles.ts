@@ -33,7 +33,8 @@ const LAST_SYSTEM_ADMIN_LOCK_NAMESPACE = 0x7361646d; // 'sadm'
 
 type UserRolesRow = {
   id: string;
-  roles: string | null;
+  // jsonb string[] at rest; legacy text rows + parseRoles(unknown) still accepted
+  roles: readonly string[] | string | null;
   status: string | null;
   isDeleted?: boolean;
 };
@@ -176,6 +177,12 @@ export async function applyUserRolesUpdate(
     // skip: sessions feature not mounted — no live JWTs to revoke; role update
     // still commits. Apps that mount user without sessions accept stale claims
     // until JWT TTL.
+    ctx.log?.warn(
+      "user:update-roles: sessions revoke-all handler missing; role change commits without session invalidation",
+      {
+        userId: event.payload.id,
+      },
+    );
   }
 
   return updateResult;

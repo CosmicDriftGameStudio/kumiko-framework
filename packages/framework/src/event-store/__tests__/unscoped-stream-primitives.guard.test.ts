@@ -11,6 +11,7 @@ const ALLOWED_FILES = new Set([
   "packages/framework/src/event-store/event-store.ts",
   "packages/framework/src/event-store/index.ts",
   "packages/bundled-features/src/tenant/seeding.ts",
+  "packages/bundled-features/src/template-resolver/seeding.ts",
   "packages/bundled-features/src/tier-engine/feature.ts",
   "packages/framework/src/event-store/__tests__/unscoped-stream-primitives.guard.test.ts",
 ]);
@@ -51,6 +52,7 @@ describe("unscoped stream primitives — caller allowlist", () => {
     // Positive control — proves the scan actually ran and found the known
     // caller, not just that it (silently) found nothing.
     expect(matches.has("packages/bundled-features/src/tenant/seeding.ts")).toBe(true);
+    expect(matches.has("packages/bundled-features/src/template-resolver/seeding.ts")).toBe(true);
 
     const offenders = [...matches].filter((relPath) => !ALLOWED_FILES.has(relPath));
     expect(offenders).toEqual([]);

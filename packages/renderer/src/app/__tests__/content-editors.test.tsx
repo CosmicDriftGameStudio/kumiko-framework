@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { render, screen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives";
@@ -56,7 +57,7 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return <PrimitivesProvider value={testPrimitives}>{children}</PrimitivesProvider>;
 }
 
-function Probe({ contentFormat }: { readonly contentFormat?: string }): ReactNode {
+function Probe({ contentFormat }: { readonly contentFormat?: ContentEditorFormat }): ReactNode {
   const Editor = useContentEditor(contentFormat);
   return (
     <Editor

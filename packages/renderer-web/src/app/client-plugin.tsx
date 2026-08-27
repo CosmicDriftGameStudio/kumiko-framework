@@ -17,6 +17,7 @@ import type {
   QualifiedContentCollection,
   TranslationsByLocale,
 } from "@cosmicdrift/kumiko-renderer";
+import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import type { ComponentType, ReactNode } from "react";
 
 /** What a `navProvidersFromCollections` factory returns: the providers plus
@@ -97,7 +98,7 @@ export type ClientFeatureDefinition = {
    *  a plain textarea when no clientFeature registered one for that
    *  format. Same last-wins semantics as columnRenderers. Public component
    *  contract: `{ value, onChange, variables, readOnly }`. */
-  readonly contentEditors?: Readonly<Record<string, ContentEditorComponent>>;
+  readonly contentEditors?: Partial<Record<ContentEditorFormat, ContentEditorComponent>>;
 
   /** Editor-Resolver-Komponenten pro featureId:action-Key. Wenn ein
    *  TreeNode mit target angeklickt wird, schlägt der EditorPanel das

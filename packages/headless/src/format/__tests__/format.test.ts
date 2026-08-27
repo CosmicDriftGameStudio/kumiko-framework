@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { applyFormatSpec } from "../index";
+import { applyFormatSpec, UNIT_FORMAT_KEYS } from "../index";
 
 describe("applyFormatSpec — priority", () => {
   test("rendert emptyLabel für undefined/null/leer/0 (nicht den globalen ''-Collapse)", () => {
@@ -187,5 +187,20 @@ describe("applyFormatSpec — enumOption (fw#2315)", () => {
   test("leerer Wert collapst zu '' wie jedes andere Nicht-priority-Format", () => {
     expect(applyFormatSpec(spec, null, (k) => k)).toBe("");
     expect(applyFormatSpec(spec, "", (k) => k)).toBe("");
+  });
+});
+
+describe("unit format keys stay in lockstep with UnitKey", () => {
+  // Mirror of packages/types/src/screen.ts UnitKey — keep lists equal without
+  // adding a kumiko-types dependency to headless.
+  const TYPE_UNIT_KEYS = ["m2", "km", "m", "kg", "percent"] as const;
+  test("every UnitKey formats with a non-bare number", () => {
+    for (const k of TYPE_UNIT_KEYS) {
+      expect(UNIT_FORMAT_KEYS.includes(k)).toBe(true);
+      expect(applyFormatSpec({ format: "unit", unit: k }, 1)).not.toBe("1");
+    }
+  });
+  test("no extra runtime keys beyond UnitKey", () => {
+    expect([...UNIT_FORMAT_KEYS].sort()).toEqual([...TYPE_UNIT_KEYS].sort());
   });
 });

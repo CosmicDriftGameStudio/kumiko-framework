@@ -8,6 +8,7 @@
 // No entry registered for a format → TextareaContentEditor, so a missing
 // editor is never an empty panel.
 
+import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { type ComponentType, createContext, type ReactNode, useContext } from "react";
 import { usePrimitives } from "../primitives";
 
@@ -36,7 +37,7 @@ export type ContentEditorComponent = ComponentType<ContentEditorProps>;
  *  its own id via ContentEditorProps.id. */
 export const CONTENT_EDITOR_ELEMENT_ID = "content-editor-textarea";
 
-export type ContentEditorsMap = Readonly<Record<string, ContentEditorComponent>>;
+export type ContentEditorsMap = Partial<Record<ContentEditorFormat, ContentEditorComponent>>;
 
 const ContentEditorsContext = createContext<ContentEditorsMap>({});
 
@@ -78,7 +79,7 @@ export function TextareaContentEditor({
 /** Resolves the editor for a contentFormat, falling back to the plain
  *  textarea when no clientFeature registered one. `contentFormat`
  *  undefined (collection didn't declare one) behaves like "plain". */
-export function useContentEditor(contentFormat?: string): ContentEditorComponent {
+export function useContentEditor(contentFormat?: ContentEditorFormat): ContentEditorComponent {
   const map = useContext(ContentEditorsContext);
   return map[contentFormat ?? "plain"] ?? TextareaContentEditor;
 }

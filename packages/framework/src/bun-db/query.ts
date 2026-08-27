@@ -46,6 +46,7 @@ function snakeToCamel(key: string): string {
   return envCamelCase(key);
 }
 
+import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
 import type { BunDbRunner } from "./connection";
 
 // Drizzle-pgTable-Inspection via raw Symbol-access (kein drizzle-orm import).
@@ -155,16 +156,18 @@ export async function runInSavepoint<T>(tx: unknown, fn: (sp: unknown) => Promis
 // executed yet.
 export async function runInSavepointIfSupported<T>(
   db: unknown,
-  fn: (sp: unknown) => Promise<T>,
+  fn: (sp: DbRunner) => Promise<T>,
 ): Promise<T> {
   const raw = asRawClient(db) as unknown as {
     savepoint?: <TR>(cb: (sp: unknown) => Promise<TR>) => Promise<TR>;
   };
-  if (typeof raw.savepoint !== "function") return fn(db);
+  // @cast-boundary driver savepoint handle → DbRunner at the single seam
+  const asRunner = (sp: unknown): DbRunner => sp as DbRunner;
+  if (typeof raw.savepoint !== "function") return fn(asRunner(db));
   try {
-    return await raw.savepoint(fn);
+    return await raw.savepoint((sp) => fn(asRunner(sp)));
   } catch (e) {
-    if (extractPgError(e)?.code === "25P01") return fn(db);
+    if (extractPgError(e)?.code === "25P01") return fn(asRunner(db));
     throw e;
   }
 }
@@ -328,11 +331,11 @@ function quoteIdent(name: string): string {
 // Symmetric on write: Temporal.Instant doesn't bind directly into postgres-js
 // params — convert to ISO string when the column pgType is timestamptz.
 
-function isTemporalInstant(v: unknown): boolean {
+function isTemporalInstant(v: unknown): v is Temporal.Instant {
   return (
     typeof v === "object" &&
     v !== null &&
-    typeof (v as { epochNanoseconds?: unknown }).epochNanoseconds === "bigint"
+    (v as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag] === "Temporal.Instant"
   );
 }
 
@@ -377,12 +380,21 @@ function instantFromDriver(value: unknown): Temporal.Instant | null {
   return null;
 }
 
-function isTemporalPlainDate(v: unknown): boolean {
+function isTemporalPlainDate(v: unknown): v is Temporal.PlainDate {
   return (
     typeof v === "object" &&
     v !== null &&
-    typeof (v as { day?: unknown }).day === "number" &&
-    typeof (v as { calendarId?: unknown }).calendarId === "string"
+    (v as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag] === "Temporal.PlainDate"
+  );
+}
+
+function isTemporalPlainDateTimeLike(v: unknown): v is { toPlainDate(): Temporal.PlainDate } {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    ((v as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag] === "Temporal.PlainDateTime" ||
+      (v as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag] === "Temporal.ZonedDateTime") &&
+    typeof (v as { toPlainDate?: unknown }).toPlainDate === "function"
   );
 }
 
@@ -397,7 +409,7 @@ function isTemporalPlainDate(v: unknown): boolean {
 // `.getTime()`), just anchored to a fixed zone instead of process-local.
 function plainDateFromDriver(value: unknown): Temporal.PlainDate | null {
   if (value === null || value === undefined) return null;
-  if (isTemporalPlainDate(value)) return value as Temporal.PlainDate;
+  if (isTemporalPlainDate(value)) return value;
   if (typeof value === "string") {
     const isoDay = /^\d{4}-\d{2}-\d{2}/.exec(value)?.[0];
     if (isoDay === undefined) return null;
@@ -520,10 +532,13 @@ function isSqlExpression(v: unknown): v is { kind: "sql-expr"; text: string } {
 // driver can't serialize.
 function prepareDateValue(value: unknown): PreparedValue | undefined {
   if (isTemporalPlainDate(value)) {
-    return { kind: "param", sql: "", bound: (value as Temporal.PlainDate).toString() };
+    return { kind: "param", sql: "", bound: value.toString() };
+  }
+  if (isTemporalPlainDateTimeLike(value)) {
+    return { kind: "param", sql: "", bound: value.toPlainDate().toString() };
   }
   if (isTemporalInstant(value)) {
-    const day = (value as Temporal.Instant).toZonedDateTimeISO("UTC").toPlainDate();
+    const day = value.toZonedDateTimeISO("UTC").toPlainDate();
     return { kind: "param", sql: "", bound: day.toString() };
   }
   return undefined;

@@ -47,6 +47,8 @@ export function attachSignalHandlers(
         .then(() => exitFn(0))
         .catch(() => exitFn(1));
     };
+    // bun-types vs @types/node: signal overload on process.on/off is not
+    // selectable via bind() under the merged types — EventEmitter seam is intentional.
     (process as NodeJS.EventEmitter).on(sig, handler);
     listeners.set(sig, handler);
   }

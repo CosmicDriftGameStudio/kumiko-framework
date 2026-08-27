@@ -32,6 +32,7 @@ import {
   PlainContentEditor,
   RichContentEditor,
 } from "@cosmicdrift/kumiko-renderer-web";
+import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { type FormEvent, type ReactNode, useEffect, useId, useState } from "react";
 import {
   collectionHandlerName,
@@ -226,7 +227,7 @@ function findCollection(
 function findContentFormat(
   features: readonly FeatureSchema[],
   collectionId?: string,
-): string | undefined {
+): ContentEditorFormat | undefined {
   return findCollection(features, collectionId)?.contentFormat;
 }
 

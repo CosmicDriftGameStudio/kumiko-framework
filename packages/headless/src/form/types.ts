@@ -145,7 +145,7 @@ export type FormController<TValues extends FormValues> = {
   // `scope` restricts reported issues to those field names; root-level
   // `.refine()` issues (path `(root)`) never match a scope and are dropped
   // by design — omit `scope` (as submit() does) to see them.
-  validate(scope?: readonly string[]): boolean;
+  validate(scope?: readonly (keyof TValues & string)[]): boolean;
 
   // Reverts values to `initial`, clears errors. Doesn't fire a new
   // "initial" baseline — to adopt the current values as the new baseline

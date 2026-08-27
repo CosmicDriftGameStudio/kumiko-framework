@@ -34,6 +34,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
+  expectSuccess,
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
@@ -447,8 +448,8 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
       systemUser,
       tenantDb,
     );
-    expect(createResult.isSuccess).toBe(true);
-    const invitationId = (createResult as { data: { id: string } }).data.id;
+    expectSuccess(createResult);
+    const invitationId = createResult.data.id;
 
     const rawRows = await asRawClient(stack.db).unsafe<Record<string, unknown>>(
       `SELECT email, email_bidx FROM read_tenant_invitations WHERE id = $1`,

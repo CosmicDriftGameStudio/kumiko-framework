@@ -15,6 +15,7 @@ import {
   type DbConnection,
   deleteMany,
   type EntityTableMeta,
+  type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -22,18 +23,19 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  getStreamVersion,
+  getUnscopedAggregateStreamMaxVersion,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants";
 import { executor } from "./handlers/shared";
 import { type TemplateResourceRow, templateResourcesTable } from "./table";
 
-/** Projection row without events — update() would 409 (expectedVersion from
- *  projection, stream currentVersion=0). Drop the orphan and treat as create
- *  so boot seeds (legal ifExists:update) survive desync. Stream version is the
- *  optimistic-lock source of truth when events exist. */
+/** Drop projection orphans (no events anywhere) so boot seeds can recreate. */
 async function resolveExistingForEventStoreSeed(
   db: DbConnection,
+  tdb: TenantDb,
   existingRow: { readonly id: string | number; readonly version: number } | null,
   tenantId: TenantId,
 ): Promise<{ id: string; version: number } | null> {
@@ -41,7 +43,17 @@ async function resolveExistingForEventStoreSeed(
   const id = String(existingRow.id);
   const streamVersion = await getStreamVersion(db, id, tenantId);
   if (streamVersion === 0) {
-    await deleteMany(db, templateResourcesTable as EntityTableMeta, { id });
+    // Tenant-scoped 0 can still hide a live stream under another tenant —
+    // only delete when unscoped is also empty (true orphan).
+    const unscoped = await getUnscopedAggregateStreamMaxVersion(db, id);
+    if (unscoped !== 0) {
+      throw new Error(
+        `seed orphan check: projection ${id} has no events for tenant ${tenantId} but unscoped stream version is ${unscoped} — refusing delete/recreate to avoid wiping a live stream`,
+      );
+    }
+    // @cast-boundary orphan projection cleanup: empty stream, no executor verb;
+    // plain table ident trips guard-direct-entity-writes (infra EXCLUDE follow-up).
+    await deleteMany(tdb, templateResourcesTable as EntityTableMeta, { id, tenantId });
     return null;
   }
   return { id, version: streamVersion };
@@ -76,6 +88,7 @@ export async function seedSystemTemplate(
   });
   const existing = await resolveExistingForEventStoreSeed(
     db,
+    tdb,
     existingRow ? { id: existingRow.id, version: existingRow.version } : null,
     tenantId,
   );
@@ -105,6 +118,34 @@ export async function seedSystemTemplate(
     create: async () => {
       const result = await executor.create({ ...rowFields, tenantId }, by, tdb);
       if (!result.isSuccess) {
+        // Parallel boot pods can both delete the orphan and race on create —
+        // unique on (tenantId, slug, kind, locale) → resolve winner and update.
+        if (result.error?.code === "unique_violation") {
+          const again = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+            tenantId,
+            slug: opts.slug,
+            kind: opts.kind,
+            locale: opts.locale,
+          });
+          const resolved = await resolveExistingForEventStoreSeed(
+            db,
+            tdb,
+            again ? { id: again.id, version: again.version } : null,
+            tenantId,
+          );
+          if (resolved == null) {
+            throw new Error(`seedSystemTemplate create unique_violation but row missing`);
+          }
+          const upd = await executor.update(
+            { id: resolved.id, version: resolved.version, changes: rowFields },
+            by,
+            tdb,
+          );
+          if (!upd.isSuccess) {
+            throw new Error(`seedSystemTemplate race-update failed: ${JSON.stringify(upd)}`);
+          }
+          return { id: resolved.id };
+        }
         throw new Error(`seedSystemTemplate create failed: ${JSON.stringify(result)}`);
       }
       const data = result.data as Partial<TemplateResourceRow>;
@@ -159,6 +200,7 @@ export async function seedTextBlock(
   });
   const existing = await resolveExistingForEventStoreSeed(
     db,
+    tdb,
     existingRow ? { id: existingRow.id, version: existingRow.version } : null,
     opts.tenantId,
   );
@@ -184,6 +226,36 @@ export async function seedTextBlock(
     create: async () => {
       const result = await executor.create({ ...fields, tenantId: opts.tenantId }, by, tdb);
       if (!result.isSuccess) {
+        if (result.error?.code === "unique_violation") {
+          const again = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+            tenantId: opts.tenantId,
+            slug: opts.slug,
+            kind: TEXT_BLOCK_KIND,
+            locale: opts.locale,
+          });
+          const resolved = await resolveExistingForEventStoreSeed(
+            db,
+            tdb,
+            again ? { id: again.id, version: again.version } : null,
+            opts.tenantId,
+          );
+          if (resolved == null) {
+            throw new Error("seedTextBlock create unique_violation but row missing");
+          }
+          const upd = await executor.update(
+            {
+              id: resolved.id,
+              version: resolved.version,
+              changes: { title: fields.title, content: fields.content, folder: fields.folder },
+            },
+            by,
+            tdb,
+          );
+          if (!upd.isSuccess) {
+            throw new Error(`seedTextBlock race-update failed: ${JSON.stringify(upd)}`);
+          }
+          return { id: resolved.id };
+        }
         throw new Error(`seedTextBlock create failed: ${JSON.stringify(result)}`);
       }
       // @cast-boundary db-row — executor.create returns the inserted row from

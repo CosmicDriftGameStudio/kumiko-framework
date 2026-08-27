@@ -1,7 +1,7 @@
 import { createJobRunLogger } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
-import type { JobRunIn } from "@cosmicdrift/kumiko-framework/engine/types";
+import type { AppContext, JobRunIn } from "@cosmicdrift/kumiko-framework/engine/types";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 
 export function jobRunLoggerCallbacks(
@@ -16,7 +16,7 @@ export function jobRunLoggerCallbacks(
 export async function startDevJobRunners(opts: {
   readonly registry: Registry;
   readonly db: DbConnection;
-  readonly context: Record<string, unknown>;
+  readonly context: AppContext;
   readonly redisUrl: string;
 }): Promise<{ readonly runners: readonly JobRunner[]; readonly stop: () => Promise<void> }> {
   const jobs = [...opts.registry.getAllJobs().values()];

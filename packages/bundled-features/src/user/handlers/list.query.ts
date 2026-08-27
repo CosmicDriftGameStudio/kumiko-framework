@@ -6,6 +6,7 @@ import {
   type HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 // kumiko-lint-ignore cross-feature-import SystemAdmin user-list joins memberships for tenants column
 import { tenantMembershipsTable, tenantTable } from "../../tenant";
 import { userEntity } from "../schema/user";
@@ -83,7 +84,8 @@ export async function attachTenantLabels(
   const byUser = labelsByUserId(memberships, tenantLabelById(tenants));
   return rows.map((row) => {
     const labels = byUser.get(String(row["id"] ?? "")) ?? [];
-    return { ...row, tenants: labels.length > 0 ? labels.join(", ") : "" };
+    const sorted = [...labels].sort((a, b) => a.localeCompare(b));
+    return { ...row, tenants: sorted.length > 0 ? sorted.join(", ") : "" };
   });
 }
 
@@ -100,13 +102,14 @@ export function dbForList(ctx: HandlerContext): TenantDb {
 // members via the tenant feature (which scopes by membership, not globally).
 // Wraps the entity-convention list so each row carries a `tenants` label
 // (derived field) — without it the platform roster is unusable for ops.
-export const listQuery = {
+export const listQuery: QueryHandlerDef = {
   ...baseList,
-  handler: async (
-    query: Parameters<NonNullable<typeof baseList.handler>>[0],
-    ctx: HandlerContext,
-  ) => {
-    const result = await baseList.handler?.(query, ctx);
+  handler: async (query, ctx) => {
+    const baseHandler = baseList.handler;
+    if (baseHandler === undefined) {
+      throw new Error("user:list base handler missing");
+    }
+    const result = await baseHandler(query, ctx);
     if (result === null || typeof result !== "object" || !("rows" in result)) {
       return result;
     }

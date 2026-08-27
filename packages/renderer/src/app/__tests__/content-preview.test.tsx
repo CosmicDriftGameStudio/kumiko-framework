@@ -52,6 +52,7 @@ describe("substituteVariables", () => {
 
   test("a name with no example value stays as the literal placeholder", () => {
     expect(substituteVariables("Hi {{customerName}}", {})).toBe("Hi {{customerName}}");
+    expect(substituteVariables("Hi {{constructor}}", {})).toBe("Hi {{constructor}}");
   });
 
   test("no variables in the content → content passes through unchanged", () => {
@@ -62,6 +63,27 @@ describe("substituteVariables", () => {
 });
 
 describe("ContentPreview", () => {
+  test("rich format escapes attribute-breaking quotes in substituted values", () => {
+    function RichEditor({ value }: ContentEditorProps): ReactNode {
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: XSS regression fixture for escapeHtml
+      return <div data-testid="rich" dangerouslySetInnerHTML={{ __html: value }} />;
+    }
+    render(
+      <Wrapper>
+        <ContentEditorsProvider value={{ rich: RichEditor }}>
+          <ContentPreview
+            content={'<a href="{{url}}">x</a>'}
+            variables={{ url: '" onerror="x' }}
+            contentFormat="rich"
+          />
+        </ContentEditorsProvider>
+      </Wrapper>,
+    );
+    const html = screen.getByTestId("rich").innerHTML;
+    expect(html).toContain("&quot;");
+    expect(html).not.toContain('onerror="x');
+  });
+
   test("renders the format's registered editor read-only, with variables substituted", () => {
     function RichEditor({ value, readOnly }: ContentEditorProps): ReactNode {
       return (
