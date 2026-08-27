@@ -7,7 +7,7 @@
 
 import type { DbRunner } from "../db/connection";
 import { resolveTableName } from "../db/entity-table-meta";
-import { executeRawQuery } from "../db/queries/raw-sql";
+import { executeRawQueryRead } from "../db/queries/raw-sql";
 import type { Registry, TenantId } from "../engine/types";
 import {
   buildSearchDocument,
@@ -112,7 +112,7 @@ export async function reindexEntity(
     // across both types needs a text cast that breaks integer ordering.
     // This is a one-time backfill over existing rows, not a live hot path;
     // switch to keyset if it ever needs to run against a churning table.
-    const rows = await executeRawQuery<Record<string, unknown>>(
+    const rows = await executeRawQueryRead<Record<string, unknown>>(
       db,
       `SELECT * FROM ${quoteIdent(tableName)}
         WHERE ${quoteIdent("tenant_id")} = $1 ${deletedFilter}

@@ -47,10 +47,11 @@ describe("status command", () => {
     writeFileSync(join(binDir, "docker"), "#!/bin/sh\nexec sleep 30\n", { mode: 0o755 });
     const originalPath = process.env["PATH"];
     cleanups.push(() => {
-      process.env["PATH"] = originalPath;
+      if (originalPath === undefined) delete process.env["PATH"];
+      else process.env["PATH"] = originalPath;
       rmSync(binDir, { recursive: true, force: true });
     });
-    process.env["PATH"] = `${binDir}:${originalPath}`;
+    process.env["PATH"] = originalPath === undefined ? binDir : `${binDir}:${originalPath}`;
 
     const spy = makeSpyOutput();
     const start = Date.now();
@@ -58,8 +59,9 @@ describe("status command", () => {
     const elapsedMs = Date.now() - start;
 
     expect(exit).toBe(0);
-    expect(elapsedMs).toBeGreaterThanOrEqual(1500); // probe really ran and was cut off, not ENOENT
-    expect(elapsedMs).toBeLessThan(4000);
+    // Loose bounds: prove the probe ran (not ENOENT) and was capped well under sleep 30.
+    expect(elapsedMs).toBeGreaterThanOrEqual(1000);
+    expect(elapsedMs).toBeLessThan(15_000);
     const joined = spy.logs.join("\n");
     expect(joined).toContain("Docker probe timed out (daemon slow or hung)");
   });

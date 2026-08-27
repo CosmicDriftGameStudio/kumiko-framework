@@ -1,6 +1,6 @@
 import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto";
-import { executeRawQuery } from "../db/queries/raw-sql";
+import { executeRawQueryRead } from "../db/queries/raw-sql";
 import { coerceRow, extractTableInfo } from "../db/query";
 import { buildOwnershipClause, shiftParams } from "../engine/ownership";
 import type { EntityId } from "../engine/types";
@@ -276,7 +276,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const whereClauseSqlText = whereSql.length > 0 ? ` WHERE ${whereSql.join(" AND ")}` : "";
       const listSql = `SELECT * FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
-      const rawRows = await executeRawQuery<Record<string, unknown>>(db.raw, listSql, params);
+      const rawRows = await executeRawQueryRead<Record<string, unknown>>(db.raw, listSql, params);
       // Per-row read-side rehydrate + snake→camel coercion for driver-agnostic field names.
       // Coerce BEFORE rehydrate/decrypt: the raw SELECT * rows carry snake_case
       // column names, while compound-type lookups (rehydrateMoney et al.) and the
@@ -322,7 +322,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           total = filterIds.length;
         } else {
           const countSql = `SELECT COUNT(*)::int AS count FROM "${tableName}"${whereClauseSqlText}`;
-          const countRows = await executeRawQuery<{ count: number }>(db.raw, countSql, params);
+          const countRows = await executeRawQueryRead<{ count: number }>(db.raw, countSql, params);
           total = countRows[0]?.count ?? 0;
         }
       }

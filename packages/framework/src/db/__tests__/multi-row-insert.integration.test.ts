@@ -9,6 +9,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { Temporal } from "temporal-polyfill";
 import { selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
@@ -61,6 +62,7 @@ describe("instant() customType is forgiving with ISO strings", () => {
     expect(rows).toHaveLength(1);
     const insertedAt = rows[0]?.["insertedAt"];
     expect(insertedAt).toBeDefined();
+    expect(insertedAt).toBeInstanceOf(Temporal.Instant);
     expect((insertedAt as Temporal.Instant).toString()).toBe(isoString);
   });
 });

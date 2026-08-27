@@ -1,5 +1,5 @@
 import type { AnyDb } from "../query";
-import { asRawClient } from "../query";
+import { unsafeReadRetrying } from "../query";
 
 export type SeedUserRow = {
   readonly id: string;
@@ -21,7 +21,8 @@ export type SeedTenantDbRow = {
 };
 
 export async function selectUserByEmail(db: AnyDb, email: string): Promise<SeedUserRow | null> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = (await unsafeReadRetrying(
+    db,
     `SELECT id::text AS id, email, tenant_id::text AS tenant_id
      FROM read_users
      WHERE email = $1
@@ -37,7 +38,8 @@ export async function selectMembershipsOfUser(
   db: AnyDb,
   userId: string,
 ): Promise<readonly SeedMembershipDbRow[]> {
-  return (await asRawClient(db).unsafe(
+  return (await unsafeReadRetrying(
+    db,
     `SELECT m.user_id::text AS user_id,
             m.tenant_id::text AS tenant_id,
             e.tenant_id::text AS stream_tenant_id,
@@ -50,9 +52,11 @@ export async function selectMembershipsOfUser(
 }
 
 export async function selectAllTenants(db: AnyDb): Promise<readonly SeedTenantDbRow[]> {
-  return (await asRawClient(db).unsafe(
+  return (await unsafeReadRetrying(
+    db,
     `SELECT id::text AS id, name, key AS tenant_key
      FROM read_tenants
      ORDER BY inserted_at`,
+    [],
   )) as readonly SeedTenantDbRow[];
 }

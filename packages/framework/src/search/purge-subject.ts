@@ -13,7 +13,7 @@ import type { SubjectId } from "../crypto/kms-adapter";
 import { collectSearchableSubjectFields } from "../crypto/subject-resolver";
 import type { DbRunner } from "../db/connection";
 import { resolveTableName } from "../db/entity-table-meta";
-import { executeRawQuery } from "../db/queries/raw-sql";
+import { executeRawQueryRead } from "../db/queries/raw-sql";
 import type { FeatureDefinition } from "../engine/types";
 import type { EntityDefinition } from "../engine/types/fields";
 import type { EntityId, TenantId } from "../engine/types/identifiers";
@@ -78,7 +78,7 @@ async function collectMatchingRowsForEntity(
   let offset = 0;
   for (;;) {
     const offsetN = params.length + 1;
-    const page = await executeRawQuery<MatchedRow>(
+    const page = await executeRawQueryRead<MatchedRow>(
       db,
       `SELECT id, tenant_id FROM ${quoteIdent(tableName)} WHERE ${whereSql}
         ORDER BY ${quoteIdent("id")} ASC

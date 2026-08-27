@@ -165,15 +165,14 @@ async function dispatchCleanup(): Promise<void> {
 
 describe("form-draft cleanup job", () => {
   // FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY (cleanup.job.ts) is a hardcoded
-  // literal that must match the qualified name r.config({ keys: {
-  // retentionDays: ... } }) derives internally in feature.ts — nothing
-  // else ties the two together, so a rename of the `retentionDays` config
-  // key there would silently desync them. This recomputes the derivation
-  // and fails loudly if that ever happens.
-  test("FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY matches the qualified name feature.ts derives for retentionDays", () => {
-    expect(FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY).toBe(
-      qn(toKebab(FORM_DRAFT_FEATURE_NAME), "config", toKebab("retentionDays")),
+  // literal that must match a key actually registered by formDraftFeature.
+  // Assert against the feature's configKeys (not a hand-rebuilt qn string),
+  // so renaming the key in feature.ts without updating the constant fails.
+  test("FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY is among formDraftFeature registered config keys", () => {
+    const registered = Object.keys(formDraftFeature.configKeys ?? {}).map((key) =>
+      qn(toKebab(FORM_DRAFT_FEATURE_NAME), "config", toKebab(key)),
     );
+    expect(registered).toContain(FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY);
   });
 
   test("deletes a draft older than the default retention window, leaves a fresh one alone", async () => {
