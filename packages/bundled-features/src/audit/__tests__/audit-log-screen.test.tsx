@@ -21,7 +21,8 @@ import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer-w
 import { render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { TenantQueries } from "../../tenant/constants";
-import { AuditQueries } from "../constants";
+import { AUDIT_LOG_DETAIL_SCREEN_ID, AuditQueries } from "../constants";
+import { AuditLogDetailScreen } from "../web/audit-log-detail-screen";
 import { AuditLogScreen } from "../web/audit-log-screen";
 import { defaultTranslations } from "../web/i18n";
 
@@ -124,14 +125,32 @@ const MEMBERS: readonly MemberRowFixture[] = [
   { userId: "user-2", email: "bob@example.com", displayName: null },
 ];
 
-function makeDispatcher(): Dispatcher {
+type AuditDetailFixture = AuditRowFixture & { readonly metadata: Record<string, unknown> };
+
+function detailFixtureFor(row: AuditRowFixture): AuditDetailFixture {
+  return { ...row, metadata: {} };
+}
+
+type MembersResult =
+  | { readonly isSuccess: true; readonly data: readonly MemberRowFixture[] }
+  | { readonly isSuccess: false; readonly error: { readonly message: string } };
+
+function makeDispatcher(
+  options: {
+    readonly detail?: AuditDetailFixture | null;
+    readonly membersResult?: MembersResult;
+  } = {},
+): Dispatcher {
   const statusStore = createStore<DispatcherStatus>("online");
   const query = (async (type: string) => {
     if (type === AuditQueries.list) {
       return { isSuccess: true, data: { rows: AUDIT_ROWS, nextBefore: null } };
     }
+    if (type === AuditQueries.details) {
+      return { isSuccess: true, data: options.detail ?? null };
+    }
     if (type === TenantQueries.members) {
-      return { isSuccess: true, data: MEMBERS };
+      return options.membersResult ?? { isSuccess: true, data: MEMBERS };
     }
     return { isSuccess: true, data: null };
   }) as unknown as Dispatcher["query"];
@@ -146,7 +165,12 @@ function makeDispatcher(): Dispatcher {
   } as unknown as Dispatcher; // @cast-boundary test-stub
 }
 
-function renderScreen(): ReturnType<typeof render> {
+function renderWithProviders(
+  ui: ReactNode,
+  options: { readonly nav?: NavApi; readonly dispatcher?: Dispatcher } = {},
+): ReturnType<typeof render> {
+  const nav = options.nav ?? stubNav;
+  const dispatcher = options.dispatcher ?? makeDispatcher();
   const wrapper = ({ children }: { readonly children: ReactNode }): ReactNode => (
     <TokensProvider value={stubTokens}>
       <LocaleProvider
@@ -154,16 +178,25 @@ function renderScreen(): ReturnType<typeof render> {
         fallbackBundles={[defaultTranslations, kumikoDefaultTranslations]}
       >
         <PrimitivesProvider value={defaultPrimitives}>
-          <NavProvider value={stubNav}>
+          <NavProvider value={nav}>
             <LiveEventsProvider value={stubLiveEvents}>
-              <DispatcherProvider dispatcher={makeDispatcher()}>{children}</DispatcherProvider>
+              <DispatcherProvider dispatcher={dispatcher}>{children}</DispatcherProvider>
             </LiveEventsProvider>
           </NavProvider>
         </PrimitivesProvider>
       </LocaleProvider>
     </TokensProvider>
   );
-  return render(<AuditLogScreen />, { wrapper });
+  return render(ui, { wrapper });
+}
+
+function renderScreen(dispatcher?: Dispatcher): ReturnType<typeof render> {
+  return renderWithProviders(<AuditLogScreen />, { dispatcher });
+}
+
+function renderDetailScreen(entityId: string, dispatcher: Dispatcher): ReturnType<typeof render> {
+  const nav: NavApi = { ...stubNav, route: { screenId: AUDIT_LOG_DETAIL_SCREEN_ID, entityId } };
+  return renderWithProviders(<AuditLogDetailScreen />, { nav, dispatcher });
 }
 
 describe("AuditLogScreen — actor name resolution", () => {
@@ -224,5 +257,46 @@ describe("AuditLogScreen — actor name resolution", () => {
     const cell = view.getByTestId("cell-5-actor");
     expect(cell.textContent).toBe("");
     expect(view.container.textContent).not.toContain("3f2504e0-4f89-11d3-9a0c-0305e82c3301");
+  });
+});
+
+describe("AuditLogScreen — members query failure", () => {
+  test("members query returns isSuccess:false → list still renders, no crash", async () => {
+    const dispatcher = makeDispatcher({
+      membersResult: { isSuccess: false, error: { message: "members unavailable" } },
+    });
+    const view = renderScreen(dispatcher);
+    await waitFor(() => {
+      const cell = view.queryByTestId("cell-1-type");
+      if (cell === null) throw new Error("table not rendered yet");
+    });
+    expect(view.getByTestId("cell-1-type").textContent).toBe("widget.created");
+    expect(view.getByTestId("cell-1-actor").textContent).toBe("");
+  });
+});
+
+describe("AuditLogDetailScreen — actor name resolution", () => {
+  test("known member with displayName → detail actor field shows the display name", async () => {
+    const row = AUDIT_ROWS[0];
+    if (row === undefined) throw new Error("fixture missing");
+    const dispatcher = makeDispatcher({ detail: detailFixtureFor(row) });
+    const view = renderDetailScreen(row.id, dispatcher);
+    await waitFor(() => {
+      const cell = view.queryByTestId("audit-detail-actor");
+      if (cell === null) throw new Error("actor field not rendered yet");
+    });
+    expect(view.getByTestId("audit-detail-actor").textContent).toBe("Alice Example");
+  });
+
+  test("known member without displayName → detail actor field falls back to email", async () => {
+    const row = AUDIT_ROWS[1];
+    if (row === undefined) throw new Error("fixture missing");
+    const dispatcher = makeDispatcher({ detail: detailFixtureFor(row) });
+    const view = renderDetailScreen(row.id, dispatcher);
+    await waitFor(() => {
+      const cell = view.queryByTestId("audit-detail-actor");
+      if (cell === null) throw new Error("actor field not rendered yet");
+    });
+    expect(view.getByTestId("audit-detail-actor").textContent).toBe("bob@example.com");
   });
 });
