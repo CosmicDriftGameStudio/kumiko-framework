@@ -318,6 +318,33 @@ describe("StatusBarChart", () => {
     expect(container.querySelectorAll("rect").length).toBe(5);
     expect(screen.getByText("heute")).toBeTruthy();
   });
+
+  test("dense: fixed-size flat bars ohne Tick/Gradient, aria-Label + Tooltips bleiben", () => {
+    const { container } = render(
+      <StatusBarChart
+        dense
+        ariaLabel="Zahlungsmonate"
+        entries={[
+          { key: "m1", level: 1, tone: "ok", label: "Januar: bezahlt" },
+          { key: "m2", level: 0.5, tone: "bad", label: "Februar: offen" },
+        ]}
+      />,
+    );
+    const svg = container.querySelector("svg");
+    expect(screen.getByRole("img", { name: "Zahlungsmonate" })).toBeTruthy();
+    expect(svg?.getAttribute("class")).not.toContain("w-full");
+    expect(svg?.getAttribute("width")).not.toBeNull();
+    expect(container.querySelectorAll("linearGradient").length).toBe(0);
+    // 1 bar (non-last entry) + 1 bar + 1 last-highlight stripe (no tick) = 3 rects
+    expect(container.querySelectorAll("rect").length).toBe(3);
+    expect(container.querySelectorAll("title").length).toBe(3); // aria title + 2 entry tooltips
+  });
+
+  test("dense: leere Entries reservieren keine 36px-Höhe", () => {
+    const { container } = render(<StatusBarChart dense ariaLabel="Leer" entries={[]} />);
+    const placeholder = container.querySelector("div[aria-hidden]");
+    expect(placeholder?.className).toBe("h-3");
+  });
 });
 
 describe("TimeseriesChart", () => {
