@@ -34,7 +34,7 @@ import { fileRefsTable } from "../file-ref-table";
 import type { FileRoutesOptions } from "../file-routes";
 import { createInMemoryFileProvider } from "../in-memory-provider";
 import { createLocalProvider } from "../local-provider";
-import type { FileStorageProvider } from "../types";
+import type { FileStorageProvider, SignedUrlOptions } from "../types";
 import { parseMaxSize, sniffMimeType, validateFile } from "../types";
 
 // UUID for "this row doesn't exist" assertions. Valid v4 format so PG accepts
@@ -1061,5 +1061,101 @@ describe("meta route with field-encrypted fileName", () => {
 
     const res = await getFileMeta(adminUser, id);
     expect(res.status).toBe(404);
+  });
+});
+
+// --- fw#2442: byte-serving + signed-URL routes with field-encrypted fileName ---
+
+describe("byte-serving routes with field-encrypted fileName", () => {
+  const testPng = new Uint8Array([
+    0x89,
+    0x50,
+    0x4e,
+    0x47,
+    0x0d,
+    0x0a,
+    0x1a,
+    0x0a,
+    ...Array(20).fill(0),
+  ]);
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("GET /files/:id serves the decrypted fileName in Content-Disposition, not the ciphertext", async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+
+    const uploadRes = await uploadFile(
+      adminUser,
+      "Krankheitsattest-Mai.png",
+      testPng,
+      "image/png",
+      { entityType: "tenant", entityId: "1", fieldName: "logo" },
+    );
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+
+    const res = await getFile(adminUser, id);
+    expect(res.status).toBe(200);
+    const header = res.headers.get("Content-Disposition") ?? "";
+    expect(header).toContain('filename="Krankheitsattest-Mai.png"');
+    expect(header).not.toContain("kumiko-pii");
+  });
+
+  test("GET /files/:id/download-url hints the decrypted fileName, never the ciphertext", async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+
+    let capturedDisposition: string | undefined;
+    const capturingProvider = {
+      ...createInMemoryFileProvider(),
+      async getSignedUrl(key: string, expiresInSeconds: number, options?: SignedUrlOptions) {
+        capturedDisposition = options?.contentDisposition;
+        return `memory://${key}?expires=${expiresInSeconds}`;
+      },
+    };
+
+    const isolatedDb = await createTestDb();
+    await unsafePushTables(isolatedDb.db, { fileRefsTable });
+    await unsafeCreateEntityTable(isolatedDb.db, testTenantEntity);
+    const isolatedRegistry = createRegistry([tenantFeature]);
+    const isolatedServer = buildServer({
+      registry: isolatedRegistry,
+      context: {
+        db: isolatedDb.db,
+        _fileProviderResolver: () => Promise.resolve(capturingProvider),
+      },
+      jwtSecret: JWT_SECRET,
+    });
+
+    try {
+      const fd = new FormData();
+      fd.append(
+        "file",
+        new File([Buffer.from(testPng)], "Krankheitsattest-Mai.png", { type: "image/png" }),
+      );
+      fd.append("entityType", "tenant");
+      fd.append("entityId", "1");
+      fd.append("fieldName", "logo");
+      const { body: multipartBody, contentType } = await buildMultipartBody(fd);
+      const token = await isolatedServer.jwt.sign(adminUser);
+      const uploadRes = await isolatedServer.app.request("/api/files", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+        body: multipartBody,
+      });
+      expect(uploadRes.status).toBe(201);
+      const { id } = await uploadRes.json();
+
+      const res = await isolatedServer.app.request(`/api/files/${id}/download-url`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(res.status).toBe(200);
+      expect(capturedDisposition).toContain('filename="Krankheitsattest-Mai.png"');
+      expect(capturedDisposition ?? "").not.toContain("kumiko-pii");
+    } finally {
+      await isolatedDb.cleanup();
+    }
   });
 });

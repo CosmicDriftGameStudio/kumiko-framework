@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { LOCALE_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
@@ -40,11 +41,6 @@ import { signResetToken } from "../reset-token";
 // in-memory transport captures what would be sent; route:{email} delivers
 // directly (no jobRunner in the test stack → inline send).
 const emailTransport = createInMemoryTransport();
-
-// Kept in sync with LOCALE_HEADER_NAME in api-constants.ts by hand — that
-// constant is a framework-internal implementation detail, not exported from
-// the public /api barrel (same as TENANT_HEADER_NAME).
-const LOCALE_HEADER_NAME = "X-Locale";
 
 registerMailTranslations("de", localeDeBundle);
 

@@ -504,7 +504,7 @@
 
   Also fixed in this release:
 
-  - `DefaultDataTable`'s dead `env(safe-area-inset-bottom)` inline style (never had an effect in any supported browser) is replaced with the `max-sm:pb-4` utility class it was meant to express.
+  - `DefaultForm`'s `stickyActions` footer: dead `env(safe-area-inset-bottom)` inline style (never had an effect without `viewport-fit=cover` in any Kumiko HTML template) is replaced with `max-sm:pb-4`. If a template later adds `viewport-fit=cover`, restore the `max()` form.
   - `drawer.test.tsx` now covers the resize behavior added earlier: keyboard resize direction per `side`, clamping at `minWidthPx`/`maxWidthPx`, the maximize toggle, and that `side="top"`/`"bottom"` drawers never render a resize handle.
   - `Form`'s sticky-actions test now also asserts the content container's `max-sm:pb-24` padding class, not just the footer's `max-sm:fixed`.
 

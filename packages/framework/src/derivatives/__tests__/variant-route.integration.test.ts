@@ -103,6 +103,9 @@ describe("GET /api/files/:id/variant/:name", () => {
     expect(res.headers.get("Content-Type")).toBe("image/webp");
     expect(res.headers.get("Cache-Control")).toBe("private, max-age=31536000, immutable");
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(VARIANT_BYTES);
+    // fw#2442 — variant responses never derive from fileRef.fileName, so
+    // there is no Content-Disposition here for a field-encrypted name to leak into.
+    expect(res.headers.get("Content-Disposition")).toBeNull();
   });
 
   // setupTestStack doesn't wrap with the app-wide security-headers default, so a pass proves the route sets its own.

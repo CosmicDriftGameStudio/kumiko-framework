@@ -245,16 +245,13 @@ describe("forget pipeline honours the effective tenant model", () => {
     // `tenant-membership.created` events, so FORGET_USER needs its own
     // `.created` event too, or the tenant would only ever show 1 distinct
     // historical member (CO_MEMBER) even after it truly had 2.
-    // Explicit `by`: streamTenantFor(user) keys each event's OWN tenantId
-    // column off the acting user, not the payload's tenantId — the
-    // seedTenantMembership default (TestUsers.systemAdmin) lives on a
-    // different tenant, which would emit .created under the wrong tenantId
-    // and make it invisible to everHadMultipleMembers' tenant-scoped query.
+    // seedTenantMembership defaults `by` to createSystemUser(tenantId), so
+    // the stream tenant matches TENANT (unlike seedTenant, which defaults
+    // to TestUsers.systemAdmin).
     await seedTenantMembership(stack.db, {
       userId: FORGET_USER,
       tenantId: TENANT,
       roles: ["Member"],
-      by: createSystemUser(TENANT),
     });
 
     // CO_MEMBER joins for real (emits tenant-membership.created) and is then
@@ -265,7 +262,6 @@ describe("forget pipeline honours the effective tenant model", () => {
       userId: CO_MEMBER,
       tenantId: TENANT,
       roles: ["Member"],
-      by: createSystemUser(TENANT),
     });
     const deleteResult = await membershipExecutor.delete(
       { id: created.id },

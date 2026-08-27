@@ -16,6 +16,7 @@ export { isWithinGracePeriod } from "./grace-period";
 export { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash";
 export { mapWithConcurrency } from "./map-with-concurrency";
 export { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing";
+export { sessionField } from "./session-field";
 export { sessionLocaleField } from "./session-locale-field";
 export { sessionTimezoneField } from "./session-timezone-field";
 export type { SystemQueryFn } from "./system-query";

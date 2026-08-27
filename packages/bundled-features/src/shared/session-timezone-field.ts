@@ -1,7 +1,8 @@
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { sessionField } from "./session-field";
 
 export function sessionTimezoneField(
   timezone: string | null | undefined,
 ): Pick<SessionUser, "timezone"> | Record<string, never> {
-  return timezone !== null && timezone !== undefined ? { timezone } : {};
+  return sessionField("timezone", timezone);
 }

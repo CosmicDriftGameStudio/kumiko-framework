@@ -25,8 +25,8 @@ import type {
   WhereObject,
   WhereOperator,
 } from "@cosmicdrift/kumiko-types/where-clause-types";
-// Static import, not the ambient global: Bun doesn't expose Temporal on
-// globalThis, so instantFromDriver crashed on timestamptz reads (#1480).
+// Static polyfill import (not getTemporal()): coercion results stay on one
+// Temporal implementation repo-wide, even when Bun exposes a global (#1480).
 import { Temporal } from "temporal-polyfill";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index";
 import { SQL_EXPR_BRAND } from "../db/dialect";

@@ -16,10 +16,6 @@ function isPresent(value: unknown): boolean {
   return true;
 }
 
-// A statically-`required: true` field with no bound widget is caught
-// loudly at boot — validateNoWidgetRequiredField in
-// packages/framework/src/engine/boot-validator/screens.ts, sharing
-// NO_WIDGET_FIELD_TYPES with the presence check below.
 function isEmbeddedListField(field: FieldDefinition): boolean {
   return field.type === "embedded" && field.multiple === true;
 }
@@ -67,7 +63,7 @@ export function buildFormSchema(
         const field = entity.fields[spec.field];
         if (!field) continue;
         // Not operable by the user — a presence error would be unresolvable,
-        // same reason as the FIELD_TYPES_WITHOUT_WIDGET check below.
+        // same reason as the NO_WIDGET_FIELD_TYPES check below.
         if (spec.readOnly !== undefined && evalFieldCondition(spec.readOnly, record)) continue;
         // Screen-spec `required` overrides the entity default, mirroring
         // `view-model/edit.ts` — the rendered form is the reference, and a
@@ -78,7 +74,9 @@ export function buildFormSchema(
         if (!isRequired) continue;
         // Embedded LIST fields get their own EmbeddedListField grid widget
         // (#1838) — they're fillable, so NO_WIDGET_FIELD_TYPES's "embedded"
-        // entry must not exempt them from the presence check below.
+        // entry must not exempt them. A statically-`required: true` field
+        // with no bound widget is also caught at boot
+        // (validateNoWidgetRequiredField in boot-validator/screens.ts).
         if (NO_WIDGET_FIELD_TYPES.includes(field.type) && !isEmbeddedListField(field)) continue;
         if (isPresent(record[spec.field])) continue;
         ctx.addIssue({
