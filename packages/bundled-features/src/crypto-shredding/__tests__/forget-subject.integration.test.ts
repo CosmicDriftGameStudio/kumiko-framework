@@ -19,9 +19,11 @@ import {
   createEntity,
   createTextField,
   defineFeature,
+  SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { reindexEntity } from "@cosmicdrift/kumiko-framework/search";
 import {
   setupTestStack,
   type TestStack,
@@ -168,6 +170,25 @@ describe("crypto-shredding :: forget-subject", () => {
     await stack.http.writeOk(FORGET, { subject, reason: `${REASON} (repeat)` }, dpoUser);
 
     expect(await forgottenEvents()).toHaveLength(2);
+  });
+
+  // mh#349 continued: resolveTenantScopeDenial's `!features.has("tenant")`
+  // branch is a deliberate fail-open for single-/no-tenant apps — this
+  // block's stack (top of file) only mounts crypto-shredding, so there is no
+  // membership table to check a "user" subject against. Every "user"-kind
+  // test above already exercises this path implicitly; this test names and
+  // locks the behavior explicitly so a future refactor that tries to add a
+  // membership check here doesn't silently start 500ing/denying instead.
+  test("fail-open: user subject forget allowed when tenant feature isn't mounted", async () => {
+    const subject = { kind: "user", userId: TARGET_USER_ID } as const;
+    await kms.createKey(subject);
+
+    const result = await stack.http.writeOk<{ subjectKey: string }>(
+      FORGET,
+      { subject, reason: REASON },
+      dpoUser,
+    );
+    expect(result.subjectKey).toBe(`user:${TARGET_USER_ID}`);
   });
 
   test("no KMS configured → 500 with boot hint", async () => {
@@ -514,5 +535,149 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
       dpoUser,
     );
     expect(err.httpStatus).toBe(403);
+  });
+});
+
+// mh#349 continued: subjectRowExistsInTenant's catch swallows query errors
+// (missing table, id-type mismatch, ...) so one broken/unmigrated entity
+// doesn't fail the whole ownership sweep — but "swallowed" must still mean
+// "fail-closed", not "silently allow" or "500". The "closes the login door"
+// stack above always has its self-PII probe table created before these
+// tests run, so that catch branch is never actually exercised there.
+// Deliberately never creates this stack's probe table so the SELECT throws
+// and the catch path actually runs.
+describe("crypto-shredding :: forget-subject subjectRowExistsInTenant catch path (missing table)", () => {
+  const missingTableProbeEntity = createEntity({
+    table: "read_forget_subject_missing_table_probe",
+    fields: {
+      recipientName: createTextField({
+        required: true,
+        maxLength: 100,
+        personal: "self",
+        find: "exact",
+      }),
+    },
+  });
+  const missingTableProbeFeature = defineFeature("forget-subject-missing-table-probe", (r) => {
+    r.entity("probe", missingTableProbeEntity);
+  });
+
+  let missingTableStack: TestStack;
+  let missingTableKms: InMemoryKmsAdapter;
+
+  beforeAll(async () => {
+    missingTableStack = await setupTestStack({
+      features: [
+        createCryptoShreddingFeature(),
+        createConfigFeature(),
+        createTenantFeature(),
+        missingTableProbeFeature,
+      ],
+    });
+    await unsafePushTables(missingTableStack.db, { tenantMembershipsTable });
+    await createEventsTable(missingTableStack.db);
+    // No unsafeCreateEntityTable for missingTableProbeEntity — that's the point.
+  });
+
+  afterAll(async () => {
+    await missingTableStack.cleanup();
+  });
+
+  beforeEach(() => {
+    missingTableKms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(missingTableKms);
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("missing self-PII probe table denies (403), doesn't 500", async () => {
+    const err = await missingTableStack.http.writeErr(
+      FORGET,
+      { subject: { kind: "user", userId: TARGET_USER_ID }, reason: REASON },
+      dpoUser,
+    );
+    expect(err.httpStatus).toBe(403);
+  });
+});
+
+// PR#2412: user.email is `personal: "self"` (→ pii: true) + `searchable: true`,
+// so it is decrypted into the derived search index by design (screens.ts:30
+// documents that the *stored* column is ciphertext, not that search never
+// sees plaintext). The guarantee that actually protects that comment is
+// crypto-shredding purging the search doc on erasure — regression-lock it
+// against the real production field (not just the framework's synthetic pii
+// probe in reindex-entity.integration.test.ts), including across a search
+// index rebuild.
+describe("crypto-shredding :: forget-subject purges user.email from the search index", () => {
+  let emailSearchStack: TestStack;
+  let emailSearchKms: InMemoryKmsAdapter;
+
+  beforeAll(async () => {
+    emailSearchStack = await setupTestStack({
+      features: [createCryptoShreddingFeature(), createUserFeature()],
+    });
+    await unsafeCreateEntityTable(emailSearchStack.db, userEntity);
+    await createEventsTable(emailSearchStack.db);
+  });
+
+  afterAll(async () => {
+    await emailSearchStack.cleanup();
+  });
+
+  beforeEach(async () => {
+    await resetTestTables(emailSearchStack.db, [userTable, eventsTable]);
+    emailSearchKms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(emailSearchKms);
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("erased email is unfindable, including after a search-index rebuild", async () => {
+    const email = "erase-me-1611@example.com";
+    const { id: userId } = await seedUser(emailSearchStack.db, {
+      email,
+      displayName: "Erase Me",
+      emailVerified: true,
+    });
+
+    // user is systemStream — its events (and the derived search doc) live on
+    // SYSTEM_TENANT_ID, not a regular tenant (see screens.ts:30 comment).
+    await emailSearchStack.eventDispatcher?.runOnce();
+    const before = await emailSearchStack.search.search(SYSTEM_TENANT_ID, email, {
+      filterType: "user",
+    });
+    expect(before.some((h) => String(h.entityId) === userId)).toBe(true);
+
+    await emailSearchStack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      TestUsers.systemAdmin,
+    );
+
+    const after = await emailSearchStack.search.search(SYSTEM_TENANT_ID, email, {
+      filterType: "user",
+    });
+    expect(after.some((h) => String(h.entityId) === userId)).toBe(false);
+
+    // A rebuild must not resurrect the erased subject's email — reindexEntity's
+    // hasErasedSearchableSubjectField skip has to hold for this real
+    // production field, not only for the framework's synthetic pii probe.
+    const rebuild = await reindexEntity(
+      emailSearchStack.db,
+      emailSearchStack.registry,
+      emailSearchStack.search,
+      "user",
+      SYSTEM_TENANT_ID,
+    );
+    expect(rebuild.failures).toHaveLength(0);
+
+    const afterRebuild = await emailSearchStack.search.search(SYSTEM_TENANT_ID, email, {
+      filterType: "user",
+    });
+    expect(afterRebuild.some((h) => String(h.entityId) === userId)).toBe(false);
   });
 });

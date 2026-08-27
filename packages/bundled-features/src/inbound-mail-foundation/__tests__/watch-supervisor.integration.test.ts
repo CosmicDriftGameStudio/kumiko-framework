@@ -569,4 +569,64 @@ describe("watch-supervisor — multi-worker watch coordination (#1719)", () => {
       await supervisorB.stop();
     }
   });
+
+  test("losing the lease (renew fails) tears down the local watcher and lets the peer take over", async () => {
+    const admin = adminFor(4202);
+    const accountId = await connectSharedAccount(admin);
+    const lock = createDistributedLock(stack.redis.redis, "test-watch-lease-lost:");
+    const a = makeWatchIngestCounter();
+    const b = makeWatchIngestCounter();
+    const supervisorA = createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db,
+      dispatchWrite: a.dispatchWrite,
+      lock,
+      watchLeaseTtlSeconds: 1,
+      pollIntervalMs: 60_000,
+    });
+    const supervisorB = createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db,
+      dispatchWrite: b.dispatchWrite,
+      lock,
+      watchLeaseTtlSeconds: 1,
+      pollIntervalMs: 60_000,
+    });
+
+    try {
+      await supervisorA.start();
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(true);
+      });
+
+      // B's own start() polls too but must not claim the watch lease — A
+      // already holds it. Priming `running` here (rather than only calling
+      // pollOnce() later) mirrors the "peer takes over" test above.
+      await supervisorB.start();
+
+      // Simulate the lease expiring behind A's back (Redis TTL lapse, or an
+      // operator flushing the key) by deleting it directly. A's next renew
+      // heartbeat (`lock.renew`, every ttl/3) then finds a token mismatch,
+      // reports failure, and must tear down A's local IDLE connection.
+      await stack.redis.redis.del(`test-watch-lease-lost:${accountId}`);
+
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(false);
+      });
+
+      await supervisorB.pollOnce();
+      await waitFor(() => {
+        expect(isWatching(accountId)).toBe(true);
+      });
+
+      await seedInboundMessage(accountId, rawMsg({ providerMessageId: "mw-lost-1" }));
+      await waitFor(() => {
+        expect(b.watchIngestCount()).toBe(1);
+      });
+      expect(a.watchIngestCount()).toBe(0);
+    } finally {
+      await supervisorA.stop();
+      await supervisorB.stop();
+    }
+  });
 });

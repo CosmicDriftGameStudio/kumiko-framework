@@ -23,7 +23,30 @@ function membersFacetLabelKeys(): readonly string[] {
   );
 }
 
+// Column labels of the members screen itself — deliberately scoped to this
+// one screen, not a generic "walk every column of every screen" helper.
+function membersColumnLabelKeys(): readonly string[] {
+  const screen = createTenantFeature().screens[MEMBERS_SCREEN_ID];
+  if (screen?.type !== "projectionList") {
+    throw new Error("expected members screen to be projectionList");
+  }
+  return screen.columns.flatMap((col) =>
+    typeof col === "string" || col.label === undefined ? [] : [col.label],
+  );
+}
+
+// Nav-menu-entry label(s) that point at the members screen — same
+// single-screen scope as the facet/column helpers above.
+function membersNavLabelKeys(): readonly string[] {
+  const feature = createTenantFeature();
+  const membersScreenTarget = `${feature.name}:screen:${MEMBERS_SCREEN_ID}`;
+  return Object.values(feature.navs)
+    .filter((nav) => nav.screen === membersScreenTarget)
+    .map((nav) => nav.label);
+}
+
 const facetKeys = membersFacetLabelKeys();
+const membersScreenI18nKeys = [...facetKeys, ...membersColumnLabelKeys(), ...membersNavLabelKeys()];
 
 const localePacks: ReadonlyArray<readonly [string, Readonly<Record<string, string>>]> = [
   ["es", localeEsBundle],
@@ -31,12 +54,21 @@ const localePacks: ReadonlyArray<readonly [string, Readonly<Record<string, strin
 ];
 
 describe("members status filter labels are localized in every shipped locale (fw#2376)", () => {
-  test("the status facet ships the keys the locale packs have to cover", () => {
-    expect(facetKeys).toEqual([
-      "tenant.members.filter.status",
-      "tenant.members.filter.status.option.active",
-      "tenant.members.filter.status.option.pending",
-    ]);
+  // A hardcoded toEqual() array here would fail with a confusing "array
+  // mismatch" the moment a facet/column/nav-label key is added to the
+  // members screen — instead of the clear "key not translated" failure a
+  // missing en copy should produce. Reading the keys off the live screen
+  // definition and checking each one resolves catches the real failure
+  // mode (fw#2376) without hardcoding an ever-growing key list.
+  test("every facet/column/nav-label key of the members screen has English copy", () => {
+    expect(membersScreenI18nKeys.length).toBeGreaterThan(0);
+    const translations = createTenantFeature().translations ?? {};
+    for (const key of membersScreenI18nKeys) {
+      const label = translations[key]?.["en"];
+      expect(label).toBeString();
+      expect(label).not.toBe(key);
+      expect((label ?? "").trim()).not.toBe("");
+    }
   });
 
   test("every facet label has English copy in the tenant feature itself", () => {

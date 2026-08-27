@@ -169,7 +169,7 @@ describe("delivery log SystemAdmin cross-tenant scope", () => {
         status: string;
         error: string | null;
       }[];
-    }>(DeliveryQueries.log, {}, systemAdmin);
+    }>(DeliveryQueries.log, { limit: 100 }, systemAdmin);
 
     const byId = new Map(res.rows.map((r) => [r.id, r]));
     expect(byId.get(systemConfirmationId)?.tenantId).toBe(SYSTEM_TENANT_ID);
@@ -187,6 +187,97 @@ describe("delivery log SystemAdmin cross-tenant scope", () => {
     expect(res.rows.every((r) => typeof r.tenantId === "string" && r.tenantId.length > 0)).toBe(
       true,
     );
+  });
+
+  test("SystemAdmin cursor-paginates the unfiltered cross-tenant result set, seeing every row exactly once", async () => {
+    const pagingTenant = testTenantId(53);
+    const seededRows = Array.from({ length: 7 }, (_, i) => ({
+      id: crypto.randomUUID(),
+      tenantId: i % 2 === 0 ? SYSTEM_TENANT_ID : pagingTenant,
+      // unique per row so we can sort on it — the default sort (createdAt)
+      // ties across rows inserted in the same insertMany statement, and the
+      // cursor WHERE only excludes strictly-equal sort values (see
+      // log.query.ts), so equal timestamps would silently drop rows.
+      notificationType: `paging-test:${i}`,
+      channel: "email",
+      recipientAddress: null,
+      status: "sent",
+    }));
+    await insertMany(stack.db, deliveryAttemptsTable, seededRows);
+
+    const systemAdmin = createTestUser({
+      id: 52,
+      roles: ["SystemAdmin"],
+      tenantId: pagingTenant,
+    });
+
+    const seenCounts = new Map<string, number>();
+    let cursor: string | undefined;
+    let pageCount = 0;
+    do {
+      const page = await stack.http.queryOk<{
+        rows: readonly { id: string }[];
+        nextCursor: string | null;
+      }>(
+        DeliveryQueries.log,
+        { limit: 3, sort: "type", sortDirection: "asc", cursor },
+        systemAdmin,
+      );
+      for (const row of page.rows) {
+        seenCounts.set(row.id, (seenCounts.get(row.id) ?? 0) + 1);
+      }
+      cursor = page.nextCursor ?? undefined;
+      pageCount += 1;
+      expect(pageCount).toBeLessThan(50);
+    } while (cursor);
+
+    expect(pageCount).toBeGreaterThan(1);
+    for (const row of seededRows) {
+      expect(seenCounts.get(row.id)).toBe(1);
+    }
+    expect([...seenCounts.values()].every((count) => count === 1)).toBe(true);
+  });
+
+  test("SystemAdmin with no demo-tenant session (session tenantId is SYSTEM_TENANT_ID itself) still sees cross-tenant rows", async () => {
+    const otherTenant = testTenantId(54);
+    const systemScopedId = crypto.randomUUID();
+    const otherTenantRowId = crypto.randomUUID();
+
+    await insertMany(stack.db, deliveryAttemptsTable, [
+      {
+        id: systemScopedId,
+        tenantId: SYSTEM_TENANT_ID,
+        notificationType: "no-session-tenant-test:system",
+        channel: "email",
+        recipientAddress: null,
+        status: "sent",
+      },
+      {
+        id: otherTenantRowId,
+        tenantId: otherTenant,
+        notificationType: "no-session-tenant-test:other",
+        channel: "email",
+        recipientAddress: null,
+        status: "sent",
+      },
+    ]);
+
+    // Mirrors a platform-level caller (e.g. an API key) that has no demo
+    // tenant on its session at all, as opposed to the other SystemAdmin
+    // tests above which browse from a demo tenant panel.
+    const systemAdmin = createTestUser({
+      id: 53,
+      roles: ["SystemAdmin"],
+      tenantId: SYSTEM_TENANT_ID,
+    });
+
+    const res = await stack.http.queryOk<{
+      rows: readonly { id: string; tenantId: string }[];
+    }>(DeliveryQueries.log, { limit: 100 }, systemAdmin);
+
+    const byId = new Map(res.rows.map((r) => [r.id, r]));
+    expect(byId.get(systemScopedId)?.tenantId).toBe(SYSTEM_TENANT_ID);
+    expect(byId.get(otherTenantRowId)?.tenantId).toBe(otherTenant);
   });
 
   test("TenantAdmin cannot read SYSTEM_TENANT_ID or foreign-tenant delivery attempts", async () => {

@@ -243,6 +243,15 @@ const LEGACY_IMPORT_FIXTURE = [
   "",
 ].join("\n");
 
+// A dedicated fixture — not the real repo's scripts/codemod/ — so the
+// non-.ts and doesn't-exist cases below are isolated from whatever files
+// happen to exist in the real tree. README.md is created for real so a
+// non-.ts rejection is provably caused by the extension check, not by the
+// existsSync guard rejecting a file that never existed.
+function makeCodemodScriptsFixture(): string {
+  return tmp({ "scripts/codemod/README.md": "# Codemods\n" });
+}
+
 describe("resolveCodemodScript", () => {
   test("resolves a real script under scripts/codemod/", () => {
     const resolved = resolveCodemodScript(REAL_REPO_ROOT, REAL_CODEMOD);
@@ -261,11 +270,15 @@ describe("resolveCodemodScript", () => {
   });
 
   test("rejects a non-.ts file", () => {
-    expect(resolveCodemodScript(REAL_REPO_ROOT, "scripts/codemod/README.md")).toBeNull();
+    const root = makeCodemodScriptsFixture();
+
+    expect(resolveCodemodScript(root, "scripts/codemod/README.md")).toBeNull();
   });
 
   test("rejects a script that doesn't exist", () => {
-    expect(resolveCodemodScript(REAL_REPO_ROOT, "scripts/codemod/does-not-exist.ts")).toBeNull();
+    const root = makeCodemodScriptsFixture();
+
+    expect(resolveCodemodScript(root, "scripts/codemod/does-not-exist.ts")).toBeNull();
   });
 
   test("rejects an undefined codemod field", () => {
@@ -360,6 +373,26 @@ describe("upgrade command — --apply", () => {
 
     expect(exit).toBe(1);
     expect(spy.errs.join("\n")).toContain("invalid codemod path");
+    expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
+  });
+
+  test("stops and writes no marker when the codemod script exits non-zero", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(
+        "scripts/codemod/always-fail.ts",
+      ),
+    });
+    const failingRepoRoot = tmp({
+      "packages/framework/src/scripts/codemod/always-fail.ts": "process.exit(1);\n",
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--from", "0.165.0", "--apply"], cwd, spy.out, {
+      repoRoot: failingRepoRoot,
+    });
+
+    expect(exit).toBe(1);
+    expect(spy.errs.join("\n")).toContain("scripts/codemod/always-fail.ts failed");
     expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
   });
 

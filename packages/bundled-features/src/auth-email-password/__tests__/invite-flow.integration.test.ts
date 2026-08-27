@@ -369,6 +369,42 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     // Membership added
     const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: bobId });
     expect(memberships).toHaveLength(2);
+
+    // fw#2333 — Bob has no stored locale, so the JWT must carry no locale
+    // claim at all (not null, not "").
+    const payload = await stack.jwt.verify(body.token as string);
+    expect(payload.locale).toBeUndefined();
+  });
+
+  test("Bob accepts with a locale → JWT retains the locale", async () => {
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${userTable.tableName}" SET locale = $1 WHERE id = $2`,
+      ["de-DE", bobId],
+    );
+    try {
+      const token = await inviteEmail(BOB_EMAIL, "Editor");
+
+      const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+        token,
+        email: BOB_EMAIL,
+        password: BOB_PASSWORD,
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { token?: string };
+      expect(body.token).toBeTypeOf("string");
+      if (!body.token) throw new Error("invite acceptance did not return a token");
+
+      const payload = await stack.jwt.verify(body.token);
+      expect(payload.locale).toBe("de-DE");
+    } finally {
+      // Bob is shared across this describe block (other tests rely on his
+      // membership state persisting) — restore his locale so later tests
+      // don't silently inherit it.
+      await asRawClient(stack.db).unsafe(
+        `UPDATE "${userTable.tableName}" SET locale = NULL WHERE id = $1`,
+        [bobId],
+      );
+    }
   });
 
   test("Bob accepts with a timezone → JWT retains the timezone", async () => {

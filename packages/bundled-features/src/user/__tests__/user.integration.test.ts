@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -8,6 +8,7 @@ import {
   TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   expectErrorIncludes,
@@ -15,6 +16,8 @@ import {
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import { tenantEntity, tenantMembershipsTable } from "../../tenant";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
 import { UserErrors, UserHandlers, UserQueries } from "../constants";
 import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../schema/user";
@@ -27,6 +30,10 @@ const userFeature = createUserFeature();
 beforeAll(async () => {
   stack = await setupTestStack({ features: [userFeature] });
   await unsafeCreateEntityTable(stack.db, userEntity);
+  // Not part of userFeature — list.query.ts cross-feature-joins these to
+  // derive the `tenants` column, so the tables must exist for that test.
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafePushTables(stack.db, { tenantMembershipsTable });
 });
 
 afterAll(async () => {
@@ -320,6 +327,51 @@ describe("scenario 4: detail + list access", () => {
     );
 
     expect(result.rows.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test("list enriches rows with a `tenants` label built from active memberships", async () => {
+    const tenantA = "10000000-0000-4000-8000-0000000000a1" as TenantId;
+    const tenantB = "10000000-0000-4000-8000-0000000000b1" as TenantId;
+    await seedTenant(stack.db, { id: tenantA, key: "tenants-col-a", name: "Tenant Alpha" });
+    await seedTenant(stack.db, { id: tenantB, key: "tenants-col-b", name: "Tenant Beta" });
+
+    const withMemberships = await seedUser({
+      email: "multi-tenant-user@example.com",
+      displayName: "Multi Tenant User",
+    });
+    const withoutMemberships = await seedUser({
+      email: "no-tenant-user@example.com",
+      displayName: "No Tenant User",
+    });
+
+    await seedTenantMembership(stack.db, {
+      userId: withMemberships.id,
+      tenantId: tenantA,
+      roles: ["TenantAdmin"],
+    });
+    await seedTenantMembership(stack.db, {
+      userId: withMemberships.id,
+      tenantId: tenantB,
+      roles: [],
+    });
+
+    const result = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      UserQueries.list,
+      {},
+      systemAdmin,
+    );
+
+    const enrichedRow = result.rows.find((r) => r["id"] === withMemberships.id);
+    const bareRow = result.rows.find((r) => r["id"] === withoutMemberships.id);
+    if (!enrichedRow || !bareRow) throw new Error("expected both seeded users in the list result");
+
+    // Membership order from the join isn't guaranteed — compare as a sorted
+    // set of labels instead of a fixed-order string.
+    const labels = String(enrichedRow["tenants"]).split(", ").sort();
+    expect(labels).toEqual(["Tenant Alpha (TenantAdmin)", "Tenant Beta"].sort());
+
+    // No memberships: falls back to the placeholder, not an empty string.
+    expect(bareRow["tenants"]).toBe("—");
   });
 
   test("normal user cannot list", async () => {
@@ -769,85 +821,101 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
   });
 
   test("concurrent demotions of the last two SystemAdmins: one wins, one gets 409", async () => {
-    const adminA = await seedUser({
-      email: "race-admin-a@example.com",
-      displayName: "Race Admin A",
-      roles: ["SystemAdmin"],
-    });
-    const adminB = await seedUser({
-      email: "race-admin-b@example.com",
-      displayName: "Race Admin B",
-      roles: ["SystemAdmin"],
-    });
+    // Repeated across fresh admin pairs: a single trial is a flaky regression
+    // guard — measured ~25% of runs still land on 1 success/1×409 by pure
+    // request-interleaving luck even with acquireNamespacedAdvisoryLock
+    // removed from applyUserRolesUpdate. 10 independent trials push the
+    // chance of missing a reintroduced race down to roughly 0.25^10.
+    async function raceTwoAdminDemotions(trial: number): Promise<void> {
+      // beforeEach only resets the table once per test, not per loop
+      // iteration — without this, a demoted-loser leftover from a prior
+      // trial would count as an "other active SystemAdmin" and mask the race.
+      await resetTestTables(stack.db, [userTable]);
+      const adminA = await seedUser({
+        email: `race-admin-a-${trial}@example.com`,
+        displayName: "Race Admin A",
+        roles: ["SystemAdmin"],
+      });
+      const adminB = await seedUser({
+        email: `race-admin-b-${trial}@example.com`,
+        displayName: "Race Admin B",
+        roles: ["SystemAdmin"],
+      });
 
-    const loadedA = await stack.http.queryOk<Record<string, unknown>>(
-      UserQueries.detail,
-      { id: adminA.id },
-      systemAdmin,
-    );
-    const loadedB = await stack.http.queryOk<Record<string, unknown>>(
-      UserQueries.detail,
-      { id: adminB.id },
-      systemAdmin,
-    );
-
-    const [resA, resB] = await Promise.all([
-      stack.http.write(
-        UserHandlers.update,
-        {
-          id: adminA.id,
-          version: loadedA["version"],
-          changes: { roles: ["User"] },
-        },
+      const loadedA = await stack.http.queryOk<Record<string, unknown>>(
+        UserQueries.detail,
+        { id: adminA.id },
         systemAdmin,
-      ),
-      stack.http.write(
-        UserHandlers.update,
-        {
-          id: adminB.id,
-          version: loadedB["version"],
-          changes: { roles: ["User"] },
-        },
+      );
+      const loadedB = await stack.http.queryOk<Record<string, unknown>>(
+        UserQueries.detail,
+        { id: adminB.id },
         systemAdmin,
-      ),
-    ]);
+      );
 
-    const bodyA = (await resA.json()) as {
-      isSuccess: boolean;
-      error?: { code?: string; details?: { reason?: string } };
-    };
-    const bodyB = (await resB.json()) as {
-      isSuccess: boolean;
-      error?: { code?: string; details?: { reason?: string } };
-    };
-
-    const outcomes = [
-      { status: resA.status, body: bodyA },
-      { status: resB.status, body: bodyB },
-    ];
-    const successes = outcomes.filter((o) => o.body.isSuccess === true);
-    const failures = outcomes.filter((o) => o.body.isSuccess === false);
-
-    expect(successes).toHaveLength(1);
-    expect(failures).toHaveLength(1);
-    const loser = failures[0];
-    if (!loser) throw new Error("expected exactly one failing demotion");
-    expect(loser.status).toBe(409);
-    expect(loser.body.error?.code).toBe("conflict");
-    expect(loser.body.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
-
-    // Exactly one active SystemAdmin must remain among the two race targets.
-    const stillAdmin = await Promise.all(
-      [adminA.id, adminB.id].map(async (id) => {
-        const row = await stack.http.queryOk<Record<string, unknown>>(
-          UserQueries.detail,
-          { id },
+      const [resA, resB] = await Promise.all([
+        stack.http.write(
+          UserHandlers.update,
+          {
+            id: adminA.id,
+            version: loadedA["version"],
+            changes: { roles: ["User"] },
+          },
           systemAdmin,
-        );
-        return parseRoles(row["roles"]).includes("SystemAdmin");
-      }),
-    );
-    expect(stillAdmin.filter(Boolean)).toHaveLength(1);
+        ),
+        stack.http.write(
+          UserHandlers.update,
+          {
+            id: adminB.id,
+            version: loadedB["version"],
+            changes: { roles: ["User"] },
+          },
+          systemAdmin,
+        ),
+      ]);
+
+      const bodyA = (await resA.json()) as {
+        isSuccess: boolean;
+        error?: { code?: string; details?: { reason?: string } };
+      };
+      const bodyB = (await resB.json()) as {
+        isSuccess: boolean;
+        error?: { code?: string; details?: { reason?: string } };
+      };
+
+      const outcomes = [
+        { status: resA.status, body: bodyA },
+        { status: resB.status, body: bodyB },
+      ];
+      const successes = outcomes.filter((o) => o.body.isSuccess === true);
+      const failures = outcomes.filter((o) => o.body.isSuccess === false);
+
+      expect(successes).toHaveLength(1);
+      expect(failures).toHaveLength(1);
+      const loser = failures[0];
+      if (!loser) throw new Error("expected exactly one failing demotion");
+      expect(loser.status).toBe(409);
+      expect(loser.body.error?.code).toBe("conflict");
+      expect(loser.body.error?.details?.reason).toBe(UserErrors.cannotDemoteLastSystemAdmin);
+
+      // Exactly one active SystemAdmin must remain among the two race targets.
+      const stillAdmin = await Promise.all(
+        [adminA.id, adminB.id].map(async (id) => {
+          const row = await stack.http.queryOk<Record<string, unknown>>(
+            UserQueries.detail,
+            { id },
+            systemAdmin,
+          );
+          return parseRoles(row["roles"]).includes("SystemAdmin");
+        }),
+      );
+      expect(stillAdmin.filter(Boolean)).toHaveLength(1);
+    }
+
+    const trials = 10;
+    for (let trial = 0; trial < trials; trial++) {
+      await raceTwoAdminDemotions(trial);
+    }
   });
 
   test("soft-deleted SystemAdmin does not count toward last-admin protection", async () => {
