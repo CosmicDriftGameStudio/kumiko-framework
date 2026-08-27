@@ -18,7 +18,11 @@ const KMS_POOL_CONCURRENCY = 4;
 
 export const membersQuery = defineQueryHandler({
   name: "members",
-  schema: z.object({}),
+  schema: z.object({
+    // Optional single-user filter — audit detail (and similar) only need one
+    // member's display name, not the full decrypted roster (fw#2291).
+    userId: z.string().min(1).optional(),
+  }),
   access: { roles: access.admin },
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {
@@ -30,6 +34,7 @@ export const membersQuery = defineQueryHandler({
     const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
     const rows = await selectMany(db, tenantMembershipsTable, {
       tenantId: query.user.tenantId,
+      ...(query.payload.userId !== undefined ? { userId: query.payload.userId } : {}),
     });
 
     const userIds = [...new Set(rows.map((row) => row["userId"]))];

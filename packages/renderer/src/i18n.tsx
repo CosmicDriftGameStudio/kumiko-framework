@@ -193,6 +193,48 @@ function interpolate(template: string, params?: Readonly<Record<string, unknown>
   });
 }
 
+/** Non-throwing LocaleContext read — undefined outside LocaleProvider.
+ *  Used by DataTable FormatCell so plain tables without a provider do not crash. */
+export function useOptionalLocale(): string | undefined {
+  const ctx = useContext(LocaleContext);
+  useSyncExternalStore(
+    (onStoreChange) => (ctx ? ctx.resolver.subscribe(onStoreChange) : () => {}),
+    () => (ctx ? ctx.resolver.locale() : "en"),
+    () => "en",
+  );
+  return ctx === undefined ? undefined : ctx.resolver.locale();
+}
+
+/** Non-throwing translate — undefined outside LocaleProvider. */
+export function useOptionalTranslation():
+  | ((key: string, params?: Readonly<Record<string, unknown>>) => string)
+  | undefined {
+  const ctx = useContext(LocaleContext);
+  const locale = useSyncExternalStore(
+    (onStoreChange) => (ctx ? ctx.resolver.subscribe(onStoreChange) : () => {}),
+    () => (ctx ? ctx.resolver.locale() : "en"),
+    () => "en",
+  );
+  const t = useCallback(
+    (key: string, params?: Readonly<Record<string, unknown>>): string => {
+      if (ctx === undefined) return key;
+      const resolved = ctx.resolver.translate(key, params);
+      if (resolved !== key) return resolved;
+      const languageRoot = locale.split("-")[0] ?? locale;
+      const localesToTry = [locale, languageRoot, ctx.fallbackLocale];
+      for (const bundle of ctx.fallbackBundles) {
+        for (const localeToTry of localesToTry) {
+          const value = bundle[localeToTry]?.[key];
+          if (value !== undefined) return interpolate(value, params);
+        }
+      }
+      return key;
+    },
+    [ctx, locale],
+  );
+  return ctx === undefined ? undefined : t;
+}
+
 /** Default-Resolver für Apps ohne eigene i18n-Schicht. Gibt jeden Key
  *  unverändert zurück — die Plugin-Fallback-Bundles erledigen dann die
  *  echte Übersetzung. Nützlich auch als Basis für Tests. */

@@ -387,7 +387,7 @@ export function PrivacyCenterScreen({
   };
 
   return (
-    <FormScreenShell className="flex flex-col gap-6" testId="privacy-center-screen">
+    <FormScreenShell className="flex flex-col gap-6" testId="privacy-center-screen" maxWidth="3xl">
       <Heading variant="page">{t("userDataRights.privacyCenter.title")}</Heading>
       <p className="text-sm text-muted-foreground">{t("userDataRights.privacyCenter.intro")}</p>
       <ExportSection />

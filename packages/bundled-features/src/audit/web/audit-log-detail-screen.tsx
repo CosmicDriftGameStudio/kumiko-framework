@@ -34,7 +34,15 @@ type State =
   | { readonly kind: "loading" }
   | { readonly kind: "missing" }
   | { readonly kind: "error"; readonly message: string }
-  | { readonly kind: "ready"; readonly event: AuditDetail; readonly actorName: string };
+  | {
+      readonly kind: "ready";
+      readonly event: AuditDetail;
+      /** Resolved member display string, or "" if unknown. System actor is
+       *  flagged separately so the translated label is formed in render
+       *  (avoids refetch on locale change — fw#2297). */
+      readonly memberLabel: string;
+      readonly isSystemActor: boolean;
+    };
 
 export function AuditLogDetailScreen(): ReactNode {
   const t = useTranslation();
@@ -60,21 +68,24 @@ export function AuditLogDetailScreen(): ReactNode {
       return;
     }
     const event = res.data;
-    const membersRes = await dispatcher.query<readonly MemberRow[]>(TenantQueries.members, {});
+    if (event.createdBy === SYSTEM_ACTOR_ID) {
+      setState({ kind: "ready", event, memberLabel: "", isSystemActor: true });
+      return;
+    }
+    // Single-user filter — do not decrypt the whole tenant roster for one name.
+    const membersRes = await dispatcher.query<readonly MemberRow[]>(TenantQueries.members, {
+      userId: event.createdBy,
+    });
     const member = membersRes.isSuccess
       ? membersRes.data.find((m) => m.userId === event.createdBy)
       : undefined;
     setState({
       kind: "ready",
       event,
-      actorName:
-        event.createdBy === SYSTEM_ACTOR_ID
-          ? t("audit.log.actor.system")
-          : member
-            ? (member.displayName ?? member.email ?? "")
-            : "",
+      memberLabel: member ? (member.displayName ?? member.email ?? "") : "",
+      isSystemActor: false,
     });
-  }, [dispatcher, eventId, t]);
+  }, [dispatcher, eventId]);
 
   // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
@@ -83,7 +94,7 @@ export function AuditLogDetailScreen(): ReactNode {
 
   if (state.kind === "loading") {
     return (
-      <FormScreenShell testId="audit-log-detail-screen">
+      <FormScreenShell testId="audit-log-detail-screen" maxWidth="3xl">
         <Text variant="small">{t("audit.log.detail.loading")}</Text>
       </FormScreenShell>
     );
@@ -91,7 +102,7 @@ export function AuditLogDetailScreen(): ReactNode {
 
   if (state.kind === "missing") {
     return (
-      <FormScreenShell testId="audit-log-detail-screen">
+      <FormScreenShell testId="audit-log-detail-screen" maxWidth="3xl">
         <Banner variant="error">{t("audit.log.detail.missing")}</Banner>
       </FormScreenShell>
     );
@@ -99,16 +110,21 @@ export function AuditLogDetailScreen(): ReactNode {
 
   if (state.kind === "error") {
     return (
-      <FormScreenShell testId="audit-log-detail-screen">
+      <FormScreenShell testId="audit-log-detail-screen" maxWidth="3xl">
         <Banner variant="error">{state.message}</Banner>
       </FormScreenShell>
     );
   }
 
-  const { event, actorName } = state;
+  const { event, memberLabel, isSystemActor } = state;
+  const actorName = isSystemActor ? t("audit.log.actor.system") : memberLabel;
 
   return (
-    <FormScreenShell testId="audit-log-detail-screen" className="flex flex-col gap-6">
+    <FormScreenShell
+      testId="audit-log-detail-screen"
+      maxWidth="3xl"
+      className="flex flex-col gap-6"
+    >
       <Card slots={{ title: event.type }}>
         <dl className="grid gap-3 text-sm">
           <div>
