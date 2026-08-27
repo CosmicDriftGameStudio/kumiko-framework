@@ -61,4 +61,21 @@ describe("config db/queries/resolver — closed-connection retry (#1163)", () =>
     );
     expect(db.calls).toBe(2);
   });
+
+  test("does not retry when the client has no begin()", async () => {
+    let calls = 0;
+    const db = {
+      unsafe: async () => {
+        calls++;
+        throw closedConnectionError();
+      },
+      savepoint: () => {
+        throw new Error("not used");
+      },
+    };
+    await expect(selectConfigRowsForScope(db as never, "system", "t1", "u1")).rejects.toThrow(
+      "connection was closed",
+    );
+    expect(calls).toBe(1);
+  });
 });
