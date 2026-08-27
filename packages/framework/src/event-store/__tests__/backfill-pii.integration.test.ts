@@ -7,6 +7,7 @@
 // blind-index column, so equality lookups keep working.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
@@ -18,6 +19,7 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   KeyNotFoundError,
+  PgKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "../../crypto";
 import { applyEntityEvent } from "../../db/apply-entity-event";
@@ -275,6 +277,62 @@ describe("backfillEventPiiEncryption", () => {
     expect(real.erasedFields).toBe(dry.erasedFields);
     expect(real.ownerFromProjection).toBe(dry.ownerFromProjection);
     expect(real.erasedUnresolvable).toBe(dry.erasedUnresolvable);
+  });
+
+  // The prod bug this regression test guards (fw#2255) only ever manifested
+  // against a real subject-keys store (kumiko_subject_keys 20→22 rows during
+  // a dry run) — the InMemoryKmsAdapter tests above can't see that, since
+  // there is no row store to leak into. Run the same dry-run invariant
+  // against PgKmsAdapter on real Postgres and assert on the table itself.
+  test("dryRun against PgKmsAdapter mints no row in kumiko_subject_keys (fw#2255)", async () => {
+    const c1 = generateId();
+    await appendPlain(c1, "contact", "contact.created", { id: c1, email: "a@x.com" });
+
+    const baseUrl = process.env["TEST_DATABASE_URL"];
+    if (!baseUrl) throw new Error("Missing required env var: TEST_DATABASE_URL");
+    const pgKms = new PgKmsAdapter({
+      databaseUrl: baseUrl.replace(/\/[^/]+$/, `/${testDb.dbName}`),
+      platformKek: randomBytes(32).toString("base64"),
+      maxConnections: 1,
+    });
+    const raw = asRawClient(testDb.db);
+    try {
+      // health() creates kumiko_subject_keys lazily so the counts below see
+      // a real (empty) table instead of failing on "relation does not exist".
+      await pgKms.health();
+      configurePiiSubjectKms(pgKms);
+
+      const before = (await raw.unsafe(
+        `SELECT count(*)::int AS n FROM kumiko_subject_keys`,
+      )) as ReadonlyArray<{ n: number }>;
+
+      const dry = await backfillEventPiiEncryption(testDb.db, registry, { dryRun: true });
+      expect(dry.failures).toEqual([]);
+      expect(dry.encryptedFields).toBe(1);
+
+      const afterDry = (await raw.unsafe(
+        `SELECT count(*)::int AS n FROM kumiko_subject_keys`,
+      )) as ReadonlyArray<{ n: number }>;
+      expect(afterDry[0]?.n).toBe(before[0]?.n);
+      await expect(
+        pgKms.getKey({ kind: "user", userId: c1 }, { requestId: "backfill-pii-test" }),
+      ).rejects.toThrow(KeyNotFoundError);
+
+      // The real run does mint exactly one row through the same Pg path —
+      // proves the invariant above is a genuine "dry run creates nothing",
+      // not an adapter that never creates rows at all.
+      const real = await backfillEventPiiEncryption(testDb.db, registry);
+      expect(real.encryptedFields).toBe(1);
+      const afterReal = (await raw.unsafe(
+        `SELECT count(*)::int AS n FROM kumiko_subject_keys`,
+      )) as ReadonlyArray<{ n: number }>;
+      expect(afterReal[0]?.n).toBe((before[0]?.n ?? 0) + 1);
+      await expect(
+        pgKms.getKey({ kind: "user", userId: c1 }, { requestId: "backfill-pii-test" }),
+      ).resolves.toBeInstanceOf(Buffer);
+    } finally {
+      await pgKms.close();
+    }
   });
 
   test("dryRun on a KMS-era-erased subject (no *.forgotten event) predicts [[erased]] without touching the key store", async () => {
