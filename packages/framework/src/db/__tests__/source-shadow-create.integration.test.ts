@@ -13,6 +13,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { Temporal } from "temporal-polyfill";
 import { selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
@@ -52,6 +53,7 @@ describe("entity with a `source` field — create-path is shadow-proof", () => {
     expect(rows[0]?.["source"]).toBe("import");
     const insertedAt = rows[0]?.["insertedAt"];
     expect(insertedAt).toBeDefined();
+    expect(insertedAt).toBeInstanceOf(Temporal.Instant);
     expect((insertedAt as Temporal.Instant).toString()).toBe("2026-01-15T12:00:00Z");
   });
 });

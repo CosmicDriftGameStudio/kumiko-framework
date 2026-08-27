@@ -17,7 +17,7 @@ import type { FeatureDefinition } from "../engine/types";
 import { toSnakeCase } from "../utils/case";
 import type { DbRunner } from "./connection";
 import { resolveTableName } from "./entity-table-meta";
-import { executeRawQuery } from "./queries/raw-sql";
+import { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql";
 
 export async function nullBlindIndexesForSubject(
   db: DbRunner,
@@ -75,7 +75,7 @@ export async function subjectRowExistsInTenant(
   }
   const existing = new Set<string>();
   for (const tableName of candidateTables) {
-    const rows = await executeRawQuery<{ exists: boolean }>(
+    const rows = await executeRawQueryRead<{ exists: boolean }>(
       db,
       `SELECT to_regclass(quote_ident($1)) IS NOT NULL AS exists`,
       [tableName],
@@ -84,7 +84,7 @@ export async function subjectRowExistsInTenant(
   }
   for (const tableName of candidateTables) {
     if (!existing.has(tableName)) continue;
-    const rows = await executeRawQuery(
+    const rows = await executeRawQueryRead(
       db,
       `SELECT 1 FROM ${quoteIdent(tableName)} WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
       [subjectId, tenantId],
