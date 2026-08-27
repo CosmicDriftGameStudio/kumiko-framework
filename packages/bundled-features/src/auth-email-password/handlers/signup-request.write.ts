@@ -21,7 +21,7 @@
 // suppressing the link on the request side would be defense-in-depth, but
 // with an enumeration risk of its own (separate concern).
 
-import { generateToken, requestContext } from "@cosmicdrift/kumiko-framework/api";
+import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
@@ -29,7 +29,7 @@ import { z } from "zod";
 import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants";
 import type { AuthMailLocale } from "../email-templates";
 import { renderActivationEmail } from "../email-templates";
-import { dispatchMagicLinkMail } from "../magic-link-mail";
+import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail";
 import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle";
 import {
   invalidateExistingSignupToken,
@@ -133,15 +133,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       // get the same format.
       const normalizedEmail = normalizeEmail(email);
 
-      // ctx.locale always resolves to something (falls back to the app's
-      // boot default, then "en" — dispatch-shared.ts), so it can't tell us
-      // whether THIS request actually carried a locale signal. Read the raw
-      // request-layer value instead: present → the browser's active
-      // language wins over opts.locale (this handler's static config);
-      // absent → opts.locale is the real, still-relevant fallback
-      // (backwards compatibility for callers that configured it and never
-      // send X-Locale), then ctx.locale's own resolved default.
-      const locale = requestContext.get()?.locale ?? opts.locale ?? ctx.locale;
+      const locale = resolveHandlerMailLocale(ctx, opts.locale);
 
       await dispatchMagicLinkMail(
         ctx.notify,

@@ -51,6 +51,7 @@ export const itemEditScreen: EntityEditScreenDefinition = {
   type: "entityEdit",
   entity: "item",
   layout: {
+    width: "3xl",
     sections: [
       {
         title: "Basics",

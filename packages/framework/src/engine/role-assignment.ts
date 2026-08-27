@@ -41,8 +41,9 @@ export function findForbiddenRoleAssignment(
   if (forbiddenAssigned) return forbiddenAssigned;
 
   // Target path: only ranked roles above the actor block (can't touch a
-  // SystemAdmin). Unranked app roles must not block demotion/updates — invite
-  // can assign them; treating them as rank ∞ on the target freezes those members.
+  // SystemAdmin). Unranked app roles are ignored here so members with only
+  // those roles don't freeze on demotion/updates — the assign path still
+  // rejects unranked roles fail-closed.
   const forbiddenTarget = targetCurrentRoles.find((role) => {
     const rank = knownRoleRank(role);
     return rank !== undefined && rank > actorRank;

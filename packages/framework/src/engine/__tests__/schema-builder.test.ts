@@ -1019,7 +1019,7 @@ describe("embedded-list derived cell recomputation (kumiko-framework#1837)", () 
     const schema = buildInsertSchema(entity);
     // Each source is in-scale for its own scale-3 field, but the sum
     // (0.333) has 3 decimal digits — over-scale for the scale-2 target
-    // without the rounding this PR added.
+    // without the rounding from #1867 (roundDerivedCellValue).
     const result = schema.safeParse({ lines: [{ a: 0.111, b: 0.111, c: 0.111 }] });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -1043,8 +1043,8 @@ describe("embedded-list derived cell recomputation (kumiko-framework#1837)", () 
       },
     });
     const schema = buildInsertSchema(entity);
-    // 2400.58 - 93 = 2307.58 minor units — not representable by money's
-    // integer constraint without rounding.
+    // 2400.58 - 93 = 2307.58 major units — not representable by money's
+    // integer minor-unit constraint without rounding (#1867).
     const result = schema.safeParse({ lines: [{ gross: 2400.58, refund: 93 }] });
     expect(result.success).toBe(true);
     if (result.success) {

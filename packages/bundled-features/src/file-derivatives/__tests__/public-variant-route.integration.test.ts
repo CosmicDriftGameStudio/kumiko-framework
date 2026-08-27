@@ -279,8 +279,8 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   test("a preset name the field doesn't declare in its variants → 404", async () => {
     const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
 
-    // widgetEntity's "img" field declares only thumb/full — "card" and
-    // "hero" aren't in its variants map.
+    // widgetEntity's "img" field declares thumb/full/plan/heroWide/raw —
+    // "card" and "hero" aren't in its variants map.
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/card`);
 
     expect(res.status).toBe(404);

@@ -6,6 +6,7 @@
 // non-unsubscribable). No r.notification is declared; buildMessage falls back
 // to the structured `data` for the renderer.
 
+import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import type { NotifyFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { resolveMailLocale } from "@cosmicdrift/kumiko-framework/i18n";
@@ -42,6 +43,17 @@ function resolveAppUrl(appUrl: string | ((locale: string) => string), locale: st
 function appendToken(appUrl: string, token: string): string {
   const sep = appUrl.includes("?") ? "&" : "?";
   return `${appUrl}${sep}token=${encodeURIComponent(token)}`;
+}
+
+// X-Locale on the request wins over the handler's static opts.locale, then
+// ctx.locale's resolved default (always set — boot default / "en"). Reading
+// requestContext is load-bearing: ctx.locale alone cannot tell whether THIS
+// request carried a locale signal.
+export function resolveHandlerMailLocale(
+  ctx: { readonly locale?: string },
+  optsLocale: string | undefined,
+): string | undefined {
+  return requestContext.get()?.locale ?? optsLocale ?? ctx.locale;
 }
 
 export async function dispatchMagicLinkMail(
