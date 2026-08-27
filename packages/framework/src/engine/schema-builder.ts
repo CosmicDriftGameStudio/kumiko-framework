@@ -86,6 +86,7 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
   }
 }
 
+// kumiko-lint-ignore complexity-budget field→zod switch is the single schema source of truth
 export function fieldToZod(
   field: FieldDefinition,
   currencies: readonly string[],
