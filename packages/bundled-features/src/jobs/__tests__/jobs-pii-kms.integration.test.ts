@@ -104,6 +104,28 @@ describe("jobs run-started payload under KMS", () => {
     expect(after["payload"]).toBe(PII_ERASED_SENTINEL);
   });
 
+  // Mirrors the log-message/error cases below: a key already erased by the
+  // time a new run starts must not blow up onJobStart itself — the run row
+  // still has to land, even if the triggering user's key is gone.
+  test("erase subject key BEFORE onJobStart: payload lands as [[erased]] instead of throwing", async () => {
+    // First run creates the subject's key — eraseKey is a no-op on an
+    // unknown subject (InMemoryKmsAdapter's tombstone contract), so the key
+    // has to exist before it can be erased.
+    await logger.onJobStart?.("app:job:export", "bull-2b", {
+      triggeredById: USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+    await kms.eraseKey({ kind: "user", userId: USER_ID });
+
+    await logger.onJobStart?.("app:job:export", "bull-2c", {
+      triggeredById: USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+
+    const row = await fetchOne(testDb.db, jobRunsTable, { bullJobId: "bull-2c" });
+    expect(row?.["payload"]).toBe(PII_ERASED_SENTINEL);
+  });
+
   test("system run (no triggeredById) stays plaintext — no subject to shred", async () => {
     await logger.onJobStart?.("app:job:cron-sweep", "bull-3", {
       payload: JSON.stringify({ scope: "all" }),
@@ -204,7 +226,13 @@ describe("jobs run-completed/-failed log messages under KMS (#2247)", () => {
     expect(logs[0]?.["message"]).toBe(SECRET_LOG);
   });
 
-  test("erase subject key BEFORE onJobComplete: log rows kept with [[erased]], no throw", async () => {
+  // #2307: a key erased between onJobStart and onJobComplete no longer
+  // blows up the callback. encryptLogMessages catches KeyErasedError per
+  // log line and falls back to the sentinel (mirroring
+  // decryptPiiValueForSubject on the read side) instead of throwing and
+  // dropping the whole batch — the status updateMany already committed by
+  // this point, so a thrown error would lose the log batch for nothing.
+  test("erase subject key BEFORE onJobComplete: log message lands as [[erased]] instead of throwing", async () => {
     await logger.onJobStart?.("app:job:export", "bull-c5", {
       triggeredById: USER_ID,
       payload: SECRET_PAYLOAD,
@@ -221,22 +249,81 @@ describe("jobs run-completed/-failed log messages under KMS (#2247)", () => {
     expect(logs).toHaveLength(1);
     expect(logs[0]?.["message"]).toBe(PII_ERASED_SENTINEL);
   });
+});
 
-  test("onJobFailed: error column is ciphertext (same subject DEK as log message)", async () => {
-    const SECRET_ERROR = "export failed for user iban DE89370400440532013000";
-    await logger.onJobStart?.("app:job:export", "bull-f-err", { triggeredById: USER_ID });
-    await logger.onJobFailed?.("app:job:export", "bull-f-err", SECRET_ERROR, [
-      { level: "error", message: SECRET_LOG, timestamp: Temporal.Now.instant() },
-    ]);
+// #2307: onJobFailed's `error` argument was the one plaintext leak left in
+// this table — encryptLogMessages already encrypted logs[].message under
+// the same triggeredById, but the sibling `error` column (same underlying
+// string in job-runner.ts, since it pushes errorMsg into both the log
+// batch and the onJobFailed argument) stayed plaintext. Same subject, same
+// encrypt-under-DEK treatment, same skip rules as the logs above.
+describe("jobs run-failed error column under KMS (#2307)", () => {
+  const SECRET_ERROR = "export failed for iban DE89370400440532013000";
 
-    const row = await fetchOne(testDb.db, jobRunsTable, { bullJobId: "bull-f-err" });
+  async function runIdFor(bullJobId: string): Promise<string> {
+    const row = await fetchOne(testDb.db, jobRunsTable, { bullJobId });
+    return String(row?.["id"]);
+  }
+
+  test("onJobFailed: stored error column is ciphertext, decrypts to original", async () => {
+    await logger.onJobStart?.("app:job:export", "bull-e1", { triggeredById: USER_ID });
+    await logger.onJobFailed?.("app:job:export", "bull-e1", SECRET_ERROR, []);
+
+    const row = await fetchOne(testDb.db, jobRunsTable, { id: await runIdFor("bull-e1") });
     expect(isPiiCiphertext(row?.["error"])).toBe(true);
-    expect(row?.["error"]).not.toBe(SECRET_ERROR);
+    expect(String(row?.["error"])).toContain(`user:${USER_ID}`);
 
     const back = await decryptPiiFieldValues({ error: row?.["error"] }, ["error"], kms, {
       requestId: "t",
     });
     expect(back["error"]).toBe(SECRET_ERROR);
+  });
+
+  test("erase subject key after write → error column decrypts to [[erased]]", async () => {
+    await logger.onJobStart?.("app:job:export", "bull-e2", { triggeredById: USER_ID });
+    await logger.onJobFailed?.("app:job:export", "bull-e2", SECRET_ERROR, []);
+    const row = await fetchOne(testDb.db, jobRunsTable, { id: await runIdFor("bull-e2") });
+
+    await kms.eraseKey({ kind: "user", userId: USER_ID });
+    const after = await decryptPiiFieldValues({ error: row?.["error"] }, ["error"], kms, {
+      requestId: "t",
+    });
+    expect(after["error"]).toBe(PII_ERASED_SENTINEL);
+  });
+
+  // Mirrors the log-message case above: a key erased between onJobStart and
+  // onJobFailed must not blow up the failure callback — the run's own
+  // failure still has to land, even if the triggering user's key is gone.
+  test("erase subject key BEFORE onJobFailed: error column lands as [[erased]] instead of throwing", async () => {
+    // payload creates the subject's key during onJobStart — eraseKey is a
+    // no-op on an unknown subject (InMemoryKmsAdapter's tombstone contract),
+    // so the key has to exist before it can be erased.
+    await logger.onJobStart?.("app:job:export", "bull-e3", {
+      triggeredById: USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+    await kms.eraseKey({ kind: "user", userId: USER_ID });
+
+    await logger.onJobFailed?.("app:job:export", "bull-e3", SECRET_ERROR, []);
+
+    const row = await fetchOne(testDb.db, jobRunsTable, { id: await runIdFor("bull-e3") });
+    expect(row?.["status"]).toBe("failed");
+    expect(row?.["error"]).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("system run (no triggeredById) → error column stays plaintext", async () => {
+    await logger.onJobStart?.("app:job:cron-sweep", "bull-e4", {});
+    await logger.onJobFailed?.("app:job:cron-sweep", "bull-e4", "plain sweep failure", []);
+    const row = await fetchOne(testDb.db, jobRunsTable, { id: await runIdFor("bull-e4") });
+    expect(row?.["error"]).toBe("plain sweep failure");
+  });
+
+  test("without a KMS the error column stays plaintext (rollout mode)", async () => {
+    await logger.onJobStart?.("app:job:export", "bull-e5", { triggeredById: USER_ID });
+    resetPiiSubjectKmsForTests();
+    await logger.onJobFailed?.("app:job:export", "bull-e5", SECRET_ERROR, []);
+    const row = await fetchOne(testDb.db, jobRunsTable, { id: await runIdFor("bull-e5") });
+    expect(row?.["error"]).toBe(SECRET_ERROR);
   });
 });
 
@@ -246,7 +333,7 @@ describe("jobs run-completed/-failed log messages under KMS (#2247)", () => {
 // jobs:query:details HTTP handler so a regression in those eleven lines
 // (wrong AAD field name, log-array key access, the row/log spread) fails a
 // test instead of shipping ciphertext to the job-run detail screen.
-describe("jobs:query:details decrypts log messages end-to-end (#2247)", () => {
+describe("jobs:query:details decrypts log messages and error end-to-end (#2247, #2307)", () => {
   let detailStack: TestStack;
   let detailLogger: ReturnType<typeof createJobRunLogger>;
 
@@ -296,5 +383,52 @@ describe("jobs:query:details decrypts log messages end-to-end (#2247)", () => {
 
     expect(result.logs).toHaveLength(1);
     expect(result.logs[0]?.message).toBe(SECRET_DETAIL_LOG);
+  });
+
+  test("jobs:query:details returns plaintext error even though the stored row is ciphertext", async () => {
+    const SECRET_DETAIL_ERROR = "export failed for iban DE89370400440532013000";
+    await detailLogger.onJobStart?.("app:job:export", "bull-detail-2", {
+      triggeredById: DETAIL_USER_ID,
+    });
+    await detailLogger.onJobFailed?.("app:job:export", "bull-detail-2", SECRET_DETAIL_ERROR, []);
+
+    const row = await fetchOne(detailStack.db, jobRunsTable, { bullJobId: "bull-detail-2" });
+    const runId = String(row?.["id"]);
+    expect(isPiiCiphertext(row?.["error"])).toBe(true);
+
+    const result = await detailStack.http.queryOk<{ error: string }>(
+      JobQueries.details,
+      { runId },
+      TestUsers.systemAdmin,
+    );
+
+    expect(result.error).toBe(SECRET_DETAIL_ERROR);
+  });
+
+  test("jobs:query:list returns plaintext payload + error even though the stored row is ciphertext", async () => {
+    const SECRET_LIST_ERROR = "export failed for iban DE89370400440532013000";
+    // Distinct jobName + filter — this describe block's beforeEach swaps in a
+    // brand-new KMS per test, so earlier tests' rows are still in this
+    // shared table but encrypted under keys the current KMS instance no
+    // longer holds. An unfiltered list() would sweep those up too and fail
+    // to decrypt them.
+    const jobName = "app:job:export-list-pii-test";
+    await detailLogger.onJobStart?.(jobName, "bull-detail-3", {
+      triggeredById: DETAIL_USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+    await detailLogger.onJobFailed?.(jobName, "bull-detail-3", SECRET_LIST_ERROR, []);
+
+    const row = await fetchOne(detailStack.db, jobRunsTable, { bullJobId: "bull-detail-3" });
+    expect(isPiiCiphertext(row?.["payload"])).toBe(true);
+    expect(isPiiCiphertext(row?.["error"])).toBe(true);
+
+    const result = await detailStack.http.queryOk<{
+      rows: readonly { id: string; payload: string | null; error: string | null }[];
+    }>(JobQueries.list, { jobName, limit: 50 }, TestUsers.systemAdmin);
+
+    const listed = result.rows.find((r) => r.id === String(row?.["id"]));
+    expect(listed?.payload).toBe(SECRET_PAYLOAD);
+    expect(listed?.error).toBe(SECRET_LIST_ERROR);
   });
 });

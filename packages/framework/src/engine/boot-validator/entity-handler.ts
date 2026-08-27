@@ -587,6 +587,11 @@ function validateEmbeddedDerivedCells(
           `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" reading unknown sub-field "${sourceName}".`,
         );
       }
+      if (sourceName in field.derived) {
+        throw new Error(
+          `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" reading derived sub-field "${sourceName}".`,
+        );
+      }
     }
   }
 }

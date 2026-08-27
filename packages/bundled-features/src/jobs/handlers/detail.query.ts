@@ -5,6 +5,11 @@ import { z } from "zod";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
 
+// Matches job-run-logger.ts's KMS_POOL_CONCURRENCY / the tenant handlers'
+// KMS_POOL_CONCURRENCY — bounds concurrent decrypt calls against the KMS
+// adapter's connection pool.
+const KMS_POOL_CONCURRENCY = 4;
+
 export const detailQuery = defineQueryHandler({
   name: "details",
   // Post-ES: runId is the uuid aggregate-id of the jobRun event-stream.
@@ -29,8 +34,9 @@ export const detailQuery = defineQueryHandler({
     if (typeof row["payload"] === "string") {
       row["payload"] = await decryptStoredPii(row["payload"], "payload", "job-run-detail");
     }
-    // error string is encrypted under the same subject DEK (#2307) — same AAD
-    // field name as encryptPiiField(..., "error") in job-run-logger.
+
+    // error is stored encrypted under the triggering user's DEK (#2307),
+    // same mechanism as row.payload above.
     if (typeof row["error"] === "string") {
       row["error"] = await decryptStoredPii(row["error"], "error", "job-run-detail");
     }
@@ -45,8 +51,10 @@ export const detailQuery = defineQueryHandler({
     );
 
     // message is stored encrypted under the triggering user's DEK (#2247),
-    // same mechanism as row.payload above.
-    const decryptedLogs = await mapWithConcurrency(logs, 4, async (log) => {
+    // same mechanism as row.payload above. Bounded concurrency (#2307) —
+    // unbounded Promise.all would fire one decrypt per log line at once
+    // against the KMS adapter's pool.
+    const decryptedLogs = await mapWithConcurrency(logs, KMS_POOL_CONCURRENCY, async (log) => {
       if (typeof log["message"] !== "string") return log;
       return {
         ...log,

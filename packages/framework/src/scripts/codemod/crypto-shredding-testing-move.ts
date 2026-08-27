@@ -28,6 +28,7 @@ function findTargetFiles(rootDir: string): string[] {
     try {
       entries = readdirSync(dir, { withFileTypes: true });
     } catch {
+      // skip: unreadable directory during walk — treat as empty.
       return;
     }
     for (const ent of entries) {
