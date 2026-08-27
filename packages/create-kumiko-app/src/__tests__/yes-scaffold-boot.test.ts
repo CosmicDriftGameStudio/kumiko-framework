@@ -185,48 +185,44 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     }
   });
 
-  test(
-    "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts exits 0 against the file scaffoldApp wrote",
-    async () => {
-      mkdirSync(FIXTURE_ROOT, { recursive: true });
-      const cwd = mkdtempSync(join(FIXTURE_ROOT, "boot-"));
-      createdDirs.push(cwd);
+  test("KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts exits 0 against the file scaffoldApp wrote", async () => {
+    mkdirSync(FIXTURE_ROOT, { recursive: true });
+    const cwd = mkdtempSync(join(FIXTURE_ROOT, "boot-"));
+    createdDirs.push(cwd);
 
-      const exitCode = await runCreate({ name: "boot-fixture", yes: true, cwd, log: () => {} });
-      expect(exitCode).toBe(0);
+    const exitCode = await runCreate({ name: "boot-fixture", yes: true, cwd, log: () => {} });
+    expect(exitCode).toBe(0);
 
-      const appDir = join(cwd, "boot-fixture");
-      const proc = Bun.spawn({
-        cmd: ["bun", "bin/main.ts"],
-        cwd: appDir,
-        env: {
-          ...process.env,
-          KUMIKO_DRY_RUN_ENV: "boot",
-          JWT_SECRET: "a".repeat(32),
-          KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
-          DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
-          REDIS_URL: "redis://127.0.0.1:1",
-          // Pinned empty, not inherited from process.env: a dev machine with
-          // the real trio set would otherwise flip resolveKmsWiring into the
-          // ActiveKmsWiring branch (and its KMS health check) instead of the
-          // plaintext fallback this test exercises.
-          PLATFORM_KEK: "",
-          SUBJECT_KEYS_DATABASE_URL: "",
-          KUMIKO_BLIND_INDEX_KEY: "",
-        },
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      const [stdout, stderr, code] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-        proc.exited,
-      ]);
+    const appDir = join(cwd, "boot-fixture");
+    const proc = Bun.spawn({
+      cmd: ["bun", "bin/main.ts"],
+      cwd: appDir,
+      env: {
+        ...process.env,
+        KUMIKO_DRY_RUN_ENV: "boot",
+        JWT_SECRET: "a".repeat(32),
+        KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
+        DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
+        REDIS_URL: "redis://127.0.0.1:1",
+        // Pinned empty, not inherited from process.env: a dev machine with
+        // the real trio set would otherwise flip resolveKmsWiring into the
+        // ActiveKmsWiring branch (and its KMS health check) instead of the
+        // plaintext fallback this test exercises.
+        PLATFORM_KEK: "",
+        SUBJECT_KEYS_DATABASE_URL: "",
+        KUMIKO_BLIND_INDEX_KEY: "",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr, code] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
 
-      expect(code, `stdout:\n${stdout}\nstderr:\n${stderr}`).toBe(0);
-      expect(`${stdout}${stderr}`).not.toContain("BOOT ABORTED");
-      expect(stdout).toContain("boot validation OK");
-    },
-    30_000,
-  );
+    expect(code, `stdout:\n${stdout}\nstderr:\n${stderr}`).toBe(0);
+    expect(`${stdout}${stderr}`).not.toContain("BOOT ABORTED");
+    expect(stdout).toContain("boot validation OK");
+  }, 30_000);
 });

@@ -16,9 +16,9 @@ import { TEXT_BLOCK_KIND } from "../constants";
 import { createTemplateResolverFeature } from "../feature";
 import {
   type LegalContentBlock,
+  type SeedSystemTemplateOptions,
   seedLegalContentFromJson,
   seedSystemTemplate,
-  type SeedSystemTemplateOptions,
 } from "../seeding";
 import { type TemplateResourceRow, templateResourceEntity, templateResourcesTable } from "../table";
 
