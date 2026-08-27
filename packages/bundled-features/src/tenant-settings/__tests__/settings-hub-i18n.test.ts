@@ -7,10 +7,15 @@
 // audience. This test proves the real, declared translations resolve to
 // actual text (not the raw key) AND that the two nav entries read
 // differently — a regression guard, not an existence check.
+//
+// de/es copy lives in the lockstep locale packages (fw#2350); the feature
+// itself is English-only like the rest of bundled-features after 0.208.0.
 
 import { describe, expect, test } from "bun:test";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { buildConfigFeatureSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
+import { localeEsBundle } from "@cosmicdrift/kumiko-locale-es";
 import { translationsByLocaleFromKeys } from "@cosmicdrift/kumiko-renderer";
 import { createTenantSettingsFeature } from "../feature";
 
@@ -23,6 +28,25 @@ function translate(
     translations as Record<string, Readonly<Record<string, string>>>,
   );
   return byLocale[locale]?.[key] ?? key;
+}
+
+function settingsHubLabelKeys(): readonly string[] {
+  const registry = createRegistry([createConfigFeature(), createTenantSettingsFeature()]);
+  const schema = buildConfigFeatureSchema(registry);
+  const renderedKeys: string[] = [];
+  for (const screenId of ["tenant-settings-system", "tenant-settings-tenant"]) {
+    const nav = schema.navs.find((n) => n.id === screenId);
+    const screen = schema.screens.find((s) => s.id === screenId);
+    if (nav === undefined || screen === undefined || screen.type !== "configEdit") {
+      throw new Error(`expected configEdit screen ${screenId}`);
+    }
+    const section = screen.layout.sections[0];
+    const sectionTitle = section !== undefined && "title" in section ? section.title : undefined;
+    if (sectionTitle === undefined) throw new Error(`expected section title on ${screenId}`);
+    renderedKeys.push(nav.label, `screen:${screenId}.title`, sectionTitle);
+    renderedKeys.push(...Object.values(screen.fieldLabels ?? {}));
+  }
+  return renderedKeys;
 }
 
 describe("tenant-settings — Settings-Hub nav/section labels", () => {
@@ -40,12 +64,8 @@ describe("tenant-settings — Settings-Hub nav/section labels", () => {
     const systemLabel = translate(translations, systemNav.label);
     const tenantLabel = translate(translations, tenantNav.label);
 
-    // Both labels actually resolve to text — not an echoed raw key.
     expect(systemLabel).not.toBe(systemNav.label);
     expect(tenantLabel).not.toBe(tenantNav.label);
-    // The cross-scope duplicate this test guards against: the two nav
-    // entries read differently instead of repeating the same words under
-    // both "Platform" and "Organization".
     expect(systemLabel).not.toBe(tenantLabel);
 
     const systemScreen = schema.screens.find((s) => s.id === "tenant-settings-system");
@@ -60,41 +80,35 @@ describe("tenant-settings — Settings-Hub nav/section labels", () => {
     expect(translate(translations, sectionTitle)).not.toBe(sectionTitle);
   });
 
-  test("every Settings-Hub label the schema renders resolves in es, distinct from en", () => {
-    const registry = createRegistry([createConfigFeature(), createTenantSettingsFeature()]);
-    const schema = buildConfigFeatureSchema(registry);
-    const translations = registry.getFeature("tenant-settings")?.translations ?? {};
-
-    const renderedKeys: string[] = [];
-    for (const screenId of ["tenant-settings-system", "tenant-settings-tenant"]) {
-      const nav = schema.navs.find((n) => n.id === screenId);
-      const screen = schema.screens.find((s) => s.id === screenId);
-      expect(nav).toBeDefined();
-      expect(screen).toBeDefined();
-      if (nav === undefined || screen === undefined || screen.type !== "configEdit") {
-        throw new Error("unreachable");
-      }
-      const section = screen.layout.sections[0];
-      const sectionTitle = section !== undefined && "title" in section ? section.title : undefined;
-      expect(sectionTitle).toBeDefined();
-      if (sectionTitle === undefined) throw new Error("unreachable");
-
-      renderedKeys.push(nav.label, `screen:${screenId}.title`, sectionTitle);
-      renderedKeys.push(...Object.values(screen.fieldLabels ?? {}));
-    }
-
-    // The Settings-Hub renders exactly these label surfaces per scope: nav
-    // entry, screen title, section heading and one label per masked config
-    // key (currency + locale) — six distinct keys across both scopes.
+  test("every Settings-Hub label resolves in en on the feature and in de/es locale packs", () => {
+    const renderedKeys = settingsHubLabelKeys();
+    // nav + screen title + section + currency/locale field labels — six distinct keys.
     expect(new Set(renderedKeys).size).toBe(6);
 
+    const translations = createTenantSettingsFeature().translations ?? {};
     for (const key of renderedKeys) {
-      expect(translate(translations, key, "es")).not.toBe(key);
-      expect(translate(translations, key, "es")).not.toBe(translate(translations, key, "en"));
+      const en = translations[key]?.["en"];
+      expect(en).toBeString();
+      expect(en).not.toBe(key);
     }
 
-    const systemLabel = translate(translations, "tenant-settings.settings.system", "es");
-    const tenantLabel = translate(translations, "tenant-settings.settings", "es");
-    expect(systemLabel).not.toBe(tenantLabel);
+    for (const [locale, bundle] of [
+      ["de", localeDeBundle],
+      ["es", localeEsBundle],
+    ] as const) {
+      for (const key of renderedKeys) {
+        const label = bundle[key];
+        expect(label, `${locale}:${key}`).toBeString();
+        expect(label).not.toBe(key);
+        expect(label).not.toBe(translations[key]?.["en"]);
+      }
+    }
+
+    expect(localeEsBundle["tenant-settings.settings.system"]).not.toBe(
+      localeEsBundle["tenant-settings.settings"],
+    );
+    expect(localeDeBundle["tenant-settings.settings.system"]).not.toBe(
+      localeDeBundle["tenant-settings.settings"],
+    );
   });
 });
