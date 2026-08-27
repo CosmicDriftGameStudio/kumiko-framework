@@ -416,6 +416,7 @@ export function createInboundMailSupervisor(
             );
             state.lockToken = null;
             await stopWatcher(account.id);
+            // skip: local watcher torn down after renew failures spanning a full lease TTL.
             return;
           }
           if (running && state.generation === generation && state.lockToken) {
@@ -441,6 +442,7 @@ export function createInboundMailSupervisor(
     }, renewIntervalMs);
   }
 
+  // kumiko-lint-ignore complexity-budget yield-point stale-map check after acquire is intentional (#2460)
   async function acquireWatchLease(
     account: MailAccountRecord,
     state: WatcherState,
