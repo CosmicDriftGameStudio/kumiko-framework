@@ -36,6 +36,7 @@ import {
   type StepBarProps,
   type TextProps,
   useColumnRenderer,
+  useLocale,
   useTranslation,
   type WizardStepGroupProps,
   WriteFailedError,
@@ -1442,25 +1443,18 @@ export function defaultCellRender(
   value: unknown,
   type: string,
   optionLabels?: Readonly<Record<string, string>>,
+  locale?: string,
 ): string {
   if (value === null || value === undefined || value === "") return "";
   if (type === "boolean") return value === true ? "✓" : "";
-  if (type === "timestamp" || type === "date") return applyFormatSpec({ format: type }, value);
+  if (type === "timestamp" || type === "date") {
+    return applyFormatSpec({ format: type, locale }, value);
+  }
   if (type === "number" || type === "decimal" || type === "bigInt") {
-    // No `locale` param here for the same reason as the money branch below:
-    // DataTableCell has no app-locale context to thread through yet.
-    // Intl.NumberFormat(undefined) resolves the runtime's default locale.
-    return applyFormatSpec({ format: type }, value);
+    return applyFormatSpec({ format: type, locale }, value);
   }
   if (type === "money") {
     if (!isMoneyValue(value)) return String(value);
-    // No `locale` param here: DataTableCell has no app-locale context to
-    // thread through (unlike the form path — see MoneyInput/RenderField in
-    // packages/renderer, which pins the LocaleProvider locale). formatMoney
-    // falls back to guessLocale() (navigator.language), so the same amount
-    // can render differently in a table vs. a form on the same screen.
-    // Mid-term: pass the app locale down here too, analogous to render-field.
-    //
     // formatMoney expects minor units scaled by currencyDecimals(currency).
     // rehydrateMoney's `amountMinor` is scaled by a flat MINOR_UNIT_SCALE=100
     // instead, which disagrees with currencyDecimals for non-2-decimal
@@ -1468,7 +1462,7 @@ export function defaultCellRender(
     // low). Deriving minor units from `amount` keeps this consistent with
     // render-field.tsx's moneyMinorValue.
     const minor = Math.round(value.amount * 10 ** currencyDecimals(value.currency));
-    return formatMoney(minor, value.currency);
+    return formatMoney(minor, value.currency, locale);
   }
   if (type === "select") {
     const raw = String(value);
@@ -1531,8 +1525,16 @@ function DataTableCell({
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
   const t = useTranslation();
+  // App locale, analogous to RenderField (render-field.tsx) — otherwise
+  // format:"unit"/number/money cells follow the runtime locale instead of
+  // the app locale chosen via LocaleProvider (fw#2437).
+  const appLocale = useLocale().locale();
   if (typeof renderer === "object" && renderer !== null && "format" in renderer) {
-    return applyFormatSpec(renderer as { format: string } & Record<string, unknown>, value, t);
+    return applyFormatSpec(
+      { locale: appLocale, ...(renderer as { format: string } & Record<string, unknown>) },
+      value,
+      t,
+    );
   }
   if (typeof renderer === "function") {
     const fn = renderer as (v: unknown, r?: Readonly<Record<string, unknown>>) => string;
@@ -1562,11 +1564,11 @@ function DataTableCell({
     // dashboard-01-Muster: outline-Badge + muted statt gefülltem secondary.
     return (
       <Badge variant="outline" className="px-1.5 text-muted-foreground">
-        {defaultCellRender(value, type, optionLabels)}
+        {defaultCellRender(value, type, optionLabels, appLocale)}
       </Badge>
     );
   }
-  return defaultCellRender(value, type, optionLabels);
+  return defaultCellRender(value, type, optionLabels, appLocale);
 }
 
 // ---- Form + Section + Grid + Text ----
