@@ -315,10 +315,3 @@ function extractMembershipId(data: unknown): string {
   );
 }
 
-/** Allowlisted wrapper — template-resolver seeding may not import the unscoped primitive directly. */
-export async function getSeedUnscopedStreamMaxVersion(
-  db: Parameters<typeof getUnscopedAggregateStreamMaxVersion>[0],
-  aggregateId: string,
-): Promise<number> {
-  return getUnscopedAggregateStreamMaxVersion(db, aggregateId);
-}

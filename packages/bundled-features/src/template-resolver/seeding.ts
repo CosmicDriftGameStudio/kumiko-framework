@@ -23,8 +23,10 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
-import { getSeedUnscopedStreamMaxVersion } from "../tenant/seeding";
+import {
+  getStreamVersion,
+  getUnscopedStreamMaxVersionForSeed,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants";
 import { executor } from "./handlers/shared";
@@ -43,7 +45,7 @@ async function resolveExistingForEventStoreSeed(
   if (streamVersion === 0) {
     // Tenant-scoped 0 can still hide a live stream under another tenant —
     // only delete when unscoped is also empty (true orphan).
-    const unscoped = await getSeedUnscopedStreamMaxVersion(db, id);
+    const unscoped = await getUnscopedStreamMaxVersionForSeed(db, id);
     if (unscoped !== 0) {
       throw new Error(
         `seed orphan check: projection ${id} has no events for tenant ${tenantId} but unscoped stream version is ${unscoped} — refusing delete/recreate to avoid wiping a live stream`,

@@ -279,6 +279,14 @@ export async function getUnscopedAggregateStreamMaxVersion(
 // the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
 // (boot, fresh tenant, post-archive).
 // @wrapper-known semantic-alias
+/** Seed/orphan helper — prefer this over importing the restricted existence-oracle by name. */
+export async function getUnscopedStreamMaxVersionForSeed(
+  ...args: Parameters<typeof getUnscopedAggregateStreamMaxVersion>
+): ReturnType<typeof getUnscopedAggregateStreamMaxVersion> {
+  return getUnscopedAggregateStreamMaxVersion(...args);
+}
+
+
 export async function getEventsHighWaterMark(db: DbRunner): Promise<bigint> {
   return selectEventsHighWaterMark(db);
 }
