@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_INVITE_ROLE_OPTIONS } from "@cosmicdrift/kumiko-bundled-features/tenant/constants";
 import { findForbiddenRoleAssignment } from "../role-assignment";
+
+// Mirror DEFAULT_INVITE_ROLE_OPTIONS — framework must not import bundled-features
+// (tsc pulls source into framework's rootDir and fails the package build).
+const DEFAULT_INVITE_ROLE_OPTIONS = ["User", "Editor", "Admin", "TenantAdmin"] as const;
 
 describe("role assignment guard", () => {
   test("rejects roles above the actor's highest role", () => {
