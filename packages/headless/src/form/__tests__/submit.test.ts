@@ -474,4 +474,41 @@ describe("createFormController — submit()", () => {
     expect(result.validationBlocked).toBe(true);
     expect(disp.writeSpy).not.toHaveBeenCalled();
   });
+
+  test("cross-field refine still blocks submit when validateScope is set (#1907)", async () => {
+    const schema = z
+      .object({ title: z.string().min(1), note: z.string() })
+      .refine((v) => v.title !== v.note, { message: "title and note must differ" });
+    const disp = makeDispatcher();
+    const form = createFormController({
+      initial: { title: "same", note: "same" },
+      schema,
+      submit: {
+        dispatcher: disp,
+        type: "app:write:task:create",
+        validateScope: ["title"],
+      },
+    });
+    const result = await form.submit();
+    expect(result.validationBlocked).toBe(true);
+    expect(disp.writeSpy).not.toHaveBeenCalled();
+  });
+
+  test("intentional empty clear survives second submit after rebase (#1858)", async () => {
+    const schema = z.object({ title: z.string().min(1), note: z.string().optional() });
+    const disp = makeDispatcher();
+    const form = createFormController({
+      initial: { title: "t", note: "x" },
+      schema,
+      submit: { dispatcher: disp, type: "app:write:task:create" },
+    });
+    form.setField("note", "");
+    const first = await form.submit();
+    expect(first.isSuccess).toBe(true);
+    expect(disp.writeSpy.mock.calls[0]?.[1]).toMatchObject({ note: "" });
+    form.setField("title", "t2");
+    const second = await form.submit();
+    expect(second.isSuccess).toBe(true);
+    expect(disp.writeSpy.mock.calls[1]?.[1]).toMatchObject({ note: "" });
+  });
 });

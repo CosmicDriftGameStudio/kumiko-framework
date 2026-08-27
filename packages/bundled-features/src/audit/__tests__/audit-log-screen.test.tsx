@@ -218,14 +218,14 @@ describe("AuditLogScreen — actor name resolution", () => {
     expect(view.getByTestId("cell-2-actor").textContent).toBe("bob@example.com");
   });
 
-  test("createdBy not in members list → cell is empty, never the raw id", async () => {
+  test("createdBy not in members list → cell shows Unknown actor, never the raw id", async () => {
     const view = renderScreen();
     await waitFor(() => {
       const cell = view.queryByTestId("cell-3-actor");
       if (cell === null) throw new Error("actor cell not rendered yet");
     });
     const cell = view.getByTestId("cell-3-actor");
-    expect(cell.textContent).toBe("");
+    expect(cell.textContent).toBe("Unknown actor");
     expect(cell.textContent).not.toBe("user-missing");
   });
 
@@ -248,14 +248,14 @@ describe("AuditLogScreen — actor name resolution", () => {
     expect(view.getByTestId("cell-4-actor").textContent).toBe("System");
   });
 
-  test("createdBy is an unresolvable UUID → cell stays empty, raw UUID never rendered", async () => {
+  test("createdBy is an unresolvable UUID → Unknown actor label, raw UUID never rendered", async () => {
     const view = renderScreen();
     await waitFor(() => {
       const cell = view.queryByTestId("cell-5-actor");
       if (cell === null) throw new Error("actor cell not rendered yet");
     });
     const cell = view.getByTestId("cell-5-actor");
-    expect(cell.textContent).toBe("");
+    expect(cell.textContent).toBe("Unknown actor");
     expect(view.container.textContent).not.toContain("3f2504e0-4f89-11d3-9a0c-0305e82c3301");
   });
 });
@@ -271,7 +271,7 @@ describe("AuditLogScreen — members query failure", () => {
       if (cell === null) throw new Error("table not rendered yet");
     });
     expect(view.getByTestId("cell-1-type").textContent).toBe("widget.created");
-    expect(view.getByTestId("cell-1-actor").textContent).toBe("");
+    expect(view.getByTestId("cell-1-actor").textContent).toBe("Unknown actor");
   });
 });
 

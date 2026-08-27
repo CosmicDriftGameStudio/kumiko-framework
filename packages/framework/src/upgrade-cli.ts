@@ -271,10 +271,15 @@ type UpgradeMarkerCodemod = {
   readonly codemod: string;
   readonly title: string;
 };
+type UpgradeMarkerManual = {
+  readonly version: string;
+  readonly title: string;
+};
 type UpgradeMarker = {
   readonly version: string;
   readonly appliedAt: string;
   readonly codemods: readonly UpgradeMarkerCodemod[];
+  readonly pendingManual?: readonly UpgradeMarkerManual[];
 };
 
 function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
@@ -352,7 +357,7 @@ async function applyCodemods(
   const codemodEntries = breaking
     .filter(hasCodemod)
     .sort((a, b) => compareVersions(a.version, b.version));
-  const manualEntries = breaking.filter((e) => !e.codemod);
+  const manualEntries = breaking.filter((e) => !hasCodemod(e));
 
   for (const e of manualEntries) {
     out.log(`  ⚠ ${e.version} · ${e.title} — no codemod, manual migration required`);
@@ -407,14 +412,19 @@ async function applyCodemods(
   }
 
   const latestVersion = markerVersionForPending(pending, manualEntries, markerVersion);
+  const pendingManual = manualEntries.map((e) => ({ version: e.version, title: e.title }));
   writeUpgradeMarker(targetDir, {
     version: latestVersion,
     appliedAt: Temporal.Now.instant().toString(),
     codemods: ran,
+    ...(pendingManual.length > 0 && { pendingManual }),
   });
   out.log(
     `  ✓ Applied ${ran.length} codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`,
   );
+  if (pendingManual.length > 0) {
+    out.log(`  ⚠ ${pendingManual.length} breaking change(s) still need manual migration.`);
+  }
   return 0;
 }
 

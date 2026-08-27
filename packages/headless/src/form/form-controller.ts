@@ -84,12 +84,15 @@ function valuesDiff<TValues extends FormValues>(
 function stripUntouchedEmptyStrings<TValues extends FormValues>(
   values: TValues,
   initial: TValues,
+  forceIncludeEmpty: ReadonlySet<string>,
 ): TValues {
   const v = values as Record<string, unknown>; // @cast-boundary form-values
   const ini = initial as Record<string, unknown>; // @cast-boundary form-values
   let out: Record<string, unknown> | undefined;
   for (const key of Object.keys(v)) {
-    if (v[key] === "" && ini[key] === "") {
+    // Value-based seed strip, except keys previously submitted as "" after a
+    // real clear — those must survive post-rebase submits (#1858).
+    if (!forceIncludeEmpty.has(key) && v[key] === "" && ini[key] === "") {
       out ??= { ...v };
       delete out[key];
     }
@@ -118,6 +121,9 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
   let values: TValues = { ...options.initial };
   let initial: TValues = { ...options.initial };
   let errors: Readonly<Record<string, readonly FieldIssue[]>> = Object.freeze({});
+  // Keys last submitted as "" (intentional clear). Survives rebase so a later
+  // submit of other fields does not drop them (#1858).
+  const forceIncludeEmpty = new Set<string>();
   // ctx is cast-held as TCtx; `undefined` is valid when callers don't
   // declare conditional predicates that depend on it.
   let ctx: TCtx = (options.ctx as TCtx) ?? (undefined as TCtx);
@@ -178,9 +184,16 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     errors = Object.freeze(merged);
   }
 
-  function runValidate(scope?: readonly (keyof TValues & string)[]): boolean {
+  function runValidate(
+    scope?: readonly string[],
+    opts?: { readonly includeRoot?: boolean },
+  ): boolean {
     // See the validate() doc comment in types.ts for the scope contract.
-    const scopeSet = scope === undefined ? undefined : new Set(scope);
+    // Normalize nested scope entries (`address.city` → `address`) so wizard
+    // callers that pass dotted paths still match issue root segments (#1898).
+    const scopeSet =
+      scope === undefined ? undefined : new Set(scope.map((s) => s.split(".")[0] ?? s));
+    const includeRoot = opts?.includeRoot === true;
     if (!options.schema) {
       if (Object.keys(errors).length > 0) {
         replaceScopedErrors(scopeSet, {});
@@ -205,7 +218,13 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     const relevantIssues = allIssues.filter((issue) => {
       const rootField = issue.path.split(".")[0] ?? "";
       if (hiddenFields.has(rootField)) return false;
-      if (scopeSet && !scopeSet.has(rootField)) return false;
+      // Root-level .refine() issues use path "(root)". Wizard step validate()
+      // still drops them (#1885); submit() passes includeRoot so RenderEdit
+      // fields={…} cannot silently skip cross-field rules (#1907).
+      const isRootIssue = issue.path === "(root)";
+      if (scopeSet && !(includeRoot && isRootIssue) && !scopeSet.has(rootField)) {
+        return false;
+      }
       return true;
     });
     if (relevantIssues.length === 0) {
@@ -295,6 +314,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       if (alreadyClean) return;
       values = { ...initial };
       errors = Object.freeze({});
+      forceIncludeEmpty.clear();
       invalidate();
     },
     rebase: runRebase,
@@ -322,7 +342,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       // pattern the server-side event-dispatcher uses (passInFlight).
       if (submitInFlight) return submitInFlight as Promise<SubmitResult<TData>>;
 
-      if (!runValidate(submitCfg.validateScope)) {
+      if (!runValidate(submitCfg.validateScope, { includeRoot: true })) {
         return { validationBlocked: true, isSuccess: false };
       }
 
@@ -355,7 +375,11 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       } else if (submitCfg.stripEmptySeeds === false) {
         payload = submittedValues;
       } else {
-        payload = stripUntouchedEmptyStrings(submittedValues, submittedSnapshot.initial);
+        payload = stripUntouchedEmptyStrings(
+          submittedValues,
+          submittedSnapshot.initial,
+          forceIncludeEmpty,
+        );
       }
 
       // Only enforced here, right before the write actually happens — a
@@ -384,6 +408,13 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
         const result = await dispatcher.write<TData>(submitCfg.type, payload);
 
         if (result.isSuccess) {
+          // Remember intentional empty clears so post-rebase submits keep them (#1858).
+          if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+            for (const [k, v] of Object.entries(payload as Record<string, unknown>)) {
+              if (v === "") forceIncludeEmpty.add(k);
+              else forceIncludeEmpty.delete(k);
+            }
+          }
           // Rebase to the SNAPSHOT, not to the current values — see
           // runRebaseToSnapshot comment for why.
           runRebaseToSnapshot(submittedValues);

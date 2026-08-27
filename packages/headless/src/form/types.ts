@@ -143,9 +143,11 @@ export type FormController<TValues extends FormValues> = {
   // relies entirely on server-side validation via the submit() path.
   //
   // `scope` restricts reported issues to those field names; root-level
-  // `.refine()` issues (path `(root)`) never match a scope and are dropped
-  // by design — omit `scope` (as submit() does) to see them.
-  validate(scope?: readonly (keyof TValues & string)[]): boolean;
+  // `.refine()` issues (path `(root)`) are dropped on scoped `validate()`
+  // calls (wizard steps, #1885). `submit()` always re-includes them even
+  // when `validateScope` is set so RenderEdit `fields={…}` cannot skip
+  // cross-field rules (#1907).
+  validate(scope?: readonly string[]): boolean;
 
   // Reverts values to `initial`, clears errors. Doesn't fire a new
   // "initial" baseline — to adopt the current values as the new baseline

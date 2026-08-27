@@ -103,7 +103,7 @@ describe("createRequestHelper", () => {
       ),
     );
     const http = createRequestHelper(app, jwtStub().jwt);
-    expect(http.writeOk("todo.create", {}, user)).rejects.toThrow(
+    await expect(http.writeOk("todo.create", {}, user)).rejects.toThrow(
       'Expected write "todo.create" to succeed but got error: internal_error (DbError: connection lost)',
     );
   });
@@ -119,7 +119,7 @@ describe("createRequestHelper", () => {
 
     const succeeding = appRecording(() => Response.json({ isSuccess: true, data: {} }));
     const http2 = createRequestHelper(succeeding.app, jwtStub().jwt);
-    expect(http2.queryErr("q.type", {}, user)).rejects.toThrow(
+    await expect(http2.queryErr("q.type", {}, user)).rejects.toThrow(
       'Expected query "q.type" to fail but it succeeded',
     );
   });

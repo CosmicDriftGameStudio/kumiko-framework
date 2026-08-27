@@ -21,6 +21,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "admin-shell:workspace.platform": "Plattform",
   "admin-shell:workspace.tenant": "Administration",
   "audit.log.actor.system": "System",
+  "audit.log.actor.anonymous": "Anonym",
+  "audit.log.actor.unknown": "Unbekannter Akteur",
   "audit.log.col.actor": "Akteur",
   "audit.log.col.aggregate": "Aggregate",
   "audit.log.col.type": "Ereignis",

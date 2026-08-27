@@ -167,6 +167,8 @@ export const memberRolesEditScreen = {
   id: MEMBER_ROLES_EDIT_SCREEN_ID,
   type: "actionForm",
   handler: TenantHandlers.updateMemberRoles,
+  redirect: MEMBERS_SCREEN_ID,
+  cancelTarget: MEMBERS_SCREEN_ID,
   fields: {
     userId: { type: "text", required: true },
     roles: { type: "multiSelect", options: DEFAULT_INVITE_ROLE_OPTIONS, required: true },

@@ -244,6 +244,12 @@ jobs:
           REDIS_URL: redis://127.0.0.1:1
           JWT_SECRET: smokesmokesmokesmokesmokesmokesmokesmoke
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
+          # KMS-active path: createPgKmsAdapter is lazy (no connect in ctor);
+          # boot exits before any KMS query. Catches RunProdAppOptions wiring
+          # regressions the plaintext-only smoke would miss (#2317).
+          PLATFORM_KEK: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
+          KUMIKO_BLIND_INDEX_KEY: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
+          SUBJECT_KEYS_DATABASE_URL: postgres://smoke:smoke@127.0.0.1:1/smoke
         run: bun bin/main.ts
 
       - name: Boot smoke (no DB)

@@ -1,6 +1,7 @@
 // @runtime client
 // Single audit event detail. Route entityId = event-store id (bigint string).
 
+import { ANONYMOUS_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   formatWhen,
   useDispatcher,

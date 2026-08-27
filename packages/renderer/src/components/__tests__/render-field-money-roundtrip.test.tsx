@@ -192,6 +192,20 @@ describe("RenderField money round-trip (kumiko-framework#1923)", () => {
     expect(result.data?.["price"]).toEqual({ amount: 500, currency: "JPY" });
   });
 
+  test("record currency differs from entity.defaultCurrency (#1930)", () => {
+    const entity = buildEntity("EUR");
+    let payload: unknown;
+    const field = renderMoneyField(entity, { price: { amount: 500, currency: "JPY" } }, (v) => {
+      payload = v;
+    });
+    if (field.kind !== "money") throw new Error("expected money kind");
+    // Prefer the value's own currency over entity.defaultCurrency (EUR=2dp).
+    expect(field.currency).toBe("JPY");
+    expect(field.value).toBe(500);
+    field.onChange(500);
+    expect(payload).toEqual({ amount: 500, currency: "JPY" });
+  });
+
   test("server schema strips an unexpected amountMinor key instead of rejecting the payload", () => {
     const entity = buildEntity("USD");
     const result = buildUpdateSchema(entity).safeParse({

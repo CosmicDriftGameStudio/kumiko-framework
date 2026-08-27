@@ -302,11 +302,12 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // packages/bundled-features/src (#2226) — same standalone loud-skip
   // pattern as the other infra/guards bindings above.
   const uiGuardsBundle = join(REPO_ROOT, "infra/guards/run-ui-guards.ts");
-  if (existsSync(uiGuardsBundle)) {
-    steps.push({ name: "UI-Guards (bundled-features)", cmd: `bun ${uiGuardsBundle}` });
-  } else {
-    console.log("UI-Guards Bundle skipped: infra/guards not in workspace (CI-standalone).");
-  }
+  steps.push({
+    name: "UI-Guards (bundled-features)",
+    cmd: existsSync(uiGuardsBundle)
+      ? `KUMIKO_GUARD_ROOTS=kumiko-framework bun "${uiGuardsBundle}"`
+      : "bunx kumiko-guard-ui",
+  });
   // Baseline-Regression-Guard (infra#295): failt nur bei NEUEN DE-Kommentaren,
   // Altbestand ist via .kumiko-comment-lang-baseline.json eingefroren.
   steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guard-comment-lang" });
