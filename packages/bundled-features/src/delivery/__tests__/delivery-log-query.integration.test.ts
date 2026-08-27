@@ -17,6 +17,7 @@ import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
 
 type LogRow = {
   readonly id: string;
+  readonly tenantId?: string;
   readonly type: string;
   readonly channel: string;
   readonly recipient: string | null;
@@ -25,7 +26,9 @@ type LogRow = {
 
 let stack: TestStack;
 const tenantId = testTenantId(701);
+const otherTenantId = testTenantId(702);
 const admin = createTestUser({ id: 701, roles: ["TenantAdmin"], tenantId });
+const systemAdmin = createTestUser({ id: 709, roles: ["SystemAdmin"], tenantId });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createDeliveryFeature()] });
@@ -54,6 +57,14 @@ beforeAll(async () => {
       channel: "inApp",
       recipientAddress: null,
       status: "queued",
+    },
+    {
+      id: crypto.randomUUID(),
+      tenantId: otherTenantId,
+      notificationType: "logtest:other",
+      channel: "email",
+      recipientAddress: "other@example.com",
+      status: "sent",
     },
   ]);
 });
@@ -114,6 +125,23 @@ describe("delivery:query:log — sort", () => {
       admin,
     );
     expect(withInvalidSort.rows.map((r) => r.id)).toEqual(withNoSort.rows.map((r) => r.id));
+  });
+
+  test("sort=tenantId is whitelisted and reverses for SystemAdmin cross-tenant", async () => {
+    const asc = await stack.http.queryOk<{ rows: readonly LogRow[] }>(
+      DeliveryQueries.log,
+      { sort: "tenantId", sortDirection: "asc" },
+      systemAdmin,
+    );
+    const desc = await stack.http.queryOk<{ rows: readonly LogRow[] }>(
+      DeliveryQueries.log,
+      { sort: "tenantId", sortDirection: "desc" },
+      systemAdmin,
+    );
+    const ascTenants = [...new Set(asc.rows.map((r) => r.tenantId))];
+    const descTenants = [...new Set(desc.rows.map((r) => r.tenantId))];
+    expect(new Set(ascTenants)).toEqual(new Set([tenantId, otherTenantId]));
+    expect(descTenants).toEqual([...ascTenants].reverse());
   });
 });
 

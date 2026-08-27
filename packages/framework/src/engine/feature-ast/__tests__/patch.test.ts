@@ -391,6 +391,16 @@ describe("addPattern — error paths", () => {
     const sf = makeSourceFile("export const x = 1;");
     expect(() => addPattern(sf, newSecretPattern)).toThrow(/no defineFeature/);
   });
+
+  test("throws for ai.* kinds (must target a workflow steps array)", () => {
+    const sf = makeSourceFile(`
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+defineFeature("ai-host", (r) => {});
+`);
+    expect(() =>
+      addPattern(sf, { kind: "ai.generate", stepKey: "generate" } as FeaturePattern),
+    ).toThrow(/ai\.generate steps must be inserted into a defineWorkflow/);
+  });
 });
 
 describe("callMatchesId — positional and object-form lookups", () => {

@@ -44,37 +44,47 @@ async function main(): Promise<void> {
 
   for (const file of files) {
     const sourceFile = project.addSourceFileAtPath(file);
-    const oldImport = sourceFile
+    // Value imports only — a pre-existing `import type { … } from testing`
+    // must not receive runtime helpers (they would be erased).
+    const oldImports = sourceFile
       .getImportDeclarations()
-      .find((d) => d.getModuleSpecifierValue() === OLD_SPECIFIER);
-    if (!oldImport) continue;
+      .filter((d) => d.getModuleSpecifierValue() === OLD_SPECIFIER && !d.isTypeOnly());
+    if (oldImports.length === 0) continue;
 
-    const movedHere = oldImport.getNamedImports().filter((spec) => MOVED_NAMES.has(spec.getName()));
-    if (movedHere.length === 0) continue;
+    let fileMoved = 0;
+    for (const oldImport of oldImports) {
+      const movedHere = oldImport
+        .getNamedImports()
+        .filter((spec) => MOVED_NAMES.has(spec.getName()));
+      if (movedHere.length === 0) continue;
 
-    const names = movedHere.map((spec) => spec.getName());
+      const names = movedHere.map((spec) => spec.getName());
 
-    const existingNewImport = sourceFile
-      .getImportDeclarations()
-      .find((d) => d.getModuleSpecifierValue() === NEW_SPECIFIER);
-    if (existingNewImport) {
-      const already = new Set(existingNewImport.getNamedImports().map((s) => s.getName()));
-      for (const name of names) {
-        if (!already.has(name)) existingNewImport.addNamedImport(name);
+      const existingNewImport = sourceFile
+        .getImportDeclarations()
+        .find((d) => d.getModuleSpecifierValue() === NEW_SPECIFIER && !d.isTypeOnly());
+      if (existingNewImport) {
+        const already = new Set(existingNewImport.getNamedImports().map((s) => s.getName()));
+        for (const name of names) {
+          if (!already.has(name)) existingNewImport.addNamedImport(name);
+        }
+      } else {
+        sourceFile.addImportDeclaration({ moduleSpecifier: NEW_SPECIFIER, namedImports: names });
       }
-    } else {
-      sourceFile.addImportDeclaration({ moduleSpecifier: NEW_SPECIFIER, namedImports: names });
-    }
 
-    for (const spec of movedHere) spec.remove();
-    const remaining =
-      oldImport.getNamedImports().length > 0 ||
-      !!oldImport.getDefaultImport() ||
-      !!oldImport.getNamespaceImport();
-    if (!remaining) oldImport.remove();
+      for (const spec of movedHere) spec.remove();
+      const remaining =
+        oldImport.getNamedImports().length > 0 ||
+        !!oldImport.getDefaultImport() ||
+        !!oldImport.getNamespaceImport();
+      if (!remaining) oldImport.remove();
+
+      fileMoved += names.length;
+    }
+    if (fileMoved === 0) continue;
 
     touchedFiles++;
-    movedNames += names.length;
+    movedNames += fileMoved;
     if (!dryRun) sourceFile.saveSync();
   }
 

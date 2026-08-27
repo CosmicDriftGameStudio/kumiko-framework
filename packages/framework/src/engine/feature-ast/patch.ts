@@ -147,6 +147,15 @@ export function applyChanges(sourceFile: SourceFile, changes: readonly PatternCh
  * biome-stable formatting that matches the renderFeatureFile output.
  */
 export function addPattern(sourceFile: SourceFile, pattern: FeaturePattern): void {
+  if (
+    pattern.kind === "ai.generate" ||
+    pattern.kind === "ai.extract" ||
+    pattern.kind === "ai.classify"
+  ) {
+    throw new Error(
+      `addPattern: ${pattern.kind} steps must be inserted into a defineWorkflow steps array, not the setup body`,
+    );
+  }
   const setup = findSetupCallback(sourceFile);
   if (!setup) {
     throw new Error("addPattern: no defineFeature(name, (r) => { ... }) call found");

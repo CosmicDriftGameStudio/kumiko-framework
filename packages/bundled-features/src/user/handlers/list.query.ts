@@ -70,7 +70,7 @@ function labelsByUserId(
   return map;
 }
 
-async function attachTenantLabels(
+export async function attachTenantLabels(
   rows: readonly Record<string, unknown>[],
   db: TenantDb,
 ): Promise<Record<string, unknown>[]> {
@@ -97,7 +97,7 @@ async function attachTenantLabels(
   });
 }
 
-function dbForList(ctx: HandlerContext): TenantDb {
+export function dbForList(ctx: HandlerContext): TenantDb {
   if (!ctx.systemDb) {
     throw new Error("user:list requires r.systemScope() / ctx.systemDb");
   }

@@ -25,6 +25,7 @@ export {
   insertMany,
   insertOne,
   runInSavepoint,
+  runInSavepointIfSupported,
   selectMany,
   transaction,
   type UpsertOnConflictOptions,

@@ -138,9 +138,10 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
             },
           });
         }
-        // system-mode lists (r.systemScope / cross-tenant) index under SYSTEM_TENANT_ID;
-        // searching the caller's session tenant misses the roster and can 500 on Meili.
-        const searchTenantId = db.mode === "system" ? SYSTEM_TENANT_ID : user.tenantId;
+        // Same choke-point as writes/index: systemStream docs live under
+        // SYSTEM_TENANT_ID; everything else under the session tenant — db.mode
+        // must not invent a second predicate (kumiko-framework#2412).
+        const searchTenantId = streamTenantFor(user);
         const results = await effectiveSearchAdapter.search(searchTenantId, payload.search, {
           filterType: entityName,
         });

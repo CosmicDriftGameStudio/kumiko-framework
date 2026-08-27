@@ -8,13 +8,19 @@ const ROLE_RANKS: Readonly<Record<string, number>> = {
   system: 5,
 };
 
+// Unknown roles: +∞ on the assigned path (cannot grant what we don't know),
+// -1 on the actor path (cannot elevate via an unrecognized self-role).
+function roleRankOr(role: string, unknownRank: number): number {
+  return ROLE_RANKS[role] ?? unknownRank;
+}
+
 function getRoleRank(role: string): number {
-  return ROLE_RANKS[role] ?? Number.POSITIVE_INFINITY;
+  return roleRankOr(role, Number.POSITIVE_INFINITY);
 }
 
 function maxRoleRank(roles: readonly string[]): number {
   if (roles.length === 0) return -1;
-  return Math.max(...roles.map((role) => ROLE_RANKS[role] ?? -1));
+  return Math.max(...roles.map((role) => roleRankOr(role, -1)));
 }
 
 /** Known built-in rank only — unranked app roles (Billing, …) are not privilege tiers. */

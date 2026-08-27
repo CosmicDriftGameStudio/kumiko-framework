@@ -1,4 +1,4 @@
-import { fetchOne, runInSavepoint } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { decryptStoredPii } from "../../shared";
 import { userTable } from "../../user";
@@ -26,7 +26,7 @@ export function createAddNoteHandler(
         // read_users is tenant-agnostic → ctx.db.raw, not the tenant-scoped ctx.db.
         // Bun.SQL poisons the whole tx after any error inside it, even one that's
         // caught — a bare try/catch here would take the note write down with it.
-        authorName = await runInSavepoint(ctx.db.raw, async (sp) => {
+        authorName = await runInSavepointIfSupported(ctx.db.raw, async (sp) => {
           const userRow = await fetchOne<{ displayName: string | null }>(sp, userTable, {
             id: event.user.id,
           });

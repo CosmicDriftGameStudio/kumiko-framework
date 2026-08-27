@@ -328,7 +328,9 @@ export function buildEffectiveTranslationKeys(features: readonly FeatureDefiniti
   for (const feature of features) {
     for (const key of Object.keys(feature.translations ?? {})) {
       out.add(`${feature.name}:${key}`);
-      if (key.includes(":")) out.add(key);
+      // Blank form too — Settings-Hub group namespaces (`group: "tenant-settings"`)
+      // require `${group}.settings` which is not `${feature}:${key}` (fw#2314).
+      out.add(key);
     }
   }
   return out;

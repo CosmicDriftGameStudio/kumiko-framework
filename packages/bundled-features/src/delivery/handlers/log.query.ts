@@ -34,6 +34,7 @@ type DeliveryLogRow = {
 // application code, so there is no column to ORDER BY in SQL for it.
 const DELIVERY_LOG_SORT_COLUMNS = {
   createdAt: "createdAt",
+  tenantId: "tenantId",
   type: "notificationType",
   channel: "channel",
   status: "status",

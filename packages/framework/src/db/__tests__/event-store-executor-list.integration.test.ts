@@ -506,7 +506,9 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
     expect(res.rows).toHaveLength(0);
   });
 
-  test("system-mode list: search uses SYSTEM_TENANT_ID (not session tenant)", async () => {
+  test("system-mode list: search still uses session tenantId (streamTenantFor)", async () => {
+    // Non-systemStream entities are indexed under event.tenantId (= session),
+    // even when listed via r.systemScope() — db.mode must not redirect search.
     const systemTdb = createTenantDb(testDb.db, admin.tenantId, "system");
     let searchedTenant: string | undefined;
     const mockAdapter = {
@@ -523,7 +525,7 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
     await exec.list({ limit: 50, search: "x" }, admin, systemTdb, {
       searchAdapter: mockAdapter,
     });
-    expect(searchedTenant).toBe(SYSTEM_TENANT_ID);
+    expect(searchedTenant).toBe(admin.tenantId);
   });
 
   test("tenant-mode list: search still uses session tenantId", async () => {
@@ -543,6 +545,33 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
       searchAdapter: mockAdapter,
     });
     expect(searchedTenant).toBe(admin.tenantId);
+  });
+
+  test("tenant-mode list: systemStream entity searches SYSTEM_TENANT_ID", async () => {
+    const sysEntity = createEntity({
+      table: "read_pager_sys",
+      systemStream: true,
+      fields: { title: createTextField({ required: true }) },
+    });
+    const sysTable = buildEntityTable("pagerSys", sysEntity);
+    await unsafeCreateEntityTable(testDb.db, sysEntity, "pagerSys");
+    const sysExec = createEventStoreExecutor(sysTable, sysEntity, { entityName: "pagerSys" });
+    let searchedTenant: string | undefined;
+    const mockAdapter = {
+      configure: async () => {},
+      index: async () => {},
+      indexBatch: async () => {},
+      remove: async () => {},
+      search: async (tenantId: string) => {
+        searchedTenant = tenantId;
+        return [];
+      },
+      reset: async () => {},
+    } as never;
+    await sysExec.list({ limit: 50, search: "x" }, admin, tdb, {
+      searchAdapter: mockAdapter,
+    });
+    expect(searchedTenant).toBe(SYSTEM_TENANT_ID);
   });
 });
 
