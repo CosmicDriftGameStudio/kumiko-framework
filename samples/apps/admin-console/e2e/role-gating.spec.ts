@@ -29,11 +29,11 @@ test.describe("TenantAdmin workspace gating", () => {
     await page.getByTestId("render-list-toolbar-action-invite").click();
     await page.getByTestId("combobox-kumiko-edit-role").click();
     const options = page.getByRole("option");
-    // Exact names — hasText:"Admin" also matches "TenantAdmin".
+    // Exact names — hasText:"Admin" also matches "Tenant Admin".
     await expect(options.filter({ hasText: /^User$/ })).toBeVisible();
     await expect(options.filter({ hasText: /^Editor$/ })).toBeVisible();
     await expect(options.filter({ hasText: /^Admin$/ })).toBeVisible();
-    await expect(options.filter({ hasText: /^TenantAdmin$/ })).toBeVisible();
+    await expect(options.filter({ hasText: /^Tenant Admin$/ })).toBeVisible();
     await expect(options.filter({ hasText: /^SystemAdmin$/ })).toHaveCount(0);
   });
 
