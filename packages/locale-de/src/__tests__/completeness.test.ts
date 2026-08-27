@@ -24,4 +24,14 @@ describe("locale-de completeness", () => {
       );
     }
   });
+
+  test("uses Mandant terminology, not raw Tenant/Organisation labels", () => {
+    const roleAllowlist = new Set(["TenantAdmin", "SystemAdmin"]);
+    const offenders: string[] = [];
+    for (const [key, value] of Object.entries(localeDeBundle)) {
+      if (roleAllowlist.has(value)) continue;
+      if (/\bTenants?\b|\bOrganisation/i.test(value)) offenders.push(key);
+    }
+    expect(offenders).toEqual([]);
+  });
 });

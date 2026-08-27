@@ -11,6 +11,7 @@
 import { describe, expect, test } from "bun:test";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { buildConfigFeatureSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import { translationsByLocaleFromKeys } from "@cosmicdrift/kumiko-renderer";
 import { createTenantSettingsFeature } from "../feature";
 
 function translate(
@@ -18,7 +19,10 @@ function translate(
   key: string,
   locale = "en",
 ): string {
-  return translations[key]?.[locale] ?? key;
+  const byLocale = translationsByLocaleFromKeys(
+    translations as Record<string, Readonly<Record<string, string>>>,
+  );
+  return byLocale[locale]?.[key] ?? key;
 }
 
 describe("tenant-settings — Settings-Hub nav/section labels", () => {

@@ -2264,6 +2264,8 @@ describe("boot-validator", () => {
         readonly fields: readonly string[];
       }>;
       readonly configKeys?: Readonly<Record<string, string>>;
+      readonly mode?: "single" | "wizard";
+      readonly draft?: boolean;
     };
 
     function makeFeature(override: ConfigEditOverride = {}) {
@@ -2291,7 +2293,11 @@ describe("boot-validator", () => {
           scope: "tenant",
           configKeys,
           fields: fields as never,
-          layout: { sections: sections as never },
+          layout: {
+            sections: sections as never,
+            ...(override.mode !== undefined ? { mode: override.mode } : {}),
+            ...(override.draft !== undefined ? { draft: override.draft } : {}),
+          },
         });
       });
     }
@@ -2382,6 +2388,26 @@ describe("boot-validator", () => {
     test("extension section mit react component → kein Throw", () => {
       const section = { kind: "extension", title: "Custom", component: { react: "Panel" } };
       expect(() => validateBoot([makeFeature({ sections: [section] as never })])).not.toThrow();
+    });
+    test("mode: wizard mit nur 1 Section → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            mode: "wizard",
+            sections: [{ title: "Basics", fields: ["siteName"] }],
+          }),
+        ]),
+      ).toThrow(/\(configEdit\).*mode: "wizard" but only 1 section\(s\)/);
+    });
+
+    test("draft: true ohne gemountetes form-draft-Feature → Throw", () => {
+      const sections = [
+        { title: "Step 1", fields: ["siteName"] },
+        { title: "Step 2", fields: ["maxUploadMb"] },
+      ];
+      expect(() => validateBoot([makeFeature({ mode: "wizard", sections, draft: true })])).toThrow(
+        /"form-draft" is not mounted/,
+      );
     });
   });
 

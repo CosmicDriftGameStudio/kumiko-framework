@@ -273,6 +273,29 @@ describe("PrivacyCenterScreen", () => {
       assign.mockRestore();
     }
   });
+
+  test("Download-Button does not navigate when downloadByJob returns no url", async () => {
+    const assign = spyOn(window.location, "assign").mockImplementation(() => {});
+    try {
+      const { view } = renderCenter({
+        me: activeMe,
+        downloadUrl: undefined,
+        exportStatus: {
+          hasJob: true,
+          job: { id: "job-123", status: EXPORT_JOB_STATUS.Done, expiresAt: "2026-07-11T00:00:00Z" },
+        },
+      });
+      await waitForDownloadReady(view);
+      fireEvent.click(view.getByTestId("privacy-export-download"));
+      // Banner uses t(i18nKey) — assert the resolved EN copy, not the raw key.
+      await waitFor(() => {
+        expect(view.container.textContent).toContain("Download unavailable — please try again.");
+      });
+      expect(assign).not.toHaveBeenCalled();
+    } finally {
+      assign.mockRestore();
+    }
+  });
 });
 
 describe("QN-Drift-Pins (client-Konstanten vs. Feature-Originale)", () => {
