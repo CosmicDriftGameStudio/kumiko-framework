@@ -19,7 +19,9 @@ function translate(
   key: string,
   locale = "en",
 ): string {
-  const byLocale = translationsByLocaleFromKeys(translations as Record<string, Readonly<Record<string, string>>>);
+  const byLocale = translationsByLocaleFromKeys(
+    translations as Record<string, Readonly<Record<string, string>>>,
+  );
   return byLocale[locale]?.[key] ?? key;
 }
 

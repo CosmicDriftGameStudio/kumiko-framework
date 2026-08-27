@@ -2409,7 +2409,6 @@ describe("boot-validator", () => {
         /"form-draft" is not mounted/,
       );
     });
-
   });
 
   // --- entityEdit extension section ---

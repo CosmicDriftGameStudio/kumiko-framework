@@ -721,31 +721,32 @@ describe("validateBoot — retention", () => {
     expect(matchingWarn).toBeUndefined();
   });
 
-
-
   test.each([
     ["self", { personal: "self" as const, find: "none" as const }],
     ["userOwned", { personal: { of: "authorId" } as const, find: "none" as const }],
     ["tenantOwned", { personal: "tenant" as const, find: "none" as const }],
-  ])("blockDelete warns when subjectRef coexists with anonymizable %s field (#2336)", (_label, personal) => {
-    const feature = defineFeature("test", (r) => {
-      r.entity(
-        "lease",
-        createEntity({
-          fields: {
-            authorId: createTextField({ personal: "ref" }),
-            subjectField: createTextField(personal),
-          },
-          retention: { keepFor: "10y", strategy: "blockDelete" },
-        }),
+  ])(
+    "blockDelete warns when subjectRef coexists with anonymizable %s field (#2336)",
+    (_label, personal) => {
+      const feature = defineFeature("test", (r) => {
+        r.entity(
+          "lease",
+          createEntity({
+            fields: {
+              authorId: createTextField({ personal: "ref" }),
+              subjectField: createTextField(personal),
+            },
+            retention: { keepFor: "10y", strategy: "blockDelete" },
+          }),
+        );
+      });
+      validateBoot([feature]);
+      const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+        String(args[0]).includes('strategy="blockDelete" but no field has an anonymize-function'),
       );
-    });
-    validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
-      String(args[0]).includes('strategy="blockDelete" but no field has an anonymize-function'),
-    );
-    expect(matchingWarn).toBeDefined();
-  });
+      expect(matchingWarn).toBeDefined();
+    },
+  );
 
   test('retention.keepFor with invalid format "30days" warns', () => {
     const feature = defineFeature("test", (r) => {

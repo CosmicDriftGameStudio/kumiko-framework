@@ -500,7 +500,14 @@ describe("EmbeddedListInput — paste", () => {
 describe("EmbeddedListInput — Enter-to-add-row (#1839)", () => {
   test("Enter on a select trigger in the last cell does not append a row", () => {
     const columns: readonly EmbeddedListColumn[] = [
-      { field: "status", label: "Status", type: "select", required: false, derived: false, options: ["open"] },
+      {
+        field: "status",
+        label: "Status",
+        type: "select",
+        required: false,
+        derived: false,
+        options: ["open"],
+      },
     ];
     const rows = [{ status: "open" }];
     const onAddRow = mock(() => {});
