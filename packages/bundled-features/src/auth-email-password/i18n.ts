@@ -115,6 +115,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.signupComplete.submitting": "…",
     "auth.signupComplete.missingToken":
       "Activation link is missing a token. Please request a new one.",
+    "auth.signupComplete.activatedTitle": "Account activated",
     "auth.signupComplete.activated": "Your account is active and you're signed in.",
     "auth.signupComplete.continue": "Continue",
     "auth.inviteAccept.title": "Accept invitation",

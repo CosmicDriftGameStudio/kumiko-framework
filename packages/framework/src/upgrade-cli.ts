@@ -171,7 +171,23 @@ export function findFeaturesDirs(cwd: string): string[] {
 // node_modules after a plain npm/bun install (fw#2301).
 export function findCodemodScriptsRoot(repoRoot: string): string | null {
   const local = join(repoRoot, "packages/framework/src");
-  if (existsSync(join(local, CODEMOD_SUBDIR))) return local;
+  if (existsSync(join(local, CODEMOD_SUBDIR))) {
+    // If package.json exists, require it to be kumiko-framework so a generic
+    // monorepo `packages/framework` cannot shadow the installed package.
+    // Missing package.json (test fixtures / incomplete trees) keeps prior behavior.
+    const pkgPath = join(repoRoot, "packages/framework/package.json");
+    if (existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { name?: string };
+        if (pkg.name === "@cosmicdrift/kumiko-framework") return local;
+        // wrong name → fall through
+      } catch {
+        // unreadable → fall through
+      }
+    } else {
+      return local;
+    }
+  }
 
   let dir = repoRoot;
   for (let i = 0; i < 10; i++) {
@@ -267,6 +283,42 @@ function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
   writeFileSync(join(dir, "upgrade-state.json"), `${JSON.stringify(marker, null, 2)}\n`, "utf-8");
 }
 
+/** Highest pending version strictly below the earliest open manual breaking
+ *  entry (no codemod). Falls back to highest non-breaking pending when every
+ *  pending version is at/after that manual — never advances onto the manual. */
+/** Highest pending version strictly below the earliest open manual breaking
+ *  entry (no codemod). Falls back to highest non-breaking pending when every
+ *  pending version is at/after that manual. If only manuals remain, returns
+ *  `fallbackInstalled` so the marker stamp moves without claiming manuals done. */
+function markerVersionForPending(
+  pending: readonly ChangelogEntry[],
+  manualEntries: readonly ChangelogEntry[],
+  fallbackInstalled: string,
+): string {
+  const earliestManual = [...manualEntries].sort((a, b) =>
+    compareVersions(a.version, b.version),
+  )[0];
+  const eligible = pending.filter(
+    (e) => earliestManual === undefined || compareVersions(e.version, earliestManual.version) < 0,
+  );
+  const headEligible = eligible[0];
+  if (headEligible !== undefined) {
+    return eligible.reduce(
+      (max, e) => (compareVersions(e.version, max) > 0 ? e.version : max),
+      headEligible.version,
+    );
+  }
+  const nonBreaking = pending.filter((e) => e.type !== "breaking");
+  const headNonBreaking = nonBreaking[0];
+  if (headNonBreaking !== undefined) {
+    return nonBreaking.reduce(
+      (max, e) => (compareVersions(e.version, max) > 0 ? e.version : max),
+      headNonBreaking.version,
+    );
+  }
+  return fallbackInstalled;
+}
+
 // Runs every pending breaking entry's codemod, oldest version first (so a
 // later codemod can assume an earlier one already ran). Stops on the first
 // failure — no partial marker. Writes the marker whenever dryRun is false —
@@ -312,13 +364,28 @@ async function applyCodemods(
         ? "  No automatable codemods among the pending breaking changes."
         : "  ✓ No breaking changes pending.",
     );
+    if (!dryRun) {
+      const markerVer = markerVersionForPending(pending, manualEntries, markerVersion);
+      writeUpgradeMarker(targetDir, {
+        version: markerVer,
+        appliedAt: Temporal.Now.instant().toString(),
+        codemods: [],
+      });
+      out.log(`  ✓ Applied 0 codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`);
+    }
     return 0;
   }
 
   const codemodScriptsRoot = findCodemodScriptsRoot(repoRoot);
+  if (codemodScriptsRoot === null) {
+    out.err(
+      `  ✗ could not locate @cosmicdrift/kumiko-framework/src/scripts/codemod — is the framework installed? searched from ${repoRoot} upward`,
+    );
+    return 1;
+  }
   const ran: UpgradeMarkerCodemod[] = [];
   for (const e of codemodEntries) {
-    const scriptPath = codemodScriptsRoot ? resolveCodemodScript(repoRoot, e.codemod) : null;
+    const scriptPath = resolveCodemodScript(repoRoot, e.codemod);
     if (!scriptPath) {
       out.err(`  ✗ ${e.version} · ${e.title} — invalid codemod path "${e.codemod}"`);
       return 1;
@@ -339,12 +406,7 @@ async function applyCodemods(
     return 0;
   }
 
-  const firstPending = pending[0];
-  if (!firstPending) return 0;
-  const latestVersion = pending.reduce(
-    (max, e) => (compareVersions(e.version, max) > 0 ? e.version : max),
-    firstPending.version,
-  );
+  const latestVersion = markerVersionForPending(pending, manualEntries, markerVersion);
   writeUpgradeMarker(targetDir, {
     version: latestVersion,
     appliedAt: Temporal.Now.instant().toString(),

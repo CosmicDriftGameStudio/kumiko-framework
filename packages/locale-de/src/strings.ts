@@ -239,6 +239,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Wir haben dir einen Aktivierungs-Link an deine E-Mail-Adresse geschickt. Klicke ihn an, um dein Passwort zu setzen und dich einzuloggen.",
   "auth.signup.successTitle": "Mail gesendet",
   "auth.signup.title": "Account erstellen",
+  "auth.signupComplete.activatedTitle": "Konto aktiviert",
   "auth.signupComplete.activated": "Dein Konto ist jetzt aktiv und du bist angemeldet.",
   "auth.signupComplete.confirmPassword": "Passwort bestätigen",
   "auth.signupComplete.continue": "Weiter",

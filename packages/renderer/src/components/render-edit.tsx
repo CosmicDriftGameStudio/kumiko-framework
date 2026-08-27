@@ -366,6 +366,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // real handler after mount (e.g. `onControlsReady={ready ? cb : undefined}`)
   // gets delivered to for THIS mount instead of never (fw#1899).
   const deliveredControlsToRef = useRef<typeof onControlsReady>(undefined);
+  const onControlsReadyRef = useRef(onControlsReady);
+  onControlsReadyRef.current = onControlsReady;
+  const hasNavigatedRef = useRef(false);
+  const submittedRef = useRef(false);
+  const isSubmittingRef = useRef(false);
   const scopeFieldNamesRef = useRef(scopeFieldNames);
   scopeFieldNamesRef.current = scopeFieldNames;
   const scopedValidate = useCallback(
@@ -409,14 +414,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const patchAndScheduleDraftSave = useCallback(
     (partial: Partial<TValues>) => {
       controller.setValues(partial);
-      if (!draftEnabled || dispatcher === undefined) return;
+      if (!draftEnabled || dispatcher === undefined || disabled || submittedRef.current) return;
       if (draftSaveTimerRef.current !== null) clearTimeout(draftSaveTimerRef.current);
       draftSaveTimerRef.current = setTimeout(() => {
         draftSaveTimerRef.current = null;
+        if (disabled || submittedRef.current) return;
         saveDraftRef.current(currentStepRef.current);
       }, PATCH_DRAFT_SAVE_DEBOUNCE_MS);
     },
-    [controller, draftEnabled, dispatcher],
+    [controller, draftEnabled, dispatcher, disabled],
   );
 
   // Runs before the onChange effect below (declaration order = React
@@ -427,22 +433,21 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // value that should derive dependent fields on mount needs controls.patch
   // available on the very first onChange call, not just from the second
   // keystroke onward.
+  const hasControlsReady = onControlsReady !== undefined;
   useEffect(() => {
-    if (onControlsReady === undefined) return;
-    if (deliveredControlsToRef.current === onControlsReady) return;
-    deliveredControlsToRef.current = onControlsReady;
-    onControlsReady({
+    if (!hasControlsReady) return;
+    const ready = onControlsReadyRef.current;
+    if (ready === undefined) return;
+    if (deliveredControlsToRef.current === ready) return;
+    deliveredControlsToRef.current = ready;
+    ready({
       patch: patchAndScheduleDraftSave,
       validate: scopedValidate,
       getValues: () => controller.getSnapshot().values,
       submit: () => handleSubmitRef.current(),
     });
-    // controller is mount-lifetime-stable (see useForm's comment on its own
-    // useMemo), same for patchAndScheduleDraftSave/scopedValidate (both
-    // useCallback over mount-stable deps) — onControlsReady is the only dep
-    // that can legitimately change post-mount, and the guard above stops an
-    // unstable inline-arrow identity from redelivering on every render.
-  }, [onControlsReady, controller, scopedValidate, patchAndScheduleDraftSave]);
+    // Dep on boolean presence only — inline-arrow identity must not redeliver.
+  }, [hasControlsReady, controller, scopedValidate, patchAndScheduleDraftSave]);
 
   // `schema` is typically an inline caller prop (`schema={z.object({...})}`)
   // with unstable identity across renders — as an effect dep it would refire
@@ -487,23 +492,28 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     if (draftId !== null && draftId === mintedDraftIdRef.current) return;
     let cancelled = false;
     void (async () => {
-      const result = await dispatcher.query<{ readonly draft: FormDraftBlob | null }>(
-        FORM_DRAFT_GET,
-        { draftKey },
-      );
-      // skip: superseded by a newer mount, or the draft lookup failed — an
-      // unreachable draft store must not break the form itself.
-      if (cancelled || !result.isSuccess) return;
-      const draft = result.data?.draft ?? null;
-      // skip: nothing saved yet for this key.
-      if (draft === null) return;
-      // skip: the user already typed while the lookup was in flight — their
-      // input wins over the stored draft.
-      if (controller.getSnapshot().isDirty) return;
-      // @cast-boundary form-draft blob: `values` round-trips through an opaque
-      // jsonb column and comes back untyped.
-      controller.setValues(draft.values as Partial<TValues>);
-      setRawStep(Math.max(draft.stepIndex, 0));
+      try {
+        const result = await dispatcher.query<{ readonly draft: FormDraftBlob | null }>(
+          FORM_DRAFT_GET,
+          { draftKey },
+        );
+        // skip: superseded by a newer mount, or the draft lookup failed — an
+        // unreachable draft store must not break the form itself.
+        if (cancelled || !result.isSuccess) return;
+        const draft = result.data?.draft ?? null;
+        // skip: nothing saved yet for this key.
+        if (draft === null) return;
+        // skip: the user already typed or wizard-navigated while the lookup
+        // was in flight — their input wins over the stored draft.
+        if (controller.getSnapshot().isDirty || hasNavigatedRef.current) return;
+        // @cast-boundary form-draft blob: `values` round-trips through an opaque
+        // jsonb column and comes back untyped.
+        controller.setValues(draft.values as Partial<TValues>);
+        setRawStep(Math.max(draft.stepIndex, 0));
+      } catch (err: unknown) {
+        // biome-ignore lint/suspicious/noConsole: draft restore must not red-screen the form
+        console.warn("render-edit: draft restore query failed", err);
+      }
     })();
     return () => {
       cancelled = true;
@@ -531,24 +541,29 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       dispatcher === undefined
     )
       return;
-    didListRef.current = true;
     let cancelled = false;
     void (async () => {
-      const result = await dispatcher.query<{ readonly drafts: readonly DraftCandidate[] }>(
-        FORM_DRAFT_LIST,
-        { screenId: screen.id },
-      );
-      // skip: superseded by a newer mount, or the lookup failed — an
-      // unreachable draft store must not break a fresh create.
-      if (cancelled || !result.isSuccess) return;
-      const prefix = newDraftPrefix(screen.id);
-      // list's LIKE-prefix scan also matches edit-mode drafts
-      // (`${screenId}:${entityId}`) — keep only create-mode ones.
-      const candidates = (result.data?.drafts ?? []).filter((d) => d.draftKey.startsWith(prefix));
-      // skip: no open drafts for this screen — stay null, saveDraft mints a
-      // fresh draftId on the first step change same as any other create.
-      if (candidates.length === 0) return;
-      setDraftCandidates(candidates);
+      try {
+        const result = await dispatcher.query<{ readonly drafts: readonly DraftCandidate[] }>(
+          FORM_DRAFT_LIST,
+          { screenId: screen.id },
+        );
+        // skip: superseded by a newer mount, or the lookup failed — an
+        // unreachable draft store must not break a fresh create.
+        if (cancelled || !result.isSuccess) return;
+        didListRef.current = true;
+        const prefix = newDraftPrefix(screen.id);
+        // list's LIKE-prefix scan also matches edit-mode drafts
+        // (`${screenId}:${entityId}`) — keep only create-mode ones.
+        const candidates = (result.data?.drafts ?? []).filter((d) => d.draftKey.startsWith(prefix));
+        // skip: no open drafts for this screen — stay null, saveDraft mints a
+        // fresh draftId on the first step change same as any other create.
+        if (candidates.length === 0) return;
+        setDraftCandidates(candidates);
+      } catch (err: unknown) {
+        // biome-ignore lint/suspicious/noConsole: draft lookup must not red-screen the form
+        console.warn("render-edit: draft list query failed", err);
+      }
     })();
     return () => {
       cancelled = true;
@@ -669,11 +684,16 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       );
       return;
     }
-    void dispatcher.write(FORM_DRAFT_SAVE, {
-      draftKey: key,
-      values: controller.getSnapshot().values,
-      stepIndex,
-    });
+    void dispatcher
+      .write(FORM_DRAFT_SAVE, {
+        draftKey: key,
+        values: controller.getSnapshot().values,
+        stepIndex,
+      })
+      .catch((err: unknown) => {
+        // biome-ignore lint/suspicious/noConsole: fire-and-forget draft save must not red-screen
+        console.warn("render-edit: draft save failed", err);
+      });
   }
 
   // Next: scoped validate() on the current step's fields — errors stay
@@ -682,6 +702,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // controls.validate() API), so no call, no clearing of unrelated errors.
   function handleWizardNext(): void {
     const next = Math.min(currentStep + 1, lastStepIndex);
+    hasNavigatedRef.current = true;
     // Locked state (#1896): `disabled` means "no input/no write", not "no
     // navigation" — a disabled wizard must still be steppable so Back/Next
     // reach every step. But neither validate() (would block on an empty
@@ -701,6 +722,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   function handleWizardBack(): void {
     const previous = Math.max(currentStep - 1, 0);
+    hasNavigatedRef.current = true;
+    if (disabled) {
+      setRawStep(previous);
+      return;
+    }
     setRawStep(previous);
     saveDraft(previous);
   }
@@ -768,6 +794,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // native form submit (Enter key) reaches this handler regardless of the
     // button's disabled attribute — block it here too, not just in the UI.
     if (disabled) return;
+    // Sync guard — React state `isSubmitting` is too late for double-clicks
+    // in the same tick (customSubmit has no submitInFlight of its own).
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     setExtensionErrorKey(null);
     try {
@@ -777,7 +807,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       if (snapshot.isUnchanged && extensionDirty) {
         // Same discard as the main path: an extension-only save is still a
         // successful submit, so the draft must not survive it.
-        if (await persistExtensions()) await discardDraft();
+        if (await persistExtensions()) {
+          submittedRef.current = true;
+          await discardDraft();
+        }
         return;
       }
       let result: SubmitResult<unknown>;
@@ -827,7 +860,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // `onSubmit` typically navigates away and unmounts this form, which
         // would abort an in-flight discard and leave the draft behind after
         // a successful submit.
-        if (result.isNoOp !== true) await discardDraft();
+        if (result.isNoOp !== true) {
+          submittedRef.current = true;
+          await discardDraft();
+        }
         extensionsPersisted = await persistExtensions();
       } else if (result.validationBlocked) {
         // Root-level `.refine()`/cross-field issues from controller.validate()
@@ -865,6 +901,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       // and would unmount it before the user sees the failure).
       if (shouldNotifyCaller(result, extensionsPersisted)) onSubmit?.(result);
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   }
