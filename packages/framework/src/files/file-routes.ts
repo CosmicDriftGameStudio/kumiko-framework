@@ -141,7 +141,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       kms,
       kmsContextFor(),
     );
-    return typeof decrypted.fileName === "string" ? decrypted.fileName : "download";
+    return typeof decrypted["fileName"] === "string" ? decrypted["fileName"] : "download";
   }
 
   // POST /files — multipart upload.
