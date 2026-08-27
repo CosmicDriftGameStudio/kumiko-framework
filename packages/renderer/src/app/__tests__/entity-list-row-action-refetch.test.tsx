@@ -13,14 +13,16 @@ import { describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
+  ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import { act, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
 import { kumikoDefaultTranslations } from "../../i18n-defaults";
 import {
+  type ButtonProps,
   type CorePrimitives,
   type DataTableProps,
   type DataTableRowAction,
@@ -211,5 +213,189 @@ describe("entityList row-action writeHandler refetches the rows query", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(queryCallCount).toBe(countAfterMount);
+  });
+});
+
+// toolbarActions render through RenderList's `toolbarEnd` slot via the real
+// ToolbarActionView primitive, not through the DataTable's `rowActions` prop
+// (that's what captureDataTable above captures) — a stub that ignores
+// `toolbarEnd` never mounts the button, so this needs its own DataTable stub
+// that renders that slot, plus a real Button primitive to click through.
+const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) => (
+  <button type="button" data-testid={testId} onClick={() => void onClick?.()}>
+    {children}
+  </button>
+);
+
+const renderToolbarEnd: ComponentType<DataTableProps> = (props) => <>{props.toolbarEnd}</>;
+
+const toolbarTestPrimitives: CorePrimitives = {
+  ...testPrimitives,
+  Button: TestButton,
+  DataTable: renderToolbarEnd,
+};
+
+function buildToolbarSchema(): FeatureSchema {
+  const entity: EntityDefinition = {
+    fields: {
+      status: {
+        type: "text",
+        maxLength: 50,
+        required: false,
+        searchable: false,
+        sortable: false,
+      },
+    },
+  };
+  const listScreen: EntityListScreenDefinition = {
+    id: "unit-list",
+    type: "entityList",
+    entity: "unit",
+    columns: ["status"],
+    toolbarActions: [
+      {
+        kind: "writeHandler",
+        id: "sync",
+        label: "Sync",
+        handler: "units:write:unit:sync",
+      },
+    ],
+  };
+  return {
+    featureName: "units",
+    entities: { unit: entity },
+    screens: [listScreen],
+  } as FeatureSchema;
+}
+
+function renderToolbarListScreen(): void {
+  render(
+    <LocaleProvider
+      resolver={createStaticLocaleResolver({ locale: "de-DE" })}
+      fallbackBundles={[kumikoDefaultTranslations]}
+    >
+      <DispatcherProvider dispatcher={stubDispatcher()}>
+        <NavProvider
+          value={{
+            route: { screenId: "units:unit-list" },
+            navigate: () => {},
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <PrimitivesProvider value={toolbarTestPrimitives}>
+            <KumikoScreen schema={buildToolbarSchema()} qn="units:screen:unit-list" />
+          </PrimitivesProvider>
+        </NavProvider>
+      </DispatcherProvider>
+    </LocaleProvider>,
+  );
+}
+
+describe("entityList toolbarAction writeHandler refetches the rows query", () => {
+  test("a successful toolbarAction write triggers exactly one refetch", async () => {
+    queryCallCount = 0;
+    writeIsSuccess = true;
+
+    renderToolbarListScreen();
+
+    const button = await waitFor(() => screen.getByTestId("render-list-toolbar-action-sync"));
+    const countAfterMount = queryCallCount;
+    expect(countAfterMount).toBeGreaterThan(0);
+
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(queryCallCount).toBe(countAfterMount + 1);
+    });
+
+    // Give any accidental extra refetch a chance to land before asserting
+    // there wasn't one.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(queryCallCount).toBe(countAfterMount + 1);
+  });
+});
+
+// projectionList runs its own writeHandler-refetch path (ProjectionListBody,
+// separate from EntityListBody above) — the copy-paste edit that added the
+// refetch call there is untested without this.
+function buildProjectionListSchema(): FeatureSchema {
+  const listScreen: ProjectionListScreenDefinition = {
+    id: "unit-projection-list",
+    type: "projectionList",
+    query: "units:query:unit:list",
+    columns: [{ field: "status", label: "Status" }],
+    rowActions: [
+      {
+        kind: "writeHandler",
+        id: "archive",
+        label: "Archive",
+        handler: "units:write:unit:archive",
+      },
+    ],
+  };
+  return {
+    featureName: "units",
+    entities: {},
+    screens: [listScreen],
+  } as FeatureSchema;
+}
+
+function renderProjectionListScreen(): void {
+  render(
+    <LocaleProvider
+      resolver={createStaticLocaleResolver({ locale: "de-DE" })}
+      fallbackBundles={[kumikoDefaultTranslations]}
+    >
+      <DispatcherProvider dispatcher={stubDispatcher()}>
+        <NavProvider
+          value={{
+            route: { screenId: "units:unit-projection-list" },
+            navigate: () => {},
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <PrimitivesProvider value={testPrimitives}>
+            <KumikoScreen
+              schema={buildProjectionListSchema()}
+              qn="units:screen:unit-projection-list"
+            />
+          </PrimitivesProvider>
+        </NavProvider>
+      </DispatcherProvider>
+    </LocaleProvider>,
+  );
+}
+
+describe("projectionList row-action writeHandler refetches the rows query", () => {
+  test("a successful row-action write triggers exactly one refetch", async () => {
+    capturedRowActions = undefined;
+    queryCallCount = 0;
+    writeIsSuccess = true;
+
+    renderProjectionListScreen();
+
+    await waitFor(() => {
+      expect(capturedRowActions).toBeDefined();
+    });
+
+    const countAfterMount = queryCallCount;
+    expect(countAfterMount).toBeGreaterThan(0);
+
+    await act(async () => {
+      await requireArchiveAction().onTrigger({ id: "unit-1", values: { id: "unit-1" } });
+    });
+
+    await waitFor(() => {
+      expect(queryCallCount).toBe(countAfterMount + 1);
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(queryCallCount).toBe(countAfterMount + 1);
   });
 });

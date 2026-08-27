@@ -10,17 +10,22 @@ import { describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
+  ProjectionDetailScreenDefinition,
+  ProjectionListScreenDefinition,
+  RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import { render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
 import { kumikoDefaultTranslations } from "../../i18n-defaults";
 import {
+  type ButtonProps,
   type CorePrimitives,
   type DataTableProps,
   type DataTableRowAction,
+  type FormProps,
   PrimitivesProvider,
 } from "../../primitives";
 import type { FeatureSchema } from "../feature-schema";
@@ -190,5 +195,207 @@ describe("entityList navigate row-action with an entity-target (fw#2228)", () =>
     });
 
     expect(navigateCalls).toEqual([{ entity: "customer", id: "cust-7" }]);
+  });
+});
+
+// projectionList.runNavigate has NO row["id"] fallback (unlike EntityListBody
+// above) — a projectionList row comes from an arbitrary query without a
+// guaranteed "id" field, so an entity-target there requires an explicit
+// entityId. This proves that path resolves { entity, id } correctly and
+// still forwards `params` via setSearchParams.
+function buildProjectionListSchema(rowAction: RowActionNavigate): FeatureSchema {
+  const listScreen: ProjectionListScreenDefinition = {
+    id: "invoice-projection-list",
+    type: "projectionList",
+    query: "billing:query:invoice:list",
+    columns: [{ field: "status", label: "Status" }],
+    rowActions: [rowAction],
+  };
+  return {
+    featureName: "billing",
+    entities: {},
+    screens: [listScreen],
+  } as FeatureSchema;
+}
+
+function renderProjectionListScreen(
+  schema: FeatureSchema,
+  navigateSpy: (target: NavTarget) => void,
+  setSearchParamsSpy: (params: Record<string, string | null>) => void,
+): void {
+  render(
+    <LocaleProvider
+      resolver={createStaticLocaleResolver({ locale: "en" })}
+      fallbackBundles={[kumikoDefaultTranslations]}
+    >
+      <DispatcherProvider dispatcher={stubDispatcher()}>
+        <NavProvider
+          value={{
+            route: { screenId: "billing:invoice-projection-list" },
+            navigate: navigateSpy,
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: setSearchParamsSpy,
+          }}
+        >
+          <PrimitivesProvider value={testPrimitives}>
+            <KumikoScreen schema={schema} qn="billing:screen:invoice-projection-list" />
+          </PrimitivesProvider>
+        </NavProvider>
+      </DispatcherProvider>
+    </LocaleProvider>,
+  );
+}
+
+describe("projectionList navigate row-action with an entity-target (fw#2228)", () => {
+  test("entity-target with entityId calls nav.navigate with { entity, id } and forwards params via setSearchParams", async () => {
+    capturedRowActions = undefined;
+    const navigateCalls: NavTarget[] = [];
+    const searchParamsCalls: Record<string, string | null>[] = [];
+
+    renderProjectionListScreen(
+      buildProjectionListSchema({
+        kind: "navigate",
+        id: "view",
+        label: "kumiko.actions.view",
+        entity: "invoice",
+        entityId: "invoiceId",
+        params: { pick: ["status"] },
+      }),
+      (target) => navigateCalls.push(target),
+      (params) => searchParamsCalls.push(params),
+    );
+
+    await waitFor(() => {
+      expect(capturedRowActions).toBeDefined();
+    });
+
+    await requireAction("view").onTrigger({
+      id: "proj-1",
+      values: { id: "proj-1", invoiceId: "invoice-42", status: "open" },
+    });
+
+    expect(navigateCalls).toEqual([{ entity: "invoice", id: "invoice-42" }]);
+    expect(searchParamsCalls).toEqual([{ status: "open" }]);
+  });
+});
+
+// projectionDetail's header actions run through the same entity-target
+// resolution (ProjectionDetailBody, no record["id"] fallback either) as a
+// distinct code path from both entityList and projectionList above — this
+// renders the real KumikoScreen → ProjectionDetailBody → RenderEdit pipeline
+// and clicks the real action button.
+const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) => (
+  <button type="button" data-testid={testId} onClick={() => void onClick?.()}>
+    {children}
+  </button>
+);
+
+const FormWithActions: ComponentType<FormProps> = ({ children, actions }) => (
+  <>
+    <div data-testid="form-body">{children}</div>
+    <div data-testid="form-actions">{actions}</div>
+  </>
+);
+
+const detailTestPrimitives: CorePrimitives = {
+  ...testPrimitives,
+  Button: TestButton,
+  Form: FormWithActions,
+};
+
+function detailStubDispatcher(record: Readonly<Record<string, unknown>>): Dispatcher {
+  return {
+    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
+    query: (async () => ({ isSuccess: true, data: record })) as unknown as Dispatcher["query"],
+    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
+    statusStore: {
+      getState: () => "online",
+      subscribe: () => () => {},
+    } as unknown as Dispatcher["statusStore"],
+    async *stream() {},
+    pendingWrites: () => [],
+    pendingFiles: () => [],
+  };
+}
+
+function buildProjectionDetailSchema(action: RowActionNavigate): FeatureSchema {
+  const detailScreen: ProjectionDetailScreenDefinition = {
+    id: "invoice-detail",
+    type: "projectionDetail",
+    query: "billing:query:invoice:detail",
+    layout: { sections: [{ title: "s", fields: ["status"] }] },
+    actions: [action],
+  };
+  return {
+    featureName: "billing",
+    entities: {},
+    screens: [detailScreen],
+  } as FeatureSchema;
+}
+
+function renderProjectionDetailScreen(
+  schema: FeatureSchema,
+  record: Readonly<Record<string, unknown>>,
+  navigateSpy: (target: NavTarget) => void,
+  setSearchParamsSpy: (params: Record<string, string | null>) => void,
+): void {
+  render(
+    <LocaleProvider
+      resolver={createStaticLocaleResolver({ locale: "en" })}
+      fallbackBundles={[kumikoDefaultTranslations]}
+    >
+      <DispatcherProvider dispatcher={detailStubDispatcher(record)}>
+        <NavProvider
+          value={{
+            route: { screenId: "billing:invoice-detail" },
+            navigate: navigateSpy,
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: setSearchParamsSpy,
+          }}
+        >
+          <PrimitivesProvider value={detailTestPrimitives}>
+            <KumikoScreen
+              schema={schema}
+              qn="billing:screen:invoice-detail"
+              entityId={String(record["id"])}
+            />
+          </PrimitivesProvider>
+        </NavProvider>
+      </DispatcherProvider>
+    </LocaleProvider>,
+  );
+}
+
+describe("projectionDetail navigate action with an entity-target (fw#2228)", () => {
+  test("entity-target with entityId calls nav.navigate with { entity, id } and forwards params via setSearchParams", async () => {
+    const navigateCalls: NavTarget[] = [];
+    const searchParamsCalls: Record<string, string | null>[] = [];
+
+    renderProjectionDetailScreen(
+      buildProjectionDetailSchema({
+        kind: "navigate",
+        id: "view-customer",
+        label: "kumiko.actions.view",
+        entity: "customer",
+        entityId: "customerId",
+        params: { pick: ["status"] },
+      }),
+      { id: "invoice-42", customerId: "cust-7", status: "open" },
+      (target) => navigateCalls.push(target),
+      (params) => searchParamsCalls.push(params),
+    );
+
+    await waitFor(() => expect(screen.queryByText("Loading…")).toBeNull());
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-action-view-customer"));
+    });
+
+    expect(navigateCalls).toEqual([{ entity: "customer", id: "cust-7" }]);
+    expect(searchParamsCalls).toEqual([{ status: "open" }]);
   });
 });
