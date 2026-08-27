@@ -35,6 +35,7 @@ export type FileRef = {
   entityId: string | null;
   fieldName: string | null;
   insertedById: string | null;
+  isDeleted: boolean;
 };
 
 // fileRef is a standard ES entity: upload/delete go through the entity
@@ -387,13 +388,26 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     return c.json({ url, expiresAt });
   });
 
-  // GET /files/:id/meta — metadata without the bytes. Guarded exactly like
-  // download (meta leaks fileName/mimeType/size).
+  // GET /files/:id/meta — metadata without the bytes. Unlike the byte-serving
+  // routes above, this returns fileName as JSON — and fileName is
+  // `personal: "self"` (fw#2423), so it must go through the entity executor's
+  // detail() to decrypt instead of loadFileForTenant's raw, still-encrypted read.
   api.get("/files/:id/meta", async (c) => {
     const user = getUser(c);
     const id = c.req.param("id");
-    const fileRef = await loadFileForTenant(id, user.tenantId);
-    if (!fileRef) return c.json({ error: "not_found" }, 404);
+    // Same 22P02-avoidance as loadFileForTenant — detail() doesn't validate
+    // id shape before it hits the UUID column.
+    if (!isUuid(id)) return c.json({ error: "not_found" }, 404);
+    const row = await executor.detail({ id }, user, createTenantDb(db, user.tenantId));
+    if (!row) return c.json({ error: "not_found" }, 404);
+    const fileRef = row as FileRef; // @cast-boundary db-row (decrypted via executor.detail)
+    // detail()'s "pass"-ownership read widens to tenantId IN (self, SYSTEM)
+    // and doesn't filter isDeleted (list() does, detail() doesn't) — both
+    // narrower in loadFileForTenant's selectMany. Restore that here so meta
+    // doesn't leak reference-tenant or soft-deleted rows.
+    if (fileRef.tenantId !== user.tenantId || fileRef.isDeleted) {
+      return c.json({ error: "not_found" }, 404);
+    }
 
     const decision = await guard({ fileRef, user, operation: "read" });
     if (decision === "deny") return c.json({ error: "not_found" }, 404);

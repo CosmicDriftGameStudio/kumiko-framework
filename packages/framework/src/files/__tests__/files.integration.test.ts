@@ -1,10 +1,11 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Hono } from "hono";
 import type { JwtHelper } from "../../api/jwt";
 import { buildServer } from "../../api/server";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto";
 import {
   createEntity,
   createImageField,
@@ -26,6 +27,7 @@ import {
   buildMultipartBody,
   expectErrorIncludes,
   patchFileInstanceofForBunTest,
+  resetPiiSubjectKmsForTests,
 } from "../../testing";
 import { createFilesFeature } from "../feature";
 import { fileRefsTable } from "../file-ref-table";
@@ -978,5 +980,86 @@ describe("download-url endpoint", () => {
     expect(res.status).toBe(501);
     const body = await res.json();
     expect(body.error).toContain("signed_urls_not_supported");
+  });
+});
+
+// --- fw#2423: GET /:id/meta with field-level PII encryption active ---
+
+describe("meta route with field-encrypted fileName", () => {
+  const testPng = new Uint8Array([
+    0x89,
+    0x50,
+    0x4e,
+    0x47,
+    0x0d,
+    0x0a,
+    0x1a,
+    0x0a,
+    ...Array(20).fill(0),
+  ]);
+
+  afterEach(() => {
+    // configurePiiSubjectKms is process-global — every test in this block
+    // must leave it clean for the rest of the suite.
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("returns the decrypted fileName instead of 500 pii_ciphertext_leak", async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+
+    const uploadRes = await uploadFile(
+      adminUser,
+      "Krankheitsattest-Mai.png",
+      testPng,
+      "image/png",
+      { entityType: "tenant", entityId: "1", fieldName: "logo" },
+    );
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+
+    const metaRes = await getFileMeta(adminUser, id);
+    expect(metaRes.status).toBe(200);
+    const body = await metaRes.json();
+    expect(body.fileName).toBe("Krankheitsattest-Mai.png");
+    expect(body.mimeType).toBe("image/png");
+    expect(body.size).toBe(testPng.length);
+    expect(body.entityType).toBe("tenant");
+    expect(body.fieldName).toBe("logo");
+  });
+
+  test("other tenant still gets 404 (tenant isolation survives the executor swap)", async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+
+    const uploadRes = await uploadFile(adminUser, "cross-tenant.png", testPng, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    const { id } = await uploadRes.json();
+
+    const res = await getFileMeta(otherTenantUser, id);
+    expect(res.status).toBe(404);
+  });
+
+  test("malformed (non-UUID) id still 404s instead of hitting the raw UUID column", async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+
+    const res = await getFileMeta(adminUser, "not-a-uuid");
+    expect(res.status).toBe(404);
+  });
+
+  test("soft-deleted file's meta still 404s (executor.detail() doesn't filter isDeleted)", async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+
+    const uploadRes = await uploadFile(adminUser, "trashed.png", testPng, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    const { id } = await uploadRes.json();
+    expect((await deleteFile(adminUser, id)).status).toBe(200);
+
+    const res = await getFileMeta(adminUser, id);
+    expect(res.status).toBe(404);
   });
 });
