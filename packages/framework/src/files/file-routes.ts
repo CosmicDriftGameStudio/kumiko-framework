@@ -1,6 +1,14 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { Hono } from "hono";
 import { getUser } from "../api/auth-middleware";
+import { requestContext } from "../api/request-context";
+import {
+  collectPiiSubjectFields,
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+  isPiiCiphertext,
+  type KmsContext,
+} from "../crypto";
 import type { DbConnection } from "../db/connection";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { createTenantDb } from "../db/tenant-db";
@@ -103,7 +111,38 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   const executor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
     entityName: "fileRef",
   });
+  const piiSubjectFields = collectPiiSubjectFields(fileRefEntity);
   const api = new Hono();
+
+  function kmsContextFor(): KmsContext {
+    return { requestId: requestContext.get()?.requestId ?? "file-routes" };
+  }
+
+  // loadFileForTenant is a raw selectMany — unlike executor.detail() (used by
+  // /meta), it never decrypts. Decrypting via detail() here would add its
+  // getStreamVersion/entity-cache overhead to these binary-serving hot
+  // paths, so this calls the same PII cipher directly on the already-
+  // fetched row: one KMS key fetch instead of detail()'s full read path.
+  async function resolveFileName(fileRef: FileRef): Promise<string> {
+    if (!isPiiCiphertext(fileRef.fileName)) return fileRef.fileName;
+    const kms = configuredPiiSubjectKms();
+    if (!kms) {
+      // Ciphertext with no subject KMS wired (disabled after encrypt-time) —
+      // never let it reach a header or signed-URL; nothing downstream
+      // catches this the way piiCiphertextResponseGuard catches JSON.
+      console.error(
+        `[files] fileRef ${fileRef.id} carries PII ciphertext but no subject KMS is configured — serving a redacted filename`,
+      );
+      return "download";
+    }
+    const decrypted = await decryptPiiFieldValues(
+      { fileName: fileRef.fileName },
+      piiSubjectFields,
+      kms,
+      kmsContextFor(),
+    );
+    return typeof decrypted["fileName"] === "string" ? decrypted["fileName"] : "download";
+  }
 
   // POST /files — multipart upload.
   api.post("/files", async (c) => {
@@ -245,7 +284,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     return new Response(Buffer.from(data), {
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": buildContentDispositionHeader(fileRef.fileName),
+        "Content-Disposition": buildContentDispositionHeader(await resolveFileName(fileRef)),
         "Content-Length": String(fileRef.size),
         "X-Content-Type-Options": "nosniff",
       },
@@ -382,7 +421,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       // with the original filename instead of the UUID-based storage key.
       // Sanitised via buildContentDispositionHeader — the same attacker-
       // controlled fileName reaches the provider's presigned response.
-      contentDisposition: buildContentDispositionHeader(fileRef.fileName),
+      contentDisposition: buildContentDispositionHeader(await resolveFileName(fileRef)),
     });
     const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
     return c.json({ url, expiresAt });

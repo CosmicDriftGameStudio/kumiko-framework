@@ -1,4 +1,4 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
@@ -15,7 +15,8 @@ export async function selectNotificationPreferences(
   notificationType: string,
   channelName: string,
 ): Promise<readonly NotificationPreferenceRow[]> {
-  return asRawClient(db).unsafe<NotificationPreferenceRow>(
+  return unsafeReadRetrying<NotificationPreferenceRow>(
+    db,
     `SELECT notification_type AS "notificationType", channel, enabled
      FROM read_notification_preferences
      WHERE tenant_id = $1

@@ -64,7 +64,7 @@ const FORM_DRAFT_KEY_MAX_LENGTH = 256;
 // (the #1888 derived-field shape) — 500ms collapses a typing burst into one
 // save instead of one per keystroke, while still saving well before a user
 // abandons the tab.
-const PATCH_DRAFT_SAVE_DEBOUNCE_MS = 500;
+export const PATCH_DRAFT_SAVE_DEBOUNCE_MS = 500;
 
 type FormDraftBlob = {
   readonly values: Record<string, unknown>;

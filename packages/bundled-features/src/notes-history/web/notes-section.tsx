@@ -26,11 +26,19 @@ type NoteRow = {
   readonly entityType: string;
   readonly entityId: string;
   readonly authorId: string;
-  // Null for pre-authorName history and for shredded authors.
+  // Null for pre-authorName history; shredded authors arrive as PII_ERASED_SENTINEL.
   readonly authorName: string | null;
   readonly body: string;
   readonly insertedAt: string;
 };
+
+// Matches @cosmicdrift/kumiko-framework/crypto PII_ERASED_SENTINEL — cannot
+// import that module from @runtime client (runtime-isolation).
+const PII_ERASED_SENTINEL = "[[erased]]";
+
+function displayAuthorName(authorName: string | null, unknownLabel: string): string {
+  return authorName && authorName !== PII_ERASED_SENTINEL ? authorName : unknownLabel;
+}
 type NoteListResponse = { readonly rows: readonly NoteRow[] };
 
 export function NotesSection({
@@ -144,7 +152,7 @@ export function NotesSection({
               <Text testId={`notes-section-row-${n.id}-body`}>{n.body}</Text>
               <Text variant="small" testId={`notes-section-row-${n.id}-meta`}>
                 {t("notesHistory.section.meta", {
-                  author: n.authorName ?? t("notesHistory.section.authorUnknown"),
+                  author: displayAuthorName(n.authorName, t("notesHistory.section.authorUnknown")),
                   date: formatWhen(n.insertedAt),
                 })}
               </Text>

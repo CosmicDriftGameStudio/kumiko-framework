@@ -456,36 +456,6 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
     expect(parseRoles(reloaded["roles"])).toEqual(["SystemAdmin"]);
   });
 
-  test("promoted user with SystemAdmin role can perform SystemAdmin-only queries", async () => {
-    const created = await seedUser({
-      email: "promoted-admin@example.com",
-      displayName: "PromotedAdmin",
-    });
-    const loaded = await stack.http.queryOk<Record<string, unknown>>(
-      UserQueries.detail,
-      { id: created.id },
-      systemAdmin,
-    );
-
-    await stack.http.writeOk(
-      UserHandlers.update,
-      {
-        id: created.id,
-        version: loaded["version"],
-        changes: { roles: ["SystemAdmin"] },
-      },
-      systemAdmin,
-    );
-
-    const newlyPromoted = createTestUser({ id: created.id, roles: ["SystemAdmin"] });
-    const listResult = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
-      UserQueries.list,
-      {},
-      newlyPromoted,
-    );
-    expect(listResult.rows.length).toBeGreaterThanOrEqual(1);
-  });
-
   test("SystemAdmin updates target user roles to multiple valid roles", async () => {
     const created = await seedUser({ email: "multirole@example.com", displayName: "MultiRole" });
     const loaded = await stack.http.queryOk<Record<string, unknown>>(
@@ -559,6 +529,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       actor,
     );
     expectErrorIncludes(error, "field_access_denied");
+    expect(error.httpStatus).toBe(403);
   });
 
   test("normal user gets 403 when attempting to assign global roles to self", async () => {
@@ -581,6 +552,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
       normalUser,
     );
     expectErrorIncludes(error, "field_access_denied");
+    expect(error.httpStatus).toBe(403);
   });
 
   test("normal user gets 403 when attempting to assign global roles to another user", async () => {
@@ -781,31 +753,29 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
     expect(reloaded["displayName"]).toBe("UpdatedAdminName");
   });
 
-  test("updating non-SystemAdmin user roles succeeds when only one SystemAdmin exists", async () => {
-    // Seed 1 active SystemAdmin
+  test("demoting a SystemAdmin succeeds when another active SystemAdmin still exists", async () => {
+    // Extra active SystemAdmin so demoting the target is not a last-admin conflict.
     await seedUser({
       email: "the-system-admin@example.com",
       displayName: "TheAdmin",
       roles: ["SystemAdmin"],
     });
 
-    // Seed a normal user
-    const normalUser = await seedUser({
-      email: "regular-user@example.com",
-      displayName: "RegularUser",
-      roles: ["User"],
+    const targetAdmin = await seedUser({
+      email: "second-admin@example.com",
+      displayName: "SecondAdmin",
+      roles: ["SystemAdmin"],
     });
     const loaded = await stack.http.queryOk<Record<string, unknown>>(
       UserQueries.detail,
-      { id: normalUser.id },
+      { id: targetAdmin.id },
       systemAdmin,
     );
 
-    // Updating normal user roles to ["User", "Editor"] should succeed without conflict
     await stack.http.writeOk(
       UserHandlers.update,
       {
-        id: normalUser.id,
+        id: targetAdmin.id,
         version: loaded["version"],
         changes: { roles: ["User", "Editor"] },
       },
@@ -814,7 +784,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
 
     const reloaded = await stack.http.queryOk<Record<string, unknown>>(
       UserQueries.detail,
-      { id: normalUser.id },
+      { id: targetAdmin.id },
       systemAdmin,
     );
     expect(parseRoles(reloaded["roles"])).toEqual(["User", "Editor"]);

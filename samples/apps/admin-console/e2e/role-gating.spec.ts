@@ -32,7 +32,7 @@ test.describe("TenantAdmin workspace gating", () => {
     await expect(page.getByRole("option", { name: "User", exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: "Editor", exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: "Admin", exact: true })).toBeVisible();
-    await expect(page.getByRole("option", { name: "TenantAdmin", exact: true })).toBeVisible();
+    await expect(page.getByRole("option", { name: "Tenant Admin", exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: "SystemAdmin", exact: true })).toHaveCount(0);
   });
 

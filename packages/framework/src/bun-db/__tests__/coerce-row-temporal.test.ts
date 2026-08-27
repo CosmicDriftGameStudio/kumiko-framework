@@ -8,7 +8,7 @@
 // coerceRow — proving the coercion no longer depends on the global at all.
 
 import { describe, expect, test } from "bun:test";
-import type { Temporal } from "temporal-polyfill";
+import { Temporal } from "temporal-polyfill";
 import { coerceRow, type TableInfo } from "../query";
 
 function timestamptzTableInfo(): TableInfo {
@@ -29,6 +29,7 @@ describe("coerceRow — timestamptz → Temporal.Instant", () => {
     try {
       const row = { updated_at: new Date("2026-04-18T10:00:00Z") };
       const result = coerceRow(row, timestamptzTableInfo());
+      expect(result.updated_at).toBeInstanceOf(Temporal.Instant);
       expect((result.updated_at as unknown as Temporal.Instant).toString()).toBe(
         "2026-04-18T10:00:00Z",
       );

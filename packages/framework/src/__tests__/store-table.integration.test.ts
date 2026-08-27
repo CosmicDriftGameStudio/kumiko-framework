@@ -4,6 +4,7 @@
 // kumiko-platform/docs/plans/architecture/table-ddl-guard.md (Stufe 3).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { Temporal } from "temporal-polyfill";
 import { defineUnmanagedTable } from "../db/entity-table-meta";
 import { asRawClient, insertOne, selectMany } from "../db/query";
 import { defineFeature } from "../engine";
@@ -49,7 +50,7 @@ describe("r.storeTable — DB roundtrip via setupTestStack", () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload).toBe(payload);
-    expect(String(rows[0]?.receivedAt)).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(rows[0]?.receivedAt).toBeInstanceOf(Temporal.Instant);
   });
 
   test("registry exposes the store table with its reason and featureName", () => {

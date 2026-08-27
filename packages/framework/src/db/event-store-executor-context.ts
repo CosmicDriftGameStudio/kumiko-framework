@@ -8,7 +8,7 @@ import {
   type KmsContext,
   type LocalKeyKmsAdapter,
 } from "../crypto";
-import { executeRawQuery } from "../db/queries/raw-sql";
+import { executeRawQueryRead } from "../db/queries/raw-sql";
 import type { WhereObject } from "../db/query";
 import { shiftParams } from "../engine/ownership";
 import type {
@@ -381,7 +381,7 @@ export function buildExecutorContext(
     whereParts.push(shifted.sqlText);
     for (const p of shifted.params) params.push(p);
     const sqlText = `SELECT * FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
-    return [...(await executeRawQuery<Record<string, unknown>>(db.raw, sqlText, params))];
+    return [...(await executeRawQueryRead<Record<string, unknown>>(db.raw, sqlText, params))];
   }
 
   return {

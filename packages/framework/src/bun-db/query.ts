@@ -688,6 +688,7 @@ function isClosedConnectionError(err: unknown): boolean {
 // Exported so raw-SQL query modules outside bun-db (e.g. bundled-features'
 // db/queries/*.ts) can opt into the same #1163 retry instead of calling
 // asRawClient(db).unsafe(...) directly and losing it.
+// READS ONLY — retry re-executes the statement; never pass INSERT/UPDATE/DELETE.
 export async function unsafeReadRetrying<TRow>(
   db: AnyDb,
   sqlText: string,

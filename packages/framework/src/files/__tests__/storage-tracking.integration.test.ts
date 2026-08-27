@@ -9,6 +9,7 @@
 //      Drizzle's mode:"number", so arithmetic in assertions Just Works).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { Temporal } from "temporal-polyfill";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, selectMany } from "../../db/query";
 import { createTenantDb } from "../../db/tenant-db";
@@ -180,6 +181,7 @@ describe("tenant-storage-usage MSP", () => {
     const [first] = await selectMany(stack.db, tenantStorageUsageTable, {
       tenantId: admin.tenantId,
     });
+    expect(first?.["lastUpdatedAt"]).toBeInstanceOf(Temporal.Instant);
 
     // Postgres NOW() resolution is microseconds; a second upload a beat
     // later must produce a strictly later timestamp (or at least not an
@@ -192,6 +194,7 @@ describe("tenant-storage-usage MSP", () => {
     const [second] = await selectMany(stack.db, tenantStorageUsageTable, {
       tenantId: admin.tenantId,
     });
+    expect(second?.["lastUpdatedAt"]).toBeInstanceOf(Temporal.Instant);
     if (!first?.["lastUpdatedAt"] || !second?.["lastUpdatedAt"]) throw new Error("missing rows");
     expect(
       Temporal.Instant.compare(second["lastUpdatedAt"], first["lastUpdatedAt"]),

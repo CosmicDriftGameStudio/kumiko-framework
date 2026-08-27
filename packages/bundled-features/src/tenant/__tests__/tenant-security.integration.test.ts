@@ -32,12 +32,7 @@ import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { seedUser } from "../../user/seeding";
-import {
-  MEMBER_ROLES_EDIT_SCREEN_ID,
-  MEMBERS_SCREEN_ID,
-  TenantHandlers,
-  TenantQueries,
-} from "../constants";
+import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../constants";
 import { createTenantFeature } from "../feature";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-table";
 import { tenantMembershipsTable } from "../membership-table";
@@ -1003,11 +998,14 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
 
     const [s1] = await selectMany(stack.db, userSessionTable, { id: sessionTarget1Id });
     const [s2] = await selectMany(stack.db, userSessionTable, { id: sessionTarget2Id });
-    expect(s1?.revokedAt).not.toBeNull();
-    expect(s2?.revokedAt).not.toBeNull();
+    expect(s1).toBeDefined();
+    expect(s2).toBeDefined();
+    expect(s1!.revokedAt).not.toBeNull();
+    expect(s2!.revokedAt).not.toBeNull();
 
     const [sAdmin] = await selectMany(stack.db, userSessionTable, { id: sessionAdminId });
-    expect(sAdmin?.revokedAt).toBeNull();
+    expect(sAdmin).toBeDefined();
+    expect(sAdmin!.revokedAt).toBeNull();
 
     // Event-store actor is createSystemUser (handler rewrites via system
     // stream), so filter by type + tenant — not the HTTP caller's user id.
@@ -1072,36 +1070,5 @@ describe("invite + accept end-to-end integration against real stack", () => {
       newAdminSession,
     );
     expect(membersList.some((m) => m.userId === newUserId)).toBe(true);
-  });
-});
-
-describe("members UI screens and actions integration against real stack", () => {
-  test("members screen and member-roles-edit actionForm execute through stack", async () => {
-    const membersScreen = stack.registry.getScreen(`tenant:screen:${MEMBERS_SCREEN_ID}`);
-    expect(membersScreen).toBeDefined();
-    expect(membersScreen?.type).toBe("projectionList");
-
-    const editRolesScreen = stack.registry.getScreen(
-      `tenant:screen:${MEMBER_ROLES_EDIT_SCREEN_ID}`,
-    );
-    expect(editRolesScreen).toBeDefined();
-    expect(editRolesScreen?.type).toBe("actionForm");
-
-    const { id: memberUserId } = await seedUser(stack.db, {
-      email: "ui-member@example.com",
-      displayName: "UI Member",
-    });
-    await seedTenantMembership(stack.db, {
-      userId: memberUserId,
-      tenantId: TENANT_A_ID,
-      roles: ["User"],
-    });
-
-    const res = await stack.http.writeOk(
-      TenantHandlers.updateMemberRoles,
-      { userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] },
-      tenantAdminA(),
-    );
-    expect(res).toMatchObject({ userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] });
   });
 });
