@@ -16,6 +16,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useState } from "react";
 import { z } from "zod";
+import { PATCH_DRAFT_SAVE_DEBOUNCE_MS } from "../../../renderer/src/components/render-edit";
 import {
   act,
   createFakeDraftStorage,
@@ -1307,14 +1308,11 @@ describe("RenderEdit wizard mode", () => {
     expect(screen.queryByTestId("field-title-errors")).toBeNull();
   });
 
-  // fw#1901: handleWizardNext used to validate every field in the section,
-  // including ones currently hidden by their own condition. A required
-  // field that only applies conditionally (e.g. a VAT id shown only for
-  // companies) must not permanently block "Next" while it's hidden. Note:
-  // form-controller.ts's runValidate() already excludes hidden-field
-  // issues from every validate() call via its own `hiddenFields` set
-  // (form-controller.ts:200), independent of scope; this test protects
-  // that existing guard, not the fieldNames narrowing added here.
+  // Regression for form-controller.ts's `hiddenFields` guard: a required
+  // field currently hidden by its own condition (e.g. vatId when not a
+  // company) must not block wizard "Next". This is independent of any
+  // handleWizardNext fieldNames narrowing — those paths are covered by
+  // the fully-hidden-section test below.
   test("Weiter is not blocked by a required field that's currently hidden by its own condition", async () => {
     const companyEntity = {
       fields: {
@@ -1590,10 +1588,6 @@ describe("RenderEdit wizard mode", () => {
 });
 
 describe("RenderEdit wizard draft", () => {
-  // Mirrors render-edit.tsx's own PATCH_DRAFT_SAVE_DEBOUNCE_MS (not
-  // exported) — tests below wait out a full window to catch stragglers.
-  const PATCH_DRAFT_SAVE_DEBOUNCE_MS = 500;
-
   function makeDraftWizardScreen(draft: boolean): EntityEditScreenDefinition {
     return {
       id: "orders:screen:order-wizard-draft",
@@ -2109,7 +2103,7 @@ describe("RenderEdit wizard draft", () => {
     // second burst) would slip past an assertion taken right after the
     // first save. Wait out a full extra debounce window to prove there is
     // no straggler.
-    await new Promise((resolve) => setTimeout(resolve, PATCH_DRAFT_SAVE_DEBOUNCE_MS + 200));
+    await new Promise((resolve) => setTimeout(resolve, PATCH_DRAFT_SAVE_DEBOUNCE_MS + 1000));
     expect(savesSoFar()).toBe(before + 1);
   });
 
@@ -2191,7 +2185,7 @@ describe("RenderEdit wizard draft", () => {
     // Wait past the debounce window the patch() call armed. If discard
     // hadn't cleared the timer, a straggling save would land here and
     // resurrect the just-discarded draft.
-    await new Promise((resolve) => setTimeout(resolve, PATCH_DRAFT_SAVE_DEBOUNCE_MS + 200));
+    await new Promise((resolve) => setTimeout(resolve, PATCH_DRAFT_SAVE_DEBOUNCE_MS + 1000));
 
     expect(calls.filter((c) => c === "form-draft:write:save").length).toBe(savesAtSubmit);
     expect(store.current).toBeNull();

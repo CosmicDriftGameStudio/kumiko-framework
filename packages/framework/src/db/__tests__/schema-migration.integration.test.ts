@@ -314,6 +314,7 @@ describe("date field — real DATE column, no TZ dependence (kumiko-framework#19
     const rows = await selectMany(testDb.db, table);
     expect(rows).toHaveLength(1);
     const periodFrom = (rows[0] as { periodFrom: unknown }).periodFrom;
+    expect(periodFrom).toBeInstanceOf(Temporal.PlainDate);
     expect((periodFrom as Temporal.PlainDate).toString()).toBe("2026-03-15");
   });
 
