@@ -62,7 +62,10 @@ describe("createFormController — submit()", () => {
     });
 
     const result = await form.submit();
-    expect(result.isNoOp).toBe(true);
+    expect(result.validationBlocked).toBe(false);
+    if (!result.validationBlocked) {
+      expect(result.isNoOp).toBe(true);
+    }
   });
 
   test("happy path: dispatches values, returns success, rebases form", async () => {

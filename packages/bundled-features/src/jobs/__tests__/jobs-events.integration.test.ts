@@ -100,10 +100,10 @@ describe("jobRun direct writes", () => {
   });
 
   test("rounds fractional job duration to an integer millisecond value", async () => {
-    const started = Temporal.Now.instant();
     await logger.onJobStart?.("example:job:timing", "bull-timing", {});
-    const ended = started.add({ milliseconds: 150, nanoseconds: 500_000_000 });
-    await logger.onJobComplete?.("example:job:timing", "bull-timing", ended.since(started).total("milliseconds"), []);
+    // Pass a fractional ms value directly — Temporal DurationLike.nanoseconds
+    // is absolute ns (5e8 = 500ms), not a sub-ms fraction.
+    await logger.onJobComplete?.("example:job:timing", "bull-timing", 150.5, []);
 
     const runs = await selectMany(testDb.db, jobRunsTable, { bullJobId: "bull-timing" });
     expect(runs).toHaveLength(1);
