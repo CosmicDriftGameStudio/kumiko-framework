@@ -92,11 +92,11 @@ const counts: Record<FindBucket, number> = {
   "no-find": 0,
 };
 
-function report(node: Node, reason: string): void {
+function report(node: Node, note: string): void {
   reports.push({
     file: node.getSourceFile().getFilePath(),
     line: node.getStartLineNumber(),
-    reason,
+    note,
   });
 }
 
