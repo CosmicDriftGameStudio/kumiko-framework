@@ -24,4 +24,14 @@ describe("locale-es completeness", () => {
       );
     }
   });
+
+  test("uses localized tenant wording, not raw English tenant labels", () => {
+    const roleAllowlist = new Set(["TenantAdmin", "SystemAdmin"]);
+    const offenders: string[] = [];
+    for (const [key, value] of Object.entries(localeEsBundle)) {
+      if (roleAllowlist.has(value)) continue;
+      if (/\btenants?\b/i.test(value)) offenders.push(key);
+    }
+    expect(offenders).toEqual([]);
+  });
 });
