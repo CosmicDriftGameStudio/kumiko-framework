@@ -33,14 +33,18 @@ describe("useForm — mounted without a DispatcherProvider", () => {
     expect(result.current.snapshot.values.title).toBe("");
   });
 
-  test("submit() without an explicit dispatcher rejects instead of crashing the hook", async () => {
+  test("submit() without an explicit dispatcher returns isSuccess:false instead of crashing the hook", async () => {
     const { result } = renderHook(() =>
       useForm({ initial: { title: "hello" }, submit: { type: "app:write:task:create" } }),
     );
 
-    await expect(result.current.controller.submit()).rejects.toThrow(
-      /submit\(\) called without a dispatcher/,
-    );
+    const submitResult = await result.current.controller.submit();
+    expect(submitResult.validationBlocked).toBe(false);
+    expect(submitResult.isSuccess).toBe(false);
+    if (submitResult.isSuccess || submitResult.validationBlocked) {
+      throw new Error("expected write failure");
+    }
+    expect(submitResult.error.message).toMatch(/submit\(\) called without a dispatcher/);
   });
 
   test("submit() with an explicit dispatcher still works without a provider", async () => {

@@ -1,4 +1,4 @@
-import { run } from "./_spawn";
+import { DOCKER_PROBE_TIMEOUT_MS, run } from "./_spawn";
 import { defineCommand } from "./registry";
 
 export const statusCommand = defineCommand({
@@ -12,7 +12,7 @@ export const statusCommand = defineCommand({
     ctx.out.log("--- Services ---");
     const docker = await run("docker", ["compose", "ps", "--format", "json"], {
       cwd: ctx.cwd,
-      timeoutMs: 2000,
+      timeoutMs: DOCKER_PROBE_TIMEOUT_MS,
     });
     if (docker.status === 0 && docker.stdout.trim()) {
       for (const line of docker.stdout.trim().split("\n").filter(Boolean)) {
@@ -23,6 +23,8 @@ export const statusCommand = defineCommand({
           // skip malformed
         }
       }
+    } else if (docker.status === -1) {
+      ctx.out.log("  Docker probe timed out (daemon slow or hung)");
     } else {
       ctx.out.log("  Docker services not running");
     }

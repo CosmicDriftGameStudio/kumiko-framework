@@ -35,13 +35,17 @@ describe("createFormController — submit()", () => {
     await expect(form.submit()).rejects.toThrow(/submit\(\) called without a `submit` config/);
   });
 
-  test("throws when submit-config has no dispatcher — forgot the provider", async () => {
+  test("returns isSuccess:false when submit-config has no dispatcher — forgot the provider", async () => {
     const form = createFormController({
       initial: { title: "hello" },
       submit: { type: "app:write:task:create" },
     });
 
-    await expect(form.submit()).rejects.toThrow(/submit\(\) called without a dispatcher/);
+    const result = await form.submit();
+    expect(result.validationBlocked).toBe(false);
+    expect(result.isSuccess).toBe(false);
+    if (result.isSuccess || result.validationBlocked) throw new Error("expected write failure");
+    expect(result.error.message).toMatch(/submit\(\) called without a dispatcher/);
   });
 
   test("returns validationBlocked without a dispatcher when schema fails first", async () => {

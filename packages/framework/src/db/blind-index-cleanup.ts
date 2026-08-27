@@ -59,26 +59,37 @@ export async function subjectRowExistsInTenant(
   subjectId: string,
   tenantId: string,
 ): Promise<boolean> {
+  // Prefetch which self-PII projection tables actually exist — probing a
+  // missing relation used to throw (and get swallowed), which both hid
+  // real schema bugs and risked poisoning the Bun.SQL connection for the
+  // rest of the forget TX (fw#2348 / framework#356).
+  const candidateTables: string[] = [];
   for (const feature of features.values()) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       const hasSelfPiiField = Object.values(entity.fields).some(
         (field) => "pii" in field && field.pii === true,
       );
       if (!hasSelfPiiField) continue;
-      const tableName = resolveTableName(entityName, entity, undefined);
-      try {
-        const rows = await executeRawQuery(
-          db,
-          `SELECT 1 FROM ${quoteIdent(tableName)} WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
-          [subjectId, tenantId],
-        );
-        if (rows.length > 0) return true;
-      } catch {
-        // Table missing, id-type mismatch, ... — not evidence the subject is
-        // owned here. Fail-closed must come from an honest "not found" across
-        // every entity, never from a query blowing up on one of them.
-      }
+      candidateTables.push(resolveTableName(entityName, entity, undefined));
     }
+  }
+  const existing = new Set<string>();
+  for (const tableName of candidateTables) {
+    const rows = await executeRawQuery<{ exists: boolean }>(
+      db,
+      `SELECT to_regclass(quote_ident($1)) IS NOT NULL AS exists`,
+      [tableName],
+    );
+    if (rows[0]?.exists === true) existing.add(tableName);
+  }
+  for (const tableName of candidateTables) {
+    if (!existing.has(tableName)) continue;
+    const rows = await executeRawQuery(
+      db,
+      `SELECT 1 FROM ${quoteIdent(tableName)} WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+      [subjectId, tenantId],
+    );
+    if (rows.length > 0) return true;
   }
   return false;
 }

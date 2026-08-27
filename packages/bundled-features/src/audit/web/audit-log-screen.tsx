@@ -70,17 +70,31 @@ export function AuditLogScreen(): ReactNode {
   // mid-session and refetching on every "older" click is wasted work.
   const membersRef = useRef<Promise<ReadonlyMap<string, string>> | null>(null);
 
+  // Tenant/dispatcher identity can change without remounting — drop the cache.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset is keyed on dispatcher identity, not a read inside the effect
+  useEffect(() => {
+    membersRef.current = null;
+  }, [dispatcher]);
+
   const load = useCallback(
     async (cursor?: string, overrideFilters?: Filters): Promise<void> => {
       setState({ kind: "loading" });
       const f = overrideFilters ?? filtersRef.current;
-      membersRef.current ??= dispatcher
-        .query<readonly MemberRow[]>(TenantQueries.members, {})
-        .then((res) =>
-          res.isSuccess
-            ? new Map(res.data.map((m) => [m.userId, m.displayName ?? m.email ?? ""] as const))
-            : new Map<string, string>(),
-        );
+      if (!membersRef.current) {
+        const p = dispatcher.query<readonly MemberRow[]>(TenantQueries.members, {}).then((res) => {
+          if (!res.isSuccess) {
+            // Soft failure: clear so a later filter/page retry can refetch
+            // instead of freezing an empty actor column for the session.
+            if (membersRef.current === p) membersRef.current = null;
+            return new Map<string, string>();
+          }
+          return new Map(res.data.map((m) => [m.userId, m.displayName ?? m.email ?? ""] as const));
+        });
+        membersRef.current = p;
+        void p.catch(() => {
+          if (membersRef.current === p) membersRef.current = null;
+        });
+      }
       const [res, names] = await Promise.all([
         dispatcher.query<AuditResponse>(AuditQueries.list, {
           limit: 50,

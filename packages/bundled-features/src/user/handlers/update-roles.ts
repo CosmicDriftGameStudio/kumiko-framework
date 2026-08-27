@@ -149,9 +149,10 @@ export async function applyUserRolesUpdate(
   };
 
   // Persist roles first. Session revoke runs only after a successful update so a
-  // version conflict / projection error cannot leave sessions revoked while roles
-  // stay unchanged. Dispatcher TX still wraps both: revoke shares the write tx
-  // and rolls back with a failed outer write.
+  // version conflict / permission error cannot leave sessions revoked while roles
+  // stay unchanged. Nested writeAs returns {isSuccess:false} instead of throwing —
+  // we must propagate that failure so the dispatcher TX rolls the role update
+  // back with the revoke (writeAs alone does not abort the outer handler).
   const updateResult = await crud.update(
     { ...event.payload, changes: normalizedChanges },
     event.user,
@@ -163,13 +164,18 @@ export async function applyUserRolesUpdate(
 
   const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
   if (revoker) {
-    await ctx.writeAs(
+    const revokeResult = await ctx.writeAs(
       createSystemUser(event.user.tenantId ?? SYSTEM_TENANT_ID),
       REVOKE_ALL_SESSIONS_QN,
       {
         userId: event.payload.id,
       },
     );
+    if (!revokeResult.isSuccess) return revokeResult;
+  } else {
+    // skip: sessions feature not mounted — no live JWTs to revoke; role update
+    // still commits. Apps that mount user without sessions accept stale claims
+    // until JWT TTL.
   }
 
   return updateResult;

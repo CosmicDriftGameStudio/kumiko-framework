@@ -1,5 +1,8 @@
 import { spawn } from "node:child_process";
 
+/** Shared docker-compose probe budget — cold Docker Desktop often exceeds this. */
+export const DOCKER_PROBE_TIMEOUT_MS = 2000;
+
 const GIT_ENV_VARS_TO_STRIP = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY"];
 
 /** Strips GIT_DIR/GIT_WORK_TREE/etc from the current env — a `git` hook
