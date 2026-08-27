@@ -177,7 +177,7 @@ export const changesCommand = defineCommand({
     const repoRoot = findRepoRoot(ctx.cwd);
 
     const codemodScriptsRoot = codemod ? findCodemodScriptsRoot(repoRoot) : null;
-    if (codemod && (!codemodScriptsRoot || !resolveCodemodScript(codemodScriptsRoot, codemod))) {
+    if (codemod && (!codemodScriptsRoot || !resolveCodemodScript(repoRoot, codemod))) {
       ctx.out.err("");
       ctx.out.err(`  --codemod "${codemod}" must be an existing .ts file under packages/framework/src/scripts/codemod/.`);
       ctx.out.err("");

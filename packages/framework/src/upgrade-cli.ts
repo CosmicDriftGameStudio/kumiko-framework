@@ -187,7 +187,10 @@ export function findCodemodScriptsRoot(repoRoot: string): string | null {
 // Resolves a changes.json `codemod` field to an absolute script path,
 // refusing anything that would escape scripts/codemod/ (path traversal,
 // absolute paths, symlinks pointing outward) or that isn't a real .ts file.
-export function resolveCodemodScript(
+// First arg is the consumer repo root (same as findCodemodScriptsRoot) —
+// not the scripts root — so out-of-tree callers keep compiling against the
+// public upgrade-cli subpath without silently resolving to null (fw#2341).
+function resolveCodemodScriptAt(
   codemodScriptsRoot: string,
   codemodField: string | undefined,
 ): string | null {
@@ -211,6 +214,15 @@ export function resolveCodemodScript(
   }
 
   return resolved;
+}
+
+export function resolveCodemodScript(
+  repoRoot: string,
+  codemodField: string | undefined,
+): string | null {
+  const scriptsRoot = findCodemodScriptsRoot(repoRoot);
+  if (!scriptsRoot) return null;
+  return resolveCodemodScriptAt(scriptsRoot, codemodField);
 }
 
 type CodemodRunResult = { readonly ok: boolean; readonly output: string };
@@ -302,9 +314,7 @@ async function applyCodemods(
   const codemodScriptsRoot = findCodemodScriptsRoot(repoRoot);
   const ran: UpgradeMarkerCodemod[] = [];
   for (const e of codemodEntries) {
-    const scriptPath = codemodScriptsRoot
-      ? resolveCodemodScript(codemodScriptsRoot, e.codemod)
-      : null;
+    const scriptPath = codemodScriptsRoot ? resolveCodemodScript(repoRoot, e.codemod) : null;
     if (!scriptPath) {
       out.err(`  ✗ ${e.version} · ${e.title} — invalid codemod path "${e.codemod}"`);
       return 1;

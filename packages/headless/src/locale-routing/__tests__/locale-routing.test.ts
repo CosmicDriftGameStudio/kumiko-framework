@@ -230,4 +230,16 @@ describe("wrapUrlLocaleResolver", () => {
     expect(base.locale()).toBe("de");
     expect(wrapped.locale()).toBe("en");
   });
+
+  test("translateFor resolves copy against the URL locale", () => {
+    const base = staticBase("de");
+    const wrapped = wrapUrlLocaleResolver(base, {
+      resolvePage: (pathname) => moneyHorseRouter.resolvePage(pathname),
+      detectLang: (pathname) => moneyHorseRouter.detectLang(pathname),
+      pathname: () => "/en/features",
+      translateFor: (locale, key) => `${locale}:${key}`,
+    });
+    expect(wrapped.translate("hello")).toBe("en:hello");
+    expect(wrapped.locale()).toBe("en");
+  });
 });

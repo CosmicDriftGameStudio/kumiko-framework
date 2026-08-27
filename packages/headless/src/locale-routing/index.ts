@@ -149,6 +149,13 @@ export type WrapUrlLocaleResolverOptions = {
   resolvePage: (pathname: string) => unknown;
   detectLang: (pathname: string) => string;
   pathname?: () => string;
+  /** When set, translate against the URL-resolved locale instead of base.translate
+   *  (needed for fixed-T / cloneInstance resolvers that are not locale-live). */
+  translateFor?: (
+    locale: string,
+    key: string,
+    params?: Readonly<Record<string, unknown>>,
+  ) => string;
 };
 
 function defaultBrowserPathname(): string {
@@ -159,23 +166,28 @@ function defaultBrowserPathname(): string {
 /**
  * Prefer URL-derived locale when `resolvePage` matches the current path;
  * otherwise defer to `base.locale()`. Passes through setLocale and the rest of LocaleResolver.
+ * Without `translateFor`, `base.translate` must already be locale-live.
  */
 export function wrapUrlLocaleResolver(
   base: LocaleResolver,
   options: WrapUrlLocaleResolverOptions,
 ): LocaleResolver {
   const getPathname = options.pathname ?? defaultBrowserPathname;
+  const resolveLocale = (): string => {
+    const path = getPathname();
+    if (options.resolvePage(path) !== undefined) {
+      return options.detectLang(path);
+    }
+    return base.locale();
+  };
   return {
-    translate: (key, params) => base.translate(key, params),
+    translate: (key, params) =>
+      options.translateFor
+        ? options.translateFor(resolveLocale(), key, params)
+        : base.translate(key, params),
     timeZone: () => base.timeZone(),
     subscribe: (listener) => base.subscribe(listener),
     setLocale: base.setLocale !== undefined ? (locale) => base.setLocale?.(locale) : undefined,
-    locale: () => {
-      const path = getPathname();
-      if (options.resolvePage(path) !== undefined) {
-        return options.detectLang(path);
-      }
-      return base.locale();
-    },
+    locale: resolveLocale,
   };
 }

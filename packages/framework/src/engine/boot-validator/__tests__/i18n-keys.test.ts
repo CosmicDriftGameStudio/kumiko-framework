@@ -61,4 +61,26 @@ describe("validateI18nSurfaceKeys — Settings-Hub generated dot-form label (fw#
     });
     expect(() => validateBoot([configHub, billing])).not.toThrow();
   });
+
+  test("group namespace ≠ feature name: blank translation key satisfies hub label", () => {
+    const billing = defineFeature("billing", (r) => {
+      r.config({
+        keys: {
+          apiKey: createTenantConfig("text", {
+            write: access.roles("TenantAdmin"),
+            group: "tenant-settings",
+            mask: { title: "billing.api-key" },
+          }),
+        },
+      });
+      r.translations({
+        keys: {
+          "billing.api-key": { en: "API Key" },
+          "screen:tenant-settings-tenant.title": { en: "Tenant Settings" },
+          "tenant-settings.settings": { en: "Tenant Settings" },
+        },
+      });
+    });
+    expect(() => validateBoot([configHub, billing])).not.toThrow();
+  });
 });

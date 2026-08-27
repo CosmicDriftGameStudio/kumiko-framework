@@ -22,6 +22,7 @@ import {
   type AccessRule,
   defineEntityDetailHandler,
   defineEntityListHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -70,10 +71,12 @@ function registerTags(
   r.writeHandler(createAssignTagHandler(access));
   r.writeHandler(createRemoveTagHandler(access));
 
-  // Convention aliases for entityList/entityEdit — same bodies as the legacy
-  // create-tag/update-tag/delete-tag QNs (TagManager/TagPicker keep those).
+  // Convention aliases for entityList/entityEdit — create stays flat-payload
+  // (payloadMode=values); update must accept the {id,version,changes} envelope
+  // entityEdit sends (legacy update-tag stays for TagManager). delete stays
+  // legacy so assignment cascade is preserved (convention delete would orphan).
   r.writeHandler(createCreateTagHandler(access, "tag:create"));
-  r.writeHandler(createUpdateTagHandler(access, "tag:update"));
+  r.writeHandler(defineEntityUpdateHandler("tag", tagEntity, { access }));
   r.writeHandler(createDeleteTagHandler(access, "tag:delete"));
 
   r.queryHandler(defineEntityListHandler("tag", tagEntity, { access }));

@@ -1,3 +1,7 @@
+// @runtime runtime
+// Consumed at prod boot via composeEnvSchema (same as compose-stacks),
+// not only by tooling — keep runtime-isolation-safe (kumiko-framework#2340).
+//
 // Framework-core env-schema — the vars that runProdApp + buildServer
 // + the connection-pool read directly from process.env today. Apps merge
 // this into their app-wide schema via `composeEnvSchema({ core, ... })`.

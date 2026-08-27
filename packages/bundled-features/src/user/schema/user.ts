@@ -71,9 +71,8 @@ export const userEntity = createEntity({
       format: "email",
       maxLength: 320,
       personal: "self",
-      find: "exact",
-      // Roster search needs email hits; find:"exact" alone is blind-index only.
-      searchable: true,
+      // Roster search needs email hits — fuzzy expands to lookupable+searchable.
+      find: "fuzzy",
       access: { write: access.privileged },
     }),
 

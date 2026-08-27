@@ -245,33 +245,31 @@ const LEGACY_IMPORT_FIXTURE = [
 
 describe("resolveCodemodScript", () => {
   test("resolves a real script under scripts/codemod/", () => {
-    const resolved = resolveCodemodScript(REAL_FRAMEWORK_SRC, REAL_CODEMOD);
+    const resolved = resolveCodemodScript(REAL_REPO_ROOT, REAL_CODEMOD);
     expect(resolved).toBe(join(REAL_FRAMEWORK_SRC, REAL_CODEMOD));
   });
 
   test("rejects an absolute path", () => {
-    expect(resolveCodemodScript(REAL_FRAMEWORK_SRC, "/etc/passwd.ts")).toBeNull();
+    expect(resolveCodemodScript(REAL_REPO_ROOT, "/etc/passwd.ts")).toBeNull();
   });
 
   test("rejects path traversal that escapes scripts/codemod/", () => {
     expect(
-      resolveCodemodScript(REAL_FRAMEWORK_SRC, "scripts/codemod/../../package.json.ts"),
+      resolveCodemodScript(REAL_REPO_ROOT, "scripts/codemod/../../package.json.ts"),
     ).toBeNull();
-    expect(resolveCodemodScript(REAL_FRAMEWORK_SRC, "../outside/x.ts")).toBeNull();
+    expect(resolveCodemodScript(REAL_REPO_ROOT, "../outside/x.ts")).toBeNull();
   });
 
   test("rejects a non-.ts file", () => {
-    expect(resolveCodemodScript(REAL_FRAMEWORK_SRC, "scripts/codemod/README.md")).toBeNull();
+    expect(resolveCodemodScript(REAL_REPO_ROOT, "scripts/codemod/README.md")).toBeNull();
   });
 
   test("rejects a script that doesn't exist", () => {
-    expect(
-      resolveCodemodScript(REAL_FRAMEWORK_SRC, "scripts/codemod/does-not-exist.ts"),
-    ).toBeNull();
+    expect(resolveCodemodScript(REAL_REPO_ROOT, "scripts/codemod/does-not-exist.ts")).toBeNull();
   });
 
   test("rejects an undefined codemod field", () => {
-    expect(resolveCodemodScript(REAL_FRAMEWORK_SRC, undefined)).toBeNull();
+    expect(resolveCodemodScript(REAL_REPO_ROOT, undefined)).toBeNull();
   });
 
   test("findCodemodScriptsRoot resolves through a hoisted node_modules symlink", () => {
@@ -283,7 +281,7 @@ describe("resolveCodemodScript", () => {
     const root = findCodemodScriptsRoot(join(cwd, "apps/web"));
     expect(root).toBe(join(nmPkgDir, "src"));
 
-    const resolved = resolveCodemodScript(root!, REAL_CODEMOD);
+    const resolved = resolveCodemodScript(join(cwd, "apps/web"), REAL_CODEMOD);
     expect(resolved).toBe(join(nmPkgDir, "src", REAL_CODEMOD));
   });
 });

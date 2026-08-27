@@ -10,7 +10,7 @@
 
 import { resolve } from "node:path";
 import { Glob } from "bun";
-import { Project } from "ts-morph";
+import { Project, type SourceFile } from "ts-morph";
 
 const OLD_SPECIFIER = "@cosmicdrift/kumiko-framework/crypto";
 const NEW_SPECIFIER = "@cosmicdrift/kumiko-framework/testing";
@@ -26,6 +26,46 @@ function findTargetFiles(rootDir: string): string[] {
     files.push(abs);
   }
   return files.sort();
+}
+
+/** Move matching value imports from crypto → testing. Returns count of names moved. */
+function migrateFile(sourceFile: SourceFile): number {
+  // Value imports only — a pre-existing `import type { … } from testing`
+  // must not receive runtime helpers (they would be erased).
+  const oldImports = sourceFile
+    .getImportDeclarations()
+    .filter((d) => d.getModuleSpecifierValue() === OLD_SPECIFIER && !d.isTypeOnly());
+  if (oldImports.length === 0) return 0;
+
+  let fileMoved = 0;
+  for (const oldImport of oldImports) {
+    const movedHere = oldImport.getNamedImports().filter((spec) => MOVED_NAMES.has(spec.getName()));
+    if (movedHere.length === 0) continue;
+
+    const names = movedHere.map((spec) => spec.getName());
+
+    const existingNewImport = sourceFile
+      .getImportDeclarations()
+      .find((d) => d.getModuleSpecifierValue() === NEW_SPECIFIER && !d.isTypeOnly());
+    if (existingNewImport) {
+      const already = new Set(existingNewImport.getNamedImports().map((s) => s.getName()));
+      for (const name of names) {
+        if (!already.has(name)) existingNewImport.addNamedImport(name);
+      }
+    } else {
+      sourceFile.addImportDeclaration({ moduleSpecifier: NEW_SPECIFIER, namedImports: names });
+    }
+
+    for (const spec of movedHere) spec.remove();
+    const remaining =
+      oldImport.getNamedImports().length > 0 ||
+      !!oldImport.getDefaultImport() ||
+      !!oldImport.getNamespaceImport();
+    if (!remaining) oldImport.remove();
+
+    fileMoved += names.length;
+  }
+  return fileMoved;
 }
 
 async function main(): Promise<void> {
@@ -44,37 +84,11 @@ async function main(): Promise<void> {
 
   for (const file of files) {
     const sourceFile = project.addSourceFileAtPath(file);
-    const oldImport = sourceFile
-      .getImportDeclarations()
-      .find((d) => d.getModuleSpecifierValue() === OLD_SPECIFIER);
-    if (!oldImport) continue;
-
-    const movedHere = oldImport.getNamedImports().filter((spec) => MOVED_NAMES.has(spec.getName()));
-    if (movedHere.length === 0) continue;
-
-    const names = movedHere.map((spec) => spec.getName());
-
-    const existingNewImport = sourceFile
-      .getImportDeclarations()
-      .find((d) => d.getModuleSpecifierValue() === NEW_SPECIFIER);
-    if (existingNewImport) {
-      const already = new Set(existingNewImport.getNamedImports().map((s) => s.getName()));
-      for (const name of names) {
-        if (!already.has(name)) existingNewImport.addNamedImport(name);
-      }
-    } else {
-      sourceFile.addImportDeclaration({ moduleSpecifier: NEW_SPECIFIER, namedImports: names });
-    }
-
-    for (const spec of movedHere) spec.remove();
-    const remaining =
-      oldImport.getNamedImports().length > 0 ||
-      !!oldImport.getDefaultImport() ||
-      !!oldImport.getNamespaceImport();
-    if (!remaining) oldImport.remove();
+    const fileMoved = migrateFile(sourceFile);
+    if (fileMoved === 0) continue;
 
     touchedFiles++;
-    movedNames += names.length;
+    movedNames += fileMoved;
     if (!dryRun) sourceFile.saveSync();
   }
 
