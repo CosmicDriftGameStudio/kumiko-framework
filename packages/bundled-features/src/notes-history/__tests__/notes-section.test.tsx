@@ -58,6 +58,8 @@ const AUTHOR_NAME = "Jamie Vance";
 const INSERTED_AT = "2026-08-21T12:28:41.580Z";
 const NOTE_BODY = "Vertragsunterlagen per Post verschickt.";
 
+const PII_ERASED_SENTINEL = "[[erased]]";
+
 const NOTE_ROWS: readonly NoteRowFixture[] = [
   {
     id: "note-1",
@@ -76,6 +78,15 @@ const NOTE_ROWS: readonly NoteRowFixture[] = [
     authorName: null,
     body: "Legacy entry predating authorName.",
     insertedAt: "2026-07-01T09:00:00.000Z",
+  },
+  {
+    id: "note-3",
+    entityType: "contact",
+    entityId: "contact-1",
+    authorId: "03c2466d-9314-98a6-a761-a5827a611301",
+    authorName: PII_ERASED_SENTINEL,
+    body: "Note whose author was crypto-shredded.",
+    insertedAt: "2026-06-15T08:00:00.000Z",
   },
 ];
 
@@ -146,7 +157,7 @@ describe("NotesSection — entry display", () => {
     expect(metaEl.textContent).toContain(AUTHOR_NAME);
   });
 
-  test("a null authorName (legacy row, or shredded author) renders the placeholder", async () => {
+  test("a null authorName (legacy row) renders the placeholder", async () => {
     const view = renderSection();
     await waitFor(() => {
       if (view.queryByTestId("notes-section-row-note-2-meta") === null) {
@@ -155,6 +166,18 @@ describe("NotesSection — entry display", () => {
     });
     const metaEl = view.getByTestId("notes-section-row-note-2-meta");
     expect(metaEl.textContent).toContain("Unknown author");
+  });
+
+  test("a shredded authorName sentinel renders the placeholder, never [[erased]]", async () => {
+    const view = renderSection();
+    await waitFor(() => {
+      if (view.queryByTestId("notes-section-row-note-3-meta") === null) {
+        throw new Error("row not rendered yet");
+      }
+    });
+    const metaEl = view.getByTestId("notes-section-row-note-3-meta");
+    expect(metaEl.textContent).toContain("Unknown author");
+    expect(metaEl.textContent).not.toContain(PII_ERASED_SENTINEL);
   });
 
   test("date renders formatted, never the raw ISO timestamp", async () => {
