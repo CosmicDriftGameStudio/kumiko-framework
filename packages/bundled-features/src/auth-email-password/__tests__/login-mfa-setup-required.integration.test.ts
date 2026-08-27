@@ -7,7 +7,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -18,11 +19,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import {
+  AuthMfaHandlers,
+  base32Decode,
   createAuthMfaFeature,
   mfaRequiredConfigHandle,
   mfaStatusCheckerFromFeature,
 } from "../../auth-mfa";
 import { userMfaEntity } from "../../auth-mfa/schema/user-mfa";
+import { currentTotpCode } from "../../auth-mfa/totp";
 import { ConfigHandlers, createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
@@ -42,8 +46,20 @@ let stack: TestStack;
 const CHALLENGE_TOKEN_SECRET = "test-mfa-challenge-secret-at-least-32-bytes!!";
 const TENANT_ID: TenantId = testTenantId(400);
 
+// auth-mfa:write:enable-start-preauth / enable-confirm-preauth both run
+// pre-session (access: { roles: ["all"] }) — dispatched here the same way
+// the framework's /api/auth/mfa/preauth-enable-start and preauth-confirm
+// routes would, with a guest identity. Both handlers derive everything they
+// need from the verified token, not from this actor.
+const GUEST: SessionUser = {
+  id: "00000000-0000-0000-0000-000000000000",
+  tenantId: "00000000-0000-4000-8000-000000000000" as TenantId,
+  roles: ["all"],
+};
+
 beforeAll(async () => {
   const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
+  configureEntityFieldEncryption(encryption);
   const resolver = createConfigResolver({ cipher: encryption });
   const authMfaFeature = createAuthMfaFeature({
     setupTokenSecret: "test-mfa-setup-token-secret-at-least-32-bytes!!",
@@ -125,5 +141,77 @@ describe("login: mfa-setup-required carries a verifiable preauthSetupToken", () 
     if (verified.ok) {
       expect(verified.payload).toEqual({ userId: created.id, tenantId: TENANT_ID });
     }
+  });
+
+  // fw#2333 — completing the blocked login via auth-mfa:write:enable-start-
+  // preauth + enable-confirm-preauth must carry the user's stored locale
+  // into the session it mints, same as a plain login.
+  async function completeMfaSetupRequiredLogin(opts: {
+    actorId: number;
+    email: string;
+    locale?: string;
+  }): Promise<SessionUser> {
+    const password = "correct-horse-battery-2026";
+    const hash = await hashPassword(password);
+    const created = await stack.http.writeOk<{ id: string }>(
+      UserHandlers.create,
+      {
+        email: opts.email,
+        passwordHash: hash,
+        displayName: "Unenrolled",
+        ...(opts.locale !== undefined && { locale: opts.locale }),
+      },
+      createTestUser({ id: opts.actorId, tenantId: TENANT_ID, roles: ["SystemAdmin"] }),
+    );
+    await seedTenantMembership(stack.db, {
+      userId: created.id,
+      tenantId: TENANT_ID,
+      roles: ["User"],
+    });
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: mfaRequiredConfigHandle.name, value: "all" },
+      createTestUser({ id: opts.actorId + 1, tenantId: TENANT_ID, roles: ["Admin"] }),
+    );
+
+    const loginRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: opts.email,
+      password,
+    });
+    expect(loginRes.status).toBe(200);
+    const loginBody = await loginRes.json();
+    expect(typeof loginBody.preauthSetupToken).toBe("string");
+
+    const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+      AuthMfaHandlers.enableStartPreauth,
+      { preauthSetupToken: loginBody.preauthSetupToken, accountLabel: opts.email },
+      GUEST,
+    );
+    const secretParam = new URLSearchParams(start.otpauthUri.split("?")[1]).get("secret") ?? "";
+    const secret = base32Decode(secretParam);
+
+    const confirmed = await stack.http.writeOk<{ session: SessionUser }>(
+      AuthMfaHandlers.enableConfirmPreauth,
+      { setupToken: start.setupToken, code: currentTotpCode(secret) },
+      GUEST,
+    );
+    return confirmed.session;
+  }
+
+  test("completing mfa-setup-required via enable-start/confirm-preauth carries the user's locale", async () => {
+    const session = await completeMfaSetupRequiredLogin({
+      actorId: 501,
+      email: "preauth-locale@example.com",
+      locale: "de-DE",
+    });
+    expect(session.locale).toBe("de-DE");
+  });
+
+  test("completing mfa-setup-required via enable-start/confirm-preauth without a stored locale omits the claim", async () => {
+    const session = await completeMfaSetupRequiredLogin({
+      actorId: 503,
+      email: "preauth-nolocale@example.com",
+    });
+    expect(session.locale).toBeUndefined();
   });
 });

@@ -78,6 +78,7 @@ async function seedLoginUser(opts: {
   password: string;
   tenantId?: TenantId;
   roles?: string[];
+  locale?: string;
 }): Promise<{ id: string; tenantId: TenantId }> {
   const hash = await hashPassword(opts.password);
   const created = await stack.http.writeOk<{ id: string }>(
@@ -86,6 +87,7 @@ async function seedLoginUser(opts: {
       email: opts.email,
       passwordHash: hash,
       displayName: opts.email.split("@")[0] ?? "user",
+      locale: opts.locale,
     },
     systemAdmin,
   );
@@ -134,6 +136,33 @@ describe("scenario 1: login success", () => {
       },
     );
     expect(meRes.status).toBe(200);
+
+    // fw#2333 — a user without a stored locale must not carry a locale
+    // claim at all (not null, not "").
+    const payload = await stack.jwt.verify(body.token as string);
+    expect(payload.locale).toBeUndefined();
+  });
+
+  test("correct credentials with a stored locale → JWT carries the locale claim", async () => {
+    const seed = await seedLoginUser({
+      email: "good-locale@example.com",
+      password: "correct-horse-battery",
+      roles: ["User"],
+      locale: "de-DE",
+    });
+
+    const res = await stack.http.raw("POST", "/api/auth/login", {
+      email: "good-locale@example.com",
+      password: "correct-horse-battery",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.token).toBeTypeOf("string");
+
+    const payload = await stack.jwt.verify(body.token as string);
+    expect(payload.locale).toBe("de-DE");
+    expect(payload.sub).toBe(seed.id);
   });
 });
 
