@@ -49,7 +49,7 @@ import {
 } from "../rate-limit";
 import type { SearchAdapter } from "../search/types";
 import { assertUnreachable, generateId } from "../utils";
-import { PUBLIC_API_PATHS } from "./api-constants";
+import { NO_ROUTE_MATCH_HEADER_NAME, PUBLIC_API_PATHS } from "./api-constants";
 import { type AnonymousAccessResolved, authMiddleware, getUser } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
@@ -835,6 +835,22 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // version-format mit Tenant-Stats) wenn vorhanden, sonst greift der
   // Default-Handler aus BUILD_VERSION/BUILD_TIME-env-vars.
   registerVersionRoute(app);
+
+  // Marks "no route matched this path" so tryHonoFirst (server-runtime)
+  // can tell it apart from a matched route's OWN deliberate 404 (e.g.
+  // default-deny reads like file-derivatives' public-variant route) —
+  // without this, tryHonoFirst's only signal was the status code, and a
+  // matched route answering 404 got silently rewritten to the SPA shell
+  // with status 200 (kumiko-framework#2435). Must be the LAST thing wired
+  // on `app`: this only fires when the router found no handler at all, so
+  // a route's own `c.text(..., 404)` never passes through here. A handler
+  // that calls `c.notFound()` instead of building its own Response DOES
+  // route through this same handler and stays indistinguishable from a
+  // routing miss — pre-existing Hono semantics, not something this fix
+  // changes; deliberate 404s must build their own Response.
+  // The header is an internal signal only — tryHonoFirst and every direct
+  // app.fetch() passthrough strip it before a response reaches a client.
+  app.notFound((c) => c.text("Not Found", 404, { [NO_ROUTE_MATCH_HEADER_NAME]: "1" }));
 
   return {
     app,

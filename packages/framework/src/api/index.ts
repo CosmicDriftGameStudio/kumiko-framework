@@ -1,5 +1,6 @@
 export type { SetTenantCookieOptions } from "./anonymous-cookie";
 export { deleteTenantCookie, setTenantCookie } from "./anonymous-cookie";
+export { NO_ROUTE_MATCH_HEADER_NAME } from "./api-constants";
 export type {
   AnonymousAccessConfig,
   AnonymousAccessResolved,

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { NO_ROUTE_MATCH_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createBooleanField,
@@ -505,5 +506,68 @@ describe("createKumikoServer — hot-reload broadcast", () => {
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+});
+
+// kumiko-framework#2435: tryHonoFirst used to decide "no route matched"
+// purely from the status code — a matched httpRoute answering 404 on
+// purpose (e.g. default-deny reads) was indistinguishable from an
+// unregistered path and got silently rewritten to the SPA shell with
+// status 200. Drives the REAL fetch-handler end to end (real Postgres,
+// real Hono app via createKumikoServer) so the fix's actual wiring
+// (buildServer's app.notFound() marker + tryHonoFirst reading it) is
+// under test, not just the pure-function pin in try-hono-first.test.ts.
+const probeHttpRouteFeature = defineFeature("dev-server-probe-http-route", (r) => {
+  r.httpRoute({
+    method: "GET",
+    path: "/probe/:id",
+    anonymous: true,
+    handler: async (c) => {
+      const id = c.req.param("id");
+      if (id === "missing") return c.text("not found", 404);
+      return c.text(`probe:${id}`, 200);
+    },
+  });
+});
+
+describe("createKumikoServer — tryHonoFirst 404-vs-router-miss (#2435)", () => {
+  async function bootWithProbeRoute(): Promise<KumikoServerHandle> {
+    handle = await createKumikoServer({
+      features: [probeHttpRouteFeature],
+      port: 0,
+      installSignalHandlers: false,
+    });
+    return handle;
+  }
+
+  test("gematchte httpRoute mit bewusster 404 bleibt 404 (keine SPA-Maskierung)", async () => {
+    const h = await bootWithProbeRoute();
+    const res = await h.fetch(new Request("http://localhost/probe/missing"));
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type") ?? "").not.toMatch(/text\/html/);
+    expect(await res.text()).toBe("not found");
+  });
+
+  test("gematchte httpRoute mit Treffer antwortet normal (200)", async () => {
+    const h = await bootWithProbeRoute();
+    const res = await h.fetch(new Request("http://localhost/probe/exists"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("probe:exists");
+  });
+
+  test("unbekannte SPA-Route liefert weiterhin die SPA-Shell (200 HTML)", async () => {
+    const h = await bootWithProbeRoute();
+    const res = await h.fetch(new Request("http://localhost/some/client-side/route"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/text\/html/);
+    expect(await res.text()).toMatch(/<div id="root">/);
+  });
+
+  test("kein Router-miss-Marker leakt an den Client", async () => {
+    const h = await bootWithProbeRoute();
+    const missRes = await h.fetch(new Request("http://localhost/some/client-side/route"));
+    const deniedRes = await h.fetch(new Request("http://localhost/probe/missing"));
+    expect(missRes.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
+    expect(deniedRes.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
   });
 });

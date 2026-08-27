@@ -4,12 +4,22 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { NO_ROUTE_MATCH_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 import {
   buildStaticFallback,
   mimeTypeFor,
   readStaticFile,
   serveDiskFile,
 } from "../run-prod-app-static-files";
+
+// Stand-in for a real Hono app's fetch when the test wants "no route
+// matched" — must carry NO_ROUTE_MATCH_HEADER_NAME, same as buildServer's
+// app.notFound() (framework/api/server.ts), otherwise tryHonoFirst treats
+// the fake apiHandler's 404 as a matched route's own deliberate 404 (see
+// kumiko-framework#2435) and never falls through to disk/SPA.
+function noRouteMatchedResponse(): Response {
+  return new Response("404", { status: 404, headers: { [NO_ROUTE_MATCH_HEADER_NAME]: "1" } });
+}
 
 describe("mimeTypeFor", () => {
   const cases: ReadonlyArray<readonly [string, string]> = [
@@ -94,7 +104,7 @@ describe("buildStaticFallback hostDispatch", () => {
 
   test("hostDispatch html pointing at missing file → 500", async () => {
     const handler = buildStaticFallback(
-      () => new Response("api-404", { status: 404 }),
+      () => noRouteMatchedResponse(),
       tmp,
       "{}",
       () => ({ kind: "html", file: "gone.html" }),
@@ -106,7 +116,7 @@ describe("buildStaticFallback hostDispatch", () => {
 
   test("hostDispatch not-found → 404; redirect → 302", async () => {
     const notFound = buildStaticFallback(
-      () => new Response("x", { status: 404 }),
+      () => noRouteMatchedResponse(),
       tmp,
       "{}",
       () => ({ kind: "not-found" }),
@@ -114,7 +124,7 @@ describe("buildStaticFallback hostDispatch", () => {
     expect((await notFound(new Request("http://t/"))).status).toBe(404);
 
     const redirect = buildStaticFallback(
-      () => new Response("x", { status: 404 }),
+      () => noRouteMatchedResponse(),
       tmp,
       "{}",
       () => ({ kind: "redirect", to: "https://example.com/", status: 301 }),
@@ -133,7 +143,7 @@ describe("buildStaticFallback hostDispatch", () => {
 
   test("serves disk asset under staticDir", async () => {
     await writeFile(join(tmp, "logo.png"), "PNGDATA");
-    const handler = buildStaticFallback(() => new Response("404", { status: 404 }), tmp, "{}");
+    const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, "{}");
     const res = await handler(new Request("http://t/logo.png"));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/png");
@@ -143,7 +153,7 @@ describe("buildStaticFallback hostDispatch", () => {
   test("a request for a directory copied verbatim from public/ falls back to index.html instead of 500ing", async () => {
     await mkdir(join(tmp, "sub"));
     await writeFile(join(tmp, "index.html"), "<!doctype html><html><body>spa-shell</body></html>");
-    const handler = buildStaticFallback(() => new Response("404", { status: 404 }), tmp, "{}");
+    const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, "{}");
     const res = await handler(new Request("http://t/sub"));
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("spa-shell");
@@ -152,7 +162,7 @@ describe("buildStaticFallback hostDispatch", () => {
   test("hostDispatch html with CSP + Vary: Host", async () => {
     await writeFile(join(tmp, "tenant.html"), "<!doctype html><html><body>ok</body></html>");
     const handler = buildStaticFallback(
-      () => new Response("404", { status: 404 }),
+      () => noRouteMatchedResponse(),
       tmp,
       '{"screens":[]}',
       () => ({
@@ -167,5 +177,29 @@ describe("buildStaticFallback hostDispatch", () => {
     expect(res.headers.get("vary")).toBe("Host");
     expect(res.headers.get("content-security-policy")).toBe("default-src 'self'");
     expect(await res.text()).toContain("ok");
+  });
+
+  test("a matched route's own deliberate 404 stays 404, not masked as the SPA shell (#2435)", async () => {
+    // An index.html exists on disk, so the OLD status-only heuristic would
+    // have served it with status 200 for ANY 404 — including one from a
+    // matched route (e.g. file-derivatives' public-variant default-deny)
+    // that never carries NO_ROUTE_MATCH_HEADER_NAME.
+    await writeFile(join(tmp, "index.html"), "<!doctype html><html><body>spa-shell</body></html>");
+    const handler = buildStaticFallback(
+      () => new Response("not found", { status: 404 }),
+      tmp,
+      "{}",
+    );
+    const res = await handler(new Request("http://t/files/deadbeef/thumb"));
+    expect(res.status).toBe(404);
+    expect(await res.text()).toBe("not found");
+  });
+
+  test("an unknown SPA route with no matching handler still gets the SPA shell", async () => {
+    await writeFile(join(tmp, "index.html"), "<!doctype html><html><body>spa-shell</body></html>");
+    const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, "{}");
+    const res = await handler(new Request("http://t/some/client-side/route"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("spa-shell");
   });
 });
