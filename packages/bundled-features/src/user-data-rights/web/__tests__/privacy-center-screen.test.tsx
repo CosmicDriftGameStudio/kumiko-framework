@@ -287,8 +287,9 @@ describe("PrivacyCenterScreen", () => {
       });
       await waitForDownloadReady(view);
       fireEvent.click(view.getByTestId("privacy-export-download"));
+      // Banner uses t(i18nKey) — assert the resolved EN copy, not the raw key.
       await waitFor(() => {
-        expect(view.container.textContent).toContain("errors.download.urlMissing");
+        expect(view.container.textContent).toContain("Download unavailable — please try again.");
       });
       expect(assign).not.toHaveBeenCalled();
     } finally {
