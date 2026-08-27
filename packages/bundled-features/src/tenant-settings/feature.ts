@@ -29,45 +29,21 @@ export function createTenantSettingsFeature(
     r.config({ keys: buildTenantSettingsKeys(opts) });
     r.translations({
       keys: {
-        "tenant-settings.currency": {
-          de: "Standard-Währung",
-          en: "Default Currency",
-          es: "Moneda predeterminada",
-        },
-        "tenant-settings.locale": {
-          de: "Standard-Sprache",
-          en: "Default Locale",
-          es: "Idioma predeterminado",
-        },
+        "tenant-settings.currency": { en: "Default Currency" },
+        "tenant-settings.locale": { en: "Default Locale" },
         // Settings-Hub-derived configEdit screen title (buildConfigFeatureSchema) —
         // required by the i18n boot-validator whenever a feature masks config keys.
-        "screen:tenant-settings-system.title": {
-          de: "Tenant-Einstellungen",
-          en: "Tenant Settings",
-          es: "Ajustes de la organización",
-        },
-        "screen:tenant-settings-tenant.title": {
-          de: "Tenant-Einstellungen",
-          en: "Tenant Settings",
-          es: "Ajustes de la organización",
-        },
+        "screen:tenant-settings-system.title": { en: "Tenant Settings" },
+        "screen:tenant-settings-tenant.title": { en: "Tenant Settings" },
         // Settings-Hub nav label + configEdit section heading (same key, both
         // scopes fall back here — see buildConfigFeatureSchema).
-        "tenant-settings.settings": {
-          de: "Tenant-Einstellungen",
-          en: "Tenant Settings",
-          es: "Ajustes de la organización",
-        },
+        "tenant-settings.settings": { en: "Tenant Settings" },
         // Both currency/locale are tenant-home with admin write access, which
         // cascades a SystemAdmin-only "set the platform default" screen up to
         // the system audience — scoped override so its nav entry reads
         // differently from the tenant-home entry instead of repeating the
         // same words under both "Platform" and "Organization".
-        "tenant-settings.settings.system": {
-          de: "Tenant-Einstellungen (Plattform-Standard)",
-          en: "Tenant Settings (Platform Default)",
-          es: "Ajustes de la organización (valor predeterminado de la plataforma)",
-        },
+        "tenant-settings.settings.system": { en: "Tenant Settings (Platform Default)" },
       },
     });
   });

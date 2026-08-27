@@ -41,7 +41,10 @@ import {
   canResolveTailwindStylesheet,
   resolveTailwindCli,
 } from "@cosmicdrift/kumiko-server-runtime/resolve-tailwind-cli";
-import { tryHonoFirst } from "@cosmicdrift/kumiko-server-runtime/try-hono-first";
+import {
+  stripNoRouteMatchHeader,
+  tryHonoFirst,
+} from "@cosmicdrift/kumiko-server-runtime/try-hono-first";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
 // target runtime), but the test-suite runs under vitest on Node — we
@@ -941,7 +944,11 @@ export async function createKumikoServer(
       return htmlResponse("client", true);
     }
 
-    return stack.app.fetch(req);
+    // Bypasses tryHonoFirst entirely (API paths, dotted paths, /sse,
+    // non-GET/HEAD), so the router-miss marker must be stripped here too —
+    // otherwise an unmatched path would leak it straight to the client
+    // (see try-hono-first.ts's header-hygiene note).
+    return stripNoRouteMatchHeader(await stack.app.fetch(req));
   };
 
   // --- HTTP server (Bun only) ---

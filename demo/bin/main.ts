@@ -7,7 +7,7 @@
 
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server";
 import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server/env-schema";
-import { resolveKmsWiring } from "@cosmicdrift/kumiko-framework/crypto";
+import { requireKmsWiring, resolveKmsWiring } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
@@ -18,14 +18,17 @@ const bootFeatures = composeFeatures(APP_FEATURES, { includeBundled: HAS_AUTH })
 const envSchema = composeEnvSchema({ core: frameworkCoreEnvSchema, features: bootFeatures });
 
 // Subject-key KMS for the pii-annotated fields (user, tenant-invitation,
-// fileRef). Without the PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL /
-// KUMIKO_BLIND_INDEX_KEY trio this falls back to plaintext PII with a loud
-// boot warning — fine for a local demo, never for a real deploy
-// (kumiko-framework#2309).
-const kmsWiring = resolveKmsWiring(process.env, {
+// fileRef). Local/dev may omit the PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL /
+// KUMIKO_BLIND_INDEX_KEY trio (plaintext + loud warning). Production must set
+// all three — requireKmsWiring refuses the plaintext fallback (fw#2317).
+const kmsOpts = {
   logPrefix: "[demo]",
-  plaintextReason: "local demo without subject-keys KMS",
-});
+  plaintextReason: "local demo without subject-keys KMS — see .env.example",
+} as const;
+const kmsWiring =
+  process.env["NODE_ENV"] === "production"
+    ? requireKmsWiring(process.env, kmsOpts)
+    : resolveKmsWiring(process.env, kmsOpts);
 if ("allowPlaintextPii" in kmsWiring) {
   // biome-ignore lint/suspicious/noConsole: ops-visible demo boot warning when PII is plaintext
   console.warn(`[demo] PII IS STORED IN PLAINTEXT — ${kmsWiring.allowPlaintextPii}`);

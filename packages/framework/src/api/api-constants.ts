@@ -125,4 +125,14 @@ export const TENANT_COOKIE_NAME = "kumiko_tenant";
 // request-locale.ts and dispatch-shared.ts's ctx.locale resolution.
 export const LOCALE_HEADER_NAME = "X-Locale";
 
+// Internal-only signal set by buildServer's app.notFound() to mark "no
+// route matched" 404s so tryHonoFirst (server-runtime) can tell them apart
+// from a matched route's own deliberate 404 (e.g. default-deny reads) —
+// see kumiko-framework#2435. Never reaches a client: tryHonoFirst and every
+// direct app.fetch() passthrough strip it before the response leaves the
+// process, since its presence would otherwise let a caller distinguish
+// "unregistered path" from "registered path, access denied" — a leak the
+// denying routes deliberately collapse into one status code.
+export const NO_ROUTE_MATCH_HEADER_NAME = "X-Kumiko-No-Route-Match";
+
 export type Route = (typeof Routes)[keyof typeof Routes];

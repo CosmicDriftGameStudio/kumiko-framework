@@ -482,28 +482,37 @@ function renderMain(appName: string): string {
   });
 
   // Subject-key KMS for the pii-annotated entities the --yes recommended set
-  // mounts (user, tenant-invitation, fileRef). Prod (NODE_ENV=production) uses
-  // requireKmsWiring so runProdApp never falls open to plaintext PII; local/CI
-  // keep resolveKmsWiring's plaintext fallback (#2339). assertPiiBootInvariants
-  // already warns on the plaintext path — no duplicate console.warn here.
+  // mounts (user, tenant-invitation, fileRef). Local/dev may omit the trio
+  // (plaintext + loud warning); NODE_ENV=production uses requireKmsWiring so
+  // a real deploy cannot silently store plaintext PII (fw#2317 / #2339).
+  // assertPiiBootInvariants already warns on the plaintext path — no duplicate console.warn.
+  sf.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [
+      {
+        name: "kmsOpts",
+        initializer: (writer) => {
+          writer.write("{").newLine();
+          writer.writeLine(`  logPrefix: "[${appName}]",`);
+          writer.writeLine(
+            `  plaintextReason: "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",`,
+          );
+          writer.write("} as const");
+        },
+      },
+    ],
+  });
   sf.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
     declarations: [
       {
         name: "kmsWiring",
         initializer: (writer) => {
-          writer.write('process.env.NODE_ENV === "production"\n  ? requireKmsWiring(process.env, ');
-          writer.inlineBlock(() => {
-            writer.writeLine(`logPrefix: "[${appName}]",`);
-          });
-          writer.write(")\n  : resolveKmsWiring(process.env, ");
-          writer.inlineBlock(() => {
-            writer.writeLine(`logPrefix: "[${appName}]",`);
-            writer.writeLine(
-              `plaintextReason: "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",`,
-            );
-          });
-          writer.write(")");
+          writer.write(`process.env["NODE_ENV"] === "production"`);
+          writer.newLine();
+          writer.write("  ? requireKmsWiring(process.env, kmsOpts)");
+          writer.newLine();
+          writer.write("  : resolveKmsWiring(process.env, kmsOpts)");
         },
       },
     ],
@@ -694,11 +703,11 @@ JWT_SECRET=change-me-min-32-chars-change-me-min-32
 # Generate with: openssl rand -base64 32
 KUMIKO_SECRETS_MASTER_KEY_V1=
 
-# Subject-keys KMS for PII fields (user, tenant-invitation, fileRef). Unset by
-# default — local/CI bin/main.ts boots with plaintext PII (NODE_ENV≠production);
-# production requires the full trio or boot aborts. All three or none — a
-# half-filled trio throws at resolve time. Generate each secret with:
-#   openssl rand -base64 32
+# Subject-keys KMS for PII fields (user, tenant-invitation, fileRef). All-or-none.
+# Unset → local boot with plaintext PII + warning; NODE_ENV=production requires
+# the trio (requireKmsWiring). Generate PLATFORM_KEK / KUMIKO_BLIND_INDEX_KEY
+# with: openssl rand -base64 32. SUBJECT_KEYS_DATABASE_URL must be a dedicated
+# subject-keys cluster (not the app DB) — see kms-adapter.md.
 PLATFORM_KEK=
 # Separate Postgres instance for subject keys — never DATABASE_URL (retention
 # must outlive app-DB backups for crypto-shredding).

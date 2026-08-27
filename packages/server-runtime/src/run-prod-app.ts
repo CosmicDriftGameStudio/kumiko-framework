@@ -154,6 +154,7 @@ import { buildStaticFallback } from "./run-prod-app-static-files";
 import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers";
 import { assertSessionBootInvariants } from "./session-boot-gate";
 import { shouldWireProdSessions } from "./session-wiring";
+import { stripNoRouteMatchHeader } from "./try-hono-first";
 
 export { buildBunServeOptions } from "./bun-serve-options";
 export {
@@ -1240,7 +1241,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           appSchemaJson,
           options.hostDispatch,
         )
-      : entrypoint.app.fetch.bind(entrypoint.app),
+      : // No staticDir (split-deploy / API-only container) → app.fetch's
+        // response goes straight to the client, bypassing buildStaticFallback
+        // (and with it tryHonoFirst) entirely. Must strip the router-miss
+        // marker here too, same reason as the /api/* passthrough in
+        // run-prod-app-static-files.ts (see try-hono-first.ts).
+        async (req: Request) => stripNoRouteMatchHeader(await entrypoint.app.fetch(req)),
     options.securityHeaders,
   );
 
