@@ -209,6 +209,19 @@ describe("defaultCellRender", () => {
     expect(new Intl.NumberFormat("de-DE").format(245.5)).toBe("245,5");
   });
 
+  test("number/decimal → explicit locale param wins over the runtime default (fw#2437)", () => {
+    expect(defaultCellRender(245.5, "number", undefined, "de-DE")).toBe(
+      new Intl.NumberFormat("de-DE").format(245.5),
+    );
+    expect(defaultCellRender(245.5, "decimal", undefined, "en-US")).toBe(
+      new Intl.NumberFormat("en-US").format(245.5),
+    );
+    // Same value, two locales → two different strings, not just "locale is accepted".
+    expect(defaultCellRender(245.5, "number", undefined, "de-DE")).not.toBe(
+      defaultCellRender(245.5, "number", undefined, "en-US"),
+    );
+  });
+
   test("money → { amount, currency } formatiert, kein [object Object]", () => {
     const result = defaultCellRender({ amount: 450, currency: "EUR" }, "money");
     expect(result).not.toBe("[object Object]");
@@ -253,5 +266,19 @@ describe("defaultCellRender", () => {
   test("money → invalid currency does not throw, falls back to [object Object] like pre-regression (#1494)", () => {
     expect(() => defaultCellRender({ amount: 1, currency: "" }, "money")).not.toThrow();
     expect(defaultCellRender({ amount: 1, currency: "" }, "money")).toBe("[object Object]");
+  });
+
+  test("money → explicit locale param wins over guessLocale's navigator fallback (fw#2437)", () => {
+    const value = { amount: 1234.5, currency: "EUR" };
+    const de = defaultCellRender(value, "money", undefined, "de-DE");
+    const en = defaultCellRender(value, "money", undefined, "en-US");
+    // Same amount, two locales → two different strings, not just "locale is accepted".
+    expect(de).not.toBe(en);
+    expect(de).toBe(
+      new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(1234.5),
+    );
+    expect(en).toBe(
+      new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(1234.5),
+    );
   });
 });
