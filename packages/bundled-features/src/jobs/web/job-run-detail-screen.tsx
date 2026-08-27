@@ -83,7 +83,7 @@ export function JobRunDetailScreen(): ReactNode {
 
   if (state.kind === "loading") {
     return (
-      <FormScreenShell testId="job-run-detail-screen">
+      <FormScreenShell testId="job-run-detail-screen" maxWidth="3xl">
         <Text variant="small">{t("jobs.detail.loading")}</Text>
       </FormScreenShell>
     );
@@ -91,7 +91,7 @@ export function JobRunDetailScreen(): ReactNode {
 
   if (state.kind === "missing") {
     return (
-      <FormScreenShell testId="job-run-detail-screen">
+      <FormScreenShell testId="job-run-detail-screen" maxWidth="3xl">
         <Banner variant="error">{t("jobs.detail.missing")}</Banner>
       </FormScreenShell>
     );
@@ -99,7 +99,7 @@ export function JobRunDetailScreen(): ReactNode {
 
   if (state.kind === "error") {
     return (
-      <FormScreenShell testId="job-run-detail-screen">
+      <FormScreenShell testId="job-run-detail-screen" maxWidth="3xl">
         <Banner variant="error">{state.message}</Banner>
       </FormScreenShell>
     );
@@ -108,7 +108,7 @@ export function JobRunDetailScreen(): ReactNode {
   const { run } = state;
 
   return (
-    <FormScreenShell testId="job-run-detail-screen" className="flex flex-col gap-6">
+    <FormScreenShell testId="job-run-detail-screen" maxWidth="3xl" className="flex flex-col gap-6">
       <Card slots={{ title: run.jobName }}>
         <dl className="grid gap-3 text-sm">
           <div>

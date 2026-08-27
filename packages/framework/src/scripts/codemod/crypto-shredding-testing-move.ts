@@ -8,23 +8,40 @@
 //
 // Usage: bun scripts/codemod/crypto-shredding-testing-move.ts <targetDir> [--dry-run]
 
-import { resolve } from "node:path";
-import { Glob } from "bun";
+import { type Dirent, readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 
 const OLD_SPECIFIER = "@cosmicdrift/kumiko-framework/crypto";
 const NEW_SPECIFIER = "@cosmicdrift/kumiko-framework/testing";
 const MOVED_NAMES = new Set(["resetPiiSubjectKmsForTests", "resetBlindIndexKeyForTests"]);
 
+const EXCLUDE_DIRS = new Set(["node_modules", "dist", "build"]);
+
 function findTargetFiles(rootDir: string): string[] {
-  const glob = new Glob("**/*.{ts,tsx}");
-  const EXCLUDE = ["/node_modules/", "/dist/", "/build/"];
+  // Walk the tree and skip excluded dirs while descending — filtering the
+  // absolute path after a full Glob scan silently no-ops when the repo root
+  // itself contains "/build/" or "/node_modules/" (fw#2289).
   const files: string[] = [];
-  for (const file of glob.scanSync({ cwd: rootDir, dot: false })) {
-    const abs = resolve(rootDir, file);
-    if (EXCLUDE.some((p) => abs.includes(p))) continue;
-    files.push(abs);
-  }
+  const walk = (dir: string): void => {
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const ent of entries) {
+      if (ent.isDirectory()) {
+        if (EXCLUDE_DIRS.has(ent.name) || ent.name.startsWith(".")) continue;
+        walk(join(dir, ent.name));
+        continue;
+      }
+      if (ent.isFile() && /\.(ts|tsx)$/.test(ent.name)) {
+        files.push(join(dir, ent.name));
+      }
+    }
+  };
+  walk(rootDir);
   return files.sort();
 }
 

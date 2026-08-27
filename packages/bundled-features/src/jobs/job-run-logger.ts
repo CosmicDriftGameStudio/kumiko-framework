@@ -2,11 +2,14 @@ import { fetchOne, insertMany, insertOne, updateMany } from "@cosmicdrift/kumiko
 import {
   configuredPiiSubjectKms,
   encryptPiiValueForSubject,
+  KeyErasedError,
+  PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { JobLogEntry, JobMeta, JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { mapWithConcurrency } from "../shared";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
 import { parseJobInstant } from "./job-instant";
 import { jobRunLogsTable, jobRunsTable } from "./job-run-table";
@@ -75,6 +78,31 @@ async function encryptStartedPayload(
 // (detail.query.ts) or decrypt fails loud. Same skip rules as the payload:
 // null subject (system/cron runs) and absent KMS (rollout mode) both stay
 // plaintext.
+async function encryptPiiField(
+  value: string,
+  triggeredById: string | null,
+  field: "message" | "error",
+): Promise<string> {
+  if (triggeredById === null) return value;
+  const kms = configuredPiiSubjectKms();
+  if (!kms) return value;
+  try {
+    return await encryptPiiValueForSubject(
+      kms,
+      { kind: "user", userId: triggeredById },
+      value,
+      { requestId: "jobs:job-run-logger" },
+      field,
+    );
+  } catch (e) {
+    // Subject key erased between start and complete/failed: keep the row
+    // (timestamp/level) with the erased sentinel — never throw out of the
+    // BullMQ callback, never fall back to plaintext.
+    if (e instanceof KeyErasedError) return PII_ERASED_SENTINEL;
+    throw e;
+  }
+}
+
 async function encryptLogMessages<T extends { readonly message: string }>(
   logs: readonly T[],
   triggeredById: string | null,
@@ -82,18 +110,12 @@ async function encryptLogMessages<T extends { readonly message: string }>(
   if (triggeredById === null) return [...logs];
   const kms = configuredPiiSubjectKms();
   if (!kms) return [...logs];
-  return Promise.all(
-    logs.map(async (log) => ({
-      ...log,
-      message: await encryptPiiValueForSubject(
-        kms,
-        { kind: "user", userId: triggeredById },
-        log.message,
-        { requestId: "jobs:job-run-logger" },
-        "message",
-      ),
-    })),
-  );
+  // Bound concurrency to the PgKmsAdapter pool (max: 4) — unbounded
+  // Promise.all would stampede getKey for every log line of the same subject.
+  return mapWithConcurrency(logs, 4, async (log) => ({
+    ...log,
+    message: await encryptPiiField(log.message, triggeredById, "message"),
+  }));
 }
 
 export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallbacks {
@@ -281,12 +303,13 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
           timestamp: l.timestamp.toString(),
         })),
       });
+      const encryptedError = await encryptPiiField(payload.error, triggeredById, "error");
       await updateMany(
         db,
         jobRunsTable,
         {
           status: "failed",
-          error: payload.error,
+          error: encryptedError,
           duration: payload.duration,
           finishedAt: parseJobInstant(payload.finishedAt),
           modifiedAt: now,

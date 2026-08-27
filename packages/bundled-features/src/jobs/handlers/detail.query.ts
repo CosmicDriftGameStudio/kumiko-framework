@@ -2,7 +2,7 @@ import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { decryptStoredPii } from "../../shared";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
 
 export const detailQuery = defineQueryHandler({
@@ -29,6 +29,11 @@ export const detailQuery = defineQueryHandler({
     if (typeof row["payload"] === "string") {
       row["payload"] = await decryptStoredPii(row["payload"], "payload", "job-run-detail");
     }
+    // error string is encrypted under the same subject DEK (#2307) — same AAD
+    // field name as encryptPiiField(..., "error") in job-run-logger.
+    if (typeof row["error"] === "string") {
+      row["error"] = await decryptStoredPii(row["error"], "error", "job-run-detail");
+    }
 
     const logs = await selectMany(
       db,
@@ -41,15 +46,13 @@ export const detailQuery = defineQueryHandler({
 
     // message is stored encrypted under the triggering user's DEK (#2247),
     // same mechanism as row.payload above.
-    const decryptedLogs = await Promise.all(
-      logs.map(async (log) => {
-        if (typeof log["message"] !== "string") return log;
-        return {
-          ...log,
-          message: await decryptStoredPii(log["message"], "message", "job-run-detail-log"),
-        };
-      }),
-    );
+    const decryptedLogs = await mapWithConcurrency(logs, 4, async (log) => {
+      if (typeof log["message"] !== "string") return log;
+      return {
+        ...log,
+        message: await decryptStoredPii(log["message"], "message", "job-run-detail-log"),
+      };
+    });
 
     return { ...row, logs: decryptedLogs };
   },

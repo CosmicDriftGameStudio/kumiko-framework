@@ -204,35 +204,39 @@ describe("jobs run-completed/-failed log messages under KMS (#2247)", () => {
     expect(logs[0]?.["message"]).toBe(SECRET_LOG);
   });
 
-  // Documents a gap rather than fixing it: if the subject's key is erased
-  // between onJobStart and onJobComplete, encryptLogMessages' getOrCreateDek
-  // throws KeyErasedError — same propagate-on-erased-key behavior as
-  // onJobStart's own encryptStartedPayload (no catch there either). Here the
-  // status updateMany already ran before the log insert throws, so the run
-  // is left "completed" with its log batch dropped instead of forging a
-  // plaintext fallback. Same wedge-state class #2246 tracks (job runs stuck
-  // after abnormal termination) — not something this PR fixes.
-  test("erase subject key BEFORE onJobComplete: log encryption throws, run status already landed as completed", async () => {
+  test("erase subject key BEFORE onJobComplete: log rows kept with [[erased]], no throw", async () => {
     await logger.onJobStart?.("app:job:export", "bull-c5", {
       triggeredById: USER_ID,
       payload: SECRET_PAYLOAD,
     });
     await kms.eraseKey({ kind: "user", userId: USER_ID });
 
-    let threw = false;
-    try {
-      await logger.onJobComplete?.("app:job:export", "bull-c5", 5, [
-        { level: "info", message: SECRET_LOG, timestamp: Temporal.Now.instant() },
-      ]);
-    } catch {
-      threw = true;
-    }
-    expect(threw).toBe(true);
+    await logger.onJobComplete?.("app:job:export", "bull-c5", 5, [
+      { level: "info", message: SECRET_LOG, timestamp: Temporal.Now.instant() },
+    ]);
 
     const row = await fetchOne(testDb.db, jobRunsTable, { bullJobId: "bull-c5" });
     expect(row?.["status"]).toBe("completed");
     const logs = await selectMany(testDb.db, jobRunLogsTable, { runId: await runIdFor("bull-c5") });
-    expect(logs).toHaveLength(0);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.["message"]).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("onJobFailed: error column is ciphertext (same subject DEK as log message)", async () => {
+    const SECRET_ERROR = "export failed for user iban DE89370400440532013000";
+    await logger.onJobStart?.("app:job:export", "bull-f-err", { triggeredById: USER_ID });
+    await logger.onJobFailed?.("app:job:export", "bull-f-err", SECRET_ERROR, [
+      { level: "error", message: SECRET_LOG, timestamp: Temporal.Now.instant() },
+    ]);
+
+    const row = await fetchOne(testDb.db, jobRunsTable, { bullJobId: "bull-f-err" });
+    expect(isPiiCiphertext(row?.["error"])).toBe(true);
+    expect(row?.["error"]).not.toBe(SECRET_ERROR);
+
+    const back = await decryptPiiFieldValues({ error: row?.["error"] }, ["error"], kms, {
+      requestId: "t",
+    });
+    expect(back["error"]).toBe(SECRET_ERROR);
   });
 });
 

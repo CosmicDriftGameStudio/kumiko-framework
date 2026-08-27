@@ -1,6 +1,9 @@
+import type { FieldIconKey } from "./field-icon";
 import type { FieldDefinition } from "./fields";
 import type { AccessRule } from "./handlers";
 import type { NavIconKey } from "./nav-icon";
+
+export type { FieldIconKey } from "./field-icon";
 
 // Screen definitions describe how a feature surfaces data to the user.
 // Pure data — the engine stores these verbatim and ui-core / the renderer
@@ -609,14 +612,13 @@ export type EditFieldSpec =
       readonly readOnly?: FieldCondition;
       readonly required?: FieldCondition;
       readonly renderer?: FieldRenderer;
-      /** Prefix icon on the input — symbolic key into the FIELD_ICONS
-       *  registry (renderer-web), analogous to `ScreenNavSugar.icon`.
-       *  Unknown key → no icon (clean fallback, no boot-fail). Only takes
-       *  effect for single-line `type: "text"` and `"number"` — a `text`
-       *  field with `multiline` routes to a textarea (no icon slot), and
-       *  other input kinds (select, combobox, date, …) silently ignore
-       *  the key. */
-      readonly icon?: string;
+      /** Prefix icon on the input — closed FieldIconKey vocabulary into
+       *  the FIELD_ICONS registry (renderer-web), analogous to
+       *  `ScreenNavSugar.icon` / NavIconKey. Only takes effect for
+       *  single-line `type: "text"` and `"number"` — a `text` field with
+       *  `multiline` routes to a textarea (no icon slot), and other input
+       *  kinds (select, combobox, date, …) silently ignore the key. */
+      readonly icon?: FieldIconKey;
     };
 
 // A section is a normal field-grid (default — `kind` omitted keeps every
