@@ -9,6 +9,7 @@ import { isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { UserErrors } from "../constants";
+import { rolesInputSchema } from "../roles-input-schema";
 import { userEntity, userTable } from "../schema/user";
 import { applyUserRolesUpdate } from "./update-roles";
 
@@ -34,11 +35,9 @@ export const updateWrite = defineWriteHandler({
       passwordHash: z.string().optional(),
       lastActiveTenantId: z.string().optional(),
       emailVerified: z.boolean().optional(),
-      // Global roles — string[] only. A bare string used to parse to [] via
-      // parseRoles and silently clear every role; reject that at the boundary.
       // Field-level write access is privileged (see userEntity.roles); handler
       // also requires a privileged actor and runs the elevation guard.
-      roles: z.array(z.string()).optional(),
+      roles: rolesInputSchema.optional(),
     }),
   }),
   access: { openToAll: true },

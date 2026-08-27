@@ -16,6 +16,7 @@ import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { UserErrors } from "../constants";
+import { rolesInputSchema } from "../roles-input-schema";
 import { userEntity, userTable } from "../schema/user";
 
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
@@ -40,11 +41,9 @@ export const createWrite = defineWriteHandler({
     displayName: z.string().min(1).max(100),
     locale: z.string().min(2).max(10).refine(isValidLocaleTag, "invalid locale tag").optional(),
     timezone: z.string().max(64).refine(isValidIanaTimeZone, "invalid IANA time zone").optional(),
-    // Global roles — string[] only (entity default []). A bare string used to
-    // parse to [] via parseRoles and silently create a role-less user.
     // Field-level write access (privileged) is defense-in-depth — create is
     // already system/SystemAdmin-only.
-    roles: z.array(z.string()).optional(),
+    roles: rolesInputSchema.optional(),
   }),
   access: { roles: ["system", "SystemAdmin"] },
   handler: async (event, ctx) => {

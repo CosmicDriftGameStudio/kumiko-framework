@@ -173,7 +173,7 @@ describe("multi-roles: privilege-escalation blocked via field-level write-access
       {
         id: targetId,
         version: 1,
-        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+        changes: { roles: ["SystemAdmin"] },
       },
       tenantAdminSession,
     );
@@ -201,7 +201,7 @@ describe("multi-roles: privilege-escalation blocked via field-level write-access
       {
         id: userId,
         version: 1,
-        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+        changes: { roles: ["SystemAdmin"] },
       },
       userSession,
     );
