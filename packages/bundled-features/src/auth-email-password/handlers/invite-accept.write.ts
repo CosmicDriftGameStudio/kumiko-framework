@@ -67,6 +67,7 @@ const invitationExecutor = createEventStoreExecutor(
   { entityName: "tenant-invitation" },
 );
 
+// kumiko-lint-ignore complexity-budget invite branches (auth/anon/burn) stay in one handler
 export function createInviteAcceptHandler() {
   return defineWriteHandler<"invite-accept", typeof InviteAcceptSchema, InviteAcceptData>({
     name: "invite-accept",

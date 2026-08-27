@@ -278,7 +278,7 @@ describe("scaffoldApp", () => {
     expect(main).toContain('from "@cosmicdrift/kumiko-framework/crypto"');
     expect(main).toContain("requireKmsWiring(process.env");
     expect(main).toContain("resolveKmsWiring(process.env");
-    expect(main).toContain('process.env.NODE_ENV === "production"');
+    expect(main).toContain('process.env["NODE_ENV"] === "production"');
     expect(main).not.toContain('if ("allowPlaintextPii" in kmsWiring)');
     expect(main).toContain("...kmsWiring,");
   });
