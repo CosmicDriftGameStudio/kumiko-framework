@@ -163,17 +163,11 @@ export function createSubscriptionStripeFeature(
 
     r.translations({
       keys: {
-        "subscription-stripe.api-key": { de: "Stripe API Key", en: "Stripe API Key" },
-        "subscription-stripe.webhook-secret": {
-          de: "Stripe Webhook Secret",
-          en: "Stripe Webhook Secret",
-        },
-        "subscription-stripe.billing-live": {
-          de: "Stripe Billing live",
-          en: "Stripe Billing Live",
-        },
-        "subscription-stripe.settings": { de: "Stripe", en: "Stripe" },
-        "screen:subscription-stripe-system.title": { de: "Stripe", en: "Stripe" },
+        "subscription-stripe.api-key": { en: "Stripe API Key" },
+        "subscription-stripe.webhook-secret": { en: "Stripe Webhook Secret" },
+        "subscription-stripe.billing-live": { en: "Stripe Billing Live" },
+        "subscription-stripe.settings": { en: "Stripe" },
+        "screen:subscription-stripe-system.title": { en: "Stripe" },
       },
     });
 
