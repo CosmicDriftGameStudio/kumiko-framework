@@ -1,6 +1,7 @@
-// Response-Tripwire (#820): ein kumiko-pii:-Ciphertext in einer JSON-Response
-// ist immer ein Bug (raw-Read am Decrypt vorbei). Dev/Test → 500 (Test wird
-// rot), Prod → redact + Error-Log, ohne KMS → kein Scan (pass-through).
+// Response tripwire (#820): a kumiko-pii: ciphertext in a JSON response is
+// always a bug (raw read past the decrypt). Dev/test → 500 (test goes red),
+// prod → redact + error log. The scan runs regardless of whether a subject
+// KMS is configured — a leaked ciphertext can outlive the KMS config (#2467).
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
@@ -59,10 +60,21 @@ async function callLeakyQuery(): Promise<Response> {
 }
 
 describe("piiCiphertextResponseGuard", () => {
-  test("no KMS configured → response passes through unscanned", async () => {
+  test("no KMS configured, dev: leaking response is still caught as a loud 500", async () => {
+    const res = await callLeakyQuery();
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error?: { code?: string; message?: string } };
+    expect(body.error?.code).toBe("pii_ciphertext_leak");
+  });
+
+  test("no KMS configured, production: leak is still redacted, request succeeds", async () => {
+    process.env["NODE_ENV"] = "production";
     const res = await callLeakyQuery();
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain(CIPHERTEXT);
+    const text = await res.text();
+    expect(text).not.toContain("kumiko-pii:");
+    expect(text).toContain("[pii-redacted]");
+    expect(text).toContain("plain");
   });
 
   test("KMS active, dev: leaking response becomes a loud 500", async () => {
