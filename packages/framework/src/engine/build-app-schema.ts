@@ -411,6 +411,7 @@ function projectDerivedField(derivedDef: DerivedFieldDef): ClientDerivedFieldDef
 // satisfies the discriminated union with an unnarrowed `type` string — the
 // cast bridges the variant inference TS can't recompute from a generic
 // Record.
+// kumiko-lint-ignore complexity-budget flat per-property whitelist walk, one independent `if` per FieldDefinition property — same shape as schema-builder.ts's field→zod switch
 function projectField(fieldDef: FieldDefinition): FieldDefinition {
   const def = fieldDef as Record<string, unknown>; // @cast-boundary schema-walk
   const out: Record<string, unknown> = {};
