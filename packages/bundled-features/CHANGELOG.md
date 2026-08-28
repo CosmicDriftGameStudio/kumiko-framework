@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.221.0
+
+### Patch Changes
+
+- 1656ff9: Security review batch: prototype-safe role ranks, prod KMS fail-closed scaffolding, payload-tenant occupancy latch, invite-accept reserved-role writeFailure, and related contract docs.
+- Updated dependencies [da688fe]
+- Updated dependencies [1656ff9]
+- Updated dependencies [da516d2]
+- Updated dependencies [fab31bf]
+  - @cosmicdrift/kumiko-renderer-web@0.221.0
+  - @cosmicdrift/kumiko-framework@0.221.0
+  - @cosmicdrift/kumiko-types@0.221.0
+  - @cosmicdrift/kumiko-headless@0.221.0
+  - @cosmicdrift/kumiko-renderer@0.221.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.221.0
+
 ## 0.220.1
 
 ### Patch Changes

@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.221.0
+
+### Minor Changes
+
+- da516d2: StatusBarChart gains a `dense` prop: fixed-size flat-fill bars without gradients/tick marks, sized to fit a table cell instead of stretching to `w-full`.
+
+### Patch Changes
+
+- da688fe: DataTableCell now threads the app locale (LocaleProvider) into format:"unit"/number/decimal/bigInt/money/date cell rendering instead of falling back to the runtime's default locale — list and detail views agree again for the same value.
+- Updated dependencies [1656ff9]
+  - @cosmicdrift/kumiko-headless@0.221.0
+  - @cosmicdrift/kumiko-renderer@0.221.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.221.0
+
 ## 0.220.1
 
 ### Patch Changes

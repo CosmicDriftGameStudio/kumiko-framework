@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-types
 
+## 0.221.0
+
+### Patch Changes
+
+- 1656ff9: Security review batch: prototype-safe role ranks, prod KMS fail-closed scaffolding, payload-tenant occupancy latch, invite-accept reserved-role writeFailure, and related contract docs.
+
 ## 0.220.1
 
 ## 0.220.0
