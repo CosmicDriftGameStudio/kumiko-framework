@@ -23,6 +23,7 @@ import {
 import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-framework/testing";
 import { AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
+import { createTenantFeature } from "../../tenant";
 
 const widgetEntity = createEntity({
   table: "audit_widgets",
@@ -59,7 +60,7 @@ const otherTenantAdmin: SessionUser = createTestUser({
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [widgetFeature, createAuditFeature()],
+    features: [widgetFeature, createTenantFeature(), createAuditFeature()],
   });
   await unsafeCreateEntityTable(stack.db, widgetEntity);
 });

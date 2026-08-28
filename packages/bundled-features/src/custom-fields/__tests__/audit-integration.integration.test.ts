@@ -79,7 +79,7 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [customFieldsFeature, propertyFeature, createAuditFeature()],
+    features: [customFieldsFeature, propertyFeature, createTenantFeature(), createAuditFeature()],
   });
   await unsafeCreateEntityTable(stack.db, fieldDefinitionEntity);
   await unsafeCreateEntityTable(stack.db, propertyEntity);
