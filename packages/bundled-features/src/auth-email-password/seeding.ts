@@ -12,7 +12,12 @@
 // Damit Sample-Server und Tests keine drei sub-paths zusammensammeln
 // müssen.
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+  type LocalKeyKmsAdapter,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
@@ -21,7 +26,7 @@ import { hashPassword } from "../shared";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import signup create-only guard reads the user projection by email
-import { userTable } from "../user/schema/user";
+import { USER_STATUS, userTable } from "../user/schema/user";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { seedUser } from "../user/seeding";
 
@@ -234,4 +239,109 @@ export async function seedAdmin(
   }
 
   return { id: userId };
+}
+
+// offlot#114 — seedAdmin's idempotency check is a plain fetchOne(email),
+// which the query layer rewrites into `(email = $plaintext OR
+// email_bidx = $hmac)` once a blind-index key is configured. Under KMS
+// encryption `email` holds per-row ciphertext, so only the bidx arm can
+// ever match — and it misses whenever a row's `email_bidx` is NULL (written
+// before the key existed, or after a subject-key erase) or was computed
+// with a since-rotated key. seedAdmin then inserts a second row for an
+// email that already has an account; neither the plaintext unique index
+// (sits on randomized ciphertext) nor the partial bidx unique index (WHERE
+// email_bidx IS NOT NULL, so a NULL row never collides) catches it.
+//
+// seedAdminGuarded is a separate, additive boot-seed guard — NOT a change
+// to seedUser/seedAdmin/provisionSignupAccount, which also run on every
+// real self-signup request and can't afford a decrypt-scan fallback there.
+// Use this only where seedAdmin already runs (dev-boot / sample-server /
+// bootstrap scripts), never as a login or signup hot path.
+
+type ActiveUserRow = {
+  readonly id: string;
+  readonly email: string;
+  readonly insertedAt: { readonly epochNanoseconds: bigint };
+};
+
+function compareInsertedAt(a: ActiveUserRow["insertedAt"], b: ActiveUserRow["insertedAt"]): number {
+  if (a.epochNanoseconds < b.epochNanoseconds) return -1;
+  if (a.epochNanoseconds > b.epochNanoseconds) return 1;
+  return 0;
+}
+
+/** Oldest row wins, tie-broken by id — the same rule a manual duplicate
+ *  cleanup would apply, so this guard and any later cleanup never disagree
+ *  on which row is the survivor. */
+function pickCanonicalUserId(rows: readonly ActiveUserRow[]): string {
+  const sorted = [...rows].sort((a, b) => {
+    const byTime = compareInsertedAt(a.insertedAt, b.insertedAt);
+    return byTime !== 0 ? byTime : a.id.localeCompare(b.id);
+  });
+  const first = sorted[0];
+  if (first === undefined) throw new Error("pickCanonicalUserId: empty group");
+  return first.id;
+}
+
+async function findExistingUserIdForEmail(
+  db: DbConnection,
+  kms: LocalKeyKmsAdapter,
+  email: string,
+): Promise<string | undefined> {
+  // ponytail: decrypts every active user row to compare emails. Fine at
+  // boot-seed scale (tens of accounts, once per boot); if the user table
+  // grows past a few thousand rows, narrow this to rows whose email_bidx is
+  // NULL or doesn't match the expected HMAC — only those need decrypting.
+  const rows = await selectMany<ActiveUserRow>(db, userTable, {
+    isDeleted: false,
+    status: { ne: USER_STATUS.Deleted },
+  });
+  const matches: ActiveUserRow[] = [];
+  for (const row of rows) {
+    // Compared byte-exact, deliberately not case-folded: email_bidx is an
+    // HMAC over the raw value and login matches case-sensitively, so a case
+    // variant is a different account to every other code path.
+    const decrypted = await decryptPiiFieldValues({ email: row.email }, ["email"], kms, {
+      requestId: "seed-admin-guarded",
+    });
+    if (decrypted["email"] === email) matches.push(row);
+  }
+  return matches.length === 0 ? undefined : pickCanonicalUserId(matches);
+}
+
+/**
+ * Boot-seed variant of seedAdmin that survives a blind-index miss on an
+ * otherwise-existing account (see the module comment above). Not for the
+ * self-signup hot path — seedAdmin/seedUser stay the unguarded entry point
+ * there.
+ *
+ * No cheap `fetchOne` fast path here on purpose: a hit there only proves
+ * SOME row matches (plaintext or bidx), never that it's the canonical one —
+ * a stale row's bidx can go NULL while a later duplicate's stays valid, so
+ * fetchOne keeps finding the duplicate forever and the seed never converges
+ * on the oldest row. The only cheap short-circuit that stays correct is
+ * skipping the scan entirely when no KMS is configured at all (plaintext
+ * DBs have no bidx ambiguity to guard against in the first place).
+ */
+export async function seedAdminGuarded(
+  db: DbConnection,
+  options: SeedAdminOptions,
+): Promise<{ id: string }> {
+  const kms = configuredPiiSubjectKms();
+  if (kms === undefined) return seedAdmin(db, options);
+
+  const existingId = await findExistingUserIdForEmail(db, kms, options.email);
+  if (existingId === undefined) return seedAdmin(db, options);
+
+  const by = options.by ?? TestUsers.systemAdmin;
+  for (const m of options.memberships) {
+    await seedTenant(db, { id: m.tenantId, key: m.tenantKey, name: m.tenantName, by });
+    await seedTenantMembership(db, {
+      userId: existingId,
+      tenantId: m.tenantId,
+      roles: m.roles,
+      by,
+    });
+  }
+  return { id: existingId };
 }
