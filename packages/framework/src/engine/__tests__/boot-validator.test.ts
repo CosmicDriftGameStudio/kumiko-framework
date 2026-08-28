@@ -1355,6 +1355,119 @@ describe("boot-validator", () => {
       ];
       expect(() => validateBoot(features)).not.toThrow();
     });
+
+    test("accepts display: checkboxes with columns and maxRows", () => {
+      const features = [
+        defineFeature("driver", (r) => {
+          r.entity(
+            "profile",
+            createEntity({
+              fields: {
+                tags: createMultiSelectField({
+                  options: ["a", "b", "c"] as const,
+                  display: "checkboxes",
+                  columns: 2,
+                  maxRows: 3,
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("rejects columns without display: checkboxes", () => {
+      const features = [
+        defineFeature("driver", (r) => {
+          r.entity(
+            "profile",
+            createEntity({
+              fields: {
+                tags: createMultiSelectField({ options: ["a", "b"] as const, columns: 2 }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/columns.*display.*checkboxes/);
+    });
+
+    test("rejects columns when display is explicitly dropdown", () => {
+      const features = [
+        defineFeature("driver", (r) => {
+          r.entity(
+            "profile",
+            createEntity({
+              fields: {
+                tags: createMultiSelectField({
+                  options: ["a", "b"] as const,
+                  display: "dropdown",
+                  columns: 2,
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/columns.*display.*checkboxes/);
+    });
+
+    test("rejects maxRows without display: checkboxes", () => {
+      const features = [
+        defineFeature("driver", (r) => {
+          r.entity(
+            "profile",
+            createEntity({
+              fields: {
+                tags: createMultiSelectField({ options: ["a", "b"] as const, maxRows: 3 }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/maxRows.*display.*checkboxes/);
+    });
+
+    test("rejects maxRows below 1", () => {
+      const features = [
+        defineFeature("driver", (r) => {
+          r.entity(
+            "profile",
+            createEntity({
+              fields: {
+                tags: createMultiSelectField({
+                  options: ["a", "b"] as const,
+                  display: "checkboxes",
+                  maxRows: 0,
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/invalid maxRows/);
+    });
+
+    test("rejects non-integer maxRows", () => {
+      const features = [
+        defineFeature("driver", (r) => {
+          r.entity(
+            "profile",
+            createEntity({
+              fields: {
+                tags: createMultiSelectField({
+                  options: ["a", "b"] as const,
+                  display: "checkboxes",
+                  maxRows: 1.5,
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/invalid maxRows/);
+    });
   });
 
   describe("image variants", () => {

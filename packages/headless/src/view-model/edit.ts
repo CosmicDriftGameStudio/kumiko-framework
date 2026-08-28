@@ -128,6 +128,11 @@ export function computeEditViewModel<
               options,
             )
           : undefined;
+      // Checkbox-grid rendering hints for `type: "multiSelect"` — pass
+      // through unchanged so the renderer can pick the grid layout.
+      const display = fieldDef.type === "multiSelect" ? fieldDef.display : undefined;
+      const columns = fieldDef.type === "multiSelect" ? fieldDef.columns : undefined;
+      const maxRows = fieldDef.type === "multiSelect" ? fieldDef.maxRows : undefined;
       // Multiline hint for `type: "text"` — the renderer then switches to a
       // textarea. `type: "longText"` always renders a textarea regardless
       // of this hint; it's only carried through as an optional `{ rows }`
@@ -275,6 +280,9 @@ export function computeEditViewModel<
         ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
         ...(options !== undefined && { options }),
         ...(optionLabels !== undefined && { optionLabels }),
+        ...(display !== undefined && { display }),
+        ...(columns !== undefined && { columns }),
+        ...(maxRows !== undefined && { maxRows }),
         ...(multiline !== undefined && { multiline }),
         ...(wallClock !== undefined && { wallClock }),
         ...(min !== undefined && { min }),

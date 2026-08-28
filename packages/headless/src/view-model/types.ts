@@ -140,6 +140,18 @@ export type EditFieldViewModel = {
    *  raw value. Convention key:
    *  `<feature>:entity:<entity>:field:<field>:option:<value>`. */
   readonly optionLabels?: Readonly<Record<string, string>>;
+  /** Set for `type: "multiSelect"` when MultiSelectFieldDef.display is
+   *  "checkboxes" — the renderer shows a checkbox grid with a select-all
+   *  toggle instead of the default combobox dropdown. */
+  readonly display?: "checkboxes" | "dropdown";
+  /** Set for `type: "multiSelect"` when MultiSelectFieldDef.columns is
+   *  defined — column count for the checkbox grid at the widest breakpoint.
+   *  Ignored unless `display` is "checkboxes". */
+  readonly columns?: 1 | 2 | 3 | 4;
+  /** Set for `type: "multiSelect"` when MultiSelectFieldDef.maxRows is
+   *  defined — grid rows visible before the checkbox grid becomes
+   *  scrollable. Ignored unless `display` is "checkboxes". */
+  readonly maxRows?: number;
   /** For `type: "text"`, set when TextFieldDef.multiline is true — the
    *  renderer then renders a textarea instead of a single-line input.
    *  `type: "longText"` always renders a textarea regardless of this

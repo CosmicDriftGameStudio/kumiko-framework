@@ -70,6 +70,7 @@ import {
 } from "lucide-react";
 import {
   type ChangeEvent,
+  Children,
   type CSSProperties,
   createContext,
   type MouseEvent,
@@ -1848,18 +1849,38 @@ function DefaultSection({
   );
 }
 
-function DefaultGrid({ columns, children, testId }: GridProps): ReactNode {
+function DefaultGrid({ columns, children, testId, maxRows }: GridProps): ReactNode {
   // Responsive: Mobile (< sm = 640px) bleibt 1-spaltig, ab sm: greift
   // die Author-deklarierte Spaltenzahl. Inline-style schreibt
   // CSS-Variable; Tailwind-Klasse liest die Variable mit
   // `grid-template-columns: var(--grid-cols)`. Saubere Lösung weil
   // Tailwind JIT keinen dynamischen `grid-cols-${N}` auflösen kann.
+  const rowCount = Math.ceil(Children.count(children) / columns);
+  const clipped = maxRows !== undefined && rowCount > maxRows;
+  // gridAutoRows is a minmax MIN, not a fixed height, so wrapped labels grow
+  // their row instead of being clipped mid-row. maxHeight is therefore only
+  // an approximation of "maxRows rows tall" — a row taller than the minimum
+  // means fewer than maxRows rows end up visible before scrolling kicks in.
+  // Themes may override --kumiko-grid-row-h (default 2.5rem, set in
+  // styles.css) to change that minimum.
+  // Mobile note: the grid collapses to 1 column below `sm` (see className),
+  // but rowCount above is always computed against the desktop `columns` —
+  // inline styles can't express a media query, so the mobile row count is
+  // an under-count. Known, accepted.
+  const style: CSSProperties = {
+    "--grid-cols": `repeat(${columns}, minmax(0, 1fr))`,
+    ...(clipped && {
+      gridAutoRows: "minmax(var(--kumiko-grid-row-h, 2.5rem), auto)",
+      maxHeight: `calc(${maxRows} * var(--kumiko-grid-row-h, 2.5rem) + ${maxRows - 1} * 1rem)`,
+      overflowY: "auto",
+    }),
+    // workaround: duplicate @types/react instances break direct CSSProperties cast
+  } as unknown as CSSProperties;
   return (
     <div
       data-testid={testId}
       className="grid gap-4 grid-cols-1 sm:[grid-template-columns:var(--grid-cols)]"
-      // workaround: duplicate @types/react instances break direct CSSProperties cast
-      style={{ "--grid-cols": `repeat(${columns}, minmax(0, 1fr))` } as unknown as CSSProperties}
+      style={style}
     >
       {children}
     </div>

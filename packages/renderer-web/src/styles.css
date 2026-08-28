@@ -99,6 +99,7 @@
   --card-padding: 1.5rem;
   --card-radius: var(--radius-xl);
   --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --kumiko-grid-row-h: 2.5rem;
 }
 
 /* Light-Mode-Overrides — aktiv wenn `<html>` KEINE `.dark` Klasse

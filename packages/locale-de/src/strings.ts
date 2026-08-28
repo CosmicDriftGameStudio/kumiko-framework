@@ -505,6 +505,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "{count} eingefügte Zeile(n) wurden verworfen (maximale Zeilenzahl erreicht).",
   "kumiko.field.embedded-list.remove-row": "Zeile entfernen",
   "kumiko.field.locatedTzHint": "Zeit lokal am angegebenen Ort",
+  "kumiko.field.multiSelect.deselect-all": "Alle abwählen",
+  "kumiko.field.multiSelect.select-all": "Alle auswählen",
   "kumiko.field.open-calendar": "Kalender öffnen",
   "kumiko.field.reference-created-no-id":
     "Datensatz wurde angelegt, konnte aber nicht automatisch ausgewählt werden. Bitte manuell auswählen.",

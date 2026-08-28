@@ -1,7 +1,12 @@
 import type { BlurRegion, VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key";
 import { parseRefTarget } from "../parse-ref-target";
-import type { EmbeddedFieldDef, EntityDefinition, FeatureDefinition } from "../types";
+import type {
+  EmbeddedFieldDef,
+  EntityDefinition,
+  FeatureDefinition,
+  MultiSelectFieldDef,
+} from "../types";
 
 export const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 
@@ -676,6 +681,32 @@ function validateEmbeddedListMetadata(
 // default — wenn gesetzt — ist eine Teilmenge der options. Beides würde
 // auch im Zod-Schema bei runtime fehlschlagen, der Boot-Catch ist nur
 // die früheste Stelle für klare Fehlermeldungen.
+function validateCheckboxDisplayOptions(
+  field: MultiSelectFieldDef,
+  fieldName: string,
+  entityName: string,
+): void {
+  if (field.display === "checkboxes") {
+    if (field.maxRows !== undefined && (!Number.isInteger(field.maxRows) || field.maxRows < 1)) {
+      throw new Error(
+        `MultiSelect field "${fieldName}" on entity "${entityName}" has invalid maxRows "${field.maxRows}" — must be a positive integer.`,
+      );
+    }
+    // skip: checkboxes is the valid display for these options — the checks below only apply to other displays
+    return;
+  }
+  if (field.columns !== undefined) {
+    throw new Error(
+      `MultiSelect field "${fieldName}" on entity "${entityName}" sets columns, which is only valid with display: "checkboxes".`,
+    );
+  }
+  if (field.maxRows !== undefined) {
+    throw new Error(
+      `MultiSelect field "${fieldName}" on entity "${entityName}" sets maxRows, which is only valid with display: "checkboxes".`,
+    );
+  }
+}
+
 export function validateMultiSelectFields(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
@@ -697,6 +728,8 @@ export function validateMultiSelectFields(feature: FeatureDefinition): void {
           }
         }
       }
+
+      validateCheckboxDisplayOptions(field, fieldName, entityName);
     }
   }
 }
