@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.222.0
+
+### Patch Changes
+
+- 6a13c64: Review-batch DATEI UNKLAR: PII header guard, email header filtering, form-draft blob validation, MFA HMAC codec dedup, job-runner boot timeout cleanup, wizard e2e chip coverage.
+- 3c2fe7a: Fix `RowActionsKebab`'s dropdown menu staying open (and its Radix overlay lock, `aria-hidden` on the app root plus `body.style.pointerEvents: none`, never releasing) after a confirm-guarded row action finished. The menu is now controlled and closes explicitly in `onSelect`, since the unconditional `preventDefault()` there was blocking Radix's own auto-close.
+- Updated dependencies [6a13c64]
+  - @cosmicdrift/kumiko-renderer@0.222.0
+  - @cosmicdrift/kumiko-headless@0.222.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.222.0
+
 ## 0.221.0
 
 ### Minor Changes
