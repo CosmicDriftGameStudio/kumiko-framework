@@ -28,11 +28,11 @@ test.describe("TenantAdmin workspace gating", () => {
     await expect(page.getByTestId("render-list-table")).toBeVisible();
     await page.getByTestId("render-list-toolbar-action-invite").click();
     await page.getByTestId("combobox-kumiko-edit-role").click();
-    // Accessible-name matching normalizes whitespace (unlike RegExp hasText).
+    // fw#2414: DEFAULT_INVITE_ROLE_OPTIONS excludes TenantAdmin (Admin must not see it).
     await expect(page.getByRole("option", { name: "User", exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: "Editor", exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: "Admin", exact: true })).toBeVisible();
-    await expect(page.getByRole("option", { name: "Tenant Admin", exact: true })).toBeVisible();
+    await expect(page.getByRole("option", { name: "Tenant Admin", exact: true })).toHaveCount(0);
     await expect(page.getByRole("option", { name: "SystemAdmin", exact: true })).toHaveCount(0);
   });
 
