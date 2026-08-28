@@ -589,6 +589,28 @@ function buildWhereClause(
   const conditions: string[] = [];
   const values: unknown[] = [];
   let idx = startIndex;
+  // multiSelect (and any other jsonb-array-of-scalars column) stores an
+  // array — a filter value is one option, not the whole array, so eq/ne/in
+  // must check array containment (`@>`) instead of scalar `=`/`<>`/`IN`
+  // against the jsonb column, which Postgres rejects outright (fw#2490).
+  // Mirrors event-store-executor-read.ts's applyFilter — keep in lock-step.
+  function jsonbContainsAny(col: string, candidates: readonly unknown[]): string {
+    if (candidates.length === 0) return "FALSE";
+    const parts: string[] = [];
+    for (const v of candidates) {
+      const p = prepareJsonbValue([v]);
+      // prepareJsonbValue never returns kind:"literal" (only prepareValue's
+      // isSqlExpression branch does) — narrow anyway, PreparedValue is a union.
+      if (p && p.kind === "param") {
+        parts.push(`${quoteIdent(col)} @> $${idx++}${p.sql}`);
+        values.push(p.bound);
+      }
+    }
+    return parts.length > 0 ? `(${parts.join(" OR ")})` : "FALSE";
+  }
+  function isJsonbScalar(value: unknown): boolean {
+    return value !== null && typeof value !== "object";
+  }
   for (const [field, value] of Object.entries(where)) {
     const col = info.columnOf(field);
     const pgType = info.pgTypeOf(col);
@@ -597,6 +619,8 @@ function buildWhereClause(
     } else if (Array.isArray(value)) {
       if (value.length === 0) {
         conditions.push("FALSE");
+      } else if (pgType === "jsonb") {
+        conditions.push(jsonbContainsAny(col, value));
       } else {
         const parts: string[] = [];
         for (const v of value) {
@@ -626,6 +650,14 @@ function buildWhereClause(
       for (const [opKey, opSym] of Object.entries(opMap)) {
         const opVal = (value as Record<string, unknown>)[opKey];
         if (opVal === undefined) continue;
+        if (opKey === "ne" && pgType === "jsonb" && isJsonbScalar(opVal)) {
+          const p = prepareJsonbValue([opVal]);
+          if (p && p.kind === "param") {
+            conditions.push(`NOT (${quoteIdent(col)} @> $${idx++}${p.sql})`);
+            values.push(p.bound);
+            continue;
+          }
+        }
         const p = prepareValue(opVal, pgType);
         if (p.kind === "literal") {
           conditions.push(`${quoteIdent(col)} ${opSym} ${p.literal}`);
@@ -636,7 +668,9 @@ function buildWhereClause(
       }
       const inVal = (value as Record<string, unknown>)["in"];
       if (Array.isArray(inVal)) {
-        if (inVal.length === 0) {
+        if (pgType === "jsonb") {
+          conditions.push(jsonbContainsAny(col, inVal));
+        } else if (inVal.length === 0) {
           conditions.push("FALSE");
         } else {
           const parts: string[] = [];
@@ -652,6 +686,8 @@ function buildWhereClause(
           conditions.push(`${quoteIdent(col)} IN (${parts.join(", ")})`);
         }
       }
+    } else if (pgType === "jsonb" && isJsonbScalar(value)) {
+      conditions.push(jsonbContainsAny(col, [value]));
     } else {
       const p = prepareValue(value, pgType);
       if (p.kind === "literal") {

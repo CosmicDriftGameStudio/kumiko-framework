@@ -212,6 +212,42 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           // skip: unknown field — not a real column, drop the filter (injection guard)
           return;
         }
+        // multiSelect stores its options as a jsonb array — a filter value is
+        // one option, not the whole array, so eq/ne/in must check array
+        // containment (`@>`) instead of scalar `=`/`<>`/`IN` against the
+        // jsonb column (fw#2490). lt/gt have no containment analogue; the
+        // boot-validator already blocks them for screen-declared filters
+        // (screen-filter-ops.ts EQUALITY_ONLY), but a client-supplied facet
+        // filter reaches here unvalidated, so treat it as unsatisfiable
+        // rather than emitting SQL Postgres would reject.
+        if (entity.fields[f.field]?.type === "multiSelect") {
+          if (f.op === "lt" || f.op === "gt") {
+            whereSql.push("FALSE");
+            // skip: lt/gt is unsatisfiable on a multiSelect column
+            return;
+          }
+          if (f.op === "in") {
+            if (!Array.isArray(f.value) || f.value.length === 0) {
+              whereSql.push("FALSE");
+              // skip: empty/non-array `in` is unsatisfiable, mirrors buildFilterWhere's "in" short-circuit
+              return;
+            }
+            const parts = f.value.map((v) => {
+              params.push([v]);
+              return `${colSql(f.field)} @> $${params.length}::jsonb`;
+            });
+            whereSql.push(`(${parts.join(" OR ")})`);
+            return;
+          }
+          // Bind a JS array, not JSON.stringify(value) — postgres.js double-
+          // encodes a stringified array through an `::jsonb` cast, so `@>`
+          // would never match (see update-roles.ts:67-68). An array value
+          // means "contains all of these" (the natural `@>` reading).
+          params.push(Array.isArray(f.value) ? f.value : [f.value]);
+          const containment = `${colSql(f.field)} @> $${params.length}::jsonb`;
+          whereSql.push(f.op === "ne" ? `NOT (${containment})` : containment);
+          return;
+        }
         const screen = buildFilterWhere(f.field, f.op, f.value);
         if (screen === null) {
           whereSql.push("FALSE");
