@@ -354,16 +354,15 @@ describe("buildAppSchema", () => {
     // Bounded completeness check, scoped to MultiSelectFieldDef's own key set
     // (packages/types/src/fields.ts) — NOT a general FieldDefinition lockstep.
     // A full-union version would have to classify every property of all 20
-    // FieldDefinition variants as forwarded or server-only, and several are
-    // known-forwarded-but-missing today (e.g. image's `capture`, embedded's
-    // `schema`/`derived`/`totals`/`minItems`/`maxItems`, date's
-    // `min`/`max`/`locale`, longText's `multiline`) — declaring those
-    // "server-only" here would be a false claim, and fixing them is out of
-    // scope for fw#2494 (see report for the full gap list). This check only
-    // covers the type this fix actually touches.
+    // FieldDefinition variants as forwarded or server-only. fw#2497 closed the
+    // gaps fw#2494 flagged for other variants (image's `capture`, embedded's
+    // `derived`/`totals`/`totalsMatch`/`minItems`/`maxItems`, date's
+    // `min`/`max`/`locale`, longText's `multiline`, array/object `default`) —
+    // see the dedicated tests below. This check only covers the type this fix
+    // actually touches.
     //
     // The `_allKeysClassified` assignment below is the actual guard: if
-    // MultiSelectFieldDef ever gains a key that isn't in one of the three
+    // MultiSelectFieldDef ever gains a key that isn't in one of the two
     // lists, `Exclude<keyof MultiSelectFieldDef, Classified>` stops being
     // `never` and the assignment fails to typecheck — `bun run typecheck`
     // (part of `bun run kumiko check`) catches it even without touching this
@@ -376,6 +375,9 @@ describe("buildAppSchema", () => {
       "display",
       "columns",
       "maxRows",
+      "default", // array-valued for multiSelect — projectField's
+      // isJsonSafeValue() (fw#2497) now recurses into arrays/plain
+      // objects instead of only string/number/boolean/null.
     ] as const;
 
     const SERVER_ONLY_KEYS = [
@@ -390,20 +392,7 @@ describe("buildAppSchema", () => {
       "subjectRef", // GDPR-hook-coverage marker, not a renderer concern
     ] as const;
 
-    // Keys that ARE client-relevant in principle but aren't forwarded today —
-    // pre-existing gaps, each with its own reason, none introduced by fw#2494.
-    const KNOWN_GAP_KEYS = [
-      "default", // array-valued for multiSelect, but projectField's isLiteral()
-      // only accepts string/number/boolean/null — so array defaults are
-      // silently dropped, never a real server-only property. Verified
-      // empirically: a multiSelect field with `default: ["a"]` projects to
-      // no `default` key at all. Separate pre-existing bug, out of scope here.
-    ] as const;
-
-    type Classified =
-      | (typeof FORWARDED_KEYS)[number]
-      | (typeof SERVER_ONLY_KEYS)[number]
-      | (typeof KNOWN_GAP_KEYS)[number];
+    type Classified = (typeof FORWARDED_KEYS)[number] | (typeof SERVER_ONLY_KEYS)[number];
     const _allKeysClassified: Exclude<keyof MultiSelectFieldDef, Classified> extends never
       ? true
       : never = true;
@@ -415,6 +404,7 @@ describe("buildAppSchema", () => {
           required: true,
           filterable: true,
           options: ["a", "b"],
+          default: ["a"],
           display: "checkboxes",
           columns: 2,
           maxRows: 4,
@@ -447,6 +437,209 @@ describe("buildAppSchema", () => {
     for (const key of SERVER_ONLY_KEYS) {
       expect(projected[key]).toBeUndefined();
     }
+  });
+
+  test("text/longText: multiline überlebt die Projection (fw#2497)", () => {
+    // Regression: without `multiline` in the client schema, DefaultInput
+    // always renders a single-line <input> — the textarea row count never
+    // arrives.
+    const entity = {
+      fields: {
+        notes: { type: "text", multiline: { rows: 6 } },
+        bio: { type: "text", multiline: true },
+        title: { type: "text" },
+        body: { type: "longText", multiline: true },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["notes"]?.["multiline"]).toEqual({ rows: 6 });
+    expect(fields["bio"]?.["multiline"]).toBe(true);
+    expect(fields["body"]?.["multiline"]).toBe(true);
+    // Fields without multiline don't carry the key (no false-litter).
+    expect(fields["title"]?.["multiline"]).toBeUndefined();
+  });
+
+  test("number/date/timestamp/locatedTimestamp: min/max/locale überleben die Projection (fw#2497)", () => {
+    // Regression: input bounds and locale overrides never arrived at the
+    // renderer, so the browser's own range validation and date-picker
+    // formatting were always off.
+    const entity = {
+      fields: {
+        quantity: { type: "number", min: 0, max: 100 },
+        birthday: { type: "date", min: "1900-01-01", max: "2026-08-28", locale: "de-DE" },
+        startedAt: {
+          type: "timestamp",
+          min: "2020-01-01T00:00:00Z",
+          max: "2030-01-01T00:00:00Z",
+          locale: "de-DE",
+        },
+        pickupAt: {
+          type: "locatedTimestamp",
+          min: "2020-01-01T00:00:00",
+          max: "2030-01-01T00:00:00",
+          locale: "de-DE",
+        },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["quantity"]?.["min"]).toBe(0);
+    expect(fields["quantity"]?.["max"]).toBe(100);
+    expect(fields["birthday"]?.["min"]).toBe("1900-01-01");
+    expect(fields["birthday"]?.["max"]).toBe("2026-08-28");
+    expect(fields["birthday"]?.["locale"]).toBe("de-DE");
+    expect(fields["startedAt"]?.["min"]).toBe("2020-01-01T00:00:00Z");
+    expect(fields["startedAt"]?.["locale"]).toBe("de-DE");
+    expect(fields["pickupAt"]?.["max"]).toBe("2030-01-01T00:00:00");
+    expect(fields["pickupAt"]?.["locale"]).toBe("de-DE");
+  });
+
+  test("image: capture überlebt die Projection (fw#2497)", () => {
+    // Regression: `capture` decides whether a mobile file picker opens the
+    // rear or front camera — never arrived, so it never applied.
+    const entity = {
+      fields: {
+        idPhoto: { type: "image", capture: "environment" },
+        avatar: { type: "image" },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["idPhoto"]?.["capture"]).toBe("environment");
+    expect(fields["avatar"]?.["capture"]).toBeUndefined();
+  });
+
+  test("embedded: minItems/maxItems/derived/totals/totalsMatch überleben die Projection (fw#2497)", () => {
+    // Regression: `totals` carries "Renderer metadata: numeric sub-field
+    // names to sum in a totals row" in its own doc-comment but was never
+    // forwarded — same for the other embedded-list renderer hints.
+    const entity = {
+      fields: {
+        lines: {
+          type: "embedded",
+          multiple: true,
+          schema: {
+            qty: { type: "number" },
+            amount: { type: "money" },
+          },
+          minItems: 1,
+          maxItems: 20,
+          derived: { amount: { op: "multiply", from: ["qty", "unitPrice"] } },
+          totals: ["amount"],
+          totalsMatch: { amount: "invoiceTotal" },
+        },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["lines"]?.["minItems"]).toBe(1);
+    expect(fields["lines"]?.["maxItems"]).toBe(20);
+    expect(fields["lines"]?.["derived"]).toEqual({
+      amount: { op: "multiply", from: ["qty", "unitPrice"] },
+    });
+    expect(fields["lines"]?.["totals"]).toEqual(["amount"]);
+    expect(fields["lines"]?.["totalsMatch"]).toEqual({ amount: "invoiceTotal" });
+  });
+
+  test("embedded: derived/totalsMatch mit Function eine Ebene tief bleiben blockiert (fw#2497)", () => {
+    // Regression: a shallow `isPlainObject`/`Array.isArray` check alone
+    // would let a function survive one level deep — `derived`/`totals`/
+    // `totalsMatch`/`multiline` must go through isJsonSafeValue() too, not
+    // just `default`.
+    const entity = {
+      fields: {
+        lines: {
+          type: "embedded",
+          multiple: true,
+          schema: { qty: { type: "number" } },
+          derived: { amount: { op: "multiply", from: () => ["qty"] } },
+          totals: [() => "amount"],
+          totalsMatch: { amount: () => "invoiceTotal" },
+        },
+        multi: { type: "text", multiline: { rows: () => 4 } },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["lines"]?.["derived"]).toBeUndefined();
+    expect(fields["lines"]?.["totals"]).toBeUndefined();
+    expect(fields["lines"]?.["totalsMatch"]).toBeUndefined();
+    expect(fields["multi"]?.["multiline"]).toBeUndefined();
+  });
+
+  test("default: JSON-safe Arrays/Objects überleben die Projection, Nicht-JSON-Werte bleiben blockiert (fw#2497)", () => {
+    // isJsonSafeValue() now recurses into arrays/plain objects instead of
+    // only accepting string/number/boolean/null — but the defense-in-depth
+    // against smuggled function/class-instance defaults must still hold.
+    const entity = {
+      fields: {
+        tags: { type: "multiSelect", options: ["a", "b"], default: ["a"] },
+        nested: { type: "text", default: { rows: [1, "x"], flag: true } },
+        brokenFn: { type: "text", default: () => "x" },
+        brokenClass: { type: "text", default: new Date() },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["tags"]?.["default"]).toEqual(["a"]);
+    expect(fields["nested"]?.["default"]).toEqual({ rows: [1, "x"], flag: true });
+    expect(fields["brokenFn"]?.["default"]).toBeUndefined();
+    expect(fields["brokenClass"]?.["default"]).toBeUndefined();
   });
 
   test("AppSchema ist via JSON.stringify roundtrip-sicher", () => {
