@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { specHash, variantSuffix } from "../variant-key";
+import { deriveKey } from "../../files/file-handle";
+import { derivativeListPrefix, isDerivativeKeyOf, specHash, variantSuffix } from "../variant-key";
 
 describe("specHash — key stability", () => {
   test("key order doesn't matter", () => {
@@ -57,5 +58,60 @@ describe("variantSuffix", () => {
     expect(() => variantSuffix("thumb", {})).not.toThrow();
     expect(() => variantSuffix("card-2x", {})).not.toThrow();
     expect(() => variantSuffix("Hero", {})).not.toThrow();
+  });
+});
+
+// These pin the grammar `isDerivativeKeyOf`/`derivativeListPrefix` use to
+// recognize forget/tenant-destroy erasure targets — real deriveKey() output,
+// not a hand-rolled key shape, so a drift in deriveKey's own splitting logic
+// would show up here too.
+describe("derivativeListPrefix + isDerivativeKeyOf — real deriveKey() output", () => {
+  const original = "tenant/photo.jpg";
+  const suffix = variantSuffix("thumb", { maxEdge: 512 });
+  const derived = deriveKey(original, suffix);
+
+  test("deriveKey's own output matches isDerivativeKeyOf for its original", () => {
+    expect(isDerivativeKeyOf(original, derived)).toBe(true);
+  });
+
+  test("derivativeListPrefix is a prefix of every derivative deriveKey() produces", () => {
+    expect(derived.startsWith(derivativeListPrefix(original))).toBe(true);
+  });
+
+  test("the original key is not its own derivative", () => {
+    expect(isDerivativeKeyOf(original, original)).toBe(false);
+  });
+
+  test("a same-directory sibling original with a DIFFERENT extension is not a derivative", () => {
+    // Same base ("tenant/photo"), so it shares derivativeListPrefix — the
+    // extension anchor is what must reject it, or a forget/tenant-destroy
+    // prefix-delete would sweep up a different file (possibly another
+    // user's) alongside the intended derivatives.
+    expect(isDerivativeKeyOf(original, "tenant/photo.png")).toBe(false);
+    expect(isDerivativeKeyOf(original, "tenant/photo.other-1234567890abcdef.png")).toBe(false);
+  });
+
+  test("an unrelated key under the same directory is not a derivative", () => {
+    expect(isDerivativeKeyOf(original, "tenant/other-file.jpg")).toBe(false);
+  });
+
+  test("a key with the right prefix/ext but no valid <name>-<hash> middle is not a derivative", () => {
+    expect(isDerivativeKeyOf(original, "tenant/photo.old.jpg")).toBe(false);
+    expect(isDerivativeKeyOf(original, "tenant/photo.jpg")).toBe(false);
+  });
+
+  test("extension-less original: derivatives have no trailing extension either", () => {
+    const noExtOriginal = "tenant/document";
+    const noExtSuffix = variantSuffix("preview", { maxEdge: 256 });
+    const noExtDerived = deriveKey(noExtOriginal, noExtSuffix);
+    expect(isDerivativeKeyOf(noExtOriginal, noExtDerived)).toBe(true);
+    expect(derivativeListPrefix(noExtOriginal)).toBe("tenant/document.");
+  });
+
+  test("multiple variants of the same original all match", () => {
+    const cardSuffix = variantSuffix("card", { maxEdge: 1024 });
+    const cardDerived = deriveKey(original, cardSuffix);
+    expect(isDerivativeKeyOf(original, cardDerived)).toBe(true);
+    expect(isDerivativeKeyOf(original, derived)).toBe(true);
   });
 });

@@ -66,6 +66,10 @@ export type TenantUserModel = "single-user" | "multi-user";
  */
 export interface UserDataStorageProvider {
   delete(storageKey: string): Promise<void>;
+  // Needed so a forget/tenant-destroy hook can find derived/variant keys
+  // (thumbnails, resized variants) that are never tracked anywhere but the
+  // storage layer itself — see fileRefDeleteHook.
+  list(prefix: string): Promise<readonly string[]>;
 }
 
 export interface UserDataHookCtx {

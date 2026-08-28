@@ -26,6 +26,11 @@ export type WriteStreamOptions = {
 // type here would let a provider skip them and fail silently in production
 // the first time an export job hits it.
 //
+// list is required for the same reason: GDPR forget/tenant-destroy erasure
+// needs to find derived/variant keys that were never tracked anywhere else
+// (see derivatives-context) — an optional `list` would let a provider skip
+// it and erasure would silently leave those binaries behind.
+//
 // getSignedUrl is optional — providers without native presigned-URL support
 // (filesystem) leave it undefined; the route then returns 501 and the
 // client falls back to streaming via GET /files/:id. Callers must
@@ -41,5 +46,9 @@ export type FileStorageProvider = {
   readStream(key: string): AsyncIterable<Uint8Array>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
+  // Keys currently stored under `prefix` (prefix-match, not glob). Paginates
+  // internally — callers get the full result set for however many pages the
+  // backend needs, never a silently-truncated first page.
+  list(prefix: string): Promise<readonly string[]>;
   getSignedUrl?(key: string, expiresInSeconds: number, options?: SignedUrlOptions): Promise<string>;
 };

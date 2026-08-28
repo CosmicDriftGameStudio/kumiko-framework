@@ -29,6 +29,15 @@ import {
 // AWS-CLI: `aws s3api put-bucket-lifecycle-configuration --bucket <name>
 // --lifecycle-configuration file://lifecycle.json`. Hetzner Object Storage
 // + R2 + Minio supporten dieselbe Syntax.
+//
+// =============================================================================
+// Operator-Pflicht-Setup (IAM: list permission)
+// =============================================================================
+//
+// GDPR-forget/tenant-destroy erasure (user-data-rights-defaults) calls
+// `list()` to find derivative/variant keys alongside the original. A bucket
+// policy granting only `s3:DeleteObject` (no `s3:ListBucket`) makes every
+// forget run fail — grant both, not just delete.
 
 const STREAM_PART_SIZE = 5 * 1024 * 1024;
 
@@ -47,6 +56,32 @@ export type S3ProviderConfig = {
   // Override auto-detection; mainly for explicit Minio-style tests.
   readonly forcePathStyle?: boolean;
 };
+
+// A single S3 list() page, generalized just enough that collectPaginatedKeys
+// can be tested against a fake sequence of pages, no live bucket needed.
+type S3ListPage = {
+  readonly contents?: ReadonlyArray<{ readonly key: string }>;
+  readonly isTruncated?: boolean;
+};
+
+// Exported for unit testing — the loop is the load-bearing part of `list`:
+// S3 caps a page at 1000 keys, and a derivative set for a heavily-rendered
+// original can exceed that. Owns only the isTruncated/startAfter pagination;
+// `fetchPage` closes over prefix/maxKeys/credentials.
+export async function collectPaginatedKeys(
+  fetchPage: (startAfter: string | undefined) => Promise<S3ListPage>,
+): Promise<readonly string[]> {
+  const keys: string[] = [];
+  let startAfter: string | undefined;
+  for (;;) {
+    const page = await fetchPage(startAfter);
+    const contents = page.contents ?? [];
+    for (const obj of contents) keys.push(obj.key);
+    if (!page.isTruncated || contents.length === 0) break;
+    startAfter = contents[contents.length - 1]?.key;
+  }
+  return keys;
+}
 
 // Exported for unit testing — the branch logic (explicit override vs.
 // auto-detect from endpoint) is small but load-bearing: Minio/R2 break
@@ -128,6 +163,16 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
     async exists(key): Promise<boolean> {
       assertSafeStorageKey(key);
       return client.exists(key);
+    },
+
+    async list(prefix): Promise<readonly string[]> {
+      return collectPaginatedKeys((startAfter) =>
+        client.list({
+          prefix,
+          maxKeys: 1000,
+          ...(startAfter !== undefined && { startAfter }),
+        }),
+      );
     },
 
     async getSignedUrl(

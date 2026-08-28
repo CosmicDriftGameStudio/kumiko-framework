@@ -86,6 +86,10 @@ export function createInMemoryFileProvider(): InMemoryFileProvider {
       return store.has(key);
     },
 
+    async list(prefix) {
+      return Array.from(store.keys()).filter((key) => key.startsWith(prefix));
+    },
+
     // Deterministic fake URL — encodes the key + expiry so tests can assert
     // the route wired through without running a real presigner. Shape
     // (memory://<key>?expires=<seconds>) intentionally differs from any real

@@ -90,6 +90,25 @@ export function describeFileProviderContract(
       await expect(it.next()).rejects.toThrow();
     });
 
+    test("list returns only keys under the given prefix", async () => {
+      const group = `contract/list-${crypto.randomUUID()}`;
+      const keyA = `${group}/a.txt`;
+      const keyB = `${group}/b.txt`;
+      const outsideKey = `contract/list-${crypto.randomUUID()}/c.txt`;
+      writtenKeys.push(keyA, keyB, outsideKey);
+      await provider.write(keyA, bytes("a"));
+      await provider.write(keyB, bytes("b"));
+      await provider.write(outsideKey, bytes("c"));
+
+      const listed = await provider.list(`${group}/`);
+      expect(new Set(listed)).toEqual(new Set([keyA, keyB]));
+    });
+
+    test("list on a prefix with no matches returns an empty array", async () => {
+      const listed = await provider.list(`contract/list-missing-${crypto.randomUUID()}/`);
+      expect(listed).toEqual([]);
+    });
+
     test("getSignedUrl, when implemented, returns a URL string", async () => {
       // skip: getSignedUrl is optional on the contract — feature-detected
       if (!provider.getSignedUrl) return;

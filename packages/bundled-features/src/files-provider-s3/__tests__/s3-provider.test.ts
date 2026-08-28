@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { S3ProviderConfig } from "../s3-provider";
-import { createS3Provider, resolveForcePathStyle, resolveVirtualHostedStyle } from "../s3-provider";
+import {
+  collectPaginatedKeys,
+  createS3Provider,
+  resolveForcePathStyle,
+  resolveVirtualHostedStyle,
+} from "../s3-provider";
 
 const baseConfig: S3ProviderConfig = {
   bucket: "b",
@@ -63,6 +68,58 @@ describe("resolveVirtualHostedStyle (inverse of forcePathStyle)", () => {
     expect(resolveVirtualHostedStyle({ ...baseConfig, endpoint: "http://localhost:9000" })).toBe(
       false,
     );
+  });
+});
+
+// collectPaginatedKeys owns the isTruncated/startAfter loop `list()` runs on
+// top of a live client.list() — tested hermetically here (a real 1000+ key
+// bucket would make this slow and flaky) so a regression in the loop itself
+// (dropped page, infinite loop, wrong startAfter) fails fast without MinIO.
+type FakePage = {
+  readonly contents?: ReadonlyArray<{ readonly key: string }>;
+  readonly isTruncated?: boolean;
+};
+
+describe("collectPaginatedKeys", () => {
+  test("stops after a single non-truncated page", async () => {
+    const keys = await collectPaginatedKeys(async () => ({
+      contents: [{ key: "a" }, { key: "b" }],
+      isTruncated: false,
+    }));
+    expect(keys).toEqual(["a", "b"]);
+  });
+
+  test("follows isTruncated across multiple pages, passing the last key as startAfter", async () => {
+    const requestedStartAfters: Array<string | undefined> = [];
+    const pages: readonly FakePage[] = [
+      { contents: [{ key: "a" }, { key: "b" }], isTruncated: true },
+      { contents: [{ key: "c" }, { key: "d" }], isTruncated: true },
+      { contents: [{ key: "e" }], isTruncated: false },
+    ];
+    let call = 0;
+    const keys = await collectPaginatedKeys(async (startAfter) => {
+      requestedStartAfters.push(startAfter);
+      const page = pages[call];
+      call += 1;
+      if (!page) throw new Error("unexpected extra page request");
+      return page;
+    });
+
+    expect(keys).toEqual(["a", "b", "c", "d", "e"]);
+    expect(requestedStartAfters).toEqual([undefined, "b", "d"]);
+  });
+
+  test("an empty page stops the loop even if isTruncated is (incorrectly) true", async () => {
+    const keys = await collectPaginatedKeys(async () => ({
+      contents: [],
+      isTruncated: true,
+    }));
+    expect(keys).toEqual([]);
+  });
+
+  test("a page with no contents field is treated as empty", async () => {
+    const keys = await collectPaginatedKeys(async () => ({}));
+    expect(keys).toEqual([]);
   });
 });
 

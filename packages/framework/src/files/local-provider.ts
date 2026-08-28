@@ -1,5 +1,5 @@
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { assertSafeStorageKey, type FileStorageProvider } from "./types";
@@ -106,6 +106,27 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
       } catch {
         return false;
       }
+    },
+
+    async list(prefix: string): Promise<readonly string[]> {
+      // recursive:true returns POSIX- or OS-sep-joined relative paths for
+      // both files and directories; normalize to "/" (storage keys are
+      // always "/"-joined, matching S3) before the prefix match, then stat
+      // only the (few) matches to drop directory entries.
+      let entries: string[];
+      try {
+        entries = await readdir(resolvedBase, { recursive: true });
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+        throw err;
+      }
+      const results: string[] = [];
+      for (const entry of entries) {
+        const key = entry.split(sep).join("/");
+        if (!key.startsWith(prefix)) continue;
+        if ((await stat(join(resolvedBase, entry))).isFile()) results.push(key);
+      }
+      return results;
     },
   };
 }
