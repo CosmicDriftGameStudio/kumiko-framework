@@ -256,14 +256,18 @@ describe("InfinityList", () => {
       isSuccess: true,
       data: { rows: [{ id: "m1", subject: "Bo-Treffer" }], nextCursor: null },
     });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(screen.queryByText("Bo-Treffer")).toBeNull();
-    expect(screen.getByText("Bob-Treffer")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByText("Bo-Treffer")).toBeNull();
+      expect(screen.getByText("Bob-Treffer")).toBeTruthy();
+    });
   });
 
   // fw#1827: InfinityList used dispatcher.query directly and never subscribed
   // to live events, so a solon inbox stayed stale until the user reloaded.
   describe("Live-Mode", () => {
+    // fw#1829 debounces live refresh by 250ms; CI needs headroom beyond default 1s.
+    const liveWait = { timeout: 3000 } as const;
+
     test("SSE-Event mergt nur die erste Seite, bereits geladene Folgeseiten bleiben erhalten", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
@@ -326,7 +330,7 @@ describe("InfinityList", () => {
         });
       });
 
-      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy(), liveWait);
       expect(screen.getByText("Alt-1")).toBeTruthy();
       expect(screen.getByText("Alt-2")).toBeTruthy();
       expect(screen.getAllByText("Alt-1").length).toBe(1);
@@ -379,7 +383,7 @@ describe("InfinityList", () => {
         });
       });
 
-      await waitFor(() => expect(screen.queryByText("Erste")).toBeNull());
+      await waitFor(() => expect(screen.queryByText("Erste")).toBeNull(), liveWait);
       expect(screen.getByText("Zweite")).toBeTruthy();
     });
 
@@ -444,7 +448,7 @@ describe("InfinityList", () => {
         });
       });
 
-      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy(), liveWait);
       expect(screen.queryByText("Erste")).toBeNull();
       expect(screen.getByText("Zweite")).toBeTruthy();
     });
