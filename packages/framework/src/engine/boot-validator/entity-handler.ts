@@ -692,6 +692,7 @@ function validateCheckboxDisplayOptions(
         `MultiSelect field "${fieldName}" on entity "${entityName}" has invalid maxRows "${field.maxRows}" — must be a positive integer.`,
       );
     }
+    // skip: checkboxes is the valid display for these options — the checks below only apply to other displays
     return;
   }
   if (field.columns !== undefined) {
