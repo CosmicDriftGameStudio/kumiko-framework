@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.226.0
+
+### Minor Changes
+
+- c4ed490: Query handlers can now declare an optional `outputSchema` (a Zod schema of the handler's actual return value — the paged envelope for `definePagedQueryHandler`, or the flat record for a plain `defineQueryHandler`). When set, the boot-validator checks a screen's column/field references against it and throws on a typo instead of it surfacing as a silently-empty cell at runtime: `projectionList`/`relatedList`/dashboard-list `columns`, `projectionDetail` `header`/`metrics`, and dashboard stat-panel `valueField`/`subField`/`toneField`/`deltaField`/`deltaDirectionField`/`deltaToneField`. Fully additive — a handler without `outputSchema` (every existing one) skips these checks exactly as before.
+
+### Patch Changes
+
+- 211ff70: Fix `migrate generate` silently swallowing an index predicate/column/uniqueness change into the new snapshot without emitting DDL. A same-name index whose `columns`, `unique`, `whereSql`, or `needsManualWhere` changed between snapshots is now detected as a table diff and rendered as `DROP INDEX` + `CREATE INDEX` (or left safely commented out when the new predicate needs manual review). Also fixes a related bug where a brand-new partial index with an unrenderable WHERE clause was emitted as a live, uncommented `CREATE INDEX` with the predicate silently dropped.
+- db616cb: Fix `filterable: true` on `multiSelect` fields crashing (or, depending on Postgres/driver version, silently returning wrong rows) at query time. A `multiSelect` field stores its options as a jsonb array, so `eq`/`ne`/`in` filters now use jsonb containment (`@>`) instead of scalar `=`/`<>`/`IN` against the array column — fixed in both the screen-filter WHERE builder (`EventStoreExecutor.list()`) and the generic `selectMany`/`fetchOne`/etc. query API (`buildWhereClause`). `lt`/`gt` on a `multiSelect` column remain unsatisfiable (no containment analogue) and now resolve to an empty result instead of invalid SQL.
+- bcac6f3: `buildAppSchema`'s client-schema projection now forwards `multiline` (text/longText), `min`/`max`/`locale` (number/date/timestamp/locatedTimestamp), `capture` (image), and the embedded-list renderer hints `minItems`/`maxItems`/`derived`/`totals`/`totalsMatch` — previously dropped by `projectField`'s per-property whitelist, leaving the renderer without hints it already reads from the client schema. The `default`-value JSON-safety check (defense-in-depth against smuggled function defaults) is widened to accept JSON-safe arrays/plain-objects instead of only literals, and now also gates the four newly-forwarded structured properties so a function value nested one level deep is still rejected.
+- Updated dependencies [c4ed490]
+  - @cosmicdrift/kumiko-types@0.226.0
+
 ## 0.225.0
 
 ### Minor Changes
