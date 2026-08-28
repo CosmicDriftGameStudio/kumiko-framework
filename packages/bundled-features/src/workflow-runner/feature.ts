@@ -15,7 +15,10 @@
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
-const FEATURE_NAME = "workflowRunner";
+// Kebab-case matching the "./workflow-runner" export subpath — every other
+// bundled feature's runtime name follows this convention, and
+// FEATURE_IMPORT_REGISTRY (use-all-bundled) keys off it.
+const FEATURE_NAME = "workflow-runner";
 
 export const workflowRunnerFeature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
