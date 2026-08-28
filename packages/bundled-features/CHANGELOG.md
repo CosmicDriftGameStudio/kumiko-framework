@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.225.0
+
+### Minor Changes
+
+- aa1a1a7: Add `cap-overview` — read-only tier/cap-usage visibility. SystemAdmin gets a platform-wide list of every tenant with tier, billing status, and usage bars against a configurable set of caps; TenantAdmin gets their own usage as dashboard cards, and SystemAdmin can click through from the list into a tenant's own dashboard. Reads tier-engine's tier assignments, billing-foundation's subscriptions, and tenant data, plus app-owned usage tables via caller-supplied `CapSpec` callbacks — never writes.
+
+### Patch Changes
+
+- 5185710: Add an optional `tone` to the `Progress` primitive (`default`/`warn`/`danger`, fill color only) and wire `cap-overview`'s usage bar to derive it from the same `computeTone(fraction)` the dashboard cards already use. Previously the bar always rendered the neutral fill regardless of how far over the cap usage was — a tenant at 120% of a limit looked identical to one at 4%.
+- Updated dependencies [aa1a1a7]
+- Updated dependencies [5185710]
+- Updated dependencies [aa1a1a7]
+- Updated dependencies [d63b2e8]
+  - @cosmicdrift/kumiko-framework@0.225.0
+  - @cosmicdrift/kumiko-renderer@0.225.0
+  - @cosmicdrift/kumiko-renderer-web@0.225.0
+  - @cosmicdrift/kumiko-types@0.225.0
+  - @cosmicdrift/kumiko-headless@0.225.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.225.0
+
 ## 0.224.2
 
 ### Patch Changes
