@@ -149,8 +149,8 @@ export function NotesSection({
               data-testid={`notes-section-row-${n.id}`}
               className="flex flex-col gap-1 rounded-md border p-2"
             >
-              <Text testId={`notes-section-row-${n.id}-body`}>{n.body}</Text>
-              <Text variant="small" testId={`notes-section-row-${n.id}-meta`}>
+              <Text testId={`notes-section-body-${n.id}`}>{n.body}</Text>
+              <Text variant="small" testId={`notes-section-meta-${n.id}`}>
                 {t("notesHistory.section.meta", {
                   author: displayAuthorName(n.authorName, t("notesHistory.section.authorUnknown")),
                   date: formatWhen(n.insertedAt),
