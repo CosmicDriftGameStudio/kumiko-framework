@@ -12,11 +12,31 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   asRawClient,
+  buildEntityTable,
   createDbConnection,
+  createEventStoreExecutor,
+  createTenantDb,
   type DbConnection,
+  integer,
+  table as pgTable,
+  selectMany,
   tableExists,
+  uuid,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  createEntity,
+  createTextField,
+  defineApply,
+  defineFeature,
+  type ProjectionDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createTestDb,
+  type TestDb,
+  TestUsers,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-framework/stack";
 import { runSchemaApply } from "../schema-apply";
 
 let testDb: TestDb;
@@ -76,7 +96,7 @@ describe("runSchemaApply", () => {
     expect(await tableExists(conn.db, "public.read_thing")).toBe(true);
   });
 
-  test("rebuild-Marker für nicht-registrierte Tabelle → kein Crash, 0, aber laut warnen (522/3)", async () => {
+  test("rebuild-Marker für nicht-registrierte Tabelle → kein Crash, 0, aber laut warnen (522/3, #2464)", async () => {
     writeFileSync(
       join(migDir, "0002_more.sql"),
       `CREATE TABLE "read_more" ("id" text PRIMARY KEY);`,
@@ -86,10 +106,86 @@ describe("runSchemaApply", () => {
       JSON.stringify({ version: 1, tables: ["read_more"] }),
     );
 
-    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    // runPendingRebuilds (not the old local helper) owns this warning now —
+    // it logs via createFallbackLogger(...).error(...), not console.warn.
+    const error = spyOn(console, "error").mockImplementation(() => {});
     expect(await runSchemaApply({ ...APPLY, appCwd })).toBe(0);
     expect(await tableExists(conn.db, "public.read_more")).toBe(true);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Table "read_more"'));
-    warn.mockRestore();
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("read_more"), expect.anything());
+    error.mockRestore();
+  });
+
+  test("failed projection rebuild stays queued and is retried on a later apply with zero new migrations (#2464)", async () => {
+    // Isolate from any pending-rebuild rows the earlier tests in this file left.
+    await asRawClient(conn.db).unsafe(`DROP TABLE IF EXISTS kumiko_pending_rebuilds`);
+
+    const groupId = "00000000-0000-4000-8000-0000000000b1";
+    let failApply = true;
+
+    const failItemEntity = createEntity({
+      table: "read_apply_fail_items",
+      fields: {
+        groupId: createTextField({ required: true }),
+        name: createTextField({ required: true }),
+      },
+    });
+    const failItemTable = buildEntityTable("apply-fail-item", failItemEntity);
+    const failCountsTable = pgTable("read_apply_fail_counts", {
+      groupId: uuid("group_id").primaryKey(),
+      tenantId: uuid("tenant_id").notNull(),
+      itemCount: integer("item_count").notNull().default(0),
+    });
+    const failCountsProjection: ProjectionDefinition = {
+      name: "apply-fail-counts",
+      source: "apply-fail-item",
+      table: failCountsTable,
+      apply: {
+        "apply-fail-item.created": defineApply<{ groupId: string }>(async (event, tx) => {
+          if (failApply) throw new Error("simulated rebuild failure (test)");
+          await asRawClient(tx).unsafe(
+            `INSERT INTO "read_apply_fail_counts" (group_id, tenant_id, item_count) VALUES ($1::uuid, $2::uuid, 1)
+             ON CONFLICT (group_id) DO UPDATE SET item_count = read_apply_fail_counts.item_count + 1`,
+            [event.payload.groupId, event.tenantId],
+          );
+        }),
+      },
+    };
+    const feature = defineFeature("applyfailtest", (r) => {
+      r.entity("apply-fail-item", failItemEntity);
+      r.projection(failCountsProjection);
+    });
+
+    await unsafeCreateEntityTable(conn.db, failItemEntity, "apply-fail-item");
+    await unsafePushTables(conn.db, { readApplyFailCounts: failCountsTable });
+
+    const tdb = createTenantDb(conn.db, TestUsers.admin.tenantId);
+    const executor = createEventStoreExecutor(failItemTable, failItemEntity, {
+      entityName: "apply-fail-item",
+    });
+    await executor.create({ groupId, name: "x" }, TestUsers.admin, tdb);
+
+    writeFileSync(join(migDir, "0003_touch_fail_counts.sql"), "SELECT 1;\n");
+    writeFileSync(
+      join(migDir, "0003_touch_fail_counts.rebuild.json"),
+      JSON.stringify({ version: 1, tables: ["read_apply_fail_counts"] }),
+    );
+
+    const error = spyOn(console, "error").mockImplementation(() => {});
+    const firstRun = await runSchemaApply({ features: [feature], includeBundled: false, appCwd });
+    error.mockRestore();
+    // Fail-loud: a failed rebuild must surface as a non-zero exit, not a
+    // silent 0 — the migration itself is now tracked applied, so without a
+    // persisted queue this table's rebuild would never be retried again.
+    expect(firstRun).toBe(1);
+    const [rowAfterFail] = await selectMany(conn.db, failCountsTable, { groupId });
+    expect(rowAfterFail).toBeUndefined();
+
+    // Second apply: no new migrations (0003 is already tracked), yet the
+    // queued table must still be retried from kumiko_pending_rebuilds.
+    failApply = false;
+    const secondRun = await runSchemaApply({ features: [feature], includeBundled: false, appCwd });
+    expect(secondRun).toBe(0);
+    const [rowAfterRetry] = await selectMany(conn.db, failCountsTable, { groupId });
+    expect(rowAfterRetry?.itemCount).toBe(1);
   });
 });
