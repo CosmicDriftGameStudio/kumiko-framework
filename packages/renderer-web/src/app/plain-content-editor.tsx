@@ -53,7 +53,7 @@ export function PlainContentEditor({
   };
 
   return (
-    <div>
+    <div className="rounded-md border border-input bg-transparent">
       <TextareaContentEditor
         id={id}
         value={value}
@@ -61,7 +61,11 @@ export function PlainContentEditor({
         variables={variables}
         readOnly={readOnly}
       />
-      <VariableChips variables={variables} onInsert={insertAtCaret} disabled={readOnly} />
+      {variables.length > 0 && (
+        <div className="flex flex-wrap gap-1 border-t border-input p-1">
+          <VariableChips variables={variables} onInsert={insertAtCaret} disabled={readOnly} />
+        </div>
+      )}
     </div>
   );
 }

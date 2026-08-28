@@ -719,9 +719,9 @@ describe("totalsMatch (fw#1839)", () => {
     }
   });
 
-  test("update payload omitting the embedded list is not checked (nothing to sum)", () => {
+  test("update payload omitting the embedded list is rejected (totalsMatch pair incomplete)", () => {
     const schema = buildUpdateSchema(invoiceEntity());
-    expect(schema.safeParse({ total: { amount: 30, currency: "EUR" } }).success).toBe(true);
+    expect(schema.safeParse({ total: { amount: 30, currency: "EUR" } }).success).toBe(false);
   });
 
   // kumiko-framework#1972: a round total (30 EUR = 3000 minor) still passes
@@ -753,9 +753,9 @@ describe("totalsMatch (fw#1839)", () => {
     }
   });
 
-  test("update payload omitting the sibling total is not checked (nothing to compare against)", () => {
+  test("update payload omitting the sibling total is rejected (totalsMatch pair incomplete)", () => {
     const schema = buildUpdateSchema(invoiceEntity());
-    expect(schema.safeParse({ lines: [{ amount: 1000 }, { amount: 1500 }] }).success).toBe(true);
+    expect(schema.safeParse({ lines: [{ amount: 1000 }, { amount: 1500 }] }).success).toBe(false);
   });
 
   test("rejects a sibling total tagged with a currency other than the entity's default, even when the raw minor-unit amounts match", () => {

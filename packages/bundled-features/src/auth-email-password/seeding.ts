@@ -108,7 +108,9 @@ export async function seedUserWithPassword(
  *  (SessionUser-Konstruktion für JWT-Mint) — sonst hätten zwei
  *  Stellen unabhängig "TenantAdmin" hardcoded und würden bei einem
  *  Refactor zu role-mismatch zwischen DB und Session leiden. */
-export const INITIAL_SIGNUP_ROLES = ["TenantAdmin"] as const;
+// TenantAdmin is the canonical owner role; Admin stays for handlers that still
+// gate on the legacy literal until those call sites move to access.admin.
+export const INITIAL_SIGNUP_ROLES = ["TenantAdmin", "Admin"] as const;
 
 export type ProvisionSignupAccountOptions = {
   readonly email: string;

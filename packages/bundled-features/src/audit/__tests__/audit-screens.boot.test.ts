@@ -2,11 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config/feature";
+import { createTenantFeature } from "../../tenant/feature";
 import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
 
 describe("audit log screen + handler access alignment", () => {
-  const features = [createConfigFeature(), createAuditFeature()];
+  const features = [createConfigFeature(), createTenantFeature(), createAuditFeature()];
 
   test("boot-validates with audit-log screen registered", () => {
     expect(() => validateBoot(features)).not.toThrow();

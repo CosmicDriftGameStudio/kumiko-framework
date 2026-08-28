@@ -33,6 +33,7 @@ import {
 } from "../../user-data-rights";
 import {
   CRYPTO_SHREDDING_AGGREGATE_TYPE,
+  SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
   TARGET_TENANT_NOT_ADMIN_TENANT,
 } from "../constants";
@@ -51,6 +52,14 @@ export const subjectForgottenSchema = z.object({
   subjectKey: z.string().min(1),
   reason: z.string().min(10),
   forgottenBy: z.string().min(1),
+});
+
+export const subjectForgetDeniedSchema = z.object({
+  subjectKey: z.string().min(1),
+  reason: z.string().min(10),
+  forgottenBy: z.string().min(1),
+  actorTenantId: z.string().min(1),
+  denial: z.string().min(1),
 });
 
 type SubjectIdInput = z.infer<typeof subjectIdSchema>;
@@ -128,7 +137,22 @@ export const forgetSubjectWrite = defineWriteHandler({
       event.user,
       raw,
     );
-    if (tenantScopeDenial) return tenantScopeDenial;
+    if (tenantScopeDenial) {
+      // Denied cross-tenant probes must still leave an audit trail (fw#2348).
+      await ctx.unsafeAppendEvent({
+        aggregateId: raw.kind === "user" ? raw.userId : raw.tenantId,
+        aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
+        type: SUBJECT_FORGET_DENIED_EVENT_NAME,
+        payload: {
+          subjectKey,
+          reason: event.payload.reason,
+          forgottenBy: event.user.id,
+          actorTenantId: event.user.tenantId,
+          denial: tenantScopeDenial.error.code,
+        },
+      });
+      return tenantScopeDenial;
+    }
 
     // Erase BEFORE the audit append: if the append throws, the key is gone
     // but no event exists — a retry is a no-op erase plus the event. The

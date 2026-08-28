@@ -1,6 +1,10 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { CRYPTO_SHREDDING_FEATURE_NAME } from "./constants";
-import { forgetSubjectWrite, subjectForgottenSchema } from "./handlers/forget-subject.write";
+import {
+  forgetSubjectWrite,
+  subjectForgetDeniedSchema,
+  subjectForgottenSchema,
+} from "./handlers/forget-subject.write";
 
 export function createCryptoShreddingFeature(): FeatureDefinition {
   return defineFeature(CRYPTO_SHREDDING_FEATURE_NAME, (r) => {
@@ -13,6 +17,7 @@ export function createCryptoShreddingFeature(): FeatureDefinition {
     });
 
     r.defineEvent("subject-forgotten", subjectForgottenSchema);
+    r.defineEvent("forget-denied", subjectForgetDeniedSchema);
     r.writeHandler(forgetSubjectWrite);
   });
 }

@@ -869,9 +869,7 @@ describe("render → parse roundtrip — AI pipeline steps", () => {
 
   test("inline + const-ref ai steps round-trip structurally", () => {
     const aiPatterns = initial.patterns.filter((p) => p.kind.startsWith("ai."));
-    const stepCalls = aiPatterns
-      .map((p) => indent(renderPattern(p), "      ").replace(/;\s*$/, ","))
-      .join("\n");
+    const stepCalls = aiPatterns.map((p) => `${indent(renderPattern(p), "      ")},`).join("\n");
     const wrapped = `
 import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";

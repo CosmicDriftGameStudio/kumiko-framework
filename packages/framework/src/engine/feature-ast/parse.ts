@@ -159,7 +159,13 @@ export function parseSourceFile(sourceFile: SourceFile): ParseResult {
 
   walkSetupCallback(setupCallback.getBody(), registrarParamName, sourceFile, patterns, errors);
   walkAiStepCalls(setupCallback.getBody(), registrarParamName, sourceFile, patterns, errors);
-  patterns.sort((a, b) => a.source.start.line - b.source.start.line);
+  // Tie-break on filePath so cross-file registrar wrappers don't interleave by
+  // foreign line numbers alone.
+  patterns.sort((a, b) => {
+    const fileCmp = a.source.file.localeCompare(b.source.file);
+    if (fileCmp !== 0) return fileCmp;
+    return a.source.start.line - b.source.start.line;
+  });
 
   return { featureName, patterns, errors };
 }

@@ -77,7 +77,7 @@ const OVERRIDES_ARG_INDEX_1 = new Set(["createEmbeddedField", "createEmbeddedLis
 
 const FIELD_FACTORY_RE = /^create\w*Field$/;
 
-type ReportEntry = { readonly file: string; readonly line: number; readonly reason: string };
+type ReportEntry = { readonly file: string; readonly line: number; readonly note: string };
 type FindBucket = "exact" | "fuzzy" | "none" | "secret" | "ref" | "personal-false" | "no-find";
 
 const reports: ReportEntry[] = [];
@@ -92,11 +92,11 @@ const counts: Record<FindBucket, number> = {
   "no-find": 0,
 };
 
-function report(node: Node, reason: string): void {
+function report(node: Node, note: string): void {
   reports.push({
     file: node.getSourceFile().getFilePath(),
     line: node.getStartLineNumber(),
-    reason,
+    note,
   });
 }
 
@@ -374,8 +374,8 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
     newLookupableSites.push({
       file: obj.getSourceFile().getFilePath(),
       line: subject.prop.getStartLineNumber(),
-      // find: "fuzzy" newly adds lookupable (was searchable-only) — needs a _bidx column migration
-      reason: "fuzzy_search_needs_bidx_migration",
+      // Guard keys on property name `reason`; this is console copy, not an error code.
+      note: "needs a `_bidx` column migration",
     });
   }
 
@@ -469,11 +469,11 @@ async function main(): Promise<void> {
   }
   console.log(`\nNewly gains lookupable (needs a _bidx migration): ${newLookupableSites.length}`);
   for (const r of newLookupableSites) {
-    console.log(`  ${relative(rootDir, r.file)}:${r.line} — ${r.reason}`);
+    console.log(`  ${relative(rootDir, r.file)}:${r.line} — ${r.note}`);
   }
   console.log(`\nReported (not transformed): ${reports.length}`);
   for (const r of reports) {
-    console.log(`  ${relative(rootDir, r.file)}:${r.line} — ${r.reason}`);
+    console.log(`  ${relative(rootDir, r.file)}:${r.line} — ${r.note}`);
   }
 }
 

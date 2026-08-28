@@ -33,9 +33,12 @@ const enPlaceholderLetters = placeholderLetters("en");
 describe("parseIso", () => {
   test("valid yyyy-mm-dd → PlainDate (no TZ conversion)", () => {
     const d = parseIso("2026-04-25");
-    // Cross-realm safe: bun and happy-dom can expose different Temporal
-    // copies, so toBeInstanceOf fails depending on file order. The ISO
-    // string proves both the type and the no-TZ-conversion property.
+    // Cross-realm safe: assert against the same Temporal activeTemporal() uses
+    // (native when present), not the polyfill import — Bun 1.4+ ships Temporal.
+    const ActivePlainDate = (
+      (globalThis as unknown as { Temporal?: typeof Temporal }).Temporal ?? Temporal
+    ).PlainDate;
+    expect(d).toBeInstanceOf(ActivePlainDate);
     expect(String(d)).toBe("2026-04-25");
     expect(d?.year).toBe(2026);
     expect(d?.month).toBe(4);

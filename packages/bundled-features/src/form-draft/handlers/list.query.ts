@@ -43,7 +43,10 @@ export const listDraftsQuery = defineQueryHandler({
         stepIndex: row.draft.stepIndex,
         savedAt: row.draft.savedAt,
       }))
-      .sort(byNewestFirst);
+      .sort(byNewestFirst)
+      // Matches listDraftsByScreen selectMany limit — JS sort cannot push the
+      // ceiling into SQL while savedAt lives inside jsonb.
+      .slice(0, 200);
     return { drafts };
   },
 });

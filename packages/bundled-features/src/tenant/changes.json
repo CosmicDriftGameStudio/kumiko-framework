@@ -3,7 +3,7 @@
     "version": "0.219.0",
     "type": "improvement",
     "title": "Invite/member-roles pickers include TenantAdmin",
-    "detail": "DEFAULT_INVITE_ROLE_OPTIONS adds TenantAdmin so SystemAdmin/TenantAdmin can invite owners. SystemAdmin stays global-only (user.roles), never a membership invite option."
+    "detail": "DEFAULT_INVITE_ROLE_OPTIONS stays User/Editor/Admin so Admin actors never see an unassignable TenantAdmin option (fw#2414). OWNER_INVITE_ROLE_OPTIONS adds TenantAdmin for custom screens used by TenantAdmin/SystemAdmin. SystemAdmin stays global-only (user.roles), never a membership invite option."
   },
   {
     "version": "0.209.0",

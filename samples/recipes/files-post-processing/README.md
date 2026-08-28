@@ -4,8 +4,8 @@ File upload plus post-processing hooks.
 
 ## What it shows
 
-- Files feature composition with a storage provider
-- Post-upload jobs (resize / scan-style side effects)
+- Declarative `variants` on `createImageField` (file-derivatives)
+- Imperative `ctx.derivatives.variant()` path and the public variant route (`EXT_DERIVATIVE_PUBLIC_PREDICATE`)
 
 ## Source
 

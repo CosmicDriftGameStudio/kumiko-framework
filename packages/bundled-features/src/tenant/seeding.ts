@@ -285,13 +285,15 @@ export async function seedTenantMembership(
     return { id: extractMembershipId(existing) };
   }
 
+  // Keep by.id as audit actor, but force stream tenant to the membership tenant
+  // so a cross-tenant `by` override cannot diverge row tenant vs event stream.
   const result = await executor.create(
     {
       userId: options.userId,
       tenantId: options.tenantId,
       roles: JSON.stringify(options.roles),
     },
-    by,
+    { ...by, tenantId: options.tenantId },
     tdb,
   );
   if (!result.isSuccess) {

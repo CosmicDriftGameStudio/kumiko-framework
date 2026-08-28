@@ -278,6 +278,7 @@ function InboxDemo(): ReactNode {
             nextCursor={(data) => data.nextCursor}
             rowId={(row) => row.id}
             testId="inbox-demo"
+            live={true}
             renderRow={(row) => (
               <div
                 className={`flex items-start justify-between gap-4 border-b px-3 py-2 last:border-b-0 hover:bg-muted/50 ${
