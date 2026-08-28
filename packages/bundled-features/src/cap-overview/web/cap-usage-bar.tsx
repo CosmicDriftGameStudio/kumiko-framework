@@ -3,7 +3,15 @@ import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import type { CapUsage } from "../types";
 
-export function CapUsageBar({ usage }: { readonly usage: CapUsage }): ReactNode {
+export function CapUsageBar({
+  usage,
+  showLabel = true,
+}: {
+  readonly usage: CapUsage;
+  // The cap-cards-panel StatCard already shows used/limit as its headline
+  // value — the bar's own label would just repeat it there.
+  readonly showLabel?: boolean;
+}): ReactNode {
   const { Progress, Text, Banner } = usePrimitives();
   const t = useTranslation();
   return (
@@ -19,7 +27,7 @@ export function CapUsageBar({ usage }: { readonly usage: CapUsage }): ReactNode 
           {t("cap-overview.errors.progressPrimitiveMissing")}
         </Banner>
       )}
-      <Text variant="small">{`${usage.used} / ${usage.limit}`}</Text>
+      {showLabel && <Text variant="small">{`${usage.used} / ${usage.limit}`}</Text>}
     </div>
   );
 }

@@ -24,6 +24,10 @@ export type CreateAdminShellOptions = {
   };
   /** Platform nav → tier-engine:screen:tier-admin. Requires tier-engine mounted. Default true. */
   readonly includeTierAdmin?: boolean;
+  /** Tenant nav → cap-overview:screen:my-caps, platform nav → cap-overview:screen:tenant-cap-list.
+   *  Requires cap-overview mounted. Default false — apps that don't mount cap-overview
+   *  must not get a nav entry pointing at a screen that doesn't exist. */
+  readonly includeCapOverview?: boolean;
   /** When false, only overview screens + nav are registered — app owns r.workspace(). Default true. */
   readonly registerWorkspaces?: boolean;
 };
@@ -32,11 +36,12 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
   const tenantWsId = options.workspaceIds?.tenant ?? DEFAULT_TENANT_WORKSPACE_ID;
   const platformWsId = options.workspaceIds?.platform ?? DEFAULT_PLATFORM_WORKSPACE_ID;
   const includeTierAdmin = options.includeTierAdmin ?? true;
+  const includeCapOverview = options.includeCapOverview ?? false;
   const registerWorkspaces = options.registerWorkspaces ?? true;
 
   return defineFeature(ADMIN_SHELL_FEATURE, (r) => {
     r.describe(
-      "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`). Mount after user, tenant, audit, and jobs; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
+      "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`). Mount after user, tenant, audit, and jobs; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
     );
     r.uiHints({
       displayLabel: "Admin Shell",
@@ -48,17 +53,20 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
     r.requires("audit");
     r.requires("jobs");
     if (includeTierAdmin) r.requires("tier-engine");
+    if (includeCapOverview) r.requires("cap-overview");
 
     r.translations({ keys: ADMIN_SHELL_I18N });
 
-    const tenantNav = [
+    const tenantNav: string[] = [
       "admin-shell:nav:tenant-overview",
       "tenant:nav:members",
       "audit:nav:audit-log",
-    ] as const;
+      ...(includeCapOverview ? (["admin-shell:nav:my-caps"] as const) : []),
+    ];
     const platformNav: string[] = [
       "admin-shell:nav:platform-overview",
       "admin-shell:nav:tenants",
+      ...(includeCapOverview ? (["admin-shell:nav:tenant-caps"] as const) : []),
       "jobs:nav:job-runs",
       ...(includeTierAdmin ? (["admin-shell:nav:tier-admin"] as const) : []),
     ];
@@ -110,6 +118,25 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
         screen: "tier-engine:screen:tier-admin",
         access: { roles: access.systemAdmin },
         order: 30,
+      });
+    }
+
+    if (includeCapOverview) {
+      r.nav({
+        id: "my-caps",
+        label: "admin-shell:nav.myCaps",
+        icon: "gauge",
+        screen: "cap-overview:screen:my-caps",
+        access: { roles: access.admin },
+        order: 20,
+      });
+      r.nav({
+        id: "tenant-caps",
+        label: "admin-shell:nav.tenantCaps",
+        icon: "gauge",
+        screen: "cap-overview:screen:tenant-cap-list",
+        access: { roles: access.systemAdmin },
+        order: 20,
       });
     }
 

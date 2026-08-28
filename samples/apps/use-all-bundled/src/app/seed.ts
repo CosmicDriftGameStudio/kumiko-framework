@@ -6,6 +6,7 @@
 // (runDevApp) als Screenshot-Seed genutzt, nie im Prod-Boot.
 
 import { seedPage } from "@cosmicdrift/kumiko-bundled-features/managed-pages/seeding";
+import { NotesHistoryHandlers } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import {
   apiTokenEntity,
   apiTokenTable,
@@ -16,6 +17,10 @@ import {
   tagEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
+import {
+  tierAssignmentAggregateId,
+  tierAssignmentEntity,
+} from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import { fetchOne, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -29,7 +34,7 @@ import {
 import { TestUsers, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-framework/stack";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
-import { ADMIN_EMAIL, DEMO_NOTE_ID, DEV_TENANT_ID } from "./auth-constants";
+import { ADMIN_EMAIL, BETA_TENANT_ID, DEMO_NOTE_ID, DEV_TENANT_ID } from "./auth-constants";
 import { noteEntity } from "./notes-feature";
 
 // Event-store executors mirror the real handlers (createEntityExecutor pairs the
@@ -41,6 +46,10 @@ const { executor: tagAssignmentExecutor } = createEntityExecutor(
   tagAssignmentEntity,
 );
 const { executor: noteExecutor } = createEntityExecutor("note", noteEntity);
+const { executor: tierAssignmentExecutor } = createEntityExecutor(
+  "tier-assignment",
+  tierAssignmentEntity,
+);
 
 // Resolves the real dev-admin user (runDevApp's auth.admin, seeded via
 // seedAdmin() before options.seeds run) so seeded writes carry a created_by
@@ -54,6 +63,30 @@ async function resolveAdminUserId(db: DbConnection, _tenantId: TenantId): Promis
     );
   }
   return admin.id;
+}
+
+// One tier-assignment per platform tenant — cap-overview's tenant-cap-list
+// tier column/facet and its per-tier cap limits (cap-overview-caps.ts) are
+// both silent without this: no assignment renders as "" (tier column blank,
+// DEFAULT_LIMIT for every cap), the tier-engine write-handler pattern this
+// mirrors (set-tenant-tier.write.ts) upserts by the same deterministic
+// aggregate-id.
+async function seedTierAssignment(
+  db: DbConnection,
+  tenantId: TenantId,
+  tier: string,
+  adminUserId: string,
+): Promise<void> {
+  const by: SessionUser = { ...TestUsers.systemAdmin, tenantId, id: adminUserId };
+  const tdb = createTenantDb(db, tenantId, "system");
+  const result = await tierAssignmentExecutor.create(
+    { id: tierAssignmentAggregateId(tenantId), tier, source: "manual", tenantId },
+    by,
+    tdb,
+  );
+  if (!result.isSuccess) {
+    throw new Error(`seedTierAssignment: tenant ${tenantId} tier ${tier} failed`);
+  }
 }
 
 // tags + notes + assignments for the tags feature-reference screenshots:
@@ -227,6 +260,7 @@ const PRIVACY_BODY = [
 
 export const seedScreenshotData: SeedFn = async (stack) => {
   const devTenant = DEV_TENANT_ID as TenantId;
+  const betaTenant = BETA_TENANT_ID as TenantId;
 
   // managed-pages — zwei Seiten im Dev-Tenant für den page-list Screen.
   await seedPage(stack.db, {
@@ -290,6 +324,32 @@ export const seedScreenshotData: SeedFn = async (stack) => {
 
   // tags + notes + assignments in the dev tenant for the tags screenshots.
   await seedTagsAndNotes(stack.db, devTenant, devAdminId);
+
+  // Distinct tiers per tenant — cap-overview's tenant-cap-list tier column
+  // and facet filter (samples/e2e/cap-overview.spec.ts) need two different
+  // values to actually filter on. "free"'s tighter limits (cap-overview-
+  // caps.ts) also make the cards below cross the warn/danger thresholds
+  // with a realistic seed count instead of needing hundreds of rows.
+  await seedTierAssignment(stack.db, devTenant, "free", devAdminId);
+  await seedTierAssignment(stack.db, betaTenant, "pro", devAdminId);
+
+  // Push the dev tenant's "notes" cap past its free-tier limit (10) so the
+  // my-caps/platform-tenant-caps cards screenshot shows the danger tone
+  // (>=100%) alongside "tags"'s 4/5 = 80% warn tone from seedTagsAndNotes
+  // above — otherwise both caps sit at 0%/40% default, and the tone
+  // handling added for cap-cards-panel.tsx is never actually exercised.
+  const notesHistoryAuthor: SessionUser = {
+    ...TestUsers.systemAdmin,
+    tenantId: devTenant,
+    id: devAdminId,
+  };
+  for (let i = 0; i < 12; i++) {
+    await stack.http.writeOk(
+      NotesHistoryHandlers.addNote,
+      { entityType: "note", entityId: DEMO_NOTE_ID, body: `Historical note entry ${i + 1}` },
+      notesHistoryAuthor,
+    );
+  }
 
   // custom-fields + folders extension sections on note-edit.
   await seedCustomFieldsAndFolders(stack, devTenant, devAdminId);

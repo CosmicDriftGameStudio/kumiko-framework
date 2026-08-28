@@ -74,6 +74,8 @@ export function createCapsUsageQuery(caps: readonly CapSpec[]): QueryHandlerDefi
             fraction,
             tone: computeTone(fraction),
             percent: Math.round(computeUnclampedFraction(used, limit) * 100),
+            ...(cap.icon !== undefined && { icon: cap.icon }),
+            ...(cap.accentColor !== undefined && { accentColor: cap.accentColor }),
           };
         }),
       );

@@ -3,7 +3,9 @@
 // and extend this table (completeness test will fail otherwise).
 
 export const localeDeBundle: Readonly<Record<string, string>> = {
+  "admin-shell:nav.myCaps": "Tarife & Limits",
   "admin-shell:nav.platformOverview": "Übersicht",
+  "admin-shell:nav.tenantCaps": "Tarife & Limits",
   "admin-shell:nav.tenantOverview": "Übersicht",
   "admin-shell:nav.tenants": "Mandanten",
   "admin-shell:nav.tierAdmin": "Tier zuweisen",

@@ -205,8 +205,10 @@ export const APP_FEATURES = [
   // cap-overview: read-only tier/usage visibility. Caps are two example
   // entities this sample already mounts (notes-history, tags) — see
   // cap-overview-caps.ts. Requires tenant (auto-mounted) + tier-engine +
-  // billing-foundation, all mounted above.
-  createCapOverviewFeature({ caps: CAP_OVERVIEW_CAPS }),
+  // billing-foundation, all mounted above. `tiers` mirrors the keys
+  // cap-overview-caps.ts's per-tier limit maps use — without it the
+  // tenant-cap-list tier facet doesn't render at all (see screens.ts).
+  createCapOverviewFeature({ caps: CAP_OVERVIEW_CAPS, tiers: ["free", "pro"] }),
   capOverviewLabelsFeature,
 
   // feature-toggles (smoke-only runtime stub)
@@ -305,8 +307,9 @@ export const APP_FEATURES = [
   createRateLimitingFeature(),
   createAuditFeature(),
   // admin-shell: requires tenant (auto-mounted) + audit + jobs + tier-engine,
-  // all mounted above.
-  createAdminShellFeature(),
+  // all mounted above. includeCapOverview:true exercises the my-caps /
+  // tenant-caps nav entries end-to-end — cap-overview is mounted below.
+  createAdminShellFeature({ includeCapOverview: true }),
 
   // app-author-grade
   customFieldsFeature,

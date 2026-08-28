@@ -22,6 +22,7 @@ export const CAP_OVERVIEW_CAPS: readonly CapSpec[] = [
       const rows = await selectMany(db, noteEntryTable, { tenantId: [tenantId] });
       return rows.length;
     },
+    icon: "file",
   },
   {
     id: "tags",
@@ -31,5 +32,7 @@ export const CAP_OVERVIEW_CAPS: readonly CapSpec[] = [
       const rows = await selectMany(db, tagTable, { tenantId: [tenantId] });
       return rows.length;
     },
+    icon: "hash",
+    accentColor: "var(--color-status-ok)",
   },
 ];
