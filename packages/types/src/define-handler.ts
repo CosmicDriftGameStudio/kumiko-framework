@@ -91,6 +91,13 @@ export type QueryHandlerDefinition<
     query: QueryEvent<z.infer<TSchema>>,
     context: HandlerContext<TMap>,
   ) => Promise<TResult>;
+  /** Zod schema of `handler`'s actual return value — see QueryHandlerDef's
+   *  doc (handlers.ts) for the boot-validator checks this unlocks. Not
+   *  inferred from `TResult`: TResult is a compile-time-only type param
+   *  (this function never receives a runtime schema for it), so callers
+   *  that want boot-time column checks declare `outputSchema` explicitly,
+   *  same as `schema` for the input side. */
+  readonly outputSchema?: ZodType;
 };
 
 // --- Stream Handler Definition ---

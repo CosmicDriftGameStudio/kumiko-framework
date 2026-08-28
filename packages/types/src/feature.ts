@@ -463,7 +463,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     name: string,
     schema: TSchema,
     handler: QueryHandlerFn<z.infer<TSchema>>,
-    options?: { access?: AccessRule; rateLimit?: RateLimitOption },
+    options?: { access?: AccessRule; rateLimit?: RateLimitOption; outputSchema?: ZodType },
   ): HandlerRef;
 
   streamHandler<TName extends string, TSchema extends ZodType>(

@@ -952,6 +952,15 @@ export type QueryHandlerDef = {
   readonly handler: QueryHandlerFn;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
+  /** Zod schema of the handler's actual return value — the paged envelope
+   *  `{ rows, nextCursor, total? }` for a `definePagedQueryHandler`, or the
+   *  flat record (optionally `.nullable()`) for a plain query handler.
+   *  Optional and purely additive: absent on every existing handler, and
+   *  the boot-validator skips any column-reference check that would need
+   *  it (screens.ts projectionList/relatedList `columns`, projectionDetail
+   *  `header`/`metrics`, dashboard `valueField`/`subField`/etc.) rather
+   *  than requiring it retroactively. See fw#2493. */
+  readonly outputSchema?: ZodType;
 };
 
 export type StreamHandlerDef = {
