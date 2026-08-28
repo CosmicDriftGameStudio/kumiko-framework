@@ -161,9 +161,9 @@ describe("lock-step — lookupable / blind-index (#818)", () => {
   });
 });
 
-// Vierte Probe: softDelete + lookupable (#2464) — die partielle bidx-Unique
-// muss soft-gedeletete Rows aus dem Uniqueness-Scope ausschließen, sonst
-// blockiert eine soft-deletete Row denselben Wert für eine neue/restaurierte.
+// Fourth probe: softDelete + lookupable (#2464) — the partial bidx unique
+// must exclude soft-deleted rows from the uniqueness scope, otherwise a
+// soft-deleted row blocks the same value for a new/restored row.
 const entityWithSoftDeleteAndLookupable = createEntity({
   table: "read_lockstep_probe_bidx_sd",
   fields: {
@@ -180,7 +180,7 @@ describe("lock-step — softDelete + lookupable/blind-index (#2464)", () => {
   );
   const fromMeta = deriveEntityTableMeta("lockstepProbeBidxSd", entityWithSoftDeleteAndLookupable);
 
-  test("identical indexes inkl. soft-delete-aware bidx partial where", () => {
+  test("identical indexes incl. soft-delete-aware bidx partial where", () => {
     expect(byName<IndexMeta>(fromBuilder?.indexes ?? [])).toEqual(
       byName<IndexMeta>(fromMeta.indexes),
     );

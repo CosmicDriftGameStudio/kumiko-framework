@@ -69,13 +69,13 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
       console.log("");
     }
 
-    // Projection-Rebuild: persistente Queue statt "nur result.applied dieses
-    // Runs" — sonst bleibt ein fehlgeschlagener Rebuild für immer unbemerkt
-    // liegen, weil die Migration schon als applied getrackt ist und beim
-    // nächsten apply übersprungen wird (#2464). queueRebuildsFromMarkers
-    // persistiert die Marker-Tabellen VOR dem Rebuild; runPendingRebuilds holt
-    // unconditionally auch offene Einträge aus früheren, gescheiterten Runs
-    // nach — nicht nur die, die dieser Run frisch appliziert hat.
+    // Projection rebuild: persistent queue instead of "only this run's
+    // result.applied" — otherwise a failed rebuild stays silently stuck
+    // forever, since the migration is already tracked applied and gets
+    // skipped on the next apply (#2464). queueRebuildsFromMarkers persists
+    // the marker tables BEFORE the rebuild; runPendingRebuilds unconditionally
+    // also picks up open entries from earlier, failed runs — not just the
+    // ones this run freshly applied.
     const thisRunTables = await queueRebuildsFromMarkers(db, {
       migrationsDir,
       appliedIds: result.applied,
