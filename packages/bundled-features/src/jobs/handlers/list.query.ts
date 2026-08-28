@@ -2,12 +2,23 @@ import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { decryptStoredPii } from "../../shared";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { jobRunsTable } from "../job-run-table";
 
-async function decryptRunPayload<T extends Record<string, unknown>>(row: T): Promise<T> {
-  if (typeof row["payload"] !== "string") return row;
-  return { ...row, payload: await decryptStoredPii(row["payload"], "payload", "job-runs") };
+const KMS_POOL_CONCURRENCY = 4;
+
+async function decryptRunRow<T extends Record<string, unknown>>(row: T): Promise<T> {
+  let result = row;
+  if (typeof result["payload"] === "string") {
+    result = {
+      ...result,
+      payload: await decryptStoredPii(result["payload"], "payload", "job-runs"),
+    };
+  }
+  if (typeof result["error"] === "string") {
+    result = { ...result, error: await decryptStoredPii(result["error"], "error", "job-runs") };
+  }
+  return result;
 }
 
 export const listQuery = defineQueryHandler({
@@ -32,7 +43,7 @@ export const listQuery = defineQueryHandler({
       orderBy: { col: "id", direction: "desc" },
       limit: query.payload.limit ?? 50,
     });
-    // payload is stored encrypted under the triggering user's DEK (#799).
-    return { rows: await Promise.all(rows.map(decryptRunPayload)) };
+    // payload/error are stored encrypted under the triggering user's DEK (#799, #2307).
+    return { rows: await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, decryptRunRow) };
   },
 });

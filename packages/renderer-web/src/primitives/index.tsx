@@ -8,6 +8,7 @@
 // basierte Stile. Radix-UI-Unterbau für interaktive Elemente (Modal,
 // Dropdown etc. kommen später).
 
+import type { FieldIconKey } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
 import { applyFormatSpec, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import type {
@@ -36,7 +37,8 @@ import {
   type StepBarProps,
   type TextProps,
   useColumnRenderer,
-  useLocale,
+  useOptionalLocale,
+  useOptionalTranslation,
   useTranslation,
   type WizardStepGroupProps,
   WriteFailedError,
@@ -312,7 +314,7 @@ function DefaultField({
 // (nav-tree.tsx) — a separate, smaller registry instead of a shared
 // import, because field icons cover a different use case (email, phone,
 // location, …) than nav icons (dashboard, tables, …).
-const FIELD_ICONS: Readonly<Record<string, typeof Mail>> = {
+const FIELD_ICONS = {
   mail: Mail,
   lock: Lock,
   hash: Hash,
@@ -326,10 +328,12 @@ const FIELD_ICONS: Readonly<Record<string, typeof Mail>> = {
   globe: Globe,
   key: KeyRound,
   "map-pin": MapPin,
-};
+} as const satisfies Readonly<Record<FieldIconKey, typeof Mail>>;
 
-function fieldIconFor(icon: string | undefined): (typeof FIELD_ICONS)[string] | undefined {
-  return icon !== undefined && Object.hasOwn(FIELD_ICONS, icon) ? FIELD_ICONS[icon] : undefined;
+function fieldIconFor(icon: string | undefined): (typeof FIELD_ICONS)[FieldIconKey] | undefined {
+  return icon !== undefined && Object.hasOwn(FIELD_ICONS, icon)
+    ? FIELD_ICONS[icon as FieldIconKey]
+    : undefined;
 }
 
 // Wraps a text/number input with a left-positioned prefix icon when
@@ -669,6 +673,10 @@ function DefaultDataTable({
   getRowTestId,
   getCellTestId,
 }: DataTableProps): ReactNode {
+  // One locale/translate subscription per table — not per cell (fw#2345).
+  // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
+  const tableTranslate = useOptionalTranslation();
+  const tableLocale = useOptionalLocale();
   // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
   // beide visuell zusammengehören. Toolbar ist NICHT sticky — Lists
   // scrollen typischerweise mit dem Page-Container, nicht intern.
@@ -735,12 +743,6 @@ function DefaultDataTable({
                     // if the sum of the columns gets too wide.
                     className={cn("max-w-xs truncate", col.highlighted === true && "bg-accent/40")}
                     title={cellTitle(row.values[col.field])}
-                    // A click into the editable cell's widget must not also
-                    // trigger the row's onClick (typically "Open Detail") —
-                    // same reasoning as the actions cell below.
-                    {...(onCellChange !== undefined && {
-                      onClick: (e: MouseEvent) => e.stopPropagation(),
-                    })}
                   >
                     <DataTableCell
                       value={row.values[col.field]}
@@ -748,6 +750,8 @@ function DefaultDataTable({
                       field={col.field}
                       type={col.type}
                       renderer={col.renderer}
+                      translate={tableTranslate}
+                      locale={tableLocale}
                       {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
                       {...(onCellChange !== undefined && {
                         onChange: (value: unknown) => onCellChange(row.id, col.field, value),
@@ -1502,6 +1506,8 @@ type DataTableCellProps = {
   readonly renderer?: unknown;
   readonly optionLabels?: Readonly<Record<string, string>>;
   readonly onChange?: (value: unknown) => void;
+  readonly translate?: (key: string, params?: Readonly<Record<string, unknown>>) => string;
+  readonly locale?: string;
 };
 
 // Cell-Renderer als Component (statt reiner Funktion) damit der
@@ -1521,19 +1527,16 @@ function DataTableCell({
   renderer,
   optionLabels,
   onChange,
+  translate,
+  locale,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
-  const t = useTranslation();
-  // App locale, analogous to RenderField (render-field.tsx) — otherwise
-  // format:"unit"/number/money cells follow the runtime locale instead of
-  // the app locale chosen via LocaleProvider (fw#2437).
-  const appLocale = useLocale().locale();
   if (typeof renderer === "object" && renderer !== null && "format" in renderer) {
     return applyFormatSpec(
-      { locale: appLocale, ...(renderer as { format: string } & Record<string, unknown>) },
+      { locale, ...(renderer as { format: string } & Record<string, unknown>) },
       value,
-      t,
+      translate,
     );
   }
   if (typeof renderer === "function") {
@@ -1542,7 +1545,7 @@ function DataTableCell({
   }
   if (componentRef !== undefined) {
     if (ResolvedComponent !== undefined) {
-      return (
+      const node = (
         <ResolvedComponent
           value={value}
           row={row}
@@ -1550,6 +1553,21 @@ function DataTableCell({
           {...(onChange !== undefined && { onChange })}
         />
       );
+      // stopPropagation only on the editable branch — plain cells must still
+      // fire row onClick when onCellChange is set for sibling editable cells.
+      if (onChange !== undefined) {
+        return (
+          // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation only — not a control
+          <span
+            className="contents"
+            onClick={(e: MouseEvent) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {node}
+          </span>
+        );
+      }
+      return node;
     }
     // Renderer im Schema referenziert, aber client-side kein Map-Eintrag —
     // typischer Fall: clientFeatures.columnRenderers vergessen oder
@@ -1564,11 +1582,11 @@ function DataTableCell({
     // dashboard-01-Muster: outline-Badge + muted statt gefülltem secondary.
     return (
       <Badge variant="outline" className="px-1.5 text-muted-foreground">
-        {defaultCellRender(value, type, optionLabels, appLocale)}
+        {defaultCellRender(value, type, optionLabels, locale)}
       </Badge>
     );
   }
-  return defaultCellRender(value, type, optionLabels, appLocale);
+  return defaultCellRender(value, type, optionLabels, locale);
 }
 
 // ---- Form + Section + Grid + Text ----

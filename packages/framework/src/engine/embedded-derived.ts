@@ -1,13 +1,11 @@
 import type { EmbeddedDerivedCellDef, EmbeddedSubFieldDef } from "./types";
 
 /** Computes a derived cell from its source values. Missing/non-numeric
- *  sources are treated as 0 for "sum"/"subtract"; "multiply" with any
- *  missing source returns undefined (an incomplete product isn't a
- *  meaningful partial value). Money cells are minor-unit integers — this
- *  function is unit-agnostic, it just does arithmetic on whatever numbers
- *  it's given (caller passes minor units for money, not major/float).
- *  `withDerivedCells` rounds the result to the target sub-field's declared
- *  precision afterward. */
+ *  sources: "multiply" with any missing source → undefined; "sum"/"subtract"
+ *  treat missing as 0 only when at least one source is present — if every
+ *  source is missing, return undefined (do not invent 0). Money cells are
+ *  minor-unit integers — unit-agnostic arithmetic; `withDerivedCells` rounds
+ *  to the target sub-field's declared precision afterward. */
 export function computeDerivedCellValue(
   op: EmbeddedDerivedCellDef["op"],
   values: readonly (number | undefined)[],
@@ -16,6 +14,7 @@ export function computeDerivedCellValue(
     if (values.some((value) => value === undefined)) return undefined;
     return (values as readonly number[]).reduce((product, value) => product * value, 1);
   }
+  if (values.every((value) => value === undefined)) return undefined;
   const numeric = values.map((value) => value ?? 0);
   if (op === "sum") return numeric.reduce((sum, value) => sum + value, 0);
   // subtract: first value minus every subsequent value.
@@ -60,8 +59,8 @@ function roundHalfAwayFromZero(value: number, decimals: number): number {
 /** Recomputes every derived cell of an embedded-list row from its raw
  *  values, overwriting whatever the client sent instead of merely checking
  *  it — the server is the authority for derived cells. Reads source values
- *  from the original row (never from an already-recomputed derived cell),
- *  so the iteration order of `derived` never matters. A row that isn't a
+ *  from the working copy so already-recomputed sources feed later cells;
+ *  boot-validator rejects derived-from-derived chains. A row that isn't a
  *  plain object (already invalid, or not this field's shape) passes through
  *  untouched — validation downstream rejects it. The computed value is
  *  rounded to the target sub-field's declared precision (`schema`) before
@@ -77,11 +76,13 @@ export function withDerivedCells(
   const copy: Record<string, unknown> = { ...source };
   for (const [cellName, def] of Object.entries(derived)) {
     const sourceValues = def.from.map((sourceField) => {
-      const value = source[sourceField];
+      const value = copy[sourceField];
       return typeof value === "number" ? value : undefined;
     });
     const computed = computeDerivedCellValue(def.op, sourceValues);
     if (computed === undefined) {
+      // Always clear — keeping a client value would let callers spoof required
+      // derived cells when sources are missing (server must stay authoritative).
       delete copy[cellName];
     } else {
       const target = schema[cellName];

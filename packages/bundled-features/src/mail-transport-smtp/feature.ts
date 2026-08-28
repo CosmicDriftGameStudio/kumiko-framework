@@ -62,9 +62,8 @@ export const mailTransportSmtpFeature = defineFeature(FEATURE_NAME, (r) => {
 
   // Provider-secret. Sensitive: redact-helper for admin-UI display.
   const password = r.secret("smtp.password", {
-    label: { de: "SMTP-Passwort", en: "SMTP password" },
+    label: { en: "SMTP password" },
     hint: {
-      de: "Login-Passwort am SMTP-Server. Bei Brevo/Postmark/SES heißt es 'API key' bzw. 'SMTP credentials'.",
       en: "Login password at the SMTP server. Brevo/Postmark/SES call it 'API key' or 'SMTP credentials'.",
     },
     redact: (plaintext) => {

@@ -7,7 +7,7 @@ import {
 import { ASSETS_DIR } from "./build-prod-bundle";
 import { injectSchema } from "./inject-schema";
 import type { HostDispatchFn } from "./run-prod-app";
-import { tryHonoFirst } from "./try-hono-first";
+import { stripNoRouteMatchHeader, tryHonoFirst } from "./try-hono-first";
 
 // Static-asset + SPA-fallback serving for runProdApp's HTTP handler. Split
 // out of run-prod-app.ts (#1005, Welle 2) — mechanical relocation, these
@@ -201,9 +201,12 @@ export function buildStaticFallback(
 
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
-    // /api/* and /health → always Hono (Dispatcher + Health-Probe).
+    // /api/* and /health → always Hono (Dispatcher + Health-Probe). Bypasses
+    // tryHonoFirst entirely, so the router-miss marker must be stripped
+    // here too — otherwise an unmatched /api/* path would leak it straight
+    // to the client (see try-hono-first.ts's header-hygiene note).
     if (url.pathname.startsWith("/api/") || url.pathname === "/health") {
-      return apiHandler(req);
+      return stripNoRouteMatchHeader(await apiHandler(req));
     }
 
     // Hono-First für andere Pfade: extraRoutes (z.B. /feed.xml,

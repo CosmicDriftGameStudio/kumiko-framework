@@ -20,6 +20,7 @@ import {
   userSessionEntity,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
+import { NO_ROUTE_MATCH_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { InMemoryKmsAdapter, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -410,6 +411,96 @@ describe("runProdApp", () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("User-agent: *");
     expect(res.headers.get("etag")).toBeTruthy();
+  });
+
+  test("static-fallback: a matched extraRoute's own deliberate 404 stays 404, not masked as the SPA shell (#2435)", async () => {
+    // kumiko-framework#2435: tryHonoFirst used to treat ANY 404 as "no
+    // route matched" and fall through to index.html with status 200 —
+    // masking a matched route's intentional 404 (e.g. default-deny reads
+    // like file-derivatives' public-variant route). An index.html exists
+    // here specifically to prove the SPA-fallback does NOT win.
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>SPA shell</html>",
+    });
+
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      extraRoutes: (app) => {
+        app.get("/probe/:id", (c) => {
+          if (c.req.param("id") === "missing") return c.text("not found", 404);
+          return c.text(`probe:${c.req.param("id")}`, 200);
+        });
+      },
+    });
+
+    const res = await handle.fetch(new Request("http://test/probe/missing"));
+    expect(res.status).toBe(404);
+    expect(await res.text()).toBe("not found");
+    expect(res.headers.get("content-type") ?? "").not.toMatch(/text\/html/);
+    expect(res.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
+  });
+
+  test("static-fallback: an unknown SPA route still gets the SPA shell alongside a route that 404s (#2435)", async () => {
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>SPA shell</html>",
+    });
+
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      extraRoutes: (app) => {
+        app.get("/probe/:id", (c) => c.text("not found", 404));
+      },
+    });
+
+    const res = await handle.fetch(new Request("http://test/some/client-route"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("SPA shell");
+    expect(res.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
+  });
+
+  test("static-fallback: an unmatched /api/* path stays a plain 404, no marker leak (#2435)", async () => {
+    // /api/* is a passthrough in buildStaticFallback (always Hono, never
+    // the SPA shell) — bypasses tryHonoFirst entirely, so the strip at
+    // that passthrough site is what's under test here. anonymousAccess is
+    // wired so this anonymous GET clears the auth middleware and actually
+    // reaches Hono's router (unauthenticated /api/* requests get a plain
+    // 401 from the auth guard before routing is even attempted, which
+    // would test the auth guard instead of the router-miss path).
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>SPA shell</html>",
+    });
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+    });
+
+    const res = await handle.fetch(new Request("http://test/api/totally-unknown-route"));
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toContain("SPA shell");
+    expect(res.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
+  });
+
+  test("no staticDir (split-deploy/API-only boot): a router-miss never leaks the internal marker header to the client (#2435)", async () => {
+    // Without staticDir, fetchHandler is app.fetch directly — it never goes
+    // through buildStaticFallback/tryHonoFirst, so the strip has to happen
+    // at this bypass site too (run-prod-app.ts's fetchHandler assembly).
+    const handle = await boot(undefined, {
+      extraRoutes: (app) => {
+        app.get("/probe/:id", (c) => {
+          if (c.req.param("id") === "missing") return c.text("not found", 404);
+          return c.text(`probe:${c.req.param("id")}`, 200);
+        });
+      },
+    });
+
+    const routerMiss = await handle.fetch(new Request("http://test/totally/unknown/path"));
+    expect(routerMiss.status).toBe(404);
+    expect(routerMiss.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
+
+    const deliberate404 = await handle.fetch(new Request("http://test/probe/missing"));
+    expect(deliberate404.status).toBe(404);
+    expect(await deliberate404.text()).toBe("not found");
+    expect(deliberate404.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
   });
 
   test("static-fallback: If-None-Match → 304 on disk file", async () => {

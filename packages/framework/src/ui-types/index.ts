@@ -77,6 +77,7 @@ export type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   FieldCondition,
+  FieldIconKey,
   FieldRenderer,
   FormWidth,
   ListColumnSpec,

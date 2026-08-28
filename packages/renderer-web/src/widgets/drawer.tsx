@@ -4,14 +4,16 @@ import { type ReactNode, useRef, useState } from "react";
 import { clamp } from "../lib/clamp";
 import { cn } from "../lib/cn";
 import { useIsNarrowViewport } from "../primitives/use-narrow-viewport";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "../ui/sheet";
+import { Sheet, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "../ui/sheet";
+import { DrawerSheetContent } from "./sheet-parts";
+
+// Mirrors primitives/index.tsx's cardFooter + cardFooterBorder (row layout,
+// end-justified actions, top border, panel surface instead of the card
+// footer's bg-muted/30) — those two consts aren't exported, so the
+// equivalent classes are inlined here rather than growing the vendored
+// SheetFooter's own default className with panel-specific styling.
+const DRAWER_FOOTER_CLASS =
+  "flex-row items-center justify-end border-t bg-background px-[var(--card-padding)] py-4";
 
 export type DrawerProps = {
   readonly open: boolean;
@@ -161,7 +163,7 @@ export function Drawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
+      <DrawerSheetContent
         side={side}
         data-testid={testId}
         overlayStyle={overlayStyle}
@@ -193,7 +195,9 @@ export function Drawer({
           </SheetHeader>
         )}
         <div className="flex-1 overflow-y-auto px-4">{children}</div>
-        {footer !== undefined && <SheetFooter>{footer}</SheetFooter>}
+        {footer !== undefined && (
+          <SheetFooter className={DRAWER_FOOTER_CLASS}>{footer}</SheetFooter>
+        )}
         {canResize && !narrow && (
           // biome-ignore lint/a11y/useSemanticElements: <hr> can't carry pointer/keyboard drag interaction or a live width value — a draggable separator needs a div with the ARIA role.
           <div
@@ -214,7 +218,7 @@ export function Drawer({
             )}
           />
         )}
-      </SheetContent>
+      </DrawerSheetContent>
     </Sheet>
   );
 }

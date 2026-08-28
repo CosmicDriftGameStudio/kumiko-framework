@@ -92,7 +92,7 @@ export function TierAdminScreen(): ReactNode {
   const canSubmit = tenantId !== "" && tier !== "" && !submitting;
 
   return (
-    <FormScreenShell testId="tier-admin-screen" className="flex flex-col gap-6">
+    <FormScreenShell testId="tier-admin-screen" maxWidth="4xl" className="flex flex-col gap-6">
       {tenantsQuery.error !== null && (
         <Banner variant="error" testId="tier-admin-load-error">
           {t("tier-admin.error.load")}

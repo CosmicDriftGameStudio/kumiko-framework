@@ -166,6 +166,10 @@
       "types": "./src/nav-icon.ts",
       "default": "./src/nav-icon.ts"
     },
+    "./field-icon": {
+      "types": "./src/field-icon.ts",
+      "default": "./src/field-icon.ts"
+    },
     "./ownership": {
       "types": "./src/ownership.ts",
       "default": "./src/ownership.ts"

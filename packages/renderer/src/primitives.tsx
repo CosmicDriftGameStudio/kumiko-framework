@@ -35,7 +35,7 @@ import type {
   ConfigScope,
   ConfigValueSource,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { FormWidth } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { FieldIconKey, FormWidth } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   FieldIssue,
   ListColumnViewModel,
@@ -179,9 +179,8 @@ export type InputProps =
       /** Read-only Input (z.B. gewürfelter Free-Tier-Slug). Nicht `disabled`
        *  — bleibt fokussier-/kopierbar. */
       readonly readOnly?: boolean;
-      /** Symbolic icon key (FIELD_ICONS registry, renderer-web) — renders
-       *  as a prefix on the input. Unknown key → no icon (no boot-fail). */
-      readonly icon?: string;
+      /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer-web). */
+      readonly icon?: FieldIconKey;
     }
   | {
       readonly kind: "email";
@@ -223,9 +222,8 @@ export type InputProps =
       readonly required?: boolean;
       readonly hasError?: boolean;
       readonly testId?: string;
-      /** Symbolic icon key (FIELD_ICONS registry, renderer-web) — renders
-       *  as a prefix on the input. Unknown key → no icon (no boot-fail). */
-      readonly icon?: string;
+      /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer-web). */
+      readonly icon?: FieldIconKey;
       /** `<input step>`. "any" disables the native stepMismatch constraint
        *  (needed for decimal fields — integer fields leave this unset). */
       readonly step?: number | "any";
