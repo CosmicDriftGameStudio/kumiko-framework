@@ -397,17 +397,20 @@ function projectDerivedField(derivedDef: DerivedFieldDef): ClientDerivedFieldDef
   return { valueType: derivedDef.valueType };
 }
 
-// Whitelist pro Field. `default` darf nur durch wenn Literal (string/
-// number/boolean/null) — auch wenn die FieldDefinition-Types „default"
-// nur als Literal typisieren, hat das Sample-Pattern
-// `as unknown as EntityDefinition` Authorinnen schon Function-Defaults
-// reinschmuggeln lassen. Diese Defense-in-Depth fängt sie ab BEVOR
-// JSON.stringify sie in der Browser-Injection-Pipeline droppt.
+// Per-field whitelist. Every forwarded value must be JSON-safe (literal, or
+// an array/plain-object built only from JSON-safe values) — even though the
+// FieldDefinition types only type `default` as a literal, the sample-authoring
+// pattern `as unknown as EntityDefinition` has already let function-valued
+// defaults slip through. This whitelist is defense-in-depth that catches them
+// BEFORE JSON.stringify silently drops them in the browser-injection pipeline.
+// The same check gates the structured properties below (`multiline`,
+// `derived`, `totals`, `totalsMatch`) — a top-level `Array.isArray`/plain-
+// object check alone would let a function survive one level deep.
 //
-// Cast am Exit `as FieldDefinition`: type-system-wise erfüllt unsere
-// Out-Map die Discriminated-Union nur mit unverengtem `type`-String —
-// der Cast bridged die Variant-Inferenz, die TS aus einem Generic
-// Record nicht zurückrechnet.
+// Cast at the exit `as FieldDefinition`: type-system-wise our out-map only
+// satisfies the discriminated union with an unnarrowed `type` string — the
+// cast bridges the variant inference TS can't recompute from a generic
+// Record.
 function projectField(fieldDef: FieldDefinition): FieldDefinition {
   const def = fieldDef as Record<string, unknown>; // @cast-boundary schema-walk
   const out: Record<string, unknown> = {};
@@ -418,7 +421,7 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   // boolean) — muss daher ins Client-Schema.
   if (typeof def["filterable"] === "boolean") out["filterable"] = def["filterable"];
   if (typeof def["searchable"] === "boolean") out["searchable"] = def["searchable"];
-  if (isLiteral(def["default"])) out["default"] = def["default"];
+  if (isJsonSafeValue(def["default"])) out["default"] = def["default"];
   // Select: options-Liste ist plain JSON, durchschicken.
   if (Array.isArray(def["options"])) out["options"] = def["options"];
   // Reference: entity-Target + labelField + multiple müssen zum Renderer.
@@ -434,11 +437,44 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (typeof def["display"] === "string") out["display"] = def["display"];
   if (typeof def["columns"] === "number") out["columns"] = def["columns"];
   if (typeof def["maxRows"] === "number") out["maxRows"] = def["maxRows"];
+  // text/longText: textarea row count — DefaultInput renders a single-line
+  // input otherwise (fw#2497).
+  if (
+    typeof def["multiline"] === "boolean" ||
+    (isPlainObject(def["multiline"]) && isJsonSafeValue(def["multiline"]))
+  )
+    out["multiline"] = def["multiline"];
+  // number: Zod write-boundary bounds. date/timestamp/locatedTimestamp:
+  // ISO-string picker bounds — same keys, different literal type (fw#2497).
+  if (typeof def["min"] === "number" || typeof def["min"] === "string") out["min"] = def["min"];
+  if (typeof def["max"] === "number" || typeof def["max"] === "string") out["max"] = def["max"];
+  // date/timestamp/locatedTimestamp: display/parsing locale override (fw#2497).
+  if (typeof def["locale"] === "string") out["locale"] = def["locale"];
+  // image: which camera a mobile capture opens (fw#2497).
+  if (typeof def["capture"] === "string") out["capture"] = def["capture"];
+  // embedded lists: row-count bounds, computed cells, totals row, and the
+  // sibling-money-field totals check (fw#2497).
+  if (typeof def["minItems"] === "number") out["minItems"] = def["minItems"];
+  if (typeof def["maxItems"] === "number") out["maxItems"] = def["maxItems"];
+  if (isPlainObject(def["derived"]) && isJsonSafeValue(def["derived"]))
+    out["derived"] = def["derived"];
+  if (Array.isArray(def["totals"]) && isJsonSafeValue(def["totals"])) out["totals"] = def["totals"];
+  if (isPlainObject(def["totalsMatch"]) && isJsonSafeValue(def["totalsMatch"]))
+    out["totalsMatch"] = def["totalsMatch"];
   return out as FieldDefinition; // @cast-boundary schema-walk
 }
 
-function isLiteral(value: unknown): boolean {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+function isJsonSafeValue(value: unknown): boolean {
   if (value === null) return true;
   const t = typeof value;
-  return t === "string" || t === "number" || t === "boolean";
+  if (t === "string" || t === "number" || t === "boolean") return true;
+  if (Array.isArray(value)) return value.every(isJsonSafeValue);
+  if (isPlainObject(value)) return Object.values(value).every(isJsonSafeValue);
+  return false;
 }
