@@ -1445,7 +1445,7 @@ function isMoneyValue(value: unknown): value is MoneyCellValue {
 //   - boolean → ✓ / leer
 //   - timestamp/date → locale-formatiert (kein roher ISO-String)
 //   - number/decimal/bigInt → locale-formatted via Intl.NumberFormat (fw#2160)
-//   - select → human-lesbar (kebab-case → Title Case)
+//   - select/multiSelect → human-readable (kebab-case → Title Case), multiSelect values joined with ", "
 //   - money → { amount, currency } formatted via Intl (not "[object Object]")
 //   - text/else → toString
 export function defaultCellRender(
@@ -1473,15 +1473,19 @@ export function defaultCellRender(
     const minor = Math.round(value.amount * 10 ** currencyDecimals(value.currency));
     return formatMoney(minor, value.currency, locale);
   }
-  if (type === "select") {
-    const raw = String(value);
-    // Translated Label aus dem ViewModel-Builder (Convention-Key
-    // `<feature>:entity:<entity>:field:<field>:option:<value>`).
-    // Fallback humanizeSlug wenn kein Label registriert — gleiches
-    // Verhalten wie vor dem optionLabels-Patch.
-    const translated = optionLabels?.[raw];
-    if (translated !== undefined && translated !== raw) return translated;
-    return humanizeSlug(raw);
+  if (type === "select" || type === "multiSelect") {
+    const values = Array.isArray(value) ? value : [value];
+    return values
+      .map((v) => {
+        const raw = String(v);
+        // Translated label from the view-model builder (convention key
+        // `<feature>:entity:<entity>:field:<field>:option:<value>`).
+        // Fallback to humanizeSlug when no label is registered — same
+        // behavior as before the optionLabels patch.
+        const translated = optionLabels?.[raw];
+        return translated !== undefined && translated !== raw ? translated : humanizeSlug(raw);
+      })
+      .join(", ");
   }
   return typeof value === "string" ? value : String(value);
 }

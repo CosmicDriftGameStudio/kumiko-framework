@@ -196,6 +196,22 @@ describe("defaultCellRender", () => {
     expect(defaultCellRender("op-x", "select", { "op-x": "Operativ X" })).toBe("Operativ X");
   });
 
+  test("multiSelect → Werte gejoint mit ', ', optionLabel gewinnt vor humanizeSlug pro Wert (fw#2491)", () => {
+    expect(
+      defaultCellRender(["op-x", "degraded-performance"], "multiSelect", {
+        "op-x": "Operativ X",
+      }),
+    ).toBe("Operativ X, Degraded performance");
+  });
+
+  test("multiSelect → leeres Array liefert leeren String", () => {
+    expect(defaultCellRender([], "multiSelect")).toBe("");
+  });
+
+  test("multiSelect → einzelner Nicht-Array-Wert wird wie select behandelt (defensive)", () => {
+    expect(defaultCellRender("op-x", "multiSelect", { "op-x": "Operativ X" })).toBe("Operativ X");
+  });
+
   test("text → String-Repräsentation", () => {
     expect(defaultCellRender("hallo", "text")).toBe("hallo");
   });

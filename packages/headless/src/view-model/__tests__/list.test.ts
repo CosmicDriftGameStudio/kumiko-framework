@@ -14,6 +14,8 @@ const taskEntity = {
     title: { type: "text", required: true, sortable: true },
     done: { type: "boolean" },
     priority: { type: "number", sortable: true },
+    role: { type: "select", options: ["admin", "member"] },
+    labels: { type: "multiSelect", options: ["urgent", "low-priority"] },
   },
   derivedFields: {
     // Read-time computed (value appended by the list-query handler). The
@@ -230,6 +232,36 @@ describe("computeListViewModel", () => {
     });
 
     expect(vm.columns[0]?.renderer).toEqual(fmt);
+  });
+
+  test("select field column includes translated optionLabels", () => {
+    const vm = computeListViewModel({
+      screen: listScreen(["role"]),
+      entity: taskEntity,
+      rows: [],
+      translate: (key) => (key === "tasks:entity:task:field:role:option:admin" ? "Admin" : key),
+      featureName: "tasks",
+    });
+
+    expect(vm.columns[0]?.optionLabels).toEqual({
+      admin: "Admin",
+      member: "member",
+    });
+  });
+
+  test("multiSelect field column includes translated optionLabels (fw#2491)", () => {
+    const vm = computeListViewModel({
+      screen: listScreen(["labels"]),
+      entity: taskEntity,
+      rows: [],
+      translate: (key) => (key === "tasks:entity:task:field:labels:option:urgent" ? "Urgent" : key),
+      featureName: "tasks",
+    });
+
+    expect(vm.columns[0]?.optionLabels).toEqual({
+      urgent: "Urgent",
+      "low-priority": "low-priority",
+    });
   });
 
   test("slots pass through unchanged for the renderer to mount", () => {
