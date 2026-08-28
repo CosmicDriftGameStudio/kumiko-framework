@@ -5,6 +5,7 @@ export {
   canonicalJson,
   derivativeListPrefix,
   isDerivativeKeyOf,
+  parseDerivativeKey,
   specHash,
   VARIANT_NAME_PATTERN,
   variantSuffix,

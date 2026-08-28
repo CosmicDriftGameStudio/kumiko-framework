@@ -15,6 +15,7 @@ import {
   type Registry,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   tenantEntity,
@@ -30,6 +31,10 @@ export type DestructionStageCtx = {
   readonly registry: Registry;
   readonly tenantId: TenantId;
   readonly log?: (message: string) => void;
+  // Only threaded through for the "files" stage (EXT_STORAGE_PROVIDER
+  // "destroyTenant" hooks) — undefined when no file-provider is wired,
+  // which those hooks must treat as "nothing to clean up", not an error.
+  readonly fileProviderResolver?: FileProviderResolver;
 };
 
 export type DestructionStage = {

@@ -46,6 +46,7 @@ import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { fileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
 import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3-env";
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
+import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
 import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
 import { foldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
 import { formDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
@@ -319,6 +320,11 @@ export const APP_FEATURES = [
   // (optionally) on auth-mfa + (hard) on user-data-rights — both mounted
   // above.
   authMfaUserDataFeature,
+  // files-tenant-data: tenant-destroy row purge + storage-prefix binary wipe
+  // for fileRef, plus the orphaned-derivative backfill/GC job (#2474).
+  // Depends (optionally) on files + (hard) on tenant-lifecycle — both
+  // mounted above.
+  createFilesTenantDataFeature(),
   // ledger: double-entry bookkeeping primitive (account + immutable transaction).
   ledgerFeature,
   // document-ingest-foundation: Phase-1 skeleton — documentExtract entity +

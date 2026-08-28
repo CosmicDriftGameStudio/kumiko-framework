@@ -11,6 +11,7 @@ import {
   loadAggregate,
   VersionConflictError,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { tenantEntity, tenantTable } from "../tenant";
 import {
@@ -214,6 +215,7 @@ export async function runNextDestructionStage(args: {
   readonly registry: Registry;
   readonly tenantId: TenantId;
   readonly log?: (message: string) => void;
+  readonly fileProviderResolver?: FileProviderResolver;
 }): Promise<{ readonly done: boolean; readonly error?: string; readonly halted?: boolean }> {
   const events = await loadAggregate(args.db, args.tenantId, args.tenantId);
   const { completed, abandoned, attemptsByStage } = replayStageState(events);
@@ -235,6 +237,7 @@ export async function runNextDestructionStage(args: {
     registry: args.registry,
     tenantId: args.tenantId,
     log: args.log,
+    fileProviderResolver: args.fileProviderResolver,
   };
 
   let version = lastEventVersion(events);
@@ -300,6 +303,7 @@ export async function runTenantDestructionSweep(args: {
   readonly registry: Registry;
   readonly now?: Temporal.Instant;
   readonly log?: (message: string) => void;
+  readonly fileProviderResolver?: FileProviderResolver;
 }): Promise<{ readonly triggered: number; readonly advanced: number }> {
   const T = getTemporal();
   const now = args.now ?? T.Now.instant();
@@ -348,6 +352,7 @@ export async function runTenantDestructionSweep(args: {
         registry: args.registry,
         tenantId: row.id as TenantId,
         log: args.log,
+        fileProviderResolver: args.fileProviderResolver,
       });
       if (!result.error && !result.halted) advanced++;
     } catch (err) {
