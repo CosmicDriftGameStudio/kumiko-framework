@@ -390,12 +390,14 @@ export function createInboundMailSupervisor(
   // lifecycle — it keeps renewing across reconnect backoff, not just while
   // `plugin.watch()` is actually connected, so a flaky IMAP link doesn't
   // make this worker lose the account to a peer mid-backoff.
+  // kumiko-lint-ignore complexity-budget watch lease renew backoff/re-acquire loop
   function scheduleRenew(
     account: MailAccountRecord,
     state: WatcherState,
     generation: number,
   ): void {
     state.renewTimer = setTimeout(() => {
+      // kumiko-lint-ignore complexity-budget renew timer callback (renew/backoff/re-acquire)
       void (async () => {
         state.renewTimer = null;
         // skip: supervisor stopped, generation superseded, or lease already lost — stale timer fire, nothing to renew.

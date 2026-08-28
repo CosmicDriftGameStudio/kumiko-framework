@@ -50,7 +50,11 @@ export const restrictAccountWrite = defineWriteHandler({
     const targetUserId = event.payload.userId ?? event.user.id;
     if (targetUserId !== event.user.id) {
       if (!isAdminActor(event.user)) {
-        return writeFailure(new AccessDeniedError({}));
+        return writeFailure(
+          new AccessDeniedError({
+            details: { reason: "admin_required_for_other_user" },
+          }),
+        );
       }
       const outside = await denyIfTargetOutsideAdminTenant(ctx.db.raw, event.user, targetUserId);
       if (outside) return outside;
