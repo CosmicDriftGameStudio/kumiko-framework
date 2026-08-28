@@ -46,6 +46,7 @@ import {
 import { validateOwnershipRules } from "./ownership";
 import { validatePiiAndRetention } from "./pii-retention";
 import { validateProjectionListScreens } from "./projection-list-screens";
+import { validateQueryOutputColumns } from "./query-output-columns";
 import { validateQueryRefs } from "./query-refs";
 import {
   collectScreenQns,
@@ -222,6 +223,9 @@ export function validateBoot(
   // misleading "no search parameter in its Zod schema" error instead of
   // the clear typo message below.
   validateQueryRefs(features);
+  // Must also run after validateQueryRefs — column/field checks below
+  // assume every `query` string already resolves to a registered handler.
+  validateQueryOutputColumns(features);
   validateProjectionListScreens(features);
   validateExtensionPreSaveWiring(features);
   validateGdprStoragePersistence(features);

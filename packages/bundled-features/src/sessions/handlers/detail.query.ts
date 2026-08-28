@@ -6,10 +6,21 @@ import { userSessionTable } from "../schema/user-session";
 
 // Admin single-session inspector — mirrors list.query's decrypt handling for
 // the one-row case. ctx.db (TenantDb) applies tenant-scoping automatically.
+const sessionRowSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  createdAt: z.unknown(),
+  expiresAt: z.unknown(),
+  revokedAt: z.unknown(),
+  ip: z.string().nullable(),
+  userAgent: z.string().nullable(),
+});
+
 export const detailQuery = defineQueryHandler({
   name: "user-session:detail",
   schema: z.object({ id: z.uuid() }),
   access: { roles: access.admin },
+  outputSchema: sessionRowSchema.nullable(),
   handler: async (query, ctx) => {
     const row = await fetchOne<{
       id: string;

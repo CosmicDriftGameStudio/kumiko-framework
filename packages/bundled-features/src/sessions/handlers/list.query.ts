@@ -33,6 +33,20 @@ export const listQuery = definePagedQueryHandler({
     sortDirection: z.enum(["asc", "desc"]).optional(),
   }),
   access: { roles: access.admin },
+  outputSchema: z.object({
+    rows: z.array(
+      z.object({
+        id: z.string(),
+        userId: z.string(),
+        createdAt: z.unknown(),
+        expiresAt: z.unknown(),
+        revokedAt: z.unknown(),
+        ip: z.string().nullable(),
+        userAgent: z.string().nullable(),
+      }),
+    ),
+    nextCursor: z.string().nullable(),
+  }),
   handler: async (query, ctx) => {
     const requestedSort = query.payload.sort;
     const sortColumn: SortableColumn =

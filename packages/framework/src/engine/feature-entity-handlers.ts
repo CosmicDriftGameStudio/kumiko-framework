@@ -144,7 +144,7 @@ export function buildEntityHandlerMethods<TName extends string>(
       nameOrDef: string | QueryHandlerDefinition<TName, TSchema>,
       schema?: TSchema,
       handler?: QueryHandlerFn<z.infer<TSchema>>,
-      options?: { access?: AccessRule; rateLimit?: RateLimitOption },
+      options?: { access?: AccessRule; rateLimit?: RateLimitOption; outputSchema?: ZodType },
     ): HandlerRef {
       if (typeof nameOrDef === "object") {
         const def = nameOrDef;
@@ -155,6 +155,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           handler: def.handler as QueryHandlerFn, // @cast-boundary engine-bridge
           ...(def.access && { access: def.access }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
+          ...(def.outputSchema && { outputSchema: def.outputSchema }),
           // Carry the definePagedQueryHandler brand through — this rebuild
           // drops any field not explicitly listed.
           ...(isPagedQueryHandler(def) && { [PAGED_QUERY_HANDLER_BRAND]: true }),
@@ -170,6 +171,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         handler: handler as QueryHandlerFn, // @cast-boundary engine-bridge
         ...(options?.access && { access: options.access }),
         ...(options?.rateLimit && { rateLimit: options.rateLimit }),
+        ...(options?.outputSchema && { outputSchema: options.outputSchema }),
       };
       tryMapEntity(state, name, nameOrDef);
       return { name: nameOrDef };

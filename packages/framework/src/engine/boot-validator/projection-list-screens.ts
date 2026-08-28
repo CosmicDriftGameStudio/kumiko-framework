@@ -1,7 +1,7 @@
-import { ZodObject } from "zod";
 import { QnTypes, qualifyEntityName } from "../qualified-name";
 import type { FeatureDefinition, ProjectionListScreenDefinition, QueryHandlerDef } from "../types";
 import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens";
+import { getZodObjectShape } from "./zod-shape";
 
 // Sibling to entity-list-screens.ts rather than an extension of it:
 // validateOneEntityListScreen is typed to EntityListScreenDefinition and
@@ -27,7 +27,7 @@ export function buildQueryHandlerMap(
 // unresolved query handlers both fall through to "capability absent" —
 // consistent with buildAppSchema's derivation, no throw either way.
 function schemaAccepts(schema: QueryHandlerDef["schema"] | undefined, key: string): boolean {
-  const shape = schema instanceof ZodObject ? schema.shape : undefined;
+  const shape = getZodObjectShape(schema);
   return shape !== undefined && key in shape;
 }
 
