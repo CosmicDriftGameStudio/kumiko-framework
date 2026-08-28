@@ -14,7 +14,12 @@ import {
 import { Filter, RotateCcw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { TenantQueries } from "../../tenant/constants";
-import { AUDIT_LOG_DETAIL_SCREEN_ID, ANONYMOUS_USER_ID, AuditQueries, SYSTEM_ACTOR_ID } from "../constants";
+import {
+  ANONYMOUS_USER_ID,
+  AUDIT_LOG_DETAIL_SCREEN_ID,
+  AuditQueries,
+  SYSTEM_ACTOR_ID,
+} from "../constants";
 
 type AuditRow = {
   readonly id: string;
