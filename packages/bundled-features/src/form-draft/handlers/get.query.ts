@@ -2,7 +2,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { FORM_DRAFT_ACCESS } from "../constants";
 import { lookupDraft } from "../lookup";
 import type { FormDraftBlob } from "../schemas";
-import { getDraftPayloadSchema } from "../schemas";
+import { formDraftBlobSchema, getDraftPayloadSchema } from "../schemas";
 
 export type GetDraftResult = { readonly draft: FormDraftBlob | null };
 
@@ -21,6 +21,8 @@ export const getDraftQuery = defineQueryHandler({
       query.user.id,
       query.payload.draftKey,
     );
-    return { draft: row?.draft ?? null };
+    if (!row) return { draft: null };
+    const parsed = formDraftBlobSchema.safeParse(row.draft);
+    return { draft: parsed.success ? parsed.data : null };
   },
 });

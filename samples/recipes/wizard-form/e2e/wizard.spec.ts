@@ -13,12 +13,9 @@
 // useMemo), so this spec matches on the `listing-wizard:new:` prefix
 // rather than a single literal key.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { CREATED_LISTINGS_KEY, draftStorageKey } from "./fixtures/mock-dispatcher";
 
-const SCREENSHOT_DIR = resolve(import.meta.dirname, "../screenshots");
 const DRAFT_STORAGE_PREFIX = draftStorageKey("listing-wizard:new:");
 
 async function gotoWizard(page: Page): Promise<void> {
@@ -75,7 +72,6 @@ async function expectStepFillRatio(
 
 test.describe("wizard-form — step navigation, validation, draft resume", () => {
   test("clicking Next/Back moves forward and back through all 3 steps", async ({ page }) => {
-    mkdirSync(SCREENSHOT_DIR, { recursive: true });
     await gotoWizard(page);
 
     // Step 1 — Basics
@@ -87,8 +83,6 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await selectCombobox(page, "category", "furniture");
     await expect(page.getByTestId("field-title").locator("input")).toHaveValue("Vintage desk lamp");
     await expect(page.getByTestId("combobox-kumiko-edit-category")).toContainText("furniture");
-    await page.screenshot({ path: resolve(SCREENSHOT_DIR, "step-1-basics.png") });
-
     await page.getByTestId("render-edit-wizard-next").click();
 
     // Step 2 — Pricing
@@ -104,8 +98,6 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await selectCombobox(page, "condition", "used");
     await expect(page.getByTestId("field-price").locator("input")).toHaveValue("42");
     await expect(page.getByTestId("combobox-kumiko-edit-condition")).toContainText("used");
-    await page.screenshot({ path: resolve(SCREENSHOT_DIR, "step-2-pricing.png") });
-
     await page.getByTestId("render-edit-wizard-next").click();
 
     // Step 3 — Review
@@ -115,8 +107,6 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await expect(page.getByTestId("listing-review")).toBeVisible();
     await expect(page.getByTestId("render-edit-submit")).toBeVisible();
     await expect(page.getByTestId("render-edit-wizard-next")).toHaveCount(0);
-    await page.screenshot({ path: resolve(SCREENSHOT_DIR, "step-3-review.png") });
-
     // Back to Pricing, back to Basics.
     await page.getByTestId("render-edit-wizard-back").click();
     await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
@@ -125,6 +115,25 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await page.getByTestId("render-edit-wizard-back").click();
     await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
       "Step 1 of 3 · Basics",
+    );
+  });
+
+
+  test("desktop viewport shows wizard step chips with aria-current", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoWizard(page);
+    const step0 = page.getByTestId("render-edit-wizard-steps-step-0");
+    await expect(step0).toBeVisible();
+    await expect(step0).toHaveAttribute("aria-current", "step");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toBeHidden();
+
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(page.getByTestId("render-edit-wizard-steps-step-1")).toHaveAttribute(
+      "aria-current",
+      "step",
     );
   });
 

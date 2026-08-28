@@ -1108,6 +1108,19 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           // navigating past its step — otherwise Finish only ran the last
           // mounted step's handler and silently dropped earlier steps' writes.
           const stepHidden = isWizard && sectionIndex !== currentStep;
+          const wrapWizardStep = (key: string, el: ReactNode): ReactNode => {
+            if (!isWizard) return el;
+            if (WizardStepGroup === undefined) {
+              throw new Error(
+                "RenderEdit: wizard layout requires primitives.WizardStepGroup, but none is registered.",
+              );
+            }
+            return (
+              <WizardStepGroup key={key} hidden={stepHidden}>
+                {el}
+              </WizardStepGroup>
+            );
+          };
           // Off-screen wizard steps stay mounted (see comment above) but must
           // not participate in native constraint validation, or the Next
           // button's `type="submit"` triggers the browser's full-form check
@@ -1134,18 +1147,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 validate={scopedValidate}
               />
             );
-            if (!isWizard) return mount;
-            if (WizardStepGroup === undefined) {
-              // Both silent fallbacks are unsafe here — render-visible-all-steps or unmount-drops-registry.
-              throw new Error(
-                "RenderEdit: wizard layout requires primitives.WizardStepGroup, but none is registered.",
-              );
-            }
-            return (
-              <WizardStepGroup key={section.title} hidden={stepHidden}>
-                {mount}
-              </WizardStepGroup>
-            );
+            return wrapWizardStep(section.title, mount);
           }
           if (section.kind === "relatedList") {
             // parentId is the displayed record's id — without it there's no
@@ -1203,17 +1205,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               </Grid>
             </Section>
           );
-          if (!isWizard) return sectionEl;
-          if (WizardStepGroup === undefined) {
-            throw new Error(
-              "RenderEdit: wizard layout requires primitives.WizardStepGroup, but none is registered.",
-            );
-          }
-          return (
-            <WizardStepGroup key={sectionKey} hidden={stepHidden}>
-              {sectionEl}
-            </WizardStepGroup>
-          );
+          return wrapWizardStep(sectionKey, sectionEl);
         })}
         {formError !== null && (
           <Banner
