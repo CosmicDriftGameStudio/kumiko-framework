@@ -26,7 +26,7 @@ describe("DefaultForm Action-Footer", () => {
     expect(actions.className).toContain("border-t");
     // Footer sits in the form shell (buttons align with the field edge).
     expect(actions.closest(".max-w-full")).toBeTruthy();
-    // Titel ist ein eigenes Heading oben, NICHT mehr in der Action-Bar.
+    // Title is its own heading above — not inside the action bar.
     expect(actions.textContent).not.toContain("Titel");
     expect(screen.getByTestId("f-title").textContent).toBe("Titel");
   });

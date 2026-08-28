@@ -22,9 +22,9 @@ mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () =
   useShellUser: mock(),
 }));
 
-const actual_renderer = await import("@cosmicdrift/kumiko-renderer");
+const actualRenderer = await import("@cosmicdrift/kumiko-renderer");
 mock.module("@cosmicdrift/kumiko-renderer", () => ({
-  ...actual_renderer,
+  ...actualRenderer,
   useDispatcher: mock(() => ({ write: mock(), query: mock() })),
   useQuery: mock(() => ({
     data: {

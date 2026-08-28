@@ -41,7 +41,8 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testMatch: ["wizard.spec.ts"],
+      // Chromium runs desktop wizard specs only — mobile-375 owns wizard-mobile.spec.ts.
+      testMatch: ["**/wizard.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
     },
     // iPhone SE/Mini class (375px) — acceptance criterion from #1917:

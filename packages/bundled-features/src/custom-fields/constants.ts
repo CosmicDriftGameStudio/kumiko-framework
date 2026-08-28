@@ -23,9 +23,10 @@ export const CustomFieldsQueries = {
   fieldDefinitionList: "custom-fields:query:field-definition:list",
 } as const;
 
-// Name unter dem die web-component im ExtensionSectionsProvider
-// registriert wird — Apps referenzieren ihn im Screen-Schema via
-// `component: { react: { __component: CUSTOM_FIELDS_FORM_EXTENSION_NAME } }`.
+// Name the web component registers under in ExtensionSectionsProvider —
+// apps reference it in the screen schema via:
+// { kind: "extension", title, contributesToFormSubmit: true,
+//   component: { react: { __component: CUSTOM_FIELDS_FORM_EXTENSION_NAME } } }
 export const CUSTOM_FIELDS_FORM_EXTENSION_NAME = "CustomFieldsFormSection";
 
 // Entity-CRUD auto-events for the `field-definition` entity. registry.ts emits

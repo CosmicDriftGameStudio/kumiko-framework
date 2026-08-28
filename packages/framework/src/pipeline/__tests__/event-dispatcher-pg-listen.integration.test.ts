@@ -12,7 +12,7 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
+import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing";
 
 // --- Fixture ---
 
@@ -67,11 +67,12 @@ describe("E.4 — PG NOTIFY/LISTEN wake-up", () => {
     try {
       await executor.create({ name: "latency-test" }, admin, tdb);
 
-      const deadline = Date.now() + 5000;
-      while (Date.now() < deadline && deliveryCount === 0) {
-        await new Promise((r) => setTimeout(r, 5));
-      }
-      expect(deliveryCount).toBe(1);
+      await waitFor(
+        () => {
+          expect(deliveryCount).toBe(1);
+        },
+        { delays: [100, 500, 1000, 3500] },
+      );
     } finally {
       await stack.eventDispatcher?.stop();
     }
@@ -92,11 +93,12 @@ describe("E.4 — PG NOTIFY/LISTEN wake-up", () => {
     try {
       await executor.create({ name: "restart-probe" }, admin, tdb);
 
-      const deadline = Date.now() + 5000;
-      while (Date.now() < deadline && deliveryCount === 0) {
-        await new Promise((r) => setTimeout(r, 5));
-      }
-      expect(deliveryCount).toBe(1);
+      await waitFor(
+        () => {
+          expect(deliveryCount).toBe(1);
+        },
+        { delays: [100, 500, 1000, 3500] },
+      );
     } finally {
       await stack.eventDispatcher?.stop();
     }

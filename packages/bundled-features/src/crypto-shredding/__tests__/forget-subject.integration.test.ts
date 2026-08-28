@@ -160,6 +160,7 @@ describe("crypto-shredding :: forget-subject", () => {
       TestUsers.systemAdmin,
     );
     expect(result.subjectKey).toBe(`tenant:${TARGET_TENANT_ID}`);
+    await expect(kms.getKey(subject)).rejects.toThrow("Subject key erased");
   });
 
   test("repeat forget: erase is a no-op but each attempt is audited", async () => {
@@ -510,6 +511,9 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
       dpoUser,
     );
     expect(result.subjectKey).toBe(`user:${subjectId}`);
+    await expect(kms.getKey({ kind: "user", userId: subjectId })).rejects.toThrow(
+      "Subject key erased",
+    );
   });
 
   test("DPO cannot forget another tenant's self-owned PII subject → 403", async () => {

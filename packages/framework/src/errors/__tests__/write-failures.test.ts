@@ -12,20 +12,20 @@ describe("failNotFound", () => {
 });
 
 describe("failUnprocessable", () => {
-  test("baut WriteFailure mit reason + custom-details", () => {
+  test("builds WriteFailure with reason + custom details", () => {
     const f = failUnprocessable("custom_business_rule", { extra: 42 });
     expect(f.error.httpStatus).toBe(422);
     expect(f.error.details).toMatchObject({ reason: "custom_business_rule", extra: 42 });
   });
 
-  test("reason-Argument überlebt ein details.reason aus dem Aufruf", () => {
+  test("positional reason survives a conflicting details.reason from the caller", () => {
     const f = failUnprocessable("custom_business_rule", { reason: "raw cause text", extra: 42 });
     expect(f.error.details).toEqual({ reason: "custom_business_rule", extra: 42 });
   });
 });
 
 describe("failTransition", () => {
-  test("baut WriteFailure mit reason=invalid_transition + from/to/allowed", () => {
+  test("builds WriteFailure with reason=invalid_transition + from/to/allowed", () => {
     const f = failTransition("draft", "paid", ["sent"]);
     expect(f.isSuccess).toBe(false);
     expect(f.error.code).toBe("unprocessable");

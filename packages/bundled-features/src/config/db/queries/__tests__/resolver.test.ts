@@ -1,10 +1,3 @@
-// #1163: config:query:readiness read config rows via asRawClient(db).unsafe()
-// directly, bypassing the #1358 closed-connection retry that only covered
-// bun-db/query.ts's own selectMany/countWhere. Routed through the exported
-// unsafeReadRetrying helper instead — this test mirrors
-// bun-db/__tests__/select-many-retry.test.ts's fake-client pattern to prove
-// the retry now actually fires for this call site.
-
 import { describe, expect, test } from "bun:test";
 import { selectConfigRowsForKeys, selectConfigRowsForScope } from "../resolver";
 
@@ -28,9 +21,7 @@ function fakeClient(failures: Error[]): FakeClient {
       if (err) throw err;
       return [{ id: "r1", key: "k", value: "v", tenantId: "t1", userId: null }];
     },
-    // Top-level pool client — matches what dispatch-query.ts hands buildHandlerContext
-    // for a standalone query.execute() call (no tx passed, resolveDbSource falls back
-    // to the pool connection, which has .begin()).
+    // begin() present => pool client => retry path
     begin: () => {
       throw new Error("not used in test");
     },

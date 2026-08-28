@@ -375,7 +375,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
             httpStatus: 500,
             i18nKey: "errors.internal",
             message:
-              "createFormController: submit() called without a dispatcher. Pass `submit.dispatcher` explicitly, or mount a <DispatcherProvider> above this form.",
+              "createFormController: submit() called without a dispatcher (dispatcher was absent when the form mounted). Pass `submit.dispatcher` explicitly, or mount a <DispatcherProvider> above this form.",
           },
         };
       }
