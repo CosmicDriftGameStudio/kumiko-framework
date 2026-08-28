@@ -330,10 +330,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     name: "No-Major-Gt-Zero Guard",
     cmd: `bun ${join(frameworkRepoRoot, "scripts/guard-no-major-gt-zero.ts")}`,
   });
-  // Self-contained since the app-rollout (infra#610): no more framework-
-  // local sql-inventory.ts/baseline fallback tier here — both the parent-
-  // workspace guard and the published `bunx kumiko-guard-raw-sql` scan +
-  // allowlist themselves.
+  // Both tiers scan + allowlist themselves; no framework-local baseline needed.
   const rawSqlGuard = join(REPO_ROOT, "infra/guards/guard-raw-sql.ts");
   steps.push({
     name: "Raw-SQL Guard",

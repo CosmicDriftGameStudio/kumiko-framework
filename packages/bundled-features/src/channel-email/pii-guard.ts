@@ -26,6 +26,14 @@ export function guardEmailMessage(message: EmailMessage): EmailMessage {
       );
     }
   }
+  for (const [headerName, headerValue] of Object.entries(message.headers ?? {})) {
+    if (typeof headerValue === "string" && headerValue.includes(CIPHERTEXT_MARKER)) {
+      throw new Error(
+        `[channel-email] refusing to send: header "${headerName}" is a PII ciphertext ` +
+          `("${PII_CIPHERTEXT_PREFIX}…") — decrypt the stored value before mailing (decryptStoredPii).`,
+      );
+    }
+  }
   const leaking =
     message.subject.includes(CIPHERTEXT_MARKER) || message.html.includes(CIPHERTEXT_MARKER);
   if (!leaking) return message;

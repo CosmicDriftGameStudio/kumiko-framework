@@ -206,10 +206,20 @@ function parseRedisOpts(url: string): { host: string; port: number; db?: number 
 // would otherwise hang start() forever with no health endpoint to notice.
 const BOOT_REDIS_TIMEOUT_MS = 10_000;
 
-function timeoutReject(ms: number, message: string): Promise<never> {
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error(message)), ms);
+function timeoutReject(
+  ms: number,
+  message: string,
+): { promise: Promise<never>; cancel: () => void } {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const promise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
   });
+  return {
+    promise,
+    cancel: () => {
+      if (timer !== undefined) clearTimeout(timer);
+    },
+  };
 }
 
 export function createJobRunner(options: JobRunnerOptions): JobRunner {
@@ -592,13 +602,15 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // upsertJobScheduler()/add() below when the lane has a cron/boot job.
       // Racing a timeout against it keeps an unreachable Redis from hanging
       // start() forever — there's no worker health endpoint to notice.
-      await Promise.race([
-        worker.waitUntilReady(),
-        timeoutReject(
-          bootRedisTimeoutMs,
-          `job-runner: Redis not reachable within ${bootRedisTimeoutMs}ms (lane=${consumerLane})`,
-        ),
-      ]);
+      const bootTimeout = timeoutReject(
+        bootRedisTimeoutMs,
+        `job-runner: Redis not reachable within ${bootRedisTimeoutMs}ms (lane=${consumerLane})`,
+      );
+      try {
+        await Promise.race([worker.waitUntilReady(), bootTimeout.promise]);
+      } finally {
+        bootTimeout.cancel();
+      }
 
       // Only schedule cron + boot for jobs that belong to this lane. Jobs
       // assigned to the other lane get their cron/boot wiring from the

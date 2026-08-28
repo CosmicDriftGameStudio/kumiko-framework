@@ -45,6 +45,17 @@ describe("guardEmailMessage", () => {
     ).toThrow(/from address is a PII ciphertext/);
   });
 
+  test("ciphertext in a custom header is refused", () => {
+    expect(() =>
+      guardEmailMessage({
+        to: "ok@example.com",
+        headers: { "In-Reply-To": CIPHERTEXT },
+        subject: "Hi",
+        html: "x",
+      }),
+    ).toThrow(/header "In-Reply-To" is a PII ciphertext/);
+  });
+
   test("ciphertext Reply-To is refused", () => {
     expect(() =>
       guardEmailMessage({ to: "ok@example.com", replyTo: CIPHERTEXT, subject: "Hi", html: "x" }),

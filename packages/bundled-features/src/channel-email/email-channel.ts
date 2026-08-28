@@ -13,19 +13,26 @@ import type { EmailTransport } from "./types";
 // the notification's email template echoes it out of the notify() call, since
 // buildMessage collapses the raw data to the template's result. Content
 // (subject, html) is rendered; these three are copied straight to the message.
+function stringHeaders(raw: unknown): Readonly<Record<string, string>> | undefined {
+  if (raw === undefined || raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return undefined;
+  }
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === "string") out[key] = value;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function emailEnvelopeFrom(data: Readonly<Record<string, unknown>> | undefined): {
   from?: string;
   replyTo?: string;
   headers?: Readonly<Record<string, string>>;
 } {
   if (!data) return {};
-  const from = typeof data["from"] === "string" ? (data["from"] as string) : undefined;
-  const replyTo = typeof data["replyTo"] === "string" ? (data["replyTo"] as string) : undefined;
-  const raw = data["headers"];
-  const headers =
-    raw && typeof raw === "object" && !Array.isArray(raw)
-      ? (raw as Readonly<Record<string, string>>)
-      : undefined;
+  const from = typeof data["from"] === "string" ? data["from"] : undefined;
+  const replyTo = typeof data["replyTo"] === "string" ? data["replyTo"] : undefined;
+  const headers = stringHeaders(data["headers"]);
   return { ...(from && { from }), ...(replyTo && { replyTo }), ...(headers && { headers }) };
 }
 

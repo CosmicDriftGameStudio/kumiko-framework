@@ -360,22 +360,11 @@ describe("NavTree", () => {
           order: 20,
           icon: "shield-check",
         },
+        { id: "cap-list", label: "Caps", screen: "cap-list", order: 60, icon: "gauge" },
       ],
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
-    expectNavIcons(container, ["send", "shield-check"]);
-    expect(warnSpy).not.toHaveBeenCalled();
-  });
-
-  test("gauge (cap-list nav) resolves to an icon without missing-icon path", () => {
-    const schema = {
-      featureName: "cap-counter",
-      entities: {},
-      screens: [{ id: "cap-list", type: "entityList", entity: "x", columns: [] }],
-      navs: [{ id: "cap-list", label: "Caps", screen: "cap-list", order: 60, icon: "gauge" }],
-    } as FeatureSchema;
-    const { container } = render(<NavTree schema={schema} />);
-    expectNavIcons(container, ["gauge"]);
+    expectNavIcons(container, ["send", "shield-check", "gauge"]);
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
@@ -383,7 +372,10 @@ describe("NavTree", () => {
     const schema = {
       featureName: "showcase",
       entities: {},
-      screens: [{ id: "x", type: "entityList", entity: "x", columns: [] }],
+      screens: [
+        { id: "x", type: "entityList", entity: "x", columns: [] },
+        { id: "cap-list", type: "entityList", entity: "x", columns: [] },
+      ],
       navs: [
         {
           id: "x",

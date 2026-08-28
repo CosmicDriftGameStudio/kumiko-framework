@@ -34,7 +34,16 @@ const TestDialog: ComponentType<DialogProps> = ({
       {description !== undefined && (
         <span data-testid={`${testId}-description`}>{description}</span>
       )}
-      <button type="button" data-testid={`${testId}-confirm`} onClick={() => void onConfirm()}>
+      <button
+        type="button"
+        data-testid={`${testId}-confirm`}
+        onClick={() => {
+          void (async () => {
+            await onConfirm();
+            onOpenChange(false);
+          })();
+        }}
+      >
         {confirmLabel ?? "Confirm"}
       </button>
       <button type="button" data-testid={`${testId}-cancel`} onClick={() => onOpenChange(false)}>
@@ -98,6 +107,9 @@ describe("RenderEditActionButton", () => {
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-archive"));
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-archive-dialog-confirm"));
     await waitFor(() => expect(pressed).toBe(1));
+    await waitFor(() =>
+      expect(rtlScreen.queryByTestId("render-edit-action-archive-dialog")).toBeNull(),
+    );
   });
 
   test("danger style forces confirm dialog even without confirm text", async () => {

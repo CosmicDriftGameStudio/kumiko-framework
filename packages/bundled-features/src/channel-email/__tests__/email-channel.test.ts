@@ -65,6 +65,25 @@ describe("email channel envelope", () => {
     expect(sent.headers).toBeUndefined();
   });
 
+  test("non-string header values are filtered out", async () => {
+    const transport = createInMemoryTransport();
+    const message: ChannelMessage = {
+      notificationType: "x",
+      title: "t",
+      body: "b",
+      data: {
+        subject: "t",
+        body: "b",
+        headers: { "X-Ok": "v", "X-Bad": 42 },
+      },
+    };
+    await channelWith(transport).send("mieter@example.com", message, ctx, rendered);
+
+    const [sent] = transport.sent;
+    if (!sent) throw new Error("expected a sent mail");
+    expect(sent.headers).toEqual({ "X-Ok": "v" });
+  });
+
   test("a non-object headers value is ignored, not forwarded", async () => {
     const transport = createInMemoryTransport();
     const message: ChannelMessage = {

@@ -74,6 +74,6 @@ instead of rendering the real component. The integration test under
 fields and the form-draft save/get/discard round-trip that backs
 `draft: true`. `e2e/wizard.spec.ts` is a Playwright spec against the real
 client bundle (mounted via `listingsClient`, the same registration an app
-would use) — step navigation, a blocked step on a validation error,
+would use) — step navigation, per-step validation blocking Next on empty required fields,
 draft-resume after a page reload, and that a successful submit discards
 the draft (reopening the wizard starts fresh on step 1).
