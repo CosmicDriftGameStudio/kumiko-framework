@@ -24,6 +24,7 @@ import {
   EXT_USER_DATA,
   type JobContext,
   SYSTEM_USER_ID,
+  type TenantId,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -293,6 +294,47 @@ describe("forget pipeline honours the effective tenant model", () => {
     // Only 1 live membership remains (FORGET_USER) — the OLD live-only check
     // would have called this single-user and wiped the co-member's row. The
     // historical check must still resolve multi-user here.
+    expect(await rowCount()).toBe(1);
+  });
+
+  test("single-user history latch uses payload tenantId (cross-tenant SystemAdmin actor)", async () => {
+    await seedScopedRow("dddddddd-dddd-4ddd-8ddd-0000000000c6");
+    await seed(stack.db).seedForgetUser(FORGET_USER);
+    const OTHER_TENANT = "dddddddd-dddd-4ddd-8ddd-0000000000aa" as TenantId;
+
+    // Membership events billed to a foreign actor tenant — mirrors real
+    // SystemAdmin addMember (event.tenant_id ≠ payload.tenantId).
+    await seedTenantMembership(stack.db, {
+      userId: FORGET_USER,
+      tenantId: TENANT,
+      roles: ["Member"],
+      by: createSystemUser(OTHER_TENANT),
+    });
+    const created = await seedTenantMembership(stack.db, {
+      userId: CO_MEMBER,
+      tenantId: TENANT,
+      roles: ["Member"],
+      by: createSystemUser(OTHER_TENANT),
+    });
+    const deleteResult = await membershipExecutor.delete(
+      { id: created.id },
+      createSystemUser(OTHER_TENANT),
+      createTenantDb(stack.db, TENANT, "system"),
+    );
+    if (!deleteResult.isSuccess) {
+      throw new Error(`test setup: co-member delete failed: ${deleteResult.error.code}`);
+    }
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: nowInstant(),
+      tenantModel: "single-user",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.processedUserIds).toContain(FORGET_USER);
+    // Payload-tenant latch must still see 2 historical members.
     expect(await rowCount()).toBe(1);
   });
 });

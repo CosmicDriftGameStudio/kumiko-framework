@@ -13,6 +13,7 @@
 
 import { collectLookupableFields } from "../crypto/blind-index";
 import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern";
+import { isSelfPiiField } from "../crypto/is-self-pii-field";
 import type { FeatureDefinition } from "../engine/types";
 import { toSnakeCase } from "../utils/case";
 import type { DbRunner } from "./connection";
@@ -47,12 +48,19 @@ export async function nullBlindIndexesForSubject(
 
 // Tenant-scope oracle for crypto-shredding's forget-subject (mh#349): a
 // "user"-kind subject id is often not a real user (share-token recipient,
-// email subscriber, ...) — those entities self-own their PII (`personal:
-// "self"`, i.e. their own row id IS the subject) and carry a real tenant_id,
+// email subscriber, ...) — those entities self-own their PII (`pii: true`,
+// i.e. their own row id IS the subject) and carry a real tenant_id,
 // unlike read_users (systemStream, tenant_id always SYSTEM_TENANT_ID). This
 // checks whether the subject row lives in the given tenant, so a tenant-
 // scoped DPO can still forget subjects it truly owns without needing a
 // tenant-membership row (which only exists for real users).
+//
+// Invariant: `id` must never be client-settable on self-PII entities — the
+// framework create path strips client ids; app write paths MUST do the same
+// or a DPO could plant a foreign subject id in their tenant and pass this
+// oracle (#2348). Upgrade path: require an event-store provenance check
+// (`aggregate_id = subjectId` under the actor tenant) when apps need
+// client-supplied ids.
 export async function subjectRowExistsInTenant(
   db: DbRunner,
   features: ReadonlyMap<string, FeatureDefinition>,
@@ -66,9 +74,7 @@ export async function subjectRowExistsInTenant(
   const candidateTables: string[] = [];
   for (const feature of features.values()) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-      const hasSelfPiiField = Object.values(entity.fields).some(
-        (field) => "pii" in field && field.pii === true,
-      );
+      const hasSelfPiiField = Object.values(entity.fields).some(isSelfPiiField);
       if (!hasSelfPiiField) continue;
       candidateTables.push(resolveTableName(entityName, entity, undefined));
     }

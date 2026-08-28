@@ -39,6 +39,11 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../../tenant/invitation-table";
+// kumiko-lint-ignore cross-feature-import reserved-role check owned by tenant-feature
+import {
+  findForbiddenMembershipRole,
+  reservedMembershipRoleError,
+} from "../../tenant/membership-roles";
 // kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add
 import { seedTenantMembership } from "../../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import existence-check
@@ -143,6 +148,10 @@ export function createInviteSignupCompleteHandler() {
         // Membership-Add via seed-helper (gleiches Pattern wie
         // provisionSignupAccount — bypassed addMember access-check
         // weil createSystemUser nicht ["SystemAdmin"] matcht).
+        const forbiddenInviteRole = findForbiddenMembershipRole([invitationRole]);
+        if (forbiddenInviteRole !== undefined) {
+          return writeFailure(reservedMembershipRoleError(forbiddenInviteRole));
+        }
         await seedTenantMembership(dbConn, {
           userId,
           tenantId: invitationTenantId,

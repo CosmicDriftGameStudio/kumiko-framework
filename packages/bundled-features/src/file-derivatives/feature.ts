@@ -33,6 +33,10 @@ const FEATURE_NAME = "file-derivatives";
 // a name list here "for safety" — see #1985.
 const VARIANT_NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
+/** Host → tenantId for the anonymous media route.
+ *  MUST be cheap/synchronous (in-memory map or cached lookup): it runs
+ *  *before* the query-handler rate limit, so a DB round-trip here is an
+ *  unthrottled DoS surface for anonymous callers rotating Host headers (#1977). */
 export type PublicVariantResolveApexTenant = (
   host: string,
 ) => Promise<TenantId | null> | TenantId | null;
@@ -42,7 +46,8 @@ export type FileDerivativesOptions = {
    *  Without this option, neither the httpRoute NOR the `publicVariant`
    *  query is registered — it is unreachable via the httpRoute path and via
    *  the generic `/api` query dispatch. Existing consumers that only need
-   *  `ctx.derivatives` are unaffected. */
+   *  `ctx.derivatives` are unaffected. See {@link PublicVariantResolveApexTenant}
+   *  for the in-memory/sync contract. */
   readonly resolveApexTenant?: PublicVariantResolveApexTenant;
   /** Base path of the public variant route. Default "/media". */
   readonly basePath?: string;

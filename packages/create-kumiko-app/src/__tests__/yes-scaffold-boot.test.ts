@@ -10,7 +10,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server";
-import { resolveKmsWiring } from "@cosmicdrift/kumiko-framework/crypto";
+import { requireKmsWiring, resolveKmsWiring } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createRegistry,
   type FeatureDefinition,
@@ -128,7 +128,19 @@ describe("--yes resolved set through runProdApp's PII boot gate (issue-2330 regr
     );
   });
 
-  test("with resolveKmsWiring's fallback (what the generated bin/main.ts now does), boot succeeds", async () => {
+  test("requireKmsWiring aborts when NODE_ENV=production and the trio is empty", () => {
+    expect(() =>
+      requireKmsWiring(
+        {},
+        {
+          logPrefix: "[test]",
+          plaintextReason: "should-not-fallback",
+        },
+      ),
+    ).toThrow(/PLATFORM_KEK|SUBJECT_KEYS|BLIND_INDEX|trio|required/i);
+  });
+
+  test("with resolveKmsWiring's fallback (generated bin/main.ts non-prod path), boot succeeds", async () => {
     // Empty object, not process.env: a dev machine with the real trio set
     // would otherwise flip this into the ActiveKmsWiring branch and the test
     // would stop exercising the plaintext fallback it's meant to pin.

@@ -20,7 +20,7 @@ import type {
   EditLayout,
   FieldCondition,
   RowAction,
-  RowActionNavigate,
+  RowActionNavigateBase,
   RowFieldExtractor,
   ScreenDefinition,
   ToolbarAction,
@@ -345,12 +345,19 @@ function validateToolbarDrawerAction(
 // call sites so the mutual-exclusivity check and the entity→detailFor
 // resolution don't drift between them (same drift risk
 // validateRowActionNavigateParams above is already shared to avoid).
+// Runtime-loose shape: boot still rejects both/neither for untyped schemas;
+// authors get the exclusive union via RowActionNavigate (#2303).
+type RowActionNavigateRuntime = RowActionNavigateBase & {
+  readonly screen?: string;
+  readonly entity?: string;
+};
+
 function resolveRowActionNavigateTarget(
   featureName: string,
   screenId: string,
   screenType: "entityList" | "projectionList" | "projectionDetail",
   actionLabel: "rowAction" | "action",
-  action: RowActionNavigate,
+  action: RowActionNavigateRuntime,
   allScreenQns: ReadonlySet<string>,
   navTargetShortIds: ReadonlySet<string>,
   screensByShortId: ReadonlyMap<

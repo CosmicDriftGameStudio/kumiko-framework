@@ -484,7 +484,8 @@ function renderMain(appName: string): string {
   // Subject-key KMS for the pii-annotated entities the --yes recommended set
   // mounts (user, tenant-invitation, fileRef). Local/dev may omit the trio
   // (plaintext + loud warning); NODE_ENV=production uses requireKmsWiring so
-  // a real deploy cannot silently store plaintext PII (fw#2317).
+  // a real deploy cannot silently store plaintext PII (fw#2317 / #2339).
+  // assertPiiBootInvariants already warns on the plaintext path — no duplicate console.warn.
   sf.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
     declarations: [
@@ -515,14 +516,6 @@ function renderMain(appName: string): string {
         },
       },
     ],
-  });
-
-  sf.addStatements((writer) => {
-    writer.write('if ("allowPlaintextPii" in kmsWiring) ').inlineBlock(() => {
-      writer.writeLine(
-        `console.warn(\`[${appName}] PII IS STORED IN PLAINTEXT — \${kmsWiring.allowPlaintextPii}\`);`,
-      );
-    });
   });
 
   sf.addStatements((writer) => {
@@ -716,6 +709,8 @@ KUMIKO_SECRETS_MASTER_KEY_V1=
 # with: openssl rand -base64 32. SUBJECT_KEYS_DATABASE_URL must be a dedicated
 # subject-keys cluster (not the app DB) — see kms-adapter.md.
 PLATFORM_KEK=
+# Separate Postgres instance for subject keys — never DATABASE_URL (retention
+# must outlive app-DB backups for crypto-shredding).
 SUBJECT_KEYS_DATABASE_URL=
 KUMIKO_BLIND_INDEX_KEY=
 

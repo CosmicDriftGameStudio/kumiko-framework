@@ -9,6 +9,7 @@
 //      that still carry the subject key in encrypted columns.
 
 import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern";
+import { isSelfPiiField } from "../crypto/is-self-pii-field";
 import type { SubjectId } from "../crypto/kms-adapter";
 import { collectSearchableSubjectFields } from "../crypto/subject-resolver";
 import type { DbRunner } from "../db/connection";
@@ -46,7 +47,7 @@ function ownershipPredicates(
           params.push(subject.userId);
           parts.push(`${quoteIdent(col)} = $${n}`);
         }
-      } else if ("pii" in field && field.pii === true && selfIdN === undefined) {
+      } else if (isSelfPiiField(field) && selfIdN === undefined) {
         selfIdN = nextParam();
         params.push(subject.userId);
         parts.push(`${quoteIdent("id")} = $${selfIdN}`);

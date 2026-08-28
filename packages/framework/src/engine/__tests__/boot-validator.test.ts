@@ -3271,7 +3271,7 @@ describe("boot-validator", () => {
               label: "actions.view",
               screen: "product-detail",
               entity: "product",
-            },
+            } as never,
           ],
         });
         r.screen({
@@ -3294,7 +3294,7 @@ describe("boot-validator", () => {
           type: "entityList",
           entity: "product",
           columns: ["name"],
-          rowActions: [{ kind: "navigate", id: "view", label: "actions.view" }],
+          rowActions: [{ kind: "navigate", id: "view", label: "actions.view" } as never],
         });
       });
       expect(() => validateBoot([feature])).toThrow(

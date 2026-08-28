@@ -39,6 +39,11 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../../tenant/invitation-table";
+// kumiko-lint-ignore cross-feature-import reserved-role check owned by tenant-feature
+import {
+  findForbiddenMembershipRole,
+  reservedMembershipRoleError,
+} from "../../tenant/membership-roles";
 // kumiko-lint-ignore cross-feature-import membership-seed-helper for a privileged cross-tenant add
 import { seedTenantMembership } from "../../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import login-style password-check
@@ -204,6 +209,10 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
         const dbConn = ctx.db.raw;
 
         if (!alreadyMember) {
+          const forbiddenInviteRole = findForbiddenMembershipRole([invitationRole]);
+          if (forbiddenInviteRole !== undefined) {
+            return writeFailure(reservedMembershipRoleError(forbiddenInviteRole));
+          }
           await seedTenantMembership(dbConn, {
             userId,
             tenantId: invitationTenantId,

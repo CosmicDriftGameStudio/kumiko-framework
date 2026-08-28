@@ -1,5 +1,6 @@
 import type { EntityDefinition } from "../engine/types/fields";
 import type { TenantId } from "../engine/types/identifiers";
+import { isSelfPiiField } from "./is-self-pii-field";
 import type { SubjectId } from "./kms-adapter";
 
 // Thrown when a field IS pii-annotated but the row can't name its subject —
@@ -63,7 +64,7 @@ export function resolveSubjectForField(
     return { kind: "tenant", tenantId };
   }
 
-  if ("pii" in field && field.pii === true) {
+  if (isSelfPiiField(field)) {
     // pii: true = the entity itself is the subject (user.email belongs to
     // that user row). Serial ids are stringified — subject keys are text.
     const id = row["id"];
@@ -85,7 +86,7 @@ export function collectPiiSubjectFields(entity: EntityDefinition): readonly stri
       ([, field]) =>
         ("userOwned" in field && field.userOwned !== undefined) ||
         ("tenantOwned" in field && field.tenantOwned === true) ||
-        ("pii" in field && field.pii === true),
+        isSelfPiiField(field),
     )
     .map(([name]) => name);
 }
@@ -97,7 +98,7 @@ export function collectSearchableSubjectFields(entity: EntityDefinition): readon
       const subject =
         ("userOwned" in field && field.userOwned !== undefined) ||
         ("tenantOwned" in field && field.tenantOwned === true) ||
-        ("pii" in field && field.pii === true);
+        isSelfPiiField(field);
       if (!subject) return false;
       if ("sensitive" in field && field.sensitive === true) return false;
       return "searchable" in field && field.searchable === true;

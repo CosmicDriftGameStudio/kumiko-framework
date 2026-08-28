@@ -276,8 +276,10 @@ describe("scaffoldApp", () => {
 
     const main = readFileSync(join(dest, "bin/main.ts"), "utf-8");
     expect(main).toContain('from "@cosmicdrift/kumiko-framework/crypto"');
+    expect(main).toContain("requireKmsWiring(process.env");
     expect(main).toContain("resolveKmsWiring(process.env");
-    expect(main).toContain('if ("allowPlaintextPii" in kmsWiring)');
+    expect(main).toContain('process.env["NODE_ENV"] === "production"');
+    expect(main).not.toContain('if ("allowPlaintextPii" in kmsWiring)');
     expect(main).toContain("...kmsWiring,");
   });
 

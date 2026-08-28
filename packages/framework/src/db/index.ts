@@ -110,6 +110,7 @@ export {
   type PgErrorInfo,
 } from "./pg-error";
 export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock";
+export { executeRawQuery } from "./queries/raw-sql";
 export type { SelectOptions, WhereObject, WhereValue } from "./query-api";
 export {
   asRawClient,

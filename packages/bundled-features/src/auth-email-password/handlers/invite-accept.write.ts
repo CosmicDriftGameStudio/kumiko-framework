@@ -31,6 +31,11 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../../tenant/invitation-table";
+// kumiko-lint-ignore cross-feature-import reserved-role check owned by tenant-feature
+import {
+  findForbiddenMembershipRole,
+  reservedMembershipRoleError,
+} from "../../tenant/membership-roles";
 // kumiko-lint-ignore cross-feature-import direkter membership-Lookup (ungefiltert, s. alreadyMember-Kommentar)
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 // kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add (analog provisionSignupAccount)
@@ -70,6 +75,7 @@ export function createInviteAcceptHandler() {
     // nutzen `roles: ["all"]` weil dort GUEST_USER mit ["all"]-role
     // dispatched wird.
     access: { openToAll: true },
+    // kumiko-lint-ignore complexity-budget invite branches (auth/anon/burn) stay in one handler
     handler: async (event, ctx) => {
       if (!ctx.redis) {
         return writeFailure(
@@ -142,6 +148,10 @@ export function createInviteAcceptHandler() {
           // ["SystemAdmin"]-Role akzeptiert; createSystemUser produziert
           // "system"-Role die NICHT matcht. Direkt-via-Executor bypassed
           // den Access-Check für privilegierte Cross-Tenant-Operationen.
+          const forbiddenInviteRole = findForbiddenMembershipRole([invitationRole]);
+          if (forbiddenInviteRole !== undefined) {
+            return writeFailure(reservedMembershipRoleError(forbiddenInviteRole));
+          }
           await seedTenantMembership(dbConn, {
             userId: event.user.id,
             tenantId: invitationTenantId,
