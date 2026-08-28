@@ -118,7 +118,6 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     );
   });
 
-
   test("desktop viewport shows wizard step chips with aria-current", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoWizard(page);

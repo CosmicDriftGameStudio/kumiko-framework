@@ -66,7 +66,7 @@ export function createHmacTokenCodec<
       }
 
       const { expiresAtMs, ...payload } = parsed;
-      return { ok: true, payload, expiresAtMs };
+      return { ok: true, payload: payload as TPayload, expiresAtMs };
     },
   };
 }

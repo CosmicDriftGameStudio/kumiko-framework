@@ -34,7 +34,16 @@ const TestDialog: ComponentType<DialogProps> = ({
       {description !== undefined && (
         <span data-testid={`${testId}-description`}>{description}</span>
       )}
-      <button type="button" data-testid={`${testId}-confirm`} onClick={() => { void (async () => { await onConfirm(); onOpenChange(false); })(); }}>
+      <button
+        type="button"
+        data-testid={`${testId}-confirm`}
+        onClick={() => {
+          void (async () => {
+            await onConfirm();
+            onOpenChange(false);
+          })();
+        }}
+      >
         {confirmLabel ?? "Confirm"}
       </button>
       <button type="button" data-testid={`${testId}-cancel`} onClick={() => onOpenChange(false)}>
