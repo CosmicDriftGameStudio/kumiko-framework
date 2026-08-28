@@ -13,7 +13,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { defaultPrimitives, END_LABEL_MIN_ROWS } from "../primitives";
 import { PageSection, Stack } from "../primitives/layout";
-import { fireEvent, render, screen } from "./test-utils";
+import { fireEvent, render, screen, waitFor } from "./test-utils";
 
 const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog, Card } =
   defaultPrimitives;
@@ -856,6 +856,34 @@ describe("DataTable", () => {
       // Trigger NICHT direkt — der Dialog muss zuerst öffnen.
       expect(onTrigger).not.toHaveBeenCalled();
       expect(screen.queryByTestId("row-r1-action-delete-dialog")).not.toBeNull();
+    });
+
+    // Regression (solon e2e/cost-category.spec.ts, fw): unconditional
+    // preventDefault() in onSelect blocked Radix' auto-close, so the
+    // dropdown stayed in the DOM after the confirm flow (role="menu" +
+    // body.style.pointerEvents="none" overlay lock never released), even
+    // though the write itself had already succeeded.
+    test("Kebab: nach Confirm+onTrigger ist das Dropdown-Menu geschlossen (kein Overlay-Lock)", async () => {
+      const user = userEvent.setup();
+      const onTrigger = mock();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            { id: "a", label: "Archive", onTrigger: mock() },
+            { id: "b", label: "Duplicate", onTrigger: mock() },
+            { id: "delete", label: "Delete", style: "danger", onTrigger },
+          ]}
+        />,
+      );
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      await user.click(screen.getByTestId("row-r1-action-delete"));
+      await user.click(screen.getByTestId("row-r1-action-delete-dialog-confirm"));
+      await waitFor(() => expect(onTrigger).toHaveBeenCalledWith(rows[0]));
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+      expect(document.body.style.pointerEvents).not.toBe("none");
     });
 
     test("confirmLabel separat vom label: Dialog-Button zeigt confirmLabel", async () => {
