@@ -10,7 +10,7 @@ import { getStreamVersion } from "../event-store";
 import { rehydrateCompoundTypes } from "./compound-types";
 import { decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor";
 import type { EventStoreExecutor } from "./event-store-executor";
-import { buildFilterWhere, type ExecutorContext } from "./event-store-executor-context";
+import { buildFilterWhere, type ExecutorContext, type Table } from "./event-store-executor-context";
 import { toSnakeCase } from "./table-builder";
 
 // The two read verbs (list/detail) of the event-store-executor. Split out
@@ -89,6 +89,115 @@ function keysetBoundarySql(
   return nullsComeFirst
     ? `(${sortCol} IS NOT NULL AND (${beyond} OR ${tie}))`
     : `(${sortCol} IS NULL OR ${beyond} OR ${tie})`;
+}
+
+type ListFilter = {
+  readonly field: string;
+  readonly op: "eq" | "ne" | "lt" | "gt" | "in";
+  readonly value: unknown;
+};
+
+// multiSelect stores its options as a jsonb array — a filter value is one
+// option, not the whole array, so eq/ne/in must check array containment
+// (`@>`) instead of scalar `=`/`<>`/`IN` against the jsonb column (fw#2490).
+// lt/gt have no containment analogue; the boot-validator already blocks them
+// for screen-declared filters (screen-filter-ops.ts EQUALITY_ONLY), but a
+// client-supplied facet filter reaches here unvalidated, so treat it as
+// unsatisfiable rather than emitting SQL Postgres would reject.
+function applyMultiSelectFilter(
+  colSql: (field: string) => string,
+  whereSql: string[],
+  params: unknown[],
+  f: ListFilter,
+): void {
+  if (f.op === "lt" || f.op === "gt") {
+    whereSql.push("FALSE");
+    // skip: lt/gt is unsatisfiable on a multiSelect column
+    return;
+  }
+  if (f.op === "in") {
+    if (!Array.isArray(f.value) || f.value.length === 0) {
+      whereSql.push("FALSE");
+      // skip: empty/non-array `in` is unsatisfiable, mirrors buildFilterWhere's "in" short-circuit
+      return;
+    }
+    const parts = f.value.map((v) => {
+      params.push([v]);
+      return `${colSql(f.field)} @> $${params.length}::jsonb`;
+    });
+    whereSql.push(`(${parts.join(" OR ")})`);
+    // skip: containment condition already pushed — don't fall through to the eq/ne branch below
+    return;
+  }
+  // Bind a JS array, not JSON.stringify(value) — postgres.js double-encodes
+  // a stringified array through an `::jsonb` cast, so `@>` would never match
+  // (see update-roles.ts:67-68). An array value means "contains all of
+  // these" (the natural `@>` reading).
+  params.push(Array.isArray(f.value) ? f.value : [f.value]);
+  const containment = `${colSql(f.field)} @> $${params.length}::jsonb`;
+  whereSql.push(f.op === "ne" ? `NOT (${containment})` : containment);
+}
+
+// Falls through to the screen-filter WHERE builder shared with
+// screen-declared filters — buildFilterWhere flattens the op into a
+// WhereObject, which this then lowers to raw SQL fragments.
+function applyScreenFilter(
+  table: Table,
+  colSql: (field: string) => string,
+  whereSql: string[],
+  params: unknown[],
+  f: ListFilter,
+): void {
+  const screen = buildFilterWhere(f.field, f.op, f.value);
+  if (screen === null) {
+    whereSql.push("FALSE");
+    // skip: filter is unsatisfiable → emit FALSE, no params to bind
+    return;
+  }
+  for (const [field, value] of Object.entries(screen)) {
+    // #2015: `x <> NULL` is never true — mirror buildWhereClause's IS [NOT] NULL handling in bun-db/query.ts.
+    if (value === null) {
+      whereSql.push(`${colSql(field)} IS NULL`);
+    } else if (Array.isArray(value)) {
+      const placeholders = value.map((v) => {
+        params.push(v);
+        return `$${params.length}`;
+      });
+      whereSql.push(`${colSql(field)} IN (${placeholders.join(", ")})`);
+    } else if (typeof value === "object") {
+      const valueObj = value as Record<string, unknown>;
+      if (valueObj["ne"] === null && Object.keys(valueObj).length === 1) {
+        whereSql.push(`${colSql(field)} IS NOT NULL`);
+        continue;
+      }
+      const opMap: Record<string, string> = {
+        gt: ">",
+        gte: ">=",
+        lt: "<",
+        lte: "<=",
+        ne: "<>",
+      };
+      for (const [opKey, opSym] of Object.entries(opMap)) {
+        if (!(opKey in value)) continue;
+        params.push((value as Record<string, unknown>)[opKey]);
+        whereSql.push(`${colSql(field)} ${opSym} $${params.length}`);
+      }
+    } else {
+      // Blind-Index-OR-Rewrite (#818), lock-step mit buildWhereClause
+      // in bun-db/query.ts — Equality auf lookupable-Feldern matcht
+      // Klartext-Arm ODER HMAC-Arm.
+      const bidxKey = configuredBlindIndexKey();
+      if (bidxKey !== undefined && typeof value === "string" && table[`${field}Bidx`]) {
+        params.push(value, computeBlindIndex(bidxKey, value));
+        whereSql.push(
+          `(${colSql(field)} = $${params.length - 1} OR ${colSql(`${field}Bidx`)} = $${params.length})`,
+        );
+      } else {
+        params.push(value);
+        whereSql.push(`${colSql(field)} = $${params.length}`);
+      }
+    }
+  }
 }
 
 export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, "list" | "detail"> {
@@ -203,65 +312,17 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         whereSql.push(shifted.sqlText);
         for (const p of shifted.params) params.push(p);
       }
-      const applyFilter = (f: {
-        readonly field: string;
-        readonly op: "eq" | "ne" | "lt" | "gt" | "in";
-        readonly value: unknown;
-      }): void => {
+      const applyFilter = (f: ListFilter): void => {
         if (table[f.field] === undefined) {
           // skip: unknown field — not a real column, drop the filter (injection guard)
           return;
         }
-        const screen = buildFilterWhere(f.field, f.op, f.value);
-        if (screen === null) {
-          whereSql.push("FALSE");
-          // skip: filter is unsatisfiable → emit FALSE, no params to bind
+        if (entity.fields[f.field]?.type === "multiSelect") {
+          applyMultiSelectFilter(colSql, whereSql, params, f);
+          // skip: multiSelect already handled — don't fall through to applyScreenFilter
           return;
         }
-        for (const [field, value] of Object.entries(screen)) {
-          // #2015: `x <> NULL` is never true — mirror buildWhereClause's IS [NOT] NULL handling in bun-db/query.ts.
-          if (value === null) {
-            whereSql.push(`${colSql(field)} IS NULL`);
-          } else if (Array.isArray(value)) {
-            const placeholders = value.map((v) => {
-              params.push(v);
-              return `$${params.length}`;
-            });
-            whereSql.push(`${colSql(field)} IN (${placeholders.join(", ")})`);
-          } else if (typeof value === "object") {
-            const valueObj = value as Record<string, unknown>;
-            if (valueObj["ne"] === null && Object.keys(valueObj).length === 1) {
-              whereSql.push(`${colSql(field)} IS NOT NULL`);
-              continue;
-            }
-            const opMap: Record<string, string> = {
-              gt: ">",
-              gte: ">=",
-              lt: "<",
-              lte: "<=",
-              ne: "<>",
-            };
-            for (const [opKey, opSym] of Object.entries(opMap)) {
-              if (!(opKey in value)) continue;
-              params.push((value as Record<string, unknown>)[opKey]);
-              whereSql.push(`${colSql(field)} ${opSym} $${params.length}`);
-            }
-          } else {
-            // Blind-Index-OR-Rewrite (#818), lock-step mit buildWhereClause
-            // in bun-db/query.ts — Equality auf lookupable-Feldern matcht
-            // Klartext-Arm ODER HMAC-Arm.
-            const bidxKey = configuredBlindIndexKey();
-            if (bidxKey !== undefined && typeof value === "string" && table[`${field}Bidx`]) {
-              params.push(value, computeBlindIndex(bidxKey, value));
-              whereSql.push(
-                `(${colSql(field)} = $${params.length - 1} OR ${colSql(`${field}Bidx`)} = $${params.length})`,
-              );
-            } else {
-              params.push(value);
-              whereSql.push(`${colSql(field)} = $${params.length}`);
-            }
-          }
-        }
+        applyScreenFilter(table, colSql, whereSql, params, f);
       };
       if (payload.filter !== undefined) applyFilter(payload.filter);
       if (payload.filters !== undefined) for (const f of payload.filters) applyFilter(f);
