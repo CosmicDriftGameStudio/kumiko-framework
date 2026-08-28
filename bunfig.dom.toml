@@ -47,4 +47,10 @@ pathIgnorePatterns = [
   "**/user-data-rights/web/__tests__/privacy-center-screen.test.tsx",
   # JobRunsScreen also needs a fresh happy-dom process (#457 / #1602).
   "**/jobs/web/__tests__/job-runs-screen.test.tsx",
+  # Singleton entityEdit create->update: fires fireEvent.change immediately
+  # followed by fireEvent.click right after an async load settles — the
+  # #457 pattern (CI-only, full local tsx run is green). Split out of
+  # kumiko-screen.test.tsx into its own file so only these 4 tests move to
+  # the isolated runner, not the whole 2600+ line parent file (#2495).
+  "**/renderer-web/src/__tests__/kumiko-screen-singleton-entity-edit.test.tsx",
 ]
