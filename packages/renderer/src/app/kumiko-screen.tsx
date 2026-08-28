@@ -51,7 +51,7 @@ import {
 } from "./projection-detail-shim";
 import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim";
 import { lastSegment, toKebab } from "./qn";
-import { qualifyScreenId } from "./qualify-screen-id";
+import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id";
 import { screenAccessAllows } from "./screen-access";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
 
@@ -2264,6 +2264,7 @@ function ActionFormBody({
   readonly onCancelOverride?: () => void;
 }): ReactNode {
   const nav = useNav();
+  const appFeatures = useAppFeatures();
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
   const initial = useMemo(
@@ -2287,7 +2288,25 @@ function ActionFormBody({
       // "back to list" (typisch bei Create-style Aktionen).
       if (screen.redirect !== undefined) {
         const targetId = lastSegment(screen.redirect);
-        const target = schema.screens.find((s) => lastSegment(s.id) === targetId);
+        const targetFeatureName = featureNameFromQualifiedScreenId(screen.redirect);
+        // A qualified redirect target may live in a different feature than
+        // this screen's own schema (fw#2485) — resolve over all mounted
+        // features (own schema first, cheap and provider-independent) same
+        // as ProjectionDetailBody's cross-feature editScreen lookup above.
+        // A screen id is only unique WITHIN a feature, so once the QN names
+        // a feature, the fallback must look inside THAT feature, not just
+        // take the first short-id match across every mounted feature — two
+        // features can easily share an id like "list" or "edit".
+        const target =
+          schema.screens.find((s) => lastSegment(s.id) === targetId) ??
+          (targetFeatureName !== undefined
+            ? appFeatures
+                .find((f) => f.featureName === targetFeatureName)
+                ?.screens.find((s) => lastSegment(s.id) === targetId)
+            : // Bare short-id redirect (no feature prefix) names no feature to
+              // pick by — fall back to the pre-fw#2485 best-effort match by
+              // short id across all mounted features.
+              appFeatures.flatMap((f) => f.screens).find((s) => lastSegment(s.id) === targetId));
         const entityId = extractCreatedId(result.data);
         const carriesId =
           target !== undefined &&
@@ -2298,7 +2317,7 @@ function ActionFormBody({
         });
       }
     },
-    [nav, screen.redirect, onSuccess, schema.screens],
+    [nav, screen.redirect, onSuccess, schema.screens, appFeatures],
   );
   // Cancel ist nur sinnvoll wenn ein Navigations-Ziel existiert —
   // sonst hätte der Button nirgendwo hin zu navigieren. cancelTarget
