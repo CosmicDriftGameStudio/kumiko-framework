@@ -85,10 +85,12 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
             {...(cap.accentColor !== undefined && { accentColor: cap.accentColor })}
             testId="cap-card"
           >
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <StatusBadge tone={TONE_TO_STATUS[cap.tone]}>{`${cap.percent}%`}</StatusBadge>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <StatusBadge tone={TONE_TO_STATUS[cap.tone]}>{`${cap.percent}%`}</StatusBadge>
+              </div>
+              <CapUsageBar usage={cap} showLabel={false} />
             </div>
-            <CapUsageBar usage={cap} showLabel={false} />
           </StatCard>
         );
       })}
