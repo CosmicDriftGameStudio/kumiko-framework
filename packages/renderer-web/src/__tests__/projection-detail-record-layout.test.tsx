@@ -6,7 +6,14 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema, NavApi } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils";
+import { type ReactNode, useState } from "react";
+import {
+  createMockDispatcher,
+  render,
+  renderWithPrimitivesOverride,
+  screen,
+  waitFor,
+} from "./test-utils";
 
 const baseScreen: ProjectionDetailScreenDefinition = {
   id: "rent-detail",
@@ -124,6 +131,57 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
   });
 });
 
+describe("KumikoScreen / projectionDetail — metric tiles render through the Metric primitive", () => {
+  const metricsScreen: ProjectionDetailScreenDefinition = {
+    ...baseScreen,
+    metrics: ["balance"],
+  };
+
+  test("goes through the Metric primitive, not naked Text, when one is registered", async () => {
+    const dispatcher = dispatcherReturning(rowData);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(metricsScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    // Only the Metric primitive assigns a testid to the tile itself — the
+    // naked-Text fallback below only labels the -label/-value nodes. This
+    // is red against the pre-fix code (naked Text, no tile testid).
+    expect(screen.getByTestId("kumiko-screen-projection-detail-metric-balance")).toBeTruthy();
+    expect(
+      screen.getByTestId("kumiko-screen-projection-detail-metric-balance-value").textContent,
+    ).toBe("120");
+  });
+
+  test("falls back to plain label/value Text when no Metric primitive is registered", async () => {
+    const dispatcher = dispatcherReturning(rowData);
+
+    renderWithPrimitivesOverride(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(metricsScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+      { Metric: undefined },
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(
+      screen.getByTestId("kumiko-screen-projection-detail-metric-balance-value").textContent,
+    ).toBe("120");
+    expect(screen.queryByTestId("kumiko-screen-projection-detail-metric-balance")).toBeNull();
+  });
+});
+
 describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
   const tabsScreen: ProjectionDetailScreenDefinition = {
     ...baseScreen,
@@ -166,6 +224,92 @@ describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
       setSearchParamsCalls,
     };
   }
+
+  // Reactive nav stub — navWithTab's searchParams is fixed at mount, so it
+  // can't exercise a real "click a tab, watch the active section change"
+  // flow. Only used by the tab-switch test below.
+  function StatefulTabNav({ children }: { readonly children: ReactNode }): ReactNode {
+    const [tab, setTab] = useState<string | undefined>(undefined);
+    const navApi: NavApi = {
+      route: undefined,
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: tab !== undefined ? { tab } : {},
+      setSearchParams: (updates) => {
+        const next = updates["tab"];
+        setTab(next === null || next === undefined ? undefined : next);
+      },
+    };
+    return <NavProvider value={navApi}>{children}</NavProvider>;
+  }
+
+  test("switching tabs does not remount the body or refire the detail query", async () => {
+    const dispatcher = dispatcherReturning(rowData);
+    const user = userEvent.setup();
+
+    render(
+      <StatefulTabNav>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={schemaFor(tabsScreen)}
+            qn="rentals:screen:rent-detail"
+            entityId="rent-1"
+          />
+        </DispatcherProvider>
+      </StatefulTabNav>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const detailCallsBefore = dispatcher.calls.filter(
+      (c) => c.type === "rentals:query:rent:detail",
+    ).length;
+    expect(detailCallsBefore).toBe(1);
+
+    const trigger = await waitFor(() =>
+      screen.getByTestId("kumiko-screen-projection-detail-tabs-payments"),
+    );
+    await user.click(trigger);
+    await waitFor(() =>
+      expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:payments")).toBe(true),
+    );
+
+    // A `key` on the record identifier alone (fw#2518 fix) must not also
+    // depend on the active tab — folding tab into the key would remount the
+    // body on every tab click and refire this query. The pre-fix "fires
+    // exactly one query" test above only checks first render and would not
+    // have caught that regression.
+    const detailCallsAfter = dispatcher.calls.filter(
+      (c) => c.type === "rentals:query:rent:detail",
+    ).length;
+    expect(detailCallsAfter).toBe(detailCallsBefore);
+  });
+
+  test("tabs mode suppresses the form's own redundant title, not just section titles", async () => {
+    const dispatcher = dispatcherReturning(rowData);
+    const { navApi } = navWithTab(undefined);
+
+    render(
+      <NavProvider value={navApi}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={schemaFor(tabsScreen)}
+            qn="rentals:screen:rent-detail"
+            entityId="rent-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    // hideSectionTitles used to only blank out each Section's own title —
+    // RenderEdit's own Form-level title (screen id/i18n fallback) rendered
+    // unconditionally regardless, duplicating the active tab's label
+    // whenever the two happened to read the same ("Mietvertrag" above the
+    // table, matching the already-visible tab). This asserts the Form-level
+    // title is gone too, not just the section ones.
+    expect(screen.queryByTestId("render-edit-form-title")).toBeNull();
+  });
 
   test("fires exactly one query on first render — the inactive tabs' relatedList queries never fire", async () => {
     const dispatcher = dispatcherReturning(rowData);
@@ -301,5 +445,55 @@ describe("KumikoScreen / projectionDetail — unchanged for a solon-shaped scree
       expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:invoices")).toBe(true),
     );
     expect(screen.queryByTestId("kumiko-screen-projection-detail-tabs")).toBeNull();
+    // Contrast for the tabs-mode "form title suppressed" test above — outside
+    // tabs mode (hideSectionTitles unset) the form's own title still renders.
+    expect(screen.getByTestId("render-edit-form-title")).toBeTruthy();
+  });
+});
+
+describe("KumikoScreen / projectionDetail — switching records remounts the body (fw#2518)", () => {
+  test("record A's fields are gone from the DOM after switching to record B", async () => {
+    const dataById: Record<string, Readonly<Record<string, unknown>>> = {
+      "rent-1": { description: "Loft 4B" },
+      "rent-2": { description: "Warehouse 9" },
+    };
+    const query = (async (type: string, payload: unknown) => {
+      if (type === "rentals:query:rent:detail") {
+        const id = (payload as { id?: string }).id ?? "";
+        return { isSuccess: true, data: dataById[id] ?? {} };
+      }
+      return { isSuccess: true, data: { rows: [], nextCursor: null } };
+    }) as unknown as Dispatcher["query"];
+    const dispatcher = createMockDispatcher({ query });
+
+    const { rerender } = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(baseScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByText("Loft 4B"));
+
+    rerender(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(baseScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-2"
+        />
+      </DispatcherProvider>,
+    );
+
+    // Without the key fix, React keeps the old ProjectionDetailBody instance
+    // mounted and briefly renders record A's fields until the new query
+    // resolves. Asserting only the ABSENCE of "Loft 4B" would pass on flaky
+    // timing even without the fix, so this also waits for record B's own
+    // value to confirm the remount actually completed.
+    await waitFor(() => screen.getByText("Warehouse 9"));
+    expect(screen.queryByText("Loft 4B")).toBeNull();
   });
 });

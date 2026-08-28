@@ -222,6 +222,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     hideActions,
     valueDisplay = "form",
     hideSectionTitles,
+    headerRegion,
   } = props;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -1017,12 +1018,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     <ExtensionFormRegistryProvider value={extensionFormRegistry}>
       <Form
         onSubmit={() => void handleSubmit()}
-        title={formTitle}
-        {...(formSubtitle !== undefined && { subtitle: formSubtitle })}
+        {...(hideSectionTitles !== true && { title: formTitle })}
+        {...(hideSectionTitles !== true &&
+          formSubtitle !== undefined && { subtitle: formSubtitle })}
         {...(hideActions !== true && { actions: formActions })}
         testId="render-edit-form"
         stickyActions={isWizard}
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
+        {...(headerRegion !== undefined && { headerRegion })}
       >
         {draftCandidates !== null && (
           <Banner

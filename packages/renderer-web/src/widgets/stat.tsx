@@ -157,12 +157,16 @@ export function MiniStat({
   tone = "default",
   emphasize = false,
   testId,
+  labelTestId,
+  valueTestId,
 }: {
   readonly label: string;
   readonly value: string;
   readonly tone?: StatTone;
   readonly emphasize?: boolean;
   readonly testId?: string;
+  readonly labelTestId?: string;
+  readonly valueTestId?: string;
 }): ReactNode {
   const { Card } = usePrimitives();
   return (
@@ -171,13 +175,16 @@ export function MiniStat({
       className={cn("p-3", emphasize && "ring-1 ring-primary/30")}
       testId={testId}
     >
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-xs text-muted-foreground" data-testid={labelTestId}>
+        {label}
+      </div>
       <div
         className={cn(
           "mt-0.5 font-semibold tabular-nums",
           TONE_VALUE[tone],
           emphasize ? "text-lg" : "text-sm",
         )}
+        data-testid={valueTestId}
       >
         {value}
       </div>
