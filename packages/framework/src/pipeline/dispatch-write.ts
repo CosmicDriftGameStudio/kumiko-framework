@@ -100,8 +100,11 @@ function invalidateTenantTimezoneCache(
   user: SessionUser,
   result: WriteResult,
 ): void {
+  // skip: failed write, nothing to invalidate
   if (!result.isSuccess) return;
+  // skip: not a config:write:set/reset dispatch
   if (type !== CONFIG_WRITE_SET_TYPE && type !== CONFIG_WRITE_RESET_TYPE) return;
+  // skip: write was for a different config key
   if (!isConfigWriteResultForKey(result.data, TENANT_TIMEZONE_CONFIG_KEY)) return;
   if (result.data.scope === ConfigScopes.system) {
     ctx.tenantTimezoneCache.clear();

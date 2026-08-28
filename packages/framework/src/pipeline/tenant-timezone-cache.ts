@@ -50,8 +50,10 @@ export function createTenantTimezoneCache(
   const entries = new Map<TenantId, { value: string | undefined; expiresAt: number }>();
 
   function evictOldestIfFull(): void {
+    // skip: cache has room, nothing to evict
     if (entries.size < maxEntries) return;
     const oldestKey = entries.keys().next().value;
+    // skip: defensive — only reachable if maxEntries is 0 (cache disabled) and entries is empty
     if (oldestKey === undefined) return;
     entries.delete(oldestKey);
   }
