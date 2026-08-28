@@ -1,17 +1,18 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 70,
+  "featureCount": 72,
   "features": [
     {
       "name": "admin-shell",
-      "description": "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`). Mount after user, tenant, audit, and jobs; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
+      "description": "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`). Mount after user, tenant, audit, and jobs; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
       "toggleableDefault": null,
       "requires": [
         "user",
         "tenant",
         "audit",
         "jobs",
-        "tier-engine"
+        "tier-engine",
+        "cap-overview"
       ],
       "optionalRequires": [],
       "configReads": [],
@@ -278,6 +279,43 @@
         "category": "operations",
         "recommended": false
       }
+    },
+    {
+      "name": "cap-overview",
+      "description": "Read-only visibility into per-tenant tier assignment and cap usage. SystemAdmin gets a platform-wide tenant list with usage bars; TenantAdmin gets their own usage as dashboard cards. Reads tier-engine, billing-foundation, and tenant data plus app-owned usage tables via caller-supplied CapSpec callbacks — never writes.",
+      "toggleableDefault": null,
+      "requires": [
+        "tenant",
+        "tier-engine",
+        "billing-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Cap Overview · Tier & Usage Visibility",
+        "category": "operations",
+        "recommended": false
+      }
+    },
+    {
+      "name": "cap-overview-labels",
+      "description": "Labels for the example caps this sample app mounts into cap-overview.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "channel-email",

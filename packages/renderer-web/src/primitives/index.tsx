@@ -1965,8 +1965,8 @@ function DefaultLink({
   );
 }
 
-function DefaultProgress({ value, testId }: ProgressProps): ReactNode {
-  return <ProgressBar value={value} testId={testId} />;
+function DefaultProgress({ value, tone, testId }: ProgressProps): ReactNode {
+  return <ProgressBar value={value} tone={tone} testId={testId} />;
 }
 
 function DefaultStepBar({

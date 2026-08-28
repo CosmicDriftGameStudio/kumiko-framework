@@ -21,6 +21,7 @@ import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-
 import { authMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data";
 import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
+import { createCapOverviewFeature } from "@cosmicdrift/kumiko-bundled-features/cap-overview";
 import {
   createChannelEmailFeature,
   type EmailTransport,
@@ -85,6 +86,8 @@ import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
 import { workflowRunnerFeature } from "@cosmicdrift/kumiko-bundled-features/workflow-runner";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+import { CAP_OVERVIEW_CAPS } from "./app/cap-overview-caps";
+import { capOverviewLabelsFeature } from "./app/cap-overview-labels-feature";
 import { collectionLabelsFeature } from "./app/collection-labels-feature";
 
 // Smoke-only stubs. Boot-mode skipt jede operative Methode — diese werden
@@ -199,6 +202,14 @@ export const APP_FEATURES = [
   // tiering + caps
   tierEngineFeature,
   capCounterFeature,
+  // cap-overview: read-only tier/usage visibility. Caps are two example
+  // entities this sample already mounts (notes-history, tags) — see
+  // cap-overview-caps.ts. Requires tenant (auto-mounted) + tier-engine +
+  // billing-foundation, all mounted above. `tiers` mirrors the keys
+  // cap-overview-caps.ts's per-tier limit maps use — without it the
+  // tenant-cap-list tier facet doesn't render at all (see screens.ts).
+  createCapOverviewFeature({ caps: CAP_OVERVIEW_CAPS, tiers: ["free", "pro"] }),
+  capOverviewLabelsFeature,
 
   // feature-toggles (smoke-only runtime stub)
   // No `getRuntime`: smoke-app never dispatches set; production wires the
@@ -296,8 +307,9 @@ export const APP_FEATURES = [
   createRateLimitingFeature(),
   createAuditFeature(),
   // admin-shell: requires tenant (auto-mounted) + audit + jobs + tier-engine,
-  // all mounted above.
-  createAdminShellFeature(),
+  // all mounted above. includeCapOverview:true exercises the my-caps /
+  // tenant-caps nav entries end-to-end — cap-overview is mounted below.
+  createAdminShellFeature({ includeCapOverview: true }),
 
   // app-author-grade
   customFieldsFeature,

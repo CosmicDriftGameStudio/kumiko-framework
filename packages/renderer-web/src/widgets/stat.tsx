@@ -83,6 +83,7 @@ export function StatCard({
   trend,
   spark,
   testId,
+  children,
 }: {
   readonly icon?: ReactNode;
   readonly label: string;
@@ -94,6 +95,9 @@ export function StatCard({
   readonly trend?: string;
   readonly spark?: readonly number[];
   readonly testId?: string;
+  /** Extra content below the built-in fields (e.g. a usage meter) — kept
+   *  inside the same card chrome instead of stacking a second bordered box. */
+  readonly children?: ReactNode;
 }): ReactNode {
   const { Card } = usePrimitives();
   return (
@@ -140,6 +144,7 @@ export function StatCard({
       {spark !== undefined && (
         <Sparkline points={spark} className={cn("mt-2 h-7 w-full", TONE_VALUE[tone])} />
       )}
+      {children !== undefined && <div className="mt-3">{children}</div>}
     </Card>
   );
 }

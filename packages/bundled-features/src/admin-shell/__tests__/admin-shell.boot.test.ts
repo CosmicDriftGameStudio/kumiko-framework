@@ -1,9 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { access, createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createAuditFeature } from "../../audit/feature";
+import { billingFoundationFeature } from "../../billing-foundation";
+import { createCapOverviewFeature } from "../../cap-overview/feature";
+import type { CapSpec } from "../../cap-overview/types";
+import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config/feature";
 import { createJobsFeature } from "../../jobs/feature";
 import { createTenantFeature } from "../../tenant/feature";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { tierEngineFeature } from "../../tier-engine/feature";
 import { createUserFeature } from "../../user/feature";
 import {
@@ -22,6 +27,13 @@ const features = [
   tierEngineFeature,
   createAdminShellFeature(),
 ];
+
+const testCap: CapSpec = {
+  id: "widgets",
+  label: "test.cap.widgets",
+  limit: () => 5,
+  usage: async () => 0,
+};
 
 describe("admin-shell boot + workspace composition", () => {
   test("validateBoot with user, tenant, audit, jobs, tier-engine", () => {
@@ -143,5 +155,59 @@ describe("admin-shell boot + workspace composition", () => {
     const shell = createAdminShellFeature();
     expect(shell.translations?.["admin-shell:nav.tenantOverview"]?.["en"]).toBe("Overview");
     expect(shell.translations?.["screen:tenant-overview.title"]?.["en"]).toBe("Overview");
+  });
+
+  test("includeCapOverview:true adds cap-overview nav to both workspaces", () => {
+    const withCapOverview = createAdminShellFeature({ includeCapOverview: true });
+    const registry = createRegistry([
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature(),
+      createAuditFeature(),
+      createJobsFeature(),
+      tierEngineFeature,
+      createComplianceProfilesFeature(),
+      createTenantLifecycleFeature(),
+      billingFoundationFeature,
+      createCapOverviewFeature({ caps: [testCap] }),
+      withCapOverview,
+    ]);
+    expect(
+      registry.getWorkspaceNavs(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`),
+    ).toEqual([
+      "admin-shell:nav:tenant-overview",
+      "tenant:nav:members",
+      "audit:nav:audit-log",
+      "admin-shell:nav:my-caps",
+    ]);
+    expect(
+      registry.getWorkspaceNavs(
+        `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_PLATFORM_WORKSPACE_ID}`,
+      ),
+    ).toEqual([
+      "admin-shell:nav:platform-overview",
+      "admin-shell:nav:tenants",
+      "admin-shell:nav:tenant-caps",
+      "jobs:nav:job-runs",
+      "admin-shell:nav:tier-admin",
+    ]);
+    expect(registry.getNav("admin-shell:nav:my-caps")?.screen).toBe("cap-overview:screen:my-caps");
+    expect(registry.getNav("admin-shell:nav:tenant-caps")?.screen).toBe(
+      "cap-overview:screen:tenant-cap-list",
+    );
+  });
+
+  test("includeCapOverview default (false) adds no cap-overview nav entries", () => {
+    const registry = createRegistry(features);
+    expect(
+      registry.getWorkspaceNavs(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`),
+    ).not.toContain("admin-shell:nav:my-caps");
+    expect(
+      registry.getWorkspaceNavs(
+        `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_PLATFORM_WORKSPACE_ID}`,
+      ),
+    ).not.toContain("admin-shell:nav:tenant-caps");
+    expect(registry.getNav("admin-shell:nav:my-caps")).toBeUndefined();
+    expect(registry.getNav("admin-shell:nav:tenant-caps")).toBeUndefined();
   });
 });

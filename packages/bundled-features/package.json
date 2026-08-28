@@ -36,6 +36,8 @@
     "./tier-engine": "./src/tier-engine/index.ts",
     "./tier-engine/web": "./src/tier-engine/web/index.ts",
     "./cap-counter": "./src/cap-counter/index.ts",
+    "./cap-overview": "./src/cap-overview/index.ts",
+    "./cap-overview/web": "./src/cap-overview/web/index.ts",
     "./custom-fields": "./src/custom-fields/index.ts",
     "./custom-fields/web": "./src/custom-fields/web/index.ts",
     "./tags": "./src/tags/index.ts",

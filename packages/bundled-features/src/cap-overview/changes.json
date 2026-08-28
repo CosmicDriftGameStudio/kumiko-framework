@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.224.0",
+    "type": "improvement",
+    "title": "Add cap-overview feature: tier + cap usage visibility per tenant.",
+    "detail": "New read-only bundled feature. SystemAdmin gets a paged, searchable tenant list with tier/billing columns and per-cap usage bars, plus a per-tenant dashboard reachable from the list. TenantAdmin gets a 'My usage' dashboard showing their own tenant's cap usage as cards. Reads tier-engine, billing-foundation and tenant projections plus caller-supplied CapSpec usage callbacks; every handler enforces explicit tenant scoping (no ambient tenant filter, cross-tenant reads require SystemAdmin + acknowledgeCrossTenant)."
+  }
+]

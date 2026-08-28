@@ -13,6 +13,8 @@ export const ADMIN_SHELL_I18N: Readonly<Record<string, LocalizedString>> = {
   "admin-shell:nav.platformOverview": { en: "Overview" },
   "admin-shell:nav.tenants": { en: "Tenants" },
   "admin-shell:nav.tierAdmin": { en: "Assign tier" },
+  "admin-shell:nav.myCaps": { en: "Plans & Caps" },
+  "admin-shell:nav.tenantCaps": { en: "Plans & Caps" },
   "admin-shell:overview.tenantTitle": { en: "Administration" },
   "admin-shell:overview.platformTitle": { en: "Platform" },
   "admin-shell:overview.loading": { en: "Loading…" },

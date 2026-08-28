@@ -1,6 +1,16 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
 
+type ProgressTone = "default" | "warn" | "danger";
+
+// Fully spelled out (no interpolation) — Tailwind's scanner only picks up
+// literal class strings, not `bg-status-${tone}`.
+const FILL_TONE: Record<ProgressTone, string> = {
+  default: "bg-primary",
+  warn: "bg-status-warn",
+  danger: "bg-status-critical",
+};
+
 /**
  * Progress bar, `value` 0..1 (clamped).
  *
@@ -11,10 +21,12 @@ import { cn } from "../lib/cn";
  */
 export function ProgressBar({
   value,
+  tone = "default",
   className,
   testId,
 }: {
   readonly value: number;
+  readonly tone?: ProgressTone;
   readonly className?: string;
   readonly testId?: string;
 }): ReactNode {
@@ -32,7 +44,7 @@ export function ProgressBar({
         className="relative h-2 w-full overflow-hidden rounded-full bg-muted"
       >
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-primary"
+          className={cn("absolute inset-y-0 left-0 rounded-full", FILL_TONE[tone])}
           style={{ width: `${pct * 100}%` }}
         />
       </div>

@@ -4099,7 +4099,7 @@ describe("boot-validator — config key backing × scope", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
-  test("navigate with params targeting a dashboard screen → Throw", () => {
+  test("navigate with params targeting a dashboard screen without a filter → Throw (params would be a no-op)", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity("product", createEntity({ fields: { name: createTextField() } }));
       r.screen({
@@ -4135,7 +4135,97 @@ describe("boot-validator — config key backing × scope", () => {
       });
     });
     expect(() => validateBoot([feature])).toThrow(
-      /sets params on navigate-target "product-dashboard".*screen type "dashboard".*only actionForm and entityEdit-create/,
+      /sets params on navigate-target "product-dashboard" \(dashboard\).*declares no filter.*no-op/,
+    );
+  });
+
+  test("navigate with params targeting a dashboard screen with a matching filter → no throw (useFilterParams reads it, fw#1708 follow-up)", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "view",
+            label: "actions.view",
+            screen: "product-dashboard",
+            params: { map: { category: "name" } },
+          },
+        ],
+      });
+      r.queryHandler("count", z.object({}), async () => ({ total: 0 }), {
+        access: { openToAll: true },
+      });
+      r.screen({
+        id: "product-dashboard",
+        type: "dashboard",
+        filter: {
+          id: "category",
+          label: "Category",
+          kind: "select",
+          options: [{ value: "a", label: "A" }],
+        },
+        panels: [
+          {
+            kind: "stat",
+            id: "count",
+            label: "Products",
+            query: "shop:query:count",
+            valueField: "total",
+          },
+        ],
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("navigate with params targeting a dashboard screen whose filter id doesn't match any extracted key → Throw", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "view",
+            label: "actions.view",
+            screen: "product-dashboard",
+            params: { map: { productName: "name" } },
+          },
+        ],
+      });
+      r.queryHandler("count", z.object({}), async () => ({ total: 0 }), {
+        access: { openToAll: true },
+      });
+      r.screen({
+        id: "product-dashboard",
+        type: "dashboard",
+        filter: {
+          id: "category",
+          label: "Category",
+          kind: "select",
+          options: [{ value: "a", label: "A" }],
+        },
+        panels: [
+          {
+            kind: "stat",
+            id: "count",
+            label: "Products",
+            query: "shop:query:count",
+            valueField: "total",
+          },
+        ],
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /sets params \[productName\] on navigate-target "product-dashboard" \(dashboard\) whose filter id is "category".*none of the extracted keys match/,
     );
   });
 
