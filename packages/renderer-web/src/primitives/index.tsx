@@ -1003,10 +1003,10 @@ function RowActionButton({
   );
 }
 
-// Kebab-Dropdown für >2 actions. Confirm-Dialog ist hier inline pro
-// Item analog zum Inline-Button-Pfad — ein gemeinsamer State-Holder
-// per Action damit das Dropdown nach dem Click zumacht und der Dialog
-// danach öffnet (Radix-Dropdown-Item swallowt den Click sonst).
+// Kebab dropdown for >2 actions, one inline confirm dialog per item like
+// the inline-button path. Menu is controlled so it closes explicitly on
+// select, instead of relying on Radix's auto-close, which preventDefault
+// below blocks.
 function RowActionsKebab({
   row,
   actions,
@@ -1016,10 +1016,11 @@ function RowActionsKebab({
 }): ReactNode {
   const { triggerNow } = useRowActionTrigger(row);
   const [pendingConfirm, setPendingConfirm] = useState<DataTableRowAction | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
@@ -1041,6 +1042,7 @@ function RowActionsKebab({
               data-testid={`row-${row.id}-action-${action.id}`}
               onSelect={(e) => {
                 e.preventDefault();
+                setMenuOpen(false);
                 if (needsConfirm(action)) {
                   setPendingConfirm(action);
                 } else {
