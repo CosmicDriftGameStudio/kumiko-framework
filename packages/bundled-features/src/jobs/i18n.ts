@@ -61,4 +61,7 @@ export const JOBS_I18N: Readonly<Record<string, LocalizedString>> = {
   "jobs.errors.onlyFailedCanRetry": {
     en: "Only failed runs can be retried.",
   },
+  "jobs.errors.payloadErased": {
+    en: "This run's payload can no longer be read — the triggering user's data was erased.",
+  },
 };
