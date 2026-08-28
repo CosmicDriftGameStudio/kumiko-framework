@@ -132,6 +132,11 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  unaffected either way, so this only changes forms that already have
    *  readOnly fields. */
   readonly valueDisplay?: "form" | "text";
+  /** Suppresses every section's own title (fields-section header, relatedList
+   *  Section title) — for a host that already renders the section label
+   *  itself elsewhere (e.g. a tab strip whose label duplicates it).
+   *  Omitting this prop keeps unchanged behavior. */
+  readonly hideSectionTitles?: boolean;
 };
 
 export type RenderEditAction = {

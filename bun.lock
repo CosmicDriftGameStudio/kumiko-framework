@@ -684,6 +684,12 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/record-detail-layout": {
+      "name": "@cosmicdrift/kumiko-sample-record-detail-layout",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "samples/recipes/reference-data": {
       "name": "@cosmicdrift/kumiko-sample-reference-data",
       "dependencies": {
@@ -1007,6 +1013,8 @@
     "@cosmicdrift/kumiko-sample-rate-limiting": ["@cosmicdrift/kumiko-sample-rate-limiting@workspace:samples/recipes/rate-limiting"],
 
     "@cosmicdrift/kumiko-sample-realtime-sse": ["@cosmicdrift/kumiko-sample-realtime-sse@workspace:samples/recipes/realtime-sse"],
+
+    "@cosmicdrift/kumiko-sample-record-detail-layout": ["@cosmicdrift/kumiko-sample-record-detail-layout@workspace:samples/recipes/record-detail-layout"],
 
     "@cosmicdrift/kumiko-sample-reference-data": ["@cosmicdrift/kumiko-sample-reference-data@workspace:samples/recipes/reference-data"],
 

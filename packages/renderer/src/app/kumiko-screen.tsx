@@ -2021,13 +2021,38 @@ function ProjectionDetailBody({
   readonly translate?: Translate;
   readonly entityId?: string;
 }): ReactNode {
-  const { Banner, Text } = usePrimitives();
+  const { Banner, Text, Heading, Grid, GridCell, Tabs, StatusBadge } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
   const idParam = screen.idParam ?? "id";
+  const isTabsMode = screen.layout.mode === "tabs";
+  const activeSection = useMemo(() => {
+    if (!isTabsMode) return undefined;
+    const tabParam = nav.searchParams["tab"];
+    return (
+      screen.layout.sections.find((section) => section.id === tabParam) ?? screen.layout.sections[0]
+    );
+  }, [isTabsMode, screen.layout.sections, nav.searchParams]);
+  // Tabs is an optional Core-Primitive (additive rollout) — same "skip +
+  // warn once" precedent as Drawer above, instead of crashing when a web
+  // app hasn't upgraded its createKumikoApp wiring yet.
+  useEffect(() => {
+    if (isTabsMode && Tabs === undefined) {
+      // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
+      console.warn(
+        `[kumiko] screen "${screen.id}" uses layout.mode: "tabs", but no <Tabs> primitive is registered — the tab strip will not render. createKumikoApp() from kumiko-renderer-web wires it automatically.`,
+      );
+    }
+  }, [isTabsMode, Tabs, screen.id]);
   const entity = useMemo(() => synthesizeProjectionDetailEntity(screen.layout), [screen.layout]);
-  const detailScreen = useMemo(() => synthesizeProjectionDetailScreen(screen), [screen]);
+  const detailScreen = useMemo(() => {
+    const source =
+      activeSection !== undefined
+        ? { ...screen, layout: { ...screen.layout, sections: [activeSection] } }
+        : screen;
+    return synthesizeProjectionDetailScreen(source);
+  }, [screen, activeSection]);
   const detailQuery = useQuery<Readonly<Record<string, unknown>>>(
     screen.query,
     entityId !== undefined ? { [idParam]: entityId } : {},
@@ -2221,17 +2246,74 @@ function ProjectionDetailBody({
     );
   }
   return (
-    <RenderEdit
-      screen={detailScreen}
-      entity={entity}
-      featureName={schema.featureName}
-      initial={record as FormValues}
-      entityId={entityId}
-      customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
-      {...(headerActions !== undefined && { actions: headerActions })}
-      {...(translate !== undefined && { translate })}
-      valueDisplay={screen.valueDisplay ?? "text"}
-    />
+    <>
+      {screen.header !== undefined && (
+        <>
+          <Heading variant="page" testId="kumiko-screen-projection-detail-title">
+            {String(record[screen.header.title] ?? "")}
+          </Heading>
+          {screen.header.subtitle !== undefined && (
+            <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
+              {String(record[screen.header.subtitle] ?? "")}
+            </Text>
+          )}
+          {screen.header.status !== undefined &&
+            (StatusBadge !== undefined ? (
+              <StatusBadge
+                value={String(record[screen.header.status] ?? "")}
+                testId="kumiko-screen-projection-detail-status"
+              />
+            ) : (
+              <Text testId="kumiko-screen-projection-detail-status">
+                {String(record[screen.header.status] ?? "")}
+              </Text>
+            ))}
+        </>
+      )}
+      {screen.metrics !== undefined && screen.metrics.length > 0 && (
+        <Grid columns={screen.metrics.length} testId="kumiko-screen-projection-detail-metrics">
+          {screen.metrics.map((metric) => {
+            const labelKey = screen.fieldLabels?.[metric];
+            return (
+              <GridCell key={metric}>
+                <Text
+                  variant="small"
+                  testId={`kumiko-screen-projection-detail-metric-${metric}-label`}
+                >
+                  {labelKey !== undefined ? effectiveTranslate(labelKey) : metric}
+                </Text>
+                <Text testId={`kumiko-screen-projection-detail-metric-${metric}-value`}>
+                  {String(record[metric] ?? "")}
+                </Text>
+              </GridCell>
+            );
+          })}
+        </Grid>
+      )}
+      {isTabsMode && Tabs !== undefined && activeSection !== undefined && (
+        <Tabs
+          testId="kumiko-screen-projection-detail-tabs"
+          items={screen.layout.sections.map((section) => ({
+            id: section.id ?? "",
+            label: effectiveTranslate(section.title ?? section.id ?? ""),
+          }))}
+          activeId={activeSection.id ?? ""}
+          onSelect={(id) => nav.setSearchParams({ tab: id })}
+        />
+      )}
+      <RenderEdit
+        screen={detailScreen}
+        entity={entity}
+        featureName={schema.featureName}
+        initial={record as FormValues}
+        entityId={entityId}
+        customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
+        {...(headerActions !== undefined && { actions: headerActions })}
+        {...(translate !== undefined && { translate })}
+        {...(isTabsMode && { hideSectionTitles: true })}
+        valueDisplay={screen.valueDisplay ?? "text"}
+      />
+    </>
   );
 }
 // ---- actionForm (Tier 2.7d) ----

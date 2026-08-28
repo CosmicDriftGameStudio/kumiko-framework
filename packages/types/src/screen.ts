@@ -441,6 +441,12 @@ export type ProjectionListScreenDefinition = {
 // rejects them. `relatedList` sections ARE supported — they run their own
 // query against the displayed record's id, independent of the entity gap
 // above (fw#2166).
+export type RecordHeaderSpec = {
+  readonly title: string;
+  readonly subtitle?: string;
+  readonly status?: string;
+};
+
 export type ProjectionDetailScreenDefinition = {
   readonly id: string;
   readonly type: "projectionDetail";
@@ -453,6 +459,12 @@ export type ProjectionDetailScreenDefinition = {
    *  keinen natürlichen Field-Namespace — fehlt ein Eintrag, gilt die
    *  Konvention `<feature>:entity:__projection-detail__:field:<name>`. */
   readonly fieldLabels?: Readonly<Record<string, string>>;
+  /** Record header above the layout — title/subtitle/status name columns
+   *  in the query row (not literals). Rendered only when set. */
+  readonly header?: RecordHeaderSpec;
+  /** Metric band above the layout — column names in the query row, labeled
+   *  via `fieldLabels`. Rendered only when set. */
+  readonly metrics?: readonly string[];
   /** Parent list screen (kurze id) für eine "Zurück"-Navigation. */
   readonly listScreenId?: string;
   readonly slots?: ScreenSlots;
@@ -646,6 +658,9 @@ export type EditFieldSpec =
 export type EditSectionSpec = EditFieldsSection | EditExtensionSection | EditRelatedListSection;
 
 export type EditFieldsSection = {
+  /** Kebab-case tab id, used as the `?tab=` value. Required by the
+   *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
+  readonly id?: string;
   readonly kind?: "fields";
   /** Optional. Ohne Titel rendert die Section nur ihre Felder (keine h3-
    *  Überschrift) — für flache Forms (Card-Titel + Felder direkt, ein
@@ -662,6 +677,9 @@ export type EditFieldsSection = {
 };
 
 export type EditExtensionSection = {
+  /** Kebab-case tab id, used as the `?tab=` value. Required by the
+   *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
+  readonly id?: string;
   readonly kind: "extension";
   readonly title: string;
   readonly component: PlatformComponent;
@@ -678,6 +696,9 @@ export type EditExtensionSection = {
 // tenant's own fields. Only supported on projectionDetail (fw#2166); the
 // boot-validator rejects it on entityEdit/configEdit/actionForm.
 export type EditRelatedListSection = {
+  /** Kebab-case tab id, used as the `?tab=` value. Required by the
+   *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
+  readonly id?: string;
   readonly kind: "relatedList";
   readonly title: string;
   /** Fully qualified query QN. Same paged envelope as projectionList.query:
@@ -704,8 +725,11 @@ export type EditLayout = {
   readonly width?: FormWidth;
   /** Default "single". "wizard" renders one section per step (with
    *  progress + per-step validation) instead of all sections at once —
-   *  boot-validator requires >= 2 sections, each with a title, when set. */
-  readonly mode?: "single" | "wizard";
+   *  boot-validator requires >= 2 sections, each with a title, when set.
+   *  "tabs" renders one section per tab (projectionDetail only — the
+   *  boot-validator rejects it on entityEdit, see the check for the reason);
+   *  requires >= 2 sections, each with a title and an `id`. */
+  readonly mode?: "single" | "wizard" | "tabs";
   /** Persists in-progress wizard state as a resumable draft instead of
    *  discarding it on navigation away. */
   readonly draft?: boolean;

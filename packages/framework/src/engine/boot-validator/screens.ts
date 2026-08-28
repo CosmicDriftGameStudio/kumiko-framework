@@ -6,7 +6,7 @@
 
 import { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
 import { rowMetaFieldNames } from "../../db/table-builder";
-import { isValidQn, qualifyEntityName } from "../qualified-name";
+import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
 import type { EntityDefinition, FeatureDefinition } from "../types";
@@ -140,6 +140,17 @@ function validateWizardLayout(
   layout: EditLayout,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
+  // Tabs truncate the layout to one section, but scopeFieldNames derives
+  // required-field validation from the `fields` prop, not from layout — a
+  // hidden tab could hide a required field and silently block submit.
+  // projectionDetail has no submit, so tabs are safe there (see its own
+  // branch in validateScreens) but not here.
+  if (layout.mode === "tabs") {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets mode: "tabs" — tabs are only ` +
+        `supported on projectionDetail. Use mode: "wizard" or "single" instead.`,
+    );
+  }
   // "form-draft" is hardcoded because the framework layer must not depend on
   // @cosmicdrift/kumiko-bundled-features — same precedence as the
   // "user-data-rights" check in gdpr-storage.ts.
@@ -571,6 +582,54 @@ export function validateScreens(
           `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has an empty sections list — ` +
             `declare at least one section.`,
         );
+      }
+      if (screen.layout.mode === "tabs") {
+        if (screen.layout.sections.length < 2) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has mode: "tabs" but only ` +
+              `${screen.layout.sections.length} section(s) — tabs need at least 2 sections.`,
+          );
+        }
+        const tabIds = new Set<string>();
+        screen.layout.sections.forEach((section, index) => {
+          if (section.title === undefined || section.title.trim().length === 0) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has mode: "tabs" but ` +
+                `sections[${index}] has no title — every tab needs a title.`,
+            );
+          }
+          if (section.id === undefined || section.id.trim().length === 0) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has mode: "tabs" but ` +
+                `sections[${index}] ("${section.title}") has no id — every tab needs a stable id for ` +
+                `the ?tab= param.`,
+            );
+          }
+          if (!isKebabSegment(section.id)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) sections[${index}] ` +
+                `("${section.title}") has id "${section.id}" — must be kebab-case.`,
+            );
+          }
+          if (tabIds.has(section.id)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has duplicate tab id ` +
+                `"${section.id}" (sections[${index}]).`,
+            );
+          }
+          tabIds.add(section.id);
+        });
+      }
+      if (screen.metrics !== undefined) {
+        for (const metric of screen.metrics) {
+          if (screen.fieldLabels?.[metric] === undefined) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${metric}" has ` +
+                `no entry in fieldLabels — every metrics field needs a label, there is no fallback to ` +
+                `the raw column name.`,
+            );
+          }
+        }
       }
       for (const section of screen.layout.sections) {
         if (isExtensionEditSection(section)) {

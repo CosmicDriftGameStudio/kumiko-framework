@@ -221,6 +221,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     disabled = false,
     hideActions,
     valueDisplay = "form",
+    hideSectionTitles,
   } = props;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -1162,6 +1163,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 parentId={parentId}
                 featureName={featureName}
                 translate={translate}
+                hideTitle={hideSectionTitles}
               />
             );
           }
@@ -1169,7 +1171,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           // Section-Header unterdrücken wenn er den Form-Titel der
           // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
           // ActionForms, deren Section-Label = Screen-Titel ist).
-          const sectionTitle = section.title === formTitle ? undefined : section.title;
+          const sectionTitle = hideSectionTitles
+            ? undefined
+            : section.title === formTitle
+              ? undefined
+              : section.title;
           // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
           const sectionKey = section.title ?? `section-${sectionIndex}`;
           const sectionEl = (
