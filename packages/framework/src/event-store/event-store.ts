@@ -286,7 +286,6 @@ export async function getUnscopedStreamMaxVersionForSeed(
   return getUnscopedAggregateStreamMaxVersion(...args);
 }
 
-
 export async function getEventsHighWaterMark(db: DbRunner): Promise<bigint> {
   return selectEventsHighWaterMark(db);
 }

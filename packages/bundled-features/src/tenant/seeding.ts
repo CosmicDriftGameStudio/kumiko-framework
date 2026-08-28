@@ -314,4 +314,3 @@ function extractMembershipId(data: unknown): string {
     `seedTenantMembership: executor.create returned no string id (got ${JSON.stringify(data)})`,
   );
 }
-
