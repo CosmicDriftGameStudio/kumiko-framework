@@ -31,6 +31,7 @@ function checkFieldExists(
   field: string,
   buildMessage: () => string,
 ): void {
+  // skip: capability absent (no introspectable shape) or field already present — nothing to validate
   if (shape === undefined || field in shape) return;
   throw new Error(buildMessage());
 }
@@ -44,6 +45,7 @@ function checkColumnField(
   buildMessage: (field: string) => string,
 ): void {
   const normalized = normalizeListColumn(column);
+  // skip: labeled column is a virtual/computed cell drawn by a renderer, not a row field
   if (normalized.label !== undefined) return;
   checkFieldExists(rowShape, normalized.field, () => buildMessage(normalized.field));
 }
@@ -149,6 +151,7 @@ function checkDashboardStatPanelFields(
   const recordShape = getZodObjectShape(queryHandlers.get(panel.query)?.outputSchema);
   const prefix = `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`;
   const checkPanelField = (part: string, field: string | undefined): void => {
+    // skip: this stat-panel field slot is optional and wasn't declared — nothing to validate
     if (field === undefined) return;
     checkFieldExists(
       recordShape,
