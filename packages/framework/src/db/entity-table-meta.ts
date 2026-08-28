@@ -356,11 +356,16 @@ export function deriveEntityTableMeta(
         const notNullParts = bidxCols
           .filter((c, i) => c !== cols[i])
           .map((c) => `"${c}" IS NOT NULL`);
+        // Soft-deleted rows keep their bidx hash — without this, a restored
+        // row can't reuse a value a soft-deleted sibling still holds
+        // (framework#2464). Kept in lock-step with table-builder.ts.
+        const whereParts =
+          entity.softDelete === true ? [...notNullParts, `"is_deleted" = false`] : notNullParts;
         indexes.push({
           name: `${indexName}_bidx`,
           columns: bidxCols,
           unique: true,
-          whereSql: notNullParts.join(" AND "),
+          whereSql: whereParts.join(" AND "),
         });
       }
     }

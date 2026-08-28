@@ -583,10 +583,17 @@ export function buildEntityTable<E extends EntityDefinition>(
               .map((c) => tHandle[c])
               .filter((col): col is ColumnHandle => col !== undefined);
             if (bidxCols.length === bidxFieldNames.length) {
-              const whereText = bidxFieldNames
+              const notNullParts = bidxFieldNames
                 .filter((c, i) => c !== def.columns[i])
-                .map((c) => `"${toSnakeCase(c)}" IS NOT NULL`)
-                .join(" AND ");
+                .map((c) => `"${toSnakeCase(c)}" IS NOT NULL`);
+              // Soft-deleted rows keep their bidx hash — without this, a
+              // restored row can't reuse a value a soft-deleted sibling still
+              // holds (framework#2464).
+              const whereText = (
+                entity.softDelete === true
+                  ? [...notNullParts, `"is_deleted" = false`]
+                  : notNullParts
+              ).join(" AND ");
               const partialWhere: SqlExpression = {
                 kind: "sql-expr",
                 text: whereText,

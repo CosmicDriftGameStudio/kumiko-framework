@@ -160,3 +160,32 @@ describe("lock-step — lookupable / blind-index (#818)", () => {
     expect(partial?.whereSql).toBe('"email_bidx" IS NOT NULL');
   });
 });
+
+// Vierte Probe: softDelete + lookupable (#2464) — die partielle bidx-Unique
+// muss soft-gedeletete Rows aus dem Uniqueness-Scope ausschließen, sonst
+// blockiert eine soft-deletete Row denselben Wert für eine neue/restaurierte.
+const entityWithSoftDeleteAndLookupable = createEntity({
+  table: "read_lockstep_probe_bidx_sd",
+  fields: {
+    email: { type: "text", required: true, pii: true, lookupable: true },
+    tenantSlug: { type: "text", required: true },
+  },
+  softDelete: true,
+  indexes: [{ columns: ["tenantSlug", "email"], unique: true }],
+});
+
+describe("lock-step — softDelete + lookupable/blind-index (#2464)", () => {
+  const fromBuilder = asEntityTableMeta(
+    buildEntityTable("lockstepProbeBidxSd", entityWithSoftDeleteAndLookupable),
+  );
+  const fromMeta = deriveEntityTableMeta("lockstepProbeBidxSd", entityWithSoftDeleteAndLookupable);
+
+  test("identical indexes inkl. soft-delete-aware bidx partial where", () => {
+    expect(byName<IndexMeta>(fromBuilder?.indexes ?? [])).toEqual(
+      byName<IndexMeta>(fromMeta.indexes),
+    );
+    const partial = fromMeta.indexes.find((i) => i.name.endsWith("_tenant_slug_email_unique_bidx"));
+    expect(partial).toBeDefined();
+    expect(partial?.whereSql).toBe('"email_bidx" IS NOT NULL AND "is_deleted" = false');
+  });
+});

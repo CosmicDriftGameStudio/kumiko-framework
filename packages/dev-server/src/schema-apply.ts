@@ -8,19 +8,16 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import {
-  createDbConnection,
-  type DbConnection,
-  readRebuildMarker,
-  runMigrationsFromDir,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createDbConnection, runMigrationsFromDir } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { buildProjectionTableIndex } from "@cosmicdrift/kumiko-framework/migrations";
+import {
+  queueRebuildsFromMarkers,
+  runPendingRebuilds,
+} from "@cosmicdrift/kumiko-framework/migrations";
 import {
   createEventConsumerStateTable,
   createProjectionStateTable,
-  rebuildProjection,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   type ComposeFeaturesOptions,
@@ -72,15 +69,34 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
       console.log("");
     }
 
-    // Projection-Rebuild für Tabellen die in frisch applizierten Migrations
-    // geändert wurden (Marker NNNN_<name>.rebuild.json von `schema generate`).
-    // Ohne das blieben read_*-Projektionen nach einem Schema-Change stale.
-    const changedTables = new Set<string>();
-    for (const id of result.applied) {
-      for (const table of readRebuildMarker(migrationsDir, id)) changedTables.add(table);
+    // Projection-Rebuild: persistente Queue statt "nur result.applied dieses
+    // Runs" — sonst bleibt ein fehlgeschlagener Rebuild für immer unbemerkt
+    // liegen, weil die Migration schon als applied getrackt ist und beim
+    // nächsten apply übersprungen wird (#2464). queueRebuildsFromMarkers
+    // persistiert die Marker-Tabellen VOR dem Rebuild; runPendingRebuilds holt
+    // unconditionally auch offene Einträge aus früheren, gescheiterten Runs
+    // nach — nicht nur die, die dieser Run frisch appliziert hat.
+    const thisRunTables = await queueRebuildsFromMarkers(db, {
+      migrationsDir,
+      appliedIds: result.applied,
+    });
+    const registry = createRegistry(composeFeatures([...opts.features], opts));
+    const rebuildRun = await runPendingRebuilds(db, registry, { thisRunTables });
+    if (rebuildRun.rebuilt.length > 0) {
+      console.log(`  Rebuild ${rebuildRun.rebuilt.length} Projection(s)…`);
+      for (const r of rebuildRun.rebuilt) {
+        console.log(`    ↻ ${r.projection} (${r.eventsProcessed} events)`);
+      }
+      console.log("");
     }
-    if (changedTables.size > 0) {
-      await rebuildAffectedProjections(db, [...changedTables], opts);
+    if (rebuildRun.failed.length > 0) {
+      throw new Error(
+        `Projection rebuild failed for: ${rebuildRun.failed
+          .map((f) => `${f.projection} (${f.error})`)
+          .join(
+            "; ",
+          )}. Table(s) stay queued in kumiko_pending_rebuilds — retried on the next apply.`,
+      );
     }
 
     return 0;
@@ -90,39 +106,6 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
   } finally {
     await close();
   }
-}
-
-async function rebuildAffectedProjections(
-  db: DbConnection,
-  changedTables: readonly string[],
-  opts: SchemaApplyOptions,
-): Promise<void> {
-  const registry = createRegistry(composeFeatures([...opts.features], opts));
-  const tableToProjection = buildProjectionTableIndex(registry);
-
-  const projections = new Set<string>();
-  for (const table of changedTables) {
-    const name = tableToProjection.get(table);
-    if (name) {
-      projections.add(name);
-    } else {
-      // 522/3: a table in a .rebuild.json marker that no longer matches any
-      // registered projection would otherwise rebuild nothing and exit 0 —
-      // indistinguishable from "nothing needed a rebuild".
-      console.warn(
-        `  ⚠ Table "${table}" is in a rebuild marker but matches no registered projection — skipped.`,
-      );
-    }
-  }
-  // skip: no projections matched the changed tables, nothing to rebuild
-  if (projections.size === 0) return;
-
-  console.log(`  Rebuild ${projections.size} Projection(s)…`);
-  for (const name of projections) {
-    const r = await rebuildProjection(name, { db, registry });
-    console.log(`    ↻ ${name} (${r.eventsProcessed} events, ${r.durationMs}ms)`);
-  }
-  console.log("");
 }
 
 export async function runStandaloneSchemaCli(opts: SchemaApplyOptions): Promise<never> {
