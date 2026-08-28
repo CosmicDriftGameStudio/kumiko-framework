@@ -1,5 +1,16 @@
 # create-kumiko-app
 
+## 0.4.250
+
+### Patch Changes
+
+- aa1a1a7: German/Spanish translations for the new `cap-overview` feature's strings, and the regenerated feature manifest (`create-kumiko-app`) that lists it as an available choice.
+- Updated dependencies [aa1a1a7]
+- Updated dependencies [d63b2e8]
+  - @cosmicdrift/kumiko-framework@0.225.0
+  - @cosmicdrift/kumiko-dev-server@0.225.0
+  - @cosmicdrift/kumiko-server-runtime@0.225.0
+
 ## 0.4.249
 
 ### Patch Changes

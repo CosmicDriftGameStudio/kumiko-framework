@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.225.0
+
+### Minor Changes
+
+- d63b2e8: `projectionDetail` screens can now declare an optional record header (`header: { title, subtitle?, status? }`), a metrics band (`metrics: string[]`, labeled via `fieldLabels`), and a tabbed layout (`layout.mode: "tabs"`) alongside the existing single-section layout. All three are additive — a screen that doesn't set them renders unchanged. Tabs are read via a new `Tabs` Core-Primitive (wired to a vendored shadcn/Radix implementation in `kumiko-renderer-web`) and driven by the `?tab=` search param; only the active tab's section mounts, so its query fires on selection instead of upfront.
+
+### Patch Changes
+
+- aa1a1a7: The boot validator now allows a `navigate` rowAction's `params` extractor to target a `dashboard` screen when that screen declares a `filter`, and checks that the extractor's produced keys include the filter's `id` — a typo like `tenant` instead of `tenantId` now fails at boot instead of silently landing on an empty dashboard. A `dashboard` target with no `filter` is still rejected, since there params would be a genuine no-op.
+- Updated dependencies [d63b2e8]
+  - @cosmicdrift/kumiko-types@0.225.0
+
 ## 0.224.2
 
 ### Patch Changes

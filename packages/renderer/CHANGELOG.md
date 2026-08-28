@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.225.0
+
+### Minor Changes
+
+- 5185710: Add an optional `tone` to the `Progress` primitive (`default`/`warn`/`danger`, fill color only) and wire `cap-overview`'s usage bar to derive it from the same `computeTone(fraction)` the dashboard cards already use. Previously the bar always rendered the neutral fill regardless of how far over the cap usage was — a tenant at 120% of a limit looked identical to one at 4%.
+- d63b2e8: `projectionDetail` screens can now declare an optional record header (`header: { title, subtitle?, status? }`), a metrics band (`metrics: string[]`, labeled via `fieldLabels`), and a tabbed layout (`layout.mode: "tabs"`) alongside the existing single-section layout. All three are additive — a screen that doesn't set them renders unchanged. Tabs are read via a new `Tabs` Core-Primitive (wired to a vendored shadcn/Radix implementation in `kumiko-renderer-web`) and driven by the `?tab=` search param; only the active tab's section mounts, so its query fires on selection instead of upfront.
+
+### Patch Changes
+
+- Updated dependencies [aa1a1a7]
+- Updated dependencies [d63b2e8]
+  - @cosmicdrift/kumiko-framework@0.225.0
+  - @cosmicdrift/kumiko-headless@0.225.0
+
 ## 0.224.2
 
 ### Patch Changes
