@@ -178,7 +178,13 @@ export function KumikoScreen({
       );
     case "projectionDetail":
       return (
+        // key on the record identifier alone (never the active tab, see
+        // ProjectionDetailBody's own hideSectionTitles/tab handling) forces
+        // a full remount when navigating from one record to the next —
+        // without it React keeps the RenderEdit form controller alive and
+        // the screen briefly shows the PREVIOUS record's fields (fw#2518).
         <ProjectionDetailBody
+          key={entityId ?? "no-entity"}
           schema={schema}
           screen={screen}
           translate={translate}
@@ -2021,7 +2027,7 @@ function ProjectionDetailBody({
   readonly translate?: Translate;
   readonly entityId?: string;
 }): ReactNode {
-  const { Banner, Text, Heading, Grid, GridCell, Tabs, StatusBadge } = usePrimitives();
+  const { Banner, Text, Heading, Grid, GridCell, Tabs, StatusBadge, Metric } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
@@ -2245,52 +2251,64 @@ function ProjectionDetailBody({
       </Banner>
     );
   }
-  return (
+  const hasHeader = screen.header !== undefined;
+  const hasMetrics = screen.metrics !== undefined && screen.metrics.length > 0;
+  const hasTabs = isTabsMode && Tabs !== undefined && activeSection !== undefined;
+  // Rendered as RenderEdit's headerRegion (not as JSX siblings before it) so
+  // this shares the same page padding/width as the record's edit card below
+  // it, instead of sitting flush against the screen edge (fw record-screen
+  // header polish).
+  const header = screen.header;
+  const headerContent = (
     <>
-      {screen.header !== undefined && (
+      {header !== undefined && (
         <>
           <Heading variant="page" testId="kumiko-screen-projection-detail-title">
-            {String(record[screen.header.title] ?? "")}
+            {String(record[header.title] ?? "")}
           </Heading>
-          {screen.header.subtitle !== undefined && (
-            <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
-              {String(record[screen.header.subtitle] ?? "")}
-            </Text>
+          {(header.subtitle !== undefined || header.status !== undefined) && (
+            <Grid columns="auto">
+              {header.subtitle !== undefined && (
+                <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
+                  {String(record[header.subtitle] ?? "")}
+                </Text>
+              )}
+              {header.status !== undefined &&
+                (StatusBadge !== undefined ? (
+                  <StatusBadge
+                    value={String(record[header.status] ?? "")}
+                    testId="kumiko-screen-projection-detail-status"
+                  />
+                ) : (
+                  <Text testId="kumiko-screen-projection-detail-status">
+                    {String(record[header.status] ?? "")}
+                  </Text>
+                ))}
+            </Grid>
           )}
-          {screen.header.status !== undefined &&
-            (StatusBadge !== undefined ? (
-              <StatusBadge
-                value={String(record[screen.header.status] ?? "")}
-                testId="kumiko-screen-projection-detail-status"
-              />
-            ) : (
-              <Text testId="kumiko-screen-projection-detail-status">
-                {String(record[screen.header.status] ?? "")}
-              </Text>
-            ))}
         </>
       )}
-      {screen.metrics !== undefined && screen.metrics.length > 0 && (
-        <Grid columns={screen.metrics.length} testId="kumiko-screen-projection-detail-metrics">
-          {screen.metrics.map((metric) => {
+      {hasMetrics && (
+        <Grid columns="auto" testId="kumiko-screen-projection-detail-metrics">
+          {screen.metrics?.map((metric) => {
             const labelKey = screen.fieldLabels?.[metric];
-            return (
+            const label = labelKey !== undefined ? effectiveTranslate(labelKey) : metric;
+            const value = String(record[metric] ?? "");
+            const testId = `kumiko-screen-projection-detail-metric-${metric}`;
+            return Metric !== undefined ? (
+              <Metric key={metric} label={label} value={value} testId={testId} />
+            ) : (
               <GridCell key={metric}>
-                <Text
-                  variant="small"
-                  testId={`kumiko-screen-projection-detail-metric-${metric}-label`}
-                >
-                  {labelKey !== undefined ? effectiveTranslate(labelKey) : metric}
+                <Text variant="small" testId={`${testId}-label`}>
+                  {label}
                 </Text>
-                <Text testId={`kumiko-screen-projection-detail-metric-${metric}-value`}>
-                  {String(record[metric] ?? "")}
-                </Text>
+                <Text testId={`${testId}-value`}>{value}</Text>
               </GridCell>
             );
           })}
         </Grid>
       )}
-      {isTabsMode && Tabs !== undefined && activeSection !== undefined && (
+      {hasTabs && activeSection !== undefined && (
         <Tabs
           testId="kumiko-screen-projection-detail-tabs"
           items={screen.layout.sections.map((section) => ({
@@ -2301,19 +2319,22 @@ function ProjectionDetailBody({
           onSelect={(id) => nav.setSearchParams({ tab: id })}
         />
       )}
-      <RenderEdit
-        screen={detailScreen}
-        entity={entity}
-        featureName={schema.featureName}
-        initial={record as FormValues}
-        entityId={entityId}
-        customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
-        {...(headerActions !== undefined && { actions: headerActions })}
-        {...(translate !== undefined && { translate })}
-        {...(isTabsMode && { hideSectionTitles: true })}
-        valueDisplay={screen.valueDisplay ?? "text"}
-      />
     </>
+  );
+  return (
+    <RenderEdit
+      screen={detailScreen}
+      entity={entity}
+      featureName={schema.featureName}
+      initial={record as FormValues}
+      entityId={entityId}
+      customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
+      {...(headerActions !== undefined && { actions: headerActions })}
+      {...(translate !== undefined && { translate })}
+      {...(isTabsMode && { hideSectionTitles: true })}
+      {...((hasHeader || hasMetrics || hasTabs) && { headerRegion: headerContent })}
+      valueDisplay={screen.valueDisplay ?? "text"}
+    />
   );
 }
 // ---- actionForm (Tier 2.7d) ----

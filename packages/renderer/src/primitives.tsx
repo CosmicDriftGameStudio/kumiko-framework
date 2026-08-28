@@ -707,6 +707,12 @@ export type FormProps = {
    *  unaffected. Native impls may ignore this prop (already bottom-bar by
    *  convention there). */
   readonly stickyActions?: boolean;
+  /** Extra content rendered above the card, inside the same page padding
+   *  the card itself sits in — for a host that needs its own header region
+   *  (title/metrics/tabs) to share the form's left padding and width
+   *  instead of rendering as unpadded siblings before it. Native impls may
+   *  ignore this prop. */
+  readonly headerRegion?: ReactNode;
 };
 
 /** Titled Gruppe von Feldern. Web: `<fieldset>` + `<legend>`, Native:
@@ -734,13 +740,20 @@ export type SectionProps = {
 
 /** Columns-basiertes Layout. Web: CSS grid, Native: Flex-Wrap mit
  *  Width-%, oder react-native-grid. Jedes direkte Child kann eine
- *  `GridCell`-Wrapping bekommen für span-Kontrolle. */
+ *  `GridCell`-Wrapping bekommen für span-Kontrolle.
+ *
+ *  `columns: "auto"` opts out of the N-column stretch layout entirely —
+ *  children keep their own content width and wrap onto new lines (e.g. a
+ *  metrics band of self-sized tiles, or an inline label+badge row) instead
+ *  of being stretched into equal-width tracks. `GridCell` span-wrapping is
+ *  meaningless in this mode and should be skipped. */
 export type GridProps = {
-  readonly columns: number;
+  readonly columns: number | "auto";
   readonly children: ReactNode;
   readonly testId?: string;
   /** Rows visible before the grid becomes vertically scrollable. Omitted =
-   *  the grid grows with its content and never scrolls. */
+   *  the grid grows with its content and never scrolls. Ignored when
+   *  `columns` is "auto". */
   readonly maxRows?: number;
 };
 
@@ -964,6 +977,15 @@ export type StatusBadgeProps = {
   readonly testId?: string;
 };
 
+/** Compact label/value tile (record-detail metrics band). `testId` is the
+ *  tile's own id — the impl derives `${testId}-label`/`${testId}-value` for
+ *  the two rendered nodes, so a caller only ever needs to know the base id. */
+export type MetricProps = {
+  readonly label: string;
+  readonly value: string;
+  readonly testId?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -1013,6 +1035,10 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly StatusBadge?: ComponentType<StatusBadgeProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly Metric?: ComponentType<MetricProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

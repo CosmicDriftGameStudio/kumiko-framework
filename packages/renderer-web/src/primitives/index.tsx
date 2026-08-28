@@ -105,6 +105,7 @@ import { EmbeddedListInput } from "./embedded-list-input";
 import { FileUploadInput } from "./file-upload";
 import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
+import { DefaultMetric } from "./metric";
 import { DefaultModal } from "./modal";
 import { currencyDecimals, formatMoney, MoneyInput } from "./money-input";
 import { DefaultStatusBadge } from "./status-badge";
@@ -1625,6 +1626,7 @@ function DefaultForm({
   testId,
   width,
   stickyActions,
+  headerRegion,
 }: FormProps): ReactNode {
   // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
   // der Container trägt Card/Titel selbst, sonst Card-in-Card.
@@ -1664,6 +1666,9 @@ function DefaultForm({
       className="flex flex-col w-full"
     >
       <FormScreenShell {...(width !== undefined && { maxWidth: width })}>
+        {headerRegion !== undefined && (
+          <div className="flex flex-col gap-6 mb-8">{headerRegion}</div>
+        )}
         <div className={cn(cardSurface(), "overflow-hidden")}>
           {(title !== undefined || subtitle !== undefined) && (
             <div className="px-6 pb-2 pt-5">
@@ -1856,6 +1861,16 @@ function DefaultSection({
 }
 
 function DefaultGrid({ columns, children, testId, maxRows }: GridProps): ReactNode {
+  // "auto": content-sized items in a wrapping row (e.g. a metrics band of
+  // self-sized tiles) instead of N equal-width, container-stretched tracks.
+  // maxRows/scrolling don't apply — the row just wraps.
+  if (columns === "auto") {
+    return (
+      <div data-testid={testId} className="flex flex-wrap gap-4">
+        {children}
+      </div>
+    );
+  }
   // Responsive: Mobile (< sm = 640px) bleibt 1-spaltig, ab sm: greift
   // die Author-deklarierte Spaltenzahl. Inline-style schreibt
   // CSS-Variable; Tailwind-Klasse liest die Variable mit
@@ -2098,4 +2113,5 @@ export const defaultPrimitives: CorePrimitives = {
   WizardStepGroup: DefaultWizardStepGroup,
   Tabs: DefaultTabs,
   StatusBadge: DefaultStatusBadge,
+  Metric: DefaultMetric,
 };
