@@ -67,7 +67,6 @@ const invitationExecutor = createEventStoreExecutor(
   { entityName: "tenant-invitation" },
 );
 
-// kumiko-lint-ignore complexity-budget invite branches (auth/anon/burn) stay in one handler
 export function createInviteAcceptHandler() {
   return defineWriteHandler<"invite-accept", typeof InviteAcceptSchema, InviteAcceptData>({
     name: "invite-accept",
@@ -76,6 +75,7 @@ export function createInviteAcceptHandler() {
     // nutzen `roles: ["all"]` weil dort GUEST_USER mit ["all"]-role
     // dispatched wird.
     access: { openToAll: true },
+    // kumiko-lint-ignore complexity-budget invite branches (auth/anon/burn) stay in one handler
     handler: async (event, ctx) => {
       if (!ctx.redis) {
         return writeFailure(
