@@ -117,7 +117,11 @@ export function AuditLogDetailScreen(): ReactNode {
   }
 
   const { event, memberLabel, isSystemActor } = state;
-  const actorName = isSystemActor ? t("audit.log.actor.system") : memberLabel;
+  const actorName = isSystemActor
+    ? t("audit.log.actor.system")
+    : event.createdBy === ANONYMOUS_USER_ID
+      ? t("audit.log.actor.anonymous")
+      : memberLabel || t("audit.log.actor.unknown");
 
   return (
     <FormScreenShell

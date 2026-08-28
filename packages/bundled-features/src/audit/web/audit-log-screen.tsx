@@ -80,11 +80,11 @@ export function AuditLogScreen(): ReactNode {
   const membersRef = useRef<Promise<ReadonlyMap<string, string>> | null>(null);
 
   // Tenant/dispatcher identity can change without remounting — drop the cache.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset is keyed on dispatcher identity, not a read inside the effect
-  // kumiko-lint-ignore no-raw-hooks dispatcher-identity cache bust (not data fetching)
-  useEffect(() => {
+  const dispatcherIdentityRef = useRef(dispatcher);
+  if (dispatcherIdentityRef.current !== dispatcher) {
+    dispatcherIdentityRef.current = dispatcher;
     membersRef.current = null;
-  }, [dispatcher]);
+  }
 
   const load = useCallback(
     async (cursor?: string, overrideFilters?: Filters): Promise<void> => {
