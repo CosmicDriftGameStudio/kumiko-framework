@@ -3,6 +3,7 @@ import { selectRowForUpdateById } from "../db/queries/entity-read";
 import { asEntityTableMeta, selectMany } from "../db/query";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder";
 import { hasAccess } from "../engine/access";
+import { ConfigScopes } from "../engine/constants";
 import { checkWriteFieldRoles } from "../engine/field-access";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type { HandlerContext, SessionUser, WriteResult } from "../engine/types";
@@ -22,9 +23,12 @@ import { assertNoSecretLeak } from "../secrets";
 import type { DispatchContext } from "./dispatch-shared";
 import {
   buildHandlerContext,
+  CONFIG_WRITE_RESET_TYPE,
+  CONFIG_WRITE_SET_TYPE,
   checkFeatureEnabled,
   enforceRateLimit,
   runHandlerInstrumented,
+  TENANT_TIMEZONE_CONFIG_KEY,
 } from "./dispatch-shared";
 import {
   type AfterCommitHook,
@@ -71,6 +75,42 @@ function getTransitions(
   const transitions = defineTransitions(args.map);
   transitionCache.set(key, transitions);
   return transitions;
+}
+
+// A successful config:write:set/reset returns { key, scope, ... } — see
+// bundled-features/src/config/handlers/{set,reset}.write.ts. Narrows the
+// otherwise-`unknown` WriteResult.data so invalidateTenantTimezoneCache
+// below can check `key` without an unchecked cast.
+function isConfigWriteResultForKey(
+  data: unknown,
+  key: string,
+): data is { key: string; scope?: string } {
+  if (typeof data !== "object" || data === null || !("key" in data)) return false;
+  return (data as { key: unknown }).key === key; // @cast-boundary engine-payload
+}
+
+// fw#2462: dispatch-shared.ts caches the resolved tenant:config:timezone
+// value per tenant. A successful write to that key must drop the stale
+// entry — tenant/user scope only affects the writing tenant, system scope
+// changes the fallback every tenant without an override reads, so the
+// whole cache is dropped instead of just one entry.
+function invalidateTenantTimezoneCache(
+  ctx: DispatchContext,
+  type: string,
+  user: SessionUser,
+  result: WriteResult,
+): void {
+  // skip: failed write, nothing to invalidate
+  if (!result.isSuccess) return;
+  // skip: not a config:write:set/reset dispatch
+  if (type !== CONFIG_WRITE_SET_TYPE && type !== CONFIG_WRITE_RESET_TYPE) return;
+  // skip: write was for a different config key
+  if (!isConfigWriteResultForKey(result.data, TENANT_TIMEZONE_CONFIG_KEY)) return;
+  if (result.data.scope === ConfigScopes.system) {
+    ctx.tenantTimezoneCache.clear();
+  } else {
+    ctx.tenantTimezoneCache.invalidate(user.tenantId);
+  }
 }
 
 // Runs lifecycle hooks for a handler result. inTransaction hooks fire NOW
@@ -450,6 +490,14 @@ async function executeWriteInner(
       const eventData = (parsed.data ?? {}) as DbRow; // @cast-boundary engine-payload
       afterCommitHooks.push(() => jobRunner.handleEvent(type, eventData, user));
     }
+
+    invalidateTenantTimezoneCache(ctx, type, user, result);
+    // Again after commit: a query landing between the drop above and the
+    // commit would read the pre-write row (tx not yet visible) and
+    // repopulate the cache with the stale value for a full TTL.
+    afterCommitHooks.push(async () => {
+      invalidateTenantTimezoneCache(ctx, type, user, result);
+    });
   }
 
   // Response-guard: block Secret<> leaks in write responses (SaveContext
