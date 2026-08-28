@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-25T10:03:24.202Z",
+  "generatedAt": "2026-08-28T20:01:26.396Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1333,7 +1333,7 @@
             "email_bidx"
           ],
           "unique": true,
-          "whereSql": "\"email_bidx\" IS NOT NULL"
+          "whereSql": "\"email_bidx\" IS NOT NULL AND \"is_deleted\" = false"
         }
       ],
       "source": "managed",
