@@ -95,12 +95,12 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       fieldDef.type === "reference"
         ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
         : undefined;
-    // Bei select-Feldern: translated Option-Labels einbacken. Convention
-    // matcht den Form-Path → eine Translation-Quelle für List + Form.
-    // Missing-Key returnt convention-gemäß den Key zurück; Renderer hat
-    // dann humanizeSlug-Fallback.
+    // For select and multiSelect fields: bake in translated option labels.
+    // Convention matches the form path → one translation source for list +
+    // form. A missing key returns the key itself per convention; the
+    // renderer then falls back to humanizeSlug.
     const optionLabels =
-      fieldDef.type === "select"
+      fieldDef.type === "select" || fieldDef.type === "multiSelect"
         ? buildOptionLabels(
             translate,
             (value) => fieldOptionLabelKey(featureName, screen.entity, normalized.field, value),

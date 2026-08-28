@@ -43,9 +43,10 @@ export type ListColumnViewModel = {
   readonly type: string; // field-type ("text", "number", "money", ...)
   readonly renderer?: FieldRenderer | RuntimeRenderer;
   readonly sortable: boolean;
-  /** Nur bei `type: "select"` — translated Option-Labels keyed nach raw
-   *  value. Renderer rendert `optionLabels[value]` statt humanizeSlug
-   *  wenn vorhanden. Convention-Key: `<feature>:entity:<entity>:field:<field>:option:<value>`. */
+  /** Only for `type: "select"` or `type: "multiSelect"` — translated option
+   *  labels keyed by raw value. The renderer renders `optionLabels[value]`
+   *  instead of humanizeSlug when present. Convention key:
+   *  `<feature>:entity:<entity>:field:<field>:option:<value>`. */
   readonly optionLabels?: Readonly<Record<string, string>>;
   /** Nur bei `type: "reference"` — referenced Entity-Name für Bulk-
    *  Lookup im Renderer (`<refFeature>:query:<refEntity>:list`). */
