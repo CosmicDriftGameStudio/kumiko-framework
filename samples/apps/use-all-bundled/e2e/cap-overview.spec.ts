@@ -45,6 +45,9 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   await expect(table).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Tier" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Billing" })).toBeVisible();
+  // Third cap column (listCaps in run-config.ts) — proves the tenant-cap-list
+  // table isn't silently stuck at the first two caps.
+  await expect(page.getByRole("columnheader", { name: "Seats" })).toBeVisible();
   await expect(page.getByTestId("cap-usage-bar").first()).toBeVisible();
 
   const devRow = page.getByRole("row", { name: /Dev Tenant/ });
@@ -85,28 +88,38 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   );
   const dashboardCards = page.getByTestId("cap-cards-panel");
   await expect(dashboardCards).toBeVisible();
-  await expect(page.getByTestId("cap-card")).toHaveCount(2); // notes + tags (cap-overview-caps.ts)
+  await expect(page.getByTestId("cap-card")).toHaveCount(3); // notes + tags + seats (cap-overview-caps.ts)
   await expect(dashboardCards).toContainText("Notes");
   await expect(dashboardCards).toContainText("Tags");
-  // seed.ts pushes notes to 12/10 (danger, >=100%) and tags sits at the
-  // free-tier limit of 4/5 (warn, >=80%) — both tone states visible at once.
+  await expect(dashboardCards).toContainText("Seats");
+  // seed.ts pushes notes to 12/10 (danger, >=100%), tags sits at the
+  // free-tier limit of 4/5 (warn, >=80%), and seats sits at 2/5 (default,
+  // well under 80%) — all three CapUsageTone states visible at once.
   await expect(dashboardCards).toContainText("120%");
   await expect(dashboardCards).toContainText("80%");
+  await expect(dashboardCards).toContainText("40%");
 
   // Regression guard for the grid-track-width bug: an arbitrary Tailwind
   // bracket class on cap-cards-panel.tsx's grid never compiled (bundled-
   // features/src isn't in styles.css's @source scan), so the grid fell
-  // back to one implicit column and both cards stacked full-width. Measure
-  // the real rendered boxes instead of trusting the className.
+  // back to one implicit column and cards stacked full-width. Measure the
+  // real rendered boxes instead of trusting the className — the grid is
+  // sm:grid-cols-2 lg:grid-cols-4, so all three cards land in one row on a
+  // desktop viewport: same y, pairwise-distinct x, no full-width card.
   const cards = page.getByTestId("cap-card");
   const firstCardBox = await cards.nth(0).boundingBox();
   const secondCardBox = await cards.nth(1).boundingBox();
-  if (firstCardBox === null || secondCardBox === null) {
+  const thirdCardBox = await cards.nth(2).boundingBox();
+  if (firstCardBox === null || secondCardBox === null || thirdCardBox === null) {
     throw new Error("cap-card boundingBox() returned null — card not visible/rendered");
   }
-  console.log(`cap-card widths: ${firstCardBox.width}px / ${secondCardBox.width}px`);
+  console.log(
+    `cap-card widths: ${firstCardBox.width}px / ${secondCardBox.width}px / ${thirdCardBox.width}px`,
+  );
   expect(firstCardBox.y).toBe(secondCardBox.y);
+  expect(secondCardBox.y).toBe(thirdCardBox.y);
   expect(firstCardBox.x).not.toBe(secondCardBox.x);
+  expect(secondCardBox.x).not.toBe(thirdCardBox.x);
   expect(firstCardBox.width).toBeLessThan(400);
 
   const deepLinkedCardsText = await dashboardCards.innerText();
@@ -119,7 +132,7 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   await page.goto("/tenant-admin/my-caps");
   const myCapsCards = page.getByTestId("cap-cards-panel");
   await expect(myCapsCards).toBeVisible();
-  await expect(page.getByTestId("cap-card")).toHaveCount(2);
+  await expect(page.getByTestId("cap-card")).toHaveCount(3);
   // toHaveText() normalizes only the actual side, not a plain-string
   // expected — compare raw innerText on both sides instead.
   await expect(async () => {

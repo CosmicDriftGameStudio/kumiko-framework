@@ -204,7 +204,7 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     factory: "createCapOverviewFeature",
     defaultArgs: '{ caps: [{ id: "stub", label: "stub", limit: () => 0, usage: async () => 0 }] }',
   },
-  // cap-overview-labels: app-local, translations only for the two example
+  // cap-overview-labels: app-local, translations only for the three example
   // cap ids this sample chose — same pattern as collection-labels below.
   "cap-overview-labels": {
     kind: "named",
