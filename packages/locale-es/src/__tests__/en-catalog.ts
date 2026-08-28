@@ -21,6 +21,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "admin-shell:workspace.platform": "Platform",
   "admin-shell:workspace.tenant": "Administration",
   "audit.log.actor.system": "System",
+  "audit.log.actor.anonymous": "Anonymous",
+  "audit.log.actor.unknown": "Unknown actor",
   "audit.log.col.actor": "Actor",
   "audit.log.col.aggregate": "Aggregate",
   "audit.log.col.type": "Event",

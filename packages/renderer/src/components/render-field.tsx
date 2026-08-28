@@ -359,12 +359,18 @@ function FieldRendererOutput({
     // App locale as default when the FormatSpec declares none of its own —
     // otherwise locale-sensitive formats (timestamp/date/number/decimal/
     // bigInt/unit) fell back to Intl's runtime default instead of the app
-    // language chosen via LocaleProvider (fw#2187). An explicit
-    // `renderer.locale` still wins, same pattern as dateLocale vs. appLocale
-    // further below in readOnlyDisplayText.
+    // language chosen via LocaleProvider (fw#2187). Prefer renderer.locale
+    // when set; coalesce undefined (spread override) back to appLocale (#2332).
     return (
       <Text testId={`field-value-${field.field}`}>
-        {applyFormatSpec({ locale: appLocale, ...renderer }, field.value, t)}
+        {applyFormatSpec(
+          {
+            ...renderer,
+            locale: (renderer as { locale?: string }).locale ?? appLocale,
+          },
+          field.value,
+          t,
+        )}
       </Text>
     );
   }
@@ -520,7 +526,7 @@ function renderInput({
       );
     }
     case "money": {
-      const currency = field.currency ?? "EUR";
+      const currency = resolveMoneyCurrency(field.value, field.currency);
       return (
         <Input
           kind="money"
@@ -692,6 +698,17 @@ function numberValue(v: unknown): number | "" {
 // stored-config coercion) is MAJOR units too — every producer in this repo
 // hands rehydrateMoney's `{amount,…}` shape or a raw major-unit number, never
 // pre-scaled minor units.
+function resolveMoneyCurrency(value: unknown, fieldCurrency: string | undefined): string {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { currency?: unknown }).currency === "string"
+  ) {
+    return (value as { currency: string }).currency;
+  }
+  return fieldCurrency ?? "EUR";
+}
+
 function moneyMinorValue(v: unknown, currency: string): number | "" {
   if (v === undefined || v === null || v === "") return "";
   if (typeof v === "number") return Math.round(v * 10 ** currencyDecimals(currency));
@@ -756,7 +773,7 @@ function readOnlyDisplayText(field: EditFieldViewModel, appLocale: string): stri
       return n === "" ? "—" : new Intl.NumberFormat(appLocale).format(n);
     }
     case "money": {
-      const currency = field.currency ?? "EUR";
+      const currency = resolveMoneyCurrency(value, field.currency);
       const minor = moneyMinorValue(value, currency);
       if (minor === "") return "—";
       const major = minor / 10 ** currencyDecimals(currency);

@@ -6,7 +6,9 @@ import {
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
+import { assertNotLastTenantAdmin } from "../last-tenant-admin";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
@@ -43,6 +45,16 @@ export const removeMemberWrite = defineWriteHandler({
           i18nParams: { userId: event.payload.userId, tenantId: event.payload.tenantId },
         }),
       );
+    }
+
+    const currentRoles = parseRoles((existing as DbRow)["roles"]);
+    if (currentRoles.includes("TenantAdmin")) {
+      const lastAdmin = await assertNotLastTenantAdmin(
+        db,
+        event.payload.tenantId,
+        event.payload.userId,
+      );
+      if (lastAdmin !== undefined) return lastAdmin;
     }
 
     // Revoke THIS tenant's sessions BEFORE the delete — a removed member must

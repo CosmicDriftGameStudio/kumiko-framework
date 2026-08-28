@@ -99,4 +99,9 @@ describe("RenderField — App-Locale an FieldRendererOutput durchreichen (fw#218
     renderUnderLocale("de-DE", livingSpaceField({ format: "number" }, 1234.5));
     expect(captured?.children).toBe("1.234,5");
   });
+
+  test("explicit locale: undefined still falls back to App-Locale (#2332)", () => {
+    renderUnderLocale("de-DE", livingSpaceField({ format: "number", locale: undefined }, 1234.5));
+    expect(captured?.children).toBe("1.234,5");
+  });
 });

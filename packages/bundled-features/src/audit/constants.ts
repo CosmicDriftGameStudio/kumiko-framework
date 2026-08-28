@@ -5,6 +5,9 @@ export const AUDIT_FEATURE = "audit" as const;
 /** Literal `createdBy` written by system-authored events (e.g. delivery attempts). */
 export const SYSTEM_ACTOR_ID = "system" as const;
 
+/** Literal `createdBy` for anonymous / unauthenticated actors. */
+export const ANONYMOUS_USER_ID = "anonymous" as const;
+
 export const AuditQueries = {
   list: "audit:query:list",
   details: "audit:query:details",

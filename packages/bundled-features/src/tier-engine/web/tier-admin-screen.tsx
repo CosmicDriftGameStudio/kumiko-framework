@@ -60,8 +60,7 @@ export function TierAdminScreen(): ReactNode {
   // shown (UI-level mis-grant guard). tenantId is a pure trigger here (the
   // body doesn't read it) — Biome's "extra dep" autofix would empty the deps
   // and limit the reset to mount.
-  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
-  // biome-ignore lint/correctness/useExhaustiveDependencies: tenantId is the intended reset trigger, do not remove.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tenantId is the intended reset trigger, do not remove. kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
   useEffect(() => {
     setTier("");
     setStatus({ kind: "idle" });

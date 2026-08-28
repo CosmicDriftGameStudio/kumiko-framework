@@ -14,7 +14,12 @@ import {
 import { Filter, RotateCcw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { TenantQueries } from "../../tenant/constants";
-import { AUDIT_LOG_DETAIL_SCREEN_ID, AuditQueries, SYSTEM_ACTOR_ID } from "../constants";
+import {
+  ANONYMOUS_USER_ID,
+  AUDIT_LOG_DETAIL_SCREEN_ID,
+  AuditQueries,
+  SYSTEM_ACTOR_ID,
+} from "../constants";
 
 type AuditRow = {
   readonly id: string;
@@ -36,7 +41,6 @@ type MemberRow = {
 
 type Filters = {
   readonly eventType: string;
-  readonly aggregateType: string;
   readonly from: string;
   readonly to: string;
 };
@@ -51,7 +55,17 @@ type State =
       readonly names: ReadonlyMap<string, string>;
     };
 
-const EMPTY_FILTERS: Filters = { eventType: "", aggregateType: "", from: "", to: "" };
+const EMPTY_FILTERS: Filters = { eventType: "", from: "", to: "" };
+
+function actorLabel(
+  createdBy: string,
+  names: ReadonlyMap<string, string>,
+  t: (key: string) => string,
+): string {
+  if (createdBy === SYSTEM_ACTOR_ID) return t("audit.log.actor.system");
+  if (createdBy === ANONYMOUS_USER_ID) return t("audit.log.actor.anonymous");
+  return names.get(createdBy) ?? t("audit.log.actor.unknown");
+}
 
 export function AuditLogScreen(): ReactNode {
   const t = useTranslation();
@@ -71,10 +85,11 @@ export function AuditLogScreen(): ReactNode {
   const membersRef = useRef<Promise<ReadonlyMap<string, string>> | null>(null);
 
   // Tenant/dispatcher identity can change without remounting — drop the cache.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset is keyed on dispatcher identity, not a read inside the effect
-  useEffect(() => {
+  const dispatcherIdentityRef = useRef(dispatcher);
+  if (dispatcherIdentityRef.current !== dispatcher) {
+    dispatcherIdentityRef.current = dispatcher;
     membersRef.current = null;
-  }, [dispatcher]);
+  }
 
   const load = useCallback(
     async (cursor?: string, overrideFilters?: Filters): Promise<void> => {
@@ -100,9 +115,6 @@ export function AuditLogScreen(): ReactNode {
           limit: 50,
           ...(cursor !== undefined && { before: cursor }),
           ...(f.eventType.trim() !== "" && { eventType: f.eventType.trim() }),
-          ...(f.aggregateType.trim() !== "" && {
-            aggregateType: f.aggregateType.trim(),
-          }),
           ...(f.from !== "" && { from: toIsoStart(f.from) }),
           ...(f.to !== "" && { to: toIsoEnd(f.to) }),
         }),
@@ -144,7 +156,7 @@ export function AuditLogScreen(): ReactNode {
   return (
     <div className="w-full" data-testid="audit-log-screen">
       <div className="flex flex-wrap items-end gap-4 px-6 pt-6">
-        <div className="min-w-40 flex-1">
+        <div className="min-w-40 max-w-64 flex-1">
           <Field id="audit-filter-event" label={t("audit.log.filter.eventType")}>
             <Input
               kind="text"
@@ -155,18 +167,7 @@ export function AuditLogScreen(): ReactNode {
             />
           </Field>
         </div>
-        <div className="min-w-40 flex-1">
-          <Field id="audit-filter-aggregate" label={t("audit.log.filter.aggregateType")}>
-            <Input
-              kind="text"
-              id="audit-filter-aggregate"
-              name="audit-filter-aggregate"
-              value={filters.aggregateType}
-              onChange={(v) => setFilters((f) => ({ ...f, aggregateType: v }))}
-            />
-          </Field>
-        </div>
-        <div className="min-w-40 flex-1">
+        <div className="min-w-40 max-w-64 flex-1">
           <Field id="audit-filter-from" label={t("audit.log.filter.from")}>
             <Input
               kind="date"
@@ -177,7 +178,7 @@ export function AuditLogScreen(): ReactNode {
             />
           </Field>
         </div>
-        <div className="min-w-40 flex-1">
+        <div className="min-w-40 max-w-64 flex-1">
           <Field id="audit-filter-to" label={t("audit.log.filter.to")}>
             <Input
               kind="date"
@@ -198,7 +199,7 @@ export function AuditLogScreen(): ReactNode {
             }}
             testId="audit-log-apply-filters"
           >
-            <Filter className="h-4 w-4" />
+            <Filter className="h-4 w-4" aria-hidden="true" />
             <span>{t("audit.log.filter.apply")}</span>
           </Button>
           <Button
@@ -211,7 +212,7 @@ export function AuditLogScreen(): ReactNode {
             }}
             testId="audit-log-reset-filters"
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
             <span>{t("audit.log.filter.reset")}</span>
           </Button>
         </div>
@@ -231,10 +232,7 @@ export function AuditLogScreen(): ReactNode {
           values: {
             when: formatWhen(row.createdAt),
             type: row.type,
-            actor:
-              row.createdBy === SYSTEM_ACTOR_ID
-                ? t("audit.log.actor.system")
-                : (state.names.get(row.createdBy) ?? ""),
+            actor: actorLabel(row.createdBy, state.names, t),
           },
         }))}
         onRowClick={(row) => openDetail(row.id)}

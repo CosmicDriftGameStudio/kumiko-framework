@@ -1,9 +1,5 @@
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  acquireNamespacedAdvisoryLock,
-  createEventStoreExecutor,
-  type DbRow,
-} from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor, type DbRow } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createSystemUser,
@@ -12,7 +8,6 @@ import {
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  ConflictError,
   InternalError,
   NotFoundError,
   ValidationError,
@@ -20,7 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
-import { TenantErrors } from "../constants";
+import { assertNotLastTenantAdmin } from "../last-tenant-admin";
 import {
   findForbiddenMembershipRole,
   reservedMembershipRoleError,
@@ -36,10 +31,6 @@ const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembersh
 // foundational and must boot without sessions mounted (no r.requires/
 // r.usesApi here, unlike user-data-rights:restrict-account's hard dep).
 const REVOKE_ALL_SESSIONS_QN = "sessions:write:user-session:revoke-all-for-user";
-
-// Serializes last-TenantAdmin demotion checks per tenant inside the write TX
-// (dispatcher batch wraps handlers in transaction — xact lock holds through update).
-const LAST_TENANT_ADMIN_LOCK_NAMESPACE = 0x7461646d; // 'tadm'
 
 /** SystemAdmin may pass payload.tenantId (cross-tenant); the members actionForm
  *  only sends userId+roles, so fall back to the active session tenant. */
@@ -60,8 +51,8 @@ export const updateMemberRolesWrite = defineWriteHandler({
   }),
   // "system" + access.admin ("TenantAdmin", "Admin", "SystemAdmin").
   // The system user (createSystemUser, roles=["system"]) and SystemAdmin
-  // manage memberships cross-tenant (payload.tenantId). TenantAdmin is strictly
-  // session-scoped (event.user.tenantId).
+  // manage memberships cross-tenant (payload.tenantId). TenantAdmin and Admin
+  // are session-scoped (event.user.tenantId).
   access: { roles: ["system", ...access.admin] },
   handler: async (event, ctx) => {
     if (!ctx.systemDb) {
@@ -129,28 +120,8 @@ export const updateMemberRolesWrite = defineWriteHandler({
     const willBeTenantAdmin = event.payload.roles.includes("TenantAdmin");
 
     if (targetIsTenantAdmin && !willBeTenantAdmin) {
-      // Lock before count+update so two concurrent demotions cannot both
-      // observe adminCount === 2 and leave the tenant with zero TenantAdmins.
-      await acquireNamespacedAdvisoryLock(db, LAST_TENANT_ADMIN_LOCK_NAMESPACE, targetTenantId);
-      const allMemberships = await selectMany(db, tenantMembershipsTable, {
-        tenantId: targetTenantId,
-      });
-      const adminCount = allMemberships.filter((m) =>
-        parseRoles(m["roles"]).includes("TenantAdmin"),
-      ).length;
-      if (adminCount <= 1) {
-        return writeFailure(
-          new ConflictError({
-            message: "cannot demote the last tenant admin",
-            i18nKey: "tenant.errors.cannotDemoteLastTenantAdmin",
-            details: {
-              reason: TenantErrors.lastTenantAdmin,
-              userId: event.payload.userId,
-              tenantId: targetTenantId,
-            },
-          }),
-        );
-      }
+      const lastAdmin = await assertNotLastTenantAdmin(db, targetTenantId, event.payload.userId);
+      if (lastAdmin !== undefined) return lastAdmin;
     }
 
     // fetchOne already gave us the stream version — hand it to the executor
@@ -176,13 +147,15 @@ export const updateMemberRolesWrite = defineWriteHandler({
     // Stream tenant follows the actor via streamTenantFor — use the
     // membership tenant so SystemAdmin/cross-tenant and TenantAdmin paths
     // hit the same stream seedTenantMembership/invite-accept wrote.
+    // Keep the real actor for audit metadata; only override tenantId so
+    // streamTenantFor writes into the membership tenant (#2401).
     const result = await executor.update(
       {
         id: row["id"] as string, // @cast-boundary db-row
         version: row["version"] as number, // @cast-boundary db-row
         changes: { roles: JSON.stringify(event.payload.roles) },
       },
-      createSystemUser(targetTenantId),
+      { ...event.user, tenantId: targetTenantId },
       db,
     );
 
