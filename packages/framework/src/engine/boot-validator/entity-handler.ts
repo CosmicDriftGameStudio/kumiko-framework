@@ -1,7 +1,12 @@
 import type { BlurRegion, VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key";
 import { parseRefTarget } from "../parse-ref-target";
-import type { EmbeddedFieldDef, EntityDefinition, FeatureDefinition, MultiSelectFieldDef } from "../types";
+import type {
+  EmbeddedFieldDef,
+  EntityDefinition,
+  FeatureDefinition,
+  MultiSelectFieldDef,
+} from "../types";
 
 export const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 
