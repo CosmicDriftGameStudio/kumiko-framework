@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { ExtensionSectionProps, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
@@ -7,10 +7,12 @@ import {
   DispatcherProvider,
   ExtensionSectionsProvider,
   KumikoScreen,
+  NavProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { WebDashboardBody } from "../app/dashboard-body";
+import { useBrowserNavApi } from "../app/nav";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils";
 
 const dashboardScreen: DashboardScreenDefinition = {
@@ -153,7 +155,16 @@ const richSchema: FeatureSchema = {
   screens: [richScreen],
 };
 
+function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
+  const nav = useBrowserNavApi({ hasWorkspaces: false });
+  return <NavProvider value={nav}>{children}</NavProvider>;
+}
+
 describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
   test("stat-group rendert Sektions-Titel + genestete Stat-Panels", async () => {
     const dispatcher = createMockDispatcher({
       query: (async (type: string) => {
@@ -353,6 +364,8 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
   });
 
   test("Filter-Wechsel refetcht Stat- UND Feed-Panel mit neuem Payload", async () => {
+    window.history.replaceState(null, "", "/rich");
+
     const calls: { readonly type: string; readonly payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
       query: (async (type: string, payload: unknown) => {
@@ -374,11 +387,13 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     });
     const user = userEvent.setup();
     render(
-      <DispatcherProvider dispatcher={dispatcher}>
-        <DashboardBodyProvider value={WebDashboardBody}>
-          <KumikoScreen schema={richSchema} qn="widgets:screen:rich" />
-        </DashboardBodyProvider>
-      </DispatcherProvider>,
+      <BrowserNav>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <DashboardBodyProvider value={WebDashboardBody}>
+            <KumikoScreen schema={richSchema} qn="widgets:screen:rich" />
+          </DashboardBodyProvider>
+        </DispatcherProvider>
+      </BrowserNav>,
     );
     await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
     await waitFor(() => expect(screen.getByText("EU-Event")).toBeTruthy());
@@ -389,5 +404,56 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
     await waitFor(() => expect(screen.getByText("38.120 $")).toBeTruthy());
     await waitFor(() => expect(screen.getByText("US-Event")).toBeTruthy());
+  });
+
+  test("Filter-Wert aus URL-Search-Param vorbelegt: Deep-Link ?tenantId=t-2 landet in der Panel-Query", async () => {
+    window.history.replaceState(null, "", "/rich?tenantId=t-2");
+
+    const calls: { readonly type: string; readonly payload: unknown }[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string, payload: unknown) => {
+        calls.push({ type, payload });
+        return { isSuccess: true, data: { value: "92.753 €" } };
+      }) as unknown as Dispatcher["query"],
+    });
+
+    const deepLinkScreen: DashboardScreenDefinition = {
+      id: "rich",
+      type: "dashboard",
+      filter: {
+        id: "tenantId",
+        label: "widgets:dashboard:filter-tenant",
+        kind: "select",
+        options: [{ value: "t-2", label: "widgets:dashboard:filter-tenant-t2" }],
+      },
+      panels: [
+        {
+          kind: "stat",
+          id: "kpi",
+          label: "widgets:dashboard:kpi",
+          query: "widgets:query:metrics:kpi",
+          valueField: "value",
+        },
+      ],
+    };
+    const deepLinkSchema: FeatureSchema = {
+      featureName: "widgets",
+      entities: {},
+      screens: [deepLinkScreen],
+    };
+
+    render(
+      <BrowserNav>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <DashboardBodyProvider value={WebDashboardBody}>
+            <KumikoScreen schema={deepLinkSchema} qn="widgets:screen:rich" />
+          </DashboardBodyProvider>
+        </DispatcherProvider>
+      </BrowserNav>,
+    );
+
+    await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
+    const kpiCall = calls.find((c) => c.type === "widgets:query:metrics:kpi");
+    expect(kpiCall?.payload).toEqual({ tenantId: "t-2" });
   });
 });
