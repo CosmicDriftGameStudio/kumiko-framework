@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.224.1
+
+### Patch Changes
+
+- d3e822c: Fix actionForm redirects that cross a feature boundary silently dropping the created record's `entityId`. The redirect target is now resolved across all mounted features (not just the current feature's own schema), so a qualified-name redirect into another feature's `entityEdit`/`projectionDetail` screen carries the id like a same-feature redirect always did.
+  - @cosmicdrift/kumiko-framework@0.224.1
+  - @cosmicdrift/kumiko-headless@0.224.1
+
 ## 0.224.0
 
 ### Patch Changes
