@@ -107,6 +107,8 @@ import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
 import { DefaultModal } from "./modal";
 import { currencyDecimals, formatMoney, MoneyInput } from "./money-input";
+import { DefaultStatusBadge } from "./status-badge";
+import { DefaultTabs } from "./tabs";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
 import { TzInput } from "./tz-input";
@@ -2090,4 +2092,6 @@ export const defaultPrimitives: CorePrimitives = {
   Progress: DefaultProgress,
   StepBar: DefaultStepBar,
   WizardStepGroup: DefaultWizardStepGroup,
+  Tabs: DefaultTabs,
+  StatusBadge: DefaultStatusBadge,
 };

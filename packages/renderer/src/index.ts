@@ -198,7 +198,10 @@ export type {
   ProgressProps,
   RuntimeRenderer,
   SectionProps,
+  StatusBadgeProps,
+  StatusTone,
   StepBarProps,
+  TabsProps,
   TextProps,
   WizardStepGroupProps,
 } from "./primitives";

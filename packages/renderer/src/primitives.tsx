@@ -941,6 +941,26 @@ export type WizardStepGroupProps = {
   readonly children: ReactNode;
 };
 
+/** Tab strip for a projectionDetail `layout.mode: "tabs"`. Renders only the
+ *  strip, not the content — the caller mounts the active section separately.
+ *  Keyboard/ARIA (role=tablist/tab, arrow-key navigation) is the
+ *  implementation's job. */
+export type TabsProps = {
+  readonly items: readonly { readonly id: string; readonly label: string }[];
+  readonly activeId: string;
+  readonly onSelect: (id: string) => void;
+  readonly testId?: string;
+};
+
+export type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
+
+/** Status pill. `value` is the raw column value — tone-mapping is the app's job. */
+export type StatusBadgeProps = {
+  readonly value: string;
+  readonly tone?: StatusTone;
+  readonly testId?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -982,6 +1002,14 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly WizardStepGroup?: ComponentType<WizardStepGroupProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly Tabs?: ComponentType<TabsProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly StatusBadge?: ComponentType<StatusBadgeProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

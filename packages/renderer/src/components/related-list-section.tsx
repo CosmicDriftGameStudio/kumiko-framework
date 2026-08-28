@@ -45,11 +45,13 @@ export function RelatedListSection({
   parentId,
   featureName,
   translate,
+  hideTitle,
 }: {
   readonly section: EditRelatedListSectionViewModel;
   readonly parentId: string;
   readonly featureName: string;
   readonly translate?: Translate;
+  readonly hideTitle?: boolean;
 }): ReactNode {
   const { Banner, Section } = usePrimitives();
   const t = useTranslation();
@@ -92,7 +94,7 @@ export function RelatedListSection({
       : undefined;
 
   return (
-    <Section title={section.title} testId={`related-list-${section.title}`}>
+    <Section title={hideTitle ? undefined : section.title} testId={`related-list-${section.title}`}>
       {rowsQuery.loading && rowsQuery.data === null ? (
         <Banner padded variant="loading" testId="related-list-loading">
           Loading…

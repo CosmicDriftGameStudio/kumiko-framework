@@ -1,0 +1,8 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-record-detail-layout",
+  "description": "projectionDetail record header, metrics band, and layout.mode: \"tabs\" — an order screen with two relatedList tabs and a fields tab.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
