@@ -63,7 +63,7 @@ export const sweepOrphanedDerivativesJob: JobHandlerFn = async (rawPayload, ctx)
   // the guard above doesn't cross into fillQueue's nested closure below.
   const maybeResolver = ctx._fileProviderResolver;
   if (!maybeResolver) {
-    ctx.log?.warn?.(
+    ctx.log?.warn(
       "[files-tenant-data:sweep] no _fileProviderResolver wired — nothing to sweep, skipping run",
     );
     return;

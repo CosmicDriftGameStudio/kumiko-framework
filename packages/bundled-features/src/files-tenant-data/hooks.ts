@@ -66,6 +66,8 @@ export const fileRefStorageDestroyHook: StorageProviderDestroyTenantHook = async
     ctx.log?.(
       `[files-tenant-data] no fileProviderResolver wired — tenant ${tenantId}'s file binaries are NOT deleted on destroy`,
     );
+    // skip: no resolver wired for this destroy run — already logged above, and
+    // the row purge from the "app-data" stage ran regardless.
     return;
   }
   let provider: Awaited<ReturnType<typeof ctx.fileProviderResolver>>;
@@ -75,6 +77,8 @@ export const fileRefStorageDestroyHook: StorageProviderDestroyTenantHook = async
     ctx.log?.(
       `[files-tenant-data] no file provider resolvable for tenant ${tenantId}: ${err instanceof Error ? err.message : String(err)} — binaries NOT deleted`,
     );
+    // skip: provider resolution failed for this tenant — already logged
+    // above, binaries are left in place rather than blocking the pipeline.
     return;
   }
   // Provider resolved — a list()/delete() failure from here IS fail-closed:
