@@ -24,7 +24,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { type StaleDraftRow, selectStaleDraftsBatch } from "../db/queries/cleanup";
+import {
+  isDraftStillStale,
+  type StaleDraftRow,
+  selectStaleDraftsBatch,
+} from "../db/queries/cleanup";
 import { filterOwnedFileRefs } from "../db/queries/owned-file-refs";
 import { formDraftExecutor } from "../executor";
 import { collectDraftFileRefKeys, releaseDraftFileRefs } from "../release-file-refs";
