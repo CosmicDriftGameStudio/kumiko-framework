@@ -244,12 +244,17 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
 
     await dispatchCleanup();
 
-    await waitFor(async () => {
-      expect(await draftExists("wizard:stale-with-photo")).toBe(false);
+    // Draft deletion and FileRef release are two separate awaited phases in
+    // cleanup.job.ts — the whole batch is deleted first, then released row
+    // by row. Waiting on draftExists only proves the delete phase finished,
+    // not the (real DB + provider) release; wait on the actual release
+    // effect instead, or this assertion races the still-in-flight release.
+    await waitFor(() => {
+      expect(providerA.keys()).not.toContain(key);
     });
+    expect(await draftExists("wizard:stale-with-photo")).toBe(false);
     expect(await draftExists("wizard:stale-no-photo")).toBe(false);
     expect(await draftExists("wizard:fresh")).toBe(true);
-    expect(providerA.keys()).not.toContain(key);
   });
 
   test("resolves each stale row's own tenant provider — never the job's SYSTEM_TENANT_ID run-tenant, never another row's tenant", async () => {
@@ -267,15 +272,18 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
 
     await dispatchCleanup();
 
-    await waitFor(async () => {
-      expect(await draftExists("wizard:tenant-a-stale")).toBe(false);
+    // Same two-phase timing as the single-tenant release test above: wait on
+    // each provider's actual release, not on draft deletion (which finishes
+    // for the whole batch before either row's release even starts).
+    await waitFor(() => {
+      expect(providerA.keys()).not.toContain(keyA);
     });
-    await waitFor(async () => {
-      expect(await draftExists("wizard:tenant-b-stale")).toBe(false);
+    await waitFor(() => {
+      expect(providerB.keys()).not.toContain(keyB);
     });
 
-    expect(providerA.keys()).not.toContain(keyA);
-    expect(providerB.keys()).not.toContain(keyB);
+    expect(await draftExists("wizard:tenant-a-stale")).toBe(false);
+    expect(await draftExists("wizard:tenant-b-stale")).toBe(false);
     // Cross-tenant guard: neither key ever lands in the other tenant's provider.
     expect(providerA.keys()).not.toContain(keyB);
     expect(providerB.keys()).not.toContain(keyA);
@@ -286,15 +294,28 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
     await providerA.write(forgedKey, new Uint8Array([9, 9, 9]), "image/jpeg");
     // Deliberately no seedFileRef — the stale draft's `values` claims a
     // storageKey its owner never actually uploaded.
-
     await saveDraft("wizard:stale-forged", { photo: fileRefPointer(forgedKey) });
-    await backdate("wizard:stale-forged", 31);
+    await backdate("wizard:stale-forged", 40);
+
+    // Release sentinel: a real, legitimately-owned FileRef backdated less
+    // than the forged row, so selectStaleDraftsBatch's oldest-first order
+    // processes the forged row first. Releases are awaited sequentially in
+    // order within one job run, so observing the sentinel's release proves
+    // the forged row's (earlier) release turn already ran and correctly did
+    // nothing — a plain draftExists wait can't prove that, only that the
+    // delete phase (which precedes all releases) has finished.
+    const sentinelKey = "tenant-a/vehicle/forged-sentinel.jpg";
+    await providerA.write(sentinelKey, new Uint8Array([7]), "image/jpeg");
+    await seedFileRef(sentinelKey);
+    await saveDraft("wizard:stale-forged-sentinel", { photo: fileRefPointer(sentinelKey) });
+    await backdate("wizard:stale-forged-sentinel", 31);
 
     await dispatchCleanup();
 
-    await waitFor(async () => {
-      expect(await draftExists("wizard:stale-forged")).toBe(false);
+    await waitFor(() => {
+      expect(providerA.keys()).not.toContain(sentinelKey);
     });
+    expect(await draftExists("wizard:stale-forged")).toBe(false);
     expect(providerA.keys()).toContain(forgedKey);
   });
 
@@ -304,18 +325,28 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
     await seedFileRef(key);
     // The photo was uploaded when the domain entity was originally created —
     // long before this editing session's draft. backdate() (below) also
-    // ages the draft row to 31 days, so the file must be aged further still
+    // ages the draft row to 40 days, so the file must be aged further still
     // to model "predates the draft" rather than "same moment".
     await backdateFileRef(key, 60);
 
     await saveDraft("wizard:stale-with-prefilled-photo", { photo: fileRefPointer(key) });
-    await backdate("wizard:stale-with-prefilled-photo", 31);
+    await backdate("wizard:stale-with-prefilled-photo", 40);
+
+    // Release sentinel — see the forged-draft-value test above for why a
+    // plain draftExists wait can't prove this row's release was actually
+    // (correctly) skipped, only that it hasn't been attempted yet.
+    const sentinelKey = "tenant-a/vehicle/prefilled-sentinel.jpg";
+    await providerA.write(sentinelKey, new Uint8Array([7]), "image/jpeg");
+    await seedFileRef(sentinelKey);
+    await saveDraft("wizard:stale-with-prefilled-sentinel", { photo: fileRefPointer(sentinelKey) });
+    await backdate("wizard:stale-with-prefilled-sentinel", 31);
 
     await dispatchCleanup();
 
-    await waitFor(async () => {
-      expect(await draftExists("wizard:stale-with-prefilled-photo")).toBe(false);
+    await waitFor(() => {
+      expect(providerA.keys()).not.toContain(sentinelKey);
     });
+    expect(await draftExists("wizard:stale-with-prefilled-photo")).toBe(false);
     // The live domain entity this draft was editing still references `key`.
     expect(providerA.keys()).toContain(key);
   });
@@ -336,9 +367,9 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
 
     await dispatchCleanup();
 
-    await waitFor(async () => {
-      expect(await draftExists("wizard:new:create-mode-stale")).toBe(false);
+    await waitFor(() => {
+      expect(providerA.keys()).not.toContain(key);
     });
-    expect(providerA.keys()).not.toContain(key);
+    expect(await draftExists("wizard:new:create-mode-stale")).toBe(false);
   });
 });
