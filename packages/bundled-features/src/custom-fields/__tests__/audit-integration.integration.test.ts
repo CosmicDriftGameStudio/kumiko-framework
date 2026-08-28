@@ -31,6 +31,7 @@ import {
 import { z } from "zod";
 import { AuditQueries } from "../../audit/constants";
 import { createAuditFeature } from "../../audit/feature";
+import { createTenantFeature } from "../../tenant";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
