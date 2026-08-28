@@ -237,6 +237,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
               return `${colSql(f.field)} @> $${params.length}::jsonb`;
             });
             whereSql.push(`(${parts.join(" OR ")})`);
+            // skip: containment condition already pushed — don't fall through to buildFilterWhere
             return;
           }
           // Bind a JS array, not JSON.stringify(value) — postgres.js double-
@@ -246,6 +247,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           params.push(Array.isArray(f.value) ? f.value : [f.value]);
           const containment = `${colSql(f.field)} @> $${params.length}::jsonb`;
           whereSql.push(f.op === "ne" ? `NOT (${containment})` : containment);
+          // skip: containment condition already pushed — don't fall through to buildFilterWhere
           return;
         }
         const screen = buildFilterWhere(f.field, f.op, f.value);
