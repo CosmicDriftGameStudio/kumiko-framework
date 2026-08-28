@@ -75,13 +75,22 @@ import {
 } from "./dispatcher-utils";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
+import type { TenantTimezoneCache } from "./tenant-timezone-cache";
 
 // Framework/pipeline stays bundled-features-free, so this can't import the
 // `tenant` feature — the literal below IS the coupling to its `timezone`
 // config key. Renaming that key (or the "tenant" feature name) must update
 // this constant too; tenant-timezone-boot.integration.test.ts boots the real
 // createTenantFeature() and would catch a drift.
-const TENANT_TIMEZONE_CONFIG_KEY = "tenant:config:timezone";
+export const TENANT_TIMEZONE_CONFIG_KEY = "tenant:config:timezone";
+
+// Same bundled-features-free constraint as above — these name the config
+// feature's write handlers so dispatch-write.ts can invalidate
+// TENANT_TIMEZONE_CONFIG_KEY's cache entry on a successful write without
+// importing the `config` feature. tenant-timezone-boot.integration.test.ts
+// exercises both against the real config feature.
+export const CONFIG_WRITE_SET_TYPE = "config:write:set";
+export const CONFIG_WRITE_RESET_TYPE = "config:write:reset";
 
 export type BatchCommand = {
   readonly type: string;
@@ -110,6 +119,7 @@ export type DispatchContext = {
   sseBroker: SseBroker | undefined;
   tableCache: Map<string, ReturnType<typeof buildEntityTable>>;
   transitionCache: Map<string, ReturnType<typeof defineTransitions>>;
+  tenantTimezoneCache: TenantTimezoneCache;
   tracer: ReturnType<typeof getFallbackTracer>;
   meter: ReturnType<typeof getFallbackMeter>;
 };
@@ -606,7 +616,34 @@ export async function buildHandlerContext(
   // comes from SessionUser.timezone (set at login), else falls back to
   // tenant (createTzContext's own default). An app-injected GeoTzProvider
   // (context.geoTzProvider) feeds ctx.tz.fromCoordinates / fromAddress.
-  const tenantTz = config !== undefined ? await config(TENANT_TIMEZONE_CONFIG_KEY) : undefined;
+  //
+  // Resolving this via `config()` is a config-table SELECT on every single
+  // dispatch (fw#2462) — ctx.tenantTimezoneCache memoizes it per tenant.
+  // dispatch-write.ts invalidates on config:write:set/reset for this key.
+  // Only populate from a tx-free read (tx === undefined): a write-path
+  // lookup runs inside the caller's own open transaction, and caching a
+  // value read there could memoize state from a write earlier in that same
+  // transaction before it's known to commit. Reads always consult the
+  // cache regardless of tx, since serving a slightly stale cached value on
+  // the write path is harmless (bounded by ttlMs) and avoids reintroducing
+  // the SELECT on the hot path this fix targets.
+  let tenantTz: unknown;
+  if (config === undefined) {
+    tenantTz = undefined;
+  } else {
+    const cachedTz = ctx.tenantTimezoneCache.get(user.tenantId);
+    if (cachedTz) {
+      tenantTz = cachedTz.value;
+    } else {
+      tenantTz = await config(TENANT_TIMEZONE_CONFIG_KEY);
+      if (tx === undefined) {
+        ctx.tenantTimezoneCache.set(
+          user.tenantId,
+          typeof tenantTz === "string" ? tenantTz : undefined,
+        );
+      }
+    }
+  }
   // Guarded against garbage: an unvalidated string here (free-form config
   // key, legacy JWT claim predating validation) blows up every ctx.tz call
   // for the whole tenant with a RangeError. Fall back to UTC/tenant instead

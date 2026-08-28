@@ -13,6 +13,7 @@ import { executeStream } from "./dispatch-stream";
 import { type HandlerType, resolveType } from "./dispatcher-utils";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
+import { createTenantTimezoneCache } from "./tenant-timezone-cache";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
 // HTTP-layer stubs) — dispatch consumes these, grouping the type-surface
@@ -92,6 +93,9 @@ export function createDispatcher(
   // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
   const tableCache = new Map<string, ReturnType<typeof buildEntityTable>>();
   const transitionCache = new Map<string, ReturnType<typeof defineTransitions>>();
+  // One per dispatcher instance (not a module-level singleton) so caches
+  // never leak across separately-booted apps or test stacks.
+  const tenantTimezoneCache = createTenantTimezoneCache();
 
   const dispatcherTracer = context.tracer ?? getFallbackTracer();
   const dispatcherMeter = context.meter ?? getFallbackMeter();
@@ -109,6 +113,7 @@ export function createDispatcher(
     sseBroker,
     tableCache,
     transitionCache,
+    tenantTimezoneCache,
     tracer: dispatcherTracer,
     meter: dispatcherMeter,
   };
