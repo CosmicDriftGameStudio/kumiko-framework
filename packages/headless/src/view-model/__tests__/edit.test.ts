@@ -632,3 +632,47 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
     expect(field?.capture).toBeUndefined();
   });
 });
+
+describe("computeEditViewModel — multiSelect display/columns/maxRows passthrough", () => {
+  function multiSelectEntity(overrides?: Record<string, unknown>): EntityDefinition {
+    return {
+      fields: {
+        languages: {
+          type: "multiSelect",
+          options: ["en", "de", "es"],
+          ...overrides,
+        },
+      },
+    } as unknown as EntityDefinition;
+  }
+
+  test("display/columns/maxRows carry through when set on the field def", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["languages"] }] }),
+      entity: multiSelectEntity({ display: "checkboxes", columns: 2, maxRows: 3 }),
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.display).toBe("checkboxes");
+    expect(field?.columns).toBe(2);
+    expect(field?.maxRows).toBe(3);
+  });
+
+  test("display/columns/maxRows are absent when not set on the field def (back-compat)", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["languages"] }] }),
+      entity: multiSelectEntity(),
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.display).toBeUndefined();
+    expect(field?.columns).toBeUndefined();
+    expect(field?.maxRows).toBeUndefined();
+  });
+});

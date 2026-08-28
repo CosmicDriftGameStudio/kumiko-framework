@@ -54,6 +54,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
       "{count} pasted row(s) were dropped (max row count reached).",
     "kumiko.field.embedded-list.paste-cells-unmatched":
       "{count} cell(s) had no matching option and were left unchanged.",
+    "kumiko.field.multiSelect.select-all": "Select all",
+    "kumiko.field.multiSelect.deselect-all": "Deselect all",
 
     "kumiko.list.search-placeholder": "Search…",
     "kumiko.list.empty.title": "No entries yet.",

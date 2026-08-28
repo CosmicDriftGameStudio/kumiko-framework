@@ -162,16 +162,23 @@ export function createSelectField<
 }
 
 /**
- * Multi-Select-Field — N Werte aus einer festen Options-Liste.
+ * Multi-select field — N values from a fixed option list.
  *
- * Storage: jsonb-Array<string>. Jeder Eintrag muss in `options` enthalten
- * sein (Boot-Validator). UI-Renderer rendert das als Checkbox-Group oder
- * Multi-Select-Dropdown.
+ * Storage: jsonb-Array<string>. Every entry must be in `options`
+ * (boot-validator). Renders as a combobox dropdown by default; set
+ * `display: "checkboxes"` to render every option as a visible checkbox with
+ * a select-all toggle instead.
  *
  * ```ts
  * licenceClasses: createMultiSelectField({
  *   options: ["B", "BE", "C", "C1", "CE", "C1E", "D", "D1"] as const,
  *   default: ["B"],
+ * }),
+ *
+ * languages: createMultiSelectField({
+ *   options: ["en", "de", "es", "fr", "it"] as const,
+ *   display: "checkboxes",
+ *   columns: 2,
  * }),
  * ```
  *
@@ -179,8 +186,8 @@ export function createSelectField<
  *   Write: `{ licenceClasses: ["B", "BE", "C1"] }`
  *   Read:  `{ licenceClasses: ["B", "BE", "C1"] }`
  *
- * Wann statt `select`: wenn mehrere Werte gleichzeitig erlaubt sind.
- * Wann statt `embedded` mit Booleans: bei mehr als ~5 Optionen.
+ * Use instead of `select` when more than one value can be chosen at once.
+ * Use instead of `embedded` with booleans once there are more than ~5 options.
  */
 export function createMultiSelectField<const TOptions extends readonly string[]>(
   opts: { options: TOptions } & Partial<

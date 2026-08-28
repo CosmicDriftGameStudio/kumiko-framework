@@ -334,6 +334,19 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
   /** Default-Auswahl. Jeder Eintrag muss in `options` sein (Boot-Validator). */
   readonly default?: readonly TOptions[number][];
   readonly access?: FieldAccess;
+  /** Renderer metadata: `"checkboxes"` renders every option as a visible
+   *  checkbox with a select-all toggle. Default (omitted) stays the combobox
+   *  dropdown. */
+  readonly display?: "checkboxes" | "dropdown";
+  /** Renderer metadata: column count for the `"checkboxes"` grid at the widest
+   *  breakpoint; narrow viewports always collapse to one column. Omitted =
+   *  the renderer picks a sensible count. Ignored unless
+   *  `display: "checkboxes"`. */
+  readonly columns?: 1 | 2 | 3 | 4;
+  /** Renderer metadata: how many grid rows stay visible before the
+   *  `"checkboxes"` grid becomes scrollable. Omitted = the grid grows with its
+   *  content and never scrolls. Ignored unless `display: "checkboxes"`. */
+  readonly maxRows?: number;
 } & ResolvedPiiFlags;
 
 /**

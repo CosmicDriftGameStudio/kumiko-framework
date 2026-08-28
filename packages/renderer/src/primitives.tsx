@@ -739,6 +739,9 @@ export type GridProps = {
   readonly columns: number;
   readonly children: ReactNode;
   readonly testId?: string;
+  /** Rows visible before the grid becomes vertically scrollable. Omitted =
+   *  the grid grows with its content and never scrolls. */
+  readonly maxRows?: number;
 };
 
 /** Span-Wrapper für ein Kind innerhalb eines Grid. Web: `style={{gridColumn: span N}}`,

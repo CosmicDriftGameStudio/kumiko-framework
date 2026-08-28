@@ -21,6 +21,7 @@ import { useQuery } from "../hooks/use-query";
 import { useLocale, useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
 import { EmbeddedListField } from "./embedded-list-field";
+import { MultiSelectCheckboxes } from "./multi-select-checkboxes";
 import { ReferenceCreateDialog } from "./reference-create-dialog";
 
 // RenderField übersetzt ein EditFieldViewModel → Primitives-Baum.
@@ -514,6 +515,17 @@ function renderInput({
           ? rawOptions.map((value: string) => ({ value, label: labels[value] ?? value }))
           : rawOptions.map((value: string) => ({ value, label: value }));
       const arrayValue = Array.isArray(field.value) ? (field.value as readonly string[]) : [];
+      if (field.display === "checkboxes") {
+        return (
+          <MultiSelectCheckboxes
+            field={field}
+            id={id}
+            options={multiSelectOptions}
+            value={arrayValue}
+            onChange={(v) => onChange(v)}
+          />
+        );
+      }
       return (
         <Input
           kind="combobox"

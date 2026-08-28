@@ -697,6 +697,24 @@ export function validateMultiSelectFields(feature: FeatureDefinition): void {
           }
         }
       }
+
+      if (field.display !== "checkboxes" && field.columns !== undefined) {
+        throw new Error(
+          `MultiSelect field "${fieldName}" on entity "${entityName}" sets columns, which is only valid with display: "checkboxes".`,
+        );
+      }
+
+      if (field.display !== "checkboxes" && field.maxRows !== undefined) {
+        throw new Error(
+          `MultiSelect field "${fieldName}" on entity "${entityName}" sets maxRows, which is only valid with display: "checkboxes".`,
+        );
+      }
+
+      if (field.maxRows !== undefined && (!Number.isInteger(field.maxRows) || field.maxRows < 1)) {
+        throw new Error(
+          `MultiSelect field "${fieldName}" on entity "${entityName}" has invalid maxRows "${field.maxRows}" — must be a positive integer.`,
+        );
+      }
     }
   }
 }

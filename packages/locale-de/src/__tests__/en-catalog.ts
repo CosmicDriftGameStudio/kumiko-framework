@@ -489,6 +489,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "{count} pasted row(s) were dropped (max row count reached).",
   "kumiko.field.embedded-list.remove-row": "Remove row",
   "kumiko.field.locatedTzHint": "Time local to the given location",
+  "kumiko.field.multiSelect.deselect-all": "Deselect all",
+  "kumiko.field.multiSelect.select-all": "Select all",
   "kumiko.field.open-calendar": "Open calendar",
   "kumiko.field.reference-created-no-id":
     "Record was created but could not be selected automatically. Please select it manually.",

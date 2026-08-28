@@ -499,6 +499,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Se descartaron {count} fila(s) pegadas (se alcanzó el número máximo de filas).",
   "kumiko.field.embedded-list.remove-row": "Quitar fila",
   "kumiko.field.locatedTzHint": "Hora local del lugar indicado",
+  "kumiko.field.multiSelect.deselect-all": "Deseleccionar todo",
+  "kumiko.field.multiSelect.select-all": "Seleccionar todo",
   "kumiko.field.open-calendar": "Abrir calendario",
   "kumiko.field.reference-created-no-id":
     "El registro se creó pero no se pudo seleccionar automáticamente. Selecciónalo manualmente.",
