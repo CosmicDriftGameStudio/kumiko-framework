@@ -31,6 +31,7 @@ import {
 import { z } from "zod";
 import { AuditQueries } from "../../audit/constants";
 import { createAuditFeature } from "../../audit/feature";
+import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
@@ -80,7 +81,13 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [customFieldsFeature, propertyFeature, createTenantFeature(), createAuditFeature()],
+    features: [
+      customFieldsFeature,
+      propertyFeature,
+      createConfigFeature(),
+      createTenantFeature(),
+      createAuditFeature(),
+    ],
   });
   await unsafeCreateEntityTable(stack.db, fieldDefinitionEntity);
   await unsafeCreateEntityTable(stack.db, propertyEntity);
