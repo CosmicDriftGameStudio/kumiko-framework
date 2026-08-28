@@ -907,9 +907,12 @@ export type CardProps = {
 };
 
 /** Determinate progress bar (e.g. wizard step progress). `value` is a
- *  0..1 fraction, not a percentage — implementations scale for display. */
+ *  0..1 fraction, not a percentage — implementations scale for display.
+ *  `tone` controls the fill color; omitted defaults to "default" (backward
+ *  compatible with callers predating this field). */
 export type ProgressProps = {
   readonly value: number;
+  readonly tone?: "default" | "warn" | "danger";
   readonly testId?: string;
 };
 

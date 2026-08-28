@@ -2,6 +2,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import type { CapUsage } from "../types";
+import { computeTone } from "../usage-math";
 
 export function CapUsageBar({
   usage,
@@ -17,7 +18,11 @@ export function CapUsageBar({
   return (
     <div className="flex flex-col gap-1">
       {Progress ? (
-        <Progress value={usage.fraction} testId="cap-usage-bar" />
+        <Progress
+          value={usage.fraction}
+          tone={computeTone(usage.fraction)}
+          testId="cap-usage-bar"
+        />
       ) : (
         // Progress is typed optional only so partial CorePrimitives test
         // doubles keep compiling — production always registers it via
