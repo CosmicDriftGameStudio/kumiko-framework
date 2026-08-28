@@ -106,15 +106,16 @@ describe("fw#2134 — email unique constraint on the blind-index column", () => 
     expect(survivors[0]?.n).toBe(1);
   });
 
-  test("a soft-deleted user still holds its email: constraint agrees with the pre-existing pre-flight behavior", async () => {
+  test("a soft-deleted user's email becomes available for reuse (fw#2464)", async () => {
     // Soft-delete only flips isDeleted/deletedAt (apply-entity-event.ts) —
-    // it never touches email/email_bidx, so the row still occupies the
-    // unique slot. This isn't new behavior from fw#2134: the handler's
-    // pre-flight fetchOne is a raw, unfiltered query (see create.write.ts)
-    // and already saw soft-deleted rows before this fix. This test pins
-    // that the new DB constraint doesn't diverge from that — only the
-    // GDPR "forgotten" hard-delete (see forget-cleanup) actually frees the
-    // email slot.
+    // it never touches email/email_bidx, so the old row keeps carrying the
+    // email's bidx hash. Before fw#2464 the partial bidx unique index
+    // covered every row regardless of isDeleted, so that hash permanently
+    // blocked reuse of the email by a new or restored user. The index's
+    // WHERE clause now also excludes soft-deleted rows (isDeleted = false)
+    // whenever the entity has softDelete enabled, so a fresh create with
+    // the same email succeeds once the original row is soft-deleted — only
+    // a live (non-deleted) row still occupying the email blocks the slot.
     const email = "soft-deleted@example.com";
     const tdb = createTenantDb(testDb.db, SYSTEM_TENANT_ID, "system");
     const systemUser = createSystemUser(SYSTEM_TENANT_ID);
@@ -130,11 +131,22 @@ describe("fw#2134 — email unique constraint on the blind-index column", () => 
     if (!deleted.isSuccess) throw new Error("expected soft-delete to succeed");
 
     const reCreated = await executor.create({ email, displayName: "Squatter" }, systemUser, tdb);
-    if (reCreated.isSuccess) {
-      throw new Error("expected re-create with the same email to be rejected while soft-deleted");
+    if (!reCreated.isSuccess) {
+      throw new Error(
+        "expected re-create with the same email to succeed once the original row is soft-deleted",
+      );
     }
-    expect(reCreated.error.code).toBe("unique_violation");
-    const details = reCreated.error.details as { constraintName?: string };
-    expect(details.constraintName).toBe("read_users_email_unique_bidx");
+    expect(reCreated.data.id).not.toBe(created.data.id);
+
+    // DB-proof: both rows survive — the soft-deleted original still holds
+    // the bidx hash, and the new live row now holds it too, since the
+    // partial index only enforces uniqueness among non-deleted rows.
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT "id", "is_deleted" FROM "read_users" WHERE "email_bidx" = $1 ORDER BY "is_deleted"`,
+      [computeBlindIndex(TEST_KEY, email)],
+    )) as ReadonlyArray<{ id: string; is_deleted: boolean }>;
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual({ id: String(reCreated.data.id), is_deleted: false });
+    expect(rows[1]).toEqual({ id: String(created.data.id), is_deleted: true });
   });
 });
