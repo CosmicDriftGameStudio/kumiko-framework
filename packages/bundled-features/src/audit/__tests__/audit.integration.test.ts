@@ -21,9 +21,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-framework/testing";
+import { createTenantFeature } from "../../tenant";
 import { AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
-import { createTenantFeature } from "../../tenant";
 
 const widgetEntity = createEntity({
   table: "audit_widgets",
