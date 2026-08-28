@@ -80,7 +80,9 @@ export {
   readDataLiteralNode,
   readNameOrRef,
   readNameOrRefOrList,
+  readObjectPropertyInitializer,
   readPropertyKey,
   readStringLiteralArgs,
   readVarargsOrArrayProp,
+  resolveSameFileObjectLiteral,
 } from "./shared";

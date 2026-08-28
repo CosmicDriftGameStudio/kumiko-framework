@@ -115,6 +115,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       );
     },
 
+    // kumiko-lint-ignore complexity-budget session check + lastSeen refresh on hot path
     async sessionChecker(sid: string, expectedUserId: string): Promise<AuthSessionCheckResult> {
       const row = await fetchOne<{
         userId: string;

@@ -41,7 +41,7 @@ export async function startDeletionGracePeriod(
     return {
       ok: false,
       error: new UnprocessableError("user_not_found", {
-        details: { reason: "user_not_found", userId },
+        details: { userId },
       }),
     };
   }
@@ -49,7 +49,7 @@ export async function startDeletionGracePeriod(
     return {
       ok: false,
       error: new UnprocessableError("user_not_in_active_state", {
-        details: { reason: "user_not_in_active_state", currentStatus: userRow["status"] },
+        details: { currentStatus: userRow["status"] },
       }),
     };
   }

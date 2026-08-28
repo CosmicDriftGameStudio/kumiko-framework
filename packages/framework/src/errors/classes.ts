@@ -192,8 +192,9 @@ export class UniqueViolationError extends ConflictError {
 
 // Business-rule violation. The human-readable reason lives in details.reason
 // so the client can key off it without overloading the top-level code.
-export type UnprocessableOpts = Pick<ErrorOpts, "i18nKey" | "i18nParams" | "cause"> & {
-  readonly details?: Readonly<Record<string, unknown>>;
+export type UnprocessableOpts = Pick<ErrorOpts, "i18nKey" | "i18nParams" | "cause" | "message"> & {
+  // `reason` is owned by the positional ctor arg — callers put cause text in `opts.cause`.
+  readonly details?: Readonly<Record<string, unknown>> & { readonly reason?: never };
 };
 
 export class UnprocessableError extends KumikoError {
@@ -204,7 +205,7 @@ export class UnprocessableError extends KumikoError {
 
   constructor(reason: string, opts?: UnprocessableOpts) {
     super({
-      message: `unprocessable: ${reason}`,
+      message: opts?.message ?? `unprocessable: ${reason}`,
       i18nKey: opts?.i18nKey ?? "errors.unprocessable",
       ...(opts?.i18nParams && { i18nParams: opts.i18nParams }),
       details: { ...opts?.details, reason },
@@ -226,16 +227,16 @@ export class UnconfiguredError extends UnprocessableError {
   override readonly code: string = "unconfigured";
 
   constructor(details: UnconfiguredDetails, opts?: Pick<ErrorOpts, "i18nKey" | "cause">) {
-    super(
-      `${details.feature}: '${details.key}' is empty — tenant must configure it before use.${
-        details.hint ? ` ${details.hint}` : ""
-      }`,
-      {
-        i18nKey: opts?.i18nKey ?? "errors.unconfigured",
-        details,
-        ...(opts?.cause && { cause: opts.cause }),
-      },
-    );
+    const message = `${details.feature}: '${details.key}' is empty — tenant must configure it before use.${
+      details.hint ? ` ${details.hint}` : ""
+    }`;
+    // Stable slug for docsUrl — freestext is the Error.message + details.message.
+    super("unconfigured", {
+      message,
+      i18nKey: opts?.i18nKey ?? "errors.unconfigured",
+      details: { ...details, message },
+      ...(opts?.cause && { cause: opts.cause }),
+    });
   }
 }
 

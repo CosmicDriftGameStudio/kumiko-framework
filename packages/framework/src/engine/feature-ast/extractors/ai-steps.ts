@@ -1,5 +1,4 @@
-import type { CallExpression, Node, ObjectLiteralExpression, SourceFile } from "ts-morph";
-import { SyntaxKind } from "ts-morph";
+import type { CallExpression, ObjectLiteralExpression, SourceFile } from "ts-morph";
 import type {
   AiClassifyPattern,
   AiExtractPattern,
@@ -17,7 +16,10 @@ import {
   isRawRefSentinel,
   ok,
   readDataLiteralNode,
+  readNameLiteral,
+  readObjectPropertyInitializer,
   readStringOrRaw,
+  resolveSameFileObjectLiteral,
 } from "./shared";
 
 type AiStepKind = AiGeneratePattern["kind"] | AiExtractPattern["kind"] | AiClassifyPattern["kind"];
@@ -32,33 +34,11 @@ type AiStepCommonExtracted = {
   readonly paramsSchemaSource?: SourceLocation;
 };
 
-function resolveObjectLiteralArg(node: Node): ObjectLiteralExpression | undefined {
-  const direct = node.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (direct) return direct;
-  const identifier = node.asKind(SyntaxKind.Identifier);
-  if (!identifier) return undefined;
-  const varDecl = node.getSourceFile().getVariableDeclaration(identifier.getText());
-  return varDecl?.getInitializer()?.asKind(SyntaxKind.ObjectLiteralExpression);
-}
-
-function readPropertyInitializer(
-  obj: ObjectLiteralExpression,
-  propertyName: string,
-): import("ts-morph").Expression | undefined {
-  const prop = obj.getProperty(propertyName);
-  if (!prop) return undefined;
-  const assign = prop.asKind(SyntaxKind.PropertyAssignment);
-  if (assign) return assign.getInitializer();
-  const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
-  if (shorthand) return shorthand.getNameNode();
-  return undefined;
-}
-
 function readEditableStringProp(
   obj: ObjectLiteralExpression,
   propertyName: string,
 ): string | AiStepOpaqueArgs | undefined {
-  const init = readPropertyInitializer(obj, propertyName);
+  const init = readObjectPropertyInitializer(obj, propertyName);
   if (!init) return undefined;
   const value = readStringOrRaw(init);
   if (value === undefined) return undefined;
@@ -108,7 +88,7 @@ function extractAiStepCommon(
     return fail(kind, source, "expected one argument object");
   }
 
-  const obj = resolveObjectLiteralArg(arg);
+  const obj = resolveSameFileObjectLiteral(arg);
   if (!obj) {
     if (isRawRefSentinel(readDataLiteralNode(arg))) {
       return ok({
@@ -123,15 +103,21 @@ function extractAiStepCommon(
     );
   }
 
-  const stepKey = readEditableStringProp(obj, "stepKey");
-  if (stepKey === undefined) {
+  const stepKeyInit = readObjectPropertyInitializer(obj, "stepKey");
+  if (!stepKeyInit) {
     return fail(kind, source, "missing `stepKey` property");
+  }
+  // PatternId needs a concrete string — resolve identifiers like patch.readAiStepKey.
+  const stepKeyLiteral = readNameLiteral(stepKeyInit);
+  const stepKey = stepKeyLiteral ?? readStringOrRaw(stepKeyInit);
+  if (stepKey === undefined) {
+    return fail(kind, source, "`stepKey` must be a string literal or resolvable identifier");
   }
   const promptKey = readEditableStringProp(obj, "promptKey");
   if (promptKey === undefined) {
     return fail(kind, source, "missing `promptKey` property");
   }
-  const promptFallbackInit = readPropertyInitializer(obj, "promptFallback");
+  const promptFallbackInit = readObjectPropertyInitializer(obj, "promptFallback");
   if (!promptFallbackInit) {
     return fail(kind, source, "missing `promptFallback` property");
   }
@@ -140,7 +126,7 @@ function extractAiStepCommon(
     return fail(kind, source, "`promptFallback` must be a string literal or identifier reference");
   }
 
-  const defaultsInit = readPropertyInitializer(obj, "defaults");
+  const defaultsInit = readObjectPropertyInitializer(obj, "defaults");
   if (!defaultsInit) {
     return fail(kind, source, "missing `defaults` property");
   }
@@ -149,7 +135,7 @@ function extractAiStepCommon(
     return fail(kind, source, "`defaults` could not be read as a StepPolicy literal");
   }
 
-  const paramsSchemaInit = readPropertyInitializer(obj, "paramsSchema");
+  const paramsSchemaInit = readObjectPropertyInitializer(obj, "paramsSchema");
   if (!paramsSchemaInit) {
     return fail(kind, source, "missing `paramsSchema` property");
   }
@@ -206,11 +192,11 @@ export function extractAiGenerate(
   }
 
   const arg = call.getArguments()[0];
-  const obj = arg ? resolveObjectLiteralArg(arg) : undefined;
+  const obj = arg ? resolveSameFileObjectLiteral(arg) : undefined;
   if (!obj) {
     return fail("ai.generate", common.pattern.source, "expected resolvable argument object");
   }
-  const inputInit = readPropertyInitializer(obj, "input");
+  const inputInit = readObjectPropertyInitializer(obj, "input");
   if (!inputInit) {
     return fail("ai.generate", common.pattern.source, "missing `input` property");
   }
@@ -252,16 +238,16 @@ export function extractAiExtract(
   }
 
   const arg = call.getArguments()[0];
-  const obj = arg ? resolveObjectLiteralArg(arg) : undefined;
+  const obj = arg ? resolveSameFileObjectLiteral(arg) : undefined;
   if (!obj) {
     return fail("ai.extract", common.pattern.source, "expected resolvable argument object");
   }
 
-  const outputSchemaInit = readPropertyInitializer(obj, "outputSchema");
+  const outputSchemaInit = readObjectPropertyInitializer(obj, "outputSchema");
   if (!outputSchemaInit) {
     return fail("ai.extract", common.pattern.source, "missing `outputSchema` property");
   }
-  const instructionsInit = readPropertyInitializer(obj, "instructions");
+  const instructionsInit = readObjectPropertyInitializer(obj, "instructions");
   if (!instructionsInit) {
     return fail("ai.extract", common.pattern.source, "missing `instructions` property");
   }
@@ -274,7 +260,7 @@ export function extractAiExtract(
     );
   }
 
-  const documentInit = readPropertyInitializer(obj, "document");
+  const documentInit = readObjectPropertyInitializer(obj, "document");
   let documentBody: SourceLocation | undefined;
   if (documentInit) {
     const documentFn = findFunctionLiteral(documentInit);
@@ -319,12 +305,12 @@ export function extractAiClassify(
   }
 
   const arg = call.getArguments()[0];
-  const obj = arg ? resolveObjectLiteralArg(arg) : undefined;
+  const obj = arg ? resolveSameFileObjectLiteral(arg) : undefined;
   if (!obj) {
     return fail("ai.classify", common.pattern.source, "expected resolvable argument object");
   }
 
-  const actionsInit = readPropertyInitializer(obj, "actions");
+  const actionsInit = readObjectPropertyInitializer(obj, "actions");
   if (!actionsInit) {
     return fail("ai.classify", common.pattern.source, "missing `actions` property");
   }
@@ -337,7 +323,7 @@ export function extractAiClassify(
     );
   }
 
-  const inputInit = readPropertyInitializer(obj, "input");
+  const inputInit = readObjectPropertyInitializer(obj, "input");
   if (!inputInit) {
     return fail("ai.classify", common.pattern.source, "missing `input` property");
   }

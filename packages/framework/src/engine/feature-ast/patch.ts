@@ -30,9 +30,8 @@
 // roadmap C-Notes for the canonical-comment-attach Pattern that would
 // preserve prefixed `// kumiko-comment:` markers across roundtrips.
 
-import type { ObjectLiteralExpression } from "ts-morph";
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
-import { readNameLiteral, readNameOrRef } from "./extractors/shared";
+import { readNameLiteral, readNameOrRef, resolveSameFileObjectLiteral } from "./extractors/shared";
 import type { FeaturePattern, FeaturePatternKind } from "./patterns";
 import { indent, PATTERN_INDENT, renderPattern } from "./render";
 
@@ -365,17 +364,6 @@ const AI_STEP_FACTORY: Readonly<Record<"ai.generate" | "ai.extract" | "ai.classi
   "ai.extract": "aiExtractStep",
   "ai.classify": "aiClassifyStep",
 };
-
-function resolveSameFileObjectLiteral(
-  node: import("ts-morph").Node,
-): ObjectLiteralExpression | undefined {
-  const direct = node.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (direct) return direct;
-  const identifier = node.asKind(SyntaxKind.Identifier);
-  if (!identifier) return undefined;
-  const varDecl = node.getSourceFile().getVariableDeclaration(identifier.getText());
-  return varDecl?.getInitializer()?.asKind(SyntaxKind.ObjectLiteralExpression);
-}
 
 function readAiStepKey(call: CallExpression): string | undefined {
   const arg = call.getArguments()[0];

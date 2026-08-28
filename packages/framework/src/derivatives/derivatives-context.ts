@@ -155,6 +155,10 @@ export function createDerivativesContext(deps: DerivativesContextDeps): Derivati
       assertSafeStorageKey(target.key);
       const mimeType = outputMimeType(spec, row.mimeType);
 
+      // ponytail: exists→render→write is a TOCTOU window under concurrent
+      // requests for the same variant (duplicate render + write). Ceiling:
+      // non-atomic providers can briefly expose a half-written object as a
+      // cache hit. Upgrade: write to a temp key then atomic rename/copy.
       if (await target.exists()) {
         return {
           storageKey: target.key,

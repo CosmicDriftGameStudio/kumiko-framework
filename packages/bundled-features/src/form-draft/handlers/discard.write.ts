@@ -74,13 +74,31 @@ export const discardDraftWrite = defineWriteHandler({
         const forgetResult = await fileRefExecutor.forget({ id: ref.id }, event.user, ctx.db);
         if (!forgetResult.isSuccess) return forgetResult;
       }
-      await releaseDraftFileRefs(
-        ownedRefs.map((ref) => ref.storageKey),
-        async (key) => {
-          await files.ref(key).delete();
-        },
-        ctx.log,
-      );
+      // Binary delete only after commit — in-tx delete would orphan pointers
+      // if the surrounding write transaction rolls back after this handler.
+      const keys = ownedRefs.map((ref) => ref.storageKey);
+      const log = ctx.log;
+      const schedule = ctx.scheduleAfterCommit;
+      if (schedule) {
+        schedule(async () => {
+          await releaseDraftFileRefs(
+            keys,
+            async (key) => {
+              await files.ref(key).delete();
+            },
+            log,
+          );
+        });
+      } else {
+        // Unit/harness paths without a commit sink — best-effort inline.
+        await releaseDraftFileRefs(
+          keys,
+          async (key) => {
+            await files.ref(key).delete();
+          },
+          log,
+        );
+      }
     }
     return { isSuccess: true as const, data: { discarded: true } };
   },

@@ -127,6 +127,10 @@ type WatcherState = {
    *  watch lease; null when unclaimed (no `deps.lock`, or claim lost). */
   lockToken: string | null;
   renewTimer: ReturnType<typeof setTimeout> | null;
+  /** Consecutive renew() throws — tear down once failures span a full TTL. */
+  renewFailures: number;
+  /** True while plugin.watch() is in flight (re-entrancy guard). */
+  starting: boolean;
 };
 
 type WatchLeaseResult = "acquired" | "no-token" | "stale";
@@ -386,12 +390,14 @@ export function createInboundMailSupervisor(
   // lifecycle — it keeps renewing across reconnect backoff, not just while
   // `plugin.watch()` is actually connected, so a flaky IMAP link doesn't
   // make this worker lose the account to a peer mid-backoff.
+  // kumiko-lint-ignore complexity-budget watch lease renew backoff/re-acquire loop
   function scheduleRenew(
     account: MailAccountRecord,
     state: WatcherState,
     generation: number,
   ): void {
     state.renewTimer = setTimeout(() => {
+      // kumiko-lint-ignore complexity-budget renew timer callback (renew/backoff/re-acquire)
       void (async () => {
         state.renewTimer = null;
         // skip: supervisor stopped, generation superseded, or lease already lost — stale timer fire, nothing to renew.
@@ -403,14 +409,25 @@ export function createInboundMailSupervisor(
           log(
             `inbound-mail: watch lease renew for account ${account.id} failed: ${err instanceof Error ? err.message : String(err)}`,
           );
-          // Treat a renew error as transient (Redis blip) — keep the local
-          // watcher running and retry next tick within the TTL grace window.
+          state.renewFailures += 1;
+          // After failures spanning a full lease TTL, tear down — otherwise a
+          // peer can acquire the expired key while we still hold an IDLE conn.
+          if (state.renewFailures * renewIntervalMs >= leaseTtlSeconds * 1000) {
+            log(
+              `inbound-mail: watch lease renew for account ${account.id} failed across TTL — tearing down local watcher`,
+            );
+            state.lockToken = null;
+            await stopWatcher(account.id);
+            // skip: local watcher torn down after renew failures spanning a full lease TTL.
+            return;
+          }
           if (running && state.generation === generation && state.lockToken) {
             scheduleRenew(account, state, generation);
           }
           // skip: renew already rescheduled above (or conditions no longer hold) — nothing left to do this tick.
           return;
         }
+        state.renewFailures = 0;
         if (!renewed) {
           log(
             `inbound-mail: watch lease for account ${account.id} lost — tearing down local watcher`,
@@ -427,6 +444,7 @@ export function createInboundMailSupervisor(
     }, renewIntervalMs);
   }
 
+  // kumiko-lint-ignore complexity-budget yield-point stale-map check after acquire is intentional (#2460)
   async function acquireWatchLease(
     account: MailAccountRecord,
     state: WatcherState,
@@ -448,6 +466,7 @@ export function createInboundMailSupervisor(
     return "acquired";
   }
 
+  // kumiko-lint-ignore complexity-budget watch lifecycle (start/stop/restart) stays cohesive
   async function ensureWatcher(
     account: MailAccountRecord,
     plugin: InboundMailProviderPlugin,
@@ -455,8 +474,8 @@ export function createInboundMailSupervisor(
     // skip: Provider ohne Live-Push — der Reconciliation-Poll deckt den Account ab.
     if (!plugin.watch) return;
     const existing = watchers.get(account.id);
-    // skip: Watcher läuft bereits bzw. Restart ist geplant — nichts zu tun.
-    if (existing?.stop || existing?.restartTimer) return;
+    // skip: Watcher läuft bereits, startet gerade, oder Restart ist geplant.
+    if (existing?.stop || existing?.restartTimer || existing?.starting) return;
 
     const state: WatcherState = existing ?? {
       stop: null,
@@ -465,6 +484,8 @@ export function createInboundMailSupervisor(
       generation: 0,
       lockToken: null,
       renewTimer: null,
+      renewFailures: 0,
+      starting: false,
     };
     watchers.set(account.id, state);
 
@@ -501,6 +522,7 @@ export function createInboundMailSupervisor(
       }, delay);
     };
 
+    state.starting = true;
     try {
       const stop = await plugin.watch(deps.providerCtx, account, {
         onMessages: async (msgs) => {
@@ -545,6 +567,8 @@ export function createInboundMailSupervisor(
     } catch (err) {
       const keepRunning = await handleSyncError(account, err);
       if (keepRunning) scheduleRestart(err);
+    } finally {
+      state.starting = false;
     }
   }
 

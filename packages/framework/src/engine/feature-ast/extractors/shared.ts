@@ -1,4 +1,4 @@
-import type { CallExpression, Node } from "ts-morph";
+import type { CallExpression, Node, ObjectLiteralExpression } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import { isPlainObject } from "../../../utils/is-plain-object";
 import type { ParseError } from "../parse";
@@ -261,6 +261,31 @@ export function readNameOrRef(node: Node): string | undefined {
   if (literal !== undefined) return literal;
   const obj = readDataLiteralNode(node);
   if (isPlainObject(obj) && typeof obj["name"] === "string") return obj["name"];
+  return undefined;
+}
+
+/** Resolve an inline object literal or a same-file `const` that initializes to one. */
+export function resolveSameFileObjectLiteral(node: Node): ObjectLiteralExpression | undefined {
+  const direct = node.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (direct) return direct;
+  const identifier = node.asKind(SyntaxKind.Identifier);
+  if (!identifier) return undefined;
+  const valueDecl = identifier.getSymbol()?.getValueDeclaration();
+  const fromSymbol = valueDecl?.asKind(SyntaxKind.VariableDeclaration);
+  const varDecl = fromSymbol ?? node.getSourceFile().getVariableDeclaration(identifier.getText());
+  return varDecl?.getInitializer()?.asKind(SyntaxKind.ObjectLiteralExpression);
+}
+
+export function readObjectPropertyInitializer(
+  obj: ObjectLiteralExpression,
+  propertyName: string,
+): import("ts-morph").Expression | undefined {
+  const prop = obj.getProperty(propertyName);
+  if (!prop) return undefined;
+  const assign = prop.asKind(SyntaxKind.PropertyAssignment);
+  if (assign) return assign.getInitializer();
+  const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
+  if (shorthand) return shorthand.getNameNode();
   return undefined;
 }
 

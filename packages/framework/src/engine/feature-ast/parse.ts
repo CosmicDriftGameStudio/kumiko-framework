@@ -26,7 +26,6 @@ import type {
   CallExpression,
   Expression,
   Node,
-  ObjectLiteralExpression,
   ParameterDeclaration,
   SourceFile,
 } from "ts-morph";
@@ -74,6 +73,8 @@ import {
   extractWorkspace,
   extractWriteHandler,
   findFunctionLiteral,
+  readObjectPropertyInitializer,
+  resolveSameFileObjectLiteral,
 } from "./extractors";
 import type { FeaturePattern, UnknownPattern } from "./patterns";
 import { type SourceLocation, sourceLocationFromNode } from "./source-location";
@@ -387,28 +388,6 @@ function extractRegistrarMethodName(
   return propAccess.getName();
 }
 
-function readObjectPropertyInitializer(
-  obj: ObjectLiteralExpression,
-  propertyName: string,
-): Expression | undefined {
-  const prop = obj.getProperty(propertyName);
-  if (!prop) return undefined;
-  const assign = prop.asKind(SyntaxKind.PropertyAssignment);
-  if (assign) return assign.getInitializer();
-  const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
-  if (shorthand) return shorthand.getNameNode();
-  return undefined;
-}
-
-function resolveSameFileObjectLiteralArg(node: Node): ObjectLiteralExpression | undefined {
-  const direct = node.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (direct) return direct;
-  const identifier = node.asKind(SyntaxKind.Identifier);
-  if (!identifier) return undefined;
-  const varDecl = node.getSourceFile().getVariableDeclaration(identifier.getText());
-  return varDecl?.getInitializer()?.asKind(SyntaxKind.ObjectLiteralExpression);
-}
-
 function resolveStepsArrayRoot(stepsInit: Expression): Node | undefined {
   const directArray = stepsInit.asKind(SyntaxKind.ArrayLiteralExpression);
   if (directArray) return directArray;
@@ -444,7 +423,7 @@ function collectWorkflowStepArrayRoots(body: Node): Node[] {
   const roots: Node[] = [];
   for (const call of body.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     if (call.getExpression().getText() !== "defineWorkflow") continue;
-    const obj = resolveSameFileObjectLiteralArg(call.getArguments()[0] ?? call);
+    const obj = resolveSameFileObjectLiteral(call.getArguments()[0] ?? call);
     if (!obj) continue;
     const stepsInit = readObjectPropertyInitializer(obj, "steps");
     if (!stepsInit) continue;

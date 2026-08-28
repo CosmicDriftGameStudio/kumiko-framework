@@ -48,4 +48,17 @@ describe("tags catalog screens (entityList + entityEdit)", () => {
     expect(custom.screens[TAGS_EDIT_SCREEN_ID]?.access).toEqual({ roles: ["Admin"] });
     expect(custom.writeHandlers["tag:delete"]?.access).toEqual({ roles: ["Admin"] });
   });
+
+  test("convention write schemas accept entityEdit envelopes", () => {
+    const createSchema = feature.writeHandlers["tag:create"]?.schema;
+    const updateSchema = feature.writeHandlers["tag:update"]?.schema;
+    const deleteSchema = feature.writeHandlers["tag:delete"]?.schema;
+    expect(createSchema).toBeDefined();
+    expect(updateSchema).toBeDefined();
+    expect(deleteSchema).toBeDefined();
+    expect(createSchema!.safeParse({ name: "x" }).success).toBe(true);
+    const id = "00000000-0000-4000-8000-000000000001";
+    expect(updateSchema!.safeParse({ id, version: 0, changes: { name: "x" } }).success).toBe(true);
+    expect(deleteSchema!.safeParse({ id }).success).toBe(true);
+  });
 });

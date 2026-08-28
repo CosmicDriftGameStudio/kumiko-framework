@@ -163,6 +163,10 @@
       "types": "./src/upgrade-cli.ts",
       "default": "./src/upgrade-cli.ts"
     },
+    "./arg-parser": {
+      "types": "./src/arg-parser.ts",
+      "default": "./src/arg-parser.ts"
+    },
     "./stack": {
       "types": "./src/stack/index.ts",
       "default": "./src/stack/index.ts"

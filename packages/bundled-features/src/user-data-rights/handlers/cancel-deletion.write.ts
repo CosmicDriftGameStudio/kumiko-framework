@@ -33,7 +33,7 @@ export const cancelDeletionWrite = defineWriteHandler({
     if (!row) {
       return writeFailure(
         new UnprocessableError("user_not_found", {
-          details: { reason: "user_not_found", userId: event.user.id },
+          details: { userId: event.user.id },
         }),
       );
     }
@@ -41,20 +41,13 @@ export const cancelDeletionWrite = defineWriteHandler({
     if (row.status !== USER_STATUS.DeletionRequested) {
       return writeFailure(
         new UnprocessableError("no_pending_deletion", {
-          details: {
-            reason: "no_pending_deletion",
-            currentStatus: row.status,
-          },
+          details: { currentStatus: row.status },
         }),
       );
     }
 
     if (!isWithinGracePeriod(row.gracePeriodEnd)) {
-      return writeFailure(
-        new UnprocessableError("grace_period_expired", {
-          details: { reason: "grace_period_expired" },
-        }),
-      );
+      return writeFailure(new UnprocessableError("grace_period_expired"));
     }
 
     await updateUserLifecycle(ctx.db.raw, event.user.id, {

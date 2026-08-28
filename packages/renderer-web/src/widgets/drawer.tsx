@@ -139,8 +139,10 @@ export function Drawer({
     const signedDelta = side === "right" ? -deltaX : deltaX;
     setWidth(clamp(dragRef.current.startWidth + signedDelta, minWidthPx, effectiveMaxWidthPx()));
   };
-  const onHandlePointerUp = (event: React.PointerEvent<HTMLDivElement>): void => {
-    event.currentTarget.releasePointerCapture(event.pointerId);
+  const endHandlePointerDrag = (event: React.PointerEvent<HTMLDivElement>): void => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
     dragRef.current = null;
     document.body.style.removeProperty("user-select");
   };
@@ -210,7 +212,9 @@ export function Drawer({
             tabIndex={0}
             onPointerDown={onHandlePointerDown}
             onPointerMove={onHandlePointerMove}
-            onPointerUp={onHandlePointerUp}
+            onPointerUp={endHandlePointerDrag}
+            onPointerCancel={endHandlePointerDrag}
+            onLostPointerCapture={endHandlePointerDrag}
             onKeyDown={onHandleKeyDown}
             className={cn(
               "absolute inset-y-0 z-10 w-1 cursor-col-resize touch-none after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2 hover:bg-border",

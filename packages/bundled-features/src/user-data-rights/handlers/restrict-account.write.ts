@@ -69,7 +69,7 @@ export const restrictAccountWrite = defineWriteHandler({
     if (!userRow) {
       return writeFailure(
         new UnprocessableError("user_not_found", {
-          details: { reason: "user_not_found", userId: targetUserId },
+          details: { userId: targetUserId },
         }),
       );
     }
@@ -78,14 +78,14 @@ export const restrictAccountWrite = defineWriteHandler({
     if (currentStatus === USER_STATUS.Restricted) {
       return writeFailure(
         new UnprocessableError("already_restricted", {
-          details: { reason: "already_restricted", currentStatus },
+          details: { currentStatus },
         }),
       );
     }
     if (currentStatus !== USER_STATUS.Active) {
       return writeFailure(
         new UnprocessableError("user_not_in_active_state", {
-          details: { reason: "user_not_in_active_state", currentStatus },
+          details: { currentStatus },
         }),
       );
     }

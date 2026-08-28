@@ -17,9 +17,11 @@ export function run(
     let stdout = "";
     let stderr = "";
     let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const settle = (status: number): void => {
       if (settled) return;
       settled = true;
+      if (timer) clearTimeout(timer);
       resolve({ status, stdout, stderr });
     };
     child.stdout?.on("data", (c: Buffer) => {
@@ -31,7 +33,7 @@ export function run(
     child.on("error", () => settle(-1));
     child.on("exit", (code) => settle(code ?? 0));
     if (opts?.timeoutMs) {
-      setTimeout(() => {
+      timer = setTimeout(() => {
         if (child.exitCode === null) {
           child.kill("SIGTERM");
           settle(-1);

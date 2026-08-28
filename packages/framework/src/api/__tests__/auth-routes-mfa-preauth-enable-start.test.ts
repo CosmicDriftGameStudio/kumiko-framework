@@ -157,9 +157,7 @@ describe("POST /auth/mfa/preauth-enable-start", () => {
       async write(): Promise<WriteResult> {
         return {
           isSuccess: false,
-          error: new UnprocessableError("invalid_challenge_token", {
-            details: { reason: "invalid_challenge_token" },
-          }),
+          error: new UnprocessableError("invalid_challenge_token"),
         };
       },
     });

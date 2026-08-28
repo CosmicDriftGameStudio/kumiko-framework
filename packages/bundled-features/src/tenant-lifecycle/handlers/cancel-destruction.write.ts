@@ -34,11 +34,7 @@ export const cancelDestructionWrite = defineWriteHandler({
     }
 
     if (!isWithinGracePeriod(row.gracePeriodEnd)) {
-      return writeFailure(
-        new UnprocessableError("grace_period_expired", {
-          details: { reason: "grace_period_expired" },
-        }),
-      );
+      return writeFailure(new UnprocessableError("grace_period_expired"));
     }
 
     const update = await crud.update(

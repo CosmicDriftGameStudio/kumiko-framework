@@ -9,6 +9,7 @@ import {
   KumikoError,
   NotFoundError,
   serializeError,
+  UnconfiguredError,
   UnprocessableError,
   ValidationError,
   VersionConflictError,
@@ -329,9 +330,9 @@ describe("UnprocessableError", () => {
     expect(err.i18nKey).toBe("orders.errors.alreadyCancelled");
   });
 
-  test("positional reason survives a conflicting details.reason from the caller", () => {
+  test("positional reason is the sole details.reason (extras allowed)", () => {
     const err = new UnprocessableError("order.already_cancelled", {
-      details: { reason: "some unrelated cause text", orderId: 7 },
+      details: { orderId: 7 },
     });
     expect(err.details).toEqual({ reason: "order.already_cancelled", orderId: 7 });
     expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/order.already_cancelled");
@@ -426,3 +427,16 @@ class KumikoErrorStub extends KumikoError {
     super({ message: "stub", i18nKey: "stub", cause: opts.cause });
   }
 }
+
+describe("UnconfiguredError", () => {
+  test("docsUrl uses stable unconfigured slug, not the freestext message", () => {
+    const err = new UnconfiguredError({ feature: "billing", key: "apiKey" });
+    expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/unconfigured");
+    expect(err.details).toMatchObject({
+      reason: "unconfigured",
+      feature: "billing",
+      key: "apiKey",
+    });
+    expect(String((err.details as { message?: string }).message)).toContain("apiKey");
+  });
+});

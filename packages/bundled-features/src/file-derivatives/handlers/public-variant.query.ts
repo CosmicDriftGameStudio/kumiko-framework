@@ -17,6 +17,7 @@
 // `anonymousAccess` resolution — tenant provenance there depends on the
 // consumer's `resolverTrust`/anonymousAccess setup, not the host.
 
+import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { resolveFieldVariant } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
@@ -35,10 +36,7 @@ type FileRefRow = {
   readonly fieldName: string | null;
 };
 
-// A declared variant with no explicit gate in `isPublic` is implicitly
-// public as soon as the entityType-level check returns `true` — `fieldName`
-// and `variant` let a predicate opt individual fields/variants out (e.g. a
-// cheap `thumb` served publicly while an expensive `full` stays gated).
+// Declared variants are implicitly public once the entityType check passes — `fieldName`/`variant` allow per-variant opt-out.
 export type DerivativePublicPredicateArgs = {
   readonly entityId: string;
   readonly tenantId: TenantId;
@@ -136,7 +134,8 @@ export const publicVariantQuery = defineQueryHandler({
     return {
       dataBase64: Buffer.from(bytes).toString("base64"),
       mimeType: result.mimeType,
-      storageKey: result.storageKey,
+      // Opaque revision for ETag — never expose the internal storageKey over /api/query.
+      revision: computeRevisionEtag([result.storageKey]),
     };
   },
 });

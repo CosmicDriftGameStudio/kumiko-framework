@@ -19,8 +19,18 @@ describe("failUnprocessable", () => {
   });
 
   test("positional reason survives a conflicting details.reason from the caller", () => {
+    // @ts-expect-error callers must not pass details.reason; positional arg wins at runtime
     const f = failUnprocessable("custom_business_rule", { reason: "raw cause text", extra: 42 });
     expect(f.error.details).toEqual({ reason: "custom_business_rule", extra: 42 });
+  });
+
+  test("details may carry extras but reason comes only from the positional arg", () => {
+    const f = failUnprocessable("custom_business_rule", { extra: 42, causeNote: "use opts.cause" });
+    expect(f.error.details).toEqual({
+      reason: "custom_business_rule",
+      extra: 42,
+      causeNote: "use opts.cause",
+    });
   });
 });
 

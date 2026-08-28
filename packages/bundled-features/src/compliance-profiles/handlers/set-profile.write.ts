@@ -87,10 +87,7 @@ export const setProfileWrite = defineWriteHandler({
         const parseError = e instanceof Error ? e.message : String(e);
         return writeFailure(
           new UnprocessableError("compliance_override_invalid_json", {
-            details: {
-              reason: "compliance_override_invalid_json",
-              parseError,
-            },
+            details: { parseError },
           }),
         );
       }

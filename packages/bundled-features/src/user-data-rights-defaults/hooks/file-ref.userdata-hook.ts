@@ -126,6 +126,9 @@ async function resolveProvider(ctx: UserDataHookCtx): Promise<UserDataStoragePro
 // Delete every row's binary via the provider. Returns the keys whose delete
 // threw — the caller fails closed on a non-empty list so the sub-tx rolls back
 // and the next forget run retries (delete is idempotent → converges).
+// ponytail: only deletes row.storageKey — derived variant keys (derivatives-context
+// derive/suffix) are untracked and survive forget. Ceiling: GDPR residual thumbnails.
+// Upgrade: persist derivedKeys on the FileRef (or prefix-delete when providers support it).
 async function deleteBinaries(
   rows: readonly Record<string, unknown>[],
   provider: UserDataStorageProvider,
