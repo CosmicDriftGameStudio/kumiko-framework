@@ -25,6 +25,8 @@ import { workflowRunAggregateId } from "./aggregate-id";
 import { startAndRunWorkflow, type WorkflowRunFailedPayload } from "./runner";
 
 export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefinition): void {
+  // skip: cron-triggered workflows have no domain event to project off — they
+  // need a scheduler, not an MSP, so there is nothing to register here.
   if (workflow.trigger.kind !== "event") return;
 
   const eventType = workflow.trigger.eventType;
@@ -33,9 +35,14 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
     name: `workflow-${workflow.name}`,
     apply: {
       [eventType]: async (event, _tx, ctx) => {
+        // skip: unreachable — the guard above already established this, but the
+        // closure does not carry that narrowing, and re-narrowing here keeps
+        // `trigger.filter` below typed without a cast.
         if (workflow.trigger.kind !== "event") return;
         if (workflow.trigger.filter) {
           const matches = workflow.trigger.filter(event as never);
+          // skip: the workflow's own trigger filter rejected this event — not
+          // this run's concern, so no run is started and nothing is recorded.
           if (!matches) return;
         }
 
