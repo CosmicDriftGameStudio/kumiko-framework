@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { deriveKey } from "../../files/file-handle";
-import { derivativeListPrefix, isDerivativeKeyOf, specHash, variantSuffix } from "../variant-key";
+import { buildStorageKey } from "../../files/types";
+import {
+  derivativeListPrefix,
+  isDerivativeKeyOf,
+  parseDerivativeKey,
+  specHash,
+  variantSuffix,
+} from "../variant-key";
 
 describe("specHash — key stability", () => {
   test("key order doesn't matter", () => {
@@ -113,5 +120,64 @@ describe("derivativeListPrefix + isDerivativeKeyOf — real deriveKey() output",
     const cardDerived = deriveKey(original, cardSuffix);
     expect(isDerivativeKeyOf(original, cardDerived)).toBe(true);
     expect(isDerivativeKeyOf(original, derived)).toBe(true);
+  });
+});
+
+// parseDerivativeKey powers the orphaned-derivative backfill/GC sweep
+// (#2474), which has no audit trail of past forgets to work from — it can
+// only trust the deterministic key grammar itself. Real buildStorageKey() +
+// deriveKey() output, not a hand-rolled key shape.
+describe("parseDerivativeKey — reverse of deriveKey", () => {
+  const original = buildStorageKey(
+    "tenant-1" as never,
+    "fileRef",
+    "42",
+    "attachment",
+    "photo.jpg",
+    "uid123",
+  );
+  const suffix = variantSuffix("thumb", { maxEdge: 512 });
+  const derived = deriveKey(original, suffix);
+
+  test("reconstructs the exact original a real derivative was built from", () => {
+    expect(parseDerivativeKey(derived)).toEqual({ originalKey: original });
+  });
+
+  test("a plain original (no derivative suffix) is not derivative-shaped", () => {
+    expect(parseDerivativeKey(original)).toBeNull();
+  });
+
+  test("a key with no dot at all is not derivative-shaped", () => {
+    expect(parseDerivativeKey("tenant-1/fileRef/42/attachment/uid123")).toBeNull();
+  });
+
+  test("a multi-dot ORIGINAL filename still round-trips", () => {
+    const multiDotOriginal = buildStorageKey(
+      "tenant-1" as never,
+      "fileRef",
+      "42",
+      "attachment",
+      "my.file.name.jpg",
+      "uid456",
+    );
+    const multiDotDerived = deriveKey(multiDotOriginal, suffix);
+    expect(parseDerivativeKey(multiDotDerived)).toEqual({ originalKey: multiDotOriginal });
+  });
+
+  // Blind spot the reverse-parse must guard against on its own (no DB
+  // cross-check happens inside parseDerivativeKey itself): a lookalike key
+  // that was never written by buildStorageKey — e.g. a GDPR export bundle —
+  // can still have a last segment shaped like "<name>-<16hex>.<ext>" if its
+  // filename happens to contain a hyphen+16-hex-char run. Anchoring the
+  // reconstructed original to buildStorageKey's own 5-segment/single-dot
+  // shape rejects it even though the suffix pattern alone would match.
+  test("a non-buildStorageKey lookalike with a derivative-shaped suffix is rejected", () => {
+    const lookalike = "tenant-1/gdpr-export-bundle.snapshot-0123456789abcdef.zip";
+    expect(parseDerivativeKey(lookalike)).toBeNull();
+  });
+
+  test("a suffix that doesn't match <name>-<16hex> is rejected", () => {
+    const notAHash = deriveKey(original, "thumb-notahexvalue");
+    expect(parseDerivativeKey(notAHash)).toBeNull();
   });
 });

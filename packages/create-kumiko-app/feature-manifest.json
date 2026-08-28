@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 68,
+  "featureCount": 69,
   "features": [
     {
       "name": "admin-shell",
@@ -920,6 +920,38 @@
       "uiHints": {
         "displayLabel": "Files · Metadata",
         "category": "storage",
+        "recommended": false
+      }
+    },
+    {
+      "name": "files-tenant-data",
+      "description": "GDPR coverage for the `files` feature's `fileRef` entity: tenant-destroy row purge (EXT_TENANT_DATA) and full storage-prefix binary wipe (EXT_STORAGE_PROVIDER), plus a manual backfill/GC job that sweeps derivatives orphaned by a forget/tenant-destroy that ran before #2461 wired binary cleanup into those flows. Requires `tenant-lifecycle`, optionalRequires `files`.",
+      "toggleableDefault": null,
+      "requires": [
+        "tenant-lifecycle"
+      ],
+      "optionalRequires": [
+        "files"
+      ],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "tenantData",
+          "entityName": "fileRef"
+        },
+        {
+          "extensionName": "storageProvider",
+          "entityName": "fileRef"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Files · Tenant-Destroy & Derivative GC",
+        "category": "compliance",
         "recommended": false
       }
     },

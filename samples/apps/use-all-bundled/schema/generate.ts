@@ -177,6 +177,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/files",
     factory: "createFilesFeature",
   },
+  "files-tenant-data": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/files-tenant-data",
+    factory: "createFilesTenantDataFeature",
+  },
   "billing-foundation": {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/billing-foundation",

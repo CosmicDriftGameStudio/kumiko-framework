@@ -97,6 +97,11 @@ export {
   FILE_PROVIDER_CONFIG_KEY,
 } from "./extension-names";
 export type {
+  StorageProviderDestroyTenantHook,
+  StorageProviderExtensionHooks,
+  StorageProviderHookCtx,
+} from "./extensions/storage-provider";
+export type {
   TenantDataDestroyHook,
   TenantDataExtensionHooks,
   TenantDataHookCtx,

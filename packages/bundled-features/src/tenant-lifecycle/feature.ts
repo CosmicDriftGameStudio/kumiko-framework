@@ -97,6 +97,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
           registry: ctx.registry,
           now: T.Now.instant(),
           log: (message) => ctx.log?.warn(message),
+          fileProviderResolver: ctx._fileProviderResolver,
         });
       },
     );

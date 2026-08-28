@@ -74,3 +74,35 @@ export function isDerivativeKeyOf(originalKey: string, candidateKey: string): bo
   const middle = candidateKey.slice(prefix.length, candidateKey.length - ext.length);
   return DERIVATIVE_SUFFIX_PATTERN.test(middle);
 }
+
+// buildStorageKey (files/types.ts) always produces exactly 5 "/"-segments
+// ending in "<uniqueId>.<ext>" — a single dot, non-empty on both sides.
+// Anchoring parseDerivativeKey's reconstructed candidate to this shape
+// rejects lookalikes that were never written by buildStorageKey (a GDPR
+// export bundle, a local-provider `*.tmp` write-in-progress file) even when
+// their last segment happens to contain a "name-16hex"-shaped middle token.
+const BUILT_STORAGE_KEY_LAST_SEGMENT_PATTERN = /^[^./]+\.[^./]+$/;
+
+function looksLikeBuiltStorageKey(key: string): boolean {
+  const segments = key.split("/");
+  if (segments.length !== 5) return false;
+  return BUILT_STORAGE_KEY_LAST_SEGMENT_PATTERN.test(segments[4] ?? "");
+}
+
+// Reverse of deriveKey: given a key found on a full storage listing, guesses
+// the original key it would be a derivative of. Used by the orphaned-
+// derivative backfill/GC sweep, which has no audit trail of past forgets to
+// work from — only the deterministic key grammar itself. Returns null for
+// anything that isn't derivative-shaped (including a plain original, which
+// splits with no second dot) or whose reconstructed original doesn't match
+// buildStorageKey's own shape.
+export function parseDerivativeKey(candidateKey: string): { readonly originalKey: string } | null {
+  const { base: withSuffix, ext } = splitKey(candidateKey);
+  const { base: outerBase, ext: suffixExt } = splitKey(withSuffix);
+  if (suffixExt === "") return null;
+  const suffixCandidate = suffixExt.slice(1);
+  if (!DERIVATIVE_SUFFIX_PATTERN.test(suffixCandidate)) return null;
+  const originalKey = `${outerBase}${ext}`;
+  if (!looksLikeBuiltStorageKey(originalKey)) return null;
+  return { originalKey };
+}
