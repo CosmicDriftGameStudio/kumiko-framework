@@ -131,12 +131,12 @@ describe("NotesSection — entry display", () => {
   test("note body and meta line render as two distinct nodes, not one run-on line", async () => {
     const view = renderSection();
     await waitFor(() => {
-      if (view.queryByTestId("notes-section-row-note-1-body") === null) {
+      if (view.queryByTestId("notes-section-body-note-1") === null) {
         throw new Error("row not rendered yet");
       }
     });
-    const bodyEl = view.getByTestId("notes-section-row-note-1-body");
-    const metaEl = view.getByTestId("notes-section-row-note-1-meta");
+    const bodyEl = view.getByTestId("notes-section-body-note-1");
+    const metaEl = view.getByTestId("notes-section-meta-note-1");
     expect(bodyEl).not.toBe(metaEl);
     expect(bodyEl.textContent).toBe(NOTE_BODY);
     expect(metaEl.textContent).not.toContain(NOTE_BODY);
@@ -145,14 +145,25 @@ describe("NotesSection — entry display", () => {
     expect(row.className).toContain("flex-col");
   });
 
+  test("the row testid prefix matches exactly one node per note, not three", async () => {
+    const view = renderSection();
+    await waitFor(() => {
+      if (view.queryByTestId("notes-section-row-note-1") === null) {
+        throw new Error("rows not rendered yet");
+      }
+    });
+    const matches = view.container.querySelectorAll('[data-testid^="notes-section-row-"]');
+    expect(matches.length).toBe(NOTE_ROWS.length);
+  });
+
   test("a stamped authorName renders as the author, never the raw authorId", async () => {
     const view = renderSection();
     await waitFor(() => {
-      if (view.queryByTestId("notes-section-row-note-1-meta") === null) {
+      if (view.queryByTestId("notes-section-meta-note-1") === null) {
         throw new Error("row not rendered yet");
       }
     });
-    const metaEl = view.getByTestId("notes-section-row-note-1-meta");
+    const metaEl = view.getByTestId("notes-section-meta-note-1");
     expect(metaEl.textContent).not.toContain(AUTHOR_ID);
     expect(metaEl.textContent).toContain(AUTHOR_NAME);
   });
@@ -160,22 +171,22 @@ describe("NotesSection — entry display", () => {
   test("a null authorName (legacy row) renders the placeholder", async () => {
     const view = renderSection();
     await waitFor(() => {
-      if (view.queryByTestId("notes-section-row-note-2-meta") === null) {
+      if (view.queryByTestId("notes-section-meta-note-2") === null) {
         throw new Error("row not rendered yet");
       }
     });
-    const metaEl = view.getByTestId("notes-section-row-note-2-meta");
+    const metaEl = view.getByTestId("notes-section-meta-note-2");
     expect(metaEl.textContent).toContain("Unknown author");
   });
 
   test("a shredded authorName sentinel renders the placeholder, never [[erased]]", async () => {
     const view = renderSection();
     await waitFor(() => {
-      if (view.queryByTestId("notes-section-row-note-3-meta") === null) {
+      if (view.queryByTestId("notes-section-meta-note-3") === null) {
         throw new Error("row not rendered yet");
       }
     });
-    const metaEl = view.getByTestId("notes-section-row-note-3-meta");
+    const metaEl = view.getByTestId("notes-section-meta-note-3");
     expect(metaEl.textContent).toContain("Unknown author");
     expect(metaEl.textContent).not.toContain(PII_ERASED_SENTINEL);
   });
@@ -183,11 +194,11 @@ describe("NotesSection — entry display", () => {
   test("date renders formatted, never the raw ISO timestamp", async () => {
     const view = renderSection();
     await waitFor(() => {
-      if (view.queryByTestId("notes-section-row-note-1-meta") === null) {
+      if (view.queryByTestId("notes-section-meta-note-1") === null) {
         throw new Error("row not rendered yet");
       }
     });
-    const metaEl = view.getByTestId("notes-section-row-note-1-meta");
+    const metaEl = view.getByTestId("notes-section-meta-note-1");
     expect(metaEl.textContent).not.toContain(INSERTED_AT);
     expect(metaEl.textContent).toContain(formatWhen(INSERTED_AT));
   });
