@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { EntityTableMeta } from "../entity-table-meta";
+import type { EntityTableMeta, IndexMeta } from "../entity-table-meta";
 import {
   assertValidMigrationName,
   diffSnapshots,
@@ -21,6 +21,19 @@ function meta(
       { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
       ...(extraColumn ? [extraColumn] : []),
     ],
+  };
+}
+
+function metaWithIndexes(
+  tableName: string,
+  indexes: readonly IndexMeta[],
+  source: EntityTableMeta["source"] = "unmanaged",
+): EntityTableMeta {
+  return {
+    tableName,
+    source,
+    indexes,
+    columns: [{ name: "id", pgType: "uuid", notNull: true, primaryKey: true }],
   };
 }
 
@@ -196,6 +209,165 @@ describe("renderMigrationSql — managed recreate vs unmanaged in-place", () => 
     });
     expect(sql).toContain("dropped column(s): old_col");
     expect(sql).toContain("new NOT NULL column(s) without default: envelope");
+  });
+});
+
+describe("renderMigrationSql — changed index predicates (kumiko-framework#2492)", () => {
+  test("diffSnapshots surfaces a whereSql-only change as a changed table (not silently dropped)", () => {
+    // Regression for the exact offlot#65 scenario: an index keeps its name
+    // and columns, only its partial-index predicate widens (framework#2464
+    // adding the soft-delete guard). Before the fix diffOneTable returned
+    // null here — the table never reached changedTables at all.
+    const prev = snapshotFromMetas([
+      metaWithIndexes("read_users", [
+        {
+          name: "read_users_email_bidx",
+          columns: ["email_bidx"],
+          unique: true,
+          whereSql: '"email_bidx" IS NOT NULL',
+        },
+      ]),
+    ]);
+    const next = snapshotFromMetas([
+      metaWithIndexes("read_users", [
+        {
+          name: "read_users_email_bidx",
+          columns: ["email_bidx"],
+          unique: true,
+          whereSql: '"email_bidx" IS NOT NULL AND "is_deleted" = false',
+        },
+      ]),
+    ]);
+    const diff = diffSnapshots(prev, next);
+    expect(diff.changedTables).toHaveLength(1);
+    expect(diff.changedTables[0]?.changedIndexes).toEqual([
+      {
+        name: "read_users_email_bidx",
+        whereSqlChanged: {
+          from: '"email_bidx" IS NOT NULL',
+          to: '"email_bidx" IS NOT NULL AND "is_deleted" = false',
+        },
+      },
+    ]);
+  });
+
+  test("emits DROP INDEX + CREATE INDEX with the new predicate", () => {
+    const prev = snapshotFromMetas([
+      metaWithIndexes("read_users", [
+        {
+          name: "read_users_email_bidx",
+          columns: ["email_bidx"],
+          unique: true,
+          whereSql: '"email_bidx" IS NOT NULL',
+        },
+      ]),
+    ]);
+    const next = snapshotFromMetas([
+      metaWithIndexes("read_users", [
+        {
+          name: "read_users_email_bidx",
+          columns: ["email_bidx"],
+          unique: true,
+          whereSql: '"email_bidx" IS NOT NULL AND "is_deleted" = false',
+        },
+      ]),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), {
+      name: "predicate",
+      sequenceNumber: 9,
+    });
+    expect(sql).toContain('DROP INDEX IF EXISTS "read_users_email_bidx";');
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX IF NOT EXISTS "read_users_email_bidx" ON "read_users" ("email_bidx") WHERE "email_bidx" IS NOT NULL AND "is_deleted" = false;',
+    );
+    expect(sql).toContain("changed (where");
+  });
+
+  test("emits DROP INDEX + CREATE INDEX when only the column list changes", () => {
+    const prev = snapshotFromMetas([
+      metaWithIndexes("read_orders", [{ name: "read_orders_status_idx", columns: ["status"] }]),
+    ]);
+    const next = snapshotFromMetas([
+      metaWithIndexes("read_orders", [
+        { name: "read_orders_status_idx", columns: ["status", "tenant_id"] },
+      ]),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), { name: "cols", sequenceNumber: 10 });
+    expect(sql).toContain('DROP INDEX IF EXISTS "read_orders_status_idx";');
+    expect(sql).toContain(
+      'CREATE INDEX IF NOT EXISTS "read_orders_status_idx" ON "read_orders" ("status", "tenant_id");',
+    );
+  });
+
+  test("emits DROP INDEX + CREATE UNIQUE INDEX when uniqueness changes on an existing index", () => {
+    const prev = snapshotFromMetas([
+      metaWithIndexes("read_orders", [{ name: "read_orders_ref_idx", columns: ["ref"] }]),
+    ]);
+    const next = snapshotFromMetas([
+      metaWithIndexes("read_orders", [
+        { name: "read_orders_ref_idx", columns: ["ref"], unique: true },
+      ]),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), {
+      name: "unique",
+      sequenceNumber: 11,
+    });
+    expect(sql).toContain('DROP INDEX IF EXISTS "read_orders_ref_idx";');
+    expect(sql).toContain('CREATE UNIQUE INDEX IF NOT EXISTS "read_orders_ref_idx"');
+  });
+
+  test("needsManualWhere: keeps both DROP and CREATE commented out — never drops a live index with no executable replacement", () => {
+    const prev = snapshotFromMetas([
+      metaWithIndexes("read_widgets", [
+        { name: "read_widgets_active_idx", columns: ["status"], whereSql: "status = 'active'" },
+      ]),
+    ]);
+    const next = snapshotFromMetas([
+      metaWithIndexes("read_widgets", [
+        { name: "read_widgets_active_idx", columns: ["status"], needsManualWhere: true },
+      ]),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), {
+      name: "manual",
+      sequenceNumber: 12,
+    });
+    expect(sql).toContain('-- (review) DROP INDEX IF EXISTS "read_widgets_active_idx";');
+    expect(sql).not.toMatch(/^DROP INDEX IF EXISTS "read_widgets_active_idx";$/m);
+    expect(sql).toContain('-- CREATE INDEX IF NOT EXISTS "read_widgets_active_idx"');
+    expect(sql).not.toMatch(/^CREATE INDEX IF NOT EXISTS "read_widgets_active_idx"/m);
+  });
+
+  test("unchanged index (same name/columns/unique/whereSql) produces no diff at all", () => {
+    const idx: IndexMeta = {
+      name: "read_a_status_idx",
+      columns: ["status"],
+      whereSql: "status IS NOT NULL",
+    };
+    const prev = snapshotFromMetas([metaWithIndexes("read_a", [idx])]);
+    const next = snapshotFromMetas([metaWithIndexes("read_a", [{ ...idx }])]);
+    expect(diffSnapshots(prev, next).changedTables).toEqual([]);
+  });
+
+  test("new index with needsManualWhere is rendered commented-out, not silently as a bare CREATE INDEX (render-ddl consolidation)", () => {
+    // migrate-generator.ts used to carry its own renderIndex() copy that
+    // didn't check needsManualWhere — a new partial index with an
+    // unrenderable WHERE was emitted as a plain, uncommented CREATE INDEX
+    // with the predicate silently dropped. Now it shares render-ddl.ts's
+    // renderIndex, which comments the statement out for manual review.
+    const prev = snapshotFromMetas([meta("read_c", undefined, "unmanaged")]);
+    const next = snapshotFromMetas([
+      metaWithIndexes(
+        "read_c",
+        [{ name: "read_c_status_idx", columns: ["status"], needsManualWhere: true }],
+        "unmanaged",
+      ),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), {
+      name: "newpartial",
+      sequenceNumber: 13,
+    });
+    expect(sql).toContain('-- CREATE INDEX IF NOT EXISTS "read_c_status_idx"');
+    expect(sql).not.toMatch(/^CREATE INDEX IF NOT EXISTS "read_c_status_idx"/m);
   });
 });
 

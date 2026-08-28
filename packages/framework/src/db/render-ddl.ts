@@ -23,7 +23,7 @@ function renderColumn(col: ColumnMeta): string {
   return parts.join(" ");
 }
 
-function renderIndex(tableName: string, idx: IndexMeta): string {
+export function renderIndex(tableName: string, idx: IndexMeta): string {
   const kind = idx.unique === true ? "UNIQUE INDEX" : "INDEX";
   const colList = idx.columns.map(quoteIdent).join(", ");
   if (idx.needsManualWhere === true) {

@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 import { compareByCodepoint } from "../utils";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta";
-import { renderTableDdl } from "./render-ddl";
+import { renderIndex, renderTableDdl } from "./render-ddl";
 
 const SNAPSHOT_VERSION = 1 as const;
 
@@ -36,6 +36,14 @@ export type ColumnChange = {
   readonly typeChanged?: { readonly from: string; readonly to: string };
 };
 
+export type IndexChange = {
+  readonly name: string;
+  readonly columnsChanged?: { readonly from: readonly string[]; readonly to: readonly string[] };
+  readonly uniqueChanged?: { readonly from: boolean; readonly to: boolean };
+  readonly whereSqlChanged?: { readonly from: string | undefined; readonly to: string | undefined };
+  readonly needsManualWhereChanged?: { readonly from: boolean; readonly to: boolean };
+};
+
 export type TableDiff = {
   readonly tableName: string;
   readonly newColumns: readonly ColumnMeta[];
@@ -43,6 +51,10 @@ export type TableDiff = {
   readonly changedColumns: readonly ColumnChange[];
   readonly newIndexes: readonly IndexMeta[];
   readonly droppedIndexes: readonly string[];
+  // Same-named index whose shape (columns/unique/whereSql/needsManualWhere)
+  // changed — recreated via DROP+CREATE rather than silently absorbed into
+  // the new snapshot with no emitted DDL (kumiko-framework#2492).
+  readonly changedIndexes: readonly IndexChange[];
   // Full target meta — carried so the renderer can emit DROP+CREATE for a
   // managed projection whose change cannot apply in-place (see
   // managedChangeRequiresRecreate). Source-discriminator reached via nextMeta.source.
@@ -92,6 +104,10 @@ export function writeSnapshotJson(path: string, snapshot: Snapshot): void {
 function indexMetaKey(idx: IndexMeta): string {
   // Index-Identität via Name (PG-Constraint: unique innerhalb der DB)
   return idx.name;
+}
+
+function indexColumnsEqual(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((col, i) => col === b[i]);
 }
 
 function columnsByName(meta: EntityTableMeta): Map<string, ColumnMeta> {
@@ -148,8 +164,45 @@ function diffOneTable(prev: EntityTableMeta, next: EntityTableMeta): TableDiff |
   const nextIdx = indexesByName(next);
   const newIndexes: IndexMeta[] = [];
   const droppedIndexes: string[] = [];
+  const changedIndexes: IndexChange[] = [];
   for (const [name, idx] of nextIdx) {
-    if (!prevIdx.has(name)) newIndexes.push(idx);
+    const prevI = prevIdx.get(name);
+    if (!prevI) {
+      newIndexes.push(idx);
+      continue;
+    }
+    const change: IndexChange = { name };
+    if (!indexColumnsEqual(prevI.columns, idx.columns)) {
+      Object.assign(change, {
+        columnsChanged: { from: prevI.columns, to: idx.columns },
+      });
+    }
+    if ((prevI.unique ?? false) !== (idx.unique ?? false)) {
+      Object.assign(change, {
+        uniqueChanged: { from: prevI.unique ?? false, to: idx.unique ?? false },
+      });
+    }
+    if (prevI.whereSql !== idx.whereSql) {
+      Object.assign(change, {
+        whereSqlChanged: { from: prevI.whereSql, to: idx.whereSql },
+      });
+    }
+    if ((prevI.needsManualWhere ?? false) !== (idx.needsManualWhere ?? false)) {
+      Object.assign(change, {
+        needsManualWhereChanged: {
+          from: prevI.needsManualWhere ?? false,
+          to: idx.needsManualWhere ?? false,
+        },
+      });
+    }
+    if (
+      change.columnsChanged ||
+      change.uniqueChanged ||
+      change.whereSqlChanged ||
+      change.needsManualWhereChanged
+    ) {
+      changedIndexes.push(change);
+    }
   }
   for (const name of prevIdx.keys()) {
     if (!nextIdx.has(name)) droppedIndexes.push(name);
@@ -160,7 +213,8 @@ function diffOneTable(prev: EntityTableMeta, next: EntityTableMeta): TableDiff |
     droppedColumns.length === 0 &&
     changedColumns.length === 0 &&
     newIndexes.length === 0 &&
-    droppedIndexes.length === 0;
+    droppedIndexes.length === 0 &&
+    changedIndexes.length === 0;
   if (isEmpty) return null;
   return {
     tableName: prev.tableName,
@@ -169,6 +223,7 @@ function diffOneTable(prev: EntityTableMeta, next: EntityTableMeta): TableDiff |
     changedColumns,
     newIndexes,
     droppedIndexes,
+    changedIndexes,
     nextMeta: next,
   };
 }
@@ -305,11 +360,38 @@ function renderColumnChange(tableName: string, change: ColumnChange): readonly s
   return out;
 }
 
-function renderIndex(tableName: string, idx: IndexMeta): string {
-  const kind = idx.unique === true ? "UNIQUE INDEX" : "INDEX";
-  const colList = idx.columns.map(quoteIdent).join(", ");
-  const where = idx.whereSql !== undefined ? ` WHERE ${idx.whereSql}` : "";
-  return `CREATE ${kind} IF NOT EXISTS ${quoteIdent(idx.name)} ON ${quoteIdent(tableName)} (${colList})${where};`;
+// Collapses whitespace so a multi-line whereSql (e.g. a two-condition
+// drizzle sql`…` predicate) can't inject a newline into this `--` comment
+// line and escape into the executable body of the generated migration.
+function toSingleLine(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function describeIndexChange(change: IndexChange): string {
+  const parts: string[] = [];
+  if (change.columnsChanged) {
+    parts.push(
+      `columns (${change.columnsChanged.from.join(", ")}) → (${change.columnsChanged.to.join(", ")})`,
+    );
+  }
+  if (change.uniqueChanged) {
+    parts.push(`unique ${change.uniqueChanged.from} → ${change.uniqueChanged.to}`);
+  }
+  if (change.whereSqlChanged) {
+    const from =
+      change.whereSqlChanged.from !== undefined
+        ? toSingleLine(change.whereSqlChanged.from)
+        : "<none>";
+    const to =
+      change.whereSqlChanged.to !== undefined ? toSingleLine(change.whereSqlChanged.to) : "<none>";
+    parts.push(`where ${from} → ${to}`);
+  }
+  if (change.needsManualWhereChanged) {
+    parts.push(
+      `needs-manual-where ${change.needsManualWhereChanged.from} → ${change.needsManualWhereChanged.to}`,
+    );
+  }
+  return parts.join("; ");
 }
 
 // Render the diff as a SQL-file content with header-comment + grouped
@@ -365,6 +447,27 @@ export function renderMigrationSql(
       }
       for (const idx of td.newIndexes) {
         lines.push(renderIndex(td.tableName, idx));
+      }
+      for (const idxChange of td.changedIndexes) {
+        const nextIdxMeta = td.nextMeta.indexes.find((i) => i.name === idxChange.name);
+        if (!nextIdxMeta) {
+          throw new Error(
+            `Index "${idxChange.name}" changed but is missing from the next table meta — generator bug in diffOneTable.`,
+          );
+        }
+        lines.push(
+          `-- index ${quoteIdent(idxChange.name)} changed (${describeIndexChange(idxChange)}) — recreated`,
+        );
+        // needsManualWhere renders CREATE as a commented WARN (renderIndex),
+        // since the generator can't express the new WHERE — the DROP has to
+        // stay commented too, or the live index gets dropped with no
+        // executable replacement (kumiko-framework#2492 review).
+        lines.push(
+          nextIdxMeta.needsManualWhere === true
+            ? `-- (review) DROP INDEX IF EXISTS ${quoteIdent(idxChange.name)};`
+            : `DROP INDEX IF EXISTS ${quoteIdent(idxChange.name)};`,
+        );
+        lines.push(renderIndex(td.tableName, nextIdxMeta));
       }
       for (const name of td.droppedIndexes) {
         lines.push(`-- (review) DROP INDEX IF EXISTS ${quoteIdent(name)};`);
