@@ -124,7 +124,8 @@
     "./managed-pages/web": "./src/managed-pages/web/index.ts",
     "./managed-pages/seeding": "./src/managed-pages/seeding.ts",
     "./seo": "./src/seo/index.ts",
-    "./step-dispatcher": "./src/step-dispatcher/index.ts"
+    "./step-dispatcher": "./src/step-dispatcher/index.ts",
+    "./workflow-runner": "./src/workflow-runner/index.ts"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",

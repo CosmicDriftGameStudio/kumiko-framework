@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 69,
+  "featureCount": 70,
   "features": [
     {
       "name": "admin-shell",
@@ -2728,6 +2728,25 @@
         "displayLabel": "User Profile · Self-Service",
         "category": "identity",
         "recommended": true
+      }
+    },
+    {
+      "name": "workflow-runner",
+      "description": "Writes the run-envelope (`workflow.run-started` / `workflow.run-completed` / `workflow.run-failed`) for a workflow run onto its `workflow-run` aggregate stream. Provides `startAndRunWorkflow` and `registerEventTrigger` for consumer features to wire up `defineWorkflow`-based workflows against domain events. Registers no workflows itself. No resume-loop is bundled yet (framework#2480) — suspending steps (wait/waitForEvent/retry) fail the run instead of pausing it.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Workflow Runner",
+        "category": "infrastructure",
+        "recommended": false
       }
     }
   ]

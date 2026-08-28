@@ -83,6 +83,7 @@ import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-eng
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
+import { workflowRunnerFeature } from "@cosmicdrift/kumiko-bundled-features/workflow-runner";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { collectionLabelsFeature } from "./app/collection-labels-feature";
 
@@ -207,6 +208,10 @@ export const APP_FEATURES = [
   // jobs
   createJobsFeature(),
   createStepDispatcherFeature(),
+  // workflow-runner: no entities/MSPs/handlers of its own — reserves the
+  // manifest slot and provides startAndRunWorkflow/registerEventTrigger for
+  // consumer features to wire up defineWorkflow-based workflows.
+  workflowRunnerFeature,
 
   // compliance / DSGVO
   createComplianceProfilesFeature(),
