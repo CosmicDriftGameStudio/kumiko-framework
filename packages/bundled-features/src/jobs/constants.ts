@@ -21,6 +21,7 @@ export const JobErrors = {
   notFound: "not_found",
   onlyFailedCanRetry: "only_failed_jobs_can_be_retried",
   notManual: "job_not_manual",
+  payloadErased: "job_payload_erased",
 } as const;
 
 /** SystemAdmin job-runs list. Nav: `jobs:screen:job-runs`. */

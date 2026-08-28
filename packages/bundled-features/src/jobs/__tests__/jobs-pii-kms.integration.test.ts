@@ -14,7 +14,7 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestDb,
@@ -26,8 +26,12 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
-import { JobQueries } from "../constants";
+import {
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+  sleep,
+} from "@cosmicdrift/kumiko-framework/testing";
+import { JobHandlers, JobQueries } from "../constants";
 import { createJobsFeature } from "../feature";
 import { createJobRunLogger } from "../job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
@@ -430,5 +434,126 @@ describe("jobs:query:details decrypts log messages and error end-to-end (#2247, 
     const listed = result.rows.find((r) => r.id === String(row?.["id"]));
     expect(listed?.payload).toBe(SECRET_PAYLOAD);
     expect(listed?.error).toBe(SECRET_LIST_ERROR);
+  });
+});
+
+// #2465: jobs:write:retry read run.payload straight off the row and
+// JSON.parse'd it without decrypting first — broken on main for any retry
+// of a run whose payload was encrypted under the triggering user's DEK
+// (#799). This dispatches the real jobs:write:retry HTTP handler so a
+// regression (missing decrypt, wrong AAD field name, sentinel mishandled)
+// fails a test instead of shipping a crash to the retry button.
+describe("jobs:write:retry decrypts payload before dispatch (#2465)", () => {
+  let retryStack: TestStack;
+  let retryLogger: ReturnType<typeof createJobRunLogger>;
+  let retryKms: InMemoryKmsAdapter;
+
+  const RETRY_USER_ID = "u-pii-retry-1";
+  const RETRY_JOB_NAME = "retryapp:job:capture-import";
+  const capturedPayloads: Record<string, unknown>[] = [];
+
+  const retryAppFeature = defineFeature("retryapp", (r) => {
+    r.job("captureImport", { trigger: { manual: true } }, async (payload) => {
+      capturedPayloads.push(payload);
+    });
+  });
+
+  beforeAll(async () => {
+    retryStack = await setupTestStack({
+      features: [retryAppFeature, createJobsFeature()],
+      jobs: {
+        consumerLane: "worker",
+        queueNamePrefix: `kumiko-jobs-retry-pii-test-${Date.now()}`,
+      },
+    });
+    await unsafePushTables(retryStack.db, { jobRunsTable, jobRunLogsTable });
+    retryLogger = createJobRunLogger({ db: retryStack.db, registry: retryStack.registry });
+  });
+
+  afterAll(async () => {
+    await retryStack.cleanup();
+  });
+
+  beforeEach(() => {
+    capturedPayloads.length = 0;
+    retryKms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(retryKms);
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("retry decrypts an encrypted run payload and dispatches the plaintext", async () => {
+    await retryLogger.onJobStart?.(RETRY_JOB_NAME, "bull-retry-1", {
+      triggeredById: RETRY_USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+    await retryLogger.onJobFailed?.(RETRY_JOB_NAME, "bull-retry-1", "boom", []);
+
+    const row = await fetchOne(retryStack.db, jobRunsTable, { bullJobId: "bull-retry-1" });
+    expect(isPiiCiphertext(row?.["payload"])).toBe(true);
+    expect(row?.["status"]).toBe("failed");
+
+    const result = await retryStack.http.writeOk<{
+      jobName: string;
+      bullJobId: string;
+      retriedFromRunId: string;
+    }>(JobHandlers.retry, { runId: row?.["id"] }, TestUsers.systemAdmin);
+    expect(result.jobName).toBe(RETRY_JOB_NAME);
+
+    await sleep(1000);
+
+    expect(capturedPayloads).toHaveLength(1);
+    expect(capturedPayloads[0]).toEqual(JSON.parse(SECRET_PAYLOAD));
+  });
+
+  test("retry on a run whose payload key was erased is rejected instead of crashing", async () => {
+    await retryLogger.onJobStart?.(RETRY_JOB_NAME, "bull-retry-2", {
+      triggeredById: RETRY_USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+    await retryLogger.onJobFailed?.(RETRY_JOB_NAME, "bull-retry-2", "boom", []);
+
+    const row = await fetchOne(retryStack.db, jobRunsTable, { bullJobId: "bull-retry-2" });
+    await retryKms.eraseKey({ kind: "user", userId: RETRY_USER_ID });
+
+    const errInfo = await retryStack.http.writeErr(
+      JobHandlers.retry,
+      { runId: row?.["id"] },
+      TestUsers.systemAdmin,
+    );
+    expect(errInfo.code).toBe("unprocessable");
+    expect(errInfo.details).toMatchObject({ reason: "job_payload_erased" });
+  });
+
+  // The other producer of PII_ERASED_SENTINEL: job-run-logger writes the
+  // literal "[[erased]]" string (not ciphertext) when the key is already
+  // gone at onJobStart time (see the mirrored case above this describe
+  // block). retry.write.ts's isPiiCiphertext/decrypt path must reject this
+  // stored sentinel the same way it rejects a decrypt-time one.
+  test("retry on a run whose payload was stored as the erased sentinel is rejected", async () => {
+    await retryLogger.onJobStart?.(RETRY_JOB_NAME, "bull-retry-3", {
+      triggeredById: RETRY_USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+    await retryKms.eraseKey({ kind: "user", userId: RETRY_USER_ID });
+
+    await retryLogger.onJobStart?.(RETRY_JOB_NAME, "bull-retry-4", {
+      triggeredById: RETRY_USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+    await retryLogger.onJobFailed?.(RETRY_JOB_NAME, "bull-retry-4", "boom", []);
+
+    const row = await fetchOne(retryStack.db, jobRunsTable, { bullJobId: "bull-retry-4" });
+    expect(row?.["payload"]).toBe(PII_ERASED_SENTINEL);
+
+    const errInfo = await retryStack.http.writeErr(
+      JobHandlers.retry,
+      { runId: row?.["id"] },
+      TestUsers.systemAdmin,
+    );
+    expect(errInfo.code).toBe("unprocessable");
+    expect(errInfo.details).toMatchObject({ reason: "job_payload_erased" });
   });
 });

@@ -1,4 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   InternalError,
@@ -9,6 +10,7 @@ import {
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
+import { decryptStoredPii } from "../../shared";
 import { JobErrors } from "../constants";
 import { jobRunsTable } from "../job-run-table";
 
@@ -53,12 +55,30 @@ export const retryWrite = defineWriteHandler({
       );
     }
 
-    const payload = run.payload
-      ? parseJsonOrThrow<Record<string, unknown>>(
-          run.payload,
-          `job run ${event.payload.runId} payload`,
-        )
-      : {};
+    // payload is stored encrypted under the triggering user's DEK (#799),
+    // same mechanism as detail.query.ts/list.query.ts — decrypt before
+    // parsing it as JSON. A key erased since the run finished decrypts to
+    // PII_ERASED_SENTINEL, which is not JSON; reject the retry rather than
+    // dispatch it with a silently emptied payload.
+    let payload: Record<string, unknown> = {};
+    if (run.payload) {
+      const decryptedPayload = await decryptStoredPii(
+        run.payload,
+        "payload",
+        `job run ${event.payload.runId} payload`,
+      );
+      if (decryptedPayload === PII_ERASED_SENTINEL) {
+        return writeFailure(
+          new UnprocessableError(JobErrors.payloadErased, {
+            i18nKey: "jobs.errors.payloadErased",
+          }),
+        );
+      }
+      payload = parseJsonOrThrow<Record<string, unknown>>(
+        decryptedPayload,
+        `job run ${event.payload.runId} payload`,
+      );
+    }
 
     const bullJobId = await jobRunner.dispatch(run.jobName, payload);
 
