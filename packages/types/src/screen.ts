@@ -689,6 +689,12 @@ export type EditExtensionSection = {
    *  writes (e.g. notes-history NotesSection) — otherwise a read-only form
    *  shows a Save button that does nothing (fw#2359). */
   readonly contributesToFormSubmit?: boolean;
+  /** Overrides the host-derived entity name passed to the mounted component.
+   *  Required on `projectionDetail` (which has no real entity — the host
+   *  value there is an internal placeholder) so a self-persisting extension
+   *  like NotesSection filters/writes against the right domain entity. Takes
+   *  precedence over the host value on every screen type. */
+  readonly entityName?: string;
 };
 
 // Read-only list of related records, driven by its own query — for a

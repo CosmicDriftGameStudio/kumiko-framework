@@ -9,7 +9,12 @@ import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema, NavApi, NavTarget } from "@cosmicdrift/kumiko-renderer";
-import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
+import {
+  DispatcherProvider,
+  ExtensionSectionsProvider,
+  KumikoScreen,
+  NavProvider,
+} from "@cosmicdrift/kumiko-renderer";
 import { act, createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
 
 const detailScreen: ProjectionDetailScreenDefinition = {
@@ -468,5 +473,143 @@ describe("KumikoScreen / projectionDetail relatedList section (fw#2166)", () => 
     fireEvent.click(row);
 
     expect(navigated).toBeUndefined();
+  });
+});
+
+// solon#264: a hand-written NotesSection block had no declarative equivalent
+// on projectionDetail. Extension sections without contributesToFormSubmit
+// (self-persisting, e.g. via their own dispatcher writes) are now allowed.
+describe("KumikoScreen / projectionDetail extension section (solon#264)", () => {
+  const SessionNotes = ({
+    entityName,
+    entityId,
+  }: {
+    entityName: string;
+    entityId: string | null;
+  }) => (
+    <div data-testid="session-notes">
+      {entityName}:{entityId ?? "(none)"}
+    </div>
+  );
+
+  test("mounts and receives the route entityId and the section's declared entityName, no submit button", async () => {
+    const extensionScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        sections: [
+          ...detailScreen.layout.sections,
+          {
+            kind: "extension",
+            title: "Notes",
+            component: { react: { __component: "SessionNotes" } },
+            entityName: "user-session",
+          },
+        ],
+      },
+    };
+    const extensionSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [extensionScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <ExtensionSectionsProvider value={{ SessionNotes }}>
+          <KumikoScreen
+            schema={extensionSchema}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    // Declared entityName ("user-session") must win over the shim's internal
+    // placeholder entity name — otherwise a self-persisting section like
+    // NotesSection would filter/write against the wrong domain entity.
+    expect(screen.getByTestId("session-notes").textContent).toBe("user-session:sess-1");
+    expect(screen.queryByTestId("render-edit-submit")).toBeNull();
+  });
+
+  test("layout.mode: 'tabs' — mounts only when its tab is active, not on first render of another tab", async () => {
+    const tabsExtensionScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "overview", title: "Session", fields: ["userId"] },
+          {
+            id: "notes",
+            kind: "extension",
+            title: "Notes",
+            component: { react: { __component: "SessionNotes" } },
+            entityName: "user-session",
+          },
+        ],
+      },
+    };
+    const tabsExtensionSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [tabsExtensionScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+    function navWithTab(tab: string | undefined): NavApi {
+      return {
+        route: undefined,
+        navigate: () => {},
+        replace: () => {},
+        hrefFor: () => "",
+        searchParams: tab !== undefined ? { tab } : {},
+        setSearchParams: () => {},
+      };
+    }
+
+    const { unmount } = render(
+      <NavProvider value={navWithTab(undefined)}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <ExtensionSectionsProvider value={{ SessionNotes }}>
+            <KumikoScreen
+              schema={tabsExtensionSchema}
+              qn="sessions:screen:session-detail"
+              entityId="sess-1"
+            />
+          </ExtensionSectionsProvider>
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.queryByTestId("session-notes")).toBeNull();
+    unmount();
+
+    render(
+      <NavProvider value={navWithTab("notes")}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <ExtensionSectionsProvider value={{ SessionNotes }}>
+            <KumikoScreen
+              schema={tabsExtensionSchema}
+              qn="sessions:screen:session-detail"
+              entityId="sess-1"
+            />
+          </ExtensionSectionsProvider>
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => screen.getByTestId("session-notes"));
+    expect(screen.getByTestId("session-notes").textContent).toBe("user-session:sess-1");
+    expect(screen.queryByTestId("field-userId")).toBeNull();
   });
 });
