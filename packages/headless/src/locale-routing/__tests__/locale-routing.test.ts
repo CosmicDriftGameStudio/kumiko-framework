@@ -198,6 +198,37 @@ describe("wrapUrlLocaleResolver", () => {
     expect(wrapped.locale()).toBe("de");
   });
 
+  test("missing pathname falls back to base locale (no fake /)", () => {
+    const wrapped = wrapUrlLocaleResolver(staticBase("en"), {
+      resolvePage: (pathname) => moneyHorseRouter.resolvePage(pathname),
+      detectLang: (pathname) => moneyHorseRouter.detectLang(pathname),
+      pathname: () => undefined,
+    });
+    expect(wrapped.locale()).toBe("en");
+  });
+
+  test("subscribe fires on pathname subscription", () => {
+    let pathListener: (() => void) | undefined;
+    const wrapped = wrapUrlLocaleResolver(staticBase("de"), {
+      resolvePage: () => "home",
+      detectLang: () => "en",
+      pathname: () => "/en",
+      subscribePathname: (listener) => {
+        pathListener = listener;
+        return () => {
+          pathListener = undefined;
+        };
+      },
+    });
+    let hits = 0;
+    const unsub = wrapped.subscribe(() => {
+      hits += 1;
+    });
+    pathListener?.();
+    expect(hits).toBe(1);
+    unsub();
+  });
+
   test("unregistered path keeps base locale", () => {
     const wrapped = wrapUrlLocaleResolver(staticBase("de"), {
       resolvePage: (pathname) => moneyHorseRouter.resolvePage(pathname),

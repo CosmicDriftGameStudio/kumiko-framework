@@ -97,12 +97,12 @@ const UNIT_INTL_IDS = {
 // the literal suffix instead of going through `style: "unit"`.
 const UNIT_SUFFIXES = { m2: "m²" } as const;
 
-type UnitKey = keyof typeof UNIT_INTL_IDS | keyof typeof UNIT_SUFFIXES;
+function isIntlUnit(unit: string): unit is keyof typeof UNIT_INTL_IDS {
+  return Object.hasOwn(UNIT_INTL_IDS, unit);
+}
 
-function isUnitKey(unit: string): unit is UnitKey {
-  // Object.hasOwn, not `in` — `in` walks the prototype chain, so
-  // "toString" or "constructor" would pass as a valid unit key.
-  return Object.hasOwn(UNIT_INTL_IDS, unit) || Object.hasOwn(UNIT_SUFFIXES, unit);
+function isSuffixUnit(unit: string): unit is keyof typeof UNIT_SUFFIXES {
+  return Object.hasOwn(UNIT_SUFFIXES, unit);
 }
 
 function formatUnitCell(
@@ -112,12 +112,12 @@ function formatUnitCell(
   unitDisplay: Intl.NumberFormatOptions["unitDisplay"],
 ): string {
   const n = typeof value === "number" ? value : Number(value);
-  if (unit === undefined || !isUnitKey(unit) || !Number.isFinite(n)) return String(value);
-  if (Object.hasOwn(UNIT_INTL_IDS, unit)) {
+  if (unit === undefined || !Number.isFinite(n)) return String(value);
+  if (isIntlUnit(unit)) {
     try {
       return new Intl.NumberFormat(locale, {
         style: "unit",
-        unit: UNIT_INTL_IDS[unit as keyof typeof UNIT_INTL_IDS],
+        unit: UNIT_INTL_IDS[unit],
         unitDisplay,
       }).format(n);
     } catch {
@@ -125,8 +125,17 @@ function formatUnitCell(
       return formatNumberCell(n, locale);
     }
   }
-  return `${formatNumberCell(n, locale)} ${UNIT_SUFFIXES[unit as keyof typeof UNIT_SUFFIXES]}`;
+  if (isSuffixUnit(unit)) {
+    return `${formatNumberCell(n, locale)} ${UNIT_SUFFIXES[unit]}`;
+  }
+  return String(value);
 }
+
+/** Exported for UnitKey parity tests against @cosmicdrift/kumiko-types/screen. */
+export const UNIT_FORMAT_KEYS = [
+  ...Object.keys(UNIT_INTL_IDS),
+  ...Object.keys(UNIT_SUFFIXES),
+] as const;
 
 export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape";
 export { type HtmlValue, html, RawHtml, raw } from "./html-template";

@@ -79,6 +79,9 @@ export type NavDefinition = {
 // `parent` may point at another feature's nav QN; the boot validator rejects
 // dangling refs, so a collection mounted under a feature that isn't mounted
 // fails boot instead of silently disappearing from the sidebar.
+/** Client editor format for r.contentCollection() — not template body storage formats. */
+export type ContentEditorFormat = "plain" | "rich" | "markdown";
+
 export type ContentCollectionDefinition = {
   // Feature-local short id, kebab-case. Also becomes the nav entry's id, so
   // it must not collide with an r.nav()/r.screen() id in the same feature.
@@ -104,7 +107,7 @@ export type ContentCollectionDefinition = {
   // the content is stored. "rich" still stores HTML, because mail and PDF
   // rendering want HTML either way. "markdown" stores markdown text, not
   // HTML. Defaults to "plain" (textarea).
-  readonly contentFormat?: "plain" | "rich" | "markdown";
+  readonly contentFormat?: ContentEditorFormat;
   // Fixed variable names the collection's editor offers as insertable chips,
   // mapped to an example value the Preview substitutes in for `{{name}}`
   // (e.g. `{ customerName: "Max Mustermann", orderId: "A-1042" }` for an

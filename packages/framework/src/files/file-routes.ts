@@ -127,12 +127,6 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     if (!isPiiCiphertext(fileRef.fileName)) return fileRef.fileName;
     const kms = configuredPiiSubjectKms();
     if (!kms) {
-      // Ciphertext with no subject KMS wired (disabled after encrypt-time) —
-      // never let it reach a header or signed-URL; nothing downstream
-      // catches this the way piiCiphertextResponseGuard catches JSON.
-      console.error(
-        `[files] fileRef ${fileRef.id} carries PII ciphertext but no subject KMS is configured — serving a redacted filename`,
-      );
       return "download";
     }
     const decrypted = await decryptPiiFieldValues(

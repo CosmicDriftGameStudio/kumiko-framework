@@ -146,9 +146,11 @@ export function createLocaleRouter<TPage extends string>(
 }
 
 export type WrapUrlLocaleResolverOptions = {
-  resolvePage: (pathname: string) => unknown;
+  resolvePage: (pathname: string) => string | undefined;
   detectLang: (pathname: string) => string;
-  pathname?: () => string;
+  pathname?: () => string | undefined;
+  /** Optional pathname-change subscription (browser default: popstate). */
+  subscribePathname?: (listener: () => void) => () => void;
   /** When set, translate against the URL-resolved locale instead of base.translate
    *  (needed for fixed-T / cloneInstance resolvers that are not locale-live). */
   translateFor?: (
@@ -158,9 +160,23 @@ export type WrapUrlLocaleResolverOptions = {
   ) => string;
 };
 
-function defaultBrowserPathname(): string {
+function defaultBrowserPathname(): string | undefined {
   const loc = (globalThis as { location?: { pathname?: string } }).location;
-  return typeof loc?.pathname === "string" ? loc.pathname : "/";
+  return typeof loc?.pathname === "string" ? loc.pathname : undefined;
+}
+
+function defaultSubscribePathname(listener: () => void): () => void {
+  const g = globalThis as {
+    addEventListener?: typeof addEventListener;
+    removeEventListener?: typeof removeEventListener;
+  };
+  if (typeof g.addEventListener !== "function" || typeof g.removeEventListener !== "function") {
+    return () => {};
+  }
+  g.addEventListener("popstate", listener);
+  return () => {
+    g.removeEventListener?.("popstate", listener);
+  };
 }
 
 /**
@@ -173,9 +189,11 @@ export function wrapUrlLocaleResolver(
   options: WrapUrlLocaleResolverOptions,
 ): LocaleResolver {
   const getPathname = options.pathname ?? defaultBrowserPathname;
+  const subscribePathname = options.subscribePathname ?? defaultSubscribePathname;
   const resolveLocale = (): string => {
     const path = getPathname();
-    if (options.resolvePage(path) !== undefined) {
+    if (path === undefined) return base.locale();
+    if (options.resolvePage(path) != null) {
       return options.detectLang(path);
     }
     return base.locale();
@@ -186,7 +204,14 @@ export function wrapUrlLocaleResolver(
         ? options.translateFor(resolveLocale(), key, params)
         : base.translate(key, params),
     timeZone: () => base.timeZone(),
-    subscribe: (listener) => base.subscribe(listener),
+    subscribe: (listener) => {
+      const unsubBase = base.subscribe(listener);
+      const unsubPath = subscribePathname(listener);
+      return () => {
+        unsubBase();
+        unsubPath();
+      };
+    },
     setLocale: base.setLocale !== undefined ? (locale) => base.setLocale?.(locale) : undefined,
     locale: resolveLocale,
   };

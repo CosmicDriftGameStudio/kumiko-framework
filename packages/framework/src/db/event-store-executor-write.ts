@@ -18,7 +18,7 @@ import {
 import { generateId } from "../utils";
 import { applyEntityEvent } from "./apply-entity-event";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
-import type { DbRow, DbRunner } from "./connection";
+import type { DbRow } from "./connection";
 import type { EventStoreExecutor } from "./event-store-executor";
 import {
   buildEventMetadata,
@@ -200,8 +200,8 @@ export function createWriteVerbs(
         // its own (same pattern as ctx.tryAppendEvent), and falls back to a
         // plain call when db.raw is a bare pool connection with no active
         // transaction to poison (seeds/tests calling the executor directly).
-        event = await runInSavepointIfSupported(db.raw, (sp) =>
-          append(sp as DbRunner, {
+        event = await runInSavepointIfSupported(db.raw, async (sp) =>
+          append(sp, {
             aggregateId,
             aggregateType: entityName,
             tenantId: streamTenantFor(user),
@@ -251,8 +251,8 @@ export function createWriteVerbs(
       // failed INSERT back; the error still propagates and stays catchable.
       let result: Awaited<ReturnType<typeof applyEntityEvent>>;
       try {
-        result = await runInSavepointIfSupported(db.raw, (sp) =>
-          applyEntityEvent(event, table, entity, sp as DbRunner),
+        result = await runInSavepointIfSupported(db.raw, async (sp) =>
+          applyEntityEvent(event, table, entity, sp),
         );
       } catch (e) {
         const mapped = tryMapUniqueViolation(e, entityName);
@@ -429,7 +429,7 @@ export function createWriteVerbs(
         // confines a losing writer's unique-violation to a nested scope
         // instead of poisoning the whole outer transaction.
         const event = await runInSavepointIfSupported(db.raw, (sp) =>
-          append(sp as DbRunner, {
+          append(sp, {
             aggregateId: String(payload.id),
             aggregateType: entityName,
             tenantId: streamTenantFor(user),
@@ -456,8 +456,8 @@ export function createWriteVerbs(
         // failed nested one throws 500 instead of failing cleanly.
         let result: Awaited<ReturnType<typeof applyEntityEvent>>;
         try {
-          result = await runInSavepointIfSupported(db.raw, (sp) =>
-            applyEntityEvent(event, table, entity, sp as DbRunner),
+          result = await runInSavepointIfSupported(db.raw, async (sp) =>
+            applyEntityEvent(event, table, entity, sp),
           );
         } catch (e) {
           const mapped = tryMapUniqueViolation(e, entityName);
@@ -552,26 +552,38 @@ export function createWriteVerbs(
       // to rebuild from the event log alone. `existing` came from loadById(),
       // which decrypts — re-encrypt before persisting so plaintext doesn't
       // land in the immutable log.
-      const event = await append(db.raw, {
-        aggregateId: String(payload.id),
-        aggregateType: entityName,
-        tenantId: streamTenantFor(user),
-        expectedVersion: currentVersion,
-        type: entityEventName(entityName, "deleted"),
-        payload: { previous: await encryptForStorage(existing, user) },
-        metadata: buildEventMetadata(user),
-      });
+      let event: Awaited<ReturnType<typeof append>>;
+      try {
+        event = await runInSavepointIfSupported(db.raw, async (sp) =>
+          append(sp, {
+            aggregateId: String(payload.id),
+            aggregateType: entityName,
+            tenantId: streamTenantFor(user),
+            expectedVersion: currentVersion,
+            type: entityEventName(entityName, "deleted"),
+            payload: { previous: await encryptForStorage(existing, user) },
+            metadata: buildEventMetadata(user),
+          }),
+        );
+      } catch (e) {
+        if (e instanceof EventStoreVersionConflict) {
+          return writeFailure(
+            new FrameworkVersionConflict({
+              entityId: payload.id,
+              expectedVersion: currentVersion,
+              currentVersion: -1,
+            }),
+          );
+        }
+        if (e instanceof EventStoreIdempotentAppendConflict) {
+          return writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey }));
+        }
+        throw e;
+      }
 
-      // Live==Rebuild via applyEntityEvent. Delete-Operation hat keine
-      // sensitive-Drift weil das Event-Payload nur `previous` ist und das
-      // wird vom soft/hard-delete-Code gar nicht in die Tabelle geschrieben
-      // (nur isDeleted/deletedAt/version-Bump). Live + Replay schreiben
-      // dasselbe — kein payload-override nötig.
-      // Savepoint like the create/update paths: a raw DB error out of the
-      // projection delete poisons the enclosing tx otherwise, surfacing as a
-      // 500 on the next write that shares it rather than a clean failure.
-      const deleteResult = await runInSavepointIfSupported(db.raw, (sp) =>
-        applyEntityEvent(event, table, entity, sp as DbRunner),
+      // Live==Rebuild via applyEntityEvent. Savepoint like create/update.
+      const deleteResult = await runInSavepointIfSupported(db.raw, async (sp) =>
+        applyEntityEvent(event, table, entity, sp),
       );
       if (deleteResult.kind !== "applied") {
         return writeFailure(
@@ -626,19 +638,40 @@ export function createWriteVerbs(
         streamTenantFor(user),
       );
 
-      const event = await append(db.raw, {
-        aggregateId: String(payload.id),
-        aggregateType: entityName,
-        tenantId: streamTenantFor(user),
-        expectedVersion: currentVersion,
-        type: entityEventName(entityName, "forgotten"),
-        // Re-encrypt like delete(): `existing` came decrypted from loadById —
-        // plaintext must not land in the immutable log, least of all on forget.
-        payload: { previous: await encryptForStorage(existing, user) },
-        metadata: buildEventMetadata(user),
-      });
+      let event: Awaited<ReturnType<typeof append>>;
+      try {
+        event = await runInSavepointIfSupported(db.raw, async (sp) =>
+          append(sp, {
+            aggregateId: String(payload.id),
+            aggregateType: entityName,
+            tenantId: streamTenantFor(user),
+            expectedVersion: currentVersion,
+            type: entityEventName(entityName, "forgotten"),
+            // Re-encrypt like delete(): `existing` came decrypted from loadById —
+            // plaintext must not land in the immutable log, least of all on forget.
+            payload: { previous: await encryptForStorage(existing, user) },
+            metadata: buildEventMetadata(user),
+          }),
+        );
+      } catch (e) {
+        if (e instanceof EventStoreVersionConflict) {
+          return writeFailure(
+            new FrameworkVersionConflict({
+              entityId: payload.id,
+              expectedVersion: currentVersion,
+              currentVersion: -1,
+            }),
+          );
+        }
+        if (e instanceof EventStoreIdempotentAppendConflict) {
+          return writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey }));
+        }
+        throw e;
+      }
 
-      const forgetResult = await applyEntityEvent(event, table, entity, db.raw);
+      const forgetResult = await runInSavepointIfSupported(db.raw, async (sp) =>
+        applyEntityEvent(event, table, entity, sp),
+      );
       if (forgetResult.kind !== "applied") {
         return writeFailure(
           new InternalError({ message: "projection forget: applyEntityEvent skipped" }),
@@ -710,20 +743,41 @@ export function createWriteVerbs(
       // `previous` to re-increment on restore without re-querying the entity
       // table. `data` is the raw stored row — pii/encrypted fields are
       // already ciphertext, no re-encrypt needed.
-      const event = await append(db.raw, {
-        aggregateId: String(payload.id),
-        aggregateType: entityName,
-        tenantId: streamTenantFor(user),
-        expectedVersion: currentVersion,
-        type: entityEventName(entityName, "restored"),
-        payload: { previous: data },
-        metadata: buildEventMetadata(user),
-      });
+      let event: Awaited<ReturnType<typeof append>>;
+      try {
+        event = await runInSavepointIfSupported(db.raw, (sp) =>
+          append(sp, {
+            aggregateId: String(payload.id),
+            aggregateType: entityName,
+            tenantId: streamTenantFor(user),
+            expectedVersion: currentVersion,
+            type: entityEventName(entityName, "restored"),
+            payload: { previous: data },
+            metadata: buildEventMetadata(user),
+          }),
+        );
+      } catch (e) {
+        if (e instanceof EventStoreVersionConflict) {
+          return writeFailure(
+            new FrameworkVersionConflict({
+              entityId: payload.id,
+              expectedVersion: currentVersion,
+              currentVersion: -1,
+            }),
+          );
+        }
+        if (e instanceof EventStoreIdempotentAppendConflict) {
+          return writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey }));
+        }
+        throw e;
+      }
 
       // Live==Rebuild via applyEntityEvent. Restore schreibt nur isDeleted=
       // false + version-Bump in die Tabelle — keine sensitive-Drift, daher
       // kein payload-override nötig.
-      const restoreResult = await applyEntityEvent(event, table, entity, db.raw);
+      const restoreResult = await runInSavepointIfSupported(db.raw, async (sp) =>
+        applyEntityEvent(event, table, entity, sp),
+      );
       if (restoreResult.kind !== "applied" || restoreResult.row === null) {
         return writeFailure(new InternalError({ message: "projection restore returned no row" }));
       }

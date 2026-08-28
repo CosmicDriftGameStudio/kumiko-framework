@@ -178,7 +178,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     errors = Object.freeze(merged);
   }
 
-  function runValidate(scope?: readonly string[]): boolean {
+  function runValidate(scope?: readonly (keyof TValues & string)[]): boolean {
     // See the validate() doc comment in types.ts for the scope contract.
     const scopeSet = scope === undefined ? undefined : new Set(scope);
     if (!options.schema) {
