@@ -15,14 +15,19 @@ export type CapSpec = {
   readonly id: string;
   readonly label: string;
   readonly limit: (tier: string) => number;
-  readonly usage: (db: TenantDb, tenantId: TenantId) => Promise<number>;
+  // `null` means "no measurement exists yet for this cap" (not "0 used") —
+  // callers that haven't wired up instrumentation return null instead of a
+  // number they don't actually have.
+  readonly usage: (db: TenantDb, tenantId: TenantId) => Promise<number | null>;
   // Batched usage lookup for the tenant-caps:list screen — called once per
   // cap with the current page's tenant ids instead of once per (cap, row).
-  // Optional: falls back to per-row `usage()` when absent.
+  // Optional: falls back to per-row `usage()` when absent. A tenant absent
+  // from the returned map still means 0 (unchanged) — only an explicit
+  // `null` value means "not measured".
   readonly usageBatch?: (
     db: TenantDb,
     tenantIds: readonly TenantId[],
-  ) => Promise<Map<TenantId, number>>;
+  ) => Promise<Map<TenantId, number | null>>;
   readonly unit?: "count" | "mb" | "tokens";
   /** Icon chip on the dashboard cards. Optional — omitted renders the card
    *  without an icon, same as before this field existed. */
@@ -36,7 +41,9 @@ export type CapSpec = {
 export type CapUsageTone = "default" | "warn" | "danger";
 
 export type CapUsage = {
-  readonly used: number;
+  // `null` means not measured yet — `fraction`/`tone` stay non-nullable
+  // (0 / "default") so no consumer needs null-arithmetic to render.
+  readonly used: number | null;
   readonly limit: number;
   readonly fraction: number;
 };
@@ -45,7 +52,7 @@ export type CapUsageWithMeta = CapUsage & {
   readonly id: string;
   readonly label: string;
   readonly tone: CapUsageTone;
-  readonly percent: number;
+  readonly percent: number | null;
   readonly icon?: CapIconKey;
   readonly accentColor?: string;
 };

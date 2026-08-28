@@ -292,6 +292,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "cap-overview.list.col.name": "Organización",
   "cap-overview.list.col.tier": "Tier",
   "cap-overview.list.filter.tier": "Tier",
+  "cap-overview.notMeasured": "Aún no medido",
   "cap-overview.platform.filter.tenant": "Organización",
   "compliance-profiles:nav.profilePicker": "Cumplimiento",
   "compliance.profile.catalog": "Perfiles disponibles",

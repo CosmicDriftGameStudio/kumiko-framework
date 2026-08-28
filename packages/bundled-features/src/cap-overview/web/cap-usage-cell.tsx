@@ -5,10 +5,10 @@ import type { CapUsage } from "../types";
 import { CapUsageBar } from "./cap-usage-bar";
 
 function isCapUsage(value: unknown): value is CapUsage {
+  if (typeof value !== "object" || value === null) return false;
+  const used = (value as { used?: unknown }).used;
   return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { used?: unknown }).used === "number" &&
+    (typeof used === "number" || used === null) &&
     typeof (value as { limit?: unknown }).limit === "number" &&
     typeof (value as { fraction?: unknown }).fraction === "number"
   );

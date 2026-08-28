@@ -296,6 +296,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "cap-overview.list.col.name": "Mandant",
   "cap-overview.list.col.tier": "Tier",
   "cap-overview.list.filter.tier": "Tier",
+  "cap-overview.notMeasured": "Noch nicht gemessen",
   "cap-overview.platform.filter.tenant": "Mandant",
   "compliance-profiles:nav.profilePicker": "Compliance",
   "compliance.profile.catalog": "Verfügbare Profile",

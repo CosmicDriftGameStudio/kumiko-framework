@@ -12,6 +12,7 @@ export const CAP_OVERVIEW_I18N: Readonly<Record<string, LocalizedString>> = {
   "cap-overview.platform.filter.tenant": { en: "Tenant" },
   "cap-overview.cards.empty": { en: "No caps configured for this tenant." },
   "cap-overview.cards.loading": { en: "Loading usage…" },
+  "cap-overview.notMeasured": { en: "Not measured yet" },
   "cap-overview.errors.progressPrimitiveMissing": {
     en: "Usage bar unavailable — Progress primitive is not registered.",
   },
