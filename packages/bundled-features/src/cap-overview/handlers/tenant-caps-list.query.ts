@@ -182,12 +182,12 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
       // N+1 avoidance: usage is computed only for this page's tenant ids,
       // never for the full tenant set.
       const pageTenantIds = page.map((row) => row.tenantId);
-      const usageByCap = new Map<string, Map<string, number>>();
+      const usageByCap = new Map<string, Map<string, number | null>>();
       for (const cap of listedCaps) {
         if (cap.usageBatch) {
           usageByCap.set(cap.id, await cap.usageBatch(db, pageTenantIds));
         } else {
-          const perTenant = new Map<string, number>();
+          const perTenant = new Map<string, number | null>();
           for (const tenantId of pageTenantIds) {
             perTenant.set(tenantId, await cap.usage(db, tenantId));
           }
@@ -198,9 +198,15 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
       const rows: TenantCapsListRow[] = page.map((row) => {
         const capFields: Record<string, CapUsage> = {};
         for (const cap of listedCaps) {
-          const used = usageByCap.get(cap.id)?.get(row.tenantId) ?? 0;
+          // A tenant absent from the map still means 0 (existing behavior);
+          // only an explicit `null` value means "not measured".
+          const rawUsed = usageByCap.get(cap.id)?.get(row.tenantId);
+          const used = rawUsed === undefined ? 0 : rawUsed;
           const limit = cap.limit(row.tier);
-          capFields[capFieldName(cap.id)] = { used, limit, fraction: computeFraction(used, limit) };
+          capFields[capFieldName(cap.id)] =
+            used === null
+              ? { used: null, limit, fraction: 0 }
+              : { used, limit, fraction: computeFraction(used, limit) };
         }
         return {
           tenantId: row.tenantId,

@@ -23,6 +23,20 @@ function fillClass(): string | undefined {
 }
 
 describe("CapUsageBar", () => {
+  test("renders the not-measured text instead of a bar when used is null", () => {
+    const usage: CapUsage = { used: null, limit: 100, fraction: 0 };
+    render(
+      <Wrapper>
+        <CapUsageBar usage={usage} showLabel={false} />
+      </Wrapper>,
+    );
+
+    expect(screen.queryByTestId("cap-usage-bar")).toBeNull();
+    expect(screen.getByTestId("cap-usage-not-measured").textContent).toBe(
+      "cap-overview.notMeasured",
+    );
+  });
+
   test("renders the danger fill class when usage is at or over the limit", () => {
     const usage: CapUsage = { used: 120, limit: 100, fraction: 1.2 };
     render(

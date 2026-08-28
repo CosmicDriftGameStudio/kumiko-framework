@@ -42,6 +42,15 @@ const testCap: CapSpec = {
   usage: async (_db, tenantId) => USAGE_BY_TENANT[tenantId] ?? 0,
 };
 
+// Never wired up for any tenant — proves the "not measured" state renders
+// as null, not 0, all the way through the real query handler.
+const unmeasuredCap: CapSpec = {
+  id: "unmeasured",
+  label: "test.cap.unmeasured",
+  limit: () => 10,
+  usage: async () => null,
+};
+
 let stack: TestStack;
 let db: DbConnection;
 
@@ -54,7 +63,7 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       billingFoundationFeature,
       tierEngineFeature,
-      createCapOverviewFeature({ caps: [testCap] }),
+      createCapOverviewFeature({ caps: [testCap, unmeasuredCap] }),
     ],
   });
   db = stack.db;
@@ -111,24 +120,25 @@ describe("cap-overview tenant isolation", () => {
 
   test("TenantAdmin(A) without override sees exactly A's own numbers, not a sum", async () => {
     const tenantAdminA = createTestUser({ id: 90014, tenantId: TENANT_A, roles: ["TenantAdmin"] });
-    const result = await stack.http.queryOk<{ rows: readonly { used: number }[] }>(
-      CapOverviewQueries.capsUsage,
-      {},
-      tenantAdminA,
-    );
-    expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]?.used).toBe(USAGE_BY_TENANT[TENANT_A]);
+    const result = await stack.http.queryOk<{
+      rows: readonly { id: string; used: number | null; percent: number | null }[];
+    }>(CapOverviewQueries.capsUsage, {}, tenantAdminA);
+    expect(result.rows).toHaveLength(2);
+    const widgetsRow = result.rows.find((row) => row.id === testCap.id);
+    expect(widgetsRow?.used).toBe(USAGE_BY_TENANT[TENANT_A]);
+
+    const unmeasuredRow = result.rows.find((row) => row.id === unmeasuredCap.id);
+    expect(unmeasuredRow?.used).toBeNull();
+    expect(unmeasuredRow?.percent).toBeNull();
   });
 
   test("SystemAdmin can read tenant B's usage via override", async () => {
     const sysAdmin = createTestUser({ id: 90015, tenantId: TENANT_A, roles: ["SystemAdmin"] });
-    const result = await stack.http.queryOk<{ rows: readonly { used: number }[] }>(
-      CapOverviewQueries.capsUsage,
-      { tenantId: TENANT_B },
-      sysAdmin,
-    );
-    expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]?.used).toBe(USAGE_BY_TENANT[TENANT_B]);
+    const result = await stack.http.queryOk<{
+      rows: readonly { id: string; used: number | null }[];
+    }>(CapOverviewQueries.capsUsage, { tenantId: TENANT_B }, sysAdmin);
+    const widgetsRow = result.rows.find((row) => row.id === testCap.id);
+    expect(widgetsRow?.used).toBe(USAGE_BY_TENANT[TENANT_B]);
   });
 
   test("SystemAdmin sees both tenants on the list, each with its own numbers", async () => {

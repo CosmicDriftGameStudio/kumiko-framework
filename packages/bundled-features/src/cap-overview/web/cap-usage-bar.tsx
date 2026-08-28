@@ -15,6 +15,15 @@ export function CapUsageBar({
 }): ReactNode {
   const { Progress, Text, Banner } = usePrimitives();
   const t = useTranslation();
+
+  if (usage.used === null) {
+    return (
+      <Text variant="small" testId="cap-usage-not-measured">
+        {t("cap-overview.notMeasured")}
+      </Text>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-1">
       {Progress ? (
