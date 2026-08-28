@@ -193,6 +193,24 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/tier-engine",
     exportName: "tierEngineFeature",
   },
+  // cap-overview: no r.entity of its own (reads tier-engine/billing-
+  // foundation/tenant + caller-supplied CapSpec callbacks) — this entry
+  // never renders into schema.generated.ts, listed only for check-coverage
+  // ↔ mounted-set consistency. defaultArgs mirrors run-config.ts's real
+  // CAP_OVERVIEW_CAPS shape so it stays buildable if entities are added later.
+  "cap-overview": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/cap-overview",
+    factory: "createCapOverviewFeature",
+    defaultArgs: '{ caps: [{ id: "stub", label: "stub", limit: () => 0, usage: async () => 0 }] }',
+  },
+  // cap-overview-labels: app-local, translations only for the two example
+  // cap ids this sample chose — same pattern as collection-labels below.
+  "cap-overview-labels": {
+    kind: "named",
+    path: "../src/app/cap-overview-labels-feature",
+    exportName: "capOverviewLabelsFeature",
+  },
   "cap-counter": {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/cap-counter",

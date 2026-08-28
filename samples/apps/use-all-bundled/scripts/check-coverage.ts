@@ -48,6 +48,7 @@ const EXPECTED_HELD_BACK = new Set([
 const EXPECTED_REGISTRY_ONLY = new Set([
   "auth-self-registration", // from ./auth-email-password, auto-mounted with signup (#1521)
   "collection-labels", // app-local (src/app/), nav labels for this app's content collections
+  "cap-overview-labels", // app-local (src/app/), labels for this app's example cap-overview caps
   "locale-de", // @cosmicdrift/kumiko-locale-de, not a bundled-features export
 ]);
 

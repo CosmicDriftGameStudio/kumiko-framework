@@ -83,6 +83,14 @@ function validateNoWidgetRequiredField(
 // entityList and projectionList (framework#1708) — projectionList has no
 // `screen.entity`, so there's no same-entity row["id"] auto-fill case: any
 // entityEdit target without an explicit entityId reaches create there.
+//
+// dashboard targets (framework#1708 follow-up, commit 4e0d6cb26) also read
+// URL search params — but only for the single `filter.id` a dashboard
+// declares (useFilterParams in dashboard-body.tsx seeds its value from
+// `nav.searchParams[filter.id]`). A dashboard with no `filter` has nowhere
+// for the value to land, and a params extractor whose keys don't include
+// the filter's id would silently miss it — both are boot errors instead of
+// a silently-empty dashboard.
 function validateRowActionNavigateParams(
   featureName: string,
   screenId: string,
@@ -93,16 +101,38 @@ function validateRowActionNavigateParams(
 ): void {
   // skip: not a navigate-with-params action — nothing to validate here.
   if (action.kind !== "navigate" || action.params === undefined) return;
-  // entityList/projectionList targets also read URL search params (Tier
+  // skip: unresolvable/custom target already reported (or exempt) elsewhere.
+  if (target === undefined || target.screen.type === "custom") return;
+  // skip: entityList/projectionList targets also read URL search params (Tier
   // 2.7c filter-prefill, see use-list-url-state.ts: `<screenId>.q/.sort/
   // .dir/.page/.f.<field>`), not just actionForm/entityEdit-create.
-  const exemptTargetType =
-    target === undefined ||
-    target.screen.type === "custom" ||
-    target.screen.type === "entityList" ||
-    target.screen.type === "projectionList";
-  // skip: unresolvable/custom/list target already reported (or exempt) elsewhere.
-  if (exemptTargetType) return;
+  if (target.screen.type === "entityList" || target.screen.type === "projectionList") return;
+
+  if (target.screen.type === "dashboard") {
+    const targetDescriptor =
+      action.screen !== undefined ? `"${action.screen}"` : `entity "${action.entity}"`;
+    const filter = target.screen.filter;
+    if (filter === undefined) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${action.id}" sets ` +
+          `params on navigate-target ${targetDescriptor} (dashboard) — target dashboard declares no ` +
+          `filter — params would be a no-op. Remove the params extractor, or add a \`filter\` to the ` +
+          `target dashboard so it has somewhere to read the value from.`,
+      );
+    }
+    const extractedKeys =
+      "pick" in action.params ? action.params.pick : Object.keys(action.params.map);
+    if (!extractedKeys.includes(filter.id)) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${action.id}" sets ` +
+          `params [${extractedKeys.join(", ")}] on navigate-target ${targetDescriptor} (dashboard) whose ` +
+          `filter id is "${filter.id}" — none of the extracted keys match, so the filter would stay ` +
+          `unset. Fix the params extractor to produce a "${filter.id}" key, or remove it.`,
+      );
+    }
+    // skip: filter present and the extractor's keys cover it — valid dashboard deep-link.
+    return;
+  }
 
   const isEntityEditUpdate =
     target.screen.type === "entityEdit" &&
