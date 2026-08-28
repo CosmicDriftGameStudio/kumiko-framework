@@ -12,7 +12,7 @@ import { z } from "zod";
 import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
-import type { EntityDefinition } from "../types/fields";
+import type { EntityDefinition, MultiSelectFieldDef } from "../types/fields";
 import type { ProjectionListScreenDefinition } from "../types/screen";
 
 describe("buildAppSchema", () => {
@@ -312,6 +312,141 @@ describe("buildAppSchema", () => {
     expect(fields["title"]?.["searchable"]).toBe(true);
     // Fields without searchable don't carry the key (no false-litter).
     expect(fields["name"]?.["searchable"]).toBeUndefined();
+  });
+
+  test("MultiSelect: display/columns/maxRows überleben die Projection (fw#2494)", () => {
+    // Regression: without display in the client schema, render-field.tsx's
+    // `field.display === "checkboxes"` check always falls through → the
+    // renderer always shows the combobox, MultiSelectCheckboxes is unreachable.
+    const entity = {
+      fields: {
+        tags: {
+          type: "multiSelect",
+          options: ["a", "b", "c"],
+          display: "checkboxes",
+          columns: 3,
+          maxRows: 5,
+        },
+        categories: { type: "multiSelect", options: ["x", "y"] },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["tags"]?.["display"]).toBe("checkboxes");
+    expect(fields["tags"]?.["columns"]).toBe(3);
+    expect(fields["tags"]?.["maxRows"]).toBe(5);
+    // Fields without display/columns/maxRows don't carry the keys (no false-litter).
+    expect(fields["categories"]?.["display"]).toBeUndefined();
+    expect(fields["categories"]?.["columns"]).toBeUndefined();
+    expect(fields["categories"]?.["maxRows"]).toBeUndefined();
+  });
+
+  test("MultiSelectFieldDef: alle Keys sind in projectField bewusst eingeordnet", () => {
+    // Bounded completeness check, scoped to MultiSelectFieldDef's own key set
+    // (packages/types/src/fields.ts) — NOT a general FieldDefinition lockstep.
+    // A full-union version would have to classify every property of all 20
+    // FieldDefinition variants as forwarded or server-only, and several are
+    // known-forwarded-but-missing today (e.g. image's `capture`, embedded's
+    // `schema`/`derived`/`totals`/`minItems`/`maxItems`, date's
+    // `min`/`max`/`locale`, longText's `multiline`) — declaring those
+    // "server-only" here would be a false claim, and fixing them is out of
+    // scope for fw#2494 (see report for the full gap list). This check only
+    // covers the type this fix actually touches.
+    //
+    // The `_allKeysClassified` assignment below is the actual guard: if
+    // MultiSelectFieldDef ever gains a key that isn't in one of the three
+    // lists, `Exclude<keyof MultiSelectFieldDef, Classified>` stops being
+    // `never` and the assignment fails to typecheck — `bun run typecheck`
+    // (part of `bun run kumiko check`) catches it even without touching this
+    // test's runtime assertions.
+    const FORWARDED_KEYS = [
+      "type",
+      "required",
+      "filterable",
+      "options",
+      "display",
+      "columns",
+      "maxRows",
+    ] as const;
+
+    const SERVER_ONLY_KEYS = [
+      "sensitive", // controls write-response redaction, never rendered
+      "access", // server-side authz check, not a renderer concern
+      "pii", // PII classification, drives crypto/storage — not client-relevant
+      "userOwned", // same: subject-key annotation, server/crypto-only
+      "tenantOwned", // same: subject-key annotation, server/crypto-only
+      "anonymize", // retention-cleanup callback, never serializable to JSON
+      "allowPlaintext", // PII-audit reason string, not a renderer concern
+      "lookupable", // blind-index equality lookup, server-side query concern
+      "subjectRef", // GDPR-hook-coverage marker, not a renderer concern
+    ] as const;
+
+    // Keys that ARE client-relevant in principle but aren't forwarded today —
+    // pre-existing gaps, each with its own reason, none introduced by fw#2494.
+    const KNOWN_GAP_KEYS = [
+      "default", // array-valued for multiSelect, but projectField's isLiteral()
+      // only accepts string/number/boolean/null — so array defaults are
+      // silently dropped, never a real server-only property. Verified
+      // empirically: a multiSelect field with `default: ["a"]` projects to
+      // no `default` key at all. Separate pre-existing bug, out of scope here.
+    ] as const;
+
+    type Classified =
+      | (typeof FORWARDED_KEYS)[number]
+      | (typeof SERVER_ONLY_KEYS)[number]
+      | (typeof KNOWN_GAP_KEYS)[number];
+    const _allKeysClassified: Exclude<keyof MultiSelectFieldDef, Classified> extends never
+      ? true
+      : never = true;
+
+    const entity = {
+      fields: {
+        tags: {
+          type: "multiSelect",
+          required: true,
+          filterable: true,
+          options: ["a", "b"],
+          display: "checkboxes",
+          columns: 2,
+          maxRows: 4,
+          sensitive: true,
+          access: { read: ["admin"] },
+          pii: true,
+          userOwned: { ownerField: "authorId" },
+          tenantOwned: true,
+          anonymize: () => "[ANONYMIZED]",
+          allowPlaintext: "is_business_data",
+          lookupable: true,
+          subjectRef: true,
+        },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const projected = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields["tags"] as Record<string, unknown>;
+
+    for (const key of FORWARDED_KEYS) {
+      expect(projected[key]).toBeDefined();
+    }
+    for (const key of SERVER_ONLY_KEYS) {
+      expect(projected[key]).toBeUndefined();
+    }
   });
 
   test("AppSchema ist via JSON.stringify roundtrip-sicher", () => {
