@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.2.332
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.222.0
+
 ## 0.2.331
 
 ### Patch Changes

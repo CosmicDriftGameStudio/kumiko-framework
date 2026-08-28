@@ -1,5 +1,40 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.222.0
+
+### Minor Changes
+
+- 8edfaa0: Closes the two gaps #2461 left open (GDPR derivative cleanup for `fileRef`):
+
+  - New `files-tenant-data` feature registers an `EXT_TENANT_DATA` hook that hard-purges every `fileRef` row for a tenant on tenant-destroy (mirrors the existing per-user forget hook), and a new `EXT_STORAGE_PROVIDER` extension point (`destroyTenant` hook) that wipes every binary under the tenant's storage prefix — originals, derivatives, and anything else — once a file provider is resolvable. Neither stage fails the destroy pipeline when no file provider is wired; the row purge still runs, only the binary wipe degrades to a no-op.
+  - A manual (operator-triggered) `sweep-orphaned-derivatives` job backfills/GCs derivatives that were rendered before #2461 shipped: it lists each tenant's storage prefix, reconstructs the would-be original key from the derivative-key grammar, and deletes any derivative whose original has no `fileRef` row left (trashed rows still count as an owner — only a fully absent row makes a derivative orphaned).
+
+  Mount `files-tenant-data` alongside `tenant-lifecycle` and `files` to get both. Not a breaking change for existing `FileStorageProvider`/`UserDataStorageProvider` implementations.
+
+- b00604c: Fix GDPR erasure gap (#2461): thumbnails/resized variants (derivatives) written under a deterministic, untracked storage key survived user-forget and tenant-destroy even after the original was deleted, because the forget hook only ever deleted `storageKey` itself.
+
+  `FileStorageProvider` and `UserDataStorageProvider` gain a required `list(prefix)` method (implemented for the in-memory, local-filesystem, and S3 providers). The fileRef forget hook now lists each original's derivative prefix, filters candidates through a grammar-anchored check (same extension + `<name>-<16 hex>` suffix) so an unrelated same-prefix sibling is never touched, and deletes every match alongside the original.
+
+  **Breaking for custom `FileStorageProvider`/`UserDataStorageProvider` implementations**: add a `list(prefix): Promise<readonly string[]>` method (prefix-match over currently-stored keys, paginated internally). Also note the new required IAM permission for S3-compatible backends: forget/erasure now needs `s3:ListBucket` in addition to `s3:DeleteObject`, or forget runs will fail (loudly — the hook wraps the raw provider error with a hint) instead of silently leaving binaries behind.
+
+  Not covered by this fix: derivatives rendered before this ships are not retroactively cleaned up (no backfill/GC job — tracked as a follow-up), and the tenant-destroy path does not yet call this hook at all (no `EXT_TENANT_DATA` registration for `fileRef` — pre-existing gap, tracked separately).
+
+### Patch Changes
+
+- 6a13c64: Review-batch DATEI UNKLAR: PII header guard, email header filtering, form-draft blob validation, MFA HMAC codec dedup, job-runner boot timeout cleanup, wizard e2e chip coverage.
+- Updated dependencies [6a13c64]
+- Updated dependencies [8edfaa0]
+- Updated dependencies [b00604c]
+- Updated dependencies [d3ec5e0]
+- Updated dependencies [3c2fe7a]
+- Updated dependencies [afceecd]
+  - @cosmicdrift/kumiko-framework@0.222.0
+  - @cosmicdrift/kumiko-renderer@0.222.0
+  - @cosmicdrift/kumiko-renderer-web@0.222.0
+  - @cosmicdrift/kumiko-types@0.222.0
+  - @cosmicdrift/kumiko-headless@0.222.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.222.0
+
 ## 0.221.0
 
 ### Patch Changes
