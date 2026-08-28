@@ -17,7 +17,10 @@ export function createHmacTokenCodec<
   function isEncodedBody(value: unknown): value is EncodedBody {
     if (typeof value !== "object" || value === null) return false;
     const v = value as Record<string, unknown>;
-    return isPayload(v) && typeof v["expiresAtMs"] === "number";
+    const expiresAtMs = v["expiresAtMs"];
+    if (typeof expiresAtMs !== "number") return false;
+    const { expiresAtMs: _drop, ...rest } = v;
+    return isPayload(rest);
   }
 
   return {
@@ -66,7 +69,7 @@ export function createHmacTokenCodec<
       }
 
       const { expiresAtMs, ...payload } = parsed;
-      return { ok: true, payload: payload as TPayload, expiresAtMs };
+      return { ok: true, payload: payload as unknown as TPayload, expiresAtMs };
     },
   };
 }
