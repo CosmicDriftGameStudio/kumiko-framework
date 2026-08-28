@@ -934,6 +934,27 @@ function buildFilterFacets(specs: readonly ResolvedFacetSpec[]): DataTableFacet[
 // server). Deliberately NOT gated on the field being a *facet* — entityList
 // passes through any field present in entity.fields, matching its
 // pre-fw#2224 behavior; only the boolean-coercion branch cares about type.
+
+function stringifyNavParams(params: Record<string, unknown>): Record<string, string | null> {
+  const out: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(params)) {
+    out[k] =
+      v === null || v === undefined ? null : Array.isArray(v) ? JSON.stringify(v) : String(v);
+  }
+  return out;
+}
+
+function isFacetI18nKey(label: string): boolean {
+  return !/\s/.test(label) && (label.includes(".") || label.includes(":"));
+}
+
+async function refetchAfterWrite(refetch: () => Promise<unknown>): Promise<void> {
+  await refetch().catch((err: unknown) => {
+    // biome-ignore lint/suspicious/noConsole: refetch must not poison the write-action error path
+    console.error("kumiko-screen: refetch after write action failed", err);
+  });
+}
+
 function buildFilterPayload(
   urlFilters: Readonly<Record<string, readonly string[]>>,
   typeOf: (field: string) => string | undefined,
@@ -1011,24 +1032,25 @@ function resolveProjectionFacetSpecs(
   translate: Translate,
 ): ResolvedFacetSpec[] {
   if (facets === undefined) return [];
+  const tr = (label: string): string => (isFacetI18nKey(label) ? translate(label) : label);
   return facets.map((facet) =>
     facet.type === "select"
       ? {
           field: facet.field,
           type: "select",
-          label: translate(facet.label),
+          label: tr(facet.label),
           options: facet.options.map((opt) => ({
             value: opt.value,
-            label: translate(opt.label),
+            label: tr(opt.label),
           })),
         }
       : {
           field: facet.field,
           type: "boolean",
-          label: translate(facet.label),
+          label: tr(facet.label),
           options: [
-            { value: "true", label: translate(facet.trueLabel) },
-            { value: "false", label: translate(facet.falseLabel) },
+            { value: "true", label: tr(facet.trueLabel) },
+            { value: "false", label: tr(facet.falseLabel) },
           ],
         },
   );
@@ -1279,6 +1301,16 @@ function EntityListBody({
 
   const rowsQuery = useQuery<PagedRows>(queryType, queryPayload, { live: true });
 
+  const refreshRowsAfterWrite = useCallback(async () => {
+    if (useInfinite) {
+      setAccumulated([]);
+      setCursor(undefined);
+      setHasMore(true);
+      return;
+    }
+    await refetchAfterWrite(rowsQuery.refetch);
+  }, [useInfinite, rowsQuery.refetch]);
+
   // Infinite-Scroll: bei jedem erfolgreichen Result die rows appenden +
   // hasMore aus nextCursor ableiten. Live-Updates (postgres NOTIFY) und
   // initiale Loads laufen beide hier durch — das useEffect-Dep-Array
@@ -1363,7 +1395,10 @@ function EntityListBody({
         // detailFor cross-feature nicht selbst nachschlagen.
         const explicit =
           action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
-        const id = explicit ?? String(row.values["id"] ?? "");
+        // Same-entity only — cross-entity targets must declare entityId (boot-validator).
+        const fallback =
+          action.entity === screen.entity ? String(row.values["id"] ?? "") : undefined;
+        const id = explicit ?? fallback ?? "";
         if (id === "") return;
         nav.navigate({ entity: action.entity, id });
       } else if (action.screen !== undefined) {
@@ -1384,6 +1419,8 @@ function EntityListBody({
           screenId: action.screen,
           ...(entityId !== undefined && entityId !== "" && { entityId }),
         });
+      } else {
+        return;
       }
       const params =
         action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined;
@@ -1392,12 +1429,7 @@ function EntityListBody({
         // kennt via URL nur Strings). Known-edge: zielt die Action auf den
         // AKTUELLEN pathname, mergen die Params auf den alten ?-String (für
         // Row-Actions praktisch nicht erreichbar, Pfad differiert).
-        const stringified: Record<string, string | null> = {};
-        for (const [k, v] of Object.entries(params)) {
-          stringified[k] =
-            v === null || v === undefined ? null : Array.isArray(v) ? JSON.stringify(v) : String(v);
-        }
-        nav.setSearchParams(stringified);
+        nav.setSearchParams(stringifyNavParams(params));
       }
     },
     [nav, schema.screens, screen.entity],
@@ -1452,9 +1484,7 @@ function EntityListBody({
                 dispatcherErrorText(result.error, effectiveTranslate),
               );
             }
-            // Refetch — without a redirect nothing else remounts the screen,
-            // so the list would otherwise keep showing stale rows.
-            await rowsQuery.refetch();
+            await refreshRowsAfterWrite();
           },
           isVisible:
             writeActionVisible !== undefined
@@ -1463,7 +1493,7 @@ function EntityListBody({
         };
       })
       .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
-  }, [screen.rowActions, effectiveTranslate, dispatcher, runNavigate, rowsQuery.refetch]);
+  }, [screen.rowActions, effectiveTranslate, dispatcher, runNavigate, refreshRowsAfterWrite]);
 
   // ToolbarActions: Schema → Resolved-Form (analog rowActions).
   // navigate-kind → useNav().navigate({ screenId }), writeHandler-kind
@@ -1513,13 +1543,19 @@ function EntityListBody({
                 dispatcherErrorText(result.error, effectiveTranslate),
               );
             }
-            // Same refetch as rowActions above.
-            await rowsQuery.refetch();
+            await refreshRowsAfterWrite();
           },
         };
       })
       .filter((a: ToolbarActionButton | null): a is ToolbarActionButton => a !== null);
-  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch, openDrawer]);
+  }, [
+    screen.toolbarActions,
+    effectiveTranslate,
+    nav,
+    dispatcher,
+    refreshRowsAfterWrite,
+    openDrawer,
+  ]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -1752,16 +1788,13 @@ function ProjectionListBody({
           screenId: action.screen,
           ...(entityId !== undefined && entityId !== "" && { entityId }),
         });
+      } else {
+        return;
       }
       const params =
         action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined;
       if (params !== undefined) {
-        const stringified: Record<string, string | null> = {};
-        for (const [k, v] of Object.entries(params)) {
-          stringified[k] =
-            v === null || v === undefined ? null : Array.isArray(v) ? JSON.stringify(v) : String(v);
-        }
-        nav.setSearchParams(stringified);
+        nav.setSearchParams(stringifyNavParams(params));
       }
     },
     [nav],
@@ -1814,7 +1847,7 @@ function ProjectionListBody({
             );
           }
           // Same refetch as EntityListBody's rowActions above.
-          await rowsQuery.refetch();
+          await refetchAfterWrite(rowsQuery.refetch);
         },
         ...(writeVisible !== undefined && {
           isVisible: (row: ListRowViewModel) => evalFieldCondition(writeVisible, row.values),
@@ -1869,7 +1902,7 @@ function ProjectionListBody({
             );
           }
           // Same refetch as rowActions above.
-          await rowsQuery.refetch();
+          await refetchAfterWrite(rowsQuery.refetch);
         },
       });
     }
@@ -2057,16 +2090,7 @@ function ProjectionDetailBody({
           const params =
             action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
           if (params !== undefined) {
-            const stringified: Record<string, string | null> = {};
-            for (const [k, v] of Object.entries(params)) {
-              stringified[k] =
-                v === null || v === undefined
-                  ? null
-                  : Array.isArray(v)
-                    ? JSON.stringify(v)
-                    : String(v);
-            }
-            nav.setSearchParams(stringified);
+            nav.setSearchParams(stringifyNavParams(params));
           }
         };
         if (action.entity !== undefined) {
@@ -2262,14 +2286,19 @@ function ActionFormBody({
       // Author entscheidet bewusst ob "stay on form" (default) oder
       // "back to list" (typisch bei Create-style Aktionen).
       if (screen.redirect !== undefined) {
+        const targetId = lastSegment(screen.redirect);
+        const target = schema.screens.find((s) => lastSegment(s.id) === targetId);
         const entityId = extractCreatedId(result.data);
+        const carriesId =
+          target !== undefined &&
+          (target.type === "entityEdit" || target.type === "projectionDetail");
         nav.navigate({
-          screenId: lastSegment(screen.redirect),
-          ...(entityId !== undefined && { entityId }),
+          screenId: targetId,
+          ...(carriesId && entityId !== undefined && { entityId }),
         });
       }
     },
-    [nav, screen.redirect, onSuccess],
+    [nav, screen.redirect, onSuccess, schema.screens],
   );
   // Cancel ist nur sinnvoll wenn ein Navigations-Ziel existiert —
   // sonst hätte der Button nirgendwo hin zu navigieren. cancelTarget

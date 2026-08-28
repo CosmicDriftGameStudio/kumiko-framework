@@ -158,6 +158,8 @@ export {
   mergeTranslations,
   translationsByLocaleFromKeys,
   useLocale,
+  useOptionalLocale,
+  useOptionalTranslation,
   useTranslation,
 } from "./i18n";
 export { kumikoDefaultTranslations } from "./i18n-defaults";

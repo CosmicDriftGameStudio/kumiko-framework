@@ -396,7 +396,7 @@ describe("upgrade command — --apply", () => {
     expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
   });
 
-  test("breaking changes without a codemod field are reported as manual, no marker written", async () => {
+  test("breaking changes without a codemod field are reported as manual; marker still written", async () => {
     const cwd = tmp({
       "packages/framework/src/changes.json": breakingEntryWithCodemod(undefined),
     });
@@ -408,7 +408,10 @@ describe("upgrade command — --apply", () => {
 
     expect(exit).toBe(0);
     expect(spy.logs.join("\n")).toContain("no codemod, manual migration required");
-    expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
+    // Marker must be written so guard-upgrade-state is not stuck when only
+    // manuals/improvements remain (fw#2299 / #2308). Manuals stay pending via
+    // markerVersionForPending not advancing onto them when mixed with later work.
+    expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(true);
   });
 
   test("nothing pending: reports up to date, still bootstraps the marker", async () => {

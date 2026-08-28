@@ -1,6 +1,7 @@
 import type {
   EditFieldSpec,
   EditSectionSpec,
+  FieldIconKey,
   FieldRenderer,
   ListColumnSpec,
   PlatformComponent,
@@ -191,11 +192,8 @@ export type EditFieldViewModel = {
   /** Only for `type: "image"` — forwarded to the file input's `capture`
    *  attribute so a phone opens the camera instead of the file picker. */
   readonly capture?: "environment" | "user";
-  /** Prefix-icon key from `EditFieldSpec.icon`, passed through unchanged
-   *  (no i18n — it's a symbolic key, not a display string). The renderer
-   *  resolves it against the FIELD_ICONS registry; unknown keys silently
-   *  fall back to "no icon". */
-  readonly icon?: string;
+  /** Closed FieldIconKey from EditFieldSpec.icon (FIELD_ICONS registry). */
+  readonly icon?: FieldIconKey;
   /** Only set for an embedded-LIST field (`multiple: true`) — the per-cell
    *  metadata the renderer needs to draw each column/cell. Absent for a
    *  plain (non-list) embedded field. */

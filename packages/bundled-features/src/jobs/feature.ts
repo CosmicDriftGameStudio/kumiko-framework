@@ -56,7 +56,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     // Framework-provided rebuild job — available whenever `jobs` is composed; enqueueProjectionRebuild dispatches it.
     r.job(
       "projectionRebuild",
-      { trigger: { manual: true }, schema: projectionRebuildPayloadSchema },
+      { trigger: { manual: true }, concurrency: "skip", schema: projectionRebuildPayloadSchema },
       projectionRebuildJob,
     );
 
@@ -66,7 +66,12 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     // too, not just cron).
     r.job(
       "reindexEntity",
-      { trigger: { manual: true }, perTenant: true, schema: reindexEntityPayloadSchema },
+      {
+        trigger: { manual: true },
+        perTenant: true,
+        concurrency: "skip",
+        schema: reindexEntityPayloadSchema,
+      },
       reindexEntityJob,
     );
 

@@ -6,7 +6,11 @@
 // Chunked DELETE (default 1000/batch) keeps lock durations bounded, mirror
 // of sessions/handlers/cleanup.job.ts.
 
-import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type DbConnection,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   type AppContext,
   access,
@@ -19,10 +23,15 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { type StaleDraftRow, selectStaleDraftsBatch } from "../db/queries/cleanup";
-import { filterOwnedStorageKeys } from "../db/queries/owned-file-refs";
+import { filterOwnedFileRefs } from "../db/queries/owned-file-refs";
 import { formDraftExecutor } from "../executor";
 import { collectDraftFileRefKeys, releaseDraftFileRefs } from "../release-file-refs";
+
+const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
+  entityName: "fileRef",
+});
 
 export const FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY = "form-draft:config:retention-days";
 export const FORM_DRAFT_DEFAULT_RETENTION_DAYS = 30;
@@ -48,27 +57,15 @@ async function releaseRowFileRefs(
   // skip: no FileRefs in this row's blob — nothing to release.
   if (keys.length === 0) return;
   if (!fileProviderResolver) {
-    // skip: no resolver wired (files feature not mounted) — row still
-    // gets deleted below, but its FileRefs leak as storage orphans.
     log?.warn?.(
       `[form-draft:cleanup] tenant=${row.tenantId} has ${keys.length} FileRef(s) but no _fileProviderResolver is wired — row will be deleted without releasing storage`,
     );
-    // skip: warning already logged above — nothing more to do for this row.
+    // skip: no provider wired — cannot release storage; row deletion proceeds anyway.
     return;
   }
 
-  // Only storageKeys with a real file_refs row owned by this row's draft
-  // owner are releasable — `draft.values` is free-form JSON the owning user
-  // controls, so an unverified key could target someone else's file (see
-  // db/queries/owned-file-refs.ts). Not wrapped in try/catch: a query
-  // failure here (pool exhaustion, missing table) is a real error, not the
-  // "no provider resolvable" case below — let it propagate so the job retries.
-  //
-  // Create-mode draftKey (`${screenId}:new:${draftId}`) mints its draftId
-  // lazily on the first step-change — a file uploaded before that exists
-  // predates the draft row, so the insertedAt filter must not apply.
   const isCreateMode = row.draftKey.includes(":new:");
-  const ownedKeys = await filterOwnedStorageKeys(
+  const ownedRefs = await filterOwnedFileRefs(
     db,
     row.tenantId,
     row.ownerId,
@@ -76,10 +73,23 @@ async function releaseRowFileRefs(
     row.insertedAt,
     isCreateMode,
   );
-
+  const systemUser = createSystemUser(row.tenantId);
+  const tenantDb = createTenantDb(db, row.tenantId, "system");
+  for (const ref of ownedRefs) {
+    const forgetResult = await fileRefExecutor.forget({ id: ref.id }, systemUser, tenantDb);
+    if (!forgetResult.isSuccess) {
+      log?.warn?.(
+        `[form-draft:cleanup] fileRef.forget failed for id=${ref.id} tenant=${row.tenantId}`,
+      );
+    }
+  }
   try {
     const provider = await fileProviderResolver(row.tenantId);
-    await releaseDraftFileRefs(ownedKeys, (key) => provider.delete(key), log);
+    await releaseDraftFileRefs(
+      ownedRefs.map((ref) => ref.storageKey),
+      (key) => provider.delete(key),
+      log,
+    );
   } catch (err) {
     log?.warn?.(
       `[form-draft:cleanup] no file provider resolvable for tenant=${row.tenantId} — FileRefs NOT released (row still deleted): ${err instanceof Error ? err.message : String(err)}`,
@@ -132,9 +142,9 @@ async function deleteStaleDraftsBatch(
 }
 
 export const cleanupDraftsJob: JobHandlerFn = async (_payload, ctx) => {
-  if (!ctx.db || !ctx.registry) {
+  if (!ctx.db) {
     throw new InternalError({
-      message: "[form-draft:cleanup] ctx.db + ctx.registry required (JobContext incomplete)",
+      message: "[form-draft:cleanup] ctx.db required (JobContext incomplete)",
     });
   }
   const db = ctx.db as DbConnection;
@@ -163,6 +173,7 @@ export const cleanupDraftsJob: JobHandlerFn = async (_payload, ctx) => {
 
   let deleted = 0;
   while (true) {
+    if (ctx.signal?.aborted) break;
     const batch = await selectStaleDraftsBatch(db, retentionDays, DEFAULT_BATCH_SIZE);
     if (batch.length === 0) break;
 

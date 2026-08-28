@@ -193,7 +193,16 @@ describe("Input kind mapping", () => {
 
   test('kind="text" icon="not-a-real-key": unknown key → no icon, no padding', () => {
     render(
-      <Input id="i" name="i" kind="text" value="" icon="not-a-real-key" onChange={() => {}} />,
+      <Input
+        id="i"
+        name="i"
+        kind="text"
+        value=""
+        icon={
+          "not-a-real-key" as unknown as import("@cosmicdrift/kumiko-framework/ui-types").FieldIconKey
+        }
+        onChange={() => {}}
+      />,
     );
     const input = screen.getByRole("textbox");
     expect(input.className).not.toContain("pl-8");
@@ -201,7 +210,18 @@ describe("Input kind mapping", () => {
   });
 
   test('kind="text" icon="constructor": prototype-chain key → no icon, no padding', () => {
-    render(<Input id="i" name="i" kind="text" value="" icon="constructor" onChange={() => {}} />);
+    render(
+      <Input
+        id="i"
+        name="i"
+        kind="text"
+        value=""
+        icon={
+          "constructor" as unknown as import("@cosmicdrift/kumiko-framework/ui-types").FieldIconKey
+        }
+        onChange={() => {}}
+      />,
+    );
     const input = screen.getByRole("textbox");
     expect(input.className).not.toContain("pl-8");
     expect(document.querySelector("svg[aria-hidden='true']")).toBeNull();
@@ -1042,6 +1062,38 @@ describe("DataTable", () => {
       // onChange is undefined → EditableSwatch's onChange?.(...) is a no-op;
       // rendering itself must still succeed (no crash) with a stable value.
       expect((screen.getByTestId("edit-name") as HTMLInputElement).value).toBe("Alice");
+    });
+
+    test("plain cell still fires onRowClick when onCellChange is set (stopPropagation only on editable)", () => {
+      const onRowClick = mock();
+      const onCellChange = mock();
+      const cols = [
+        {
+          field: "name",
+          label: "Name",
+          type: "string",
+          sortable: false,
+        },
+        {
+          field: "edit",
+          label: "Edit",
+          type: "string",
+          sortable: false,
+          renderer: { react: { __component: "EditableSwatch" } },
+        },
+      ] as const;
+      render(
+        <ColumnRenderersProvider value={{ EditableSwatch }}>
+          <DataTable
+            columns={cols}
+            rows={[{ id: "r1", values: { name: "Alice", edit: "x" } }]}
+            onRowClick={onRowClick}
+            onCellChange={onCellChange}
+          />
+        </ColumnRenderersProvider>,
+      );
+      fireEvent.click(screen.getByTestId("cell-r1-name"));
+      expect(onRowClick).toHaveBeenCalled();
     });
 
     test("format-spec renderer ignores onCellChange — no crash, plain formatted text", () => {
