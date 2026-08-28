@@ -17,6 +17,7 @@ import {
   tagEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
+import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
 import {
   tierAssignmentAggregateId,
   tierAssignmentEntity,
@@ -349,6 +350,28 @@ export const seedScreenshotData: SeedFn = async (stack) => {
       { entityType: "note", entityId: DEMO_NOTE_ID, body: `Historical note entry ${i + 1}` },
       notesHistoryAuthor,
     );
+  }
+
+  // "seats" cap (cap-overview-caps.ts) counts tenant-membership rows. The
+  // admin's own membership (server.ts) already puts both tenants at 1, but
+  // that leaves the cap's default (neutral) tone unseeded on purpose — add
+  // enough extra members to land clearly under the 80% warn threshold
+  // (dev: 2/5 = 40%, beta: 3/20 = 15%), so all three CapUsageTone states
+  // (default/warn/danger) are visible in one dashboard alongside notes'
+  // 120% danger and tags' 80% warn. Synthetic userIds, same "fixture, not a
+  // real login" reasoning as seedApiTokens above — cap usage only counts
+  // rows, it never resolves the member's user record.
+  await seedTenantMembership(stack.db, {
+    userId: generateId(),
+    tenantId: devTenant,
+    roles: ["User"],
+  });
+  for (let i = 0; i < 2; i++) {
+    await seedTenantMembership(stack.db, {
+      userId: generateId(),
+      tenantId: betaTenant,
+      roles: ["User"],
+    });
   }
 
   // custom-fields + folders extension sections on note-edit.

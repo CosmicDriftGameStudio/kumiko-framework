@@ -202,13 +202,21 @@ export const APP_FEATURES = [
   // tiering + caps
   tierEngineFeature,
   capCounterFeature,
-  // cap-overview: read-only tier/usage visibility. Caps are two example
-  // entities this sample already mounts (notes-history, tags) — see
-  // cap-overview-caps.ts. Requires tenant (auto-mounted) + tier-engine +
-  // billing-foundation, all mounted above. `tiers` mirrors the keys
-  // cap-overview-caps.ts's per-tier limit maps use — without it the
-  // tenant-cap-list tier facet doesn't render at all (see screens.ts).
-  createCapOverviewFeature({ caps: CAP_OVERVIEW_CAPS, tiers: ["free", "pro"] }),
+  // cap-overview: read-only tier/usage visibility. Caps are three example
+  // entities this sample already mounts (notes-history, tags,
+  // tenant-membership) — see cap-overview-caps.ts. Requires tenant
+  // (auto-mounted) + tier-engine + billing-foundation, all mounted above.
+  // `tiers` mirrors the keys cap-overview-caps.ts's per-tier limit maps use
+  // — without it the tenant-cap-list tier facet doesn't render at all (see
+  // screens.ts). `listCaps` is explicit here rather than relying on
+  // feature.ts's default (first 3 caps) — the default is a slice, not
+  // "all", so it would silently drop caps again the moment a fourth one
+  // gets added to CAP_OVERVIEW_CAPS.
+  createCapOverviewFeature({
+    caps: CAP_OVERVIEW_CAPS,
+    tiers: ["free", "pro"],
+    listCaps: ["notes", "tags", "seats"],
+  }),
   capOverviewLabelsFeature,
 
   // feature-toggles (smoke-only runtime stub)
