@@ -38,3 +38,39 @@ export function variantSuffix(name: string, spec: VariantSpec): string {
   }
   return `${name}-${specHash(spec)}`;
 }
+
+// A full derivative-suffix segment is `<name>-<16 hex chars>` — mirrors
+// VARIANT_NAME_PATTERN (name grammar) + specHash's fixed 16-char slice.
+// Keep in sync with both if either changes.
+const DERIVATIVE_SUFFIX_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}-[0-9a-f]{16}$/i;
+
+// Mirrors deriveKey's own split so callers get the exact same base/ext this
+// key's derivatives were built from.
+function splitKey(key: string): { readonly base: string; readonly ext: string } {
+  const lastSlash = key.lastIndexOf("/");
+  const lastSegment = lastSlash === -1 ? key : key.slice(lastSlash + 1);
+  const lastDot = lastSegment.lastIndexOf(".");
+  if (lastDot === -1) return { base: key, ext: "" };
+  const base = key.slice(0, key.length - lastSegment.length + lastDot);
+  return { base, ext: lastSegment.slice(lastDot) };
+}
+
+// List-prefix that covers every derivative deriveKey() can produce for
+// `originalKey` — pass to FileStorageProvider.list() to enumerate candidates,
+// then filter with isDerivativeKeyOf before deleting any of them.
+export function derivativeListPrefix(originalKey: string): string {
+  return `${splitKey(originalKey).base}.`;
+}
+
+// True when `candidateKey` is a derivative deriveKey() could have produced
+// for `originalKey` — anchored to originalKey's own basename AND extension.
+// Without the extension anchor, a same-directory sibling original with a
+// different extension (a different file, possibly another user's) would
+// match on prefix alone and get swept into a forget/tenant-destroy delete.
+export function isDerivativeKeyOf(originalKey: string, candidateKey: string): boolean {
+  const { base, ext } = splitKey(originalKey);
+  const prefix = `${base}.`;
+  if (!candidateKey.startsWith(prefix) || !candidateKey.endsWith(ext)) return false;
+  const middle = candidateKey.slice(prefix.length, candidateKey.length - ext.length);
+  return DERIVATIVE_SUFFIX_PATTERN.test(middle);
+}

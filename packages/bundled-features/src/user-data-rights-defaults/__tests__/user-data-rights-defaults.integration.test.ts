@@ -13,7 +13,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { variantSuffix } from "@cosmicdrift/kumiko-framework/derivatives";
+import {
+  createInMemoryFileProvider,
+  deriveKey,
+  fileRefsTable,
+} from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
   type TestStack,
@@ -355,5 +360,113 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     ).resolves.toBeUndefined();
     const afterSecond = await fetchFileRefs(TENANT_A, "user-idem-files");
     expect(afterSecond).toHaveLength(0);
+  });
+});
+
+describe("S2.H2 :: fileRefDeleteHook — GDPR derivatives survive forget (issue #2461)", () => {
+  async function seedFileRefWithKey(
+    id: string,
+    tenantId: string,
+    insertedById: string,
+    storageKey: string,
+  ): Promise<void> {
+    await asRawClient(stack.db).unsafe(
+      `
+      INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, inserted_by_id)
+      VALUES ($1, $2, $3, 'photo.jpg', 'image/jpeg', 2048, $4)
+      ON CONFLICT (id) DO NOTHING
+    `,
+      [id, tenantId, storageKey, insertedById],
+    );
+  }
+
+  test('strategy="delete" removes the original AND its derivatives, but spares an unrelated same-prefix sibling', async () => {
+    const userId = "user-derivatives-files";
+    const originalKey = `derivatives-test/${uuid(501)}.jpg`;
+    const derivedKey = deriveKey(originalKey, variantSuffix("thumb", { maxEdge: 256 }));
+    // Same base as originalKey (only the extension differs) — a plain
+    // prefix-delete would sweep this up too; the grammar-anchored filter
+    // must not.
+    const siblingKey = `derivatives-test/${uuid(501)}.png`;
+
+    const provider = createInMemoryFileProvider();
+    await provider.write(originalKey, new Uint8Array([1]));
+    await provider.write(derivedKey, new Uint8Array([2]));
+    await provider.write(siblingKey, new Uint8Array([3]));
+
+    await seedFileRefWithKey(uuid(501), TENANT_A, userId, originalKey);
+
+    await fileRefDeleteHook(
+      {
+        db: stack.db,
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId,
+        buildStorageProvider: async () => provider,
+      },
+      "delete",
+    );
+
+    expect(await provider.exists(originalKey)).toBe(false);
+    expect(await provider.exists(derivedKey)).toBe(false);
+    expect(await provider.exists(siblingKey)).toBe(true);
+
+    const remaining = await fetchFileRefs(TENANT_A, userId);
+    expect(remaining).toHaveLength(0);
+  });
+
+  test('strategy="anonymize" leaves original AND derivative binaries untouched', async () => {
+    const userId = "user-anon-derivatives-files";
+    const originalKey = `derivatives-test/${uuid(502)}.jpg`;
+    const derivedKey = deriveKey(originalKey, variantSuffix("card", { maxEdge: 1024 }));
+
+    const provider = createInMemoryFileProvider();
+    await provider.write(originalKey, new Uint8Array([1]));
+    await provider.write(derivedKey, new Uint8Array([2]));
+
+    await seedFileRefWithKey(uuid(502), TENANT_A, userId, originalKey);
+
+    await fileRefDeleteHook(
+      {
+        db: stack.db,
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId,
+        buildStorageProvider: async () => provider,
+      },
+      "anonymize",
+    );
+
+    expect(await provider.exists(originalKey)).toBe(true);
+    expect(await provider.exists(derivedKey)).toBe(true);
+  });
+
+  test("a provider.list() failure (e.g. missing s3:ListBucket) throws a wrapped, actionable error instead of a raw provider error", async () => {
+    const userId = "user-list-fails-derivatives";
+    const originalKey = `derivatives-test/${uuid(503)}.jpg`;
+
+    const base = createInMemoryFileProvider();
+    await base.write(originalKey, new Uint8Array([1]));
+    const provider = {
+      ...base,
+      list: async () => {
+        throw new Error("AccessDenied");
+      },
+    };
+
+    await seedFileRefWithKey(uuid(503), TENANT_A, userId, originalKey);
+
+    await expect(
+      fileRefDeleteHook(
+        {
+          db: stack.db,
+          registry: stack.registry,
+          tenantId: TENANT_A,
+          userId,
+          buildStorageProvider: async () => provider,
+        },
+        "delete",
+      ),
+    ).rejects.toThrow(/list permission/);
   });
 });
