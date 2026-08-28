@@ -464,6 +464,7 @@ export function createInboundMailSupervisor(
     return "acquired";
   }
 
+  // kumiko-lint-ignore complexity-budget watch lifecycle (start/stop/restart) stays cohesive
   async function ensureWatcher(
     account: MailAccountRecord,
     plugin: InboundMailProviderPlugin,
