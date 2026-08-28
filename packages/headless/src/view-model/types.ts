@@ -264,6 +264,8 @@ export type EditExtensionSectionViewModel = {
   readonly title: string;
   readonly component: PlatformComponent;
   readonly contributesToFormSubmit: boolean;
+  /** Section-declared override — see `EditExtensionSection.entityName`. */
+  readonly entityName?: string;
 };
 
 // Mirrors EditRelatedListSection verbatim — no per-row/query resolution

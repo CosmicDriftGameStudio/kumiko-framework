@@ -141,7 +141,7 @@ function deriveFormFields<TValues extends FormValues, TCtx>(
 // hooks would punish reordering sections between renders).
 function ExtensionSectionMount({
   section,
-  entityName,
+  entityName: hostEntityName,
   entityId,
   initialValues,
   values,
@@ -179,7 +179,7 @@ function ExtensionSectionMount({
   return (
     <Section title={section.title} testId={`section-extension-${section.title}`}>
       <Component
-        entityName={entityName}
+        entityName={section.entityName ?? hostEntityName}
         entityId={entityId}
         initialValues={initialValues}
         values={values}

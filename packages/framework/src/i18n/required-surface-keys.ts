@@ -226,7 +226,10 @@ export function requiredKeysFromScreen(
     case "projectionDetail": {
       const detail = screen as ProjectionDetailScreenDefinition;
       for (const section of detail.layout.sections) {
-        if (isExtensionEditSection(section)) continue; // rejected at boot, unreachable here
+        if (isExtensionEditSection(section)) {
+          pushKey(out, section.title);
+          continue;
+        }
         if (section.kind === "relatedList") {
           pushKey(out, section.title);
           for (const col of section.columns) {
