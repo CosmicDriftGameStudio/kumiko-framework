@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.221.0
+
+### Patch Changes
+
+- 1656ff9: Security review batch: prototype-safe role ranks, prod KMS fail-closed scaffolding, payload-tenant occupancy latch, invite-accept reserved-role writeFailure, and related contract docs.
+- fab31bf: Fix tryHonoFirst masking a matched route's own deliberate 404 (e.g. default-deny reads) as the SPA shell with status 200. buildServer's `app.notFound()` now marks genuine router-misses with an internal-only header that tryHonoFirst — and every passthrough that bypasses it — uses to tell the two cases apart; the marker never reaches a client.
+
+  Closes #2435
+
+- Updated dependencies [1656ff9]
+  - @cosmicdrift/kumiko-types@0.221.0
+
 ## 0.220.1
 
 ### Patch Changes

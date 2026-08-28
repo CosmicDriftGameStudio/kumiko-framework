@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.221.0
+
+### Patch Changes
+
+- 1656ff9: Security review batch: prototype-safe role ranks, prod KMS fail-closed scaffolding, payload-tenant occupancy latch, invite-accept reserved-role writeFailure, and related contract docs.
+- Updated dependencies [1656ff9]
+- Updated dependencies [fab31bf]
+  - @cosmicdrift/kumiko-framework@0.221.0
+
 ## 0.220.1
 
 ### Patch Changes
