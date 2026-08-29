@@ -73,6 +73,7 @@ export function computeEditViewModel<
         title: translate(sectionSpec.title),
         component: sectionSpec.component,
         contributesToFormSubmit: sectionSpec.contributesToFormSubmit === true,
+        ...(sectionSpec.entityName !== undefined && { entityName: sectionSpec.entityName }),
       };
     }
     if (!isFieldsEditSection(sectionSpec)) {

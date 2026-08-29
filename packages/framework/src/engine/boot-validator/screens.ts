@@ -663,11 +663,37 @@ export function validateScreens(
       }
       for (const section of screen.layout.sections) {
         if (isExtensionEditSection(section)) {
-          throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) extension section ` +
-              `"${section.title}" is not supported — projectionDetail has no entity for an extension ` +
-              `section to persist against.`,
-          );
+          // projectionDetail is read-only (no composed form submit) — an
+          // extension that persists through the host's Save button has
+          // nothing to save against. Extensions that persist themselves
+          // (e.g. notes-history NotesSection, via their own dispatcher
+          // writes) are fine (solon#264).
+          if (section.contributesToFormSubmit === true) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) extension section ` +
+                `"${section.title}" sets contributesToFormSubmit: true, but projectionDetail has no ` +
+                `form submit to contribute to (read-only screen). Omit contributesToFormSubmit and ` +
+                `persist through the extension's own dispatcher writes instead.`,
+            );
+          }
+          if (section.component?.react === undefined && section.component?.native === undefined) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) extension section ` +
+                `"${section.title}" has no component — declare a react/native component marker.`,
+            );
+          }
+          // The host-derived entity name on projectionDetail is an internal
+          // placeholder (no real entity backs this screen) — a self-
+          // persisting extension needs the real domain entity name declared
+          // explicitly, or it silently reads/writes against the wrong type.
+          if (section.entityName === undefined || section.entityName.trim().length === 0) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) extension section ` +
+                `"${section.title}" has no entityName — projectionDetail has no real entity, so the ` +
+                `extension must declare entityName explicitly (the domain entity it persists against).`,
+            );
+          }
+          continue;
         }
         if (section.kind === "relatedList") {
           if (!section.query || typeof section.query !== "string") {

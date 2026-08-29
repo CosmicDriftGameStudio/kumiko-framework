@@ -133,10 +133,20 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  readOnly fields. */
   readonly valueDisplay?: "form" | "text";
   /** Suppresses every section's own title (fields-section header, relatedList
-   *  Section title) — for a host that already renders the section label
-   *  itself elsewhere (e.g. a tab strip whose label duplicates it).
-   *  Omitting this prop keeps unchanged behavior. */
+   *  Section title) AND the form's own top-level title/subtitle — for a host
+   *  that already renders that label itself elsewhere (e.g. a tab strip
+   *  whose label duplicates it, or a page-level header above RenderEdit).
+   *  Without this, the form's title (`screen:<id>.title` / `screen.id`)
+   *  renders unconditionally regardless of section-level suppression — a
+   *  host relying on this prop to fully own the heading otherwise sees a
+   *  redundant title above its content. Omitting this prop keeps unchanged
+   *  behavior. */
   readonly hideSectionTitles?: boolean;
+  /** Extra content rendered above the card, sharing its left padding and
+   *  width — for a host with its own header region (title/metrics/tabs)
+   *  that would otherwise render as unpadded siblings before RenderEdit.
+   *  Omitting this prop keeps unchanged behavior. */
+  readonly headerRegion?: ReactNode;
 };
 
 export type RenderEditAction = {

@@ -149,7 +149,31 @@ describe("r.screen() — registration", () => {
     expect(() => validateBoot(features)).toThrow(/zero fields/i);
   });
 
-  test("validateBoot rejects a projectionDetail with an extension section (no entity to persist against)", () => {
+  test("validateBoot rejects a projectionDetail extension section with contributesToFormSubmit: true (read-only screen, solon#264)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "extension",
+                title: "s",
+                component: { react: { __component: "c" } },
+                entityName: "lease",
+                contributesToFormSubmit: true,
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/no form submit to contribute to/i);
+  });
+
+  test("validateBoot rejects a projectionDetail extension section without entityName", () => {
     const features = [
       defineFeature("app", (r) => {
         r.screen({
@@ -164,7 +188,49 @@ describe("r.screen() — registration", () => {
         });
       }),
     ];
-    expect(() => validateBoot(features)).toThrow(/extension section/i);
+    expect(() => validateBoot(features)).toThrow(/has no entityName/i);
+  });
+
+  test("validateBoot rejects a projectionDetail extension section with no component", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [{ kind: "extension", title: "s", component: {}, entityName: "lease" }],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/has no component/i);
+  });
+
+  test("validateBoot boots a projectionDetail extension section without contributesToFormSubmit (self-persisting, solon#264)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          access: { openToAll: true },
+        });
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "extension",
+                title: "s",
+                component: { react: { __component: "c" } },
+                entityName: "lease",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
   });
 
   test("validateBoot rejects a projectionDetail relatedList section with an empty query (fw#2166)", () => {

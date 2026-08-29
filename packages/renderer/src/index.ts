@@ -192,6 +192,7 @@ export type {
   InputProps,
   LightboxProps,
   LinkProps,
+  MetricProps,
   ModalProps,
   PrimitivesProviderProps,
   PrimitivesRegistry,
