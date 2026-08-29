@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.227.0
+
+### Minor Changes
+
+- 5f157b6: `projectionDetail` screens can now declare `EditExtensionSection`s that persist through their own dispatcher writes (e.g. a notes/history block), motivated by solon#264 losing a hand-written `NotesSection` with no declarative equivalent. The boot-validator only rejects an extension section when `contributesToFormSubmit: true` — there is no form submit on a read-only detail screen. Extension sections can also declare `entityName` to override the host-derived value passed to the mounted component; on `projectionDetail` this is required, since the screen has no real entity to derive one from.
+
+### Patch Changes
+
+- d309e7d: Fixes `projectionDetail` record-layout polish (0.226.0 regression): the metrics band now renders through a new `Metric` core-primitive (compact, left-aligned, non-stretched tiles that wrap on narrow viewports) instead of naked `Text`, which had rendered label and value glued together with no visual hierarchy. The header/metrics/tab strip now share the record card's page padding and get visible vertical spacing between them, via a new `Form.headerRegion` slot. `hideSectionTitles` now also suppresses `RenderEdit`'s own top-level form title (previously only section titles were suppressed), fixing a duplicate heading above the active tab's content in `layout.mode: "tabs"`.
+
+  Also fixes fw#2518: navigating from one `projectionDetail` record to the next didn't remount the body, so the screen briefly showed the previous record's fields. `ProjectionDetailBody` is now keyed on the record identifier alone (never the active tab, so switching tabs doesn't refire the detail query).
+
+- Updated dependencies [5f157b6]
+  - @cosmicdrift/kumiko-headless@0.227.0
+  - @cosmicdrift/kumiko-framework@0.227.0
+
 ## 0.226.0
 
 ### Patch Changes
