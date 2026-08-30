@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-08-12
-evidence: "kumiko-framework#1954"
+verified: 2026-08-30
+evidence: "kumiko-framework#1954; framework#2461/#2475 (derivatives on user-forget); framework#2476 (tenant-destroy → fileRef forget)"
 ---
 
 # core-files: variant contract and security model
@@ -143,3 +143,18 @@ gatekeeping. This is a conscious deferred call, not an oversight — thresholds
 get picked once production numbers exist to pick them against, rather than
 guessed upfront. Apps that want a limit today read the counted row themselves
 and decide what to do with it (a warning banner, a soft-throttle, billing).
+
+## Lifecycle: derivatives on user-forget and tenant-destroy
+
+Derivatives follow the storage-gc lifecycle of their originals
+(`createFileDerivativesFeature`):
+
+- **user-forget** (DSGVO, fw#2461/#2475) deletes the **derivatives alongside the
+  originals** — no orphaned variant files survive an account erasure. This
+  backfills/GCs derivatives created before the wiring existed.
+- **tenant-destroy** is wired to `fileRef` forget (fw#2476) so destroying a
+  tenant releases its variant files too.
+
+If you add a new derivative MIME renderer or provider, keep it inside the
+`createFileDerivativesFeature` envelope so it inherits this lifecycle — a
+derivative registered outside the feature would escape both forget paths.

@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-07-11
-evidence: "kumiko-platform#353 (App-Mounting 2.0); Scaffold: kumiko add feature (dev-server)"
+verified: 2026-08-30
+evidence: "kumiko-platform#353 (App-Mounting 2.0); Scaffold: kumiko add feature (dev-server); framework#2509 (boot-validator outputSchema); framework#2501 (projectionDetail header/metrics/tabs)"
 ---
 
 # App-Feature-Struktur: die kanonische Ordner-Konvention
@@ -36,6 +36,11 @@ src/features/<name>/
   Pager), `dashboard` (stat/chart/list-Panels). `type: "custom"` ist die
   Ausnahme und braucht einen Allowlist-Tag
   (`// kumiko-lint-ignore app-feature-structure <Grund>`).
+- **Screen-Refs gegen outputSchema validiert**: `projectionList`-Columns,
+  `projectionDetail`-Header/Metrics und Dashboard-Stat-Felder werden vom
+  Boot-Validator gegen das `outputSchema` des Query-Handlers geprüft; paged
+  Handler müssen ihr Schema als Envelope `{ rows, nextCursor, total? }`
+  beschreiben. Siehe `docs/reference/boot-validator.md`.
 - **Kein `web.tsx`/`web.ts`-Monolith am Feature-Root** — Client-Definition und
   Screens leben unter `web/`.
 - **UI aus dem Framework**: Widgets (`StatCard`, `SectionCard`, `StatusBadge`,
