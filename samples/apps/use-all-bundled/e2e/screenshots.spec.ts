@@ -243,6 +243,18 @@ const SCENARIOS: readonly Scenario[] = [
     settleMs: 1000,
     fullPage: true,
   },
+  // cap-overview — tenant cap list: per-cap quota cards + usage bars on the
+  // /tenant-admin/my-caps screen ("Plans & Caps" in the admin sidebar).
+  {
+    name: "tenant-cap-list",
+    flow: async (page: Page) => {
+      await loginAsAdmin(page);
+      await page.goto("/tenant-admin/my-caps");
+      await page.getByTestId("cap-cards-panel").waitFor({ timeout: 15_000 });
+    },
+    settleMs: 1000,
+    fullPage: true,
+  },
   // auth-mfa — login-time challenge step (MfaVerifyScreen swapped in after
   // /auth/login answers mfaRequired). MUST run last — see comment above
   // adminMfaLoginChallenge.
