@@ -316,6 +316,8 @@ export type ToolbarAction =
 export type EntityListScreenDefinition = {
   readonly id: string;
   readonly type: "entityList";
+  readonly nav?: ScreenNavSugar;
+  readonly detailFor?: string;
   readonly entity: string;
   readonly columns: readonly ListColumnSpec[];
   // Row renderer (Desktop) — when omitted, renderer draws the default table
@@ -392,6 +394,8 @@ export type ListFacetSpec =
 export type ProjectionListScreenDefinition = {
   readonly id: string;
   readonly type: "projectionList";
+  readonly nav?: ScreenNavSugar;
+  readonly detailFor?: string;
   readonly query: string;
   readonly columns: readonly ListColumnSpec[];
   readonly rowRenderer?: PlatformComponent;
@@ -450,6 +454,8 @@ export type RecordHeaderSpec = {
 export type ProjectionDetailScreenDefinition = {
   readonly id: string;
   readonly type: "projectionDetail";
+  readonly nav?: ScreenNavSugar;
+  readonly detailFor?: string;
   readonly query: string;
   /** Query-payload key for the row-id. Default "id". */
   readonly idParam?: string;
@@ -616,6 +622,8 @@ export type DashboardFilterDefinition = {
 export type DashboardScreenDefinition = {
   readonly id: string;
   readonly type: "dashboard";
+  readonly nav?: ScreenNavSugar;
+  readonly detailFor?: string;
   readonly panels: readonly DashboardPanelDefinition[];
   readonly filter?: DashboardFilterDefinition;
   readonly slots?: ScreenSlots;
@@ -744,6 +752,8 @@ export type EditLayout = {
 export type EntityEditScreenDefinition = {
   readonly id: string;
   readonly type: "entityEdit";
+  readonly nav?: ScreenNavSugar;
+  readonly detailFor?: string;
   readonly entity: string;
   readonly layout: EditLayout;
   /** Optionaler i18n-Key (oder Roh-String) für den Submit-Button. Default
@@ -814,6 +824,8 @@ export type EntityEditScreenDefinition = {
 export type ActionFormScreenDefinition = {
   readonly id: string;
   readonly type: "actionForm";
+  readonly nav?: ScreenNavSugar;
+  readonly detailFor?: string;
   /** Write-Handler-QN der bei Submit gerufen wird. Form-Object landet
    *  1:1 als payload — Handler-Schema (Zod) validiert weiter. */
   readonly handler: string;
@@ -867,6 +879,8 @@ export type CustomScreenRoute = {
 export type CustomScreenDefinition = {
   readonly id: string;
   readonly type: "custom";
+  readonly nav?: ScreenNavSugar;
+  readonly detailFor?: string;
   readonly renderer: PlatformComponent;
   readonly routes?: readonly CustomScreenRoute[];
   /** Parent list screen for breadcrumb when this detail is not in nav. */
@@ -920,6 +934,8 @@ export type CustomScreenDefinition = {
 export type ConfigEditScreenDefinition = {
   readonly id: string;
   readonly type: "configEdit";
+  readonly nav?: ScreenNavSugar;
+  readonly detailFor?: string;
   /** scope für config:write:set Calls. Muss zur Scope-Deklaration der
    *  in `configKeys` referenzierten Keys passen — Boot-Validator
    *  prüft das gegen die Registry. */
@@ -973,14 +989,20 @@ export type ScreenNavSugar = {
   readonly order?: number;
 };
 
-// `detailFor` sits on the intersection, not on one variant, because any
-// screen kind can be the detail view for an entity — including `custom`:
-// in app repos, detail screens are overwhelmingly custom screens today
-// (projectionDetail doesn't carry entity semantics). Value is an entity
-// name in the same (unqualified, globally-unique) form as `entity` on
-// `EntityListScreenDefinition` (screen.ts:259-262) — entities are never
-// feature-prefixed, so there's no separate qualification step.
-export type ScreenDefinition = (
+// `nav`/`detailFor` live directly on every variant (not only via this
+// union) so a screen typed as its own concrete kind — e.g. `const screen:
+// CustomScreenDefinition = {...}` in a module split out of `feature.ts` —
+// still accepts both fields; a union-only intersection drops them the
+// moment a caller narrows to one member.
+//
+// `detailFor` applies to any screen kind because any kind can be the
+// detail view for an entity — including `custom`: in app repos, detail
+// screens are overwhelmingly custom screens today (projectionDetail
+// doesn't carry entity semantics). Value is an entity name in the same
+// (unqualified, globally-unique) form as `entity` on
+// `EntityListScreenDefinition` — entities are never feature-prefixed, so
+// there's no separate qualification step.
+export type ScreenDefinition =
   | EntityListScreenDefinition
   | ProjectionListScreenDefinition
   | ProjectionDetailScreenDefinition
@@ -988,5 +1010,4 @@ export type ScreenDefinition = (
   | EntityEditScreenDefinition
   | ActionFormScreenDefinition
   | ConfigEditScreenDefinition
-  | CustomScreenDefinition
-) & { readonly nav?: ScreenNavSugar; readonly detailFor?: string };
+  | CustomScreenDefinition;

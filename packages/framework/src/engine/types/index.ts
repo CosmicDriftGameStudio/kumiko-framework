@@ -84,6 +84,8 @@ export type {
   UiHintOption,
   UiHints,
 } from "@cosmicdrift/kumiko-types/feature";
+// Closed field-icon vocabulary — used by `EditFieldSpec.icon`.
+export type { FieldIconKey } from "@cosmicdrift/kumiko-types/field-icon";
 export type {
   AnyFileFieldDef,
   BigIntFieldDef,
@@ -267,6 +269,7 @@ export type {
   EditFieldSpec,
   EditFieldsSection,
   EditLayout,
+  EditRelatedListSection,
   EditSectionSpec,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
@@ -274,19 +277,28 @@ export type {
   FieldFormatRegistry,
   FieldRenderer,
   FormatSpec,
+  FormWidth,
   ListColumnSpec,
   ListFacetSpec,
+  ListPaginationMode,
+  ListSortDir,
+  ListSortSpec,
   PlatformComponent,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
+  RecordHeaderSpec,
   RowAction,
   RowActionNavigate,
+  RowActionNavigateBase,
   RowActionWriteHandler,
+  RowFieldExtractor,
   ScreenDefinition,
   ScreenFilter,
   ScreenFilterOp,
+  ScreenNavSugar,
   ScreenSlots,
   ToolbarAction,
+  UnitKey,
 } from "@cosmicdrift/kumiko-types/screen";
 export type { TargetRef } from "@cosmicdrift/kumiko-types/target-ref";
 export type {
