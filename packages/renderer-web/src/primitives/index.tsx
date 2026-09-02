@@ -127,7 +127,8 @@ const cardSurface = cva(
     defaultVariants: { radius: "xl" },
   },
 );
-const cardFooter = "flex items-center justify-end gap-2 px-[var(--card-padding)] py-4";
+// Wraps instead of running off-screen when the row outgrows its container (fw#2528).
+const cardFooter = "flex flex-wrap items-center justify-end gap-2 px-[var(--card-padding)] py-4";
 const cardFooterBorder = "border-t bg-muted/30";
 
 // ---- Button (vendored shadcn ui/button) ----
@@ -1699,9 +1700,10 @@ function DefaultForm({
               "[&>section:not(:first-child)]:border-t",
               "[&>:not(section)]:px-6 [&>:not(section)]:py-3",
               "[&>:not(section):first-child]:pt-6 [&>:not(section):last-child]:pb-6",
-              // ponytail: fixed footer height is a guess (button row + safe-area) —
-              // widen if a wizard step's last field ever renders visibly clipped.
-              stickyActions === true && "max-sm:pb-24",
+              // ponytail: fixed footer height is a guess (two wrapped button rows +
+              // safe-area, fw#2528) — widen further if a wizard step's last field
+              // ever renders visibly clipped under three or more wrapped rows.
+              stickyActions === true && "max-sm:pb-32",
             )}
           >
             <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>

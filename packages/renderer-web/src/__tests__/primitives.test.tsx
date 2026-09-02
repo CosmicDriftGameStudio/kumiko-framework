@@ -1203,8 +1203,9 @@ describe("Form", () => {
     );
     const actionsFooter = screen.getByTestId("form-actions");
     expect(actionsFooter.className).toContain("max-sm:fixed");
+    expect(actionsFooter.className).toContain("flex-wrap");
     const contentContainer = actionsFooter.previousElementSibling as HTMLElement;
-    expect(contentContainer.className).toContain("max-sm:pb-24");
+    expect(contentContainer.className).toContain("max-sm:pb-32");
   });
 
   test("ohne stickyActions: Footer bleibt im normalen Dokumentfluss", () => {
@@ -1215,8 +1216,12 @@ describe("Form", () => {
     );
     const actionsFooter = screen.getByTestId("form-actions");
     expect(actionsFooter.className).not.toContain("max-sm:fixed");
+    // Shared cardFooter constant — this asserts the wrap fix (fw#2528) on the
+    // plain (non-sticky) footer, which also covers Section/Card since they
+    // render the same constant.
+    expect(actionsFooter.className).toContain("flex-wrap");
     const contentContainer = actionsFooter.previousElementSibling as HTMLElement;
-    expect(contentContainer.className).not.toContain("max-sm:pb-24");
+    expect(contentContainer.className).not.toContain("max-sm:pb-32");
   });
 });
 

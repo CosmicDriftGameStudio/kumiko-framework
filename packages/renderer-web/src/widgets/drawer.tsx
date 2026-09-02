@@ -13,7 +13,7 @@ import { DrawerSheetContent } from "./sheet-parts";
 // equivalent classes are inlined here rather than growing the vendored
 // SheetFooter's own default className with panel-specific styling.
 const DRAWER_FOOTER_CLASS =
-  "flex-row items-center justify-end border-t bg-background px-[var(--card-padding)] py-4";
+  "flex-row flex-wrap items-center justify-end border-t bg-background px-[var(--card-padding)] py-4";
 
 export type DrawerProps = {
   readonly open: boolean;
