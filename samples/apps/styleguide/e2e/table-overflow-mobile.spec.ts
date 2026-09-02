@@ -130,4 +130,22 @@ test.describe("desktop (>= md)", () => {
     // actions cell along with the row content — x would shift left.
     expect(xScrolledFull).toBe(xAtRest);
   });
+
+  // Root cause: the vendored SidebarInset (packages/renderer-web/src/ui/
+  // sidebar.tsx) is `flex-1` with no min-width override — a flex row child
+  // never shrinks below its content's intrinsic width by default. A wide
+  // screen (like item-list-wide's table) then grows the inset, and with it
+  // the whole sidebar row, past the viewport — the PAGE scrolls horizontally
+  // instead of the table's own overflow-auto container. Fixed via min-w-0
+  // in fill-classes.ts (shared by DefaultAppShell and WorkspaceShell), not
+  // by hand-editing the vendored file.
+  test("item-list-wide at 900px: the page itself never scrolls horizontally", async ({ page }) => {
+    await page.goto("/item-list-wide");
+    await expect(page.getByText("Demo item #1")).toBeVisible();
+
+    const pageOverflowsHorizontally = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(pageOverflowsHorizontally).toBe(false);
+  });
 });
