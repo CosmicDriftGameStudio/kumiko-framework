@@ -718,11 +718,14 @@ function DefaultDataTable({
               {hasTableActions && (
                 <TableHead
                   data-testid="column-actions"
-                  // sticky right-0 + bg-muted (= header tone) so the action
-                  // column stays at the right edge during horizontal scroll.
-                  // No border-l: a permanent divider looks heavy; the sticky
-                  // bg already sets the column apart during scroll anyway.
-                  className="sticky right-0 z-10 w-px bg-muted text-right text-muted-foreground"
+                  // From md: sticky right-0 + bg-muted (= header tone) so the
+                  // action column stays at the right edge during horizontal
+                  // scroll on wider screens. Below md, actions scroll in
+                  // normal flow — sticky there would pin the column over the
+                  // preceding data column instead of the (already narrow)
+                  // page edge. No border-l: a permanent divider looks heavy;
+                  // the sticky bg already sets the column apart during scroll.
+                  className="w-px text-right text-muted-foreground md:sticky md:right-0 md:z-10 md:bg-muted"
                   aria-label="Actions"
                 />
               )}
@@ -767,10 +770,13 @@ function DefaultDataTable({
                 {hasTableActions && (
                   <TableCell
                     data-testid={getCellTestId?.(row, "actions") ?? `cell-${row.id}-actions`}
-                    // Sticky-right so the actions stay visible on the right
-                    // edge during horizontal scroll. bg-background sets the
-                    // column apart during scroll — no border-l (divider too heavy).
-                    className="sticky right-0 z-10 bg-background text-right"
+                    // From md: sticky-right so the actions stay visible on the
+                    // right edge during horizontal scroll. Below md, actions
+                    // scroll with the row like any other cell — sticky there
+                    // would hide the neighboring data column on narrow
+                    // viewports. bg-background sets the column apart during
+                    // scroll — no border-l (divider too heavy).
+                    className="text-right md:sticky md:right-0 md:z-10 md:bg-background"
                     // Action-cell events must not trigger the row click/activation
                     // (typically "Open Detail" — the user wanted the action,
                     // not navigation). We stopPropagation for mouse and
