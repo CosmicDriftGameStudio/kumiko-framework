@@ -916,12 +916,27 @@ describe("perTenant across multiple runner instances", () => {
       queueNamePrefix,
       getActiveTenantIds,
     });
+    // Query BullMQ directly rather than inferring dedup from log ratios —
+    // wrapperCalls is incremented by every wrapper run, so a ratio against
+    // it stays constant whether the wrapper fired once or twice per tick.
+    const rawQueue = new Queue(`${queueNamePrefix}-worker`, {
+      connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
+    });
+    // A post-close 'error' here is otherwise unhandled and bun:test
+    // attributes it to whichever test runs next (fw#1805).
+    rawQueue.on("error", () => {});
     try {
       // Both instances call start() → both call upsertJobScheduler() with
       // the SAME schedulerId against the SAME Redis. If that didn't dedup,
-      // wrapperCalls would run away independently of the invariant below.
+      // there would be two scheduler entries and two independent repeat
+      // timers driving the tick below.
       await runnerA.start();
       await runnerB.start();
+      // The actual once-per-tick proof: exactly one scheduler entry exists
+      // for this job in Redis, regardless of how many runner instances
+      // called upsertJobScheduler() against it. Two entries here means two
+      // independent repeat timers, which would double-fire every tick.
+      expect(await rawQueue.getJobSchedulersCount()).toBe(1);
       await waitFor(() => expect(wrapperCalls).toBeGreaterThanOrEqual(1), {
         delays: [2000, 3000, 5000],
       });
@@ -931,15 +946,15 @@ describe("perTenant across multiple runner instances", () => {
       // many ticks slipped in before stop() took effect.
       await runnerA.stop();
       await runnerB.stop();
+      await rawQueue.close();
     }
     await sleep(300); // let any in-flight children land
 
-    // The invariant that would break if the scheduler fired once PER
-    // instance: two independent repeat timers would each fan out their own
-    // tenants.length children per tick, doubling this count relative to
-    // wrapperCalls. Holding exactly `wrapperCalls * tenants.length` — for
-    // however many ticks actually happened — proves one wrapper run per
-    // tick, not per instance.
+    // Secondary sanity check only — this ratio holds whether the wrapper
+    // fired once or twice per tick (wrapperCalls scales with it either
+    // way), so it does not by itself prove the once-per-tick invariant.
+    // It only confirms each wrapper run that did happen fanned out to
+    // every tenant exactly once.
     expect(log.length).toBe(wrapperCalls * tenants.length);
     const seenTenants = log.map((e) => e.tenantId).sort();
     const expectedTenants = Array.from({ length: wrapperCalls }, () => tenants)
