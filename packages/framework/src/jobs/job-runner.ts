@@ -70,6 +70,24 @@ function legacySchedulerIdForJobName(jobName: string): string {
   return `scheduler-${jobName.replace(/\./g, "-")}`;
 }
 
+// Deterministic per-tenant child job id, derived from the perTenant
+// wrapper's own BullMQ job id. A cron tick's wrapper id is
+// `repeat:<schedulerId>:<millis>` (stable for that tick, including across
+// BullMQ's own retry/stalled-job redelivery of the *same* job); a manual
+// dispatch's wrapper id is BullMQ's auto-generated id, equally stable
+// across retries of that job. Reusing it means a wrapper that runs twice
+// for the same trigger (retry after failure, a Redis drop, an instance
+// restarting mid-run) re-derives the *same* child ids, and BullMQ's
+// existing-jobId add() no-ops the second batch instead of creating
+// duplicates — the same dedup-on-id mechanism bootJobIdForJobName already
+// relies on above. Same colon-in-BullMQ-id hazard as schedulerIdForJobName
+// (fw#1603/#1604) — the wrapper id already contains ":", so strip
+// separators from both halves before joining instead of interpolating raw.
+function perTenantChildJobId(wrapperJobId: string, tenantId: string): string {
+  const sanitize = (value: string) => value.replace(/[.:]/g, "-");
+  return `child-${sanitize(wrapperJobId)}-${sanitize(tenantId)}`;
+}
+
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
   message: string;
@@ -399,8 +417,21 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       }
       const tenantIds = await getActiveTenantIds();
       const targetQueue = queues[laneForJob(actualDef)];
+      // wrapperJobId is only absent for a Job BullMQ somehow never assigned
+      // an id to (not observed in practice) — falling back to a constant
+      // there would collide every such run's children onto the same ids
+      // and silently swallow later runs as "duplicates", which is worse
+      // than the duplicate this is meant to prevent. Skip id-based dedup
+      // for that edge case instead: enqueue plainly, same as before.
+      const wrapperJobId = bullJob.id;
       for (const tenantId of tenantIds) {
-        await targetQueue.add(actualName, { ...bullJob.data, _tenantId: tenantId });
+        await targetQueue.add(
+          actualName,
+          { ...bullJob.data, _tenantId: tenantId },
+          wrapperJobId !== undefined
+            ? { jobId: perTenantChildJobId(wrapperJobId, tenantId) }
+            : undefined,
+        );
       }
       // skip: fan-out dispatcher job, per-tenant children enqueued
       return;

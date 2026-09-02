@@ -1012,6 +1012,125 @@ describe("perTenant across multiple runner instances", () => {
   });
 });
 
+// A perTenant wrapper's own BullMQ job id is reused to derive each child's
+// job id (see perTenantChildJobId in job-runner.ts) — a wrapper that runs
+// twice for the SAME trigger (retry after failure, a Redis drop, an
+// instance restarting mid-run) must not double the fan-out, while two
+// DIFFERENT triggers (e.g. two cron ticks) must each still fan out fully.
+// These are the two failure modes on either side of that invariant.
+describe("perTenant wrapper re-run for the same trigger", () => {
+  test("a wrapper that fires twice for the same trigger still enqueues exactly one child per tenant", async () => {
+    const log: Array<{ tenantId: string }> = [];
+    const dedupFeature = defineFeature("multidedup", (r) => {
+      r.job("fanout", { trigger: { manual: true }, perTenant: true }, async (_payload, ctx) => {
+        log.push({ tenantId: String(ctx.systemUser.tenantId) });
+      });
+    });
+
+    const tenants = ["dedup-a", "dedup-b", "dedup-c"] as TenantId[];
+    const getActiveTenantIds = async () => tenants;
+    const registry = createRegistry([dedupFeature]);
+    const queueNamePrefix = `kumiko-test-dedup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const runner = createJobRunner({
+      registry,
+      context: {},
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      getActiveTenantIds,
+    });
+    const rawQueue = new Queue(`${queueNamePrefix}-worker`, {
+      connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
+    });
+    // A post-close 'error' here is otherwise unhandled and bun:test
+    // attributes it to whichever test runs next (fw#1805).
+    rawQueue.on("error", () => {});
+
+    const wrapperJobId = "fixed-wrapper-run";
+    try {
+      await runner.start();
+
+      // First run of the wrapper for this trigger — the real Worker picks
+      // it up and fans out one child per tenant.
+      await rawQueue.add("_perTenant:multidedup:job:fanout", {}, { jobId: wrapperJobId });
+      await waitFor(() => expect(log.length).toBe(tenants.length), {
+        delays: [200, 300, 500, 1000],
+      });
+
+      // Simulate the SAME trigger firing the wrapper a second time. Remove
+      // the now-completed wrapper's bookkeeping and re-add a genuinely
+      // separate Job with the SAME id, so handleJob() runs again with the
+      // identical bullJob.id — the actual "wrapper ran twice" scenario the
+      // deterministic child id is meant to cover.
+      const completedWrapper = await rawQueue.getJob(wrapperJobId);
+      await completedWrapper?.remove();
+      await rawQueue.add("_perTenant:multidedup:job:fanout", {}, { jobId: wrapperJobId });
+
+      // Give the second run's fan-out a chance to land. It re-derives the
+      // SAME child ids as the first run, so BullMQ's existing-jobId add()
+      // should return the already-completed children rather than re-run
+      // the handler.
+      await sleep(500);
+    } finally {
+      await runner.stop();
+      await rawQueue.close();
+    }
+
+    expect(log.length).toBe(tenants.length);
+    expect(log.map((e) => e.tenantId).sort()).toEqual([...tenants].sort());
+  });
+
+  test("two consecutive cron ticks each still enqueue one child per tenant", async () => {
+    const log: Array<{ tenantId: string }> = [];
+    const cronFeature = defineFeature("multidedupcron", (r) => {
+      r.job(
+        "fanout",
+        { trigger: { cron: "* * * * * *" }, perTenant: true },
+        async (_payload, ctx) => {
+          log.push({ tenantId: String(ctx.systemUser.tenantId) });
+        },
+      );
+    });
+
+    const tenants = ["dedup-cron-a", "dedup-cron-b"] as TenantId[];
+    let wrapperCalls = 0;
+    const getActiveTenantIds = async () => {
+      wrapperCalls++;
+      return tenants;
+    };
+    const registry = createRegistry([cronFeature]);
+    const queueNamePrefix = `kumiko-test-dedup-cron-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const runner = createJobRunner({
+      registry,
+      context: {},
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      getActiveTenantIds,
+    });
+    try {
+      await runner.start();
+      // Two distinct ticks get two distinct repeat-job ids (different
+      // millis) — each must still produce its own full batch of children;
+      // a wrongly cross-tick dedup would collapse the second tick's log
+      // entries into the first.
+      await waitFor(() => expect(wrapperCalls).toBeGreaterThanOrEqual(2), {
+        delays: [1500, 2000, 3000],
+      });
+    } finally {
+      await runner.stop();
+    }
+    await sleep(300); // let any in-flight children land
+
+    expect(log.length).toBe(wrapperCalls * tenants.length);
+    const seenTenants = log.map((e) => e.tenantId).sort();
+    const expectedTenants = Array.from({ length: wrapperCalls }, () => tenants)
+      .flat()
+      .sort();
+    expect(seenTenants).toEqual(expectedTenants);
+  });
+});
+
 describe("handleEvent maxPerTenant", () => {
   test("skips enqueue when tenant is already at the cap", async () => {
     clearLog();
