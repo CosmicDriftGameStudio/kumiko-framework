@@ -8,7 +8,7 @@ import { extractTableInfo } from "../db/query";
 import { createRegistry } from "../engine/registry";
 import type { AppContext, FeatureDefinition, JobRunIn, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
-import { createJobRunner, type JobRunner } from "../jobs";
+import { createJobRunner, type JobRunner, type JobRunnerOptions } from "../jobs";
 import type { Lifecycle } from "../lifecycle";
 import { createNoopProvider, type ObservabilityProvider } from "../observability";
 import type { Dispatcher, EventDispatcher } from "../pipeline";
@@ -154,6 +154,12 @@ export type TestStackOptions = {
   jobs?: {
     consumerLane?: JobRunIn;
     queueNamePrefix?: string;
+    /** Source of active tenant ids for `perTenant: true` jobs. Omit when the
+     *  tenant feature is among `options.features` — the framework then
+     *  resolves tenants on its own via that feature's active-tenant-ids
+     *  query, same as prod. Only needed for suites that fan a job over
+     *  tenants without mounting the tenant feature. */
+    getActiveTenantIds?: JobRunnerOptions["getActiveTenantIds"];
   };
   /** Override the event dispatcher's polling-timer interval. Default 50ms.
    *  Tests that assert LISTEN/NOTIFY wake-up latency need this pushed far
@@ -321,6 +327,9 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       ...(options.jobs.consumerLane !== undefined && { consumerLane: options.jobs.consumerLane }),
       ...(options.jobs.queueNamePrefix !== undefined && {
         queueNamePrefix: options.jobs.queueNamePrefix,
+      }),
+      ...(options.jobs.getActiveTenantIds !== undefined && {
+        getActiveTenantIds: options.jobs.getActiveTenantIds,
       }),
     });
   }
