@@ -119,6 +119,7 @@ import {
   createSeedMigrationContext,
   runPendingSeedMigrations,
 } from "@cosmicdrift/kumiko-framework/es-ops";
+import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
@@ -539,6 +540,11 @@ export type RunProdAppOptions = {
   readonly jobs?: {
     /** BullMQ-Queue-Prefix (default "kumiko"). */
     readonly queueNamePrefix?: string;
+    /** Source of active tenant ids for `perTenant: true` jobs. Omit when the
+     *  tenant feature is mounted — the framework then resolves tenants on
+     *  its own via that feature's active-tenant-ids query. Only needed when
+     *  the app manages tenants outside that feature. */
+    readonly getActiveTenantIds?: JobRunnerOptions["getActiveTenantIds"];
   };
   /** Event-Dispatcher (MSP-Anwendung) im API-Process. Default AN —
    *  runProdApp ist das Single-Container-Deployment, es gibt keinen
@@ -1144,6 +1150,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         redisUrl,
         ...jobLogger,
         ...(queueNamePrefix !== undefined && { queueNamePrefix }),
+        ...(options.jobs?.getActiveTenantIds !== undefined && {
+          getActiveTenantIds: options.jobs.getActiveTenantIds,
+        }),
         ...(!options.eventDispatcher?.disabled && { eventDispatcher: dispatcherTunables }),
       })
     : createApiEntrypoint({
@@ -1154,6 +1163,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
             runLocalJobs: true,
             ...jobLogger,
             ...(queueNamePrefix !== undefined && { queueNamePrefix }),
+            ...(options.jobs?.getActiveTenantIds !== undefined && {
+              getActiveTenantIds: options.jobs.getActiveTenantIds,
+            }),
           },
         }),
       });

@@ -27,6 +27,7 @@ import {
 } from "../observability";
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock";
 import { RedisKeys } from "../pipeline/redis-keys";
+import { bridgeStub } from "../testing/handler-context";
 
 // Queue-name convention: <prefix>-<lane>. The prefix is fixed in prod
 // ("kumiko-jobs") — it must match between enqueuers and consumers, and an
@@ -37,6 +38,15 @@ const DEFAULT_QUEUE_NAME_PREFIX = "kumiko-jobs";
 function queueNameFor(prefix: string, lane: JobRunIn): string {
   return `${prefix}-${lane}`;
 }
+
+// perTenant jobs need a source of truth for "which tenants are active" —
+// see createJobRunner's defaultGetActiveTenantIds below. The tenant feature
+// (bundled-features package) registers a query under this exact name when
+// mounted. framework must not depend on bundled-features (wrong direction —
+// bundled-features already depends on framework), so this is a name-only
+// coupling: createJobRunner looks the handler up in the registry by string
+// instead of importing it.
+const ACTIVE_TENANT_IDS_QUERY_NAME = "tenant:query:active-tenant-ids";
 
 /**
  * BullMQ job ids are `repeat:<schedulerId>:<millis>`. Colons inside the
@@ -237,6 +247,38 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // is true keeps those out of error-rate alerts without losing them.
   let stopping = false;
 
+  // Default for perTenant fan-out when the caller didn't supply
+  // options.getActiveTenantIds: if the tenant feature is mounted (its
+  // active-tenant-ids query is in the registry), resolve tenants through
+  // that instead of forcing every app to wire the option by hand. Same
+  // hand-built-context pattern delivery-service.ts uses to invoke a
+  // registered handler without a live dispatcher — no dispatcher exists yet
+  // at createJobRunner() time, and this call runs with system-level access
+  // by construction, so going through the dispatcher's per-request identity
+  // checks would add nothing.
+  function defaultGetActiveTenantIds(): (() => Promise<TenantId[]>) | undefined {
+    const handler = registry.getQueryHandler(ACTIVE_TENANT_IDS_QUERY_NAME);
+    const db = context.db as DbConnection | undefined; // @cast-boundary db-operator
+    if (!handler || !db) return undefined;
+    return async () => {
+      const systemUser = createSystemUser(SYSTEM_TENANT_ID);
+      const systemModeDb = createTenantDb(db, SYSTEM_TENANT_ID, "system");
+      const result = await handler.handler(
+        { type: ACTIVE_TENANT_IDS_QUERY_NAME, payload: {}, user: systemUser },
+        {
+          db: systemModeDb,
+          dbOutsideTransaction: systemModeDb,
+          systemDb: createUncheckedSystemDb(systemModeDb),
+          registry,
+          ...bridgeStub(),
+        },
+      );
+      // @cast-boundary engine-payload — generic query-handler return for typed convention
+      return result as TenantId[];
+    };
+  }
+  const getActiveTenantIds = options.getActiveTenantIds ?? defaultGetActiveTenantIds();
+
   const allJobs = registry.getAllJobs();
 
   // Resolve the lane for a job — "worker" is the default because that's the
@@ -344,14 +386,18 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // (it's picked up by this runner's own worker).
     if (rawName.startsWith("_perTenant:")) {
       const actualName = rawName.slice("_perTenant:".length);
-      if (!options.getActiveTenantIds) {
-        throw new Error(`perTenant job "${actualName}" requires getActiveTenantIds option`);
+      if (!getActiveTenantIds) {
+        throw new Error(
+          `perTenant job "${actualName}" requires either options.getActiveTenantIds or the ` +
+            `tenant feature mounted (it registers "${ACTIVE_TENANT_IDS_QUERY_NAME}", which the ` +
+            "framework uses to resolve active tenants on its own)",
+        );
       }
       const actualDef = allJobs.get(actualName);
       if (!actualDef) {
         throw new Error(`Unknown job: ${actualName}`);
       }
-      const tenantIds = await options.getActiveTenantIds();
+      const tenantIds = await getActiveTenantIds();
       const targetQueue = queues[laneForJob(actualDef)];
       for (const tenantId of tenantIds) {
         await targetQueue.add(actualName, { ...bullJob.data, _tenantId: tenantId });

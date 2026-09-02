@@ -39,6 +39,7 @@ import {
   createWorkerEntrypoint,
   type WorkerEntrypoint,
 } from "@cosmicdrift/kumiko-framework/entrypoint";
+import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
@@ -113,6 +114,11 @@ export type RunWorkerAppOptions = {
   readonly allowPlaintextPii?: string;
   readonly jobs?: {
     readonly queueNamePrefix?: string;
+    /** Source of active tenant ids for `perTenant: true` jobs (see
+     *  RunProdAppOptions["jobs"]["getActiveTenantIds"]) — identical
+     *  semantics, framework falls back to the tenant feature's own
+     *  active-tenant-ids query when omitted. */
+    readonly getActiveTenantIds?: JobRunnerOptions["getActiveTenantIds"];
   };
   /** Tuning knobs for the event-dispatcher loop (pollIntervalMs, pgClient
    *  for LISTEN/NOTIFY). */
@@ -283,6 +289,9 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
     ...jobLogger,
     ...(options.jobs?.queueNamePrefix !== undefined && {
       queueNamePrefix: options.jobs.queueNamePrefix,
+    }),
+    ...(options.jobs?.getActiveTenantIds !== undefined && {
+      getActiveTenantIds: options.jobs.getActiveTenantIds,
     }),
     ...(options.eventDispatcher && { eventDispatcher: options.eventDispatcher }),
   });

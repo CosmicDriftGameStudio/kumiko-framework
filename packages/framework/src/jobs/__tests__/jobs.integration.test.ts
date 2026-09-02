@@ -865,6 +865,153 @@ describe("error handling", () => {
   });
 });
 
+// --- Multiple runner instances against the same Redis (prod runs N replicas
+// of the worker process) — proves the scheduler dedups across instances and
+// that per-tenant children distribute across whichever worker picks them up,
+// not just the instance that ran the fan-out. Own registries/log per test,
+// not the shared testFeature/jobLog — a per-second cron must not tick
+// during every other test in this file, and the two scenarios below must
+// not observe each other's fan-outs. Job handlers tag their entry with
+// `ctx.db`, which each runner instance sets to a literal string instead of
+// a real DbConnection — a cheap already-typed, already-threaded channel for
+// "which runner instance ran this" (mirrors the `ctx["systemUser"] as
+// SessionUser` cast the multi-tenant.integration.test.ts billing job uses).
+describe("perTenant across multiple runner instances", () => {
+  test("a cron tick fires the perTenant wrapper exactly once, not once per runner instance", async () => {
+    const log: Array<{ tenantId: string; runnerTag: string }> = [];
+    const cronFeature = defineFeature("multicron", (r) => {
+      r.job(
+        "fanout",
+        { trigger: { cron: "* * * * * *" }, perTenant: true },
+        async (_payload, ctx) => {
+          log.push({
+            tenantId: String(ctx.systemUser.tenantId),
+            runnerTag: ctx.db as unknown as string, // @cast-boundary test fixture
+          });
+        },
+      );
+    });
+
+    const tenants = ["multi-cron-a", "multi-cron-b"] as TenantId[];
+    let wrapperCalls = 0;
+    const getActiveTenantIds = async () => {
+      wrapperCalls++;
+      return tenants;
+    };
+    const registry = createRegistry([cronFeature]);
+    const queueNamePrefix = `kumiko-test-multi-cron-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const runnerA = createJobRunner({
+      registry,
+      context: { db: "runner-a" as unknown as AppContext["db"] },
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      getActiveTenantIds,
+    });
+    const runnerB = createJobRunner({
+      registry,
+      context: { db: "runner-b" as unknown as AppContext["db"] },
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      getActiveTenantIds,
+    });
+    try {
+      // Both instances call start() → both call upsertJobScheduler() with
+      // the SAME schedulerId against the SAME Redis. If that didn't dedup,
+      // wrapperCalls would run away independently of the invariant below.
+      await runnerA.start();
+      await runnerB.start();
+      await waitFor(() => expect(wrapperCalls).toBeGreaterThanOrEqual(1), {
+        delays: [2000, 3000, 5000],
+      });
+    } finally {
+      // Stop immediately after catching the first tick so no further ticks
+      // can land mid-assertion — the invariant below still holds however
+      // many ticks slipped in before stop() took effect.
+      await runnerA.stop();
+      await runnerB.stop();
+    }
+    await sleep(300); // let any in-flight children land
+
+    // The invariant that would break if the scheduler fired once PER
+    // instance: two independent repeat timers would each fan out their own
+    // tenants.length children per tick, doubling this count relative to
+    // wrapperCalls. Holding exactly `wrapperCalls * tenants.length` — for
+    // however many ticks actually happened — proves one wrapper run per
+    // tick, not per instance.
+    expect(log.length).toBe(wrapperCalls * tenants.length);
+    const seenTenants = log.map((e) => e.tenantId).sort();
+    const expectedTenants = Array.from({ length: wrapperCalls }, () => tenants)
+      .flat()
+      .sort();
+    expect(seenTenants).toEqual(expectedTenants);
+  });
+
+  test("manual per-tenant fan-out distributes children across both worker instances", async () => {
+    const log: Array<{ tenantId: string; runnerTag: string }> = [];
+    const manualFeature = defineFeature("multiworker", (r) => {
+      r.job("fanout", { trigger: { manual: true }, perTenant: true }, async (_payload, ctx) => {
+        // Widen the window both worker instances are actively racing for
+        // children in — without it, a fast single worker could drain a
+        // small batch before the other instance's blocking queue-pop even
+        // wakes up, which would prove nothing either way.
+        await sleep(80);
+        log.push({
+          tenantId: String(ctx.systemUser.tenantId),
+          runnerTag: ctx.db as unknown as string, // @cast-boundary test fixture
+        });
+      });
+    });
+
+    // 12 > a single worker's hardcoded concurrency (5) — with both
+    // instances already polling before dispatch, the overflow past one
+    // worker's cap can only be served by the other.
+    const tenants = Array.from({ length: 12 }, (_, i) => `multi-worker-${i}`) as TenantId[];
+    const getActiveTenantIds = async () => tenants;
+    const registry = createRegistry([manualFeature]);
+    const queueNamePrefix = `kumiko-test-multi-worker-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const runnerA = createJobRunner({
+      registry,
+      context: { db: "runner-a" as unknown as AppContext["db"] },
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      getActiveTenantIds,
+    });
+    const runnerB = createJobRunner({
+      registry,
+      context: { db: "runner-b" as unknown as AppContext["db"] },
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      getActiveTenantIds,
+    });
+    try {
+      await runnerA.start();
+      await runnerB.start();
+      await runnerA.dispatch("multiworker:job:fanout");
+      await waitFor(
+        () => {
+          expect(log.length).toBe(tenants.length);
+        },
+        { delays: [200, 300, 500, 1000] },
+      );
+    } finally {
+      await runnerA.stop();
+      await runnerB.stop();
+    }
+
+    // Every tenant ran exactly once — no duplicate fan-out.
+    expect(log.map((e) => e.tenantId).sort()).toEqual([...tenants].sort());
+    // Both worker instances actually processed children, not just the one
+    // that happened to run the fan-out.
+    const tagsUsed = new Set(log.map((e) => e.runnerTag));
+    expect(tagsUsed.has("runner-a")).toBe(true);
+    expect(tagsUsed.has("runner-b")).toBe(true);
+  });
+});
+
 describe("handleEvent maxPerTenant", () => {
   test("skips enqueue when tenant is already at the cap", async () => {
     clearLog();
