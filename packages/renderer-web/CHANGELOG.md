@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.229.1
+
+### Patch Changes
+
+- 1d885e7: Fixes fw#2528: the shared `cardFooter` action-bar row (`Form`/`Section`/`Card`, including `stickyActions`) now wraps instead of overflowing off-screen once its buttons no longer fit — on a 390px viewport a five-button wizard footer left the leftmost buttons (Cancel, Back) unreachable, with no way to scroll them into view under `stickyActions`' fixed positioning. `Form`'s `stickyActions` mobile content-padding grew from `max-sm:pb-24` to `max-sm:pb-32` to keep the last field clear of a two-row wrapped footer. `Drawer`'s footer row shares the same unwrapped shape (its own comment notes it mirrors `cardFooter`) and gets the same fix.
+- a9a789e: Fixes two mobile/tablet layout overflow bugs.
+
+  `entityList`'s row-actions column was unconditionally `sticky right-0` — on narrow viewports (e.g. 390px phones), once the table was wider than its container, this pinned the actions cell on top of the natural position of a preceding data column, rendering that value invisible even though it was inside the visible viewport. The sticky pin is now scoped to `md:` and up: below md, actions scroll with the row like any other cell (reachable via the table's own `overflow-x-auto` container); at md+, they stay pinned to the right edge as intended for wide tables.
+
+  Separately, the sidebar-based app shells (`DefaultAppShell`, `WorkspaceShell`) rendered their content inset without `min-width: 0`, so a flex row child never shrinks below its content's intrinsic width. A screen with wide content (e.g. many table columns) grew the inset — and with it the whole sidebar row — past the viewport, making the whole page scroll horizontally instead of the screen's own scrollable container. Fixed by adding `min-w-0` to the shared inset classes.
+
+  - @cosmicdrift/kumiko-dispatcher-live@0.229.1
+  - @cosmicdrift/kumiko-headless@0.229.1
+  - @cosmicdrift/kumiko-renderer@0.229.1
+
 ## 0.229.0
 
 ### Patch Changes
