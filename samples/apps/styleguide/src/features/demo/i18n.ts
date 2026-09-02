@@ -15,6 +15,7 @@ export const DEMO_I18N: Readonly<Record<string, LocalizedString>> = {
     en: "Update this item in your catalog.",
   },
   "screen:item-list.title": { de: "Artikel", en: "Items" },
+  "screen:item-list-wide.title": { de: "Artikel (alle Spalten)", en: "Items (all columns)" },
   "styleguide:nav.items": { de: "Artikel", en: "Items" },
   "styleguide:nav.catalog": { de: "Katalog", en: "Catalog" },
   "styleguide:nav.itemList": { de: "Alle Artikel", en: "All items" },
