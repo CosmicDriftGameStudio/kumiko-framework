@@ -76,6 +76,27 @@ export type PipelineCtx<
  */
 export type StepResolver<T, TPayload = unknown> = T | ((ctx: PipelineCtx<TPayload>) => T);
 
+// Serializable AST for r.step.waitForEvent's `match` argument. Persisted
+// verbatim into the waiting-for-event suspension payload (jsonb), so it
+// must survive a JSON round-trip — a closure cannot.
+export type EventMatchValue = string | number | boolean | null;
+
+export type EventMatchOp =
+  | { readonly kind: "eq"; readonly value: EventMatchValue }
+  | { readonly kind: "ne"; readonly value: EventMatchValue }
+  | { readonly kind: "in"; readonly values: readonly EventMatchValue[] }
+  | { readonly kind: "gt"; readonly value: number | string }
+  | { readonly kind: "gte"; readonly value: number | string }
+  | { readonly kind: "lt"; readonly value: number | string }
+  | { readonly kind: "lte"; readonly value: number | string };
+
+export type EventMatchExpr =
+  | { readonly kind: "and"; readonly nodes: readonly EventMatchExpr[] }
+  | { readonly kind: "or"; readonly nodes: readonly EventMatchExpr[] }
+  | { readonly kind: "atom"; readonly path: readonly string[]; readonly op: EventMatchOp };
+
+export type EventMatch = { readonly version: 1; readonly expr: EventMatchExpr };
+
 /**
  * Per-step error strategy. M.1.1 only supports "throw" — the type is
  * deliberately narrowed so callers cannot pass an unsupported strategy
@@ -319,7 +340,7 @@ export type StepNamespace = {
   readonly wait: (args: { readonly for: StepResolver<string> }) => StepInstance;
   readonly waitForEvent: (args: {
     readonly event: string;
-    readonly match?: StepResolver<(payload: unknown) => boolean>;
+    readonly match?: StepResolver<EventMatch>;
     readonly timeout: StepResolver<string>;
   }) => StepInstance;
   readonly retry: (args: {
