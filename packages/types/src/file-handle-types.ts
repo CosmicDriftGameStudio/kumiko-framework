@@ -16,4 +16,5 @@ export type FileHandle = {
 // GDPR jobs all hit the same store by construction.
 export type FileContext = {
   ref(key: string): FileHandle;
+  list(prefix: string): Promise<readonly string[]>;
 };

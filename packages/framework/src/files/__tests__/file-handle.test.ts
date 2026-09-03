@@ -90,6 +90,32 @@ describe("createFileContext", () => {
     const h2 = files.ref("tenant/foo.pdf");
     expect(Array.from(await h2.read())).toEqual([7]);
   });
+
+  test("list delegates to the provider and returns its result", async () => {
+    const provider = createInMemoryFileProvider();
+    await provider.write("tenant/photo.jpg", new Uint8Array([1]));
+    await provider.write("tenant/photo.medium.jpg", new Uint8Array([2]));
+    await provider.write("other/photo.jpg", new Uint8Array([3]));
+    const files = createFileContext(() => Promise.resolve(provider));
+
+    const keys = await files.list("tenant/");
+    expect([...keys].sort()).toEqual(["tenant/photo.jpg", "tenant/photo.medium.jpg"].sort());
+  });
+
+  test("the provider is resolved once and memoized across ref() and list()", async () => {
+    const provider = createInMemoryFileProvider();
+    let resolveCount = 0;
+    const files = createFileContext(() => {
+      resolveCount++;
+      return Promise.resolve(provider);
+    });
+
+    await files.ref("tenant/a.jpg").write(new Uint8Array([1]));
+    await files.list("tenant/");
+    await files.ref("tenant/b.jpg").write(new Uint8Array([2]));
+
+    expect(resolveCount).toBe(1);
+  });
 });
 
 describe("InMemoryFileProvider", () => {

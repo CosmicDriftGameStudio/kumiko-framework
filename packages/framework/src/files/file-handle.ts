@@ -45,6 +45,7 @@ export function createFileContext(resolve: () => Promise<FileStorageProvider>): 
   };
   return {
     ref: (key) => createFileHandle(key, getProvider),
+    list: async (prefix) => (await getProvider()).list(prefix),
   };
 }
 
