@@ -84,16 +84,6 @@ describe("KUMIKO_SUB_PROCESSORS", () => {
         },
         {
           "appliesTo": [
-            "all-tiers",
-          ],
-          "name": "Heinlein Hosting (Mailbox.org)",
-          "optInOnly": false,
-          "region": "EU (Germany)",
-          "sccRequired": false,
-          "status": "active",
-        },
-        {
-          "appliesTo": [
             "business",
             "enterprise",
           ],
@@ -101,7 +91,7 @@ describe("KUMIKO_SUB_PROCESSORS", () => {
           "optInOnly": true,
           "region": "US",
           "sccRequired": true,
-          "status": "planned",
+          "status": "active",
         },
         {
           "appliesTo": [
@@ -111,7 +101,17 @@ describe("KUMIKO_SUB_PROCESSORS", () => {
           "optInOnly": false,
           "region": "Global (US-headquartered)",
           "sccRequired": true,
-          "status": "planned",
+          "status": "active",
+        },
+        {
+          "appliesTo": [
+            "all-tiers",
+          ],
+          "name": "ALL-INKL.COM – Neue Medien Münnich",
+          "optInOnly": false,
+          "region": "EU (Germany)",
+          "sccRequired": false,
+          "status": "active",
         },
       ]
     `);

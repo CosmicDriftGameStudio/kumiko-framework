@@ -102,15 +102,6 @@ export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
     status: "active",
   },
   {
-    name: "Heinlein Hosting (Mailbox.org)",
-    purpose: "Marketing Email Delivery",
-    region: "EU (Germany)",
-    dpa: "https://mailbox.org/de/datenschutzerklaerung",
-    addedAt: "2024-03-01",
-    appliesTo: ["all-tiers"],
-    status: "active",
-  },
-  {
     name: "Anthropic PBC",
     purpose: "AI Model Inference (L2 Composition Layer, AI-Foundation)",
     region: "US",
@@ -120,7 +111,7 @@ export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
     sccRequired: true,
     optInOnly: true,
     hipaaBaaAvailable: true,
-    status: "planned",
+    status: "active",
   },
   {
     name: "Stripe, Inc.",
@@ -130,7 +121,16 @@ export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
     addedAt: "2026-06-01",
     appliesTo: ["all-tiers"],
     sccRequired: true,
-    status: "planned",
+    status: "active",
+  },
+  {
+    name: "ALL-INKL.COM – Neue Medien Münnich",
+    purpose: "Mailbox Hosting (support and contact mailboxes)",
+    region: "EU (Germany)",
+    dpa: "https://all-inkl.com/members/avv_muster_print.php",
+    addedAt: "2026-09-02",
+    appliesTo: ["all-tiers"],
+    status: "active",
   },
 ];
 
