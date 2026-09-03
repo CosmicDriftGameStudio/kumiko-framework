@@ -44,23 +44,12 @@ jobs:
         working-directory: ${{ runner.temp }}/nightly-boot-check
         run: bun install
 
-      # The --yes recommended set pulls PII-annotated entities (user-data-rights
-      # transitively via user-profile), and the scaffolded bin/main.ts doesn't
-      # wire a kms adapter — runProdApp's boot gate correctly refuses plaintext
-      # PII in prod by design (#1262/#1617). That's a real onboarding gap
-      # (filed separately: #2330), not this check's job to silently fix — but
-      # it also isn't what THIS check tests, so acknowledge it explicitly for
-      # this ephemeral, no-real-data smoke run instead of blocking on it.
-      - name: Acknowledge plaintext-PII boot gate (ephemeral CI run, see #2330)
-        working-directory: ${{ runner.temp }}/nightly-boot-check
-        run: |
-          sed -i 's/staticDir: ".\/dist",/staticDir: ".\/dist",\n  allowPlaintextPii: "nightly CI boot smoke (#1729) — ephemeral run, no real data persisted",/' bin/main.ts
-          grep -q allowPlaintextPii bin/main.ts || { echo "::error::PII-ack patch did not apply — renderMain() template changed, see #2330"; exit 1; }
-
       # Same stub-secret rationale as ci.yml's "Boot smoke (no DB)": boot-mode
       # exits after composeFeatures + validateBoot + createRegistry, before
       # any DB/Redis connect or secret-decrypt path runs. Constant stub
       # values for reproducible runs — never used as a real KEK.
+      # No PII ack needed: the scaffold wires resolveKmsWiring itself, which
+      # sets allowPlaintextPii outside NODE_ENV=production (#2330).
       - name: Boot smoke
         working-directory: ${{ runner.temp }}/nightly-boot-check
         env:
@@ -89,4 +78,4 @@ jobs:
           fi
           gh issue create --repo "$GITHUB_REPOSITORY" \
             --title "$MARKER npm boot check failed ($(date -u +%F))" \
-            --body "\`bun create kumiko-app\` against the published npm registry failed to install or boot. Note: this check patches the scaffold's PII boot-gate ack before booting (see #2330) — check the failed step name in the run log to tell a patch-application break from a real install/boot break. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            --body "\`bun create kumiko-app\` against the published npm registry failed to install or boot. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
