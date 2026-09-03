@@ -3,7 +3,9 @@ export {
   LEGAL_PAGES_FEATURE,
   LEGAL_REQUIRED_BLOCKS,
   LEGAL_ROUTES,
+  type LegalPageRoute,
   LegalPagesErrors,
+  type LegalRequiredBlock,
 } from "./constants";
 export {
   createLegalPagesFeature,

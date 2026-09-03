@@ -2,6 +2,23 @@
 // Feature name
 export const LEGAL_PAGES_FEATURE = "legal-pages" as const;
 
+// Shape of one public route entry — the type behind LEGAL_ROUTES, exported
+// so non-DACH apps can type their own `routes` option (e.g. a Spanish-
+// default app with an additional AGB/terms page).
+export type LegalPageRoute = {
+  readonly path: string;
+  readonly slug: string;
+  readonly lang: string;
+  readonly titleFallback: string;
+};
+
+// Shape of one boot-check-required block — the type behind
+// LEGAL_REQUIRED_BLOCKS, exported for the same reason as LegalPageRoute.
+export type LegalRequiredBlock = {
+  readonly slug: string;
+  readonly lang: string;
+};
+
 // Required slugs that must exist as text-blocks for production-boot.
 // Pro Sprache + Slug eine Pflicht-Kombo. Wer mehr Sprachen will, ergänzt
 // die Liste — Boot-Check wird dynamisch aus der Liste generiert.
