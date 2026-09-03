@@ -57,6 +57,8 @@ See [template-resolver/README.md](../template-resolver/README.md).
 
 ## Routes
 
+**Default** (DACH: DE required, EN optional):
+
 | Path | Slug + locale | Title fallback (when block empty) |
 |---|---|---|
 | `GET /legal/impressum` | `imprint` / `de` | "Impressum" |
@@ -75,22 +77,57 @@ directly and render themselves.
 
 ---
 
+### Non-DACH apps: custom routes + required blocks
+
+The default four routes and the two DE required blocks
+(`LEGAL_ROUTES`/`LEGAL_REQUIRED_BLOCKS`) are DACH conventions, not a
+hard constraint. An app with a different default language, or one
+that needs an additional page (terms/AGB), passes its own lists:
+
+```typescript
+createLegalPagesFeature({
+  routes: [
+    { path: "/legal/aviso-legal", slug: "imprint", lang: "es", titleFallback: "Aviso legal" },
+    { path: "/legal/privacidad", slug: "privacy", lang: "es", titleFallback: "Política de privacidad" },
+    { path: "/legal/terminos", slug: "terms", lang: "es", titleFallback: "Términos y condiciones" },
+  ],
+  requiredBlocks: [{ slug: "imprint", lang: "es" }, { slug: "privacy", lang: "es" }],
+})
+```
+
+`slug` is free-form — it only has to match the `slug` you seed the
+text-block under via `template-resolver`. `requiredBlocks` drives the
+boot check (see below); routes not listed there stay optional and
+just 404 until seeded, same as the DACH default.
+
+Validated once at feature-build time (fails app startup, not a
+request): no two routes may share a `path`, every route needs a
+non-empty `path`/`slug`/`lang`, and every `path` must start with `/`.
+An empty `routes` array is allowed — the boot check alone, no public
+routes.
+
+---
+
 ## Boot check
 
-`r.job` with `runOnBoot: true` checks at app start whether the DE
-required blocks exist in SYSTEM_TENANT:
+`r.job` with `runOnBoot: true` checks at app start whether the
+required blocks exist in SYSTEM_TENANT. **Default** (DACH):
 
 | Slug + locale | What happens when missing |
 |---|---|
 | `imprint` / `de` | **Production:** `throw new Error(...)` blocks app start. **Dev:** `ctx.log.warn(...)` |
 | `privacy` / `de` | as above |
 
-EN versions are **not** boot-fail-relevant (`LEGAL_OPTIONAL_BLOCKS`).
+EN versions are **not** boot-fail-relevant by default (`LEGAL_OPTIONAL_BLOCKS`).
 Routes return `404` if an EN block is missing.
 
-→ Apps that activate the feature must seed both DE blocks before a
-production deploy — either via a bootstrap script (`seedTextBlock`) or
-manually via the TenantAdmin API.
+→ Apps that activate the feature with the default config must seed
+both DE blocks before a production deploy — either via a bootstrap
+script (`seedTextBlock`) or manually via the TenantAdmin API.
+
+→ Apps with a `requiredBlocks` override (see above) get the same
+production-hard-fail/dev-warn behavior for their own slug/lang list
+instead — the DE blocks are not checked when `requiredBlocks` is set.
 
 ---
 

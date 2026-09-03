@@ -328,6 +328,88 @@ describe("legal-pages :: wrapLayout erhält route.slug (alt-lang-switch-regressi
   });
 });
 
+describe("legal-pages :: configurable routes/requiredBlocks (non-DACH apps)", () => {
+  test("custom route (es) serves the seeded Spanish text-block", async () => {
+    const esStack = await setupTestStack({
+      features: [
+        createTemplateResolverFeature(),
+        createLegalPagesFeature({
+          routes: [
+            {
+              path: "/legal/aviso-legal",
+              slug: "imprint",
+              lang: "es",
+              titleFallback: "Aviso legal",
+            },
+          ],
+          requiredBlocks: [{ slug: "imprint", lang: "es" }],
+        }),
+      ],
+      anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
+      extraContext: ({ db }) => ({
+        templateResolver: createTemplateResolverApi(db),
+      }),
+    });
+    try {
+      await unsafeCreateEntityTable(esStack.db, templateResourceEntity);
+      await createEventsTable(esStack.db);
+      await seedTextBlock(esStack.db, {
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "imprint",
+        locale: "es",
+        title: "Aviso legal",
+        content: "## Datos del titular\n\n**Marc Frost**",
+      });
+
+      const res = await esStack.app.request("/legal/aviso-legal");
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('lang="es"');
+      expect(body).toContain("<title>Aviso legal</title>");
+      expect(body).toContain("Datos del titular");
+
+      // Default DACH routes are gone once `routes` is overridden.
+      const dachRes = await esStack.app.request("/legal/impressum");
+      expect(dachRes.status).toBe(404);
+    } finally {
+      await esStack.cleanup();
+    }
+  });
+
+  test("createLegalPagesFeature throws on duplicate route path", () => {
+    expect(() =>
+      createLegalPagesFeature({
+        routes: [
+          { path: "/legal/aviso-legal", slug: "imprint", lang: "es", titleFallback: "Aviso" },
+          { path: "/legal/aviso-legal", slug: "privacy", lang: "es", titleFallback: "Privacidad" },
+        ],
+      }),
+    ).toThrow(/duplicate route path/);
+  });
+
+  test("createLegalPagesFeature throws on empty path/slug/lang", () => {
+    expect(() =>
+      createLegalPagesFeature({
+        routes: [{ path: "", slug: "imprint", lang: "es", titleFallback: "Aviso" }],
+      }),
+    ).toThrow(/missing a required field/);
+  });
+
+  test("createLegalPagesFeature throws when path doesn't start with /", () => {
+    expect(() =>
+      createLegalPagesFeature({
+        routes: [
+          { path: "legal/aviso-legal", slug: "imprint", lang: "es", titleFallback: "Aviso" },
+        ],
+      }),
+    ).toThrow(/must start with/);
+  });
+
+  test("empty routes array is allowed (boot-check only, no public routes)", () => {
+    expect(() => createLegalPagesFeature({ routes: [] })).not.toThrow();
+  });
+});
+
 describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
   // Direkter Test der Boot-Check-Logik mit constructed ctx-Objects —
   // keine JobRunner-Coupling, keine Test-Stacks. Das ist die echte
@@ -469,6 +551,100 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     expect(calls).toHaveLength(2);
     for (const call of calls) {
       expect(call.tenantId).toBe(SYSTEM_TENANT_ID);
+    }
+  });
+
+  test("custom requiredBlock (es privacy) fehlt → throws in production", async () => {
+    const { api } = fakeTemplateResolver([
+      { slug: "imprint", lang: "es", title: "I", content: "x" },
+    ]);
+    const originalEnv = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      await expect(
+        runLegalPagesBootCheck({ templateResolver: api }, [
+          { slug: "imprint", lang: "es" },
+          { slug: "privacy", lang: "es" },
+        ]),
+      ).rejects.toThrow(/Boot-Validation failed.*privacy\/es/s);
+    } finally {
+      if (originalEnv === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = originalEnv;
+    }
+  });
+
+  test("custom requiredBlock (es privacy) vorhanden → kein throw", async () => {
+    const { api } = fakeTemplateResolver([
+      { slug: "imprint", lang: "es", title: "I", content: "x" },
+      { slug: "privacy", lang: "es", title: "P", content: "x" },
+    ]);
+    const originalEnv = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      await expect(
+        runLegalPagesBootCheck({ templateResolver: api }, [
+          { slug: "imprint", lang: "es" },
+          { slug: "privacy", lang: "es" },
+        ]),
+      ).resolves.toBeUndefined();
+    } finally {
+      if (originalEnv === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = originalEnv;
+    }
+  });
+
+  test("DE-Blocks fehlen, custom requiredBlocks (es) konfiguriert + geseedet → kein Fail", async () => {
+    // Proves the boot check only looks at the configured requiredBlocks,
+    // not hardcoded LEGAL_REQUIRED_BLOCKS (DE) — required for apps with a
+    // default language other than DE.
+    const { api } = fakeTemplateResolver([
+      { slug: "imprint", lang: "es", title: "I", content: "x" },
+      { slug: "privacy", lang: "es", title: "P", content: "x" },
+    ]);
+    const originalEnv = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      await expect(
+        runLegalPagesBootCheck({ templateResolver: api }, [
+          { slug: "imprint", lang: "es" },
+          { slug: "privacy", lang: "es" },
+        ]),
+      ).resolves.toBeUndefined();
+    } finally {
+      if (originalEnv === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = originalEnv;
+    }
+  });
+
+  test("createLegalPagesFeature threads requiredBlocks into the boot-check job, not the DACH default", async () => {
+    // Goes through the actual job registered by createLegalPagesFeature
+    // (not a direct runLegalPagesBootCheck call, unlike the tests above) —
+    // proves the `requiredBlocks` option reaches the job closure. DE blocks
+    // are seeded but the feature is built with an es-only requiredBlocks
+    // list: if the job still checked the hardcoded LEGAL_REQUIRED_BLOCKS
+    // (DE), this would resolve instead of rejecting on the missing es block.
+    const { api } = fakeTemplateResolver([
+      { slug: "imprint", lang: "de", title: "I", content: "x" },
+      { slug: "privacy", lang: "de", title: "P", content: "x" },
+    ]);
+    const feature = createLegalPagesFeature({
+      requiredBlocks: [{ slug: "privacy", lang: "es" }],
+    });
+    const job = feature.jobs["legal-pages-boot-check"];
+    if (!job) throw new Error("legal-pages-boot-check job not registered");
+    // @cast-boundary test-only — job.handler is typed against the full
+    // JobContext; runLegalPagesBootCheck only reads templateResolver off it.
+    const handler = job.handler as unknown as (
+      payload: Record<string, unknown>,
+      ctx: { templateResolver: TemplateResolverApi },
+    ) => Promise<void>;
+    const originalEnv = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      await expect(handler({}, { templateResolver: api })).rejects.toThrow(/privacy\/es/);
+    } finally {
+      if (originalEnv === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = originalEnv;
     }
   });
 });

@@ -10,7 +10,12 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { cachedSecurePageResponse } from "../page-render";
-import { LEGAL_REQUIRED_BLOCKS, LEGAL_ROUTES } from "./constants";
+import {
+  LEGAL_REQUIRED_BLOCKS,
+  LEGAL_ROUTES,
+  type LegalPageRoute,
+  type LegalRequiredBlock,
+} from "./constants";
 import { renderMarkdownToHtml, wrapInLayout } from "./markdown";
 
 // QN-Konstante als dokumentierter Public-Contract des template-resolver-
@@ -32,11 +37,13 @@ type TextBlockQueryResult = {
 // 60s-shared-cache saves the origin-revalidate roundtrip; legal-content edits are live within 60s.
 const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 
-// legal-pages — Opt-in-Wrapper um template-resolver (kind text-block) für DACH-Compliance.
-// Liefert vier feste Public-HTML-Routes (/legal/impressum,
-// /legal/datenschutz, /legal/imprint, /legal/privacy) mit
-// Markdown→HTML-Rendering und einen Boot-Check der in Production hart
-// fehlt wenn die DE-Pflicht-Blocks nicht geseedet sind.
+// legal-pages — opt-in wrapper around template-resolver (kind text-block).
+// Default config ships four DACH public HTML routes (/legal/impressum,
+// /legal/datenschutz, /legal/imprint, /legal/privacy) with Markdown-to-HTML
+// rendering and a boot check that hard-fails in production when the DE
+// required blocks aren't seeded. `routes`/`requiredBlocks` are configurable
+// (see LegalPagesOptions) for apps with a different default language or
+// additional pages (e.g. terms/AGB).
 //
 // Cross-Feature-Decoupling:
 //   • Routes nutzen app.fetch zu "/api/query" mit dem QN-string
@@ -55,7 +62,7 @@ export type LegalPagesWrapLayout = (opts: {
   readonly title: string;
   readonly bodyHtml: string;
   readonly lang: string;
-  readonly slug?: (typeof LEGAL_ROUTES)[number]["slug"];
+  readonly slug?: string;
 }) => string;
 
 export type LegalPagesOptions = {
@@ -64,13 +71,48 @@ export type LegalPagesOptions = {
    *  Marketing-Layout (Header/Footer/Theme) auch um Legal-Body legen
    *  wollen, übergeben hier ihre Render-Function. */
   readonly wrapLayout?: LegalPagesWrapLayout;
+  /** Public HTML routes to register. Default: LEGAL_ROUTES (DACH: DE+EN
+   *  imprint/privacy). Non-DACH apps (other default language, additional
+   *  pages like terms/AGB) pass their own list instead. Validated at
+   *  feature-build time: no duplicate `path`, no empty field, every `path`
+   *  starts with "/". An empty array is allowed (boot-check only, no
+   *  public routes). */
+  readonly routes?: readonly LegalPageRoute[];
+  /** Slug+lang combos the boot check requires to be seeded in
+   *  SYSTEM_TENANT. Default: LEGAL_REQUIRED_BLOCKS (`imprint/de`,
+   *  `privacy/de`). Apps whose routes use a different slug/lang set
+   *  (e.g. Spanish-default) pass their own list here. */
+  readonly requiredBlocks?: readonly LegalRequiredBlock[];
 };
+
+// Validated once at feature-build time (not per-request) so a config typo
+// fails app startup instead of surfacing as a confusing 404 later.
+function validateRoutes(routes: readonly LegalPageRoute[]): void {
+  const seenPaths = new Set<string>();
+  for (const route of routes) {
+    if (!route.path || !route.slug || !route.lang) {
+      throw new Error(
+        `legal-pages: route is missing a required field (path/slug/lang): ${JSON.stringify(route)}`,
+      );
+    }
+    if (!route.path.startsWith("/")) {
+      throw new Error(`legal-pages: route path must start with "/", got "${route.path}"`);
+    }
+    if (seenPaths.has(route.path)) {
+      throw new Error(`legal-pages: duplicate route path "${route.path}"`);
+    }
+    seenPaths.add(route.path);
+  }
+}
 
 export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDefinition {
   const wrapLayout = opts.wrapLayout ?? wrapInLayout;
+  const routes = opts.routes ?? LEGAL_ROUTES;
+  const requiredBlocks = opts.requiredBlocks ?? LEGAL_REQUIRED_BLOCKS;
+  validateRoutes(routes);
   return defineFeature("legal-pages", (r) => {
     r.describe(
-      "Opt-in wrapper around `template-resolver` text-blocks that registers four public HTML routes (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required DE blocks (`imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`. Requires `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` and `extraContext.templateResolver` to be wired at app bootstrap; for per-tenant imprints or a custom layout call `template-resolver:query:by-slug` directly.",
+      "Opt-in wrapper around `template-resolver` text-blocks that registers public HTML routes (default: `/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required blocks (default: `imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`. Both are configurable via `routes`/`requiredBlocks` for apps with a different default language or additional pages. Requires `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` and `extraContext.templateResolver` to be wired at app bootstrap; for per-tenant imprints or a custom layout call `template-resolver:query:by-slug` directly.",
     );
     r.uiHints({
       displayLabel: "Legal Pages",
@@ -79,8 +121,8 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
     });
     r.requires("template-resolver");
 
-    // 4 Public-HTML-Routes
-    for (const route of LEGAL_ROUTES) {
+    // Public HTML routes (default: 4 DACH routes, configurable via opts.routes)
+    for (const route of routes) {
       r.httpRoute({
         method: "GET",
         path: route.path,
@@ -169,7 +211,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
         runOnBoot: true,
         runIn: "api",
       },
-      async (_payload, ctx) => runLegalPagesBootCheck(ctx),
+      async (_payload, ctx) => runLegalPagesBootCheck(ctx, requiredBlocks),
     );
 
     return {};
@@ -192,14 +234,17 @@ export type LegalPagesBootCheckCtx = {
 // nicht gewired ist (Hinweis auf fehlenden extraContext). Wirft Error
 // in NODE_ENV=production wenn Pflicht-Blocks fehlen, sonst log.warn.
 // Logged log.info wenn alles vorhanden ist (kein silent-skip).
-export async function runLegalPagesBootCheck(ctx: LegalPagesBootCheckCtx): Promise<void> {
+export async function runLegalPagesBootCheck(
+  ctx: LegalPagesBootCheckCtx,
+  requiredBlocks: readonly LegalRequiredBlock[] = LEGAL_REQUIRED_BLOCKS,
+): Promise<void> {
   const templateResolver: TemplateResolverApi = requireTemplateResolver(
     ctx,
     "legal-pages-boot-check",
   );
   const missing: { slug: string; lang: string }[] = [];
 
-  for (const required of LEGAL_REQUIRED_BLOCKS) {
+  for (const required of requiredBlocks) {
     const block = await templateResolver.findExact({
       tenantId: SYSTEM_TENANT_ID,
       slug: required.slug,
