@@ -8,13 +8,15 @@
 // it writes workflow.step.resumed with the matched event's data.
 //
 // The `match` resolver is optional — when omitted, any event of the given
-// type resumes the workflow. When provided, it receives the event payload
-// and must return true for the event to trigger resume.
+// type resumes the workflow. When provided, it resolves to a serializable
+// EventMatch AST (not a closure) that is persisted into the waiting event's
+// payload; the Resume-Loop evaluates it via evaluateEventMatch against the
+// candidate event's payload.
 
 import { defineStep } from "../define-step";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import type { EventMatch, PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { addDuration } from "./_duration-utils";
-import { resolveRequired } from "./_resolver-utils";
+import { resolveOptional, resolveRequired } from "./_resolver-utils";
 import {
   SUSPEND_SENTINEL,
   WORKFLOW_AGGREGATE_TYPE,
@@ -23,7 +25,7 @@ import {
 
 type WaitForEventArgs = {
   readonly event: string;
-  readonly match?: StepResolver<(payload: unknown) => boolean>;
+  readonly match?: StepResolver<EventMatch>;
   readonly timeout: StepResolver<string>;
 };
 
@@ -40,6 +42,7 @@ defineStep<WaitForEventArgs, undefined | typeof SUSPEND_SENTINEL>({
     }
 
     const timeout = resolveRequired(args.timeout, ctx);
+    const resolvedMatch = resolveOptional(args.match, ctx);
 
     const now = Temporal.Now.instant().toString();
     const timeoutAt =
@@ -51,6 +54,7 @@ defineStep<WaitForEventArgs, undefined | typeof SUSPEND_SENTINEL>({
       type: WORKFLOW_WAITING_FOR_EVENT_TYPE,
       payload: {
         eventType: args.event,
+        ...(resolvedMatch && { match: resolvedMatch }),
         timeoutAt,
         stepIndex: ctx.workflow.stepIndex,
         workflowName: ctx.workflow.workflowName,

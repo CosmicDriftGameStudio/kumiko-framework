@@ -247,6 +247,7 @@ export {
 } from "./screen-helpers";
 export type { TransitionGraph } from "./state-machine";
 export { defineTransitions, guardTransition } from "./state-machine";
+export { evaluateEventMatch } from "./steps/_event-match";
 export {
   SUSPEND_SENTINEL,
   WORKFLOW_AGGREGATE_TYPE,
