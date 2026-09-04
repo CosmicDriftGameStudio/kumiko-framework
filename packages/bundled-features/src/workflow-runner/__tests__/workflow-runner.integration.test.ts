@@ -15,6 +15,7 @@ import {
   WORKFLOW_RUN_COMPLETED_TYPE,
   WORKFLOW_RUN_FAILED_TYPE,
   WORKFLOW_RUN_STARTED_TYPE,
+  WORKFLOW_WAITING_TYPE,
   type WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -134,22 +135,16 @@ describe("workflow-runner event-trigger", () => {
     expect(String(rows[1]!["payload"]["error"])).toContain("boom-explicit-failure");
   });
 
-  test("suspension: a wait step fails the run instead of leaving it silently pending, no run-completed", async () => {
+  test("suspension: a wait step suspends the run instead of failing it — resumable by framework#2513 Phase 2, no run-completed yet", async () => {
     const runKey = crypto.randomUUID();
     const runId = workflowRunAggregateId(suspendingWorkflow.name, runKey);
 
     await fireTrigger("wr-test.suspend", { runKey });
 
     const rows = await loadRunEvents(runId);
-    const types = rows.map((row) => row["type"]);
-    expect(types).toContain(WORKFLOW_RUN_STARTED_TYPE);
-    expect(types).not.toContain(WORKFLOW_RUN_COMPLETED_TYPE);
-    expect(types).toContain(WORKFLOW_RUN_FAILED_TYPE);
-
-    const failed = rows.find((row) => row["type"] === WORKFLOW_RUN_FAILED_TYPE)!;
-    const errorText = String(failed["payload"]["error"]);
-    expect(errorText).toContain("WorkflowSuspensionUnsupportedError");
-    expect(errorText).toContain(suspendingWorkflow.name);
-    expect(errorText).toContain("resume-loop");
+    expect(rows.map((row) => row["type"])).toEqual([
+      WORKFLOW_RUN_STARTED_TYPE,
+      WORKFLOW_WAITING_TYPE,
+    ]);
   });
 });

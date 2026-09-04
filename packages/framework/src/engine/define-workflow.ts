@@ -5,7 +5,7 @@
 
 import { createHash } from "node:crypto";
 import type { WriteEvent } from "./types/handlers";
-import type { PipelineDef } from "./types/step";
+import type { AwaitedEventType, PipelineDef } from "./types/step";
 
 /**
  * Trigger configuration for a workflow. Determines what starts a run.
@@ -28,12 +28,27 @@ export type WorkflowTrigger =
 /**
  * Workflow definition — the result of defineWorkflow().
  */
-export type WorkflowDefinition<TPayload = unknown, TData = unknown> = {
+export type WorkflowDefinition<
+  TPayload = unknown,
+  TData = unknown,
+  TAwaits extends Record<string, string> = Record<string, string>,
+> = {
   readonly __kind: "workflow";
   readonly name: string;
   readonly trigger: WorkflowTrigger;
+  /**
+   * Declared expected events (D4, workflow-resume-loop.md) — the sole route
+   * a waitForEvent step can reach an event type. Read at registration time
+   * to build the static apply-map (Phase 3b); values are plain event-type
+   * strings, not the branded AwaitedEventType the pipeline closure sees.
+   */
+  readonly awaits?: TAwaits;
   /** The pipeline definition containing the step list closure. */
-  readonly pipelineDef: PipelineDef<TPayload, TData>;
+  readonly pipelineDef: PipelineDef<
+    TPayload,
+    TData,
+    { readonly [K in keyof TAwaits]: AwaitedEventType }
+  >;
   /** Idempotency key for deduplication — prevents duplicate runs. */
   readonly idempotencyKey?: string | ((event: WriteEvent<TPayload>) => string);
 };
@@ -41,10 +56,15 @@ export type WorkflowDefinition<TPayload = unknown, TData = unknown> = {
 /**
  * Input shape for defineWorkflow() — the user-facing API.
  */
-export type WorkflowInput<TPayload = unknown, TData = unknown> = {
+export type WorkflowInput<
+  TPayload = unknown,
+  TData = unknown,
+  TAwaits extends Record<string, string> = Record<string, string>,
+> = {
   readonly name: string;
   readonly trigger: WorkflowTrigger;
-  readonly steps: PipelineDef<TPayload, TData>;
+  readonly awaits?: TAwaits;
+  readonly steps: PipelineDef<TPayload, TData, { readonly [K in keyof TAwaits]: AwaitedEventType }>;
   readonly idempotencyKey?: string | ((event: WriteEvent<TPayload>) => string);
   readonly onError?: PipelineDef<unknown>;
 };
@@ -69,14 +89,22 @@ export type WorkflowInput<TPayload = unknown, TData = unknown> = {
  * });
  * ```
  */
-export function defineWorkflow<TPayload = unknown, TData = unknown>(
-  input: WorkflowInput<TPayload, TData>,
-): WorkflowDefinition<TPayload, TData> {
+export function defineWorkflow<
+  TPayload = unknown,
+  TData = unknown,
+  const TAwaits extends Record<string, string> = Record<string, string>,
+>(input: WorkflowInput<TPayload, TData, TAwaits>): WorkflowDefinition<TPayload, TData, TAwaits> {
+  // pipelineDef.awaits carries the same raw strings as the declaration
+  // below — buildPipelineSteps (pipeline.ts) is where they're branded into
+  // AwaitedEventType for the step closure, not here (see PipelineDef.awaits
+  // doc comment in types/step.ts for why the brand can't happen at this
+  // layer without breaking inference for an inline `stepsPipeline(...)`).
   return {
     __kind: "workflow",
     name: input.name,
     trigger: input.trigger,
-    pipelineDef: input.steps,
+    awaits: input.awaits,
+    pipelineDef: { ...input.steps, awaits: input.awaits },
     idempotencyKey: input.idempotencyKey,
   };
 }
@@ -98,12 +126,21 @@ export function defineWorkflow<TPayload = unknown, TData = unknown>(
  *     environments. Run-the-fingerprint-in-the-same-environment is the
  *     contract; cross-env replay is out of scope.
  */
-export function computeDefinitionFingerprint(
-  workflow: Pick<WorkflowDefinition, "name" | "trigger" | "pipelineDef">,
+export function computeDefinitionFingerprint<
+  TPayload = unknown,
+  TData = unknown,
+  TAwaits extends Record<string, string> = Record<string, string>,
+>(
+  workflow: Pick<WorkflowDefinition<TPayload, TData, TAwaits>, "name" | "trigger" | "pipelineDef">,
 ): string {
+  // `awaits` is part of the routing contract (D4, workflow-resume-loop.md):
+  // changing which events a run waits on changes the run's behavior just
+  // like changing the step source does, so a changed declaration must flip
+  // the fingerprint and trip the Q7 stale-definition check on resume.
   const material = JSON.stringify({
     name: workflow.name,
     trigger: workflow.trigger,
+    awaits: workflow.pipelineDef.awaits,
     source: workflow.pipelineDef.build.toString(),
   });
   return createHash("sha256").update(material).digest("hex");

@@ -4,6 +4,7 @@ import {
   defineWorkflow,
   type WorkflowTrigger,
 } from "../define-workflow";
+import { stepsPipeline } from "../pipeline";
 import type { PipelineDef } from "../types/step";
 
 const pipe = (build: PipelineDef["build"]): PipelineDef => ({ __kind: "pipeline", build });
@@ -17,7 +18,28 @@ describe("defineWorkflow", () => {
     expect(wf.__kind).toBe("workflow");
     expect(wf.name).toBe("onboard");
     expect(wf.trigger).toEqual(eventTrigger);
-    expect(wf.pipelineDef).toBe(steps);
+    // pipelineDef is no longer `steps` by reference — defineWorkflow rebuilds
+    // it to carry the (possibly absent) branded awaits map — but the
+    // closure itself must be the exact same function.
+    expect(wf.pipelineDef.__kind).toBe("pipeline");
+    expect(wf.pipelineDef.build).toBe(steps.build);
+    expect(wf.awaits).toBeUndefined();
+    expect(wf.pipelineDef.awaits).toBeUndefined();
+  });
+
+  test("brands the declared awaits map onto both the definition and the pipelineDef", () => {
+    const wf = defineWorkflow({
+      name: "order-fulfillment",
+      trigger: eventTrigger,
+      awaits: { shipped: "order.shipped", cancelled: "order.cancelled" },
+      steps: stepsPipeline(() => []),
+    });
+
+    expect(wf.awaits).toEqual({ shipped: "order.shipped", cancelled: "order.cancelled" });
+    expect(wf.pipelineDef.awaits).toEqual({
+      shipped: "order.shipped",
+      cancelled: "order.cancelled",
+    });
   });
 });
 

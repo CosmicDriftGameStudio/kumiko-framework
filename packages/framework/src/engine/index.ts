@@ -470,6 +470,7 @@ export type {
 export { DEFAULT_CURRENCIES, DEFAULT_LOCALES, HookPhases } from "./types";
 export { isSystemTenant, isUuid, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
 export type {
+  AwaitedEventType,
   PipelineBuildCtx,
   PipelineCtx,
   PipelineDef,

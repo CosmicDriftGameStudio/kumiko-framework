@@ -10,7 +10,12 @@ import {
 import { buildRetryStep, calculateBackoff } from "../steps/retry";
 import { buildWaitStep } from "../steps/wait";
 import { buildWaitForEventStep } from "../steps/wait-for-event";
-import type { EventMatch, PipelineCtx } from "../types/step";
+import type { AwaitedEventType, EventMatch, PipelineCtx } from "../types/step";
+
+// Test-only helper for the low-level step-builder unit tests below, which
+// call buildWaitForEventStep directly instead of going through a
+// defineWorkflow `awaits` declaration (the only legitimate branding route).
+const asAwaited = (event: string): AwaitedEventType => event as AwaitedEventType;
 
 const mockUnsafeAppendEvent = mock();
 
@@ -91,7 +96,7 @@ describe("workflow.wait run", () => {
 describe("buildWaitForEventStep", () => {
   it("returns a StepInstance with kind workflow.waitForEvent", () => {
     const step = buildWaitForEventStep({
-      event: "user.confirmed-email",
+      event: asAwaited("user.confirmed-email"),
       timeout: "P7D",
     });
     expect(step.kind).toBe("workflow.waitForEvent");
@@ -103,10 +108,17 @@ describe("buildWaitForEventStep", () => {
       expr: { kind: "atom", path: ["email"], op: { kind: "eq", value: "test@test.com" } },
     };
     const step = buildWaitForEventStep({
-      event: "user.confirmed-email",
+      event: asAwaited("user.confirmed-email"),
       match,
       timeout: "P7D",
     });
+    expect(step.kind).toBe("workflow.waitForEvent");
+  });
+
+  it("@ts-expect-error: event must come from an awaits declaration, not a raw string", () => {
+    // @ts-expect-error — a raw string is not an AwaitedEventType; only
+    // defineWorkflow's `awaits` map can produce one (D4, workflow-resume-loop.md).
+    const step = buildWaitForEventStep({ event: "user.confirmed-email", timeout: "P7D" });
     expect(step.kind).toBe("workflow.waitForEvent");
   });
 });
