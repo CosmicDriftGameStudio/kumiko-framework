@@ -1,15 +1,17 @@
 // runner — starts a workflow-run by writing run-started, executing the
 // pipeline until first suspension or completion, and writing run-completed.
 //
-// No resume-loop is mounted yet (framework#2480): a suspending step
-// (wait / waitForEvent / retry) would leave the run stuck forever with
-// nothing to wake it. startAndRunWorkflow surfaces that case as a loud
-// WorkflowSuspensionUnsupportedError instead of returning a silent
-// "suspended" outcome — callers (registerEventTrigger) treat it like any
-// other pipeline failure and record it as a failed run.
+// wait / retry / waitForEvent suspensions are all resumable — the
+// resume-due-runs job + resume-run handler (framework#2513 Phase 2) wake
+// wait/retry via a plain wakeAt timeout; waitForEvent additionally gets
+// woken early by the event-subscriber (Phase 3b, event-subscriber.ts) when
+// its awaited event arrives, and by the same wakeAt timeout otherwise
+// (D1's `wakeAt ?? timeoutAt`). startAndRunWorkflow returns a silent
+// "suspended" outcome for all three instead of throwing.
 
 import type {
   HandlerContext,
+  StepInstance,
   WorkflowDefinition,
   WriteEvent,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -22,6 +24,17 @@ import {
   WORKFLOW_RUN_STARTED_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
 
+// Suspensions the resume loop knows how to wake — every Tier-3 step that
+// can return SUSPEND_SENTINEL. Kept as an explicit allowlist (not "every
+// registered Tier-3 step") so a future suspending step that forgets to
+// wire up its own wake path fails loud via WorkflowSuspensionUnsupportedError
+// instead of hanging a run forever.
+const RESUMABLE_STEP_KINDS = new Set(["workflow.wait", "workflow.retry", "workflow.waitForEvent"]);
+
+export function isResumableSuspension(steps: readonly StepInstance[], stepIndex: number): boolean {
+  return RESUMABLE_STEP_KINDS.has(steps[stepIndex]?.kind ?? "");
+}
+
 export type WorkflowRunStartedPayload = {
   readonly workflowName: string;
   readonly triggerEventType: string;
@@ -31,11 +44,11 @@ export type WorkflowRunStartedPayload = {
 };
 
 // Canonical run-completed shape — the sample this was hoisted from had two
-// writers disagree (`{workflowName}` here, `{stepIndex}` in the not-yet-
-// mounted resume-loop). `stepIndex` is the pipeline's top-level step count
-// (sub-lists inside branch/forEach aren't counted); every run that reaches
-// this event ran to completion in one pass (suspension throws instead of
-// returning here).
+// writers disagree (`{workflowName}` here, `{stepIndex}` in the resume-loop
+// sample). `stepIndex` is the pipeline's top-level step count (sub-lists
+// inside branch/forEach aren't counted). A run reaches this event either in
+// one pass, or across multiple passes when a wait/retry suspension resumed
+// it (resume-run writes this same event on the pass that finally completes).
 export type WorkflowRunCompletedPayload = {
   readonly workflowName: string;
   readonly stepIndex: number;
@@ -45,6 +58,10 @@ export type WorkflowRunFailedPayload = {
   readonly workflowName: string;
   readonly stepIndex: number;
   readonly error: string;
+  // Machine-readable failure category — set by resume-run for a Q7
+  // fingerprint mismatch ("workflow_definition_changed"); absent for a
+  // plain pipeline-step failure (the `error` string is human-readable only).
+  readonly reason?: string;
 };
 
 export class WorkflowSuspensionUnsupportedError extends Error {
@@ -74,7 +91,7 @@ export async function startAndRunWorkflow(args: {
   readonly triggerEvent: WriteEvent;
   readonly idempotencyKey?: string;
   readonly handlerCtx: HandlerContext;
-}): Promise<{ readonly outcome: "completed" }> {
+}): Promise<{ readonly outcome: "completed" | "suspended" }> {
   const fingerprint = computeDefinitionFingerprint(args.workflow);
 
   const startedPayload: WorkflowRunStartedPayload = {
@@ -109,7 +126,13 @@ export async function startAndRunWorkflow(args: {
   );
 
   if (outcome.kind === "suspended") {
-    throw new WorkflowSuspensionUnsupportedError(args.workflow.name, outcome.stepIndex);
+    if (!isResumableSuspension(steps, outcome.stepIndex)) {
+      throw new WorkflowSuspensionUnsupportedError(args.workflow.name, outcome.stepIndex);
+    }
+    // pending-projection.ts already materialised the row that
+    // resume-due-runs will pick up (or the event-subscriber will wake
+    // early, for waitForEvent) — nothing more to do on this pass.
+    return { outcome: "suspended" };
   }
 
   const completedPayload: WorkflowRunCompletedPayload = {

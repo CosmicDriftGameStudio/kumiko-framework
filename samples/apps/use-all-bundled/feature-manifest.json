@@ -2770,7 +2770,7 @@
     },
     {
       "name": "workflow-runner",
-      "description": "Writes the run-envelope (`workflow.run-started` / `workflow.run-completed` / `workflow.run-failed`) for a workflow run onto its `workflow-run` aggregate stream. Provides `startAndRunWorkflow` and `registerEventTrigger` for consumer features to wire up `defineWorkflow`-based workflows against domain events. Registers no workflows itself. No resume-loop is bundled yet (framework#2480) — suspending steps (wait/waitForEvent/retry) fail the run instead of pausing it.",
+      "description": "Writes the run-envelope (`workflow.run-started` / `workflow.run-completed` / `workflow.run-failed`) for a workflow run onto its `workflow-run` aggregate stream. Provides `startAndRunWorkflow` and `registerEventTrigger` for consumer features to wire up `defineWorkflow`-based workflows against domain events. Registers no workflows itself. Runs the resume loop for suspended `wait`/`retry`/`waitForEvent` steps (`resume-due-runs` job + `resume-run` handler); `registerEventTrigger` wires an event-wakeup subscriber per workflow that declares `awaits` so a `waitForEvent` step resumes as soon as its awaited event arrives, not just on timeout.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -2780,7 +2780,9 @@
       "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": [],
+      "writeHandlers": [
+        "workflow-runner:write:resume-run"
+      ],
       "uiHints": {
         "displayLabel": "Workflow Runner",
         "category": "infrastructure",

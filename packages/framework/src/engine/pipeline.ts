@@ -31,7 +31,13 @@ import { buildWaitStep } from "./steps/wait";
 import { buildWaitForEventStep } from "./steps/wait-for-event";
 import { buildWebhookSendStep } from "./steps/webhook-send";
 import type { WriteEvent } from "./types/handlers";
-import type { PipelineBuildCtx, PipelineDef, StepBuilder, StepInstance } from "./types/step";
+import type {
+  AwaitedEventType,
+  PipelineBuildCtx,
+  PipelineDef,
+  StepBuilder,
+  StepInstance,
+} from "./types/step";
 
 const stepBuilder: StepBuilder = {
   step: {
@@ -64,9 +70,13 @@ const stepBuilder: StepBuilder = {
   },
 };
 
-export function stepsPipeline<TPayload = unknown, TData = unknown>(
-  closure: (ctx: PipelineBuildCtx<TPayload>) => readonly StepInstance[],
-): PipelineDef<TPayload, TData> {
+export function stepsPipeline<
+  TPayload = unknown,
+  TData = unknown,
+  TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>,
+>(
+  closure: (ctx: PipelineBuildCtx<TPayload, TAwaits>) => readonly StepInstance[],
+): PipelineDef<TPayload, TData, TAwaits> {
   return {
     __kind: "pipeline",
     build: closure,
@@ -76,9 +86,26 @@ export function stepsPipeline<TPayload = unknown, TData = unknown>(
 // Internal: invoked by run-pipeline.ts to materialise the step list.
 // Not exported from the engine barrel — pipeline-internal plumbing.
 // @wrapper-known semantic-alias
-export function buildPipelineSteps<TPayload>(
-  pipelineDef: PipelineDef<TPayload>,
+//
+// `awaits` comes off pipelineDef itself (set by defineWorkflow), not a
+// function argument — every existing buildPipelineSteps caller (runner.ts,
+// resume-run.write.ts, run-pipeline.ts, validate-projection-allowlist.ts)
+// keeps working unchanged while workflow pipelines still get their real
+// awaits map wired into the closure. The cast below is the one place a
+// workflow's raw declared event-type strings become AwaitedEventType — safe
+// because pipelineDef.awaits only ever holds what defineWorkflow's `awaits`
+// carried in (D4, workflow-resume-loop.md), never an unchecked external
+// value.
+export function buildPipelineSteps<
+  TPayload,
+  TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>,
+>(
+  pipelineDef: PipelineDef<TPayload, unknown, TAwaits>,
   event: WriteEvent<TPayload>,
 ): readonly StepInstance[] {
-  return pipelineDef.build({ event, r: stepBuilder });
+  return pipelineDef.build({
+    event,
+    r: stepBuilder,
+    awaits: (pipelineDef.awaits ?? {}) as TAwaits,
+  });
 }

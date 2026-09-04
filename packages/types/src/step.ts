@@ -76,6 +76,15 @@ export type PipelineCtx<
  */
 export type StepResolver<T, TPayload = unknown> = T | ((ctx: PipelineCtx<TPayload>) => T);
 
+// Branded event-type string — the only route r.step.waitForEvent's `event`
+// can reach a value. A workflow's `awaits` declaration (D4,
+// workflow-resume-loop.md) is the only source of these; buildPipelineSteps
+// mints them from that declaration's raw strings when it builds the
+// closure's `awaits` binding. A raw string literal at waitForEvent.event is
+// a compile error, so a typo in the awaited key surfaces at build time
+// instead of a run that waits forever.
+export type AwaitedEventType = string & { readonly __awaitedEvent: unique symbol };
+
 // Serializable AST for r.step.waitForEvent's `match` argument. Persisted
 // verbatim into the waiting-for-event suspension payload (jsonb), so it
 // must survive a JSON round-trip — a closure cannot.
@@ -164,9 +173,23 @@ export type StepInstance = {
  *   `stepsPipeline<{ greeting: string }, { echoed: string }>(...)`
  * Better DX is a known follow-up — see step-vocabulary.md M.1-Followups.
  */
-export type PipelineDef<TPayload = unknown, _TData = unknown> = {
+export type PipelineDef<
+  TPayload = unknown,
+  _TData = unknown,
+  TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>,
+> = {
   readonly __kind: "pipeline";
-  readonly build: (ctx: PipelineBuildCtx<TPayload>) => readonly StepInstance[];
+  // Raw (unbranded) awaits map, set by defineWorkflow — absent for
+  // non-workflow pipelines (plain defineWriteHandler perform).
+  // buildPipelineSteps reads it and brands it into the closure's `awaits`
+  // binding, so every existing buildPipelineSteps caller keeps working
+  // unchanged. Deliberately typed as plain strings, NOT `TAwaits` — an
+  // extra covariant occurrence of TAwaits here (alongside its contravariant
+  // occurrence in `build`'s parameter) breaks TypeScript's contextual
+  // inference for a `stepsPipeline(...)` passed inline as `steps` (verified
+  // empirically; see fw#2513 Phase 3a).
+  readonly awaits?: Readonly<Record<string, string>>;
+  readonly build: (ctx: PipelineBuildCtx<TPayload, TAwaits>) => readonly StepInstance[];
 };
 
 /**
@@ -188,9 +211,16 @@ export type PipelineDef<TPayload = unknown, _TData = unknown> = {
  * skip validation. See validate-projection-allowlist.ts for the
  * boot-side mechanics.
  */
-export type PipelineBuildCtx<TPayload = unknown> = {
+export type PipelineBuildCtx<
+  TPayload = unknown,
+  TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>,
+> = {
   readonly event: WriteEvent<TPayload>;
   readonly r: StepBuilder;
+  // Declared awaited events (D4, workflow-resume-loop.md) — the only way
+  // r.step.waitForEvent's `event` arg can reference an event type. `{}` for
+  // non-workflow pipelines and workflows without an `awaits` declaration.
+  readonly awaits: TAwaits;
 };
 
 /**
@@ -339,7 +369,7 @@ export type StepNamespace = {
   // Runtime guard: throws when used inside sync defineWriteHandler.
   readonly wait: (args: { readonly for: StepResolver<string> }) => StepInstance;
   readonly waitForEvent: (args: {
-    readonly event: string;
+    readonly event: AwaitedEventType;
     readonly match?: StepResolver<EventMatch>;
     readonly timeout: StepResolver<string>;
   }) => StepInstance;

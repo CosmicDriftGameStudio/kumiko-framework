@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-08-30
-evidence: "kumiko-framework#2482 (workflow-runner Run-Envelope als bundled Feature); engine/define-workflow.ts; bundled-features/workflow-runner"
+verified: 2026-09-04
+evidence: "kumiko-framework#2482 (workflow-runner Run-Envelope als bundled Feature); kumiko-framework#2513 (Resume-Loop, Phase 1+2); engine/define-workflow.ts; bundled-features/workflow-runner"
 ---
 
 # Workflow-Runner: Run-Envelope für Biz-Workflows
@@ -31,10 +31,50 @@ zugehörigen Typen (exportiert über `engine/index.ts`).
 Pipeline:
 
 1. **`workflow.run-started`** wird mit dem Q7-Snapshot-Fingerprint appended.
-2. Die Pipeline läuft; bei Suspend wirft sie (siehe Modul-Doc).
-3. Bei Abschluss wird **`workflow.run-completed`** appended. Fehler der
-   Pipeline propagieren zum `event-trigger`, der **`workflow.run-failed`**
-   aufzeichnet.
+2. Die Pipeline läuft. Ein `wait`/`retry`/`waitForEvent`-Suspend gibt still
+   `{outcome: "suspended"}` zurück — der Resume-Loop (fw#2513 Phase 2+3b)
+   holt die Run automatisch wieder ab.
+3. Bei Abschluss wird **`workflow.run-completed`** appended — entweder im
+   selben Pass oder, nach einem Resume, im Pass, der die Run tatsächlich zu
+   Ende bringt. Fehler der Pipeline propagieren zum `event-trigger`, der
+   **`workflow.run-failed`** aufzeichnet.
+
+### Resume-Loop (fw#2513 Phase 2)
+
+Suspendierte `wait`/`retry`-Steps landen über `pending-projection.ts` in der
+`workflow_run_pending`-Tabelle. Der Cron-Job `resume-due-runs`
+(`perTenant`, minütlich) selektiert fällige Zeilen (`wakeAt < now()`) und
+dispatcht pro Zeile `workflow-runner:write:resume-run` — der Job selbst
+macht nichts außer Selektieren + Dispatchen. Der Command-Handler
+`resume-run` (`r.systemScope()`, `SYSTEM_ROLE`-only) macht den
+Q7-Fingerprint-Check, claimt die Run per `WORKFLOW_RESUMED`-Event und setzt
+die Pipeline via `runStepList(..., resumeFrom)` fort. Eine geänderte
+Workflow-Definition (Q7-Mismatch) führt zu `workflow.run-failed` mit
+`reason: "workflow_definition_changed"` statt eines stillen Skips.
+
+### Event-Wakeup (fw#2513 Phase 3b, D4)
+
+Ein Workflow deklariert die Events, auf die seine `waitForEvent`-Steps warten
+können, in `defineWorkflow({ awaits: { ... } })` — das ist die einzige Quelle,
+über die `r.step.waitForEvent({ event: awaits.foo, ... })` einen Event-Typ
+erreichen kann (branded `AwaitedEventType`, kein roher String). Für jeden
+Workflow mit einer nicht-leeren `awaits`-Deklaration registriert
+`registerEventTrigger` eine eigene, aus dieser Deklaration gebaute
+MultiStreamProjection (`event-subscriber.ts`) — eine pro Workflow, nicht eine
+geteilte über alle Workflows hinweg, weil `r.multiStreamProjection` bei einer
+leeren `apply`-Map sofort wirft und ein geteiltes MSP von der Import-Reihenfolge
+der App abhinge.
+
+Trifft ein passendes Event ein, lädt der Subscriber die pending Zeilen des
+Tenants mit demselben `waitEventType`, wertet ein gesetztes `matchExpr` per
+`evaluateEventMatch` aus und setzt bei Treffer `triggerEventType` +
+`triggerPayload` + `wakeAt = now()` auf die Zeile — der bestehende
+`resume-due-runs`-Job holt sie beim nächsten Tick ab, genau wie beim
+Timeout-Pfad. Der Subscriber resumt nie selbst (D3: sein Apply-Context hat
+kein `callFeature`/`runStepList`). `resume-run` seedet den `triggerPayload`
+als Ergebnis des übersprungenen `waitForEvent`-Steps
+(`ctx.steps[awaits.foo]`), damit ein nachfolgender Step per Resolver darauf
+zugreifen kann.
 
 ## Aggregat-Instanz (`aggregate-id.ts`)
 
