@@ -32,7 +32,9 @@ import {
   buildPipelineSteps,
   computeDefinitionFingerprint,
   getStep,
+  type HandlerContext,
   runStepList,
+  type StepInstance,
   SYSTEM_ROLE,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RESUMED_TYPE,
@@ -41,6 +43,7 @@ import {
   WORKFLOW_RUN_FAILED_TYPE,
   WORKFLOW_RUN_STARTED_TYPE,
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
+  type WorkflowDefinition,
   type WriteEvent,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -60,6 +63,87 @@ const resumeRunSchema = z.object({
   runId: z.string().min(1),
   stepIndex: z.number().int().nonnegative(),
 });
+
+async function appendRunFailed(
+  ctx: HandlerContext,
+  runId: string,
+  failedPayload: WorkflowRunFailedPayload,
+): Promise<void> {
+  await ctx.unsafeAppendEvent({
+    aggregateId: runId,
+    aggregateType: WORKFLOW_AGGREGATE_TYPE,
+    type: WORKFLOW_RUN_FAILED_TYPE,
+    payload: failedPayload,
+  });
+}
+
+function checkQ7Fingerprint(
+  workflow: WorkflowDefinition,
+  workflowName: string,
+  runId: string,
+  stepIndex: number,
+  storedFingerprint: string | null,
+): WorkflowRunFailedPayload | null {
+  const currentFingerprint = computeDefinitionFingerprint(workflow);
+  const fingerprintChanged = storedFingerprint !== null && currentFingerprint !== storedFingerprint;
+  if (!fingerprintChanged) {
+    return null;
+  }
+  return {
+    workflowName,
+    stepIndex,
+    error:
+      `Workflow "${workflowName}" definition changed since run ${runId} started ` +
+      `(expected ${storedFingerprint?.slice(0, 12)}…, current ${currentFingerprint?.slice(0, 12)}…).`,
+    reason: "workflow_definition_changed",
+  };
+}
+
+async function recoverTriggerEvent(
+  ctx: HandlerContext,
+  runId: string,
+  workflowName: string,
+  user: WriteEvent["user"],
+): Promise<WriteEvent> {
+  const startedEvents = await ctx.loadAggregate(runId);
+  const started = startedEvents.find((e) => e.type === WORKFLOW_RUN_STARTED_TYPE);
+  if (!started) {
+    throw new InternalError({
+      message: `workflow-runner:write:resume-run: run ${runId} has no ${WORKFLOW_RUN_STARTED_TYPE} event — cannot recover its trigger event.`,
+    });
+  }
+  const startedPayload = started.payload as WorkflowRunStartedPayload; // @cast-boundary event-store-payload
+  const triggerEvent: WriteEvent = {
+    type: startedPayload.triggerEventType,
+    payload: startedPayload.triggerPayload,
+    user,
+  };
+  return triggerEvent;
+}
+
+// The suspended waitForEvent step itself is skipped on resume
+// (resumeFrom = stepIndex + 1) — its run() never re-executes, so its
+// resultKey (args.event, see steps/wait-for-event.ts) never gets
+// populated by the normal runStepList loop. Seed it here from the
+// pending row's own triggerPayload so a subsequent step's resolver
+// sees the matched event via `ctx.steps[awaits.someKey]`, same as any
+// other step result. NULL on a timeout-without-a-match — a later
+// resolver reading it just sees `undefined`, no special-casing needed.
+function seedResumedStepResults(
+  pending: { suspensionEventType: string; triggerPayload: unknown | null },
+  steps: readonly StepInstance[],
+  stepIndex: number,
+): Record<string, unknown> {
+  const stepsAcc: Record<string, unknown> = {};
+  if (pending.suspensionEventType === WORKFLOW_WAITING_FOR_EVENT_TYPE) {
+    const suspendedStep = steps[stepIndex];
+    const key = suspendedStep && getStep(suspendedStep.kind)?.resultKey?.(suspendedStep.args);
+    if (key !== undefined) {
+      stepsAcc[key] = pending.triggerPayload;
+    }
+  }
+  return stepsAcc;
+}
 
 export const resumeRunHandler: WriteHandlerDef = {
   name: "resume-run",
@@ -95,27 +179,26 @@ export const resumeRunHandler: WriteHandlerDef = {
 
     const { workflowName } = pending;
     const workflow = getWorkflow(workflowName);
-    const currentFingerprint = workflow ? computeDefinitionFingerprint(workflow) : undefined;
-    const fingerprintChanged =
-      pending.definitionFingerprint !== null &&
-      currentFingerprint !== pending.definitionFingerprint;
-
-    if (!workflow || fingerprintChanged) {
+    if (!workflow) {
       const failedPayload: WorkflowRunFailedPayload = {
         workflowName,
         stepIndex,
-        error: workflow
-          ? `Workflow "${workflowName}" definition changed since run ${runId} started ` +
-            `(expected ${pending.definitionFingerprint?.slice(0, 12)}…, current ${currentFingerprint?.slice(0, 12)}…).`
-          : `Workflow "${workflowName}" is not registered — cannot resume run ${runId}.`,
+        error: `Workflow "${workflowName}" is not registered — cannot resume run ${runId}.`,
         reason: "workflow_definition_changed",
       };
-      await ctx.unsafeAppendEvent({
-        aggregateId: runId,
-        aggregateType: WORKFLOW_AGGREGATE_TYPE,
-        type: WORKFLOW_RUN_FAILED_TYPE,
-        payload: failedPayload,
-      });
+      await appendRunFailed(ctx, runId, failedPayload);
+      return { isSuccess: true, data: { outcome: "failed" as const } };
+    }
+
+    const fingerprintFailure = checkQ7Fingerprint(
+      workflow,
+      workflowName,
+      runId,
+      stepIndex,
+      pending.definitionFingerprint,
+    );
+    if (fingerprintFailure) {
+      await appendRunFailed(ctx, runId, fingerprintFailure);
       return { isSuccess: true, data: { outcome: "failed" as const } };
     }
 
@@ -135,19 +218,7 @@ export const resumeRunHandler: WriteHandlerDef = {
       return { isSuccess: true, data: { outcome: "already-resumed" as const } };
     }
 
-    const startedEvents = await ctx.loadAggregate(runId);
-    const started = startedEvents.find((e) => e.type === WORKFLOW_RUN_STARTED_TYPE);
-    if (!started) {
-      throw new InternalError({
-        message: `workflow-runner:write:resume-run: run ${runId} has no ${WORKFLOW_RUN_STARTED_TYPE} event — cannot recover its trigger event.`,
-      });
-    }
-    const startedPayload = started.payload as WorkflowRunStartedPayload; // @cast-boundary event-store-payload
-    const triggerEvent: WriteEvent = {
-      type: startedPayload.triggerEventType,
-      payload: startedPayload.triggerPayload,
-      user: event.user,
-    };
+    const triggerEvent = await recoverTriggerEvent(ctx, runId, workflowName, event.user);
 
     const resumeFrom =
       pending.suspensionEventType === WORKFLOW_RETRY_SCHEDULED_TYPE ? stepIndex : stepIndex + 1;
@@ -162,22 +233,7 @@ export const resumeRunHandler: WriteHandlerDef = {
         ...(pending.retryAttempt !== null && { retryAttempt: pending.retryAttempt + 1 }),
       };
 
-      // The suspended waitForEvent step itself is skipped on resume
-      // (resumeFrom = stepIndex + 1) — its run() never re-executes, so its
-      // resultKey (args.event, see steps/wait-for-event.ts) never gets
-      // populated by the normal runStepList loop. Seed it here from the
-      // pending row's own triggerPayload so a subsequent step's resolver
-      // sees the matched event via `ctx.steps[awaits.someKey]`, same as any
-      // other step result. NULL on a timeout-without-a-match — a later
-      // resolver reading it just sees `undefined`, no special-casing needed.
-      const stepsAcc: Record<string, unknown> = {};
-      if (pending.suspensionEventType === WORKFLOW_WAITING_FOR_EVENT_TYPE) {
-        const suspendedStep = steps[stepIndex];
-        const key = suspendedStep && getStep(suspendedStep.kind)?.resultKey?.(suspendedStep.args);
-        if (key !== undefined) {
-          stepsAcc[key] = pending.triggerPayload;
-        }
-      }
+      const stepsAcc = seedResumedStepResults(pending, steps, stepIndex);
 
       const outcome = await runStepList(
         steps,
@@ -215,12 +271,7 @@ export const resumeRunHandler: WriteHandlerDef = {
         stepIndex,
         error: String(error),
       };
-      await ctx.unsafeAppendEvent({
-        aggregateId: runId,
-        aggregateType: WORKFLOW_AGGREGATE_TYPE,
-        type: WORKFLOW_RUN_FAILED_TYPE,
-        payload: failedPayload,
-      });
+      await appendRunFailed(ctx, runId, failedPayload);
       return { isSuccess: true, data: { outcome: "failed" as const } };
     }
   },

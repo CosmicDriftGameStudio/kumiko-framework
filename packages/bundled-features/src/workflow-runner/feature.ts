@@ -24,8 +24,8 @@
 //
 // wait/retry/waitForEvent suspensions all resume automatically now.
 
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { selectDueWorkflowRunPending } from "./db/queries/due-runs";
 import { resumeRunHandler } from "./handlers/resume-run.write";
 import { registerWorkflowRunPendingProjection } from "./pending-projection";
 import { workflowRunPendingTableMeta } from "./tables";
@@ -34,8 +34,6 @@ import { workflowRunPendingTableMeta } from "./tables";
 // bundled feature's runtime name follows this convention, and
 // FEATURE_IMPORT_REGISTRY (use-all-bundled) keys off it.
 const FEATURE_NAME = "workflow-runner";
-
-type DueRow = { readonly run_id: string; readonly step_index: number };
 
 export const workflowRunnerFeature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
@@ -69,17 +67,7 @@ export const workflowRunnerFeature = defineFeature(FEATURE_NAME, (r) => {
         return;
       }
 
-      // Standalone statement (no db.begin) — FOR UPDATE SKIP LOCKED only
-      // needs to survive this one SELECT to reduce redundant dispatches
-      // under true concurrency; it auto-commits and releases the row locks
-      // immediately after. The real correctness guarantee is resume-run's
-      // VersionConflictError-checked claim (ctx.tryAppendEvent on
-      // WORKFLOW_RESUMED) — a second dispatch for the same row just loses
-      // that race and no-ops, same as the sample this was adapted from.
-      const dueRows = (await asRawClient(ctx.db).unsafe(
-        `SELECT run_id, step_index FROM workflow_run_pending WHERE tenant_id = $1 AND wake_at < now() FOR UPDATE SKIP LOCKED`,
-        [tenantId],
-      )) as readonly DueRow[];
+      const dueRows = await selectDueWorkflowRunPending(ctx.db, tenantId);
 
       for (const row of dueRows) {
         try {
