@@ -16,6 +16,7 @@
  *   await waitFor(() => events.length >= 4);
  */
 export async function waitFor(
+  // biome-ignore lint/suspicious/noConfusingVoidType: void must stay in the union so the existing expect(...) block form (implicit void return) still type-checks
   fn: () => void | boolean | Promise<void | boolean>,
   options?: { delays?: number[] },
 ): Promise<void> {
