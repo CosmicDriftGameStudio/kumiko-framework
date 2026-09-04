@@ -60,4 +60,45 @@ describe("waitFor", () => {
     );
     expect(calls).toBe(2);
   });
+
+  test("polls a boolean predicate until it returns true", async () => {
+    let calls = 0;
+    await waitFor(
+      () => {
+        calls++;
+        return calls >= 3;
+      },
+      { delays: [1, 1, 1] },
+    );
+    expect(calls).toBe(3);
+  });
+
+  test("throws a descriptive error when a predicate stays false for the whole schedule", async () => {
+    let calls = 0;
+    await expect(
+      waitFor(
+        () => {
+          calls++;
+          return false;
+        },
+        { delays: [1, 1] },
+      ),
+    ).rejects.toThrow("waitFor: condition never became true within the delay schedule");
+    expect(calls).toBe(3);
+  });
+
+  test("returns immediately for a block-style fn that returns undefined without throwing", async () => {
+    let calls = 0;
+    const events = [1];
+    const started = Date.now();
+    await waitFor(
+      () => {
+        calls++;
+        expect(events).toHaveLength(1);
+      },
+      { delays: [2000] },
+    );
+    expect(calls).toBe(1);
+    expect(Date.now() - started).toBeLessThan(500);
+  });
 });
