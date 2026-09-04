@@ -750,6 +750,10 @@ export async function createKumikoServer(
     // handler works on the request path (kumiko-framework#1232).
     context: stack.context,
     redisUrl,
+    // Same dispatcher the request path writes through — without this,
+    // ctx.write/ctx.queryAs inside a dev-run job throw on their first call
+    // (kumiko-framework#2553).
+    dispatcher: stack.dispatcher,
   });
 
   // Dev user = TestUsers.admin. Demo features are openToAll but the
