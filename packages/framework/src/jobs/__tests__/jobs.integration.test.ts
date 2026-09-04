@@ -925,6 +925,9 @@ describe("perTenant across multiple runner instances", () => {
     // A post-close 'error' here is otherwise unhandled and bun:test
     // attributes it to whichever test runs next (fw#1805).
     rawQueue.on("error", () => {});
+    // Snapshot of completed wrapper runs — declared outside try so the
+    // post-finally fan-out check can read it.
+    let drainedCalls = 0;
     try {
       // Both instances call start() → both call upsertJobScheduler() with
       // the SAME schedulerId against the SAME Redis. If that didn't dedup,
@@ -937,27 +940,38 @@ describe("perTenant across multiple runner instances", () => {
       // called upsertJobScheduler() against it. Two entries here means two
       // independent repeat timers, which would double-fire every tick.
       expect(await rawQueue.getJobSchedulersCount()).toBe(1);
-      await waitFor(() => expect(wrapperCalls).toBeGreaterThanOrEqual(1), {
-        delays: [2000, 3000, 5000],
-      });
+      // Wait for the asserted drain state while workers are still up —
+      // stop() tears down consumers, so a post-finally sleep/assert races
+      // on unprocessed children (fw#2556: expected 4, got 2). Snapshot
+      // drainedCalls inside the predicate; do not assert a post-stop
+      // log-length ceiling — in-flight children (and sequential multi-
+      // runner stop) can still append after the snapshot.
+      await waitFor(
+        () => {
+          expect(wrapperCalls).toBeGreaterThanOrEqual(1);
+          expect(log.length).toBe(wrapperCalls * tenants.length);
+          drainedCalls = wrapperCalls;
+        },
+        { delays: [2000, 3000, 5000] },
+      );
     } finally {
-      // Stop immediately after catching the first tick so no further ticks
-      // can land mid-assertion — the invariant below still holds however
-      // many ticks slipped in before stop() took effect.
       await runnerA.stop();
       await runnerB.stop();
       await rawQueue.close();
     }
-    await sleep(300); // let any in-flight children land
 
     // Secondary sanity check only — this ratio holds whether the wrapper
     // fired once or twice per tick (wrapperCalls scales with it either
     // way), so it does not by itself prove the once-per-tick invariant.
     // It only confirms each wrapper run that did happen fanned out to
-    // every tenant exactly once.
-    expect(log.length).toBe(wrapperCalls * tenants.length);
-    const seenTenants = log.map((e) => e.tenantId).sort();
-    const expectedTenants = Array.from({ length: wrapperCalls }, () => tenants)
+    // every tenant exactly once. Slice to the drained prefix so a late
+    // tick that lands during stop() cannot break the multiset check.
+    expect(log.length).toBeGreaterThanOrEqual(drainedCalls * tenants.length);
+    const seenTenants = log
+      .slice(0, drainedCalls * tenants.length)
+      .map((e) => e.tenantId)
+      .sort();
+    const expectedTenants = Array.from({ length: drainedCalls }, () => tenants)
       .flat()
       .sort();
     expect(seenTenants).toEqual(expectedTenants);
@@ -1123,23 +1137,31 @@ describe("perTenant wrapper re-run for the same trigger", () => {
       queueNamePrefix,
       getActiveTenantIds,
     });
+    let drainedCalls = 0;
     try {
       await runner.start();
       // Two distinct ticks get two distinct repeat-job ids (different
       // millis) — each must still produce its own full batch of children;
       // a wrongly cross-tick dedup would collapse the second tick's log
       // entries into the first.
-      await waitFor(() => expect(wrapperCalls).toBeGreaterThanOrEqual(2), {
-        delays: [1500, 2000, 3000],
-      });
+      await waitFor(
+        () => {
+          expect(wrapperCalls).toBeGreaterThanOrEqual(2);
+          expect(log.length).toBe(wrapperCalls * tenants.length);
+          drainedCalls = wrapperCalls;
+        },
+        { delays: [1500, 2000, 3000] },
+      );
     } finally {
       await runner.stop();
     }
-    await sleep(300); // let any in-flight children land
 
-    expect(log.length).toBe(wrapperCalls * tenants.length);
-    const seenTenants = log.map((e) => e.tenantId).sort();
-    const expectedTenants = Array.from({ length: wrapperCalls }, () => tenants)
+    expect(log.length).toBeGreaterThanOrEqual(drainedCalls * tenants.length);
+    const seenTenants = log
+      .slice(0, drainedCalls * tenants.length)
+      .map((e) => e.tenantId)
+      .sort();
+    const expectedTenants = Array.from({ length: drainedCalls }, () => tenants)
       .flat()
       .sort();
     expect(seenTenants).toEqual(expectedTenants);
