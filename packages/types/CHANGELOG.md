@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-types
 
+## 0.231.0
+
+### Minor Changes
+
+- 404d143: `ctx.files` (`FileContext`) gains `list(prefix)`, delegating to the already-required `FileStorageProvider.list`. Derived variants (thumbnails, resized images, …) live under deterministic, hashed storage keys that are never written back onto the originating `FileRef` row, so the only way to find them is a prefix listing — previously only the GDPR hook's `buildStorageProvider` could do that. Ordinary handlers deleting a file through `ctx.files` had no way to discover and delete its variants, leaving them as orphaned bytes.
+- 4f4bc49: **Breaking:** `r.step.waitForEvent`'s `match` argument is now a serializable `EventMatch` AST (`{ version: 1, expr: ... }` built from `and`/`or`/`atom` nodes and `eq`/`ne`/`in`/`gt`/`gte`/`lt`/`lte` ops) instead of a `(payload: unknown) => boolean` closure. The resolved AST is persisted into the `workflow.step.waiting-for-event` suspension event's payload so the Resume-Loop can evaluate it (via the new `evaluateEventMatch` export) without re-running app code — a closure cannot survive that round-trip. No compatibility shim: any existing `match` closure must be rewritten as an `EventMatch` expression.
+
 ## 0.230.0
 
 ## 0.229.1

@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.231.0
+
+### Minor Changes
+
+- 404d143: `ctx.files` (`FileContext`) gains `list(prefix)`, delegating to the already-required `FileStorageProvider.list`. Derived variants (thumbnails, resized images, …) live under deterministic, hashed storage keys that are never written back onto the originating `FileRef` row, so the only way to find them is a prefix listing — previously only the GDPR hook's `buildStorageProvider` could do that. Ordinary handlers deleting a file through `ctx.files` had no way to discover and delete its variants, leaving them as orphaned bytes.
+- 4f4bc49: **Breaking:** `r.step.waitForEvent`'s `match` argument is now a serializable `EventMatch` AST (`{ version: 1, expr: ... }` built from `and`/`or`/`atom` nodes and `eq`/`ne`/`in`/`gt`/`gte`/`lt`/`lte` ops) instead of a `(payload: unknown) => boolean` closure. The resolved AST is persisted into the `workflow.step.waiting-for-event` suspension event's payload so the Resume-Loop can evaluate it (via the new `evaluateEventMatch` export) without re-running app code — a closure cannot survive that round-trip. No compatibility shim: any existing `match` closure must be rewritten as an `EventMatch` expression.
+
+### Patch Changes
+
+- 5d4c21e: `KUMIKO_SUB_PROCESSORS` was out of date in three ways, and the list is served publicly under `/api/compliance/sub-processors` as the GDPR Art. 28 sub-processor disclosure — so a stale entry is a compliance defect, not a cosmetic one.
+
+  Mailbox.org (Heinlein Hosting) is removed: it is no longer used, and the `Marketing Email Delivery` purpose it carried has always been Brevo's. Mailbox hosting moved to ALL-INKL.COM, which is added as an active sub-processor covering the support and contact mailboxes.
+
+  Anthropic and Stripe move from `planned` to `active` — both are in production use, and listing an active US sub-processor as merely planned understates the actual third-country transfer.
+
+  Note for consumers reading the endpoint: the `planned` section is now empty. It remains part of the response shape.
+
+- Updated dependencies [404d143]
+- Updated dependencies [4f4bc49]
+  - @cosmicdrift/kumiko-types@0.231.0
+
 ## 0.230.0
 
 ### Patch Changes
