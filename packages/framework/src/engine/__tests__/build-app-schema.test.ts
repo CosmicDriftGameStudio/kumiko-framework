@@ -49,6 +49,48 @@ describe("buildAppSchema", () => {
     expect(fleet?.entities["vehicle"]).toBeDefined();
   });
 
+  // r.screen({ nav: {...} }) sugar must omit absent optional nav fields
+  // rather than writing them as explicit `undefined` — a plain key-per-
+  // field object literal makes `undefined` a real value in the schema,
+  // which findNonJsonSafePath flags as a boot-time warning even though
+  // JSON.stringify silently drops the key later. r.contentCollection()
+  // already gets this right via a conditional spread; this pins the same
+  // fix for r.screen().
+  test("r.screen({ nav }) sugar omits absent optional nav fields instead of writing them as undefined", () => {
+    const topLevelFeature = defineFeature("privacy", (r) => {
+      r.screen({
+        id: "privacy-center",
+        type: "custom",
+        renderer: { react: { __component: "PrivacyCenterScreen" } },
+        nav: { label: "Privacy" },
+      });
+    });
+    const nestedFeature = defineFeature("billing", (r) => {
+      r.screen({
+        id: "invoices",
+        type: "custom",
+        renderer: { react: { __component: "InvoicesScreen" } },
+        nav: { label: "Invoices", parent: "billing:nav:overview" },
+      });
+    });
+
+    const app = buildAppSchema(createRegistry([topLevelFeature, nestedFeature]));
+
+    const privacyFeature = app.features.find((f) => f.featureName === "privacy");
+    const topLevelNav = privacyFeature?.navs?.[0];
+    if (!topLevelNav) throw new Error("privacy feature's nav entry is missing");
+    expect("parent" in topLevelNav).toBe(false);
+    expect("icon" in topLevelNav).toBe(false);
+    expect("order" in topLevelNav).toBe(false);
+
+    const billingFeature = app.features.find((f) => f.featureName === "billing");
+    const nestedNav = billingFeature?.navs?.[0];
+    if (!nestedNav) throw new Error("billing feature's nav entry is missing");
+    expect(nestedNav.parent).toBe("billing:nav:overview");
+
+    expect(findNonJsonSafePath(app, "schema")).toBeNull();
+  });
+
   // #1059: r.translations({keys}) must flow into FeatureSchema.translations
   // BYTE-IDENTICAL — nav/screen labels resolve these keys verbatim via
   // t(label) client-side, so any re-prefixing (like the registry's internal

@@ -360,12 +360,15 @@ export function buildUiExtensionsMethods<TName extends string>(
         // Sugar for the common "one nav entry pointing at this screen"
         // case — synthesizes id/screen from the screen's own id. Beyond
         // label/icon/parent/order, declare a standalone r.nav() instead.
+        // Optional fields stay absent rather than explicitly undefined —
+        // buildAppSchema's JSON-safety check flags undefined values. Same
+        // pattern as r.contentCollection() below.
         registerNav({
           id: definition.id,
           label: definition.nav.label,
-          icon: definition.nav.icon,
-          parent: definition.nav.parent,
-          order: definition.nav.order,
+          ...(definition.nav.icon !== undefined && { icon: definition.nav.icon }),
+          ...(definition.nav.parent !== undefined && { parent: definition.nav.parent }),
+          ...(definition.nav.order !== undefined && { order: definition.nav.order }),
           screen: `${name}:screen:${definition.id}`,
         });
       }
