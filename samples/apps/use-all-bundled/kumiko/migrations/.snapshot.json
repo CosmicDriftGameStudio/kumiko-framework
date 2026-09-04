@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-28T20:01:41.127Z",
+  "generatedAt": "2026-09-04T08:26:03.459Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -3470,6 +3470,86 @@
       ],
       "source": "unmanaged",
       "piiSubjectFields": ["ip", "userAgent"]
+    },
+    {
+      "tableName": "workflow_run_pending",
+      "columns": [
+        {
+          "name": "run_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "workflow_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "step_index",
+          "pgType": "integer",
+          "notNull": true
+        },
+        {
+          "name": "suspension_event_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "wake_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "retry_attempt",
+          "pgType": "integer",
+          "notNull": false
+        },
+        {
+          "name": "definition_fingerprint",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "wait_event_type",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "match_expr",
+          "pgType": "jsonb",
+          "notNull": false
+        },
+        {
+          "name": "trigger_event_type",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "trigger_payload",
+          "pgType": "jsonb",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "workflow_run_pending_tenant_wake_at_idx",
+          "columns": ["tenant_id", "wake_at"]
+        },
+        {
+          "name": "workflow_run_pending_wait_event_type_idx",
+          "columns": ["wait_event_type"]
+        }
+      ],
+      "compositePrimaryKey": {
+        "name": "workflow_run_pending_pkey",
+        "columns": ["tenant_id", "run_id", "step_index"]
+      },
+      "source": "unmanaged"
     }
   ]
 }

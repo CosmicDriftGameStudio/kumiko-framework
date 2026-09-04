@@ -102,7 +102,6 @@ function checkQ7Fingerprint(
 async function recoverTriggerEvent(
   ctx: HandlerContext,
   runId: string,
-  workflowName: string,
   user: WriteEvent["user"],
 ): Promise<WriteEvent> {
   const startedEvents = await ctx.loadAggregate(runId);
@@ -218,7 +217,7 @@ export const resumeRunHandler: WriteHandlerDef = {
       return { isSuccess: true, data: { outcome: "already-resumed" as const } };
     }
 
-    const triggerEvent = await recoverTriggerEvent(ctx, runId, workflowName, event.user);
+    const triggerEvent = await recoverTriggerEvent(ctx, runId, event.user);
 
     const resumeFrom =
       pending.suspensionEventType === WORKFLOW_RETRY_SCHEDULED_TYPE ? stepIndex : stepIndex + 1;
