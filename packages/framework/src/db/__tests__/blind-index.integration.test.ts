@@ -45,6 +45,18 @@ const personFeature = defineFeature("bidxtest", (r) => {
 });
 const personTable = buildEntityTable("person", personEntity);
 
+// Lookupable entity whose read table is deliberately never created — used to
+// prove the forget sweep skips missing relations (fw#2550).
+const ghostEntity = createEntity({
+  table: "read_bidx_ghosts_missing",
+  fields: {
+    email: createTextField({ required: true, personal: "self", find: "exact" }),
+  },
+});
+const ghostFeature = defineFeature("bidxghost", (r) => {
+  r.entity("ghost", ghostEntity);
+});
+
 let testDb: TestDb;
 let tdb: TenantDb;
 let kms: InMemoryKmsAdapter;
@@ -246,5 +258,25 @@ describe("blind-index rebuild + forget", () => {
 
     expect((await rawRow(String(created.data.id)))["email_bidx"]).toBeNull();
     expect(await fetchOne(tdb, personTable, { email: "marc@example.com" })).toBeUndefined();
+  });
+
+  test("nullBlindIndexesForSubject skips missing projection tables (fw#2550)", async () => {
+    const created = await crud.create({ email: "marc@example.com" }, adminUser, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+    expect((await rawRow(String(created.data.id)))["email_bidx"]).not.toBeNull();
+
+    await kms.eraseKey({ kind: "user", userId: String(created.data.id) });
+    // Registry includes a lookupable ghost whose table was never migrated —
+    // pre-fix this UPDATE threw after eraseKey and left bidx linkable.
+    const registry = createRegistry([personFeature, ghostFeature]);
+    await expect(
+      nullBlindIndexesForSubject(
+        testDb.db,
+        registry.features,
+        subjectIdToKey({ kind: "user", userId: String(created.data.id) }),
+      ),
+    ).resolves.toBeUndefined();
+
+    expect((await rawRow(String(created.data.id)))["email_bidx"]).toBeNull();
   });
 });

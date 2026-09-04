@@ -15,6 +15,7 @@ import { collectSearchableSubjectFields } from "../crypto/subject-resolver";
 import type { DbRunner } from "../db/connection";
 import { resolveTableName } from "../db/entity-table-meta";
 import { executeRawQueryRead } from "../db/queries/raw-sql";
+import { tableExists } from "../db/schema-inspection";
 import type { FeatureDefinition } from "../engine/types";
 import type { EntityDefinition } from "../engine/types/fields";
 import type { EntityId, TenantId } from "../engine/types/identifiers";
@@ -139,6 +140,10 @@ export async function purgeSearchDocumentsForSubject(
       const fields = collectSearchableSubjectFields(entity);
       if (fields.length === 0) continue;
       const tableName = resolveTableName(entityName, entity, undefined);
+      // Same post-eraseKey hazard as nullBlindIndexesForSubject (fw#2550):
+      // a mounted feature without its migration must not abort the purge
+      // (and the audit event after it).
+      if (!(await tableExists(db, tableName))) continue;
       const predicate = buildSubjectPredicate(entity, fields, likePattern, subject);
       const rows = await collectMatchingRowsForEntity(
         db,

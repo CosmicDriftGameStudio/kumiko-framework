@@ -19,6 +19,7 @@ import { toSnakeCase } from "../utils/case";
 import type { DbRunner } from "./connection";
 import { resolveTableName } from "./entity-table-meta";
 import { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql";
+import { tableExists } from "./schema-inspection";
 
 export async function nullBlindIndexesForSubject(
   db: DbRunner,
@@ -34,6 +35,11 @@ export async function nullBlindIndexesForSubject(
       // one (buildEntityTable with no featureName option), the sweep has to
       // hit the same names.
       const tableName = resolveTableName(entityName, entity, undefined);
+      // Skip entities whose projection was never migrated — same class as
+      // subjectRowExistsInTenant (fw#2348). A throw here runs AFTER eraseKey
+      // in forget-subject and would leave deterministic bidx columns still
+      // linkable (fw#2550).
+      if (!(await tableExists(db, tableName))) continue;
       for (const fieldName of lookupable) {
         const snake = toSnakeCase(fieldName);
         await executeRawQuery(

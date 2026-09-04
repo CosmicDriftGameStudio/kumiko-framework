@@ -10,7 +10,7 @@ import {
   subjectIdToKey,
 } from "../../crypto";
 import { asRawClient, buildEntityTable, createEventStoreExecutor, createTenantDb } from "../../db";
-import { createEntity, createTextField, defineFeature } from "../../engine";
+import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import { createEventsTable } from "../../event-store";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { purgeSearchDocumentsForSubject } from "../purge-subject";
@@ -28,6 +28,16 @@ const contactTable = buildEntityTable("contact", contactEntity);
 
 const contactFeature = defineFeature("search-pii-probe", (r) => {
   r.entity("contact", contactEntity);
+});
+
+const ghostSearchEntity = createEntity({
+  table: "read_search_pii_ghosts_missing",
+  fields: {
+    label: createTextField({ required: true, maxLength: 100, personal: "self", find: "fuzzy" }),
+  },
+});
+const ghostSearchFeature = defineFeature("search-pii-ghost", (r) => {
+  r.entity("ghost", ghostSearchEntity);
 });
 
 let stack: TestStack;
@@ -157,6 +167,36 @@ describe("searchable PII derived index (#1610)", () => {
       subjectIdToKey(subject),
       subject,
     );
+
+    const after = await stack.search.search(admin.tenantId, plain, { filterType: "contact" });
+    expect(after.some((h) => String(h.entityId) === id)).toBe(false);
+  });
+
+  test("purgeSearchDocumentsForSubject skips missing projection tables (fw#2550)", async () => {
+    const plain = "MissingTableStillPurges1610";
+    const created = await executor().create({ label: plain, note: "n" }, admin, tenantDb());
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = String(created.data.id);
+    await stack.eventDispatcher?.runOnce();
+    expect(
+      (await stack.search.search(admin.tenantId, plain, { filterType: "contact" })).some(
+        (h) => String(h.entityId) === id,
+      ),
+    ).toBe(true);
+
+    const subject = { kind: "user" as const, userId: id };
+    await kms.eraseKey(subject);
+    // Ghost searchable entity never got DDL — must not abort the purge.
+    const registry = createRegistry([contactFeature, ghostSearchFeature]);
+    await expect(
+      purgeSearchDocumentsForSubject(
+        stack.db,
+        registry.features,
+        stack.search,
+        subjectIdToKey(subject),
+        subject,
+      ),
+    ).resolves.toBeUndefined();
 
     const after = await stack.search.search(admin.tenantId, plain, { filterType: "contact" });
     expect(after.some((h) => String(h.entityId) === id)).toBe(false);
