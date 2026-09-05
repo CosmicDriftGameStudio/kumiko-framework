@@ -22,6 +22,10 @@ describe("computeFraction", () => {
   test("used 0 of a positive limit -> 0", () => {
     expect(computeFraction(0, 5)).toBe(0);
   });
+
+  test("limit null (unlimited) -> 0, regardless of used", () => {
+    expect(computeFraction(165, null)).toBe(0);
+  });
 });
 
 describe("computeUnclampedFraction", () => {
@@ -36,6 +40,10 @@ describe("computeUnclampedFraction", () => {
 
   test("used 3 of limit 5 -> 0.6, same as the clamped case", () => {
     expect(computeUnclampedFraction(3, 5)).toBe(0.6);
+  });
+
+  test("limit null (unlimited) -> 0, regardless of used", () => {
+    expect(computeUnclampedFraction(165, null)).toBe(0);
   });
 });
 
@@ -56,5 +64,9 @@ describe("computeTone", () => {
 
   test("fraction >= 1 -> danger", () => {
     expect(computeTone(1)).toBe("danger");
+  });
+
+  test("unlimited (limit null) never escalates to warn/danger", () => {
+    expect(computeTone(computeFraction(165, null))).toBe("default");
   });
 });

@@ -73,4 +73,40 @@ describe("CapUsageBar", () => {
     expect(fillClass()).not.toContain("bg-primary");
     expect(fillClass()).not.toContain("bg-status-critical");
   });
+
+  test("renders the raw used count instead of a bar when limit is null (unlimited)", () => {
+    const usage: CapUsage = { used: 165, limit: null, fraction: 0 };
+    render(
+      <Wrapper>
+        <CapUsageBar usage={usage} />
+      </Wrapper>,
+    );
+
+    expect(screen.queryByTestId("cap-usage-bar")).toBeNull();
+    expect(screen.getByTestId("cap-usage-unlimited").textContent).toBe("165");
+  });
+
+  test("renders nothing for an unlimited cap when showLabel is false", () => {
+    const usage: CapUsage = { used: 165, limit: null, fraction: 0 };
+    render(
+      <Wrapper>
+        <CapUsageBar usage={usage} showLabel={false} />
+      </Wrapper>,
+    );
+
+    expect(screen.queryByTestId("cap-usage-bar")).toBeNull();
+    expect(screen.queryByTestId("cap-usage-unlimited")).toBeNull();
+  });
+
+  test("not-measured wins over unlimited when both used and limit are null", () => {
+    const usage: CapUsage = { used: null, limit: null, fraction: 0 };
+    render(
+      <Wrapper>
+        <CapUsageBar usage={usage} />
+      </Wrapper>,
+    );
+
+    expect(screen.getByTestId("cap-usage-not-measured")).toBeTruthy();
+    expect(screen.queryByTestId("cap-usage-unlimited")).toBeNull();
+  });
 });

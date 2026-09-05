@@ -7,21 +7,23 @@ import type { CapUsageTone } from "./types";
 const WARN_THRESHOLD = 0.8;
 const DANGER_THRESHOLD = 1;
 
-// limit <= 0 means "not part of this tier" — 0, never NaN/Infinity.
-function rawFraction(used: number, limit: number): number {
+// limit === null means unlimited (no cap to measure against); limit <= 0
+// means "not part of this tier" — both render as 0, never NaN/Infinity.
+function rawFraction(used: number, limit: number | null): number {
+  if (limit === null) return 0;
   if (limit <= 0) return 0;
   const fraction = used / limit;
   return Number.isFinite(fraction) ? fraction : 0;
 }
 
-export function computeFraction(used: number, limit: number): number {
+export function computeFraction(used: number, limit: number | null): number {
   return Math.min(1, Math.max(0, rawFraction(used, limit)));
 }
 
 // Unclamped — for display of the over-limit case (e.g. "140%"). Bar width
 // and tone still use the clamped computeFraction; only percent shows the
 // real ratio.
-export function computeUnclampedFraction(used: number, limit: number): number {
+export function computeUnclampedFraction(used: number, limit: number | null): number {
   return rawFraction(used, limit);
 }
 

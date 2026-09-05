@@ -96,6 +96,19 @@ function nullCapRow(overrides: Partial<CapUsageWithMeta> = {}): CapUsageWithMeta
   };
 }
 
+function unlimitedCapRow(overrides: Partial<CapUsageWithMeta> = {}): CapUsageWithMeta {
+  return {
+    id: "cap-unlimited",
+    label: "cap.label.unlimited",
+    tone: "default",
+    percent: null,
+    used: 165,
+    limit: null,
+    fraction: 0,
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   queryState = { data: { rows: [] }, loading: false, error: null };
   useQuerySpy.mockClear();
@@ -231,6 +244,46 @@ describe("CapCardsPanel", () => {
     expect(screen.getByText("3 / 10")).toBeTruthy();
     expect(screen.getByTestId("cap-usage-not-measured")).toBeTruthy();
     expect(screen.getAllByTestId("cap-usage-bar")).toHaveLength(1);
+  });
+
+  test("an unlimited cap (limit: null) shows the raw used count, no denominator, no percent badge, no bar", () => {
+    queryState = {
+      data: { rows: [unlimitedCapRow()] },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel(undefined);
+
+    expect(screen.getByTestId("cap-card").textContent).toContain("165");
+    expect(screen.queryByText("165 / null")).toBeNull();
+    expect(screen.queryByText("165 / 0")).toBeNull();
+    expect(screen.queryByText("null%")).toBeNull();
+    expect(screen.queryByText("0%")).toBeNull();
+    expect(screen.queryByTestId("cap-usage-bar")).toBeNull();
+  });
+
+  test("a limited card and an unlimited card in the same panel each render their own state", () => {
+    queryState = {
+      data: {
+        rows: [
+          capRow({ id: "c1", label: "Storage", used: 3, limit: 10, tone: "default", percent: 30 }),
+          unlimitedCapRow({ id: "c2", label: "Api calls" }),
+        ],
+      },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel(undefined);
+
+    expect(screen.getAllByTestId("cap-card")).toHaveLength(2);
+    expect(screen.getByText("3 / 10")).toBeTruthy();
+    expect(screen.getByText("30%")).toBeTruthy();
+    expect(screen.getAllByTestId("cap-usage-bar")).toHaveLength(1);
+    expect(screen.getAllByTestId("cap-card")[1]?.textContent).toContain("165");
+    expect(screen.queryByText("165 / null")).toBeNull();
+    expect(screen.queryByText("null%")).toBeNull();
   });
 
   test("loading with empty rows shows the loading text instead of the empty state", () => {

@@ -14,7 +14,9 @@ export type CapIconKey = "file" | "hash" | "database" | "users" | "mail" | "gaug
 export type CapSpec = {
   readonly id: string;
   readonly label: string;
-  readonly limit: (tier: string) => number;
+  // `null` = unlimited (a pure usage meter: counted but never capped).
+  // `<= 0` = not part of this tier — existing, unchanged meaning (usage-math.ts).
+  readonly limit: (tier: string) => number | null;
   // `null` means "no measurement exists yet for this cap" (not "0 used") —
   // callers that haven't wired up instrumentation return null instead of a
   // number they don't actually have.
@@ -44,7 +46,8 @@ export type CapUsage = {
   // `null` means not measured yet — `fraction`/`tone` stay non-nullable
   // (0 / "default") so no consumer needs null-arithmetic to render.
   readonly used: number | null;
-  readonly limit: number;
+  // `limit: null` means unlimited — a pure usage meter with no cap to hit.
+  readonly limit: number | null;
   readonly fraction: number;
 };
 

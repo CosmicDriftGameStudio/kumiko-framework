@@ -88,7 +88,7 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   );
   const dashboardCards = page.getByTestId("cap-cards-panel");
   await expect(dashboardCards).toBeVisible();
-  await expect(page.getByTestId("cap-card")).toHaveCount(3); // notes + tags + seats (cap-overview-caps.ts)
+  await expect(page.getByTestId("cap-card")).toHaveCount(4); // notes + tags + seats + apiCalls (cap-overview-caps.ts)
   await expect(dashboardCards).toContainText("Notes");
   await expect(dashboardCards).toContainText("Tags");
   await expect(dashboardCards).toContainText("Seats");
@@ -98,6 +98,11 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   await expect(dashboardCards).toContainText("120%");
   await expect(dashboardCards).toContainText("80%");
   await expect(dashboardCards).toContainText("40%");
+  // apiCalls is unlimited (limit: null) — shares notes' 12-row count but
+  // renders as a raw number, no percent badge.
+  const apiCallsCard = page.locator('[data-testid="cap-card"]', { hasText: "API calls" });
+  await expect(apiCallsCard).toContainText("12");
+  await expect(apiCallsCard).not.toContainText("%");
 
   // Regression guard for the grid-track-width bug: an arbitrary Tailwind
   // bracket class on cap-cards-panel.tsx's grid never compiled (bundled-
@@ -132,7 +137,7 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   await page.goto("/tenant-admin/my-caps");
   const myCapsCards = page.getByTestId("cap-cards-panel");
   await expect(myCapsCards).toBeVisible();
-  await expect(page.getByTestId("cap-card")).toHaveCount(3);
+  await expect(page.getByTestId("cap-card")).toHaveCount(4);
   // toHaveText() normalizes only the actual side, not a plain-string
   // expected — compare raw innerText on both sides instead.
   await expect(async () => {
