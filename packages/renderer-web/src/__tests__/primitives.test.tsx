@@ -252,6 +252,28 @@ describe("Input kind mapping", () => {
     expect(input.className).toContain("text-right");
     expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
   });
+
+  test('kind="number" unit="km": renders a muted, aria-hidden suffix inside the field and pads the input', () => {
+    render(<Input id="i" name="i" kind="number" value={58} unit="km" onChange={() => {}} />);
+    const input = screen.getByRole("spinbutton");
+    expect(input.className).toContain("pr-8");
+    const suffix = screen.getByText("km");
+    expect(suffix.getAttribute("aria-hidden")).toBe("true");
+    expect((input as HTMLInputElement).value).toBe("58");
+  });
+
+  test('kind="number" without unit: no suffix rendered, no right padding', () => {
+    render(<Input id="i" name="i" kind="number" value={58} onChange={() => {}} />);
+    expect(screen.queryByText("km")).toBeNull();
+    expect(screen.getByRole("spinbutton").className).not.toContain("pr-8");
+  });
+
+  test('kind="number" unit="km": typing only changes the numeric value, the unit never enters it', () => {
+    const onChange = mock();
+    render(<Input id="i" name="i" kind="number" value={58} unit="km" onChange={onChange} />);
+    fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "120" } });
+    expect(onChange).toHaveBeenCalledWith(120);
+  });
 });
 
 describe("DataTable", () => {

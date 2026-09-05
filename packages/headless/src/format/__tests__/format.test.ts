@@ -121,6 +121,17 @@ describe("applyFormatSpec — unit (fw#2187)", () => {
     );
   });
 
+  test("mi (Meilen) geht über Intl.NumberFormat(style:'unit') genau wie km", () => {
+    expect(applyFormatSpec({ format: "unit", unit: "mi" }, 58)).toBe(
+      new Intl.NumberFormat(undefined, {
+        style: "unit",
+        unit: "mile",
+        unitDisplay: "short",
+      }).format(58),
+    );
+    expect(applyFormatSpec({ format: "unit", unit: "mi", locale: "en-US" }, 12)).toBe("12 mi");
+  });
+
   test("m2 hat kein ECMA-402-sanktioniertes Intl-Unit (RangeError für 'square-meter') — Zahl + literales Suffix", () => {
     expect(applyFormatSpec({ format: "unit", unit: "m2", locale: "de-DE" }, 58)).toBe("58 m²");
     expect(applyFormatSpec({ format: "unit", unit: "m2", locale: "de-DE" }, 1234.5)).toBe(
@@ -201,7 +212,7 @@ describe("applyFormatSpec — enumOption (fw#2315)", () => {
 describe("unit format keys stay in lockstep with UnitKey", () => {
   // Mirror of packages/types/src/screen.ts UnitKey — keep lists equal without
   // adding a kumiko-types dependency to headless.
-  const TYPE_UNIT_KEYS = ["m2", "km", "m", "kg", "percent"] as const;
+  const TYPE_UNIT_KEYS = ["m2", "km", "m", "kg", "percent", "mi"] as const;
   test("every UnitKey formats with a non-bare number", () => {
     for (const k of TYPE_UNIT_KEYS) {
       expect(UNIT_FORMAT_KEYS.includes(k)).toBe(true);

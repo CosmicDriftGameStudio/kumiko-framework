@@ -61,11 +61,12 @@ export type RenderFieldProps = {
    *  `field.readOnly` field as plain text instead (projectionDetail's read
    *  view, fw#2245); editable fields are untouched by this prop either way. */
   readonly valueDisplay?: "form" | "text";
-  /** Current form values, keyed by field name — only consulted when
+  /** Current form values, keyed by field name. Consulted when
    *  `field.renderer` resolves to a `{ react: { __component } }` registry
-   *  component, passed through as `ColumnRendererProps.row` (same contract
-   *  as list-column renderers, fw#2245). Omitted → falls back to a
-   *  single-key `{ [field.field]: field.value }` row. */
+   *  component (passed through as `ColumnRendererProps.row`, same contract
+   *  as list-column renderers, fw#2245), and to resolve a `type: "number"`
+   *  field's sibling-field `unit`. Omitted → falls back to a single-key
+   *  `{ [field.field]: field.value }` row. */
   readonly row?: Readonly<Record<string, unknown>>;
 };
 
@@ -134,7 +135,7 @@ export function RenderField({
     ) : readOnlyText && !isComplexFieldType(field.type) ? (
       <Text testId={`field-value-${field.field}`}>{readOnlyDisplayText(field, appLocale)}</Text>
     ) : (
-      renderInput({ field, id, hasError, onChange, Input, appLocale, Banner, Text, t })
+      renderInput({ field, id, hasError, onChange, Input, appLocale, Banner, Text, t, row })
     );
 
   return (
@@ -449,6 +450,7 @@ function renderInput({
   Banner,
   Text,
   t,
+  row,
 }: {
   readonly field: EditFieldViewModel;
   readonly id: string;
@@ -459,6 +461,7 @@ function renderInput({
   readonly Banner: ReturnType<typeof usePrimitives>["Banner"];
   readonly Text: ReturnType<typeof usePrimitives>["Text"];
   readonly t: ReturnType<typeof useTranslation>;
+  readonly row?: Readonly<Record<string, unknown>>;
 }): ReactNode {
   const common = {
     id,
@@ -474,7 +477,8 @@ function renderInput({
     // already emits `number | undefined`, so no extra coercion is needed
     // beyond what "number" already does (#1925).
     case "number":
-    case "bigInt":
+    case "bigInt": {
+      const unit = resolveNumberUnit(field.unit, row);
       return (
         <Input
           kind="number"
@@ -482,8 +486,10 @@ function renderInput({
           value={numberValue(field.value)}
           onChange={(v) => onChange(v)}
           {...(field.icon !== undefined && { icon: field.icon })}
+          {...(unit !== undefined && { unit })}
         />
       );
+    }
     case "decimal":
       // step="any" disables the native stepMismatch constraint — without it
       // <input type="number"> defaults to step=1 and blocks form submit on
@@ -719,6 +725,18 @@ function resolveMoneyCurrency(value: unknown, fieldCurrency: string | undefined)
     return (value as { currency: string }).currency;
   }
   return fieldCurrency ?? "EUR";
+}
+
+// Static unit → used as-is. Sibling-field reference → read the live row
+// value; missing/empty/non-string sibling means no suffix, never a guess.
+function resolveNumberUnit(
+  unit: string | { readonly field: string } | undefined,
+  row: Readonly<Record<string, unknown>> | undefined,
+): string | undefined {
+  if (unit === undefined) return undefined;
+  if (typeof unit === "string") return unit;
+  const sibling = row?.[unit.field];
+  return typeof sibling === "string" && sibling.length > 0 ? sibling : undefined;
 }
 
 function moneyMinorValue(v: unknown, currency: string): number | "" {

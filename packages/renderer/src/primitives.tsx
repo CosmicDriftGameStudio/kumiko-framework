@@ -232,6 +232,9 @@ export type InputProps =
       /** `<input step>`. "any" disables the native stepMismatch constraint
        *  (needed for decimal fields — integer fields leave this unset). */
       readonly step?: number | "any";
+      /** Resolved display suffix (static or from a sibling field) — never
+       *  part of the numeric value. */
+      readonly unit?: string;
     }
   | {
       readonly kind: "range";
