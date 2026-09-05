@@ -380,6 +380,24 @@ function withFieldIcon(icon: string | undefined, input: ReactNode): ReactNode {
   );
 }
 
+// Mirrors withFieldIcon on the right side: a muted, non-interactive unit
+// suffix rendered inside the input's visual box. Pure decoration — never
+// focusable, never touches the input's value.
+function withUnitSuffix(unit: string | undefined, input: ReactNode): ReactNode {
+  if (unit === undefined) return input;
+  return (
+    <div className="relative">
+      {input}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+      >
+        {unit}
+      </span>
+    </div>
+  );
+}
+
 function DefaultInput(props: InputProps): ReactNode {
   // Vendored ui/input + ui/checkbox stylen Fehler über `aria-invalid`
   // selbst — kein manuelles border-destructive mehr nötig.
@@ -430,23 +448,27 @@ function DefaultInput(props: InputProps): ReactNode {
         />
       );
     case "number":
-      return withFieldIcon(
-        props.icon,
-        <UiInput
-          type="number"
-          {...common}
-          data-testid={props.testId}
-          value={props.value}
-          step={props.step}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => {
-            const v = e.target.value;
-            props.onChange(v === "" ? undefined : Number(v));
-          }}
-          className={cn(
-            "text-right tabular-nums",
-            fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,
-          )}
-        />,
+      return withUnitSuffix(
+        props.unit,
+        withFieldIcon(
+          props.icon,
+          <UiInput
+            type="number"
+            {...common}
+            data-testid={props.testId}
+            value={props.value}
+            step={props.step}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              const v = e.target.value;
+              props.onChange(v === "" ? undefined : Number(v));
+            }}
+            className={cn(
+              "text-right tabular-nums",
+              fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,
+              props.unit !== undefined ? "pr-8" : undefined,
+            )}
+          />,
+        ),
       );
     case "range":
       return (

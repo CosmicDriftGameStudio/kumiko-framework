@@ -371,6 +371,9 @@ export type NumberFieldDef = {
   /** `true` → `integer` column + `.int()` Zod validation. Omitted/`false` →
    *  `double precision` column, fractional values allowed. */
   readonly integer?: boolean;
+  /** Display-only suffix: a static string, or a sibling field name whose
+   *  value supplies it. Never converts the stored number. */
+  readonly unit?: string | { readonly field: string };
 } & ResolvedPiiFlags;
 
 /**
