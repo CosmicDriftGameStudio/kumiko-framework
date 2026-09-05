@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.233.0
+
+### Minor Changes
+
+- b0b9484: `NumberFieldDef` gained a `unit` option: an editable number field can now show a unit-of-measure suffix in its input, either a static string (`unit: "km"`) or a sibling field's live value (`unit: { field: "mileageUnit" }`), so the unit can vary per record (e.g. an odometer reading in "mi" or "km"). Display-only — the stored numeric value is never converted. Added `mi` (miles) to the read-only `unit` format registry's vocabulary alongside it.
+
+### Patch Changes
+
+- 56c3f2d: Form action bars now group into two rows: destructive/record actions (Delete, copy-link, custom actions, Cancel) on their own row, wizard/submit navigation on the other — desktop shows them side by side, narrow viewports stack the primary action on top. Buttons gained `icon`/`iconEnd` props (resolved against the shared `NavIconKey` vocabulary, now covering button icons too) and a new `danger-ghost` variant for destructive actions rendered as red text instead of a red fill.
+- Updated dependencies [b0b9484]
+  - @cosmicdrift/kumiko-headless@0.233.0
+  - @cosmicdrift/kumiko-framework@0.233.0
+
 ## 0.232.0
 
 ### Patch Changes
