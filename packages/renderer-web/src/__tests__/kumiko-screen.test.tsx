@@ -4,6 +4,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema, NavApi, NavTarget } from "@cosmicdrift/kumiko-renderer";
@@ -2559,5 +2560,182 @@ describe("KumikoScreen: entityEdit header actions", () => {
     expect(screen.queryByTestId("render-edit-action-publish")).toBeNull();
     expect(screen.queryByTestId("render-edit-action-archive")).toBeNull();
     expect(screen.queryByTestId("render-edit-action-duplicate")).toBeNull();
+  });
+});
+
+// --- entityList status cells + row actions (fw#2579, fw#2580) ---
+// Both are leftovers from #2575: the tone heuristic and the icon-only
+// collapse existed, but neither reached a list cell. These render the real
+// entityList pipeline (KumikoScreen -> EntityListBody -> RenderList ->
+// DataTable) against the real web primitives.
+describe("KumikoScreen: entityList cell rendering", () => {
+  const orderEntity = {
+    fields: {
+      title: { type: "text", required: true },
+      status: { type: "select", options: ["active", "unmapped-value", "constructor"] },
+    },
+  } as unknown as EntityDefinition;
+
+  const statusListScreen: EntityListScreenDefinition = {
+    id: "order-list",
+    type: "entityList",
+    entity: "order",
+    columns: ["title", "status"],
+  };
+
+  // publish/archive/duplicate all resolve an icon from their id
+  // (ACTION_ICON_BY_ID), which is what arms the icon-only collapse.
+  const rowActionListScreen: EntityListScreenDefinition = {
+    id: "order-list-actions",
+    type: "entityList",
+    entity: "order",
+    columns: ["title"],
+    rowActions: [
+      { id: "publish", label: "Publish", handler: "orders:write:order:publish" },
+      { id: "archive", label: "Archive", handler: "orders:write:order:archive" },
+      { id: "duplicate", label: "Duplicate", handler: "orders:write:order:duplicate" },
+    ],
+  };
+
+  // "review" has no icon in ACTION_ICON_BY_ID, so this group must stay on
+  // the adaptive default (kebab) instead of collapsing.
+  const mixedActionListScreen: EntityListScreenDefinition = {
+    id: "order-list-mixed",
+    type: "entityList",
+    entity: "order",
+    columns: ["title"],
+    rowActions: [
+      { id: "publish", label: "Publish", handler: "orders:write:order:publish" },
+      { id: "archive", label: "Archive", handler: "orders:write:order:archive" },
+      { id: "review", label: "Review", handler: "orders:write:order:review" },
+    ],
+  };
+
+  // projectionList reaches the same RenderList/DataTable path, so the collapse
+  // has to hold there too.
+  const projectionActionListScreen: ProjectionListScreenDefinition = {
+    id: "order-projection-actions",
+    type: "projectionList",
+    query: "orders:query:order:list",
+    columns: [{ field: "title", label: "Title" }],
+    rowActions: [
+      {
+        kind: "writeHandler",
+        id: "publish",
+        label: "Publish",
+        handler: "orders:write:order:publish",
+      },
+      {
+        kind: "writeHandler",
+        id: "archive",
+        label: "Archive",
+        handler: "orders:write:order:archive",
+      },
+      {
+        kind: "writeHandler",
+        id: "duplicate",
+        label: "Duplicate",
+        handler: "orders:write:order:duplicate",
+      },
+    ],
+  };
+
+  const orderSchema: FeatureSchema = {
+    featureName: "orders",
+    entities: { order: orderEntity },
+    screens: [
+      statusListScreen,
+      rowActionListScreen,
+      mixedActionListScreen,
+      projectionActionListScreen,
+    ],
+  };
+
+  function orderDispatcher(rows: readonly Record<string, unknown>[]): Dispatcher {
+    return makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { rows, nextCursor: null },
+      })) as unknown as Dispatcher["query"],
+    });
+  }
+
+  async function renderOrderList(
+    qn: string,
+    rows: readonly Record<string, unknown>[],
+  ): Promise<void> {
+    render(
+      <DispatcherProvider dispatcher={orderDispatcher(rows)}>
+        <KumikoScreen schema={orderSchema} qn={qn} />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+  }
+
+  test("a known status value renders a toned badge, not the muted default (#2579)", async () => {
+    await renderOrderList("orders:screen:order-list", [
+      { id: "r1", title: "First", status: "active" },
+    ]);
+
+    const badge = screen.getByTestId("cell-r1-status").firstElementChild;
+    expect(badge?.className).toContain("text-status-ok");
+    expect(badge?.className).not.toContain("text-muted-foreground");
+    expect(badge?.textContent).toBe("Active");
+  });
+
+  test("an unmapped select value keeps the neutral pill (#2579)", async () => {
+    await renderOrderList("orders:screen:order-list", [
+      { id: "r1", title: "First", status: "unmapped-value" },
+    ]);
+
+    const badge = screen.getByTestId("cell-r1-status").firstElementChild;
+    expect(badge?.className).toContain("text-muted-foreground");
+    expect(badge?.className).not.toContain("text-status-ok");
+  });
+
+  test("an Object.prototype key is not mistaken for a tone (#2579)", async () => {
+    await renderOrderList("orders:screen:order-list", [
+      { id: "r1", title: "First", status: "constructor" },
+    ]);
+
+    const badge = screen.getByTestId("cell-r1-status").firstElementChild;
+    expect(badge?.className).toContain("text-muted-foreground");
+  });
+
+  test("three icon-bearing row actions collapse to icon-only buttons (#2580)", async () => {
+    await renderOrderList("orders:screen:order-list-actions", [{ id: "r1", title: "First" }]);
+
+    expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
+    for (const [id, label] of [
+      ["publish", "Publish"],
+      ["archive", "Archive"],
+      ["duplicate", "Duplicate"],
+    ] as const) {
+      const button = screen.getByTestId(`row-r1-action-${id}`);
+      expect(button.textContent).toBe("");
+      expect(button.getAttribute("aria-label")).toBe(label);
+    }
+  });
+
+  test("projectionList row actions collapse the same way (#2580)", async () => {
+    await renderOrderList("orders:screen:order-projection-actions", [{ id: "r1", title: "First" }]);
+
+    expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
+    for (const [id, label] of [
+      ["publish", "Publish"],
+      ["archive", "Archive"],
+      ["duplicate", "Duplicate"],
+    ] as const) {
+      const button = screen.getByTestId(`row-r1-action-${id}`);
+      expect(button.textContent).toBe("");
+      expect(button.getAttribute("aria-label")).toBe(label);
+    }
+  });
+
+  test("a row-action group with an icon-less member stays on the kebab (#2580)", async () => {
+    await renderOrderList("orders:screen:order-list-mixed", [{ id: "r1", title: "First" }]);
+
+    expect(screen.queryByTestId("row-r1-actions-menu")).not.toBeNull();
+    expect(screen.queryByTestId("row-r1-action-publish")).toBeNull();
   });
 });

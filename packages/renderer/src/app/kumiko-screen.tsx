@@ -39,7 +39,9 @@ import { useTranslation } from "../i18n";
 import {
   type DataTableFacet,
   type DataTableRowAction,
-  type StatusTone,
+  type DataTableRowActionMode,
+  shouldRenderActionsIconOnly,
+  statusToneForValue,
   usePrimitives,
 } from "../primitives";
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
@@ -118,6 +120,18 @@ function kebabLastSegment(id: string): string {
 function resolveActionIcon(id: string, declared?: IconKey): IconKey | undefined {
   if (declared !== undefined) return declared;
   return ACTION_ICON_BY_ID[id] ?? ACTION_ICON_BY_ID[kebabLastSegment(id)];
+}
+
+// Row-action column mode for a resolved action set: a group where every
+// member carries an icon renders inline so `shouldRenderActionsIconOnly`
+// can collapse it to icon-only buttons (fw#2580). Anything else keeps the
+// DataTable's adaptive default (kebab past two actions) — inline text
+// buttons for an icon-less group are the very thing the collapse avoids.
+function rowActionModeFor(
+  actions: readonly DataTableRowAction[] | undefined,
+): DataTableRowActionMode | undefined {
+  if (actions === undefined || !shouldRenderActionsIconOnly(actions)) return undefined;
+  return "inline";
 }
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
@@ -1652,6 +1666,12 @@ function EntityListBody({
       .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
   }, [screen.rowActions, effectiveTranslate, dispatcher, runNavigate, refreshRowsAfterWrite]);
 
+  // Row actions that all resolve an icon render inline and collapse to
+  // icon-only (fw#2580) — the adaptive default would bury more than two of
+  // them in a kebab menu. A group with an icon-less member stays adaptive so
+  // it never degrades into wall-to-wall text buttons.
+  const rowActionMode = rowActionModeFor(rowActions);
+
   // ToolbarActions: Schema → Resolved-Form (analog rowActions).
   // navigate-kind → useNav().navigate({ screenId }), writeHandler-kind
   // → dispatcher.write(handler, payload?()). KumikoScreen kennt schon
@@ -1793,6 +1813,7 @@ function EntityListBody({
         onSortChange={urlState.setSort}
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
+        {...(rowActionMode !== undefined && { rowActionMode })}
         {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
         {...(useInfinite && {
           onReachEnd: loadMore,
@@ -2021,6 +2042,10 @@ function ProjectionListBody({
     return out.length > 0 ? out : undefined;
   }, [screen.rowActions, effectiveTranslate, runNavigate, dispatcher, rowsQuery.refetch]);
 
+  // Same icon-only collapse as entityList (fw#2580) — projectionList rows go
+  // through the identical RenderList/DataTable path.
+  const rowActionMode = rowActionModeFor(rowActions);
+
   const toolbarActions = useMemo((): readonly ToolbarActionButton[] | undefined => {
     if (screen.toolbarActions === undefined) return undefined;
     const out: ToolbarActionButton[] = [];
@@ -2139,6 +2164,7 @@ function ProjectionListBody({
         onSortChange={urlState.setSort}
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
+        {...(rowActionMode !== undefined && { rowActionMode })}
         {...(toolbarActions !== undefined && { toolbarActions })}
         {...(translate !== undefined && { translate })}
         {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
@@ -2163,43 +2189,6 @@ function ProjectionListBody({
       />
     </>
   );
-}
-
-// Status value -> StatusTone heuristic for projectionDetail header badges, because
-// the query row carries no tone (only the raw column value). Covers the
-// common status vocabularies; unknown values stay undefined so
-// DefaultStatusBadge falls back to its own "muted" default.
-const STATUS_TONE_BY_VALUE: Record<string, StatusTone> = {
-  ok: "ok",
-  active: "ok",
-  done: "ok",
-  complete: "ok",
-  completed: "ok",
-  paid: "ok",
-  approved: "ok",
-  published: "ok",
-  success: "ok",
-  pending: "warn",
-  processing: "warn",
-  review: "warn",
-  "in-review": "warn",
-  waiting: "warn",
-  open: "warn",
-  draft: "warn",
-  failed: "bad",
-  error: "bad",
-  overdue: "bad",
-  rejected: "bad",
-  blocked: "bad",
-  critical: "bad",
-};
-
-function statusToneForValue(value: string): StatusTone | undefined {
-  const slug = value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_]+/g, "-");
-  return STATUS_TONE_BY_VALUE[slug];
 }
 
 // Projection-Detail-Body — read-only single-row inspector über eine explizite

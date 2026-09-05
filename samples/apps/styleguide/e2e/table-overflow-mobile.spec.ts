@@ -43,8 +43,8 @@ test.describe("mobile (< md)", () => {
     // buttons also carry a `row-…` testid prefix, so they're excluded here.
     const cardsContainer = page.locator('[data-testid="render-list-table-cards"]');
     await expect(cardsContainer).toBeVisible();
-    // Excludes both the inline `-action-{id}` buttons and the `-actions-menu`
-    // kebab trigger (>2 rowActions on item-list now renders a kebab).
+    // Excludes the per-action `-action-{id}` buttons, which carry the same
+    // `row-` testid prefix as the cards themselves.
     const cards = cardsContainer.locator('[data-testid^="row-"]:not([data-testid*="-action"])');
     await expect(cards).toHaveCount(8);
 
@@ -76,22 +76,22 @@ test.describe("mobile (< md)", () => {
     // Row actions are reachable, not shoved offscreen. This was the actual
     // bug: on the old table, actions only became `sticky` from 768px up, so
     // below that they scrolled with the row and needed the (now-removed)
-    // horizontal table scroll to reach. item-list carries 5 rowActions now
-    // (edit/publish/archive/duplicate/delete), which collapses to a single
-    // "More actions" kebab trigger per row/card instead of inline buttons
-    // (RowActionsCell's `adaptive` mode: >2 actions → RowActionsKebab) — so
-    // this asserts the trigger itself, then that Edit/Delete surface inside
-    // the opened menu.
-    const actionsMenu = sampleCard.locator('[data-testid$="-actions-menu"]');
-    await expect(actionsMenu).toBeVisible();
-    await expect(actionsMenu).toBeInViewport();
-    await expect(actionsMenu).toBeEnabled();
+    // horizontal table scroll to reach. item-list carries 5 rowActions
+    // (edit/publish/archive/duplicate/delete) and every id resolves an icon,
+    // so KumikoScreen renders the column inline and RowActionsCell collapses
+    // it to icon-only buttons (fw#2580) instead of a kebab trigger. The label
+    // survives as the button's aria-label.
+    await expect(sampleCard.locator('[data-testid$="-actions-menu"]')).toHaveCount(0);
 
-    await actionsMenu.click();
-    const editItem = page.locator('[data-testid$="-action-edit"]');
-    const deleteItem = page.locator('[data-testid$="-action-delete"]');
-    await expect(editItem).toBeVisible();
-    await expect(deleteItem).toBeVisible();
+    const editAction = sampleCard.locator('[data-testid$="-action-edit"]');
+    const deleteAction = sampleCard.locator('[data-testid$="-action-delete"]');
+    for (const action of [editAction, deleteAction]) {
+      await expect(action).toBeVisible();
+      await expect(action).toBeInViewport();
+      await expect(action).toBeEnabled();
+    }
+    await expect(editAction).toHaveAttribute("aria-label", "Edit");
+    await expect(deleteAction).toHaveAttribute("aria-label", "Delete");
   });
 });
 
