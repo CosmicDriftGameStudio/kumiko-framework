@@ -36,6 +36,7 @@ import {
   type SectionProps,
   type StepBarProps,
   shouldRenderActionsIconOnly,
+  statusToneForValue,
   type TextProps,
   useColumnRenderer,
   useOptionalLocale,
@@ -93,6 +94,7 @@ import { Switch } from "../ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Textarea } from "../ui/textarea";
 import { ProgressBar } from "../widgets/progress-bar";
+import { StatusBadge } from "../widgets/status-badge";
 import { StepBar } from "../widgets/step-bar";
 import { ComboboxInput } from "./combobox";
 import { DateInput } from "./date-input";
@@ -1986,13 +1988,21 @@ function DataTableCell({
     // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
     console.warn(`[kumiko] columnRenderer "${componentRef.name}" not registered`);
   }
-  // select-Werte als neutrale Badge-Pill (shadcn secondary) statt Plain-Text.
-  // Farbige Status-Semantik (grün/amber) bleibt App-Sache via columnRenderer.
+  // A select value renders as a pill instead of plain text. When the raw
+  // value is a known status word, it carries the same tone as the
+  // projectionDetail header badge — a status column stayed grey while the
+  // detail view of the same value was coloured (fw#2579). Unknown values
+  // keep the neutral outline pill.
   if (type === "select" && value !== null && value !== undefined && value !== "") {
-    // dashboard-01-Muster: outline-Badge + muted statt gefülltem secondary.
+    const label = defaultCellRender(value, type, optionLabels, locale);
+    const tone = typeof value === "string" ? statusToneForValue(value) : undefined;
+    if (tone !== undefined) {
+      return <StatusBadge tone={tone}>{label}</StatusBadge>;
+    }
+    // dashboard-01 pattern: outline badge + muted instead of a filled secondary.
     return (
       <Badge variant="outline" className="px-1.5 text-muted-foreground">
-        {defaultCellRender(value, type, optionLabels, locale)}
+        {label}
       </Badge>
     );
   }

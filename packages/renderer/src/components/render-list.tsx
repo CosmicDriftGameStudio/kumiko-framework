@@ -20,6 +20,7 @@ import { useTranslation } from "../i18n";
 import {
   type DataTableFacet,
   type DataTableRowAction,
+  type DataTableRowActionMode,
   shouldRenderActionsIconOnly,
   usePrimitives,
 } from "../primitives";
@@ -91,6 +92,10 @@ export type RenderListProps = {
    *  EntityListScreenDefinition.rowActions: handler-QN → dispatcher-Call,
    *  i18n-Keys → translated Strings). */
   readonly rowActions?: readonly DataTableRowAction[];
+  /** How the row-action column renders (see `DataTableProps.rowActionMode`).
+   *  KumikoScreen derives it from the actions themselves; without it the
+   *  DataTable falls back to its adaptive default. */
+  readonly rowActionMode?: DataTableRowActionMode;
   /** Toolbar-Aktionen im List-Header — Resolved-Form (KumikoScreen baut
    *  das aus EntityListScreenDefinition.toolbarActions: navigate-target
    *  → useNav, handler-QN → dispatcher-Call). RenderList rendert die
@@ -147,6 +152,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     loadingMore,
     hasMore,
     rowActions,
+    rowActionMode,
     toolbarActions,
     filterFacets,
     filterValues,
@@ -361,6 +367,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(loadingMore !== undefined && { loadingMore })}
         {...(hasMore !== undefined && { hasMore })}
         {...(rowActions !== undefined && { rowActions })}
+        {...(rowActionMode !== undefined && { rowActionMode })}
         {...(filterFacets !== undefined && { filterFacets })}
         {...(filterValues !== undefined && { filterValues })}
         {...(onFilterChange !== undefined && { onFilterChange })}

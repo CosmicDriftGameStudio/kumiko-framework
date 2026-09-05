@@ -1011,6 +1011,45 @@ export type StatusBadgeProps = {
   readonly testId?: string;
 };
 
+// Status value -> StatusTone heuristic, shared by every surface that shows a
+// raw status value without a tone of its own (projectionDetail header badge,
+// list cells). Covers the common status vocabularies; unknown values stay
+// undefined so the caller keeps its own neutral default.
+const STATUS_TONE_BY_VALUE: Readonly<Record<string, StatusTone>> = {
+  ok: "ok",
+  active: "ok",
+  done: "ok",
+  complete: "ok",
+  completed: "ok",
+  paid: "ok",
+  approved: "ok",
+  published: "ok",
+  success: "ok",
+  pending: "warn",
+  processing: "warn",
+  review: "warn",
+  "in-review": "warn",
+  waiting: "warn",
+  open: "warn",
+  draft: "warn",
+  failed: "bad",
+  error: "bad",
+  overdue: "bad",
+  rejected: "bad",
+  blocked: "bad",
+  critical: "bad",
+};
+
+export function statusToneForValue(value: string): StatusTone | undefined {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
+  // Own-key check: the value comes from row data, and a plain object lookup
+  // would hand back `Object.prototype.constructor` & friends as a "tone".
+  return Object.hasOwn(STATUS_TONE_BY_VALUE, slug) ? STATUS_TONE_BY_VALUE[slug] : undefined;
+}
+
 /** Compact label/value tile (record-detail metrics band). `testId` is the
  *  tile's own id — the impl derives `${testId}-label`/`${testId}-value` for
  *  the two rendered nodes, so a caller only ever needs to know the base id. */

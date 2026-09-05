@@ -209,6 +209,7 @@ export type {
 export {
   PrimitivesProvider,
   shouldRenderActionsIconOnly,
+  statusToneForValue,
   usePrimitives,
 } from "./primitives";
 export { sortByAccessor } from "./sort-by-accessor";
