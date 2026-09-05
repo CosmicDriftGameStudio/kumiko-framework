@@ -809,8 +809,19 @@ function DefaultDataTable({
   // No column headers below the breakpoint, so the click-to-sort affordance
   // on SortableHeader has nothing to attach to. A single native <select> is
   // the whole fix — no custom widget, no menu — fed straight from the
-  // columns marked sortable in the ViewModel.
+  // columns marked sortable in the ViewModel. Options carry the resolved
+  // {field, dir} directly so onChange can look the pick up by value instead
+  // of parsing/casting the option string back apart.
   const sortableColumns = columns.filter((col) => col.sortable);
+  const sortOptions: readonly {
+    readonly value: string;
+    readonly field: string;
+    readonly dir: DataTableSortDir;
+    readonly label: string;
+  }[] = sortableColumns.flatMap((col) => [
+    { value: `${col.field}:asc`, field: col.field, dir: "asc", label: `${col.label} ↑` },
+    { value: `${col.field}:desc`, field: col.field, dir: "desc", label: `${col.label} ↓` },
+  ]);
 
   function renderCard(row: ListRowViewModel): ReactNode {
     const titleColumn = columns.find((col) => col.highlighted === true) ?? columns[0];
@@ -906,7 +917,7 @@ function DefaultDataTable({
       >
         {onSortChange !== undefined && sortableColumns.length > 0 && (
           <select
-            aria-label="Sort"
+            aria-label={tableTranslate?.("kumiko.list.sort.label") ?? "Sort"}
             data-testid={testId !== undefined ? `${testId}-sort` : "render-list-sort"}
             value={sort !== undefined && sort !== null ? `${sort.field}:${sort.dir}` : ""}
             onChange={(e) => {
@@ -915,22 +926,18 @@ function DefaultDataTable({
                 onSortChange(null);
                 return;
               }
-              // Safe: the value only ever comes from the "field:asc"/"field:desc"
-              // options rendered below, never from arbitrary user input.
-              const [field, dir] = raw.split(":") as [string, DataTableSortDir];
-              onSortChange({ field, dir });
+              const picked = sortOptions.find((o) => o.value === raw);
+              if (picked === undefined) return;
+              onSortChange({ field: picked.field, dir: picked.dir });
             }}
             className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
-            <option value="">Unsorted</option>
-            {sortableColumns.flatMap((col) => [
-              <option key={`${col.field}:asc`} value={`${col.field}:asc`}>
-                {`${col.label} ↑`}
-              </option>,
-              <option key={`${col.field}:desc`} value={`${col.field}:desc`}>
-                {`${col.label} ↓`}
-              </option>,
-            ])}
+            <option value="">{tableTranslate?.("kumiko.list.sort.unsorted") ?? "Unsorted"}</option>
+            {sortOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
         )}
         {rows.map((row) => renderCard(row))}

@@ -62,6 +62,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.empty.hint": "Create the first one to get started.",
     "kumiko.list.no-entries": "No entries.",
     "kumiko.list.end-of-list": "— End of list —",
+    "kumiko.list.sort.label": "Sort",
+    "kumiko.list.sort.unsorted": "Unsorted",
 
     "kumiko.pager.status": "{from}–{to} of {total}",
     "kumiko.pager.previousPage": "Previous page",
