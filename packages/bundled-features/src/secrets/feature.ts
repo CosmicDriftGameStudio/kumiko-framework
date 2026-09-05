@@ -4,9 +4,9 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { SETTINGS_HUB_I18N } from "@cosmicdrift/kumiko-framework/i18n";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { z } from "zod";
-import { SETTINGS_HUB_I18N } from "../settings-hub-i18n";
 import { DEFAULT_SECRETS_ACCESS } from "./constants";
 import { createDeleteHandler } from "./handlers/delete.write";
 import { createListHandler } from "./handlers/list.query";

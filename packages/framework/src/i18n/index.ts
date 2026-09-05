@@ -13,6 +13,7 @@ export {
   pickAcceptLanguage,
   resolveHeaderLocale,
 } from "./request-locale";
+export { SETTINGS_HUB_I18N } from "./settings-hub-keys";
 
 export type I18nOptions = {
   defaultLocale: string;

@@ -110,6 +110,104 @@ type MaskedKey = {
 
 type ScopedKey = { readonly key: MaskedKey; readonly roles: readonly string[] };
 
+type ScopeResult = {
+  readonly screens: readonly ScreenDefinition[];
+  readonly navs: readonly NavDefinition[];
+  readonly translations?: TranslationKeys;
+};
+
+// Verbatim (unprefixed) keys as the client sees them — NOT getAllTranslations()
+// (server-merged, "feature:"-prefixed, see build-app-schema.ts:77-81).
+function collectDeclaredTranslationKeys(registry: Registry): Set<string> {
+  const declaredTranslationKeys = new Set<string>();
+  for (const f of registry.features.values()) {
+    for (const key of Object.keys(f.translations ?? {})) declaredTranslationKeys.add(key);
+  }
+  return declaredTranslationKeys;
+}
+
+// Per-feature configEdit screen + child-nav, one pair per feature present in
+// `visible` at this scope.
+function buildFeatureScreensAndNavs(
+  scope: ConfigScope,
+  visible: readonly ScopedKey[],
+  declaredTranslationKeys: ReadonlySet<string>,
+): { screens: ScreenDefinition[]; navs: NavDefinition[] } {
+  const screens: ScreenDefinition[] = [];
+  const navs: NavDefinition[] = [];
+  for (const feature of featuresPresent(visible.map((v) => v.key))) {
+    const group = visible.filter((v) => v.key.feature === feature);
+    const ordered = sortByMaskOrder(group.map((v) => v.key));
+    const access = rolesToAccess(group.flatMap((v) => v.roles));
+    const shortId = `${feature}-${scope}`;
+
+    screens.push(buildScreen(shortId, scope, feature, ordered, access, declaredTranslationKeys));
+    // A tenant/user-home key with an elevated write role (SystemAdmin on a
+    // tenant key, see ELEVATED_ROLES) surfaces the SAME feature under two
+    // audience navs (cascade-default screen + home screen) — both would
+    // otherwise carry the identical `${feature}.settings` label. Opt-in
+    // scoped override (`${feature}.settings.${scope}`) disambiguates only
+    // where a feature actually declares one; every single-scope feature
+    // keeps the plain key unchanged.
+    const scopedLabel = `${feature}.settings.${scope}`;
+    navs.push({
+      id: shortId,
+      label: declaredTranslationKeys.has(scopedLabel) ? scopedLabel : `${feature}.settings`,
+      parent: audienceNavShortId(scope),
+      screen: shortId,
+      icon: ordered[0]?.def.mask?.icon ?? "settings",
+      order: minMaskOrder(ordered),
+      access,
+    });
+  }
+  return { screens, navs };
+}
+
+// Everything generated for one audience scope: the audience-parent nav, the
+// per-feature configEdit screens+navs, and (tenant-scope only, when secrets
+// are enabled) the secrets screen. Null when nothing is visible at this scope.
+function buildScopeResult(
+  scope: ConfigScope,
+  masked: readonly MaskedKey[],
+  secretsEnabled: boolean,
+  secretsWriteHandler: ReturnType<Registry["getWriteHandler"]>,
+  declaredSecrets: readonly DeclaredSecret[],
+  declaredTranslationKeys: ReadonlySet<string>,
+): ScopeResult | null {
+  const visible = scopedKeysAt(masked, scope);
+  // Secrets attach to the tenant-audience nav regardless of whether any
+  // config key is visible there — they alone must be enough to open it.
+  const includeSecrets = secretsEnabled && scope === "tenant";
+  if (visible.length === 0 && !includeSecrets) return null;
+
+  const configAccess = rolesToAccess(visible.flatMap((v) => v.roles));
+  const secretsAccess = secretsWriteHandler?.access;
+  const screens: ScreenDefinition[] = [];
+  const navs: NavDefinition[] = [];
+  // Audience-Parent: Gruppierungs-Knoten ohne Screen.
+  navs.push({
+    id: audienceNavShortId(scope),
+    label: `config.settings.${scope}`,
+    icon: SCOPE_ICON[scope],
+    order: SCOPE_ORDER[scope],
+    access: includeSecrets ? unionAccessRules([configAccess, secretsAccess]) : configAccess,
+  });
+
+  const perFeature = buildFeatureScreensAndNavs(scope, visible, declaredTranslationKeys);
+  screens.push(...perFeature.screens);
+  navs.push(...perFeature.navs);
+
+  let translations: TranslationKeys | undefined;
+  if (includeSecrets) {
+    const generated = buildSecretsScreen(declaredSecrets, secretsAccess, declaredTranslationKeys);
+    screens.push(generated.screen);
+    navs.push(generated.nav);
+    translations = generated.translations;
+  }
+
+  return { screens, navs, ...(translations !== undefined && { translations }) };
+}
+
 export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchema {
   const masked = collectMaskedKeys(registry);
   const declaredSecrets = collectDeclaredSecrets(registry);
@@ -119,67 +217,25 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
   const secretsEnabled = secretsWriteHandler !== undefined && declaredSecrets.length > 0;
   if (masked.length === 0 && !secretsEnabled) return { screens: [], navs: [] };
 
-  // Verbatim (unprefixed) keys as the client sees them — NOT getAllTranslations()
-  // (server-merged, "feature:"-prefixed, see build-app-schema.ts:77-81).
-  const declaredTranslationKeys = new Set<string>();
-  for (const f of registry.features.values()) {
-    for (const key of Object.keys(f.translations ?? {})) declaredTranslationKeys.add(key);
-  }
+  const declaredTranslationKeys = collectDeclaredTranslationKeys(registry);
 
   const screens: ScreenDefinition[] = [];
   const navs: NavDefinition[] = [];
   let translations: TranslationKeys | undefined;
 
   for (const scope of SCOPES_BROAD_TO_DEEP) {
-    const visible = scopedKeysAt(masked, scope);
-    // Secrets attach to the tenant-audience nav regardless of whether any
-    // config key is visible there — they alone must be enough to open it.
-    const includeSecrets = secretsEnabled && scope === "tenant";
-    if (visible.length === 0 && !includeSecrets) continue;
-
-    const configAccess = rolesToAccess(visible.flatMap((v) => v.roles));
-    const secretsAccess = secretsWriteHandler?.access;
-    // Audience-Parent: Gruppierungs-Knoten ohne Screen.
-    navs.push({
-      id: audienceNavShortId(scope),
-      label: `config.settings.${scope}`,
-      icon: SCOPE_ICON[scope],
-      order: SCOPE_ORDER[scope],
-      access: includeSecrets ? unionAccessRules([configAccess, secretsAccess]) : configAccess,
-    });
-
-    for (const feature of featuresPresent(visible.map((v) => v.key))) {
-      const group = visible.filter((v) => v.key.feature === feature);
-      const ordered = sortByMaskOrder(group.map((v) => v.key));
-      const access = rolesToAccess(group.flatMap((v) => v.roles));
-      const shortId = `${feature}-${scope}`;
-
-      screens.push(buildScreen(shortId, scope, feature, ordered, access, declaredTranslationKeys));
-      // A tenant/user-home key with an elevated write role (SystemAdmin on a
-      // tenant key, see ELEVATED_ROLES) surfaces the SAME feature under two
-      // audience navs (cascade-default screen + home screen) — both would
-      // otherwise carry the identical `${feature}.settings` label. Opt-in
-      // scoped override (`${feature}.settings.${scope}`) disambiguates only
-      // where a feature actually declares one; every single-scope feature
-      // keeps the plain key unchanged.
-      const scopedLabel = `${feature}.settings.${scope}`;
-      navs.push({
-        id: shortId,
-        label: declaredTranslationKeys.has(scopedLabel) ? scopedLabel : `${feature}.settings`,
-        parent: audienceNavShortId(scope),
-        screen: shortId,
-        icon: ordered[0]?.def.mask?.icon ?? "settings",
-        order: minMaskOrder(ordered),
-        access,
-      });
-    }
-
-    if (includeSecrets) {
-      const generated = buildSecretsScreen(declaredSecrets, secretsAccess, declaredTranslationKeys);
-      screens.push(generated.screen);
-      navs.push(generated.nav);
-      translations = generated.translations;
-    }
+    const result = buildScopeResult(
+      scope,
+      masked,
+      secretsEnabled,
+      secretsWriteHandler,
+      declaredSecrets,
+      declaredTranslationKeys,
+    );
+    if (result === null) continue;
+    screens.push(...result.screens);
+    navs.push(...result.navs);
+    if (result.translations !== undefined) translations = result.translations;
   }
 
   // Every masked key machine-only and no secrets → no human hub, and no
