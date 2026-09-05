@@ -52,6 +52,31 @@ published_json="[]"
 # version line (0.2.x) yet correctly pins dev-server@0.67.x.
 workspace_versions="$(jq -s 'map({(.name): .version}) | add' packages/*/package.json)"
 
+# npm answers E409 "Cannot publish over previously staged version" when an
+# interrupted earlier run already staged this exact version (#2576). The
+# registry finalizes such a version on its own, so it counts as released — but
+# it stays unresolvable for a while, so the `latest` move can still fail. On the
+# staged path that move is deferred to the registry-repair in the skip branch
+# above, which the next release run reaches. A genuine publish whose `latest`
+# move fails still fails hard.
+publish_and_tag() {
+  local tarball="$1" name="$2" version="$3" log staged=0
+  if log="$(npm publish "$tarball" --provenance --access public --tag kumiko-tmp 2>&1)"; then
+    printf '%s\n' "$log" >&2
+  else
+    printf '%s\n' "$log" >&2
+    grep -q 'Cannot publish over previously staged version' <<<"$log" || return 1
+    staged=1
+  fi
+
+  if npm dist-tag add "$name@$version" latest >&2; then
+    return 0
+  fi
+  [ "$staged" = 1 ] || return 1
+  echo "[warn] $name@$version was already staged; latest move deferred to the next run's registry repair (#2576)" >&2
+  return 0
+}
+
 for pkg_json in packages/*/package.json; do
   pkg_dir="$(dirname "$pkg_json")"
   name="$(jq -r .name "$pkg_json")"
@@ -91,6 +116,9 @@ for pkg_json in packages/*/package.json; do
     if [ "$registry_version" != "$version" ]; then
       npm dist-tag add "$name@$version" latest >&2
     fi
+    # An interrupted run can leave the throwaway tag behind (#2576); dropping it
+    # here is idempotent and keeps the registry clean without an extra release.
+    npm dist-tag rm "$name" kumiko-tmp >/dev/null 2>&1 || true
     skipped=$((skipped + 1))
     continue
   fi
@@ -137,8 +165,7 @@ for pkg_json in packages/*/package.json; do
   # the implicit path). For a normal monotonic release the end state is identical:
   # latest = the just-published version, throwaway tag removed. dist-tag auths via
   # NODE_AUTH_TOKEN (set in the release job).
-  elif npm publish "$pkg_dir/$TARBALL" --provenance --access public --tag kumiko-tmp >&2 \
-       && npm dist-tag add "$name@$version" latest >&2; then
+  elif publish_and_tag "$pkg_dir/$TARBALL" "$name" "$version"; then
     npm dist-tag rm "$name" kumiko-tmp >&2 2>/dev/null || true
     published=$((published + 1))
     published_json="$(jq -c \
