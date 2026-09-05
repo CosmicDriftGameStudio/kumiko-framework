@@ -1913,7 +1913,7 @@ function DefaultForm({
               {actions !== undefined && (
                 <div
                   data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-                  className="flex items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11"
+                  className="flex items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto"
                 >
                   {actions}
                 </div>

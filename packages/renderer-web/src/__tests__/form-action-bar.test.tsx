@@ -66,6 +66,19 @@ describe("DefaultForm Action-Footer", () => {
     expect(screen.queryByTestId("f-actions-secondary")).toBeNull();
     expect(screen.getByTestId("f-actions").textContent).toBe("Save");
   });
+
+  test("nur actions (keine secondaryActions): Gruppe bleibt rechtsbündig (sm:ml-auto)", () => {
+    render(
+      <Form onSubmit={() => {}} actions={<Button>Save</Button>} testId="f">
+        <div>body</div>
+      </Form>,
+    );
+    // justify-between on the footer only pushes the lone group to the edge
+    // when there's a second flex child to push away from — with a single
+    // child it falls back to flex-start, so the actions group needs its own
+    // margin to stay right-aligned on desktop.
+    expect(screen.getByTestId("f-actions").className).toContain("sm:ml-auto");
+  });
 });
 
 describe("DefaultSection ohne Titel", () => {
