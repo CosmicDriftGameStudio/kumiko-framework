@@ -61,12 +61,33 @@ workspace_versions="$(jq -s 'map({(.name): .version}) | add' packages/*/package.
 # move fails still fails hard.
 publish_and_tag() {
   local tarball="$1" name="$2" version="$3" log staged=0
+  already_published_via_e403=0
   if log="$(npm publish "$tarball" --provenance --access public --tag kumiko-tmp 2>&1)"; then
     printf '%s\n' "$log" >&2
   else
     printf '%s\n' "$log" >&2
-    grep -q 'Cannot publish over previously staged version' <<<"$log" || return 1
-    staged=1
+    # Registry replication lag (#2586): the exact-version check above (`npm
+    # view "$name@$version"`) can still answer with the prior version for a
+    # short while after another job's publish already landed, so this rescue
+    # run reaches `npm publish` for a version that is, in fact, already live.
+    # npm's E403 body names the exact version it rejected — matching that
+    # against $version keeps a real auth/tarball failure, or an E403 for a
+    # *different* version, a hard failure.
+    if grep -q 'code E403' <<<"$log" \
+      && grep -qF "previously published versions: ${version}." <<<"$log"; then
+      already_published_via_e403=1
+    else
+      grep -q 'Cannot publish over previously staged version' <<<"$log" || return 1
+      staged=1
+    fi
+  fi
+
+  if [ "$already_published_via_e403" = 1 ]; then
+    # No `latest` move here: the version is still unresolvable in this
+    # replication window (that's the whole reason npm rejected the publish
+    # above), so the move would just 404. The next run's early-skip branch
+    # repairs `latest` once the registry catches up.
+    return 0
   fi
 
   if npm dist-tag add "$name@$version" latest >&2; then
@@ -167,28 +188,38 @@ for pkg_json in packages/*/package.json; do
   # NODE_AUTH_TOKEN (set in the release job).
   elif publish_and_tag "$pkg_dir/$TARBALL" "$name" "$version"; then
     npm dist-tag rm "$name" kumiko-tmp >&2 2>/dev/null || true
-    published=$((published + 1))
-    published_json="$(jq -c \
-      --arg name "$name" --arg version "$version" \
-      '. + [{name: $name, version: $version}]' <<<"$published_json")"
-    # changesets/action@v1 parsed pro-package eine "New tag: <name>@<version>"-
-    # Zeile aus stdout (Regex: /New tag:\s+(@[^/]+\/[^@]+|[^/]+)@([^\s]+)/) und
-    # erstellt darauf basierend git-tags + GitHub-Releases. Die später emittierte
-    # JSON-Summary ist als Trace gedacht, NICHT als action-Input. Ohne diese
-    # Marker-Lines (release 0.4.0..0.7.0) gab es zwar npm-publish, aber keine
-    # Tags/Releases. Pattern matched 1:1 was `yarn changeset publish` selbst
-    # emitted (action source: packages/action-utils/src/run.ts).
-    #
-    # Lokales git-tag selbst erstellen, sonst failed der nachgelagerte
-    # `git push origin <tag>` der action mit "src refspec does not match any":
-    # bei `yarn changeset publish`-default-flow erstellt yarn die tags, bei
-    # unserem custom-script müssen wir das selber tun. Resultat sonst:
-    # release-Job rot trotz erfolgreichem npm publish.
-    # Lightweight (kein -a/-m) → keine user.email/name config nötig.
-    # changesets/action selbst nutzt auch lightweight-tags.
-    git tag "$name@$version" >&2 || \
-      echo "[warn] git tag $name@$version failed (may already exist)" >&2
-    echo "New tag: $name@$version"
+    if [ "$already_published_via_e403" = 1 ]; then
+      # Detected late (#2586): the exact-version check above still lagged,
+      # so this counts as skipped rather than published. No `latest` move
+      # here — the version is still unresolvable in this window (that's the
+      # whole reason npm rejected the publish), the next run's early-skip
+      # branch above repairs `latest` once the registry catches up.
+      echo "[skip] $name@$version (already on registry, detected via E403)" >&2
+      skipped=$((skipped + 1))
+    else
+      published=$((published + 1))
+      published_json="$(jq -c \
+        --arg name "$name" --arg version "$version" \
+        '. + [{name: $name, version: $version}]' <<<"$published_json")"
+      # changesets/action@v1 parses one "New tag: <name>@<version>" line per
+      # package from stdout (regex: /New tag:\s+(@[^/]+\/[^@]+|[^/]+)@([^\s]+)/)
+      # and creates git tags + GitHub Releases from it. The JSON summary emitted
+      # later is a trace for our own tooling, NOT an action input. Without these
+      # marker lines (release 0.4.0..0.7.0) npm publish succeeded but no
+      # tags/releases were created. Pattern matches 1:1 what `yarn changeset
+      # publish` itself emits (action source: packages/action-utils/src/run.ts).
+      #
+      # Create the local git tag ourselves, otherwise the action's subsequent
+      # `git push origin <tag>` fails with "src refspec does not match any":
+      # under `yarn changeset publish`'s default flow yarn creates the tags,
+      # with our custom script we have to do it ourselves. Otherwise the
+      # release job goes red despite a successful npm publish.
+      # Lightweight (no -a/-m) — no user.email/name config needed.
+      # changesets/action itself also uses lightweight tags.
+      git tag "$name@$version" >&2 || \
+        echo "[warn] git tag $name@$version failed (may already exist)" >&2
+      echo "New tag: $name@$version"
+    fi
   else
     failed+=("$name@$version")
   fi
